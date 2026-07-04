@@ -8,19 +8,23 @@ The onboarding wizard guides you through the initial setup of Kamerplanter. In j
 
 A starter kit is a pre-configured growing scenario. It bundles all the master data you need for a specific use case: plant species, cultivars, predefined growth phases, and matching nutrient plan templates.
 
-Kamerplanter ships with nine starter kits:
+Kamerplanter ships with 11 starter kits:
+
+<!-- Source: src/backend/app/migrations/seed_data/starter_kits.yaml -->
 
 | Starter Kit | Difficulty | Environment |
 |-------------|:----------:|:-----------:|
 | Windowsill Herbs | Beginner | Windowsill |
 | Houseplant Starter | Beginner | Indoors |
 | Pet-Friendly Houseplants | Beginner | Indoors |
-| Balcony Tomatoes | Beginner | Balcony |
-| Vegetable Bed | Intermediate | Outdoors |
-| Succulents & Cacti | Beginner | Indoors |
-| Mediterranean Herbs | Beginner | Outdoors / Balcony |
-| Balcony Chillis | Intermediate | Balcony |
+| Balcony Flowers | Beginner | Balcony |
+| Balcony Flowers Pre-Cultivation | Intermediate | Windowsill |
+| Balcony Tomatoes | Intermediate | Balcony |
+| Small Vegetable Garden | Intermediate | Outdoors |
+| Chili Growing | Intermediate | Windowsill |
 | Indoor Grow Tent | Advanced | Grow Tent |
+| Superhot Chili | Advanced | Grow Tent |
+| Microgreens | Beginner | Windowsill |
 
 !!! tip "Tip"
     You can launch the wizard again at any time — for example to add a second scenario or change your experience level. The link is in **Account Settings** under **Restart Onboarding Wizard**.
@@ -56,7 +60,7 @@ You choose one of three levels that determines which fields and menu items are v
 |-------|-----------------|----------|
 | **Beginner** | Core features: plants, locations, tasks, phases | Getting started with Kamerplanter |
 | **Intermediate** | Also: fertilization, tank management, sensors | Experienced plant growers |
-| **Expert** | Everything: IPM, EC budgets, calibration, imports | Professional cultivation |
+| **Expert** | Everything: [IPM](pest-management.md), EC budgets, calibration, imports | Professional cultivation |
 
 !!! note "Note"
     You can change your experience level at any time in **Account Settings** under **Experience Level**. You can also reveal individual fields without switching the entire level.
@@ -70,7 +74,7 @@ You briefly describe where and what you want to grow. This helps the wizard sugg
 - **Location type:** Windowsill, indoors, balcony, outdoor bed, greenhouse, or grow tent
 - **Location name:** For example "Kitchen Window" or "South Balcony" — this name appears throughout the app
 
-**For Intermediate and Expert users:** You can optionally enter your water quality — the EC value and pH of your tap water. This later improves the automatic calculation of nutrient solutions. You can also add these values at any time in the location settings.
+**For Intermediate and Expert users:** You can optionally enter your water quality — the EC value (electrical conductivity) and pH of your tap water. This later improves the automatic calculation of nutrient solutions. You can also add these values at any time in the location settings.
 
 ---
 

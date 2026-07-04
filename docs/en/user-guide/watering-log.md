@@ -1,95 +1,108 @@
 # Watering Log
 
-The watering log (WateringLog) is the central, unified record of all irrigation events in Kamerplanter. It combines both manually entered and automatically captured watering events, giving you a complete overview of your plants' irrigation history — as the basis for informed decisions about nutrient planning and substrate management.
+The Watering Log (WateringLog) is the central place where you document every watering and feeding session — whether plain irrigation or fertilization with nutrients. It replaces the earlier, separate models for irrigation and feeding events with a single entry type, giving you a complete history per plant, slot, or location.
 
 ---
 
 ## Prerequisites
 
-- At least one planting run or plant configured
-- Assigned substrate (recommended, for substrate moisture tracking)
+- At least one plant **or** slot to assign the entry to (at least one of the two is required)
 
 ---
 
-## Distinction: WateringLog, WateringEvents, and FeedingEvents
+## A Note on the Data Model
 
-Kamerplanter distinguishes three related concepts:
+Earlier versions of Kamerplanter used two separate models: `WateringEvent` (plain irrigation) and `FeedingEvent` (fertilization with nutrient data). Both are marked **deprecated** and are being phased out.
 
-| Term | Description | Typical trigger |
-|------|-------------|----------------|
-| **WateringEvent** | A single irrigation event — timestamp, volume, source | Manual entry or watering schedule confirmation |
-| **FeedingEvent** | A fertilization/irrigation event with nutrient data (EC, pH, dosages) | Fertilization according to a nutrient plan (REQ-004) |
-| **WateringLog** | Unified log — aggregates WateringEvents and FeedingEvents in a single view | Aggregated automatically |
+`WateringLog` replaces both models with a single entry type that covers plain irrigation as well as fertilization — depending on whether you enter fertilizers and measurements or not. It does **not aggregate** multiple individual events into a summary; every entry in the log is a standalone, immutable record of a single watering or feeding action.
 
-!!! note "Difference from FeedingEvents"
-    FeedingEvents document irrigations where fertilizer was added — with the full nutrient profile (target EC, target pH, product dosages). The WateringLog shows both types side by side, so you can follow the irrigation history without switching context.
+!!! note "Legacy feeding events view"
+    The old "Feeding Events" overview (`FeedingEvent`) remains reachable for backward compatibility but is no longer linked from the navigation — it only shows historical legacy entries. New entries are created exclusively in the Watering Log.
 
 ---
 
 ## Opening the Watering Log
 
-1. Navigate to a **planting run** or **plant**.
-2. Click the **Watering Log** (or **Irrigation**) tab.
-3. The log view shows all irrigation events in chronological order.
+The Watering Log is a **dedicated top-level menu item** — it does not live under "Fertilization", since it covers both plain irrigation and fertilization.
 
-!!! info "Screenshot pending"
-    This screenshot will be added in a future version.
+1. Click **Watering Log** in the navigation.
+2. The list view shows all entries, sorted by timestamp descending by default.
 
----
-
-## What the Watering Log Displays
-
-Each entry shows the following information:
-
-| Field | Description |
-|-------|-------------|
-| **Date & Time** | Timestamp of the irrigation event |
-| **Volume (liters)** | Irrigation volume in liters |
-| **EC** | Electrical conductivity of the nutrient solution (if fertilizer was used) |
-| **pH** | pH of the irrigation solution (if recorded) |
-| **Type** | `Irrigation` or `Fertilization` |
-| **Source** | Manual, watering schedule, automatic |
-| **Note** | Optional free-text annotation |
+Alternatively, you can reach filtered views from a plant's, slot's, or location's detail page.
 
 ---
 
-## Entering a Watering Event Manually
+## What the List Shows
 
-1. Click **New Watering Event**.
-2. Enter the volume and timestamp.
-3. Optionally add EC, pH, and a note.
-4. Click **Save**.
+Each entry shows the following columns (some only appear when at least one entry has a value for them):
 
-!!! tip "Use a watering schedule"
-    If you have configured a watering schedule (WateringSchedule) for your planting run, Kamerplanter automatically creates tasks for due irrigations. Confirming these tasks automatically records the events in the log — no manual entry required.
+| Column | Description |
+|--------|-------------|
+| Timestamp | When the event was logged |
+| Plants | Linked plants (up to 3 as chips, rest as a counter) |
+| Application Method | Fertigation (automated nutrient delivery through irrigation, see [Nutrient Mixing](../guides/nutrient-mixing.md)), Drench (watering can), Foliar, or Top-Dress |
+| Volume (L) | Amount of water used |
+| Fertilizers Used | Names of the fertilizers used (only shown when fertilizers were used) |
+| EC Before / EC After | Measured conductivity (only shown when recorded) |
+| pH Before / pH After | Measured pH value (only shown when recorded) |
+| Water Source | Tank, tap water, RO water, rainwater, distilled, or well water (only shown when recorded) |
 
 ---
 
-## Watering Log and Nutrient Planning
+## Logging a Watering Manually
 
-The WateringLog is closely integrated with the fertilization logic (REQ-004):
+1. Click **Log Watering**.
+2. **Basics**:
+    - Select plant(s) (multi-select) and/or enter slot keys (comma-separated)
+    - Choose the **application method** (Fertigation, Drench, Foliar, Top-Dress)
+    - Enter the **water source** (optional)
+    - Enter the **volume (L)**
+    - Mark the event as **supplemental** if needed (an additional watering round outside the regular schedule)
+3. **Measurements**: Optionally enter EC and pH before and after watering.
+4. **Runoff values**: Optionally enter runoff EC, runoff pH, and runoff volume (for runoff analysis).
+5. **Fertilizers used**: Use **Add Fertilizer** to add any number of fertilizers with their ml/L dosage.
+6. Optionally record who performed the event and a note.
+7. Click **Save**.
 
-- **EC trend** across multiple irrigation events is visible as a mini-chart in the log view (when data is available).
-- **Flush detection**: When EC and pH are recorded, Kamerplanter can automatically flag flushing events.
-- **Runoff analysis**: When runoff EC is recorded, nutrient accumulation in the substrate can be detected.
+!!! warning "Plants or slots are required"
+    An entry must reference at least one plant or slot — otherwise it cannot be saved. Supplemental waterings (**supplemental** enabled) also cannot use the **Fertigation** application method at the same time.
+
+### Logging from a delivery channel
+
+If a nutrient plan phase entry is linked to a [delivery channel](fertilization.md#delivery-channels-multi-channel-delivery), you can log the watering directly from the channel — the form is then pre-filled with the channel's application method, target EC/pH, and fertilizer dosages.
+
+---
+
+## Viewing and Editing an Entry
+
+Click an entry in the list to open its detail page. It shows two tabs:
+
+- **Details**: Linked plants/slots, measurement and runoff values, fertilizers used, and — if present — who performed the event, the associated delivery channel, and the linked nutrient plan.
+- **Edit**: All fields except the linked plants/slots can be corrected afterward.
+
+The detail page also has an **"Analyze Runoff"** button that runs a runoff analysis for this entry (requires EC/pH/volume for both input and runoff). It assesses EC drift, pH drift, and runoff volume and returns an overall assessment plus per-metric messages — see [Runoff Analysis](../guides/nutrient-mixing.md#runoff-analysis) for the underlying thresholds.
 
 ---
 
 ## Frequently Asked Questions
 
-??? question "Are automatic irrigations (Home Assistant) also logged?"
-    Yes. When Kamerplanter receives irrigation data via the Home Assistant integration, it is automatically recorded as WateringEvents in the log — with the source set to `automatic`.
+??? question "Are automatic irrigations via Home Assistant logged?"
+    No, not currently. There is currently no automatic import of Home Assistant irrigation events into the watering log — entries are created through manual entry, by confirming a watering schedule date, or by confirming a care reminder (watering/fertilizing).
 
 ??? question "How long are watering log entries retained?"
-    Watering log entries are stored according to the data retention policy (NFR-011). By default, raw entries are kept for 90 days, after which they are consolidated into daily aggregates.
+    There is currently no dedicated automatic consolidation or deletion period for the watering log — entries remain until you delete them manually or have your data erased under your GDPR data-subject rights.
 
 ??? question "Can I correct entries in the log after the fact?"
-    Yes. Click an entry and select **Edit**. Changes are recorded with a timestamp.
+    Yes. Open the entry and switch to the **Edit** tab.
+
+??? question "Do I have to record every watering?"
+    No, it is optional. Kamerplanter works without complete documentation. If you want to track runoff EC or optimize nutrient delivery, thorough recording pays off.
 
 ---
 
 ## See Also
 
-- [Fertilization Logic](fertilization.md) — Nutrient plans and FeedingEvents (REQ-004)
+- [Fertilization](fertilization.md) — Nutrient plans and delivery channels (REQ-004)
 - [Planting Runs](planting-runs.md) — Configuring a watering schedule
 - [Tank Management](tanks.md) — Irrigation tanks and fills
+- [Guides: Mixing Nutrient Solutions](../guides/nutrient-mixing.md) — Runoff analysis thresholds

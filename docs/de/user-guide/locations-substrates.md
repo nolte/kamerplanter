@@ -25,7 +25,7 @@ Site (Anlage)
 
 **Location** ist ein konkreter Bereich innerhalb der Site — zum Beispiel "Growzelt A", "Hochbeet 1" oder "Südbalkon". Locations können auch weitere Locations enthalten: du kannst "Haus" → "Wohnzimmer" → "Fensterbank Süd" abbilden.
 
-**Slot** ist ein einzelner Pflanzplatz — zum Beispiel "Topf 3" oder "Reihe 2, Position 4". Slots sind immer die unterste Ebene und können genau einer Pflanze zugeordnet werden.
+**Slot** ist ein einzelner Pflanzplatz — zum Beispiel "TENT01_A1" für Platz A1 im Growzelt 1. Slots sind immer die unterste Ebene und können genau einer Pflanze zugeordnet werden.
 
 !!! tip "Tipp: Wie tief strukturieren?"
     Für einfache Setups (Balkon, ein Growzelt) reicht es, Sites und Locations anzulegen. Slots sind nützlich, wenn du viele Pflanzen im gleichen Bereich hast und jeden Platz einzeln verfolgen möchtest.
@@ -49,16 +49,19 @@ Fülle folgende Felder aus:
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
 | Name | Name der Site | "Mein Indoor-Garten" |
-| Klimazone | Standort-Klimazone | "Cfb (Gemäßigt ozeanisch)" |
+| Klimazone | Standort-Klimazone im USDA-Winterhärtezonen-Format | "8a" |
 | Gesamtfläche (m²) | Gesamte Anbaufläche | 12 |
 | Zeitzone | Zeitzone für Aufgaben und Kalender | "Europe/Berlin" |
+
+!!! info "Warum USDA-Zonen und nicht Köppen-Klimaklassifikation?"
+    Kamerplanter erwartet für die Klimazone das **USDA-Winterhärtezonen-Format** (eine Zahl von 1–13, optional mit Zusatz „a" oder „b", z. B. „8a"), nicht die Köppen-Klimaklassifikation (z. B. „Cfb"). Der Grund: Die Winterhärte-Angaben der Pflanzenarten in den Stammdaten (`hardiness_zones`) nutzen ebenfalls dieses Format — nur so lässt sich später automatisch prüfen, ob eine Art an deinem Standort im Freien überwintern kann. Die passende Zone für deinen Wohnort findest du z. B. über die offizielle [USDA Plant Hardiness Zone Map](https://planthardiness.ars.usda.gov/) oder vergleichbare europäische Winterhärtezonen-Karten.
 
 !!! note "Erfahrungsstufen"
     Je nach deiner Erfahrungsstufe (Einsteiger / Mittelstufe / Experte, einstellbar in den Kontoeinstellungen) siehst du mehr oder weniger Felder. Experten sehen zusätzlich Felder für die Wasserquellen-Konfiguration, GPS-Koordinaten und die Frostdaten.
 
 ### Schritt 4: Wasserquelle konfigurieren (optional, ab Mittelstufe)
 
-Wenn du dein Leitungswasser oder eine Umkehrosmose-Anlage nutzt, hinterlege die Wasserwerte. Das System berechnet daraus automatisch dein EC-Budget, den CalMag-Bedarf und Mischungsempfehlungen.
+Wenn du dein Leitungswasser oder eine Umkehrosmose-Anlage nutzt, hinterlege die Wasserwerte. Das System berechnet daraus automatisch dein EC-Budget (EC = elektrische Leitfähigkeit, ein Maß für die Nährsalzkonzentration deiner Nährlösung — mehr dazu unter [Dünge-Logik](fertilization.md)), den CalMag-Bedarf und Mischungsempfehlungen.
 
 #### Leitungswasser-Profil
 
@@ -94,7 +97,7 @@ Wenn du dein Leitungswasser oder eine Umkehrosmose-Anlage nutzt, hinterlege die 
     - **Berlin**: berliner-wasserbetriebe.de — Wasserqualität nach PLZ
     - **München**: swm.de — Trinkwasseranalyse nach Versorgungsgebiet
 
-    Alternativ kannst du die Werte selbst messen: Ein EC/TDS-Messgerät (ab ca. 15 EUR) liefert den EC-Wert, ein pH-Messgerät den pH. Für Calcium und Magnesium sind Tropfentests (GH/KH-Test aus der Aquaristik, ab ca. 8 EUR) eine günstige Option.
+    Alternativ kannst du die Werte selbst messen: Ein EC/TDS-Messgerät (TDS = Total Dissolved Solids, zu Deutsch Gesamtgehalt gelöster Feststoffe; ab ca. 15 EUR) liefert den EC-Wert, ein pH-Messgerät den pH. Für Calcium und Magnesium sind Tropfentests (GH/KH-Test aus der Aquaristik, ab ca. 8 EUR) eine günstige Option.
 
 !!! warning "Warum genaue Wasserwerte wichtig sind"
     Kamerplanter berechnet aus deinen Wasserwerten das **EC-Budget** (wie viel Platz für Dünger bleibt) und die **CalMag-Korrektur** (ob zusätzliches Calcium/Magnesium nötig ist). Ungenaue Werte führen zu falschen Düngeempfehlungen — im schlimmsten Fall zu Über- oder Unterdüngung.
@@ -102,6 +105,9 @@ Wenn du dein Leitungswasser oder eine Umkehrosmose-Anlage nutzt, hinterlege die 
 ### Schritt 5: Speichern
 
 Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
+
+!!! info "Für technische Nutzer"
+    Neben Name, Klimazone, Fläche und Zeitzone kennt eine Site im Hintergrund auch GPS-Koordinaten sowie durchschnittliche Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst, Datum der Eisheiligen). Diese Einstellung ist derzeit nur über die API verfügbar — im Site-Formular sind diese Felder noch nicht editierbar. Der Nutzen: Ist für eine Site eine GPS-Position hinterlegt, kann Kamerplanter daraus die tatsächliche Tageslänge an deinem Standort berechnen und automatische, photoperiodisch ausgelöste Phasenübergänge (z. B. den Blüteeinsatz bei Freiland-Kurztagspflanzen) korrekt auswerten — siehe [Automatische Phasenübergänge](growth-phases.md#automatische-phasenübergänge). Frost-Termine fließen zusätzlich in den Aussaatkalender ein.
 
 ---
 
@@ -118,78 +124,103 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 
 **Verfügbare Location-Typen:**
 
-| Typ | Beschreibung |
-|-----|-------------|
-| Growzelt | Abgeschlossenes Growzelt mit kontrolliertem Klima |
-| Gewächshaus | Glashaus oder Folientunnel |
-| Hochbeet | Erhöhtes Beet im Freien |
-| Freilandbeet | Bodenebenes Beet im Garten |
-| Balkon | Balkon oder Terrasse |
-| Fensterbank | Innenfensterbank |
-| Zimmer | Ganzes Zimmer als Bereich |
-| Hydroponik-System | NFT, DWC, Aeroponik oder vergleichbar |
-| Regal | Regal oder Shelving-System |
-| Sonstiges | Benutzerdefinierter Typ |
+<!-- Quelle: src/backend/app/migrations/seed_data/location_types.yaml -->
+
+| Typ | Innenbereich? | Beschreibung |
+|-----|:---:|-------------|
+| Zone | — | Freie Unterteilung ohne feste Zuordnung, z.B. für grobe Bereichsplanung |
+| Zuhause | Nein | Oberste Ebene für den privaten Wohnbereich |
+| Garten | Nein | Gesamter Außenbereich |
+| Gewächshaus | Nein | Glashaus oder Folientunnel |
+| Gebäude | Ja | Gebäude als Bereich, z.B. Nebengebäude oder Schuppen |
+| Zimmer | Ja | Ganzes Zimmer als Bereich |
+| Balkon | Nein | Balkon |
+| Terrasse | Nein | Terrasse |
+| Grow-Zelt | Ja | Abgeschlossenes Growzelt mit kontrolliertem Klima |
+| Beet | Nein | Boden- oder Hochbeet im Freien |
+| Regal | Ja | Regal oder Shelving-System |
+| Topf-/Container-Gruppe | Nein | Gruppierung mehrerer Töpfe oder Container an einem Ort |
+
+!!! info "Für technische Nutzer"
+    Die zwölf oben aufgeführten Typen sind vorinstallierte System-Typen. Kamerplanter unterstützt intern bereits eigene, zusätzliche Location-Typen. Diese Einstellung ist derzeit nur über die API verfügbar — eine eigene Verwaltungsseite in der Oberfläche gibt es noch nicht.
 
 ### Slot innerhalb einer Location anlegen
 
 1. Öffne eine Location durch Klick auf ihren Namen im Baum.
 2. Klicke auf **Slot hinzufügen**.
-3. Gib eine Bezeichnung ein (z.B. "Topf 1" oder "Reihe A, Platz 3").
-4. Optional: Trage die Kapazität (Topfgröße in Liter) ein.
+3. Kamerplanter schlägt automatisch eine **Stellplatz-ID** im Format `BEREICH_POSITION` vor (z.B. "TENT01_A1"); du kannst sie anpassen, sie wird beim Speichern automatisch in Großbuchstaben umgewandelt.
+4. Trage die **Kapazität** ein — die maximale Anzahl Pflanzen, die dieser Stellplatz gleichzeitig aufnehmen kann (1–20, Standard: 1).
 
 ---
 
 ## Substrate verwalten
 
-Ein Substrat beschreibt das Wachstumsmedium, in dem deine Pflanzen wurzeln. Kamerplanter unterscheidet verschiedene Substrat-Typen und ermöglicht die Verwaltung von Substrat-Chargen.
+Ein Substrat beschreibt das Wachstumsmedium, in dem deine Pflanzen wurzeln. Kamerplanter unterscheidet 14 Substrat-Typen, unterstützt eigene Substrat-Mischungen und verwaltet konkrete **Chargen** eines Substrats (z.B. "Bio-Erde, angemischt März 2026") getrennt vom allgemeinen Substrat-Typ.
 
 ### Neues Substrat anlegen
 
 1. Navigiere zu **Standorte → Substrate**.
 2. Klicke auf **Substrat hinzufügen**.
 3. Wähle den **Substrat-Typ** (siehe Tabelle).
-4. Vergib einen Namen (z.B. "Bio-Erde Charge März 2026").
-5. Optional: Trage pH-Bereich, EC-Wert und Kapazität ein.
+4. Vergib einen Namen (Deutsch und Englisch, z.B. "Bio-Erde" / "Organic Soil").
+5. Optional: Trage Basis-pH, Basis-EC, Wasserretention, Luftporosität und Pufferkapazität ein.
 
 **Verfügbare Substrat-Typen:**
 
-| Typ | Beschreibung | Empfohlener Einsatz |
-|-----|-------------|-------------------|
-| Erde (SOIL) | Standard-Gartenerde oder Blumenerde | Freiland, Topfpflanzen |
-| Bio-Erde | Organisch angereicherte Erde | Zimmerpflanzen, Kräuter |
-| Living Soil | Lebende Erde mit Mikrobiom | Biologischer Anbau |
-| Coco Coir | Kokos-Substrat | Indoor-Kulturen, Hydroponik-ähnlich |
-| Perlite | Vulkanisches Mineral (Drainage) | Immer als Beimischung |
-| Rockwool-Platten | Mineralwolle für Hydroponik | Hydro-Systeme, Anzucht |
-| Rockwool-Plugs | Kleine Anzuchtblöcke | Stecklinge, Keimung |
-| Hochbeet-Mix | Spezielle Hochbeeterde | Hochbeete |
-| Torf | Torfbasiert (nicht empfohlen) | Historische Verwendung |
-| Vermiculite | Blähmineral | Anzucht, Beimischung |
-| PON Mineral | LECA/Blähtongranulat | Semi-Hydroponik |
-| Sphagnum | Torfmoos | Orchideen, Epiphyten |
+<!-- Quelle: src/backend/app/common/enums.py (SubstrateType) -->
 
-!!! warning "Coco Coir und CalMag"
-    Coco Coir bindet Calcium und Magnesium. Bei Coco-Substraten wird CalMag grundsätzlich empfohlen, auch bei hartem Leitungswasser. Kamerplanter weist dich darauf hin, wenn ein Nährstoffplan für Coco-Pflanzen kein CalMag enthält.
+| Typ | Beschreibung |
+|-----|-------------|
+| Erde | Standard-Gartenerde oder Blumenerde |
+| Kokos | Kokos-Substrat (Coco Coir) |
+| Blähton | Tongranulat, meist für Hydro-Systeme (z.B. Zeer/Hydrokultur) |
+| Perlit | Vulkanisches Mineral, meist als Drainage-Beimischung |
+| Lebende Erde | Erde mit aktivem Mikrobiom (Living Soil) |
+| Torf | Torfbasiertes Substrat |
+| Steinwollmatte | Mineralwolle-Matte für Hydroponik |
+| Steinwollwürfel | Kleiner Mineralwolle-Anzuchtwürfel für Stecklinge und Keimung |
+| Vermiculit | Blähmineral, meist zur Beimischung oder Anzucht |
+| Kein Substrat | Für substratlose Systeme (z.B. reine Aeroponik) |
+| Orchideenrinde | Grobe Rindenstücke für Epiphyten |
+| PON-Mineralsubstrat | Mineralisches Semi-Hydro-Substrat (LECA-ähnlich) |
+| Sphagnum-Moos | Torfmoos, häufig für Orchideen und Fleischfressende Pflanzen |
+| Hydrolösung | Reine Nährlösung ohne festes Substrat (z.B. DWC) |
 
-### Substrat einem Slot zuweisen
+!!! warning "Kokos und CalMag"
+    Kokos-Substrat bindet Calcium und Magnesium. Bei Kokos-Substraten wird CalMag grundsätzlich empfohlen, auch bei hartem Leitungswasser. Kamerplanter weist dich darauf hin, wenn ein Nährstoffplan für Kokos-Pflanzen kein CalMag enthält.
 
-1. Öffne den gewünschten Slot.
-2. Klicke auf **Substrat zuweisen**.
-3. Wähle ein vorhandenes Substrat aus der Liste.
-4. Das Substrat ist nun diesem Slot zugeordnet.
+### Eigene Substrat-Mischungen anlegen
 
-### Substrat zur Wiederverwendung vorbereiten
+Statt einen einzelnen Substrat-Typ zu verwenden, kannst du eigene Mischungen aus mehreren bereits angelegten Substraten zusammenstellen (z.B. 70 % Erde + 20 % Perlit + 10 % Vermiculit):
 
-Nach Abschluss eines Anbauzyklus kannst du ein Substrat für die erneute Verwendung vorbereiten:
+1. Klicke in der Substrat-Übersicht auf **Mischung anlegen**.
+2. Wähle mindestens zwei vorhandene Substrate aus (reine Mischungen können nicht selbst wieder gemischt werden).
+3. Verteile die Anteile in Prozent — mit **Gleichmäßig verteilen** teilst du sie automatisch gleich auf. Die Summe muss genau 100 % ergeben.
+4. Klicke auf **Vorschau**, um die berechneten Eigenschaften der Mischung zu sehen (Basis-pH, Basis-EC, Wasserretention, Luftporosität u.a. — jeweils als gewichteter Mittelwert der Komponenten).
+5. Vergib einen Namen (Deutsch/Englisch) und klicke auf **Speichern**.
 
-1. Öffne das Substrat in der Detailansicht.
-2. Klicke auf **Zur Wiederverwendung vorbereiten**.
-3. Das System prüft die pH-Standardabweichung und die EC-Drift der bisherigen Nutzung.
-4. Bei zu großer Drift erscheint eine Warnung — in diesem Fall empfiehlt sich neues Substrat.
+### Substratchargen (Wiederverwendung, Zuweisung)
 
-!!! note "Einweg-Substrate"
-    Rockwool-Platten und -Plugs sind Einwegsubstrate und werden nach einem Zyklus nicht zur Wiederverwendung angeboten.
+Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem Verlauf — zum Beispiel ein bestimmter Sack Erde, der über mehrere Anbauzyklen wiederverwendet wird. Zu jeder Charge erfasst Kamerplanter:
+
+| Feld | Beschreibung |
+|------|-------------|
+| Chargen-ID | Frei wählbare Bezeichnung, z.B. "ERDE-2026-03" |
+| Volumen (Liter) | Menge dieser Charge |
+| Angemischt am | Datum der Herstellung/des Kaufs |
+| Zuletzt aufgefrischt | Datum der letzten Nährstoff-/pH-Auffrischung |
+| Zyklen genutzt | Wie oft die Charge bereits für einen Anbauzyklus verwendet wurde |
+| Aktueller pH / EC | Letzte gemessene Werte inklusive Verlauf |
+
+**Zur Wiederverwendung vorbereiten:** Nach Abschluss eines Anbauzyklus prüfst du, ob eine Charge erneut einsetzbar ist:
+
+1. Öffne die Substratcharge in der Detailansicht.
+2. Klicke auf **Wiederverwendbarkeit prüfen**. Das System vergleicht den bisherigen Verlauf mit den zulässigen Wiederverwendungs-Zyklen des Substrat-Typs.
+3. Ist eine Aufbereitung nötig, zeigt Kamerplanter die notwendigen Schritte (z.B. Spülen, Nachdüngen) inklusive geschätzter Dauer und dem frühestmöglichen Datum, ab dem die Charge wieder einsatzbereit ist.
+4. Klicke auf **Wiederverwendung vorbereiten**, um den Aufbereitungsschritt zu protokollieren.
+
+!!! info "Für technische Nutzer"
+    Kamerplanter kann eine Substratcharge technisch bereits einem Slot zuordnen. Diese Einstellung ist derzeit nur über die API verfügbar — eine Oberfläche dafür gibt es noch nicht. Bis dahin trägst du den Substrat-Bezug beim Anlegen eines Pflanzdurchlaufs im Feld **Substratcharge** ein (siehe [Pflanzdurchläufe](planting-runs.md)).
 
 ---
 
@@ -198,15 +229,15 @@ Nach Abschluss eines Anbauzyklus kannst du ein Substrat für die erneute Verwend
 !!! example "Beispiel: Balkon-Gärtner"
     - Site: "Wohnung Berlin"
     - Location: "Südbalkon" (Typ: Balkon)
-    - Location: "Fensterbank Küche" (Typ: Fensterbank)
+    - Location: "Küche" (Typ: Zimmer)
     - Slots: "Topf Tomate", "Topf Basilikum", "Topf Petersilie"
 
 !!! example "Beispiel: Indoor-Grower mit zwei Zelten"
     - Site: "Indoor-Garden"
-    - Location: "Vegi-Zelt" (Typ: Growzelt)
+    - Location: "Vegi-Zelt" (Typ: Grow-Zelt)
       - Location: "Ebene 1"
         - Slots: "Topf 1" bis "Topf 6"
-    - Location: "Blüte-Zelt" (Typ: Growzelt)
+    - Location: "Blüte-Zelt" (Typ: Grow-Zelt)
       - Slots: "Platz 1" bis "Platz 9"
 
 ---
@@ -223,7 +254,7 @@ Nach Abschluss eines Anbauzyklus kannst du ein Substrat für die erneute Verwend
     Ja. Du kannst Pflanzen direkt einer Location zuweisen, ohne zwingend Slots zu erstellen. Slots sind sinnvoll, wenn du viele Pflanzen in einem Bereich präzise verfolgen möchtest.
 
 ??? question "Wie hinterlege ich meinen eigenen Substrat-Mix?"
-    Wähle beim Anlegen des Substrats den am besten passenden Typ und beschreibe die Mischung im Notiz-Feld. Für Experten stehen zusätzliche Felder für pH-Bereich, Leitfähigkeit und Bewässerungsstrategie zur Verfügung.
+    Nutze die Funktion **Mischung anlegen** in der Substrat-Übersicht (siehe [Eigene Substrat-Mischungen anlegen](#eigene-substrat-mischungen-anlegen)). Dort kombinierst du mehrere vorhandene Substrate mit prozentualen Anteilen — Kamerplanter berechnet die resultierenden Eigenschaften automatisch.
 
 ---
 
@@ -232,3 +263,4 @@ Nach Abschluss eines Anbauzyklus kannst du ein Substrat für die erneute Verwend
 - [Tankmanagement](tanks.md)
 - [Pflanzdurchläufe](planting-runs.md)
 - [Dünge-Logik](fertilization.md)
+- [Wachstumsphasen](growth-phases.md)

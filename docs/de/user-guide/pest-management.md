@@ -19,7 +19,7 @@ Die beste Pflanzenschutzmaßnahme ist die, die du nicht brauchst. Kamerplanter u
 
 - **Standort-Hygiene-Aufgaben** (automatisch generiert): Reinigung des Growbereichs, Desinfektion von Werkzeug
 - **Fruchtfolge-Warnungen**: Hinweise, wenn die gleiche Pflanzenfamilie zu schnell am selben Standort folgt
-- **Klimaüberwachung**: Hinweis bei dauerhaft hoher Luftfeuchte (> 70 % rH), die Schimmelpilzen begünstigt
+- **Klimaüberwachung**: Hinweis bei dauerhaft hoher Luftfeuchte (> 70 % rH), die Schimmelpilze begünstigt
 
 !!! tip "Prävention lohnt sich"
     Schädlinge und Krankheiten, die frühzeitig erkannt werden, lassen sich mit biologischen Mitteln behandeln. Wer zu spät handelt, ist oft auf chemische Mittel angewiesen, die Karenzzeiten von Wochen auslösen.
@@ -36,14 +36,11 @@ Wenn ein Befall festgestellt wurde, wähle die passende Behandlung. Kamerplanter
 
 ## Befallskontrolle (Inspektion) durchführen
 
-### Schritt 1: Inspektion starten
+In der Oberfläche entsteht eine Inspektion (Befallskontrolle) ausschließlich über die Foto-Erkennung: Öffne die betroffene Pflanze und klicke auf **Auf Schädlinge prüfen** — das öffnet den [Foto-Erkennungs-Dialog](pest-detection.md). Legt die Erkennung einen Befall nahe, bietet der Dialog den Schritt **Inspektion anlegen**: Der erkannte Schädling, das Foto und eine aus der Erkennungs-Konfidenz abgeleitete Befallsstärke werden automatisch übernommen.
 
-1. Navigiere zu **Pflanzenschutz (IPM)** in der Navigation oder öffne eine Pflanze und wechsle zum Tab **Pflanzenschutz**.
-2. Klicke auf **Neue Inspektion**.
+### Befallsstärke-Stufen
 
-### Schritt 2: Befallsstärke einschätzen
-
-Bewerte die Befallsstärke:
+Jede Inspektion wird einer von fünf Stufen zugeordnet:
 
 | Stufe | Beschreibung |
 |-------|-------------|
@@ -53,9 +50,9 @@ Bewerte die Befallsstärke:
 | Hoch | Starker Befall, weitreichende Ausbreitung |
 | Kritisch | Akute Pflanzenschädigung, sofortige Maßnahmen nötig |
 
-### Schritt 3: Schädlinge oder Krankheiten dokumentieren
+### Häufige Schädlinge und Krankheiten
 
-Wenn du einen Befall entdeckt hast, wähle aus der Liste. Klicke auf den Namen eines Schädlings, um die [Schädlings-Detailseite](pest-detail.md) mit Steckbrief, Referenzbildern und Gegenmaßnahmen aufzurufen.
+Klicke auf den Namen eines Schädlings, um die [Schädlings-Detailseite](pest-detail.md) mit Steckbrief, Referenzbildern und Gegenmaßnahmen aufzurufen.
 
 **Häufige Schädlinge:**
 - Spinnmilben (Tetranychus urticae)
@@ -70,42 +67,32 @@ Wenn du einen Befall entdeckt hast, wähle aus der Liste. Klicke auf den Namen e
 - Pythium spp. (Wurzelfäule) — Schlauchpilz, besonders in Hydroponik-Systemen mit zu wenig Sauerstoff im Wasser
 - Fusarium oxysporum (Fusarium-Welke) — Bodenpilz, verursacht Welkesymptome durch Verstopfen der Leitgefäße
 
-Wenn das Tier oder die Krankheit nicht in der Liste ist, kannst du sie manuell eingeben.
-
-### Schritt 4: Fotos hinzufügen (optional)
-
-Füge Fotos der befallenen Stellen hinzu. Das hilft bei der Verlaufsbeobachtung und späteren Diagnose.
-
-### Schritt 5: Inspektion speichern
-
-Die Inspektion wird in der Inspektionshistorie der Pflanze gespeichert und ist im Kalender sichtbar.
+!!! info "Manuelle Inspektion ohne Foto — nur über API"
+    Eine Oberfläche zum manuellen Anlegen einer Inspektion ohne Foto (freie Auswahl von Schädling, Befallsstärke und Notizen) gibt es aktuell nicht. Gespeicherte Inspektionen sind bislang auch nicht in einer eigenen Verlaufsansicht in der Oberfläche einsehbar. Beide Funktionen stehen bereits über die API zur Verfügung (siehe [Für technische Nutzer: API-Zugriff](#fur-technische-nutzer-api-zugriff)).
 
 ---
 
-## Behandlung erfassen
+## Behandlungsmittel verwalten (Stammdaten)
 
-### Schritt 1: Behandlung anlegen
+Behandlungsmittel (Präparate/Methoden) sind Stammdaten, die für alle Pflanzen wiederverwendbar sind:
 
-1. Navigiere zu **Pflanzenschutz (IPM) → Behandlungen** oder klicke in der Inspektion auf **Behandlung einleiten**.
+1. Navigiere zu **Pflanzenschutz (IPM) → Behandlungen**.
 2. Klicke auf **Behandlung hinzufügen**.
-
-### Schritt 2: Behandlungsmittel und -methode wählen
 
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
-| Mittel / Präparat | Name des eingesetzten Mittels | "Neem-Öl 2 %", "Spidex (Phytoseiulus persimilis — Raubmilbe)" |
+| Mittel / Präparat | Name des Mittels | "Neem-Öl 2 %", "Spidex (Phytoseiulus persimilis — Raubmilbe)" |
 | Typ | Kulturell, Biologisch, Chemisch, Mechanisch | Biologisch |
 | Wirkstoff | Aktiver Bestandteil | "Azadirachtin" |
 | Karenzzeit (Tage) | Wartezeit bis zur Ernte | 14 |
 | Dosierung | Menge und Konzentration | "5 ml/L" |
 | Ausbringungsmethode | Sprühen, Gießen, Streuen, Freisetzung | Sprühen |
+| Schutzausrüstung | Empfohlene Schutzmaßnahmen | Handschuhe, Atemschutz |
 
-### Schritt 3: Ausbringung dokumentieren
+Klicke auf den Namen einer Behandlung, um die [Behandlungs-Detailseite](treatment-detail.md) mit Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweisen aufzurufen.
 
-Trage das Ausbringungsdatum und die behandelten Pflanzen ein. Das System berechnet automatisch das frühestmögliche Erntedatum.
-
-!!! danger "Karenzzeit läuft sofort"
-    Sobald du eine Behandlung mit Karenzzeit eingetragen hast, ist die Ernte der betroffenen Pflanzen gesperrt, bis die Karenzzeit abgelaufen ist. Kamerplanter zeigt das frühestmögliche Erntedatum deutlich an.
+!!! info "Behandlung an einer Pflanze dokumentieren — nur über API"
+    Eine konkrete Anwendung eines Behandlungsmittels an einer Pflanze (Ausbringungsdatum, Dosierung, betroffene Pflanze) lässt sich in der Oberfläche noch nicht erfassen. Der entsprechende API-Endpunkt ist bereits nutzbar (siehe [Für technische Nutzer: API-Zugriff](#fur-technische-nutzer-api-zugriff)). Sobald ein Eintrag über die API angelegt wurde, greift die Karenzzeit-Sperre bei der Ernte automatisch (siehe unten).
 
 ---
 
@@ -113,38 +100,36 @@ Trage das Ausbringungsdatum und die behandelten Pflanzen ein. Das System berechn
 
 Die **Karenzzeit** (auch Pre-Harvest Interval, PHI) ist die gesetzlich vorgeschriebene Wartezeit zwischen der letzten Anwendung eines Pflanzenschutzmittels und der Ernte. Diese Wartezeit schützt Verbraucher vor Rückständen im Erntegut.
 
-**Wo siehst du laufende Karenzzeiten?**
+**Wo siehst du eine laufende Karenzzeit?**
 
-1. In der Pflanzendetailansicht im Tab **Pflanzenschutz** — ein roter Hinweis erscheint, wenn eine Karenzzeit aktiv ist
-2. In der Aufgaben-Übersicht — automatisch erstellte Aufgabe "Ernte möglich ab [Datum]"
-3. Im Kalender — Karenzzeit-Ablauf als Ereignis sichtbar
+Es gibt aktuell keine eigene Anzeige laufender Karenzzeiten in der Pflanzenansicht. Die Karenzzeit wirkt dort, wo es zählt: Versuchst du, für eine Pflanze mit noch nicht abgelaufener Karenzzeit eine **Erntecharge** anzulegen, blockiert das System die Ernte mit einer Fehlermeldung und nennt das frühestmögliche Erntedatum (Karenzzeit-Sperre, HTTP 422). Den aktuellen Stand kannst du zusätzlich per API abfragen (siehe [Für technische Nutzer: API-Zugriff](#fur-technische-nutzer-api-zugriff)).
 
-**Karenzzeit überschrieben — was tun?**
+!!! danger "Karenzzeit läuft sofort"
+    Sobald eine Behandlung mit Karenzzeit für eine Pflanze erfasst wurde, ist die Ernte der betroffenen Pflanze gesperrt, bis die Karenzzeit abgelaufen ist — unabhängig davon, ob der Eintrag über die API oder (künftig) über eine Oberfläche angelegt wurde.
 
-Wenn du eine Behandlung irrtümlich eingetragen hast, kannst du sie öffnen und das Ausbringungsdatum korrigieren. Wenn du ein falsches Mittel eingetragen hast, kontaktiere das Support-Team oder nutze die Kommentarfunktion, um den Fehler zu dokumentieren.
+**Fehlerhafte Karenzzeit-Angabe — was tun?**
+
+Es gibt derzeit keine Bearbeitungsfunktion für bereits erfasste Behandlungsanwendungen. Wende dich bei einer irrtümlichen Eintragung an dein Betreiber-/Support-Team, um den Eintrag korrigieren zu lassen.
 
 ---
 
 ## Resistenzmanagement
 
 !!! warning "Wirkstoff-Rotation beachten"
-    Schädlinge entwickeln Resistenzen, wenn dieselbe Wirkstoffgruppe zu oft eingesetzt wird. Kamerplanter warnt dich, wenn du dasselbe Mittel (oder denselben Wirkstoff) mehr als dreimal in 90 Tagen einsetzt.
+    Schädlinge entwickeln Resistenzen, wenn dieselbe Wirkstoffgruppe zu oft eingesetzt wird. Kamerplanter weist eine neue Behandlungsanwendung zurück, wenn du dasselbe Mittel (oder denselben Wirkstoff) mehr als dreimal in 90 Tagen einsetzt (siehe [Behandlung an einer Pflanze dokumentieren](#behandlungsmittel-verwalten-stammdaten)).
 
-Wenn eine Warnung erscheint:
-1. Öffne die Behandlungshistorie der Pflanze.
-2. Wechsle zu einem Mittel mit einem anderen Wirkstoffmechanismus.
-3. Warte mindestens 2 Behandlungszyklen, bevor du zum ursprünglichen Mittel zurückkehrst.
+Wenn diese Warnung erscheint:
+1. Wähle ein Mittel mit einem anderen Wirkstoffmechanismus.
+2. Warte mindestens 2 Behandlungszyklen, bevor du zum ursprünglichen Mittel zurückkehrst.
 
 ---
 
-## Nützlinge einsetzen
+## Nützlinge
 
-Für biologische Bekämpfung kannst du Nützlinge dokumentieren:
+Nützlinge (z. B. Raubmilben — *Phytoseiulus persimilis* — gegen Spinnmilben, Schlupfwespen gegen Trauermücken) sind in Kamerplanter als **Stammdaten** hinterlegt: Erkennt die Schädlingserkennung anhand eines Fotos einen Nützling statt eines Schädlings, weist sie eindeutig darauf hin, damit er nicht versehentlich bekämpft wird.
 
-1. Navigiere zu **Pflanzenschutz → Nützlinge**.
-2. Klicke auf **Nützling freigesetzt**.
-3. Wähle den Nützling aus der Liste (z.B. Raubmilben — *Phytoseiulus persimilis* — gegen Spinnmilben, Schlupfwespen gegen Trauermücken).
-4. Trage Freisetzungsdatum, Menge und Standort ein.
+!!! warning "Noch nicht implementiert"
+    Eine eigene Dokumentation von Nützlings-**Freisetzungen** (Freisetzungsdatum, Menge, Standort) wird es erst in einer künftigen Version geben. Aktuell lässt sich der Einsatz von Nützlingen nur behelfsweise über die [Behandlungsmittel-Stammdaten](#behandlungsmittel-verwalten-stammdaten) erfassen (Typ „Biologisch", Ausbringungsmethode „Freisetzung", Karenzzeit 0 Tage).
 
 **Wichtig bei Nützlingen:**
 - Nützlinge haben **keine Karenzzeit** — Ernten sind jederzeit möglich.
@@ -154,7 +139,8 @@ Für biologische Bekämpfung kannst du Nützlinge dokumentieren:
 
 ## Befallshistorie eines Standorts auswerten
 
-Unter **Pflanzenschutz → Befallshistorie** siehst du, welche Schädlinge und Krankheiten in welchem Bereich aufgetreten sind. Das hilft bei der Planung präventiver Maßnahmen für den nächsten Zyklus.
+!!! warning "Noch nicht implementiert"
+    Eine Auswertung, welche Schädlinge und Krankheiten in welchem Standortbereich über die Zeit aufgetreten sind, wird es erst in einer künftigen Version geben. Bis dahin lässt sich der Verlauf nur pflanzenweise über die Schädlings-Detailseiten und die IPM-API nachvollziehen.
 
 ---
 
@@ -170,7 +156,20 @@ Unter **Pflanzenschutz → Befallshistorie** siehst du, welche Schädlinge und K
     Spinnmilben sind mit bloßem Auge kaum erkennbar. Typische Anzeichen: feine, silbrige Sprenkel auf den Blattoberflächen, feine Gespinste auf der Blattunterseite. Zur sicheren Diagnose empfiehlt sich eine 10×-Lupe.
 
 ??? question "Ich habe Neem-Öl ohne Karenzzeit-Angabe — welchen Wert trage ich ein?"
-    Neem-Öl als biologisches Mittel gilt in Deutschland als relativ unbedenklich, aber es empfiehlt sich eine Wartezeit von 7–14 Tagen. Nutze den Wert, der auf deinem Produkt angegeben ist, oder frage beim Hersteller nach.
+    Neem-Öl als biologisches Mittel gilt in Deutschland als relativ unbedenklich, aber es empfiehlt sich eine Wartezeit von 7 bis 14 Tagen. Nutze den Wert, der auf deinem Produkt angegeben ist, oder frage beim Hersteller nach.
+
+---
+
+## Für technische Nutzer: API-Zugriff
+
+Einige IPM-Funktionen stehen bereits als REST-Endpunkte zur Verfügung, auch wenn die grafische Oberfläche dafür noch fehlt. Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster, die eigene Integrationen oder Skripte anbinden möchten. Eine angemeldete Sitzung (Bearer-Token) ist erforderlich.
+
+| Endpunkt | Zweck |
+|----------|-------|
+| `POST .../ipm/plants/{plant_key}/inspections` | Inspektion manuell anlegen (freie Auswahl von Schädling, Befallsstärke und Notizen) |
+| `GET .../ipm/plants/{plant_key}/inspections` | Gespeicherte Inspektionen einer Pflanze abrufen |
+| `POST .../ipm/plants/{plant_key}/treatment-applications` | Behandlungsanwendung an einer Pflanze dokumentieren (löst die Karenzzeit-Sperre aus) |
+| `GET .../ipm/plants/{plant_key}/harvest-safety` | Aktuellen Karenzzeit-Status einer Pflanze abfragen |
 
 ---
 

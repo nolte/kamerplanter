@@ -28,9 +28,6 @@ flowchart LR
 
 ## Installation
 
-!!! note "In Entwicklung"
-    Die HA-Integration unter `custom_components/kamerplanter/` befindet sich noch in der Entwicklungsphase und liegt nicht im Repository-Root. Die Installationsschritte unten beschreiben den geplanten Ablauf nach der Veröffentlichung als HACS-Paket.
-
 ### Via HACS (empfohlen)
 
 1. Öffne **HACS** in Home Assistant
@@ -178,12 +175,12 @@ Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, 
 |--------|-----|---------|-------------|
 | `sensor.kp_{plant}_phase` | Sensor | -- | Aktuelle Wachstumsphase |
 | `sensor.kp_{plant}_days_in_phase` | Sensor | Tage | Tage in aktueller Phase |
-| `sensor.kp_{plant}_vpd_target` | Sensor | kPa | VPD-Sollwert für aktuelle Phase |
+| `sensor.kp_{plant}_vpd_target` | Sensor | kPa | VPD- (Dampfdruckdefizit, Vapor Pressure Deficit) Sollwert für aktuelle Phase |
 | `sensor.kp_{plant}_ec_target` | Sensor | mS/cm | EC-Sollwert für aktuelle Phase |
 | `sensor.kp_{plant}_photoperiod` | Sensor | h | Photoperiode (Licht/Dunkel) |
 | `sensor.kp_{plant}_gdd_accumulated` | Sensor | GDD | Akkumulierte Wachstumsgradtage |
 | `sensor.kp_{plant}_harvest_readiness` | Sensor | % | Erntebereitschaft |
-| `sensor.kp_{plant}_karenz_remaining` | Sensor | Tage | Verbleibende Wartezeit (IPM) |
+| `sensor.kp_{plant}_karenz_remaining` | Sensor | Tage | Verbleibende Wartezeit (IPM — Integrierter Pflanzenschutz, Integrated Pest Management) |
 | `sensor.kp_{plant}_next_watering` | Sensor | -- | Nächster Gießtermin |
 | `sensor.kp_{plant}_health_score` | Sensor | % | Gesundheitsscore |
 | `binary_sensor.kp_{plant}_needs_attention` | Binary Sensor | -- | Pflanze braucht Aufmerksamkeit |
@@ -205,6 +202,10 @@ Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, 
 |--------|-----|-------------|
 | `sensor.kp_{location}_active_plants` | Sensor | Anzahl aktiver Pflanzen |
 | `sensor.kp_{location}_vpd_current` | Sensor | Aktueller VPD-Wert |
+| `binary_sensor.kp_{location}_frost_warning` | Binary Sensor | Frostwarnung — noch nicht befüllt, siehe Hinweis unten |
+
+!!! note "Frostwarnung setzt die geplante Wetter-API voraus"
+    Diese Entity wird im Automations-Beispiel „Frostwarnung: Gewächshaus-Heizung" weiter unten verwendet, wird aber von Kamerplanter aktuell **nicht befüllt**: Die zugrunde liegende Frosterkennung braucht Live-Wetterdaten, und die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist in Kamerplanter **spezifiziert, aber noch nicht implementiert** — siehe [Sensorik: Sensoren für Freiland](../user-guide/sensors.md#sensoren-für-freiland-wetter-api-einrichten). Bis dahin kannst du dieselbe Automation mit einem eigenen HA-Außentemperatursensor statt der Kamerplanter-Entity umsetzen.
 
 ### Kalender & Aufgaben
 
@@ -277,9 +278,12 @@ Beispielantwort für `entity_type=plant`:
 ```json
 {
   "entity_type": "plant",
-  "enabled_keys": ["345249", "a1b2c3", "f9e8d7"]
+  "entity_keys": ["345249", "a1b2c3", "f9e8d7"]
 }
 ```
+
+!!! warning "Feldname ist `entity_keys`, nicht `enabled_keys`"
+    Die Antwort trägt die Schlüsselliste im Feld **`entity_keys`**. Ein früherer Doku-Stand nannte das Feld fälschlich `enabled_keys` — Integrations-Code, der diesen Namen erwartet, findet das Feld nicht.
 
 **Einzelstatus lesen oder setzen:**
 
@@ -293,6 +297,26 @@ PUT-Body:
 ```json
 { "enabled": true }
 ```
+
+**Mehrere Elemente auf einmal setzen (Bulk-Update):**
+
+```
+PUT /api/v1/t/{tenant_slug}/ha-publish
+```
+
+Body (ein `entity_type` pro Aufruf, beliebig viele Einträge):
+
+```json
+{
+  "entity_type": "plant",
+  "entries": [
+    { "entity_key": "345249", "enabled": true },
+    { "entity_key": "a1b2c3", "enabled": false }
+  ]
+}
+```
+
+Die Antwort ist eine Liste der aktualisierten Einzelstatus (gleiche Form wie beim Einzelstatus-Endpunkt). Das ist der Endpunkt, den der zentrale Verwaltungs-Tab **„HA-Veröffentlichung"** im Frontend für Massenänderungen nutzt.
 
 !!! warning "Abgewählte Elemente entfernen"
     Wenn ein Element abgewählt wird (PUT `enabled: false`), sollte die HA-Integration die zugehörigen Entities aktiv aus Home Assistant entfernen (Entity-Registry-Eintrag löschen). Andernfalls bleiben veraltete „unavailable"-Entities im System.

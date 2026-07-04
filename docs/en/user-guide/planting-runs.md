@@ -1,6 +1,6 @@
 # Planting Runs
 
-A planting run groups related plants for shared lifecycle tracking. Instead of managing 20 tomatoes individually, you create a run — and can then apply phase transitions, watering events, and harvest batches to the whole group at once.
+A planting run groups related plants for shared lifecycle tracking. Instead of managing 20 tomatoes individually, you create a run — and can then apply phase transitions and watering events to the whole group at once.
 
 ---
 
@@ -12,13 +12,13 @@ A planting run groups related plants for shared lifecycle tracking. Instead of m
 
 ---
 
-## What Is a Planting Run?
+## What Is a Planting Run? {#what-is-a-planting-run}
 
 A planting run is a lightweight group container. It has no lifecycle of its own — it simply groups plants. Each plant in the run retains full independence:
 
-- Individual plants can be edited on their own
+- Individual plants can be edited on their own (e.g. notes)
 - A plant can be detached from the run at any time
-- Phase transitions can be triggered for all plants simultaneously or for individual plants separately
+- As long as a plant belongs to the run, its phase transitions only happen **together with the whole group** (batch phase transition) — a transition for that one plant alone is blocked until it has been detached from the run
 
 **Two types of planting runs:**
 
@@ -28,7 +28,7 @@ A planting run is a lightweight group container. It has no lifecycle of its own 
 | **Clone** | Cuttings from one mother plant | 10 cannabis clones from mother "WW-01" |
 
 !!! note "Mixed culture is not a separate run type"
-    A planting run always groups one species/variety. Mixed-culture beds (e.g. tomatoes + basil + marigolds) are modeled through **multiple separate runs per species at the same location**, combined with compatibility checks at the location/master-data level. See the [Companion Planting](../guides/companion-planting.md) guide for details.
+    A planting run has no dedicated mixed-culture type and no roles (primary/companion/trap plant). Technically, you can still assign several different species to one run via multiple entries (e.g. for tightly interplanted crops at the same location) — but during a batch phase transition, Kamerplanter only considers the most common ("dominant") phase and moves only the matching plants along. For real mixed-culture beds (e.g. tomatoes + basil + marigolds), the recommended pattern is therefore **multiple separate runs per species at the same location**, combined with compatibility checks at the master-data/location level. See the [Companion Planting & Crop Rotation](../guides/companion-planting.md) guide for details.
 
 ---
 
@@ -36,35 +36,94 @@ A planting run is a lightweight group container. It has no lifecycle of its own 
 
 ### Step 1: Navigate to Runs
 
-Click **Runs** in the navigation. The overview shows all active and past planting runs.
+Click **Planting Runs** in the navigation, under the **Planting Runs** section. The overview shows all active and past planting runs.
 
 ### Step 2: Create a New Run
 
-Click **New Run**. A dialog opens.
+Click **Create Run**. A dialog opens.
 
 ### Step 3: Enter Basic Data
 
 | Field | Description | Example |
 |-------|-------------|---------|
 | Name | Unique name for the run | "Tomatoes Raised Bed A 2026" |
-| Type | Monoculture or clone | Monoculture |
-| Site | Which facility? | "My Garden" |
-| Location | Specific area | "Raised Bed A" |
 | Planned Start | When to plant? | 15 April 2026 |
-| Notes | Special goals or observations | "Trial without plastic cover" |
+| Type (intermediate and above) | Monoculture or clone | Monoculture |
+| Site (intermediate and above) | Which facility? | "My Garden" |
+| Location (intermediate and above) | Specific area | "Raised Bed A" |
+| Notes (intermediate and above) | Special goals or observations | "Trial without plastic cover" |
+| Substrate Batch (expert) | Key of the linked substrate batch (see [Locations & Substrates](locations-substrates.md#substrate-batches-reuse-assignment)) | "SOIL-2026-03" |
+| Source Plant (expert, "Clone" type only) | Key of the mother plant the clones come from | — |
 
-### Step 4: Add Plants to the Run
+!!! note "Experience levels"
+    As in many forms, Kamerplanter shows or hides fields depending on your experience level. Use **Show all fields** to see every field at once, even as a beginner.
 
-Click **Add Entry**:
+### Step 4: Set Up Entries — Create New Plants or Adopt Existing Ones
 
-1. Select the **species** from the master data.
-2. Optionally select a **cultivar**.
-3. Enter the **quantity** of plants.
-4. Select the **substrate**.
+For a new run you have two options: create new plant entries (default) or take over existing, standalone plants into the run. These are mutually exclusive and toggled with the **Adopt existing plants** switch.
 
-### Step 5: Let Kamerplanter Create the Plants
+#### Creating new plant entries
 
-Click **Create Plants**. Kamerplanter automatically creates all individual plants with sequential IDs (e.g. RAISEDBED-A_TOM_01 to RAISEDBED-A_TOM_08).
+Click **Add Entry** and fill in for each entry:
+
+| Field | Description |
+|-------|-------------|
+| Species | From master data, required |
+| Cultivar | Optional, depends on the selected species |
+| Quantity | How many plants of this species/cultivar should be created in the run |
+| ID Prefix | 2–5 uppercase letters used to build the plant ID (e.g. "TOM" for tomato). Kamerplanter suggests the prefix automatically from the genus or cultivar name — you can overwrite it |
+
+You can add multiple entries if a run should contain several varieties of the same species or — with appropriate planning — several species at once (see the mixed-culture note above).
+
+!!! info "For technical users"
+    The data model also tracks a spacing value in cm (`spacing_cm`) and a note per entry. Both are shown in the run's details table once set — but the create form has no input fields for them yet. This setting is currently only available via the API.
+
+#### Adopting existing plants
+
+Turn on the **Adopt existing plants** switch to bring already existing, unassigned plants into the new run instead of creating new entries:
+
+1. Turn on the switch. The input fields for new entries disappear, and a searchable list of all standalone plants appears instead.
+2. Search by ID, name, or current phase and select the plants you want (or use **Select All**).
+3. When you save, the selected plants are assigned to the newly created run without creating new plant records. The run switches directly to "Active".
+
+This is useful if you first created individual plants and want to group them together afterwards.
+
+!!! tip "Adopting plants later"
+    Adoption is not limited to run creation: as long as a run is "Planned" or "Active", you can click **Adopt Plants** at the top of its detail page at any time to bring in further existing plants (of the same species as the existing entries).
+
+### Step 5: Save the Run
+
+Click **Create**.
+
+- **New-entries mode:** The run is created with the entered entries in **"Planned"** status. The individual plant records do not exist yet — that requires a separate step (see below).
+- **Adopt mode:** The selected existing plants are taken over immediately, and the run is already **"Active"** afterwards.
+
+### Step 6: Create Plants From the Entries (new-entries mode only)
+
+As long as a run is "Planned" and used entries (not adoption), the individual plants do not exist yet. To create them:
+
+1. Open the run.
+2. Click **Create Plants** at the top.
+3. Confirm the number of plants to be created in the dialog.
+4. Kamerplanter automatically creates all individual plants with sequential IDs in the format `LOCATION-KEY_PREFIX_SEQUENCE` (e.g. `raised-bed-a_TOM_01` to `raised-bed-a_TOM_08`, where `raised-bed-a` is the internal key of the chosen location) and sets the run to **"Active"**.
+
+<!-- Source: src/frontend/src/pages/durchlaeufe/PlantingRunCreateDialog.tsx, PlantingRunDetailPage.tsx, src/backend/app/domain/engines/planting_run_engine.py -->
+
+---
+
+## The Tabs on the Run Detail Page
+
+The run's detail page is organized into five tabs:
+
+| Tab | Content |
+|-----|---------|
+| Details | Overview with entries, assigned nutrient plan, dosage preview, and location/tank information |
+| Plants | List of all plants in the run, including the detach action |
+| Phases | Phase timeline per species, actual dates, plants grouped by phase |
+| Fertilization & Watering | Assigned nutrient plan, watering calendar, dosage calculator |
+| Activity Plan | Suggested or assigned care activities per phase |
+
+The sections below cover the most important actions in these tabs.
 
 ---
 
@@ -85,52 +144,94 @@ stateDiagram-v2
 
 | Status | Description |
 |--------|-------------|
-| **Planned** | Created, not yet started |
-| **Active** | Plants moved in, growth running |
-| **Harvesting** | First harvest complete, more to follow |
-| **Completed** | All plants harvested or removed |
+| **Planned** | Created, entries exist, but plant records have not been created yet |
+| **Active** | Plants created or adopted, growth is running |
+| **Harvesting** | Intermediate status intended for harvest runs |
+| **Completed** | Run ended, all plants removed |
 | **Cancelled** | Run was ended early |
+
+!!! note "Partially available: „Harvesting" status"
+    The "Harvesting" status is defined in the data model (as an intermediate step between "Active" and "Completed"), but nothing in the current UI sets it automatically — not even creating a harvest batch for a plant in the run. Runs currently move directly from "Active" to "Completed"/"Cancelled" (see [Ending a Run](#ending-a-run)).
+
+---
+
+## Phase History in the "Phases" Tab
+
+In the **Phases** tab, Kamerplanter shows a visual phase timeline for every species represented in the run, plus a table with the actual history:
+
+| Column | Description |
+|--------|-------------|
+| Phase | Phase name with a status chip (Completed / Current / Projected) |
+| Actual Start / Actual End | Recorded actual dates; for projected phases, an estimated ("projected") date |
+| Duration (Days) | Actual duration for completed phases, elapsed time for the current phase, typical duration for projected phases |
+
+The pencil icon lets you correct the actual start or end date of a completed or current phase after the fact — for example when a transition was only entered into the system later. This correction applies to **all plants of the run together**: you can't correct it for individual plants — the correction always applies to the whole run.
+
+Below that, Kamerplanter lists all plants, grouped by their current phase, with a direct link to each plant's detail page.
+
+<!-- Source: src/frontend/src/pages/durchlaeufe/RunPhaseEditor.tsx -->
 
 ---
 
 ## Batch Operations
 
-The power of planting runs lies in batch operations — actions applied to all plants simultaneously.
+The power of planting runs lies in batch operations — actions applied to all eligible plants at once.
 
 ### Batch Phase Transition
 
-Move all plants in a run to the next phase at once:
+Move all eligible plants in a run to the next phase at once:
 
-1. Open the planting run.
-2. Click **Batch Phase Change**.
-3. Select the target phase (e.g. "Vegetative" → "Flowering").
-4. Review the list of eligible plants (plants already in a later phase are excluded).
-5. Confirm.
+1. Open the planting run ("Active" or "Harvesting" status).
+2. Click **Phase Transition**.
+3. Kamerplanter determines the currently most common ("dominant") phase among the still-active plants and suggests the phases that follow it in the phase sequence.
+4. Select the target phase (e.g. "Vegetative" → "Flowering").
+5. If the run contains several species (several entries with different species), Kamerplanter warns you that only compatible plants will be transitioned.
+6. Confirm — Kamerplanter reports how many plants were transitioned, skipped (e.g. already in a later phase), or failed.
 
-### Confirm Watering (Batch)
+!!! note "Individual phase transitions are blocked within a run"
+    As long as a plant belongs to a run, a phase transition is only possible for the whole group — a direct transition on the individual plant is rejected with the conflict `phase.run_owned`. For details and how to detach a plant if needed, see [Growth Phases: Why Plants in a Run Can't Be Transitioned Individually](growth-phases.md#why-plants-in-a-run-cant-be-transitioned-individually).
 
-After watering, document the event for all plants simultaneously:
+### Confirming Watering (Batch)
 
-1. Click **Confirm Watering**.
-2. The system suggests the amount and EC from the assigned nutrient plan.
-3. Adjust values if you mixed differently.
-4. Confirm — a feeding event is recorded for all plants.
+Once a nutrient plan is assigned, the **Fertilization & Watering** tab shows a calendar with the due watering/feeding dates. For a due date, you have two options:
 
-### Create a Harvest Batch
+- **Quick Confirm** — applies the system-suggested amount/EC directly, without further input.
+- **Confirm Watering** — opens a dialog where you can enter the measured amount, EC, and pH manually, if you mixed differently.
 
-Document a harvest for all plants in the run at once:
+Either way, a feeding event is recorded for the run.
 
-1. Click **Create Harvest Batch**.
-2. The system checks all pre-harvest intervals (PHI — the mandatory wait between a treatment and harvest).
-3. Enter fresh weight and quality rating.
-4. Confirm — a harvest batch linked to all plants in the run is created.
+### Ending a Run {#ending-a-run}
 
-### Remove All Plants
+At the end of a cycle (or if you want to cancel it early), you end the entire run in one step:
 
-Mark all plants as removed at the end of a cycle in one step:
+1. Click **End Run** (visible as long as the run is active or in "Harvesting" status).
+2. Choose the final status: **Cancelled** or **Completed**.
+3. Confirm — all still-active plants in the run are marked as removed, and the run switches to the chosen final status.
 
-1. Click **Remove All Plants**.
-2. Confirm. The run moves to "Completed" status.
+Ending the run does not delete the plants from the system — they remain accessible but are no longer considered active.
+
+### Harvest
+
+There is currently **no** action that records a harvest for all plants of a run in one step — a run-level "harvest batch" feature does not exist. Every harvest is documented individually per plant via the **Harvest Batches** page (menu **Harvest**): there you select the plant to harvest and enter fresh weight, harvest type, and quality. See the [Harvest](harvest.md) guide for details.
+
+<!-- Source: src/backend/app/domain/models/harvest.py (HarvestBatch.plant_key — no run_key) -->
+
+---
+
+## Activity Plan (Tab) {#activity-plan-tab}
+
+The **Activity Plan** tab manages recurring care activities (e.g. topping, defoliation, repotting) for the run:
+
+- **No plan assigned yet:** Click **Generate Plan** to produce a suggestion from the species-specific growth phases. Kamerplanter groups the suggested activities by phase and shows, for each one, the day offset, category, stress level, skill level, required tools, and a rationale.
+- Adjust the suggestion: enable/disable individual activities with the switch, change the day offset, or remove an activity entirely.
+- Kamerplanter flags activities whose stress level exceeds the tolerance of the respective phase.
+- Click **Apply to Run** to turn the plan into actual tasks for the run.
+- **Plan already assigned:** The tab instead shows a list of the assigned tasks grouped by phase, with progress (completed/total).
+
+!!! note "Link to workflow templates"
+    A generated and applied activity plan can be saved as a reusable workflow template and later applied to other plants of the same species. See the [Task Planning](tasks.md) guide for details.
+
+<!-- Source: src/frontend/src/pages/durchlaeufe/ActivityPlanTab.tsx -->
 
 ---
 
@@ -138,7 +239,7 @@ Mark all plants as removed at the end of a cycle in one step:
 
 You can assign a nutrient plan to a planting run to simplify watering planning:
 
-1. Open the run.
+1. Open the run and switch to the **Fertilization & Watering** tab.
 2. Click **Assign Nutrient Plan**.
 3. Select a plan from the list.
 
@@ -146,29 +247,28 @@ The plan defines which nutrients to use in which phase at which dosage. When wat
 
 ---
 
-## Detaching Individual Plants
+## Detaching Individual Plants from a Run
 
 If one plant needs to follow a different path from the group (e.g. it shows deficiency symptoms and needs individual treatment):
 
-1. Open the plant in the run list.
-2. Click **Detach from Run**.
-3. The plant stays active but is now independent.
+1. Switch to the **Plants** tab.
+2. Click **Detach** in the row of the affected plant (only available while the run is active).
+3. The plant stays active but is now independent — its phase can be transitioned individually again afterwards.
 
 Detaching a plant from the run does not delete the plant.
 
 ---
 
-## Succession Sowing (Staggered Runs)
+## Plant Diary (currently API-only) {#plant-diary-currently-api-only}
 
-!!! warning "Not yet implemented"
-    Automatic succession sowing is planned (internal reference: REQ-013 v2.3, see Issue #299) but not yet implemented. The "Create Follow-Up Planting" button does not exist yet. Until it ships, the same effect can be achieved manually by creating another run with an appropriately shifted start date (see [Creating a New Planting Run](#creating-a-new-planting-run)).
+!!! info "For technical users"
+    Kamerplanter can already store and retrieve diary entries for individual plants in a run — but there is no frontend UI for this yet. This feature is currently only available via the technical API.
 
-For continuous harvest (e.g. fresh lettuce every 3 weeks) Kamerplanter will support staggered planting runs:
+<!-- Endpoint: /api/v1/t/{tenant}/planting-runs/{run}/plants/{plant}/diary -->
 
-1. Create the first run as usual.
-2. Click **Create Follow-Up Planting**.
-3. Select the interval (e.g. 21 days after the first run).
-4. Kamerplanter will copy the run configuration and shift the start date accordingly.
+Each entry has a type (observation, problem, milestone, measurement, photo, or note), an optional title, text (up to 5,000 characters), optional photo references, tags, and free-form measurements. A second technical API endpoint lets you retrieve the diary entries of all plants in a run together.
+
+<!-- Source: src/backend/app/domain/models/plant_diary_entry.py, src/backend/app/api/v1/planting_runs/tenant_router.py -->
 
 ---
 
@@ -180,11 +280,11 @@ For continuous harvest (e.g. fresh lettuce every 3 weeks) Kamerplanter will supp
 ??? question "Can a plant belong to more than one run?"
     No. A plant can belong to at most one planting run. If you want to reassign a plant to a different run, detach it from the current one first.
 
-??? question "What happens to plants when I cancel a run?"
-    The plants remain in the system and are marked "active". They are simply no longer associated with the run. You can continue managing them individually or remove them manually.
+??? question "What happens to plants when I end a run?"
+    The plants remain in the system but are marked as removed and are no longer associated with the run. You can still view them afterwards.
 
 ??? question "Can I add plants to a running run later?"
-    Yes, as long as the run has not been completed. Open the run and click **Add Plants**.
+    Yes, as long as the run has not been completed. Open the run and click **Adopt Plants** to take over existing, unassigned plants of the matching species. New entries can no longer be added through the UI once the run has been created.
 
 ---
 
@@ -192,5 +292,8 @@ For continuous harvest (e.g. fresh lettuce every 3 weeks) Kamerplanter will supp
 
 - [Master Data: Plant Species](plant-management.md)
 - [Growth Phases](growth-phases.md)
+- [Locations & Substrates](locations-substrates.md)
+- [Companion Planting & Crop Rotation](../guides/companion-planting.md)
+- [Task Planning](tasks.md)
 - [Harvest](harvest.md)
 - [Fertilization](fertilization.md)

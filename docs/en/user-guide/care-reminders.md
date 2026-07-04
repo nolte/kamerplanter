@@ -1,6 +1,6 @@
 # Care Reminders
 
-Kamerplanter automatically reminds you which plants need water, fertiliser or care today — without needing to know cron expressions or workflow templates. A single tap is enough to confirm. The system learns from your care behaviour and adjusts intervals automatically.
+Kamerplanter automatically reminds you which plants need water, fertiliser, or other care today — without needing to know cron expressions or workflow templates. A single tap is enough to confirm. The system learns from your care behaviour and adjusts intervals automatically.
 
 ---
 
@@ -11,31 +11,37 @@ Kamerplanter automatically reminds you which plants need water, fertiliser or ca
 
 ---
 
-## The Care Dashboard
+## Care Reminders in the Task Area
 
-Navigate to **Care** > **Due Today** to see all plants that need attention today. Cards are sorted by urgency:
+Care reminders do not have their own menu entry — they appear together with your other tasks under **Tasks** (`/aufgaben/queue`). Choose **Care** in the **Source** filter to see only automatic care reminders.
+
+Cards are sorted by urgency and colour-coded:
 
 | Colour | Meaning |
 |--------|---------|
-| Red | Overdue (plant may be suffering) |
+| Red | Overdue |
 | Orange | Due today |
-| Yellow | Due soon (1–2 days) |
-| Green | Recently cared for |
+| Yellow | Due soon (within the next 1–2 days) |
+
+!!! note "No green state"
+    Recently cared-for plants do not produce a card at all — they only reappear once a reminder is due soon, due today, or overdue. There are therefore only the three urgency levels listed above, no per-plant "all good" indicator.
 
 ### Confirming Care
 
-1. Click on the care card for the plant
-2. Click the large **Done** button
-3. That is it — the system records the time and calculates the next appointment
+Every care card offers three actions:
+
+1. **Edit** (pencil icon) — opens this plant's care profile.
+2. **Done** (checkmark icon) — confirms the care. The system records the time and calculates the next appointment.
+3. **Later** (snooze icon) — postpones the reminder by one day by default, without changing the time of your last confirmation.
 
 !!! tip "Adaptive learning"
-    If you consistently water a plant 8 instead of 7 days after the last confirmation, the system adjusts the interval automatically after 3 consecutive confirmations. The learning effect is limited to ±1 day per step and can change the interval by a maximum of ±30%.
+    If you consistently water a plant 8 instead of 7 days after the last confirmation, the system adjusts the interval automatically after 3 consecutive confirmations. The learning effect is limited to ±1 day per step and can change the interval by a maximum of ±30 % relative to the base interval.
 
 ---
 
 ## Care Profiles
 
-Each plant has a **care profile** with the care intervals for that specific plant. The profile is automatically generated from the species master data and can be adjusted afterwards.
+Each plant has a **care profile** with the care intervals for that specific plant. The profile is automatically generated from the species or botanical family master data and can be adjusted afterwards.
 
 ### Opening a Care Profile
 
@@ -43,35 +49,28 @@ Each plant has a **care profile** with the care intervals for that specific plan
 2. Click the **Care** tab
 3. Click **Edit Care Profile**
 
+In the edit dialog you enable or disable each reminder type individually (toggle) and adjust its interval with a slider; for watering you additionally choose the watering method, for fertilizing the active months.
+
 ### Care Style Presets
 
-The system knows predefined care styles for typical plant groups:
+The system knows predefined care styles for typical houseplant groups. Use the **Care Style** field in the edit dialog to choose one of the following nine presets — the base values apply to summer; in winter the watering interval is multiplied by the winter factor:
 
-| Care style | Watering (summer) | Winter factor | Typical plants |
-|------------|------------------|---------------|----------------|
-| `tropical` | Every 7 days | 1.5× | Monstera, Philodendron, Ficus |
-| `succulent` | Every 14 days | 2.5× | Echeveria, Haworthia, Aloe |
-| `orchid` | Every 7 days (soaking) | 1.5× | Phalaenopsis, Dendrobium |
-| `calathea` | Every 5 days | 1.3× | Calathea, Maranta, Ctenanthe |
-| `herb_tropical` | Every 3 days | 1.5× | Basil, Mint, Coriander |
-| `mediterranean` | Every 10 days | 2.0× | Rosemary, Lavender, Thyme |
-| `fern` | Every 4 days | 1.3× | Nephrolepis, Adiantum, Asplenium |
-| `cactus` | Every 21 days | 3.0× | Cacti (Cactaceae) |
-| `custom` | Freely configurable | Free | — |
+<!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
+
+| Care Style | Watering Interval (Summer) | Winter Factor | Watering Method | Typical Plants |
+|------------|------------------------------|----------------|------------------|----------------|
+| Tropical (`tropical`) | Every 7 days | 1.5× | Top watering | Monstera, Philodendron, Ficus |
+| Succulent (`succulent`) | Every 14 days | 3.0× | Drench & drain | Echeveria, Haworthia, Aloe |
+| Orchid (`orchid`) | Every 7 days | 2.0× | Soak | Phalaenopsis, Dendrobium |
+| Calathea (`calathea`) | Every 5 days | 1.5× | Bottom watering | Calathea, Maranta, Ctenanthe |
+| Tropical Herbs (`herb_tropical`) | Every 5 days | 1.5× | Top watering | Basil, Mint, Coriander |
+| Mediterranean (`mediterranean`) | Every 10 days | 2.0× | Drench & drain | Rosemary, Lavender, Thyme |
+| Fern (`fern`) | Every 4 days | 1.5× | Top watering | Nephrolepis, Adiantum, Asplenium |
+| Cactus (`cactus`) | Every 21 days | 4.0× | Drench & drain | Cacti (Cactaceae) |
+| Custom (`custom`) | Starts at 7 days, freely adjustable | Starts at 1.5×, freely adjustable | Freely selectable | — |
 
 !!! warning "Not all succulents are cacti"
     Cacti (Cactaceae) and succulents like Echeveria or Haworthia belong to different families. The `cactus` care style applies only to true cacti. Echeveria and Haworthia use `succulent`. Lithops and other Mesembs (Aizoaceae) require even more specific logic and should be configured with `custom`.
-
-### Watering Instructions
-
-The care profile shows not just *when* but also *how* to water:
-
-| Care style | Watering method |
-|------------|----------------|
-| `tropical` | Water from above until water drains from the bottom. Empty the saucer after 30 min. |
-| `orchid` | Soak: place pot in lukewarm water for 10–15 min, then let drain. |
-| `calathea` | Water from above with low-lime water. Do not wet the leaves. |
-| `cactus` | Water thoroughly, let dry completely before the next watering. |
 
 !!! info "Water quality"
     For Calatheas and Orchids the system recommends rainwater or filtered water — these plants are sensitive to lime in tap water (brown leaf tips).
@@ -80,25 +79,30 @@ The care profile shows not just *when* but also *how* to water:
 
 ## Automatic Reminder Types
 
-The system generates daily reminders for the following care tasks:
+Kamerplanter generates reminders for the following six care tasks:
 
-| Reminder type | Trigger | Priority |
-|---------------|---------|---------|
-| **Watering** | Interval since last confirmation | High |
-| **Fertilising** | Interval + only in active months | Medium |
-| **Repotting** | Months since last repotting | Low |
-| **Pest check** | Fixed interval (default: 14 days) | Medium |
-| **Location check** | Seasonal: October + March | Medium |
-| **Humidity check** | Heating period (Oct–Mar) | Medium |
-| **Winter protection** | October (northern hemisphere) | High |
-| **Spring uncovering** | March (northern hemisphere) | High |
-| **Tuber digging** | Before first frost (October) | Critical |
+<!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (ReminderType, should_generate_reminder) -->
 
-### Fertilising Guard (Dormancy Guard)
+| Reminder Type | Trigger |
+|---------------|---------|
+| **Watering** | Interval since last confirmation, seasonally adjusted |
+| **Fertilizing** | Interval + only within the care style's active months, only if a nutrient plan is assigned |
+| **Repotting** | Months since last repotting |
+| **Pest Check** | Fixed interval (varies by care style, default 14 days) |
+| **Location Check** | Optionally enabled, can be restricted to specific months |
+| **Humidity Check** | Optionally enabled, fixed interval |
 
-Fertilising reminders are **not** generated if:
-- The current month is outside the `active months` of the care style (e.g. November–February for most houseplants)
-- The plant is in a dormant phase (winter dormancy, senescence, hardening-off phase)
+Automatically created care tasks start with priority "Medium"; if a reminder is already overdue, the resulting task is created with priority "High".
+
+### Why a Reminder Might Not Appear
+
+The most common reason for a "missing" reminder is one of the following:
+
+- **Active watering schedule**: If the plant already has an active automatic watering schedule via a planting run, Kamerplanter suppresses additional manual watering and fertilizing reminders for that plant.
+- **Nutrient plan requirement**: Fertilizing reminders only occur if a nutrient plan is assigned to the plant — regardless of care style.
+- **Dormant phase**: If the plant is in a dormant phase (winter dormancy, senescence, hardening-off, acclimatization, repotting recovery), all reminders except pest check are suppressed.
+- **Active months**: If the current month is outside the care style's active months (e.g. November–February for most houseplants), no fertilizing reminder is generated.
+- **On/off toggles**: Each reminder type can be individually disabled in the care profile.
 
 !!! tip "Why no fertiliser in winter?"
     With reduced light in winter, the photosynthesis rate drops. Houseplants cannot absorb nutrients — fertiliser accumulates as salt in the substrate and damages the roots.
@@ -109,10 +113,10 @@ Fertilising reminders are **not** generated if:
 
 The system automatically adjusts watering intervals to the season:
 
-- **Northern hemisphere**: Winter = November–February, Summer = May–August
-- **Southern hemisphere**: Winter = May–August, Summer = November–February
+- **Northern hemisphere**: Winter = December–February
+- **Southern hemisphere**: Winter = June–August
 
-The hemisphere is derived from the plant's location (`Site.hemisphere`). The effective watering interval is calculated as:
+The effective watering interval during winter months is calculated as:
 
 ```
 Effective interval = base interval × winter factor
@@ -127,40 +131,34 @@ Effective interval = base interval × winter factor
 
 ## Overwintering Management
 
-For plants that need winter protection, Kamerplanter provides a complete overwintering system.
+!!! warning "Not yet implemented"
+    A winter hardiness traffic light (colour rating based on frost sensitivity and climate zone), frost-forecast-driven reminders, and a tuber-cycle tab will be available in a future version. Five related reminder types (deadheading, tuber digging, storage check, spring uncovering, winter protection) already exist as a data model, but do not yet generate reminders — the evaluation logic is missing.
 
-### Winter Hardiness Traffic Light
+    For frost-tender outdoor plants you currently need to plan digging and storage dates yourself in the calendar or as a custom [task](tasks.md).
 
-Each plant receives a colour rating based on its frost sensitivity and your climate zone:
+---
 
-| Light | Meaning | Typical plants |
-|-------|---------|----------------|
-| Green | Frost-hardy — no protection needed | Gooseberry, apple tree, tulips |
-| Yellow | Needs protection — mulch or fleece | Roses, lavender, perennials |
-| Red | Must overwinter frost-free | Oleander, citrus, dahlias |
+## Outdoor Care Styles
 
-!!! warning "Dahlias and tubers"
-    Dahlias, gladioli and canna must be dug up before the first frost. The system sends a **critical reminder** with the tuber-digging notice as soon as the temperature forecast indicates frost.
+In addition to the nine houseplant styles, the data model knows ten outdoor presets:
 
-### Tracking the Tuber Cycle
+<!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
-For plants with tubers or bulbs (dahlias, gladioli, canna, tulips) you can document the complete annual cycle:
+| Care Style | Watering Interval (Summer) | Winter Factor | Fertilizing Active | Typical Plants |
+|------------|------------------------------|----------------|---------------------|-----------------|
+| `outdoor_annual_veg` | Every 3 days | 1.0× | April–September | Outdoor vegetables (annual) |
+| `outdoor_perennial` | Every 5 days | 2.0× | March–September | Perennials |
+| `outdoor_annual_ornamental` | Every 3 days | 1.0× | April–September | Pansy, geranium, lobelia |
+| `fruit_tree` | Every 14 days | 1.0× | March–May | Apple, pear, cherry |
+| `berry_shrub` | Every 7 days | 1.0× | March–June | Raspberry, currant, gooseberry |
+| `rose` | Every 7 days | 1.5× | April–July | Bed, shrub, and climbing roses |
+| `frost_tender_tuber` | Every 5 days | 5.0× | May–August | Dahlia, gladiolus, canna |
+| `frost_tender_container` | Every 5 days | 4.0× | April–September | Oleander, citrus, olive |
+| `winter_vegetable` | Every 7 days | 2.0× | August–September | Kale, lamb's lettuce, winter purslane |
+| `spring_bulb` | Every 14 days | 1.0× | March–May | Tulip, daffodil, crocus |
 
-1. Plant out → Bloom → Dig up → Dry → Store → Inspect → Pre-grow
-
-Navigate to **Plants** > desired plant > **Overwintering** tab to manage the status.
-
-### Outdoor Care Styles
-
-In addition to houseplant styles, there are presets for outdoor plants:
-
-| Care style | Winter action | Typical plants |
-|------------|--------------|----------------|
-| `outdoor_perennial` | Check winter protection (mulch, fleece) | Larkspur, Phlox, perennials |
-| `frost_tender_tuber` | DIG UP + store frost-free | Dahlia, Gladiolus, Canna |
-| `frost_tender_container` | Move to winter quarters (5–12°C, bright) | Oleander, Citrus, Olive |
-| `fruit_tree` | Lime wash, trunk protection | Apple, Pear, Cherry |
-| `spring_bulb` | Leave in ground (frost-hardy) | Tulip, Narcissus, Crocus |
+!!! info "Selectable only via the API"
+    These ten outdoor presets are currently **not** available in the "Care Style" selector of the care profile dialog — the UI only offers the nine houseplant styles from the table above. Likewise, automatic family-based assignment (see below) never assigns an outdoor style to a plant. An outdoor preset can currently only be set via the technical API.
 
 ---
 
@@ -168,74 +166,47 @@ In addition to houseplant styles, there are presets for outdoor plants:
 
 The system knows the care requirements of 10 plant families and automatically assigns new plants to the matching care style:
 
-| Family | Auto style |
+<!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (FAMILY_CARE_MAP) -->
+
+| Family | Auto Style |
 |--------|-----------|
 | Araceae (arums) | `tropical` |
-| Cactaceae (cacti) | `cactus` |
 | Marantaceae (prayer plants) | `calathea` |
 | Orchidaceae (orchids) | `orchid` |
+| Cactaceae (cacti) | `cactus` |
 | Crassulaceae (stonecrops) | `succulent` |
 | Asphodelaceae (asphodels) | `succulent` |
-| Lamiaceae (mints) | `mediterranean` |
-| Polypodiaceae / Pteridaceae (ferns) | `fern` |
-| Liliaceae / Amaryllidaceae (lilies) | `outdoor_perennial` |
-| Solanaceae (nightshades) | `outdoor_annual_veg` |
+| Polypodiaceae (polypody ferns) | `fern` |
+| Lamiaceae (mints) | `herb_tropical` |
+| Oleaceae (olive family) | `mediterranean` |
+| Moraceae (fig family) | `tropical` |
+
+For all unlisted families the fallback style `tropical` applies, unless a species-specific watering guide is available.
 
 !!! tip "Automatic assignment"
     When you create a new plant instance, the system automatically assigns the matching care style based on the botanical family. You can override the style manually at any time.
 
 ---
 
-## Notification Channels
-
-Kamerplanter delivers care reminders via configurable channels. Settings are located under **Settings** > **Notifications**.
-
-| Channel | `channel_key` | Description | Configuration required |
-|---------|---------------|-------------|------------------------|
-| **Email** | `email` | Daily summary and urgent reminders by email | None (always active as long as an email address is stored) |
-| **Browser Push (PWA)** | `pwa` | Web Push notifications directly in the browser or as an installed PWA | Per-device — see below |
-
-### Enabling Browser Push (PWA)
-
-The browser push channel is **per device**. Each device (smartphone, tablet, desktop browser) must be subscribed individually.
-
-1. Open **Settings** > **Notifications**
-2. Click **Enable on this device** next to "Browser Push"
-3. The browser asks for notification permission — click **Allow**
-4. The device is now subscribed and will receive reminders
-5. Click **Send test** to verify the connection
-
-!!! note "Browser compatibility"
-    Browser Push works with current Chromium-based browsers (Chrome, Edge, Brave) and Firefox. Safari on iOS requires iOS 16.4+ and the app added to the home screen as a PWA. The site must be served over **HTTPS** — on `http://localhost`, Push is only available for development purposes.
-
-!!! warning "“Not configured” after enabling"
-    If the channel still shows **Not configured** after enabling it, the VAPID keys have not been set by the instance operator. Please contact your administrator. For self-hosted instances: see [Environment Variables — Browser Push (VAPID)](../reference/environment-variables.md#browser-push-pwa-vapid).
-
-### Daily Summary and Quiet Hours
-
-The **Daily summary** time setting and **Quiet hours** (e.g. 22:00–07:00) apply to all channels equally — including Browser Push. Critical reminders (e.g. dig up tubers before frost) bypass quiet hours.
-
----
-
 ## Frequently Asked Questions
 
 ??? question "The reminder appears too late — can I adjust this?"
-    Yes. Open the plant's care profile and reduce the interval. Alternatively, the system will recognise the pattern after a few confirmations and adjust the interval automatically.
+    Yes. Open the plant's care profile and reduce the interval using the slider. Alternatively, the system will recognise the pattern after a few confirmations and adjust the interval automatically.
 
 ??? question "I forgot to water a plant — how do I reset the counter?"
-    Confirm the care manually in the care dashboard. The system resets the timer to "now", regardless of when the last confirmation was.
+    Confirm the care manually via **Done** in the task overview (Source "Care"). The system resets the time to "now", regardless of when the last confirmation was.
 
 ??? question "Why am I not getting a fertilising reminder for my Monstera in December?"
-    That is correct — Monstera (care style: `tropical`) has an active fertilising period of March–October. In December this period has ended, as houseplants cannot absorb nutrients in winter with reduced light.
+    That is correct — Monstera (`tropical`) has an active fertilising period of March–September. In December this period has ended, as houseplants cannot absorb nutrients in winter with reduced light.
 
-??? question "My dahlia has a green traffic light — but I know it needs protection."
-    The light is calculated from the `frost_sensitivity` value of the species AND your climate zone. Check whether the correct climate zone is set for your location. You can also manually set the care style to `frost_tender_tuber`.
+??? question "What is the difference between \"Later\" and \"Skip\"?"
+    "Later" (snooze) postpones a care reminder by one day without changing the time of your last confirmation — the reminder reappears the next day. There is currently no "Skip" action for care reminders like there is for regular tasks; use "Later" instead, or confirm the care as usual.
 
 ---
 
 ## See Also
 
+- [Tasks](tasks.md)
 - [Planting Runs](planting-runs.md)
 - [Growth Phases](growth-phases.md)
-- [Locations & Substrates](locations-substrates.md)
 - [Calendar](calendar.md)

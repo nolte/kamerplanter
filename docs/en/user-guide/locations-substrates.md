@@ -25,7 +25,7 @@ Site (facility)
 
 **Location** is a concrete area within a site — for example "Grow Tent A", "Raised Bed 1", or "South Balcony". Locations can contain further locations: you can model "House" → "Living Room" → "South Window Sill".
 
-**Slot** is a single planting spot — for example "Pot 3" or "Row 2, Position 4". Slots are always the bottom level and can be assigned to exactly one plant.
+**Slot** is a single planting spot — for example "TENT01_A1" for spot A1 in grow tent 1. Slots are always the bottom level and can be assigned to exactly one plant.
 
 !!! tip "How deep should the structure be?"
     For simple setups (balcony, one grow tent) it is sufficient to create sites and locations. Slots are useful when you have many plants in the same area and want to track each spot individually.
@@ -47,16 +47,19 @@ Click **Add Site** (top right). A form opens.
 | Field | Description | Example |
 |-------|-------------|---------|
 | Name | Site name | "My Indoor Garden" |
-| Climate Zone | Location climate zone | "Cfb (Temperate oceanic)" |
+| Climate Zone | Location climate zone in USDA hardiness-zone format | "8a" |
 | Total Area (m²) | Total growing area | 12 |
 | Timezone | Timezone for tasks and calendar | "Europe/Berlin" |
+
+!!! info "Why USDA zones and not Köppen climate classification?"
+    Kamerplanter expects the climate zone in **USDA Plant Hardiness Zone** format (a number from 1–13, optionally with an "a" or "b" suffix, e.g. "8a"), not the Köppen climate classification (e.g. "Cfb"). The reason: the hardiness data for plant species in the master data (`hardiness_zones`) uses the same format — this is what later allows Kamerplanter to check automatically whether a species can overwinter outdoors at your location. You can look up the matching zone for your area via the official [USDA Plant Hardiness Zone Map](https://planthardiness.ars.usda.gov/) or comparable hardiness zone maps for your region.
 
 !!! note "Experience levels"
     Depending on your experience level (Beginner / Intermediate / Expert, configurable in account settings) you will see more or fewer fields. Experts see additional fields for water source configuration, GPS coordinates, and frost dates.
 
 ### Step 4: Configure Water Source (optional, Intermediate and above)
 
-If you use tap water or a reverse osmosis system, enter the water values. The system will automatically calculate your EC budget, CalMag requirements, and mixing recommendations.
+If you use tap water or a reverse osmosis system, enter the water values. The system will automatically calculate your EC budget (EC = electrical conductivity, a measure of the nutrient-salt concentration of your solution — see [Fertilization](fertilization.md) for details), CalMag requirements, and mixing recommendations.
 
 #### Tap Water Profile
 
@@ -86,7 +89,7 @@ If you use tap water or a reverse osmosis system, enter the water values. The sy
     - **Berlin**: berliner-wasserbetriebe.de — water quality by postal code
     - **Munich**: swm.de — drinking water analysis by supply area
 
-    Alternatively, you can measure the values yourself: an EC/TDS meter (from approx. 15 EUR) provides the EC value, a pH meter the pH. For calcium and magnesium, drop tests (GH/KH test kits from aquarium supplies, from approx. 8 EUR) are an affordable option.
+    Alternatively, you can measure the values yourself: an EC/TDS meter (TDS = Total Dissolved Solids; from approx. 15 EUR) provides the EC value, a pH meter the pH. For calcium and magnesium, drop tests (GH/KH test kits from aquarium supplies, from approx. 8 EUR) are an affordable option.
 
 !!! warning "Why accurate water values matter"
     Kamerplanter uses your water values to calculate the **EC budget** (how much room is left for fertilizer) and the **CalMag correction** (whether additional calcium/magnesium is needed). Inaccurate values lead to wrong fertilization recommendations — in the worst case, over- or under-fertilization.
@@ -94,6 +97,9 @@ If you use tap water or a reverse osmosis system, enter the water values. The sy
 ### Step 5: Save
 
 Click **Save**. The site appears in the overview.
+
+!!! info "For technical users"
+    Besides name, climate zone, area, and timezone, a site also tracks GPS coordinates and average frost dates (last spring frost, first autumn frost, and the German "Eisheilige" date) in the background. This setting is currently only available via the API — it is not yet editable in the site form. The benefit: once a site has a GPS position, Kamerplanter can calculate the actual day length at your location and correctly evaluate automatic, photoperiod-triggered phase transitions (e.g. flower onset for outdoor short-day plants) — see [Automatic Phase Transitions](growth-phases.md#automatic-phase-transitions). Frost dates also feed into the sowing calendar.
 
 ---
 
@@ -110,78 +116,103 @@ Click **Save**. The site appears in the overview.
 
 **Available Location Types:**
 
-| Type | Description |
-|------|-------------|
-| Grow Tent | Enclosed grow tent with controlled climate |
-| Greenhouse | Glass house or poly tunnel |
-| Raised Bed | Elevated bed outdoors |
-| Open Bed | Ground-level bed in the garden |
-| Balcony | Balcony or terrace |
-| Window Sill | Indoor window sill |
-| Room | Whole room as an area |
-| Hydroponic System | NFT, DWC, aeroponics, or similar |
-| Shelf | Shelf or shelving unit |
-| Other | User-defined type |
+<!-- Source: src/backend/app/migrations/seed_data/location_types.yaml -->
+
+| Type | Indoor? | Description |
+|------|:---:|-------------|
+| Zone | — | Free-form subdivision without a fixed assignment, e.g. for rough area planning |
+| Home | No | Top level for a private residence |
+| Garden | No | The entire outdoor area |
+| Greenhouse | No | Glass house or poly tunnel |
+| Building | Yes | A building as an area, e.g. an outbuilding or shed |
+| Room | Yes | A whole room as an area |
+| Balcony | No | Balcony |
+| Terrace | No | Terrace |
+| Grow Tent | Yes | Enclosed grow tent with controlled climate |
+| Bed | No | Ground-level or raised bed outdoors |
+| Shelf | Yes | Shelf or shelving unit |
+| Container Group | No | Grouping of several pots or containers in one place |
+
+!!! info "For technical users"
+    The twelve types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
 
 ### Adding a Slot Within a Location
 
 1. Open a location by clicking its name in the tree.
 2. Click **Add Slot**.
-3. Enter a label (e.g. "Pot 1" or "Row A, Position 3").
-4. Optional: Enter the capacity (pot size in litres).
+3. Kamerplanter automatically suggests a **slot ID** in the format `AREA_POSITION` (e.g. "TENT01_A1"); you can adjust it, and it is automatically converted to uppercase on save.
+4. Enter the **capacity** — the maximum number of plants this slot can hold at once (1–20, default: 1).
 
 ---
 
 ## Managing Substrates
 
-A substrate describes the growing medium in which your plants root. Kamerplanter distinguishes between different substrate types and allows management of substrate batches.
+A substrate describes the growing medium in which your plants root. Kamerplanter distinguishes between 14 substrate types, supports custom substrate mixes, and manages concrete **batches** of a substrate (e.g. "Organic soil, mixed March 2026") separately from the general substrate type.
 
 ### Creating a New Substrate
 
 1. Navigate to **Locations → Substrates**.
 2. Click **Add Substrate**.
 3. Select the **substrate type** (see table).
-4. Enter a name (e.g. "Organic Soil Batch March 2026").
-5. Optional: Enter pH range, EC value, and capacity.
+4. Enter a name (German and English, e.g. "Organic Soil" / "Bio-Erde").
+5. Optional: Enter base pH, base EC, water retention, air porosity, and buffer capacity.
 
 **Available Substrate Types:**
 
-| Type | Description | Recommended Use |
-|------|-------------|----------------|
-| Soil (SOIL) | Standard garden soil | Outdoors, pot plants |
-| Organic Soil | Organically enriched soil | Houseplants, herbs |
-| Living Soil | Living soil with microbiome | Organic growing |
-| Coco Coir | Coconut substrate | Indoor, hydroponic-like |
-| Perlite | Volcanic mineral (drainage) | Always as an additive |
-| Rockwool Slabs | Mineral wool for hydroponics | Hydro systems, cultivation |
-| Rockwool Plugs | Small propagation blocks | Cuttings, germination |
-| Raised Bed Mix | Special raised-bed soil | Raised beds |
-| Peat | Peat-based (not recommended) | Historical use |
-| Vermiculite | Expanded mineral | Propagation, additive |
-| PON Mineral | LECA / expanded clay | Semi-hydroponics |
-| Sphagnum | Peat moss | Orchids, epiphytes |
+<!-- Source: src/backend/app/common/enums.py (SubstrateType) -->
 
-!!! warning "Coco Coir and CalMag"
-    Coco coir actively binds calcium and magnesium. CalMag supplements are always recommended for coco substrates, even with hard tap water. Kamerplanter will warn you if a nutrient plan for coco plants contains no CalMag.
+| Type | Description |
+|------|-------------|
+| Soil | Standard garden or potting soil |
+| Coco | Coconut substrate (coco coir) |
+| Clay Pebbles | Expanded clay pellets, mostly used in hydro systems |
+| Perlite | Volcanic mineral, usually added for drainage |
+| Living Soil | Soil with an active microbiome |
+| Peat | Peat-based substrate |
+| Rockwool Slab | Mineral wool slab for hydroponics |
+| Rockwool Plug | Small mineral wool propagation cube for cuttings and germination |
+| Vermiculite | Expanded mineral, usually added or used for propagation |
+| No Substrate | For substrate-less systems (e.g. pure aeroponics) |
+| Orchid Bark | Coarse bark chunks for epiphytes |
+| PON Mineral Substrate | Mineral semi-hydro substrate (LECA-like) |
+| Sphagnum Moss | Peat moss, commonly used for orchids and carnivorous plants |
+| Hydro Solution | Pure nutrient solution with no solid substrate (e.g. DWC) |
 
-### Assigning a Substrate to a Slot
+!!! warning "Coco and CalMag"
+    Coco substrate actively binds calcium and magnesium. CalMag supplements are always recommended for coco substrates, even with hard tap water. Kamerplanter will warn you if a nutrient plan for coco plants contains no CalMag.
 
-1. Open the desired slot.
-2. Click **Assign Substrate**.
-3. Select an existing substrate from the list.
-4. The substrate is now linked to this slot.
+### Creating Custom Substrate Mixes
 
-### Preparing a Substrate for Reuse
+Instead of using a single substrate type, you can combine several existing substrates into a custom mix (e.g. 70% soil + 20% perlite + 10% vermiculite):
 
-After completing a growing cycle you can prepare a substrate for reuse:
+1. Click **Create Mix** in the substrate overview.
+2. Select at least two existing substrates (pure mixes cannot themselves be mixed again).
+3. Distribute the shares in percent — **Distribute Evenly** splits them automatically. The total must add up to exactly 100%.
+4. Click **Preview** to see the mix's calculated properties (base pH, base EC, water retention, air porosity, etc. — each as a weighted average of the components).
+5. Enter a name (German/English) and click **Save**.
 
-1. Open the substrate in the detail view.
-2. Click **Prepare for Reuse**.
-3. The system checks pH standard deviation and EC drift from previous use.
-4. If the drift is too large a warning appears — in this case, new substrate is recommended.
+### Substrate Batches (Reuse, Assignment)
 
-!!! note "Disposable substrates"
-    Rockwool slabs and plugs are single-use substrates and are not offered for reuse.
+A **batch** is a concrete, physical quantity of a substrate with its own history — for example, a specific bag of soil reused across several growing cycles. For each batch, Kamerplanter tracks:
+
+| Field | Description |
+|-------|-------------|
+| Batch ID | Freely chosen label, e.g. "SOIL-2026-03" |
+| Volume (litres) | Amount of this batch |
+| Mixed on | Date of preparation/purchase |
+| Last amended | Date of the last nutrient/pH refresh |
+| Cycles used | How many growing cycles this batch has already been used for |
+| Current pH / EC | Latest measured values, including history |
+
+**Preparing for reuse:** After completing a growing cycle, check whether a batch can be used again:
+
+1. Open the substrate batch in the detail view.
+2. Click **Check Reusability**. The system compares the batch's history against the substrate type's allowed reuse cycles.
+3. If preparation is needed, Kamerplanter shows the required steps (e.g. flushing, re-fertilizing) along with an estimated duration and the earliest date the batch will be ready again.
+4. Click **Prepare for Reuse** to log the preparation step.
+
+!!! info "For technical users"
+    Kamerplanter can already technically link a substrate batch to a slot. This setting is currently only available via the API — there is no UI for this yet. Until then, enter the substrate reference in the **Substrate Batch** field when creating a planting run (see [Planting Runs](planting-runs.md)).
 
 ---
 
@@ -190,7 +221,7 @@ After completing a growing cycle you can prepare a substrate for reuse:
 !!! example "Example: Balcony gardener"
     - Site: "Berlin Apartment"
     - Location: "South Balcony" (type: Balcony)
-    - Location: "Kitchen Window Sill" (type: Window Sill)
+    - Location: "Kitchen" (type: Room)
     - Slots: "Pot Tomato", "Pot Basil", "Pot Parsley"
 
 !!! example "Example: Indoor grower with two tents"
@@ -215,7 +246,7 @@ After completing a growing cycle you can prepare a substrate for reuse:
     Yes. You can assign plants directly to a location without creating slots. Slots are useful when you have many plants in one area and want to track each position precisely.
 
 ??? question "How do I record my own custom substrate mix?"
-    Choose the most suitable type when creating the substrate and describe the mix in the notes field. Expert users have access to additional fields for pH range, conductivity, and irrigation strategy.
+    Use the **Create Mix** feature in the substrate overview (see [Creating Custom Substrate Mixes](#creating-custom-substrate-mixes)). There you combine several existing substrates with percentage shares — Kamerplanter calculates the resulting properties automatically.
 
 ---
 
@@ -224,3 +255,4 @@ After completing a growing cycle you can prepare a substrate for reuse:
 - [Tank Management](tanks.md)
 - [Planting Runs](planting-runs.md)
 - [Fertilization](fertilization.md)
+- [Growth Phases](growth-phases.md)

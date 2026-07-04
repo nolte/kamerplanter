@@ -90,7 +90,7 @@ Bei jeder Anfrage holt der Context-Builder den aktuellen Zustand deiner Anlage a
 
 - Aktive Pflanzdurchläufe mit aktueller Wachstumsphase und Phasendauer
 - Letzte Messwerte: EC, pH, VPD, Temperatur, Luftfeuchtigkeit
-- Aktive IPM-Ereignisse (Schädlingsbefall, Krankheiten, laufende Behandlungen)
+- Aktive [IPM](../user-guide/pest-management.md)-Ereignisse (Integrierter Pflanzenschutz — Schädlingsbefall, Krankheiten, laufende Behandlungen)
 - Letzte Dünge-Ereignisse mit Mengen und Produkten
 
 ### Ebene 4: Deine Pflanzdaten (Echtzeit)
@@ -153,13 +153,12 @@ Das System enthält 100 Benchmark-Fragen, deren Antworten bei jeder Wissensbasis
 
 ## Eigene Guides hinzufügen (Admin)
 
-Tenant-Admins können eigene thematische Guides zur lokalen Wissensbasis hinzufügen. Das ist sinnvoll für:
+!!! warning "Noch nicht implementiert"
+    Eine Verwaltungsoberfläche zum Hochladen eigener, tenant-spezifischer Guides gibt es aktuell nicht — weder im Frontend noch als eigenständiger Speicherbereich im Backend. Alle thematischen Guides stammen aus den kuratierten YAML-Dateien unter `spec/knowledge/rag/`, die zentral gepflegt und bei jedem Deployment in den Knowledge-Service-Container gemountet werden. Das folgende YAML-Format beschreibt, wie ein Guide-Chunk aufgebaut ist — es dient bereits heute als Vorlage für die zentral gepflegten Guides, eine tenant-eigene Upload-Funktion wird es erst in einer künftigen Version geben.
 
-- Sortenspezifisches Spezialwissen
-- Betriebsinterne Protokolle und Erfahrungswerte
-- Guides in anderen Sprachen
+Sobald diese Funktion verfügbar ist, werden Tenant-Admins eigene thematische Guides zur lokalen Wissensbasis hinzufügen können — sinnvoll für sortenspezifisches Spezialwissen, betriebsinterne Protokolle oder Guides in anderen Sprachen.
 
-### YAML-Format
+### YAML-Format (Referenz)
 
 ```yaml
 ---
@@ -182,30 +181,20 @@ chunks:
       substrate: coco
 ```
 
-### Guide hochladen
-
-1. Öffne **Einstellungen > KI-Wissensbasis**
-2. Klicke auf **Guide hochladen**
-3. Wähle deine YAML-Datei aus
-4. Das System validiert das Format und zeigt eine Vorschau
-5. Bestätige mit **Importieren**
-
-Der neue Guide wird beim nächsten Reindex-Zyklus (täglich, 06:00 Uhr UTC) in die Vektordatenbank aufgenommen. Du kannst den Reindex auch manuell anstoßen.
-
-!!! warning "Qualitätsverantwortung"
-    Eigene Guides werden nicht automatisch geprüft. Du bist für die fachliche Korrektheit deiner Guides verantwortlich. Fehlerhafte Guides können die Qualität der KI-Antworten verschlechtern.
+!!! note "Qualitätsverantwortung"
+    Auch nach Einführung der Upload-Funktion werden eigene Guides nicht automatisch fachlich geprüft. Fehlerhafte Guides können die Qualität der KI-Antworten verschlechtern.
 
 ---
 
 ## Wissensbasis reindexieren (Operator/Entwickler)
 
-Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/rag/` müssen die Vektoren in pgvector neu berechnet werden. Das passiert automatisch wöchentlich (Sonntag 03:00 UTC), kann aber auch manuell angestoßen werden.
+Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/rag/` müssen die Vektoren in der VectorDB (pgvector) neu berechnet werden. Es gibt **keinen automatischen Zeitplan** dafür — der Reindex muss nach jeder inhaltlichen Änderung manuell über den Knowledge-Service angestoßen werden.
 
 ### Voraussetzungen
 
-- Die Knowledge-YAML-Dateien sind im Container unter `/app/knowledge` gemountet (passiert automatisch bei Skaffold-Deployment)
-- VectorDB (pgvector) und Embedding-Service müssen laufen
-- `vectordb_enabled: true` in der Backend-Konfiguration
+- Die Knowledge-YAML-Dateien sind im Knowledge-Service-Container unter `/app/knowledge` gemountet (passiert automatisch bei Skaffold-Deployment)
+- Der Knowledge-Service und sein Embedding-Service müssen laufen
+- `INTERNAL_SERVICE_TOKEN` ist gesetzt (der Endpunkt ist service-token-geschützt, siehe [Fehlerbehandlung](../api/error-handling.md))
 
 ### Workflow: Chunk ändern → deployen → reindexieren → testen
 
@@ -213,12 +202,13 @@ Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/rag/` müss
 # 1. Knowledge-YAML-Dateien bearbeiten
 #    z.B. spec/knowledge/rag/diagnostik/naehrstoffmangel-symptome.yaml
 
-# 2. Neu deployen (damit die Dateien im Container ankommen)
+# 2. Neu deployen (damit die Dateien im Knowledge-Service-Container ankommen)
 skaffold dev   # oder: skaffold run
 
-# 3. Celery-Task manuell triggern
-kubectl exec -it deploy/celery-worker -- \
-  celery -A app.tasks call app.tasks.vector_indexing_tasks.reindex_vector_chunks
+# 3. Reindex über den Knowledge-Service-Endpunkt auslösen
+kubectl exec -it deploy/knowledge-service -- \
+  curl -sX POST http://localhost:8000/ingest \
+  -H "Authorization: Bearer $INTERNAL_SERVICE_TOKEN"
 
 # 4. Benchmark laufen lassen (optional, empfohlen)
 cd tools/rag-eval
@@ -226,22 +216,12 @@ source ~/.venvs/rag-eval/bin/activate
 python eval_rag.py
 ```
 
-### Alternative: Task direkt im Python-Interpreter auslösen
-
-```bash
-kubectl exec -it deploy/celery-worker -- python -c "
-from app.tasks.vector_indexing_tasks import reindex_vector_chunks
-result = reindex_vector_chunks.delay()
-print(f'Task ID: {result.id}')
-"
-```
-
 ### Was passiert beim Reindex?
 
 1. Alle YAML-Dateien unter `/app/knowledge` werden gelesen
-2. Jeder Chunk wird mit dem Embedding-Modell vektorisiert (`paraphrase-multilingual-MiniLM-L12-v2`, 384 Dimensionen)
-3. Vektoren werden per Upsert in `ai_vector_chunks` geschrieben (bestehende Chunks werden aktualisiert, neue hinzugefügt)
-4. Der Task gibt eine Zusammenfassung zurück: Anzahl Dateien, Anzahl Chunks, Dauer
+2. Jeder Chunk wird mit dem Embedding-Modell vektorisiert (`multilingual-e5-large`, 1024 Dimensionen, siehe [ADR-006](../adr/006-embedding-modell-e5-base-hybrid-search.md))
+3. Vektoren werden per Upsert in `ai_vector_chunks` geschrieben (bestehende Chunks werden anhand ihres `source_key` aktualisiert, neue hinzugefügt)
+4. Der Endpunkt gibt eine Zusammenfassung zurück: Anzahl Dateien, Anzahl Chunks
 
 !!! tip "Schneller Feedback-Loop"
     Für die iterative Verbesserung der Wissensbasis empfiehlt sich dieser Zyklus:
@@ -261,13 +241,13 @@ print(f'Task ID: {result.id}')
     Nein. Das System führt keine Internet-Suche durch. Alle Antworten basieren ausschließlich auf der lokalen Wissensbasis (Stammdaten, Guides) und deinen eigenen Pflanzdaten. Das ist eine bewusste Designentscheidung, um Halluzinationen zu vermeiden und Datenschutz zu gewährleisten.
 
 ??? question "Wie aktuell sind die Thematischen Guides?"
-    Die Guides werden mit jedem Kamerplanter-Update gepflegt. Der genaue Stand ist in der Versionsdokumentation ([Changelog](../changelog/index.md)) vermerkt. Eigene Guides, die du hochgeladen hast, bleiben immer aktuell bis du sie aktualisierst oder löschst.
+    Die Guides werden mit jedem Kamerplanter-Update gepflegt. Der genaue Stand ist in der Versionsdokumentation ([Changelog](../changelog/index.md)) vermerkt.
 
 ??? question "Was passiert, wenn kein passender Guide-Chunk gefunden wird?"
     Das System fällt auf die Stammdaten zurück (Ebene 1) und nutzt den strukturierten Kontext (Ebene 3+4). Die Antwortqualität ist dann geringer, aber das System antwortet trotzdem — ohne zu halluzinieren.
 
-??? question "Werden meine eigenen Guides mit anderen Nutzern geteilt?"
-    Nein. Eigene Guides sind tenant-scoped — sie sind nur für deinen Garten/deine Organisation sichtbar und werden nicht mit der globalen Wissensbasis oder anderen Tenants geteilt.
+??? question "Kann ich eigene Guides für meinen Tenant hinzufügen?"
+    Noch nicht — das ist als künftige Funktion geplant (siehe oben). Aktuell stammen alle thematischen Guides aus der zentral gepflegten Wissensbasis unter `spec/knowledge/rag/` und gelten für alle Tenants gleichermaßen.
 
 ---
 

@@ -31,22 +31,27 @@ Die Hierarchie ist: Familie → Art → Sorte. Jede Sorte gehört zu genau einer
 
 ### Wichtige Art-Felder
 
+Die Feldnamen in der Oberfläche sind deutsch beschriftet; in Klammern findest du den internen Feldnamen (Code-Name), z.B. für API-Zugriffe oder den CSV-Import.
+
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
-| Lebenszyklus | Annual, Biennial oder Perennial | Annual |
-| Wuchsform | Kraut, Strauch, Baum, Kletterpflanze | Kraut |
-| Wurzeltyp | Flachwurzler, Pfahlwurzel, Knollig, ... | Faserwurzel |
-| Frostempfindlichkeit | Hardy, Half-hardy, Tender | Tender |
-| Nährstoffbedarf | Starkzehrer, Mittelzehrer, Schwachzehrer | Starkzehrer |
-| Photoperiodismus | Kurztagspflanze, Langtagspflanze, Tagneutral | Tagneutral |
-| Toxizität | Giftigkeit für Katzen/Hunde (ASPCA-Daten) | Giftig für Katzen |
-| **Vermehrungsarten** | Eine oder mehrere übliche Vermehrungsmethoden (Mehrfachauswahl) | Aussaat, Steckling |
+| Lebenszyklus (`cycle_type`, Teil der Lebenszyklus-Konfiguration — siehe [Wachstumsphasen](growth-phases.md)) | Annual, Biennial oder Perennial | Annual |
+| Wuchsform (`growth_habit`) | Kraut, Strauch, Baum, Kletterpflanze, ... | Kraut |
+| Wurzeltyp (`root_type`) | Faserwurzel, Pfahlwurzel, Knollig, Zwiebel, Rhizom | Faserwurzel |
+| Frostempfindlichkeit (`frost_sensitivity`) | Empfindlich, Moderat, Hardy, Sehr hardy | Sehr hardy |
+| Nährstoffbedarf (`nutrient_demand_level`) | Starkzehrer, Mittelzehrer, Schwachzehrer, Stickstoffsammler | Starkzehrer |
+| Photoperiodismus (`photoperiod_type`, Teil der Lebenszyklus-Konfiguration) | Kurztagspflanze, Langtagspflanze, Tagneutral | Tagneutral |
+| Toxizität (`toxicity_severity`) | Giftigkeit für Katzen/Hunde (ASPCA-Daten, ASPCA = American Society for the Prevention of Cruelty to Animals) | Giftig für Katzen |
+| **Vermehrungsarten** (`propagation_methods`) | Eine oder mehrere übliche Vermehrungsmethoden (Mehrfachauswahl) | Aussaat, Steckling |
+
+!!! note "Nicht alle Felder stehen im Anlage-Dialog zur Verfügung"
+    Der Dialog **Neue Art** deckt nur die in Schritt 3 genannten Pflichtfelder sowie Wuchsform und Wurzeltyp ab. Die übrigen Felder dieser Tabelle pflegst du anschließend auf der Detailseite der Art.
 
 ### Vermehrungsarten (propagation_methods)
 
 Das Feld **Vermehrungsarten** ist eine Mehrfachauswahl und dokumentiert, wie eine Art üblicherweise vermehrt wird. Es wird im **Fortgeschrittenen-Modus** (REQ-021) angezeigt.
 
-Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung (REQ-017) und den KI-Wissensassistenten. Alle 143 vorgefertigten Kulturpflanzen-Stammdaten sind bereits mit den üblichen Methoden befüllt.
+Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung (REQ-017) und den KI-Wissensassistenten. Alle mitgelieferten Kulturpflanzen-Stammdaten sind bereits mit den üblichen Methoden befüllt.
 
 | Wert | Bezeichnung | Beschreibung |
 |------|------------|-------------|
@@ -83,7 +88,7 @@ Das Feld ist ebenfalls eine Mehrfachauswahl; gespeichert werden die Monatsnummer
 
 1. **Vermehrungs-Card** — Die Karte hat einen Lese-/Bearbeiten-Umschalter (Stift-Icon oben rechts):
     - **Leseansicht:** "Beste Vermehrungszeit: März–April" (zusammengefasste Monatsanzeige)
-    - **Bearbeitungsmodus:** 12 klickbare Monats-Chips — einfach die gewünschten Monate anklicken, dann **Speichern**
+    - **Bearbeitungsmodus:** 12 klickbare Monats-Chips — klicke die gewünschten Monate an, dann **Speichern**
 
 2. **Monats-Zeitachse (Balkendiagramm)** — Die oberste Zeile der Zeitachse trägt den Titel **"Vermehrung"** und zeigt die hinterlegten Monate als farbigen Balken (Teal). Diese Zeile ist **nur zur Anzeige** — bearbeitet wird ausschliesslich über die Vermehrungs-Card (Stift-Icon). Ist kein Monat hinterlegt, bleibt die Zeile leer.
 
@@ -113,7 +118,7 @@ Das Feld ergänzt die strukturierten Felder `propagation_methods` (Methoden) und
 !!! note "Sichtbarkeit nach Erfahrungsstufe"
     Das Feld **Vermehrungshinweise** erscheint ab der Erfahrungsstufe **Fortgeschrittener**. Im Einsteiger-Modus ist es ausgeblendet, kann aber über **Alle Felder anzeigen** eingeblendet werden.
 
-Alle 183 Arten mit gepflegten Vermehrungsmethoden haben bereits einen fachlichen Hinweistext hinterlegt.
+Alle mitgelieferten Arten mit gepflegten Vermehrungsmethoden haben bereits einen fachlichen Hinweistext hinterlegt.
 
 ### Art bearbeiten
 
@@ -192,6 +197,36 @@ Familien gruppieren verwandte Arten und sind die Basis für die Fruchtfolge-Plan
 2. Klicke auf **Neue Familie**
 3. Gib den Namen und optional die Fruchtfolge-Kategorie an
 
+Die eigentliche Fruchtfolge-Planung (empfohlene Nachfolgerfamilien, Wartezeiten, automatische Prüfung beim Anlegen einer Pflanze) verwaltest du separat unter **Stammdaten → Fruchtfolge** — siehe [Mischkultur & Fruchtfolge](../guides/companion-planting.md#fruchtfolge).
+
+---
+
+## Aktivitäten (Tätigkeiten) verwalten
+
+Neben den botanischen Stammdaten pflegt Kamerplanter auch **Aktivitäten** (Tätigkeiten) als eigene Stammdaten — wiederverwendbare Vorlagen für Pflegemaßnahmen wie Entspitzen, Ausgeizen, Umtopfen oder Ernte-Vorbereitung. Sie bilden die Grundlage für den [Aktivitätsplan-Tab eines Pflanzdurchlaufs](planting-runs.md#aktivitätsplan-tab) und für [Workflow-Vorlagen](tasks.md).
+
+### Wo du sie findest
+
+Navigiere zu **Stammdaten → Tätigkeiten**. System-Tätigkeiten (bereits mitgeliefert) lassen sich bearbeiten, aber nicht löschen.
+
+### Tätigkeit anlegen
+
+Klicke auf **Tätigkeit anlegen** und fülle die Abschnitte aus:
+
+| Abschnitt | Felder |
+|-----------|--------|
+| Bezeichnung | Name und Beschreibung jeweils auf Deutsch und Englisch |
+| Klassifizierung | Kategorie (z.B. Training/HST [High-Stress-Training], Training/LST [Low-Stress-Training], Schnitt, Ausgeizen, Umtopfen, Ernte-Vorbereitung, Vermehrung, Allgemein), Schwierigkeitsgrad, Stresslevel, Erholungstage |
+| Ausführung | Geschätzte Dauer, benötigtes Werkzeug, ob eine Foto-Dokumentation verlangt wird |
+| Geltungsbereich | **Kompatible Arten** — leer gelassen gilt die Tätigkeit für **alle Arten** ("Allgemeingültig"); trägst du Arten ein, gilt sie nur für diese ("Artspezifisch") |
+| Phasenbeschränkungen | **Verbotene Phasen** (z.B. Blüte, Keimung) und eingeschränkte Sub-Phasen, in denen die Tätigkeit nur mit Vorsicht ausgeführt werden sollte |
+| Tags & Sortierung | Freitext-Tags sowie die Reihenfolge in Listen |
+
+!!! tip "Artspezifisch statt allgemeingültig"
+    Nutze **Kompatible Arten**, um z.B. eine Cannabis-spezifische Trainingsmaßnahme (High-Stress-Training) nicht versehentlich für Tomaten oder Zimmerpflanzen vorzuschlagen.
+
+<!-- Quelle: src/frontend/src/pages/stammdaten/ActivityCreateDialog.tsx, src/frontend/src/i18n/locales/de/translation.json (pages.activities) -->
+
 ---
 
 ## Stammdaten per KI aufbereiten
@@ -235,6 +270,9 @@ flowchart LR
 !!! tip "CSV-Vorlagen herunterladen"
     Unter **Import** > **Vorlagen** stehen CSV-Templates für jede Entität bereit. Diese enthalten alle unterstützten Spalten mit Beispielwerten.
 
+!!! tip "KI-generierte CSV-Daten nutzen"
+    Die [KI-Pipeline](../guides/ai-plant-data-pipeline.md) liefert im Abschnitt 8 jedes Pflanzendokuments fertige CSV-Zeilen, die sich direkt importieren lassen.
+
 ---
 
 ## Voraussetzungen
@@ -248,6 +286,8 @@ flowchart LR
 - [Pflanzen-Bilderkennung verwenden](plant-identification.md) — Art per Foto identifizieren
 - [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md) — Referenzbild-Beschaffungslauf starten (für Administratoren)
 - [Wachstumsphasen](growth-phases.md) — Phasensteuerung pro Art
-- [Pflanzdurchläufe](planting-runs.md) — Pflanzen von der Aussaat bis zur Ernte begleiten
+- [Pflanzdurchläufe](planting-runs.md) — Pflanzen von der Aussaat bis zur Ernte begleiten, Aktivitätsplan anwenden
+- [Mischkultur & Fruchtfolge](../guides/companion-planting.md) — Kompatibilitäts- und Fruchtfolge-Stammdaten
+- [Aufgabenplanung](tasks.md) — Workflow-Vorlagen auf Basis von Aktivitäten
 - [Dünge-Logik](fertilization.md) — Nährstoffpläne und Feeding-Charts
 - [Vermehrungsmanagement](propagation.md) — Abstammungsgraph, Stecklinge, Veredelung

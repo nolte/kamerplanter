@@ -12,8 +12,8 @@ and shelf life.
 
 ## Prerequisites
 
-- A completed or in-progress harvest in Kamerplanter (REQ-007)
-- No active IPM treatment pre-harvest interval (PHI) for the affected plants
+- A completed or in-progress harvest in Kamerplanter <!-- REQ-007 -->
+- No active Integrated Pest Management (IPM) treatment pre-harvest interval (PHI) for the affected plants
 
 ---
 
@@ -43,11 +43,20 @@ stateDiagram-v2
     Storage --> [*]: Consumption or sale
 ```
 
-1. Navigate to the planting run and open the **Harvest** section.
+1. Navigate to **Harvest Batches** (`/ernte/batches`) and click **Create Harvest
+   Batch**.
 2. The system automatically checks all pre-harvest intervals.
-3. Create a **harvest batch** (HarvestBatch) with weight, date, and initial quality rating.
-4. Set up a **post-harvest protocol** and select the protocol type.
-5. Record regular **measurements** (weight, temperature, humidity).
+3. Create the **harvest batch** (HarvestBatch) with fresh weight, harvest date,
+   and harvest type. You record the quality assessment afterwards, separately,
+   in the **Quality** tab.
+
+!!! warning "Not yet implemented"
+    The following steps are specified but not yet built:
+
+    4. Create a dedicated **post-harvest protocol** with a selectable protocol type (drying/curing/storage as a state machine).
+    5. Record regular **measurements** (weight, temperature, humidity) in a structured way per protocol step.
+
+    Currently, only the **Actual Dry Weight (g)** field in the Edit tab of the harvest batch is available for this — see [Harvest Management](../user-guide/harvest.md#documenting-drying).
 
 ---
 
@@ -189,17 +198,14 @@ Salt content: 3–5 % (higher due to gochugaru and fish sauce).
 ### Quality Scoring in Kamerplanter
 
 After harvest and at the end of the curing process, record a quality assessment
-(QualityAssessment) in Kamerplanter:
+(QualityAssessment) in the **Quality** tab of the harvest batch:
 
-- **Visual condition**: Excellent / Good / Acceptable / Concerning / Critical
-- **Aroma quality**: Excellent / Good / Acceptable / Off / Moldy
-- **Weight progression**: Weigh daily or weekly and record in Kamerplanter
-- **Water activity (a_w)**: Cannabis target: 0.55–0.65; mold from a_w > 0.65
+- **Appearance score**, **aroma score**, and **colour score**: 0–100 points each
+- **Defects**: freely entered keywords (e.g. `mold`, `pests`, `hermaphrodite`) — recognised keywords feed into the score with a defined penalty
+- **Overall score** (0–100) and **grade** (A+/A/B/C/D): calculated automatically from the three scores and the defects — see the grade thresholds in [Harvest Management](../user-guide/harvest.md#quality-assessment)
 
-!!! tip "Record weight daily"
-    Daily weighing lets you objectively track drying progress. Cannabis typically loses
-    75–80 % of its fresh weight during drying. A weight curve display shows you when
-    the plateau has been reached.
+!!! note "Partially available"
+    Daily weight tracking with a drying-progress or water-activity (a_w) display during drying does not exist yet. You can only enter the **actual dry weight** once, at the end. Until then, use rule-of-thumb guidance: cannabis typically loses 75–80 % of its fresh weight during drying; target water activity for storage is 0.55–0.65 (mold risk above a_w > 0.65).
 
 ---
 
@@ -227,7 +233,7 @@ After harvest and at the end of the curing process, record a quality assessment
 
 ## See also
 
-- [Harvest (REQ-007)](../user-guide/harvest.md)
+- [Harvest](../user-guide/harvest.md) <!-- REQ-007 -->
 - [Pest Management (IPM)](../user-guide/pest-management.md)
 - [Sensors](../user-guide/sensors.md)
 - [VPD Optimization](vpd-optimization.md)

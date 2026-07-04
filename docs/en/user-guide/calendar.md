@@ -1,6 +1,6 @@
 # Calendar
 
-The calendar shows all planned and past activities in one central view: tasks, phase transitions, watering events, IPM inspections, and tank maintenance. Feeds can be subscribed to as iCal links in Google Calendar, Apple Calendar, or Thunderbird.
+The calendar shows all planned and past activities in one central view: tasks, phase transitions, watering forecasts, Integrated Pest Management (IPM) appointments, harvests, and tank maintenance — as a month grid, list, phase timeline, sowing calendar, or season overview. Events can be subscribed to as an iCal feed in external calendar apps.
 
 ---
 
@@ -13,73 +13,122 @@ The calendar shows all planned and past activities in one central view: tasks, p
 
 ## Opening the Calendar
 
-Click **Calendar** in the navigation. The calendar opens in month view.
+Click **Calendar** in the navigation. The view opens in month view by default.
 
 ---
 
-## View Modes
+## The Five Views
 
-The calendar offers four view modes, switchable in the top right:
+Switch between five views using the tabs at the top of the calendar:
 
-| Mode | Description |
-|------|-------------|
-| **Month** | Full month overview with events per day |
-| **Week** | Detailed week view with timeline |
-| **Day** | All events of a single day |
-| **List** | Tabular list view of all upcoming events |
+| Tab | Description |
+|-----|-------------|
+| **Month View** | Month grid with up to three events per day; additional ones are collapsed into a "+N" indicator |
+| **List View** | Tabular list of all filtered events in the current month, sortable |
+| **Phase Timeline** | Bar chart of phase transitions per planting run/plant for the current month |
+| **Sowing Calendar** | Week-precise outdoor growing calendar spanning the whole year |
+| **Season Overview** | A 12-month tile grid showing sowing, harvest, and bloom counts per month |
 
-For daily use the **week** or **list view** is recommended.
+!!! note "No week or day view"
+    Kamerplanter does not currently offer a dedicated week or day view. For a narrow time range, the list view works best.
 
 ---
 
 ## Event Categories and Color Coding
 
-Each event category has its own color for quick visual orientation:
+Each of the eleven event categories has its own colour for quick visual orientation. Use the filter chips above the calendar to show or hide individual categories:
 
-| Color | Category | Description |
-|--------|----------|-------------|
-| Blue | Tasks | All scheduled care tasks |
-| Green | Phase Transitions | Planned or completed phase changes |
-| Teal | Watering Events | Documented watering sessions |
-| Orange | IPM / Pest Control | Inspections and treatments |
-| Red | Harvests | Planned and completed harvests |
-| Grey | Tank Maintenance | Water changes, calibrations |
+| Category | Description |
+|----------|-------------|
+| Training | High-/low-stress training (HST/LST) measures |
+| Pruning | Trimming, defoliation |
+| Transplanting | Repotting appointments |
+| Feeding | Fertilization events |
+| IPM / Pest Control | IPM inspections and treatments |
+| Harvest | Planned and completed harvests |
+| Maintenance | General care tasks |
+| Phase Transitions | Planned or completed phase changes |
+| Tank Maintenance | Water changes, calibrations |
+| Watering Forecast | Precomputed watering dates from active watering schedules |
+| Custom | Free/custom events |
+
+<!-- Source: src/frontend/src/pages/kalender/CalendarPage.tsx (ALL_CATEGORIES) -->
 
 ---
 
 ## Filtering Events
 
-For large gardens with many plants the calendar can become busy quickly. Use the filter bar at the top:
+In the month, list, and phase timeline views, two filters are available:
 
-- **Category**: Show only specific event types
-- **Location**: Only events for a specific area
-- **Plant / Run**: Only events for one plant or run
-- **Priority**: Only critical or high priority
-- **Status**: Only open, completed, or overdue tasks
+- **Category**: Click a category chip to show or hide it. Multiple categories can be combined.
+- **Plant / Run**: The filter tree on the right (from tablet width) lists all planting runs with their plants, each with a checkbox.
 
-!!! tip "Combining filters"
-    You can have multiple filters active simultaneously. This lets you see, for example, only the critical open tasks for "Grow Tent A" in the next week.
+For the sowing calendar and season overview, a **site** filter is available instead.
 
----
-
-## Completing a Task Directly from the Calendar
-
-Click a task event in the calendar. A compact panel opens showing:
-
-- Title and description of the task
-- Associated plant(s)
-- Button **Mark as Complete**
-
-You can tick off tasks directly in the calendar without switching to the task list view.
+!!! note "No priority or status filters"
+    A filter by priority or by status (open/completed/overdue) does not exist in the calendar. You will find these filters in the [Task overview](tasks.md) instead.
 
 ---
 
-## Creating a New Task from the Calendar
+## Viewing Events
 
-1. Click an empty day or time slot in the calendar.
-2. A quick-creation dialog opens.
-3. Enter title, type, and plant assignment.
-4. Click **Create** — the task appears in the calendar immediately.
+Click a single event in the month view to open a detail popover with title, category, date, and description. For watering forecast events, the popover additionally shows target EC, target pH, and the fertilizers to mix; use **Mark as watered** to confirm the watering directly from the popover.
+
+Click a day with multiple events to see all of that day's events in a day popover — phase transitions are grouped by planting run.
+
+Use **View details** to jump from an event to its associated task or plant.
+
+!!! note "No direct completion or creation in the calendar"
+    The calendar itself does not offer a "mark as complete" button for regular tasks (that only applies to watering forecast events), nor a quick-creation dialog for new tasks. Both are done in the [Task overview](tasks.md).
+
+---
+
+## Phase Timeline
+
+The phase timeline shows one row per planting run and standalone plant, with coloured bars per growth phase for the currently displayed month. Bars are rendered differently depending on their status (completed / current / projected). Use the **Filter runs** and **Filter plants** controls to hide individual groups.
+
+---
+
+## Sowing Calendar (Outdoor)
+
+For outdoor gardeners, Kamerplanter provides a week-precise sowing calendar spanning the entire calendar year.
+
+### Layout
+
+Each row shows a species with its cultivation bars across 52 weeks:
+
+| Bar | Meaning |
+|-----|---------|
+| Indoor Sowing | Sowing indoors (before the last frost) |
+| Outdoor Planting | Direct sowing or planting out into the bed |
+| Growth | Period between sowing/planting out and harvest/bloom, filled automatically from gaps |
+| Harvest | Harvest window |
+| Flowering | Bloom window (used instead of Harvest for ornamentals) |
+
+Use the category chips (e.g. Vegetable, Herb, Balcony Plant, Bulb / Tuber) to filter the displayed species. Use the star icon to mark favourites — the **Favorites only** option hides the rest. Use the magnifying-glass icon to open the species detail page. A dashed line marks the **Ice Saints** (default: 15 May), and a highlighted stripe marks the current week.
+
+<!-- Source: src/backend/app/domain/engines/sowing_calendar_engine.py -->
+
+!!! tip "Priority rules for date calculation"
+    - If explicit **direct-sow months** are set for a species, they take priority over the "days after last frost" calculation.
+    - For **frost-sensitive** species, the planting-out date is automatically never placed before the Ice Saints.
+    - **Growth** bars are automatically inserted into the gap between sowing/planting and harvest/bloom, unless explicit growth months are set.
+
+### Choosing Year and Site
+
+Use the year navigation at the top of the calendar to switch the displayed calendar year; use the site filter to restrict the view to one site.
+
+!!! info "Frost data only configurable via the API"
+    The last frost date and the Ice Saints are currently **not** maintained through a form field on the site — there is no corresponding input field in the site form. Without your own values, Kamerplanter uses fixed defaults for Central Europe (1 May last frost, 15 May Ice Saints). Anyone wanting to set custom values can currently only do so via the technical API.
+
+---
+
+## Season Overview
+
+The season overview shows a tile grid with all twelve months of the selected year. Each tile shows the number of sowing, harvest, and bloom events from the sowing calendar for that month; the current month is highlighted. Clicking a tile jumps to the month view for that month.
+
+!!! note "Task count not yet populated"
+    The tile also shows a "Tasks" field — this is currently always 0, as the underlying per-month task aggregation is not yet wired up.
 
 ---
 
@@ -92,24 +141,15 @@ You can subscribe to your Kamerplanter calendar in external calendar apps. This 
 
 ### Step 1: Create a Calendar Feed
 
-1. Navigate to **Calendar → Feeds** (tab in the top right of the calendar).
-2. Click **New Feed**.
-3. Give the feed a name (e.g. "My Main Calendar" or "Grow Tent A only").
+1. Open the **iCal Feeds** section at the bottom of the calendar.
+2. Click **Create Feed**.
+3. Give the feed a name (e.g. "My Main Calendar"). The feed adopts your currently enabled category filters at the time of creation.
 
-### Step 2: Configure the Feed
+### Step 2: Copy the Feed URL
 
-| Setting | Description |
-|---------|-------------|
-| Name | Display name in the external app |
-| Categories | Which event types should the feed include? |
-| Location Filter | Only events for a specific area |
-| Priority Filter | Only from a certain priority level |
+After saving, the feed appears in the list with its `webcal://` URL. Click **Copy URL**.
 
-### Step 3: Copy the Feed URL
-
-After saving, a `webcal://` URL appears. Copy this URL.
-
-### Step 4: Subscribe in the External Calendar
+### Step 3: Subscribe in the External Calendar
 
 === "Google Calendar"
 
@@ -139,54 +179,41 @@ After saving, a `webcal://` URL appears. Copy this URL.
     1. Install an app such as **ICSx5** from the Play Store.
     2. Add the `webcal://` URL as a new subscription.
 
-### Updating or Deleting a Feed
+### Regenerating the Feed Token
 
-Feeds can be edited or deleted at any time under **Calendar → Feeds**. When deleted, the feed link becomes invalid — it must be removed from the external app as well.
+Every feed has a secret token embedded in its URL. Use **Regenerate Token** to generate a new token and, with it, a new feed URL.
 
----
+!!! warning "The old link stops working immediately"
+    As soon as you regenerate the token, the previous `webcal://` URL no longer works — the external app shows an error instead of new events. Update the URL in every app where you subscribed to the feed. Use this if you accidentally shared a feed link or want to revoke a former member's access.
 
-## Sowing Calendar (Outdoor)
+### Deleting a Feed
 
-For outdoor gardeners Kamerplanter provides an integrated sowing calendar that shows when to start propagation indoors, when direct sowing is possible, and when to plant out.
+Feeds can be deleted at any time under **iCal Feeds**. When deleted, the feed link becomes invalid — it must be removed from the external app as well.
 
-### Opening the Sowing Calendar
-
-Click **Sowing Calendar** at the top of the calendar (tab).
-
-The sowing calendar shows:
-- **Indoor propagation window**: When to start seeds indoors
-- **Direct sowing window**: When direct sowing into the bed is possible
-- **Plant out**: When indoor-grown seedlings can go outside
-- **Expected harvest**: Based on the variety's growth duration
-
-### Configuring the Frost Date
-
-For the sowing calendar to calculate correct dates, enter the last frost date for your location:
-
-1. Open **Settings → Location** or the site detail page.
-2. Under **Frost Data** enter the average last frost date (e.g. "15 April" for Central Europe).
-3. The system calculates all sowing dates relative to this date.
+!!! info "Expiry only via the API"
+    Kamerplanter internally supports an optional expiry date for feeds — once expired, the feed endpoint returns an error (HTTP 410 "Gone") instead of events. An expiry date cannot currently be set through the UI, only via the technical API.
 
 ---
 
 ## Frequently Asked Questions
 
 ??? question "Why do I see a task in the calendar that I already ticked off?"
-    Completed tasks are not hidden by default; they are displayed with a completed marking. Enable **Only open tasks** in the filter to hide completed ones.
+    Completed tasks continue to appear in the calendar. Hide them using the status filter in the [Task overview](tasks.md).
 
-??? question "Can I add recurring events directly in the calendar?"
-    Yes, but only via care profiles and workflow templates — not directly in the calendar. A care profile with a weekly fertilization interval automatically creates recurring tasks that appear in the calendar.
+??? question "Can I add recurring events?"
+    Yes — directly when creating a task, via the **Recurrence** field (daily/weekly/biweekly/monthly), visible from the "Intermediate" experience level onward. In addition, active care profiles automatically generate recurring watering and fertilizing reminders. Both sources appear in the calendar. More: [Tasks](tasks.md).
 
 ??? question "How often does the iCal feed update?"
     The iCal feed is generated in real time on every request from the external app. The refresh frequency depends on the external calendar app — Google Calendar refreshes approximately every 24 hours, Apple Calendar every 12 hours.
 
 ??? question "Can I split the calendar across multiple people in the garden?"
-    Yes. You can create multiple feeds with different filters (e.g. by location or category) and share them with different people. Each tenant member gets their personalized calendar feed this way.
+    Yes. You can create multiple feeds with different category filters and share the respective URL with different people.
 
 ---
 
 ## See Also
 
 - [Tasks](tasks.md)
+- [Care Reminders](care-reminders.md)
 - [Dashboard](dashboard.md)
 - [Planting Runs](planting-runs.md)

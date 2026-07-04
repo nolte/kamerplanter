@@ -1,49 +1,67 @@
-# Aufgaben und Pflegeerinnerungen
+# Aufgaben
 
-Kamerplanter erstellt automatisch Aufgaben aus Workflows und Pflegeprofilen und erinnert dich rechtzeitig an alle anfallenden Pflegearbeiten. Du behältst jederzeit die volle Kontrolle: Aufgaben können angepasst, neu erstellt und flexibel verwaltet werden.
+Kamerplanter bündelt manuell erstellte Aufgaben, automatisch generierte Pflegeerinnerungen und aus Workflow-Vorlagen erzeugte Aufgabenpakete in einer gemeinsamen Warteschlange. Du behältst jederzeit die volle Kontrolle: Aufgaben können angepasst, gebündelt bearbeitet und flexibel verwaltet werden.
 
 ---
 
 ## Voraussetzungen
 
 - Mindestens eine angelegte Pflanze oder ein aktiver Pflanzdurchlauf
-- Pflegeprofile werden automatisch vorgeschlagen, können aber auch manuell konfiguriert werden
+- Für automatische Pflegeerinnerungen: ein Pflegeprofil (wird automatisch beim ersten Zugriff erstellt) — siehe [Pflegeerinnerungen](care-reminders.md)
 
 ---
 
 ## Aufgaben in der Übersicht
 
-Die Aufgaben-Übersicht findest du über **Aufgaben** in der Navigation. Die Ansicht zeigt:
+Öffne **Aufgaben** in der Navigation (`/aufgaben/queue`). Die Übersicht gruppiert alle Einträge nach Dringlichkeit:
 
-- **Heute fällig**: Aufgaben, die heute erledigt werden sollten
-- **Überfällig**: Aufgaben, die ihr Fälligkeitsdatum überschritten haben (rot markiert)
-- **Kommende Woche**: Aufgaben der nächsten 7 Tage
-- **Alle Aufgaben**: Vollständige Liste mit Filter- und Sortiermöglichkeiten
+- **Überfällig**: Fälligkeitsdatum überschritten (rot markiert)
+- **Heute**: Heute fällig
+- **Diese Woche**: Fällig in den nächsten 7 Tagen
+- **Zukunft**: Alles Weitere ohne festes Fälligkeitsdatum bzw. später fällig
+
+Über den Filter **Quelle** (Alle / Aufgaben / Pflege) blendest du wahlweise nur manuell/aus Workflows erstellte Aufgaben, nur automatische Pflegeerinnerungen oder beides gemeinsam ein.
 
 Jede Aufgabe zeigt:
-- Typ (Gießen, Düngen, Inspektion, Ernte usw.)
-- Zugehörige Pflanze(n) oder Pflanzdurchlauf
-- Priorität (Niedrig / Normal / Hoch / Kritisch)
+
+- Titel und Kategorie
+- Zugehörige Pflanze bzw. Pflanzdurchlauf
+- Priorität (Niedrig / Mittel / Hoch / Kritisch), sofern von „Mittel" abweichend
 - Fälligkeitsdatum
 
 ---
 
-## Aufgaben-Typen
+## Aufgaben-Kategorien
 
-Kamerplanter unterscheidet zwischen manuell erstellten Aufgaben und automatisch generierten Aufgaben:
+Kamerplanter kennt zwölf Aufgaben-Kategorien:
 
-**Automatisch generierte Aufgaben entstehen durch:**
-- Gießplan (basierend auf eingestelltem Intervall oder Substratfeuchte)
-- Pflegeprofil-Engine (Erinnerungen für Düngen, Umtopfen, Reinigung)
-- Phasenübergänge (Aufgabe "Zur nächsten Phase wechseln prüfen")
-- Tankwartung (Wasserwechsel, Kalibrierung)
-- IPM-Inspektionspläne (Schädlingskontrolle)
-- Sensorausfälle ("Sensor XY prüfen")
-- Saisonale Trigger (Frostschutz, Überwinterung)
+| Kategorie | Beschreibung |
+|-----------|-------------|
+| Wartung | Allgemeine Pflegearbeiten |
+| Düngung | Düngeereignisse |
+| Training | High-/Low-Stress-Training (HST/LST)-Maßnahmen |
+| Schnitt | Rückschnitt |
+| Ausgeizen | Entfernen von Geiztrieben (v.a. Tomaten) |
+| Umtopfen | Umtopf-Termine |
+| Pflanzenschutz | Maßnahmen des Integrierten Pflanzenschutzes (IPM) |
+| Ernte | Erntetermine |
+| Beobachtung | Reifebeobachtung, Kontrollgänge |
+| Pflegeerinnerung | Automatisch aus dem Pflegeprofil erzeugt |
+| Saisonale Aufgabe | An die Jahreszeit gebundene Aufgaben |
+| Phänologische Aufgabe | An Naturereignisse gebundene Aufgaben |
 
-**Manuell erstellbare Aufgaben:**
-- Beliebige Einzelaufgaben (Freitext)
-- Aufgaben aus Workflow-Templates
+<!-- Quelle: src/backend/app/common/enums.py (TaskCategory) -->
+
+!!! note "Kein eigener Aufgabentyp Gießen"
+    Es gibt keine eigene Kategorie „Gießen". Automatische Gieß-Erinnerungen laufen über die Kategorie **Pflegeerinnerung**; manuelle Bewässerungs-Aufgaben legst du unter **Wartung** oder **Beobachtung** an, je nach Kontext.
+
+---
+
+## Woher Aufgaben kommen
+
+- **Manuell erstellt**: über den Button **Aufgabe erstellen**
+- **Aus Workflow-Vorlagen**: durch Anwenden eines Workflow-Templates (siehe unten)
+- **Automatisch als Pflegeerinnerung**: aus dem Pflegeprofil einer Pflanze (Gießen, Düngen, Umtopfen, Schädlingskontrolle, Standort-Check, Luftfeuchte-Check) — siehe [Pflegeerinnerungen](care-reminders.md)
 
 ---
 
@@ -51,23 +69,25 @@ Kamerplanter unterscheidet zwischen manuell erstellten Aufgaben und automatisch 
 
 ### Schritt 1: Neue Aufgabe anlegen
 
-Klicke in der Aufgaben-Übersicht auf **Aufgabe erstellen** (oben rechts).
+Klicke in der Aufgaben-Übersicht auf **Aufgabe erstellen**.
 
 ### Schritt 2: Aufgabe beschreiben
 
 | Feld | Beschreibung |
 |------|-------------|
 | Titel | Kurze, prägnante Beschreibung |
-| Beschreibung | Ausführliche Details und Anweisungen |
-| Typ | Kategorie (Gießen, Düngen, Inspektion, Training, Ernte, Sonstiges) |
-| Priorität | Niedrig / Normal / Hoch / Kritisch |
+| Anleitung | Schrittweise Anleitung zur Durchführung |
+| Kategorie | Eine der zwölf Aufgaben-Kategorien |
 | Fälligkeitsdatum | Wann muss die Aufgabe erledigt sein? |
-| Pflanze / Durchlauf | Zuordnung zu Pflanze(n) oder Pflanzdurchlauf |
-| Tags | Freie Schlagwörter (z.B. "dringend", "mit-partner-besprechen") |
+| Priorität | Niedrig / Mittel / Hoch / Kritisch |
+| Geschätzte Dauer (Min.) | Für die Zeitplanung |
+| Pflanze | Zuordnung zu einer Pflanze |
 
-### Schritt 3: Optional: Erinnerung einrichten
+Weitere Felder — **Fähigkeitsstufe**, **Wiederholung**, **Zugewiesen an**, **Timer-Dauer/-Bezeichnung** und **Tags** — erscheinen erst ab der Erfahrungsstufe „Fortgeschritten" (Einstellungen → Erfahrungsstufe).
 
-Aktiviere die Erinnerungsfunktion, um vor Fälligkeit eine Benachrichtigung zu erhalten.
+### Schritt 3: Checkliste (optional)
+
+Füge beliebig viele Checklisten-Punkte hinzu (Enter zum Bestätigen). Die Checkliste dient der eigenen Übersicht während der Durchführung — sie blockiert das Abschließen der Aufgabe nicht.
 
 ### Schritt 4: Speichern
 
@@ -80,16 +100,20 @@ Die Aufgabe erscheint sofort in der Aufgaben-Übersicht und im Kalender.
 ### Einzelne Aufgabe abschließen
 
 1. Öffne die Aufgabe durch Klick auf den Titel.
-2. Klicke auf **Erledigt markieren**.
-3. Optional: Trage ein Erledigungsdatum und eine Notiz ein.
+2. Klicke auf **Starten**, um sie in Bearbeitung zu setzen (optional, aktiviert bei Bedarf den Timer).
+3. Klicke auf **Abschließen**. Optional trägst du Notizen, die tatsächliche Dauer sowie eine Schwierigkeits- und Qualitätsbewertung (1–5) ein.
 4. Bestätige.
+
+!!! warning "Foto-Pflicht"
+    Ist bei der Aufgabe **Foto erforderlich** aktiviert, blockiert Kamerplanter den Abschluss, bis mindestens ein Foto hochgeladen wurde.
 
 ### Aufgabe direkt aus der Listenansicht abhaken
 
-Klicke auf das Häkchen-Symbol neben einer Aufgabe in der Liste. Die Aufgabe wird sofort als erledigt markiert.
+Klicke auf das Häkchen-Symbol neben einer Aufgabe in der Liste. Die Aufgabe wird sofort als erledigt markiert (sofern kein Foto erforderlich ist).
 
-!!! tip "Adaptive Zeitpläne"
-    Kamerplanter lernt aus deinen Erledigungsmustern. Wenn du eine Gießaufgabe konsequent einen Tag früher abhakst, passt das System das Intervall automatisch an (bis zu ±30 % Abweichung vom Ursprungsintervall).
+### Timer
+
+Hat eine Aufgabe eine Timer-Dauer hinterlegt (z.B. bei Mischprotokollen: „Rühren & warten"), erscheint der Countdown-Timer, sobald du die Aufgabe startest.
 
 ---
 
@@ -109,123 +133,91 @@ Wenn viele Aufgaben gleichzeitig anfallen, kannst du sie gebündelt bearbeiten, 
 
 ## Workflow-Templates nutzen
 
-Workflow-Templates sind vordefinierte Aufgaben-Pakete für häufige Pflegeszenarien. Ein Template instantiieren bedeutet: Das System erstellt aus dem Template eine Reihe konkreter Aufgaben für deine Pflanze oder deinen Durchlauf.
+Workflow-Templates sind vordefinierte Aufgabenpakete für wiederkehrende Pflegeszenarien. Ein Template anzuwenden bedeutet: Das System erstellt daraus eine Reihe konkreter Aufgaben für deine Pflanze, deinen Durchlauf, einen Standort oder einen Tank.
 
 ### Schritt 1: Template auswählen
 
-Navigiere zu **Aufgaben → Workflow-Templates**. Du siehst vordefinierte System-Templates:
+Navigiere zu **Aufgaben → Workflow-Templates** (`/aufgaben/workflows`). Kamerplanter liefert vier System-Vorlagen aus:
 
-**Indoor-Templates:**
-- Cannabis SOG (Sea of Green)
-- Cannabis SCROG (Screen of Green)
-- Nährlösung-Wechsel (Hydroponik)
-- Sonden-Kalibrierung
+| Template | Zielentität | Kategorie | Beschreibung |
+|----------|-------------|-----------|-------------|
+| Cannabis SOG | Pflanze | Ernte | Sea-of-Green-Ablauf für Cannabis, von Umtopfen in SOG-Position bis zur Ernte (6 Aufgaben über Vegetativ- und Blütephase) |
+| Tomato Standard | Pflanze | Wartung | Standard-Tomatenanbau: Umpflanzen, Rankhilfe, Ausgeizen, wöchentliches Düngen, Reifebeobachtung, Ernte |
+| General Maintenance | Pflanze | Wartung | Allgemeine wiederkehrende Kontroll- und Pflegeaufgaben, unabhängig von der Pflanzenart |
+| Tank Anmischen | Tank | Düngung | Schritt-für-Schritt-Mischprotokoll für Nährstofflösungen in der korrekten Mischreihenfolge, inklusive Rühr- und Wartezeiten-Timer |
 
-**Zimmerpflanzen-Templates:**
-- Tropische Grünpflanze (Standard)
-- Orchidee (Phalaenopsis)
-- Kaktus / Sukkulente
-- Calathea / Marante
-- Umtopf-Workflow
-- Überwinterungs-Workflow
+<!-- Quelle: src/backend/app/migrations/seed_data/workflows.yaml -->
 
-**Freiland-Templates:**
-- Frostschutz-Workflow
-- Abhärtungs-Workflow (Indoor → Outdoor)
-- Frühjahrs-Beetvorbereitung
-- Voranzucht-Workflow
-- Saisonende-Workflow (Herbst)
-- Rosen-Jahrespflege
+!!! tip "Aufgaben passen sich der Wachstumsphase an"
+    Aufgaben, die an eine bestimmte Wachstumsphase gebunden sind (z.B. „Auf 12/12 umstellen" bei Cannabis SOG), werden beim Anwenden mit dem Status **Ruhend** angelegt und erst aktiviert, sobald die Pflanze diese Phase tatsächlich erreicht.
 
-### Schritt 2: Template auf Pflanze oder Durchlauf anwenden
+### Schritt 2: Template anwenden
 
 1. Klicke auf **Template anwenden** neben dem gewünschten Template.
-2. Wähle die Zielpflanze(n) oder den Pflanzdurchlauf.
-3. Wähle ein Startdatum.
-4. Das System berechnet automatisch alle Fälligkeitsdaten basierend auf dem Template und der Wachstumsphase.
-5. Bestätige — alle Aufgaben werden angelegt.
+2. Wähle die passende Zielentität (Pflanze, Pflanzdurchlauf, Standort oder Tank — je nach Template).
+3. Bestätige — alle Aufgaben werden sofort angelegt. Fälligkeitsdaten berechnen sich ab dem heutigen Tag entsprechend der im Template hinterlegten Tage-Offsets.
 
 ### Eigene Templates erstellen
 
-Wenn du eine Abfolge von Aufgaben öfter nutzt:
+Wenn du eine Abfolge von Aufgaben öfter nutzt, kannst du ein eigenes Template anlegen:
 
 1. Navigiere zu **Aufgaben → Workflow-Templates → Neues Template**.
-2. Gib dem Template einen Namen und eine Beschreibung.
-3. Füge Aufgaben hinzu (Titel, Typ, Tage nach Start).
-4. Speichere. Das Template steht nun für alle deine Pflanzen zur Verfügung.
+2. Gib Name, Beschreibung, Kategorie und Zielentität(en) an.
+3. Öffne das neu angelegte Template und füge über **Aufgabe hinzufügen** einzelne Aufgabenvorlagen mit Titel, Anleitung, Kategorie, Auslöser und Tage-Offset hinzu.
+4. Das Template steht danach für alle deine Pflanzen bzw. Zielentitäten zur Verfügung.
+
+!!! note "Erfahrungsstufe empfohlen"
+    Der Workflow-Editor richtet sich an erfahrene Nutzer — einige Dropdown-Felder verwenden technische Bezeichnungen. Für den Einstieg eignen sich die vier System-Templates meist besser als ein komplett neu erstelltes Template.
 
 ---
 
-## Pflegeprofile und automatische Erinnerungen
+## Aktivitätspläne
 
-Pflegeprofile definieren das grundlegende Pflegeverhalten einer Pflanze: Wie oft gießen? Wie oft düngen? Wann neu eintopfen?
-
-### Pflegeprofil einsehen und anpassen
-
-1. Öffne eine Pflanze und wechsle zum Tab **Pflege**.
-2. Das System schlägt automatisch ein Pflegeprofil basierend auf der Pflanzenart vor.
-3. Klicke auf **Profil bearbeiten**, um die Intervalle anzupassen.
-
-**Einstellbare Parameter:**
-- Gieß-Intervall (Tage) oder Modus (nach Substratfeuchte)
-- Dünge-Intervall (Wochen)
-- Umtopf-Intervall (Monate)
-- Saisonale Multiplizitäten (z.B. weniger gießen im Winter)
-
-### Vordefinierte Pflegestile
-
-Kamerplanter kennt neun Pflegestile, die automatisch aus der Pflanzenfamilie abgeleitet werden:
-
-| Pflegestil | Typische Pflanzen | Besonderheit |
-|-----------|------------------|-------------|
-| Tropisch | Monstera, Philodendron, Ficus | Hohe Luftfeuchtigkeit, regelmäßiges Gießen |
-| Mediterran | Rosmarin, Thymian, Lavendel | Trockenheitsresistent, selten gießen |
-| Sukkulente / Kaktus | Kakteen, Echeverien, Aloe | Seltenes Gießen, Winterruhe |
-| Orchidee | Phalaenopsis, Dendrobium | Tauchbad statt Gießen, Temperatur-Drop |
-| Farn | Farne, Calathea | Hohe Luftfeuchte, kein Staunass |
-| Gemüse (Starkzehrer) | Tomate, Kürbis, Paprika | Intensive Düngung, regelmäßig gießen |
-| Gemüse (Schwachzehrer) | Kräuter, Salat, Radieschen | Kaum Dünger, mäßig wässern |
-| Cannabis | Cannabis | Phasenabhängige Bewässerung und Düngung |
-| Hydroponik | Alle Hydro-Pflanzen | EC/pH-Kontrolle, Reservoirwechsel |
+Für einen einzelnen Pflanzdurchlauf kannst du zusätzlich einen **Aktivitätsplan** anwenden — eine aus den hinterlegten Aktivitäten der Pflanzenart abgeleitete Aufgabenvorschlagsliste. Du findest ihn im Tab **Aktivitätsplan** auf der Detailseite des Pflanzdurchlaufs. Mehr dazu: [Pflanzdurchläufe](planting-runs.md).
 
 ---
 
-## Aufgaben filtern und sortieren
+## Pflegeerinnerungen
+
+Automatisch generierte Gieß-, Dünge- und weitere Pflegeerinnerungen sind kein separater Bereich, sondern erscheinen in derselben Aufgaben-Übersicht (Quellen-Filter „Pflege"). Wie das Pflegeprofil funktioniert, welche Erinnerungstypen es gibt und wie die Eskalation abläuft, erfährst du unter [Pflegeerinnerungen](care-reminders.md).
+
+---
+
+## Aufgaben filtern
 
 In der Aufgaben-Übersicht stehen folgende Filter zur Verfügung:
 
-- **Nach Status**: Offen / Erledigt / Überfällig
-- **Nach Typ**: Gießen, Düngen, Inspektion, Ernte, Training, Sonstiges
-- **Nach Pflanze oder Durchlauf**
-- **Nach Standort**
-- **Nach Priorität**
-- **Nach Tags**
+- **Quelle**: Alle / Aufgaben / Pflege
+- **Kategorie**: eine der zwölf Aufgaben-Kategorien (nur für die Quelle „Aufgaben")
+- **Pflanze**: auf eine bestimmte Pflanze eingrenzen
 
-Klicke auf den Filter-Button oben in der Liste, um die Filter-Leiste ein- oder auszublenden.
+!!! note "Kein Filter nach Standort, Priorität oder Tags"
+    Diese Filter existieren in der Aufgaben-Übersicht aktuell nicht.
 
 ---
 
 ## Häufige Fragen
 
-??? question "Wie viele automatische Aufgaben erstellt Kamerplanter pro Tag?"
-    Das hängt von der Anzahl deiner Pflanzen und aktiven Pflegeprofilen ab. Kamerplanter bündelt mehrere Aufgaben wenn möglich (z.B. "Alle Pflanzen in Zelt A gießen" statt einzelner Gieß-Aufgaben pro Pflanze). Du kannst in den Einstellungen konfigurieren, ob Aufgaben pro Pflanze oder pro Standort gebündelt werden.
-
 ??? question "Kann ich eine automatisch erstellte Aufgabe löschen?"
-    Ja. Du kannst jede Aufgabe unabhängig von ihrer Herkunft löschen. Wenn du eine Aufgabe eines laufenden Pflegeplans löschst, erstellt Kamerplanter beim nächsten Planungsdurchlauf (täglich) eine neue Aufgabe — sofern das Pflegeprofil noch aktiv ist.
+    Ja, sofern sie sich im Status Ausstehend, Übersprungen oder Ruhend befindet. Bereits gestartete oder abgeschlossene Aufgaben lassen sich nicht mehr löschen. Wenn du eine offene Pflegeerinnerung löschst, erstellt Kamerplanter beim nächsten täglichen Planungsdurchlauf bei Bedarf eine neue — sofern das Pflegeprofil noch aktiv ist.
 
 ??? question "Was passiert mit den Aufgaben, wenn ich eine Pflanze entferne?"
-    Wenn du eine Pflanze entfernst, werden ihre noch offenen Aufgaben (offen, in Bearbeitung, ruhend) automatisch aus der Warteschlange entfernt — sie sind nach dem Entfernen der Pflanze nicht mehr relevant. Bereits erledigte, übersprungene oder fehlgeschlagene Aufgaben bleiben als Verlauf erhalten. Für entfernte Pflanzen werden außerdem keine neuen automatischen Aufgaben (z. B. Pflegeerinnerungen oder Spül-Hinweise) mehr erzeugt.
+    Wenn du eine Pflanze entfernst, werden ihre noch offenen Aufgaben (ausstehend, in Bearbeitung, ruhend) automatisch aus der Warteschlange entfernt. Bereits erledigte, übersprungene oder fehlgeschlagene Aufgaben bleiben als Verlauf erhalten. Für entfernte Pflanzen werden außerdem keine neuen automatischen Pflegeerinnerungen mehr erzeugt.
 
-??? question "Was bedeutet die rote Markierung bei überfälligen Aufgaben?"
-    Eine rote Markierung bedeutet, dass eine Aufgabe ihr Fälligkeitsdatum überschritten hat. Das ist ein Hinweis, keine automatische Eskalation. Kamerplanter eskaliert überfällige Aufgaben nach 48 Stunden in der Priorität auf "Kritisch".
+??? question "Eskaliert Kamerplanter überfällige Aufgaben automatisch?"
+    Nur für **Gieß-Erinnerungen**: Bleibt eine Gieß-Erinnerung unbestätigt, erhöht das System die Dringlichkeit der Benachrichtigung nach 2 Tagen auf „Hoch" und nach 4 Tagen auf „Kritisch"; nach 7 Tagen folgt eine letzte Warnung. Für andere Aufgabentypen gibt es keine automatische Eskalation — die rote Überfällig-Markierung ist hier nur ein visueller Hinweis.
+
+??? question "Kann ich wiederkehrende Aufgaben anlegen?"
+    Ja, direkt beim Erstellen einer Aufgabe über das Feld **Wiederholung** (täglich/wöchentlich/zweiwöchentlich/monatlich) — sichtbar ab der Erfahrungsstufe „Fortgeschritten". Sobald du eine wiederkehrende Aufgabe abschließt, legt Kamerplanter automatisch die nächste Instanz an.
 
 ??? question "Kann ich Aufgaben an andere Mitglieder meines Mandanten zuweisen?"
-    Ja, wenn du in einem Gemeinschaftsgarten (mit mehreren Mitgliedern) arbeitest. Öffne die Aufgabe und weise sie über das Feld **Zuständig** einem Mitglied zu.
+    Ja, wenn du in einem Gemeinschaftsgarten (mit mehreren Mitgliedern) arbeitest. Öffne die Aufgabe und trage im Feld **Zugewiesen an** den entsprechenden Nutzer ein (sichtbar ab Erfahrungsstufe „Fortgeschritten").
 
 ---
 
 ## Siehe auch
 
 - [Kalender](calendar.md)
+- [Pflegeerinnerungen](care-reminders.md)
 - [Pflanzdurchläufe](planting-runs.md)
 - [Integrierter Pflanzenschutz](pest-management.md)

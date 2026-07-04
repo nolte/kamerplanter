@@ -8,19 +8,23 @@ Der Onboarding-Wizard führt dich beim ersten Start durch die Einrichtung von Ka
 
 Ein Starter-Kit ist ein vorkonfiguriertes Anbau-Szenario. Es enthält alle Stammdaten, die du für einen bestimmten Anwendungsfall brauchst: Pflanzenarten, Sorten, vordefinierte Wachstumsphasen und passende Dünge-Vorlagen.
 
-Kamerplanter liefert neun Starter-Kits mit:
+Kamerplanter liefert 11 Starter-Kits mit:
+
+<!-- Quelle: src/backend/app/migrations/seed_data/starter_kits.yaml -->
 
 | Starter-Kit | Schwierigkeit | Umgebung |
 |-------------|:-------------:|:--------:|
 | Fensterbrett-Kräuter | Einsteiger | Fensterbrett |
 | Zimmerpflanzen-Starter | Einsteiger | Innenraum |
 | Haustierfreundliche Zimmerpflanzen | Einsteiger | Innenraum |
-| Balkon-Tomaten | Einsteiger | Balkon |
-| Gemüsebeet | Mittelstufe | Außen |
-| Sukkulenten & Kakteen | Einsteiger | Innenraum |
-| Mediterrane Kräuter | Einsteiger | Außen / Balkon |
-| Balkon-Chillis | Mittelstufe | Balkon |
-| Indoor Growzelt | Fortgeschritten | Growzelt |
+| Balkon-Blumen | Einsteiger | Balkon |
+| Balkon-Blumen Voranzucht | Mittelstufe | Fensterbrett |
+| Balkon-Tomaten | Mittelstufe | Balkon |
+| Kleines Gemüsebeet | Mittelstufe | Außen |
+| Chili-Zucht | Mittelstufe | Fensterbrett |
+| Indoor-Growzelt | Fortgeschritten | Growzelt |
+| Superhot-Chili | Fortgeschritten | Growzelt |
+| Microgreens | Einsteiger | Fensterbrett |
 
 !!! tip "Tipp"
     Du kannst den Wizard jederzeit erneut aufrufen — zum Beispiel um ein zweites Szenario hinzuzufügen oder deine Erfahrungsstufe zu ändern. Den Link dazu findest du in den **Kontoeinstellungen** unter dem Punkt **Onboarding-Wizard erneut starten**.
@@ -56,7 +60,7 @@ Du wählst eine von drei Stufen, die bestimmt, welche Felder und Menüpunkte du 
 |-------|---------------------|------------|
 | **Einsteiger** | Kernfunktionen: Pflanzen, Standorte, Aufgaben, Phasen | Erste Schritte mit Kamerplanter |
 | **Mittelstufe** | Zusätzlich: Düngung, Tankmanagement, Sensorik | Du hast bereits Erfahrung mit Pflanzenpflege |
-| **Experte** | Alle Funktionen: IPM, EC-Budgets, Kalibrierung, Importfunktionen | Professioneller Anbau |
+| **Experte** | Alle Funktionen: [IPM](pest-management.md), EC-Budgets, Kalibrierung, Importfunktionen | Professioneller Anbau |
 
 !!! note "Hinweis"
     Die Erfahrungsstufe kannst du jederzeit in den **Kontoeinstellungen** unter **Erfahrungsstufe** anpassen. Du kannst auch einzelne Felder einblenden, ohne die gesamte Stufe zu wechseln.
@@ -70,7 +74,7 @@ Du beschreibst kurz, wo und was du anbauen möchtest. Das hilft dem Wizard dabei
 - **Standorttyp:** Fensterbrett, Innenraum, Balkon, Außenbeet, Gewächshaus oder Growzelt
 - **Name deines Standorts:** Zum Beispiel "Küchenfenster" oder "Südbalkon" — dieser Name erscheint überall in der App
 
-**Für Mittelstufe und Experten:** Du kannst optional deine Wasserqualität angeben — den EC-Wert und pH-Wert deines Leitungswassers. Das verbessert später die automatische Berechnung von Nährstofflösungen. Du kannst diese Werte auch jederzeit in den Standorteinstellungen nachtragen.
+**Für Mittelstufe und Experten:** Du kannst optional deine Wasserqualität angeben — den EC-Wert (elektrische Leitfähigkeit) und pH-Wert deines Leitungswassers. Das verbessert später die automatische Berechnung von Nährstofflösungen. Du kannst diese Werte auch jederzeit in den Standorteinstellungen nachtragen.
 
 ---
 
