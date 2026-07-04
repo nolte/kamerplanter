@@ -5,8 +5,9 @@ from datetime import date
 import pytest
 
 from app.common.enums import SuccessionPlanStatus
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.planting_run import PlantingRun
+from app.domain.models.site import Location
 from app.domain.models.succession_plan import SuccessionPlan
 from app.domain.services.succession_plan_service import SuccessionPlanService
 
@@ -72,6 +73,20 @@ class _FakeRunService:
         self.created_runs.append(created)
         self.created_entries.append(entries or [])
         return created
+
+
+class _FakeSiteRepo:
+    """Minimal site repo exposing only ``get_location_by_key`` (ownership guard)."""
+
+    def __init__(self, locations: dict[str, Location] | None = None) -> None:
+        self._locations = locations or {}
+
+    def get_location_by_key(self, key):
+        return self._locations.get(key)
+
+
+def _location(key: str, tenant_key: str) -> Location:
+    return Location(_key=key, tenant_key=tenant_key, name=key, area_m2=1.0)
 
 
 def _plan(**overrides) -> SuccessionPlan:
@@ -191,3 +206,95 @@ class TestGenerateNextRun:
         plan2, run2 = service.generate_next_run(created.key, tenant_key=TENANT)
         assert run2 is None
         assert plan2.completed_batches == 1
+
+
+class TestGenerateIdempotency:
+    """Befund 1 — repeated generation must not create duplicate runs/edges."""
+
+    def test_generate_twice_still_eight_runs(self):
+        service, repo, run_service = _service()
+        created = service.create_plan(_plan())
+
+        _p1, first = service.generate_runs(created.key, tenant_key=TENANT)
+        plan2, second = service.generate_runs(created.key, tenant_key=TENANT)
+
+        assert len(first) == 8
+        assert second == []  # no-op on the second call
+        assert len(run_service.created_runs) == 8
+        assert len(repo.run_edges) == 8  # one edge per unique run
+        assert plan2.completed_batches == 8
+        assert repo.location_edges == [(created.key, "loc_beet_c")]
+
+    def test_generate_next_then_generate_no_duplicates(self):
+        service, repo, run_service = _service()
+        created = service.create_plan(_plan())
+
+        service.generate_next_run(created.key, tenant_key=TENANT)  # batch 1
+        service.generate_next_run(created.key, tenant_key=TENANT)  # batch 2
+        plan, rest = service.generate_runs(created.key, tenant_key=TENANT)
+
+        assert len(rest) == 6  # batches 3..8
+        assert [r.succession_sequence for r in rest] == list(range(3, 9))
+        assert len(run_service.created_runs) == 8
+        assert len(repo.run_edges) == 8
+        assert plan.completed_batches == 8
+
+
+class TestUpdateDateValidation:
+    """Befund 2 — an inverted merged date range must raise a 422 domain error."""
+
+    def test_update_start_after_stored_end_raises_validation_error(self):
+        service, _repo, _rs = _service()
+        created = service.create_plan(_plan())  # end_date 2026-08-31
+        with pytest.raises(ValidationError):
+            service.update_plan(created.key, {"start_date": date(2026, 12, 1)}, tenant_key=TENANT)
+
+    def test_update_end_before_stored_start_raises_validation_error(self):
+        service, _repo, _rs = _service()
+        created = service.create_plan(_plan())  # start_date 2026-04-01
+        with pytest.raises(ValidationError):
+            service.update_plan(created.key, {"end_date": date(2026, 1, 1)}, tenant_key=TENANT)
+
+
+class TestLocationOwnership:
+    """Befund 3 — a foreign location_key must be rejected before persistence."""
+
+    def _service_with_site(self, site_repo):
+        repo = _FakeSuccessionRepo()
+        run_service = _FakeRunService()
+        service = SuccessionPlanService(repo, run_service, site_repo=site_repo)
+        return service, repo, run_service
+
+    def test_create_with_foreign_location_rejected(self):
+        site_repo = _FakeSiteRepo({"loc_foreign": _location("loc_foreign", "tenant_other")})
+        service, _repo, _rs = self._service_with_site(site_repo)
+        with pytest.raises(NotFoundError):
+            service.create_plan(_plan(location_key="loc_foreign"))
+
+    def test_create_with_own_location_accepted(self):
+        site_repo = _FakeSiteRepo({"loc_beet_c": _location("loc_beet_c", TENANT)})
+        service, _repo, _rs = self._service_with_site(site_repo)
+        created = service.create_plan(_plan(location_key="loc_beet_c"))
+        assert created.location_key == "loc_beet_c"
+
+    def test_update_to_foreign_location_rejected(self):
+        site_repo = _FakeSiteRepo(
+            {
+                "loc_beet_c": _location("loc_beet_c", TENANT),
+                "loc_foreign": _location("loc_foreign", "tenant_other"),
+            }
+        )
+        service, _repo, _rs = self._service_with_site(site_repo)
+        created = service.create_plan(_plan(location_key="loc_beet_c"))
+        with pytest.raises(NotFoundError):
+            service.update_plan(created.key, {"location_key": "loc_foreign"}, tenant_key=TENANT)
+
+    def test_generate_with_foreign_location_rejected(self):
+        # Location becomes foreign after creation (e.g. re-parented); generation must
+        # re-check before writing runs into another tenant's location.
+        site_repo = _FakeSiteRepo({"loc_beet_c": _location("loc_beet_c", TENANT)})
+        service, _repo, _rs = self._service_with_site(site_repo)
+        created = service.create_plan(_plan(location_key="loc_beet_c"))
+        site_repo._locations["loc_beet_c"] = _location("loc_beet_c", "tenant_other")
+        with pytest.raises(NotFoundError):
+            service.generate_runs(created.key, tenant_key=TENANT)

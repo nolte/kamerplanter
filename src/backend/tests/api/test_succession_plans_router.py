@@ -157,6 +157,28 @@ class TestCrud:
         resp = client.post(_base(), json=bad)
         assert resp.status_code == 422
 
+    def test_update_inverted_date_range_rejected(self):
+        client, _repo = _build()
+        key = client.post(_base(), json=_PLAN_BODY).json()["key"]
+        # Both dates in one patch: schema-level validator rejects with 422.
+        resp = client.put(_base(f"/{key}"), json={"start_date": "2026-09-01", "end_date": "2026-04-01"})
+        assert resp.status_code == 422
+
+    def test_update_single_sided_start_after_end_rejected(self):
+        client, _repo = _build()
+        key = client.post(_base(), json=_PLAN_BODY).json()["key"]
+        # Only start_date supplied, later than the stored end_date (2026-08-31):
+        # the service merge must translate the pydantic error into a 422, not a 500.
+        resp = client.put(_base(f"/{key}"), json={"start_date": "2026-12-01"})
+        assert resp.status_code == 422
+
+    def test_update_single_sided_end_before_start_rejected(self):
+        client, _repo = _build()
+        key = client.post(_base(), json=_PLAN_BODY).json()["key"]
+        # Only end_date supplied, earlier than the stored start_date (2026-04-01).
+        resp = client.put(_base(f"/{key}"), json={"end_date": "2026-01-01"})
+        assert resp.status_code == 422
+
 
 class TestGenerate:
     def test_generate_creates_eight_runs(self):

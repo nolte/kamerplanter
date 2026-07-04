@@ -35,10 +35,17 @@ class SuccessionPlanEngine:
             id_prefix=self._derive_id_prefix(plan),
         )
 
-    def generate_batch_runs(self, plan: SuccessionPlan) -> list[PlantingRun]:
-        """Return one (unpersisted) PlantingRun per batch of the plan."""
+    def generate_batch_runs(self, plan: SuccessionPlan, start_sequence: int = 1) -> list[PlantingRun]:
+        """Return one (unpersisted) PlantingRun per still-missing batch of the plan.
+
+        ``start_sequence`` (1-based) is the first batch to emit, so re-running
+        generation for an already-partially-generated plan only produces the
+        remaining batches (idempotency). When ``start_sequence`` exceeds the batch
+        count the result is empty (no-op).
+        """
         total = self.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
-        return [self.generate_batch_run(plan, sequence, total=total) for sequence in range(1, total + 1)]
+        start = max(start_sequence, 1)
+        return [self.generate_batch_run(plan, sequence, total=total) for sequence in range(start, total + 1)]
 
     def generate_batch_run(self, plan: SuccessionPlan, sequence: int, total: int | None = None) -> PlantingRun:
         """Build a single (unpersisted) PlantingRun for batch ``sequence`` (1-based)."""

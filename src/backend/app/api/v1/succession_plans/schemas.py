@@ -38,6 +38,15 @@ class SuccessionPlanUpdate(BaseModel):
     notes: str | None = None
     status: SuccessionPlanStatus | None = None
 
+    @model_validator(mode="after")
+    def validate_date_range(self) -> SuccessionPlanUpdate:
+        # When both dates are supplied in the same patch, reject an inverted range
+        # up front (422); a single-sided change is validated against the stored
+        # plan by the service after the merge.
+        if self.start_date is not None and self.end_date is not None and self.end_date < self.start_date:
+            raise ValueError("end_date must be on or after start_date.")
+        return self
+
 
 class SuccessionPlanResponse(BaseModel):
     key: str

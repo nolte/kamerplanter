@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -101,6 +101,10 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
 
   const isEdit = Boolean(plan);
 
+  // Guards the location-clear effect so the initial mount (and the async
+  // site_key backfill in edit mode) does not wipe a pre-selected location.
+  const skipLocationReset = useRef(true);
+
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: defaultsFor(plan),
@@ -124,6 +128,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
 
   useEffect(() => {
     if (open) {
+      skipLocationReset.current = true;
       reset(defaultsFor(plan));
       speciesApi
         .listSpecies(0, 200)
@@ -133,8 +138,19 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
         .listSites(0, 200)
         .then(setSitesList)
         .catch(() => {});
+      // In edit mode the plan carries only location_key. Resolve its parent
+      // site so LocationTreeSelect can display and preserve the assignment.
+      if (plan?.location_key) {
+        sitesApi
+          .getLocation(plan.location_key)
+          .then((loc) => {
+            skipLocationReset.current = true;
+            setValue('site_key', loc.site_key);
+          })
+          .catch(() => {});
+      }
     }
-  }, [open, plan, reset]);
+  }, [open, plan, reset, setValue]);
 
   // Load cultivars whenever the selected species changes.
   useEffect(() => {
@@ -149,7 +165,13 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
       .catch(() => setCultivarList([]));
   }, [speciesKey]);
 
+  // Clear the location only on a genuine user-driven site change — never on the
+  // initial mount or the async site backfill, which would drop a saved location.
   useEffect(() => {
+    if (skipLocationReset.current) {
+      skipLocationReset.current = false;
+      return;
+    }
     if (!siteKey) {
       setValue('location_key', null);
     }

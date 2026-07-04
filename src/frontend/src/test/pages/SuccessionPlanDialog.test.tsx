@@ -103,6 +103,60 @@ describe('SuccessionPlanDialog', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it('preserves the assigned location when editing only the notes', async () => {
+    const planWithLocation: SuccessionPlan = {
+      ...existingPlan,
+      location_key: 'loc-1',
+    };
+    let capturedBody: Record<string, unknown> | null = null;
+    server.use(
+      http.put(
+        '/api/v1/t/:tenant/succession-plans/:key',
+        async ({ params, request }) => {
+          capturedBody = (await request.json()) as Record<string, unknown>;
+          return HttpResponse.json({
+            ...planWithLocation,
+            key: params.key as string,
+            ...capturedBody,
+          });
+        },
+      ),
+    );
+
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <SuccessionPlanDialog
+        open
+        plan={planWithLocation}
+        onClose={() => {}}
+        onSaved={onSaved}
+      />,
+    );
+
+    await screen.findByText('Staffelanbau bearbeiten');
+
+    // The resolved site backfills so the saved location stays selected.
+    await waitFor(() => {
+      const locationInput = screen
+        .getByTestId('form-field-location_key')
+        .querySelector('input');
+      expect(locationInput?.value).toBe('loc-1');
+    });
+
+    // Change only the notes, leaving the location untouched.
+    const notesInput = screen
+      .getByTestId('form-field-notes')
+      .querySelector('textarea')!;
+    await user.type(notesInput, 'Nur eine Notiz');
+
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody!.location_key).toBe('loc-1');
+  });
+
   it('recomputes the live batch preview from the schedule window', async () => {
     const user = userEvent.setup();
     renderWithProviders(

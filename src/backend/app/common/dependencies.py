@@ -262,6 +262,7 @@ def get_succession_plan_service() -> SuccessionPlanService:
     return SuccessionPlanService(
         get_succession_plan_repo(),
         get_planting_run_service(),
+        site_repo=get_site_repo(),
     )
 
 
