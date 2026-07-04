@@ -1,3 +1,4 @@
+import structlog
 from fastapi import APIRouter, Cookie, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from slowapi import Limiter
@@ -20,13 +21,33 @@ from app.api.v1.auth.schemas import (
 )
 from app.common.auth import get_current_user, get_refresh_token_from_cookie
 from app.common.dependencies import get_auth_service, get_oidc_config_repo
+from app.common.exceptions import (
+    InvalidTokenError,
+    NotFoundError,
+    UnauthorizedError,
+    ValidationError,
+)
 from app.config.settings import settings
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
 
+logger = structlog.get_logger(__name__)
+
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# AP-7 (FE-S3): the frontend maps these codes to localised messages. The backend
+# NEVER forwards a raw provider error string — only one of these fixed codes.
+_OAUTH_ERROR_CODES = frozenset(
+    {"access_denied", "invalid_state", "provider_error", "account_disabled"},
+)
+
+
+def _oauth_error_redirect(frontend_url: str, error_code: str) -> RedirectResponse:
+    """Redirect to the frontend callback with a whitelisted error code (no token)."""
+    code = error_code if error_code in _OAUTH_ERROR_CODES else "provider_error"
+    return RedirectResponse(url=f"{frontend_url}/auth/callback?error={code}", status_code=302)
 
 
 def _set_refresh_cookie(
@@ -198,32 +219,49 @@ def oauth_callback(
     slug: str,
     request: Request,
     response: Response,
-    code: str = Query(...),
-    state: str = Query(...),
+    code: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    error: str | None = Query(default=None),
     service: AuthService = Depends(get_auth_service),
 ):
-    """OAuth callback: exchange code, set cookies, redirect to frontend."""
+    """OAuth callback: exchange code, set the refresh cookie, redirect to frontend.
+
+    AP-7 (FE-S1): the access token is delivered exclusively through the HttpOnly
+    refresh cookie. It is NEVER placed in the redirect URL (neither query nor
+    fragment), so it cannot leak via browser history, Referer headers or proxy
+    logs. The frontend completes the login through the cookie-based refresh flow.
+    """
+    frontend_url = service._frontend_url
+
+    # Provider-side denial (e.g. the user cancelled) arrives with an `error`
+    # param and without a code — or a malformed callback lacks code/state.
+    if error is not None:
+        return _oauth_error_redirect(frontend_url, "access_denied")
+    if not code or not state:
+        return _oauth_error_redirect(frontend_url, "provider_error")
+
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
 
-    token_pair, raw_refresh, is_persistent = service.complete_oauth(
-        slug,
-        code,
-        state,
-        user_agent,
-        ip_address,
-    )
+    try:
+        _token_pair, raw_refresh, is_persistent = service.complete_oauth(
+            slug,
+            code,
+            state,
+            user_agent,
+            ip_address,
+        )
+    except InvalidTokenError:
+        return _oauth_error_redirect(frontend_url, "invalid_state")
+    except UnauthorizedError:
+        return _oauth_error_redirect(frontend_url, "account_disabled")
+    except NotFoundError, ValidationError:
+        return _oauth_error_redirect(frontend_url, "provider_error")
+    except Exception:  # noqa: BLE001 — never surface a JSON 500 to the browser
+        logger.exception("oauth_callback_failed", provider=slug)
+        return _oauth_error_redirect(frontend_url, "provider_error")
 
-    # Redirect to frontend with the access token in the URL fragment (not query param).
-    # Fragment is never sent to the server, never logged by proxies, and not stored in
-    # browser history for cross-origin requests. The frontend JS reads window.location.hash.
-    frontend_callback = (
-        f"{service._frontend_url}/auth/callback"
-        f"#access_token={token_pair.access_token}"
-        f"&expires_in={token_pair.expires_in}"
-    )
-
-    redirect = RedirectResponse(url=frontend_callback, status_code=302)
+    redirect = RedirectResponse(url=f"{frontend_url}/auth/callback", status_code=302)
     _set_refresh_cookie(redirect, raw_refresh, is_persistent=is_persistent)
     set_csrf_cookie(redirect)
     return redirect

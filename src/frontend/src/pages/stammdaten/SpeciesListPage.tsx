@@ -20,7 +20,8 @@ import YardIcon from '@mui/icons-material/Yard';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
-import OriginChip, { type DataOrigin } from '@/components/common/OriginChip';
+import OriginChip from '@/components/common/OriginChip';
+import { resolveOrigin } from '@/hooks/useOriginProtection';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpeciesList } from '@/store/slices/speciesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -272,7 +273,7 @@ export default function SpeciesListPage() {
       // TODO: REQ-001 v5.0 origin field — backend pending; falls back to undefined.
       id: 'origin',
       label: t('common.origin.filterLabel'),
-      render: (r) => <OriginChip origin={(r as unknown as { origin?: DataOrigin }).origin} />,
+      render: (r) => <OriginChip origin={resolveOrigin(r)} />,
       hideBelowBreakpoint: 'md',
       sortable: false,
       searchable: false,

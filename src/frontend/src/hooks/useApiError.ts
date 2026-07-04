@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { isApiError, getFieldErrors, parseApiError } from '@/api/errors';
@@ -111,7 +111,8 @@ export function useApiError() {
     [t, notification],
   );
 
-  return { handleError };
+  // FRONTEND.md §6.1: object return MUST be useMemo-stabilised.
+  return useMemo(() => ({ handleError }), [handleError]);
 }
 
 /** Extract a human-readable detail string from an unstructured error response body. */

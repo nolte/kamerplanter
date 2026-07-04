@@ -297,6 +297,7 @@
       "tooltipImport": "Über CSV-Import hinzugefügt. Kann bearbeitet und gelöscht werden.",
       "filterLabel": "Herkunft",
       "copyAsTemplate": "Als Vorlage kopieren",
+      "copyAsTemplateUnavailable": "Das Kopieren als Vorlage steht in Kürze zur Verfügung.",
       "readOnlyHint": "Systemdaten können nicht bearbeitet werden."
     },
     "glossary": {
@@ -378,7 +379,8 @@
     "validation": "Bitte überprüfen Sie Ihre Eingaben.",
     "validationWithDetail": "Validierungsfehler: {{detail}}",
     "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
-    "unknown": "Ein unbekannter Fehler ist aufgetreten."
+    "unknown": "Ein unbekannter Fehler ist aufgetreten.",
+    "optionsLoadFailed": "Auswahloptionen konnten nicht geladen werden."
   },
   "entities": {
     "botanicalFamily": "Botanische Familie",
@@ -842,6 +844,7 @@
       "forgotPassword": "Passwort vergessen?",
       "or": "oder",
       "loginWith": "Anmelden mit {{provider}}",
+      "oauthProvidersLoadFailed": "Alternative Anmeldeoptionen (z. B. Google) konnten nicht geladen werden. Sie können sich weiterhin mit E-Mail und Passwort anmelden.",
       "passwordHelp": "Mindestens 10 Zeichen",
       "passwordMismatch": "Passwörter stimmen nicht überein",
       "registrationSuccess": "Registrierung erfolgreich! Bitte prüfen Sie Ihre E-Mails.",
@@ -988,6 +991,16 @@
       "oauthNoToken": "Kein Zugriffstoken erhalten.",
       "oauthProfileError": "Profil konnte nicht geladen werden.",
       "oauthProcessing": "Anmeldung wird verarbeitet...",
+      "oauthErrorTitle": "Anmeldung fehlgeschlagen",
+      "backToLogin": "Zurück zur Anmeldung",
+      "oauthErrors": {
+        "accessDenied": "Die Anmeldung wurde beim Anbieter abgebrochen.",
+        "invalidState": "Die Anmeldesitzung ist abgelaufen. Bitte versuchen Sie es erneut.",
+        "providerError": "Der Anbieter hat einen Fehler gemeldet. Bitte versuchen Sie es später erneut.",
+        "accountDisabled": "Dieses Konto ist deaktiviert.",
+        "sessionFailed": "Die Anmeldung konnte nicht abgeschlossen werden. Bitte melden Sie sich erneut an.",
+        "generic": "Bei der Anmeldung ist ein Fehler aufgetreten."
+      },
       "profileSection": "Persönliche Daten",
       "profileSectionDesc": "Anzeigename und E-Mail-Adresse Ihres Kontos.",
       "regionSection": "Sprache & Region",

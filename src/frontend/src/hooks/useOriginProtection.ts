@@ -7,6 +7,18 @@ interface UseOriginProtectionInput {
   isSystem?: boolean;
 }
 
+/**
+ * Single point that performs the unsafe `origin` read.
+ *
+ * TODO(REQ-001 v5.0): the backend does not yet deliver the `origin` field on all
+ * entities. Until it does, this helper is the ONLY place doing the cast — every
+ * page reads the origin through it instead of repeating the inline `as unknown`
+ * cast (Code-Review FE-L2).
+ */
+export function resolveOrigin(entity: unknown): DataOrigin | undefined {
+  return (entity as { origin?: DataOrigin } | null | undefined)?.origin;
+}
+
 export interface OriginProtection {
   /** Resolved origin marker. Returns 'tenant' if neither origin nor isSystem is set. */
   origin: DataOrigin;

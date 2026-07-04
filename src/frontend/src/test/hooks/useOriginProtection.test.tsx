@@ -4,7 +4,7 @@ import { Provider } from 'react-redux';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/i18n/i18n';
 import { createTestStore } from '@/test/helpers';
-import { useOriginProtection } from '@/hooks/useOriginProtection';
+import { useOriginProtection, resolveOrigin } from '@/hooks/useOriginProtection';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (
@@ -53,5 +53,21 @@ describe('useOriginProtection', () => {
     const { result } = renderHook(() => useOriginProtection({ origin: 'system' }), { wrapper });
     expect(result.current.tooltipText.length).toBeGreaterThan(0);
     expect(result.current.tooltipText).not.toMatch(/common\.origin/);
+  });
+});
+
+describe('resolveOrigin', () => {
+  it('returns the origin when present', () => {
+    expect(resolveOrigin({ origin: 'system' })).toBe('system');
+    expect(resolveOrigin({ origin: 'enrichment', name: 'x' })).toBe('enrichment');
+  });
+
+  it('returns undefined when the entity has no origin', () => {
+    expect(resolveOrigin({ name: 'no origin here' })).toBeUndefined();
+  });
+
+  it('returns undefined for null and undefined entities', () => {
+    expect(resolveOrigin(null)).toBeUndefined();
+    expect(resolveOrigin(undefined)).toBeUndefined();
   });
 });

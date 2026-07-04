@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import LoginPage from '@/pages/auth/LoginPage';
@@ -110,6 +110,61 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Google/ })).toBeTruthy();
     });
+  });
+
+  it('surfaces a warning when the OAuth provider list fails to load (FE-L3)', async () => {
+    server.use(
+      http.get('/api/v1/auth/oauth/providers', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    );
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    // A failed optional load must be visible, not a silent empty list.
+    await waitFor(() => {
+      expect(screen.getByText(/Alternative Anmeldeoptionen.*konnten nicht geladen werden/)).toBeTruthy();
+    });
+    // The password login form remains fully usable.
+    expect(screen.getByRole('button', { name: 'Anmelden' })).toBeTruthy();
+  });
+
+  it('URL-encodes the provider slug when starting the OAuth flow (FE-S4)', async () => {
+    server.use(
+      http.get('/api/v1/auth/oauth/providers', () =>
+        HttpResponse.json([{ slug: 'a/b?c#d', display_name: 'Weird', icon_url: null }]),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+    // Wait for the provider to load with the real window.location so axios can
+    // resolve the relative request URL, THEN stub only the href setter.
+    const providerButton = await screen.findByRole('button', { name: /Weird/ });
+
+    const hrefSetter = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...originalLocation,
+        get href() {
+          return '';
+        },
+        set href(value: string) {
+          hrefSetter(value);
+        },
+      },
+    });
+
+    try {
+      await user.click(providerButton);
+      expect(hrefSetter).toHaveBeenCalledWith('/api/v1/auth/oauth/a%2Fb%3Fc%23d');
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: originalLocation,
+      });
+    }
   });
 
   it('offers a link to the registration page', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -20,9 +20,9 @@ import FormRow from '@/components/form/FormRow';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as api from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Site } from '@/api/types';
 
 const tankTypes = ['nutrient', 'irrigation', 'reservoir', 'recirculation', 'stock_solution'] as const;
 const materials = ['plastic', 'stainless_steel', 'glass', 'ibc'] as const;
@@ -58,8 +58,10 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
-  const [sites, setSites] = useState<Site[]>([]);
   const [selectedSiteKey, setSelectedSiteKey] = useState('');
+  // AP-12 (FE-L3): load sites with explicit error state instead of a silent catch.
+  const loadSites = useCallback(() => sitesApi.listSites(0, 200), []);
+  const { options: sites, error: sitesError } = useAsyncOptions(loadSites, { enabled: open });
 
   const { control, handleSubmit, reset, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -79,12 +81,6 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
       notes: null,
     },
   });
-
-  useEffect(() => {
-    if (open) {
-      sitesApi.listSites(0, 200).then(setSites).catch(() => {});
-    }
-  }, [open]);
 
   const handleSiteChange = (siteKey: string) => {
     setSelectedSiteKey(siteKey);
@@ -170,6 +166,8 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
             fullWidth
             sx={{ mb: 2 }}
             data-testid="form-field-site"
+            error={sitesError}
+            helperText={sitesError ? t('errors.optionsLoadFailed') : undefined}
           >
             <MenuItem value="">{'—'}</MenuItem>
             {sites.map((s) => (

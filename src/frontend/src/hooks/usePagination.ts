@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 
 interface PaginationState {
   page: number;
@@ -28,9 +28,9 @@ export function usePagination(initialRowsPerPage = 50) {
     setState({ page: 0, rowsPerPage, offset: 0 });
   }, []);
 
-  return {
-    ...state,
-    setPage,
-    setRowsPerPage,
-  };
+  // FRONTEND.md §6.1: object return MUST be useMemo-stabilised.
+  return useMemo(
+    () => ({ ...state, setPage, setRowsPerPage }),
+    [state, setPage, setRowsPerPage],
+  );
 }
