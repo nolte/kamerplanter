@@ -98,6 +98,20 @@ Barrierefreiheit ist nicht nur eine rechtliche Anforderung, sondern verbessert d
 | R-022 | Die Anwendung MUSS die `prefers-reduced-motion` Media-Query respektieren und Animationen reduzieren oder deaktivieren. | MUSS |
 | R-023 | Kein Inhalt DARF mehr als dreimal pro Sekunde blinken (Epilepsie-Prävention). | MUSS |
 
+### 2.7 Drag-and-Drop-Alternativen & dynamische Layouts
+
+Direktmanipulations-Muster (Drag-and-Drop-Sortieren, frei anordenbare Grids wie das
+individualisierbare Dashboard aus REQ-045) sind mit Maus/Touch bedienbar, aber ohne
+zusätzliche Vorkehrungen für Tastatur- und Screenreader-Nutzer unzugänglich. Diese Regeln
+schließen die Lücke generisch für alle solchen Oberflächen.
+
+| # | Regel | Stufe |
+|---|-------|-------|
+| R-024 | Jede Drag-and-Drop- oder Resize-Interaktion MUSS eine vollwertige, tastaturbedienbare Alternative bieten (z.B. „nach oben/unten"-Buttons, Größen-Stepper oder ein Kontext-/Kebab-Menü), die dieselben Zustandsänderungen erreicht wie die Zeigergeste. | MUSS |
+| R-025 | Drag-/Resize-Handles, die ausschließlich per Maus/Touch funktionieren, DÜRFEN NICHT im Tab-Index liegen (`tabindex="-1"`) — es DÜRFEN keine fokussierbaren, aber funktionslosen Bedienelemente entstehen (WCAG 2.1.1). Die zugehörige Funktion MUSS über die Tastaturalternative (R-024) erreichbar bleiben. | MUSS |
+| R-026 | In dynamisch positionierten Layouts (Grids, in denen die visuelle Position von der Einfügereihenfolge abweichen kann) MUSS die DOM-/Tab-/Vorlese-Reihenfolge der visuellen Lesereihenfolge folgen (Sortierung nach Zeile, dann Spalte) — Präzisierung von R-004 für dynamische Layouts (WCAG 1.3.2). | MUSS |
+| R-027 | Das Ergebnis einer Umsortier-/Größenänderung per Tastaturalternative MUSS über eine ARIA-Live-Region (`aria-live="polite"`) angekündigt werden (z.B. „Widget an Position 2 von 6"). | MUSS |
+
 ---
 
 ## 3. Wireframe-Beispiele

@@ -81,6 +81,7 @@ Performance hat direkten Einfluss auf Nutzerzufriedenheit und Konversion:
 | R-014 | Das initiale CSS-Bundle SOLL unter 50KB (gzipped) liegen. | SOLL |
 | R-015 | Bundle-Size-Budgets MÜSSEN in der CI-Pipeline überwacht werden — ein Überschreiten MUSS den Build fehlschlagen lassen. | MUSS |
 | R-016 | Tree-Shaking MUSS aktiviert sein, um ungenutzten Code zu entfernen. | MUSS |
+| R-028 | Hochfrequentierte Landing-Routen (insb. die Post-Login-Startseite `/dashboard`) SOLLEN ein eigenes, CI-überwachtes Chunk-Budget zusätzlich zum globalen Initial-Bundle-Budget (R-013) führen, damit schwere Bibliotheken (z.B. Grid-/Drag-and-Drop-Layout-Engines) nicht unbemerkt in die meistbesuchte Route wandern. Solche Engines MÜSSEN hinter Interaktion (z.B. „Bearbeiten"-Modus) per Dynamic Import lazy geladen werden (R-012); die Read-Only-Darstellung kommt ohne sie aus. | SOLL |
 
 ### 2.5 Datenabfragen & Interaktion
 
