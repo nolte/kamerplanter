@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.api.mapping import to_response
 from app.api.v1.phases.schemas import (
     CurrentPhaseResponse,
     PhaseHistoryDateUpdate,
@@ -34,13 +35,13 @@ def transition_phase(
 ):
     plant = service.transition_phase(plant_key, body.target_phase_key, body.reason, force=body.force)
     phase_name = plant_service.resolve_phase_name(plant.current_phase_key or "")
-    return PlantResponse(key=plant.key or "", current_phase=phase_name, **plant.model_dump(exclude={"key"}))
+    return to_response(plant, PlantResponse, current_phase=phase_name)
 
 
 @router.get("/history", response_model=list[PhaseHistoryResponse])
 def get_phase_history(plant_key: str, service: PhaseService = Depends(get_phase_service)):
     history = service.get_phase_history(plant_key)
-    return [PhaseHistoryResponse(key=h.key or "", **h.model_dump(exclude={"key"})) for h in history]
+    return [to_response(h, PhaseHistoryResponse) for h in history]
 
 
 @router.patch("/history/{history_key}", response_model=PhaseHistoryResponse)
@@ -56,7 +57,7 @@ def update_phase_history_dates(
         h = service.update_phase_history_dates(plant_key, history_key, body.entered_at, body.exited_at)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    return PhaseHistoryResponse(key=h.key or "", **h.model_dump(exclude={"key"}))
+    return to_response(h, PhaseHistoryResponse)
 
 
 @router.delete("/history/{history_key}", status_code=204)

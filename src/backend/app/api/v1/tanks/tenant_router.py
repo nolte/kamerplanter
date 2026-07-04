@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.tanks.schemas import (
     ActiveNutrientPlanResponse,
@@ -29,6 +29,7 @@ from app.api.v1.tanks.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_tank_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.models.sensor import Sensor
 from app.domain.models.tank import (
@@ -65,8 +66,7 @@ def get_all_due_maintenances(
 
 @router.get("", response_model=list[TankResponse])
 def list_tanks(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     tank_type: str | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
@@ -74,7 +74,7 @@ def list_tanks(
     filters: dict[str, str] = {}
     if tank_type:
         filters["tank_type"] = tank_type
-    items, _total = service.list_tanks(offset, limit, filters or None, tenant_key=ctx.tenant_key)
+    items, _total = service.list_tanks(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_tank_response(t) for t in items]
 
 
@@ -146,13 +146,12 @@ def record_state(
 @router.get("/{key}/states", response_model=list[TankStateResponse])
 def get_states(
     key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
     service.get_tank(key, tenant_key=ctx.tenant_key)
-    states = service.get_states(key, offset, limit)
+    states = service.get_states(key, pagination.offset, pagination.limit)
     return [TankStateResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in states]
 
 
@@ -196,13 +195,12 @@ def log_maintenance(
 @router.get("/{key}/maintenance", response_model=list[MaintenanceLogResponse])
 def get_maintenance_history(
     key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
     service.get_tank(key, tenant_key=ctx.tenant_key)
-    logs = service.get_maintenance_history(key, offset, limit)
+    logs = service.get_maintenance_history(key, pagination.offset, pagination.limit)
     return [MaintenanceLogResponse(key=log.key or "", **log.model_dump(exclude={"key"})) for log in logs]
 
 
@@ -292,13 +290,12 @@ def record_fill_event(
 @router.get("/{key}/fills", response_model=list[TankFillEventResponse])
 def get_fill_events(
     key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
     service.get_tank(key, tenant_key=ctx.tenant_key)
-    events = service.get_fill_history(key, offset, limit)
+    events = service.get_fill_history(key, pagination.offset, pagination.limit)
     return [_fill_event_response(e) for e in events]
 
 

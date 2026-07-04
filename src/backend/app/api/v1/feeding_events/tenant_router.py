@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.feeding_events.schemas import (
     FeedingEventCreate,
@@ -7,6 +7,7 @@ from app.api.v1.feeding_events.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_feeding_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.feeding_service import FeedingService
@@ -20,12 +21,11 @@ def _event_response(e: FeedingEvent) -> FeedingEventResponse:
 
 @router.get("", response_model=list[FeedingEventResponse])
 def list_events(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: FeedingService = Depends(get_feeding_service),
 ):
-    items, _total = service.list_events(offset, limit, tenant_key=ctx.tenant_key)
+    items, _total = service.list_events(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_event_response(e) for e in items]
 
 
@@ -86,10 +86,9 @@ def analyze_runoff(
 @router.get("/plant/{pk}", response_model=list[FeedingEventResponse])
 def get_plant_history(
     pk: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: FeedingService = Depends(get_feeding_service),
 ):
-    events = service.get_by_plant(pk, offset, limit)
+    events = service.get_by_plant(pk, pagination.offset, pagination.limit)
     return [_event_response(e) for e in events]

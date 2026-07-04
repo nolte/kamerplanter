@@ -16,6 +16,7 @@ from app.api.v1.nutrient_plans.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_nutrient_plan_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -33,8 +34,7 @@ def _entry_response(e: NutrientPlanPhaseEntry) -> PhaseEntryResponse:
 
 @router.get("", response_model=list[NutrientPlanResponse])
 def list_plans(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     recommended_substrate_type: str | None = None,
     is_template: bool | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
@@ -45,7 +45,7 @@ def list_plans(
         filters["recommended_substrate_type"] = recommended_substrate_type
     if is_template is not None:
         filters["is_template"] = is_template
-    items, _total = service.list_plans(offset, limit, filters or None, tenant_key=ctx.tenant_key)
+    items, _total = service.list_plans(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_plan_response(p) for p in items]
 
 

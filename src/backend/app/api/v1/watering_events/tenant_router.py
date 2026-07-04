@@ -14,6 +14,7 @@ from app.api.v1.watering_events.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_watering_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_event import WateringEvent
 from app.domain.services.watering_service import WateringService
@@ -38,12 +39,11 @@ def create_event(
 
 @router.get("/watering-events", response_model=list[WateringEventResponse])
 def list_events(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    items, _total = service.list_events(offset, limit, tenant_key=ctx.tenant_key)
+    items, _total = service.list_events(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_event_response(e) for e in items]
 
 
@@ -59,24 +59,22 @@ def get_event(
 @router.get("/plant-instances/{plant_key}/watering-events", response_model=list[WateringEventResponse])
 def get_plant_events(
     plant_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    events = service.get_by_plant(plant_key, offset, limit)
+    events = service.get_by_plant(plant_key, pagination.offset, pagination.limit)
     return [_event_response(e) for e in events]
 
 
 @router.get("/locations/{location_key}/watering-events", response_model=list[WateringEventResponse])
 def get_location_events(
     location_key: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringService = Depends(get_watering_service),
 ):
-    events = service.get_by_location(location_key, offset, limit)
+    events = service.get_by_location(location_key, pagination.offset, pagination.limit)
     return [_event_response(e) for e in events]
 
 

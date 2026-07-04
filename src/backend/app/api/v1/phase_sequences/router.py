@@ -14,6 +14,7 @@ from app.api.v1.phase_sequences.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_phase_sequence_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.phase_sequence import (
     PhaseDefinition,
     PhaseSequence,
@@ -99,13 +100,12 @@ def get_species_phase_sequence(
 
 @router.get("/phase-definitions", response_model=list[PhaseDefinitionResponse])
 def list_phase_definitions(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     name: str | None = Query(None),
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    definitions, _ = service.list_definitions(offset, limit, name_filter=name)
+    definitions, _ = service.list_definitions(pagination.offset, pagination.limit, name_filter=name)
     result = []
     for defn in definitions:
         usage = service._repo.get_definition_usage_count(defn.key or "")
@@ -187,12 +187,11 @@ def delete_phase_definition(
 
 @router.get("/phase-sequences", response_model=list[PhaseSequenceResponse])
 def list_phase_sequences(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
-    sequences, _ = service.list_sequences(offset, limit)
+    sequences, _ = service.list_sequences(pagination.offset, pagination.limit)
     result = []
     for seq in sequences:
         full = service.get_full_sequence(seq.key or "")

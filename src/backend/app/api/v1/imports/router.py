@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, Form, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Response, UploadFile
 
 from app.api.v1.imports.schemas import ImportJobResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_import_service
 from app.common.enums import DuplicateStrategy, EntityType
 from app.common.exceptions import PayloadTooLargeError, UnsupportedMediaTypeError
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.import_job import ImportJob
 from app.domain.services.import_service import ImportService
 
@@ -91,11 +92,10 @@ def get_job(
 
 @router.get("/jobs", response_model=list[ImportJobResponse])
 def list_jobs(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     service: ImportService = Depends(get_import_service),
 ):
-    items, _total = service.list_jobs(offset, limit)
+    items, _total = service.list_jobs(pagination.offset, pagination.limit)
     return [_job_response(j) for j in items]
 
 

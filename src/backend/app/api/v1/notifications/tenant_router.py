@@ -23,6 +23,7 @@ from app.api.v1.notifications.schemas import (
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_notification_service
 from app.common.exceptions import NotFoundError
+from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.notification import NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
@@ -62,8 +63,7 @@ def _notification_response(n) -> NotificationResponse:
 
 @router.get("", response_model=NotificationListResponse)
 def list_notifications(
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: PaginationParams = Depends(get_pagination),
     unread_only: bool = Query(False),
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
@@ -72,8 +72,8 @@ def list_notifications(
     items = service.list_notifications(
         user_key=ctx.user_key,
         tenant_key=ctx.tenant_key,
-        limit=limit,
-        offset=offset,
+        limit=pagination.limit,
+        offset=pagination.offset,
         unread_only=unread_only,
     )
     unread_count = service.count_unread(

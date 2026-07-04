@@ -44,10 +44,13 @@ class ArangoTankRepository(ITankRepository, BaseArangoRepository):
                 filter_clauses.append(f"doc.{field} == @val{i}")
             query += " FILTER " + " AND ".join(filter_clauses)
             count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            query += f" SORT doc._key LIMIT {offset}, {limit} RETURN doc"
+            count_vars = dict(bind_vars)
+            bind_vars["offset"] = offset
+            bind_vars["limit"] = limit
+            query += " SORT doc._key LIMIT @offset, @limit RETURN doc"
             cursor = self._db.aql.execute(query, bind_vars=bind_vars)
             items = [Tank(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
+            count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
             total = next(count_cursor, 0)
             return items, total
         docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.substrates.schemas import (
     BatchCreate,
@@ -13,6 +13,7 @@ from app.api.v1.substrates.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_substrate_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
 from app.domain.services.substrate_service import SubstrateService
 
@@ -21,11 +22,10 @@ router = APIRouter(prefix="/substrates", tags=["substrates"], dependencies=[Depe
 
 @router.get("", response_model=list[SubstrateResponse])
 def list_substrates(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     service: SubstrateService = Depends(get_substrate_service),
 ):
-    items, total = service.list_substrates(offset, limit)
+    items, total = service.list_substrates(pagination.offset, pagination.limit)
     return [SubstrateResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in items]
 
 

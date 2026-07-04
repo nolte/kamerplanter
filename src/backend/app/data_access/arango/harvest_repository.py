@@ -26,9 +26,9 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
     # ── Indicators ──
 
     def get_all_indicators(self, offset: int = 0, limit: int = 50) -> tuple[list[HarvestIndicator], int]:
-        query = f"FOR doc IN {col.HARVEST_INDICATORS} SORT doc._key LIMIT {offset}, {limit} RETURN doc"
+        query = f"FOR doc IN {col.HARVEST_INDICATORS} SORT doc._key LIMIT @offset, @limit RETURN doc"
         count_query = f"FOR doc IN {col.HARVEST_INDICATORS} COLLECT WITH COUNT INTO total RETURN total"
-        cursor = self._db.aql.execute(query)
+        cursor = self._db.aql.execute(query, bind_vars={"offset": offset, "limit": limit})
         items = [HarvestIndicator(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query)
         total = next(count_cursor, 0)
@@ -86,14 +86,14 @@ class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
             f"FOR doc IN {col.HARVEST_OBSERVATIONS} "
             f"FILTER doc.plant_key == @plant_key "
             f"SORT doc.observed_at DESC "
-            f"LIMIT {offset}, {limit} RETURN doc"
+            f"LIMIT @offset, @limit RETURN doc"
         )
         count_query = (
             f"FOR doc IN {col.HARVEST_OBSERVATIONS} "
             f"FILTER doc.plant_key == @plant_key "
             f"COLLECT WITH COUNT INTO total RETURN total"
         )
-        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key})
+        cursor = self._db.aql.execute(query, bind_vars={"plant_key": plant_key, "offset": offset, "limit": limit})
         items = [HarvestObservation(**self._from_doc(doc)) for doc in cursor]
         count_cursor = self._db.aql.execute(count_query, bind_vars={"plant_key": plant_key})
         total = next(count_cursor, 0)

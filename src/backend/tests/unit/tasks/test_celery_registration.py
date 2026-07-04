@@ -12,11 +12,15 @@ from pathlib import Path
 import app.tasks as tasks_pkg
 from app.tasks import celery_app
 
+# Helper modules under app/tasks that hold no Celery tasks and must not be on
+# the include list (e.g. the run_async_task bridge decorator, AP-18).
+_NON_TASK_MODULES = {"__init__", "task_bridge"}
+
 
 def _task_module_names() -> set[str]:
-    """All importable task modules under app/tasks (excluding the package init)."""
+    """All importable task modules under app/tasks (excluding non-task helpers)."""
     pkg_dir = Path(tasks_pkg.__file__).parent
-    return {f"app.tasks.{path.stem}" for path in pkg_dir.glob("*.py") if path.stem != "__init__"}
+    return {f"app.tasks.{path.stem}" for path in pkg_dir.glob("*.py") if path.stem not in _NON_TASK_MODULES}
 
 
 def test_all_task_modules_are_included():

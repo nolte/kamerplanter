@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 from app.api.v1.ipm import router as ipm_router
+from app.common.pagination import PaginationParams
 from app.domain.models.ipm import Pest
 
 
@@ -76,7 +77,7 @@ def test_list_pests_marks_pest_with_reference_images(patched):
         ]
     )
 
-    responses = ipm_router.list_pests(offset=0, limit=50, service=service)
+    responses = ipm_router.list_pests(pagination=PaginationParams(offset=0, limit=50), service=service)
 
     by_key = {r.key: r for r in responses}
     # 30 active prototypes → marked, count surfaced.
@@ -99,7 +100,7 @@ def test_list_pests_no_marker_when_feature_disabled(monkeypatch):
     monkeypatch.setattr(ipm_router, "get_pest_inference_client", lambda: client)
     service = _FakeIpmService([_pest("p_mite", detection_slug="spider_mite")])
 
-    responses = ipm_router.list_pests(offset=0, limit=50, service=service)
+    responses = ipm_router.list_pests(pagination=PaginationParams(offset=0, limit=50), service=service)
 
     assert responses[0].has_reference_images is False
     assert responses[0].reference_image_count == 0

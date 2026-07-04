@@ -12,6 +12,7 @@ from app.api.v1.plant_instances.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
+from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -42,12 +43,11 @@ def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantRespon
 
 @router.get("", response_model=list[PlantResponse])
 def list_plants(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    items, _total = service.list_plants(offset, limit, tenant_key=ctx.tenant_key)
+    items, _total = service.list_plants(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_to_response(p, service) for p in items]
 
 

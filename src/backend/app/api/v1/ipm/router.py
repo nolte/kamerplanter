@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 
 from app.api.v1.ipm.schemas import (
     BeneficialResponse,
@@ -19,6 +19,7 @@ from app.api.v1.ipm.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_ipm_service, get_pest_inference_client
+from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.beneficial import Beneficial
 from app.domain.models.ipm import (
@@ -101,11 +102,10 @@ def _beneficial_response(b: Beneficial) -> BeneficialResponse:
 
 @router.get("/pests", response_model=list[PestResponse])
 def list_pests(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     service: IpmService = Depends(get_ipm_service),
 ):
-    pests, _ = service.list_pests(offset, limit)
+    pests, _ = service.list_pests(pagination.offset, pagination.limit)
     ref_counts = _reference_image_counts()
     return [_pest_response(p, ref_counts) for p in pests]
 
@@ -150,11 +150,10 @@ def delete_pest(key: str, service: IpmService = Depends(get_ipm_service)):
 
 @router.get("/diseases", response_model=list[DiseaseResponse])
 def list_diseases(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     service: IpmService = Depends(get_ipm_service),
 ):
-    diseases, _ = service.list_diseases(offset, limit)
+    diseases, _ = service.list_diseases(pagination.offset, pagination.limit)
     return [_disease_response(d) for d in diseases]
 
 
@@ -187,11 +186,10 @@ def delete_disease(key: str, service: IpmService = Depends(get_ipm_service)):
 
 @router.get("/treatments", response_model=list[TreatmentResponse])
 def list_treatments(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination),
     service: IpmService = Depends(get_ipm_service),
 ):
-    treatments, _ = service.list_treatments(offset, limit)
+    treatments, _ = service.list_treatments(pagination.offset, pagination.limit)
     return [_treatment_response(t) for t in treatments]
 
 
