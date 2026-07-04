@@ -23,6 +23,7 @@
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 3–10+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -49,7 +50,7 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 6, 7, 8 (kleine, unauffällige gelb-weiße Blüten; werden oft entfernt um Blattenergie zu erhalten) | `species.bloom_months` |
+| Blütemonate | 7, 8 (kleine, unauffällige gelb-weiße Ährenblüten; werden oft entfernt um Blattenergie zu erhalten; in Zimmerkultur selten blühend) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -338,3 +339,11 @@ Skeleton,Fittonia albivenis,"ornamental;white_veins;large_leaf",clone
 13. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Referenz Mn 0.5 / Zn 0.05 / Cu 0.02 / Mo 0.01 ppm
 14. [Koppert — Biologische Bekämpfung (Phytoseiulus persimilis, Aphidius colemani, Aphidoletes aphidimyza, Steinernema feltiae)](https://www.koppert.com/) — Nützling-Wirt-Zuordnung und Ausbringraten
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Growing-Phase-Audit 2026-07 -->
+15. [NC State Extension Gardener Plant Toolbox — Fittonia albivenis](https://plants.ces.ncsu.edu/plants/fittonia-albivenis/) — Blüte Juli–August, Lebenszyklus "Perennial", Vermehrung "Stem Cutting"
+16. [Floragard — Fittonie 'White Star'](https://www.floragard.de/de-de/fittonie-white-star) — Blüte "Von Juli bis August"
+17. [Mauk Gartenwelt — Fittonia albivenis (Fittonie)](https://www.mauk-gartenwelt.de/fittonia-albivenis-fittonie) — Blüte "Von Juli bis August", gelbe Blüten, immergrüne Zimmerpflanze
+18. [Gardening Know How — Growing Nerve Plants](https://www.gardeningknowhow.com/houseplants/nerve-plant/growing-nerve-plants.htm) — "spreading evergreen perennial", Stecklingsvermehrung
+19. [Plantura — Mosaikpflanze Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/mosaikpflanze/mosaikpflanze-pflanzenportrait) — Vermehrung Stecklinge, Teilung, Aussaat; Blüte in Zimmerkultur selten
+20. [Rural Sprout — Fittonia Nerve Plant Care & Propagation](https://www.ruralsprout.com/fittonia-nerve-plant/) — Vermehrung per Teilung (Root Division) und Stecklingen
+<!-- /Quelle: Growing-Phase-Audit 2026-07 -->

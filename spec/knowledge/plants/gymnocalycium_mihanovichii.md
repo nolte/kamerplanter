@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
@@ -50,7 +51,11 @@
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | 4, 5, 6 (rosa bis weiße Blüten der Unterlage oder Scion) | `species.bloom_months` |
+| Blütemonate | 5, 6, 7 (rosa bis weiße Blüten der Unterlage oder Scion) | `species.bloom_months` |
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+**Korrektur 2026-07 (growing-phase-auditor):** Blütemonate von `4, 5, 6` auf `5, 6, 7` korrigiert. Vier unabhängige Quellen belegen übereinstimmend "späten Frühling bis Frühsommer"/Sommer als Blühzeitraum, keine nennt April: (1) NC State Extension — "flowers in late spring to early summer"; (2) Pflanzenfreunde.com — Blütezeit der Gattung Gymnocalycium "Mai–Juli"; (3) World of Succulents — Blüte "late spring to early summer", beobachtete Einzelfälle erste Juni- bis Mitte-Juli-Woche; (4) LLIFLE Encyclopedia of Cacti — *G. mihanovichii* als "summer grower", blüht bevorzugt im Sommer bei Kali-Düngung. Der bisherige Wert (April) ist in keiner der vier Quellen belegt und passt auch nicht zum dokumentierten Jahresverlauf in §4.2 ("Mär: Aufwecken" → 2 Monate vegetatives Wachstum vor Blütenbeginn ist plausibler als Blüte bereits einen Monat nach dem Aufwecken). Konfidenz: ✅ GESICHERT (4/4 Quellen stimmen überein).
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -348,3 +353,10 @@ Gymnocalycium mihanovichii,Mondkaktus;Bunter Pfropfkaktus;Moon Cactus,Cactaceae,
 22. [The Cactus Expert — Fertilizer / trace elements](https://www.cactusexpert.org/cultivation-of-cacti/fertilizer.html) — Mn/Zn/Cu/Mo als Spurenelemente bei Kakteen (qualitativ)
 23. [Viriar — Gymnocalycium baldianum (Dormanz/Blüte)](https://www.viriar.com/blogs/cactus-encyclopedia/gymnocalycium-baldianum) — kühle, trockene Winterruhe als Blühtrigger; Cafe Planta/Cactus Classification — Lebensdauer
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+24. [NC State Extension — Gymnocalycium mihanovichii](https://plants.ces.ncsu.edu/plants/gymnocalycium-mihanovichii/) — Blütezeit "late spring to early summer" (Korrektur Blütemonate)
+25. [Pflanzenfreunde.com — Gymnocalycium](https://www.pflanzenfreunde.com/lexika/kakteen/gymnocalycium.htm) — Blütezeit Gattung Mai–Juli; Winterruhe Nov–Mär bei 5–8°C
+26. [World of Succulents — Gymnocalycium mihanovichii](https://worldofsucculents.com/gymnocalycium-mihanovichii-moon-cactus/) — Blüte "late spring to early summer", beobachtet Anfang Juni bis Mitte Juli
+27. [LLIFLE Encyclopedia of Cacti — Gymnocalycium mihanovichii](https://llifle.com/Encyclopedia/CACTI/Family/Cactaceae/11929/Gymnocalycium_mihanovichii) — Sommerwachser/-blüher, trockene Winterruhe min. 0°C, Wildform frosttolerant bis -5°C trocken (USDA 9-10)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

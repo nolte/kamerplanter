@@ -20,6 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --><!-- KORREKTUR: vormals short_day. S. floribunda ist photoperiodisch weitgehend tagneutral; dominanter Blühinduktionsfaktor sind kühle Nächte (~13–16 °C) im Winter, nicht die Tageslänge. Eine klassische Langtag-Einstufung mit kritischer Tageslänge ist nicht belegt. --><!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 10a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -36,7 +37,7 @@
 | Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
 | Vernalisation Mindest-Tage | — | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN --> (tagneutral; Blühinduktion temperaturgesteuert über kühle Nächte, keine belegte photoperiodische Schwelle) | `lifecycle_configs.critical_day_length_hours` |
-<!-- Hinweis: S. floribunda ist Langtagblüher; Blüteninduktion ab ~14 h Photoperiode (oder 4 h Nachtunterbrechung). Der erforderliche 8–10-wöchige kühle Ruheabschnitt (cool rest, ~13–16 °C Nacht) ist eine kühletemperatur-gesteuerte Dormanz/Induktion, KEINE echte Vernalisation (kein Kältereiz <10 °C nötig) → dormancy_required=true, vernalization_required=false. Quellen: ourhouseplants, lifetips/Alibaba, Davis Floral Stephanotis Vine. -->
+<!-- Hinweis: S. floribunda ist weitgehend tagneutral; keine belegte photoperiodische Schwelle bzw. Langtag-Induktionsmechanismus mit kritischer Tageslänge nachweisbar (Re-Verifikation 2026-07: ourhouseplants und lifetips/Alibaba widersprechen explizit einer Photoperiode-gesteuerten Blüteninduktion; NC State Extension Gardener Plant Toolbox nennt ebenfalls keine Tageslängen-Schwelle). Der erforderliche 8–10-wöchige kühle Ruheabschnitt (cool rest, ~13–16 °C Nacht) ist eine kühletemperatur-gesteuerte Dormanz/Induktion, KEINE echte Vernalisation (kein Kältereiz <10 °C nötig) → dormancy_required=true, vernalization_required=false. Quellen: ourhouseplants, lifetips/Alibaba, NC State Extension Gardener Plant Toolbox. -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ### 1.2 Aussaat- & Erntezeiten

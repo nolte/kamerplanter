@@ -20,6 +20,8 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | biennial | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | long_day (Langtagspflanze -- Bluetenbildung im 2. Jahr durch lange Tage ausgeloest; Vernalisation noetig) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | c3 (krautige Apiaceae; weder C4 noch CAM) | `species.photosynthesis_type` |
@@ -48,7 +50,7 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Direktsaat nach letztem Frost (Tage) | 0 (Direktsaat bereits ab Maerz moeglich, da Samen kaeltetolerant) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | 3; 4; 5; 6; 7 | `species.direct_sow_months` |
 | Erntemonate | 5; 6; 7; 8; 9; 10; 11 | `species.harvest_months` |
-| Bluetemonate | 6; 7; 8 (nur im 2. Jahr) | `species.bloom_months` |
+| Bluetemonate | 6; 7 (nur im 2. Jahr) <!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von '6;7;8' auf '6;7'; 3 unabhaengige Quellen (garten-wissen.com, Kiepenkerl, NC State Extension/Missouri Botanical Garden) datieren die Bluete der Kulturpetersilie im 2. Jahr uebereinstimmend auf Juni/Juli, keine belegt eine Fortdauer bis August; siehe Quellen 21-23 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -539,3 +541,9 @@ Festival 68,Petroselinum crispum,,,high_yield;disease_resistant,70,,open_pollina
 19. Annals of Botany / Oxford Academic -- Far-red light effects: FR-Fraction Vollsonne ~0.46--0.5, Halbschatten hoeher: https://academic.oup.com/aob/article/135/3/589/7701832
 20. AlpHa Measure / Atlas Scientific -- Hydroponic micronutrient sufficiency ranges (Mn 0.5--1.0, Zn 0.05--0.5, Cu 0.02--0.05, Mo ~0.01--0.05 ppm): https://alpha-measure.com/hydroponic-nutrient-solution-monitoring-and-optimization/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur Bluetemonate (6;7;8 -> 6;7) -->
+21. garten-wissen.com -- Petroselinum crispum: Growing Timeline: https://www.garten-wissen.com/pflanzen/petersilie/ -- "Bluetezeit (Blooming - Year 2): Juni oder Juli"; "Aussaat: von Mitte Maerz bis Ende Juli"
+22. Kiepenkerl -- Kulturanleitung Petersilie: https://www.kiepenkerl.de/kulturanleitungen/petersilie/ -- "Die Pflanze bluet im zweiten Jahr ... im Juni bzw. Juli"; Ernte 1. Jahr Maerz--Oktober, 2. Jahr Maerz--Juni/Juli (endet mit Bluetenbildung)
+23. NC State Extension Gardener Plant Toolbox / Missouri Botanical Garden Plant Finder -- Petroselinum crispum: https://plants.ces.ncsu.edu/plants/petroselinum-crispum/ ; https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=276060 -- "Plants will bloom in the 2nd year ... in summer"; Samenbildung Juli--September (stuetzt Bluetebeginn Juni/Juli, keine Beleg fuer Bluete bis August)
+<!-- Hinweis: Eine Einzelquelle (gartenjournal.net/petersilie-blueht) nennt abweichend "zwischen Juni und August" ohne Beleg/Zitat einer Primaerquelle; eine zweite Seite derselben Redaktion (gartenjournal.net/petersilie-mehrjaehrig) nennt dagegen "Juni und Juli" -- als interne Widerspruechlichkeit gewertet und durch die 3 uebereinstimmenden Quellen 21-23 fuer das Bluete-Ende Juli nicht entkraeftet. -->
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

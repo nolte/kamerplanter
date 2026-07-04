@@ -23,6 +23,7 @@
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (°C) | 7 (Kühlzehrer; Wachstum kommt < 7–10 °C praktisch zum Erliegen, optimaler Wuchs bei 13–18 °C) | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–20+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Kritische Tageslänge (h) | <!-- DATEN FEHLEN: tagneutral, kein Kurztag-/Langtag-Blüher --> | `lifecycle_configs.critical_day_length_hours` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -123,7 +124,7 @@
 | Winterruhe / Einzug (Oktober–Februar) | 90–120 | 1 | false | false | medium |
 | Austrieb / Vorblüte (Februar–März) | 30–45 | 2 | false | false | low |
 | Hauptblüte (März–Juni) | 60–90 | 3 | false | false | medium |
-| Nach der Blüte / Sommer (Juli–September) | 60–90 | 4 | true | false | medium |
+| Nach der Blüte / Sommer (Juli–September) | 60–90 | 4 | false | false | medium |
 
 ### 2.2 Phasen-Anforderungsprofile
 

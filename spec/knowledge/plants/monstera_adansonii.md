@@ -26,6 +26,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 10–40+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
@@ -55,12 +56,14 @@
 
 ### 1.3 Vermehrung
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Audit growing-phase-auditor) -->
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | cutting_stem | `species.propagation_methods` |
+| Vermehrungsmethoden | cutting_stem, layering | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
-**Hinweis:** Stecklinge mit einem Knoten (Node) in Wasser stellen — Bewurzelung in 4–6 Wochen. Dann in Substrat umtopfen.
+**Hinweis:** Stecklinge mit einem Knoten (Node) in Wasser stellen — Bewurzelung in 4–6 Wochen. Dann in Substrat umtopfen. Alternativ Abmoosen (Luftableger/air layering): Moos um eine Nodie am Mutterstamm wickeln, feucht halten — nach mehreren Wochen bis 6–8 Monaten bilden sich in der feuchten Moospackung kräftige Wurzeln, bevor der Steckling vom Mutterstamm getrennt wird (nahezu 100% Anwuchserfolg, Steckling bleibt bis zur Bewurzelung an der Mutterpflanze).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Audit growing-phase-auditor) -->
 
 ### 1.4 Toxizität & Allergene
 
@@ -329,3 +332,8 @@ Monstera adansonii,"Monkey Mask Monstera;Lochpflanze;Swiss Cheese Plant;Monkey M
 13. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate Raubmilbe gegen Spinnmilben
 14. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate/Etablierung Marienkäfer gegen Schmierläuse
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Audit growing-phase-auditor) -->
+15. [PlantCareClub — How to Propagate Monstera: Stem Cuttings & Air Layering](https://plantcareclub.com/care-guides/propagate-monstera-stem-cuttings-air-layering) — Vermehrung via Abmoosen (air layering) fuer Monstera adansonii, ~100% Anwuchserfolg
+16. [Blooming Backyard — How to Propagate Monstera adansonii from Cuttings](https://www.bloomingbackyard.com/propagate-monstera-adansonii/) — Bestaetigt Abmoosen als Vermehrungsmethode speziell fuer M. adansonii, Bewurzelungsdauer 6-8 Monate
+17. [Monsteraliebe.de — Monstera Adansonii: Pflege und Vermehrung](https://monsteraliebe.de/monstera-adansonii/) — "Wir haben die besten Erfahrungen mit Abmoosen gemacht" — Luftableger-Methode fuer M. adansonii
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Audit growing-phase-auditor) -->

@@ -24,6 +24,8 @@
 | GDD-Basistemperatur (base temperature, degC) | 10--12 | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | day_neutral (Sweet Basil ist überwiegend tagneutral — Blüte primär reife-/temperaturgesteuert, nicht echte Kurztaginduktion. Hohe Temperaturen und Pflanzenalter lösen die Blüte aus; Rückschnitt/Entspitzen verlängert die vegetative Erntephase) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Kritische Tageslaenge (critical day length, h) | <!-- DATEN FEHLEN --> -- (Ocimum basilicum gilt als fakultativer/tagneutraler Bluetentyp; eine belastbare artspezifische kritische Tageslaenge liess sich nicht aus zwei unabhaengigen Quellen bestaetigen) | `lifecycle_configs.critical_day_length_hours` |

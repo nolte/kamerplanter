@@ -20,9 +20,10 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- KORREKTUR: war short_day; Japanese Anemone ist nach gartenbaulicher Produktionsliteratur ein obligater Langtag-Blüher (long_day, Blühinduktion bei Tageslänge > ~14 h), kein Kurztag-Blüher. Die Herbstblüte resultiert aus langer Zeitspanne nach Langtag-Beginn, nicht aus Kurztag-Induktion. --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| USDA Zonen | 5a–8b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
+| USDA Zonen | 4a–8b | `species.hardiness_zones` |<!-- Quelle: growing-phase-auditor 2026-07 --> <!-- KORREKTUR: war 5a–8b; Missouri Botanical Garden, NC State Extension und gardenerspath.com nennen uebereinstimmend USDA-Zone 4-8 fuer Anemone hupehensis/Eriocapitella hupehensis. --> <!-- /Quelle: growing-phase-auditor 2026-07 -->
+| Frostempfindlichkeit | hardy | `species.frost_sensitivity` |<!-- Quelle: growing-phase-auditor 2026-07 --> <!-- KORREKTUR: war half_hardy; widersprach der eigenen Quelle #6 (RHS H7, <-20°C = "sehr hart"). RHS, Missouri Botanical Garden, NC State Extension und Plantura bestaetigen uebereinstimmend volle Winterhaerte der etablierten Pflanze (analog zum bestehenden Muster bei Rosa spp.: hardy + hardiness_rating=needs_protection fuer Jungpflanzen-Schutz). --> <!-- /Quelle: growing-phase-auditor 2026-07 -->
 | Winterhärte-Detail | In den ersten 2–3 Jahren Frostschutz nötig; danach winterhart bis -20°C; in etabliertem Zustand problemlos in Norddeutschland | `species.hardiness_detail` |
 | Heimat | China (Provinz Hubei) | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
@@ -315,7 +316,7 @@ Einmalige organische Düngung im Frühjahr (April) reicht für die gesamte Saiso
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ranunculaceae,Anemone,perennial,long_day,herb,rhizomatous,"5a;5b;6a;6b;7a;7b;8a;8b",0.0,"China (Hubei)",yes,15,25,100,70,50,no,limited,false,false,medium_feeder,false,half_hardy,"8;9;10"
+Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ranunculaceae,Anemone,perennial,long_day,herb,rhizomatous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.0,"China (Hubei)",yes,15,25,100,70,50,no,limited,false,false,medium_feeder,false,hardy,"8;9;10"
 ```
 
 ---
@@ -337,3 +338,7 @@ Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ra
 12. [Gardenia.net — Fall Blooming (Japanese) Anemones](https://www.gardenia.net/genus/japanese-anemones) — Salztoleranz/Küstengarten-Eignung, Standort dappled shade/Sonne
 13. [Frontiers in Plant Science (2023) — Ornamental species for shading intensity / Light compensation points](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2023.1271341/full) — Lichtkompensationspunkt-Bereiche schattentoleranter Zierpflanzen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+14. [Gardener's Path — How to Plant and Grow Anemone Flowers](https://gardenerspath.com/plants/flowers/grow-anemones/) — USDA-Zone 4-8, Winterschutz-Empfehlung fuer Jungpflanzen/Wind
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

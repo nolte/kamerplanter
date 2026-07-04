@@ -20,6 +20,8 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial (im Anbau meist als annual kultiviert -- Knollenbildung im 1. Jahr) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | biennial | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | long_day (Schoessung im 2. Jahr durch lange Tage und Kaeltereiz ausgeloest) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 (Apiaceae; typisches C3-Temperaturverhalten der Netto-Assimilation) | `species.photosynthesis_type` |
@@ -53,7 +55,7 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 | Direktsaat nach letztem Frost (Tage) | -- (Direktsaat nicht praxistauglich bei Knollen- und Stangensellerie) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | 3; 4; 5 (nur Schnittsellerie; mehrfach direkt saeend) | `species.direct_sow_months` |
 | Erntemonate | 9; 10; 11 (Knollensellerie); 6; 7; 8; 9; 10 (Schnittsellerie) | `species.harvest_months` |
-| Bluetemonate | 6; 7 (nur im 2. Standjahr oder bei schoessenden Pflanzen) | `species.bloom_months` |
+| Bluetemonate | 6; 7; 8 (nur im 2. Standjahr oder bei schoessenden Pflanzen) <!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von '6;7' auf '6;7;8'; PFAF, permakultur-konkret.ch und RHS Grow-Guide belegen uebereinstimmend eine bis mind. August reichende Bluete im 2. Standjahr; siehe Quellen 19-21 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -543,3 +545,8 @@ Apium graveolens,Sellerie;Knollensellerie;Stangensellerie;Celery;Celeriac,Apiace
 17. [PSU Extension / Atlas Scientific -- Hydroponic micronutrient solution guidelines](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) -- Mn/Zn/Cu/Mo Naehrloesungs-Richtwerte Blattgemuese
 18. [Taylor & Francis -- Cu-Zn-B foliar fertilizer on celery (Apium graveolens)](https://www.tandfonline.com/doi/full/10.1080/26395940.2019.1668859) -- Bedeutung von Cu/Zn/B als Mikronaehrstoffe fuer Sellerie
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur Bluetemonate (6;7 -> 6;7;8) -->
+19. [PFAF -- Apium graveolens (Wild Celery)](https://pfaf.org/user/plant.aspx?LatinName=Apium+graveolens) -- "in flower from June to August, and the seeds ripen from August to September"
+20. [permakultur-konkret.ch -- Sellerie](https://permakultur-konkret.ch/plant/sellerie/) -- Bluetezeit "Juli - Sep."
+21. [RHS -- Apium graveolens](https://www.rhs.org.uk/plants/41552/apium-graveolens/details) -- Bluete im 2. Jahr, Saison "Summer"; ergaenzend bestaetigen NEVegetable/MSU/UMass-Quellen (bereits 14/16 gelistet) den Induktions-/Vernalisationsrahmen (Induktionsschwelle ~10 Tage < 10 degC bzw. 7--10 Tage < 12--13 degC; volle Vernalisation 2--12 Wochen bei 1.7--8.9 degC) -- dieser bestehende Wert `vernalization_min_days: 10` wurde geprueft und bestaetigt, keine Aenderung noetig
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

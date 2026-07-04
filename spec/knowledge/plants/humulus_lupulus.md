@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-28
-> **Quellen:** MSU Extension (canr.msu.edu), Gardening Know How, PFAF Plant Database, Plantura, Hausgarten.net, MDPI Agriculture, Gardenia.net, University of Florida EDIS
+> **Quellen:** MSU Extension (canr.msu.edu), Gardening Know How, PFAF Plant Database, Plantura, Hausgarten.net, MDPI Agriculture, Gardenia.net, University of Florida EDIS, RHS, gartenjournal.net <!-- Quelle: growing-phase-auditor 2026-07 -->
 
 ---
 
@@ -20,6 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | short_day (Doldenbildung wird durch abnehmende Taglaenge ausgeloest — Kurztagspflanze) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |
@@ -55,7 +56,8 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte April bis Mitte M
 | Direktsaat nach letztem Frost (Tage) | -- (Rhizom-Pflanzung nach letztem starken Frost, ca. April) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | -- (keine Direktsaat; Rhizom-Pflanzung: 3, 4) | `species.direct_sow_months` |
 | Erntemonate | 8; 9 (sortenabhaengig; Fruehsorten ab Mitte August, Spaetsorten bis September) | `species.harvest_months` |
-| Bluetemonate | 6; 7 (weibliche Bluetenstände; Doldenbildung Juli--August) | `species.bloom_months` |
+| Bluetemonate | 7; 8 (weibliche Bluetenstände; Doldenbildung Juli--August) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von '6; 7' auf '7; 8': Ursprungswert widersprach der eigenen Klammer-Annotation ("Doldenbildung Juli--August") sowie §2.1/§2.4 (Doldenbildung-Phase Juli--August, Phasenuebergang Vegetativ->Doldenbildung um die Sommersonnenwende +/- 2 Wochen). 3 unabhaengige Quellen bestaetigen Bluete Juli--August (Konfidenz GESICHERT); siehe Quellen 21-22 sowie bereits gelistete Quelle 5/11 (PFAF). -->
 
 ### 1.3 Vermehrung
 
@@ -560,3 +562,7 @@ Centennial,Humulus lupulus,S. T. Carpenter,aromatic;high_alpha,90,moderate_resis
 19. [Erbar/ASHS -- Far-red Fraction: An Improved Metric for Characterizing Phytochrome Effects](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) -- FR/(R+FR) ~0.46--0.5 in direktem Sonnenlicht (R:FR ~1.1--1.3)
 20. [Hop strobilus / leaf light saturation, ResearchGate 250010335 & MSU/ScienceDirect](https://www.sciencedirect.com/science/article/pii/S0168192321003075) -- Lichtsaettigung Blaetter ~1800--2000 umol/m2/s (Sonnenpflanze), Schattenblaetter nahezu keine Photosynthese
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+21. [RHS -- Humulus lupulus (f)](https://www.rhs.org.uk/plants/101019/humulus-lupulus-(f)/details) -- "in flower from July to August, and the seeds ripen from September to October"; Bluetemonate-Korrektur
+22. [gartenjournal.net -- Hopfen anbauen & nutzen](https://www.gartenjournal.net/hopfen) -- "Hopfen bluecht Juli bis August"; Vermehrung (Rhizomteilung, Stecklinge, Absenker); Winterhaerte bestaetigt
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

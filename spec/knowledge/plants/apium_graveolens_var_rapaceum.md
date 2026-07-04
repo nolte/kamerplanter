@@ -24,6 +24,7 @@
 | GDD-Basistemperatur (base temp, degC) | 4 (Hauptwuchsphase; kuehlliebende Art -- gaengiger Wert 4 degC, Spanne 1--4 degC in der Literatur) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | biennial (in Kultur als annual genutzt -- Ernte im 1. Jahr vor Bluete) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | long_day (Langtagspflanze -- Bluetenbildung nach Vernalisation und Langtag im 2. Jahr; Vorzeitiges Schossen bei zu fruehen Kaltphasen in der Jungpflanzenphase) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebensdauer (Jahre) | 2 (biennial -- zweijaehrig; in Kultur einjaehrig genutzt, daher kein langlebiges perennial) | `lifecycle_configs.typical_lifespan_years` |

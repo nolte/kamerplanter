@@ -21,6 +21,7 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 30–100+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> kein belegter Wuchs-GDD-Basiswert; nur Photosynthese-Temperaturoptima publiziert (kein Keimwert als Wuchsbasis umetikettiert) | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->

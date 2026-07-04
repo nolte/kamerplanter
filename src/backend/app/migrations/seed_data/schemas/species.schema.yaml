@@ -21,6 +21,34 @@ properties:
     type: array
     items:
       $ref: "#/$defs/default_phase"
+  perennial_species:
+    type: array
+    description: "Scientific names created with a PERENNIAL cycle_type by seed_data.py."
+    items:
+      type: string
+  lifecycle_overrides:
+    type: object
+    description: >-
+      Per-species lifecycle overrides loaded by seed_data.py
+      (_load_lifecycle_overrides). Authoritative source for cultivation_cycle_type
+      and flowering_strategy — keyed by scientific_name.
+    additionalProperties:
+      type: object
+      properties:
+        cultivation_cycle_type:
+          $ref: "_defs.schema.yaml#/$defs/cycle_type"
+        flowering_strategy:
+          $ref: "_defs.schema.yaml#/$defs/flowering_strategy"
+      additionalProperties: false
+  cultivars:
+    type: object
+    description: >-
+      Cultivar definitions keyed by scientific_name; each value is a list of
+      cultivar objects (validated elsewhere; permissive here).
+    additionalProperties:
+      type: array
+      items:
+        type: object
 
 required: [species]
 additionalProperties: false

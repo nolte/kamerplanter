@@ -25,6 +25,7 @@
 | GDD-Basistemperatur Wuchs (base temp, °C) | <!-- DATEN FEHLEN --> kein belegter phänologischer Wuchs-/GDD-Basiswert für diese tropisch-subtropische Epiphytenart auffindbar; Blühsteuerung erfolgt nicht über Wärmesummen, sondern über Kühlphase (Vernalisation/Chilling) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 10–30+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
@@ -57,10 +58,10 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | division, cutting_stem | `species.propagation_methods` |
+| Vermehrungsmethoden | division, offset, cutting_stem | `species.propagation_methods` |
 | Schwierigkeit | moderate | `species.propagation_difficulty` |
 
-**Hinweis:** Teilung alter Bulbenstöcke beim Umtopfen — jede Sektion mit mindestens 2–3 Bulben. Keiki (Ableger auf der Bulbe) können abgetrennt und eingetopft werden sobald eigene Wurzeln entwickelt sind (mind. 3 cm Wurzellänge).
+**Hinweis:** Teilung alter Bulbenstöcke beim Umtopfen — jede Sektion mit mindestens 2–3 Bulben. Keiki (natürlich gebildete Ableger an den Knoten der Bulbe, `offset`) können abgetrennt und eingetopft werden, sobald eigene Wurzeln entwickelt sind (mind. 3 cm Wurzellänge) — botanisch ein Offshoot, kein Schnitt am Mutterspross. Zusätzlich lassen sich alte, blattlose Bulben in 3–4 Bulben-lange, knotenhaltige Segmente zerteilen (`cutting_stem`) und auf feuchtem Sphagnum auslegen, um dort neue Keikis zu induzieren.
 
 ### 1.4 Toxizität & Allergene
 
@@ -129,7 +130,7 @@
 |-------|-------------|-------------|----------|---------------|----------------|
 | Aktivwachstum / Bulbenentwicklung (Frühling/Sommer) | 150–180 | 1 | false | false | medium |
 | Kühlphase / Ruhephase (Herbst/Winter) | 60–90 | 2 | false | false | high |
-| Blüte (Winter/Frühjahr) | 45–90 | 3 | true | false | low |
+| Blüte (Winter/Frühjahr) | 45–90 | 3 | false | false | low |
 
 ### 2.2 Phasen-Anforderungsprofile
 
@@ -353,3 +354,8 @@ Dendrobium nobile,"Dendrobium-Orchidee;Edle Dendrobie;Bambusorchidee;Noble Dendr
 18. [Koppert — Cryptolaemus montrouzieri (Cryptobug)](https://www.koppert.com/cryptobug/) — Ausbringrate gegen Woll-/Schmierläuse
 19. [UF/IFAS ENY-2114 — Orchid Insect and Mite Pests in South Florida](https://ask.ifas.ufl.edu/publication/IN1433) — Schädlings-/Nützling-Zuordnung bei Orchideen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Growing-Phase-Audit 2026-07 -->
+20. [American Orchid Society — How Are Orchids Propagated?](https://www.aos.org/orchids/orchid-breeding-and-hybridizing/how-are-orchids-propagated) — Keiki = natürlicher Offshoot (kein Stecklings-/Schnittvorgang), Beleg `offset`
+21. [Gardening Know How — Orchid Keiki Care](https://www.gardeningknowhow.com/ornamental/flowers/orchids/orchid-keiki-care.htm) — Keiki-Entwicklung an Dendrobium-Bulben/-Canes, eigenständige Wurzelbildung vor Trennung
+22. [Biology Insights — How to Propagate and Care for Dendrobium Orchids](https://biologyinsights.com/how-to-propagate-and-care-for-dendrobium-orchids/) — Cane-Segment-Technik (blattlose Canes in knotenhaltige Abschnitte teilen, auf Sphagnum zur Keiki-Induktion), Beleg `cutting_stem` als eigenständige Zusatzmethode
+<!-- /Quelle: Growing-Phase-Audit 2026-07 -->

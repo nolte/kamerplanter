@@ -21,6 +21,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–15+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->day_neutral<!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
@@ -123,7 +124,7 @@
 |-------|-------------|-------------|----------|---------------|----------------|
 | Aktives Wachstum (Frühling/Sommer) | 150–180 | 1 | false | false | medium |
 | Kühlphase / Knospenruhe (Herbst) | 45–60 | 2 | false | false | medium |
-| Blüte (Winter/Frühjahr) | 60–90 | 3 | true | false | medium |
+| Blüte (Frühjahr/Sommer) | 60–90 | 3 | true | false | medium |
 
 ### 2.2 Phasen-Anforderungsprofile
 

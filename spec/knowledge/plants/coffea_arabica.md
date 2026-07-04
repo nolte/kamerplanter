@@ -20,6 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -37,6 +38,9 @@
 | Vernalisation Mindest-Tage | — (tropische Art ohne Kältebedarf) | `lifecycle_configs.vernalization_min_days` |
 | Kritische Tageslänge (h) | — (tagneutral, day_neutral) | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 (R4/R1-Finding, 3-Quellen-Regel s. Quellenverzeichnis 20-24) -->
+| Erster Ertrag (first bearing year) | 3 (früheste Erstblüte/-fruchtansatz im 3. Standjahr; Jahr 1–2 juvenil ohne Blüte, Regelfall 3.–4. Standjahr) | `lifecycle_configs.first_bearing_year` |
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -393,3 +397,13 @@ Coffea arabica,Kaffeepflanze;Arabica-Kaffee;Coffee Plant,Rubiaceae,Coffea,perenn
 18. [CTAHR Hawaii – Growing Coffee in Hawaii (Plant Tissue Sufficiency)](https://www.ctahr.hawaii.edu/oc/freepubs/pdf/coffee08.pdf) — Blattgewebe-Suffizienz: Mn ~50–200, Zn 18–25, B 31–50 ppm
 19. [FAO – Annex 1. Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Coffea NICHT in Maas-Hoffman-Tabelle gelistet (ECe/Slope daher unbelegt)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 (§1.1 first_bearing_year, §1.2 bloom_months Verifikation) -->
+20. [NC State Extension Gardener Plant Toolbox – Coffea arabica](https://plants.ces.ncsu.edu/plants/coffea-arabica/) — Blüte Mai–Jun (late spring–early summer), Erstblüte/-frucht 3–4 Jahre nach Pflanzung, Blattfall unter 55 °F, Zone 10a–12b
+21. [Plantophiles – Coffee Plant Care Guide](https://plantophiles.com/plant-care/coffee-plant-care/) — Blüte im Frühjahr, Blühreife nach 3–4 Jahren
+22. [Bloomscape – Coffee Plant 101](https://bloomscape.com/plant-care-guide/coffee-plant/) — Fruchtansatz nach 3–5 Jahren, produktiv bis ~50 Jahre
+23. [Smart Garden Guide – Coffee Plant Care Indoors](https://smartgardenguide.com/coffee-plant-care-indoors/) — Blüte im Frühjahr, keine Beeren vor dem 3.–4. Standjahr
+24. [Healthy Houseplants – Coffee Plant Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/coffee-plant-care-guide-growing-coffea-arabica-indoors-and-out/) — Fruchtansatz nach 3–5 Jahren, Blüte nach der Regenzeit, kurze Blühdauer
+25. [RHS – Coffea arabica Plant Details](https://www.rhs.org.uk/plants/4159/coffea-arabica/details) — Blüte in Blattachseln im Sommer ab ca. 4 Jahren, Härtegrad H1a (Winterschutz > 15 °C)
+26. [UK Houseplants – Coffee Plants (Coffea arabica)](https://www.ukhouseplants.com/plants/coffee-plants-coffea-arabica) — Blüte im Frühsommer (mehrere Wochen), Blattschäden irreversibel unter 15 °C, H1a
+27. [Epic Gardening – Arabica Coffee Plants](https://www.epicgardening.com/arabica-coffee/) — Blüte Frühjahr/Sommer, Fruchtbildung 3–5 Jahre, Vermehrung via Samen (Keimung 6–8 Wochen) und Stecklinge (Bewurzelung wenige Monate)
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->

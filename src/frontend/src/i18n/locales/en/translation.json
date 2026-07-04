@@ -1127,7 +1127,7 @@
       "genus": "Genus",
       "genusHelper": "Botanical genus, first part of the scientific name (e.g. 'Solanum')",
       "growthHabit": "Growth Habit",
-      "growthHabitHelper": "Typical growth form: herb, shrub, tree, vine or groundcover",
+      "growthHabitHelper": "Typical growth form of the species (e.g. herb, shrub, tree, vine, grass, succulent, bulb/geophyte, fern, epiphyte)",
       "rootType": "Root Type",
       "rootTypeHelper": "Root system: fibrous, taproot, tuberous or bulbous",
       "propagationMethods": "Propagation Methods",

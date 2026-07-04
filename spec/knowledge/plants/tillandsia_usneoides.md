@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | — (nicht art-spezifisch belegt; Gattungs-Monokarpie für _T. usneoides_ nicht gesichert, growing-phase-auditor 2026-07) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -56,7 +57,7 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | cutting_stem, division | `species.propagation_methods` |
+| Vermehrungsmethoden | cutting_stem, division, seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
 ### 1.4 Toxizität & Allergene

@@ -20,6 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -54,9 +55,10 @@
 | Direktsaat nach letztem Frost (Tage) | — | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — | `species.direct_sow_months` |
 | Erntemonate | — (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | 5, 6 (Gruppe 1+2); 7, 8, 9 (Gruppe 3) | `species.bloom_months` |
+| Blütemonate | 4, 5, 6 (Gruppe 1+2); 7, 8, 9 (Gruppe 3) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 — Korrektur: 4 (April) ergänzt, war zuvor nur 5,6; s. Quellenverzeichnis Nr. 7-9 -->
 
-**Hinweis:** Blütezeit ist stark sortenabhängig und von der Schnittgruppe abhängig. Gruppe 1 (Frühjahrsblüher wie C. montana): April–Mai. Gruppe 2 (zweimal blühend wie 'Nelly Moser'): Mai–Juni und August–September. Gruppe 3 (Sommerblüher wie C. viticella): Juli–September.
+**Hinweis:** Blütezeit ist stark sortenabhängig und von der Schnittgruppe abhängig. Gruppe 1 (Frühjahrsblüher wie C. montana, C. alpina): April–Mai (Montana teils bis Juni). Gruppe 2 (zweimal blühend wie 'Nelly Moser'): Mai–Juni und August–September. Gruppe 3 (Sommerblüher wie C. viticella): Juli–September.
 
 ### 1.3 Vermehrung
 
@@ -396,7 +398,7 @@ Ab Ende Juli kein stickstoffreicher Dünger mehr — die Triebe müssen vor dem 
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,green_manure_suitable,frost_sensitivity,bloom_months
-Clematis spp.,"Waldrebe;Clematis",Ranunculaceae,Clematis,perennial,day_neutral,vine,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Europa, Asien, Nordamerika",yes,30,40,400,150,90,no,yes,false,true,medium_feeder,false,hardy,"5;6;7;8;9"
+Clematis spp.,"Waldrebe;Clematis",Ranunculaceae,Clematis,perennial,day_neutral,vine,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b",0.0,"Europa, Asien, Nordamerika",yes,30,40,400,150,90,no,yes,false,true,medium_feeder,false,hardy,"4;5;6;7;8;9"
 ```
 
 ---
@@ -411,3 +413,8 @@ Clematis spp.,"Waldrebe;Clematis",Ranunculaceae,Clematis,perennial,day_neutral,v
 5. [Michigan State University Extension — "An Introduction to Clematis"](https://www.canr.msu.edu/hrt/uploads/534/79846/06-Growing-Clematis-English.pdf) — Knospen-Chilling/Dormanz: ca. 6 Wochen dormante Periode, Induktion bei Nachttemperaturen ≤ 7,5 °C (45 °F)
 6. [Clearview Horticultural Products — Clematis Info](https://www.clearviewhort.com/about-clematis/) — bestätigt unabhängig: dormante Periode ca. 6 Wochen, ≤ 7,5 °C (45 °F) zur Dormanz-Induktion (Beleg für `vernalization_min_days`)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+7. [RHS — Clematis montana](https://www.rhs.org.uk/plants/3959/clematis-montana/details) und [RHS — Clematis Pruning Group One/Two/Three](https://www.rhs.org.uk/plants/clematis/group-one-pruning-guide) — bestätigt Blütebeginn Schnittgruppe 1 bereits im April (C. montana: April–Juni), Gruppe 2 Mai–Juni + Spätsommer-Nachblüte, Gruppe 3 Sommer/Spätsommer; Vermehrung via semi-ripe cuttings und serpentine layering (Beleg für `bloom_months`-Korrektur und `propagation_methods`)
+8. [clematisworld.de — Frühjahrsblüher Schnittgruppe 1](https://clematisworld.de/fruehjahrsblueher-schnittgruppe-1/) — Frühjahrsblüher (Atragene/Montana-Gruppe) blühen im April und Mai
+9. [gartendialog.de — Alpenwaldrebe, Clematis alpina](https://www.gartendialog.de/alpenwaldrebe/) — Blütezeit Clematis alpina April bis Mai/Juni, Schwerpunkt Mai
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -20,6 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -46,7 +47,9 @@
 | Direktsaat nach letztem Frost (Tage) | — | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | — | `species.direct_sow_months` |
 | Erntemonate | — | `species.harvest_months` |
-| Blütemonate | 6, 7, 8, 9, 10 (intensiver Jasminduft) | `species.bloom_months` |
+| Blütemonate | 5, 6, 7, 8 (intensiver Jasminduft) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- korrigiert von [6,7,8,9,10] auf [5,6,7,8]. 4 unabhaengige universitaere/institutionelle Quellen (Clemson HGIC, NC State Extension Plant Toolbox, UF/IFAS EDIS CIR1098/EP338, Missouri Botanical Garden PlantFinder) belegen uebereinstimmend Bluete "von Mai bis Juni, sporadisch ueber den Sommer" bzw. "spaetes Fruehjahr bis Fruehsommer" in kuehleren Klimazonen (Mitteleuropa-relevant); September/Oktober-Nachblueten sind laut Quellen kultivarspezifisch (z.B. 'Chuck Hayes'), nicht artgenerisch. Konsistent mit interner Phasenlogik §2.4 (Knospenbildung endet ~April, Uebergang Knospenbildung->Bluete 30-60 Tage -> Bluetebeginn Mai/Juni). Konfidenz: GESICHERT (4/4 Quellen). Quellen: Clemson HGIC https://hgic.clemson.edu/factsheet/gardenia/ ; NC State Extension https://plants.ces.ncsu.edu/plants/gardenia-jasminoides/ ; UF/IFAS EDIS CIR1098/EP338 https://edis.ifas.ufl.edu/ep338 ; Missouri Botanical Garden https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b555 -->
+<!-- Hinweis (nicht korrigiert, ausserhalb Audit-Scope): Rueckschnitt-Monate in §1.5 (10, 11 "nach Bluete") stehen im Widerspruch zu Extension-Quellen, die Rueckschnitt UNMITTELBAR nach der Bluete (Juni-Aug) empfehlen, da Bluetenknospen fuers Folgejahr an spaetsommerlichem/herbstlichem Neuzuwachs angelegt werden; Rueckschnitt im Okt/Nov riskiert Entfernung dieser Knospen. Ausserhalb des beauftragten Audit-Scope (nur §1.1/§1.2/§2/§4.3) -- separate Pruefung von §1.5 empfohlen. -->
 
 ### 1.3 Vermehrung
 
@@ -364,4 +367,8 @@ Gardenia jasminoides,Gardenie;Cape Jasmine,Rubiaceae,Gardenia,perennial,day_neut
 12. [Renaissance Garden Guy – How Cold Hardy Are Gardenias](https://renaissancegardenguy.com/how-cold-hardy-are-gardenias-really/) — USDA 8–11, Kälteschäden < ~−7 °C (20 °F), Wachstumsoptimum 18–27 °C
 13. [Gardenfine – Average Lifespan of Gardenia](https://www.gardenfine.com/are-gardenia-perennial/) — Lebensdauer mehrere Jahrzehnte (30–50 Jahre)
 14. [ISHS Acta Hortic. 515.11 – Flower Initiation in Gardenia as Affected by Photoperiod and Night Temperature](https://ishs.org/ishs-article/515_11/) — Blühinduktion über Nachttemperatur (tagneutral), nicht Photoperiode
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+15. [UF/IFAS EDIS CIR1098/EP338 – Gardenias at a Glance](https://edis.ifas.ufl.edu/ep338) — Blütezeit "Mai bis Juni, sporadisch über den Sommer"; University Extension Fact Sheet
+16. [Missouri Botanical Garden – Gardenia jasminoides Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b555) — Blütezeit "spätes Frühjahr bis Frühsommer" in kühleren Klimazonen, Zone 8–11
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

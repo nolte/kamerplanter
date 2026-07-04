@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (korrigiert von long_day: Blüte ist temperatur-/wärmegesteuert, nicht photoperiodisch induziert; Blüten öffnen tagsüber, aber die Blühinduktion folgt der Wassertemperatur) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 4a–10b (winterharte Arten); 9a–12b (tropische Arten) | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy (Nymphaea alba); tender (tropische Sorten) | `species.frost_sensitivity` |

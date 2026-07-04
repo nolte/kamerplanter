@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -47,7 +48,7 @@
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | 9, 10, 11 (Schwerpunkt; kleine weiß-lila Blüten; tagneutral, blüht sporadisch ganzjährig mit Schwerpunkt Frühling und Spätherbst) | `species.bloom_months` |
+| Blütemonate | 5, 6, 9, 10, 11 (zwei Schwerpunkte: Spätfrühling/Frühsommer und Spätherbst; kleine weiß-lila Blüten; tagneutral, blüht sporadisch ganzjährig) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -326,7 +327,7 @@ Plectranthus verticillatus,Schwedischer Efeu;Swedish Ivy;Creeping Charlie,Lamiac
 ## Quellenverzeichnis
 
 1. [Gardenia.net — Plectranthus verticillatus](https://www.gardenia.net/plant/plectranthus-verticillatus-swedish-ivy-grow-care-guide) — Allgemeine Kulturdaten
-2. [Epic Gardening — Swedish Ivy](https://www.epicgardening.com/swedish-ivy/) — Pflegehinweise, Schädlinge
+2. [Epic Gardening — Swedish Ivy](https://www.epicgardening.com/swedish-ivy/) — Pflegehinweise, Schädlinge; Blüte "late spring or early summer" indoor (Audit 2026-07)
 3. [UK Houseplants — Swedish Ivy](https://www.ukhouseplants.com/plants/swedish-ivy) — Temperatur, Gießen
 4. [Wikipedia — Plectranthus verticillatus](https://en.wikipedia.org/wiki/Plectranthus_verticillatus) — Taxonomie, Herkunft, Blüte ganzjährig (Schwerpunkt Frühling/Spätherbst)
 5. [Gardener's Supply — Swedish Ivy Care](https://www.gardeners.com/blogs/gardening-tips/swedish-ivy-care-9728) — Kulturhinweise
@@ -335,9 +336,12 @@ Plectranthus verticillatus,Schwedischer Efeu;Swedish Ivy;Creeping Charlie,Lamiac
 7. [ScienceDirect — Ecophysiological investigations on Plectranthus (Lamiaceae): CAM, gas exchange](https://www.sciencedirect.com/science/article/abs/pii/S0367253017331171) — Photosynthese-Typen in der Gattung: CAM nur bei sukkulenten/ariden Arten (z.B. P. marrubioides), nicht-sukkulente mesische Arten sind C3
 8. [Springer Photosynthetica — Photosynthesis but not CAM in Plectranthus marrubioides](https://link.springer.com/article/10.1023/A:1006847330607) — Beleg C3/CAM-Diversität in Plectranthus, Succulence-CAM-Korrelation
 9. [UF/IFAS Gardening Solutions — Swedish Ivy](https://gardeningsolutions.ifas.ufl.edu/plants/houseplants/swedish-ivy/) — University Extension: Lichtbedarf (bright indirect light, keine Vollsonne), Schattentoleranz
-10. [Healthy Houseplants — Swedish Ivy Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/swedish-ivy-plectranthus-verticillatus-care-guide/) — Staunässe-Empfindlichkeit, Wurzelfäule, well-drained soil
+10. [Healthy Houseplants — Swedish Ivy Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/swedish-ivy-plectranthus-verticillatus-care-guide/) — Staunässe-Empfindlichkeit, Wurzelfäule, well-drained soil; Blüte "late spring to early summer" (Audit 2026-07)
 11. [PlantJoy/ForwardPlant — Overwinter Swedish Ivy](https://www.forwardplant.com/care/overwinter/plectranthus-verticillatus/) — Überwinterung, Mindesttemperatur ~10°C, Winterquartier-Gießen
 12. [GardenBeast — Swedish Ivy Guide](https://gardenbeast.com/swedish-ivy-guide/) — Lebensdauer 3–5 Jahre, Verjüngung über Stecklinge
 13. [Koppert — Phytoseiulus persimilis / Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/) — Nützling-Ausbringraten, Wirt-Zuordnung (Raubmilbe→Spinnmilben, Marienkäfer→Wollläuse)
 14. [ASHS — Far-red Fraction: An Improved Metric (FR/(R+FR))](https://journals.ashs.org/view/journals/jashs/146/1/article-p3.xml) — FR-Fraction-Metrik; Vollsonne ≈0.46–0.5, Unterwuchs/Schatten höher
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Growing-Phase-Audit 2026-07 -->
+15. [Guide to Houseplants — Swedish Ivy Plant Care](https://www.guide-to-houseplants.com/swedish-ivy.html) — Blüte "spring or summer" (weiß/blasslila); Bestätigung Bluetemonate-Korrektur §1.2
+<!-- /Quelle: Growing-Phase-Audit 2026-07 -->

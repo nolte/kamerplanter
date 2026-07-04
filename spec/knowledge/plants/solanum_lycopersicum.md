@@ -2,7 +2,7 @@
 
 > **Import-Ziel:** Kamerplanter Stammdaten (REQ-001, REQ-003, REQ-004, REQ-010, REQ-013, REQ-022)
 > **Erstellt:** 2026-03-01
-> **Quellen:** PFAF, RHS, UMN Extension, Ohio State University, Plantura, Koppert, fryd.app, LfL Bayern, ASPCA, COMPO Expert, FAO, Rutgers NJAES, UNH Extension, UF/IFAS, Frontiers/ScienceDirect/MDPI, LSU AgCenter <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
+> **Quellen:** PFAF, RHS, UMN Extension, Ohio State University, Plantura, Koppert, fryd.app, LfL Bayern, ASPCA, COMPO Expert, FAO, Rutgers NJAES, UNH Extension, UF/IFAS, Frontiers/ScienceDirect/MDPI, LSU AgCenter <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->, CFIA, NC State Extension, Missouri Botanical Garden <!-- Quelle: growing-phase-auditor 2026-07 -->
 
 ---
 
@@ -19,12 +19,17 @@
 | Ordnung | Solanales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
-| Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von 'annual' auf botanisch korrektes 'perennial'; siehe Quellen 29-31 -->
+| Kultur-Lebenszyklus (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Tomate ist botanisch ein zaertlicher (kurzlebiger) Staudengewaechs / tender perennial, wird in Mitteleuropa aber wegen Frostempfindlichkeit einjaehrig kultiviert. cultivation_cycle_type ueberschreibt die botanische cycle_type fuer Ueberwinterungs- und Saisonende-Logik (grown_as_annual = true). Siehe Quellen 29-31. -->
+| Bluehstrategie (flowering strategy) | polycarpic | `lifecycle_configs.flowering_strategy` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Tomate bluecht/fruchtet wiederholt ueber die Saison (mehrere Bluetenstaende/Trusses, insb. bei indeterminierten Sorten bis zum Frost); kein monokarpes "bluecht einmal, stirbt danach". Siehe Quellen 29-31. -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temperature, degC) | 10 | `species.base_temp` |
-| Lebensdauer (Jahre) | -- (einjaehrig in Mitteleuropa, daher nicht anwendbar) | `lifecycle_configs.typical_lifespan_years` |
+| Lebensdauer (Jahre) | -- (nicht spezifiziert; botanisch mehrjaehrig/kurzlebige Staude in frostfreiem Klima, in Mitteleuropa jedoch Kulturpraxis einjaehrig -- siehe cultivation_cycle_type) | `lifecycle_configs.typical_lifespan_years` |
 | Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
 | Vernalisation Mindest-Tage | -- (nicht erforderlich) | `lifecycle_configs.vernalization_min_days` |
@@ -394,7 +399,9 @@ Wartezeit: Nach jeder Zugabe 1--2 Minuten ruehren/zirkulieren lassen, bevor das 
 
 ### 4.3 Ueberwinterung
 
-Nicht anwendbar -- Tomate ist eine einjaehrige Nutzpflanze in Mitteleuropa. Keine Ueberwinterung moeglich.
+Nicht anwendbar fuer Freiland-/Beet-/Kuebelkultur in Mitteleuropa -- Tomate wird dort als einjaehrige Nutzpflanze kultiviert (`cultivation_cycle_type: annual`, `grown_as_annual = true`) und stirbt beim ersten Frost ab. Keine Ueberwinterung moeglich ohne frostfreies Gewaechshaus.
+
+Botanischer Hintergrund: Die Art selbst ist ein zaertlicher (kurzlebiger) Staudengewaechs / tender perennial (`cycle_type: perennial`) und kann in frostfreiem Klima oder beheiztem Gewaechshaus mehrjaehrig weiterwachsen und -bluehen (Quellen 29-31). Dies ist fuer die Kamerplanter-Kulturpraxis in Mitteleuropa jedoch nicht relevant.
 
 ---
 
@@ -573,3 +580,8 @@ Roma VF,Solanum lycopersicum,USDA,,determinate;paste_type,75,fusarium;verticilli
 27. LSU AgCenter -- Pollinating Greenhouse Tomatoes with Vibrators/Blowers (Selbstbefruchtung, Vibration): https://www.lsuagcenter.com/portals/communications/publications/agmag/archive/2005/winter/pollinatinggreenhousetomatoeswithvibratorsblowers
 28. Seeds of Diversity -- Greenhouse Tomatoes / Pollination (selbstfertil, perfekte Blueten): https://seeds.ca/pollinator/bestpractices/greenhouse_tomatoes.html
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) + Bluehstrategie (polycarpic) -->
+29. CFIA (Canadian Food Inspection Agency) -- The Biology of Solanum lycopersicum L. (Tomato): "a herbaceous perennial in frost-free climates, but is cultivated as an annual crop"; indeterminierte Sorten "continue to grow and produce fruit throughout the growing season": https://inspection.canada.ca/en/plant-health/plant-varieties/novel-traits/applicants/directive-94-08/biology-documents/solanum-lycopersicum
+30. NC State Extension Gardener Plant Toolbox -- Solanum lycopersicum: gelistet als "Annual" UND "Perennial (Herbaceous Perennial)"; "Tomatoes are usually grown as an annual, but in frost-free climates, they are perennials": https://plants.ces.ncsu.edu/plants/solanum-lycopersicum/
+31. Missouri Botanical Garden -- Tomatoes Factsheet (indeterminierte/vine-Typen produzieren fortlaufend neue Bluetenstaende/Trusses ueber die Saison, gestaffelte Ernte) + RHS -- How to grow Tomatoes (Cordon-Tomaten setzen 7 Trusses im Gewaechshaus / 4 Trusses im Freiland vor Kappung -- mehrfache aufeinanderfolgende Bluetenstaende): https://www.missouribotanicalgarden.org/Portals/0/Gardening/Gardening%20Help/Factsheets/Tomatoes46.pdf ; https://www.rhs.org.uk/advice/grow-your-own/vegetables/tomatoes
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

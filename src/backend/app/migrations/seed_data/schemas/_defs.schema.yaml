@@ -22,6 +22,10 @@ $defs:
     type: string
     enum: [annual, biennial, perennial]
 
+  flowering_strategy:
+    type: string
+    enum: [monocarpic, polycarpic]
+
   photoperiod_type:
     type: string
     enum: [short_day, long_day, day_neutral]

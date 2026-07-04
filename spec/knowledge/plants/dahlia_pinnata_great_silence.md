@@ -22,6 +22,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial (Knollenpflanze, in Mitteleuropa als Einjährige kultiviert) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral (Blüte tagneutral bis fakultativ kurztaggefördert; die Blüteninitiierung ist NICHT obligat kurztaggesteuert. Die Kurztag-Reaktion betrifft die Tuberisierung [tuber formation], nicht die Blüte) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- KORREKTUR: zuvor short_day. MSU Floriculture und Dahlia Doctor belegen: Dahlien sind day-neutral oder fakultativ short-day für die BLÜTE; obligater Kurztag betrifft nur die Knollenbildung (tuberization), nicht die Blüteninitiierung. -->

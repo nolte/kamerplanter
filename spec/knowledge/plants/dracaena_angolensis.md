@@ -25,6 +25,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 20–50+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
@@ -53,7 +54,7 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | division, cutting_stem | `species.propagation_methods` |
+| Vermehrungsmethoden | division, cutting_leaf | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
 **Hinweis:** Offset-Ableger (Kindel) vom Mutterrhizom trennen. Blattstücke (5–10 cm) in Kakteenerde stecken — Bewurzelung in 4–8 Wochen.

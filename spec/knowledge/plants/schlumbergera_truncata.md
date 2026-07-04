@@ -24,6 +24,7 @@
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN — kein belegter Wuchs-/Phänologie-GDD-Basiswert auffindbar; vorhandene Studien (ISHS 'Madisto') modellieren temperaturabhängige Blühinitiation zwischen 12–24°C, liefern aber keine umetikettierbare GDD-Wuchsbasis --> | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 20–100+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true (Ruheperiode nach der Blüte wichtig für nächste Blütenbildung) | `lifecycle_configs.dormancy_required` |
@@ -54,7 +55,7 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 10, 11, 12, 1 (je nach Art/Sorte und Blüteninduktion) | `species.bloom_months` |
+| Blütemonate | 11, 12, 1 (Kurztag+Kühlreiz-induzierte Winterblüte; Blühbeginn typischerweise Mitte/Ende November, verifiziert 2026-07) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -377,3 +378,10 @@ Schlumbergera truncata,"Weihnachtskaktus;Gliederkaktus;Thanksgiving Cactus;Crab 
 14. [RHS — Biological Control in the Garden](https://www.rhs.org.uk/prevention-protection/biological-control-garden) — Cryptolaemus, Phytoseiulus persimilis, Metaphycus, Steinernema feltiae Nützlinge
 15. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Referenz-Mikronährstoffkonzentrationen Mn/Zn/Cu/Mo
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: growing-phase-auditor 2026-07 (Lebenszyklus-Audit §1.1/§1.2/§2/§4.3) -->
+16. [NC State Extension Gardener Plant Toolbox — Schlumbergera truncata](https://plants.ces.ncsu.edu/plants/schlumbergera-truncata/) — Blüte "late November", Rebloom Februar, perennial, USDA 10–12, Stammstecklinge
+17. [Clemson HGIC — Thanksgiving & Christmas Cacti](https://hgic.clemson.edu/factsheet/thanksgiving-christmas-cacti/) — Thanksgiving-Kaktus blüht "near Thanksgiving" (Ende Nov), 14h Dunkelheit ab Mitte September für 6 Wochen, Frostgrenze < 50°F, Vermehrung 3–5 Glieder/Steckling
+18. [Wisconsin Horticulture Extension — Holiday Cactus](https://hort.extension.wisc.edu/articles/holiday-cactus/) — Gattung blüht "early November into January", Kühlreiz 55–60°F + Kurztag, keine Frosttoleranz, Glied-Stecklinge 2–3 Segmente
+19. [Farmers' Almanac — Thanksgiving vs. Christmas Cactus](https://www.farmersalmanac.com/thanksgiving-cactus-christmas-cactus) — Thanksgiving-Kaktus "Bloom mid to late November", Christmas-Kaktus "mid to late December"
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

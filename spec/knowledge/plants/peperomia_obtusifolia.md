@@ -23,6 +23,7 @@
 | Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–15 | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -55,7 +56,9 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 5, 6, 7, 8 (kleine, unauffällige Spadix-Blüten) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Blütemonate | 4, 5, 6, 7, 8, 9, 10, 11, 12 (kleine, unauffällige, kolbenförmige Spadix-Blüten; ganzjährig außer Jan–Mär, Schwerpunkt Frühling/Sommer) | `species.bloom_months` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -339,3 +342,13 @@ Gold Tip,Peperomia obtusifolia,"ornamental;variegated;yellow_green",clone
 15. [Anatis Bioprotection — Stratiolaelaps scimitus](https://anatisbioprotection.com/en/produit/stratiolaelaps-scimitus/) — Ausbringrate 100–500/m² gegen Trauermückenlarven
 16. [peperomiaobtusifolia.com — Temperature Tolerance](https://peperomiaobtusifolia.com/blog/peperomia-obtusifolia-temperature-tolerance/) — Mindesttemperatur/Frostempfindlichkeit (Überwinterung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+17. [gartenjournal.net — Zwergpfeffer](https://www.gartenjournal.net/zwergpfeffer) — Blütezeit April–Dezember, Vermehrung, Frostempfindlichkeit
+18. [Plantura — Peperomia obtusifolia](https://www.plantura.garden/zimmerpflanzen/peperomia/peperomia-obtusifolia) — Blütezeit April–Dezember, Lebenszyklus (mehrjährig), Dormanz (keine ausgesprochene Ruhephase), Vermehrung (Kopfstecklinge)
+19. [gardify.de — Fleischige Peperomie](https://gardify.de/pflanze/1058/Fleischige-Peperomie) — Blütezeit April–Dezember, Frostempfindlichkeit (Z10, <15°C), Wuchsform immergrün
+20. [Missouri Botanical Garden — Plant Finder: Peperomia obtusifolia](http://www.missouribotanicalgarden.org/plantfinder/PlantFinderDetails.aspx?taxonid=285088) — Seasonal bloomer, USDA-Zonen 10–12, evergreen, Stecklings-/Blattvermehrung (University-Quelle)
+21. [Planet Natural — Peperomia Obtusifolia Care Guide](https://www.planetnatural.com/peperomia-obtusifolia/) — Keine formale Dormanzphase, Frostempfindlichkeit <12.7°C, Stecklings-/Blattvermehrung
+22. [The Sill — Peperomia obtusifolia Care Guide](https://www.thesill.com/blogs/plants-101/how-to-care-for-baby-rubber-plant-peperomia-obtusifolia) — Lebenszyklus (perennial), Vermehrung (Stecklinge, Blatt, Wasser)
+23. [beetfreunde.de — Fleischige Peperomie/Zwergpfeffer](https://www.beetfreunde.de/magazin/fleischige-peperomie-zwergpfeffer/) — Vermehrung (Blatt-/Kopfstecklinge)
+24. [peperomiaobtusifolia.com — Dividing Peperomia Obtusifolia](https://peperomiaobtusifolia.com/blog/divide-peperomia-obtusifolia-guide/) — Teilung (division) als Vermehrungsmethode
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -24,6 +24,7 @@
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–20+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
@@ -50,7 +51,7 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | Entfällt (blüht selten in Zimmerkultur) | `species.bloom_months` |
+| Blütemonate | 6, 7, 8 (selten in Zimmerkultur; kleine weiß-gelb/weiß-violette Blüten im Hochsommer — primär Blattschmuckpflanze) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -323,3 +324,7 @@ Goeppertia orbifolia,"Calathea orbifolia;Rundblatt-Korbmarante;Orbifolia Prayer 
 12. [Koppert — Neoseiulus (Amblyseius) cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Nützling gegen Thrips, Ausbringrate
 13. [Koppert — Cryptolaemus montrouzieri](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Schmierläuse, Ausbringrate/Temperatur
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+14. [GetPlanta — Calathea orbifolia Trivia](https://getplanta.com/article/trivia/calatheaorbifolia) — Blütezeit (Sommer, selten indoor)
+15. [Gardening Chores — Calathea Orbifolia Care](https://www.gardeningchores.com/calathea-orbifolia-care/) — Blütezeit (Quick-Facts: "Bloom time: Summer"), Vermehrung durch Teilung
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

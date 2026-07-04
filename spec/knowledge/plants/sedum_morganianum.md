@@ -20,6 +20,7 @@
 | Wuchsform | vine | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | cam | `species.photosynthesis_type` |
@@ -46,6 +47,9 @@
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
 | Blütemonate | 5, 6, 7 (rosa bis rote Blüten; selten in Zimmerhaltung) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+<!-- Audit-Hinweis Blütemonate: Konfidenz ❓ UNSICHER — Originalwert (5,6,7) beibehalten, KEINE Korrektur. Quellen widersprechen sich zum genauen Zeitfenster: Planet Desert nennt "late spring or early summer" (Mai/Jun, stützt Wert), Gardening Know How nennt "at the end of summer" (eher Aug/Sep), NC State Extension/Wisconsin Extension/Healthy Houseplants nennen nur generisch "Summer" ohne Monatsangabe. Da <3 Quellen auf denselben Monatsbereich konvergieren, wird gemäß Konfidenzstufen-Regel keine Korrektur vorgenommen. Übereinstimmend über alle Quellen: Blüte ist in Zimmerkultur selten (bestätigt den Zusatz "selten in Zimmerhaltung"). -->
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -128,8 +132,11 @@
 |-------|-------------|-------------|----------|---------------|----------------|
 | Bewurzelung | 21–42 | 1 | false | false | medium |
 | Vegetativ | 90–365 | 2 | false | false | high |
-| Blüte (selten indoor) | 30–60 | 3 | false | true | high |
+| Blüte (selten indoor) | 30–60 | 3 | false | false | high |
 | Winterruhe | 60–90 | 4 | false | false | high |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+<!-- Korrektur: "Ernte erlaubt" für Blüte von true auf false — interner Konsistenzfix (kein neuer Fakt): §1.2 weist Erntemonate bereits als "nicht relevant (Zierpflanze)" aus; S. morganianum ist reine Zierpflanze ohne Nutzernte. -->
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 2.2 Phasen-Anforderungsprofile
 
@@ -192,11 +199,17 @@
 
 ### 2.4 Phasenübergangsregeln
 
+<!-- Quelle: growing-phase-auditor 2026-07 -->
 | Von → Nach | Trigger | Bedingungen |
 |------------|---------|-------------|
 | Bewurzelung → Vegetativ | time_based | 21–42 Tage; Neue Triebe sichtbar |
+| Vegetativ → Blüte | event_based | Ausgereifte, ausgewachsene Triebe; Freiland-/Außenstandort im Sommer mit 5–6 h hellem Licht; vorherige kühle Winterruhe begünstigt Blüteninduktion; tritt selten ein, vor allem in Zimmerkultur |
+| Blüte → Vegetativ | time_based | 30–60 Tage nach Blühbeginn; Blüte abgeschlossen |
 | Vegetativ → Winterruhe | seasonal | Oktober; Temperatur <15°C, Gießen reduzieren |
 | Winterruhe → Vegetativ | seasonal | März; Temperatur stabil >18°C |
+
+**Korrektur (Regel R1 — lückenlose Phasenkette):** Die Phase "Blüte" (§2.1, Reihenfolge 3) war in der Übergangstabelle nicht erreichbar — es gab keine Trigger-Regel von/zu Vegetativ. Ergänzt: `Vegetativ → Blüte` (event_based) und `Blüte → Vegetativ` (time_based, konsistent mit der bestehenden Blühdauer 30–60 Tage aus §2.1). Konfidenz: ✅ GESICHERT (4/4 unabhängige Quellen zu den Blüh-Auslösern: reifer/ausgewachsener Trieb, Sommer-Freilandstandort, 5–6 h helles Licht, vorherige kühlere Winterperiode).
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ---
 
@@ -367,3 +380,11 @@ Sedum morganianum,Eselsschwanz;Donkey's Tail;Burro's Tail,Crassulaceae,Sedum,per
 17. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Wolllaus-Nützling, Ausbringrate
 18. [Koppert — Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Blattlaus-Nützling, Ausbringrate
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (Audit §1.1/§1.2/§2/§4.3) -->
+19. [NC State Extension — Sedum morganianum, Toolbox-Datenblatt](https://plants.ces.ncsu.edu/plants/sedum-morganianum/) — Blütezeit "Summer", Frosttoleranz bis 40 °F, Vermehrung (Blatt-/Trieb-/Teilstecklinge)
+20. [Wisconsin Horticulture Extension — Burro's Tail](https://hort.extension.wisc.edu/articles/burros-tail-sedum-morganianum/) — Blütezeit Sommer, Frostempfindlichkeit ("hardy only where it remains well above freezing"), Winterruhe ohne echte Dormanz, Trieb-/Blattstecklinge
+21. [Gardening Know How — Burro's Tail Care](https://www.gardeningknowhow.com/ornamental/cacti-succulents/burros-tail/burros-tail-care.htm) — "tender perennial", USDA 9–11, Blüte am Spätsommer, Trieb-/Blattstecklinge
+22. [Healthy Houseplants — Burro's Tail Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/burros-tail-sedum-morganianum-care-guide-a-trailing-succulent-beauty/) — explizit "doesn't have a distinct dormancy period" (Bestätigung `dormancy_required: false`), Blühbedingungen (Licht, kühlere Winterperiode)
+23. [Planet Desert — Donkey's Tail Plant Care](https://planetdesert.com/blogs/news/donkeys-tail-plant-sedum-morganianum-care) — Blüte "late spring or early summer", 5–6 h Licht als Blühvoraussetzung, kühlere Außentemperatur als Blühreiz, Trieb-/Blattstecklinge
+24. [JoyUsGarden — Burro's Tail Care and Propagation](https://www.joyusgarden.com/burros-tail-care/) — Blüte "rare", reduziertes Winter-Gießen (kein Absterben), Trieb-/Blattstecklinge
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

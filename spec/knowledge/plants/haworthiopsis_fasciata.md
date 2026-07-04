@@ -26,13 +26,15 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 10–30+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich | false | `lifecycle_configs.vernalization_required` |
 | USDA Zonen | 9b, 10a, 10b, 11a, 11b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhaerte-Detail | Halbfrosthart — toleriert kurze Fröste bis -1°C trocken. Mindesttemperatur 5°C dauerhaft, optimal 15–27°C. Bei Nässe frostempfindlich. | `species.hardiness_detail` |
+| Frostempfindlichkeit | tender | `species.frost_sensitivity` |
+<!-- Quelle: growing-phase-auditor 2026-07-03 — korrigiert von half_hardy auf tender: RHS-Hardiness-Rating H2 ("tolerant of low temperatures, but not surviving being frozen, 1–5°C"), NC State Extension ("not frost-tolerant"), Epic Gardening/GardenBeast/Joy Us Garden/Succulents and Sunshine (übereinstimmend: unter 30–40°F/-1 bis +4°C zwingend ins Haus holen, kein dauerhafter Freilandverbleib) — konsistent mit §4.3 hardiness_rating=frost_free/winter_action=move_indoors (siehe REQ-022 Beispiel "Zitrone im Kübel (tender) → move_indoors") -->
+| Winterhaerte-Detail | Frostempfindlich (tender) — verträgt keinen dauerhaften Frost; kurzzeitig knapp unter 0°C (bis -1°C) im trockenen Zustand kompensierbar, danach Schäden. Mindesttemperatur 5°C dauerhaft, optimal 15–27°C. Bei Nässe deutlich frostempfindlicher. | `species.hardiness_detail` |
 | Heimat | Südafrika (Ostkap-Provinz) — Felsen und Buschland | `species.native_habitat` |
 | Allelopathie-Score | 0.0 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
@@ -316,3 +318,7 @@ Haworthiopsis fasciata,"Zebra-Hauswurz;Zebra-Haworthia;Zebra Plant;Zebra Cactus"
 14. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Schmierläuse, Ausbringrate/Wiederholung
 15. [Bugs for Growers — Biocontrol of fungus gnats (S. feltiae, Stratiolaelaps)](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Nematoden/Raubmilben gegen Trauermücken, Ausbringraten
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07-03 -->
+16. [RHS — Haworthiopsis fasciata](https://www.rhs.org.uk/plants/504897/haworthiopsis-fasciata/details) — Hardiness-Rating H2 ("tolerant of low temperatures, but not surviving being frozen, 1–5°C"), Blütezeit Sommer
+17. [Joy Us Garden — Zebra Succulent](https://www.joyusgarden.com/zebra-succulent-care-a-beginners-haworthia-growing-guide/) — Frostgrenze 40°F, Blütezeit "late spring to early summer" (bestätigt Frostempfindlichkeit; Blütezeit-Angabe widerspricht z.T. anderen Quellen, siehe Report)
+<!-- /Quelle: growing-phase-auditor 2026-07-03 -->

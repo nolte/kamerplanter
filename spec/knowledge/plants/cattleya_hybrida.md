@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 10a–12b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -47,7 +48,7 @@
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | sortenabhängig; typisch 2, 3, 4, 10, 11 (Frühjahr/Herbst) | `species.bloom_months` |
+| Blütemonate | sortenabhängig; typisch 1, 2, 3, 4, 10, 11 (Winter/Frühjahr/Herbst — u.a. Winterblüher wie C. trianae-/percivaliana-Typen Dez/Jan–Feb, konsistent mit §4.2 „Jan–Feb Blüte") | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -126,7 +127,7 @@
 | Bewurzelung/Etablierung | 30–60 | 1 | false | false | low |
 | Vegetativ (Pseudobulben-Aufbau) | 90–180 | 2 | false | false | medium |
 | Winterruhe/Blüteinduktion | 42–60 | 3 | false | false | medium |
-| Blüte | 21–60 | 4 | false | true | medium |
+| Blüte | 21–60 | 4 | false | false | medium |
 
 ### 2.2 Phasen-Anforderungsprofile
 

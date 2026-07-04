@@ -23,6 +23,7 @@
 | Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 2–5 | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |
@@ -49,16 +50,16 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 11, 12, 1, 2, 3 (bei korrekter Kurztag-Behandlung; im Handel auch andere Monate) | `species.bloom_months` |
+| Blütemonate | 11, 12, 1, 2, 3, 4 (bei korrekter Kurztag-Behandlung; im Handel auch andere Monate) | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | cutting_stem | `species.propagation_methods` |
+| Vermehrungsmethoden | cutting_stem, cutting_leaf | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
-**Hinweis:** Stecklinge (5–8 cm) an der Luft 1–2 Tage trocknen lassen (Callus bildet sich), dann in trockenes Substrat stecken. Bei 22–24°C, Bewurzelung in 2–3 Wochen. Nicht zu viel gießen bis Widerstand beim Zupfen spürbar.
+**Hinweis:** Kopfstecklinge (5–8 cm) an der Luft 1–2 Tage trocknen lassen (Callus bildet sich), dann in trockenes Substrat stecken. Bei 22–24°C, Bewurzelung in 2–3 Wochen. Nicht zu viel gießen bis Widerstand beim Zupfen spürbar. Alternativ: Blattstecklinge — einzelnes, ausgereiftes Blatt abtrennen, Schnittstelle 1–2 Tage kallusieren lassen, dann flach auf feuchtes Substrat auflegen; Bewurzelung an der Blattbasis innerhalb weniger Wochen (etwas geringere Erfolgsquote als Kopfstecklinge).
 
 ### 1.4 Toxizität & Allergene
 
@@ -352,3 +353,9 @@ Kalanchoe blossfeldiana,"Flammendes Käthchen;Kalanchoe;Flaming Katy;Christmas K
 15. [Cornell NYSIPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Nützling gegen Spinnmilben, Ausbringrate
 16. [South El Monte Hydroponics — Kalanchoe blossfeldiana](https://southelmontehydroponics.com/kalanchoe-blossfeldiana/) — Boden-pH 6.0–7.0
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (§1.2, §1.3) -->
+17. [NC State Extension Gardener Plant Toolbox — Kalanchoe blossfeldiana](https://plants.ces.ncsu.edu/plants/kalanchoe-blossfeldiana/) — Vermehrung (Stamm- und Blattstecklinge), Blütezeit (Spätwinter/Frühling)
+18. [University of Illinois Extension — A nontraditional holiday plant: Kalanchoe](https://extension.illinois.edu/blogs/good-growing/2025-12-19-nontraditional-holiday-plant-kalanchoe) — Blattsteckling-Anleitung, Kurztag-Blühinduktion (14h Dunkelheit, 6 Wochen)
+19. [Plantura — Flammendes Käthchen Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/flammendes-kaethchen/flammendes-kaethchen-pflanzenportrait) — Blütezeit Februar–Juni, Trieb- und Blattstecklinge
+20. [Zimmerpflanzen-FAQ — Kalanchoe blossfeldiana](https://zimmerpflanzen-faq.de/kalanchoe-blossfeldiana/) — Blütezeit Winter–Frühjahr (erste Knospen Dez/Jan), Stamm- und Blattstecklinge
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

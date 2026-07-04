@@ -20,6 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Fatsia japonica auffindbar; Keim-Kardinaltemperaturen wären nicht als Wuchsbasis übertragbar --> | `species.base_temp` |
@@ -49,7 +50,9 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 10, 11, 12 (weiße Doldenblüten an älteren Pflanzen) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 — bloom_months von [10,11,12] auf [10,11] korrigiert; RHS/Clemson HGIC/NC State Extension belegen Oktober-November als Blühfenster, kein Beleg für Dezember-Blüte in Mitteleuropa-Indoorkultur -->
+| Blütemonate | 10, 11 (weiße Doldenblüten an älteren Pflanzen) | `species.bloom_months` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -326,3 +329,6 @@ Fatsia japonica,"Zimmeraralie;Japanische Aralie;Japanese Aralia;Paperplant",Aral
 12. [Gardeners' World — Fatsia japonica](https://www.gardenersworld.com/house-plants/how-to-grow-fatsias/) — Frosthärte (-10 bis -12 °C), Winterschutz/Überwinterung
 13. [Plantura — Fatsia japonica](https://plantura.garden/uk/houseplants/fatsia-japonica/fatsia-japonica-overview) — Überwinterung im Wintergarten (10–18 °C), Pflege
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+14. [RHS — How to grow Fatsia](https://www.rhs.org.uk/plants/fatsia/how-to-grow-fatsia) — Blütezeit Oktober/November, Frosthärte -10 °C
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

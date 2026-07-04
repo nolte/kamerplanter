@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
@@ -53,10 +54,12 @@
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Vermehrungsmethoden | cutting_stem | `species.propagation_methods` |
+| Vermehrungsmethoden | cutting_stem, seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
 **Stecklinge:** 10–15 cm Triebstücke abschneiden. Wundstelle 24–48 Stunden abtrocknen lassen (kurzes Kallieren). In leicht feuchtes Orchideen- oder Kakteensubstrat stecken. Bei 20–25°C und höherer Luftfeuchtigkeit bewurzelt in 3–5 Wochen.
+
+**Samen:** Sekundäre Methode mit deutlich geringerer Erfolgsquote als Stecklinge. Samen aus reifen, weißen Beeren gewinnen, ca. 0,3 cm tief in feuchtes Anzuchtsubstrat säen; Keimung bei Zimmertemperatur in 2–6 Wochen. In der Praxis fast ausschließlich über Stecklinge vermehrt.
 
 ### 1.4 Toxizität & Allergene
 
@@ -342,3 +345,9 @@ Rhipsalis baccifera,Mistelkaktus;Spaghetti-Kaktus;Mistletoe Cactus,Cactaceae,Rhi
 14. [Sound Horticulture — Stratiolaelaps scimitus](https://soundhorticulture.com/pages/stratiolaelaps-scimitus-fungus-gnat-control) — Bodenraubmilbe gegen Trauermücken, Rate/Etablierung
 15. [Bugs for Growers — Nematodes & Hypoaspis for Fungus Gnats](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Steinernema feltiae gegen Trauermücken-Larven
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Growing-Phase-Audit 2026-07 -->
+16. [NC State Extension Gardener Plant Toolbox — Rhipsalis baccifera, Propagation-Feld](https://plants.ces.ncsu.edu/plants/rhipsalis-baccifera/) — Vermehrung "stem cuttings and seeds"; Blühzeit strukturiert "Winter, Spring"
+17. [Useful Tropical Plants (theferns.info) — Rhipsalis baccifera](https://tropical.theferns.info/viewtropical.php?id=Rhipsalis+baccifera) — Vermehrungsmethoden "Cuttings" und "Seed" gelistet
+18. [Smart Garden Guide — Rhipsalis Care](https://smartgardenguide.com/rhipsalis-care-mistletoe-cactus/) — Samenvermehrung aus Beeren (Keimung 2–6 Wochen), Steckling als bevorzugte Methode
+19. [RHS — Rhipsalis baccifera](https://www.rhs.org.uk/plants/14483/rhipsalis-baccifera/details) — Blüte "usually from winter to spring but sometimes year round"; nicht frosthart
+<!-- /Quelle: Growing-Phase-Audit 2026-07 -->

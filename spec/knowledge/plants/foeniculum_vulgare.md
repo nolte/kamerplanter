@@ -19,7 +19,9 @@
 | Ordnung | Apiales | `botanical_families.order` |
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
-| Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Lebenszyklus | biennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | annual (Knollenernte vor der Blüte im 2. Jahr; verhindert Schossen/Monokarpie durch Ernte im 1. Jahr) | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -326,7 +328,7 @@ Knollenfenchel wird in Mitteleuropa (USDA 6–8) als einjährige Kultur gezogen 
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,direct_sow_months,harvest_months
-Foeniculum vulgare var. azoricum,"Knollenfenchel;Gemüsefenchel;Florence Fennel;Finocchio",Apiaceae,Foeniculum,annual,long_day,herb,taproot,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b",-0.5,"Mittelmeerraum",limited,18,30,80,30,28,no,limited,false,false,medium_feeder,half_hardy,"5;6;7","8;9;10"
+Foeniculum vulgare var. azoricum,"Knollenfenchel;Gemüsefenchel;Florence Fennel;Finocchio",Apiaceae,Foeniculum,biennial,long_day,herb,taproot,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b",-0.5,"Mittelmeerraum",limited,18,30,80,30,28,no,limited,false,false,medium_feeder,half_hardy,"5;6;7","8;9;10"
 ```
 
 ---
@@ -350,3 +352,9 @@ Foeniculum vulgare var. azoricum,"Knollenfenchel;Gemüsefenchel;Florence Fennel;
 14. [UF/IFAS CV216 — Nutrient Solution Formulation for Hydroponic Tomatoes](https://edis.ifas.ufl.edu/publication/CV216) — Mikronährstoff-Standardkonzentrationen Gemüse
 15. [Sound Horticulture / PMC — Aphidius colemani & Aphidoletes aphidimyza Ausbringraten](https://soundhorticulture.com/pages/aphids) — Nützling-Ausbringraten gegen Blattläuse (0,1–3 Tiere bzw. 2–5 Puppen/m²)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (cycle_type/cultivation_cycle_type-Korrektur) -->
+16. [RHS — Foeniculum vulgare var. azoricum details](https://www.rhs.org.uk/plants/158862/foeniculum-vulgare-var-azoricum/details) — "A biennial plant..."; botanischer Lebenszyklus biennial, Blüte Hochsommer/Spätsommer
+17. [NC State Extension Gardener Plant Toolbox — Foeniculum vulgare](https://plants.ces.ncsu.edu/plants/foeniculum-vulgare/) — Art als "herbaceous perennial", "normally grown as an annual"; Bestätigung Anbau-Praxis ≠ botanischer Zyklus
+18. [Almanac.com — Fennel: Planting, Growing, and Harvesting Fennel Bulbs](https://www.almanac.com/plant/fennel) — "Florence fennel is biennial but grown as an annual for bulbs. Left in the ground, it will flower and set fennel seeds in year two."
+19. [Gardenia.net — Fennel Bulb (Foeniculum vulgare var. azoricum)](https://www.gardenia.net/plant/foeniculum-vulgare-var-azoricum-fennel-bulb) — "the biennial bulging fennel grown as an annual for eating"
+<!-- /Quelle: growing-phase-auditor 2026-07 (cycle_type/cultivation_cycle_type-Korrektur) -->

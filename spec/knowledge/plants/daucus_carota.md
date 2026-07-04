@@ -20,6 +20,8 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial (Speicherwurzel im 1. Jahr, Bluete/Samenbildung im 2. Jahr; wird als einjaehrig kultiviert) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
+| Anbau-Zyklustyp (cultivation cycle type) | biennial | `lifecycle_configs.cultivation_cycle_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral (tagneutral -- die Bluete wird durch Vernalisation/Kaeltereiz induziert, NICHT durch die Tageslaenge; peer-reviewed bestaetigt: post-vernalisation day length nicht entscheidend. In der Literatur wurde die Moehre kontrovers als Langtag- ODER Tagneutralpflanze beschrieben; massgeblich ist der Vernalisationsbedarf) | `lifecycle_configs.photoperiod_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -50,7 +52,7 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Direktsaat nach letztem Frost (Tage) | 0 (kann bereits 2--3 Wochen VOR letztem Frost gesaet werden, ab Bodentemperatur 5 degC) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | 3; 4; 5; 6; 7 (Staffelsaat fuer kontinuierliche Ernte) | `species.direct_sow_months` |
 | Erntemonate | 6; 7; 8; 9; 10; 11 | `species.harvest_months` |
-| Bluetemonate | 6; 7 (nur im 2. Kulturjahr -- im Gemuese-Anbau unerwuenscht) | `species.bloom_months` |
+| Bluetemonate | 5; 6; 7 (nur im 2. Kulturjahr -- im Gemuese-Anbau unerwuenscht) <!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von '6;7' auf '5;6;7'; deutschsprachige Kulturmoehre-Quellen datieren Bluetebeginn auf Mai, nicht erst Juni; siehe Quellen 21-23 --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -135,6 +137,9 @@ Hinweis: Die Moehre ist salzempfindlich (sensitive) -- bereits ab einer Substrat
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenuebersicht
+
+<!-- Quelle: growing-phase-auditor 2026-07 -- Klarstellung ergaenzt (analog apium_graveolens.md, petroselinum_crispum.md): Phasentabelle bildet nur das 1. Kulturjahr ab, in dem die Speicherwurzel vor jeder Bluete geerntet wird. Die Bluete (Bluetemonate 5;6;7 in §1.2) tritt erst im 2. Standjahr auf, wenn die Wurzel ueberwintert bzw. zur Saatgutgewinnung ausgepflanzt wird, und ist bewusst NICHT Teil dieser Phasenkette (Ernte bleibt terminal). -->
+(Angaben fuer Kulturmoehre; im 1. Kulturjahr -- Speicherwurzel-Ernte vor jeder Bluete. Die Bluete im 2. Standjahr, siehe Bluetemonate in 1.2, ist nur bei Ueberwinterung/Samenbau relevant und nicht Teil dieser Phasenkette.)
 
 | Phase | Dauer (Tage) | Reihenfolge | Terminal | Ernte erlaubt | Stresstoleranz |
 |-------|-------------|-------------|----------|---------------|----------------|
@@ -529,3 +534,9 @@ Rodelika,Daucus carota,Bingenheim,,high_yield;heirloom,100,,open_pollinated
 19. Greg / The Corner Plot -- Optimal Temperature for Carrots (15.5--21 degC): https://thecornerplot.blog/2023/05/27/carrots-and-the-ideal-growing-temperature-what-you-need-to-know/ -- Beleg Photosynthese-/Wuchs-T_opt
 20. Old Farmer's Almanac / Garden Tutor -- Carrot soil pH 6.0--6.8: https://www.almanac.com/plant-ph -- Beleg Boden-pH-Vorzug
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur Bluetemonate (6;7 -> 5;6;7) -->
+21. Plantura -- Karotte: Herkunft, Bluete & Vermehrung: https://www.plantura.garden/gemuese/karotten/karotten-pflanzenportrait -- "Die Bluetezeit liegt zwischen Mai und Juli" (2. Standjahr, Kulturmoehre)
+22. Floristik Haenni -- Karottenbluete: Wann und wie Moehren bluehen: https://floristikhaenni.ch/karotten-blume/ -- "Die Bluetezeit der Karotte liegt in der Regel zwischen Mai und Juli"
+23. Wikipedia (DE) -- Moehre (Pflanzenart): https://de.wikipedia.org/wiki/M%C3%B6hre_(Pflanzenart) -- "Die Bluetezeit reicht von Mai bis Juli" (unterstuetzende Drittquelle, nicht alleinige Quelle)
+<!-- Hinweis: agrarraum.info nennt abweichend "Bluetezeit beginnt im Juni" (https://www.agrarraum.info/lexikon/karotte) und Cornell/MSU Extension nennen fuer die nordamerikanische Wildform Juli-September (https://blogs.cornell.edu/weedid/wild-carrot/, https://www.canr.msu.edu/weeds/extension/wild-carrot) -- als abweichende Einzelquellen fuer den Bluetebeginn im Report dokumentiert, aber durch die 3 uebereinstimmenden Mitteleuropa-Kulturmoehre-Quellen 21-23 fuer den Start Mai nicht entkraeftet. -->
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

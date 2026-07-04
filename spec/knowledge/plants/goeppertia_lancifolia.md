@@ -24,6 +24,7 @@
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–15+ | `lifecycle_configs.typical_lifespan_years` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (°C) | <!-- DATEN FEHLEN --> keine belegte Wuchs-GDD-Basis für diese tropische Zierstaude; Art wird nicht über Wärmesummen (Growing Degree Days) kultiviert | `species.base_temp` |
@@ -53,7 +54,9 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 5, 6, 7 (kleine weiß-lila Blüten bei älteren Pflanzen) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Blütemonate | 5, 6, 7 (kleine, unscheinbare gelbe bis gelb-orange Blüten in konischen Ähren; in Zimmerkultur sehr selten) | `species.bloom_months` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -319,3 +322,7 @@ Goeppertia lancifolia,"Klapperschlangen-Calathea;Lanzettblatt-Calathea;Rattlesna
 13. [Koppert — Aphidius colemani (Blattlaus-Schlupfwespe)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringrate/Etablierung Blattlauskontrolle
 14. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet (Schmierlaus-Räuber)](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Ausbringrate/Etablierung Schmierlauskontrolle
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+15. [Missouri Botanical Garden — Plant Finder: Calathea lancifolia](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=244436) — Blütenfarbe gelb, Blühzeit später Frühling/Frühsommer, seltene Blüte an Zimmerpflanzen
+16. [Gardening Know How — Calathea Rattlesnake Plant Care](https://www.gardeningknowhow.com/houseplants/calathea-plants/calathea-rattlesnake-plant-care.htm) — Blütenfarbe gelb-orange, seltene Blüte an Zimmerpflanzen
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

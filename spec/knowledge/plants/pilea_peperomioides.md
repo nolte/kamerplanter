@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 5–15 | `lifecycle_configs.typical_lifespan_years` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |
@@ -53,7 +54,9 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 3, 4, 5 (kleine, unauffällige Blüten) | `species.bloom_months` |
+| Blütemonate | 5, 6 (kleine, unauffällige Blüten; Blüte als Zimmerpflanze selten, oft erst nach kühlerer Überwinterung) | `species.bloom_months` |
+<!-- Quelle: growing-phase-auditor 2026-07 — Korrektur von [3,4,5] auf [5,6]: 3 unabhängige Quellen (selbst.de, palmenmann.de, gartenjournal.net) bestätigen Blütebeginn Mai, Verlängerung bis Juni durch 2 Quellen (selbst.de, palmenmann.de) gestützt; keine Quelle belegt März/April-Blüte. Konfidenz: GESICHERT (3/3 für Mai). -->
+
 
 ### 1.3 Vermehrung
 
@@ -338,3 +341,9 @@ Pilea peperomioides,"Chinesische Geldpflanze;Bauchnabelpflanze;Chinese Money Pla
 17. [Cornell NYSIPM — Phytoseiulus persimilis Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate (1–3/sq ft) & Entwicklungszeit
 18. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Schmierlaus-Bekämpfung, Freilassungsrate
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+19. [selbst.de — Ufopflanze pflegen und vermehren](https://www.selbst.de/ufopflanze-pflegen-und-vermehren-74894.html) — Blütezeit Mai bis Juni
+20. [palmenmann.de — Pilea: Informationen und Tipps](https://www.palmenmann.de/pflanzenwissen/blog/pilea-die-wichtigsten-informationen-und-tipps-rund-um-pflege-und-vermehrung) — Blütezeit Mai bis Juli, Blütenbildung durch kühle Überwinterung (≥12°C) begünstigt
+21. [gartenjournal.net — Pilea peperomioides pflegen](https://www.gartenjournal.net/pilea) — Blüte im Frühjahr (Mai) nach kühler Überwinterung (5–10°C bzw. 10–15°C)
+22. [RHS — Pilea peperomioides](https://www.rhs.org.uk/plants/13015/pilea-peperomioides/details) — Hardiness-Rating H1C ("tender evergreen perennial"), bestätigt `frost_sensitivity: tender`
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

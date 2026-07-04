@@ -20,6 +20,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -31,8 +32,8 @@
 | Kritische Tageslänge (critical day length, h) | <!-- DATEN FEHLEN: tagneutral, kein Kurztag-/Langtag-Schwellenwert; photoperiod_type = day_neutral --> | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 4a–8b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
-| Winterhärte-Detail | Winterhart bis -15°C (Sorte 'Berggarten' bis -20°C); in Norddeutschland Zone 7b-8a mit leichtem Mulchschutz zuverlässig; bei Kahlfrösten ohne Schneebedeckung gelegentliche Ausfälle | `species.hardiness_detail` |
+| Frostempfindlichkeit | hardy [KORRIGIERT 2026-07: war half_hardy — inkonsistent mit USDA-Zone 4a-8b und RHS H5-Rating; siehe Audit-Quellen] | `species.frost_sensitivity` |
+| Winterhärte-Detail | Winterhart bis -15°C (Sorte 'Berggarten' bis -20°C); RHS-Rating H5 („hardy in most places throughout the UK even in severe winters", -15 bis -10°C); in Norddeutschland Zone 7b-8a mit leichtem Mulchschutz zuverlässig; bei Kahlfrösten ohne Schneebedeckung gelegentliche Ausfälle | `species.hardiness_detail` |
 | Heimat | Mittelmeerraum (Dalmatien, Balkan) | `species.native_habitat` |
 | Allelopathie-Score | 0.1 | `species.allelopathy_score` |
 | Nährstoffbedarf-Stufe | light_feeder | `species.nutrient_demand_level` |
@@ -45,7 +46,7 @@
 | Vorkultur (Wochen vor letztem Frost) | 6–8 (Vorkultur Feb–Mär; Keimtemperatur 18–22°C) | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat nach letztem Frost (Tage) | 14 | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | 5, 6 | `species.direct_sow_months` |
-| Erntemonate | 5, 6, 7, 8, 9 (Blätter ganzjährig erntbar; aromatischste vor Blüte) | `species.harvest_months` |
+| Erntemonate | 5, 6, 7, 8, 9 (Haupterntefenster; aromatischste Blätter vor der Blüte; vereinzelte Winterernte an frostfreien Tagen möglich, schwächt die Pflanze jedoch [KORRIGIERT 2026-07: „ganzjährig erntbar" widersprach eigener Reife/Dormanz-Phase in §2.1 (Ernte erlaubt: false) und Pflegekalender §4.2 „Nov–Feb Winterruhe"]) | `species.harvest_months` |
 | Blütemonate | 5, 6, 7 | `species.bloom_months` |
 
 ### 1.3 Vermehrung
@@ -214,7 +215,7 @@ Salbei WENIG düngen! Auf mageren, gut kalkhaltig-durchlässigen Böden bildet e
 
 | Feld | Wert | KA-Feld |
 |------|------|---------|
-| Winterhärte-Rating | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winterhärte-Rating | hardy [KORRIGIERT 2026-07: war needs_protection — inkonsistent mit USDA-Zone 4a-8b/RHS H5; analog zu Lavandula angustifolia und Thymus vulgaris (gleiche/geringere Winterhärte, ebenfalls "hardy" trotz Mulchschutz)] | `overwintering_profiles.hardiness_rating` |
 | Winter-Maßnahme | mulch | `overwintering_profiles.winter_action` |
 | Winter-Maßnahme Monat | 10 | `overwintering_profiles.winter_action_month` |
 | Frühlings-Maßnahme | prune | `overwintering_profiles.spring_action` |
@@ -315,7 +316,7 @@ Salbei WENIG düngen! Auf mageren, gut kalkhaltig-durchlässigen Böden bildet e
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,harvest_months,bloom_months,pruning_type,pruning_months
-Salvia officinalis,"Echter Salbei;Küchensalbei;Common Sage;Garden Sage",Lamiaceae,Salvia,perennial,day_neutral,shrub,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Mittelmeerraum, Dalmatien",yes,8,20,80,70,45,limited,yes,false,false,light_feeder,half_hardy,"5;6;7;8;9","5;6;7",spring_pruning,"3;4"
+Salvia officinalis,"Echter Salbei;Küchensalbei;Common Sage;Garden Sage",Lamiaceae,Salvia,perennial,day_neutral,shrub,fibrous,"4a;4b;5a;5b;6a;6b;7a;7b;8a;8b",0.1,"Mittelmeerraum, Dalmatien",yes,8,20,80,70,45,limited,yes,false,false,light_feeder,hardy,"5;6;7;8;9","5;6;7",spring_pruning,"3;4"
 ```
 
 ---
@@ -340,3 +341,9 @@ Salvia officinalis,"Echter Salbei;Küchensalbei;Common Sage;Garden Sage",Lamiace
 15. [Koppert — Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Blattlaus-Gallmücke, Ausbringrate/Etablierung
 16. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Blattlaus-Schlupfwespe, Ausbringrate
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor Audit 2026-07 -->
+17. [RHS — Salvia officinalis (common sage)](https://www.rhs.org.uk/plants/16356/salvia-officinalis/details) — RHS-Hardiness-Rating H5 ("hardy in most places throughout the UK even in severe winters", -15 bis -10°C), Blütezeit early summer
+18. [Missouri Botanical Garden — Salvia officinalis Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=m260) — USDA-Zone 4-8, Blütezeit late spring
+19. [nachhaltigleben.ch — Salbei ernten: Fast ganzjährig im eigenen Garten anbauen](https://www.nachhaltigleben.ch/garten/salbei-ernten-fast-ganzjaehrig-im-eigenen-garten-anbauen-2502) — Haupt-Wachstum April–September, eingeschränkte Winterernte an frostfreien Tagen
+20. [Kistengrün — Kann man frischen Salbei im Winter ernten?](https://www.kistengruen.de/wp/2019/11/salbei-im-winter-ernten/) — Winterernte nur sparsam/frostfrei, Pflanze zieht sich in Ruhemodus zurück
+<!-- /Quelle: growing-phase-auditor Audit 2026-07 -->

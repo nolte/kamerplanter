@@ -23,6 +23,7 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 9a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -281,7 +282,7 @@ Hibiscus rosa-sinensis ist ein ausgesprochener Starkzehrer — wöchentliche Dü
 | Frühlings-Maßnahme Monat | 5 | `overwintering_profiles.spring_action_month` |
 | Winterquartier Temp min (°C) | 10 | `overwintering_profiles.winter_quarter_temp_min` |
 | Winterquartier Temp max (°C) | 15 | `overwintering_profiles.winter_quarter_temp_max` |
-| Winterquartier Licht | semi_bright | `overwintering_profiles.winter_quarter_light` |
+| Winterquartier Licht | bright | `overwintering_profiles.winter_quarter_light` |
 | Winter-Gießen | minimal | `overwintering_profiles.winter_watering` |
 
 ---
@@ -377,3 +378,8 @@ Hibiscus rosa-sinensis,Zimmerhibiskus;Chinesischer Roseneibisch;Tropical Hibiscu
 13. [University of Florida IFAS – Hibiscus rosa-sinensis Fact Sheet](https://hort.ifas.ufl.edu/database/documents/pdf/shrub_fact_sheets/hibrosa.pdf) — flaches fibroses Wurzelsystem, Standort, Drainagebedarf
 14. [LifeTips/Alibaba Plant Care – Tropical Hibiscus Temperature & Root System](https://lifetips.alibaba.com/plant-care/hibiscus-plant-root-system) — Wurzeltiefe (Großteil in oberen ~30 cm), Wachstumsstopp unter 10 °C
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+15. [Lubera – Roseneibisch Pflege, Schneiden, Überwintern](https://www.lubera.com/de/gartenbuch/roseneibisch-pflege-schneiden-ueberwintern-p5422) — Winterquartier muss hell sein, ggf. LED-Pflanzenlampe; Temperatur ~15 °C; Blütezeit März–Oktober
+16. [Chicago Botanic Garden – Overwintering Tropical Hibiscus](https://www.chicagobotanic.org/plant-information/overwintering-tropical-hibiscus) — "should be provided with bright light" während der Überwinterung
+17. [Gardener's Path – How to Overwinter Tropical Hibiscus Indoors](https://gardenerspath.com/plants/flowers/overwinter-hibiscus/) — Fensterplatz mit min. 6 h direkter Sonne, sonst Pflanzenlampe bis 16 h/Tag; unzureichendes Licht → Vergeilung, keine Blüte
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

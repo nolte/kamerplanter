@@ -25,6 +25,7 @@
 | GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 10–20+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true | `lifecycle_configs.dormancy_required` |
@@ -47,7 +48,7 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt (Zierpflanze — Beeren) | `species.harvest_months` |
-| Blütemonate | 6, 7, 8 (kleine weiße Blüten) | `species.bloom_months` |
+| Blütemonate | 5, 6 (kleine weiße bis hellrosa Blüten) <!-- korrigiert 2026-07 (growing-phase-auditor): War: 6, 7, 8 — 4 Quellen (Missouri Botanical Garden, NC State Extension, PFAF, hortica.de) belegen übereinstimmend Mai/Juni als Kernblütezeit; keine der 6 geprüften Quellen stützt August --> | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -316,3 +317,8 @@ Ardisia crenata,"Korallenmyrte;Spitzblume;Korallenbeere;Ardisie;Coral Ardisia;Co
 11. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Spinnmilben, Ausbringrate, Klimaansprüche
 12. [Applied Bio-Nomics — Interior Plantscapes (Metaphycus helvolus)](https://www.appliedbio-nomics.com/wp-content/uploads/470-plantscape.pdf) — Parasitoid weicher Schildläuse (Coccus hesperidum, Coccidae), Ausbringrate, Etablierungszeit (2–3 Monate)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (Blütemonate-Korrektur) -->
+13. [Missouri Botanical Garden — Plant Finder: Ardisia crenata](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=282841) — Blütezeit Mai–Juni, Fruchtfarbwechsel ganzjährig
+14. [PFAF — Ardisia crenata](https://pfaf.org/user/Plant.aspx?LatinName=Ardisia+crenata) — Blütezeit Juni–Juli, Samenreife September–Dezember, Vermehrung
+15. [hortica.de — Gekerbte Spitzblume: Pflege von A–Z](https://hortica.de/pflanzen/gekerbte-spitzblume-pflege-von-a-z/) — Blütezeit "Mai, Juni", Beerenreife November–Januar
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

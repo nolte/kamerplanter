@@ -23,6 +23,7 @@
 | Photosynthese-Typ (photosynthesis type) | c3 (Asteraceae-Blattkultur ohne C4-/CAM-Anatomie; eng verwandt mit Salat, der gesichert C3 ist) | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial (Wildform mehrjaehrig; Kulturformen wie Chicoree/Radicchio oft als biennial oder annual kultiviert) | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebensdauer (Jahre, perennial) | 3--7 (Wildform am Standort haeufig laenger; Kultur-/Futterzichorie produktiv 3--7 Jahre) | `lifecycle_configs.typical_lifespan_years` |
 | Dormanz erforderlich (dormancy required) | true (oberirdische Teile sterben im Herbst ab, Wurzel ueberwintert, Neuaustrieb im Fruehjahr) | `lifecycle_configs.dormancy_required` |
@@ -53,7 +54,7 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 | Direktsaat nach letztem Frost (Tage) | 0 (Direktsaat ab Mai moeglich, Pflanze ist frosthart) | `species.sowing_outdoor_after_last_frost_days` |
 | Direktsaat-Monate | 5; 6 | `species.direct_sow_months` |
 | Erntemonate | 7; 8; 9; 10; 11 (Blaetter ab Juli; Wurzeln ab Oktober) | `species.harvest_months` |
-| Bluetemonate | 6; 7; 8; 9 | `species.bloom_months` |
+| Bluetemonate | 6; 7; 8; 9; 10 | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -145,7 +146,7 @@ Hinweis: Regelmaessiges Ernten der aeusseren Blaetter foerdert Nachwuchs. Fuer B
 | Saemling (seedling) | 21--35 | 2 | false | false | low |
 | Vegetativ (vegetative) | 60--90 (Blattrosetten-Aufbau, Wurzelwachstum) | 3 | false | true | high |
 | Dormanz (dormancy) | 90--120 (1. Winter; Vernalisation) | 4 | false | false | high |
-| Bluete (flowering) | 60--90 (2. Jahr, Juni--September) | 5 | false | true | medium |
+| Bluete (flowering) | 60--90 (2. Jahr, Juni--Oktober) | 5 | false | true | medium |
 | Seneszenz (senescence) | 14--28 | 6 | true | false | low |
 
 Hinweis: Als Kulturzichorie (einjaerig/zweijaehrig) entfaellt je nach Kulturart die Dormanz. Fuer Chicoree-Treiberei: Wurzeln im 1. Jahr aufbauen (vegetativ), im Herbst roden, dann dunkel bei 15--18 degC treiben (Etiolierung). Die Wildform ist mehrjaehrig und kehrt nach Seneszenz zur Dormanz zurueck.
@@ -506,7 +507,7 @@ Die Gemeine Wegwarte ist als Wildpflanze grundsaetzlich robust und wenig anfaell
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,direct_sow_months,harvest_months,bloom_months,sowing_indoor_weeks_before_last_frost
-Cichorium intybus,Wegwarte;Zichorie;Gemeine Wegwarte;Chicory;Coffeeweed,Asteraceae,Cichorium,perennial,long_day,herb,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a,0.1,"Europa, Westasien, Nordafrika",hardy,medium_feeder,false,edible;medicinal,5;6,7;8;9;10;11,6;7;8;9,4
+Cichorium intybus,Wegwarte;Zichorie;Gemeine Wegwarte;Chicory;Coffeeweed,Asteraceae,Cichorium,perennial,long_day,herb,taproot,3a;3b;4a;4b;5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a,0.1,"Europa, Westasien, Nordafrika",hardy,medium_feeder,false,edible;medicinal,5;6,7;8;9;10;11,6;7;8;9;10,4
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)
@@ -542,4 +543,10 @@ Wegwarte (Pötschke Historisch),Cichorium intybus,Pötschke,,heirloom;wild_type;
 14. Plant Growth Regulation (Springer) -- Stem elongation and floral initiation on in vitro chicory root explants: influence of photoperiod: kritische Tageslaenge -- 12 h nur vegetativ, ab 16 h Bluetenstandbildung: https://link.springer.com/article/10.1007/BF00024778
 15. ScienceDirect -- Impact of vernalization and heat on flowering induction, development and fertility in root chicory (Cichorium intybus L. var. sativum): obligate Vernalisation + Langtag-Requirement, ~6 Wochen bei 4 degC wirksam: https://www.sciencedirect.com/science/article/abs/pii/S0176161720301620
 16. FAO -- Agricultural Drainage Water Management in Arid and Semi-Arid Areas (Maas-Hoffman Salztoleranz-Parameter, Salat/Blattgemuese ECe 1.3 dS/m): https://www.fao.org/4/y4263e/y4263e0e.htm
+<!-- Quelle: growing-phase-auditor 2026-07 (Bluetemonate-Korrektur) -->
+17. FloraWeb (BfN -- Bundesamt fuer Naturschutz) -- Gewoehnliche Wegwarte: Lebensform Hemikryptophyt (plurienn-pollakanth, mehrjaehrig/ausdauernd, polycarpic), Bluehmonate 7--10: https://www.floraweb.de/php/artenhome.php?name-use-id=1550
+18. PFAF (Plants For A Future) -- Cichorium intybus: PERENNIAL, "in flower from July to October": https://pfaf.org/user/plant.aspx?LatinName=Cichorium+intybus
+19. Missouri Botanical Garden -- Plant Finder Cichorium intybus: "taprooted perennial herb", Bluete "long May/June to September/October bloom": https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=277301
+20. plantura.garden -- Wegwarte Pflanzenportrait: Bluetezeit "von Juli bis Oktober" (bereits in Quellenliste Zeile 5 referenziert)
+<!-- /Quelle: growing-phase-auditor 2026-07 (Bluetemonate-Korrektur) -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -20,6 +20,7 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 10a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -42,7 +43,7 @@
 **Photosynthese (CAM):** Aechmea fasciata betreibt Crassulaceen-Säurestoffwechsel (Crassulacean Acid Metabolism, CAM) — wie für die Gattung Aechmea und viele Bromelien belegt: nächtliche CO₂-Fixierung mit diurnaler Apfelsäure-Akkumulation, Stomata nachts geöffnet (~45–50 % gegen 4 Uhr), tagsüber weitgehend geschlossen (5–10 %). Diese Wasserspar-Strategie begründet die geringe VPD-Sensitivität und Trockenstress-Toleranz. Die GDD-Basistemperatur von 15 °C orientiert sich am unteren Ende des aktiven Wachstumsbereichs (Wachstumsstillstand unterhalb ~15 °C); unterhalb dieser Schwelle akkumuliert die Pflanze keine relevante Wärmesumme.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
-**Biologische Besonderheit — Monokarpie:** Aechmea fasciata ist monokarpisch. Die Mutterpflanze stirbt nach der Blüte ab, produziert vorher jedoch mehrere Kindel (Pups) an der Basis. Diese Kindel wachsen zu neuen blühfähigen Pflanzen heran (Lebenserwartung Kindel bis zur Blüte: 2–4 Jahre).
+**Biologische Besonderheit — Monokarpie:** Aechmea fasciata ist monokarpisch. Die Mutterpflanze stirbt nach der Blüte ab, produziert vorher jedoch mehrere Kindel (Pups) an der Basis. Diese Kindel wachsen zu neuen blühfähigen Pflanzen heran (Lebenserwartung Kindel bis zur Blüte: 3–5 Jahre <!-- korrigiert 2026-07 von "2–4 Jahre": 4 unabh. Quellen (NC State Extension, JoyUsGarden, Bromeliads.info, PlantCareToday) nennen übereinstimmend 3–5 (mehrheitlich 3–4) Jahre, keine nennt 2 Jahre als Untergrenze -->).
 
 ### 1.2 Aussaat- & Erntezeiten
 
@@ -51,7 +52,7 @@
 | Vorkultur (Wochen vor letztem Frost) | nicht relevant | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | nicht relevant | `species.direct_sow_months` |
 | Erntemonate | nicht relevant (Zierpflanze) | `species.harvest_months` |
-| Blütemonate | variabel (4–6 Monate nach Ethylengasbehandlung möglich); typisch 6, 7, 8, 9 | `species.bloom_months` |
+| Blütemonate | variabel (6–8 Wochen nach Ethylengasbehandlung; korrigiert 2026-07, siehe §1.3 & §2.4); typisch 6, 7, 8, 9 | `species.bloom_months` |
 
 ### 1.3 Vermehrung
 
@@ -60,7 +61,7 @@
 | Vermehrungsmethoden | offset; seed | `species.propagation_methods` |
 | Schwierigkeit | easy | `species.propagation_difficulty` |
 
-**Kindel-Vermehrung:** Kindel (Pups) trennen, wenn sie 1/3 bis 1/2 der Mutterpflanzengröße erreicht haben (ca. 15 cm). Mit scharfem Messer vom Mutterstamm abtrennen. In Bromelien-/Orchideensubstrat einpflanzen. Bis zur Blüte des Kindels dauert es 2–4 Jahre.
+**Kindel-Vermehrung:** Kindel (Pups) trennen, wenn sie 1/3 bis 1/2 der Mutterpflanzengröße erreicht haben (ca. 15 cm). Mit scharfem Messer vom Mutterstamm abtrennen. In Bromelien-/Orchideensubstrat einpflanzen. Bis zur Blüte des Kindels dauert es 3–5 Jahre.
 
 **Blüteinduktion:** Kann durch Ethylengas ausgelöst werden. Praxismethode: Pflanze für 7–10 Tage in großen Plastikbeutel mit reifen Äpfeln einschließen (Äpfel produzieren Ethylen). Nach ca. 6–8 Wochen erscheinen erste Blütenstände.
 
@@ -135,9 +136,9 @@
 | Phase | Dauer (Tage) | Reihenfolge | Terminal | Ernte erlaubt | Stresstoleranz |
 |-------|-------------|-------------|----------|---------------|----------------|
 | Kindel/Etablierung | 60–120 | 1 | false | false | low |
-| Vegetativ | 180–730 | 2 | false | false | medium |
+| Vegetativ | 915–1725 <!-- korrigiert 2026-07: rechnerisch aus Gesamtreifezeit Kindel→Blüte 3–5 Jahre (siehe §1.1/§1.3) abzüglich Kindel-/Etablierungsphase (60–120 Tage) und Blüteinduktionsphase (42–60 Tage); War: 180–730 --> | 2 | false | false | medium |
 | Blüteinduktion | 42–60 | 3 | false | false | medium |
-| Blüte | 90–180 | 4 | false | true | medium |
+| Blüte | 90–180 | 4 | false | false | medium |
 | Seneszenz (Ableben Mutter) | 60–120 | 5 | true | false | high |
 
 ### 2.2 Phasen-Anforderungsprofile
@@ -204,7 +205,7 @@
 | Von → Nach | Trigger | Bedingungen |
 |------------|---------|-------------|
 | Kindel → Vegetativ | manual | Kindel eingetopft, 15+ cm Höhe |
-| Vegetativ → Blüteinduktion | manual/event | 2–4 Jahre; Ethylenbehandlung optional |
+| Vegetativ → Blüteinduktion | manual/event | 3–5 Jahre; Ethylenbehandlung optional |
 | Blüteinduktion → Blüte | time_based | 42–60 Tage nach Ethylenbehandlung |
 | Blüte → Seneszenz | event_based | Blüte verblüht, Mutterpflanze stirbt ab |
 
@@ -386,3 +387,10 @@ Aechmea fasciata,Urnenpflanze;Lanzenrosette;Silver Vase Plant;Urn Plant,Bromelia
 13. [Koppert — Cryptolaemus montrouzieri (Mealybug Destroyer)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Wollläuse, Ausbringrate, Etablierung
 14. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Freilassungsraten/m², Klimaoptimum, Teilfreilassungen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 (Lebenszyklus-/Phasen-Audit) -->
+15. [PlantCareToday — Aechmea fasciata](https://plantcaretoday.com/aechmea-fasciata.html) — Blüteinduktion 6–8 Wochen nach Ethylenbehandlung, Lebensdauer 3–4 Jahre
+16. [University of Florida IFAS Extension (EP447) — Using Gibberellic Acid and Ethephon to Induce Flowers on Tropical Foliage Plants](https://ask.ifas.ufl.edu/publication/EP447) — Bromeliaden-Blüteinduktion: sichtbare Knospe 3–8 Wochen, volle Blütenfärbung +4–6 Wochen nach Ethephon-Behandlung (peer-reviewed Extension-Publikation)
+17. [Grow Queen — Aechmea Fasciata Care Guide](https://growqueen.com/blogs/plant-care-guide-by-species-and-sub-species/aechmea-fasciata-silver-vase-plant) — Blütezeit spät Frühling/Sommer, Mindesttemperatur 10 °C
+18. [NC State Extension Gardener Plant Toolbox — Aechmea fasciata (Direktabfrage 2026-07)](https://plants.ces.ncsu.edu/plants/aechmea-fasciata/) — cycle_type perennial trotz monokarper Einzelrosette bestätigt, USDA-Zonen 10a–11b bestätigt, Blüte "in spring"
+19. [OurHouseplants — Urn Plant (Direktabfrage 2026-07)](https://www.ourhouseplants.com/plants/urn-plant) — Mindesttemperatur 15 °C (widerspricht Quelle 17 „10 °C"; als ungeklärt dokumentiert, Originalwert 10 °C beibehalten)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

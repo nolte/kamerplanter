@@ -24,6 +24,7 @@
 | GDD-Basistemperatur (°C) | 10 | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Typische Lebensdauer (Jahre) | 10–50+ | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | true (Winterdormanz für Blüteninduktion) | `lifecycle_configs.dormancy_required` |
@@ -49,7 +50,11 @@
 | Vorkultur (Wochen vor letztem Frost) | Entfällt | `species.sowing_indoor_weeks_before_last_frost` |
 | Direktsaat-Monate | Entfällt | `species.direct_sow_months` |
 | Erntemonate | Entfällt | `species.harvest_months` |
-| Blütemonate | 2, 3, 4, 5 (nach kühler Winterruhe — oft ringförmige Blüten in Weiß/Rosa/Rot) | `species.bloom_months` |
+| Blütemonate | 3, 4, 5, 6, 7 (nach kühler Winterruhe, Blühbeginn mit einsetzendem aktivem Wachstum im März — oft ringförmige Blüten in Weiß/Rosa/Rot; Hauptsaison Frühjahr bis Frühsommer, einzelne Arten bis in Hoch-/Spätsommer bzw. mit zweiter Blüte im Herbst) | `species.bloom_months` |
+
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+**Korrektur 2026-07 (growing-phase-auditor):** Blütemonate von `2, 3, 4, 5` auf `3, 4, 5, 6, 7` korrigiert. Der bisherige Wert widersprach der im selben Steckbrief (§2.1/§2.2) definierten Winterdormanz-Phase (Oktober–Februar) — Februar war zugleich als Dormanz- UND als Blühmonat gelistet. Fünf unabhängige Quellen belegen übereinstimmend, dass die Hauptblütezeit im Frühjahr beginnt (nicht im Winter/Februar) und bis in den Sommer reicht: (1) NC State Extension — Winterdormanz "encourages spring flowering", Blüte einzelner Arten (z. B. M. longimamma) im Frühjahr; (2) World of Succulents (Artenseiten) — M. bocasana "spring and summer", M. hahniana "spring and summer, occasionally a second bloom in autumn", M. longimamma/M. carnea/M. spinosissima/M. melaleuca "late spring to early/mid summer"; (3) gartenjournal.net — "Frühjahr bis Sommer, einige bis Herbst"; (4) Plant Care Today — "spring and early summer" nach Winterruhe; (5) Pflanzenfreunde.com — Hauptblühsaison "Frühjahr bis Herbst" nach mind. 16-wöchiger Ruheperiode (Okt–März). Keine der fünf Quellen nennt Februar als typischen Blühbeginn für die Kultur (nur eine Quelle nennt Februar als Extremrand der Gesamtspanne über alle ~147 Arten, nicht als Regelfall). Der neue Wert (März–Juli) beginnt konsistent mit dem Start der Aktives-Wachstum-Phase (§2.2: März–September) und deckt die in allen Quellen übereinstimmend genannte Kernsaison Frühjahr/Frühsommer ab; spätsommerliche/herbstliche Nachblüte einzelner Arten bleibt als Artvariation im Freitext dokumentiert statt in `bloom_months` aufgenommen (Konsistenz mit Genus-Aggregat-Konvention). Konfidenz: ✅ GESICHERT (5/5 Quellen stimmen überein).
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 
 ### 1.3 Vermehrung
 
@@ -318,3 +323,8 @@ Mammillaria spp.,"Kissenkaktus;Warzenkaktus;Nippelkaktus;Pincushion Cactus;Nippl
 13. [Koppert — Cryptolaemus montrouzieri (Mealybug destroyer)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate gegen Schmierläuse, Etablierungsbedingungen
 14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate gegen Spinnmilben, Temperatur-/rF-Wirkbereich
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+15. [World of Succulents — Mammillaria bocasana, hahniana, longimamma, carnea, spinosissima, melaleuca (Artenseiten)](https://worldofsucculents.com/) — Blütezeitraum je Art (Frühjahr–Frühsommer/Sommer, teils Herbst-Nachblüte)
+16. [gartenjournal.net — Mammillaria](https://www.gartenjournal.net/mammillaria) — Blütezeit "Frühjahr bis Sommer, einige bis Herbst"; Winterruhe-Anforderungen; Frosttoleranz einzelner Arten (z. B. M. crinita bis -2 °C)
+17. [Pflanzenfreunde.com — Mammillaria](https://www.pflanzenfreunde.com/lexika/kakteen/mammillaria.htm) — Hauptblühsaison "Frühjahr bis Herbst"; Mindest-Ruheperiode 16 Wochen (Okt–März, 6–10 °C) als Blühinduktions-Voraussetzung
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
