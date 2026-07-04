@@ -109,7 +109,7 @@ const userPreferencesSlice = createSlice({
       })
       .addCase(fetchPreferences.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load preferences';
+        state.error = action.error.message ?? 'errors.preferencesLoadFailed';
       })
       // Update
       .addCase(updateUserPreferences.fulfilled, (state, action) => {

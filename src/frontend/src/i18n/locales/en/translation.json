@@ -381,7 +381,11 @@
     "duplicate": "An entry with this name already exists.",
     "unknown": "An unknown error occurred.",
     "loadFailed": "Failed to load data.",
-    "optionsLoadFailed": "Selection options could not be loaded."
+    "optionsLoadFailed": "Selection options could not be loaded.",
+    "tenantsLoadFailed": "Failed to load tenants.",
+    "onboardingStateLoadFailed": "Failed to load onboarding state.",
+    "starterKitsLoadFailed": "Failed to load starter kits.",
+    "preferencesLoadFailed": "Failed to load preferences."
   },
   "entities": {
     "botanicalFamily": "Botanical Family",
