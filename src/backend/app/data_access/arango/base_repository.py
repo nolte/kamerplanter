@@ -12,9 +12,31 @@ from app.data_access.arango.query_builder import AQLBuilder
 class BaseArangoRepository:
     """Generic ArangoDB CRUD operations."""
 
+    #: Whether the backing collection is tenant-scoped (REQ-024 isolation
+    #: container).  Tenant-scoped repositories MUST receive a ``tenant_key`` on
+    #: list queries, or an explicit ``all_tenants=True`` system-context opt-in.
+    #: When neither is supplied :meth:`get_all` raises instead of silently
+    #: returning documents of *all* tenants (SEC-B4 cross-tenant leak guard).
+    is_tenant_scoped: bool = False
+
     def __init__(self, db: StandardDatabase, collection_name: str) -> None:
         self._db = db
         self._collection_name = collection_name
+
+    def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
+        """Fail loudly when a tenant-scoped list query is not tenant-bound.
+
+        Guards against SEC-B4: a caller that forgets to pass ``tenant_key``
+        would otherwise receive documents across every tenant.  An empty
+        ``tenant_key`` (``None`` or ``""``) is treated as "not provided" because
+        both fall through the ``if tenant_key`` filter downstream.
+        """
+        if self.is_tenant_scoped and not tenant_key and not all_tenants:
+            raise ValueError(
+                f"Collection '{self._collection_name}' is tenant-scoped: pass a "
+                "tenant_key, or set all_tenants=True for an explicit "
+                "system-context query (SEC-B4 tenant isolation)."
+            )
 
     @property
     def collection(self):  # type: ignore[no-untyped-def]
@@ -43,7 +65,10 @@ class BaseArangoRepository:
         offset: int = 0,
         limit: int = 50,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[dict[str, Any]], int]:
+        self._enforce_tenant_scope(tenant_key, all_tenants)
         builder = AQLBuilder(self._collection_name)
         if tenant_key:
             builder.filter("tenant_key", "==", tenant_key)

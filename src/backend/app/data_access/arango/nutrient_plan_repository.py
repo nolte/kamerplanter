@@ -11,6 +11,8 @@ from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 
 
 class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.NUTRIENT_PLANS)
 
@@ -22,7 +24,10 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
         limit: int = 50,
         filters: dict | None = None,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[NutrientPlan], int]:
+        self._enforce_tenant_scope(tenant_key, all_tenants)
         if filters:
             query = f"FOR doc IN {col.NUTRIENT_PLANS}"
             bind_vars: dict[str, Any] = {}
@@ -41,7 +46,7 @@ class ArangoNutrientPlanRepository(INutrientPlanRepository, BaseArangoRepository
             count_cursor = self._db.aql.execute(count_query, bind_vars=bind_vars)
             total = next(count_cursor, 0)
             return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
         return [NutrientPlan(**doc) for doc in docs], total
 
     def get_by_key(self, key: NutrientPlanKey) -> NutrientPlan | None:

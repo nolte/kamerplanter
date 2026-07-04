@@ -21,7 +21,7 @@ def upsert_fertilizers(
     fertilizers: list[Fertilizer],
 ) -> dict[str, str]:
     """Upsert fertilizers: update existing, create new. Returns product_name→key map."""
-    all_existing, _ = fert_repo.get_all(offset=0, limit=1000)
+    all_existing, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
     existing_map = {(f.product_name, f.brand): f for f in all_existing}
 
     fert_keys: dict[str, str] = {}

@@ -118,7 +118,7 @@ def sync_tank_states_from_ha() -> dict:
     sensor_repo = get_sensor_repo()
     tank_repo = get_tank_repo()
 
-    tanks, _total = tank_repo.get_all(offset=0, limit=1000)
+    tanks, _total = tank_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
     updated = 0
     skipped = 0
     errors: list[dict] = []
@@ -191,7 +191,7 @@ def check_tank_alerts() -> dict:
     tank_repo = get_tank_repo()
     engine = TankEngine()
 
-    tanks, _total = tank_repo.get_all(offset=0, limit=1000)
+    tanks, _total = tank_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
     tanks_checked = 0
     total_alerts = 0
     critical_count = 0

@@ -108,3 +108,20 @@ class TestGetActiveNutrientPlans:
         assert len(result) == 2
         assert result[0]["run_name"] == "Tomato Run"
         assert result[1]["run_name"] == "Basil Run"
+
+
+class TestGetAllDueMaintenancesTenantScope:
+    """AP-8 / SEC-B4 — the tenant_key must reach the repository.
+
+    Previously ``get_all_due_maintenances`` accepted a ``tenant_key`` but called
+    ``repo.get_all()`` without it, returning tanks across *all* tenants.
+    """
+
+    def test_forwards_tenant_key_to_repo(self, service, mock_repo):
+        mock_repo.get_all.return_value = ([], 0)
+
+        service.get_all_due_maintenances(tenant_key="tenant_a")
+
+        _args, kwargs = mock_repo.get_all.call_args
+        assert kwargs.get("tenant_key") == "tenant_a"
+        assert kwargs.get("all_tenants") in (None, False)

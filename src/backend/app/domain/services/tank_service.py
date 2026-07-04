@@ -165,8 +165,8 @@ class TankService:
         return results
 
     def get_all_due_maintenances(self, tenant_key: str = "") -> list[dict]:
-        """Get due maintenances across all tanks."""
-        tanks, _total = self._repo.get_all(offset=0, limit=1000)
+        """Get due maintenances across all tanks of the tenant."""
+        tanks, _total = self._repo.get_all(offset=0, limit=1000, tenant_key=tenant_key)
         results = []
         for tank in tanks:
             if tank.key:

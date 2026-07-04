@@ -25,6 +25,11 @@ ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
 
 
 class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
+    # Base collection TASKS is tenant-scoped.  Tenant listings use get_all_tasks
+    # (which filters explicitly); the inherited get_all is only reached from
+    # system Celery tasks that must opt in via all_tenants=True.
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.TASKS)
 

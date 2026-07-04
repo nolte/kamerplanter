@@ -47,7 +47,7 @@ def check_auto_transitions() -> dict:
     transitioned = 0
     errors = 0
 
-    plants, total = plant_repo.get_all(offset=0, limit=1000)
+    plants, total = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
     for plant in plants:
         if plant.removed_on is not None:
             continue

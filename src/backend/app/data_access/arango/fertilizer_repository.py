@@ -11,6 +11,8 @@ from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 
 
 class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.FERTILIZERS)
 
@@ -22,7 +24,15 @@ class ArangoFertilizerRepository(IFertilizerRepository, BaseArangoRepository):
         limit: int = 50,
         filters: dict | None = None,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[Fertilizer], int]:
+        # Fertilizers are a hybrid catalog: global products (empty tenant_key)
+        # PLUS per-tenant custom products.  When a tenant_key is supplied the
+        # query below unions the tenant's own rows with the global rows; a
+        # missing tenant_key must therefore be an explicit system-context opt-in
+        # (all_tenants=True) rather than a silent all-tenant read (SEC-B4).
+        self._enforce_tenant_scope(tenant_key, all_tenants)
         query = f"FOR doc IN {col.FERTILIZERS}"
         bind_vars: dict[str, Any] = {}
         filter_clauses = []
