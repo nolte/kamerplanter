@@ -144,6 +144,7 @@ def link_shared_template(
         ctx.tenant_key,
         plant_key=body.plant_key,
         planting_run_key=body.planting_run_key,
+        template_key=body.template_key,
         species_key=body.species_key,
         scientific_name=body.scientific_name,
     )

@@ -50,14 +50,8 @@ def _template_to_profile(
         winter_action_month=template.winter_action_month,
         spring_action=template.spring_action,
         spring_action_month=template.spring_action_month,
-        winter_quarter_temp_min=template.winter_quarter_temp_min,
-        winter_quarter_temp_max=template.winter_quarter_temp_max,
-        winter_quarter_light=template.winter_quarter_light,
-        winter_watering=template.winter_watering,
-        storage_medium=template.storage_medium,
-        storage_check_interval_days=template.storage_check_interval_days,
-        tuber_status=template.tuber_status,
         auto_generated=True,
+        **template.winter_quarter_fields(),
     )
 
 

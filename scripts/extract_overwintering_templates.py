@@ -240,15 +240,53 @@ def _map_spring_action(text: str) -> str | None:
     return None
 
 
+#: Infraspecific connectors that are part of the name, not an author citation.
+_INFRA_MARKERS = {"var.", "subsp.", "ssp.", "f.", "cv.", "subvar.", "convar.", "×", "x"}
+
+
+def _normalize_sci_name(raw: str) -> str:
+    """Reduce a curated name to the binomial the species collection stores.
+
+    Drops synonym parentheticals ("(syn. …)"), cultivar quotes ("'Great Silence'")
+    and trailing author citations ("Cav."), while keeping infraspecific markers
+    (``var.`` / ``subsp.`` / ``×`` …). Without this, cultivar-level Steckbriefe like
+    ``Dahlia pinnata Cav.`` never resolve to species ``Dahlia pinnata`` and their
+    templates seed with an empty ``species_key``.
+    """
+    name = re.split(r"\s*\(", raw.strip())[0]  # drop "(syn. …)"
+    name = re.split(r"[‘’']", name)[0]  # drop 'Cultivar' quotes onwards
+    parts = name.split()
+    if len(parts) <= 2:
+        return " ".join(parts)
+    kept = parts[:2]  # genus + epithet (or genus + hybrid marker)
+    i = 2
+    while i < len(parts):
+        word = parts[i]
+        if word.lower() in _INFRA_MARKERS:
+            kept.append(word)
+            if i + 1 < len(parts):
+                kept.append(parts[i + 1])
+                i += 2
+                continue
+            i += 1
+            continue
+        if word[:1].islower():  # an unmarked lowercase epithet part — keep
+            kept.append(word)
+            i += 1
+            continue
+        break  # a capitalised token is an author citation — stop here
+    # The species collection spells hybrids with an ASCII "x", not the Unicode "×".
+    return " ".join(kept).replace("×", "x")
+
+
 def _scientific_name(text: str) -> str | None:
     """Pull the scientific name from the ``species.scientific_name`` KA-Feld row."""
     for row in _table_rows(text):
         if len(row) >= 3 and "species.scientific_name" in row[-1] and row[1]:
-            # Drop trailing synonym/author parentheticals: "Allium porrum (syn. …)".
-            return re.split(r"\s*\(", row[1].strip())[0].strip()
+            return _normalize_sci_name(row[1])
     # Fallback: H1 "Common — Genus species".
     heading = re.search(r"^#\s+.*?—\s*(.+)$", text, re.M)
-    return heading.group(1).strip() if heading else None
+    return _normalize_sci_name(heading.group(1)) if heading else None
 
 
 def _table_rows(text: str) -> list[list[str]]:
@@ -453,6 +491,16 @@ def build() -> tuple[str, list[dict], list[str]]:
             warnings.append(
                 f"{entry['_key']}: D5 rating/action mismatch "
                 f"(rating={entry['hardiness_rating']}, action={entry['winter_action']})"
+            )
+        # A relocation action needs a month, or the "move indoors before frost"
+        # reminder can never fire for a plant reusing this template.
+        if (
+            entry["winter_action"] in path_b_actions
+            and "winter_action_month" not in entry
+        ):
+            warnings.append(
+                f"{entry['_key']}: relocation action '{entry['winter_action']}' has no "
+                f"winter_action_month — winter reminder will not fire (fill §4.3 in the Steckbrief)"
             )
 
     return _dump_yaml(entries), entries, warnings

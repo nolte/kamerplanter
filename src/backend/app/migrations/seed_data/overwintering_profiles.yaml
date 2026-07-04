@@ -81,7 +81,7 @@ overwintering_profiles:
     spring_action_month: 3
     winter_watering: minimal
   - _key: alocasia_x_amazonica
-    species_scientific_name: Alocasia × amazonica
+    species_scientific_name: Alocasia x amazonica
     hardiness_rating: frost_free
     winter_action: move_indoors
     winter_action_month: 9
@@ -442,7 +442,7 @@ overwintering_profiles:
     winter_quarter_light: dark
     winter_watering: minimal
   - _key: dahlia_embassy
-    species_scientific_name: Dahlia pinnata Cav.
+    species_scientific_name: Dahlia pinnata
     hardiness_rating: dig_and_store
     winter_action: dig_store
     winter_action_month: 10
@@ -452,7 +452,7 @@ overwintering_profiles:
     winter_quarter_temp_max: 10
     winter_watering: none
   - _key: dahlia_hapet_daydream
-    species_scientific_name: Dahlia pinnata Cav.
+    species_scientific_name: Dahlia pinnata
     hardiness_rating: dig_and_store
     winter_action: dig_store
     winter_action_month: 11
@@ -463,7 +463,7 @@ overwintering_profiles:
     winter_quarter_light: dark
     winter_watering: none
   - _key: dahlia_pinnata_great_silence
-    species_scientific_name: "Dahlia pinnata 'Great Silence'"
+    species_scientific_name: Dahlia pinnata
     hardiness_rating: dig_and_store
     winter_action: dig_store
     winter_action_month: 10
@@ -485,7 +485,7 @@ overwintering_profiles:
     winter_quarter_light: dark
     winter_watering: none
   - _key: dahlia_x_hybrida_lavender_perfection
-    species_scientific_name: Dahlia pinnata Cav.
+    species_scientific_name: Dahlia pinnata
     hardiness_rating: dig_and_store
     winter_action: dig_store
     winter_action_month: 10
@@ -567,7 +567,7 @@ overwintering_profiles:
     winter_quarter_light: bright
     winter_watering: reduced
   - _key: drachenpalmen
-    species_scientific_name: Dracaena marginata Lam.
+    species_scientific_name: Dracaena marginata
     hardiness_rating: frost_free
     winter_action: none
     winter_action_month: 10
@@ -706,7 +706,7 @@ overwintering_profiles:
     winter_quarter_light: bright
     winter_watering: reduced
   - _key: forsythia_x_intermedia
-    species_scientific_name: Forsythia × intermedia
+    species_scientific_name: Forsythia x intermedia
     hardiness_rating: hardy
     winter_action: none
     spring_action: prune
@@ -1049,7 +1049,7 @@ overwintering_profiles:
     spring_action_month: 3
     winter_watering: none
   - _key: mentha_x_piperita
-    species_scientific_name: Mentha × piperita
+    species_scientific_name: Mentha x piperita
     hardiness_rating: hardy
     winter_action: mulch
     winter_action_month: 10
@@ -1194,7 +1194,7 @@ overwintering_profiles:
     winter_quarter_light: bright
     winter_watering: none
   - _key: petunia_x_hybrida
-    species_scientific_name: Petunia × hybrida
+    species_scientific_name: Petunia x hybrida
     hardiness_rating: frost_free
     winter_action: move_indoors
     winter_action_month: 9
@@ -1613,7 +1613,7 @@ overwintering_profiles:
     winter_quarter_temp_min: 5
     winter_watering: minimal
   - _key: verbena_x_hybrida
-    species_scientific_name: Verbena × hybrida
+    species_scientific_name: Verbena x hybrida
     hardiness_rating: frost_free
     winter_action: move_indoors
     winter_action_month: 10

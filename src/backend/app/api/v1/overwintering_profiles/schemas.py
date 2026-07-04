@@ -121,6 +121,7 @@ class LinkSharedTemplateRequest(BaseModel):
 
     plant_key: str | None = None
     planting_run_key: str | None = None
+    template_key: str | None = None
     species_key: str | None = None
     scientific_name: str | None = Field(default=None, max_length=200)
 
@@ -128,8 +129,8 @@ class LinkSharedTemplateRequest(BaseModel):
     def _validate(self) -> LinkSharedTemplateRequest:
         if bool(self.plant_key) == bool(self.planting_run_key):
             raise ValueError("Exactly one of plant_key / planting_run_key must be given.")
-        if not self.species_key and not self.scientific_name:
-            raise ValueError("Either species_key or scientific_name must be given.")
+        if not self.template_key and not self.species_key and not self.scientific_name:
+            raise ValueError("One of template_key / species_key / scientific_name must be given.")
         return self
 
 

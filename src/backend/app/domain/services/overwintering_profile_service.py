@@ -236,21 +236,18 @@ class OverwinteringProfileService:
     ) -> dict:
         """Species-accurate winter-quarter / storage fields for a relocation path.
 
-        Returns an empty dict on an in-situ path (none/mulch/fleece/…) so the
-        curated indoor-quarter numbers never leak onto a plant that stays outside.
+        Enriches only when the template's *own* winter action equals the derived
+        action, so a dig-and-store template's cold-storage numbers (e.g. 0–2 °C)
+        never graft onto a move-indoors profile — and nothing leaks onto an in-situ
+        (none/mulch/fleece/…) path.
         """
-        if template is None or action not in {WinterAction.MOVE_INDOORS, WinterAction.DIG_STORE}:
+        if (
+            template is None
+            or template.winter_action != action
+            or action not in {WinterAction.MOVE_INDOORS, WinterAction.DIG_STORE}
+        ):
             return {}
-        fields: dict = {
-            "winter_quarter_temp_min": template.winter_quarter_temp_min,
-            "winter_quarter_temp_max": template.winter_quarter_temp_max,
-            "winter_watering": template.winter_watering,
-        }
-        if action == WinterAction.DIG_STORE:
-            fields["storage_medium"] = template.storage_medium
-            fields["storage_check_interval_days"] = template.storage_check_interval_days
-            fields["tuber_status"] = template.tuber_status
-        return {k: v for k, v in fields.items() if v is not None}
+        return template.winter_quarter_fields()
 
     # ── Shared reusable templates (N subjects → 1 template) ─────────────
 
@@ -259,12 +256,19 @@ class OverwinteringProfileService:
             raise ValueError("OverwinteringProfileService was constructed without a template repository.")
         return self._template_repo
 
+    @staticmethod
+    def _require_single_subject_keys(plant_key: str | None, planting_run_key: str | None) -> None:
+        """Reject a subject that names neither or both of plant / planting run (422)."""
+        if bool(plant_key) == bool(planting_run_key):
+            raise ValidationError("Exactly one of plant_key / planting_run_key must be given.")
+
     def link_shared_template(
         self,
         tenant_key: str,
         *,
         plant_key: str | None = None,
         planting_run_key: str | None = None,
+        template_key: str | None = None,
         species_key: str | None = None,
         scientific_name: str | None = None,
     ) -> OverwinteringProfileTemplate:
@@ -272,20 +276,23 @@ class OverwinteringProfileService:
 
         Reuses one template document across every instance of the species instead
         of minting a per-instance profile. Idempotent: re-linking replaces the
-        previous reference.
+        previous reference. Resolution prefers the unambiguous ``template_key`` slug;
+        ``species_key`` and ``scientific_name`` are convenience fallbacks that can be
+        ambiguous when several cultivar templates map to one species.
         """
         repo = self._require_template_repo()
-        if bool(plant_key) == bool(planting_run_key):
-            raise ValidationError("Exactly one of plant_key / planting_run_key must be given.")
+        self._require_single_subject_keys(plant_key, planting_run_key)
         self._verify_subject_keys(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
 
         template: OverwinteringProfileTemplate | None = None
-        if species_key:
+        if template_key:
+            template = repo.get_template_by_key(template_key)
+        if template is None and species_key:
             template = repo.get_template_by_species_key(species_key)
         if template is None and scientific_name:
             template = repo.get_template_by_scientific_name(scientific_name)
         if template is None or not template.key:
-            raise NotFoundError("OverwinteringProfileTemplate", species_key or scientific_name or "")
+            raise NotFoundError("OverwinteringProfileTemplate", template_key or species_key or scientific_name or "")
 
         repo.link_subject(template.key, plant_key=plant_key, planting_run_key=planting_run_key)
         return template
@@ -299,6 +306,7 @@ class OverwinteringProfileService:
     ) -> OverwinteringProfileTemplate | None:
         """Resolve the shared template a subject currently reuses, if any."""
         repo = self._require_template_repo()
+        self._require_single_subject_keys(plant_key, planting_run_key)
         self._verify_subject_keys(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
         return repo.get_template_for_subject(plant_key=plant_key, planting_run_key=planting_run_key)
 
@@ -311,6 +319,7 @@ class OverwinteringProfileService:
     ) -> bool:
         """Drop a subject's shared-template reference. Returns True when one existed."""
         repo = self._require_template_repo()
+        self._require_single_subject_keys(plant_key, planting_run_key)
         self._verify_subject_keys(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
         return repo.unlink_subject(plant_key=plant_key, planting_run_key=planting_run_key) > 0
 

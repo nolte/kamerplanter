@@ -131,6 +131,23 @@ class TestLinkSharedTemplate:
         tpl = service.link_shared_template(TENANT, plant_key="p1", scientific_name="Aechmea fasciata")
         assert tpl.key == "aechmea_fasciata"
 
+    def test_link_by_template_key_is_deterministic(self):
+        # Two templates share a species_key; the slug disambiguates unambiguously.
+        a = _template(_key="dahlia_embassy", species_key="sp_dahlia", winter_action_month=10)
+        b = _template(_key="dahlia_daydream", species_key="sp_dahlia", winter_action_month=11)
+        service = _service(templates=[a, b])
+        tpl = service.link_shared_template(TENANT, plant_key="p1", template_key="dahlia_daydream")
+        assert tpl.key == "dahlia_daydream"
+        assert tpl.winter_action_month == 11
+
+    def test_get_and_unlink_reject_both_or_neither_subject(self):
+        service = _service()
+        for bad in ({"plant_key": "p1", "planting_run_key": "r1"}, {}):
+            with pytest.raises(ValidationError):
+                service.get_shared_template_for_subject(TENANT, **bad)
+            with pytest.raises(ValidationError):
+                service.unlink_shared_template(TENANT, **bad)
+
     def test_relink_replaces_previous(self):
         other = _template(_key="strelitzia_reginae", species_scientific_name="Strelitzia reginae", species_key="sp2")
         service = _service(templates=[_template(), other])
@@ -216,6 +233,26 @@ class TestAutoGenerateTemplateEnrichment:
         assert profile.storage_medium == "dark cellar in crates"
         assert profile.storage_check_interval_days == 30
         assert profile.tuber_status == TuberStatus.STORED
+
+    def test_dig_store_template_not_grafted_onto_move_indoors(self):
+        """A dig-and-store template's cold-storage temps must not land on a
+        move-indoors profile when the derived path differs from the template's."""
+        tpl = _template(
+            _key="solanum_tuberosum",
+            species_key="sp1",
+            hardiness_rating=HardinessRating.DIG_AND_STORE,
+            winter_action=WinterAction.DIG_STORE,
+            winter_quarter_temp_min=4,
+            winter_quarter_temp_max=8,
+        )
+        service = _service(templates=[tpl])
+        # SENSITIVE + not a geophyte → derived action is move_indoors, template is dig_store.
+        profile = service.auto_generate_profile(
+            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.SENSITIVE, species_key="sp1"
+        )
+        assert profile.winter_action == WinterAction.MOVE_INDOORS
+        assert profile.winter_quarter_temp_min is None
+        assert profile.winter_quarter_temp_max is None
 
     def test_no_template_repo_is_backward_compatible(self):
         service = OverwinteringProfileService(FakeOverwinteringRepo())  # no template_repo

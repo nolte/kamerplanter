@@ -53,15 +53,22 @@ class ArangoOverwinteringProfileTemplateRepository(
         plant_key: str | None = None,
         planting_run_key: str | None = None,
     ) -> None:
-        """Point a subject at a shared template (idempotent; re-link replaces)."""
+        """Point a subject at a shared template (idempotent; re-link replaces).
+
+        The edge ``_key`` is derived deterministically from the subject, so the write
+        is a single atomic upsert: re-linking (even concurrently) replaces the one
+        edge instead of racing a delete-then-insert against the unique ``_from`` index.
+        """
         from_id = self._subject_id(plant_key, planting_run_key)
         if from_id is None:
             return
-        # Unique ``_from`` index → a subject has at most one shared template; drop
-        # any prior link first so re-assigning to a different template succeeds.
-        self.delete_edges(col.USES_OVERWINTERING_TEMPLATE, from_id)
-        to_id = f"{col.OVERWINTERING_PROFILE_TEMPLATES}/{template_key}"
-        self.create_edge(col.USES_OVERWINTERING_TEMPLATE, from_id, to_id)
+        edge = {
+            "_key": from_id.replace("/", "__"),
+            "_from": from_id,
+            "_to": f"{col.OVERWINTERING_PROFILE_TEMPLATES}/{template_key}",
+            "created_at": self._now(),
+        }
+        self._db.collection(col.USES_OVERWINTERING_TEMPLATE).insert(edge, overwrite_mode="replace")
 
     def get_template_for_subject(
         self,

@@ -46,7 +46,10 @@ def run_seed_overwintering_profiles() -> None:
         key = entry["_key"]
         doc["_key"] = key
         if collection.has(key):
-            collection.update(doc)
+            # replace (not update): a merge would keep stale fields that a later
+            # Steckbrief edit dropped (e.g. tuber_status after a rating change),
+            # which would then fail model validation on read.
+            collection.replace(doc)
             updated += 1
         else:
             collection.insert(doc)

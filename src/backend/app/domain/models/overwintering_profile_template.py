@@ -65,6 +65,24 @@ class OverwinteringProfileTemplate(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+    def winter_quarter_fields(self) -> dict:
+        """The winter-quarter / storage subset of this template (non-null only).
+
+        Single source of truth for adapting a template onto an ``OverwinteringProfile``
+        — shared by care-reminder resolution and auto-generation enrichment so the two
+        paths cannot drift.
+        """
+        fields = {
+            "winter_quarter_temp_min": self.winter_quarter_temp_min,
+            "winter_quarter_temp_max": self.winter_quarter_temp_max,
+            "winter_quarter_light": self.winter_quarter_light,
+            "winter_watering": self.winter_watering,
+            "storage_medium": self.storage_medium,
+            "storage_check_interval_days": self.storage_check_interval_days,
+            "tuber_status": self.tuber_status,
+        }
+        return {k: v for k, v in fields.items() if v is not None}
+
     @model_validator(mode="after")
     def _validate_tuber_status(self) -> OverwinteringProfileTemplate:
         """``tuber_status`` is only meaningful for the dig-and-store rating."""
