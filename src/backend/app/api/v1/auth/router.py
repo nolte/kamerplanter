@@ -255,7 +255,10 @@ def oauth_callback(
         return _oauth_error_redirect(frontend_url, "invalid_state")
     except UnauthorizedError:
         return _oauth_error_redirect(frontend_url, "account_disabled")
-    except NotFoundError, ValidationError:
+    except (NotFoundError, ValidationError) as exc:
+        # `as exc` keeps ruff-format from stripping the parens (which would turn
+        # this into the `except A, B:` Python-2 syntax error).
+        logger.info("oauth_callback_provider_error", provider=slug, error=str(exc))
         return _oauth_error_redirect(frontend_url, "provider_error")
     except Exception:  # noqa: BLE001 — never surface a JSON 500 to the browser
         logger.exception("oauth_callback_failed", provider=slug)
