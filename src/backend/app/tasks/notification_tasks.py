@@ -336,25 +336,82 @@ def send_daily_summary() -> dict:
     }
 
 
-@celery_app.task(name="notifications.send_email_digests")
-def send_email_digests() -> dict:
-    """Send collected email digests.
+@celery_app.task(  # type: ignore[misc]
+    name="notifications.send_email_digests",
+    bind=True,
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def send_email_digests(self) -> dict:
+    """Send the daily email digest (REQ-030).
 
-    Runs daily at 07:00 UTC. Collects all notifications queued for
-    email digest delivery and sends them as a single email per user.
+    Runs daily at 07:00 UTC. For every user who opted in
+    (``channels.email.enabled`` + ``channels.email.config.digest``) it
+    collects the notifications of the last 24 hours and delivers them as a
+    single batch email via the registered ``email`` channel. Failures are
+    isolated per user so one bad recipient does not abort the run.
     """
-    # Email digest delivery requires a dedicated query method on
-    # the preference repository (list_users_with_digest_enabled)
-    # which will be added when the EmailNotificationChannel is
-    # fully implemented. For now, this task is a no-op placeholder.
+    from datetime import UTC, datetime, timedelta
+
+    from app.common.dependencies import (
+        get_notification_preference_repo,
+        get_notification_service,
+        get_user_repo,
+    )
+
+    preference_repo = get_notification_preference_repo()
+    service = get_notification_service()
+    user_repo = get_user_repo()
+
+    since = datetime.now(UTC) - timedelta(hours=24)
+    candidates = preference_repo.list_users_with_digest_enabled()
+
     digests_sent = 0
+    digests_empty = 0
+    digests_failed = 0
+
+    for prefs in candidates:
+        user_key = prefs.user_key
+        if not user_key:
+            continue
+
+        channel_pref = prefs.channels.get("email")
+        to_email = (channel_pref.config.get("email") if channel_pref else None) or None
+        if not to_email:
+            user = user_repo.get_by_key(user_key)
+            to_email = user.email if user else None
+        if not to_email:
+            logger.warning("email_digest_no_address", user_key=user_key)
+            digests_failed += 1
+            continue
+
+        try:
+            result = asyncio.run(service.send_email_digest(user_key, to_email, since))
+        except Exception:
+            logger.exception("email_digest_user_failed", user_key=user_key)
+            digests_failed += 1
+            continue
+
+        if result["status"] == "sent":
+            digests_sent += 1
+        elif result["status"] == "empty":
+            digests_empty += 1
+        else:
+            digests_failed += 1
 
     logger.info(
         "email_digests_complete",
+        candidates=len(candidates),
         digests_sent=digests_sent,
+        digests_empty=digests_empty,
+        digests_failed=digests_failed,
     )
 
     return {
         "status": "complete",
+        "candidates": len(candidates),
         "digests_sent": digests_sent,
+        "digests_empty": digests_empty,
+        "digests_failed": digests_failed,
     }

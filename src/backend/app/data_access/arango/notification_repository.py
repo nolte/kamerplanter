@@ -87,6 +87,35 @@ class ArangoNotificationRepository(INotificationRepository, BaseArangoRepository
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._to_notification(doc) for doc in cursor]
 
+    def list_for_user_since(
+        self,
+        user_key: str,
+        since: datetime,
+        limit: int = 100,
+    ) -> list[Notification]:
+        """List a user's notifications created at/after ``since``, newest first.
+
+        Used by the daily email digest (REQ-030) to collect the notifications
+        of the trailing window.
+        """
+        query = (
+            f"FOR doc IN {NOTIFICATIONS} "
+            f"FILTER doc.user_key == @user_key "
+            f"AND doc.created_at != null AND doc.created_at >= @since "
+            f"SORT doc.created_at DESC "
+            f"LIMIT @limit "
+            f"RETURN doc"
+        )
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={
+                "user_key": user_key,
+                "since": since.isoformat(),
+                "limit": limit,
+            },
+        )
+        return [self._to_notification(doc) for doc in cursor]
+
     def mark_read(self, key: str, read_at: datetime) -> Notification | None:
         """Mark a notification as read."""
         query = f"UPDATE @key WITH {{ read_at: @read_at, updated_at: @read_at }} IN {NOTIFICATIONS} RETURN NEW"

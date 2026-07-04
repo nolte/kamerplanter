@@ -1,5 +1,6 @@
 """Unit tests for NotificationService (REQ-030)."""
 
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -442,3 +443,73 @@ class TestPwaSubscriptions:
         assert endpoints[-1] == f"https://push/{total - 1}"
         assert "https://push/0" not in endpoints
         assert endpoints[0] == f"https://push/{total - MAX_PWA_SUBSCRIPTIONS_PER_USER}"
+
+
+class TestSendEmailDigest:
+    @staticmethod
+    def _notification(key: str) -> Notification:
+        return Notification(
+            key=key,
+            notification_type="care.watering",
+            title="Water plant",
+            body="Monstera needs water",
+            user_key="user_1",
+            tenant_key="tenant_1",
+        )
+
+    @pytest.mark.asyncio
+    async def test_uses_batch_channel(self, service, mock_engine, mock_notification_repo):
+        from app.domain.models.notification import ChannelResult
+
+        notifs = [self._notification("n1"), self._notification("n2"), self._notification("n3")]
+        mock_notification_repo.list_for_user_since.return_value = notifs
+
+        fake_channel = MagicMock()
+        fake_channel.send_batch = AsyncMock(return_value=ChannelResult(channel_key="email", success=True))
+        mock_engine._channel_registry.get.return_value = fake_channel
+
+        since = datetime.now(UTC) - timedelta(hours=24)
+        result = await service.send_email_digest("user_1", "a@x", since)
+
+        assert result == {"status": "sent", "count": 3}
+        mock_notification_repo.list_for_user_since.assert_called_once_with("user_1", since)
+        fake_channel.send_batch.assert_awaited_once_with(notifs, {"email": "a@x"})
+
+    @pytest.mark.asyncio
+    async def test_empty_window(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.list_for_user_since.return_value = []
+
+        since = datetime.now(UTC) - timedelta(hours=24)
+        result = await service.send_email_digest("user_1", "a@x", since)
+
+        assert result == {"status": "empty", "count": 0}
+        mock_engine._channel_registry.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_channel_missing(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.list_for_user_since.return_value = [self._notification("n1")]
+        mock_engine._channel_registry.get.return_value = None
+
+        since = datetime.now(UTC) - timedelta(hours=24)
+        result = await service.send_email_digest("user_1", "a@x", since)
+
+        assert result["status"] == "failed"
+        assert result["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_channel_error(self, service, mock_engine, mock_notification_repo):
+        from app.domain.models.notification import ChannelResult
+
+        notifs = [self._notification("n1"), self._notification("n2")]
+        mock_notification_repo.list_for_user_since.return_value = notifs
+
+        fake_channel = MagicMock()
+        fake_channel.send_batch = AsyncMock(
+            return_value=ChannelResult(channel_key="email", success=False, error="smtp down")
+        )
+        mock_engine._channel_registry.get.return_value = fake_channel
+
+        since = datetime.now(UTC) - timedelta(hours=24)
+        result = await service.send_email_digest("user_1", "a@x", since)
+
+        assert result == {"status": "failed", "count": 2}

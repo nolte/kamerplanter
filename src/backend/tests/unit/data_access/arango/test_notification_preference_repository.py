@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from app.data_access.arango.notification_preference_repository import (
+    NOTIFICATION_PREFERENCES,
     ArangoNotificationPreferenceRepository,
 )
 from app.domain.models.notification import NotificationPreferences
@@ -83,3 +84,25 @@ class TestUpsert:
         assert updated["_key"] == "notifpref_u1"
         assert "updated_at" in updated
         coll.insert.assert_not_called()
+
+
+class TestListUsersWithDigestEnabled:
+    def test_filters_enabled_and_digest(self, repo, mock_db):
+        doc = _doc(channels={"email": {"enabled": True, "config": {"email": "a@x", "digest": True}}})
+        mock_db.aql.execute.return_value = iter([doc])
+
+        result = repo.list_users_with_digest_enabled()
+
+        assert len(result) == 1
+        assert isinstance(result[0], NotificationPreferences)
+        assert result[0].channels["email"].config["digest"] is True
+        call = mock_db.aql.execute.call_args
+        query = call.args[0]
+        assert "p.channels.email.enabled == true" in query
+        assert "p.channels.email.config.digest == true" in query
+        assert call.kwargs["bind_vars"] == {"@collection": NOTIFICATION_PREFERENCES}
+
+    def test_empty_result_returns_empty_list(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.list_users_with_digest_enabled() == []
