@@ -154,7 +154,7 @@ plugins:
             GDD-Berechnung: GDD Calculation
             VPD-Optimierung: VPD Optimization
             Nährlösung mischen: Nutrient Mixing
-            Fehlerbehebung: Troubleshooting
+            Betriebs-Fehlerbehebung: Operations Troubleshooting
             Pflanzendaten per AI: AI Plant Data Pipeline
             Home Assistant Integration: Home Assistant Integration
             Klimazonen & Winterhärte: Climate Zones & Hardiness
@@ -164,6 +164,12 @@ plugins:
             Datenaufbewahrung: Data Retention
             Mischkultur: Companion Planting
             Nachernte: Post-Harvest
+            'Journey: Cannabis-Grow-Zyklus': 'Journey: Cannabis Grow Cycle'
+            'Journey: Das Freiland-Gartenjahr': 'Journey: The Outdoor Garden Year'
+            'Journey: Hydroponik-Setup (NFT & DWC)': 'Journey: Hydroponics Setup (NFT & DWC)'
+            CanG-Compliance für Anbauvereinigungen: CanG Compliance for Cultivation Associations
+            Pflanzenprobleme lösen: Plant Health Troubleshooting
+            Glossar: Glossary
             Referenz: Reference
             API-Referenz: API Reference
             Datenbankschema: Database Schema
@@ -202,6 +208,8 @@ plugins:
         en/getting-started/installation.md: en/deployment/docker-installation.md
         en/getting-started/quickstart.md: en/deployment/docker-quickstart.md
         en/getting-started/first-deployment.md: en/deployment/docker-dauerbetrieb.md
+        de/guides/troubleshooting.md: de/development/troubleshooting.md
+        en/guides/troubleshooting.md: en/development/troubleshooting.md
 
 markdown_extensions:
   - abbr
@@ -269,6 +277,7 @@ nav:
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
       - Pflanzenschutz (IPM): de/user-guide/pest-management.md
+      - Pflanzenprobleme lösen: de/user-guide/plant-health-troubleshooting.md
       - Pflanzdurchläufe: de/user-guide/planting-runs.md
       - Tankmanagement: de/user-guide/tanks.md
       - Kalender: de/user-guide/calendar.md
@@ -310,6 +319,7 @@ nav:
       - Debugging: de/development/debugging.md
       - MCP-Werkzeuge: de/development/mcp-tools.md
       - Workflows: de/development/workflows.md
+      - Betriebs-Fehlerbehebung: de/development/troubleshooting.md
       - API:
           - de/api/index.md
           - Überblick: de/api/overview.md
@@ -329,21 +339,25 @@ nav:
       - Bilderkennung (Inferenz-Service): de/deployment/inference-service.md
   - Guides:
       - de/guides/index.md
+      - 'Journey: Cannabis-Grow-Zyklus': de/guides/journey-cannabis-cycle.md
+      - 'Journey: Das Freiland-Gartenjahr': de/guides/journey-garden-year.md
+      - 'Journey: Hydroponik-Setup (NFT & DWC)': de/guides/journey-hydroponics-setup.md
+      - CanG-Compliance für Anbauvereinigungen: de/guides/compliance-anbauvereinigung.md
       - GDD-Berechnung: de/guides/gdd-calculation.md
       - VPD-Optimierung: de/guides/vpd-optimization.md
-      - Nährlösung mischen: de/guides/nutrient-mixing.md
-      - Fehlerbehebung: de/guides/troubleshooting.md
-      - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
-      - Home Assistant Integration: de/guides/home-assistant-integration.md
       - Klimazonen & Winterhärte: de/guides/climate-zones.md
-      - Browser-Push einrichten: de/guides/browser-push-setup.md
-      - RAG-Wissensbasis: de/guides/rag-knowledge-base.md
-      - Datenaufbewahrung: de/guides/data-retention.md
       - Mischkultur: de/guides/companion-planting.md
+      - Nährlösung mischen: de/guides/nutrient-mixing.md
       - Nachernte: de/guides/post-harvest.md
+      - RAG-Wissensbasis: de/guides/rag-knowledge-base.md
+      - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
       - Externe Datenanreicherung: de/guides/data-enrichment.md
+      - Home Assistant Integration: de/guides/home-assistant-integration.md
+      - Browser-Push einrichten: de/guides/browser-push-setup.md
+      - Datenaufbewahrung: de/guides/data-retention.md
   - Referenz:
       - de/reference/index.md
+      - Glossar: de/reference/glossary.md
       - API-Referenz: de/reference/api-reference.md
       - Datenbankschema: de/reference/database-schema.md
       - Umgebungsvariablen: de/reference/environment-variables.md

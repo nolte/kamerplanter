@@ -2,6 +2,9 @@
 
 Diese Anleitung zeigt dir Schritt für Schritt, wie du vom ersten Öffnen von Kamerplanter zu deiner ersten Pflanze kommst — inklusive Gießplan und Aufgaben.
 
+!!! tip "Du weißt nicht, was für eine Pflanze du hast?"
+    Kein Problem. Statt eine Pflanzenart manuell auszuwählen, kannst du sie auch **per Foto bestimmen lassen** — Kamerplanter identifiziert die Art automatisch und legt die Pflanze mit den passenden Grunddaten für dich an. Mehr dazu unter [Pflanze per Foto identifizieren](../user-guide/plant-identification.md).
+
 ---
 
 ## 1. Onboarding-Wizard starten

@@ -175,6 +175,7 @@ Some IPM features are already available as REST endpoints, even though the graph
 
 ## See Also
 
+- [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md) — Narrow down a cause from a symptom
 - [Pest Detail Page](pest-detail.md) — fact sheet, reference images, IPM control measures, and beneficials per pest
 - [Treatment Detail Page](treatment-detail.md) — mode of action, dosage, pre-harvest interval, and safety information for a specific product
 - [Pest Detection by Photo](pest-detection.md) — upload a photo and get an automated assessment

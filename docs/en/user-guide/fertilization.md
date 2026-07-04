@@ -389,6 +389,7 @@ The result shows a colored EC-budget bar (base water/silicate/CalMag/fertilizers
 
 ## See Also
 
+- [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md)
 - [Watering Log](watering-log.md)
 - [Tank Management](tanks.md)
 - [Growth Phases](growth-phases.md)

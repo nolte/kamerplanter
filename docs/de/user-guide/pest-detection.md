@@ -227,6 +227,7 @@ Nach dem Widerruf wird ausschließlich der lokale Adapter verwendet (sofern akti
 
 ## Siehe auch
 
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md) — Ursache anhand des Symptoms eingrenzen
 - [Pflanzenschutz (IPM)](pest-management.md) — Inspektionen, Behandlungen, Karenzzeiten
 - [Schädlings-Detailseite](pest-detail.md) — Steckbrief, Referenzbilder, Gegenmaßnahmen und Nützlinge pro Schädling
 - [Pflanze per Foto identifizieren](plant-identification.md) — Artbestimmung unbekannter Pflanzen

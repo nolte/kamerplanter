@@ -2,6 +2,9 @@
 
 This guide walks you step by step from opening Kamerplanter for the first time to having your first plant — complete with a watering schedule and tasks.
 
+!!! tip "Not sure what plant you have?"
+    No problem. Instead of manually selecting a plant species, you can **identify it by photo** — Kamerplanter automatically determines the species and creates the plant with the matching baseline data for you. See [Identify Plant by Photo](../user-guide/plant-identification.md) for details.
+
 ---
 
 ## 1. Start the Onboarding Wizard

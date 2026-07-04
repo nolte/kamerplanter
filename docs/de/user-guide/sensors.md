@@ -214,6 +214,7 @@ Automatisch erfasste Messwerte werden gestuft heruntergerechnet und irgendwann g
 
 ## Siehe auch
 
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md)
 - [Dashboard](dashboard.md)
 - [Aufgaben](tasks.md)
 - [Tankmanagement](tanks.md)

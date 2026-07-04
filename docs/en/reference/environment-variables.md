@@ -535,5 +535,5 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 ## See Also
 
 - [Local Setup](../development/local-setup.md)
-- [Troubleshooting](../guides/troubleshooting.md)
+- [Operations Troubleshooting](../development/troubleshooting.md)
 - [Kubernetes Deployment](../deployment/kubernetes.md)

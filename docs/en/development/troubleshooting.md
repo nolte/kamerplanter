@@ -1,6 +1,9 @@
-# Troubleshooting
+# Operations Troubleshooting
 
-Solutions to common problems when installing, operating, and using Kamerplanter. The steps below apply to both the Docker Compose and Kubernetes environments.
+Solutions to common technical problems when installing, operating, and using Kamerplanter — for developers and self-hosters. The steps below apply to both the Docker Compose and Kubernetes environments.
+
+!!! info "Looking for help with an unwell plant?"
+    This page covers **technical problems** with the Kamerplanter application itself (installation, login, error messages). If you're instead dealing with symptoms on one of your plants (yellow leaves, pests, growth issues), see [My Plant Doesn't Look Well](../user-guide/plant-health-troubleshooting.md) instead.
 
 ---
 
@@ -316,5 +319,6 @@ docker compose ps
 ## See Also
 
 - [Environment Variables](../reference/environment-variables.md)
-- [Local Setup](../development/local-setup.md)
+- [Local Setup](local-setup.md)
 - [Deployment](../deployment/index.md)
+- [My Plant Doesn't Look Well](../user-guide/plant-health-troubleshooting.md) — symptom diagnosis for plant problems rather than technical errors

@@ -214,6 +214,7 @@ Automatically collected measurements are downsampled in stages and eventually de
 
 ## See Also
 
+- [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md)
 - [Dashboard](dashboard.md)
 - [Tasks](tasks.md)
 - [Tank Management](tanks.md)

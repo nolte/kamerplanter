@@ -206,6 +206,7 @@ For all unlisted families the fallback style `tropical` applies, unless a specie
 
 ## See Also
 
+- [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md)
 - [Tasks](tasks.md)
 - [Planting Runs](planting-runs.md)
 - [Growth Phases](growth-phases.md)

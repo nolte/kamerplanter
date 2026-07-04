@@ -4,6 +4,14 @@ Kamerplanter is a plant lifecycle management system — covering everything from
 
 ---
 
+## Get Started Now
+
+New to Kamerplanter? The **Getting Started** section shows you in just a few minutes how to set up your first plant — whether it's a houseplant, balcony vegetable, or indoor grow.
+
+[:octicons-arrow-right-24: Start Getting Started](getting-started/index.md){ .md-button .md-button--primary }
+
+---
+
 ## What can Kamerplanter do?
 
 <div class="grid cards" markdown>
@@ -60,7 +68,10 @@ Kamerplanter is a plant lifecycle management system — covering everything from
 
 ---
 
-## Quick Start
+## For Developers & Self-Hosters
+
+!!! info "Running your own instance"
+    Kamerplanter needs to be set up on a server or computer before you can use it in your browser. If someone else has already done that for you (e.g. in a community garden), you can skip this section — head straight to [Getting Started](getting-started/index.md).
 
 === "Docker Compose (simple)"
 
@@ -71,6 +82,8 @@ Kamerplanter is a plant lifecycle management system — covering everything from
     This starts the backend, frontend, ArangoDB, and Redis.
 
     **Demo login:** `demo@kamerplanter.local` / `demo-passwort-2024`
+
+    [:octicons-arrow-right-24: Deployment Documentation](deployment/index.md)
 
 === "Skaffold (development)"
 
@@ -84,22 +97,22 @@ Kamerplanter is a plant lifecycle management system — covering everything from
 
 ---
 
-## Project Background
-
-!!! note "Origin Story"
-    This project started as a **vibe coding experiment** — built almost entirely through conversational AI prompting with Claude Code. The specifications, architecture, domain models, backend, frontend, Helm charts, and tests were all developed in this style. What began as an exploration of AI-assisted development grew into a fully functional agricultural management platform.
-
----
-
 ## Navigating the Docs
 
 | Section | Description |
 |---------|-------------|
 | [Getting Started](getting-started/index.md) | Installation, quick start, first deployment |
 | [User Guide](user-guide/index.md) | All features explained for end users |
+| [Guides](guides/index.md) | Journeys and deep-dive guides for GDD, VPD, nutrients |
 | [Architecture](architecture/index.md) | System design, layers, data models |
 | [Development](development/index.md) | Local setup, code standards, testing |
 | [API](api/index.md) | REST API reference, authentication |
 | [Deployment](deployment/index.md) | Kubernetes, Helm, CI/CD |
-| [Guides](guides/index.md) | Deep-dive guides for GDD, VPD, nutrients |
 | [ADR](adr/index.md) | Architecture Decision Records |
+
+---
+
+## About This Project
+
+!!! note "Origin Story"
+    This project started as a **vibe coding experiment** — built almost entirely through conversational AI prompting with Claude Code. The specifications, architecture, domain models, backend, frontend, Helm charts, and tests were all developed in this style. What began as an exploration of AI-assisted development grew into a fully functional agricultural management platform.

@@ -1,6 +1,9 @@
-# Fehlerbehebung
+# Betriebs-Fehlerbehebung
 
-Lösungen zu häufigen Problemen bei Installation, Betrieb und Nutzung von Kamerplanter. Die Hinweise gelten für die Docker-Compose- und die Kubernetes-Umgebung.
+Lösungen zu häufigen technischen Problemen bei Installation, Betrieb und Nutzung von Kamerplanter — für Entwickler und Self-Hoster. Die Hinweise gelten für die Docker-Compose- und die Kubernetes-Umgebung.
+
+!!! info "Suchst du Hilfe zu einer kranken Pflanze?"
+    Diese Seite behandelt **technische Probleme** der Kamerplanter-Anwendung selbst (Installation, Login, Fehlermeldungen). Geht es stattdessen um Symptome an einer deiner Pflanzen (gelbe Blätter, Schädlinge, Wachstumsprobleme), findest du Hilfe unter [Meiner Pflanze geht es schlecht](../user-guide/plant-health-troubleshooting.md).
 
 ---
 
@@ -318,5 +321,6 @@ docker compose ps
 ## Siehe auch
 
 - [Umgebungsvariablen](../reference/environment-variables.md)
-- [Lokales Setup](../development/local-setup.md)
+- [Lokales Setup](local-setup.md)
 - [Deployment](../deployment/index.md)
+- [Meiner Pflanze geht es schlecht](../user-guide/plant-health-troubleshooting.md) — Symptom-Diagnose für Pflanzenprobleme statt technischer Fehler

@@ -227,6 +227,7 @@ After revoking, only the local adapter is used (if enabled), or the button is hi
 
 ## See Also
 
+- [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md) — Narrow down a cause from a symptom
 - [Pest Management (IPM)](pest-management.md) — Inspections, treatments, pre-harvest intervals
 - [Pest Detail Page](pest-detail.md) — fact sheet, reference images, control measures, and beneficials per pest
 - [Identify Plant by Photo](plant-identification.md) — Species identification for unknown plants

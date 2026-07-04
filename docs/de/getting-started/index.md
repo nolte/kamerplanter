@@ -18,11 +18,17 @@ Willkommen bei Kamerplanter! Egal ob du ein paar Zimmerpflanzen am Leben halten,
 
     **Weiter zu:** [Deine erste Pflanze](erste-pflanze.md)
 
+    Für den kompletten Ablauf über die ganze Saison hinweg (Aussaatkalender, Mischkultur, Fruchtfolge, Überwinterung): [Journey: Das Freiland-Gartenjahr](../guides/journey-garden-year.md)
+
 === "Indoor Grow"
 
     Du betreibst ein Growzelt mit kontrollierter Umgebung? Kamerplanter trackt Phasen, VPD, EC-Werte und Düngepläne — bis zur Ernte.
 
     **Weiter zu:** [Deine erste Pflanze](erste-pflanze.md)
+
+    Für den kompletten Zyklus von der Keimung bis zum Cure: [Journey: Cannabis-Grow-Zyklus](../guides/journey-cannabis-cycle.md)
+
+    Baust du hydroponisch an (NFT oder DWC)? Siehe [Journey: Hydroponik-Setup](../guides/journey-hydroponics-setup.md)
 
 ---
 
@@ -66,3 +72,9 @@ Kamerplanter muss zuerst auf einem Server oder Rechner eingerichtet werden, bevo
 
 !!! tip "Tipp"
     Wenn jemand anderes Kamerplanter für dich eingerichtet hat (z.B. in einem Gemeinschaftsgarten), brauchst du dich um die Installation nicht zu kümmern. Öffne einfach die URL im Browser und starte mit dem [Onboarding-Wizard](erste-pflanze.md).
+
+---
+
+## Unbekannter Fachbegriff?
+
+Kamerplanter verwendet einige Fachbegriffe aus Gartenbau und Pflanzenpflege (z.B. VPD, EC, Karenzzeit). Im [Glossar](../reference/glossary.md) findest du kurze, laienverständliche Erklärungen dazu.
