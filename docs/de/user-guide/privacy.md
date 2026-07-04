@@ -125,6 +125,8 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **HaveIBeenPwned Passwort-Check** | Optional | Ja |
 | **Externe Stammdatenanreicherung** (GBIF, Perenual) | Optional | Ja |
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
+| **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
+| **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
 
 ### Einwilligung widerrufen
 
@@ -166,6 +168,10 @@ Die [Pflanzenerkennung per Foto](plant-identification.md) sendet dein Bild zur A
 | Ausgewählte Art | Verknüpfung mit der angelegten Pflanze | Lebenszeit der Pflanze |
 
 Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordinaten, Kameramodell, Aufnahmezeitpunkt).
+
+### Cloud-basierte Schädlingserkennung (pest_detection_cloud)
+
+Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je nach Betreiber-Konfiguration — entweder an eine self-hosted Erkennung (keine Einwilligung nötig) oder an den Cloud-Dienst Kindwise plant.health. Diese Einwilligung ist nur erforderlich, wenn der Cloud-Adapter aktiv ist. Wie bei der Pflanzenidentifikation wird das Foto vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert.
 
 ---
 

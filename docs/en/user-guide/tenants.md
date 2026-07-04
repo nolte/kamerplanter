@@ -1,6 +1,6 @@
 # Tenants & Gardens
 
-Kamerplanter is a multi-tenant platform: your data is organised in **tenants** — isolated containers that correspond to exactly one organisational form. You can be a member of multiple tenants at the same time, for example your private balcony garden and the community garden of your association.
+Kamerplanter is a multi-tenant platform: your data is organised in **tenants** — isolated containers, each mapped to a single type of organization. You can be a member of multiple tenants at the same time, for example your private balcony garden and the community garden of your association.
 
 ---
 
@@ -80,7 +80,7 @@ The system sends an invitation email. After clicking the link in the email, the 
 !!! tip "Ideal for large groups"
     The invitation link is especially practical for community gardens: pin it at the garden gate or include it in the association newsletter. Anyone with the link can join until the limit is reached.
 
-### Method 3: OIDC Auto-Join
+### Method 3: OIDC (OpenID Connect) Auto-Join
 
 For associations and organisations with their own identity provider (Keycloak, etc.), the OIDC integration can be configured so that new users automatically join the tenant. This is set up by the platform administrator.
 
@@ -102,11 +102,11 @@ Each member has exactly one role per tenant. The role determines what they are a
 | Invite members | Yes | No | No |
 | Change roles | Yes | No | No |
 | Change tenant settings | Yes | No | No |
-| Pin bulletin board posts | Yes | No | No |
-| Manage shopping list | Yes | Yes | No |
-| Create watering rotation | Yes | No | No |
 
 *Growers can edit locations assigned to them.
+
+!!! note "Planned community features are missing from this table"
+    The bulletin board, watering rotation, and shared shopping list are not yet implemented (see [Community Features](#community-features) below) and therefore do not appear here as a permission.
 
 ### Changing Roles
 
@@ -142,37 +142,25 @@ In a community garden, not every member should be able to edit every plot. The *
 
 ## Community Features
 
+!!! warning "Not yet implemented"
+    The bulletin board, watering rotation, and shared shopping list are planned for community gardens but currently exist neither in the backend nor in the interface. The sections below describe the intended scope.
+
 ### Bulletin Board
 
-The bulletin board is a shared message area for all tenant members.
+The bulletin board will be a shared message area for all tenant members: members will be able to publish posts, and admins will be able to pin and delete posts.
 
-1. Navigate to **Community** > **Bulletin Board**
-2. Click **New Post**
-3. Write your message and click **Publish**
-
-Admins can pin posts so they appear at the top, and can delete posts.
-
-!!! example "Typical bulletin board posts"
+!!! example "Typical bulletin board posts (concept)"
     - "Slug alert! Please set out beer traps."
     - "Saturday 10am: Community compost turning."
     - "Too many courgettes — who wants some?"
 
 ### Watering Rotation
 
-For distributing watering duties among members:
-
-1. Navigate to **Community** > **Watering Rotation**
-2. Click **Create New Rotation**
-3. Set the interval (e.g. weekly) and add the members
-4. The system reminds the responsible member each week
-
-Members can swap duties among themselves — without involving the admin.
+A rotation feature is planned for distributing watering duties among members: an interval (e.g. weekly) and the participating members will be configurable, and the system will remind the responsible member each week. Members will be able to swap duties among themselves without involving the admin.
 
 ### Shared Shopping List
 
-1. Navigate to **Community** > **Shopping List**
-2. All growers can add entries and tick them off
-3. Admins can archive lists
+A shared shopping list is planned: all growers will be able to add entries and tick them off, and admins will be able to archive lists.
 
 ---
 

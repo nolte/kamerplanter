@@ -36,14 +36,11 @@ When infestation is confirmed, choose the appropriate treatment. Kamerplanter tr
 
 ## Conducting an Inspection
 
-### Step 1: Start an Inspection
+In the interface, an inspection is created exclusively via photo detection: open the affected plant and click **Check for Pests** — this opens the [Pest Detection dialog](pest-detection.md). If the detection suggests an infestation, the dialog offers a **Create Inspection** step: the detected pest, the photo, and an infestation level derived from the detection confidence are carried over automatically.
 
-1. Navigate to **Pest Management (IPM)** in the navigation, or open a plant and switch to the **Pest Management** tab.
-2. Click **New Inspection**.
+### Infestation Level Tiers
 
-### Step 2: Assess Infestation Level
-
-Rate the infestation level:
+Every inspection is assigned one of five levels:
 
 | Level | Description |
 |-------|-------------|
@@ -53,9 +50,9 @@ Rate the infestation level:
 | High | Heavy infestation, widespread |
 | Critical | Acute plant damage, immediate action required |
 
-### Step 3: Document Pests or Diseases
+### Common Pests and Diseases
 
-If you have found infestation, select from the list. Click on the name of a pest to open the [pest detail page](pest-detail.md) with its fact sheet, reference images, and control measures.
+Click on the name of a pest to open the [pest detail page](pest-detail.md) with its fact sheet, reference images, and control measures.
 
 **Common pests:**
 - Spider mites (Tetranychus urticae)
@@ -70,42 +67,32 @@ If you have found infestation, select from the list. Click on the name of a pest
 - *Pythium* spp. (root rot, especially in hydroponics)
 - *Fusarium* spp. (soil-borne crown and root rot fungus)
 
-If the pest or disease is not on the list you can enter it manually.
-
-### Step 4: Add Photos (optional)
-
-Add photos of the affected areas. This helps with monitoring over time and later diagnosis.
-
-### Step 5: Save the Inspection
-
-The inspection is saved in the plant's inspection history and is visible in the calendar.
+!!! info "Manual inspection without a photo — API only"
+    There is currently no interface for manually creating an inspection without a photo (freely selecting a pest, infestation level, and notes). Saved inspections are also not yet viewable in a dedicated history view in the interface. Both features are already available via the API (see [For Technical Users: API Access](#for-technical-users-api-access)).
 
 ---
 
-## Recording a Treatment
+## Managing Treatment Products (Master Data)
 
-### Step 1: Add a Treatment
+Treatment products (agents/methods) are master data, reusable across all plants:
 
-1. Navigate to **Pest Management (IPM) → Treatments**, or click **Initiate Treatment** in an inspection.
+1. Navigate to **Pest Management (IPM) → Treatments**.
 2. Click **Add Treatment**.
-
-### Step 2: Select Treatment Agent and Method
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| Product | Name of the agent used | "Neem oil 2 %", "Spidex (Phytoseiulus)" |
+| Product | Name of the agent | "Neem oil 2 %", "Spidex (Phytoseiulus)" |
 | Type | Cultural, biological, chemical, mechanical | Biological |
 | Active Ingredient | Main active substance | "Azadirachtin" |
 | Pre-Harvest Interval (days) | Waiting period before harvest | 14 |
 | Dosage | Amount and concentration | "5 ml/L" |
 | Application Method | Spraying, drenching, spreading, release | Spraying |
+| Protective Equipment | Recommended protective measures | Gloves, respirator |
 
-### Step 3: Document the Application
+Click on the name of a treatment to open the [treatment detail page](treatment-detail.md) with mode of action, dosage, pre-harvest interval, and safety information.
 
-Enter the application date and the treated plants. The system calculates the earliest possible harvest date automatically.
-
-!!! danger "The interval starts immediately"
-    As soon as you record a treatment with a pre-harvest interval, harvest of the affected plants is blocked until the interval has expired. Kamerplanter displays the earliest possible harvest date prominently.
+!!! info "Documenting a treatment application on a plant — API only"
+    Recording a concrete application of a treatment product on a plant (application date, dosage, affected plant) cannot yet be done in the interface. The corresponding API endpoint is already usable (see [For Technical Users: API Access](#for-technical-users-api-access)). Once an entry has been created via the API, the pre-harvest interval lock takes effect automatically at harvest time (see below).
 
 ---
 
@@ -113,38 +100,36 @@ Enter the application date and the treated plants. The system calculates the ear
 
 The **pre-harvest interval (PHI)** is the legally required waiting period between the last application of a plant protection product and harvest. It protects consumers from residues in the harvested crop.
 
-**Where can I see active pre-harvest intervals?**
+**Where can I see an active pre-harvest interval?**
 
-1. In the plant detail view under the **Pest Management** tab — a red notice appears when an interval is active
-2. In the task overview — an automatically created task "Harvest possible from [date]"
-3. In the calendar — interval expiry shown as an event
+There is currently no dedicated display of active pre-harvest intervals in the plant view. The interval takes effect where it matters: if you try to create a **harvest batch** for a plant with a pre-harvest interval that has not yet expired, the system blocks the harvest with an error and states the earliest possible harvest date (pre-harvest interval lock, HTTP 422). You can also check the current status via the API (see [For Technical Users: API Access](#for-technical-users-api-access)).
 
-**Interval active in error — what to do?**
+!!! danger "The interval starts immediately"
+    As soon as a treatment with a pre-harvest interval has been recorded for a plant, harvest of that plant is blocked until the interval has expired — regardless of whether the entry was created via the API or (in future) via an interface.
 
-If you entered a treatment by mistake, open it and correct the application date. If you entered the wrong product, use the comment function to document the error.
+**Incorrect pre-harvest interval entry — what to do?**
+
+There is currently no editing function for treatment applications that have already been recorded. If you made an entry by mistake, contact your operator/support team to have it corrected.
 
 ---
 
 ## Resistance Management
 
 !!! warning "Rotate active ingredients"
-    Pests develop resistance when the same active ingredient group is used too often. Kamerplanter warns you when you apply the same product (or the same active ingredient) more than three times within 90 days.
+    Pests develop resistance when the same active ingredient group is used too often. Kamerplanter rejects a new treatment application when you apply the same product (or the same active ingredient) more than three times within 90 days (see [Documenting a treatment application](#managing-treatment-products-master-data)).
 
-When a warning appears:
-1. Open the treatment history of the plant.
-2. Switch to a product with a different mode of action.
-3. Wait at least 2 treatment cycles before returning to the original product.
+When this warning appears:
+1. Choose a product with a different mode of action.
+2. Wait at least 2 treatment cycles before returning to the original product.
 
 ---
 
-## Releasing Beneficial Insects
+## Beneficial Insects
 
-For biological control you can document beneficial organism releases:
+Beneficial organisms (e.g. *Phytoseiulus persimilis* — predatory mite — against spider mites, parasitic wasps against fungus gnats) are stored in Kamerplanter as **master data**: if photo-based pest detection recognizes a beneficial organism instead of a pest, it clearly flags this so it is not treated as a pest by mistake.
 
-1. Navigate to **Pest Management → Beneficials**.
-2. Click **Beneficial Released**.
-3. Select the organism from the list (e.g. *Phytoseiulus persimilis* (predatory mite) for spider mites, parasitic wasps for fungus gnats).
-4. Enter release date, quantity, and location.
+!!! warning "Not yet implemented"
+    Dedicated documentation of beneficial organism **releases** (release date, quantity, location) will only arrive in a future version. For now, using beneficials can only be recorded indirectly via the [treatment product master data](#managing-treatment-products-master-data) (type "Biological", application method "Release", pre-harvest interval 0 days).
 
 **Important when using beneficials:**
 - Beneficial insects have **no pre-harvest interval** — harvests are possible at any time.
@@ -154,14 +139,15 @@ For biological control you can document beneficial organism releases:
 
 ## Analysing Infestation History at a Location
 
-Under **Pest Management → Infestation History** you see which pests and diseases have occurred in which area. This helps with planning preventive measures for the next cycle.
+!!! warning "Not yet implemented"
+    An analysis of which pests and diseases have occurred in which location area over time will only arrive in a future version. Until then, history can only be traced per plant via the pest detail pages and the IPM API.
 
 ---
 
 ## Frequently Asked Questions
 
 ??? question "What is the difference between pre-harvest interval and waiting period?"
-    In Kamerplanter, **pre-harvest interval** corresponds to the English term "PHI" — the minimum time between last application and harvest. Both terms describe the same concept.
+    They describe the same thing: the minimum time that must pass between the last application of a plant protection product and harvest, so that residues have enough time to break down. Kamerplanter uses **pre-harvest interval (PHI)** as the single term throughout the interface and this documentation.
 
 ??? question "Can I record a treatment with no pre-harvest interval?"
     Yes. For treatments with no interval (e.g. beneficial insect release, mechanical removal) enter 0 days. These treatments do not block harvests.
@@ -171,6 +157,19 @@ Under **Pest Management → Infestation History** you see which pests and diseas
 
 ??? question "I used neem oil without a stated interval — what value do I enter?"
     Neem oil as a biological agent is considered relatively safe, but a waiting period of 7–14 days is recommended. Use the value stated on your product label, or check with the manufacturer.
+
+---
+
+## For Technical Users: API Access
+
+Some IPM features are already available as REST endpoints, even though the graphical interface for them is still missing. This section is aimed at technical users and self-hosters who want to connect their own integrations or scripts. An authenticated session (bearer token) is required.
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST .../ipm/plants/{plant_key}/inspections` | Manually create an inspection (freely selecting pest, infestation level, and notes) |
+| `GET .../ipm/plants/{plant_key}/inspections` | Retrieve a plant's saved inspections |
+| `POST .../ipm/plants/{plant_key}/treatment-applications` | Document a treatment application on a plant (triggers the pre-harvest interval lock) |
+| `GET .../ipm/plants/{plant_key}/harvest-safety` | Check a plant's current pre-harvest interval status |
 
 ---
 

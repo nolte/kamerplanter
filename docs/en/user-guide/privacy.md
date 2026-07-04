@@ -125,6 +125,8 @@ No optional consent is needed for the core functions of the system. However, som
 | **HaveIBeenPwned password check** | Optional | Yes |
 | **External master data enrichment** (GBIF, Perenual) | Optional | Yes |
 | **Photo identification** (Pl@ntNet) | Optional | Yes |
+| **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
+| **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
 
 ### Revoking Consent
 
@@ -166,6 +168,10 @@ Already usable today via the API: `GET /api/v1/privacy/consents` lists all purpo
 | Selected species | Link to the created plant | Lifetime of the plant |
 
 All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, camera model, capture time).
+
+### Cloud-Based Pest Detection (pest_detection_cloud)
+
+[Pest detection by photo](pest-detection.md) sends your image — depending on the operator's configuration — either to a self-hosted recognizer (no consent required) or to the Kindwise plant.health cloud service. This consent is only required when the cloud adapter is active. As with plant identification, the photo is stripped of EXIF metadata before sending and is not stored permanently.
 
 ---
 

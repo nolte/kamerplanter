@@ -1,16 +1,13 @@
-# Mischkultur & Companion Planting
+# Mischkultur & Fruchtfolge
 
-Mischkultur bedeutet, verschiedene Pflanzenarten auf einer Fläche gemeinsam anzubauen,
-so dass sie sich gegenseitig unterstützen. Kamerplanter gibt dir konkrete Empfehlungen
-auf Basis einer Kompatibilitätsdatenbank und zeigt, welche Kombinationen sich bewährt
-haben — und welche du besser vermeiden solltest.
+Kamerplanter unterstützt dich bei zwei eng verwandten Anbau-Entscheidungen: **welche Pflanzenarten sich gegenseitig fördern oder schaden** (Mischkultur) und **welche botanische Familie nach welcher auf demselben Stellplatz angebaut werden sollte** (Fruchtfolge). Beide Themen werden über globale Stammdaten gepflegt und teilweise automatisch beim Anlegen einer Pflanze geprüft.
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens ein angelegter Standort (Beet oder Gewächshaus) in Kamerplanter
-- Pflanzenarten in den Stammdaten vorhanden (oder per Suche importiert)
+- Pflanzenarten mit zugeordneter botanischer Familie in den Stammdaten
+- Für die automatische Prüfung: ein Standort mit angelegten Stellplätzen
 
 ---
 
@@ -45,9 +42,7 @@ Bohne        → Stickstoffbindung für Mais und Kürbis
 Kürbis       → Große Blätter beschatten den Boden, halten Feuchtigkeit
 ```
 
-!!! example "Anpflanzung in Kamerplanter"
-    Lege einen Pflanzdurchlauf vom Typ "mixed_culture" an und wähle Mais
-    als Primärpflanze. Das System schlägt Bohne und Kürbis als Begleiter vor.
+In den Kamerplanter-Stammdaten sind alle drei Paarungen als kompatibel hinterlegt (Mais + Bohne: 0,9 · Mais + Kürbis: 0,85 · Bohne + Kürbis: 0,8). Lege für jede der drei Arten einen eigenen [Pflanzdurchlauf](../user-guide/planting-runs.md) am selben Standort an — einen eigenen Durchlauf-Typ "Mischkultur" gibt es nicht (siehe [Was ein Pflanzdurchlauf ist](../user-guide/planting-runs.md#was-ist-ein-pflanzdurchlauf)).
 
 ### Tomate & Basilikum
 
@@ -57,11 +52,11 @@ Wahrscheinlich die bekannteste Mischkultur im Gewächshaus und Freiland:
 - Gemeinsamer Wasserbedarf und Temperaturansprüche erleichtern die Pflege
 - Beide benötigen sonnenreichen Standort
 
-**Kompatibilitäts-Score in Kamerplanter:** 0.9 (sehr empfohlen)
+**Kompatibilitäts-Score in Kamerplanter:** 0,9 (sehr empfohlen)
 
 ### Karotte & Zwiebel
 
-Klassisches Gemüse-Paar:
+Klassisches Gemüse-Paar (Score 0,9):
 
 - Zwiebeln und Karotten nutzen verschiedene Bodenebenen
 - Zwiebelduft stört die Karottenfliegeneiablage
@@ -77,7 +72,7 @@ Zwei Kräuter, die sich fast überall einsetzen lassen:
 | **Ringelblume** (Calendula) | Blattlaus-Abwehr, lockt Nützlinge an (Schwebefliegen, Marienkäfer) | Fast alle Gemüse |
 
 !!! tip "Tagetes als Beet-Einfassung"
-    Pflanze Tagetes rundum um ein Gemüse-Beet als lebende Grenze. Selbst wenn du
+    Pflanze Tagetes rundum um ein Gemüsebeet als lebende Grenze. Selbst wenn du
     keine Daten in Kamerplanter erfasst, profitiert das gesamte Beet von der
     Schutzwirkung.
 
@@ -103,76 +98,77 @@ Zwei Kräuter, die sich fast überall einsetzen lassen:
 
 | Inkompatibles Paar | Grund | Empfehlung |
 |-------------------|-------|-----------|
-| Tomate + Kartoffel | Gleiche Solanaceae-Familie, gemeinsame Krankheiten (Krautfäule) | Mindestens 10 m Abstand halten |
+| Tomate + Kartoffel | Gleiche Solanaceae-Familie, gemeinsame Krankheiten (Phytophthora) | Mindestens 10 m Abstand halten |
 | Fenchel + Tomate | Allelopathie durch Fenchel-Sekundärstoffe | Getrennte Beete |
 | Zwiebel + Erbse | Wachstumshemmung bei Erbsen | Verschiedene Beet-Abschnitte |
 | Kartoffel + Kürbis | Starke Nährstoffkonkurrenz | Rotationsplanung beachten |
 
+<!-- Quelle: src/backend/app/migrations/seed_data/companion_planting.yaml -->
+
 ---
 
-## Companion Planting in Kamerplanter nutzen
+## Kompatibilitäts-Stammdaten pflegen
 
-### Schritt 1: Pflanzdurchlauf als Mischkultur anlegen
+### Wo du sie findest
 
-1. Navigiere zu **Pflanzdurchläufe** und klicke auf **Neuer Durchlauf**.
-2. Wähle als Durchlauf-Typ **Mischkultur**.
-3. Wähle deine Primärpflanze (z.B. Tomate).
-4. Das System zeigt dir sofort Empfehlungen für Begleitpflanzen.
+- Navigation: **Stammdaten → Mischkultur** — globale Verwaltung, unabhängig von einem konkreten Beet.
+- Alternativ direkt am Artendetail: Tab **Mischkultur** (sichtbar ab Erfahrungsstufe "Experte"), vorbelegt mit der jeweiligen Art.
 
-!!! info "Screenshot folgt"
-    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
+### Bedienung
 
-### Schritt 2: Begleitpflanzen auswählen
-
-Kamerplanter unterscheidet drei Eintrag-Rollen:
-
-| Rolle | Bedeutung |
-|-------|-----------|
-| **Primär** | Hauptpflanze des Beetes (z.B. Tomate) |
-| **Begleiter** (Companion) | Förderliche Mischkultur-Partnerin (z.B. Basilikum) |
-| **Fallenflanze** (Trap Crop) | Zieht Schädlinge aktiv an und schützt Primärpflanze (z.B. Tagetes) |
-
-Für jede Empfehlung zeigt das System:
-
-- **Kompatibilitäts-Score** (0.0–1.0): Je höher, desto empfehlenswerter
-- **Wirkungstyp**: Schädlingsabwehr, Wachstumsförderung, Bodenpflege usw.
-- **Begründung**: Kurzer Erklärungstext (z.B. "Weiße-Fliege-Abwehr durch ätherische Öle")
-- **Match-Level**: Artebene (genau) oder Familienebene (Fallback, 20% Abzug im Score)
-
-### Schritt 3: Kompatibilitäts-Check
-
-Wenn du eine Pflanzenkombination zusammengestellt hast, prüfe den
-Gesamtkompatibilitäts-Check:
-
-- **Grün**: Alle Kombinationen kompatibel
-- **Gelb (Warnung)**: Ein oder mehrere inkompatible Paare gefunden, Anpflanzung möglich
-  aber nicht empfohlen
-- **Rot**: Kritisch inkompatible Kombination (z.B. Fenchel + Tomate)
+1. Wähle im Dropdown eine Art aus. Kamerplanter zeigt zwei Karten: **Kompatible Arten** und **Inkompatible Arten**.
+2. Klicke auf **Kompatibilität hinzufügen**, wähle die Partnerart und vergib eine **Bewertung** zwischen 0,1 (schwach) und 1,0 (stark) — das ist der Kompatibilitäts-Score, wie z.B. 0,9 bei Tomate/Basilikum.
+3. Klicke auf **Inkompatibilität hinzufügen**, wähle die Partnerart und trage einen kurzen **Grund** ein (z.B. "Allelopathie").
 
 !!! note "Familienebene-Fallback"
-    Wenn für ein Artenpaar noch kein spezifischer Eintrag vorliegt, prüft das System
-    die Familienebene. Ein Familienebene-Match wird im Score um 20% reduziert und als
-    "Familienebene" gekennzeichnet, damit du den Unterschied zur Artebene erkennst.
+    Liegt für ein konkretes Artenpaar noch kein Eintrag vor, sucht Kamerplanter bei einer Empfehlungsabfrage automatisch nach einer Kompatibilität auf **Familienebene**. Ein solcher Fallback-Treffer wird im Score um 20 % reduziert (Score × 0,8) und als "Familienebene" statt "Artebene" gekennzeichnet.
+
+!!! info "Wer darf diese Daten pflegen?"
+    Kompatibilitäts- und Inkompatibilitäts-Einträge sind globale Stammdaten, die für alle Nutzer:innen sichtbar sind. Sie werden deshalb von **Platform-Admins** gepflegt — ein entsprechender Berechtigungs-Schutz für die zugrundeliegende Schnittstelle wird aktuell nachgerüstet. Eigene Beobachtungen zu deinen Pflanzen kannst du unabhängig davon im Pflanzentagebuch festhalten, sobald dafür eine Oberfläche verfügbar ist (siehe [Pflanzdurchläufe: Pflanzentagebuch](../user-guide/planting-runs.md#pflanzentagebuch)).
+
+<!-- Quelle: src/frontend/src/pages/stammdaten/CompanionPlantingPage.tsx, src/backend/app/api/v1/companion_planting/router.py -->
 
 ---
 
-## Fruchtfolge integrieren
+## Automatische Prüfung beim Anlegen einer Pflanze (Stellplatz-Nachbarschaft)
 
-Mischkultur und Fruchtfolge ergänzen sich. Kamerplanter verfolgt einen 4-Jahres-Zyklus
-pro Beet:
+Wenn du eine **einzelne Pflanze** über **Pflanzen → Pflanzeninstanzen → Neue Pflanze** anlegst und ihr dabei einen **Stellplatz** zuweist, prüft Kamerplanter automatisch die direkt benachbarten Stellplätze:
 
-<!-- diagram-source: user-described — 4-year crop-rotation cycle per bed by nutrient-demand category -->
-```mermaid
-flowchart LR
-    A["Year 1<br/>Heavy feeders<br/>Tomato, squash, corn"] --> B["Year 2<br/>Medium feeders<br/>Carrot, onion, lettuce"]
-    B --> C["Year 3<br/>Light feeders<br/>Herbs, peas"]
-    C --> D["Year 4<br/>Green manure<br/>Phacelia, clover, lupine"]
-    D --> A
-```
+- Steht dort bereits eine als **inkompatibel** hinterlegte Art, lehnt Kamerplanter die Anlage mit einer Fehlermeldung ab.
+- Steht dort eine **kompatible** Art, wird das intern als Vorteil vermerkt.
 
-Beachte bei der Mischkultur: Pflanzen aus derselben Nährstoff-Kategorie fördern
-die Bodengesundheit nicht — bringe Starkzehrer und Leguminosen zusammen, wenn
-möglich.
+!!! warning "Gilt nicht für Pflanzen aus einem Pflanzdurchlauf"
+    Die Nachbarschaftsprüfung greift aktuell nur, wenn du eine Pflanze einzeln über die Stammdaten-Seite **Pflanzeninstanzen** anlegst. Werden Pflanzen automatisch aus den Einträgen eines [Pflanzdurchlaufs](../user-guide/planting-runs.md) erzeugt, findet **keine** Kompatibilitätsprüfung statt.
+
+<!-- Quelle: src/backend/app/domain/engines/companion_planting_engine.py, src/backend/app/domain/services/plant_instance_service.py -->
+
+---
+
+## Fruchtfolge
+
+Fruchtfolge bedeutet, auf einem Stellplatz über die Jahre bewusst zwischen botanischen Familien zu wechseln — das beugt einseitiger Nährstoffzehrung und der Anreicherung familienspezifischer Schädlinge und Krankheiten im Boden vor.
+
+### Nachfolger-Stammdaten pflegen
+
+- Navigation: **Stammdaten → Fruchtfolge**. Alternativ am Artendetail: Tab **Fruchtfolge** (Erfahrungsstufe "Experte"), vorbelegt mit der Familie der jeweiligen Art.
+
+1. Wähle eine **Ausgangsfamilie** aus. Kamerplanter zeigt die bereits hinterlegten **Nachfolgerfamilien**.
+2. Klicke auf **Nachfolger hinzufügen**, wähle die Zielfamilie und trage die **Wartezeit in Jahren** ein (1–10). Die Wartezeit gibt an, wie lange gewartet werden sollte, bevor auf demselben Stellplatz wieder eine Pflanze der Ausgangsfamilie angebaut wird.
+
+### Automatische Prüfung
+
+Beim Anlegen einer **einzelnen Pflanze** mit Stellplatz prüft Kamerplanter zusätzlich die Anbau-Historie dieses Stellplatzes über einen Standard-Zeitraum von **3 Jahren**:
+
+| Ergebnis | Bedeutung |
+|----------|-----------|
+| **Kritisch** (blockiert die Anlage) | Dieselbe botanische Familie wurde am selben Stellplatz innerhalb der letzten 3 Jahre bereits angebaut |
+| **Warnung** | Zwischen der geplanten und einer zuvor dort angebauten Familie besteht ein hohes gemeinsames Schädlings-/Krankheitsrisiko |
+| **Positiv** | Die geplante Familie ist als empfohlener Nachfolger einer zuvor dort angebauten Familie hinterlegt (inkl. Hinweis auf den Stickstoff-Vorteil bei stickstoffbindenden Vorfrüchten) |
+| **Kein Hinweis** | Keine passenden Daten für diese Kombination vorhanden |
+
+Ein kritisches Ergebnis blockiert das Anlegen der Pflanze mit einer Fehlermeldung. Wie bei der Mischkultur-Prüfung gilt das nur für einzeln angelegte Pflanzen, nicht für automatisch aus einem Pflanzdurchlauf erzeugte.
+
+<!-- Quelle: src/backend/app/domain/engines/crop_rotation_validator.py, src/backend/app/config/constants.py (DEFAULT_ROTATION_WINDOW_YEARS = 3) -->
 
 ---
 
@@ -185,22 +181,22 @@ möglich.
 
 ??? question "Funktioniert Mischkultur auch im Gewächshaus und Innenraum?"
     Ja, aber mit Einschränkungen. Schädlingsabwehr durch Duft wirkt auch drinnen.
-    Allerdings ist der Raum oft begrenzt und manche Begleiter (z.B. hohe Tagetes-Sorten)
-    behindern die Luftzirkulation. Kamerplanter kennzeichnet Empfehlungen,
-    die primär für Freiland-Nutzpflanzen validiert sind.
+    Allerdings ist der Raum oft begrenzt, und manche Begleiter (z.B. hohe Tagetes-Sorten)
+    behindern die Luftzirkulation. Die hinterlegten Kompatibilitätsdaten sind primär für
+    Freiland-Nutzpflanzen zusammengestellt.
 
 ??? question "Woher stammen die Kompatibilitätsdaten?"
-    Die Seed-Daten in Kamerplanter basieren auf gärtnerischen Standardwerken und
-    anerkannten Begleitpflanzen-Quellen. Jeder Eintrag trägt eine Quellenangabe
-    (z.B. "Mein schöner Garten", "fryd.app", "Erfahrungswert").
+    Die mitgelieferten Stammdaten basieren auf gärtnerischen Standardwerken und
+    anerkannten Begleitpflanzen-Empfehlungen. Eine Quellenangabe je einzelnem Eintrag
+    zeigt die Oberfläche aktuell nicht an.
 
 ??? question "Kann ich eigene Kompatibilitätspaare hinzufügen?"
-    Aktuell verwalten nur Platform-Admins die globalen Kompatibilitäts-Edges. Eigene
-    Beobachtungen kannst du im Pflanzentagebuch (PlantDiaryEntry) festhalten.
+    Die Bedienoberfläche dafür (**Stammdaten → Mischkultur**) steht allen Nutzer:innen offen; vorgesehen ist die Pflege aber für **Platform-Admins**, da die Daten global für alle Mandanten gelten. Eigene, pflanzenbezogene Beobachtungen hältst du stattdessen im Pflanzentagebuch fest.
 
 ## Siehe auch
 
 - [Pflanzdurchläufe](../user-guide/planting-runs.md)
 - [Standorte & Substrate](../user-guide/locations-substrates.md)
+- [Stammdaten: Pflanzenarten](../user-guide/plant-management.md)
 - [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 - [GDD-Berechnung](gdd-calculation.md)

@@ -1,9 +1,14 @@
 # Nutrient Mixing
 
-A correctly mixed nutrient solution is the foundation for healthy plant growth. Kamerplanter automatically calculates EC budgets, scales manufacturer recipes, and validates the mixing order — preventing precipitations and wasted nutrients.
+A correctly mixed nutrient solution is the foundation for healthy plant growth. Kamerplanter automatically calculates EC budgets, scales manufacturer recipes, and validates the mixing order — preventing precipitation and wasted nutrients.
+
+!!! info "Two terms up front: Fertigation and Drain-to-Waste"
+    **Fertigation** ("Fertilizer" + "Irrigation") means automated delivery of nutrient solution through irrigation — usually via a drip system and pump, instead of watering by hand with a can. In Kamerplanter, fertigation is one of the [delivery methods](../user-guide/fertilization.md#delivery-channels-multi-channel-delivery) alongside drench, foliar, and top-dress.
+
+    **Drain-to-Waste** is an irrigation strategy without recirculation. You deliberately water with a surplus (usually 10–30 % more than the substrate can hold), so runoff water drains from the bottom of the pot. This runoff is discarded rather than reused — unlike recirculating systems such as NFT (Nutrient Film Technique) or ebb & flow. The advantage: salt buildup in the substrate is prevented, because excess nutrients are flushed out rather than reused. More on this in the [Runoff Analysis](#runoff-analysis) section below.
 
 !!! danger "Mixing order matters"
-    Always add CalMag **first** to the water before adding any other fertilizer — especially before sulfates and phosphates. Wrong order causes calcium sulfate precipitation (CaSO₄) and renders the solution ineffective.
+    Always add CalMag (calcium-magnesium supplement) **first** to the water before adding any other fertilizer — especially before sulfates and phosphates. Wrong order causes calcium sulfate precipitation (CaSO₄) and renders the solution ineffective.
 
 ---
 
@@ -12,7 +17,7 @@ A correctly mixed nutrient solution is the foundation for healthy plant growth. 
 - EC meter (electrical conductivity meter)
 - pH meter or test kit
 - Known EC values for your water source (tap water or RO water)
-- Fertilizers added in Kamerplanter under **Master Data > Fertilizers**
+- Fertilizers added in Kamerplanter under **Fertilization → Fertilizers**
 
 ---
 
@@ -115,9 +120,11 @@ Kamerplanter automatically checks the following combinations:
 
 ---
 
-## EC Target Values by Phase and Substrate
+## EC Target Values by Phase and Substrate {#ec-target-substrate}
 
 Kamerplanter validates the calculated final EC against phase- and substrate-specific maximum values:
+
+<!-- Source: src/backend/app/domain/engines/ec_budget_engine.py EC_MAX_TABLE (REQ-004-A §4.2) -->
 
 | Substrate | Seedling (mS) | Vegetative (mS) | Flowering (mS) | Flushing (mS) |
 |-----------|--------------|----------------|----------------|---------------|
@@ -127,6 +134,21 @@ Kamerplanter validates the calculated final EC against phase- and substrate-spec
 
 !!! tip "Fresh coco: automatic CalMag boost"
     For freshly set-up coco batches (0 cycles used), Kamerplanter automatically increases the CalMag dose by 20 %, since unused coco absorbs calcium and magnesium from the solution (cation exchange).
+
+---
+
+## EC Temperature Correction (EC@25)
+
+The electrical conductivity of a reading depends on water temperature — the same nutrient solution shows a higher EC in warmer water than in cooler water. To keep measurements taken at different temperatures comparable, Kamerplanter can optionally correct to the 25 °C reference temperature:
+
+```
+EC@25 = EC_measured / (1 + 0.02 × (T − 25))
+```
+
+If you enter both your measured EC value and the water temperature in the [EC Budget Calculator](../user-guide/fertilization.md#water-mixer-and-ec-budget-calculator), Kamerplanter automatically computes this corrected value and shows it in addition to the raw reading.
+
+!!! example "Example"
+    You measure 1.9 mS/cm at a water temperature of 30 °C. Corrected to 25 °C: `EC@25 = 1.9 / (1 + 0.02 × 5) = 1.9 / 1.1 ≈ 1.73 mS/cm`. The uncorrected value would make the nutrient solution look stronger than it actually is at the reference temperature.
 
 ---
 
@@ -148,7 +170,7 @@ Kamerplanter instructs whether pH Up (potassium hydroxide) or pH Down (phosphori
 
 ---
 
-## Runoff Analysis
+## Runoff Analysis {#runoff-analysis}
 
 In drain-to-waste operation (coco, rockwool), runoff analysis provides important feedback:
 
@@ -163,9 +185,11 @@ In drain-to-waste operation (coco, rockwool), runoff analysis provides important
 
 ---
 
-## Pre-Harvest Flushing
+## Pre-Harvest Flushing {#flush-substrate}
 
-Kamerplanter automatically calculates a flushing schedule. Recommended flush duration depends on substrate:
+Kamerplanter automatically calculates a flushing schedule via the [Flushing Calculator](../user-guide/fertilization.md#calculating-a-flush). Recommended flush duration depends on substrate:
+
+<!-- Source: src/backend/app/domain/engines/nutrient_engine.py FlushingProtocol.FLUSH_DURATIONS -->
 
 | Substrate | Recommended Flush Duration |
 |-----------|--------------------------|
@@ -217,5 +241,6 @@ Water temperature affects solubility and biological effectiveness:
 ## See Also
 
 - [Fertilization Logic](../user-guide/fertilization.md)
+- [Watering Log](../user-guide/watering-log.md) — runoff analysis per entry
 - [Tank Management](../user-guide/tanks.md)
 - [VPD Optimization](vpd-optimization.md)

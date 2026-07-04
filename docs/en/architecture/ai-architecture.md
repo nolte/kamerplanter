@@ -45,9 +45,9 @@ flowchart TB
         RD[(Redis<br/>Cache 4h TTL)]
     end
 
-    subgraph "Background Tasks (Celery)"
-        GDT[generate_daily_tips]
-        RVC[reindex_vector_chunks]
+    subgraph "Background Tasks"
+        GDT[Celery: generate_daily_tips]
+        RVC["Knowledge Service:<br/>POST /ingest (manual)"]
     end
 
     TC --> AR
@@ -156,38 +156,47 @@ class AiProviderRegistry:
 
 ### Embedding Model
 
-- **Model:** `sentence-transformers/all-MiniLM-L6-v2`
-- **Dimensions:** 384
-- **Model size:** ~23 MB
-- **Operation:** Local, no API key, no external service
+- **Model:** `multilingual-e5-large` (see [ADR-006](../adr/006-embedding-modell-e5-base-hybrid-search.md))
+- **Dimensions:** 1024
+- **Operation:** Standalone `embedding-service` (ONNX Runtime), no API key, no external service
 
-The embedding model runs as a Python process in the backend container. It generates vectors for:
-- New or updated master data documents (Celery task `reindex_vector_chunks`)
+The embedding service runs as a standalone microservice that the Knowledge Service calls over HTTP. It generates vectors for:
+- Knowledge YAML chunks during reindex (`POST /ingest` on the Knowledge Service)
 - Incoming user queries for similarity search
 
-### Vector Store (pgvector on TimescaleDB)
+!!! note "Model choice"
+    ADR-006 originally introduced `multilingual-e5-base` (768 dimensions); the configuration has since been raised to the larger `multilingual-e5-large` variant (1024 dimensions). The prefix scheme (`"query: "`/`"passage: "`) from ADR-006 still applies unchanged.
+
+### Vector Store (dedicated PostgreSQL + pgvector instance)
+
+The vectors do **not** live in TimescaleDB — they are stored in a dedicated PostgreSQL instance with the `pgvector` extension (database `kamerplanter_vectors`, its own `vectordb` container/pod). This keeps vector search isolated from the sensor time-series load on TimescaleDB.
 
 ```sql
 CREATE TABLE ai_vector_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_type VARCHAR(64) NOT NULL,
-    -- 'species' | 'cultivar' | 'growth_phase' | 'care_rule' | 'pest' | 'disease'
+    -- 'care_rule' (currently the only source type from the RAG guide YAMLs)
     source_key VARCHAR(128) NOT NULL,
-    chunk_index INT NOT NULL DEFAULT 0,
-    chunk_text TEXT NOT NULL,
-    embedding vector(384) NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(1024) NOT NULL,
+    search_text tsvector,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- IVFFlat index for cosine similarity search
-CREATE INDEX idx_ai_vector_chunks_embedding
-    ON ai_vector_chunks USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+-- HNSW index for cosine similarity search (replaces IVFFlat, ADR-006)
+CREATE INDEX idx_ai_chunks_embedding_hnsw
+    ON ai_vector_chunks USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 200);
+
+-- GIN index for the full-text component of hybrid search
+CREATE INDEX idx_ai_chunks_search_text
+    ON ai_vector_chunks USING gin(search_text);
 ```
 
-TimescaleDB was chosen as the vector store because it is already in the stack (no additional service like Qdrant or Chroma needed).
+Search combines vector similarity and full-text search via Reciprocal Rank Fusion (Hybrid Search, see ADR-006) — pure cosine similarity alone is no longer used.
 
 ### Chunk Configuration
 
@@ -201,29 +210,27 @@ TimescaleDB was chosen as the vector store because it is already in the stack (n
 ### Retrieval Strategy
 
 ```python
-# app/domain/engines/rag_retriever.py
+# src/knowledge-service/app/vectordb/repository.py (simplified)
 
-class RagRetriever:
-    async def retrieve(
+class VectorChunkRepository:
+    def hybrid_search(
         self,
         query: str,
         *,
         top_k: int = 5,
-        source_type_filter: list[str] | None = None,
-        metadata_filter: dict | None = None,
-    ) -> list[RagChunk]:
-        """Cosine similarity search on ai_vector_chunks.
+        source_type: str | None = None,
+    ) -> list[dict]:
+        """Hybrid search: vector similarity + full-text search, fused via RRF.
 
         Args:
-            query: User query or context description.
+            query: User query or context description (embedded with the
+                E5 prefix "query: ").
             top_k: Number of chunks to return.
-            source_type_filter: Optional restriction to specific
-                source types (e.g. ['pest', 'disease'] for diagnosis).
-            metadata_filter: Optional JSONB filter (e.g. phase).
+            source_type: Optional restriction to a single source type.
         """
-        query_embedding = self._embed(query)
-        # pgvector cosine similarity: <=>
-        # (1 - cosine_distance) >= similarity_threshold
+        query_embedding = self._embedding.embed(query, prefix="query: ")
+        # pgvector cosine distance (<=>) AND PostgreSQL full-text search
+        # (tsvector/tsquery), ranking fusion via Reciprocal Rank Fusion
         ...
 ```
 
@@ -456,11 +463,11 @@ Response quality is evaluated automatically:
 | `ai_conversations` | Chat histories with message records | 90 days |
 | `ai_tip_cache` | Cached tip cards | 7 days |
 
-### TimescaleDB Tables
+### VectorDB Tables (dedicated PostgreSQL + pgvector instance)
 
 | Table | Description |
 |-------|-------------|
-| `ai_vector_chunks` | Vector index (384-dim, all-MiniLM-L6-v2) for RAG |
+| `ai_vector_chunks` | Vector index (1024-dim, multilingual-e5-large) + `search_text` full-text index for RAG hybrid search |
 
 ### Edge Collections (ArangoDB)
 
@@ -502,7 +509,7 @@ backend:
     AI_OLLAMA_MODEL: gemma3:4b
     AI_TIP_CACHE_TTL_HOURS: "4"
     AI_MAX_CONCURRENT_TIPS: "5"           # 1 for CPU-only
-    AI_EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+    EMBEDDING_MODEL: multilingual-e5-large   # Knowledge Service, 1024 dimensions
     AI_RAG_TOP_K: "5"
     AI_CONVERSATION_RETENTION_DAYS: "90"
 ```
@@ -515,13 +522,13 @@ This section describes the architecture of self-hosted plant identification (REQ
 
 ### Core Principle: Embedding Matching Instead of Classification
 
-Recognition is not based on a classical image classifier with fixed output classes. Instead:
+Recognition is not based on a traditional image classifier with fixed output classes. Instead:
 
 1. The user photo is converted into an **embedding vector** (384 dimensions) by the DINOv2 model.
 2. This vector is matched against a **reference index** (also DINOv2 embeddings from curated species photos) via cosine similarity search.
 3. The most similar species are returned as a suggestion list.
 
-This nearest-neighbor matching is **few-shot capable**: only a few reference images per species are needed. New species can be added by providing reference images — no retraining required.
+This nearest-neighbor matching **supports few-shot addition of new species**: only a few reference images per species are needed, and new species can be added by providing reference images — no retraining required.
 
 ### System Architecture
 
@@ -633,7 +640,7 @@ INPUT_SIZE    = 224  # Multiple of DINOv2 patch size 14
 | DINOv2 ViT-B/14 | ~86 M | 768 | CPU ok, more accurate | Upgrade path |
 | DINOv2 ViT-L/14 | ~300 M | 1024 | GPU recommended | On demand |
 
-**Binding:** Only the Apache-2.0-licensed base backbone (`facebookresearch/dinov2`) is used. PlantCLEF fine-tuned weights (CC-BY-NC) are explicitly excluded.
+**Requirement:** Only the Apache-2.0-licensed base backbone (`facebookresearch/dinov2`) is used. PlantCLEF fine-tuned weights (CC-BY-NC) are explicitly excluded.
 
 ### Reference Image Acquisition Pipeline
 
@@ -709,5 +716,5 @@ CREATE INDEX idx_species_embeddings_hnsw
 - [Setting Up Plant Identification (Deployment)](../deployment/inference-service.md)
 - [pgvector Documentation](https://github.com/pgvector/pgvector)
 - [BAAI/bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3)
-- [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+- [intfloat/multilingual-e5-large](https://huggingface.co/intfloat/multilingual-e5-large)
 - [facebookresearch/dinov2](https://github.com/facebookresearch/dinov2)

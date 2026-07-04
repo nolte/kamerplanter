@@ -175,12 +175,12 @@ The integration automatically creates entities for all selected plants, location
 |--------|------|------|------------|
 | `sensor.kp_{plant}_phase` | Sensor | -- | Current growth phase |
 | `sensor.kp_{plant}_days_in_phase` | Sensor | days | Days in current phase |
-| `sensor.kp_{plant}_vpd_target` | Sensor | kPa | VPD target for current phase |
+| `sensor.kp_{plant}_vpd_target` | Sensor | kPa | VPD (Vapor Pressure Deficit) target for current phase |
 | `sensor.kp_{plant}_ec_target` | Sensor | mS/cm | EC target for current phase |
 | `sensor.kp_{plant}_photoperiod` | Sensor | h | Photoperiod (light/dark) |
 | `sensor.kp_{plant}_gdd_accumulated` | Sensor | GDD | Accumulated growing degree days |
 | `sensor.kp_{plant}_harvest_readiness` | Sensor | % | Harvest readiness |
-| `sensor.kp_{plant}_karenz_remaining` | Sensor | days | Remaining safety interval (IPM) |
+| `sensor.kp_{plant}_karenz_remaining` | Sensor | days | Remaining safety interval (IPM — Integrated Pest Management) |
 | `sensor.kp_{plant}_next_watering` | Sensor | -- | Next watering date |
 | `sensor.kp_{plant}_health_score` | Sensor | % | Health score |
 | `binary_sensor.kp_{plant}_needs_attention` | Binary Sensor | -- | Plant needs attention |
@@ -202,6 +202,10 @@ The integration automatically creates entities for all selected plants, location
 |--------|------|------------|
 | `sensor.kp_{location}_active_plants` | Sensor | Number of active plants |
 | `sensor.kp_{location}_vpd_current` | Sensor | Current VPD value |
+| `binary_sensor.kp_{location}_frost_warning` | Binary Sensor | Frost warning — not yet populated, see note below |
+
+!!! note "Frost warning requires the planned weather API"
+    This entity is used in the "Frost Warning: Greenhouse Heating" automation example further below, but is currently **not populated** by Kamerplanter: the underlying frost detection needs live weather data, and the weather API integration (DWD, OpenWeatherMap, Open-Meteo) is **specified but not yet implemented** in Kamerplanter — see [Sensors: Outdoor Sensors](../user-guide/sensors.md#outdoor-sensors-setting-up-a-weather-api). Until then, you can build the same automation using your own HA outdoor temperature sensor instead of the Kamerplanter entity.
 
 ### Calendar & Tasks
 
@@ -274,9 +278,12 @@ Example response for `entity_type=plant`:
 ```json
 {
   "entity_type": "plant",
-  "enabled_keys": ["345249", "a1b2c3", "f9e8d7"]
+  "entity_keys": ["345249", "a1b2c3", "f9e8d7"]
 }
 ```
+
+!!! warning "Field name is `entity_keys`, not `enabled_keys`"
+    The response carries the key list in the field **`entity_keys`**. An earlier version of this doc incorrectly named the field `enabled_keys` — integration code expecting that name will not find the field.
 
 **Read or set individual status:**
 
@@ -290,6 +297,26 @@ PUT body:
 ```json
 { "enabled": true }
 ```
+
+**Set several entities at once (bulk update):**
+
+```
+PUT /api/v1/t/{tenant_slug}/ha-publish
+```
+
+Body (one `entity_type` per call, any number of entries):
+
+```json
+{
+  "entity_type": "plant",
+  "entries": [
+    { "entity_key": "345249", "enabled": true },
+    { "entity_key": "a1b2c3", "enabled": false }
+  ]
+}
+```
+
+The response is a list of the updated individual statuses (same shape as the individual status endpoint). This is the endpoint the central **"HA Publishing"** management tab in the frontend uses for bulk changes.
 
 !!! warning "Remove deselected entities"
     When an element is deselected (PUT `enabled: false`), the HA integration should actively remove the corresponding entities from Home Assistant (delete entity registry entry). Otherwise stale "unavailable" entities remain in the system.

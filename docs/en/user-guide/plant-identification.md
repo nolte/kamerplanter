@@ -221,7 +221,7 @@ Platform admins can improve the quality of the reference index by deselecting un
     All EXIF metadata is removed before transmission — this includes GPS coordinates, camera model and capture time. Pl@ntNet only receives the raw pixel data.
 
 ??? question "Can I identify a plant disease by photo?"
-    Disease diagnosis by photo is not yet available in this phase. For diagnosing pests and diseases please use the [Pest Management (IPM)](pest-management.md) features with manual inspection.
+    This plant identification (Pl@ntNet) only recognizes the **species** of a plant, not diseases. There is a separate photo feature for pests: [Pest Detection by Photo](pest-detection.md) provides a confidence-weighted assessment of whether pests or typical damage patterns are recognizable. For general disease diagnosis (fungal infections, nutrient deficiencies), please use manual inspection in [Pest Management (IPM)](pest-management.md).
 
 ??? question "I identified the wrong plant — what now?"
     Open the plant in the master data overview and change the assigned species manually. Click **Edit** and select a different species from the search.
@@ -233,4 +233,5 @@ Platform admins can improve the quality of the reference index by deselecting un
 - [Plant Master Data](plant-management.md)
 - [Onboarding Wizard](onboarding.md)
 - [Privacy & GDPR](privacy.md)
+- [Pest Detection by Photo](pest-detection.md)
 - [Pest Management (IPM)](pest-management.md)

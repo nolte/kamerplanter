@@ -1,21 +1,28 @@
 # Erntemanagement
 
-Das Erntemanagement begleitet dich vom Erkennen der Erntereife über die Dokumentation des Erntebatches bis hin zur Qualitätsbewertung. Ein integriertes Sicherheitssystem prüft automatisch, ob laufende Pflanzenschutzbehandlungen die Ernte blockieren.
+Das Erntemanagement begleitet dich von der Beobachtung der Erntereife über die Dokumentation der Erntecharge bis hin zur Qualitätsbewertung und den Ertragskennzahlen. Ein integriertes Sicherheitssystem prüft automatisch, ob laufende Pflanzenschutzbehandlungen die Ernte blockieren.
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens eine Pflanze in der Phase "Ernte" oder kurz davor (Blütephase)
+- Mindestens eine Pflanze in der Blütephase oder kurz vor der Ernte
 - Alle aktiven Pflanzenschutzbehandlungen müssen ihre Karenzzeit eingehalten haben
 
 ---
 
 ## Erntereife erkennen
 
-Kamerplanter zeigt für jede Pflanze eine Reifeprognose an, die auf der Anzahl Tage in der Blütephase und den Wachstumsgradtagen (GDD) basiert. Diese Prognose ist ein Richtwert — die tatsächliche Entscheidung triffst du als Gärtner.
+### Erwartetes Erntedatum
+
+Für Pflanzen mit einer Erntephase zeigt Kamerplanter auf der Pflanzendetailseite ein **erwartetes Erntedatum** an. Es berechnet sich aus dem Pflanzdatum plus der Summe der geplanten Phasendauern (Wachstumsphasen-Verwaltung) und zeigt zusätzlich die verbleibenden Tage bzw. eine Überfälligkeits-Anzeige. Bei mehrjährigen Pflanzen oder Arten ohne definierte Erntephase erscheint kein Termin — hier hilft dir ausschließlich die Beobachtung vor Ort.
+
+!!! info "Reife-Beobachtungssystem nur über API"
+    Kamerplanter bietet zusätzlich ein Datenmodell für pflanzenspezifische Reife-Indikatoren (Trichome, Brix, Krautsterben, Farbe u. a.) mit Einzelbeobachtungen und einem gewichteten Reifegrad-Score. Dieses System ist vollständig über die API nutzbar, aber noch nicht an eine Oberfläche im Frontend angebunden — du kannst es aktuell nicht über Menüs bedienen. Bis zur Anbindung orientierst du dich an den folgenden manuellen Reifeindikatoren.
 
 ### Reifeindikatoren nach Pflanzentyp
+
+Diese Richtwerte helfen dir bei der Einschätzung, unabhängig davon, ob du sie in Kamerplanter erfasst:
 
 **Blütenstände (z.B. Cannabis, Hopfen):**
 - Trichom-Farbe unter der Lupe: Milchig-weiß = maximaler Wirkstoffgehalt, Bernstein = abnehmend
@@ -39,89 +46,107 @@ Kamerplanter zeigt für jede Pflanze eine Reifeprognose an, die auf der Anzahl T
 
 ---
 
-## Karenzzeit-Prüfung (IPM-Sicherheitsgate)
+## Karenzzeit-Prüfung (Sicherheitsgate für Integrierten Pflanzenschutz, IPM)
 
 !!! danger "Ernte bei aktiver Behandlung blockiert"
-    Wenn eine Pflanzenschutzbehandlung noch innerhalb ihrer Karenzzeit (Pre-Harvest Interval) liegt, blockiert Kamerplanter die Ernte-Erstellung. Du siehst eine klare Fehlermeldung mit dem Datum, ab dem die Ernte möglich ist.
+    Wenn eine Pflanzenschutzbehandlung noch innerhalb ihrer Karenzzeit (Pre-Harvest Interval, PHI) liegt, blockiert Kamerplanter die Erstellung der Erntecharge. Du siehst eine klare Fehlermeldung mit dem Wirkstoff und den verbleibenden Tagen.
 
 Die Karenzzeit ist die Mindestwartezeit nach einer Pflanzenschutzbehandlung, bevor die Pflanze geerntet werden darf. Diese Zeiten sind gesetzlich geregelt und werden in Kamerplanter pro Behandlungsmittel hinterlegt.
 
-**Beispiel:** Du hast am 1. März ein Mittel mit 14 Tagen Karenzzeit ausgebracht. Eine Ernte ist frühestens am 15. März möglich. Wenn du am 10. März versuchst, einen Ernte-Batch zu erstellen, erscheint eine Fehlermeldung.
+**Beispiel:** Du hast am 1. März ein Mittel mit 14 Tagen Karenzzeit ausgebracht. Eine Ernte ist frühestens am 15. März möglich. Wenn du am 10. März versuchst, eine Erntecharge zu erstellen, blockiert das System die Erstellung.
 
 Mehr zur Karenzzeit: [Integrierter Pflanzenschutz (IPM)](pest-management.md)
 
 ---
 
-## Ernte-Batch erstellen
+## Erntecharge erstellen
 
-### Schritt 1: Ernte starten
+### Schritt 1: Charge anlegen
 
-1. Öffne die Pflanze oder den Pflanzdurchlauf unter **Pflanzen** oder **Durchläufe**.
-2. Klicke auf **Ernte starten** oder **Ernte-Batch erstellen**.
-3. Das System prüft automatisch alle Karenzzeiten. Falls eine Behandlung noch innerhalb der Karenzzeit liegt, erscheint eine Meldung.
+1. Öffne **Erntechargen** in der Navigation (`/ernte/batches`).
+2. Klicke auf **Erntecharge erstellen**.
+3. Das System prüft beim Speichern automatisch alle Karenzzeiten. Liegt eine Behandlung noch innerhalb der Karenzzeit, erscheint eine Fehlermeldung statt der neuen Charge.
 
 ### Schritt 2: Ernte-Details eingeben
 
 | Feld | Beschreibung |
 |------|-------------|
-| Ernte-Datum | Datum der Ernte (Standard: heute) |
-| Erntemethode | Kompletternte oder Teilernte |
-| Frischmasse (g) | Gewicht des Ernteguts direkt nach der Ernte |
-| Ernte-Typ | Blüte, Frucht, Blatt, Wurzel, Saatgut |
+| Pflanze | Die zu erntende Pflanze |
+| Chargen-ID | Optionale eigene Kennung, z.B. „ERNTE-2026-001" |
+| Erntetyp | **Teilernte**, **Endernte** oder **Fortlaufend** |
+| Erntedatum | Datum und Uhrzeit der Ernte (Standard: jetzt) |
+| Nassgewicht (g) | Gewicht des Ernteguts direkt nach dem Schnitt |
+| Erntehelfer | Wer hat geerntet? |
 | Notizen | Beobachtungen, Besonderheiten |
 
-**Erntemethoden:**
-- **Kompletternte**: Die gesamte Pflanze wird geerntet. Die Pflanze wechselt anschließend in den Status "Abgeschlossen".
-- **Teilernte** (gestaffelt): Nur Teile werden geerntet (z.B. zuerst die oberen Blütenstände). Die Pflanze bleibt aktiv für weitere Ernten.
+**Erntetypen:**
 
-### Schritt 3: Qualitätsbewertung (optional)
+- **Endernte**: Die gesamte Pflanze wird auf einmal geerntet.
+- **Teilernte**: Nur ein Teil wird geerntet (z.B. zuerst die oberen Blütenstände). Du kannst beliebig viele Teilernte-Chargen für dieselbe Pflanze anlegen.
+- **Fortlaufend**: Für „Cut & Come Again"-Kulturen (z.B. Pflücksalat, Basilikum), bei denen laufend kleine Mengen geerntet werden.
 
-Trage optional eine Qualitätsbewertung ein:
-
-| Bewertung | Beschreibung |
-|-----------|-------------|
-| A+ | Außergewöhnliche Qualität |
-| A | Hohe Qualität, keine Mängel |
-| B | Gute Qualität, kleinere Mängel |
-| C | Akzeptable Qualität, deutliche Mängel |
-
-Zusätzliche Felder (je nach Pflanzentyp):
-- Aroma-Intensität (1–10)
-- Optische Bewertung (1–10)
-- Besonderheiten (z.B. "Keine Schädlingsschäden", "Leichter Botrytis-Befall an einer Rispe")
+!!! note "Kein automatischer Status- oder Qualitätswechsel"
+    Weder die Erntetyp-Auswahl noch das Anlegen einer Charge ändern automatisch den Status der Pflanze — auch nicht bei „Endernte". Eine Qualitätsbewertung wird beim Anlegen der Charge ebenfalls nicht abgefragt; sie erfolgt separat (siehe unten).
 
 ---
 
-## Trocknungsphase dokumentieren
+## Qualitätsbewertung
 
-Nach der Ernte durchläuft vieles (z.B. Kräuter, Cannabis) eine Trocknungsphase. Diese kannst du in Kamerplanter verfolgen:
+Öffne die Erntecharge und wechsle zum Tab **Qualität**, um eine Bewertung anzulegen.
 
-1. Öffne den Ernte-Batch unter **Ernte**.
-2. Klicke auf **Trocknungsphase starten**.
-3. Trage Startgewicht, Zielfeuchte und Lagerungsbedingungen ein.
-4. Erfasse regelmäßig das aktuelle Trockengewicht — Kamerplanter berechnet den Trocknungs-Fortschritt.
+| Feld | Beschreibung |
+|------|-------------|
+| Bewertet von | Name der bewertenden Person |
+| Erscheinungsbewertung | 0–100 Punkte |
+| Aromabewertung | 0–100 Punkte |
+| Farbbewertung | 0–100 Punkte |
+| Mängel | Frei eintragbare Schlagworte |
+| Notizen | Zusätzliche Anmerkungen |
 
-**Optimale Trockenbedingungen (Orientierung für Kräuter und Cannabis):**
-- Temperatur: 18–22 °C
-- Luftfeuchte: 45–55 % rH
-- Dauer: 7–14 Tage
+Kamerplanter berechnet daraus automatisch einen **Gesamt-Score (0–100)** und eine **Note**:
+
+| Gesamt-Score | Note |
+|--------------|------|
+| ≥ 90 | A+ |
+| ≥ 75 | A |
+| ≥ 55 | B |
+| ≥ 35 | C |
+| < 35 | D |
+
+Der Gesamt-Score gewichtet Erscheinung (30 %), Aroma (25 %) und Farbe (20 %) und zieht für erkannte Mängel Punkte ab.
+
+<!-- Quelle: src/backend/app/domain/engines/quality_scoring_engine.py -->
+
+!!! tip "Mängel-Schlagworte mit Punktabzug"
+    Einige Mängel-Schlagworte werden vom System besonders stark gewertet, u.a. `mold` (Schimmel, −50), `hermaphrodite` (Zwitterblüten, −40), `pests` (Schädlinge, −30), `seeded` (samig, −25). Andere Schlagworte (`nutrient_burn`, `light_burn`: je −15; `foxtailing`, `discoloration`: je −10; `mechanical_damage`: −5) fallen weniger stark ins Gewicht. Unbekannte Schlagworte werden pauschal mit −5 bewertet.
 
 ---
 
-## Ertragskennzahlen und Auswertung
+## Trocknung dokumentieren
 
-Nach Abschluss eines Ernte-Batches berechnet Kamerplanter automatisch:
+!!! note "Teilweise verfügbar"
+    Kamerplanter bietet aktuell nur ein einzelnes Feld **Tatsächliches Trockengewicht (g)** im Bearbeiten-Tab der Erntecharge — du trägst es nach Abschluss der Trocknung manuell ein. Eine eigene Trocknungs-Workflow-Oberfläche mit Start-/Zielfeuchte, laufender Gewichtserfassung und automatischer Fortschritts- oder Trocknungsverlust-Berechnung ist als geplantes Feature spezifiziert, aber noch nicht gebaut. <!-- REQ-008 -->
 
-- **Trockengewicht** (nach Eingabe des Endgewichts)
-- **Trocknungsverlust** (% Gewichtsverlust durch Trocknung)
-- **Ertrag pro m²** (g/m², bezogen auf die Anbaufläche)
-- **Ertrag pro Pflanze** (g/Pflanze)
-- **Ertrag pro Tag in der Blütephase**
+Fachliche Anleitung zur Trocknung (Zielwerte für Temperatur, Luftfeuchte und Dauer) findest du im Nachernte-Guide.
 
-Diese Kennzahlen helfen dir, deine Anbautechnik über mehrere Zyklen zu verbessern.
+Mehr dazu: [Nachernte: Trocknung, Curing & Lagerung](../guides/post-harvest.md)
 
-!!! tip "Kennzahlen vergleichen"
-    In der Ernte-Übersicht kannst du Batches vergleichen. So siehst du, welcher Pflanzdurchlauf, welches Substrat oder welcher Nährstoffplan den besten Ertrag geliefert hat.
+---
+
+## Ertragsmetriken
+
+Öffne die Erntecharge und wechsle zum Tab **Ertrag**, um die Ertragsdaten manuell einzutragen:
+
+| Feld | Beschreibung |
+|------|-------------|
+| Ertrag pro Pflanze (g) | Gesamtertrag dieser Pflanze |
+| Ertrag pro m² (g) | Ertrag bezogen auf die Anbaufläche |
+| Gesamtertrag (g) | Gesamtgewicht der Charge |
+| Verschnitt (%) | Anteil Verschnitt am Gesamtertrag |
+| Nutzbarer Ertrag (g) | Verwertbare Menge nach Verschnitt |
+
+!!! note "Manuelle Eingabe — keine automatische Berechnung"
+    Kamerplanter berechnet diese Werte nicht selbst aus Nass-/Trockengewicht oder Anbaufläche. Du trägst sie nach dem Wiegen und Verarbeiten selbst ein. Eine Vergleichs- oder Auswertungsansicht über mehrere Chargen und Pflanzdurchläufe hinweg ist noch nicht vorhanden — die Erntechargen-Übersicht listet Chargen nur tabellarisch.
 
 ---
 
@@ -129,42 +154,38 @@ Diese Kennzahlen helfen dir, deine Anbautechnik über mehrere Zyklen zu verbesse
 
 ### Spülphase (Flushing)
 
-Einige Gärtner führen vor der Ernte einen Spülgang durch, um überschüssige Salze aus dem Substrat zu waschen. Kamerplanter bietet dieses Protokoll optional an.
+Einige Gärtner führen vor der Ernte einen Spülgang durch, um überschüssige Salze aus dem Substrat zu waschen.
+
+!!! note "Teilweise verfügbar"
+    Es gibt keinen Button an der Pflanze, der ein Spülprotokoll startet oder automatisch Gieß-Aufgaben erzeugt. Kamerplanter bietet stattdessen einen eigenständigen **Spülungs-Rechner** unter den Nährstoff-Rechnern, der dir eine empfohlene Spüldauer abhängig vom Substrat nennt. Die Gieß-Aufgaben während des Spülens legst du wie gewohnt manuell an oder erledigst sie über dein bestehendes Gießprotokoll.
 
 !!! note "Flushing ist wissenschaftlich umstritten"
     Studien (u.a. University of Guelph, 2020) konnten keinen signifikanten Unterschied zwischen geflushten und nicht-geflushten Pflanzen nachweisen. Bei Living Soil wird Flushing ausdrücklich nicht empfohlen, da es das Mikrobiom schädigt.
 
-1. Öffne die Pflanze.
-2. Klicke auf **Spülprotokoll starten**.
-3. Das System empfiehlt eine Spüldauer abhängig vom Substrat.
-4. Während des Spülens erhältst du Gieß-Aufgaben mit reinem, pH-adjustiertem Wasser.
-
-Mehr zum Spülprotokoll: [Dünge-Logik](fertilization.md)
+Mehr zum Spülungs-Rechner: [Dünge-Logik](fertilization.md)
 
 ### Dunkelphase
 
-Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte ein. Kamerplanter kann dich daran erinnern:
+Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte ein.
 
-1. Öffne den Pflanzdurchlauf.
-2. Klicke auf **Dunkelphase planen**.
-3. Wähle Datum und Dauer.
-4. Eine Aufgabe wird erstellt: "Beleuchtung abschalten — Dunkelphase beginnt".
+!!! warning "Noch nicht implementiert"
+    Eine geplante Dunkelphase mit automatischer Beleuchtungs-Aufgabe wird es in einer zukünftigen Version geben. Aktuell musst du dir die Beleuchtungszeiten selbst notieren oder eine eigene Aufgabe unter [Aufgaben](tasks.md) anlegen.
 
 ---
 
 ## Häufige Fragen
 
 ??? question "Kann ich eine Ernte rückgängig machen?"
-    Nein. Ernte-Batches können nach dem Erstellen nicht gelöscht werden, da sie zur lückenlosen Dokumentation des Anbaus gehören. Du kannst jedoch Notizen und Gewichtswerte nachträglich korrigieren.
+    Nein. Erntechargen können nach dem Erstellen nicht gelöscht werden, da sie zur lückenlosen Dokumentation des Anbaus gehören. Du kannst jedoch Notizen und Gewichtswerte nachträglich korrigieren.
 
-??? question "Was passiert mit einer Pflanze nach der Kompletternte?"
-    Die Pflanze wechselt automatisch in den Status "Abgeschlossen". Sie ist nicht mehr aktiv und erscheint nicht mehr in der Aufgaben-Queue. Die Stammdaten und die Phasenhistorie bleiben für die Auswertung erhalten.
+??? question "Wechselt eine Pflanze nach der Endernte automatisch ihren Status?"
+    Nein. Das Anlegen einer Erntecharge mit Erntetyp „Endernte" ändert den Pflanzen-Status nicht automatisch. Wenn die Pflanze für dich abgeschlossen ist, entfernst du sie manuell über **Pflanze entfernen** auf ihrer Detailseite. Erst dann verschwindet sie aus der aktiven Aufgaben-Warteschlange; ihre Stammdaten und Historie bleiben erhalten.
 
 ??? question "Warum wird die Ernte blockiert, obwohl ich schon lange nicht mehr behandelt habe?"
     Prüfe im Tab **Pflanzenschutz** (IPM) die Liste aller Behandlungen und ihre Karenzzeiten. Manchmal sind ältere Behandlungen noch eingetragen, deren Karenzzeit noch nicht abgelaufen ist. Wenn die Behandlung irrtümlich eingetragen wurde, kannst du sie unter Pflanzenschutz korrigieren.
 
 ??? question "Kann ich eine Teilernte mehrfach durchführen?"
-    Ja. Bei gestaffelter Ernte kannst du beliebig viele Teilernte-Batches für eine Pflanze erstellen, bis du die Kompletternte abschließt oder die Pflanze manuell als abgeschlossen markierst.
+    Ja. Du kannst beliebig viele Teilernte-Chargen für eine Pflanze anlegen, z.B. um zuerst die oberen und später die unteren Blütenstände zu ernten.
 
 ---
 
@@ -174,3 +195,4 @@ Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte
 - [Wachstumsphasen](growth-phases.md)
 - [Dünge-Logik](fertilization.md)
 - [Pflanzdurchläufe](planting-runs.md)
+- [Nachernte: Trocknung, Curing & Lagerung](../guides/post-harvest.md)

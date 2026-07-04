@@ -80,7 +80,7 @@ Das System sendet eine Einladungs-E-Mail. Nach Klick auf den Link im Mail wird d
 !!! tip "Ideal für große Gruppen"
     Der Einladungslink ist besonders praktisch für Gemeinschaftsgärten: Hänge ihn am Gartentor aus oder verschicke ihn im Vereins-Newsletter. Jeder mit dem Link kann beitreten, bis das Limit erreicht ist.
 
-### Methode 3: OIDC Auto-Join
+### Methode 3: OIDC (OpenID Connect) Auto-Join
 
 Für Vereine und Organisationen mit eigenem Identity Provider (Keycloak, etc.) kann die OIDC-Integration so konfiguriert werden, dass neue Nutzer automatisch dem Tenant beitreten. Dies richtet der Plattform-Administrator ein.
 
@@ -102,11 +102,11 @@ Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun d
 | Mitglieder einladen | Ja | Nein | Nein |
 | Rollen ändern | Ja | Nein | Nein |
 | Tenant-Einstellungen ändern | Ja | Nein | Nein |
-| Pinwand-Posts pinnen | Ja | Nein | Nein |
-| Einkaufsliste verwalten | Ja | Ja | Nein |
-| Gießrotation erstellen | Ja | Nein | Nein |
 
 *Gärtner können Standorte bearbeiten, die ihnen zugewiesen sind.
+
+!!! note "Geplante Gemeinschaftsfunktionen fehlen in dieser Tabelle"
+    Pinnwand, Gießrotation und gemeinsame Einkaufsliste sind noch nicht implementiert (siehe [Gemeinschaftsfunktionen](#gemeinschaftsfunktionen) unten) und tauchen deshalb hier nicht als Berechtigung auf.
 
 ### Rollen ändern
 
@@ -142,37 +142,25 @@ In einem Gemeinschaftsgarten kann nicht jedes Mitglied jede Parzelle bearbeiten.
 
 ## Gemeinschaftsfunktionen
 
-### Pinwand
+!!! warning "Noch nicht implementiert"
+    Pinnwand, Gießrotation und gemeinsame Einkaufsliste sind für Gemeinschaftsgärten geplant, aber aktuell weder im Backend noch in der Oberfläche vorhanden. Die folgenden Abschnitte beschreiben den vorgesehenen Funktionsumfang.
 
-Die Pinwand ist ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder.
+### Pinnwand
 
-1. Navigiere zu **Gemeinschaft** > **Pinwand**
-2. Klicke auf **Neuer Post**
-3. Schreibe deine Nachricht und klicke auf **Veröffentlichen**
+Die Pinnwand wird ein gemeinsamer Nachrichtenbereich für alle Tenant-Mitglieder sein: Mitglieder werden Beiträge veröffentlichen können, Admins werden Beiträge anpinnen und löschen können.
 
-Admins können Posts anpinnen, sodass sie oben erscheinen, und Posts löschen.
-
-!!! example "Typische Pinwand-Posts"
+!!! example "Typische Pinnwand-Posts (Konzept)"
     - "Schneckenalarm! Bitte Bierfallen aufstellen."
     - "Samstag 10 Uhr: Gemeinsames Kompost-Umsetzen."
     - "Zu viele Zucchini — wer will welche?"
 
 ### Gießrotation
 
-Für die Verteilung von Gießpflichten unter Mitgliedern:
-
-1. Navigiere zu **Gemeinschaft** > **Gießrotation**
-2. Klicke auf **Neue Rotation erstellen**
-3. Lege das Intervall fest (z.B. wöchentlich) und trage die Mitglieder ein
-4. Das System erinnert jede Woche das zuständige Mitglied
-
-Mitglieder können Dienste untereinander tauschen — ohne den Admin einzubeziehen.
+Für die Verteilung von Gießpflichten unter Mitgliedern ist eine Rotationsfunktion geplant: Ein Intervall (z. B. wöchentlich) und die beteiligten Mitglieder werden hinterlegbar sein, und das System wird das jeweils zuständige Mitglied erinnern. Mitglieder sollen Dienste untereinander tauschen können, ohne den Admin einzubeziehen.
 
 ### Gemeinsame Einkaufsliste
 
-1. Navigiere zu **Gemeinschaft** > **Einkaufsliste**
-2. Alle Gärtner können Einträge hinzufügen und abhaken
-3. Admins können Listen archivieren
+Eine gemeinsame Einkaufsliste ist geplant: Alle Gärtner sollen Einträge hinzufügen und abhaken können, Admins sollen Listen archivieren können.
 
 ---
 
