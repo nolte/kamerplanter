@@ -22,7 +22,6 @@ from app.common.dependencies import (
 from app.common.enums import (
     CycleType,
     PhotoperiodType,
-    PlantTrait,
     StressTolerance,
     Suitability,
 )
@@ -30,7 +29,8 @@ from app.domain.models.botanical_family import BotanicalFamily, PhRange
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
-from app.domain.models.species import Cultivar, GrowingPeriod, Species
+from app.domain.models.species import GrowingPeriod, Species
+from app.migrations.cultivar_seed import build_cultivar
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -472,13 +472,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
                 logger.info("cultivar_exists", species=sci_name, cultivar=cv_name)
                 continue
 
-            cultivar = Cultivar(
-                name=cv_name,
-                species_key=sp_key,
-                breeder=cv_entry.get("breeder"),
-                days_to_maturity=cv_entry["days_to_maturity"],
-                traits=[PlantTrait(t) for t in cv_entry.get("traits", [])],
-            )
+            cultivar = build_cultivar(cv_entry, sp_key)
             species_repo.create_cultivar(cultivar)
             logger.info("cultivar_created", species=sci_name, cultivar=cv_name)
 

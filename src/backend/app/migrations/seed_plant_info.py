@@ -33,7 +33,6 @@ from app.common.enums import (
     PathogenType,
     PhotoperiodType,
     PlantCategory,
-    PlantTrait,
     PropagationDifficulty,
     PropagationMethod,
     RootType,
@@ -50,7 +49,6 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import (
     AllergenInfo,
-    Cultivar,
     PropagationConfig,
     SeasonalWateringAdjustment,
     SeedProfile,
@@ -59,6 +57,7 @@ from app.domain.models.species import (
     WateringGuide,
 )
 from app.domain.models.substrate import Substrate
+from app.migrations.cultivar_seed import build_cultivar
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -701,15 +700,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 logger.info("cultivar_exists", species=sci_name, cultivar=cv_name)
                 continue
 
-            trait_strings = cv_entry.get("traits", [])
-            cultivar = Cultivar(
-                name=cv_name,
-                species_key=sp_key,
-                breeder=cv_entry.get("breeder"),
-                days_to_maturity=cv_entry.get("days_to_maturity"),
-                traits=[PlantTrait(t) for t in trait_strings if t in PlantTrait.__members__.values()],
-                seed_type=cv_entry.get("seed_type", ""),
-            )
+            cultivar = build_cultivar(cv_entry, sp_key)
             species_repo.create_cultivar(cultivar)
             logger.info("cultivar_created", species=sci_name, cultivar=cv_name)
 

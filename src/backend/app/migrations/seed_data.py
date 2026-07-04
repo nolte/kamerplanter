@@ -18,10 +18,8 @@ from app.common.dependencies import (
 )
 from app.common.enums import (
     CycleType,
-    DtmReference,
     FloweringStrategy,
     PhotoperiodType,
-    PlantTrait,
     StressTolerance,
 )
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
@@ -29,8 +27,9 @@ from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.harvest import HarvestIndicator
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-from app.domain.models.species import Cultivar, Species
+from app.domain.models.species import Species
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
+from app.migrations.cultivar_seed import build_cultivar
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -364,17 +363,7 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         existing_cultivars = species_repo.get_cultivars(sp_key)
         existing_cv_map = {c.name: c for c in existing_cultivars}
         for cv_data in cv_list:
-            dtm_ref = cv_data.get("dtm_reference")
-            cultivar = Cultivar(
-                name=cv_data["name"],
-                species_key=sp_key,
-                breeder=cv_data.get("breeder"),
-                days_to_maturity=cv_data.get("days_to_maturity"),
-                dtm_reference=DtmReference(dtm_ref) if dtm_ref else None,
-                bearing_start_year_min=cv_data.get("bearing_start_year_min"),
-                bearing_start_year_max=cv_data.get("bearing_start_year_max"),
-                traits=[PlantTrait(t) for t in cv_data.get("traits", [])],
-            )
+            cultivar = build_cultivar(cv_data, sp_key)
             found_cv = existing_cv_map.get(cv_data["name"])
             if found_cv:
                 species_repo.update_cultivar(found_cv.key or "", cultivar)
