@@ -1,65 +1,19 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { Activity } from '@/api/types';
 import * as api from '@/api/endpoints/activities';
+import { createListSlice } from '@/store/createListSlice';
 
-interface ActivitiesState {
-  items: Activity[];
-  current: Activity | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: ActivitiesState = {
-  items: [],
-  current: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchActivities = createAsyncThunk(
-  'activities/fetchAll',
-  async (params?: { category?: string; scope?: 'universal' | 'restricted'; species?: string }) => {
-    return api.listActivities(params);
-  },
-);
-
-export const fetchActivity = createAsyncThunk(
-  'activities/fetchOne',
-  async (key: string) => {
-    return api.getActivity(key);
-  },
-);
-
-const activitiesSlice = createSlice({
+// `listActivities` returns a plain array and takes filter-only args (no
+// paging). The slice uses the canonical `items`/`current` fields; page
+// selectors (`s.activities.items`) stay unchanged (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'activities',
-  initialState,
-  reducers: {
-    clearCurrent(state) {
-      state.current = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchActivities.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchActivities.fulfilled, (state, action) => {
-        state.loading = false;
-        state.items = action.payload;
-      })
-      .addCase(fetchActivities.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'Failed to load activities';
-      })
-      .addCase(fetchActivity.fulfilled, (state, action) => {
-        state.current = action.payload;
-      });
-  },
+  list: (arg: { category?: string; scope?: 'universal' | 'restricted'; species?: string } = {}) =>
+    api.listActivities(arg),
+  getOne: (key) => api.getActivity(key),
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrent, clearError } = activitiesSlice.actions;
-export default activitiesSlice.reducer;
+export const fetchActivities = fetchList;
+export const fetchActivity = fetchOne!;
+export const { clearCurrent, clearError } = actions;
+export default reducer;

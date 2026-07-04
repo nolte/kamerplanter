@@ -52,7 +52,7 @@ describe('activitiesSlice', () => {
 
   it('fetchActivities.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchActivities.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load activities');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchActivity.fulfilled stores the selected activity', () => {

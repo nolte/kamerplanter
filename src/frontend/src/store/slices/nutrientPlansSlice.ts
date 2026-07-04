@@ -1,78 +1,30 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-
 import * as api from '@/api/endpoints/nutrient-plans';
-import type { NutrientPlan } from '@/api/types';
+import { createListSlice } from '@/store/createListSlice';
 
-interface NutrientPlansState {
-  plans: NutrientPlan[];
-  currentPlan: NutrientPlan | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: NutrientPlansState = {
-  plans: [],
-  currentPlan: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchNutrientPlans = createAsyncThunk(
-  'nutrientPlans/fetchAll',
-  async ({
+// `fetchNutrientPlans` returns a plain array. The slice keeps its domain-named
+// state fields (`plans`/`currentPlan`) so page selectors stay unchanged
+// (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
+  name: 'nutrientPlans',
+  list: ({
     offset,
     limit,
     isTemplate,
-  }: {
-    offset?: number;
-    limit?: number;
-    isTemplate?: boolean;
-  } = {}) => {
-    return api.fetchNutrientPlans(
+  }: { offset?: number; limit?: number; isTemplate?: boolean } = {}) =>
+    api.fetchNutrientPlans(
       offset,
       limit,
       isTemplate !== undefined ? { is_template: String(isTemplate) } : undefined,
-    );
-  },
-);
-
-export const fetchNutrientPlan = createAsyncThunk(
-  'nutrientPlans/fetchOne',
-  async (key: string) => {
-    return api.fetchNutrientPlan(key);
-  },
-);
-
-const nutrientPlansSlice = createSlice({
-  name: 'nutrientPlans',
-  initialState,
-  reducers: {
-    clearCurrentPlan(state) {
-      state.currentPlan = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchNutrientPlans.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchNutrientPlans.fulfilled, (state, action) => {
-        state.loading = false;
-        state.plans = action.payload;
-      })
-      .addCase(fetchNutrientPlans.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'Failed to load nutrient plans';
-      })
-      .addCase(fetchNutrientPlan.fulfilled, (state, action) => {
-        state.currentPlan = action.payload;
-      });
-  },
+    ),
+  getOne: (key) => api.fetchNutrientPlan(key),
+  itemsField: 'plans',
+  currentField: 'currentPlan',
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrentPlan, clearError } = nutrientPlansSlice.actions;
-export default nutrientPlansSlice.reducer;
+export const fetchNutrientPlans = fetchList;
+export const fetchNutrientPlan = fetchOne!;
+export const clearCurrentPlan = actions.clearCurrent;
+export const { clearError } = actions;
+export default reducer;

@@ -80,7 +80,7 @@ describe('harvestSlice', () => {
 
   it('fetchIndicators.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchIndicators.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load indicators');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchBatches.fulfilled stores batches', () => {
@@ -91,7 +91,7 @@ describe('harvestSlice', () => {
 
   it('fetchBatches.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchBatches.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load batches');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchBatch.fulfilled stores the current batch', () => {

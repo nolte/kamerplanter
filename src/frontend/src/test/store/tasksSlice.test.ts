@@ -65,7 +65,7 @@ describe('tasksSlice', () => {
 
   it('fetchWorkflows.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchWorkflows.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load workflows');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('deleteWorkflowThunk.fulfilled removes the workflow by key', () => {
@@ -94,7 +94,7 @@ describe('tasksSlice', () => {
 
   it('fetchTasks.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchTasks.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load tasks');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchTask.fulfilled stores the current task', () => {
@@ -117,7 +117,7 @@ describe('tasksSlice', () => {
 
   it('fetchTaskQueue.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchTaskQueue.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load task queue');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchOverdueTasks.fulfilled stores overdue tasks', () => {

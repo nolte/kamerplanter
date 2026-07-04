@@ -119,7 +119,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchCalendarEvents.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load calendar events';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Feeds
       .addCase(fetchCalendarFeeds.pending, (state) => {
@@ -131,7 +131,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchCalendarFeeds.rejected, (state, action) => {
         state.feedsLoading = false;
-        state.error = action.error.message ?? 'Failed to load feeds';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Create feed
       .addCase(createCalendarFeed.fulfilled, (state, action) => {
@@ -161,7 +161,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchSowingCalendar.rejected, (state, action) => {
         state.sowingLoading = false;
-        state.error = action.error.message ?? 'Failed to load sowing calendar';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Season overview
       .addCase(fetchSeasonOverview.pending, (state) => {
@@ -174,7 +174,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchSeasonOverview.rejected, (state, action) => {
         state.seasonLoading = false;
-        state.error = action.error.message ?? 'Failed to load season overview';
+        state.error = action.error.message ?? 'errors.loadFailed';
       });
   },
 });

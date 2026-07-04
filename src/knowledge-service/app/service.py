@@ -78,7 +78,9 @@ class KnowledgeService:
 
         logger.debug("knowledge_search", query=query, top_k=top_k, retrieve_k=retrieve_k, doc_language=effective_lang)
         embedding = self._embedding.embed(query, prefix="query: ")
-        chunks = self._repo.hybrid_search(embedding, query, top_k=retrieve_k, language=effective_lang, vector_weight=0.4)
+        chunks = self._repo.hybrid_search(
+            embedding, query, top_k=retrieve_k, language=effective_lang, vector_weight=0.4
+        )
 
         # Re-rank if available
         if self._reranker and self._reranker.available:
@@ -141,7 +143,9 @@ class KnowledgeService:
             logger.info("knowledge_verification_start", question=question)
             verification_system = self._prompt_engine.build_verification_prompt(effective_prompt_lang)
             verification_message = self._prompt_engine.build_verification_message(
-                question, chunks, response.content,
+                question,
+                chunks,
+                response.content,
             )
             verification_response: LlmResponse = self._llm.generate(
                 verification_system,
@@ -150,12 +154,12 @@ class KnowledgeService:
                 temperature=self._temperature,
             )
             final_answer = verification_response.content
-            total_usage["prompt_tokens"] = (
-                total_usage.get("prompt_tokens", 0) + verification_response.usage.get("prompt_tokens", 0)
+            total_usage["prompt_tokens"] = total_usage.get("prompt_tokens", 0) + verification_response.usage.get(
+                "prompt_tokens", 0
             )
-            total_usage["completion_tokens"] = (
-                total_usage.get("completion_tokens", 0) + verification_response.usage.get("completion_tokens", 0)
-            )
+            total_usage["completion_tokens"] = total_usage.get(
+                "completion_tokens", 0
+            ) + verification_response.usage.get("completion_tokens", 0)
             logger.info(
                 "knowledge_verification_complete",
                 question=question,

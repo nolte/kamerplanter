@@ -116,7 +116,7 @@ const harvestSlice = createSlice({
       })
       .addCase(fetchIndicators.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load indicators';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Batches
       .addCase(fetchBatches.pending, (state) => {
@@ -129,7 +129,7 @@ const harvestSlice = createSlice({
       })
       .addCase(fetchBatches.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load batches';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Single batch
       .addCase(fetchBatch.fulfilled, (state, action) => {

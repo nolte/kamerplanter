@@ -106,7 +106,7 @@ describe('tenantSlice', () => {
 
   it('loadMyTenants.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: loadMyTenants.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load tenants');
+    expect(state.error).toBe('errors.tenantsLoadFailed');
   });
 
   it('createOrganization.fulfilled replaces the tenant list', () => {
