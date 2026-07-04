@@ -17,6 +17,10 @@ mode: full
 Vollstaendiger Manifest-getriebener Coverage-Audit ueber alle 37 REQ + 16 NFR + 19 UI-NFR. Manifest-Quelle: `.claude/skills/req-coverage-audit/expectations.yaml`. Pro Anforderung mit Coverage < 100 % wurde ein eigenstaendiger Per-Anforderungs-Plan unter `.audits/req-coverage-audit/<ID>.md` mit konkreten Aufgaben + Akzeptanzkriterien angelegt.
 
 > **⚠️ Spec-Audit 2026-07-01 (E1) — Coverage misst Artefakt-Präsenz, nicht semantische Vollständigkeit.** Die 100 %-Werte für **REQ-013** und **REQ-022** sind irreführend: `run_audit.py` prüft nur, ob erwartete Datei-Globs existieren. Code-Verifikation zeigt, dass **`SuccessionPlan` (REQ-013, Staffelanbau) 0 Treffer** und die **`OverwinteringProfile`-Modellklasse (REQ-022, Überwinterung) 0 Treffer** in `src/backend` hat (nur die v2.5-Reminder-Typ-Enums sind gelandet). Beide Lifecycle-Features sind real **nicht implementiert** — siehe `.audits/phase-0-drift-findings.md`. Umsetzung getrackt in Issue #299 (SuccessionPlan REQ-013 + OverwinteringProfile REQ-022).
+>
+> **⚠️ Ergänzung Fable-5-Code-Review 2026-07 (GAP-B1) — dasselbe Artefakt-vs-Semantik-Muster betrifft weitere REQs.** Trotz „100 % Implementiert" sind folgende REQs im Code reine Scaffolds (Service/Engine wirft `NotImplementedError`, Router = Platzhalter): **REQ-008** Post-Harvest, **REQ-016** InvenTree (optional), **REQ-017** Vermehrung/Lineage, **REQ-018** Umgebungssteuerung/Aktorik, **REQ-026** Aquaponik, **REQ-031/033/035/036** KI-Assistenz-Familie. Diese sind bewusst im Backlog (`execution-roadmap.md` Buckets D/E) belassen; das Aggregat sollte nicht als „fertig" gelesen werden. Siehe `spec/analysis/code-review-fable5-2026-07.md` (Findings GAP-B1..B17).
+>
+> **✅ Gegenläufig geschlossen (GAP-B17):** **REQ-014** (v1.6: `_ms`-Suffix, Wasserquellen-Kaskade) und **REQ-015** (v1.6: Light-iCal-Token, CF-005 `expires_at`/410) sind im Code implementiert und wurden vom Fable-5-Review verifiziert — die 100 %-Werte sind hier korrekt (in `execution-roadmap.md` als `done` markiert).
 
 ## Manifest-Vollstaendigkeit
 - Alle Anforderungen im Manifest: **72/72**
