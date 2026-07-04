@@ -1,7 +1,7 @@
 # AI Assistant
 
 !!! warning "Not yet implemented"
-    The AI Assistant **interface** described on this page (chat panel, tip cards, diagnosis mode) is planned (internal reference: REQ-031) and not yet available; it is not yet implemented in the frontend. The `KIAssistentPage` currently exists only as a placeholder ("This feature is still in preparation") and is not yet linked in the navigation. This documentation describes the **planned behavior** and uses future tense throughout. The underlying knowledge base is already usable directly via the API today — see the next section.
+    The AI Assistant **interface** described on this page (chat panel, tip cards, diagnosis mode) is planned and not yet available; it is not yet implemented in the frontend. The `KIAssistentPage` currently exists only as a placeholder ("This feature is still in preparation") and is not yet linked in the navigation. This documentation describes the **planned behavior** and uses future tense throughout. The underlying knowledge base is already usable directly via the API today — see the next section. <!-- REQ-031 -->
 
 The AI Assistant will provide context-aware care tips, support diagnosing plant problems, and answer questions about your plants — directly based on your own data.
 
@@ -103,7 +103,7 @@ Kamerplanter will work without an AI provider. In this case, the system will gen
     Tenant admins can upload custom guides in YAML format. These are automatically integrated into the RAG knowledge base. The guide [Understanding the RAG Knowledge Base](../guides/rag-knowledge-base.md) explains how.
 
 ??? question "When is the chat interface coming?"
-    No fixed date has been set. REQ-031 is specified; progress can be tracked in the project's backlog/issue tracker.
+    No fixed date has been set. Progress can be tracked in the project's backlog/issue tracker. <!-- REQ-031 -->
 
 ---
 

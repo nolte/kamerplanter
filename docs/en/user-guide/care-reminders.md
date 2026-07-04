@@ -57,17 +57,7 @@ The system knows predefined care styles for typical houseplant groups. Use the *
 
 <!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
-| Care Style | Watering Interval (Summer) | Winter Factor | Watering Method | Typical Plants |
-|------------|------------------------------|----------------|------------------|----------------|
-| Tropical (`tropical`) | Every 7 days | 1.5× | Top watering | Monstera, Philodendron, Ficus |
-| Succulent (`succulent`) | Every 14 days | 3.0× | Drench & drain | Echeveria, Haworthia, Aloe |
-| Orchid (`orchid`) | Every 7 days | 2.0× | Soak | Phalaenopsis, Dendrobium |
-| Calathea (`calathea`) | Every 5 days | 1.5× | Bottom watering | Calathea, Maranta, Ctenanthe |
-| Tropical Herbs (`herb_tropical`) | Every 5 days | 1.5× | Top watering | Basil, Mint, Coriander |
-| Mediterranean (`mediterranean`) | Every 10 days | 2.0× | Drench & drain | Rosemary, Lavender, Thyme |
-| Fern (`fern`) | Every 4 days | 1.5× | Top watering | Nephrolepis, Adiantum, Asplenium |
-| Cactus (`cactus`) | Every 21 days | 4.0× | Drench & drain | Cacti (Cactaceae) |
-| Custom (`custom`) | Starts at 7 days, freely adjustable | Starts at 1.5×, freely adjustable | Freely selectable | — |
+--8<-- "docs/_generated/care-style-presets-indoor.en.md"
 
 !!! warning "Not all succulents are cacti"
     Cacti (Cactaceae) and succulents like Echeveria or Haworthia belong to different families. The `cactus` care style applies only to true cacti. Echeveria and Haworthia use `succulent`. Lithops and other Mesembs (Aizoaceae) require even more specific logic and should be configured with `custom`.
@@ -144,42 +134,20 @@ In addition to the nine houseplant styles, the data model knows ten outdoor pres
 
 <!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
-| Care Style | Watering Interval (Summer) | Winter Factor | Fertilizing Active | Typical Plants |
-|------------|------------------------------|----------------|---------------------|-----------------|
-| `outdoor_annual_veg` | Every 3 days | 1.0× | April–September | Outdoor vegetables (annual) |
-| `outdoor_perennial` | Every 5 days | 2.0× | March–September | Perennials |
-| `outdoor_annual_ornamental` | Every 3 days | 1.0× | April–September | Pansy, geranium, lobelia |
-| `fruit_tree` | Every 14 days | 1.0× | March–May | Apple, pear, cherry |
-| `berry_shrub` | Every 7 days | 1.0× | March–June | Raspberry, currant, gooseberry |
-| `rose` | Every 7 days | 1.5× | April–July | Bed, shrub, and climbing roses |
-| `frost_tender_tuber` | Every 5 days | 5.0× | May–August | Dahlia, gladiolus, canna |
-| `frost_tender_container` | Every 5 days | 4.0× | April–September | Oleander, citrus, olive |
-| `winter_vegetable` | Every 7 days | 2.0× | August–September | Kale, lamb's lettuce, winter purslane |
-| `spring_bulb` | Every 14 days | 1.0× | March–May | Tulip, daffodil, crocus |
+--8<-- "docs/_generated/care-style-presets-outdoor.en.md"
 
 !!! info "Selectable only via the API"
-    These ten outdoor presets are currently **not** available in the "Care Style" selector of the care profile dialog — the UI only offers the nine houseplant styles from the table above. Likewise, automatic family-based assignment (see below) never assigns an outdoor style to a plant. An outdoor preset can currently only be set via the technical API.
+    These ten outdoor presets are currently **not** available in the "Care Style" selector of the care profile dialog — the UI only offers the nine houseplant styles from the table above. Of these outdoor styles, automatic family-based assignment (see below) only assigns `outdoor_annual_ornamental` (for ornamental families such as violets, primroses, or geraniums); the other nine outdoor presets can only be set via the technical API.
 
 ---
 
 ## Family-Based Care Assignment
 
-The system knows the care requirements of 10 plant families and automatically assigns new plants to the matching care style:
+The system knows the care requirements of 15 plant families and automatically assigns new plants to the matching care style:
 
 <!-- Source: src/backend/app/domain/engines/care_reminder_engine.py (FAMILY_CARE_MAP) -->
 
-| Family | Auto Style |
-|--------|-----------|
-| Araceae (arums) | `tropical` |
-| Marantaceae (prayer plants) | `calathea` |
-| Orchidaceae (orchids) | `orchid` |
-| Cactaceae (cacti) | `cactus` |
-| Crassulaceae (stonecrops) | `succulent` |
-| Asphodelaceae (asphodels) | `succulent` |
-| Polypodiaceae (polypody ferns) | `fern` |
-| Lamiaceae (mints) | `herb_tropical` |
-| Oleaceae (olive family) | `mediterranean` |
-| Moraceae (fig family) | `tropical` |
+--8<-- "docs/_generated/family-care-map.en.md"
 
 For all unlisted families the fallback style `tropical` applies, unless a species-specific watering guide is available.
 

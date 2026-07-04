@@ -1,7 +1,7 @@
 # Environment Control & Actuators
 
 !!! warning "Not yet implemented"
-    This feature is **specified but not yet implemented** (REQ-018). This documentation describes the planned behavior. Currently only the Home Assistant communication layer exists (reading sensor data). The rule engine, schedules, hysteresis, and actuator control are not yet coded.
+    This feature is **specified but not yet implemented**. This documentation describes the planned behavior. Currently only the Home Assistant communication layer exists (reading sensor data). The rule engine, schedules, hysteresis, and actuator control are not yet coded. <!-- REQ-018 -->
 
 Kamerplanter closes the control loop between sensors and actuators: the system measures temperature, humidity, CO₂ and VPD, evaluates these values against your rules, and then automatically controls devices like fans, humidifiers or irrigation valves. You can manually intervene at any time and temporarily override automations.
 
@@ -74,7 +74,7 @@ An **actuator** is a controllable device assigned to a location.
     - Suitable for ESPHome devices (an open-source firmware for ESP8266/ESP32 microcontrollers), Shelly switches, etc.
 
 === "Manual (fallback)"
-    The actuator exists in the system but is controlled physically by hand. Instead of sending commands, the system creates **tasks** (REQ-006) telling you when to intervene manually.
+    The actuator exists in the system but is controlled physically by hand. Instead of sending commands, the system creates **tasks** telling you when to intervene manually. <!-- REQ-006 -->
 
     !!! tip "Getting started without a smart home"
         Manual mode is ideal if you do not yet have a smart home. You still receive rule-based recommendations as a task: "Turn on humidifier — VPD is at 1.8 kPa, target: 1.2 kPa".
@@ -168,7 +168,7 @@ Example: VPD humidifier control
 
 ## Phase-Linked Profiles
 
-The system links growth phases (REQ-003) to actuator settings. When the phase changes, the light schedule and climate targets are automatically adjusted.
+The system links growth phases to actuator settings. When the phase changes, the light schedule and climate targets are automatically adjusted. <!-- REQ-003 -->
 
 !!! example "Example: Transition Vegetative → Flowering"
     - Photoperiod changes from 18/6 to 12/12

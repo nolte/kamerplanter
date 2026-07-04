@@ -1,7 +1,7 @@
 # Dashboard
 
 !!! info "Teilweise implementiert"
-    Das **Pflege-Dashboard** (fällige Aufgaben, Tank-Status) ist implementiert. **Erweiterte Analytik** (Ertrags-Trends, Sensor-Heatmaps, Verlaufsdiagramme) sind geplant aber noch nicht umgesetzt (REQ-009).
+    Das **Pflege-Dashboard** (fällige Aufgaben, Tank-Status) ist implementiert. **Erweiterte Analytik** (Ertrags-Trends, Sensor-Heatmaps, Verlaufsdiagramme) sind geplant aber noch nicht umgesetzt. <!-- REQ-009 -->
 
 Das Dashboard ist die Startseite von Kamerplanter. Es gibt dir einen schnellen Überblick über deine Pflanzen, anstehende Aufgaben, aktive Warnungen und wichtige Kennzahlen — alles auf einen Blick, ohne durch einzelne Bereiche navigieren zu müssen.
 

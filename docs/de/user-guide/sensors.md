@@ -1,6 +1,6 @@
 # Sensorik und Messdaten
 
-Kamerplanter ist für vier Datenquellen für Klima-, Substrat- und Lichtdaten ausgelegt (REQ-005 v2.7): automatische IoT/MQTT-Sensoren, Home Assistant, eine Wetter-API für Freiland-Standorte und manuelle Eingabe. Aktuell produktiv nutzbar sind **Home Assistant** (automatisches Auslesen) und die **manuelle Eingabe am Tank** — die übrigen Quellen sind spezifiziert, aber noch nicht umgesetzt (Details unten).
+Kamerplanter ist für vier Datenquellen für Klima-, Substrat- und Lichtdaten ausgelegt: automatische IoT/MQTT-Sensoren, Home Assistant, eine Wetter-API für Freiland-Standorte und manuelle Eingabe. Aktuell produktiv nutzbar sind **Home Assistant** (automatisches Auslesen) und die **manuelle Eingabe am Tank** — die übrigen Quellen sind spezifiziert, aber noch nicht umgesetzt (Details unten). <!-- REQ-005 v2.7 -->
 
 ---
 
@@ -156,7 +156,7 @@ DLI ist kein eigener Sensor-Messwert, sondern wird aus PPFD × Beleuchtungsdauer
 ## Sensoren für Freiland: Wetter-API einrichten {#sensoren-fuer-freiland-wetter-api-einrichten}
 
 !!! warning "Noch nicht implementiert"
-    Die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist **spezifiziert (REQ-005 v2.7), aber noch nicht implementiert**. Die folgenden Abschnitte beschreiben das geplante Verhalten im Futur. Aktuell werden Freiland-Messwerte nur über Home Assistant oder manuell am Tank erfasst.
+    Die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist **spezifiziert, aber noch nicht implementiert**. Die folgenden Abschnitte beschreiben das geplante Verhalten im Futur. Aktuell werden Freiland-Messwerte nur über Home Assistant oder manuell am Tank erfasst. <!-- REQ-005 v2.7 -->
 
 Wenn du keinen Sensor im Freien hast, wirst du künftig Klimadaten vom Wetterdienst abrufen können.
 

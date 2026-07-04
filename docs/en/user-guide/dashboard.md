@@ -1,7 +1,7 @@
 # Dashboard
 
 !!! info "Partially implemented"
-    The **care dashboard** (pending tasks, tank status) is implemented. **Advanced analytics** (yield trends, sensor heatmaps, time-series charts) are planned but not yet built (REQ-009).
+    The **care dashboard** (pending tasks, tank status) is implemented. **Advanced analytics** (yield trends, sensor heatmaps, time-series charts) are planned but not yet built. <!-- REQ-009 -->
 
 The dashboard is the home screen of Kamerplanter. It gives you a quick overview of your plants, upcoming tasks, active warnings, and key metrics — all at a glance without having to navigate through individual sections.
 

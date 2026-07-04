@@ -12,19 +12,7 @@ Kamerplanter ships with 11 starter kits:
 
 <!-- Source: src/backend/app/migrations/seed_data/starter_kits.yaml -->
 
-| Starter Kit | Difficulty | Environment |
-|-------------|:----------:|:-----------:|
-| Windowsill Herbs | Beginner | Windowsill |
-| Houseplant Starter | Beginner | Indoors |
-| Pet-Friendly Houseplants | Beginner | Indoors |
-| Balcony Flowers | Beginner | Balcony |
-| Balcony Flowers Pre-Cultivation | Intermediate | Windowsill |
-| Balcony Tomatoes | Intermediate | Balcony |
-| Small Vegetable Garden | Intermediate | Outdoors |
-| Chili Growing | Intermediate | Windowsill |
-| Indoor Grow Tent | Advanced | Grow Tent |
-| Superhot Chili | Advanced | Grow Tent |
-| Microgreens | Beginner | Windowsill |
+--8<-- "docs/_generated/starter-kits.en.md"
 
 !!! tip "Tip"
     You can launch the wizard again at any time — for example to add a second scenario or change your experience level. The link is in **Account Settings** under **Restart Onboarding Wizard**.

@@ -135,7 +135,7 @@ Plants are not calendars. Their development is driven by accumulated heat energy
     Most cannabis strains use T_base = 10 °C. Some indoor growers use 15 °C since plants never experience temperatures below that. Consistency matters more than the absolute value — use the same T_base for all plants of one species.
 
 ??? question "Do I need to record temperatures every day?"
-    For indoor growing with stable temperature, a single daily average is sufficient. For outdoor growing, a min/max thermometer is recommended. In future versions, Kamerplanter will be able to retrieve weather data automatically via DWD/Open-Meteo integration (REQ-005).
+    For indoor growing with stable temperature, a single daily average is sufficient. For outdoor growing, a min/max thermometer is recommended. In future versions, Kamerplanter will be able to retrieve weather data automatically via DWD/Open-Meteo integration. <!-- REQ-005 -->
 
 ??? question "GDD value seems unrealistically high — what went wrong?"
     Check that the base temperature is correctly set in master data. If it was accidentally set to 0 °C, all ambient warmth is summed up without a meaningful floor.

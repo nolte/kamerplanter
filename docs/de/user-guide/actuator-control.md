@@ -1,7 +1,7 @@
 # Umgebungssteuerung & Aktorik
 
 !!! warning "Noch nicht implementiert"
-    Diese Funktion ist **spezifiziert aber noch nicht implementiert** (REQ-018). Die Dokumentation beschreibt das geplante Verhalten. Aktuell existiert nur die Home-Assistant-Kommunikationsschicht (Sensor-Daten lesen). Die Regel-Engine, Zeitpläne, Hysterese und Aktor-Steuerung fehlen noch im Code.
+    Diese Funktion ist **spezifiziert aber noch nicht implementiert**. Die Dokumentation beschreibt das geplante Verhalten. Aktuell existiert nur die Home-Assistant-Kommunikationsschicht (Sensor-Daten lesen). Die Regel-Engine, Zeitpläne, Hysterese und Aktor-Steuerung fehlen noch im Code. <!-- REQ-018 -->
 
 Kamerplanter schließt den Regelkreis zwischen Sensorik und Aktorik: Das System misst Temperatur, Luftfeuchtigkeit, CO₂ und VPD, bewertet diese Werte anhand deiner Regeln und steuert dann Geräte wie Lüfter, Befeuchter oder Bewässerungsventile automatisch. Du kannst jederzeit manuell eingreifen und Automatiken temporär übersteuern.
 
@@ -74,7 +74,7 @@ Ein **Aktor** ist ein steuerbares Gerät, das einer Location zugeordnet wird.
     - Geeignet für ESPHome-Geräte, Shelly-Schalter, etc.
 
 === "Manuell (Fallback)"
-    Der Aktor existiert im System, wird aber physisch von Hand gesteuert. Statt Befehle zu senden, erzeugt das System **Aufgaben** (REQ-006), die dir sagen, wann du manuell eingreifen sollst.
+    Der Aktor existiert im System, wird aber physisch von Hand gesteuert. Statt Befehle zu senden, erzeugt das System **Aufgaben**, die dir sagen, wann du manuell eingreifen sollst. <!-- REQ-006 -->
 
     !!! tip "Einstieg ohne Smart-Home"
         Der manuelle Modus ist ideal, wenn du noch kein Smart-Home hast. Du bekommst trotzdem regelbasierte Empfehlungen als Aufgabe: "Befeuchter einschalten — VPD liegt bei 1.8 kPa, Ziel: 1.2 kPa".
@@ -168,7 +168,7 @@ Beispiel: VPD-Befeuchter-Regelung
 
 ## Phasengebundene Profile
 
-Das System verknüpft Wachstumsphasen (REQ-003) mit Aktor-Einstellungen. Beim Phasenwechsel werden Lichtprogramm und Klimaziele automatisch angepasst.
+Das System verknüpft Wachstumsphasen mit Aktor-Einstellungen. Beim Phasenwechsel werden Lichtprogramm und Klimaziele automatisch angepasst. <!-- REQ-003 -->
 
 !!! example "Beispiel: Übergang Vegetativ → Blüte"
     - Photoperiode wechselt von 18/6 auf 12/12

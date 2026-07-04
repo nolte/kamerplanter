@@ -112,6 +112,7 @@ All code MUST follow the style guides in `spec/style-guides/`:
 - **Backend (Python/FastAPI):** `spec/style-guides/BACKEND.md` — 5-layer architecture, naming conventions, Pydantic patterns, Service/Engine/Repository patterns, error handling, enums, logging, Celery tasks, tests, docstrings, typing, imports
 - **Frontend (React/TypeScript/MUI):** `spec/style-guides/FRONTEND.md` — component patterns, props typing, Redux Toolkit, custom hooks (useMemo obligation), MUI styling, routing, i18n, API layer, form patterns, tests, accessibility
 - **Helm/Kubernetes:** `spec/style-guides/HELM.md` — bjw-s/common chart, values.yaml conventions, security patterns, NetworkPolicies, health checks, persistence, Skaffold integration
+- **Documentation (MkDocs Material, DE/EN):** `spec/style-guides/DOCS.md` — DE-canonical/EN-mirror pairing, informal "du" voice, admonition conventions (`!!! warning "Noch nicht implementiert"` etc.), REQ-ID visibility rule, end-user/technical audience separation, generated fact tables
 
 These style guides take precedence over general best practices. When existing code conflicts with a style guide, the style guide wins for new code.
 

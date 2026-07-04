@@ -135,7 +135,7 @@ Pflanzen sind keine Kalender. Ihre Entwicklung wird durch aufgenommene Wärmeene
     Die meisten Cannabis-Sorten verwenden T_base = 10 °C. Manche Indoor-Züchter setzen 15 °C, da die Pflanzen nie unter dieser Temperatur kultiviert werden. Konsistenz ist wichtiger als der Absolutwert — verwende für alle Pflanzen einer Art denselben Wert.
 
 ??? question "Muss ich täglich Temperaturen erfassen?"
-    Für Indoor-Anbau mit konstanter Temperatur reicht ein Tagesdurchschnitt. Für Außenanlagen empfiehlt sich die Min/Max-Methode mit einem Thermometer. Zukünftig kann Kamerplanter Wetterdaten automatisch über die DWD-/Open-Meteo-Integration beziehen (REQ-005).
+    Für Indoor-Anbau mit konstanter Temperatur reicht ein Tagesdurchschnitt. Für Außenanlagen empfiehlt sich die Min/Max-Methode mit einem Thermometer. Zukünftig kann Kamerplanter Wetterdaten automatisch über die DWD-/Open-Meteo-Integration beziehen. <!-- REQ-005 -->
 
 ??? question "GDD-Wert ist unrealistisch hoch, was ist falsch?"
     Prüfe, ob die Basistemperatur in den Stammdaten korrekt eingetragen ist. Eine versehentlich auf 0 °C gesetzte Basistemperatur summiert jede Umgebungswärme auf.

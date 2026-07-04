@@ -284,7 +284,7 @@ PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
 !!! warning "Prerequisite: inference service + few-shot index"
     The local symptom adapter classifies via **few-shot classification on a frozen DINOv2 model** (no separate, license-critical model). For the button to appear and return real findings, **two** steps are required:
 
-    1. **Deploy the inference service** (the same service used for plant identification, REQ-029-A). Once reachable it answers `GET /pest/ready`.
+    1. **Deploy the inference service** (the same service used for plant identification). Once reachable it answers `GET /pest/ready`. <!-- REQ-029-A -->
     2. **Build the few-shot index** — a one-time cold start that pulls ~30 CC0/CC-BY images per class from GBIF and indexes them as prototypes. **No GBIF credentials required** (public occurrence search):
 
         ```bash
@@ -405,7 +405,7 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
     The platform-admin role can only be assigned by an existing platform admin — directly via the API or in the admin area. During initial setup, the first registered user is automatically configured as platform admin.
 
 ??? question "Can a platform admin view tenant data?"
-    Yes. Platform admins have read access to all tenant-scoped data. This permission should be restricted to trusted individuals and accompanied by an audit log (REQ-024).
+    Yes. Platform admins have read access to all tenant-scoped data. This permission should be restricted to trusted individuals and accompanied by an audit log. <!-- REQ-024 -->
 
 ??? question "Is there a viewer role for the admin area?"
     Yes. The platform role `viewer` grants read access to all admin statistics and tenant overviews, but no write permissions.
@@ -426,7 +426,7 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
 
 ## See Also
 
-- [Tenants & Gardens](tenants.md) — Tenant management as tenant-admin (REQ-024)
+- [Tenants & Gardens](tenants.md) — Tenant management as tenant-admin <!-- REQ-024 -->
 - [Privacy (GDPR)](privacy.md) — Data subject rights and GDPR compliance
 - [Authentication](../api/authentication.md) — JWT, OAuth2/OIDC, service accounts
 - [Identify Plant by Photo](plant-identification.md) — End-user guide

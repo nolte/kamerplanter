@@ -1,7 +1,7 @@
 # KI-Assistent
 
 !!! warning "Noch nicht implementiert"
-    Die auf dieser Seite beschriebene KI-Assistent-**Oberfläche** (Chat-Panel, Tipp-Karten, Diagnose-Modus) ist geplant (interne Referenz: REQ-031) und noch nicht verfügbar; im Frontend ist sie noch nicht umgesetzt. Die Seite `KIAssistentPage` existiert bislang nur als Platzhalter ("Diese Funktion ist noch in Vorbereitung") und ist noch nicht in der Navigation verlinkt. Diese Dokumentation beschreibt das **geplante Verhalten** im Futur. Schon heute nutzbar ist die zugrunde liegende Wissensbasis direkt über die API — siehe nächster Abschnitt.
+    Die auf dieser Seite beschriebene KI-Assistent-**Oberfläche** (Chat-Panel, Tipp-Karten, Diagnose-Modus) ist geplant und noch nicht verfügbar; im Frontend ist sie noch nicht umgesetzt. Die Seite `KIAssistentPage` existiert bislang nur als Platzhalter ("Diese Funktion ist noch in Vorbereitung") und ist noch nicht in der Navigation verlinkt. Diese Dokumentation beschreibt das **geplante Verhalten** im Futur. Schon heute nutzbar ist die zugrunde liegende Wissensbasis direkt über die API — siehe nächster Abschnitt. <!-- REQ-031 -->
 
 Der KI-Assistent wird kontextabhängige Pflegehinweise geben, bei der Diagnose von Problemen unterstützen und Fragen zu deinen Pflanzen beantworten — direkt auf Basis deiner eigenen Daten.
 
@@ -103,7 +103,7 @@ Kamerplanter wird auch ohne KI-Provider funktionieren. In diesem Fall soll das S
     Tenant-Admins können eigene Wissensbasen in YAML-Format hochladen. Diese werden automatisch in die RAG-Wissensbasis integriert. Wie das funktioniert, erklärt der Guide [RAG-Wissensbasis verstehen](../guides/rag-knowledge-base.md).
 
 ??? question "Wann kommt die Chat-Oberfläche?"
-    Ein konkreter Termin ist nicht festgelegt. REQ-031 ist spezifiziert; der Fortschritt lässt sich am Backlog/Issue-Tracker des Projekts verfolgen.
+    Ein konkreter Termin ist nicht festgelegt. Der Fortschritt lässt sich am Backlog/Issue-Tracker des Projekts verfolgen. <!-- REQ-031 -->
 
 ---
 

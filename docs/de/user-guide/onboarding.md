@@ -12,19 +12,7 @@ Kamerplanter liefert 11 Starter-Kits mit:
 
 <!-- Quelle: src/backend/app/migrations/seed_data/starter_kits.yaml -->
 
-| Starter-Kit | Schwierigkeit | Umgebung |
-|-------------|:-------------:|:--------:|
-| Fensterbrett-Kräuter | Einsteiger | Fensterbrett |
-| Zimmerpflanzen-Starter | Einsteiger | Innenraum |
-| Haustierfreundliche Zimmerpflanzen | Einsteiger | Innenraum |
-| Balkon-Blumen | Einsteiger | Balkon |
-| Balkon-Blumen Voranzucht | Mittelstufe | Fensterbrett |
-| Balkon-Tomaten | Mittelstufe | Balkon |
-| Kleines Gemüsebeet | Mittelstufe | Außen |
-| Chili-Zucht | Mittelstufe | Fensterbrett |
-| Indoor-Growzelt | Fortgeschritten | Growzelt |
-| Superhot-Chili | Fortgeschritten | Growzelt |
-| Microgreens | Einsteiger | Fensterbrett |
+--8<-- "docs/_generated/starter-kits.de.md"
 
 !!! tip "Tipp"
     Du kannst den Wizard jederzeit erneut aufrufen — zum Beispiel um ein zweites Szenario hinzuzufügen oder deine Erfahrungsstufe zu ändern. Den Link dazu findest du in den **Kontoeinstellungen** unter dem Punkt **Onboarding-Wizard erneut starten**.

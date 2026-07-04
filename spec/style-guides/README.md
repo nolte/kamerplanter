@@ -11,6 +11,7 @@ Diese Dokumente definieren Konventionen die durch automatische statische Analyse
 | [FRONTEND.md](FRONTEND.md) | `src/frontend/` — React / TypeScript / MUI | ESLint, TypeScript strict, Vitest |
 | [HELM.md](HELM.md) | `helm/`, `skaffold.yaml` — Kubernetes / Helm | helm lint, helm template, skaffold diagnose |
 | [HA-INTEGRATION.md](HA-INTEGRATION.md) | `custom_components/kamerplanter/` — Home Assistant Custom Component | Ruff, MyPy, hassfest |
+| [DOCS.md](DOCS.md) | `docs/` — MkDocs Material Dokumentation (DE/EN) | `mkdocs build --strict`, Lektorat-Audit (D1–D6) |
 
 ## Zweck
 
@@ -26,13 +27,14 @@ Pull Request
     ├─→ Backend:     ruff check + ruff format + mypy --strict + pytest
     ├─→ Frontend:    eslint + tsc --noEmit + vitest run
     ├─→ Helm:        helm lint + helm template + skaffold diagnose
-    └─→ HA:          ruff check + ruff format + mypy
+    ├─→ HA:          ruff check + ruff format + mypy
+    └─→ Docs:        mkdocs build --strict + Lektorat-Audit (D1–D6)
 ```
 
 ## Fuer Agents
 
-Die Style Guides sind so verfasst, dass Umsetzungs-Agents (fullstack-developer, ha-integration-sync, etc.)
-die Konventionen direkt anwenden koennen:
+Die Style Guides sind so verfasst, dass Umsetzungs-Agents (fullstack-developer, ha-integration-sync,
+mkdocs-documentation, etc.) die Konventionen direkt anwenden koennen:
 
 - **Namenskonventionen** mit konkreten Beispielen
 - **Code-Patterns** mit Copy-Paste-faehigen Templates

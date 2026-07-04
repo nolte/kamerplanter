@@ -1,7 +1,7 @@
 # Privacy & GDPR
 
 !!! note "Partially available"
-    The GDPR data subject rights (tracked internally as REQ-025) are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** ("Account Settings > Privacy") is still to come — the steps described on this page are therefore written in future tense and describe the planned UI behavior. Until the interface is available, all features can already be used directly via the API (see [Accessing via the API](#for-technical-users-accessing-via-the-api-usable-today)).
+    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** ("Account Settings > Privacy") is still to come — the steps described on this page are therefore written in future tense and describe the planned UI behavior. Until the interface is available, all features can already be used directly via the API (see [Accessing via the API](#for-technical-users-accessing-via-the-api-usable-today)). <!-- REQ-025 -->
 
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features.
 
@@ -281,13 +281,15 @@ Kamerplanter stores different data categories with different retention periods:
 | Data category | Retention period | Reason |
 |---------------|-----------------|--------|
 | Personal profile data | Until deletion + 90 days | GDPR |
-| Sensor data (raw) | 90 days | NFR-011 |
-| Sensor data (hourly aggregate) | 2 years | NFR-011 |
-| Sensor data (daily aggregate) | 5 years | NFR-011 |
+| Sensor data (raw) | 90 days | Storage limitation |
+| Sensor data (hourly aggregate) | 2 years | Storage limitation |
+| Sensor data (daily aggregate) | 5 years | Storage limitation |
 | IP addresses | 7 days, then anonymized | Data minimization |
 | Harvest/treatment data | Legal minimum period | CanG / PflSchG |
 | Consent log | 3 years after revocation | Accountability |
 | Erasure audit log | 1 year | Accountability |
+
+<!-- NFR-011 -->
 
 ### Sensor Data Downsampling
 

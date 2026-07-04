@@ -4,7 +4,7 @@ Kamerplanter stores data only as long as technically or legally required. This d
 describes the retention matrix, the automated enforcement mechanism (Celery task),
 TimescaleDB aggregation for sensor data, and configuration via environment variables.
 
-Basis: NFR-011 (Data Retention & Storage Limits), GDPR Art. 5(1)(e).
+Basis: GDPR Art. 5(1)(e). <!-- NFR-011 -->
 
 ---
 

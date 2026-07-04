@@ -49,9 +49,9 @@ Die Feldnamen in der Oberfläche sind deutsch beschriftet; in Klammern findest d
 
 ### Vermehrungsarten (propagation_methods)
 
-Das Feld **Vermehrungsarten** ist eine Mehrfachauswahl und dokumentiert, wie eine Art üblicherweise vermehrt wird. Es wird im **Fortgeschrittenen-Modus** (REQ-021) angezeigt.
+Das Feld **Vermehrungsarten** ist eine Mehrfachauswahl und dokumentiert, wie eine Art üblicherweise vermehrt wird. Es wird im **Fortgeschrittenen-Modus** angezeigt. <!-- REQ-021 -->
 
-Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung (REQ-017) und den KI-Wissensassistenten. Alle mitgelieferten Kulturpflanzen-Stammdaten sind bereits mit den üblichen Methoden befüllt.
+Die Angabe dient als Hinweis für Pflegeerinnerungen, die Vermehrungsplanung und den KI-Wissensassistenten. Alle mitgelieferten Kulturpflanzen-Stammdaten sind bereits mit den üblichen Methoden befüllt. <!-- REQ-017 -->
 
 | Wert | Bezeichnung | Beschreibung |
 |------|------------|-------------|
@@ -99,7 +99,7 @@ Das Feld ist ebenfalls eine Mehrfachauswahl; gespeichert werden die Monatsnummer
     Das Feld `propagation_months` bezieht sich **ausschließlich auf vegetative Vermehrung** (Teilung, Steckling, Kindel, Ausläufer, Ableger). Für Aussaatzeitpunkte (generative Vermehrung über Samen) bleiben die separaten Felder `direct_sow_months`, `indoor_start_months` und `transplant_months` zuständig. Beide Felder können gleichzeitig gepflegt sein, wenn eine Art sowohl aus Samen gezogen als auch vegetativ vermehrt werden kann.
 
 !!! tip "Pflegeerinnerungen profitieren automatisch"
-    Sobald `propagation_months` gepflegt ist, kann der KI-Wissensassistent (und zukünftig: Pflegeerinnerungen, REQ-017) konkrete Hinweise zum optimalen Vermehrungszeitpunkt ausgeben — ohne dass du dich selbst an den Kalender erinnern musst.
+    Sobald `propagation_months` gepflegt ist, kann der KI-Wissensassistent (und zukünftig: Pflegeerinnerungen) konkrete Hinweise zum optimalen Vermehrungszeitpunkt ausgeben — ohne dass du dich selbst an den Kalender erinnern musst. <!-- REQ-017 -->
 
 ### Vermehrungshinweise (propagation_notes)
 
@@ -170,7 +170,7 @@ Referenzbilder werden **nicht automatisch** beim Anlegen einer Art geladen. Sie 
 
 ### Zusammenhang mit der Pflanzen-Bilderkennung
 
-Dieselben Referenzbilder, die in der Artenansicht erscheinen, bilden auch die Grundlage für die **Pflanzen-Bilderkennung** (REQ-029-A). Das DINOv2-Erkennungssystem vergleicht ein aufgenommenes Foto mit den gespeicherten Referenz-Embeddings, um die wahrscheinlichste Art zu bestimmen.
+Dieselben Referenzbilder, die in der Artenansicht erscheinen, bilden auch die Grundlage für die **Pflanzen-Bilderkennung**. Das DINOv2-Erkennungssystem vergleicht ein aufgenommenes Foto mit den gespeicherten Referenz-Embeddings, um die wahrscheinlichste Art zu bestimmen. <!-- REQ-029-A -->
 
 Mehr dazu: [Pflanzen-Bilderkennung verwenden](plant-identification.md)
 

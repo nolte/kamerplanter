@@ -58,7 +58,7 @@ flowchart LR
 | Richtung | Token | Wozu | Wo erstellen |
 |----------|-------|------|-------------|
 | **HA → Kamerplanter** | Kamerplanter API-Key (`kp_`-Prefix) | HA liest Pflanzendaten, Tankwerte, Aufgaben | Kamerplanter: **Einstellungen** > **API-Keys** |
-| **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter liest Sensordaten, steuert Aktoren (REQ-005, REQ-018) | Home Assistant: **Profil** > **Long-Lived Access Tokens** |
+| **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter liest Sensordaten, steuert Aktoren <!-- REQ-005, REQ-018 --> | Home Assistant: **Profil** > **Long-Lived Access Tokens** |
 
 !!! warning "Beide Tokens erforderlich"
     Ohne den **Kamerplanter API-Key** kann die HA-Integration keine Daten abfragen. Ohne den **HA Access Token** kann Kamerplanter keine Sensordaten aus Home Assistant lesen und keine Aktoren steuern. Für einen reinen Lese-Betrieb (nur HA-Dashboard) reicht der Kamerplanter API-Key allein.
@@ -151,7 +151,7 @@ Die Integration prüft die Erreichbarkeit automatisch via `/api/health`.
 
 | Modus | Beschreibung |
 |-------|-------------|
-| **Light-Modus** | Keine Authentifizierung nötig (REQ-027) |
+| **Light-Modus** | Keine Authentifizierung nötig <!-- REQ-027 --> |
 | **API-Key** | API-Schlüssel mit `kp_`-Prefix eingeben (empfohlen) |
 | **Login** | Benutzername und Passwort als Fallback |
 

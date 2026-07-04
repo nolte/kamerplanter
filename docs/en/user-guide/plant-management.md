@@ -49,9 +49,9 @@ Field labels in the UI are shown in German (or English, depending on your langua
 
 ### Propagation Methods (propagation_methods)
 
-The **Propagation Methods** field is a multi-select that records how a species is typically propagated. It is visible in **Intermediate mode** and above (REQ-021).
+The **Propagation Methods** field is a multi-select that records how a species is typically propagated. It is visible in **Intermediate mode** and above. <!-- REQ-021 -->
 
-This information feeds into care reminders, propagation planning (REQ-017), and the AI knowledge assistant. All bundled crop species master data already includes the standard propagation methods.
+This information feeds into care reminders, propagation planning, and the AI knowledge assistant. All bundled crop species master data already includes the standard propagation methods. <!-- REQ-017 -->
 
 | Value | Label | Description |
 |-------|-------|-------------|
@@ -99,7 +99,7 @@ The field is also a multi-select; the stored values are month numbers 1 (January
     The `propagation_months` field applies **exclusively to vegetative propagation** (division, cuttings, offsets, runners, layers). Sowing windows (generative propagation from seed) remain the responsibility of the separate fields `direct_sow_months`, `indoor_start_months`, and `transplant_months`. Both can be populated simultaneously when a species can be grown from seed and propagated vegetatively.
 
 !!! tip "Care reminders benefit automatically"
-    Once `propagation_months` is populated, the AI knowledge assistant (and, in a future release, care reminders via REQ-017) can provide concrete hints about the optimal propagation window — without you needing to keep track of the calendar yourself.
+    Once `propagation_months` is populated, the AI knowledge assistant (and, in a future release, care reminders) can provide concrete hints about the optimal propagation window — without you needing to keep track of the calendar yourself. <!-- REQ-017 -->
 
 ### Propagation Notes (propagation_notes)
 
@@ -170,7 +170,7 @@ Reference images are **not loaded automatically** when a species is created. The
 
 ### Connection to plant identification
 
-The same reference images displayed in the species view also form the basis for **plant identification** (REQ-029-A). The DINOv2 recognition system compares a captured photo against the stored reference embeddings to determine the most likely species.
+The same reference images displayed in the species view also form the basis for **plant identification**. The DINOv2 recognition system compares a captured photo against the stored reference embeddings to determine the most likely species. <!-- REQ-029-A -->
 
 See also: [Plant Identification](plant-identification.md)
 
