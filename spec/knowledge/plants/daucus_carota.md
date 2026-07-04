@@ -371,7 +371,23 @@ Bei Moehren im Freiland entfaellt die typische Naehrloesungs-Mischung. Bei der s
 
 ### 4.3 Ueberwinterung
 
-Moehren koennen bei milder Witterung und Mulch-Abdeckung (15--20 cm Stroh/Laub) bis Dezember/Januar im Boden verbleiben. Bei starkem Dauerfrost (unter -8 degC) erfrieren sie. Fuer sichere Lagerung: vor dem ersten starken Frost ernten und in feuchtem Sand bei 0--2 degC lagern.
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung | needs_protection | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme | mulch (15--20 cm Stroh/Laub; Ruebe im Boden belassen) | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | 11 (November, vor Dauerfrost) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme | uncover (Mulch bei Austrieb / Nachernte abraeumen) | `overwintering_profiles.spring_action` |
+| Fruehjahrs-Massnahme Monat | 3 (Maerz) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temp min (degC) | — (Freilandueberwinterung; kein Quartier noetig) | `overwintering_profiles.winter_quarter_temp_min` |
+| Winterquartier Licht | — (Freiland) | `overwintering_profiles.winter_quarter_light` |
+| Winter-Giessen | none (Niederschlag genuegt) | `overwintering_profiles.winter_watering` |
+
+**Hinweise zu §4.3:**
+- Moehren sind zweijaehrig und halbfrosthart (`half_hardy`). Bei milder Witterung und Mulch-Abdeckung (15--20 cm Stroh/Laub) koennen sie bis Dezember/Januar im Boden verbleiben und laufend geerntet werden (`needs_protection` + `mulch`, Freilandueberwinterung).
+- Bei starkem Dauerfrost (unter -8 degC) erfrieren die Rueben.
+- Alternative sichere Lagerung: vor dem ersten starken Frost ernten und in feuchtem Sand bei 0--2 degC einschlagen (Erdmiete/Keller) — dann `dig_and_store` statt `mulch`.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
 ---
 

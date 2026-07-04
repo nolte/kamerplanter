@@ -13,6 +13,9 @@ from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
+from app.domain.interfaces.overwintering_profile_template_repository import (
+    IOverwinteringProfileTemplateRepository,
+)
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -21,9 +24,35 @@ from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
 from app.domain.models.overwintering_profile import OverwinteringProfile
+from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.species import Species
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
+
+
+def _template_to_profile(
+    template: OverwinteringProfileTemplate | None,
+    plant_key: str,
+) -> OverwinteringProfile | None:
+    """Adapt a shared species template into a transient per-plant profile.
+
+    Returns ``None`` when there is no template or the template carries no timed
+    winter action (``winter_action_month`` is ``None`` — e.g. a house plant that
+    simply stays indoors), so no phantom winter reminder is scheduled.
+    """
+    if template is None or template.winter_action_month is None:
+        return None
+    return OverwinteringProfile(
+        plant_key=plant_key,
+        hardiness_zone_min=template.hardiness_zone_min,
+        hardiness_rating=template.hardiness_rating,
+        winter_action=template.winter_action,
+        winter_action_month=template.winter_action_month,
+        spring_action=template.spring_action,
+        spring_action_month=template.spring_action_month,
+        auto_generated=True,
+        **template.winter_quarter_fields(),
+    )
 
 
 class CareReminderService:
@@ -39,6 +68,7 @@ class CareReminderService:
         species_repo: ISpeciesRepository | None = None,
         nutrient_plan_repo: INutrientPlanRepository | None = None,
         overwintering_repo: IOverwinteringProfileRepository | None = None,
+        overwintering_template_repo: IOverwinteringProfileTemplateRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
@@ -50,6 +80,7 @@ class CareReminderService:
         self._species_repo = species_repo
         self._nutrient_plan_repo = nutrient_plan_repo
         self._overwintering_repo = overwintering_repo
+        self._overwintering_template_repo = overwintering_template_repo
 
     def get_or_create_profile(
         self,
@@ -422,10 +453,21 @@ class CareReminderService:
         return cache[cultivar_key]
 
     def _resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
-        """Load the plant's overwintering profile (one lookup per subject, B1)."""
-        if self._overwintering_repo is None:
-            return None
-        return self._overwintering_repo.get_profile_by_plant_key(plant_key)
+        """Load the plant's overwintering profile (one lookup per subject, B1).
+
+        A per-instance profile wins (user override); otherwise the plant may reuse a
+        shared species-level template (N:1), which is adapted into a transient
+        profile so the winter-reminder gates fire identically for shared and
+        per-instance subjects.
+        """
+        if self._overwintering_repo is not None:
+            profile = self._overwintering_repo.get_profile_by_plant_key(plant_key)
+            if profile is not None:
+                return profile
+        if self._overwintering_template_repo is not None:
+            template = self._overwintering_template_repo.get_template_for_subject(plant_key=plant_key)
+            return _template_to_profile(template, plant_key)
+        return None
 
     def _resolve_current_phase_name(self, phase_key: str | None) -> str | None:
         """Resolve a plant's current growth-phase name (used for dormancy detection)."""

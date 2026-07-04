@@ -76,6 +76,9 @@ CARE_CONFIRMATIONS = "care_confirmations"
 
 # REQ-022 Overwintering (G-002)
 OVERWINTERING_PROFILES = "overwintering_profiles"
+#: Species-level overwintering *templates* curated from the plant Steckbriefe
+#: (§4.3), distinct from the per-instance ``OVERWINTERING_PROFILES``.
+OVERWINTERING_PROFILE_TEMPLATES = "overwintering_profile_templates"
 
 # REQ-020 Onboarding
 STARTER_KITS = "starter_kits"
@@ -203,6 +206,7 @@ DOCUMENT_COLLECTIONS = [
     CARE_PROFILES,
     CARE_CONFIRMATIONS,
     OVERWINTERING_PROFILES,
+    OVERWINTERING_PROFILE_TEMPLATES,
     STARTER_KITS,
     ONBOARDING_STATES,
     USER_PREFERENCES,
@@ -345,6 +349,10 @@ CARE_EVENT_FOR = "care_event_for"
 # REQ-022 Overwintering edges (G-002)
 HAS_OVERWINTERING_PROFILE = "has_overwintering_profile"
 OVERWINTERS_AT = "overwinters_at"
+#: Links a subject (plant instance / planting run) to a *shared, reusable*
+#: species-level overwintering template (N subjects → 1 template). Unique on
+#: ``_from`` so each subject references at most one shared template.
+USES_OVERWINTERING_TEMPLATE = "uses_overwintering_template"
 
 # REQ-014 Tank Fill edges
 HAS_FILL_EVENT = "has_fill_event"
@@ -492,6 +500,7 @@ EDGE_COLLECTIONS = [
     CARE_EVENT_FOR,
     HAS_OVERWINTERING_PROFILE,
     OVERWINTERS_AT,
+    USES_OVERWINTERING_TEMPLATE,
     INCLUDES_SPECIES,
     INCLUDES_CULTIVAR,
     INCLUDES_TEMPLATE,
@@ -994,6 +1003,11 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [OVERWINTERING_PROFILES],
         "to_vertex_collections": [LOCATIONS],
     },
+    {
+        "edge_collection": USES_OVERWINTERING_TEMPLATE,
+        "from_vertex_collections": [PLANTING_RUNS, PLANT_INSTANCES],
+        "to_vertex_collections": [OVERWINTERING_PROFILE_TEMPLATES],
+    },
     # REQ-020 Onboarding
     {
         "edge_collection": INCLUDES_SPECIES,
@@ -1313,6 +1327,12 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     has_overwintering_profile_col = db.collection(HAS_OVERWINTERING_PROFILE)
     has_overwintering_profile_col.add_persistent_index(fields=["_from"], unique=True)
+
+    # Shared reusable template link: one template per subject (unique _from),
+    # while many subjects may point to the same template (N:1 reuse).
+    uses_overwintering_template_col = db.collection(USES_OVERWINTERING_TEMPLATE)
+    uses_overwintering_template_col.add_persistent_index(fields=["_from"], unique=True)
+    uses_overwintering_template_col.add_persistent_index(fields=["_to"], unique=False)
 
     # REQ-020 Onboarding indexes
     starter_kits_col = db.collection(STARTER_KITS)

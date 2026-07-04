@@ -114,3 +114,44 @@ class WinterHardinessOverviewResponse(BaseModel):
     red: int
     total: int
     red_plants: list[WinterHardinessOverviewEntryResponse]
+
+
+class LinkSharedTemplateRequest(BaseModel):
+    """Point a subject at the shared, reusable species-level overwintering template."""
+
+    plant_key: str | None = None
+    planting_run_key: str | None = None
+    template_key: str | None = None
+    species_key: str | None = None
+    scientific_name: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _validate(self) -> LinkSharedTemplateRequest:
+        if bool(self.plant_key) == bool(self.planting_run_key):
+            raise ValueError("Exactly one of plant_key / planting_run_key must be given.")
+        if not self.template_key and not self.species_key and not self.scientific_name:
+            raise ValueError("One of template_key / species_key / scientific_name must be given.")
+        return self
+
+
+class OverwinteringTemplateResponse(BaseModel):
+    """A reusable species-level overwintering template (shared across instances)."""
+
+    key: str | None = None
+    species_scientific_name: str
+    species_key: str | None = None
+    hardiness_zone_min: str | None = None
+    hardiness_rating: HardinessRating
+    winter_action: WinterAction
+    winter_action_month: int | None = None
+    spring_action: SpringAction | None = None
+    spring_action_month: int | None = None
+    winter_quarter_temp_min: float | None = None
+    winter_quarter_temp_max: float | None = None
+    winter_quarter_light: WinterQuarterLight | None = None
+    winter_watering: WinterWatering | None = None
+    storage_medium: str | None = None
+    storage_check_interval_days: int | None = None
+    tuber_status: TuberStatus | None = None
+    notes: str | None = None
+    source: str = "steckbrief"

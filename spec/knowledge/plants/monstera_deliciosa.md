@@ -356,7 +356,23 @@ Bei Zimmerpflanzen-Fluessigduengern ist die Mischungsreihenfolge weniger kritisc
 
 ### 4.3 Ueberwinterung
 
-Entfaellt -- reine Zimmerpflanze, ganzjaehrig Indoor bei Raumtemperatur. Im Winter lediglich Giessen reduzieren und Duengung einstellen.
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhaerte-Bewertung | frost_free | `overwintering_profiles.hardiness_rating` |
+| Winter-Massnahme | none (reine Zimmerpflanze, bleibt ganzjaehrig im Innenraum) | `overwintering_profiles.winter_action` |
+| Winter-Massnahme Monat | — (keine saisonale Massnahme) | `overwintering_profiles.winter_action_month` |
+| Fruehjahrs-Massnahme | — | `overwintering_profiles.spring_action` |
+| Winterquartier Temp min (degC) | 15 (Mindesttemperatur 12; darunter Kaelteschaeden) | `overwintering_profiles.winter_quarter_temp_min` |
+| Winterquartier Temp max (degC) | 24 | `overwintering_profiles.winter_quarter_temp_max` |
+| Winterquartier Licht | bright (hell, indirekt; Sued-/Ostfenster) | `overwintering_profiles.winter_quarter_light` |
+| Winter-Giessen | reduced (Giessen reduzieren, Substrat antrocknen lassen, keine Duengung) | `overwintering_profiles.winter_watering` |
+
+**Hinweise zu §4.3:**
+- *Monstera deliciosa* ist frostempfindlich (`sensitive`) und wird als reine Zimmerpflanze ganzjaehrig frostfrei im Innenraum gehalten (`frost_free`); eine saisonale Ausraeumung ins Winterquartier entfaellt (`winter_action = none`).
+- Im Winter lediglich Giessen reduzieren und Duengung einstellen; Mindesttemperatur 12 degC.
+- Ein optionaler Sommeraufenthalt im Freien (Halbschatten, nur frostfreie Periode > 12 degC) ist moeglich, aber nicht erforderlich.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
 ### 4.4 Standort-Empfehlungen
 

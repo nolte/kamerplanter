@@ -23,6 +23,9 @@ from app.domain.engines.winter_hardiness_engine import (
     validate_d5_invariant,
 )
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
+from app.domain.interfaces.overwintering_profile_template_repository import (
+    IOverwinteringProfileTemplateRepository,
+)
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
@@ -31,6 +34,7 @@ from app.domain.models.overwintering_profile import (
     WinterHardinessOverview,
     WinterHardinessOverviewEntry,
 )
+from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 
 _ENTITY = "OverwinteringProfile"
 
@@ -64,11 +68,13 @@ class OverwinteringProfileService:
         site_repo: ISiteRepository | None = None,
         plant_repo: IPlantInstanceRepository | None = None,
         planting_run_repo: IPlantingRunRepository | None = None,
+        template_repo: IOverwinteringProfileTemplateRepository | None = None,
     ) -> None:
         self._repo = repo
         self._site_repo = site_repo
         self._plant_repo = plant_repo
         self._planting_run_repo = planting_run_repo
+        self._template_repo = template_repo
 
     # ── CRUD ────────────────────────────────────────────────────────────
 
@@ -142,6 +148,7 @@ class OverwinteringProfileService:
         spring_action_month: int = 3,
         winter_quarter_key: str | None = None,
         is_geophyte: bool = False,
+        species_key: str | None = None,
     ) -> OverwinteringProfile:
         """Derive an overwintering profile from the winter hardiness ampel.
 
@@ -151,6 +158,12 @@ class OverwinteringProfileService:
         (tuber/bulb/corm) on the red path is stored as ``dig_and_store`` rather
         than moved indoors, so the tuber-dig / storage-check reminders can fire
         (B3).
+
+        When ``species_key`` resolves a species-level template, its curated
+        winter-quarter conditions (temperature range, watering) and tuber-storage
+        details replace the generic defaults — but only on a relocation path
+        (``move_indoors`` / ``dig_store``), so the enrichment can never contradict
+        the derived D5 path.
         """
         light = evaluate_winter_hardiness(frost_sensitivity, species_zone, site_zone)
         rating = _LIGHT_TO_RATING[light]
@@ -162,6 +175,9 @@ class OverwinteringProfileService:
             action = WinterAction.DIG_STORE
 
         spring_action, spring_month = self._derive_spring_action(light, action, spring_action_month)
+
+        template = self._resolve_template(species_key)
+        quarter = self._template_quarter_fields(template, action)
 
         profile = OverwinteringProfile(
             plant_key=plant_key,
@@ -175,6 +191,7 @@ class OverwinteringProfileService:
             winter_quarter_key=winter_quarter_key,
             auto_generated=True,
             tenant_key=tenant_key,
+            **quarter,
         )
         self._require_single_subject(profile)
         validate_d5_invariant(profile, light)
@@ -207,15 +224,122 @@ class OverwinteringProfileService:
             spring_action = SpringAction.UNCOVER
         return spring_action, spring_action_month
 
+    def _resolve_template(self, species_key: str | None) -> OverwinteringProfileTemplate | None:
+        if not species_key or self._template_repo is None:
+            return None
+        return self._template_repo.get_template_by_species_key(species_key)
+
+    @staticmethod
+    def _template_quarter_fields(
+        template: OverwinteringProfileTemplate | None,
+        action: WinterAction,
+    ) -> dict:
+        """Species-accurate winter-quarter / storage fields for a relocation path.
+
+        Enriches only when the template's *own* winter action equals the derived
+        action, so a dig-and-store template's cold-storage numbers (e.g. 0–2 °C)
+        never graft onto a move-indoors profile — and nothing leaks onto an in-situ
+        (none/mulch/fleece/…) path.
+        """
+        if (
+            template is None
+            or template.winter_action != action
+            or action not in {WinterAction.MOVE_INDOORS, WinterAction.DIG_STORE}
+        ):
+            return {}
+        return template.winter_quarter_fields()
+
+    # ── Shared reusable templates (N subjects → 1 template) ─────────────
+
+    def _require_template_repo(self) -> IOverwinteringProfileTemplateRepository:
+        if self._template_repo is None:
+            raise ValueError("OverwinteringProfileService was constructed without a template repository.")
+        return self._template_repo
+
+    @staticmethod
+    def _require_single_subject_keys(plant_key: str | None, planting_run_key: str | None) -> None:
+        """Reject a subject that names neither or both of plant / planting run (422)."""
+        if bool(plant_key) == bool(planting_run_key):
+            raise ValidationError("Exactly one of plant_key / planting_run_key must be given.")
+
+    def link_shared_template(
+        self,
+        tenant_key: str,
+        *,
+        plant_key: str | None = None,
+        planting_run_key: str | None = None,
+        template_key: str | None = None,
+        species_key: str | None = None,
+        scientific_name: str | None = None,
+    ) -> OverwinteringProfileTemplate:
+        """Point a subject at the shared, reusable template for its species (N:1).
+
+        Reuses one template document across every instance of the species instead
+        of minting a per-instance profile. Idempotent: re-linking replaces the
+        previous reference. Resolution prefers the unambiguous ``template_key`` slug;
+        ``species_key`` and ``scientific_name`` are convenience fallbacks that can be
+        ambiguous when several cultivar templates map to one species.
+        """
+        repo = self._require_template_repo()
+        self._require_single_subject_keys(plant_key, planting_run_key)
+        self._verify_subject_keys(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
+
+        template: OverwinteringProfileTemplate | None = None
+        if template_key:
+            template = repo.get_template_by_key(template_key)
+        if template is None and species_key:
+            template = repo.get_template_by_species_key(species_key)
+        if template is None and scientific_name:
+            template = repo.get_template_by_scientific_name(scientific_name)
+        if template is None or not template.key:
+            raise NotFoundError("OverwinteringProfileTemplate", template_key or species_key or scientific_name or "")
+
+        repo.link_subject(template.key, plant_key=plant_key, planting_run_key=planting_run_key)
+        return template
+
+    def get_shared_template_for_subject(
+        self,
+        tenant_key: str,
+        *,
+        plant_key: str | None = None,
+        planting_run_key: str | None = None,
+    ) -> OverwinteringProfileTemplate | None:
+        """Resolve the shared template a subject currently reuses, if any."""
+        repo = self._require_template_repo()
+        self._require_single_subject_keys(plant_key, planting_run_key)
+        self._verify_subject_keys(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
+        return repo.get_template_for_subject(plant_key=plant_key, planting_run_key=planting_run_key)
+
+    def unlink_shared_template(
+        self,
+        tenant_key: str,
+        *,
+        plant_key: str | None = None,
+        planting_run_key: str | None = None,
+    ) -> bool:
+        """Drop a subject's shared-template reference. Returns True when one existed."""
+        repo = self._require_template_repo()
+        self._require_single_subject_keys(plant_key, planting_run_key)
+        self._verify_subject_keys(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
+        return repo.unlink_subject(plant_key=plant_key, planting_run_key=planting_run_key) > 0
+
     # ── Dashboard overview ──────────────────────────────────────────────
 
     def get_hardiness_overview(self, tenant_key: str) -> WinterHardinessOverview:
-        """Aggregate profiles per traffic-light colour for the dashboard widget."""
+        """Aggregate profiles per traffic-light colour for the dashboard widget.
+
+        Counts each subject once: a per-instance profile (user override) wins over a
+        shared-template reference, so a subject that has both is not double-counted.
+        """
         profiles, _total = self._repo.list_by_tenant(tenant_key, offset=0, limit=1000)
         counts = {WinterHardinessLight.GREEN: 0, WinterHardinessLight.YELLOW: 0, WinterHardinessLight.RED: 0}
         red_plants: list[WinterHardinessOverviewEntry] = []
+        seen_subjects: set[tuple[str | None, str | None]] = set()
+        total = 0
 
         for profile in profiles:
+            seen_subjects.add((profile.plant_key, profile.planting_run_key))
+            total += 1
             light = _RATING_TO_LIGHT[profile.hardiness_rating]
             counts[light] += 1
             if light == WinterHardinessLight.RED:
@@ -229,11 +353,30 @@ class OverwinteringProfileService:
                     )
                 )
 
+        if self._template_repo is not None:
+            for plant_key, planting_run_key, template in self._template_repo.list_links_for_tenant(tenant_key):
+                if (plant_key, planting_run_key) in seen_subjects:
+                    continue  # per-instance profile already counted this subject
+                seen_subjects.add((plant_key, planting_run_key))
+                total += 1
+                light = _RATING_TO_LIGHT[template.hardiness_rating]
+                counts[light] += 1
+                if light == WinterHardinessLight.RED:
+                    red_plants.append(
+                        WinterHardinessOverviewEntry(
+                            profile_key=template.key or "",
+                            plant_key=plant_key,
+                            planting_run_key=planting_run_key,
+                            hardiness_rating=template.hardiness_rating,
+                            winter_action=template.winter_action,
+                        )
+                    )
+
         return WinterHardinessOverview(
             green=counts[WinterHardinessLight.GREEN],
             yellow=counts[WinterHardinessLight.YELLOW],
             red=counts[WinterHardinessLight.RED],
-            total=len(profiles),
+            total=total,
             red_plants=red_plants,
         )
 
@@ -279,14 +422,28 @@ class OverwinteringProfileService:
 
     def _verify_subject_ownership(self, profile: OverwinteringProfile, tenant_key: str) -> None:
         """Reject a subject (plant / planting run) owned by another tenant (B5)."""
-        if profile.plant_key and self._plant_repo is not None:
-            plant = self._plant_repo.get_by_key(profile.plant_key)
+        self._verify_subject_keys(
+            tenant_key,
+            plant_key=profile.plant_key,
+            planting_run_key=profile.planting_run_key,
+        )
+
+    def _verify_subject_keys(
+        self,
+        tenant_key: str,
+        *,
+        plant_key: str | None = None,
+        planting_run_key: str | None = None,
+    ) -> None:
+        """Reject a subject (plant / planting run) owned by another tenant (B5)."""
+        if plant_key and self._plant_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
             if plant is None or plant.tenant_key != tenant_key:
-                raise NotFoundError("PlantInstance", profile.plant_key)
-        if profile.planting_run_key and self._planting_run_repo is not None:
-            run = self._planting_run_repo.get_by_key(profile.planting_run_key)
+                raise NotFoundError("PlantInstance", plant_key)
+        if planting_run_key and self._planting_run_repo is not None:
+            run = self._planting_run_repo.get_by_key(planting_run_key)
             if run is None or run.tenant_key != tenant_key:
-                raise NotFoundError("PlantingRun", profile.planting_run_key)
+                raise NotFoundError("PlantingRun", planting_run_key)
 
     def _verify_winter_quarter_ownership(self, profile: OverwinteringProfile, tenant_key: str) -> None:
         """Reject a winter quarter (location) owned by another tenant (B5)."""

@@ -115,6 +115,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     run_seed_plant_info_extended()
 
+    from app.migrations.seed_overwintering_profiles import run_seed_overwintering_profiles
+
+    run_seed_overwintering_profiles()
+
     from app.migrations.seed_fertilizers import run_seed_fertilizers
 
     run_seed_fertilizers()

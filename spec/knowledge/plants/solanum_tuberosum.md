@@ -279,6 +279,30 @@ Kartoffeln reagieren empfindlich auf frischen Stallmist (fördert Schorf). Kein 
 | Sep–Okt | Haupternte | Kraut abschneiden, 2 Wochen warten, dann Knollen ernten | hoch |
 | Okt–Nov | Bodenverbesserung | Kompost oder Gründüngung für nächste Saison einarbeiten | mittel |
 
+### 4.3 Überwinterung
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Winterhärte-Bewertung | dig_and_store | `overwintering_profiles.hardiness_rating` |
+| Winter-Maßnahme | dig_store (Knollen nach dem Absterben des Krauts ausgraben und frostfrei einlagern) | `overwintering_profiles.winter_action` |
+| Winter-Maßnahme Monat | 10 (Oktober, Haupternte) | `overwintering_profiles.winter_action_month` |
+| Frühjahrs-Maßnahme | replant (vorgekeimte Pflanzkartoffeln auslegen) | `overwintering_profiles.spring_action` |
+| Frühjahrs-Maßnahme Monat | 4 (April) | `overwintering_profiles.spring_action_month` |
+| Winterquartier Temp min (°C) | 4 (unter 4 °C Erfrierungsgefahr) | `overwintering_profiles.winter_quarter_temp_min` |
+| Winterquartier Temp max (°C) | 8 (über 8–10 °C treiben Knollen vorzeitig aus) | `overwintering_profiles.winter_quarter_temp_max` |
+| Winterquartier Licht | dark (dunkel lagern; Licht führt zu Ergrünen/Solanin) | `overwintering_profiles.winter_quarter_light` |
+| Winter-Gießen | none (trocken lagern; Lagermedium nur bei Schrumpeln minimal anfeuchten) | `overwintering_profiles.winter_watering` |
+| Lagermedium | dunkler, frostfreier Keller in luftigen Kisten (nicht neben Äpfeln/Ethylen) | `overwintering_profiles.storage_medium` |
+| Lager-Kontrollintervall (Tage) | 30 (monatlich auf Fäulnis/Keimung prüfen) | `overwintering_profiles.storage_check_interval_days` |
+| Knollen-Status | stored | `overwintering_profiles.tuber_status` |
+
+**Hinweise zu §4.3:**
+- Die Kartoffel ist frostempfindlich (`tender`); nur die Knolle überwintert, die Pflanze stirbt ab. Daher `dig_and_store`: Knollen ausgraben und frostfrei (4–8 °C), dunkel und trocken einlagern.
+- Während des Wachstums schützt das **Anhäufeln** (`earth_up`, Mai) die Triebe vor Spätfrösten — das ist eine Kultur-, keine Überwinterungsmaßnahme.
+- Speisekartoffeln nicht neben Äpfeln lagern (Ethylen fördert Keimung). Pflanzkartoffeln im März hell und kühl **vorkeimen** (`pre_sprouting`) vor dem Auslegen.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 5. Schädlinge & Krankheiten

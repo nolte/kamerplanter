@@ -2,10 +2,12 @@ from fastapi import APIRouter, Depends
 
 from app.api.mapping import to_response
 from app.api.v1.overwintering_profiles.schemas import (
+    LinkSharedTemplateRequest,
     OverwinteringProfileAutoGenerate,
     OverwinteringProfileCreate,
     OverwinteringProfileResponse,
     OverwinteringProfileUpdate,
+    OverwinteringTemplateResponse,
     WinterHardinessOverviewResponse,
 )
 from app.common.auth import get_current_tenant
@@ -16,11 +18,13 @@ from app.common.dependencies import (
     get_species_repo,
 )
 from app.common.enums import GrowthHabit, RootType
+from app.common.exceptions import NotFoundError
 from app.common.pagination import PaginationParams, get_pagination
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.domain.models.overwintering_profile import OverwinteringProfile
+from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -120,8 +124,56 @@ def auto_generate_overwintering_profile(
         spring_action_month=body.spring_action_month,
         winter_quarter_key=body.winter_quarter_key,
         is_geophyte=is_geophyte,
+        species_key=species_key,
     )
     return _profile_response(created)
+
+
+def _template_response(template: OverwinteringProfileTemplate) -> OverwinteringTemplateResponse:
+    return to_response(template, OverwinteringTemplateResponse)
+
+
+@router.post("/link-template", response_model=OverwinteringTemplateResponse)
+def link_shared_template(
+    body: LinkSharedTemplateRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
+) -> OverwinteringTemplateResponse:
+    """Point a plant / planting run at the reusable species template (N:1)."""
+    template = service.link_shared_template(
+        ctx.tenant_key,
+        plant_key=body.plant_key,
+        planting_run_key=body.planting_run_key,
+        template_key=body.template_key,
+        species_key=body.species_key,
+        scientific_name=body.scientific_name,
+    )
+    return _template_response(template)
+
+
+@router.get("/shared-template", response_model=OverwinteringTemplateResponse)
+def get_shared_template(
+    plant_key: str | None = None,
+    planting_run_key: str | None = None,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
+) -> OverwinteringTemplateResponse:
+    template = service.get_shared_template_for_subject(
+        ctx.tenant_key, plant_key=plant_key, planting_run_key=planting_run_key
+    )
+    if template is None:
+        raise NotFoundError("OverwinteringProfileTemplate", plant_key or planting_run_key or "")
+    return _template_response(template)
+
+
+@router.delete("/shared-template", status_code=204)
+def unlink_shared_template(
+    plant_key: str | None = None,
+    planting_run_key: str | None = None,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
+) -> None:
+    service.unlink_shared_template(ctx.tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
 
 
 @router.get("/{key}", response_model=OverwinteringProfileResponse)

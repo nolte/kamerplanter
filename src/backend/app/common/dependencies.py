@@ -22,6 +22,9 @@ from app.data_access.arango.membership_repository import ArangoMembershipReposit
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.data_access.arango.overwintering_profile_repository import ArangoOverwinteringProfileRepository
+from app.data_access.arango.overwintering_profile_template_repository import (
+    ArangoOverwinteringProfileTemplateRepository,
+)
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
@@ -572,12 +575,17 @@ def get_overwintering_profile_repo() -> ArangoOverwinteringProfileRepository:
     return ArangoOverwinteringProfileRepository(get_db())
 
 
+def get_overwintering_template_repo() -> ArangoOverwinteringProfileTemplateRepository:
+    return ArangoOverwinteringProfileTemplateRepository(get_db())
+
+
 def get_overwintering_profile_service() -> OverwinteringProfileService:
     return OverwinteringProfileService(
         get_overwintering_profile_repo(),
         site_repo=get_site_repo(),
         plant_repo=get_plant_repo(),
         planting_run_repo=get_planting_run_repo(),
+        template_repo=get_overwintering_template_repo(),
     )
 
 
@@ -593,6 +601,7 @@ def get_care_reminder_service() -> CareReminderService:
         species_repo=get_species_repo(),
         nutrient_plan_repo=get_nutrient_plan_repo(),
         overwintering_repo=get_overwintering_profile_repo(),
+        overwintering_template_repo=get_overwintering_template_repo(),
     )
 
 
