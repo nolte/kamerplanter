@@ -43,6 +43,29 @@ The **EC budget** is the difference between the EC target for the current phase 
 !!! tip "RO water has virtually no base EC"
     With pure reverse osmosis water (EC ≈ 0) the entire EC budget is available for nutrients. This gives more control but also more responsibility — especially regarding calcium and magnesium.
 
+### Alkalinity and pH Reserve
+
+In the **nutrient calculator** (**Fertilization → Nutrient Calculations → Mixing Protocol**) you now also enter your water's **alkalinity** (carbonate hardness, measured in ppm CaCO₃ — often listed on your water supplier's data sheet, or measurable yourself with a KH drop test). The higher the alkalinity, the more acid is later needed for pH correction.
+
+From the alkalinity value, Kamerplanter calculates the **pH reserve** — the portion of your EC budget that stays reserved for the later pH correction and is therefore no longer available for nutrients:
+
+| Alkalinity | Classification | pH Reserve |
+|-----------|----------------|-----------|
+| < 50 ppm | Soft | 0.02 mS/cm |
+| 50–150 ppm | Medium | 0.03 mS/cm |
+| > 150 ppm | Hard | 0.05 mS/cm |
+
+After calculating, the mixing protocol shows you three transparent values:
+
+- **Net EC budget** (`ec_net`): EC target minus base water EC — the headroom generally available for nutrients.
+- **pH reserve** (`ec_ph_reserve`): the portion deducted from it for pH correction (see table above).
+- **Recipe valid**: whether the calculated final EC stays within the upper limit for substrate and phase.
+
+!!! note "Why calculated dosages are sometimes lower than before"
+    Kamerplanter now correctly deducts the pH reserve from the available EC budget before calculating fertilizer dosages. Previously, this buffer was not accounted for, which meant the final EC after pH correction could slightly exceed the target. The new ml/L values are somewhat lower as a result, but more accurate — your nutrient solution now hits its EC target more reliably.
+
+    Detailed explanation of the full calculation: [Nutrient Mixing](../guides/nutrient-mixing.md).
+
 ---
 
 ## Adding Fertilizers
@@ -60,11 +83,25 @@ Click **Add Fertilizer**.
 | Field | Description |
 |-------|-------------|
 | Name | Product name (e.g. "Canna Coco A") |
-| Type | Base nutrient, supplement, booster, biological |
+| Type | Base nutrient, supplement, booster, biological, **CalMag** |
 | NPK Ratio | Nitrogen / phosphorus / potassium shares |
 | EC Contribution | EC increase per ml/L (shown on label or data sheet) |
 | Mixing Priority | Order when mixing (lower number = added first) |
 | Dosage (ml/L) | Standard dosage per litre of water |
+
+!!! tip "Dedicated CalMag fertilizer type"
+    Choose the **CalMag** type for pure calcium-magnesium supplements. Kamerplanter automatically places fertilizers of this type at the correct point in the mixing order (see below) and in the CalMag demand calculation.
+
+#### Additional Fields for Organic Outdoor Fertilizers
+
+For fertilizers intended for outdoor use (compost, horn shavings, plant teas) you also enter these fields — they are used for [area-based dosing](#area-based-dosing-calculation-nutrient-calculator):
+
+| Field | Description |
+|-------|-------------|
+| Area Rate (g/m²) | Application rate in grams per square metre for solid fertilizers (e.g. horn shavings) |
+| Area Rate (L/m²) | Application rate in litres per square metre for compost or liquid fertilizers |
+| Dilution Ratio | For plant teas and slurries, e.g. "1:10" (1 part concentrate to 10 parts water) |
+| Nutrient Release Speed | Immediate, weeks, months, or season-long — how quickly the nutrients become plant-available |
 
 !!! danger "Mixing order matters — critical!"
     The order in which fertilizers are added to water is chemically significant. Incorrect mixing can cause precipitates that make nutrients unavailable. Kamerplanter enforces the correct order automatically.
@@ -187,6 +224,21 @@ Kamerplanter shows the nutrient demand of the plant (from master data) in the pl
 !!! warning "Do not fertilize nitrogen fixers with nitrogen"
     Legumes such as beans and peas fix nitrogen from the air themselves. Applying nitrogen fertilizer does more harm than good and suppresses natural N fixation.
 
+#### Area-Based Dosing Calculation (Nutrient Calculator) {#area-based-dosing-calculation-nutrient-calculator}
+
+Instead of deriving dosages by hand from the tables above, let Kamerplanter calculate them precisely:
+
+1. Open **Fertilization → Nutrient Calculations** and select the **Area Dosing (Outdoor)** card.
+2. Enter the keys of the desired fertilizers (comma-separated), e.g. compost and horn shavings.
+3. Either enter the **bed area in m²** directly, or enter a **location** instead. If an area is entered, it takes precedence — the location is then ignored. If the area field is left empty, Kamerplanter uses the area stored for the selected location.
+4. Optionally select the plant's **nutrient demand** (heavy/medium/light feeder, nitrogen fixer) — this provides additional guidance but does not replace the amount calculation itself.
+5. Click **Calculate**.
+
+The result shows, per fertilizer, the total amount in grams or litres for the given area, the stored dilution ratio, the nutrient release speed, and additional notes.
+
+!!! tip "Area comes from the location or is entered manually"
+    If you have already stored a bed size under **Locations → Sites**, you can leave the area field empty and enter the location key instead — the area is picked up automatically.
+
 ---
 
 ## CalMag: When and How Much?
@@ -214,6 +266,15 @@ Kamerplanter calculates CalMag requirements automatically when you have entered 
 
 ??? question "Can I reuse an existing nutrient plan for new planting runs?"
     Yes. When assigning a plan to a planting run you choose from all existing plans. This lets you apply a proven plan to multiple runs.
+
+??? question "Why is my calculated dosage in the mixing protocol now lower than before?"
+    Kamerplanter now correctly deducts the pH reserve from the EC budget before calculating fertilizer dosages. This reserve was previously not accounted for, which meant the actual final EC after pH correction could slightly exceed the target. The new, somewhat lower ml/L values hit your EC target more reliably.
+
+??? question "What is alkalinity and where do I find the value for my water?"
+    Alkalinity (also called carbonate hardness or KH) describes how strongly your water resists a change in pH — measured in ppm CaCO₃. You can often find the value on your local water supplier's data sheet, or measure it yourself with a KH drop test from an aquarium supply shop. Tap water typically ranges between 50 and 250 ppm.
+
+??? question "Can I set both g/m² and L/m² for one outdoor fertilizer?"
+    Yes. Both fields are independent and optional — use g/m² for solids (e.g. horn shavings) and L/m² for liquid or compost fertilizers. The area dosing calculator automatically uses whichever field is set for each fertilizer.
 
 ---
 

@@ -63,6 +63,9 @@ The net EC budget is divided into segments in this order:
 | pH Reserve | 3 | Buffer for pH adjuster (0.02–0.05 mS depending on water hardness) |
 | Base Nutrients | 4 | Remaining budget distributed to base nutrients |
 
+!!! tip "Where to find these values in the nutrient calculator"
+    In the mixing protocol (**Fertilization → Nutrient Calculations → Mixing Protocol**) you enter your water's carbonate hardness as **alkalinity** (ppm CaCO₃). Kamerplanter automatically calculates the pH reserve from it and shows it together with the net EC budget (`ec_net`) and the recipe's validity (`valid`) in the result. Details on how to use it: [Fertilization — Alkalinity and pH Reserve](../user-guide/fertilization.md#alkalinity-and-ph-reserve).
+
 ### Stage 3 — Recipe Scaling
 
 When manufacturer recipes (ml/L per fertilizer) are stored in Kamerplanter, the system scales proportionally:
