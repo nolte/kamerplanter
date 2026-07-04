@@ -8,6 +8,7 @@ import sitesReducer from './slices/sitesSlice';
 import substratesReducer from './slices/substratesSlice';
 import plantInstancesReducer from './slices/plantInstancesSlice';
 import plantingRunsReducer from './slices/plantingRunsSlice';
+import successionPlansReducer from './slices/successionPlansSlice';
 import tanksReducer from './slices/tanksSlice';
 import fertilizersReducer from './slices/fertilizersSlice';
 import nutrientPlansReducer from './slices/nutrientPlansSlice';
@@ -38,6 +39,7 @@ export const store = configureStore({
     substrates: substratesReducer,
     plantInstances: plantInstancesReducer,
     plantingRuns: plantingRunsReducer,
+    successionPlans: successionPlansReducer,
     tanks: tanksReducer,
     fertilizers: fertilizersReducer,
     nutrientPlans: nutrientPlansReducer,

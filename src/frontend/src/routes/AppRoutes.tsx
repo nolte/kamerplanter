@@ -71,6 +71,9 @@ const PlantingRunListPage = lazy(
 const PlantingRunDetailPage = lazy(
   () => import('@/pages/durchlaeufe/PlantingRunDetailPage'),
 );
+const SuccessionPlanListPage = lazy(
+  () => import('@/pages/durchlaeufe/SuccessionPlanListPage'),
+);
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
 const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
 const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
@@ -750,6 +753,24 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <PlantingRunDetailPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-013 §2 Staffelanbau / Succession plans */}
+          <Route
+            path="durchlaeufe/succession-plans"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <SuccessionPlanListPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="durchlaeufe/succession-plans/:key"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <SuccessionPlanListPage />
               </Suspense>
             }
           />

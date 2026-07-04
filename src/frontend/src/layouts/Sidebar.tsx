@@ -22,6 +22,7 @@ import LayersIcon from '@mui/icons-material/Layers';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import ListAltIcon from '@mui/icons-material/ListAlt';
@@ -284,6 +285,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.plantingRuns'),
           path: '/durchlaeufe/planting-runs',
           icon: <PlaylistAddCheckIcon />,
+        },
+        {
+          label: t('nav.successionPlans'),
+          path: '/durchlaeufe/succession-plans',
+          icon: <EventRepeatIcon />,
         },
       ],
     },
