@@ -1012,6 +1012,28 @@ ingress: {}
 
 # -- NetworkPolicies: restrict pod-to-pod traffic to least-privilege (SEC-M-005)
 networkpolicies:
+  # Default-deny baseline (INF-S3): fail-closed fundament for the whole release.
+  # An empty podSelector ({}) selects every pod in the release namespace and,
+  # combined with policyTypes [Ingress, Egress] and no allow rules, denies all
+  # traffic that is not explicitly re-permitted by the per-controller policies
+  # below. A newly added controller without its own policy is therefore isolated
+  # by default instead of being reachable. podSelector is set explicitly (not via
+  # ``controller``) because the release has multiple controllers, so bjw-s common
+  # cannot auto-detect a single target — an explicit empty selector is the
+  # documented way to express "all pods". NOTE: this baseline is intentionally
+  # only defined in the production release (dedicated namespace via GitOps). The
+  # dev overlays deploy into the shared ``default`` namespace alongside an
+  # out-of-chart Home Assistant pod and each other (cross-release podSelectors),
+  # where a namespace-wide deny would sever co-located, non-chart traffic.
+  default-deny:
+    podSelector: {}
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress: []
+      egress: []
+
   # Frontend: accept external ingress, only talk to backend + DNS
   frontend:
     controller: frontend
@@ -1226,6 +1248,11 @@ networkpolicies:
             - protocol: TCP
               port: 8000
         # External APIs (SMTP, Home Assistant, weather)
+        # SEC-002 defense-in-depth (mirrors the backend egress rule):
+        # 169.254.0.0/16 (link-local / cloud-metadata IMDS, e.g. 169.254.169.254)
+        # is excluded so a worker task that dials a tenant-configured URL (HA sync,
+        # notifications) can never reach the node metadata endpoint even if the
+        # application-layer SSRF guard were bypassed. RFC1918 ranges stay excluded.
         - to:
             - ipBlock:
                 cidr: 0.0.0.0/0
@@ -1233,6 +1260,7 @@ networkpolicies:
                   - 10.0.0.0/8
                   - 172.16.0.0/12
                   - 192.168.0.0/16
+                  - 169.254.0.0/16
           ports:
             - protocol: TCP
               port: 443
@@ -1290,6 +1318,47 @@ networkpolicies:
           ports:
             - protocol: TCP
               port: 8529
+      egress:
+        # DNS only (for cluster-internal resolution)
+        - to:
+            - namespaceSelector: {}
+              podSelector:
+                matchLabels:
+                  k8s-app: kube-dns
+          ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 53
+
+  # Valkey (Redis-wire cache + Celery broker, subchart): accept ingress only from
+  # backend + celery-worker + celery-beat on 6379, egress DNS only. The valkey
+  # subchart ships no NetworkPolicy of its own, so without this rule the
+  # default-deny baseline above would leave it unreachable. Matched by the
+  # subchart's ``app.kubernetes.io/name: valkey`` label (same selector the backend
+  # and celery egress rules already target), not by a chart ``controller``.
+  valkey:
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: valkey
+    policyTypes:
+      - Ingress
+      - Egress
+    rules:
+      ingress:
+        - from:
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: backend
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-worker
+            - podSelector:
+                matchLabels:
+                  app.kubernetes.io/controller: celery-beat
+          ports:
+            - protocol: TCP
+              port: 6379
       egress:
         # DNS only (for cluster-internal resolution)
         - to:
