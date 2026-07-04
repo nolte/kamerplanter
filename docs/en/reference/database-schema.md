@@ -25,7 +25,7 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
 | `botanical_families` | Plant families | `name` (unique), `common_name` |
-| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_methods[]` |
+| `species` | Plant species | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_configs[]` |
 | `cultivars` | Cultivars / varieties | `name`, `species_key`, genetic lineage |
 | `lifecycle_configs` | Lifecycle definitions per species | `species_key`, `lifecycle_type` |
 | `growth_phases` | Individual growth phases | `name`, `order`, `lifecycle_config_key` |
@@ -34,50 +34,20 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 | `phase_transition_rules` | Transition criteria between phases | `from_phase_key`, `to_phase_key`, `trigger_type`, `gdd_threshold` |
 | `phase_histories` | Log of past phase transitions | `entered_at`, `exited_at`, `actual_duration_days` |
 
-#### Species — field `propagation_methods`
+#### Species — field `propagation_configs`
 
-The `propagation_methods` field is an array of `PropagationMethod` enum values documenting which propagation techniques are typical for the species. Allowed values:
+The `propagation_configs` object-array field is the canonical model for a species' propagation. Each `PropagationConfig` entry describes one propagation method together with its own timing, wood stage, difficulty and notes — replacing the former flat `propagation_methods`/`propagation_months`/`propagation_notes` fields. Subfields:
 
-`seed` · `cutting` · `division` · `rhizome_division` · `bulb` · `tuber` · `offset` · `grafting` · `layering` · `spore` · `runner` · `leaf_cutting` · `self_seeding`
+- `method` (required) — one `PropagationMethod` enum value: `seed` · `cutting` · `leaf_cutting` · `division` · `rhizome_division` · `bulb` · `bulbil` · `tuber` · `offset` · `runner` · `grafting` · `layering` · `air_layering` · `water_propagation` · `tissue_culture` · `spore` · `self_seeding`.
+- `months` (`list[int]`, range 1–12) — months in which this method is most suitable, deduplicated and sorted ascending on the server side. Covers vegetative timing only; sowing windows for seed propagation use the separate `direct_sow_months`, `indoor_start_months` and `transplant_months` fields.
+- `wood_stage` (`WoodStage \| null`) — `softwood` / `semi_hardwood` / `hardwood` / `herbaceous`; only meaningful for cutting-type methods.
+- `difficulty` (`PropagationDifficulty \| null`) — `easy` / `moderate` / `difficult`.
+- `notes` (`string \| null`, max. 1,000 characters) — free-text expert knowledge for this method: typical failure points, species-specific substrate or temperature requirements, acclimatisation steps.
 
-The array is optional (default: empty list) in the `SpeciesCreate` schema and a required field in `SpeciesResponse` (returned as an empty list when not populated). All pre-loaded crop species seed data (143 species) is fully populated.
+The array is optional in `SpeciesCreate` (default: empty list) and always present in `SpeciesResponse` (empty list when not populated). It is maintained for most species in the seed data.
+<!-- REQ-017 -->
 
-#### Species — field `propagation_months`
-
-The `propagation_months` field is an array of integers (`list[int]`, range 1–12) indicating in which months **vegetative propagation** (division, cuttings, offsets, runners, etc.) is most suitable for the species. Month numbers are deduplicated and sorted ascending on the server side.
-
-| Property | Value |
-|----------|-------|
-| Type | `list[int]` |
-| Range | 1–12 (January–December) |
-| Default | `[]` (empty when not populated) |
-| `SpeciesCreate` | optional |
-| `SpeciesResponse` | always present (empty list when not populated) |
-| API | `PUT /api/v1/species/{key}` accepts and returns the field |
-
-**Distinction:** `propagation_months` covers vegetative propagation timing only. Sowing windows (generative propagation from seed) are represented by the separate fields `direct_sow_months`, `indoor_start_months`, and `transplant_months`.
-
-**Example:** *Anemone hupehensis* (Japanese anemone) — `propagation_months: [3, 4]` (division in early spring, before new growth begins).
-
-#### Species — field `propagation_notes`
-
-The `propagation_notes` field is an expert free-text field capturing practical propagation knowledge that cannot be expressed in structured fields like `propagation_methods` or `propagation_months` — typical failure points, species-specific substrate or temperature requirements, acclimatisation steps, and similar success factors.
-
-| Property | Value |
-|----------|-------|
-| Type | `string \| null` |
-| Max. length | 1,000 characters |
-| Language | German |
-| Default | `null` (not set) |
-| `SpeciesCreate` | optional |
-| `SpeciesResponse` | always present (`null` when not populated) |
-| API | `PUT /api/v1/species/{key}` accepts and returns the field |
-
-**Distinction:** `propagation_notes` is plain free text for qualitative expert knowledge. Structured timing belongs in `propagation_months`; technique classification belongs in `propagation_methods`.
-
-**Population:** All 183 species with populated propagation methods in the seed data include a notes text.
-
-> **Note (structured propagation):** The flat fields `propagation_methods`/`propagation_months`/`propagation_notes` are **deprecated** in favour of `propagation_configs` (one config per method with its own timing, wood stage, difficulty and notes; REQ-017). Flat values are adapted on import. New data uses `propagation_configs`.
+> **Note (deprecated flat fields):** The flat fields `propagation_methods`/`propagation_months`/`propagation_notes` are **deprecated** in favour of `propagation_configs`. Legacy flat values are still accepted and adapted on import — one config per method, all sharing the flat `propagation_months`, with `propagation_notes` attached to the first method only. New data uses `propagation_configs`.
 
 #### Species — field `toxicity` / `allergen_info`
 
