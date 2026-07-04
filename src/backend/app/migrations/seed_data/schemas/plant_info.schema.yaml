@@ -418,12 +418,16 @@ $defs:
   cultivar:
     type: object
     properties:
+      # ── Fields mirrored 1:1 onto the Cultivar domain model (app/domain/models/species.py).
+      #    Kept field-consistent with the model by test_cultivar_schema_model_field_consistency.
+      #    NOTE: species_name is the seed-format map key; it resolves to the model's species_key. ──
       name: { type: string }
       species_name:
         type: string
-        description: "Scientific name of the parent species"
+        description: "Scientific name of the parent species (resolves to the model's species_key)."
       breeder: { type: [string, "null"] }
-      description: { type: string }
+      breeding_year: { type: [integer, "null"] }
+      patent_status: { type: string }
       traits:
         type: array
         description: >-
@@ -436,6 +440,34 @@ $defs:
         type: string
         enum: [open_pollinated, f1_hybrid, clone, cultivar]
         description: "Reproduction/propagation type of the cultivar"
+      days_to_maturity:
+        type: [integer, "null"]
+        minimum: 0
+      dtm_reference:
+        type: [string, "null"]
+        enum: [direct_seed, transplant, null]
+        description: "Reference point for days_to_maturity (REQ-007, WP-6)."
+      bearing_start_year_min:
+        type: [integer, "null"]
+        minimum: 1
+        maximum: 20
+      bearing_start_year_max:
+        type: [integer, "null"]
+        minimum: 1
+        maximum: 20
+      disease_resistances:
+        type: array
+        description: "Mirrors Cultivar.disease_resistances (previously the drifted key 'resistance_to')."
+        items: { type: string }
+      watering_guide_override:
+        type: [object, "null"]
+        description: "Per-cultivar WateringGuide override; validated structurally by the Pydantic model on import."
+      phase_watering_overrides:
+        type: [object, "null"]
+        description: "Per-phase watering interval overrides (phase_name → interval_days)."
+        additionalProperties: { type: integer }
+      # ── Free-form descriptive fields — intentionally NOT on the model (tolerated by additionalProperties). ──
+      description: { type: string }
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
@@ -443,15 +475,9 @@ $defs:
         type: string
         enum: [short_day, long_day, day_neutral]
       typical_yield: { type: string }
-      days_to_maturity:
-        type: [integer, "null"]
-        minimum: 0
       flavor_profile: { type: string }
       flower_color: { type: string }
       fruit_color: { type: string }
-      resistance_to:
-        type: array
-        items: { type: string }
       notes: { type: string }
       tags:
         type: array
