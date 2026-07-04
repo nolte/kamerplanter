@@ -163,7 +163,7 @@ export default function CalculationsPage() {
                 sx={{ mb: 2 }}
               />
               <TextField
-                label="Min,Max (pro Zeile)"
+                label={t('pages.calculations.gddTempsLabel')}
                 value={gddTemps}
                 onChange={(e) => setGddTemps(e.target.value)}
                 multiline

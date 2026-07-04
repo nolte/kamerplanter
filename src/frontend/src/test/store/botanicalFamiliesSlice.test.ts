@@ -23,7 +23,7 @@ describe('botanicalFamiliesSlice', () => {
 
   it('clearCurrent resets current', () => {
     const state = reducer(
-      { items: [], current: { key: 'x' } as never, loading: false, error: null },
+      { items: [], total: 0, offset: 0, limit: 50, current: { key: 'x' } as never, loading: false, error: null },
       clearCurrent(),
     );
     expect(state.current).toBeNull();
@@ -31,7 +31,7 @@ describe('botanicalFamiliesSlice', () => {
 
   it('clearError resets error', () => {
     const state = reducer(
-      { items: [], current: null, loading: false, error: 'some error' },
+      { items: [], total: 0, offset: 0, limit: 50, current: null, loading: false, error: 'some error' },
       clearError(),
     );
     expect(state.error).toBeNull();
@@ -81,7 +81,9 @@ describe('botanicalFamiliesSlice', () => {
   });
 
   it('fetchBotanicalFamily.pending sets loading and clears prior error', () => {
-    const withError = { items: [], current: null, loading: false, error: 'old' };
+    const withError = {
+      items: [], total: 0, offset: 0, limit: 50, current: null, loading: false, error: 'old',
+    };
     const state = reducer(withError, { type: fetchBotanicalFamily.pending.type });
     expect(state.loading).toBe(true);
     expect(state.error).toBeNull();

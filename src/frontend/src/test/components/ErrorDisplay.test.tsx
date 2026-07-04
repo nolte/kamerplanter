@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
 import { SnackbarProvider } from 'notistack';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
-import '@/i18n';
+import i18n from '@/i18n/i18n';
 
 function renderComponent(props: { error: string; onRetry?: () => void }) {
   return render(
@@ -21,6 +21,23 @@ describe('ErrorDisplay', () => {
     renderComponent({ error: 'Something went wrong' });
     expect(screen.getByTestId('error-display')).toBeTruthy();
     expect(screen.getByText('Something went wrong')).toBeTruthy();
+  });
+
+  it('resolves an errors.* i18n key to localized text (FE-L5)', () => {
+    renderComponent({ error: 'errors.loadFailed' });
+    // Resolved against the active locale — the raw key must never reach the DOM.
+    expect(screen.getByText(i18n.t('errors.loadFailed'))).toBeTruthy();
+    expect(screen.queryByText('errors.loadFailed')).toBeNull();
+  });
+
+  it('maps a raw "not found" backend message via the pattern fallback', () => {
+    renderComponent({ error: 'Species not found' });
+    expect(screen.getByText(i18n.t('errors.notFound'))).toBeTruthy();
+  });
+
+  it('renders an unknown raw message unchanged', () => {
+    renderComponent({ error: 'Something unexpected' });
+    expect(screen.getByText('Something unexpected')).toBeTruthy();
   });
 
   it('renders retry button when onRetry provided', () => {
