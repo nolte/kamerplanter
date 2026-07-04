@@ -31,6 +31,7 @@ class ResourceType(StrEnum):
     SITE = "site"
     LOCATION = "location"
     PLANTING_RUN = "planting_run"
+    SUCCESSION_PLAN = "succession_plan"
     HARVEST = "harvest"
     TANK = "tank"
     NUTRIENT_PLAN = "nutrient_plan"
@@ -101,6 +102,7 @@ _PLANT_DOMAIN: list[ResourceType] = [
     ResourceType.SITE,
     ResourceType.LOCATION,
     ResourceType.PLANTING_RUN,
+    ResourceType.SUCCESSION_PLAN,
     ResourceType.HARVEST,
     ResourceType.TANK,
     ResourceType.NUTRIENT_PLAN,

@@ -381,6 +381,15 @@ class PlantingRunStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class SuccessionPlanStatus(StrEnum):
+    """REQ-013 §2 — lifecycle state of a succession (staggered sowing) plan."""
+
+    PLANNED = "planned"
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
 class DiaryEntryType(StrEnum):
     OBSERVATION = "observation"
     PROBLEM = "problem"

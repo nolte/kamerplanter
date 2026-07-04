@@ -86,6 +86,8 @@ class PlantingRunService:
 
     def create_run(self, run: PlantingRun, entries: list[PlantingRunEntry] | None = None) -> PlantingRun:
         run.status = PlantingRunStatus.PLANNED
+        if run.clone_from_run_key:
+            entries = self._apply_clone_config(run, entries)
         total_qty = 0
         if entries:
             self._engine.validate_run_type_constraints(
@@ -101,6 +103,48 @@ class PlantingRunService:
                 entry.run_key = created.key
                 self._repo.create_entry(entry)
         return created
+
+    def _apply_clone_config(
+        self,
+        run: PlantingRun,
+        entries: list[PlantingRunEntry] | None,
+    ) -> list[PlantingRunEntry] | None:
+        """Copy a template run's configuration into ``run`` (REQ-013 §2, Z.160).
+
+        For succession/annual-repeat, ``clone_from_run_key`` references an
+        existing run whose *configuration* (species/cultivar composition,
+        nutrient plan, location, substrate batch, lifecycle config) is reused —
+        but never its PlantInstances. Only fields the caller left unset are
+        filled, so an explicit override on the new run always wins.
+        """
+        template = self._repo.get_or_raise(run.clone_from_run_key)
+        if run.tenant_key:
+            verify_tenant_ownership(template, run.tenant_key, "PlantingRun")
+
+        if run.location_key is None:
+            run.location_key = template.location_key
+        if run.substrate_batch_key is None:
+            run.substrate_batch_key = template.substrate_batch_key
+        if run.lifecycle_config_key is None:
+            run.lifecycle_config_key = template.lifecycle_config_key
+        if run.nutrient_plan_key is None:
+            run.nutrient_plan_key = template.nutrient_plan_key
+
+        # Copy the species composition only when the caller supplied none —
+        # config (Entries) is copied, the template's plants are not.
+        if entries is None:
+            entries = [
+                PlantingRunEntry(
+                    species_key=e.species_key,
+                    cultivar_key=e.cultivar_key,
+                    quantity=e.quantity,
+                    id_prefix=e.id_prefix,
+                    spacing_cm=e.spacing_cm,
+                    notes=e.notes,
+                )
+                for e in self._repo.get_entries(run.clone_from_run_key)
+            ]
+        return entries
 
     def update_run(self, key: PlantingRunKey, data: dict) -> PlantingRun:
         run = self.get_run(key)

@@ -35,6 +35,7 @@ from app.api.v1.recognition.tenant_router import router as tenant_recognition_ro
 from app.api.v1.sites.tenant_router import router as tenant_sites_router
 from app.api.v1.slots.tenant_router import router as tenant_slots_router
 from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_router
+from app.api.v1.succession_plans.tenant_router import router as tenant_succession_plans_router
 from app.api.v1.tanks.tenant_router import router as tenant_tanks_router
 from app.api.v1.tasks.tenant_router import router as tenant_tasks_router
 from app.api.v1.user_preferences.tenant_router import router as tenant_user_preferences_router
@@ -54,6 +55,7 @@ tenant_scoped_router.include_router(tenant_slots_router)
 tenant_scoped_router.include_router(tenant_plants_router)
 tenant_scoped_router.include_router(tenant_plant_photos_router)
 tenant_scoped_router.include_router(tenant_planting_runs_router)
+tenant_scoped_router.include_router(tenant_succession_plans_router)
 tenant_scoped_router.include_router(tenant_tanks_router)
 tenant_scoped_router.include_router(tenant_fertilizers_router)
 tenant_scoped_router.include_router(tenant_nutrient_plans_router)
