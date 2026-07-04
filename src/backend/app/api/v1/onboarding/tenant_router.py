@@ -7,6 +7,7 @@ user-global (not per-tenant).
 
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.onboarding.schemas import (
     OnboardingCompleteRequest,
     OnboardingProgressUpdate,
@@ -27,7 +28,7 @@ def get_onboarding_state(
     service: OnboardingService = Depends(get_onboarding_service),
 ):
     state = service.get_state(ctx.user_key)
-    return OnboardingStateResponse(key=state.key or "", **state.model_dump(exclude={"key"}))
+    return to_response(state, OnboardingStateResponse)
 
 
 @router.post("/complete")
@@ -68,7 +69,7 @@ def skip_onboarding(
     service: OnboardingService = Depends(get_onboarding_service),
 ):
     state = service.skip_wizard(ctx.user_key)
-    return OnboardingStateResponse(key=state.key or "", **state.model_dump(exclude={"key"}))
+    return to_response(state, OnboardingStateResponse)
 
 
 @router.post("/reset", response_model=OnboardingStateResponse)
@@ -77,7 +78,7 @@ def reset_onboarding(
     service: OnboardingService = Depends(get_onboarding_service),
 ):
     state = service.reset_wizard(ctx.user_key)
-    return OnboardingStateResponse(key=state.key or "", **state.model_dump(exclude={"key"}))
+    return to_response(state, OnboardingStateResponse)
 
 
 @router.patch("/state", response_model=OnboardingStateResponse)
@@ -102,4 +103,4 @@ def update_onboarding_progress(
     if body.favorite_nutrient_plan_keys is not None:
         kwargs["favorite_nutrient_plan_keys"] = body.favorite_nutrient_plan_keys
     state = service.save_progress(ctx.user_key, body.wizard_step, **kwargs)
-    return OnboardingStateResponse(key=state.key or "", **state.model_dump(exclude={"key"}))
+    return to_response(state, OnboardingStateResponse)

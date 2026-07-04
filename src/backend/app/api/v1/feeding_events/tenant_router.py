@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.feeding_events.schemas import (
     FeedingEventCreate,
     FeedingEventResponse,
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/feeding-events", tags=["feeding-events"])
 
 
 def _event_response(e: FeedingEvent) -> FeedingEventResponse:
-    return FeedingEventResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
+    return to_response(e, FeedingEventResponse)
 
 
 @router.get("", response_model=list[FeedingEventResponse])

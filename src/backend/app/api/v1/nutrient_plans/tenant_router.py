@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.nutrient_plans.schemas import (
     CalculateDosagesRequest,
     CalculateDosagesResponse,
@@ -25,11 +26,11 @@ router = APIRouter(prefix="/nutrient-plans", tags=["nutrient-plans"])
 
 
 def _plan_response(p: NutrientPlan) -> NutrientPlanResponse:
-    return NutrientPlanResponse(key=p.key or "", **p.model_dump(exclude={"key"}))
+    return to_response(p, NutrientPlanResponse)
 
 
 def _entry_response(e: NutrientPlanPhaseEntry) -> PhaseEntryResponse:
-    return PhaseEntryResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
+    return to_response(e, PhaseEntryResponse)
 
 
 @router.get("", response_model=list[NutrientPlanResponse])

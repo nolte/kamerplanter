@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.substrates.schemas import (
     BatchCreate,
     BatchResponse,
@@ -26,27 +27,27 @@ def list_substrates(
     service: SubstrateService = Depends(get_substrate_service),
 ):
     items, total = service.list_substrates(pagination.offset, pagination.limit)
-    return [SubstrateResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in items]
+    return [to_response(s, SubstrateResponse) for s in items]
 
 
 @router.post("", response_model=SubstrateResponse, status_code=201)
 def create_substrate(body: SubstrateCreate, service: SubstrateService = Depends(get_substrate_service)):
     substrate = Substrate(**body.model_dump())
     created = service.create_substrate(substrate)
-    return SubstrateResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, SubstrateResponse)
 
 
 @router.get("/{key}", response_model=SubstrateResponse)
 def get_substrate(key: str, service: SubstrateService = Depends(get_substrate_service)):
     s = service.get_substrate(key)
-    return SubstrateResponse(key=s.key or "", **s.model_dump(exclude={"key"}))
+    return to_response(s, SubstrateResponse)
 
 
 @router.put("/{key}", response_model=SubstrateResponse)
 def update_substrate(key: str, body: SubstrateCreate, service: SubstrateService = Depends(get_substrate_service)):
     substrate = Substrate(**body.model_dump())
     updated = service.update_substrate(key, substrate)
-    return SubstrateResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+    return to_response(updated, SubstrateResponse)
 
 
 @router.delete("/{key}", status_code=204)
@@ -58,10 +59,7 @@ def delete_substrate(key: str, service: SubstrateService = Depends(get_substrate
 def create_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(get_substrate_service)):
     components = [MixComponent(substrate_key=c.substrate_key, fraction=c.fraction) for c in body.components]
     created = service.create_mix(components, name_de=body.name_de, name_en=body.name_en)
-    return SubstrateResponse(
-        key=created.key or "",
-        **created.model_dump(exclude={"key"}),
-    )
+    return to_response(created, SubstrateResponse)
 
 
 @router.post("/preview-mix", response_model=SubstrateResponse)
@@ -95,27 +93,27 @@ def preview_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(g
 @router.get("/{substrate_key}/batches", response_model=list[BatchResponse])
 def list_batches(substrate_key: str, service: SubstrateService = Depends(get_substrate_service)):
     batches = service.list_batches(substrate_key)
-    return [BatchResponse(key=b.key or "", **b.model_dump(exclude={"key"})) for b in batches]
+    return [to_response(b, BatchResponse) for b in batches]
 
 
 @router.post("/batches", response_model=BatchResponse, status_code=201)
 def create_batch(body: BatchCreate, service: SubstrateService = Depends(get_substrate_service)):
     batch = SubstrateBatch(**body.model_dump())
     created = service.create_batch(batch)
-    return BatchResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, BatchResponse)
 
 
 @router.get("/batches/{key}", response_model=BatchResponse)
 def get_batch(key: str, service: SubstrateService = Depends(get_substrate_service)):
     b = service.get_batch(key)
-    return BatchResponse(key=b.key or "", **b.model_dump(exclude={"key"}))
+    return to_response(b, BatchResponse)
 
 
 @router.put("/batches/{key}", response_model=BatchResponse)
 def update_batch(key: str, body: BatchCreate, service: SubstrateService = Depends(get_substrate_service)):
     batch = SubstrateBatch(**body.model_dump())
     updated = service.update_batch(key, batch)
-    return BatchResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+    return to_response(updated, BatchResponse)
 
 
 @router.delete("/batches/{key}", status_code=204)

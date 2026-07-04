@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, Response
 
+from app.api.mapping import to_response
 from app.api.v1.phase_sequences.schemas import (
     EntryReorderRequest,
     PhaseDefinitionCreate,
@@ -33,11 +34,7 @@ def _def_response(
     defn: PhaseDefinition,
     usage_count: int = 0,
 ) -> PhaseDefinitionResponse:
-    return PhaseDefinitionResponse(
-        key=defn.key or "",
-        usage_count=usage_count,
-        **defn.model_dump(exclude={"key"}),
-    )
+    return to_response(defn, PhaseDefinitionResponse, usage_count=usage_count)
 
 
 def _entry_response(entry_dict: dict) -> PhaseSequenceEntryResponse:
@@ -67,10 +64,7 @@ def _entry_response(entry_dict: dict) -> PhaseSequenceEntryResponse:
 
 def _simple_entry_response(entry: PhaseSequenceEntry) -> PhaseSequenceEntryResponse:
     """Build entry response from model (no resolved definition)."""
-    return PhaseSequenceEntryResponse(
-        key=entry.key or "",
-        **entry.model_dump(exclude={"key"}),
-    )
+    return to_response(entry, PhaseSequenceEntryResponse)
 
 
 # ── Species Phase Sequence Lookup ──
@@ -88,11 +82,7 @@ def get_species_phase_sequence(
         return None
     full = service.get_full_sequence(seq.key or "")
     entries = [_entry_response(e) for e in full.get("entries", [])]
-    return PhaseSequenceResponse(
-        key=seq.key or "",
-        entries=entries,
-        **seq.model_dump(exclude={"key"}),
-    )
+    return to_response(seq, PhaseSequenceResponse, entries=entries)
 
 
 # ── PhaseDefinition endpoints ──
@@ -153,7 +143,7 @@ def list_sequences_for_definition(
 ):
     """List all PhaseSequences that use this definition."""
     sequences = service.get_sequences_for_definition(key)
-    return [PhaseSequenceResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in sequences]
+    return [to_response(s, PhaseSequenceResponse) for s in sequences]
 
 
 @router.put(
@@ -196,13 +186,7 @@ def list_phase_sequences(
     for seq in sequences:
         full = service.get_full_sequence(seq.key or "")
         entries = [_entry_response(e) for e in full.get("entries", [])]
-        result.append(
-            PhaseSequenceResponse(
-                key=seq.key or "",
-                entries=entries,
-                **seq.model_dump(exclude={"key"}),
-            ),
-        )
+        result.append(to_response(seq, PhaseSequenceResponse, entries=entries))
     return result
 
 
@@ -218,7 +202,7 @@ def create_phase_sequence(
 ):
     seq = PhaseSequence(**body.model_dump())
     created = service.create_sequence(seq)
-    return PhaseSequenceResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, PhaseSequenceResponse)
 
 
 @router.get("/phase-sequences/{key}/species")
@@ -276,11 +260,7 @@ def update_phase_sequence(
     full = service.get_full_sequence(key)
     entries = [_entry_response(e) for e in full.get("entries", [])]
     seq = service.get_sequence(key)
-    return PhaseSequenceResponse(
-        key=seq.key or "",
-        entries=entries,
-        **seq.model_dump(exclude={"key"}),
-    )
+    return to_response(seq, PhaseSequenceResponse, entries=entries)
 
 
 @router.delete("/phase-sequences/{key}", status_code=204)

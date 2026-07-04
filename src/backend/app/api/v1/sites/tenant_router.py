@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
@@ -19,9 +20,9 @@ router = APIRouter(prefix="/sites", tags=["sites"])
 
 def _site_response(site: Site, service: SiteService) -> SiteResponse:
     warnings = service.get_water_warnings(site)
-    return SiteResponse(
-        key=site.key or "",
-        **site.model_dump(exclude={"key"}),
+    return to_response(
+        site,
+        SiteResponse,
         water_config_warnings=[
             WaterSourceWarningSchema(code=w.code, message=w.message, severity=w.severity) for w in warnings
         ],
@@ -162,7 +163,7 @@ def get_site_sensors(
 ):
     site_service.get_site(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_site(key)
-    return [SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in sensors]
+    return [to_response(s, SensorResponse) for s in sensors]
 
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
@@ -182,7 +183,7 @@ def create_site_sensor(
         site_key=key,
     )
     created = sensor_service.create_sensor(sensor)
-    return SensorResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, SensorResponse)
 
 
 @router.get("/{key}/sensors/live", response_model=LiveStateResponse)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.tanks.schemas import (
     ActiveNutrientPlanResponse,
     ActivePlanFertilizerInfo,
@@ -48,11 +49,11 @@ router = APIRouter(prefix="/tanks", tags=["tanks"])
 
 
 def _tank_response(t: Tank) -> TankResponse:
-    return TankResponse(key=t.key or "", **t.model_dump(exclude={"key"}))
+    return to_response(t, TankResponse)
 
 
 def _fill_event_response(e: TankFillEvent) -> TankFillEventResponse:
-    return TankFillEventResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
+    return to_response(e, TankFillEventResponse)
 
 
 @router.get("/maintenance/due", response_model=list[DueMaintenanceResponse])
@@ -140,7 +141,7 @@ def record_state(
     service.get_tank(key, tenant_key=ctx.tenant_key)
     state = TankState(**body.model_dump())
     created = service.record_state(key, state)
-    return TankStateResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, TankStateResponse)
 
 
 @router.get("/{key}/states", response_model=list[TankStateResponse])
@@ -152,7 +153,7 @@ def get_states(
 ):
     service.get_tank(key, tenant_key=ctx.tenant_key)
     states = service.get_states(key, pagination.offset, pagination.limit)
-    return [TankStateResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in states]
+    return [to_response(s, TankStateResponse) for s in states]
 
 
 @router.get("/{key}/states/latest", response_model=TankStateResponse | None)
@@ -165,7 +166,7 @@ def get_latest_state(
     state = service.get_latest_state(key)
     if state is None:
         return None
-    return TankStateResponse(key=state.key or "", **state.model_dump(exclude={"key"}))
+    return to_response(state, TankStateResponse)
 
 
 @router.get("/{key}/alerts", response_model=list[AlertResponse])
@@ -189,7 +190,7 @@ def log_maintenance(
     service.get_tank(key, tenant_key=ctx.tenant_key)
     log = MaintenanceLog(**body.model_dump())
     created = service.log_maintenance(key, log)
-    return MaintenanceLogResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, MaintenanceLogResponse)
 
 
 @router.get("/{key}/maintenance", response_model=list[MaintenanceLogResponse])
@@ -201,7 +202,7 @@ def get_maintenance_history(
 ):
     service.get_tank(key, tenant_key=ctx.tenant_key)
     logs = service.get_maintenance_history(key, pagination.offset, pagination.limit)
-    return [MaintenanceLogResponse(key=log.key or "", **log.model_dump(exclude={"key"})) for log in logs]
+    return [to_response(log, MaintenanceLogResponse) for log in logs]
 
 
 @router.get("/{key}/maintenance/due", response_model=list[DueMaintenanceResponse])
@@ -225,7 +226,7 @@ def create_schedule(
     service.get_tank(key, tenant_key=ctx.tenant_key)
     schedule = MaintenanceSchedule(**body.model_dump())
     created = service.create_schedule(key, schedule)
-    return MaintenanceScheduleResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, MaintenanceScheduleResponse)
 
 
 @router.get("/{key}/schedules", response_model=list[MaintenanceScheduleResponse])
@@ -236,7 +237,7 @@ def get_schedules(
 ):
     service.get_tank(key, tenant_key=ctx.tenant_key)
     schedules = service.get_schedules(key)
-    return [MaintenanceScheduleResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in schedules]
+    return [to_response(s, MaintenanceScheduleResponse) for s in schedules]
 
 
 @router.put("/{key}/schedules/{skey}", response_model=MaintenanceScheduleResponse)
@@ -250,7 +251,7 @@ def update_schedule(
     service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_schedule(skey, data)
-    return MaintenanceScheduleResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+    return to_response(updated, MaintenanceScheduleResponse)
 
 
 @router.delete("/{key}/schedules/{skey}", status_code=204)
@@ -277,11 +278,7 @@ def record_fill_event(
     result = service.record_fill_event(key, event)
     return FillEventResultResponse(
         fill_event=_fill_event_response(result["fill_event"]),
-        tank_state=(
-            TankStateResponse(key=result["tank_state"].key or "", **result["tank_state"].model_dump(exclude={"key"}))
-            if result["tank_state"]
-            else None
-        ),
+        tank_state=(to_response(result["tank_state"], TankStateResponse) if result["tank_state"] else None),
         warnings=result["warnings"],
         water_defaults_source=result["water_defaults_source"],
     )
@@ -385,7 +382,7 @@ def get_sensors(
 ):
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_tank(key)
-    return [SensorResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in sensors]
+    return [to_response(s, SensorResponse) for s in sensors]
 
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
@@ -399,7 +396,7 @@ def create_sensor(
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     sensor = Sensor(**body.model_dump(exclude={"tank_key"}), tank_key=key)
     created = sensor_service.create_sensor(sensor)
-    return SensorResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, SensorResponse)
 
 
 @router.post("/{key}/ec-dilution", response_model=EcDilutionResponse)

@@ -2,6 +2,7 @@ from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from app.api.mapping import to_response
 from app.api.v1.plant_instances.schemas import ActiveChannelResponse, CultivarSummary, SpeciesSummary
 from app.api.v1.planting_runs.diary_schemas import (
     DiaryEntryCreateRequest,
@@ -55,11 +56,11 @@ router = APIRouter(prefix="/planting-runs", tags=["planting-runs"])
 
 def _run_response(r: PlantingRun, phase_summary: dict | None = None) -> PlantingRunResponse:
     ps = PhaseSummary(**phase_summary) if phase_summary else None
-    return PlantingRunResponse(key=r.key or "", phase_summary=ps, **r.model_dump(exclude={"key"}))
+    return to_response(r, PlantingRunResponse, phase_summary=ps)
 
 
 def _entry_response(e: PlantingRunEntry) -> EntryResponse:
-    return EntryResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
+    return to_response(e, EntryResponse)
 
 
 @router.get("", response_model=list[PlantingRunResponse])

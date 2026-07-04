@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.botanical_families.schemas import FamilyCreate, FamilyResponse
 from app.api.v1.species.schemas import SpeciesResponse
 from app.common.auth import get_current_user
@@ -13,7 +14,7 @@ router = APIRouter(prefix="/botanical-families", tags=["botanical-families"], de
 
 def _family_response(f: BotanicalFamily, repo: ArangoBotanicalFamilyRepository) -> FamilyResponse:
     count = repo.get_species_count_by_family(f.key or "")
-    return FamilyResponse(key=f.key or "", species_count=count, **f.model_dump(exclude={"key"}))
+    return to_response(f, FamilyResponse, species_count=count)
 
 
 @router.get("", response_model=list[FamilyResponse])
@@ -43,7 +44,7 @@ def get_family_species(key: str, repo: ArangoBotanicalFamilyRepository = Depends
 
         raise NotFoundError("BotanicalFamily", key)
     species_list = repo.get_species_by_family(key)
-    return [SpeciesResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in species_list]
+    return [to_response(s, SpeciesResponse) for s in species_list]
 
 
 @router.post("", response_model=FamilyResponse, status_code=201)
