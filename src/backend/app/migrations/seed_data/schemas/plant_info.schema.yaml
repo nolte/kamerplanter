@@ -58,27 +58,41 @@ properties:
     items:
       $ref: "#/$defs/treatment"
   pest_species_edges:
-    type: array
-    items:
-      type: array
-      prefixItems:
-        - type: string
-          description: "Pest scientific/common name"
-        - type: string
-          description: "Species scientific name"
-      minItems: 2
-      maxItems: 2
+    oneOf:
+      - type: array
+        description: "Flat [pest, species] pairs."
+        items:
+          type: array
+          prefixItems:
+            - type: string
+              description: "Pest scientific/common name"
+            - type: string
+              description: "Species scientific name"
+          minItems: 2
+          maxItems: 2
+      - type: object
+        description: "Species-keyed map → list of pest objects."
+        additionalProperties:
+          type: array
+          items: { type: object }
   disease_species_edges:
-    type: array
-    items:
-      type: array
-      prefixItems:
-        - type: string
-          description: "Disease name"
-        - type: string
-          description: "Species scientific name"
-      minItems: 2
-      maxItems: 2
+    oneOf:
+      - type: array
+        description: "Flat [disease, species] pairs."
+        items:
+          type: array
+          prefixItems:
+            - type: string
+              description: "Disease name"
+            - type: string
+              description: "Species scientific name"
+          minItems: 2
+          maxItems: 2
+      - type: object
+        description: "Species-keyed map → list of disease objects."
+        additionalProperties:
+          type: array
+          items: { type: object }
   treatment_pest_edges:
     type: array
     items:
@@ -219,7 +233,7 @@ $defs:
       min_container_depth_cm: { type: integer, minimum: 0 }
       mature_height_cm: { type: string }
       mature_width_cm: { type: string }
-      spacing_cm: { type: string }
+      spacing_cm: { type: [string, "null"] }
       indoor_suitable:
         type: string
         enum: ["yes", limited, "no"]
@@ -351,7 +365,7 @@ $defs:
     type: object
     description: "Partial species update — scientific_name is the key, all other fields are optional overrides"
     properties:
-      scientific_name: { type: string }
+      scientific_name: { type: string, description: "Optional — normally supplied as the map key." }
       propagation_configs:
         type: array
         description: "Structured per-method propagation (REQ-017). Preferred over the flat propagation_* fields."
@@ -399,7 +413,6 @@ $defs:
         description: "Flat legacy toxicity severity passthrough (low/moderate/high)."
       seed_profile:
         $ref: "#/$defs/seed_profile"
-    required: [scientific_name]
     additionalProperties: true
 
   cultivar:
@@ -409,21 +422,20 @@ $defs:
       species_name:
         type: string
         description: "Scientific name of the parent species"
-      breeder: { type: string }
+      breeder: { type: [string, "null"] }
       description: { type: string }
       traits:
         type: array
+        description: >-
+          Open-vocabulary cultivar descriptors (agronomic + ornamental, e.g.
+          disease_resistant, compact, miniature, pink_flowers). Free-form by
+          design — not a closed enum.
         items:
           type: string
-          enum: [disease_resistant, pest_resistant, high_yield, compact, drought_tolerant,
-                 cold_hardy, heat_tolerant, early_maturing, long_season, ornamental,
-                 heirloom, hybrid, f1,
-                 variegated, cut_flower, fragrant, winter_hardy, late_season,
-                 edible_flower, ground_cover, shade_tolerant, native, bee_friendly]
       seed_type:
         type: string
-        enum: [clone, seed, cutting, division, grafted]
-        description: "Propagation type of the cultivar"
+        enum: [open_pollinated, f1_hybrid, clone, cultivar]
+        description: "Reproduction/propagation type of the cultivar"
       cycle_type:
         type: string
         enum: [annual, biennial, perennial]
@@ -474,6 +486,8 @@ $defs:
         $ref: "_defs.schema.yaml#/$defs/phase_name"
       display_name: { type: string }
       duration_days: { type: integer, minimum: 1 }
+      duration_days_min: { type: integer, minimum: 1 }
+      duration_days_max: { type: integer, minimum: 1 }
       sequence_order: { type: integer, minimum: 1 }
       stress_tolerance:
         type: string
@@ -486,7 +500,7 @@ $defs:
       nutrient_profile:
         type: object
         additionalProperties: true
-    required: [name, display_name, duration_days, sequence_order,
+    required: [name, sequence_order,
                stress_tolerance, allows_harvest, is_terminal]
     additionalProperties: false
 
@@ -511,16 +525,32 @@ $defs:
                 species_a: { type: string }
                 species_b: { type: string }
                 score: { type: number, minimum: 0, maximum: 1 }
+                reason: { type: string }
               required: [species_a, species_b, score]
+            - type: object
+              properties:
+                source: { type: string }
+                target: { type: string }
+                score: { type: number, minimum: 0, maximum: 1 }
+                reason: { type: string }
+              required: [source, target, score]
       incompatible:
         type: array
         items:
-          type: object
-          properties:
-            species_a: { type: string }
-            species_b: { type: string }
-            reason: { type: string }
-          required: [species_a, species_b, reason]
+          oneOf:
+            - type: object
+              properties:
+                species_a: { type: string }
+                species_b: { type: string }
+                reason: { type: string }
+              required: [species_a, species_b, reason]
+            - type: object
+              properties:
+                source: { type: string }
+                target: { type: string }
+                reason: { type: string }
+                severity: { type: [string, number] }
+              required: [source, target, reason]
     additionalProperties: false
 
   pest:
@@ -538,18 +568,20 @@ $defs:
         type: string
         enum: [easy, medium, hard]
       description: { type: string }
-    required: [scientific_name, common_name, pest_type]
-    additionalProperties: false
+    required: [scientific_name, pest_type]
+    additionalProperties: true
 
   disease:
     type: object
     properties:
       name: { type: string }
+      scientific_name: { type: string }
+      common_name: { type: string }
       pathogen_type:
         type: string
         enum: [fungal, bacterial, viral, physiological, oomycete, protist]
       symptoms:
-        type: array
+        type: [array, string]
         items: { type: string }
       affected_parts:
         type: array
@@ -560,7 +592,10 @@ $defs:
       optimal_temp_max: { type: number }
       optimal_humidity_min: { type: number }
       optimal_humidity_max: { type: number }
-    required: [name, pathogen_type]
+    required: [pathogen_type]
+    anyOf:
+      - required: [name]
+      - required: [scientific_name]
     additionalProperties: true
 
   treatment:
@@ -570,7 +605,7 @@ $defs:
       treatment_type:
         type: string
         enum: [cultural, biological, chemical, mechanical]
-      active_ingredient: { type: string }
+      active_ingredient: { type: [string, "null"] }
       application_method:
         type: string
         enum: [spray, drench, granular, release, cultural]
