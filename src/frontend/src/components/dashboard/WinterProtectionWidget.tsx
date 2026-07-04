@@ -8,6 +8,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -55,7 +56,7 @@ export default function WinterProtectionWidget() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { overview, overviewLoading } = useAppSelector(
+  const { overview, overviewLoading, overviewError } = useAppSelector(
     (s) => s.overwinteringProfiles,
   );
 
@@ -95,6 +96,10 @@ export default function WinterProtectionWidget() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
             <CircularProgress size={28} aria-label={t('common.loading')} />
           </Box>
+        ) : overviewError && total === 0 ? (
+          <Alert severity="error" data-testid="winter-protection-error">
+            {t('pages.dashboard.winterProtection.error')}
+          </Alert>
         ) : total === 0 ? (
           <Typography
             variant="body2"

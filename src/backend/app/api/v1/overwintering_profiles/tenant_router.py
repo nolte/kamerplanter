@@ -15,15 +15,26 @@ from app.common.dependencies import (
     get_site_repo,
     get_species_repo,
 )
+from app.common.enums import GrowthHabit, RootType
 from app.common.pagination import PaginationParams, get_pagination
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.domain.models.overwintering_profile import OverwinteringProfile
+from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 
 router = APIRouter(prefix="/overwintering-profiles", tags=["overwintering-profiles"])
+
+#: Root types / growth habits that identify a tuber/bulb/corm geophyte, which is
+#: dug up and stored over winter rather than moved indoors (REQ-022 §Knollen-/
+#: Zwiebel-Zyklus, B3).
+_GEOPHYTE_ROOT_TYPES = frozenset({RootType.TUBEROUS, RootType.BULBOUS, RootType.CORM})
+
+
+def _is_geophyte(species: Species) -> bool:
+    return species.root_type in _GEOPHYTE_ROOT_TYPES or species.growth_habit == GrowthHabit.BULB_GEOPHYTE
 
 
 def _profile_response(profile: OverwinteringProfile) -> OverwinteringProfileResponse:
@@ -79,13 +90,18 @@ def auto_generate_overwintering_profile(
         plant = plant_repo.get_by_key(body.plant_key)
         if plant is not None:
             species_key = plant.species_key
-    if species_key and (frost_sensitivity is None or species_zone is None):
+
+    # The species drives frost sensitivity, hardiness zone and — for the tuber
+    # dig-and-store path (B3) — whether the plant is a geophyte.
+    is_geophyte = False
+    if species_key:
         species = species_repo.get_by_key(species_key)
         if species is not None:
             if frost_sensitivity is None:
                 frost_sensitivity = species.frost_sensitivity
             if species_zone is None and species.hardiness_zones:
                 species_zone = species.hardiness_zones[0]
+            is_geophyte = _is_geophyte(species)
 
     # Resolve the site climate zone (tenant-checked).
     if body.site_key and site_zone is None:
@@ -103,6 +119,7 @@ def auto_generate_overwintering_profile(
         winter_action_month=body.winter_action_month,
         spring_action_month=body.spring_action_month,
         winter_quarter_key=body.winter_quarter_key,
+        is_geophyte=is_geophyte,
     )
     return _profile_response(created)
 

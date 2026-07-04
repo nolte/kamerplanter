@@ -69,4 +69,21 @@ describe('WinterProtectionWidget', () => {
       expect(screen.getByTestId('winter-protection-empty')).toBeTruthy();
     });
   });
+
+  it('shows an error alert instead of the empty state when the overview fetch fails (F4)', async () => {
+    server.use(
+      ...overviewUrls.map((u) =>
+        http.get(u, () => new HttpResponse(null, { status: 500 })),
+      ),
+    );
+    renderWithProviders(<WinterProtectionWidget />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('winter-protection-error')).toBeTruthy();
+    });
+    expect(
+      screen.getByText(i18n.t('pages.dashboard.winterProtection.error')),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('winter-protection-empty')).toBeNull();
+  });
 });

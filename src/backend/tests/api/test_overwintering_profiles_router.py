@@ -123,6 +123,43 @@ class TestCrud:
         assert client.get(_base(f"/{key}")).status_code == 404
 
 
+class TestTuberStatusRejection:
+    def test_create_invalid_tuber_status_returns_422(self) -> None:
+        """B2 — tuber_status on a non-dig-and-store rating must be 422, not 500."""
+        app, _service = _build()
+        client = TestClient(app)
+        resp = client.post(
+            _base(),
+            json={
+                "plant_key": "p1",
+                "hardiness_rating": "hardy",
+                "winter_action": "none",
+                "winter_action_month": 10,
+                "tuber_status": "stored",
+            },
+        )
+        assert resp.status_code == 422, resp.text
+
+    def test_update_invalid_tuber_status_returns_422(self) -> None:
+        """B2 — the PUT merge path must also return 422 (not 500) for an invalid
+        tuber_status / hardiness_rating combination."""
+        app, _service = _build()
+        client = TestClient(app)
+        key = client.post(
+            _base(),
+            json={
+                "plant_key": "p1",
+                "hardiness_rating": "hardy",
+                "winter_action": "none",
+                "winter_action_month": 10,
+            },
+        ).json()["key"]
+
+        resp = client.put(_base(f"/{key}"), json={"tuber_status": "stored"})
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+
+
 class TestD5Rejection:
     def test_d5_contradiction_returns_422(self) -> None:
         app, _service = _build()

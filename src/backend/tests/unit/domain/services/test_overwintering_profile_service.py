@@ -1,9 +1,13 @@
+from datetime import date
+
 import pytest
 
-from app.common.enums import FrostTolerance, HardinessRating, WinterAction
-from app.common.exceptions import ValidationError, WinterPathViolationError
+from app.common.enums import FrostTolerance, HardinessRating, SpringAction, WinterAction
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError, WinterPathViolationError
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
 from app.domain.models.overwintering_profile import OverwinteringProfile
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.site import Location
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 
 
@@ -104,6 +108,9 @@ class TestAutoGenerate:
         assert profile.auto_generated is True
         assert profile.hardiness_rating == HardinessRating.FROST_FREE
         assert profile.winter_action == WinterAction.MOVE_INDOORS
+        # B3 — a relocated container gets a consistent spring action + month.
+        assert profile.spring_action == SpringAction.MOVE_OUTDOORS
+        assert profile.spring_action_month is not None
 
     def test_green_species_in_situ(self, service) -> None:
         profile = service.auto_generate_profile(
@@ -111,6 +118,86 @@ class TestAutoGenerate:
         )
         assert profile.hardiness_rating == HardinessRating.HARDY
         assert profile.winter_action == WinterAction.NONE
+        # B3 — hardy, in-situ plants get no spring action nor a dangling month.
+        assert profile.spring_action is None
+        assert profile.spring_action_month is None
+
+    def test_red_geophyte_dig_and_store(self, service) -> None:
+        """B3 — a frost-tender geophyte on the red path is dug up and stored, not
+        relocated as a container, and gets the replant spring action."""
+        profile = service.auto_generate_profile(
+            TENANT,
+            plant_key="p1",
+            frost_sensitivity=FrostTolerance.SENSITIVE,
+            is_geophyte=True,
+        )
+        assert profile.hardiness_rating == HardinessRating.DIG_AND_STORE
+        assert profile.winter_action == WinterAction.DIG_STORE
+        assert profile.spring_action == SpringAction.REPLANT
+        assert profile.spring_action_month is not None
+
+
+class TestDuplicateSubject:
+    def test_second_profile_for_same_plant_rejected(self, service) -> None:
+        """B4 — a second profile for the same subject is a 409, not a 500."""
+        service.create_profile(_profile(plant_key="p1"), TENANT)
+        with pytest.raises(DuplicateError):
+            service.create_profile(_profile(plant_key="p1"), TENANT)
+
+    def test_edge_failure_rolls_back_document(self) -> None:
+        """B4 — if the unique subject-edge insert fails (race), the freshly created
+        profile document is deleted so no orphan remains."""
+
+        class EdgeFailingRepo(FakeOverwinteringRepo):
+            def create_subject_edge(self, profile_key, *, plant_key=None, planting_run_key=None):
+                raise RuntimeError("unique constraint violated")
+
+        repo = EdgeFailingRepo()
+        service = OverwinteringProfileService(repo)
+        with pytest.raises(DuplicateError):
+            service.create_profile(_profile(plant_key="p1"), TENANT)
+        assert repo.store == {}
+
+
+class TestForeignKeyOwnership:
+    def test_foreign_winter_quarter_rejected(self) -> None:
+        """B5 — a winter quarter owned by another tenant is rejected (no edge)."""
+        repo = FakeOverwinteringRepo()
+
+        class SiteRepoStub:
+            def get_location_by_key(self, key):
+                return Location(_key=key, name="Foreign shed", area_m2=1.0, tenant_key="other_tenant")
+
+        service = OverwinteringProfileService(repo, site_repo=SiteRepoStub())
+        profile = _profile(
+            plant_key="p1",
+            hardiness_rating=HardinessRating.FROST_FREE,
+            winter_action=WinterAction.MOVE_INDOORS,
+            winter_quarter_key="loc_foreign",
+        )
+        with pytest.raises(NotFoundError):
+            service.create_profile(profile, TENANT)
+        assert repo.store == {}
+        assert repo.edges == []
+
+    def test_foreign_plant_subject_rejected(self) -> None:
+        """B5 — a plant subject owned by another tenant is rejected."""
+        repo = FakeOverwinteringRepo()
+
+        class PlantRepoStub:
+            def get_by_key(self, key):
+                return PlantInstance(
+                    _key=key,
+                    tenant_key="other_tenant",
+                    instance_id="i1",
+                    species_key="s1",
+                    planted_on=date(2024, 1, 1),
+                )
+
+        service = OverwinteringProfileService(repo, plant_repo=PlantRepoStub())
+        with pytest.raises(NotFoundError):
+            service.create_profile(_profile(plant_key="p1"), TENANT)
+        assert repo.store == {}
 
 
 class TestHardinessOverview:

@@ -321,6 +321,7 @@ class CareReminderEngine:
         current_phase: str | None = None,
         hemisphere: str = "north",
         phase_watering_interval: int | None = None,
+        overwintering_profile: OverwinteringProfile | None = None,
     ) -> date | None:
         """Calculate the next due date for a specific reminder type."""
         interval = self._get_interval_days(
@@ -328,6 +329,7 @@ class CareReminderEngine:
             reminder_type,
             hemisphere,
             phase_watering_interval=phase_watering_interval,
+            overwintering_profile=overwintering_profile,
         )
         if interval is None:
             return None

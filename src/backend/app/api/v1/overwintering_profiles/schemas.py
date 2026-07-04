@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import (
     FrostTolerance,
@@ -31,6 +33,16 @@ class OverwinteringProfileCreate(BaseModel):
     storage_check_interval_days: int | None = Field(default=None, ge=1, le=365)
     tuber_status: TuberStatus | None = None
     notes: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def _validate_tuber_status(self) -> OverwinteringProfileCreate:
+        """Mirror the domain rule: ``tuber_status`` only for the dig-and-store
+        rating. Enforcing it on the request schema turns an invalid combination
+        into a 422 (``RequestValidationError``) instead of a 500 raised by the
+        domain model constructor downstream (B2)."""
+        if self.tuber_status is not None and self.hardiness_rating != HardinessRating.DIG_AND_STORE:
+            raise ValueError("tuber_status is only valid when hardiness_rating is 'dig_and_store'.")
+        return self
 
 
 class OverwinteringProfileUpdate(BaseModel):

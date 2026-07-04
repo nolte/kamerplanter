@@ -52,7 +52,8 @@ function overviewCases(
 const { slice, reducer, fetchList, fetchOne, actions } =
   createListSlice<OverwinteringProfile>({
     name: 'overwinteringProfiles',
-    list: (offset, limit) => api.listOverwinteringProfiles(offset, limit),
+    list: ({ offset = 0, limit = 50 } = {}) =>
+      api.listOverwinteringProfiles(offset, limit),
     getOne: (key) => api.getOverwinteringProfile(key),
     extraCases: overviewCases,
   });

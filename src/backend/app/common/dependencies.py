@@ -559,7 +559,12 @@ def get_overwintering_profile_repo() -> ArangoOverwinteringProfileRepository:
 
 
 def get_overwintering_profile_service() -> OverwinteringProfileService:
-    return OverwinteringProfileService(get_overwintering_profile_repo())
+    return OverwinteringProfileService(
+        get_overwintering_profile_repo(),
+        site_repo=get_site_repo(),
+        plant_repo=get_plant_repo(),
+        planting_run_repo=get_planting_run_repo(),
+    )
 
 
 def get_care_reminder_service() -> CareReminderService:
@@ -573,6 +578,7 @@ def get_care_reminder_service() -> CareReminderService:
         phase_seq_repo=get_phase_sequence_repo(),
         species_repo=get_species_repo(),
         nutrient_plan_repo=get_nutrient_plan_repo(),
+        overwintering_repo=get_overwintering_profile_repo(),
     )
 
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -60,6 +60,37 @@ const tuberStatuses = [
 ] as const;
 const winterLights = ['bright', 'semi_bright', 'dark'] as const;
 const winterWaterings = ['none', 'minimal', 'reduced', 'normal'] as const;
+
+type HardinessRating = (typeof hardinessRatings)[number];
+type WinterAction = (typeof winterActions)[number];
+
+// D5 winter-path invariant (server-enforced in winter_hardiness_engine): Path A
+// (green/yellow ratings) keeps the plant in situ; Path B (red ratings) relocates
+// it. The winter_action must match the path or the backend rejects with 422.
+// These tables mirror _PATH_A_ACTIONS/_PATH_B_ACTIONS so the form only offers —
+// and defaults to — actions valid for the selected hardiness rating.
+const PATH_A_ACTIONS: readonly WinterAction[] = [
+  'none',
+  'mulch',
+  'fleece',
+  'earth_up',
+  'wrap',
+];
+const PATH_B_ACTIONS: readonly WinterAction[] = ['move_indoors', 'dig_store'];
+
+const RATING_VALID_ACTIONS: Record<HardinessRating, readonly WinterAction[]> = {
+  hardy: PATH_A_ACTIONS,
+  needs_protection: PATH_A_ACTIONS,
+  frost_free: PATH_B_ACTIONS,
+  dig_and_store: PATH_B_ACTIONS,
+};
+
+const RATING_DEFAULT_ACTION: Record<HardinessRating, WinterAction> = {
+  hardy: 'none',
+  needs_protection: 'mulch',
+  frost_free: 'move_indoors',
+  dig_and_store: 'dig_store',
+};
 
 // Optional numeric fields carry `number | ''` so the empty text input maps to a
 // stable value; '' is converted to null on submit. Keeping input === output
@@ -156,6 +187,29 @@ export default function OverwinteringProfileDialog({
   const [saving, setSaving] = useState(false);
   const isEdit = !!profile;
 
+  // In create mode a subject is mandatory: the backend `_require_single_subject`
+  // rejects a profile without exactly one of plant_key/planting_run_key (422).
+  // Guard it client-side so the obvious first save no longer fails. Edit mode
+  // keeps the base schema because the plant field is not rendered there and the
+  // subject may legitimately be a planting run (empty plant_key).
+  const resolver = useMemo(
+    () =>
+      zodResolver(
+        isEdit
+          ? schema
+          : schema.superRefine((data, ctx) => {
+              if (!data.plant_key) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  path: ['plant_key'],
+                  message: t('pages.overwintering.plantRequired'),
+                });
+              }
+            }),
+      ),
+    [isEdit, t],
+  );
+
   const {
     control,
     handleSubmit,
@@ -165,7 +219,7 @@ export default function OverwinteringProfileDialog({
     setError,
     formState: { isDirty },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver,
     defaultValues: DEFAULTS,
   });
 
@@ -176,6 +230,7 @@ export default function OverwinteringProfileDialog({
   }, [open, profile, reset]);
 
   const hardinessRating = watch('hardiness_rating');
+  const winterAction = watch('winter_action');
   const showTuberSection = hardinessRating === 'dig_and_store';
 
   // D5 constraint (server-enforced): tuber storage data is only meaningful for
@@ -188,6 +243,29 @@ export default function OverwinteringProfileDialog({
       setValue('tuber_status', '');
     }
   }, [hardinessRating, setValue]);
+
+  // D5 UX guidance: keep winter_action valid for the selected rating's path.
+  // When the current action no longer matches the path (e.g. rating switched to
+  // dig_and_store while the default fleece is still selected) reset it to the
+  // path's default so the first save does not hit a guaranteed 422. A still-valid
+  // action (e.g. an edited profile's stored value) is preserved.
+  useEffect(() => {
+    if (!RATING_VALID_ACTIONS[hardinessRating].includes(winterAction)) {
+      setValue('winter_action', RATING_DEFAULT_ACTION[hardinessRating], {
+        shouldValidate: true,
+      });
+    }
+  }, [hardinessRating, winterAction, setValue]);
+
+  // Only offer actions valid for the selected rating's winter path (D5).
+  const winterActionOptions = useMemo(
+    () =>
+      RATING_VALID_ACTIONS[hardinessRating].map((v) => ({
+        value: v,
+        label: t(`enums.winterAction.${v}`),
+      })),
+    [hardinessRating, t],
+  );
 
   const onSubmit = async (data: FormData) => {
     const base: OverwinteringProfileUpdate = {
@@ -296,11 +374,8 @@ export default function OverwinteringProfileDialog({
               control={control}
               label={t('pages.overwintering.winterAction')}
               required
-              helperText={t('pages.overwintering.winterActionHelper')}
-              options={winterActions.map((v) => ({
-                value: v,
-                label: t(`enums.winterAction.${v}`),
-              }))}
+              helperText={`${t('pages.overwintering.winterActionHelper')} ${t('pages.overwintering.winterActionRatingNote')}`}
+              options={winterActionOptions}
             />
           </FormRow>
           <FormRow>

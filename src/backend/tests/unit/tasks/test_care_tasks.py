@@ -55,6 +55,8 @@ def _wire(deps, *, profiles, plants_with_schedule=None):
         instance_id="m1",
         tenant_key="tenant_1",
         removed_on=None,
+        species_key="species_1",
+        cultivar_key=None,
     )
     deps.get_plant_repo.return_value = plant_repo
 
@@ -148,6 +150,8 @@ class TestGenerateDueCareReminders:
             instance_id="m1",
             tenant_key="tenant_1",
             removed_on=None,
+            species_key="species_1",
+            cultivar_key=None,
         )
         phase_seq_repo = MagicMock()
         phase_seq_repo.get_entry_by_key.return_value = SimpleNamespace(phase_definition_key="def_1")
@@ -171,6 +175,8 @@ class TestGenerateDueCareReminders:
             instance_id="m1",
             tenant_key="tenant_1",
             removed_on=None,
+            species_key="species_1",
+            cultivar_key=None,
         )
         # No PhaseSequence repo -> fall back to LifecycleConfig.
         _mock_dependencies.get_phase_sequence_repo.return_value = None
@@ -226,6 +232,44 @@ class TestGenerateDueCareReminders:
         assert created.name.endswith("— fertilizing")
         assert created.entity_key == "plant_1"
         assert created.tenant_key == "tenant_1"
+
+    def test_creates_winter_protection_task_and_forwards_context(self, _mock_dependencies):
+        """B1 — the daily producer must forward the overwintering context so a
+        winter-protection reminder can actually spawn a task."""
+        from app.common.enums import ReminderType
+
+        service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
+
+        sentinel_owp = object()
+        service._resolve_overwintering_profile.return_value = sentinel_owp
+        service._resolve_species.return_value = SimpleNamespace(frost_sensitivity="sensitive")
+        service._resolve_cultivar_traits.return_value = None
+
+        def _should_generate(profile, rt, **kwargs):
+            return rt == ReminderType.WINTER_PROTECTION
+
+        service._engine.should_generate_reminder.side_effect = _should_generate
+        service._engine.calculate_due_date.return_value = "2026-10-14"
+        service._engine.calculate_urgency.return_value = "due_today"
+
+        task_repo = MagicMock()
+        task_repo.find_by_field.return_value = []
+        _mock_dependencies.get_task_repo.return_value = task_repo
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        result = generate_due_care_reminders()
+
+        assert result == {"created": 1, "skipped": 0}
+        created = task_repo.create.call_args.args[0]
+        assert created.name.endswith("— winter_protection")
+
+        # The overwintering context must reach both engine calls (B1).
+        gen_kwargs = service._engine.should_generate_reminder.call_args.kwargs
+        assert gen_kwargs["overwintering_profile"] is sentinel_owp
+        assert gen_kwargs["frost_sensitivity"] == "sensitive"
+        due_kwargs = service._engine.calculate_due_date.call_args.kwargs
+        assert due_kwargs["overwintering_profile"] is sentinel_owp
 
     def test_skips_reminder_when_not_urgent(self, _mock_dependencies):
         from app.common.enums import ReminderType

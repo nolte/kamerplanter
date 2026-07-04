@@ -47,6 +47,10 @@ def generate_due_care_reminders() -> dict:
     # Get all care profiles
     profiles = care_service._repo.get_all_profiles()
 
+    # Per-run caches for the winter-reminder context (REQ-022 §3.2, B1).
+    species_cache: dict = {}
+    cultivar_cache: dict = {}
+
     for profile in profiles:
         plant_key = profile.plant_key
         if not plant_key:
@@ -60,6 +64,14 @@ def generate_due_care_reminders() -> dict:
 
         has_plan = plant_key in plants_with_schedule
         has_nutrient_plan = nutrient_plan_repo.get_plant_plan(plant_key) is not None
+
+        # REQ-022 §3.2 winter-reminder gating context (B1): without the
+        # overwintering profile + frost sensitivity the engine suppresses every
+        # winter-protection reminder, so they would never spawn a task.
+        overwintering_profile = care_service._resolve_overwintering_profile(plant_key)
+        species = care_service._resolve_species(plant.species_key, species_cache)
+        frost_sensitivity = species.frost_sensitivity if species else None
+        cultivar_traits = care_service._resolve_cultivar_traits(plant.cultivar_key, cultivar_cache)
 
         # Always ensure next watering task exists (unless plant has active run schedule)
         if not has_plan:
@@ -98,11 +110,19 @@ def generate_due_care_reminders() -> dict:
                 rt,
                 has_active_watering_plan=has_plan,
                 has_nutrient_plan=has_nutrient_plan,
+                overwintering_profile=overwintering_profile,
+                frost_sensitivity=frost_sensitivity,
+                cultivar_traits=cultivar_traits,
             ):
                 continue
 
             last = care_service._repo.get_last_confirmation(plant_key, rt)
-            due_date = care_service._engine.calculate_due_date(profile, rt, last)
+            due_date = care_service._engine.calculate_due_date(
+                profile,
+                rt,
+                last,
+                overwintering_profile=overwintering_profile,
+            )
             urgency = care_service._engine.calculate_urgency(due_date)
 
             if urgency not in ("overdue", "due_today"):
@@ -139,6 +159,12 @@ def generate_due_care_reminders() -> dict:
                 ReminderType.PEST_CHECK: f"Inspect {plant_label} for pests and diseases.",
                 ReminderType.LOCATION_CHECK: f"Check if {plant_label} needs a location change.",
                 ReminderType.HUMIDITY_CHECK: f"Check humidity around {plant_label}.",
+                # REQ-022 §3.2 overwintering reminders (B1).
+                ReminderType.WINTER_PROTECTION: f"Apply winter protection for {plant_label}.",
+                ReminderType.SPRING_UNCOVER: f"Uncover / reactivate {plant_label} for spring.",
+                ReminderType.TUBER_DIG: f"Dig up and store the tubers/bulbs of {plant_label}.",
+                ReminderType.STORAGE_CHECK: f"Check the stored tubers/bulbs of {plant_label}.",
+                ReminderType.DEADHEADING: f"Deadhead spent blooms on {plant_label}.",
             }
 
             task = Task(

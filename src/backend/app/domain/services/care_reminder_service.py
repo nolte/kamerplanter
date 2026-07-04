@@ -1,10 +1,18 @@
 from datetime import UTC, datetime
 
-from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskCategory, TaskPriority, TaskStatus
+from app.common.enums import (
+    ApplicationMethod,
+    ConfirmAction,
+    ReminderType,
+    TaskCategory,
+    TaskPriority,
+    TaskStatus,
+)
 from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
+from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -12,6 +20,8 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation, CareDashboardEntry, CareProfile
+from app.domain.models.overwintering_profile import OverwinteringProfile
+from app.domain.models.species import Species
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 
@@ -28,6 +38,7 @@ class CareReminderService:
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         species_repo: ISpeciesRepository | None = None,
         nutrient_plan_repo: INutrientPlanRepository | None = None,
+        overwintering_repo: IOverwinteringProfileRepository | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
@@ -38,6 +49,7 @@ class CareReminderService:
         self._phase_seq_repo = phase_seq_repo
         self._species_repo = species_repo
         self._nutrient_plan_repo = nutrient_plan_repo
+        self._overwintering_repo = overwintering_repo
 
     def get_or_create_profile(
         self,
@@ -273,7 +285,8 @@ class CareReminderService:
         """Build care dashboard from plant data.
 
         plant_data: list of dicts with keys: plant_key, plant_name, species_name,
-                    botanical_family, current_phase, has_nutrient_plan
+                    botanical_family, current_phase, has_nutrient_plan,
+                    frost_sensitivity, cultivar_traits
         """
         entries: list[CareDashboardEntry] = []
 
@@ -285,6 +298,13 @@ class CareReminderService:
                 botanical_family=plant.get("botanical_family"),
             )
 
+            # REQ-022 §3.2 — the winter-protection reminder types are gated by the
+            # plant's OverwinteringProfile + frost sensitivity; without these the
+            # engine suppresses every winter reminder (B1).
+            overwintering_profile = self._resolve_overwintering_profile(plant_key)
+            frost_sensitivity = plant.get("frost_sensitivity")
+            cultivar_traits = plant.get("cultivar_traits")
+
             for rt in ReminderType:
                 if not self._engine.should_generate_reminder(
                     profile,
@@ -292,6 +312,9 @@ class CareReminderService:
                     plant.get("current_phase"),
                     hemisphere,
                     has_nutrient_plan=plant.get("has_nutrient_plan", False),
+                    overwintering_profile=overwintering_profile,
+                    frost_sensitivity=frost_sensitivity,
+                    cultivar_traits=cultivar_traits,
                 ):
                     continue
 
@@ -302,6 +325,7 @@ class CareReminderService:
                     last,
                     plant.get("current_phase"),
                     hemisphere,
+                    overwintering_profile=overwintering_profile,
                 )
                 urgency = self._engine.calculate_urgency(due_date)
 
@@ -354,7 +378,8 @@ class CareReminderService:
         plants, _total = self._plant_repo.get_all(offset=0, limit=500, tenant_key=tenant_key)
         active_plants = [p for p in plants if p.removed_on is None]
 
-        species_name_cache: dict[str, str | None] = {}
+        species_cache: dict[str, Species | None] = {}
+        cultivar_traits_cache: dict[str, list[str]] = {}
         plant_data: list[dict] = []
 
         for plant in active_plants:
@@ -362,27 +387,45 @@ class CareReminderService:
             if not plant_key:
                 continue
 
+            species = self._resolve_species(plant.species_key, species_cache)
             plant_data.append(
                 {
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
-                    "species_name": self._resolve_species_name(plant.species_key, species_name_cache),
+                    "species_name": (species.common_names[0] if species and species.common_names else None),
                     "botanical_family": None,
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
                     "has_nutrient_plan": self._has_nutrient_plan(plant_key),
+                    # REQ-022 §3.2 winter-reminder gating context (B1).
+                    "frost_sensitivity": (species.frost_sensitivity if species else None),
+                    "cultivar_traits": self._resolve_cultivar_traits(plant.cultivar_key, cultivar_traits_cache),
                 }
             )
 
         return plant_data
 
-    def _resolve_species_name(self, species_key: str | None, cache: dict[str, str | None]) -> str | None:
-        """Resolve a species' display name (first common name), cached per call."""
+    def _resolve_species(self, species_key: str | None, cache: dict[str, Species | None]) -> Species | None:
+        """Resolve (and cache per call) the full species record."""
         if not species_key or self._species_repo is None:
             return None
         if species_key not in cache:
-            species = self._species_repo.get_by_key(species_key)
-            cache[species_key] = species.common_names[0] if species and species.common_names else None
+            cache[species_key] = self._species_repo.get_by_key(species_key)
         return cache[species_key]
+
+    def _resolve_cultivar_traits(self, cultivar_key: str | None, cache: dict[str, list[str]]) -> list[str] | None:
+        """Resolve a cultivar's traits as strings (drives the deadheading guard, B1)."""
+        if not cultivar_key or self._species_repo is None:
+            return None
+        if cultivar_key not in cache:
+            cultivar = self._species_repo.get_cultivar_by_key(cultivar_key)
+            cache[cultivar_key] = [t.value for t in cultivar.traits] if cultivar else []
+        return cache[cultivar_key]
+
+    def _resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
+        """Load the plant's overwintering profile (one lookup per subject, B1)."""
+        if self._overwintering_repo is None:
+            return None
+        return self._overwintering_repo.get_profile_by_plant_key(plant_key)
 
     def _resolve_current_phase_name(self, phase_key: str | None) -> str | None:
         """Resolve a plant's current growth-phase name (used for dormancy detection)."""
