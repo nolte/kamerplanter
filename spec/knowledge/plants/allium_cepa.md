@@ -348,7 +348,7 @@ Betrifft ausschließlich **Wintersteckzwiebeln** (Sorten wie 'Radar', 'Shakespea
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level,frost_sensitivity,direct_sow_months,harvest_months
-Allium cepa,"Küchenzwiebel;Speisezwiebel;Onion",Amaryllidaceae,Allium,biennial,long_day,herb,bulbous,"5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b",0.3,"Zentralasien",limited,15,20,60,15,12,no,limited,false,false,medium_feeder,half_hardy,"3;4","7;8;9"
+Allium cepa,"Küchenzwiebel;Speisezwiebel;Onion",Amaryllidaceae,Allium,biennial,long_day,herb,bulbous,"5a;5b;6a;6b;7a;7b;8a;8b;9a;9b;10a;10b",0.3,"Zentralasien",limited,15,20,60,15,12,no,limited,false,false,medium_feeder,half_hardy,"3;4;9;10","6;7;8;9"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen
