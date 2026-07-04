@@ -10,6 +10,8 @@ from app.domain.models.watering_event import WateringEvent
 
 
 class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.WATERING_EVENTS)
 
@@ -43,8 +45,10 @@ class ArangoWateringRepository(IWateringRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[WateringEvent], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
         return [WateringEvent(**doc) for doc in docs], total
 
     # ── Queries ────────────────────────────────────────────────────────

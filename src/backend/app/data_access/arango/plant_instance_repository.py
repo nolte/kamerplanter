@@ -10,6 +10,8 @@ from app.domain.models.plant_instance import PlantInstance
 
 
 class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.PLANT_INSTANCES)
 
@@ -25,8 +27,10 @@ class ArangoPlantInstanceRepository(IPlantInstanceRepository, BaseArangoReposito
         offset: int = 0,
         limit: int = 50,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[PlantInstance], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
         return [PlantInstance(**self._resolve_phase_name(doc)) for doc in docs], total
 
     def get_by_key(self, key: PlantID) -> PlantInstance | None:

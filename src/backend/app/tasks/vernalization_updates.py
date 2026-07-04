@@ -17,7 +17,7 @@ def update_vernalization_progress(avg_temp_c: float) -> dict:
 
     updated = 0
     is_cold = tracker.is_cold_day(avg_temp_c)
-    plants, _ = plant_repo.get_all(offset=0, limit=1000)
+    plants, _ = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
 
     for plant in plants:
         if plant.removed_on is not None:

@@ -9,6 +9,8 @@ from app.domain.models.watering_log import WateringLog
 
 
 class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.WATERING_LOGS)
 
@@ -66,8 +68,10 @@ class ArangoWateringLogRepository(IWateringLogRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[WateringLog], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
         return [WateringLog(**doc) for doc in docs], total
 
     def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]:

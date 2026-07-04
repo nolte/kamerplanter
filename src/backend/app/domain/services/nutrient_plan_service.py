@@ -374,8 +374,8 @@ class NutrientPlanService:
         # Load all fertilizer products referenced in the channel
         fertilizer_lookup = self._load_fertilizer_lookup(entry)
 
-        # Find CalMag product
-        calmag_product = self._find_calmag_product()
+        # Find CalMag product (tenant's own custom products plus global catalog)
+        calmag_product = self._find_calmag_product(tenant_key)
 
         # Determine substrate type
         substrate_type = ""
@@ -426,10 +426,21 @@ class NutrientPlanService:
                         lookup[dosage.fertilizer_key] = fert
         return lookup
 
-    def _find_calmag_product(self) -> Fertilizer | None:
-        """Find a CalMag supplement product in the fertilizer catalog."""
+    def _find_calmag_product(self, tenant_key: str = "") -> Fertilizer | None:
+        """Find a CalMag supplement product in the fertilizer catalog.
+
+        The fertilizer repository unions the tenant's own supplements with the
+        global catalog when a tenant_key is supplied; a system-context call
+        without tenant_key falls back to an explicit all-tenant catalog scan.
+        """
         # Search for supplement products with "CalMag" in the name
-        ferts, _ = self._fert_repo.get_all(offset=0, limit=100, filters={"fertilizer_type": "supplement"})
+        ferts, _ = self._fert_repo.get_all(
+            offset=0,
+            limit=100,
+            filters={"fertilizer_type": "supplement"},
+            tenant_key=tenant_key or None,
+            all_tenants=not tenant_key,
+        )
         for fert in ferts:
             if "calmag" in fert.product_name.lower():
                 return fert

@@ -179,7 +179,7 @@ def run_seed_gardol() -> None:
     fert_keys = upsert_fertilizers(fert_repo, fertilizers)
 
     # ── Upsert nutrient plans ─────────────────────────────────────────────
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
+    existing_plans, _ = plan_repo.get_all(offset=0, limit=100, all_tenants=True)  # seed: global catalog
     existing_plan_map = {p.name: p for p in existing_plans}
 
     plans_data = data["nutrient_plans"]

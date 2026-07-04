@@ -10,6 +10,8 @@ from app.domain.models.feeding_event import FeedingEvent
 
 
 class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.FEEDING_EVENTS)
 
@@ -20,8 +22,10 @@ class ArangoFeedingRepository(IFeedingRepository, BaseArangoRepository):
         offset: int = 0,
         limit: int = 50,
         tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
     ) -> tuple[list[FeedingEvent], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key)
+        docs, total = BaseArangoRepository.get_all(self, offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
         return [FeedingEvent(**doc) for doc in docs], total
 
     def get_by_key(self, key: FeedingEventKey) -> FeedingEvent | None:

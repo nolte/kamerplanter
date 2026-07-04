@@ -16,6 +16,10 @@ from app.domain.models.harvest import (
 
 
 class ArangoHarvestRepository(IHarvestRepository, BaseArangoRepository):
+    # Base collection HARVEST_BATCHES is tenant-scoped; harvest indicators are a
+    # global catalog queried through dedicated raw-AQL methods, not get_all.
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.HARVEST_BATCHES)
 

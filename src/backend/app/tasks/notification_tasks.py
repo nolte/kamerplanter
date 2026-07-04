@@ -41,7 +41,7 @@ def dispatch_due_care_notifications() -> dict:
     today_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=UTC)
 
     # Find all pending/in-progress care reminder tasks due today
-    all_tasks, _ = task_repo.get_all(offset=0, limit=500)
+    all_tasks, _ = task_repo.get_all(offset=0, limit=500, all_tenants=True)  # system task: all tenants
     due_tasks: list[dict] = []
 
     for task_doc in all_tasks:
@@ -224,7 +224,7 @@ def send_daily_summary() -> dict:
     today_start = datetime(today.year, today.month, today.day, tzinfo=UTC)
 
     # Find all due/overdue care tasks
-    all_tasks, _ = task_repo.get_all(offset=0, limit=1000)
+    all_tasks, _ = task_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
     care_tasks: list[dict] = []
 
     for task_doc in all_tasks:

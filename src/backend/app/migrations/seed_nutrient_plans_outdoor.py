@@ -140,7 +140,7 @@ def run_seed_nutrient_plans_outdoor() -> None:
     plan_repo = get_nutrient_plan_repo()
 
     # ── Load fertilizer keys ──
-    existing_ferts, _ = fert_repo.get_all(offset=0, limit=1000)
+    existing_ferts, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
     fert_keys: dict[str, str] = {}
     for f in existing_ferts:
         if f.brand == "Plagron" and f.key:
@@ -154,7 +154,7 @@ def run_seed_nutrient_plans_outdoor() -> None:
         return
 
     # ── Upsert nutrient plans ──
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=200)
+    existing_plans, _ = plan_repo.get_all(offset=0, limit=200, all_tenants=True)  # seed: global catalog
     existing_plan_map = {p.name: p for p in existing_plans}
 
     raw_plans = data["nutrient_plans"]

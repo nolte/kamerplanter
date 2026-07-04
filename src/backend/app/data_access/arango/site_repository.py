@@ -8,6 +8,8 @@ from app.domain.models.site import Location, Site, Slot
 
 
 class ArangoSiteRepository(ISiteRepository, BaseArangoRepository):
+    is_tenant_scoped = True
+
     def __init__(self, db: StandardDatabase) -> None:
         BaseArangoRepository.__init__(self, db, col.SITES)
 

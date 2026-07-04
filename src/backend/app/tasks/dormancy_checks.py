@@ -16,7 +16,7 @@ def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> d
     trigger = DormancyTrigger(phase_repo, species_repo, phase_seq_repo=get_phase_sequence_repo())
 
     triggered = 0
-    plants, _ = plant_repo.get_all(offset=0, limit=1000)
+    plants, _ = plant_repo.get_all(offset=0, limit=1000, all_tenants=True)  # system task: all tenants
 
     for plant in plants:
         if plant.removed_on is not None:

@@ -175,13 +175,13 @@ def run_seed_fertilizers() -> None:
     # PK 13-14 from plagron.yaml).  Look up any existing fertilizers in
     # the DB that are not yet in fert_keys so cross-file references
     # resolve correctly.
-    all_existing, _ = fert_repo.get_all(offset=0, limit=1000)
+    all_existing, _ = fert_repo.get_all(offset=0, limit=1000, all_tenants=True)  # seed: global catalog
     for fert in all_existing:
         if fert.product_name not in fert_keys:
             fert_keys[fert.product_name] = fert.key or ""
 
     # ── Upsert nutrient plans ─────────────────────────────────────────────
-    existing_plans, _ = plan_repo.get_all(offset=0, limit=100)
+    existing_plans, _ = plan_repo.get_all(offset=0, limit=100, all_tenants=True)  # seed: global catalog
     existing_plan_map = {p.name: p for p in existing_plans}
 
     plan_data_list = data["nutrient_plans"]
