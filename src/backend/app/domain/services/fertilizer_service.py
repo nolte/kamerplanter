@@ -2,13 +2,17 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.types import FertilizerKey, FertilizerStockKey
+from app.domain.engines.area_dosing_engine import AreaDosingCalculator, AreaDosingResult
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
+from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 
 
 class FertilizerService:
-    def __init__(self, repo: IFertilizerRepository) -> None:
+    def __init__(self, repo: IFertilizerRepository, site_repo: ISiteRepository | None = None) -> None:
         self._repo = repo
+        self._site_repo = site_repo
+        self._area_calc = AreaDosingCalculator()
 
     # ── Fertilizer CRUD ──────────────────────────────────────────────
 
@@ -49,6 +53,10 @@ class FertilizerService:
             "shelf_life_days",
             "storage_temp_min",
             "storage_temp_max",
+            "application_rate_g_per_m2",
+            "application_rate_l_per_m2",
+            "dilution_ratio",
+            "nutrient_release_speed",
             "notes",
         }
         merged = existing.model_dump()
@@ -123,3 +131,47 @@ class FertilizerService:
     def get_nutrient_plan_usage(self, key: FertilizerKey) -> list[dict]:
         self.get_fertilizer(key)  # ensure exists
         return self._repo.get_nutrient_plan_usage(key)
+
+    # ── Area-based dosing (REQ-004 W-013, AP-11) ────────────────────────
+
+    def calculate_area_dosage(
+        self,
+        fertilizer_keys: list[FertilizerKey],
+        area_m2: float | None = None,
+        location_key: str | None = None,
+        demand_level: str | None = None,
+        tenant_key: str = "",
+    ) -> AreaDosingResult:
+        """Compute per-area amounts for a set of fertilizers over a bed area.
+
+        The area is taken from ``area_m2`` when provided (override); otherwise it
+        is resolved from the location's ``area_m2`` (Location.area_m2). Exactly
+        one source of area must yield a positive value.
+        """
+        resolved_area = self._resolve_area(area_m2, location_key)
+
+        fertilizers = [self.get_fertilizer(key, tenant_key=tenant_key) for key in fertilizer_keys]
+
+        try:
+            return self._area_calc.calculate(fertilizers, resolved_area, demand_level)
+        except ValueError as exc:
+            raise ValidationError(message=str(exc)) from exc
+
+    def _resolve_area(self, area_m2: float | None, location_key: str | None) -> float:
+        """Resolve the application area; explicit ``area_m2`` overrides the location."""
+        if area_m2 is not None:
+            if area_m2 <= 0:
+                raise ValidationError(message="area_m2 must be greater than 0.")
+            return area_m2
+
+        if location_key:
+            if self._site_repo is None:
+                raise ValidationError(message="Site repository not configured for location resolution.")
+            location = self._site_repo.get_location_by_key(location_key)
+            if location is None:
+                raise NotFoundError("Location", location_key)
+            if location.area_m2 <= 0:
+                raise ValidationError(message="Location has no area (area_m2) configured.")
+            return location.area_m2
+
+        raise ValidationError(message="Either area_m2 or location_key must be provided.")

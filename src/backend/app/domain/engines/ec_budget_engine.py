@@ -51,6 +51,26 @@ FRESH_COCO_CALMAG_BOOST = 0.20  # +20%
 SYSTEM_MAX_ML_PER_LITER = 20.0
 
 
+# ── Canonical EC math (single source of truth — DUP-B7) ──────────────
+
+
+def compute_ec_net(target_ec: float, base_water_ec: float) -> float:
+    """EC_net = EC_target − EC_mix, clamped to ≥ 0 (REQ-004-A §4.1)."""
+    return max(0.0, target_ec - base_water_ec)
+
+
+def ph_reserve_for_alkalinity(alkalinity_ppm: float) -> float:
+    """pH reserve staircase by water alkalinity (REQ-004-A §4.4).
+
+    soft < 50 ppm → 0.02 mS, medium 50–150 ppm → 0.03 mS, hard > 150 ppm → 0.05 mS.
+    """
+    if alkalinity_ppm < 50:
+        return PH_RESERVE["soft"]
+    if alkalinity_ppm <= 150:
+        return PH_RESERVE["medium"]
+    return PH_RESERVE["hard"]
+
+
 # ── Input / output models ────────────────────────────────────────────
 
 
@@ -190,7 +210,7 @@ class EcBudgetCalculator:
         instructions.append(f"1. Fill container with {inp.volume_liters}L of blended water (EC {ec_mix} mS)")
 
         # ── EC net ────────────────────────────────────────────────
-        ec_net = max(0, inp.target_ec - ec_mix)
+        ec_net = compute_ec_net(inp.target_ec, ec_mix)
         if ec_net <= 0:
             warnings.append(
                 f"Base water EC ({ec_mix} mS) meets or exceeds target EC ({inp.target_ec} mS). "
@@ -201,12 +221,7 @@ class EcBudgetCalculator:
         step = 2
 
         # ── pH reserve ────────────────────────────────────────────
-        if inp.alkalinity_ppm < 50:
-            ph_reserve = PH_RESERVE["soft"]
-        elif inp.alkalinity_ppm <= 150:
-            ph_reserve = PH_RESERVE["medium"]
-        else:
-            ph_reserve = PH_RESERVE["hard"]
+        ph_reserve = ph_reserve_for_alkalinity(inp.alkalinity_ppm)
 
         # ── Silicate pre-deduction ────────────────────────────────
         ec_silicate = 0.0
@@ -312,6 +327,15 @@ class EcBudgetCalculator:
                     f"{uf.product_name}: EC contribution is uncertain. "
                     f"Extra {UNCERTAIN_EC_RESERVE} mS reserve applied. Measure EC after adding."
                 )
+
+        # Pre-deductions (silicate + CalMag + reserves) may exceed the net budget.
+        # Warn explicitly instead of silently skipping fertilizer dosing.
+        if ec_net > 0 and remaining <= 0 and ferts:
+            warnings.append(
+                f"Pre-deductions (silicate/CalMag/reserves) consume the entire EC net budget "
+                f"({ec_net:.2f} mS). No headroom left for base fertilizers — reduce CalMag/silicate "
+                f"dose or raise target EC."
+            )
 
         if remaining > 0 and ferts:
             # Try recipe scaling first

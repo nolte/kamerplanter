@@ -7,10 +7,15 @@ class MixingProtocolRequest(BaseModel):
     target_volume_liters: float = Field(gt=0)
     target_ec_ms: float = Field(gt=0, le=10)
     target_ph: float = Field(ge=0, le=14)
-    base_water_ec: float = Field(ge=0, le=1.5)
+    # Aligned with EcBudgetRequest (le=2.0 for blended base water).
+    base_water_ec: float = Field(ge=0, le=5)
     base_water_ph: float = Field(ge=0, le=14)
     fertilizer_keys: list[str] = Field(min_length=1)
     substrate_type: str = "coco"
+    # ── Additive REQ-004-A fields (default to previous behaviour) ──
+    alkalinity_ppm: float = Field(default=0, ge=0, le=500)
+    phase: str = "vegetative"
+    recipe_ml_per_liter: dict[str, float] | None = None
 
 
 class FlushingRequest(BaseModel):
@@ -156,3 +161,61 @@ class EcBudgetResponse(BaseModel):
     warnings: list[str] = []
     dosage_table: list[dict] = []
     dosage_instructions: list[str] = []
+
+
+# ── Mixing-protocol response (legacy-compatible adapter over EC budget) ──
+
+
+class MixingProtocolDosage(BaseModel):
+    fertilizer_key: str | None = None
+    product_name: str
+    ml_per_liter: float
+    total_ml: float
+    ec_contribution: float
+
+
+class PhAdjustmentResponse(BaseModel):
+    needed: bool
+    direction: str
+    delta: float
+
+
+class MixingProtocolResponse(BaseModel):
+    dosages: list[MixingProtocolDosage] = []
+    calculated_ec: float
+    ph_adjustment: PhAdjustmentResponse
+    warnings: list[str] = []
+    instructions: list[str] = []
+    # Additive REQ-004-A transparency fields
+    ec_net: float
+    ec_ph_reserve: float
+    valid: bool
+
+
+# ── Area-based dosing schemas (REQ-004 W-013, AP-11) ─────────────────
+
+
+class AreaDosingRequest(BaseModel):
+    fertilizer_keys: list[str] = Field(min_length=1)
+    area_m2: float | None = Field(default=None, gt=0)
+    location_key: str | None = None
+    demand_level: str | None = None
+
+
+class AreaDosingItemResponse(BaseModel):
+    fertilizer_key: str | None = None
+    product_name: str
+    rate_g_per_m2: float | None = None
+    rate_l_per_m2: float | None = None
+    total_grams: float | None = None
+    total_liters: float | None = None
+    dilution_ratio: str | None = None
+    nutrient_release_speed: str | None = None
+    note: str | None = None
+
+
+class AreaDosingResponse(BaseModel):
+    area_m2: float
+    items: list[AreaDosingItemResponse] = []
+    warnings: list[str] = []
+    instructions: list[str] = []

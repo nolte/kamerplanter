@@ -12,7 +12,7 @@ from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.site_repository import ISiteRepository
-from app.domain.models.fertilizer import Fertilizer
+from app.domain.models.fertilizer import DEFAULT_MIXING_PRIORITY, Fertilizer
 from app.domain.models.nutrient_plan import DeliveryChannel, NutrientPlan, NutrientPlanPhaseEntry
 from app.domain.models.site import RoWaterProfile
 
@@ -298,7 +298,7 @@ class NutrientPlanService:
             dosages_with_priority = []
             for dosage in ch.fertilizer_dosages:
                 fert = self._fert_repo.get_by_key(dosage.fertilizer_key)
-                priority = fert.mixing_priority if fert else 50
+                priority = fert.mixing_priority if fert else DEFAULT_MIXING_PRIORITY
                 dosages_with_priority.append(
                     {
                         "fertilizer_key": dosage.fertilizer_key,
@@ -332,6 +332,8 @@ class NutrientPlanService:
         volume_liters: float = 10.0,
         channel_id: str | None = None,
         ro_percent_override: int | None = None,
+        location_key: str | None = None,
+        plant_count: int | None = None,
     ) -> DosageCalculationResult:
         """Calculate runtime dosages for a phase entry based on site water profile.
 
@@ -339,6 +341,11 @@ class NutrientPlanService:
         1. WaterMixCalculator -> effective water profile
         2. CalMag correction -> fill mineral gaps
         3. EC budget scaling -> scale dosages proportionally
+
+        For top-dress (area-based) channels the EC pipeline is bypassed and the
+        application area drives the grams. The area is resolved from
+        ``location_key`` (Location.area_m2) when provided; ``plant_count`` feeds
+        per-plant top-dress rates.
         """
         if self._site_repo is None:
             raise ValidationError("Site repository not configured.")
@@ -399,6 +406,20 @@ class NutrientPlanService:
             else "soil"
         )
 
+        # Resolve application area from a location (top-dress / area dosing).
+        # Layer discipline (NFR-001): resolution happens in the service, the
+        # engine only receives the numeric area.
+        area_m2: float | None = None
+        if location_key:
+            location = self._site_repo.get_location_by_key(location_key)
+            if location is None:
+                raise NotFoundError("Location", location_key)
+            if tenant_key and getattr(location, "tenant_key", "") not in ("", tenant_key):
+                raise NotFoundError("Location", location_key)
+            if location.area_m2 <= 0:
+                raise ValidationError("Location has no area (area_m2) configured for area-based dosing.")
+            area_m2 = location.area_m2
+
         # Build input and run engine
         calc_input = DosageCalculationInput(
             phase_entry=entry,
@@ -411,6 +432,8 @@ class NutrientPlanService:
             calmag_product=calmag_product,
             fertilizer_lookup=fertilizer_lookup,
             plan_reference_substrate_type=plan_ref_substrate,
+            area_m2=area_m2,
+            plant_count=plant_count,
         )
 
         return self._dosage_engine.calculate(calc_input)

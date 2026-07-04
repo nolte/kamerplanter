@@ -1,130 +1,11 @@
 from app.common.enums import ApplicationMethod, FertilizerType, PhEffect, SubstrateType
+from app.domain.engines.fertilizer_classification import (
+    is_calmag,
+    is_silicate,
+    is_sulfate_bearing,
+)
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.nutrient_plan import DeliveryChannel
-
-
-class NutrientSolutionCalculator:
-    """Calculates mixing protocols for nutrient solutions."""
-
-    def calculate(
-        self,
-        target_volume_liters: float,
-        target_ec_ms: float,
-        target_ph: float,
-        base_water_ec: float,
-        base_water_ph: float,
-        fertilizers: list[Fertilizer],
-        substrate_type: SubstrateType = SubstrateType.COCO,
-        recipe_ml_per_liter: dict[str, float] | None = None,
-    ) -> dict:
-        """Calculate nutrient solution dosages.
-
-        Uses recipe scaling (REQ-004-A §5.2):
-            EC_rezept = Σ(r_i × ec_i)  — EC the recipe would produce at full dose
-            k = EC_net / EC_rezept      — scaling factor
-            d_i = k × r_i              — actual dose per fertilizer
-
-        If no recipe_ml_per_liter is provided, falls back to equal EC
-        distribution among all fertilizers (uniform share).
-
-        Args:
-            recipe_ml_per_liter: Optional dict mapping fertilizer key to
-                manufacturer-recommended ml/L dose. When provided, enables
-                accurate recipe scaling instead of equal distribution.
-        """
-        available_ec = max(0, target_ec_ms - base_water_ec)
-
-        if not fertilizers or available_ec <= 0:
-            return {
-                "dosages": [],
-                "calculated_ec": base_water_ec,
-                "ph_adjustment": _ph_adjustment(base_water_ph, target_ph),
-                "warnings": (
-                    [] if available_ec > 0 else ["No EC budget available — base water EC meets or exceeds target"]
-                ),
-                "instructions": [],
-            }
-
-        # Sort by mixing priority (CalMag first = lower number)
-        sorted_ferts = sorted(fertilizers, key=lambda f: f.mixing_priority)
-
-        dosages = []
-        total_calculated_ec = base_water_ec
-        warnings: list[str] = []
-
-        # Recipe scaling: calculate EC the full recipe would produce
-        if recipe_ml_per_liter:
-            ec_recipe = sum(
-                recipe_ml_per_liter.get(f.key or "", 0.0) * f.ec_contribution_per_ml
-                for f in sorted_ferts
-                if f.ec_contribution_per_ml > 0
-            )
-        else:
-            ec_recipe = 0.0
-
-        # Scaling factor k = EC_net / EC_recipe
-        use_recipe_scaling = ec_recipe > 0
-        k = available_ec / ec_recipe if use_recipe_scaling else 0.0
-
-        # Fallback: equal share among fertilizers with EC contribution
-        ferts_with_ec = [f for f in sorted_ferts if f.ec_contribution_per_ml > 0]
-        equal_share = available_ec / len(ferts_with_ec) if ferts_with_ec else 0.0
-
-        for fert in sorted_ferts:
-            if fert.ec_contribution_per_ml <= 0:
-                dosages.append(
-                    {
-                        "fertilizer_key": fert.key,
-                        "product_name": fert.product_name,
-                        "ml_per_liter": 0,
-                        "total_ml": 0,
-                        "ec_contribution": 0,
-                    }
-                )
-                continue
-
-            if use_recipe_scaling:
-                recipe_dose = recipe_ml_per_liter.get(fert.key or "", 0.0)
-                ml_per_liter = k * recipe_dose
-            else:
-                # Equal EC distribution fallback
-                ml_per_liter = equal_share / fert.ec_contribution_per_ml
-
-            # Cap at max_dose_ml_per_liter if defined on the product
-            max_dose = getattr(fert, "max_dose_ml_per_liter", None)
-            if max_dose is not None and ml_per_liter > max_dose:
-                warnings.append(
-                    f"{fert.product_name}: dose capped at {max_dose} ml/L (calculated {ml_per_liter:.2f} ml/L)"
-                )
-                ml_per_liter = max_dose
-
-            ec_contribution = ml_per_liter * fert.ec_contribution_per_ml
-            total_ml = ml_per_liter * target_volume_liters
-            total_calculated_ec += ec_contribution
-
-            dosages.append(
-                {
-                    "fertilizer_key": fert.key,
-                    "product_name": fert.product_name,
-                    "ml_per_liter": round(ml_per_liter, 2),
-                    "total_ml": round(total_ml, 1),
-                    "ec_contribution": round(ec_contribution, 3),
-                }
-            )
-
-            if not fert.tank_safe and substrate_type in (SubstrateType.HYDRO_SOLUTION,):
-                warnings.append(f"{fert.product_name} is not tank-safe — do not pre-mix in reservoir")
-
-        # Mixing instructions
-        instructions = _build_instructions(sorted_ferts, dosages, target_volume_liters)
-
-        return {
-            "dosages": dosages,
-            "calculated_ec": round(total_calculated_ec, 2),
-            "ph_adjustment": _ph_adjustment(base_water_ph, target_ph),
-            "warnings": warnings,
-            "instructions": instructions,
-        }
 
 
 class FlushingProtocol:
@@ -290,28 +171,11 @@ class MixingSafetyValidator:
         """Validate a combination of fertilizers for mixing safety."""
         warnings: list[str] = []
 
-        # Check for CalMag before sulfate rule
-        has_calmag = any("calcium" in f.product_name.lower() or "calmag" in f.product_name.lower() for f in fertilizers)
-        has_sulfate = any(
-            "sulfat" in f.product_name.lower()
-            or "sulfate" in f.product_name.lower()
-            or "epsom" in f.product_name.lower()
-            for f in fertilizers
-        )
+        # Check for CalMag before sulfate rule (structural classification — DOM-6)
+        calmag_ferts = [f for f in fertilizers if is_calmag(f)]
+        sulfate_ferts = [f for f in fertilizers if is_sulfate_bearing(f)]
 
-        if has_calmag and has_sulfate:
-            # Check mixing order
-            calmag_ferts = [
-                f for f in fertilizers if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
-            ]
-            sulfate_ferts = [
-                f
-                for f in fertilizers
-                if "sulfat" in f.product_name.lower()
-                or "sulfate" in f.product_name.lower()
-                or "epsom" in f.product_name.lower()
-            ]
-
+        if calmag_ferts and sulfate_ferts:
             for cf in calmag_ferts:
                 for sf in sulfate_ferts:
                     if cf.mixing_priority > sf.mixing_priority:
@@ -321,10 +185,8 @@ class MixingSafetyValidator:
                         )
 
         # Check silicate-before-CalMag order (CaSiO₃ precipitation risk)
-        silicate_ferts = [f for f in fertilizers if f.fertilizer_type == FertilizerType.SILICATE]
-        calmag_ferts_all = [
-            f for f in fertilizers if "calcium" in f.product_name.lower() or "calmag" in f.product_name.lower()
-        ]
+        silicate_ferts = [f for f in fertilizers if is_silicate(f)]
+        calmag_ferts_all = calmag_ferts
         if silicate_ferts and calmag_ferts_all:
             for sf in silicate_ferts:
                 for cf in calmag_ferts_all:
@@ -400,23 +262,3 @@ def _ph_adjustment(current_ph: float, target_ph: float) -> dict:
         "direction": "up" if delta > 0 else "down",
         "delta": round(abs(delta), 1),
     }
-
-
-def _build_instructions(
-    sorted_ferts: list[Fertilizer],
-    dosages: list[dict],
-    target_volume: float,
-) -> list[str]:
-    """Build step-by-step mixing instructions."""
-    instructions = [f"1. Fill container with {target_volume}L of water"]
-    step = 2
-    for fert, dosage in zip(sorted_ferts, dosages, strict=True):
-        if dosage["total_ml"] > 0:
-            instructions.append(
-                f"{step}. Add {dosage['total_ml']}ml {fert.product_name} "
-                f"({dosage['ml_per_liter']}ml/L) — mix thoroughly"
-            )
-            step += 1
-    instructions.append(f"{step}. Check and adjust pH")
-    instructions.append(f"{step + 1}. Verify final EC reading")
-    return instructions

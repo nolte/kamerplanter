@@ -271,7 +271,7 @@ def get_feeding_repo() -> ArangoFeedingRepository:
 
 
 def get_fertilizer_service() -> FertilizerService:
-    return FertilizerService(get_fertilizer_repo())
+    return FertilizerService(get_fertilizer_repo(), site_repo=get_site_repo())
 
 
 def get_nutrient_plan_service() -> NutrientPlanService:

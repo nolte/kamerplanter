@@ -14,15 +14,21 @@ from typing import Literal
 import structlog
 from pydantic import BaseModel, Field
 
-from app.domain.engines.ec_budget_engine import FRESH_COCO_CALMAG_BOOST, PH_RESERVE
+from app.common.enums import ApplicationMethod
+from app.domain.engines.ec_budget_engine import (
+    FRESH_COCO_CALMAG_BOOST,
+    SYSTEM_MAX_ML_PER_LITER,
+    compute_ec_net,
+    ph_reserve_for_alkalinity,
+)
 from app.domain.engines.substrate_ec_adapter import SubstrateEcAdapter
 from app.domain.engines.water_mix_engine import (
     CalMagCorrection,
     EffectiveWaterProfile,
     WaterMixCalculator,
 )
-from app.domain.models.fertilizer import Fertilizer
-from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry
+from app.domain.models.fertilizer import DEFAULT_MIXING_PRIORITY, Fertilizer
+from app.domain.models.nutrient_plan import NutrientPlanPhaseEntry, TopDressParams
 from app.domain.models.site import RoWaterProfile, TapWaterProfile
 
 logger = structlog.get_logger()
@@ -55,6 +61,9 @@ class DosageCalculationInput(BaseModel):
     calmag_product: Fertilizer | None = None
     fertilizer_lookup: dict[str, Fertilizer] = Field(default_factory=dict)
     plan_reference_substrate_type: str = "soil"
+    # Area-based dosing context for top-dress channels (REQ-004 W-013, AP-11)
+    area_m2: float | None = Field(default=None, gt=0)
+    plant_count: int | None = Field(default=None, gt=0)
 
 
 class DosageEntry(BaseModel):
@@ -65,8 +74,10 @@ class DosageEntry(BaseModel):
     ml_per_liter: float
     total_ml: float
     ec_contribution: float
-    source: Literal["reference", "scaled", "auto_calmag"]
+    source: Literal["reference", "scaled", "auto_calmag", "area_dose"]
     mixing_order: int = 0
+    # Populated only for area-based (top-dress) dosing — grams instead of ml.
+    total_grams: float | None = None
 
 
 class EcBudgetSummary(BaseModel):
@@ -121,6 +132,20 @@ class DosageCalculationEngine:
         # Resolve target EC: phase-level is single source of truth,
         # channel-level is optional override. Apply substrate conversion if needed.
         channel, channel_id = self._resolve_channel(entry, inp.channel_id)
+
+        # ── Area-based (top-dress) dosing branch (REQ-004 W-013, AP-11) ──
+        # Solid amendments are dosed per area/plant, not per EC budget. This
+        # makes TopDressParams.grams_per_m2 / grams_per_plant live fields.
+        if self._is_area_dosed_channel(channel):
+            return self._build_topdress_result(
+                entry,
+                channel,
+                channel_id,
+                inp.fertilizer_lookup,
+                inp.area_m2,
+                inp.plant_count,
+            )
+
         target_ec, ref_ec, substrate_corrected = self._resolve_target_ec(
             entry,
             channel,
@@ -243,9 +268,19 @@ class DosageCalculationEngine:
 
         # ── Stage 3: EC budget scaling ─────────────────────────────
         alkalinity = effective_water.alkalinity_ppm if effective_water else 0.0
-        ph_reserve = self._get_ph_reserve(alkalinity)
+        ph_reserve = ph_reserve_for_alkalinity(alkalinity)
 
-        ec_available_for_ferts = max(0.0, target_ec - base_water_ec - ec_calmag - ph_reserve)
+        # Canonical EC net (clamped before deductions — parity with EcBudgetCalculator).
+        ec_net = compute_ec_net(target_ec, base_water_ec)
+        ec_available_for_ferts = ec_net - ec_calmag - ph_reserve
+        if ec_available_for_ferts <= 0:
+            # Pre-deductions consume the whole budget — warn instead of silently
+            # scaling to zero (parity with EcBudgetCalculator, DUP-B7).
+            warnings.append(
+                f"Pre-deductions (CalMag {ec_calmag:.2f} mS + pH reserve {ph_reserve:.2f} mS) "
+                f"consume the EC net budget ({ec_net:.2f} mS). No headroom left for base fertilizers."
+            )
+            ec_available_for_ferts = 0.0
 
         # Calculate reference EC from channel dosages
         reference_ec = self._calculate_reference_ec(
@@ -261,6 +296,7 @@ class DosageCalculationEngine:
             fertilizer_lookup=inp.fertilizer_lookup,
             scaling_factor=scaling_factor,
             volume_liters=inp.volume_liters,
+            warnings=warnings,
         )
 
         # Insert CalMag dosage at the front (sorted by mixing_order later)
@@ -456,6 +492,7 @@ class DosageCalculationEngine:
         fertilizer_lookup: dict[str, Fertilizer],
         scaling_factor: float,
         volume_liters: float,
+        warnings: list[str] | None = None,
     ) -> list[DosageEntry]:
         """Build scaled dosage entries from channel reference dosages."""
         dosages: list[DosageEntry] = []
@@ -465,15 +502,24 @@ class DosageCalculationEngine:
             fert = fertilizer_lookup.get(ref_dosage.fertilizer_key)
             fert_name = fert.product_name if fert else ref_dosage.fertilizer_key
             ec_per_ml = fert.ec_contribution_per_ml if fert else 0.0
-            mixing_order = fert.mixing_priority if fert else 50
+            mixing_order = fert.mixing_priority if fert else DEFAULT_MIXING_PRIORITY
 
             if ec_per_ml <= 0:
                 # Products with no EC contribution keep their reference dose
                 ml_per_liter = ref_dosage.ml_per_liter
-                source: Literal["reference", "scaled", "auto_calmag"] = "reference"
+                source: Literal["reference", "scaled", "auto_calmag", "area_dose"] = "reference"
             else:
                 ml_per_liter = round(ref_dosage.ml_per_liter * scaling_factor, 2)
                 source = "scaled"
+                # Cap at the product's max dose (fallback to system limit) so the
+                # scaling factor cannot run away (parity with EcBudgetCalculator).
+                max_dose = (fert.max_dose_ml_per_liter if fert else None) or SYSTEM_MAX_ML_PER_LITER
+                if ml_per_liter > max_dose:
+                    if warnings is not None:
+                        warnings.append(
+                            f"{fert_name}: dose capped at {max_dose} ml/L (calculated {ml_per_liter:.2f} ml/L)"
+                        )
+                    ml_per_liter = round(max_dose, 2)
 
             ec_contribution = round(ml_per_liter * ec_per_ml, 4)
             total_ml = round(ml_per_liter * volume_liters, 1)
@@ -510,7 +556,7 @@ class DosageCalculationEngine:
             fert = fertilizer_lookup.get(ref_dosage.fertilizer_key)
             fert_name = fert.product_name if fert else ref_dosage.fertilizer_key
             ec_per_ml = fert.ec_contribution_per_ml if fert else 0.0
-            mixing_order = fert.mixing_priority if fert else 50
+            mixing_order = fert.mixing_priority if fert else DEFAULT_MIXING_PRIORITY
             ec_contribution = round(ref_dosage.ml_per_liter * ec_per_ml, 4)
             ec_total += ec_contribution
 
@@ -558,13 +604,94 @@ class DosageCalculationEngine:
         )
 
     @staticmethod
-    def _get_ph_reserve(alkalinity_ppm: float) -> float:
-        """Determine pH reserve based on water alkalinity."""
-        if alkalinity_ppm < 50:
-            return PH_RESERVE["soft"]
-        if alkalinity_ppm <= 150:
-            return PH_RESERVE["medium"]
-        return PH_RESERVE["hard"]
+    def _is_area_dosed_channel(channel: object) -> bool:
+        """True if the resolved channel dispenses solid amendments per area/plant."""
+        method = getattr(channel, "application_method", None)
+        params = getattr(channel, "method_params", None)
+        return method == ApplicationMethod.TOP_DRESS and isinstance(params, TopDressParams)
+
+    def _build_topdress_result(
+        self,
+        entry: NutrientPlanPhaseEntry,
+        channel: object,
+        channel_id: str,
+        fertilizer_lookup: dict[str, Fertilizer],
+        area_m2: float | None,
+        plant_count: int | None,
+    ) -> DosageCalculationResult:
+        """Build a top-dress dosage result (grams per area/plant, no EC budget).
+
+        REQ-004 W-013 / AP-11: makes TopDressParams.grams_per_m2 and
+        grams_per_plant live. Each fertilizer in the channel gets a DosageEntry
+        with ``total_grams`` (ml/EC fields stay 0). Missing area/plant context
+        produces a warning instead of a silent zero.
+        """
+        params: TopDressParams = channel.method_params  # type: ignore[attr-defined]
+        warnings: list[str] = []
+
+        total_grams: float | None = None
+        if params.grams_per_m2 is not None:
+            if area_m2 is not None and area_m2 > 0:
+                total_grams = round(params.grams_per_m2 * area_m2, 1)
+            else:
+                warnings.append(
+                    "Top-dress channel is dosed per m² but no area is known "
+                    "(set a location with area_m2 or pass area_m2 explicitly)."
+                )
+        elif params.grams_per_plant is not None:
+            if plant_count is not None and plant_count > 0:
+                total_grams = round(params.grams_per_plant * plant_count, 1)
+            else:
+                warnings.append("Top-dress channel is dosed per plant but no plant count is known.")
+        else:
+            warnings.append("Top-dress channel has no grams_per_m2 or grams_per_plant configured.")
+
+        dosages: list[DosageEntry] = []
+        for ref_dosage in getattr(channel, "fertilizer_dosages", []):
+            fert = fertilizer_lookup.get(ref_dosage.fertilizer_key)
+            fert_name = fert.product_name if fert else ref_dosage.fertilizer_key
+            mixing_order = fert.mixing_priority if fert else DEFAULT_MIXING_PRIORITY
+            dosages.append(
+                DosageEntry(
+                    product_name=fert_name,
+                    fertilizer_key=ref_dosage.fertilizer_key,
+                    ml_per_liter=0.0,
+                    total_ml=0.0,
+                    ec_contribution=0.0,
+                    source="area_dose",
+                    mixing_order=mixing_order,
+                    total_grams=total_grams,
+                ),
+            )
+        dosages.sort(key=lambda d: d.mixing_order)
+
+        instructions: list[str] = []
+        if total_grams is not None:
+            for dosage in dosages:
+                instructions.append(f"Spread {dosage.total_grams} g {dosage.product_name} evenly, then water in.")
+        else:
+            instructions.append("Provide an application area (m²) or plant count to compute top-dress amounts.")
+
+        return DosageCalculationResult(
+            phase_name=entry.phase_name.value,
+            channel_id=channel_id,
+            target_ec_ms=0.0,
+            effective_water=None,
+            ro_percent_used=0,
+            calmag_correction=None,
+            calmag_dosage=None,
+            ec_budget=EcBudgetSummary(
+                ec_base_water=0.0,
+                ec_calmag=0.0,
+                ec_ph_reserve=0.0,
+                ec_fertilizers=0.0,
+                ec_final=0.0,
+            ),
+            scaling_factor=1.0,
+            dosages=dosages,
+            mixing_instructions=instructions,
+            warnings=warnings,
+        )
 
     @staticmethod
     def _build_mixing_instructions(

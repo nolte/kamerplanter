@@ -22,6 +22,10 @@ class FertilizerCreate(BaseModel):
     shelf_life_days: int | None = Field(default=None, ge=1)
     storage_temp_min: float | None = None
     storage_temp_max: float | None = None
+    application_rate_g_per_m2: float | None = Field(default=None, gt=0)
+    application_rate_l_per_m2: float | None = Field(default=None, gt=0)
+    dilution_ratio: str | None = Field(default=None, pattern=r"^\d+:\d+$")
+    nutrient_release_speed: str | None = None
     notes: str | None = None
 
 
@@ -42,6 +46,10 @@ class FertilizerUpdate(BaseModel):
     shelf_life_days: int | None = Field(default=None, ge=1)
     storage_temp_min: float | None = None
     storage_temp_max: float | None = None
+    application_rate_g_per_m2: float | None = Field(default=None, gt=0)
+    application_rate_l_per_m2: float | None = Field(default=None, gt=0)
+    dilution_ratio: str | None = Field(default=None, pattern=r"^\d+:\d+$")
+    nutrient_release_speed: str | None = None
     notes: str | None = None
 
 
@@ -63,6 +71,10 @@ class FertilizerResponse(BaseModel):
     shelf_life_days: int | None
     storage_temp_min: float | None
     storage_temp_max: float | None
+    application_rate_g_per_m2: float | None = None
+    application_rate_l_per_m2: float | None = None
+    dilution_ratio: str | None = None
+    nutrient_release_speed: str | None = None
     notes: str | None
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -3,9 +3,12 @@ import pytest
 from app.common.enums import FertilizerType, PhaseName, SubstrateType
 from app.domain.engines.ec_budget_engine import (
     FRESH_COCO_CALMAG_BOOST,
+    PH_RESERVE,
     EcBudgetCalculator,
     EcBudgetFertilizerInput,
     EcBudgetInput,
+    compute_ec_net,
+    ph_reserve_for_alkalinity,
 )
 
 
@@ -35,6 +38,44 @@ def _input(**kw):
     }
     defaults.update(kw)
     return EcBudgetInput(**defaults)
+
+
+# ── Canonical EC math (single source of truth — DUP-B7) ──────────────
+
+
+class TestCanonicalEcFunctions:
+    def test_compute_ec_net_basic(self):
+        assert compute_ec_net(1.8, 0.4) == pytest.approx(1.4)
+
+    def test_compute_ec_net_clamped_to_zero(self):
+        assert compute_ec_net(1.0, 1.5) == 0.0
+
+    @pytest.mark.parametrize(
+        ("alkalinity", "expected"),
+        [
+            (49, PH_RESERVE["soft"]),
+            (50, PH_RESERVE["medium"]),
+            (150, PH_RESERVE["medium"]),
+            (151, PH_RESERVE["hard"]),
+        ],
+    )
+    def test_ph_reserve_staircase(self, alkalinity, expected):
+        assert ph_reserve_for_alkalinity(alkalinity) == expected
+
+
+class TestNegativeBudgetWarning:
+    def test_predeductions_exceed_budget_warns(self):
+        calc = EcBudgetCalculator()
+        # target 1.8, base 0.15 → net 1.65; a huge CalMag pre-deduction eats it all.
+        result = calc.calculate(
+            _input(
+                calmag_key="cm",
+                calmag_dose_ml_per_liter=20.0,
+                calmag_ec_per_ml=0.15,  # 3.0 mS pre-deduction > net budget
+            )
+        )
+        assert any("consume the entire EC net budget" in w for w in result.warnings)
+        assert result.ec_fertilizers == 0
 
 
 # ── Basic happy path ──────────────────────────────────────────────────
