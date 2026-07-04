@@ -115,20 +115,29 @@ The HTML report is saved in `htmlcov/` and can be opened in a browser.
 **Engine tests** — direct class instantiation, no repository mocks needed:
 
 ```python
-class TestNutrientSolutionCalculator:
-    calc = NutrientSolutionCalculator()
+class TestEcBudgetCalculator:
+    calc = EcBudgetCalculator()
 
     def test_ec_net_calculation(self):
-        result = self.calc.calculate_ec_net(
-            base_water_ec=0.3,
-            target_ec=1.8,
-        )
+        # Net EC budget = target EC minus base-water EC
+        result = compute_ec_net(target_ec=1.8, base_water_ec=0.3)
         assert result == pytest.approx(1.5, abs=0.01)
 
-    def test_mixing_order_calmag_first(self):
-        plan = NutrientPlan(...)
-        errors = self.calc.validate_mixing_order(plan)
-        assert errors == []
+    def test_temperature_correction_to_25c(self):
+        # EC readings are corrected to the 25 °C reference temperature
+        corrected = self.calc.correct_ec_at_25(measured_ec=1.6, temp_celsius=20)
+        assert corrected == pytest.approx(1.7778, abs=0.001)
+
+    def test_living_soil_bypass(self):
+        result = self.calc.calculate(
+            EcBudgetInput(
+                base_water_ec=0.3,
+                target_ec=1.8,
+                substrate=SubstrateType.LIVING_SOIL,
+                volume_liters=10,
+            )
+        )
+        assert result.living_soil_bypass is True
 ```
 
 **Service tests** — repositories are mocked:

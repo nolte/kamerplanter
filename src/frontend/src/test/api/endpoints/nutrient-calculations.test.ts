@@ -33,6 +33,13 @@ describe('nutrient-calculations endpoints', () => {
     expect(client.post).toHaveBeenCalledWith('/nutrient-calculations/mixing-protocol', payload);
   });
 
+  it('calculateAreaDosing posts to area-dosing', async () => {
+    client.post.mockResolvedValue({ data: {} });
+    const payload = { fertilizer_keys: ['compost'], area_m2: 12 } as never;
+    await calc.calculateAreaDosing(payload);
+    expect(client.post).toHaveBeenCalledWith('/nutrient-calculations/area-dosing', payload);
+  });
+
   it('calculateFlushing posts to flushing', async () => {
     client.post.mockResolvedValue({ data: {} });
     const payload = { volume_liters: 10 } as never;
