@@ -4478,3 +4478,128 @@ export interface PromotePestContributionResponse {
   promoted_at: string | null;
   promoted_by: string | null;
 }
+
+// ── REQ-022 — Overwintering profiles & winter-hardiness traffic light ──
+
+export type HardinessRating =
+  | 'hardy'
+  | 'needs_protection'
+  | 'frost_free'
+  | 'dig_and_store';
+
+export type WinterAction =
+  | 'none'
+  | 'mulch'
+  | 'fleece'
+  | 'earth_up'
+  | 'move_indoors'
+  | 'dig_store'
+  | 'wrap';
+
+export type SpringAction =
+  | 'uncover'
+  | 'move_outdoors'
+  | 'replant'
+  | 'prune'
+  | 'harden_off';
+
+export type TuberStatus =
+  | 'planted'
+  | 'growing'
+  | 'dig_pending'
+  | 'drying'
+  | 'stored'
+  | 'pre_sprouting';
+
+export type WinterQuarterLight = 'bright' | 'semi_bright' | 'dark';
+
+export type WinterWatering = 'none' | 'minimal' | 'reduced' | 'normal';
+
+/** REQ-022 winter-hardiness traffic light — dashboard aggregate colour. */
+export type WinterHardinessLight = 'green' | 'yellow' | 'red';
+
+/**
+ * REQ-022 §OverwinteringProfile — overwintering configuration for a single
+ * plant instance or planting run (mirrors the backend response schema).
+ */
+export interface OverwinteringProfile {
+  key: string;
+  plant_key: string | null;
+  planting_run_key: string | null;
+  hardiness_zone_min: string | null;
+  hardiness_rating: HardinessRating;
+  winter_action: WinterAction;
+  winter_action_month: number;
+  spring_action: SpringAction | null;
+  spring_action_month: number | null;
+  winter_quarter_key: string | null;
+  winter_quarter_temp_min: number | null;
+  winter_quarter_temp_max: number | null;
+  winter_quarter_light: WinterQuarterLight | null;
+  winter_watering: WinterWatering | null;
+  storage_medium: string | null;
+  storage_check_interval_days: number | null;
+  tuber_status: TuberStatus | null;
+  notes: string | null;
+  auto_generated: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface OverwinteringProfileCreate {
+  plant_key?: string | null;
+  planting_run_key?: string | null;
+  hardiness_zone_min?: string | null;
+  hardiness_rating: HardinessRating;
+  winter_action: WinterAction;
+  winter_action_month: number;
+  spring_action?: SpringAction | null;
+  spring_action_month?: number | null;
+  winter_quarter_key?: string | null;
+  winter_quarter_temp_min?: number | null;
+  winter_quarter_temp_max?: number | null;
+  winter_quarter_light?: WinterQuarterLight | null;
+  winter_watering?: WinterWatering | null;
+  storage_medium?: string | null;
+  storage_check_interval_days?: number | null;
+  tuber_status?: TuberStatus | null;
+  notes?: string | null;
+}
+
+export type OverwinteringProfileUpdate = Partial<
+  Omit<OverwinteringProfileCreate, 'plant_key' | 'planting_run_key'>
+>;
+
+export interface OverwinteringProfileAutoGenerate {
+  plant_key?: string | null;
+  planting_run_key?: string | null;
+  species_key?: string | null;
+  site_key?: string | null;
+  frost_sensitivity?: FrostTolerance | null;
+  species_zone?: string | null;
+  site_zone?: string | null;
+  winter_action_month?: number;
+  spring_action_month?: number;
+  winter_quarter_key?: string | null;
+}
+
+/** One red (must-relocate) plant in the dashboard hardiness overview. */
+export interface WinterHardinessOverviewEntry {
+  profile_key: string;
+  plant_key: string | null;
+  planting_run_key: string | null;
+  hardiness_rating: HardinessRating;
+  winter_action: WinterAction;
+}
+
+/**
+ * REQ-022 §Dashboard-Widget "Winterschutz-Übersicht" — aggregate counts per
+ * traffic-light colour plus the actionable red-plant list.
+ */
+export interface WinterHardinessOverview {
+  green: number;
+  yellow: number;
+  red: number;
+  total: number;
+  red_plants: WinterHardinessOverviewEntry[];
+}

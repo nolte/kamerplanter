@@ -13,6 +13,7 @@ import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import LayersIcon from '@mui/icons-material/Layers';
 import PageTitle from '@/components/layout/PageTitle';
+import WinterProtectionWidget from '@/components/dashboard/WinterProtectionWidget';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 
 export default function DashboardPage() {
@@ -52,6 +53,12 @@ export default function DashboardPage() {
             </Card>
           </Grid>
         ))}
+      </Grid>
+
+      <Grid container spacing={2} sx={{ mt: 2 }}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <WinterProtectionWidget />
+        </Grid>
       </Grid>
     </Box>
   );

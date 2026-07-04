@@ -73,6 +73,9 @@ LOCATION_ASSIGNMENTS = "location_assignments"
 CARE_PROFILES = "care_profiles"
 CARE_CONFIRMATIONS = "care_confirmations"
 
+# REQ-022 Overwintering (G-002)
+OVERWINTERING_PROFILES = "overwintering_profiles"
+
 # REQ-020 Onboarding
 STARTER_KITS = "starter_kits"
 ONBOARDING_STATES = "onboarding_states"
@@ -197,6 +200,7 @@ DOCUMENT_COLLECTIONS = [
     LOCATION_ASSIGNMENTS,
     CARE_PROFILES,
     CARE_CONFIRMATIONS,
+    OVERWINTERING_PROFILES,
     STARTER_KITS,
     ONBOARDING_STATES,
     USER_PREFERENCES,
@@ -332,6 +336,10 @@ USES_TYPE = "uses_type"
 HAS_CARE_PROFILE = "has_care_profile"
 CONFIRMS_CARE = "confirms_care"
 CARE_EVENT_FOR = "care_event_for"
+
+# REQ-022 Overwintering edges (G-002)
+HAS_OVERWINTERING_PROFILE = "has_overwintering_profile"
+OVERWINTERS_AT = "overwinters_at"
 
 # REQ-014 Tank Fill edges
 HAS_FILL_EVENT = "has_fill_event"
@@ -475,6 +483,8 @@ EDGE_COLLECTIONS = [
     HAS_CARE_PROFILE,
     CONFIRMS_CARE,
     CARE_EVENT_FOR,
+    HAS_OVERWINTERING_PROFILE,
+    OVERWINTERS_AT,
     INCLUDES_SPECIES,
     INCLUDES_CULTIVAR,
     INCLUDES_TEMPLATE,
@@ -955,6 +965,17 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [CARE_CONFIRMATIONS],
         "to_vertex_collections": [PLANT_INSTANCES],
     },
+    # REQ-022 Overwintering (G-002)
+    {
+        "edge_collection": HAS_OVERWINTERING_PROFILE,
+        "from_vertex_collections": [PLANTING_RUNS, PLANT_INSTANCES],
+        "to_vertex_collections": [OVERWINTERING_PROFILES],
+    },
+    {
+        "edge_collection": OVERWINTERS_AT,
+        "from_vertex_collections": [OVERWINTERING_PROFILES],
+        "to_vertex_collections": [LOCATIONS],
+    },
     # REQ-020 Onboarding
     {
         "edge_collection": INCLUDES_SPECIES,
@@ -1261,6 +1282,15 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     has_care_profile_col = db.collection(HAS_CARE_PROFILE)
     has_care_profile_col.add_persistent_index(fields=["_from"], unique=True)
+
+    # REQ-022 Overwintering indexes
+    overwintering_profiles_col = db.collection(OVERWINTERING_PROFILES)
+    overwintering_profiles_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    overwintering_profiles_col.add_persistent_index(fields=["plant_key"], unique=False)
+    overwintering_profiles_col.add_persistent_index(fields=["planting_run_key"], unique=False)
+
+    has_overwintering_profile_col = db.collection(HAS_OVERWINTERING_PROFILE)
+    has_overwintering_profile_col.add_persistent_index(fields=["_from"], unique=True)
 
     # REQ-020 Onboarding indexes
     starter_kits_col = db.collection(STARTER_KITS)
