@@ -16,6 +16,7 @@ import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormDateField from '@/components/form/FormDateField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
@@ -217,6 +218,9 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           {t('pages.successionPlans.intro')}
         </Typography>
         <form onSubmit={handleSubmit(onSubmit)}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.successionPlans.sectionCulture')}
+          </Typography>
           <FormTextField
             name="name"
             control={control}
@@ -248,6 +252,21 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             ]}
           />
           <FormNumberField
+            name="plants_per_batch"
+            control={control}
+            label={t('pages.successionPlans.plantsPerBatch')}
+            min={1}
+            step={1}
+            helperText={t('pages.successionPlans.plantsPerBatchHelper')}
+          />
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5, mt: 2 }}>
+            {t('pages.successionPlans.sectionSchedule')}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            {t('pages.successionPlans.sectionScheduleIntro')}
+          </Typography>
+          <FormNumberField
             name="interval_days"
             control={control}
             label={t('pages.successionPlans.intervalDays')}
@@ -256,26 +275,22 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             suffix={t('pages.successionPlans.daysSuffix')}
             helperText={t('pages.successionPlans.intervalDaysHelper')}
           />
-          <FormDateField
-            name="start_date"
-            control={control}
-            label={t('pages.successionPlans.startDate')}
-            required
-          />
-          <FormDateField
-            name="end_date"
-            control={control}
-            label={t('pages.successionPlans.endDate')}
-            required
-          />
-          <FormNumberField
-            name="plants_per_batch"
-            control={control}
-            label={t('pages.successionPlans.plantsPerBatch')}
-            min={1}
-            step={1}
-            helperText={t('pages.successionPlans.plantsPerBatchHelper')}
-          />
+          <FormRow>
+            <FormDateField
+              name="start_date"
+              control={control}
+              label={t('pages.successionPlans.startDate')}
+              required
+            />
+            <FormDateField
+              name="end_date"
+              control={control}
+              label={t('pages.successionPlans.endDate')}
+              required
+              error={invalidRange}
+              helperText={invalidRange ? t('pages.successionPlans.endBeforeStart') : undefined}
+            />
+          </FormRow>
           <FormNumberField
             name="reminder_days_before"
             control={control}
@@ -285,32 +300,10 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             suffix={t('pages.successionPlans.daysSuffix')}
             helperText={t('pages.successionPlans.reminderDaysBeforeHelper')}
           />
-          <FormSelectField
-            name="site_key"
-            control={control}
-            label={t('entities.site')}
-            options={[
-              { value: '', label: '—' },
-              ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-            ]}
-          />
-          <LocationTreeSelect
-            name="location_key"
-            control={control}
-            siteKey={siteKey}
-            label={t('pages.successionPlans.location')}
-          />
-          <FormTextField
-            name="notes"
-            control={control}
-            label={t('pages.successionPlans.notes')}
-            multiline
-            rows={2}
-          />
 
           <Alert
-            severity={invalidRange ? 'warning' : 'info'}
-            sx={{ mt: 1, mb: 1 }}
+            severity={invalidRange ? 'error' : 'info'}
+            sx={{ mt: 1, mb: 2 }}
             data-testid="batch-preview"
           >
             <AlertTitle>{t('pages.successionPlans.previewTitle')}</AlertTitle>
@@ -322,6 +315,43 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
                   })}
             </Box>
           </Alert>
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.successionPlans.sectionLocation')}
+          </Typography>
+          <FormRow>
+            <FormSelectField
+              name="site_key"
+              control={control}
+              label={t('entities.site')}
+              options={[
+                { value: '', label: '—' },
+                ...sitesList.map((s) => ({ value: s.key, label: s.name })),
+              ]}
+            />
+            <LocationTreeSelect
+              name="location_key"
+              control={control}
+              siteKey={siteKey}
+              label={t('pages.successionPlans.location')}
+            />
+          </FormRow>
+
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.successionPlans.sectionNotes')}
+          </Typography>
+          <FormTextField
+            name="notes"
+            control={control}
+            label={t('pages.successionPlans.notes')}
+            multiline
+            minRows={2}
+            maxRows={4}
+          />
+
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            * {t('common.required')}
+          </Typography>
 
           <FormActions
             onCancel={onClose}

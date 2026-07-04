@@ -8,12 +8,16 @@ import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Dialog from '@mui/material/Dialog';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
+import ListItemAvatar from '@mui/material/ListItemAvatar';
 import ListItemText from '@mui/material/ListItemText';
+import Avatar from '@mui/material/Avatar';
 import Alert from '@mui/material/Alert';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -54,6 +58,8 @@ function formatDate(value: string | null): string {
 
 export default function SuccessionPlanListPage() {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const fullScreenResultDialog = useMediaQuery(theme.breakpoints.down('sm'));
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -82,6 +88,14 @@ export default function SuccessionPlanListPage() {
     }
     return map;
   }, [speciesList]);
+
+  // Defensive ordering for the "generated runs" preview: always show the staggered
+  // batches in chronological/sequence order regardless of API response order, so the
+  // timeline-style list reads top-to-bottom the way the user expects.
+  const sortedGeneratedRuns = useMemo(() => {
+    const runs = generatedResult?.runs ?? [];
+    return [...runs].sort((a, b) => (a.succession_sequence ?? 0) - (b.succession_sequence ?? 0));
+  }, [generatedResult]);
 
   const reload = () => {
     dispatch(fetchSuccessionPlans({}));
@@ -133,6 +147,24 @@ export default function SuccessionPlanListPage() {
   const batchProgress = (plan: SuccessionPlan): string =>
     `${plan.completed_batches} / ${plan.total_batches}`;
 
+  // A short, layperson-friendly explanation of what each status means — shown as a
+  // tooltip on the status chip so users don't have to guess when a plan becomes "active".
+  const statusHelpText = (status: SuccessionPlanStatus): string =>
+    t(`pages.successionPlans.statusHelp.${status}`);
+
+  const statusChip = (plan: SuccessionPlan) => (
+    <Tooltip title={statusHelpText(plan.status)}>
+      <Chip
+        label={t(`enums.successionPlanStatus.${plan.status}`)}
+        size="small"
+        color={statusColor[plan.status] ?? 'default'}
+        data-testid={`status-chip-${plan.key}`}
+      />
+    </Tooltip>
+  );
+
+  // Column order follows information hierarchy: identification (name, species) first,
+  // status next (most glanceable signal), then schedule details, then actions.
   const columns: Column<SuccessionPlan>[] = [
     { id: 'name', label: t('pages.successionPlans.name'), render: (p) => p.name },
     {
@@ -140,6 +172,12 @@ export default function SuccessionPlanListPage() {
       label: t('entities.species'),
       render: (p) => speciesLabel(p),
       searchValue: (p) => speciesLabel(p),
+    },
+    {
+      id: 'status',
+      label: t('pages.successionPlans.status'),
+      render: (p) => statusChip(p),
+      searchValue: (p) => t(`enums.successionPlanStatus.${p.status}`),
     },
     {
       id: 'interval',
@@ -155,19 +193,6 @@ export default function SuccessionPlanListPage() {
       render: (p) => batchProgress(p),
       searchValue: (p) => batchProgress(p),
       align: 'right',
-    },
-    {
-      id: 'status',
-      label: t('pages.successionPlans.status'),
-      render: (p) => (
-        <Chip
-          label={t(`enums.successionPlanStatus.${p.status}`)}
-          size="small"
-          color={statusColor[p.status] ?? 'default'}
-          data-testid={`status-chip-${p.key}`}
-        />
-      ),
-      searchValue: (p) => t(`enums.successionPlanStatus.${p.status}`),
     },
     {
       id: 'window',
@@ -259,11 +284,13 @@ export default function SuccessionPlanListPage() {
               subtitle={speciesLabel(p)}
               chips={
                 <>
-                  <Chip
-                    label={t(`enums.successionPlanStatus.${p.status}`)}
-                    size="small"
-                    color={statusColor[p.status] ?? 'default'}
-                  />
+                  <Tooltip title={statusHelpText(p.status)}>
+                    <Chip
+                      label={t(`enums.successionPlanStatus.${p.status}`)}
+                      size="small"
+                      color={statusColor[p.status] ?? 'default'}
+                    />
+                  </Tooltip>
                   <Chip
                     label={t('pages.successionPlans.everyNDays', { count: p.interval_days })}
                     size="small"
@@ -280,24 +307,30 @@ export default function SuccessionPlanListPage() {
                 },
               ]}
             />
+            {/* UI-NFR-001 R-011: 48x48px minimum touch target on mobile — these are the
+                only row actions available (there is no detail page to fall back on). */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5, mb: 1 }}>
               <Button
-                size="small"
                 startIcon={<PlaylistAddIcon />}
                 onClick={() => handleGenerate(p)}
                 disabled={generating === p.key}
                 data-testid={`generate-runs-mobile-${p.key}`}
+                sx={{ minHeight: 48 }}
               >
                 {t('pages.successionPlans.generateRuns')}
               </Button>
-              <Button size="small" startIcon={<EditIcon />} onClick={() => handleEdit(p)}>
+              <Button
+                startIcon={<EditIcon />}
+                onClick={() => handleEdit(p)}
+                sx={{ minHeight: 48 }}
+              >
                 {t('common.edit')}
               </Button>
               <Button
-                size="small"
                 color="error"
                 startIcon={<DeleteIcon />}
                 onClick={() => setDeleteKey(p.key)}
+                sx={{ minHeight: 48 }}
               >
                 {t('common.delete')}
               </Button>
@@ -328,6 +361,7 @@ export default function SuccessionPlanListPage() {
       <Dialog
         open={!!generatedResult}
         onClose={() => setGeneratedResult(null)}
+        fullScreen={fullScreenResultDialog}
         maxWidth="sm"
         fullWidth
         aria-labelledby="generated-runs-dialog-title"
@@ -342,20 +376,30 @@ export default function SuccessionPlanListPage() {
               count: generatedResult?.generated_count ?? 0,
             })}
           </Alert>
-          {generatedResult && generatedResult.runs.length > 0 ? (
-            <List dense data-testid="generated-runs-list">
-              {generatedResult.runs.map((run) => (
+          {sortedGeneratedRuns.length > 0 ? (
+            <List
+              dense
+              data-testid="generated-runs-list"
+              sx={{ maxHeight: 360, overflow: 'auto' }}
+            >
+              {sortedGeneratedRuns.map((run) => (
                 <ListItem key={run.run_key} divider disableGutters>
+                  {run.succession_sequence != null && (
+                    <ListItemAvatar>
+                      <Avatar
+                        sx={{ width: 32, height: 32, fontSize: '0.8rem', bgcolor: 'primary.main' }}
+                        aria-label={t('pages.successionPlans.runSequenceLabel', {
+                          name: run.name,
+                          index: run.succession_sequence,
+                          total: run.succession_total ?? run.succession_sequence,
+                        })}
+                      >
+                        {run.succession_sequence}
+                      </Avatar>
+                    </ListItemAvatar>
+                  )}
                   <ListItemText
-                    primary={
-                      run.succession_sequence != null && run.succession_total != null
-                        ? t('pages.successionPlans.runSequenceLabel', {
-                            name: run.name,
-                            index: run.succession_sequence,
-                            total: run.succession_total,
-                          })
-                        : run.name
-                    }
+                    primary={run.name}
                     secondary={
                       run.planned_start_date
                         ? t('pages.successionPlans.plannedStartLabel', {
@@ -363,6 +407,7 @@ export default function SuccessionPlanListPage() {
                           })
                         : undefined
                     }
+                    slotProps={{ secondary: { sx: { color: 'text.primary', fontWeight: 500 } } }}
                   />
                 </ListItem>
               ))}

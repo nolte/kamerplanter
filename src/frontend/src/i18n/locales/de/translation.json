@@ -2015,6 +2015,17 @@
       "editTitle": "Staffelanbau bearbeiten",
       "name": "Bezeichnung",
       "status": "Status",
+      "statusHelp": {
+        "planned": "Der Plan ist angelegt, aber es wurden noch keine Staffeln erzeugt.",
+        "active": "Mindestens eine Staffel wurde bereits erzeugt.",
+        "completed": "Alle geplanten Staffeln wurden erzeugt.",
+        "cancelled": "Der Plan wurde abgebrochen und erzeugt keine weiteren Staffeln."
+      },
+      "sectionCulture": "Kultur",
+      "sectionSchedule": "Zeitplan",
+      "sectionScheduleIntro": "Intervall und Zeitraum bestimmen zusammen, wie viele Staffeln entstehen – siehe Vorschau unten.",
+      "sectionLocation": "Standort",
+      "sectionNotes": "Notizen",
       "intervalDays": "Intervall",
       "intervalDaysHelper": "Abstand zwischen zwei Aussaaten in Tagen – z. B. 21 für „alle 3 Wochen nachsäen“.",
       "everyNDays": "Alle {{count}} Tage",

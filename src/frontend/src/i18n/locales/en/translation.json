@@ -2015,6 +2015,17 @@
       "editTitle": "Edit succession plan",
       "name": "Name",
       "status": "Status",
+      "statusHelp": {
+        "planned": "The plan has been created, but no batches have been generated yet.",
+        "active": "At least one batch has already been generated.",
+        "completed": "All planned batches have been generated.",
+        "cancelled": "The plan was cancelled and will not generate further batches."
+      },
+      "sectionCulture": "Crop",
+      "sectionSchedule": "Schedule",
+      "sectionScheduleIntro": "The interval and time window together determine how many batches are created — see the preview below.",
+      "sectionLocation": "Location",
+      "sectionNotes": "Notes",
       "intervalDays": "Interval",
       "intervalDaysHelper": "Number of days between two sowings — e.g. 21 for \"re-sow every 3 weeks\".",
       "everyNDays": "Every {{count}} days",
