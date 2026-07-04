@@ -36,8 +36,8 @@ Roadmap-Markierung in MEMORY (F=Future explizit, N=Now), Bucket A–F.
 | **REQ-024** Tenant (RBAC Matrix) | 88 % | mittel | REQ-023, REQ-027 | L | hoch | N | A2 |
 | **REQ-013** PlantingRun (Backend v2.0 → v2.3) | 88 % | mittel | REQ-001, REQ-022 | M | hoch | N | B1 |
 | **REQ-022** Pflegeerinnerungen (v2.3 → v2.5) | 88 % | mittel | REQ-013 | M | hoch | N | B1 |
-| **REQ-014** Tankmanagement (v1.4 → v1.6) | 88 % | gering | REQ-004 | S | sehr hoch | N | B1 |
-| **REQ-015** Kalenderansicht (v1.1 → v1.6) | 88 % | gering | — | M | hoch | N | B1 |
+| ~~**REQ-014** Tankmanagement (v1.4 → v1.6)~~ ✅ | 100 % | gering | REQ-004 | S | sehr hoch | N | **done** |
+| ~~**REQ-015** Kalenderansicht (v1.1 → v1.6)~~ ✅ | 100 % | gering | — | M | hoch | N | **done** |
 | REQ-005 Hybrid-Sensorik | 89 % | gering | — | S | **sehr hoch** | N | B2 |
 | REQ-007 Erntemanagement | 83 % | gering | REQ-008 | S | **sehr hoch** | N | B2 |
 | REQ-028 Mischkultur | 89 % | gering | REQ-001, REQ-002 | S | **sehr hoch** | N | B2 |
@@ -111,8 +111,8 @@ entsprechen.
 
 | # | Plan | Aufwand | Was nachzuziehen ist |
 |---|---|---|---|
-| 7 | [REQ-014 Tankmanagement v1.6](req-coverage-audit/REQ-014.md) | S | Wasserquellen-Kaskade an Site (von v1.4 zu v1.6) |
-| 8 | [REQ-015 Kalenderansicht v1.6](req-coverage-audit/REQ-015.md) | M | Light-Modus iCal-Token + WateringSchedule-Erweiterungen (v1.1 → v1.6) |
+| 7 | ~~REQ-014 Tankmanagement v1.6~~ ✅ **done** | S | Wasserquellen-Kaskade + `_ms`-Suffix implementiert (`tank_service.py:242`), Fable-5-Review 2026-07 verifiziert (GAP-B17) |
+| 8 | ~~REQ-015 Kalenderansicht v1.6~~ ✅ **done** | M | Light-Modus iCal-Token (`calendar/tenant_router.py:38`) + CF-005 `expires_at`/410 (`calendar_service.py:308-316`) implementiert, Fable-5-Review 2026-07 verifiziert (GAP-B17) |
 | 9 | [REQ-013 PlantingRun v2.3](req-coverage-audit/REQ-013.md) | M | CareProfile-Snapshot beim Run-Start (v2.0 → v2.3) |
 | 10 | [REQ-022 Pflegeerinnerungen v2.5](req-coverage-audit/REQ-022.md) | M | Run-Owned CareProfile mit Snapshot-Mechanik (v2.3 → v2.5) |
 
