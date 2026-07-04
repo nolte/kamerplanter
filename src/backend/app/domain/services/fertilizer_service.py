@@ -148,7 +148,7 @@ class FertilizerService:
         is resolved from the location's ``area_m2`` (Location.area_m2). Exactly
         one source of area must yield a positive value.
         """
-        resolved_area = self._resolve_area(area_m2, location_key)
+        resolved_area = self._resolve_area(area_m2, location_key, tenant_key)
 
         fertilizers = [self.get_fertilizer(key, tenant_key=tenant_key) for key in fertilizer_keys]
 
@@ -157,7 +157,7 @@ class FertilizerService:
         except ValueError as exc:
             raise ValidationError(message=str(exc)) from exc
 
-    def _resolve_area(self, area_m2: float | None, location_key: str | None) -> float:
+    def _resolve_area(self, area_m2: float | None, location_key: str | None, tenant_key: str = "") -> float:
         """Resolve the application area; explicit ``area_m2`` overrides the location."""
         if area_m2 is not None:
             if area_m2 <= 0:
@@ -169,6 +169,10 @@ class FertilizerService:
                 raise ValidationError(message="Site repository not configured for location resolution.")
             location = self._site_repo.get_location_by_key(location_key)
             if location is None:
+                raise NotFoundError("Location", location_key)
+            # Tenant isolation (AP-8): a Location is a tenant resource, so a caller
+            # must not resolve another tenant's bed area via its key.
+            if tenant_key and getattr(location, "tenant_key", None) != tenant_key:
                 raise NotFoundError("Location", location_key)
             if location.area_m2 <= 0:
                 raise ValidationError(message="Location has no area (area_m2) configured.")

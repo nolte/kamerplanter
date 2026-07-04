@@ -11,10 +11,12 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
+from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
-from app.common.enums import FertilizerType
+from app.common.enums import FertilizerType, TenantRole
 from app.domain.models.fertilizer import Fertilizer
 from app.domain.models.site import Location
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
 
@@ -54,9 +56,15 @@ def _fertilizers() -> dict[str, Fertilizer]:
 
 def _locations() -> dict[str, Location]:
     return {
-        "loc-1": Location(_key="loc-1", name="Bed 1", site_key="site-1", area_m2=2.5),
-        "loc-empty": Location(_key="loc-empty", name="Bed 0", site_key="site-1", area_m2=0.0),
+        "loc-1": Location(_key="loc-1", name="Bed 1", site_key="site-1", area_m2=2.5, tenant_key="personal"),
+        "loc-empty": Location(_key="loc-empty", name="Bed 0", site_key="site-1", area_m2=0.0, tenant_key="personal"),
+        # Belongs to a different tenant — must never resolve for tenant "personal".
+        "loc-other": Location(_key="loc-other", name="Bed X", site_key="site-2", area_m2=5.0, tenant_key="other"),
     }
+
+
+def _ctx() -> TenantContext:
+    return TenantContext(tenant_key="personal", tenant_slug="personal", user_key="u1", role=TenantRole.GROWER)
 
 
 @pytest.fixture
@@ -66,8 +74,10 @@ def client():
         from app.main import app
 
         app.dependency_overrides[get_fertilizer_service] = lambda: service
+        app.dependency_overrides[get_current_tenant] = _ctx
         yield TestClient(app, raise_server_exceptions=False)
         app.dependency_overrides.pop(get_fertilizer_service, None)
+        app.dependency_overrides.pop(get_current_tenant, None)
 
 
 # ── Mixing protocol (AP-10) ──────────────────────────────────────────
@@ -159,3 +169,12 @@ class TestAreaDosing:
             json={"fertilizer_keys": ["hornspaene"], "location_key": "loc-empty"},
         )
         assert response.status_code == 422
+
+    def test_cross_tenant_location_is_not_resolved(self, client):
+        """AP-8/AP-11: a location owned by another tenant must not resolve its
+        area for the caller — it is reported as not found (404), not leaked."""
+        response = client.post(
+            "/api/v1/t/personal/nutrient-calculations/area-dosing",
+            json={"fertilizer_keys": ["hornspaene"], "location_key": "loc-other"},
+        )
+        assert response.status_code == 404

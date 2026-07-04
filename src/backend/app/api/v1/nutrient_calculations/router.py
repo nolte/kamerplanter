@@ -22,6 +22,7 @@ from app.api.v1.nutrient_calculations.schemas import (
     WaterMixReverseResponse,
     WaterSourceWarningResponse,
 )
+from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import PhaseName, SubstrateType
 from app.domain.engines.ec_budget_engine import (
@@ -37,6 +38,7 @@ from app.domain.engines.nutrient_engine import (
 )
 from app.domain.engines.water_mix_engine import WaterMixCalculator, WaterSourceValidator
 from app.domain.models.site import RoWaterProfile, TapWaterProfile
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
 router = APIRouter(prefix="/nutrient-calculations", tags=["nutrient-calculations"])
@@ -112,19 +114,21 @@ def mixing_protocol(
 @router.post("/area-dosing", response_model=AreaDosingResponse)
 def area_dosing(
     body: AreaDosingRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ) -> AreaDosingResponse:
     """Compute per-area organic fertilizer amounts (REQ-004 W-013, AP-11).
 
     Area is taken from an explicit ``area_m2`` (override) or resolved from
-    ``location_key`` (Location.area_m2). Solid amendments are dosed g/m² and
-    L/m² instead of ml/L.
+    ``location_key`` (Location.area_m2, scoped to the caller's tenant). Solid
+    amendments are dosed g/m² and L/m² instead of ml/L.
     """
     result = service.calculate_area_dosage(
         fertilizer_keys=body.fertilizer_keys,
         area_m2=body.area_m2,
         location_key=body.location_key,
         demand_level=body.demand_level,
+        tenant_key=ctx.tenant_key,
     )
     return AreaDosingResponse(
         area_m2=result.area_m2,
