@@ -1,5 +1,7 @@
 import { tenantClient as client } from '../client';
 import type {
+  AreaDosingRequest,
+  AreaDosingResponse,
   EcBudgetRequest,
   EcBudgetResponse,
   FlushingRequest,
@@ -23,6 +25,18 @@ export async function calculateMixingProtocol(
 ): Promise<MixingProtocolResponse> {
   const { data } = await client.post<MixingProtocolResponse>(
     `${BASE}/mixing-protocol`,
+    payload,
+  );
+  return data;
+}
+
+// ── Area-based Dosing (REQ-004 W-013, AP-11) ──────────────────────────
+
+export async function calculateAreaDosing(
+  payload: AreaDosingRequest,
+): Promise<AreaDosingResponse> {
+  const { data } = await client.post<AreaDosingResponse>(
+    `${BASE}/area-dosing`,
     payload,
   );
   return data;

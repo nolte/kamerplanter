@@ -19,9 +19,10 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/fertilizers';
 
-const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate'] as const;
+const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate', 'calmag'] as const;
 const phEffects = ['acidic', 'alkaline', 'neutral'] as const;
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress', 'any'] as const;
+const releaseSpeeds = ['immediate', 'weeks', 'months', 'season_long'] as const;
 
 const schema = z.object({
   product_name: z.string().min(1).max(200),
@@ -36,6 +37,14 @@ const schema = z.object({
   mixing_priority: z.number().int().min(1),
   ph_effect: z.enum(phEffects),
   recommended_application: z.enum(applicationMethods),
+  application_rate_g_per_m2: z.number().gt(0).nullable(),
+  application_rate_l_per_m2: z.number().gt(0).nullable(),
+  dilution_ratio: z
+    .string()
+    .regex(/^\d+:\d+$/, 'dilutionRatioError')
+    .nullable()
+    .or(z.literal('')),
+  nutrient_release_speed: z.enum(releaseSpeeds).nullable().or(z.literal('')),
   notes: z.string().nullable(),
 });
 
@@ -70,6 +79,10 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
       mixing_priority: 1,
       ph_effect: 'neutral',
       recommended_application: 'fertigation',
+      application_rate_g_per_m2: null,
+      application_rate_l_per_m2: null,
+      dilution_ratio: '',
+      nutrient_release_speed: '',
       notes: null,
     },
   });
@@ -94,6 +107,10 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
         mixing_priority: data.mixing_priority,
         ph_effect: data.ph_effect,
         recommended_application: data.recommended_application,
+        application_rate_g_per_m2: data.application_rate_g_per_m2,
+        application_rate_l_per_m2: data.application_rate_l_per_m2,
+        dilution_ratio: data.dilution_ratio ? data.dilution_ratio : null,
+        nutrient_release_speed: data.nutrient_release_speed ? data.nutrient_release_speed : null,
         notes: data.notes,
       });
       notification.success(t('common.create'));
@@ -231,6 +248,55 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
               helperText={t('pages.fertilizers.tankSafeHelper')}
             />
           </FormRow>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+            {t('pages.fertilizers.sectionAreaDosing')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.fertilizers.sectionAreaDosingIntro')}
+          </Typography>
+          <FormRow>
+            <FormNumberField
+              name="application_rate_g_per_m2"
+              control={control}
+              label={t('pages.fertilizers.applicationRateGPerM2')}
+              min={0}
+              suffix="g/m²"
+              inputMode="decimal"
+              helperText={t('pages.fertilizers.applicationRateGPerM2Helper')}
+            />
+            <FormNumberField
+              name="application_rate_l_per_m2"
+              control={control}
+              label={t('pages.fertilizers.applicationRateLPerM2')}
+              min={0}
+              suffix="L/m²"
+              inputMode="decimal"
+              helperText={t('pages.fertilizers.applicationRateLPerM2Helper')}
+            />
+          </FormRow>
+          <FormRow>
+            <FormTextField
+              name="dilution_ratio"
+              control={control}
+              label={t('pages.fertilizers.dilutionRatio')}
+              placeholder="1:10"
+              helperText={t('pages.fertilizers.dilutionRatioHelper')}
+            />
+            <FormSelectField
+              name="nutrient_release_speed"
+              control={control}
+              label={t('pages.fertilizers.nutrientReleaseSpeed')}
+              helperText={t('pages.fertilizers.nutrientReleaseSpeedHelper')}
+              options={[
+                { value: '', label: t('pages.fertilizers.nutrientReleaseSpeedNone') },
+                ...releaseSpeeds.map((v) => ({
+                  value: v,
+                  label: t(`enums.nutrientReleaseSpeed.${v}`),
+                })),
+              ]}
+            />
+          </FormRow>
+
           <FormTextField
             name="notes"
             control={control}

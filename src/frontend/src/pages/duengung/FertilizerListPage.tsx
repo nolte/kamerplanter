@@ -31,7 +31,7 @@ import type { Fertilizer } from '@/api/types';
 import FertilizerCreateDialog from './FertilizerCreateDialog';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
 
-const FERTILIZER_TYPES = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate'] as const;
+const FERTILIZER_TYPES = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate', 'calmag'] as const;
 
 export default function FertilizerListPage() {
   const { t } = useTranslation();
