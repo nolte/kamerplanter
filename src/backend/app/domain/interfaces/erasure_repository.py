@@ -12,6 +12,9 @@ class IErasureRepository(ABC):
     def get_by_key(self, key: ErasureRequestKey) -> ErasureRequest | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: ErasureRequestKey) -> ErasureRequest: ...
+
+    @abstractmethod
     def update(self, key: ErasureRequestKey, erasure: ErasureRequest) -> ErasureRequest: ...
 
     @abstractmethod

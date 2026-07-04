@@ -102,6 +102,9 @@ class ArangoHarvestRepository(BaseArangoRepository[HarvestBatch], IHarvestReposi
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None:
         return super().get_by_key(key)
 
+    def get_batch_or_raise(self, key: HarvestBatchKey) -> HarvestBatch:
+        return super().get_or_raise(key)
+
     def create_batch(self, batch: HarvestBatch) -> HarvestBatch:
         hb = super().create(batch)
         if batch.plant_key:

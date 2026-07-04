@@ -73,6 +73,9 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
     def get_cultivar_by_key(self, key: CultivarKey) -> Cultivar | None:
         return self._cultivars.get_by_key(key)
 
+    def get_cultivar_or_raise(self, key: CultivarKey) -> Cultivar:
+        return self._cultivars.get_or_raise(key)
+
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
         return self._cultivars.update(key, cultivar)
 

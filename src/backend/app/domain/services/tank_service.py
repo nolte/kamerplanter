@@ -1,5 +1,5 @@
 from app.common.enums import IrrigationSystem
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import MaintenanceScheduleKey, TankKey
 from app.domain.engines.tank_engine import TankEngine
@@ -186,9 +186,7 @@ class TankService:
         return self._repo.get_schedules(tank_key)
 
     def update_schedule(self, key: MaintenanceScheduleKey, data: dict) -> MaintenanceSchedule:
-        existing = self._repo.get_schedule_by_key(key)
-        if existing is None:
-            raise NotFoundError("MaintenanceSchedule", key)
+        existing = self._repo.get_schedule_or_raise(key)
         allowed_fields = {
             "interval_days",
             "reminder_days_before",
@@ -211,9 +209,7 @@ class TankService:
         return self._repo.update_schedule(key, existing)
 
     def delete_schedule(self, key: MaintenanceScheduleKey) -> bool:
-        existing = self._repo.get_schedule_by_key(key)
-        if existing is None:
-            raise NotFoundError("MaintenanceSchedule", key)
+        self._repo.get_schedule_or_raise(key)
         return self._repo.delete_schedule(key)
 
     # ── Fill Events ──────────────────────────────────────────────────────

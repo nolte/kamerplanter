@@ -1,5 +1,5 @@
 from app.common.datetimes import ensure_aware_utc, now_utc
-from app.common.exceptions import KarenzViolationError, NotFoundError
+from app.common.exceptions import KarenzViolationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
@@ -94,9 +94,7 @@ class HarvestService:
         return self._repo.get_all_batches(offset, limit, tenant_key=tenant_key)
 
     def get_batch(self, key: str, tenant_key: str = "") -> HarvestBatch:
-        batch = self._repo.get_batch_by_key(key)
-        if not batch:
-            raise NotFoundError("HarvestBatch", key)
+        batch = self._repo.get_batch_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(batch, tenant_key, "HarvestBatch")
         return batch

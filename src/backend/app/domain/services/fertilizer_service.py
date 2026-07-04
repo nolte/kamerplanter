@@ -165,9 +165,7 @@ class FertilizerService:
         if location_key:
             if self._site_repo is None:
                 raise ValidationError(message="Site repository not configured for location resolution.")
-            location = self._site_repo.get_location_by_key(location_key)
-            if location is None:
-                raise NotFoundError("Location", location_key)
+            location = self._site_repo.get_location_or_raise(location_key)
             # Tenant isolation (AP-8): a Location is a tenant resource, so a caller
             # must not resolve another tenant's bed area via its key.
             if tenant_key and getattr(location, "tenant_key", None) != tenant_key:

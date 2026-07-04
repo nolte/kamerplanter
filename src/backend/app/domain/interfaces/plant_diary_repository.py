@@ -13,6 +13,9 @@ class IPlantDiaryRepository(ABC):
     def get_by_key(self, key: str) -> PlantDiaryEntry | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: str) -> PlantDiaryEntry: ...
+
+    @abstractmethod
     def update(self, key: str, entry: PlantDiaryEntry) -> PlantDiaryEntry: ...
 
     @abstractmethod

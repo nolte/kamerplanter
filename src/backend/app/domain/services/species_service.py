@@ -1,4 +1,4 @@
-from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.exceptions import DuplicateError
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
@@ -49,10 +49,7 @@ class SpeciesService:
         return self._repo.create_cultivar(cultivar)
 
     def get_cultivar(self, key: CultivarKey) -> Cultivar:
-        cultivar = self._repo.get_cultivar_by_key(key)
-        if cultivar is None:
-            raise NotFoundError("Cultivar", key)
-        return cultivar
+        return self._repo.get_cultivar_or_raise(key)
 
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
         self.get_cultivar(key)

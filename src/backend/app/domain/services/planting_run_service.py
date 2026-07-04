@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime, timedelta
 
 from app.common.enums import PlantingRunStatus
-from app.common.exceptions import InvalidRunStateError, NotFoundError, ValidationError
+from app.common.exceptions import InvalidRunStateError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
 from app.domain.engines.planting_run_engine import PlantingRunEngine
@@ -177,9 +177,7 @@ class PlantingRunService:
         run = self.get_run(run_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("update_entry", run.status.value)
-        existing = self._repo.get_entry_by_key(entry_key)
-        if existing is None:
-            raise NotFoundError("PlantingRunEntry", entry_key)
+        existing = self._repo.get_entry_or_raise(entry_key)
 
         patch = {k: v for k, v in data.items() if k in self.ENTRY_UPDATABLE_FIELDS}
         nulled_required = self.ENTRY_REQUIRED_FIELDS & {k for k, v in patch.items() if v is None}
@@ -198,9 +196,7 @@ class PlantingRunService:
         run = self.get_run(run_key)
         if run.status != PlantingRunStatus.PLANNED:
             raise InvalidRunStateError("delete_entry", run.status.value)
-        existing = self._repo.get_entry_by_key(entry_key)
-        if existing is None:
-            raise NotFoundError("PlantingRunEntry", entry_key)
+        self._repo.get_entry_or_raise(entry_key)
         result = self._repo.delete_entry(entry_key)
         # Update planned_quantity
         entries = self._repo.get_entries(run_key)

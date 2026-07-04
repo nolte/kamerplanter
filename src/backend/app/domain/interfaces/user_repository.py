@@ -9,6 +9,9 @@ class IUserRepository(ABC):
     def get_by_key(self, key: UserKey) -> User | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: UserKey) -> User: ...
+
+    @abstractmethod
     def get_by_email(self, email: str) -> User | None: ...
 
     @abstractmethod

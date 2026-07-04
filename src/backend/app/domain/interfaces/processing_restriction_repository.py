@@ -15,6 +15,9 @@ class IProcessingRestrictionRepository(ABC):
     def get_by_key(self, key: ProcessingRestrictionKey) -> ProcessingRestriction | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: ProcessingRestrictionKey) -> ProcessingRestriction: ...
+
+    @abstractmethod
     def get_by_user_and_scope(
         self,
         user_key: UserKey,

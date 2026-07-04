@@ -24,6 +24,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def get_site_by_key(self, key: SiteKey) -> Site | None:
         return super().get_by_key(key)
 
+    def get_site_or_raise(self, key: SiteKey) -> Site:
+        return super().get_or_raise(key)
+
     def create_site(self, site: Site) -> Site:
         return super().create(site)
 
@@ -50,6 +53,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def get_location_by_key(self, key: LocationKey) -> Location | None:
         return self._locations.get_by_key(key)
+
+    def get_location_or_raise(self, key: LocationKey) -> Location:
+        return self._locations.get_or_raise(key)
 
     def create_location(self, location: Location) -> Location:
         created = self._locations.create(location)
@@ -123,6 +129,9 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def get_slot_by_key(self, key: SlotKey) -> Slot | None:
         return self._slots.get_by_key(key)
+
+    def get_slot_or_raise(self, key: SlotKey) -> Slot:
+        return self._slots.get_or_raise(key)
 
     def create_slot(self, slot: Slot) -> Slot:
         created = self._slots.create(slot)

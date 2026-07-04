@@ -41,6 +41,9 @@ class IHarvestRepository(ABC):
     def get_batch_by_key(self, key: HarvestBatchKey) -> HarvestBatch | None: ...
 
     @abstractmethod
+    def get_batch_or_raise(self, key: HarvestBatchKey) -> HarvestBatch: ...
+
+    @abstractmethod
     def create_batch(self, batch: HarvestBatch) -> HarvestBatch: ...
 
     @abstractmethod

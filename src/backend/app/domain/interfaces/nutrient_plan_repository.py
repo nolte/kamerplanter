@@ -19,6 +19,9 @@ class INutrientPlanRepository(ABC):
     def get_by_key(self, key: NutrientPlanKey) -> NutrientPlan | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: NutrientPlanKey) -> NutrientPlan: ...
+
+    @abstractmethod
     def create(self, plan: NutrientPlan) -> NutrientPlan: ...
 
     @abstractmethod
@@ -37,6 +40,9 @@ class INutrientPlanRepository(ABC):
 
     @abstractmethod
     def get_phase_entry_by_key(self, key: NutrientPlanPhaseEntryKey) -> NutrientPlanPhaseEntry | None: ...
+
+    @abstractmethod
+    def get_phase_entry_or_raise(self, key: NutrientPlanPhaseEntryKey) -> NutrientPlanPhaseEntry: ...
 
     @abstractmethod
     def update_phase_entry(

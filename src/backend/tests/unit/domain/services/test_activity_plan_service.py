@@ -8,6 +8,7 @@ from app.domain.models.activity import Activity
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.task import TaskTemplate, WorkflowTemplate
 from app.domain.services.activity_plan_service import ActivityPlanService
+from tests.conftest import wire_or_raise
 
 
 def _make_species():
@@ -84,6 +85,14 @@ def service():
     task_repo = MagicMock()
     run_repo = MagicMock()
     species_repo = MagicMock()
+    wire_or_raise(species_repo, "Species")
+    wire_or_raise(run_repo, "PlantingRun")
+    wire_or_raise(
+        task_repo,
+        "WorkflowTemplate",
+        by_key="get_workflow_template_by_key",
+        or_raise="get_workflow_template_or_raise",
+    )
 
     return ActivityPlanService(
         engine=engine,

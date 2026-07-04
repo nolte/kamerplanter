@@ -192,6 +192,9 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     def get_schedule_by_key(self, key: MaintenanceScheduleKey) -> MaintenanceSchedule | None:
         return self._schedules.get_by_key(key)
 
+    def get_schedule_or_raise(self, key: MaintenanceScheduleKey) -> MaintenanceSchedule:
+        return self._schedules.get_or_raise(key)
+
     def update_schedule(
         self,
         key: MaintenanceScheduleKey,

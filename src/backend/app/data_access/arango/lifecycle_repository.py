@@ -33,6 +33,9 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
     def get_lifecycle_by_key(self, key: str) -> LifecycleConfig | None:
         return super().get_by_key(key)
 
+    def get_lifecycle_or_raise(self, key: str) -> LifecycleConfig:
+        return super().get_or_raise(key)
+
     def get_lifecycle_by_species(self, species_key: str) -> LifecycleConfig | None:
         results = self.get_edges(col.HAS_LIFECYCLE, f"{col.SPECIES}/{species_key}", direction="outbound")
         if not results:
@@ -60,6 +63,9 @@ class ArangoLifecycleRepository(BaseArangoRepository[LifecycleConfig], IPhaseRep
 
     def get_phase_by_key(self, key: PhaseKey) -> GrowthPhase | None:
         return self._phases.get_by_key(key)
+
+    def get_phase_or_raise(self, key: PhaseKey) -> GrowthPhase:
+        return self._phases.get_or_raise(key)
 
     def create_phase(self, phase: GrowthPhase) -> GrowthPhase:
         created_phase = self._phases.create(phase)

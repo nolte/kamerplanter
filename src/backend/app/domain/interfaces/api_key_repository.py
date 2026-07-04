@@ -14,6 +14,9 @@ class IApiKeyRepository(ABC):
     def get_by_key(self, key: ApiKeyKey) -> ApiKey | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: ApiKeyKey) -> ApiKey: ...
+
+    @abstractmethod
     def get_by_hash(self, key_hash: str) -> ApiKey | None: ...
 
     @abstractmethod

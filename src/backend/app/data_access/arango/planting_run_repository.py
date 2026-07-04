@@ -92,6 +92,9 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
     def get_entry_by_key(self, entry_key: PlantingRunEntryKey) -> PlantingRunEntry | None:
         return self._entries.get_by_key(entry_key)
 
+    def get_entry_or_raise(self, entry_key: PlantingRunEntryKey) -> PlantingRunEntry:
+        return self._entries.get_or_raise(entry_key)
+
     def update_entry(self, entry_key: PlantingRunEntryKey, entry: PlantingRunEntry) -> PlantingRunEntry:
         # No exclude_none: the service passes a fully merged entry, and
         # explicitly cleared nullable fields (notes, cultivar_key, spacing_cm)

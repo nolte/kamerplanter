@@ -109,10 +109,7 @@ class PhaseService:
     # --- Lifecycle ---
 
     def get_lifecycle(self, key: str) -> LifecycleConfig:
-        lc = self._repo.get_lifecycle_by_key(key)
-        if lc is None:
-            raise NotFoundError("LifecycleConfig", key)
-        return lc
+        return self._repo.get_lifecycle_or_raise(key)
 
     def get_lifecycle_by_species(self, species_key: str) -> LifecycleConfig:
         lc = self._repo.get_lifecycle_by_species(species_key)
@@ -133,10 +130,7 @@ class PhaseService:
         return self._repo.get_phases_by_lifecycle(lifecycle_key)
 
     def get_phase(self, key: PhaseKey) -> GrowthPhase:
-        phase = self._repo.get_phase_by_key(key)
-        if phase is None:
-            raise NotFoundError("GrowthPhase", key)
-        return phase
+        return self._repo.get_phase_or_raise(key)
 
     def create_phase(self, phase: GrowthPhase) -> GrowthPhase:
         return self._repo.create_phase(phase)
