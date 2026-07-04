@@ -63,7 +63,7 @@ const plantingRunsSlice = createSlice({
       })
       .addCase(fetchPlantingRuns.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load planting runs';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchPlantingRun.fulfilled, (state, action) => {
         state.currentRun = action.payload;

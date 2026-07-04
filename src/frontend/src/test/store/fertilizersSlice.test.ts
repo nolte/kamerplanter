@@ -52,7 +52,7 @@ describe('fertilizersSlice', () => {
 
   it('fetchFertilizers.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchFertilizers.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load fertilizers');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchFertilizer.fulfilled stores the selected fertilizer', () => {

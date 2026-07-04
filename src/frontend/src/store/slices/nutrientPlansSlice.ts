@@ -66,7 +66,7 @@ const nutrientPlansSlice = createSlice({
       })
       .addCase(fetchNutrientPlans.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load nutrient plans';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchNutrientPlan.fulfilled, (state, action) => {
         state.currentPlan = action.payload;

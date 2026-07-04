@@ -22,7 +22,15 @@ describe('plantInstancesSlice', () => {
 
   it('clearCurrent resets current', () => {
     const state = reducer(
-      { items: [], current: { key: 'x' } as never, loading: false, error: null },
+      {
+        items: [],
+        total: 0,
+        offset: 0,
+        limit: 50,
+        current: { key: 'x' } as never,
+        loading: false,
+        error: null,
+      },
       clearCurrent(),
     );
     expect(state.current).toBeNull();
@@ -30,7 +38,7 @@ describe('plantInstancesSlice', () => {
 
   it('clearError resets error', () => {
     const state = reducer(
-      { items: [], current: null, loading: false, error: 'err' },
+      { items: [], total: 0, offset: 0, limit: 50, current: null, loading: false, error: 'err' },
       clearError(),
     );
     expect(state.error).toBeNull();

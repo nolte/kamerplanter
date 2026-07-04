@@ -59,7 +59,7 @@ const feedingEventsSlice = createSlice({
       })
       .addCase(fetchFeedingEvents.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load feeding events';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchFeedingEvent.fulfilled, (state, action) => {
         state.currentEvent = action.payload;

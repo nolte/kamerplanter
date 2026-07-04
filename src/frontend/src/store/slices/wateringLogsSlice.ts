@@ -59,7 +59,7 @@ const wateringLogsSlice = createSlice({
       })
       .addCase(fetchWateringLogs.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load watering logs';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchWateringLog.fulfilled, (state, action) => {
         state.currentLog = action.payload;

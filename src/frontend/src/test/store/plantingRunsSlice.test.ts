@@ -52,7 +52,7 @@ describe('plantingRunsSlice', () => {
 
   it('fetchPlantingRuns.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchPlantingRuns.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load planting runs');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchPlantingRun.fulfilled stores the selected run', () => {

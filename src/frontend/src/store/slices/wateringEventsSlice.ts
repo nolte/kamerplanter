@@ -71,7 +71,7 @@ const wateringEventsSlice = createSlice({
       })
       .addCase(fetchWateringEvents.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load watering events';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchLocationWateringEvents.fulfilled, (state, action) => {
         state.events = action.payload;
