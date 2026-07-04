@@ -57,17 +57,7 @@ Das System kennt vordefinierte Pflegestile für typische Zimmerpflanzengruppen. 
 
 <!-- Quelle: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
-| Pflegestil | Gießintervall (Sommer) | Winter-Faktor | Gießmethode | Typische Pflanzen |
-|-------------|------------------------|----------------|-------------|-------------------|
-| Tropisch (`tropical`) | Alle 7 Tage | 1,5× | Von oben gießen | Monstera, Philodendron, Ficus |
-| Sukkulente (`succulent`) | Alle 14 Tage | 3,0× | Durchgießen | Echeveria, Haworthia, Aloe |
-| Orchidee (`orchid`) | Alle 7 Tage | 2,0× | Tauchen | Phalaenopsis, Dendrobium |
-| Calathea (`calathea`) | Alle 5 Tage | 1,5× | Von unten gießen | Calathea, Maranta, Ctenanthe |
-| Tropische Kräuter (`herb_tropical`) | Alle 5 Tage | 1,5× | Von oben gießen | Basilikum, Minze, Koriander |
-| Mediterran (`mediterranean`) | Alle 10 Tage | 2,0× | Durchgießen | Rosmarin, Lavendel, Thymian |
-| Farn (`fern`) | Alle 4 Tage | 1,5× | Von oben gießen | Nephrolepis, Adiantum, Asplenium |
-| Kaktus (`cactus`) | Alle 21 Tage | 4,0× | Durchgießen | Kakteen (Cactaceae) |
-| Benutzerdefiniert (`custom`) | Startwert 7 Tage, frei änderbar | Startwert 1,5×, frei änderbar | Frei wählbar | — |
+--8<-- "docs/_generated/care-style-presets-indoor.de.md"
 
 !!! warning "Nicht alle Sukkulenten sind Kakteen"
     Kakteen (Cactaceae) und Sukkulenten wie Echeveria oder Haworthia gehören verschiedenen Familien an. Der Pflegestil `cactus` gilt nur für echte Kakteen. Echeveria und Haworthia nutzen `succulent`. Lithops und andere Mesembs (Aizoaceae) brauchen eine noch spezifischere Logik und sollten mit `custom` konfiguriert werden.
@@ -144,42 +134,20 @@ Ergänzend zu den neun Zimmerpflanzen-Stilen kennt das Datenmodell zehn Freiland
 
 <!-- Quelle: src/backend/app/domain/engines/care_reminder_engine.py (CARE_STYLE_PRESETS) -->
 
-| Pflegestil | Gießintervall (Sommer) | Winter-Faktor | Düngung aktiv | Typische Pflanzen |
-|-------------|------------------------|----------------|---------------|-------------------|
-| `outdoor_annual_veg` | Alle 3 Tage | 1,0× | April–September | Freiland-Gemüse (einjährig) |
-| `outdoor_perennial` | Alle 5 Tage | 2,0× | März–September | Stauden |
-| `outdoor_annual_ornamental` | Alle 3 Tage | 1,0× | April–September | Stiefmütterchen, Geranie, Lobelie |
-| `fruit_tree` | Alle 14 Tage | 1,0× | März–Mai | Apfel, Birne, Kirsche |
-| `berry_shrub` | Alle 7 Tage | 1,0× | März–Juni | Himbeere, Johannisbeere, Stachelbeere |
-| `rose` | Alle 7 Tage | 1,5× | April–Juli | Beet-, Strauch- und Kletterrosen |
-| `frost_tender_tuber` | Alle 5 Tage | 5,0× | Mai–August | Dahlie, Gladiole, Canna |
-| `frost_tender_container` | Alle 5 Tage | 4,0× | April–September | Oleander, Zitrus, Olive |
-| `winter_vegetable` | Alle 7 Tage | 2,0× | August–September | Grünkohl, Feldsalat, Winterportulak |
-| `spring_bulb` | Alle 14 Tage | 1,0× | März–Mai | Tulpe, Narzisse, Krokus |
+--8<-- "docs/_generated/care-style-presets-outdoor.de.md"
 
 !!! info "Nur über die API auswählbar"
-    Diese zehn Freiland-Presets stehen aktuell **nicht** im Auswahlfeld „Pflegestil" des Pflegeprofil-Dialogs zur Verfügung — die Oberfläche bietet nur die neun Zimmerpflanzen-Stile aus der obigen Tabelle. Ebenso ordnet die automatische Familienzuordnung (siehe unten) keiner Pflanze einen Freiland-Stil zu. Ein Freiland-Preset lässt sich aktuell ausschließlich über die technische API setzen.
+    Diese zehn Freiland-Presets stehen aktuell **nicht** im Auswahlfeld „Pflegestil" des Pflegeprofil-Dialogs zur Verfügung — die Oberfläche bietet nur die neun Zimmerpflanzen-Stile aus der obigen Tabelle. Die automatische Familienzuordnung (siehe unten) weist von diesen Freiland-Stilen lediglich `outdoor_annual_ornamental` zu (für Zierpflanzen-Familien wie Veilchen-, Primel- oder Storchschnabelgewächse); die übrigen neun Freiland-Presets lassen sich ausschließlich über die technische API setzen.
 
 ---
 
 ## Familienbasierte Pflegezuordnung
 
-Das System kennt die Pflegeanforderungen von 10 Pflanzenfamilien und ordnet neuen Pflanzen automatisch den passenden Care Style zu:
+Das System kennt die Pflegeanforderungen von 15 Pflanzenfamilien und ordnet neuen Pflanzen automatisch den passenden Care Style zu:
 
 <!-- Quelle: src/backend/app/domain/engines/care_reminder_engine.py (FAMILY_CARE_MAP) -->
 
-| Familie | Auto-Stil |
-|---------|-----------|
-| Araceae (Aronstabgewächse) | `tropical` |
-| Marantaceae (Marantengewächse) | `calathea` |
-| Orchidaceae (Orchideen) | `orchid` |
-| Cactaceae (Kakteengewächse) | `cactus` |
-| Crassulaceae (Dickblattgewächse) | `succulent` |
-| Asphodelaceae (Affodillgewächse) | `succulent` |
-| Polypodiaceae (Tüpfelfarngewächse) | `fern` |
-| Lamiaceae (Lippenblütengewächse) | `herb_tropical` |
-| Oleaceae (Ölbaumgewächse) | `mediterranean` |
-| Moraceae (Maulbeergewächse) | `tropical` |
+--8<-- "docs/_generated/family-care-map.de.md"
 
 Für alle nicht gelisteten Familien greift der Fallback-Stil `tropical`, sofern keine artspezifische Gießanleitung (Watering-Guide) vorliegt.
 

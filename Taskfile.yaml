@@ -146,6 +146,11 @@ tasks:
     cmds:
       - python scripts/docs/gen_catalog.py
 
+  docs:fact-tables:
+    desc: Regenerate the fact-table snippets (docs/_generated/) from backend code & seed data
+    cmds:
+      - python scripts/docs/gen_fact_tables.py
+
   docs:venv:
     desc: |
       Create the isolated MkDocs venv (.venv-docs) and install docs/requirements.txt.
@@ -163,18 +168,18 @@ tasks:
 
   docs:serve:
     desc: |
-      Serve MkDocs documentation locally (regenerates the Claude catalog first).
-      Runs on port DOCS_PORT (default 8001; 8000 is taken by the backend
-      port-forward). Override with: task docs:serve DOCS_PORT=8123
-    deps: [docs:catalog, docs:venv]
+      Serve MkDocs documentation locally (regenerates the Claude catalog and
+      fact tables first). Runs on port DOCS_PORT (default 8001; 8000 is taken by
+      the backend port-forward). Override with: task docs:serve DOCS_PORT=8123
+    deps: [docs:catalog, docs:fact-tables, docs:venv]
     vars:
       DOCS_PORT: '{{.DOCS_PORT | default "8001"}}'
     cmds:
       - .venv-docs/bin/mkdocs serve --dev-addr 127.0.0.1:{{.DOCS_PORT}}
 
   docs:build:
-    desc: Build MkDocs documentation (regenerates the Claude catalog first)
-    deps: [docs:catalog, docs:venv]
+    desc: Build MkDocs documentation (regenerates the Claude catalog & fact tables first)
+    deps: [docs:catalog, docs:fact-tables, docs:venv]
     cmds:
       - .venv-docs/bin/mkdocs build
 
