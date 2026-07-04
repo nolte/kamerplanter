@@ -6,7 +6,7 @@ on:
 
 jobs:
   publish_docs:
-    uses: nolte/gh-plumbing/.github/workflows/reusable-mkdocs.yaml@v1.1.25
+    uses: nolte/gh-plumbing/.github/workflows/reusable-mkdocs.yaml@877fc02771e50d994343545fd92e187ac46984ce # v1.1.25
     with:
       requirements: docs/requirements.txt
       # Regenerate the gitignored Claude skill/agent catalog before the
