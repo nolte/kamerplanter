@@ -152,6 +152,43 @@ class NotificationService:
             "total_sent": total_sent,
         }
 
+    async def send_email_digest(
+        self,
+        user_key: str,
+        to_email: str,
+        since: datetime,
+    ) -> dict:
+        """Send one digest email summarising the user's notifications since ``since``.
+
+        Collects all notifications created in the window and delivers them as a
+        single batch email through the registered ``email`` channel, reusing its
+        batch HTML rendering (REQ-030).
+
+        Returns a dict ``{"status": "sent"|"empty"|"failed", "count": int}``.
+        An empty window sends no mail; a missing/unhealthy channel or a failed
+        send returns ``"failed"`` without raising.
+        """
+        notifications = self._notification_repo.list_for_user_since(user_key, since)
+        if not notifications:
+            return {"status": "empty", "count": 0}
+
+        channel = self._engine._channel_registry.get("email")
+        if channel is None:
+            logger.warning("email_digest_channel_unavailable", user_key=user_key)
+            return {"status": "failed", "count": 0}
+
+        result = await channel.send_batch(notifications, {"email": to_email})
+        if not result.success:
+            logger.warning(
+                "email_digest_send_failed",
+                user_key=user_key,
+                error=result.error,
+            )
+            return {"status": "failed", "count": len(notifications)}
+
+        logger.info("email_digest_sent", user_key=user_key, count=len(notifications))
+        return {"status": "sent", "count": len(notifications)}
+
     # ── Read operations ───────────────────────────────────────────────
 
     def list_notifications(

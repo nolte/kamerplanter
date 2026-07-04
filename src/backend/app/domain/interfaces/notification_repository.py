@@ -26,6 +26,16 @@ class INotificationRepository(ABC):
     ) -> list[Notification]: ...
 
     @abstractmethod
+    def list_for_user_since(
+        self,
+        user_key: str,
+        since: datetime,
+        limit: int = 100,
+    ) -> list[Notification]:
+        """Return the user's notifications created at/after ``since`` (newest first)."""
+        ...
+
+    @abstractmethod
     def mark_read(self, key: str, read_at: datetime) -> Notification | None: ...
 
     @abstractmethod

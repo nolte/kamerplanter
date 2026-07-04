@@ -151,6 +151,38 @@ class TestListForUser:
         assert bind_vars["offset"] == 20
 
 
+class TestListForUserSince:
+    def test_filters_by_user_and_since_sorted_desc(self, repo, mock_db):
+        since = datetime(2026, 6, 13, 7, 0, 0, tzinfo=UTC)
+        mock_db.aql.execute.return_value = iter([_notif_doc(created_at=since.isoformat())])
+
+        result = repo.list_for_user_since("u1", since)
+
+        assert len(result) == 1
+        assert isinstance(result[0], Notification)
+        call = mock_db.aql.execute.call_args
+        query = call.args[0]
+        bind_vars = call.kwargs["bind_vars"]
+        assert "doc.user_key == @user_key" in query
+        assert "doc.created_at >= @since" in query
+        assert "SORT doc.created_at DESC" in query
+        assert bind_vars["user_key"] == "u1"
+        assert bind_vars["since"] == since.isoformat()
+        assert bind_vars["limit"] == 100
+
+    def test_respects_custom_limit(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.list_for_user_since("u1", datetime(2026, 6, 13, tzinfo=UTC), limit=25)
+
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["limit"] == 25
+
+    def test_empty_result_returns_empty_list(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.list_for_user_since("u1", datetime(2026, 6, 13, tzinfo=UTC)) == []
+
+
 class TestMarkRead:
     def test_returns_updated_model_and_isoformats_timestamp(self, repo, mock_db):
         read_at = datetime(2026, 6, 14, 9, 0, 0, tzinfo=UTC)

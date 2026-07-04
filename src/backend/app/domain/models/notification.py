@@ -60,6 +60,15 @@ class ChannelResult(BaseModel):
 
 
 class ChannelPreference(BaseModel):
+    """Per-channel delivery preference.
+
+    ``config`` carries channel-specific settings by convention (no schema).
+    For the ``email`` channel: ``config["email"]`` is the target address and
+    ``config["digest"]`` (bool) opts the user into the daily email digest
+    (REQ-030). For the ``pwa`` channel: ``config["subscriptions"]`` holds the
+    Web Push subscriptions.
+    """
+
     enabled: bool = False
     priority: int = Field(default=0, ge=0)
     config: dict = Field(default_factory=dict)

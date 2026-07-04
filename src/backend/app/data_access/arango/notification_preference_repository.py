@@ -58,3 +58,22 @@ class ArangoNotificationPreferenceRepository(INotificationPreferenceRepository, 
         data["updated_at"] = now
         result = self.collection.update({"_key": key, **data}, return_new=True)
         return NotificationPreferences(**self._from_doc(result["new"]))
+
+    def list_users_with_digest_enabled(self) -> list[NotificationPreferences]:
+        """Return preferences of all users with the email digest opted in.
+
+        Matches documents whose ``channels.email.enabled`` and
+        ``channels.email.config.digest`` are both true. Documents without the
+        ``digest`` key do not match (digest off by default).
+        """
+        query = """
+        FOR p IN @@collection
+          FILTER p.channels.email.enabled == true
+          FILTER p.channels.email.config.digest == true
+          RETURN p
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"@collection": NOTIFICATION_PREFERENCES},
+        )
+        return [NotificationPreferences(**self._from_doc(doc)) for doc in cursor]
