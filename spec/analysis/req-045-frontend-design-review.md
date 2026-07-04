@@ -4,6 +4,12 @@
 **Fokus:** Responsive Design · Barrierefreiheit (Drag-and-Drop-Alternative) · Kiosk-Abgrenzung · Bearbeiten-Modus-UX · Bundle-Budget
 **Analysierte Dokumente:** `spec/req/REQ-045_Individualisierbares-Dashboard.md`, `spec/req/REQ-009_Dashboard.md` (v2.1), `spec/req/REQ-042_Modulare-Feature-Sichtbarkeit.md`, `spec/req/REQ-021_UI-Erfahrungsstufen.md`, `spec/ui-nfr/UI-NFR-001_Responsive-Design.md`, `spec/ui-nfr/UI-NFR-002_Barrierefreiheit.md`, `spec/ui-nfr/UI-NFR-003_Performance.md`, `spec/ui-nfr/UI-NFR-019_Kiosk-Modus.md`; Code-Glance: `src/frontend/src/pages/DashboardPage.tsx`, `src/frontend/src/pages/auth/ModulesSettingsTab.tsx`, `src/frontend/src/config/moduleCatalog.ts`, `src/frontend/src/api/types.ts`
 
+> **Status (2026-07-04): aufgelöst.** Alle kritischen und wichtigen Findings sind in REQ-045 v1.1/v1.2
+> eingearbeitet (K-001, K-002, U-001–U-006, O-001, O-003). Die drei strategischen UI-NFR-Empfehlungen wurden
+> umgesetzt: **UI-NFR-002 R-024..R-027** (Drag-and-Drop-Alternativen, Handles nicht im Tab-Index,
+> Meaningful Sequence dynamischer Grids, ARIA-Live bei Reorder) und **UI-NFR-003 R-028** (route-spezifisches
+> Bundle-Budget). Verbleibendes Implementierungs-Follow-up in Issue #368.
+
 ---
 
 ## Gesamtbewertung
