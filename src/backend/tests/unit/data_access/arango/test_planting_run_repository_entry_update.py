@@ -61,7 +61,9 @@ class TestUpdateEntry:
         # Old edge removed via AQL, new edge inserted via create_edge.
         remove_calls = [c for c in mock_db.aql.execute.call_args_list if "REMOVE" in c.args[0]]
         assert len(remove_calls) == 1
-        assert col.ENTRY_FOR_SPECIES in remove_calls[0].args[0]
+        # delete_edges binds the edge collection via @@edge (SEC-B5) instead of
+        # interpolating its name into the query text.
+        assert remove_calls[0].kwargs["bind_vars"]["@edge"] == col.ENTRY_FOR_SPECIES
 
         edge_inserts = [
             c for c in coll.insert.call_args_list if c.args and c.args[0].get("_to") == f"{col.SPECIES}/species_basil"

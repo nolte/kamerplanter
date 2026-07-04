@@ -7,24 +7,21 @@ from app.domain.interfaces.email_change_repository import IEmailChangeRepository
 from app.domain.models.privacy import EmailChangeRequest, EmailChangeRequestKey
 
 
-class ArangoEmailChangeRepository(IEmailChangeRepository, BaseArangoRepository):
+class ArangoEmailChangeRepository(BaseArangoRepository[EmailChangeRequest], IEmailChangeRepository):
     """ArangoDB persistence for REQ-025 email-change requests (Art. 16)."""
 
+    _model_cls = EmailChangeRequest
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.EMAIL_CHANGE_REQUESTS)
+        super().__init__(db, col.EMAIL_CHANGE_REQUESTS)
 
     def create(self, change_request: EmailChangeRequest) -> EmailChangeRequest:
-        doc = BaseArangoRepository.create(self, change_request)
-        created = EmailChangeRequest(**doc)
+        created = super().create(change_request)
         if change_request.user_key and created.key:
             user_id = f"{col.USERS}/{change_request.user_key}"
             change_id = f"{col.EMAIL_CHANGE_REQUESTS}/{created.key}"
             self.create_edge(col.REQUESTED_EMAIL_CHANGE, user_id, change_id)
         return created
-
-    def get_by_key(self, key: EmailChangeRequestKey) -> EmailChangeRequest | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return EmailChangeRequest(**doc) if doc else None
 
     def get_by_token_hash(self, token_hash: str) -> EmailChangeRequest | None:
         query = """
@@ -44,14 +41,6 @@ class ArangoEmailChangeRepository(IEmailChangeRepository, BaseArangoRepository):
         if not docs:
             return None
         return EmailChangeRequest(**self._from_doc(docs[0]))
-
-    def update(
-        self,
-        key: EmailChangeRequestKey,
-        change_request: EmailChangeRequest,
-    ) -> EmailChangeRequest:
-        doc = BaseArangoRepository.update(self, key, change_request)
-        return EmailChangeRequest(**doc)
 
     def list_pending_for_user(self, user_key: UserKey) -> list[EmailChangeRequest]:
         query = """
@@ -90,4 +79,4 @@ class ArangoEmailChangeRepository(IEmailChangeRepository, BaseArangoRepository):
             f"FOR e IN {col.REQUESTED_EMAIL_CHANGE} FILTER e._to == @change_id REMOVE e IN {col.REQUESTED_EMAIL_CHANGE}"
         )
         self._db.aql.execute(query, bind_vars={"change_id": change_id})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)

@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar, Literal
 
 from arango.database import StandardDatabase
 from arango.exceptions import DocumentInsertError, DocumentUpdateError
@@ -8,9 +8,53 @@ from pydantic import BaseModel
 from app.common.exceptions import DuplicateError, NotFoundError
 from app.data_access.arango.query_builder import AQLBuilder
 
+#: ``(field, operator, value)`` filter triple. ``operator`` must be one of the
+#: :attr:`AQLBuilder._ALLOWED_OPS` whitelist (injection guard).
+type FilterTriple = tuple[str, str, Any]
 
-class BaseArangoRepository:
-    """Generic ArangoDB CRUD operations."""
+type SortDirection = Literal["ASC", "DESC"]
+
+
+class BaseArangoRepository[TModel: BaseModel]:
+    """Generic, typed ArangoDB CRUD operations for one primary collection.
+
+    The class is parameterised over a Pydantic domain model ``TModel``. A
+    concrete repository binds the model in one of two ways:
+
+    * **Subclass binding** — set the :attr:`_model_cls` class attribute
+      (``class ArangoActivityRepository(BaseArangoRepository[Activity]):
+      _model_cls = Activity``). The inherited public methods
+      (:meth:`get_by_key`, :meth:`create`, …) then return ``Activity`` models
+      and the subclass drops its hand-written CRUD wrappers.
+    * **Composition binding** — pass ``model_cls`` to the constructor
+      (``BaseArangoRepository[Disease](db, col.DISEASES, Disease)``). This builds
+      a typed view onto a secondary collection, used by multi-collection
+      repositories (IPM, harvest, fertilizer stocks).
+
+    **Backward-compatibility (legacy dict mode).** When neither binding is
+    present the repository is *unbound*: every public method returns the raw
+    ``dict`` document, exactly as before this class became generic. Unmigrated
+    sub-repositories and ad-hoc ``BaseArangoRepository(db, collection)``
+    instances therefore keep working unchanged. A repository is migrated to the
+    typed API simply by binding a model; until then it behaves identically to
+    the pre-refactor base.
+
+    Two layers are exposed:
+
+    * private **doc primitives** (:meth:`_get_doc`, :meth:`_insert_doc`, …) that
+      always operate on ``dict`` documents — used internally and by composed
+      views that need raw docs;
+    * the **typed public API** that wraps those primitives and maps to models
+      when a model is bound.
+    """
+
+    #: Bound domain model for subclass binding. ``None`` keeps the repository in
+    #: legacy dict-compatibility mode.
+    _model_cls: ClassVar[type[BaseModel] | None] = None
+
+    #: Optional override for the entity name used in :class:`NotFoundError`
+    #: (defaults to ``_model_cls.__name__``).
+    _entity_name: ClassVar[str | None] = None
 
     #: Whether the backing collection is tenant-scoped (REQ-024 isolation
     #: container).  Tenant-scoped repositories MUST receive a ``tenant_key`` on
@@ -19,24 +63,50 @@ class BaseArangoRepository:
     #: returning documents of *all* tenants (SEC-B4 cross-tenant leak guard).
     is_tenant_scoped: bool = False
 
-    def __init__(self, db: StandardDatabase, collection_name: str) -> None:
+    def __init__(
+        self,
+        db: StandardDatabase,
+        collection_name: str,
+        model_cls: type[TModel] | None = None,
+    ) -> None:
         self._db = db
         self._collection_name = collection_name
+        #: Instance-level model binding (composition). Wins over ``_model_cls``.
+        self._instance_model_cls: type[TModel] | None = model_cls
 
-    def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
-        """Fail loudly when a tenant-scoped list query is not tenant-bound.
+    # ── Model resolution / wrapping ──────────────────────────────────────────
 
-        Guards against SEC-B4: a caller that forgets to pass ``tenant_key``
-        would otherwise receive documents across every tenant.  An empty
-        ``tenant_key`` (``None`` or ``""``) is treated as "not provided" because
-        both fall through the ``if tenant_key`` filter downstream.
+    def _resolve_model_cls(self) -> type[BaseModel] | None:
+        """Resolve the bound model: constructor arg wins over class attribute."""
+        return self._instance_model_cls or self._model_cls
+
+    def _wrap(self, doc: dict[str, Any] | None) -> Any:
+        """Map a raw doc onto the bound model, or return it unchanged (legacy).
+
+        ``doc`` is already normalised through :meth:`_from_doc`.
         """
-        if self.is_tenant_scoped and not tenant_key and not all_tenants:
-            raise ValueError(
-                f"Collection '{self._collection_name}' is tenant-scoped: pass a "
-                "tenant_key, or set all_tenants=True for an explicit "
-                "system-context query (SEC-B4 tenant isolation)."
-            )
+        if doc is None:
+            return None
+        model_cls = self._resolve_model_cls()
+        if model_cls is None:
+            return doc
+        return model_cls(**doc)
+
+    def _wrap_many(self, docs: list[dict[str, Any]]) -> list[Any]:
+        model_cls = self._resolve_model_cls()
+        if model_cls is None:
+            return docs
+        return [model_cls(**doc) for doc in docs]
+
+    def _require_entity_name(self) -> str:
+        if self._entity_name is not None:
+            return self._entity_name
+        model_cls = self._resolve_model_cls()
+        if model_cls is not None:
+            return model_cls.__name__
+        return self._collection_name
+
+    # ── Helpers (unchanged) ──────────────────────────────────────────────────
 
     @property
     def collection(self):  # type: ignore[no-untyped-def]
@@ -54,13 +124,30 @@ class BaseArangoRepository:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
-    def get_by_key(self, key: str) -> dict[str, Any] | None:
+    def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
+        """Fail loudly when a tenant-scoped list query is not tenant-bound.
+
+        Guards against SEC-B4: a caller that forgets to pass ``tenant_key``
+        would otherwise receive documents across every tenant.  An empty
+        ``tenant_key`` (``None`` or ``""``) is treated as "not provided" because
+        both fall through the ``if tenant_key`` filter downstream.
+        """
+        if self.is_tenant_scoped and not tenant_key and not all_tenants:
+            raise ValueError(
+                f"Collection '{self._collection_name}' is tenant-scoped: pass a "
+                "tenant_key, or set all_tenants=True for an explicit "
+                "system-context query (SEC-B4 tenant isolation)."
+            )
+
+    # ── Doc primitives (dict level) ──────────────────────────────────────────
+
+    def _get_doc(self, key: str) -> dict[str, Any] | None:
         doc = self.collection.get(key)
         if doc is None:
             return None
         return self._from_doc(doc)
 
-    def get_all(
+    def _list_docs(
         self,
         offset: int = 0,
         limit: int = 50,
@@ -84,10 +171,18 @@ class BaseArangoRepository:
 
         return items, total
 
-    def create(self, model: BaseModel) -> dict[str, Any]:
+    def _insert_doc(
+        self,
+        model: BaseModel,
+        *,
+        default_now_fields: tuple[str, ...] = (),
+    ) -> dict[str, Any]:
         data = self._to_doc(model)
         data["created_at"] = self._now()
         data["updated_at"] = self._now()
+        for field in default_now_fields:
+            if not data.get(field):
+                data[field] = self._now()
         try:
             result = self.collection.insert(data, return_new=True)
         except DocumentInsertError as e:
@@ -96,7 +191,7 @@ class BaseArangoRepository:
             raise
         return self._from_doc(result["new"])
 
-    def update(self, key: str, model: BaseModel) -> dict[str, Any]:
+    def _update_doc(self, key: str, model: BaseModel) -> dict[str, Any]:
         data = self._to_doc(model)
         data["updated_at"] = self._now()
         try:
@@ -107,19 +202,165 @@ class BaseArangoRepository:
             raise
         return self._from_doc(result["new"])
 
-    def delete(self, key: str) -> bool:
+    def _delete_doc(self, key: str) -> bool:
         try:
             self.collection.delete(key)
             return True
         except Exception:
             return False
 
-    def find_by_field(self, field: str, value: Any) -> list[dict[str, Any]]:
+    def _find_docs(
+        self,
+        filters: list[FilterTriple],
+        *,
+        sort: str | None = None,
+        sort_direction: SortDirection = "ASC",
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
         builder = AQLBuilder(self._collection_name)
-        builder.filter(field, "==", value)
+        for field, op, value in filters:
+            builder.filter(field, op, value)
+        if sort:
+            builder.sort(sort, sort_direction)
+        if offset is not None and limit is not None:
+            builder.paginate(offset, limit)
         query, bind_vars = builder.build_list()
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._from_doc(doc) for doc in cursor]
+
+    # ── Typed public API ─────────────────────────────────────────────────────
+
+    def get_by_key(self, key: str) -> TModel | None:
+        """Fetch one document by key, mapped to the bound model (or ``dict``)."""
+        return self._wrap(self._get_doc(key))
+
+    def get_or_raise(self, key: str) -> TModel:
+        """Like :meth:`get_by_key` but raise :class:`NotFoundError` when absent.
+
+        Replaces the ~118 copied ``get_by_key`` + ``if x is None: raise
+        NotFoundError(...)`` blocks in the service layer (DUP-B6). The entity
+        name matches the previous hand-written call: ``_entity_name`` if set,
+        otherwise the bound model's class name.
+        """
+        result = self.get_by_key(key)
+        if result is None:
+            raise NotFoundError(self._require_entity_name(), key)
+        return result
+
+    def get_all(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str | None = None,
+        *,
+        all_tenants: bool = False,
+    ) -> tuple[list[TModel], int]:
+        items, total = self._list_docs(offset, limit, tenant_key, all_tenants=all_tenants)
+        return self._wrap_many(items), total
+
+    def get_page(
+        self,
+        *,
+        offset: int = 0,
+        limit: int = 50,
+        filters: list[FilterTriple] | None = None,
+        sort: str = "_key",
+        sort_direction: SortDirection = "ASC",
+    ) -> tuple[list[TModel], int]:
+        """Filtered, sorted, paginated fetch with a matching total count.
+
+        Generalises :meth:`get_all` for the hand-written ``FILTER … SORT …
+        LIMIT`` list queries in the multi-collection repositories.
+        """
+        builder = AQLBuilder(self._collection_name)
+        for field, op, value in filters or []:
+            builder.filter(field, op, value)
+        builder.sort(sort, sort_direction).paginate(offset, limit)
+
+        query, bind_vars = builder.build_list()
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        items = [self._from_doc(doc) for doc in cursor]
+
+        count_query, count_vars = builder.build_count()
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+        total = next(count_cursor, 0)
+
+        return self._wrap_many(items), total
+
+    def create(
+        self,
+        model: TModel,
+        *,
+        default_now_fields: tuple[str, ...] = (),
+    ) -> TModel:
+        """Insert a document (setting ``created_at``/``updated_at``).
+
+        ``default_now_fields`` additionally back-fills any domain timestamp
+        (e.g. ``applied_at``, ``inspected_at``) that is missing/empty on the
+        model, replacing the copied ``if not data.get(...): data[...] = now``
+        idiom in the IPM/harvest repositories.
+        """
+        return self._wrap(self._insert_doc(model, default_now_fields=default_now_fields))
+
+    def update(self, key: str, model: TModel) -> TModel:
+        return self._wrap(self._update_doc(key, model))
+
+    def delete(self, key: str) -> bool:
+        return self._delete_doc(key)
+
+    def find_by_field(
+        self,
+        field: str,
+        value: Any,
+        *,
+        sort: str | None = None,
+        sort_direction: SortDirection = "ASC",
+        offset: int | None = None,
+        limit: int | None = None,
+        extra_filters: list[FilterTriple] | None = None,
+    ) -> list[TModel]:
+        """Find documents where ``field == value`` (plus optional extras).
+
+        Called with only ``field``/``value`` it is behaviour-identical to the
+        pre-refactor method (single ``==`` filter, no sort/limit). The optional
+        keyword arguments express the single-field ``FILTER … SORT … LIMIT``
+        queries (DUP-B3) that previously required hand-written AQL.
+        """
+        filters: list[FilterTriple] = [(field, "==", value)]
+        if extra_filters:
+            filters.extend(extra_filters)
+        docs = self._find_docs(
+            filters,
+            sort=sort,
+            sort_direction=sort_direction,
+            offset=offset,
+            limit=limit,
+        )
+        return self._wrap_many(docs)
+
+    def find_one_by_field(
+        self,
+        field: str,
+        value: Any,
+        *,
+        extra_filters: list[FilterTriple] | None = None,
+    ) -> TModel | None:
+        """Return the first ``field == value`` match (``LIMIT 1``) or ``None``.
+
+        Replaces the byte-identical ``get_by_slug`` / ``get_by_token`` style
+        single-result lookups (DUP-B3).
+        """
+        results = self.find_by_field(
+            field,
+            value,
+            extra_filters=extra_filters,
+            offset=0,
+            limit=1,
+        )
+        return results[0] if results else None
+
+    # ── Edges ────────────────────────────────────────────────────────────────
 
     def create_edge(
         self,
@@ -149,12 +390,56 @@ class BaseArangoRepository:
         cursor = self._db.aql.execute(query, bind_vars={"start": vertex_id, "edge_col": edge_collection})
         return list(cursor)
 
-    def delete_edges(self, edge_collection: str, from_id: str, to_id: str | None = None) -> int:
-        self._db.collection(edge_collection)
-        if to_id:
-            query = f"FOR e IN {edge_collection} FILTER e._from == @from AND e._to == @to REMOVE e IN {edge_collection}"
-            self._db.aql.execute(query, bind_vars={"from": from_id, "to": to_id})
+    def delete_edges(
+        self,
+        edge_collection: str,
+        from_id: str | None = None,
+        to_id: str | None = None,
+        *,
+        vertex_id: str | None = None,
+        other_id: str | None = None,
+        direction: Literal["outbound", "inbound", "any"] = "outbound",
+    ) -> int:
+        """Remove edges incident to a vertex, honouring ``direction`` (DUP-B10).
+
+        Two call styles are supported for backward compatibility:
+
+        * **Legacy** ``delete_edges(col, from_id[, to_id])`` — removes outbound
+          edges ``e._from == from_id`` (optionally also ``e._to == to_id``).
+        * **Directional** ``delete_edges(col, vertex_id=..., direction=...)`` —
+
+          - ``outbound`` → ``e._from == vertex`` (default),
+          - ``inbound`` → ``e._to == vertex``,
+          - ``any`` → ``e._from == vertex OR e._to == vertex``,
+
+          with an optional ``other_id`` constraining the opposite endpoint.
+
+        The collection name (always a code-level ``collections.py`` constant) is
+        bound via ``@@edge`` rather than interpolated, and the honest count of
+        removed edges is returned instead of a hard-coded ``1``.
+        """
+        vertex = vertex_id if vertex_id is not None else from_id
+        other = other_id if other_id is not None else to_id
+        if vertex is None:
+            raise ValueError("delete_edges requires from_id or vertex_id")
+
+        if direction == "inbound":
+            clause = "e._to == @vertex"
+        elif direction == "any":
+            clause = "(e._from == @vertex OR e._to == @vertex)"
         else:
-            query = f"FOR e IN {edge_collection} FILTER e._from == @from REMOVE e IN {edge_collection}"
-            self._db.aql.execute(query, bind_vars={"from": from_id})
-        return 1
+            clause = "e._from == @vertex"
+
+        bind_vars: dict[str, Any] = {"@edge": edge_collection, "vertex": vertex}
+        if other is not None:
+            if direction == "inbound":
+                clause += " AND e._from == @other"
+            elif direction == "any":
+                clause += " AND (e._from == @other OR e._to == @other)"
+            else:
+                clause += " AND e._to == @other"
+            bind_vars["other"] = other
+
+        query = f"FOR e IN @@edge FILTER {clause} REMOVE e IN @@edge RETURN OLD._key"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return sum(1 for _ in cursor)

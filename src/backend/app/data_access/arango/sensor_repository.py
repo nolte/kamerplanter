@@ -6,14 +6,15 @@ from app.domain.interfaces.sensor_repository import ISensorRepository
 from app.domain.models.sensor import Sensor
 
 
-class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):
+class ArangoSensorRepository(BaseArangoRepository[Sensor], ISensorRepository):
+    _model_cls = Sensor
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.SENSORS)
+        super().__init__(db, col.SENSORS)
 
     def create(self, sensor: Sensor) -> Sensor:
-        doc = BaseArangoRepository.create(self, sensor)
-        created = Sensor(**doc)
-        sensor_id = f"{col.SENSORS}/{doc['_key']}"
+        created = super().create(sensor)
+        sensor_id = f"{col.SENSORS}/{created.key}"
         # Create monitors_tank edge
         if sensor.tank_key:
             to_id = f"{col.TANKS}/{sensor.tank_key}"
@@ -28,12 +29,7 @@ class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):
         return created
 
     def get(self, key: str) -> Sensor | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Sensor(**doc) if doc else None
-
-    def update(self, key: str, sensor: Sensor) -> Sensor:
-        doc = BaseArangoRepository.update(self, key, sensor)
-        return Sensor(**doc)
+        return self.get_by_key(key)
 
     def find_by_tank(self, tank_key: str) -> list[Sensor]:
         query = """
@@ -85,4 +81,4 @@ class ArangoSensorRepository(ISensorRepository, BaseArangoRepository):
         sensor_id = f"{col.SENSORS}/{key}"
         self.delete_edges(col.MONITORS_TANK, sensor_id)
         self.delete_edges(col.LOCATED_AT, sensor_id)
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)

@@ -7,24 +7,21 @@ from app.domain.interfaces.consent_repository import IConsentRepository
 from app.domain.models.privacy import ConsentRecord, ConsentRecordKey
 
 
-class ArangoConsentRepository(IConsentRepository, BaseArangoRepository):
+class ArangoConsentRepository(BaseArangoRepository[ConsentRecord], IConsentRepository):
     """ArangoDB persistence for REQ-025 consent records."""
 
+    _model_cls = ConsentRecord
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.CONSENT_RECORDS)
+        super().__init__(db, col.CONSENT_RECORDS)
 
     def create(self, consent: ConsentRecord) -> ConsentRecord:
-        doc = BaseArangoRepository.create(self, consent)
-        created = ConsentRecord(**doc)
+        created = super().create(consent)
         if consent.user_key and created.key:
             user_id = f"{col.USERS}/{consent.user_key}"
             consent_id = f"{col.CONSENT_RECORDS}/{created.key}"
             self.create_edge(col.HAS_CONSENT, user_id, consent_id)
         return created
-
-    def get_by_key(self, key: ConsentRecordKey) -> ConsentRecord | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return ConsentRecord(**doc) if doc else None
 
     def get_by_user_and_purpose(
         self,
@@ -50,10 +47,6 @@ class ArangoConsentRepository(IConsentRepository, BaseArangoRepository):
             return None
         return ConsentRecord(**self._from_doc(docs[0]))
 
-    def update(self, key: ConsentRecordKey, consent: ConsentRecord) -> ConsentRecord:
-        doc = BaseArangoRepository.update(self, key, consent)
-        return ConsentRecord(**doc)
-
     def list_by_user(self, user_key: UserKey) -> list[ConsentRecord]:
         query = """
         FOR doc IN @@collection
@@ -74,7 +67,7 @@ class ArangoConsentRepository(IConsentRepository, BaseArangoRepository):
         consent_id = f"{col.CONSENT_RECORDS}/{key}"
         query = f"FOR e IN {col.HAS_CONSENT} FILTER e._to == @consent_id REMOVE e IN {col.HAS_CONSENT}"
         self._db.aql.execute(query, bind_vars={"consent_id": consent_id})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def delete_all_for_user(self, user_key: UserKey) -> int:
         query = """

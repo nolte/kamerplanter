@@ -7,32 +7,21 @@ from app.domain.interfaces.data_export_repository import IDataExportRepository
 from app.domain.models.privacy import DataExportRequest, DataExportRequestKey
 
 
-class ArangoDataExportRepository(IDataExportRepository, BaseArangoRepository):
+class ArangoDataExportRepository(BaseArangoRepository[DataExportRequest], IDataExportRepository):
     """ArangoDB persistence for REQ-025 data-export requests."""
 
+    _model_cls = DataExportRequest
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.DATA_EXPORT_REQUESTS)
+        super().__init__(db, col.DATA_EXPORT_REQUESTS)
 
     def create(self, export_request: DataExportRequest) -> DataExportRequest:
-        doc = BaseArangoRepository.create(self, export_request)
-        created = DataExportRequest(**doc)
+        created = super().create(export_request)
         if export_request.user_key and created.key:
             user_id = f"{col.USERS}/{export_request.user_key}"
             export_id = f"{col.DATA_EXPORT_REQUESTS}/{created.key}"
             self.create_edge(col.REQUESTED_EXPORT, user_id, export_id)
         return created
-
-    def get_by_key(self, key: DataExportRequestKey) -> DataExportRequest | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return DataExportRequest(**doc) if doc else None
-
-    def update(
-        self,
-        key: DataExportRequestKey,
-        export_request: DataExportRequest,
-    ) -> DataExportRequest:
-        doc = BaseArangoRepository.update(self, key, export_request)
-        return DataExportRequest(**doc)
 
     def list_by_user(self, user_key: UserKey) -> list[DataExportRequest]:
         query = """
@@ -69,7 +58,7 @@ class ArangoDataExportRepository(IDataExportRepository, BaseArangoRepository):
         export_id = f"{col.DATA_EXPORT_REQUESTS}/{key}"
         query = f"FOR e IN {col.REQUESTED_EXPORT} FILTER e._to == @export_id REMOVE e IN {col.REQUESTED_EXPORT}"
         self._db.aql.execute(query, bind_vars={"export_id": export_id})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def expire_old(self, now_iso: str) -> int:
         """Flip completed exports past their 72-hour expiry to ``status=expired``.
