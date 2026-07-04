@@ -6,7 +6,7 @@ import { createListSlice } from '@/store/createListSlice';
 // factory normalises that into `items` and leaves the pagination fields unused.
 const { reducer, fetchList, fetchOne, actions } = createListSlice<PlantInstance>({
   name: 'plantInstances',
-  list: (offset, limit) => api.listPlantInstances(offset, limit),
+  list: ({ offset = 0, limit = 50 } = {}) => api.listPlantInstances(offset, limit),
   getOne: (key) => api.getPlantInstance(key),
 });
 

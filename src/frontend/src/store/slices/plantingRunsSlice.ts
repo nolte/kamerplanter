@@ -1,75 +1,27 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { PlantingRun } from '@/api/types';
 import * as api from '@/api/endpoints/plantingRuns';
+import { createListSlice } from '@/store/createListSlice';
 
-interface PlantingRunsState {
-  runs: PlantingRun[];
-  currentRun: PlantingRun | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: PlantingRunsState = {
-  runs: [],
-  currentRun: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchPlantingRuns = createAsyncThunk(
-  'plantingRuns/fetchAll',
-  async ({
+// `listPlantingRuns` returns a plain array. The slice keeps its domain-named
+// state fields (`runs`/`currentRun`) so page selectors stay unchanged
+// (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
+  name: 'plantingRuns',
+  list: ({
     offset,
     limit,
     status,
     runType,
-  }: {
-    offset?: number;
-    limit?: number;
-    status?: string;
-    runType?: string;
-  } = {}) => {
-    return api.listPlantingRuns(offset, limit, status, runType);
-  },
-);
-
-export const fetchPlantingRun = createAsyncThunk(
-  'plantingRuns/fetchOne',
-  async (key: string) => {
-    return api.getPlantingRun(key);
-  },
-);
-
-const plantingRunsSlice = createSlice({
-  name: 'plantingRuns',
-  initialState,
-  reducers: {
-    clearCurrentRun(state) {
-      state.currentRun = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchPlantingRuns.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchPlantingRuns.fulfilled, (state, action) => {
-        state.loading = false;
-        state.runs = action.payload;
-      })
-      .addCase(fetchPlantingRuns.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
-      })
-      .addCase(fetchPlantingRun.fulfilled, (state, action) => {
-        state.currentRun = action.payload;
-      });
-  },
+  }: { offset?: number; limit?: number; status?: string; runType?: string } = {}) =>
+    api.listPlantingRuns(offset, limit, status, runType),
+  getOne: (key) => api.getPlantingRun(key),
+  itemsField: 'runs',
+  currentField: 'currentRun',
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrentRun, clearError } = plantingRunsSlice.actions;
-export default plantingRunsSlice.reducer;
+export const fetchPlantingRuns = fetchList;
+export const fetchPlantingRun = fetchOne!;
+export const clearCurrentRun = actions.clearCurrent;
+export const { clearError } = actions;
+export default reducer;

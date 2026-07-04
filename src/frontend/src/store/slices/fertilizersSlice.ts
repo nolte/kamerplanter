@@ -1,25 +1,12 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-
 import * as api from '@/api/endpoints/fertilizers';
-import type { Fertilizer } from '@/api/types';
+import { createListSlice } from '@/store/createListSlice';
 
-interface FertilizersState {
-  fertilizers: Fertilizer[];
-  currentFertilizer: Fertilizer | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: FertilizersState = {
-  fertilizers: [],
-  currentFertilizer: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchFertilizers = createAsyncThunk(
-  'fertilizers/fetchAll',
-  async ({
+// `fetchFertilizers` returns a plain array. The slice keeps its domain-named
+// state fields (`fertilizers`/`currentFertilizer`) so page selectors stay
+// unchanged (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
+  name: 'fertilizers',
+  list: ({
     offset,
     limit,
     fertilizerType,
@@ -39,47 +26,21 @@ export const fetchFertilizers = createAsyncThunk(
     if (brand) filters.brand = brand;
     if (tankSafe !== undefined) filters.tank_safe = String(tankSafe);
     if (isOrganic !== undefined) filters.is_organic = String(isOrganic);
-    return api.fetchFertilizers(offset, limit, Object.keys(filters).length > 0 ? filters : undefined);
+    return api.fetchFertilizers(
+      offset,
+      limit,
+      Object.keys(filters).length > 0 ? filters : undefined,
+    );
   },
-);
-
-export const fetchFertilizer = createAsyncThunk(
-  'fertilizers/fetchOne',
-  async (key: string) => {
-    return api.fetchFertilizer(key);
-  },
-);
-
-const fertilizersSlice = createSlice({
-  name: 'fertilizers',
-  initialState,
-  reducers: {
-    clearCurrentFertilizer(state) {
-      state.currentFertilizer = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchFertilizers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchFertilizers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.fertilizers = action.payload;
-      })
-      .addCase(fetchFertilizers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
-      })
-      .addCase(fetchFertilizer.fulfilled, (state, action) => {
-        state.currentFertilizer = action.payload;
-      });
-  },
+  getOne: (key) => api.fetchFertilizer(key),
+  itemsField: 'fertilizers',
+  currentField: 'currentFertilizer',
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrentFertilizer, clearError } = fertilizersSlice.actions;
-export default fertilizersSlice.reducer;
+export const fetchFertilizers = fetchList;
+export const fetchFertilizer = fetchOne!;
+export const clearCurrentFertilizer = actions.clearCurrent;
+export const { clearError } = actions;
+export default reducer;

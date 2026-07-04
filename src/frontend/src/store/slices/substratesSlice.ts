@@ -6,7 +6,7 @@ import { createListSlice } from '@/store/createListSlice';
 // normalises that into `items` and leaves the pagination fields unused.
 const { reducer, fetchList, fetchOne, actions } = createListSlice<Substrate>({
   name: 'substrates',
-  list: (offset, limit) => api.listSubstrates(offset, limit),
+  list: ({ offset = 0, limit = 50 } = {}) => api.listSubstrates(offset, limit),
   getOne: (key) => api.getSubstrate(key),
 });
 

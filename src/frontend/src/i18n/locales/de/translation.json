@@ -381,7 +381,11 @@
     "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
     "unknown": "Ein unbekannter Fehler ist aufgetreten.",
     "loadFailed": "Die Daten konnten nicht geladen werden.",
-    "optionsLoadFailed": "Auswahloptionen konnten nicht geladen werden."
+    "optionsLoadFailed": "Auswahloptionen konnten nicht geladen werden.",
+    "tenantsLoadFailed": "Die Mandanten konnten nicht geladen werden.",
+    "onboardingStateLoadFailed": "Der Onboarding-Status konnte nicht geladen werden.",
+    "starterKitsLoadFailed": "Die Starter-Sets konnten nicht geladen werden.",
+    "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden."
   },
   "entities": {
     "botanicalFamily": "Botanische Familie",
