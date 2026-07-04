@@ -39,7 +39,9 @@ class UserPreferenceService:
     def __init__(self, db) -> None:
         from app.data_access.arango import collections as col
 
-        self._repo = BaseArangoRepository(db, col.USER_PREFERENCES)
+        # Service-embedded dict view: methods below wrap the raw dict into
+        # UserPreference themselves, so opt into raw mode (FR-002 A3).
+        self._repo = BaseArangoRepository(db, col.USER_PREFERENCES, raw=True)
 
     def get_preferences(self, user_key: str) -> UserPreference:
         docs = self._repo.find_by_field("user_key", user_key)

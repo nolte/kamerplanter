@@ -4,8 +4,9 @@ Solitary unit tests: the injected ``StandardDatabase`` is the owned I/O
 boundary and is doubled with MagicMock. These tests pin the generic, typed
 CRUD contract plus the AP-15 additions (``get_or_raise``, ``find_by_field``
 options, ``find_one_by_field``, ``get_page``, ``delete_edges(direction=...)``)
-and the legacy dict-compatibility mode that keeps unmigrated repositories
-working.
+and the FR-002 A3 fail-fast contract: an unbound repository serves the typed
+API only when it explicitly opts into raw dict mode (``raw=True``); otherwise
+the typed methods raise ``TypeError`` instead of silently returning dicts.
 """
 
 from unittest.mock import MagicMock
@@ -47,7 +48,7 @@ def _doc(**kwargs) -> dict:
     return doc
 
 
-# ── Model binding / legacy dict mode ─────────────────────────────────────────
+# ── Model binding / raw mode ─────────────────────────────────────────────────
 
 
 class TestModelBinding:
@@ -66,9 +67,25 @@ class TestModelBinding:
 
         assert isinstance(repo.get_by_key("w1"), Widget)
 
-    def test_unbound_repo_returns_raw_dict(self, mock_db):
-        # Backward compatibility: no model bound -> legacy dict behaviour.
-        repo = BaseArangoRepository(mock_db, "widgets")
+    def test_get_by_key_missing_returns_none(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = None
+
+        assert repo.get_by_key("w1") is None
+
+
+# ── FR-002 A3: raw dict mode (opt-in) vs. fail-fast (unbound) ─────────────────
+
+
+class TestRawMode:
+    """An unbound repository serves the typed API only with ``raw=True``.
+
+    (1) legitimate raw/dict use keeps working, (2) accidental unbound typed
+    use fails fast instead of silently returning dicts.
+    """
+
+    def test_raw_mode_get_by_key_returns_dict(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets", raw=True)
         mock_db.collection.return_value.get.return_value = _doc()
 
         result = repo.get_by_key("w1")
@@ -76,11 +93,103 @@ class TestModelBinding:
         assert isinstance(result, dict)
         assert result["name"] == "Hammer"
 
-    def test_get_by_key_missing_returns_none(self, mock_db):
-        repo = BoundRepo(mock_db, "widgets")
+    def test_raw_mode_get_by_key_missing_returns_none(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets", raw=True)
         mock_db.collection.return_value.get.return_value = None
 
         assert repo.get_by_key("w1") is None
+
+    def test_raw_mode_get_all_returns_dicts(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets", raw=True)
+        mock_db.aql.execute.side_effect = [iter([_doc()]), iter([1])]
+
+        items, total = repo.get_all(offset=0, limit=50)
+
+        assert total == 1
+        assert isinstance(items[0], dict)
+        assert items[0]["name"] == "Hammer"
+
+    def test_raw_mode_create_returns_dict_and_sets_timestamps(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets", raw=True)
+        coll = mock_db.collection.return_value
+        coll.insert.return_value = {"new": _doc(name="Saw")}
+
+        result = repo.create(Widget(name="Saw"))
+
+        assert isinstance(result, dict)
+        inserted = coll.insert.call_args.args[0]
+        assert "created_at" in inserted
+        assert "updated_at" in inserted
+
+    def test_raw_mode_find_by_field_returns_dicts(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets", raw=True)
+        mock_db.aql.execute.return_value = iter([_doc()])
+
+        result = repo.find_by_field("name", "Hammer")
+
+        assert isinstance(result[0], dict)
+        assert result[0]["name"] == "Hammer"
+
+
+class TestUnboundFailsFast:
+    """Unbound + not raw: the typed API raises ``TypeError`` (FR-002 A3)."""
+
+    def test_get_by_key_fails_fast(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = _doc()
+
+        with pytest.raises(TypeError, match="unbound"):
+            repo.get_by_key("w1")
+
+    def test_get_all_fails_fast(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.aql.execute.side_effect = [iter([_doc()]), iter([1])]
+
+        with pytest.raises(TypeError, match="raw=True"):
+            repo.get_all(offset=0, limit=50)
+
+    def test_create_fails_fast(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.collection.return_value.insert.return_value = {"new": _doc()}
+
+        with pytest.raises(TypeError, match="requires a"):
+            repo.create(Widget(name="Saw"))
+
+    def test_update_fails_fast(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.collection.return_value.update.return_value = {"new": _doc()}
+
+        with pytest.raises(TypeError):
+            repo.update("w1", Widget(name="Renamed"))
+
+    def test_find_by_field_fails_fast(self, mock_db):
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.aql.execute.return_value = iter([_doc()])
+
+        with pytest.raises(TypeError):
+            repo.find_by_field("name", "Hammer")
+
+    def test_get_or_raise_fails_fast_before_not_found(self, mock_db):
+        # Fail-fast wins over NotFoundError: even a present doc cannot be typed.
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = _doc()
+
+        with pytest.raises(TypeError):
+            repo.get_or_raise("w1")
+
+    def test_get_by_key_missing_returns_none_without_raising(self, mock_db):
+        # A missing doc short-circuits to None before wrapping, so no raise.
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.collection.return_value.get.return_value = None
+
+        assert repo.get_by_key("w1") is None
+
+    def test_delete_works_unbound_without_raw(self, mock_db):
+        # Model-agnostic methods stay available on an unbound repository.
+        repo = BaseArangoRepository(mock_db, "widgets")
+        mock_db.collection.return_value.delete.return_value = True
+
+        assert repo.delete("w1") is True
 
 
 # ── get_or_raise (DUP-B6) ────────────────────────────────────────────────────

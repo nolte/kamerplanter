@@ -32,13 +32,22 @@ class BaseArangoRepository[TModel: BaseModel]:
       a typed view onto a secondary collection, used by multi-collection
       repositories (IPM, harvest, fertilizer stocks).
 
-    **Backward-compatibility (legacy dict mode).** When neither binding is
-    present the repository is *unbound*: every public method returns the raw
-    ``dict`` document, exactly as before this class became generic. Unmigrated
-    sub-repositories and ad-hoc ``BaseArangoRepository(db, collection)``
-    instances therefore keep working unchanged. A repository is migrated to the
-    typed API simply by binding a model; until then it behaves identically to
-    the pre-refactor base.
+    **Unbound repositories (raw dict mode, opt-in).** A repository without any
+    model binding is *unbound*. Genuinely unbound repositories still exist and
+    are legitimate — edge/graph managers, custom-AQL-only repositories, and the
+    service-embedded ``BaseArangoRepository(db, collection)`` views that hand a
+    raw ``dict`` straight to a domain model. They must now declare that intent
+    explicitly by passing ``raw=True``; the typed public API then returns the
+    raw ``dict`` document exactly as before this class became generic.
+
+    **Fail-fast (FR-002 A3).** When a repository is neither bound *nor* in raw
+    mode, the typed public API (:meth:`get_by_key`, :meth:`get_all`,
+    :meth:`create`, :meth:`update`, :meth:`find_by_field`, …) raises
+    :class:`TypeError` instead of silently returning ``dict`` documents. This
+    catches the accidental case — a caller who forgot to bind a model and would
+    otherwise receive untyped dicts. Model-agnostic methods (:meth:`delete`,
+    :meth:`create_edge`, :meth:`delete_edges`, and the private doc primitives)
+    stay available on unbound repositories regardless of ``raw``.
 
     Two layers are exposed:
 
@@ -49,8 +58,9 @@ class BaseArangoRepository[TModel: BaseModel]:
       when a model is bound.
     """
 
-    #: Bound domain model for subclass binding. ``None`` keeps the repository in
-    #: legacy dict-compatibility mode.
+    #: Bound domain model for subclass binding. ``None`` leaves the repository
+    #: unbound; the typed API then fails fast unless ``raw=True`` was passed
+    #: (FR-002 A3).
     _model_cls: ClassVar[type[BaseModel] | None] = None
 
     #: Optional override for the entity name used in :class:`NotFoundError`
@@ -69,11 +79,18 @@ class BaseArangoRepository[TModel: BaseModel]:
         db: StandardDatabase,
         collection_name: str,
         model_cls: type[TModel] | None = None,
+        *,
+        raw: bool = False,
     ) -> None:
         self._db = db
         self._collection_name = collection_name
         #: Instance-level model binding (composition). Wins over ``_model_cls``.
         self._instance_model_cls: type[TModel] | None = model_cls
+        #: Explicit opt-in to the legacy raw-``dict`` API for a genuinely
+        #: unbound repository (edge/graph managers, custom-AQL-only repos,
+        #: service-embedded dict views). Without it, an unbound typed call fails
+        #: fast instead of silently returning dicts (FR-002 A3).
+        self._raw_mode = raw
 
     # ── Model resolution / wrapping ──────────────────────────────────────────
 
@@ -81,21 +98,44 @@ class BaseArangoRepository[TModel: BaseModel]:
         """Resolve the bound model: constructor arg wins over class attribute."""
         return self._instance_model_cls or self._model_cls
 
-    def _wrap(self, doc: dict[str, Any] | None) -> Any:
-        """Map a raw doc onto the bound model, or return it unchanged (legacy).
+    def _require_bound_or_raw(self) -> None:
+        """Guard the typed public API against accidental unbound use (FR-002 A3).
 
-        ``doc`` is already normalised through :meth:`_from_doc`.
+        An unbound repository (no ``_model_cls`` class attribute and no
+        constructor ``model_cls``) may only serve the typed methods when it has
+        explicitly opted into the legacy raw-``dict`` API via ``raw=True``.
+        Otherwise the caller has almost certainly forgotten to bind a model, so
+        we fail fast instead of silently handing back raw ``dict`` documents.
+        """
+        if not self._raw_mode:
+            raise TypeError(
+                f"BaseArangoRepository for collection '{self._collection_name}' "
+                "is unbound (no model_cls) and not in raw mode: the typed API "
+                "(get_by_key/get_all/create/update/find_by_field/…) requires a "
+                "bound Pydantic model. Bind one via the '_model_cls' class "
+                "attribute or the 'model_cls' constructor argument, or pass "
+                "'raw=True' to opt into the legacy dict API explicitly "
+                "(FR-002 A3)."
+            )
+
+    def _wrap(self, doc: dict[str, Any] | None) -> Any:
+        """Map a raw doc onto the bound model, or return it unchanged (raw mode).
+
+        ``doc`` is already normalised through :meth:`_from_doc`. Fails fast when
+        the repository is unbound and not in raw mode (FR-002 A3).
         """
         if doc is None:
             return None
         model_cls = self._resolve_model_cls()
         if model_cls is None:
+            self._require_bound_or_raw()
             return doc
         return model_cls(**doc)
 
     def _wrap_many(self, docs: list[dict[str, Any]]) -> list[Any]:
         model_cls = self._resolve_model_cls()
         if model_cls is None:
+            self._require_bound_or_raw()
             return docs
         return [model_cls(**doc) for doc in docs]
 
