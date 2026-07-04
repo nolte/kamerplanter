@@ -41,10 +41,14 @@ properties:
           $ref: "_defs.schema.yaml#/$defs/flowering_strategy"
       additionalProperties: false
   cultivars:
-    type: array
-    description: "Cultivar definitions (validated elsewhere; permissive here)."
-    items:
-      type: object
+    type: object
+    description: >-
+      Cultivar definitions keyed by scientific_name; each value is a list of
+      cultivar objects (validated elsewhere; permissive here).
+    additionalProperties:
+      type: array
+      items:
+        type: object
 
 required: [species]
 additionalProperties: false
