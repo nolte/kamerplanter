@@ -1,14 +1,20 @@
 from fastapi import APIRouter, Depends
 
 from app.api.v1.nutrient_calculations.schemas import (
+    AreaDosingItemResponse,
+    AreaDosingRequest,
+    AreaDosingResponse,
     CalMagCorrectionResponse,
     EcBudgetRequest,
     EcBudgetResponse,
     EcSegmentResponse,
     EffectiveWaterProfileResponse,
     FlushingRequest,
+    MixingProtocolDosage,
     MixingProtocolRequest,
+    MixingProtocolResponse,
     MixingSafetyRequest,
+    PhAdjustmentResponse,
     RunoffRequest,
     WaterMixRequest,
     WaterMixResponse,
@@ -16,6 +22,7 @@ from app.api.v1.nutrient_calculations.schemas import (
     WaterMixReverseResponse,
     WaterSourceWarningResponse,
 )
+from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import PhaseName, SubstrateType
 from app.domain.engines.ec_budget_engine import (
@@ -26,36 +33,108 @@ from app.domain.engines.ec_budget_engine import (
 from app.domain.engines.nutrient_engine import (
     FlushingProtocol,
     MixingSafetyValidator,
-    NutrientSolutionCalculator,
     RunoffAnalyzer,
+    _ph_adjustment,
 )
 from app.domain.engines.water_mix_engine import WaterMixCalculator, WaterSourceValidator
 from app.domain.models.site import RoWaterProfile, TapWaterProfile
+from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
 router = APIRouter(prefix="/nutrient-calculations", tags=["nutrient-calculations"])
 
 
-@router.post("/mixing-protocol")
+@router.post("/mixing-protocol", response_model=MixingProtocolResponse)
 def mixing_protocol(
     body: MixingProtocolRequest,
     service: FertilizerService = Depends(get_fertilizer_service),
-):
-    fertilizers = []
+) -> MixingProtocolResponse:
+    """Compute a mixing protocol via the canonical EC-budget pipeline (REQ-004-A).
+
+    DOM-5 fix: this endpoint now runs the REQ-004-A-compliant EcBudgetCalculator
+    (pH reserve + pre-deductions), so ml/L doses are lower than the legacy
+    NutrientSolutionCalculator (which ignored the pH reserve and overshot the
+    target EC after pH correction). The legacy response shape is preserved and
+    additively extended with ``ec_net``, ``ec_ph_reserve`` and ``valid``.
+    """
+    substrate = SubstrateType(body.substrate_type)
+    phase = PhaseName(body.phase)
+
+    fert_inputs: list[EcBudgetFertilizerInput] = []
     for key in body.fertilizer_keys:
         fert = service.get_fertilizer(key)
-        fertilizers.append(fert)
+        fert_inputs.append(
+            EcBudgetFertilizerInput(
+                key=key,
+                product_name=fert.product_name,
+                ec_contribution_per_ml=fert.ec_contribution_per_ml,
+                ec_contribution_uncertain=fert.ec_contribution_uncertain,
+                max_dose_ml_per_liter=fert.max_dose_ml_per_liter,
+                fertilizer_type=fert.fertilizer_type,
+            )
+        )
 
-    substrate = SubstrateType(body.substrate_type)
-    calculator = NutrientSolutionCalculator()
-    return calculator.calculate(
-        target_volume_liters=body.target_volume_liters,
-        target_ec_ms=body.target_ec_ms,
-        target_ph=body.target_ph,
+    inp = EcBudgetInput(
         base_water_ec=body.base_water_ec,
-        base_water_ph=body.base_water_ph,
-        fertilizers=fertilizers,
-        substrate_type=substrate,
+        target_ec=body.target_ec_ms,
+        alkalinity_ppm=body.alkalinity_ppm,
+        substrate=substrate,
+        phase=phase,
+        volume_liters=body.target_volume_liters,
+        fertilizers=fert_inputs,
+        recipe_ml_per_liter=body.recipe_ml_per_liter or {},
+    )
+
+    result = EcBudgetCalculator().calculate(inp)
+
+    dosages = [
+        MixingProtocolDosage(
+            fertilizer_key=row.get("key"),
+            product_name=row.get("product_name", ""),
+            ml_per_liter=row.get("ml_per_liter", 0.0),
+            total_ml=row.get("total_ml", 0.0),
+            ec_contribution=row.get("ec_contribution", 0.0),
+        )
+        for row in result.dosage_table
+    ]
+    ph_adj = _ph_adjustment(body.base_water_ph, body.target_ph)
+
+    return MixingProtocolResponse(
+        dosages=dosages,
+        calculated_ec=result.ec_final,
+        ph_adjustment=PhAdjustmentResponse(**ph_adj),
+        warnings=result.warnings,
+        instructions=result.dosage_instructions,
+        ec_net=result.ec_net,
+        ec_ph_reserve=result.ec_ph_reserve,
+        valid=result.valid,
+    )
+
+
+@router.post("/area-dosing", response_model=AreaDosingResponse)
+def area_dosing(
+    body: AreaDosingRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: FertilizerService = Depends(get_fertilizer_service),
+) -> AreaDosingResponse:
+    """Compute per-area organic fertilizer amounts (REQ-004 W-013, AP-11).
+
+    Area is taken from an explicit ``area_m2`` (override) or resolved from
+    ``location_key`` (Location.area_m2, scoped to the caller's tenant). Solid
+    amendments are dosed g/m² and L/m² instead of ml/L.
+    """
+    result = service.calculate_area_dosage(
+        fertilizer_keys=body.fertilizer_keys,
+        area_m2=body.area_m2,
+        location_key=body.location_key,
+        demand_level=body.demand_level,
+        tenant_key=ctx.tenant_key,
+    )
+    return AreaDosingResponse(
+        area_m2=result.area_m2,
+        items=[AreaDosingItemResponse(**item.model_dump()) for item in result.items],
+        warnings=result.warnings,
+        instructions=result.instructions,
     )
 
 

@@ -441,6 +441,16 @@ class FertilizerType(StrEnum):
     PH_ADJUSTER = "ph_adjuster"
     ORGANIC = "organic"
     SILICATE = "silicate"
+    CALMAG = "calmag"
+
+
+class NutrientReleaseSpeed(StrEnum):
+    """Nutrient release speed for organic/area-based fertilizers (REQ-004 W-013)."""
+
+    IMMEDIATE = "immediate"
+    WEEKS = "weeks"
+    MONTHS = "months"
+    SEASON_LONG = "season_long"
 
 
 class PhEffect(StrEnum):

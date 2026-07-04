@@ -211,6 +211,8 @@ def get_water_mix_recommendation(
 def calculate_dosages(
     key: str,
     body: CalculateDosagesRequest,
+    location_key: str | None = None,
+    plant_count: int | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
@@ -222,6 +224,8 @@ def calculate_dosages(
         volume_liters=body.volume_liters,
         channel_id=body.channel_id,
         ro_percent_override=body.ro_percent_override,
+        location_key=location_key,
+        plant_count=plant_count,
     )
     return result.model_dump()
 

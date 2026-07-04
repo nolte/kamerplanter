@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Self
+from typing import Final, Self
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -7,8 +7,13 @@ from app.common.enums import (
     ApplicationMethod,
     Bioavailability,
     FertilizerType,
+    NutrientReleaseSpeed,
     PhEffect,
 )
+
+# Canonical fallback mixing priority used whenever a fertilizer cannot be
+# resolved (REQ-004 §5, DUP-B8). Mirrors the model default below.
+DEFAULT_MIXING_PRIORITY: Final[int] = 50
 
 
 class Fertilizer(BaseModel):
@@ -24,12 +29,27 @@ class Fertilizer(BaseModel):
     ec_contribution_per_ml: float = Field(default=0.0, ge=0)
     ec_contribution_uncertain: bool = False
     max_dose_ml_per_liter: float | None = Field(default=None, ge=0.1)
-    mixing_priority: int = Field(default=50, ge=1, le=100)
+    mixing_priority: int = Field(default=DEFAULT_MIXING_PRIORITY, ge=1, le=100)
     ph_effect: PhEffect = PhEffect.NEUTRAL
     bioavailability: Bioavailability = Bioavailability.IMMEDIATE
     shelf_life_days: int | None = Field(default=None, ge=1)
     storage_temp_min: float | None = None
     storage_temp_max: float | None = None
+    # ── Area-based dosing fields (REQ-004 W-013, outdoor organic fertilization) ──
+    application_rate_g_per_m2: float | None = Field(
+        default=None, gt=0, description="Solid fertilizer application rate in grams per m² (W-013)."
+    )
+    application_rate_l_per_m2: float | None = Field(
+        default=None, gt=0, description="Liquid/compost application rate in liters per m² (W-013)."
+    )
+    dilution_ratio: str | None = Field(
+        default=None,
+        pattern=r"^\d+:\d+$",
+        description='Dilution ratio for plant slurries/teas, e.g. "1:10" (W-013).',
+    )
+    nutrient_release_speed: NutrientReleaseSpeed | None = Field(
+        default=None, description="Nutrient release speed for organic fertilizers (W-013)."
+    )
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -10,11 +10,12 @@ from app.domain.engines.dosage_calculation_engine import (
     DosageCalculationEngine,
     DosageCalculationInput,
 )
-from app.domain.models.fertilizer import Fertilizer
+from app.domain.models.fertilizer import DEFAULT_MIXING_PRIORITY, Fertilizer
 from app.domain.models.nutrient_plan import (
     DeliveryChannel,
     FertilizerDosage,
     NutrientPlanPhaseEntry,
+    TopDressParams,
 )
 from app.domain.models.site import RoWaterProfile, TapWaterProfile
 
@@ -621,3 +622,186 @@ class TestChannelSelection:
         )
 
         assert result.channel_id == "tank-fertigation"
+
+
+# ── AP-10 consolidation: parity, caps, negative budget, default priority ──
+
+
+class TestEngineParityAndCaps:
+    def test_ec_net_parity_with_ec_budget_engine(self):
+        """DosageCalculationEngine and EcBudgetCalculator agree on EC net / pH reserve."""
+        from app.domain.engines.ec_budget_engine import compute_ec_net, ph_reserve_for_alkalinity
+
+        target_ec = 1.5
+        base_water_ec = TAP_WATER.ec_ms  # tap-only path uses tap EC as base
+        alkalinity = TAP_WATER.alkalinity_ppm
+
+        engine = DosageCalculationEngine()
+        entry = _make_phase_entry(target_ec=target_ec, target_ca=None, target_mg=None)
+        result = engine.calculate(
+            DosageCalculationInput(
+                phase_entry=entry,
+                volume_liters=10.0,
+                tap_water=TAP_WATER,
+                fertilizer_lookup=_make_fert_lookup(),
+            ),
+        )
+
+        expected_reserve = ph_reserve_for_alkalinity(alkalinity)
+        assert result.ec_budget.ec_ph_reserve == pytest.approx(expected_reserve, abs=0.001)
+        assert result.ec_budget.ec_base_water == pytest.approx(compute_ec_net(base_water_ec, 0.0), abs=0.01)
+
+    def test_negative_budget_emits_warning(self):
+        """base water EC above target must warn instead of silently zeroing."""
+        engine = DosageCalculationEngine()
+        # target 0.5 but tap EC 0.45 + pH reserve consumes everything → warn.
+        entry = _make_phase_entry(target_ec=0.5, target_ca=None, target_mg=None)
+        result = engine.calculate(
+            DosageCalculationInput(
+                phase_entry=entry,
+                volume_liters=10.0,
+                tap_water=TapWaterProfile(ec_ms=0.6, ph=7.0, alkalinity_ppm=200.0),
+                fertilizer_lookup=_make_fert_lookup(),
+            ),
+        )
+        assert any("No headroom" in w or "consume" in w for w in result.warnings)
+
+    def test_scaled_dose_capped_at_max(self):
+        """A runaway scaling factor is capped at the product's max dose."""
+        engine = DosageCalculationEngine()
+        micro = FertilizerDosage(fertilizer_key="grow-001", ml_per_liter=4.0)
+        channel = DeliveryChannel(
+            channel_id="tank-fertigation",
+            application_method=ApplicationMethod.FERTIGATION,
+            target_ec_ms=3.0,
+            fertilizer_dosages=[micro],
+        )
+        entry = NutrientPlanPhaseEntry(
+            plan_key="plan-cap",
+            phase_name=PhaseName.VEGETATIVE,
+            sequence_order=1,
+            week_start=1,
+            week_end=2,
+            target_ec_ms=3.0,
+            reference_base_ec=0.0,
+            target_calcium_ppm=None,
+            target_magnesium_ppm=None,
+            delivery_channels=[channel],
+        )
+        lookup = {
+            "grow-001": Fertilizer(
+                _key="grow-001",
+                product_name="Weak Grow",
+                fertilizer_type=FertilizerType.BASE,
+                ec_contribution_per_ml=0.05,
+                max_dose_ml_per_liter=5.0,
+                mixing_priority=20,
+            )
+        }
+        result = engine.calculate(
+            DosageCalculationInput(
+                phase_entry=entry,
+                volume_liters=10.0,
+                tap_water=RO_WATER and TapWaterProfile(ec_ms=0.05, ph=6.5, alkalinity_ppm=0.0),
+                fertilizer_lookup=lookup,
+            ),
+        )
+        grow = next(d for d in result.dosages if d.fertilizer_key == "grow-001")
+        assert grow.ml_per_liter <= 5.0
+        assert any("capped" in w for w in result.warnings)
+
+    def test_unknown_fertilizer_uses_default_priority(self):
+        """A dosage referencing an unresolved key falls back to DEFAULT_MIXING_PRIORITY."""
+        engine = DosageCalculationEngine()
+        orphan = FertilizerDosage(fertilizer_key="does-not-exist", ml_per_liter=2.0)
+        channel = DeliveryChannel(
+            channel_id="c1",
+            application_method=ApplicationMethod.FERTIGATION,
+            target_ec_ms=1.0,
+            fertilizer_dosages=[orphan],
+        )
+        entry = NutrientPlanPhaseEntry(
+            plan_key="plan-x",
+            phase_name=PhaseName.VEGETATIVE,
+            sequence_order=1,
+            week_start=1,
+            week_end=2,
+            target_ec_ms=0.0,  # forces reference-result path
+            reference_base_ec=0.0,
+            delivery_channels=[channel],
+        )
+        result = engine.calculate(
+            DosageCalculationInput(phase_entry=entry, volume_liters=10.0, fertilizer_lookup={}),
+        )
+        assert result.dosages[0].mixing_order == DEFAULT_MIXING_PRIORITY
+
+
+# ── AP-11 top-dress (area-based) wiring ──────────────────────────────
+
+
+def _make_topdress_entry(grams_per_m2: float | None = 40.0, grams_per_plant: float | None = None):
+    dose = FertilizerDosage(fertilizer_key="worm-001", ml_per_liter=1.0)
+    channel = DeliveryChannel(
+        channel_id="topdress",
+        label="Top dress",
+        application_method=ApplicationMethod.TOP_DRESS,
+        fertilizer_dosages=[dose],
+        method_params=TopDressParams(grams_per_m2=grams_per_m2, grams_per_plant=grams_per_plant),
+    )
+    return NutrientPlanPhaseEntry(
+        plan_key="plan-td",
+        phase_name=PhaseName.VEGETATIVE,
+        sequence_order=1,
+        week_start=1,
+        week_end=2,
+        delivery_channels=[channel],
+    )
+
+
+class TestTopDressWiring:
+    def test_grams_per_m2_times_area(self):
+        engine = DosageCalculationEngine()
+        entry = _make_topdress_entry(grams_per_m2=40.0)
+        lookup = {"worm-001": _make_fertilizer("worm-001", "Worm Castings", 0.0, mixing_priority=8)}
+        result = engine.calculate(
+            DosageCalculationInput(
+                phase_entry=entry,
+                channel_id="topdress",
+                volume_liters=10.0,
+                fertilizer_lookup=lookup,
+                area_m2=1.5,
+            ),
+        )
+        assert result.dosages[0].total_grams == pytest.approx(60.0)
+        assert result.dosages[0].ec_contribution == 0.0
+        assert result.dosages[0].source == "area_dose"
+
+    def test_missing_area_warns(self):
+        engine = DosageCalculationEngine()
+        entry = _make_topdress_entry(grams_per_m2=40.0)
+        lookup = {"worm-001": _make_fertilizer("worm-001", "Worm Castings", 0.0)}
+        result = engine.calculate(
+            DosageCalculationInput(
+                phase_entry=entry,
+                channel_id="topdress",
+                volume_liters=10.0,
+                fertilizer_lookup=lookup,
+            ),
+        )
+        assert result.dosages[0].total_grams is None
+        assert any("no area is known" in w for w in result.warnings)
+
+    def test_grams_per_plant_times_count(self):
+        engine = DosageCalculationEngine()
+        entry = _make_topdress_entry(grams_per_m2=None, grams_per_plant=15.0)
+        lookup = {"worm-001": _make_fertilizer("worm-001", "Worm Castings", 0.0)}
+        result = engine.calculate(
+            DosageCalculationInput(
+                phase_entry=entry,
+                channel_id="topdress",
+                volume_liters=10.0,
+                fertilizer_lookup=lookup,
+                plant_count=4,
+            ),
+        )
+        assert result.dosages[0].total_grams == pytest.approx(60.0)

@@ -272,6 +272,7 @@ class DosageEntryResponse(BaseModel):
     ec_contribution: float
     source: str
     mixing_order: int = 0
+    total_grams: float | None = None
 
 
 class EffectiveWaterResponse(BaseModel):
