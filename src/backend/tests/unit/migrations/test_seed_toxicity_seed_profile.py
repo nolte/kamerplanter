@@ -176,3 +176,90 @@ class TestExtendedSeederToxicityRoundtrip:
         converted = _build_enrichment_extended(data)["Allium cepa"]
         assert isinstance(converted["toxicity"], Toxicity)
         assert converted["toxicity"].toxic_compounds == ["N-propyl disulfide", "Thiosulfate"]
+
+
+class TestExtendedSeederFlatToxicityMapping:
+    """plant_info_indoor_1.yaml uses a flat toxicity convention that must be
+    folded into the structured ``Toxicity`` model (issue #306 startup crash)."""
+
+    def test_flat_toxic_entry_maps_to_toxicity(self):
+        data = {
+            "species_enrichment": {
+                "Aglaonema commutatum": {
+                    "scientific_name": "Aglaonema commutatum",
+                    "is_toxic": True,
+                    "toxic_to": ["cats", "dogs"],
+                    "toxic_parts": ["all"],
+                    "toxin": "Calcium oxalate crystals",
+                    "toxicity_severity": "moderate",
+                }
+            }
+        }
+        converted = _build_enrichment_extended(data)["Aglaonema commutatum"]
+        tox = converted["toxicity"]
+        assert isinstance(tox, Toxicity)
+        assert tox.is_toxic_cats is True
+        assert tox.is_toxic_dogs is True
+        assert tox.is_toxic_children is False
+        assert tox.toxic_parts == ["all"]
+        assert tox.toxic_compounds == ["Calcium oxalate crystals"]
+        # Flat toxicity_severity is a DIFFERENT scale — never mapped onto severity.
+        assert tox.severity is None
+        # toxicity_severity stays as a verbatim passthrough field.
+        assert converted["toxicity_severity"] == "moderate"
+        # Flat source keys must not leak through as standalone (invalid) fields.
+        assert "is_toxic" not in converted
+        assert "toxic_to" not in converted
+        assert "toxic_parts" not in converted
+        assert "toxin" not in converted
+
+    def test_humans_maps_to_children(self):
+        data = {
+            "species_enrichment": {
+                "Euphorbia pulcherrima": {
+                    "is_toxic": True,
+                    "toxic_to": ["cats", "dogs", "humans"],
+                    "toxin": "Diterpenes",
+                }
+            }
+        }
+        tox = _build_enrichment_extended(data)["Euphorbia pulcherrima"]["toxicity"]
+        assert tox.is_toxic_children is True
+
+    def test_flat_non_toxic_maps_to_all_false(self):
+        data = {
+            "species_enrichment": {
+                "Adiantum raddianum": {
+                    "scientific_name": "Adiantum raddianum",
+                    "is_toxic": False,
+                }
+            }
+        }
+        tox = _build_enrichment_extended(data)["Adiantum raddianum"]["toxicity"]
+        assert isinstance(tox, Toxicity)
+        assert tox.is_toxic_cats is False
+        assert tox.is_toxic_dogs is False
+        assert tox.is_toxic_children is False
+        assert tox.toxic_parts == []
+        assert tox.toxic_compounds == []
+        assert tox.severity is None
+
+    def test_nested_toxicity_takes_precedence_over_flat(self):
+        # If a nested toxicity block is present it wins; no flat override.
+        data = {
+            "species_enrichment": {
+                "Allium cepa": {
+                    "toxicity": ALLIUM_CEPA_ENTRY["toxicity"],
+                    "is_toxic": True,
+                    "toxic_to": ["cats"],
+                }
+            }
+        }
+        tox = _build_enrichment_extended(data)["Allium cepa"]["toxicity"]
+        assert tox.toxic_compounds == ["N-propyl disulfide", "Thiosulfate"]
+        assert tox.severity is ToxicitySeverity.MODERATE
+
+    def test_entry_without_toxicity_keys_has_no_toxicity(self):
+        data = {"species_enrichment": {"Foo bar": {"scientific_name": "Foo bar"}}}
+        converted = _build_enrichment_extended(data)["Foo bar"]
+        assert "toxicity" not in converted

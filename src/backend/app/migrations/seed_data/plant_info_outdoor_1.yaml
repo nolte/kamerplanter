@@ -1812,7 +1812,6 @@ cultivars:
   "Buxus sempervirens":
     - name: "Suffruticosa"
       traits: [compact, dwarf]
-      days_to_maturity: 0
       seed_type: open_pollinated
 
   "Calendula officinalis":
@@ -1828,11 +1827,9 @@ cultivars:
   "Clematis spp.":
     - name: "Nelly Moser"
       traits: [large_flowered, bicolor]
-      days_to_maturity: 0
       seed_type: open_pollinated
     - name: "Jackmanii"
       traits: [vigorous, purple_flower]
-      days_to_maturity: 0
       seed_type: open_pollinated
 
   "Echinacea purpurea":

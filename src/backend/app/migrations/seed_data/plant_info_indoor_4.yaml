@@ -29,10 +29,12 @@ species_enrichment:
         notes: Kopf- und Stammstecklinge
     allows_harvest: false
     native_habitat: "Tropical Africa (Sudan, Mozambique, Angola)"
-    hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin Sudan-Angola."
+    # hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C. Tropical origin Sudan-Angola."
+    # (no Species model field — redundant with hardiness_zones + frost_sensitivity)
 
   "Dracaena marginata":
-    hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C."
+    # hardiness_detail: "No frost tolerance; damage from +5 C, death below 0 C."
+    # (no Species model field — redundant with hardiness_zones + frost_sensitivity)
     bloom_months: []  # P-006: D. marginata rarely blooms indoors; omit to avoid false expectations
     hardiness_zones: ["10a", "10b", "11a", "11b", "12a", "12b"]
 

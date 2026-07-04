@@ -75,3 +75,5 @@ So ist die Verknüpfung Entscheidung ↔ Spec-Änderung dauerhaft nachvollziehba
 | ADR-001 | Karenz-Gate für detachte PlantInstances (W-009) | Accepted | 2026-04-27 |
 | ADR-002 | Tenant-eigene Species im Knowledge Service (W-006) | Accepted | 2026-04-27 |
 | ADR-003 | Sensor-Retention für Perennials (W-014) | Accepted | 2026-04-27 |
+| ADR-004 | Vermehrung als strukturierte per-Methode-Objekte (propagation_configs) | Accepted | 2026-06-15 |
+| ADR-005 | Versioniertes Datenbank-Migrations-Framework | Accepted | 2026-07-04 |

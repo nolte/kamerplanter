@@ -101,6 +101,9 @@ LOCATION_TYPES = "location_types"
 # System Settings (singleton)
 SYSTEM_SETTINGS = "system_settings"
 
+# NFR-016 Schema-migration tracking (versioned migration framework)
+SCHEMA_MIGRATIONS = "schema_migrations"
+
 # Home Assistant publish selection (per-tenant, per-entity opt-in)
 HA_PUBLISH_SETTINGS = "ha_publish_settings"
 
@@ -216,6 +219,7 @@ DOCUMENT_COLLECTIONS = [
     TANK_FILL_EVENTS,
     SENSORS,
     SYSTEM_SETTINGS,
+    SCHEMA_MIGRATIONS,
     HA_PUBLISH_SETTINGS,
     LOCATION_TYPES,
     WATERING_LOGS,
