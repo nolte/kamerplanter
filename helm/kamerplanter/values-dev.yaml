@@ -350,6 +350,15 @@ ingress:
 
 # -- Dev overrides for NetworkPolicies
 networkpolicies:
+  # Disable the production default-deny baseline here: this dev release shares the
+  # ``default`` namespace with the manually-deployed Home Assistant pod and the
+  # cross-release KI/recognition stacks. A namespace-wide ``podSelector: {}`` deny
+  # would sever those co-located, out-of-chart pods. The per-controller policies
+  # below still enforce least-privilege for the chart's own workloads. The
+  # label-scoped ``valkey`` policy is inherited from values.yaml (valkey runs here).
+  default-deny:
+    enabled: false
+
   frontend:
     controller: frontend
     policyTypes:

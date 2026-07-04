@@ -137,6 +137,16 @@ persistence:
 
 # -- Disable KP networkpolicies from base values.yaml
 networkpolicies:
+  # Disable the production default-deny baseline: this recognition release shares
+  # the ``default`` namespace with the main dev / KI releases (cross-release
+  # podSelectors) and the out-of-chart Home Assistant pod; a namespace-wide deny
+  # would sever that co-located traffic. The inference-service keeps its own
+  # policy below. The valkey subchart is disabled here, so its inherited policy is
+  # disabled too (it would otherwise be a dangling selector).
+  default-deny:
+    enabled: false
+  valkey:
+    enabled: false
   frontend:
     enabled: false
   backend:

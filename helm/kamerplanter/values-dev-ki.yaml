@@ -335,6 +335,16 @@ persistence:
 
 # -- Disable KP networkpolicies from base values.yaml
 networkpolicies:
+  # Disable the production default-deny baseline: this KI release shares the
+  # ``default`` namespace with the main dev release (cross-release podSelectors)
+  # and the out-of-chart Home Assistant pod, so a namespace-wide deny would sever
+  # co-located traffic. The KI services keep their own per-controller policies
+  # below. The valkey subchart is disabled in this release, so its inherited
+  # policy is disabled too (it would otherwise be a dangling selector).
+  default-deny:
+    enabled: false
+  valkey:
+    enabled: false
   frontend:
     enabled: false
   backend:
