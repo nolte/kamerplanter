@@ -89,6 +89,24 @@ tasks:
     cmds:
       - python -m pytest tests/ {{.CLI_ARGS}}
 
+  # ── Shared libs ─────────────────────────────────────────────
+
+  vectordb:sync:
+    desc: Sync the shared kp_vectordb infra (connection/schema/config) into both services
+    cmds:
+      - python src/libs/kp_vectordb/sync.py
+
+  vectordb:check:
+    desc: Verify the kp_vectordb service copies are in sync (CI guard, non-zero exit on drift)
+    cmds:
+      - python src/libs/kp_vectordb/sync.py --check
+
+  test:kp-vectordb:
+    desc: Run the shared kp_vectordb package test suite
+    dir: src/libs/kp_vectordb
+    cmds:
+      - python -m pytest {{.CLI_ARGS}}
+
   # ── Frontend ────────────────────────────────────────────────
 
   lint:frontend:

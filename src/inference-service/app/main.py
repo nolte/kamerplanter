@@ -40,12 +40,15 @@ from app.schemas import (
     SetReferenceActiveRequest,
     SetReferenceActiveResponse,
 )
+from app.vectordb.config import VectorDbConfig
 from app.vectordb.connection import VectorDbConnection
 from app.vectordb.pest_repository import PestEmbeddingRepository
 from app.vectordb.repository import SpeciesEmbeddingRepository
-from app.vectordb.schema import ensure_vectordb_schema
+from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
+
+_VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
 _embedder: Embedder | None = None
 _repo: SpeciesEmbeddingRepository | None = None
@@ -83,9 +86,19 @@ async def lifespan(app: FastAPI):
                 "variables before running in production."
             )
 
-    _vec_conn = VectorDbConnection(settings)
+    _vec_conn = VectorDbConnection(
+        VectorDbConfig(
+            host=settings.vectordb_host,
+            port=settings.vectordb_port,
+            database=settings.vectordb_database,
+            username=settings.vectordb_username,
+            password=settings.vectordb_password,
+            pool_min_size=settings.vectordb_pool_min_size,
+            pool_max_size=settings.vectordb_pool_max_size,
+        )
+    )
     pool = _vec_conn.connect()
-    ensure_vectordb_schema(pool)
+    run_migrations(pool, _VECTORDB_MIGRATIONS_DIR, migrations_table="inference_schema_migrations")
     _repo = SpeciesEmbeddingRepository(pool)
     _pest_repo = PestEmbeddingRepository(pool)
     logger.info("vectordb_ready")

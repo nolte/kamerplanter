@@ -1,6 +1,7 @@
 """Knowledge Service -- standalone microservice for RAG-based plant knowledge."""
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
 import structlog
@@ -23,10 +24,13 @@ from app.schemas import (
     SearchResponse,
 )
 from app.service import KnowledgeService
+from app.vectordb.config import VectorDbConfig
 from app.vectordb.connection import VectorDbConnection
-from app.vectordb.schema import ensure_vectordb_schema
+from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
+
+_VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
 _service: KnowledgeService | None = None
 _ingestor: KnowledgeIngestor | None = None
@@ -51,9 +55,19 @@ async def lifespan(app: FastAPI):
             )
 
     # Connect to VectorDB
-    _vec_conn = VectorDbConnection(settings)
+    _vec_conn = VectorDbConnection(
+        VectorDbConfig(
+            host=settings.vectordb_host,
+            port=settings.vectordb_port,
+            database=settings.vectordb_database,
+            username=settings.vectordb_username,
+            password=settings.vectordb_password,
+            pool_min_size=settings.vectordb_pool_min_size,
+            pool_max_size=settings.vectordb_pool_max_size,
+        )
+    )
     pool = _vec_conn.connect()
-    ensure_vectordb_schema(pool)
+    run_migrations(pool, _VECTORDB_MIGRATIONS_DIR)
     logger.info("vectordb_ready")
 
     # Build components
