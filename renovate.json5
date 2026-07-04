@@ -1,6 +1,9 @@
 {
   extends: [
     'github>nolte/gh-plumbing//renovate-configs/common#v1.1.25',
+    // Pin third-party GitHub Actions to immutable commit SHAs (supply-chain
+    // hardening, AP-19/INF-S6) and keep the `# vX.Y.Z` comment digests fresh.
+    'helpers:pinGitHubActionDigests',
   ],
   mode: 'full',
   separateMajorMinor: true,

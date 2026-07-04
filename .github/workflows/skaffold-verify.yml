@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Check skaffold.yaml exists
         id: check
@@ -43,11 +43,11 @@ jobs:
 
       - name: Setup Helm
         if: steps.check.outputs.exists == 'true'
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
 
       - name: Setup Skaffold
         if: steps.check.outputs.exists == 'true'
-        uses: hiberbee/github-action-skaffold@1.27.0
+        uses: hiberbee/github-action-skaffold@e3f5dd5659610cb792c6cf32daaa797ea6d89842 # 1.27.0
         with:
           skaffold-version: 2.17.2
 
@@ -78,7 +78,7 @@ jobs:
           skaffold render --output rendered-manifests.yaml || true
 
       - name: Upload rendered manifests
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && steps.check.outputs.exists == 'true'
         with:
           name: rendered-manifests
