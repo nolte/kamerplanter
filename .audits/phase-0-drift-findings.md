@@ -31,6 +31,34 @@ ursprünglich vermutet. Alle 6 Plans bleiben offen und gehen als 6 echte
 Slice-/Sync-PRs in Sprint 1B. Der ursprüngliche Plan "Index schrumpft auf ~28"
 wird nicht erreicht — Index bleibt bei 32.
 
+## Reconciliation-Update (2026-07-05, post-#299)
+
+> **✅ REQ-013 SuccessionPlan und REQ-022 OverwinteringProfile sind seit #299
+> auf `develop` implementiert** — mit echtem Code, Tests und bestandenem
+> Coverage-Audit (REQ-013 / REQ-022 = 100 % *Implementiert*). Die unten stehenden
+> Drift-Befunde bleiben als historischer Audit-Stand (2026-04-28) erhalten, sind
+> aber inline mit **✅**-Markern als aufgelöst gekennzeichnet:
+>
+> - **SuccessionPlan** (REQ-013) → **#361** (`87e5ec63`): Model + Engine
+>   (Szenario-4-Staffelgenerierung), `succession_plans`-Collection +
+>   `has_succession_plan`/`succession_at`-Edges,
+>   `succession_plan_key`/`clone_from_run_key`/`succession_sequence`/`succession_total`
+>   auf `PlantingRun`.
+> - **OverwinteringProfile** (REQ-022) → **#360** (`8cd1ee70`): Model + Edges +
+>   Repo/Service/API, D5-Winter-Pfad-Invariante (→ 422), Tuber-Zyklus,
+>   Winterhärte-Ampel-Widget + `evaluate_winter_hardiness` (REQ-039-Kernlogik).
+> - **5 neue ReminderTypes** (`deadheading`, `tuber_dig`, `storage_check`,
+>   `spring_uncover`, `winter_protection`) → **#360**: von enum-only nun in den
+>   `CareReminderEngine` und beide Producer
+>   (`care_reminder_service.get_care_dashboard`,
+>   `care_tasks.generate_due_care_reminders`) verdrahtet, inkl. Frost-Hardy- +
+>   Self-Cleaning-Guards. `FAMILY_CARE_MAP` hat seine 5 Ornamental-Familien
+>   erhalten.
+>
+> Offen bleiben die übrigen, davon unabhängigen Drift-Befunde (REQ-013
+> Detach-Snapshots/Run-Guard, REQ-014/REQ-015-Sync, REQ-022 Run-Owned-Care +
+> Outdoor-Presets, REQ-023/REQ-024).
+
 ## Reports im Detail
 
 ### REQ-013 Pflanzdurchlauf — DRIFT konfirmiert
@@ -55,9 +83,14 @@ wird nicht erreicht — Index bleibt bei 32.
   TreatmentApplication hat keine `inherited_from_run`-/`inherited_at`-Felder
 - **v2.3 W-010**: `detach_plant()` Schritt 6 (CareProfile-Snapshot) fehlt —
   Run-CareProfile wird beim Detach nicht als Plant-CareProfile übertragen
-- **SuccessionPlan**: Model/Repository/Service nicht implementiert, Spec §2
-  Zeile 217–233. `succession_plan_key` auf PlantingRun ignoriert.
-  Staffelanbau-Szenario (§1.2 Szenario 4 Salat) nicht umsetzbar
+- **SuccessionPlan**: ✅ **IMPLEMENTIERT in #361 (`87e5ec63`)** — ehemals
+  Model/Repository/Service nicht implementiert, Spec §2 Zeile 217–233,
+  `succession_plan_key` auf PlantingRun ignoriert, Staffelanbau-Szenario
+  (§1.2 Szenario 4 Salat) nicht umsetzbar. Jetzt: Model + Engine
+  (Szenario-4-Staffelgenerierung), `succession_plans`-Collection +
+  `has_succession_plan`/`succession_at`-Edges,
+  `succession_plan_key`/`clone_from_run_key`/`succession_sequence`/`succession_total`
+  auf `PlantingRun`.
 
 **Empfehlung**: Slice in Sprint 1B mit 2 PRs:
 1. `feat(planting-run): detach-snapshots + run-membership-guard REQ-013` —
@@ -149,23 +182,33 @@ wird nicht erreicht — Index bleibt bei 32.
 - Dünge-Guard (Aktivmonate, Dormancy-Phasen)
 
 **Drift** (v2.4/v2.5):
-- **OverwinteringProfile (Spec Z. 233–259)**: komplett fehlt — kein Datenmodell,
-  keine Edges (`has_overwintering_profile`, `overwinters_at`),
-  keine Tuber-Zyklus-Logik (6 Statuses)
+- **OverwinteringProfile (Spec Z. 233–259)**: ✅ **IMPLEMENTIERT in #360
+  (`8cd1ee70`)** — ehemals komplett fehlend (kein Datenmodell, keine Edges
+  `has_overwintering_profile`/`overwinters_at`, keine Tuber-Zyklus-Logik).
+  Jetzt: Model + Edges + Repo/Service/API, D5-Winter-Pfad-Invariante (→ 422),
+  Tuber-Zyklus, Winterhärte-Ampel-Widget + `evaluate_winter_hardiness`
+  (REQ-039-Kernlogik).
 - **Run-Owned CareProfile + Detach-Snapshot W-010 (Spec Z. 47–56)**: Dual-Support
   PlantingRun-zentriert vs. Standalone-Plant nicht implementiert
-- **5 neue ReminderTypes (Spec Z. 144–157)**: `deadheading`, `tuber_dig`,
-  `storage_check`, `spring_uncover`, `winter_protection`
+- **5 neue ReminderTypes (Spec Z. 144–157)**: ✅ **IMPLEMENTIERT in #360** —
+  `deadheading`, `tuber_dig`, `storage_check`, `spring_uncover`,
+  `winter_protection` sind von enum-only nun in den `CareReminderEngine` und
+  beide Producer (`care_reminder_service.get_care_dashboard`,
+  `care_tasks.generate_due_care_reminders`) verdrahtet, inkl. Frost-Hardy- +
+  Self-Cleaning-Guards.
 - **7 fehlende Outdoor-Presets (Spec Z. 128–142)**: Nur `outdoor_annual_veg`,
   `outdoor_perennial` da; fehlen `fruit_tree`, `berry_shrub`, `rose`,
   `frost_tender_tuber`, `frost_tender_container`, `winter_vegetable`,
   `spring_bulb`, `outdoor_annual_ornamental`
-- **FAMILY_CARE_MAP (Spec Z. 443–459)**: 5 fehlende Ornamental-Familien
-  (Violaceae, Primulaceae, Geraniaceae, Campanulaceae, Balsaminaceae)
-- **Deadheading-Guard + Self-Cleaning-Filter (Spec Z. 458)**: Prüfung
-  `traits=['self_cleaning']` fehlt
-- **Winterschutz-Ampel + Dashboard-Widget (Spec Z. 427–441, 461–466)**: Hardiness-
-  Berechnung + Widget fehlen
+- **FAMILY_CARE_MAP (Spec Z. 443–459)**: ✅ **IMPLEMENTIERT in #360** — die 5
+  ehemals fehlenden Ornamental-Familien (Violaceae, Primulaceae, Geraniaceae,
+  Campanulaceae, Balsaminaceae) sind ergänzt.
+- **Deadheading-Guard + Self-Cleaning-Filter (Spec Z. 458)**: ✅ **IMPLEMENTIERT
+  in #360** — Prüfung `traits=['self_cleaning']` ist verdrahtet (zusammen mit dem
+  Frost-Hardy-Guard).
+- **Winterschutz-Ampel + Dashboard-Widget (Spec Z. 427–441, 461–466)**: ✅
+  **IMPLEMENTIERT in #360** — Hardiness-Berechnung (`evaluate_winter_hardiness`,
+  REQ-039-Kernlogik) + Winterhärte-Ampel-Dashboard-Widget vorhanden.
 
 **Empfehlung**: Slice in Sprint 1B (2 PRs):
 1. `feat(care): overwintering-profile + outdoor-presets REQ-022` — neue
