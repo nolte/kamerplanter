@@ -9,6 +9,7 @@ from unittest.mock import MagicMock
 
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
+from tests.conftest import wire_get_or_raise
 
 
 def _plant(photo_refs: list[str]) -> PlantInstance:
@@ -26,6 +27,7 @@ def _plant(photo_refs: list[str]) -> PlantInstance:
 def _service(plant: PlantInstance, cleanup):
     plant_repo = MagicMock()
     plant_repo.get_by_key.return_value = plant
+    wire_get_or_raise(plant_repo, "PlantInstance")
     plant_repo.update.side_effect = lambda _key, p: p
     return PlantInstanceService(
         plant_repo,

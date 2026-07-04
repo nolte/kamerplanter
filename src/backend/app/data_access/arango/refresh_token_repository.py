@@ -9,16 +9,17 @@ from app.domain.interfaces.refresh_token_repository import IRefreshTokenReposito
 from app.domain.models.auth import RefreshToken
 
 
-class ArangoRefreshTokenRepository(IRefreshTokenRepository, BaseArangoRepository):
+class ArangoRefreshTokenRepository(BaseArangoRepository[RefreshToken], IRefreshTokenRepository):
+    _model_cls = RefreshToken
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.REFRESH_TOKENS)
+        super().__init__(db, col.REFRESH_TOKENS)
 
     def create(self, token: RefreshToken) -> RefreshToken:
-        doc = BaseArangoRepository.create(self, token)
-        created = RefreshToken(**doc)
+        created = super().create(token)
         # Create edge user -> session
         user_id = f"{col.USERS}/{token.user_key}"
-        token_id = f"{col.REFRESH_TOKENS}/{doc['_key']}"
+        token_id = f"{col.REFRESH_TOKENS}/{created.key}"
         self.create_edge(col.HAS_SESSION, user_id, token_id)
         return created
 

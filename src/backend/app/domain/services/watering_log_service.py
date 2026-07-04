@@ -1,7 +1,6 @@
 from datetime import UTC, datetime
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
-from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.engines.watering_engine import WateringEngine
@@ -85,9 +84,7 @@ class WateringLogService:
         return {"log": created, "warnings": warnings}
 
     def get_log(self, key: str, tenant_key: str = "") -> WateringLog:
-        log = self._repo.get_by_key(key)
-        if log is None:
-            raise NotFoundError("WateringLog", key)
+        log = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(log, tenant_key, "WateringLog")
         return log

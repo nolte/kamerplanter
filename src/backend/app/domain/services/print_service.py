@@ -255,7 +255,6 @@ class PrintService:
         Raises:
             NotFoundError: If a plant instance does not exist.
         """
-        from app.common.exceptions import NotFoundError
 
         # Caches to avoid repeated lookups
         species_cache: dict[str, dict] = {}
@@ -265,9 +264,7 @@ class PrintService:
         cards: list[dict] = []
 
         for plant_key in plant_keys:
-            plant = self._plant_repo.get_by_key(plant_key)
-            if plant is None:
-                raise NotFoundError("PlantInstance", plant_key)
+            plant = self._plant_repo.get_or_raise(plant_key)
 
             # Resolve species data
             species_data: dict = {}

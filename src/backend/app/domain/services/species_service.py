@@ -15,9 +15,7 @@ class SpeciesService:
         return self._repo.get_all(offset, limit)
 
     def get_species(self, key: SpeciesKey) -> Species:
-        species = self._repo.get_by_key(key)
-        if species is None:
-            raise NotFoundError("Species", key)
+        species = self._repo.get_or_raise(key)
         return species
 
     def create_species(self, species: Species) -> Species:

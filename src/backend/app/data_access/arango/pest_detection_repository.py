@@ -9,13 +9,15 @@ from app.domain.models.beneficial import Beneficial
 from app.domain.models.pest_detection import PestDetection, PestFeedback
 
 
-class ArangoPestDetectionRepository(IPestDetectionRepository, BaseArangoRepository):
+class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDetectionRepository):
+    _model_cls = PestDetection
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PEST_DETECTIONS)
+        super().__init__(db, col.PEST_DETECTIONS)
+        self._beneficials = BaseArangoRepository[Beneficial](db, col.BENEFICIALS, Beneficial)
 
     def create(self, detection: PestDetection) -> PestDetection:
-        doc = BaseArangoRepository.create(self, detection)
-        created = PestDetection(**doc)
+        created = super().create(detection)
 
         # §5.2 — dual-support edge to the plant instance or planting run.
         det_id = f"{col.PEST_DETECTIONS}/{created.key}"
@@ -40,10 +42,10 @@ class ArangoPestDetectionRepository(IPestDetectionRepository, BaseArangoReposito
         return created
 
     def get(self, key: str, tenant_key: str) -> PestDetection | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        if doc is None or doc.get("tenant_key") != tenant_key:
+        detection = super().get_by_key(key)
+        if detection is None or detection.tenant_key != tenant_key:
             return None
-        return PestDetection(**doc)
+        return detection
 
     def list_for_plant(
         self,
@@ -51,18 +53,15 @@ class ArangoPestDetectionRepository(IPestDetectionRepository, BaseArangoReposito
         plant_instance_key: str,
         limit: int = 20,
     ) -> list[PestDetection]:
-        query = f"""
-        FOR d IN {col.PEST_DETECTIONS}
-          FILTER d.tenant_key == @tenant_key AND d.plant_instance_key == @plant_key
-          SORT d.created_at DESC
-          LIMIT @limit
-          RETURN d
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={"tenant_key": tenant_key, "plant_key": plant_instance_key, "limit": limit},
+        return self.find_by_field(
+            "tenant_key",
+            tenant_key,
+            sort="created_at",
+            sort_direction="DESC",
+            offset=0,
+            limit=limit,
+            extra_filters=[("plant_instance_key", "==", plant_instance_key)],
         )
-        return [PestDetection(**self._from_doc(doc)) for doc in cursor]
 
     def add_feedback(self, key: str, tenant_key: str, feedback: PestFeedback) -> PestDetection | None:
         detection = self.get(key, tenant_key)
@@ -91,10 +90,7 @@ class ArangoPestDetectionRepository(IPestDetectionRepository, BaseArangoReposito
     # ── WP-8 beneficials ──
 
     def get_beneficial_by_slug(self, slug: str) -> Beneficial | None:
-        query = f"FOR b IN {col.BENEFICIALS} FILTER b.slug == @slug LIMIT 1 RETURN b"
-        cursor = self._db.aql.execute(query, bind_vars={"slug": slug})
-        doc = next(cursor, None)
-        return Beneficial(**self._from_doc(doc)) if doc else None
+        return self._beneficials.find_one_by_field("slug", slug)
 
     def upsert_beneficial(self, beneficial: Beneficial) -> Beneficial:
         existing = self.get_beneficial_by_slug(beneficial.slug)

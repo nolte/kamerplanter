@@ -26,9 +26,7 @@ class FertilizerService:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
     def get_fertilizer(self, key: FertilizerKey, tenant_key: str = "") -> Fertilizer:
-        fert = self._repo.get_by_key(key)
-        if fert is None:
-            raise NotFoundError("Fertilizer", key)
+        fert = self._repo.get_or_raise(key)
         if tenant_key and fert.tenant_key not in ("", tenant_key):
             raise NotFoundError("Fertilizer", key)
         return fert

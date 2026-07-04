@@ -68,9 +68,7 @@ class WateringService:
     # ── Read ───────────────────────────────────────────────────────────
 
     def get_event(self, key: WateringEventKey, tenant_key: str = "") -> WateringEvent:
-        event = self._repo.get_by_key(key)
-        if event is None:
-            raise NotFoundError("WateringEvent", key)
+        event = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(event, tenant_key, "WateringEvent")
         return event

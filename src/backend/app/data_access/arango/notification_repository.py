@@ -13,11 +13,13 @@ from app.domain.models.notification import Notification, NotificationStatus
 NOTIFICATIONS = "notifications"
 
 
-class ArangoNotificationRepository(INotificationRepository, BaseArangoRepository):
+class ArangoNotificationRepository(BaseArangoRepository[Notification], INotificationRepository):
     """ArangoDB-backed notification repository."""
 
+    _model_cls = Notification
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, NOTIFICATIONS)
+        super().__init__(db, NOTIFICATIONS)
 
     def _to_notification(self, doc: dict) -> Notification:
         """Convert ArangoDB document to Notification model."""
@@ -25,19 +27,8 @@ class ArangoNotificationRepository(INotificationRepository, BaseArangoRepository
 
     # ── CRUD ──────────────────────────────────────────────────────────
 
-    def create(self, notification: Notification) -> Notification:
-        doc = BaseArangoRepository.create(self, notification)
-        return Notification(**doc)
-
     def get(self, key: str) -> Notification | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        if doc is None:
-            return None
-        return Notification(**doc)
-
-    def update(self, key: str, notification: Notification) -> Notification:
-        doc = BaseArangoRepository.update(self, key, notification)
-        return Notification(**doc)
+        return super().get_by_key(key)
 
     # ── Queries ───────────────────────────────────────────────────────
 

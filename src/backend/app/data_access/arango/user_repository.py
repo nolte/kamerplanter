@@ -7,13 +7,11 @@ from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.user import User
 
 
-class ArangoUserRepository(IUserRepository, BaseArangoRepository):
-    def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.USERS)
+class ArangoUserRepository(BaseArangoRepository[User], IUserRepository):
+    _model_cls = User
 
-    def get_by_key(self, key: UserKey) -> User | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return User(**doc) if doc else None
+    def __init__(self, db: StandardDatabase) -> None:
+        super().__init__(db, col.USERS)
 
     def get_by_email(self, email: str) -> User | None:
         query = "FOR doc IN @@collection FILTER LOWER(doc.email) == LOWER(@email) LIMIT 1 RETURN doc"
@@ -22,14 +20,6 @@ class ArangoUserRepository(IUserRepository, BaseArangoRepository):
         if not docs:
             return None
         return User(**self._from_doc(docs[0]))
-
-    def create(self, user: User) -> User:
-        doc = BaseArangoRepository.create(self, user)
-        return User(**doc)
-
-    def update(self, key: UserKey, user: User) -> User:
-        doc = BaseArangoRepository.update(self, key, user)
-        return User(**doc)
 
     def delete(self, key: UserKey) -> bool:
         user_id = f"{col.USERS}/{key}"
@@ -42,7 +32,7 @@ class ArangoUserRepository(IUserRepository, BaseArangoRepository):
         self._db.aql.execute(query, bind_vars={"key": key})
         # Delete session edges
         self.delete_edges(col.HAS_SESSION, user_id)
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def get_unverified_before(self, cutoff_iso: str) -> list[User]:
         query = """

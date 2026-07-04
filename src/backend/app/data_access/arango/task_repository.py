@@ -24,14 +24,15 @@ ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
 }
 
 
-class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
+class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     # Base collection TASKS is tenant-scoped.  Tenant listings use get_all_tasks
     # (which filters explicitly); the inherited get_all is only reached from
     # system Celery tasks that must opt in via all_tenants=True.
     is_tenant_scoped = True
+    _model_cls = Task
 
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.TASKS)
+        super().__init__(db, col.TASKS)
 
     # ── WorkflowTemplate ──
 
@@ -305,12 +306,10 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         return items, total
 
     def get_task_by_key(self, key: TaskKey) -> Task | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Task(**doc) if doc else None
+        return super().get_by_key(key)
 
     def create_task(self, task: Task) -> Task:
-        doc = BaseArangoRepository.create(self, task)
-        t = Task(**doc)
+        t = super().create(task)
 
         # Create has_task edge from entity to task
         entity_collection = None
@@ -337,8 +336,7 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         return t
 
     def update_task(self, key: TaskKey, task: Task) -> Task:
-        doc = BaseArangoRepository.update(self, key, task)
-        return Task(**doc)
+        return super().update(key, task)
 
     def delete_task(self, key: TaskKey) -> bool:
         task_id = f"{col.TASKS}/{key}"
@@ -347,13 +345,11 @@ class ArangoTaskRepository(ITaskRepository, BaseArangoRepository):
         self._delete_audit_entries_for_task(key)
         # Delete outbound edges (instance_of, task_blocks from this task)
         for edge_col in [col.INSTANCE_OF, col.TASK_BLOCKS]:
-            query = f"FOR e IN {edge_col} FILTER e._from == @task_id REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"task_id": task_id})
+            self.delete_edges(edge_col, task_id)
         # Delete inbound edges (has_task, wf_generated, task_blocks to this task)
         for edge_col in [col.HAS_TASK, col.WF_GENERATED, col.TASK_BLOCKS]:
-            query = f"FOR e IN {edge_col} FILTER e._to == @task_id REMOVE e IN {edge_col}"
-            self._db.aql.execute(query, bind_vars={"task_id": task_id})
-        return BaseArangoRepository.delete(self, key)
+            self.delete_edges(edge_col, task_id, direction="inbound")
+        return super().delete(key)
 
     def get_tasks_for_plant(self, plant_key: str, status: str | None = None) -> list[Task]:
         query = f"FOR doc IN {col.TASKS} FILTER doc.entity_type == 'plant_instance' AND doc.entity_key == @plant_key"

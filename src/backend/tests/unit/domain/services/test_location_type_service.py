@@ -17,6 +17,12 @@ class FakeLocationTypeRepository(ILocationTypeRepository):
     def get_by_key(self, key: str) -> LocationType | None:
         return self._store.get(key)
 
+    def get_or_raise(self, key: str) -> LocationType:
+        lt = self._store.get(key)
+        if lt is None:
+            raise NotFoundError("LocationType", key)
+        return lt
+
     def create(self, location_type: LocationType) -> LocationType:
         self._counter += 1
         key = str(self._counter)

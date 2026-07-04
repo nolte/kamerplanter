@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
@@ -50,9 +49,7 @@ class PlantInstanceService:
         return self._repo.get_all(offset, limit, tenant_key=tenant_key)
 
     def get_plant(self, key: PlantID, tenant_key: str = "") -> PlantInstance:
-        plant = self._repo.get_by_key(key)
-        if plant is None:
-            raise NotFoundError("PlantInstance", key)
+        plant = self._repo.get_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant

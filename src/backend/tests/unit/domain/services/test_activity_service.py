@@ -6,11 +6,12 @@ from app.common.enums import ActivityCategory
 from app.common.exceptions import ForbiddenError, NotFoundError
 from app.domain.models.activity import Activity
 from app.domain.services.activity_service import ActivityService
+from tests.conftest import wire_get_or_raise
 
 
 @pytest.fixture
 def mock_repo():
-    return MagicMock()
+    return wire_get_or_raise(MagicMock(), "Activity")
 
 
 @pytest.fixture

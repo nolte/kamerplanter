@@ -10,30 +10,18 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
 
 
-class ArangoSpeciesRepository(ISpeciesRepository, BaseArangoRepository):
+class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository):
+    _model_cls = Species
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.SPECIES)
-        self._cultivar_col = db.collection(col.CULTIVARS)
+        super().__init__(db, col.SPECIES)
+        self._cultivars = BaseArangoRepository[Cultivar](db, col.CULTIVARS, Cultivar)
 
     def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[Species], int]:
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
-        return [Species(**doc) for doc in docs], total
-
-    def get_by_key(self, key: SpeciesKey) -> Species | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Species(**doc) if doc else None
+        return super().get_all(offset, limit)
 
     def get_by_scientific_name(self, name: str) -> Species | None:
-        docs = self.find_by_field("scientific_name", name)
-        return Species(**docs[0]) if docs else None
-
-    def create(self, species: Species) -> Species:
-        doc = BaseArangoRepository.create(self, species)
-        return Species(**doc)
-
-    def update(self, key: SpeciesKey, species: Species) -> Species:
-        doc = BaseArangoRepository.update(self, key, species)
-        return Species(**doc)
+        return self.find_one_by_field("scientific_name", name)
 
     def set_representative_image(
         self,
@@ -56,9 +44,6 @@ class ArangoSpeciesRepository(ISpeciesRepository, BaseArangoRepository):
             }
         )
 
-    def delete(self, key: SpeciesKey) -> bool:
-        return BaseArangoRepository.delete(self, key)
-
     def search(self, name: str | None = None, family_key: FamilyKey | None = None) -> list[Species]:
         builder = AQLBuilder(col.SPECIES)
         if name:
@@ -76,28 +61,23 @@ class ArangoSpeciesRepository(ISpeciesRepository, BaseArangoRepository):
         return [Species(**self._from_doc(doc)) for doc in cursor]
 
     def get_cultivars(self, species_key: SpeciesKey) -> list[Cultivar]:
-        docs = BaseArangoRepository(self._db, col.CULTIVARS).find_by_field("species_key", species_key)
-        return [Cultivar(**doc) for doc in docs]
+        return self._cultivars.find_by_field("species_key", species_key)
 
     def create_cultivar(self, cultivar: Cultivar) -> Cultivar:
-        repo = BaseArangoRepository(self._db, col.CULTIVARS)
-        doc = repo.create(cultivar)
+        created = self._cultivars.create(cultivar)
         species_id = f"{col.SPECIES}/{cultivar.species_key}"
-        cultivar_id = f"{col.CULTIVARS}/{doc['_key']}"
+        cultivar_id = f"{col.CULTIVARS}/{created.key}"
         self.create_edge(col.HAS_CULTIVAR, species_id, cultivar_id)
-        return Cultivar(**doc)
+        return created
 
     def get_cultivar_by_key(self, key: CultivarKey) -> Cultivar | None:
-        doc = BaseArangoRepository(self._db, col.CULTIVARS).get_by_key(key)
-        return Cultivar(**doc) if doc else None
+        return self._cultivars.get_by_key(key)
 
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
-        repo = BaseArangoRepository(self._db, col.CULTIVARS)
-        doc = repo.update(key, cultivar)
-        return Cultivar(**doc)
+        return self._cultivars.update(key, cultivar)
 
     def delete_cultivar(self, key: CultivarKey) -> bool:
-        return BaseArangoRepository(self._db, col.CULTIVARS).delete(key)
+        return self._cultivars.delete(key)
 
     def update_field(self, key: SpeciesKey, field: str, value: Any) -> None:
         self.collection.update({"_key": key, field: value, "updated_at": self._now()})

@@ -16,6 +16,7 @@ from app.domain.models.nutrient_plan import (
 )
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.print_service import PrintService
+from tests.conftest import wire_get_or_raise
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ def mock_fertilizer_repo():
 
 @pytest.fixture
 def mock_plant_repo():
-    return MagicMock()
+    return wire_get_or_raise(MagicMock(), "PlantInstance")
 
 
 @pytest.fixture
