@@ -21,6 +21,7 @@ EXTERNAL_MAPPINGS = "external_mappings"
 SYNC_RUNS = "sync_runs"
 PLANTING_RUNS = "planting_runs"
 PLANTING_RUN_ENTRIES = "planting_run_entries"
+SUCCESSION_PLANS = "succession_plans"
 TANKS = "tanks"
 TANK_STATES = "tank_states"
 MAINTENANCE_LOGS = "maintenance_logs"
@@ -163,6 +164,7 @@ DOCUMENT_COLLECTIONS = [
     SYNC_RUNS,
     PLANTING_RUNS,
     PLANTING_RUN_ENTRIES,
+    SUCCESSION_PLANS,
     TANKS,
     TANK_STATES,
     MAINTENANCE_LOGS,
@@ -260,6 +262,9 @@ RUN_AT_LOCATION = "run_at_location"
 RUN_USES_SUBSTRATE = "run_uses_substrate"
 HAS_ENTRY = "has_entry"
 ENTRY_FOR_SPECIES = "entry_for_species"
+# REQ-013 §2 Succession (staggered sowing)
+HAS_SUCCESSION_PLAN = "has_succession_plan"
+SUCCESSION_AT = "succession_at"
 HAS_TANK = "has_tank"
 SUPPLIES = "supplies"
 FEEDS_FROM = "feeds_from"
@@ -421,6 +426,8 @@ EDGE_COLLECTIONS = [
     RUN_USES_SUBSTRATE,
     HAS_ENTRY,
     ENTRY_FOR_SPECIES,
+    HAS_SUCCESSION_PLAN,
+    SUCCESSION_AT,
     HAS_TANK,
     SUPPLIES,
     FEEDS_FROM,
@@ -647,6 +654,17 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": ENTRY_FOR_SPECIES,
         "from_vertex_collections": [PLANTING_RUN_ENTRIES],
         "to_vertex_collections": [SPECIES],
+    },
+    # REQ-013 §2 Succession (staggered sowing)
+    {
+        "edge_collection": HAS_SUCCESSION_PLAN,
+        "from_vertex_collections": [SUCCESSION_PLANS],
+        "to_vertex_collections": [PLANTING_RUNS],
+    },
+    {
+        "edge_collection": SUCCESSION_AT,
+        "from_vertex_collections": [SUCCESSION_PLANS],
+        "to_vertex_collections": [LOCATIONS],
     },
     {
         "edge_collection": HAS_TANK,
@@ -1186,6 +1204,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     runs_col = db.collection(PLANTING_RUNS)
     runs_col.add_persistent_index(fields=["name"], unique=False)
+
+    # REQ-013 §2 Succession plans — list queries always filter by tenant.
+    succession_plans_col = db.collection(SUCCESSION_PLANS)
+    succession_plans_col.add_persistent_index(fields=["tenant_key"], unique=False)
 
     tanks_col = db.collection(TANKS)
     tanks_col.add_persistent_index(fields=["name"], unique=True)

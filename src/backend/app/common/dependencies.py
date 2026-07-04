@@ -28,6 +28,7 @@ from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRe
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
+from app.data_access.arango.succession_plan_repository import ArangoSuccessionPlanRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
@@ -74,6 +75,7 @@ from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
+from app.domain.services.succession_plan_service import SuccessionPlanService
 from app.domain.services.tank_service import TankService
 from app.domain.services.task_service import TaskService
 from app.domain.services.tenant_service import TenantService
@@ -249,6 +251,18 @@ def get_planting_run_service() -> PlantingRunService:
         phase_repo=get_lifecycle_repo(),
         site_repo=get_site_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+    )
+
+
+def get_succession_plan_repo() -> ArangoSuccessionPlanRepository:
+    return ArangoSuccessionPlanRepository(get_db())
+
+
+def get_succession_plan_service() -> SuccessionPlanService:
+    return SuccessionPlanService(
+        get_succession_plan_repo(),
+        get_planting_run_service(),
+        site_repo=get_site_repo(),
     )
 
 

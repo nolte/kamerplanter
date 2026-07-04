@@ -39,6 +39,45 @@ const mockSpecies = [
   },
 ];
 
+export const mockSuccessionPlans = [
+  {
+    key: 'sp-1',
+    name: 'Salat Staffelanbau',
+    species_key: 'sp-1',
+    cultivar_key: null,
+    interval_days: 21,
+    start_date: '2024-04-01',
+    end_date: '2024-09-01',
+    plants_per_batch: 6,
+    total_batches: 8,
+    completed_batches: 2,
+    status: 'active',
+    reminder_days_before: 3,
+    location_key: null,
+    notes: null,
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: null,
+  },
+  {
+    key: 'sp-2',
+    name: 'Radieschen Sukzession',
+    species_key: 'sp-1',
+    cultivar_key: null,
+    interval_days: 14,
+    start_date: '2024-03-15',
+    end_date: '2024-06-15',
+    plants_per_batch: 12,
+    total_batches: 0,
+    completed_batches: 0,
+    status: 'planned',
+    reminder_days_before: 2,
+    location_key: null,
+    notes: null,
+    created_at: '2024-01-02T00:00:00Z',
+    updated_at: null,
+  },
+];
+
 const mockSites = [
   {
     key: 'site-1',
@@ -480,6 +519,74 @@ export const handlers = [
   }),
   http.get('/api/v1/planting-runs', () => {
     return HttpResponse.json([]);
+  }),
+
+  // REQ-013 §2 Succession plans (tenant-scoped) — defaults; per-test overrides via server.use()
+  http.get('/api/v1/t/:tenant/succession-plans', () => {
+    return HttpResponse.json([]);
+  }),
+  http.post('/api/v1/t/:tenant/succession-plans', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json(
+      {
+        key: 'sp-new',
+        total_batches: 0,
+        completed_batches: 0,
+        status: 'planned',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: null,
+        ...body,
+      },
+      { status: 201 },
+    );
+  }),
+  http.get('/api/v1/t/:tenant/succession-plans/:key', ({ params }) => {
+    return HttpResponse.json({ ...mockSuccessionPlans[0], key: params.key });
+  }),
+  http.put('/api/v1/t/:tenant/succession-plans/:key', async ({ params, request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ ...mockSuccessionPlans[0], key: params.key, ...body });
+  }),
+  http.delete('/api/v1/t/:tenant/succession-plans/:key', () => {
+    return new HttpResponse(null, { status: 204 });
+  }),
+  http.post('/api/v1/t/:tenant/succession-plans/:key/generate', ({ params }) => {
+    return HttpResponse.json(
+      {
+        plan: {
+          ...mockSuccessionPlans[0],
+          key: params.key,
+          total_batches: 8,
+          completed_batches: 8,
+          status: 'active',
+        },
+        generated_count: 8,
+        runs: Array.from({ length: 8 }, (_, i) => ({
+          run_key: `run-${i + 1}`,
+          name: `Salat Staffel ${i + 1}`,
+          succession_sequence: i + 1,
+          succession_total: 8,
+          planned_start_date: `2024-04-${String(1 + i * 3).padStart(2, '0')}`,
+        })),
+      },
+      { status: 201 },
+    );
+  }),
+  http.post('/api/v1/t/:tenant/succession-plans/:key/generate-next', ({ params }) => {
+    return HttpResponse.json(
+      {
+        plan: { ...mockSuccessionPlans[0], key: params.key, completed_batches: 1 },
+        generated: true,
+        run: {
+          run_key: 'run-1',
+          name: 'Salat Staffel 1',
+          succession_sequence: 1,
+          succession_total: 8,
+          planned_start_date: '2024-04-01',
+        },
+      },
+      { status: 201 },
+    );
   }),
 
   // REQ-022 Overwintering profiles (tenant-scoped + non-scoped fallback)

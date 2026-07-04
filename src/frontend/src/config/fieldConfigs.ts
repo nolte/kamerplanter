@@ -189,6 +189,8 @@ export const navItemConfig: Record<string, ExperienceLevel> = {
   '/ernte/batches': 'expert',
   '/aufgaben/workflows': 'expert',
   '/durchlaeufe/planting-runs': 'expert',
+  // REQ-013 §2 Staffelanbau — useful for hobby/outdoor growers, so intermediate.
+  '/durchlaeufe/succession-plans': 'intermediate',
   '/phasen/definitionen': 'expert',
   '/phasen/ablaeufe': 'expert',
 };
@@ -203,5 +205,7 @@ export const navSectionConfig: Record<string, ExperienceLevel> = {
   ernte: 'expert',
   aufgaben: 'beginner',
   phasen: 'expert',
-  durchlaeufe: 'expert',
+  // Lowered to intermediate so the succession-plan item (REQ-013) is reachable;
+  // the planting-runs item stays expert-gated at item level.
+  durchlaeufe: 'intermediate',
 };
