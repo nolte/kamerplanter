@@ -39,7 +39,7 @@ Kamerplanter uses ArangoDB as its primary database — a multi-model system comb
 The `propagation_configs` object-array field is the canonical model for a species' propagation. Each `PropagationConfig` entry describes one propagation method together with its own timing, wood stage, difficulty and notes — replacing the former flat `propagation_methods`/`propagation_months`/`propagation_notes` fields. Subfields:
 
 - `method` (required) — one `PropagationMethod` enum value: `seed` · `cutting` · `leaf_cutting` · `division` · `rhizome_division` · `bulb` · `bulbil` · `tuber` · `offset` · `runner` · `grafting` · `layering` · `air_layering` · `water_propagation` · `tissue_culture` · `spore` · `self_seeding`.
-- `months` (`list[int]`, range 1–12) — months in which this method is most suitable, deduplicated and sorted ascending on the server side. Covers vegetative timing only; sowing windows for seed propagation use the separate `direct_sow_months`, `indoor_start_months` and `transplant_months` fields.
+- `months` (`list[int]`, range 1–12) — months in which this method is most suitable, deduplicated and sorted ascending on the server side, independent of the other configs. The species-level sowing windows for generative propagation remain in the separate `direct_sow_months`, `indoor_start_months` and `transplant_months` fields.
 - `wood_stage` (`WoodStage \| null`) — `softwood` / `semi_hardwood` / `hardwood` / `herbaceous`; only meaningful for cutting-type methods.
 - `difficulty` (`PropagationDifficulty \| null`) — `easy` / `moderate` / `difficult`.
 - `notes` (`string \| null`, max. 1,000 characters) — free-text expert knowledge for this method: typical failure points, species-specific substrate or temperature requirements, acclimatisation steps.
