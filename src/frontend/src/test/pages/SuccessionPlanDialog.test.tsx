@@ -1,9 +1,11 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import SuccessionPlanDialog from '@/pages/durchlaeufe/SuccessionPlanDialog';
 import { renderWithProviders } from '../helpers';
+import { server } from '../mocks/server';
 import type { SuccessionPlan } from '@/api/types';
 
 const existingPlan: SuccessionPlan = {
@@ -75,6 +77,81 @@ describe('SuccessionPlanDialog', () => {
     await waitFor(() => {
       expect(onSaved).toHaveBeenCalled();
     });
+  });
+
+  it('updates an existing plan in edit mode and calls onSaved', async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    renderWithProviders(
+      <SuccessionPlanDialog
+        open
+        plan={existingPlan}
+        onClose={() => {}}
+        onSaved={onSaved}
+      />,
+    );
+
+    await screen.findByText('Staffelanbau bearbeiten');
+    const nameInput = screen
+      .getByTestId('form-field-name')
+      .querySelector('input')!;
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Salat Staffelanbau v2');
+
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+  });
+
+  it('recomputes the live batch preview from the schedule window', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <SuccessionPlanDialog open onClose={() => {}} onSaved={() => {}} />,
+    );
+
+    await screen.findByTestId('batch-preview');
+    // start defaults to today; widen the window so the preview grows beyond 1.
+    const startField = screen.getByLabelText(/Beginn/) as HTMLInputElement;
+    const endField = screen.getByLabelText(/Ende/) as HTMLInputElement;
+    await user.clear(startField);
+    await user.type(startField, '2024-04-01');
+    await user.clear(endField);
+    await user.type(endField, '2024-06-01');
+
+    // 61-day span / 21-day interval + 1 => 3 staggered batches.
+    await waitFor(() => {
+      expect(screen.getByTestId('batch-preview').textContent).toMatch(
+        /3 Staffeln/,
+      );
+    });
+  });
+
+  it('loads and offers cultivar options once a species is selected', async () => {
+    server.use(
+      http.get('/api/v1/species/:key/cultivars', () =>
+        HttpResponse.json([
+          { key: 'cv-1', name: 'Marmande', species_key: 'sp-1' },
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <SuccessionPlanDialog open onClose={() => {}} onSaved={() => {}} />,
+    );
+
+    const speciesInput = screen
+      .getByTestId('form-field-species_key')
+      .querySelector('input')!;
+    await user.click(speciesInput);
+    await user.type(speciesInput, 'Tom');
+    await user.click(await screen.findByText('Tomato'));
+
+    // Cultivar select becomes enabled and renders the mapped option.
+    const cultivarField = await screen.findByTestId('form-field-cultivar_key');
+    await user.click(within(cultivarField).getByRole('combobox'));
+    expect(
+      await within(await screen.findByRole('listbox')).findByText('Marmande'),
+    ).toBeTruthy();
   });
 
   it('blocks submission when the end date is before the start date', async () => {
