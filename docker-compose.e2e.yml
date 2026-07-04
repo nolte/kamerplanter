@@ -78,6 +78,10 @@ services:
       DEBUG: "false"
       REQUIRE_EMAIL_VERIFICATION: "false"
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      # AP-4 / INF-S5 startup gate (app/main.py): with DEBUG=false the backend
+      # refuses to start unless these secrets are provisioned. Test-only values.
+      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       KAMERPLANTER_MODE: light
     depends_on:
       arangodb:
@@ -251,6 +255,10 @@ services:
       DEBUG: "false"
       REQUIRE_EMAIL_VERIFICATION: "false"
       JWT_SECRET_KEY: e2e-test-jwt-secret-not-for-production
+      # AP-4 / INF-S5 startup gate (app/main.py): with DEBUG=false the backend
+      # refuses to start unless these secrets are provisioned. Test-only values.
+      FERNET_KEY: QM78OImM6D7dpoyt3CDJDvfEyj68skxmfC9XWO9Bl6Q=
+      ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       KAMERPLANTER_MODE: full
       COOKIE_SECURE: "false"
       RATE_LIMIT_AUTH: "200/minute"
