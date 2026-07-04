@@ -6,9 +6,12 @@ Kamerplanter berechnet präzise Mischverhältnisse für Nährstofflösungen, üb
 
 ## Voraussetzungen
 
-- Mindestens ein angelegter Dünger unter **Düngung → Dünger**
+- Mindestens ein angelegter Dünger unter **Düngung → Düngemittel**
 - Mindestens eine Pflanze mit laufender Wachstumsphase
 - Empfohlen: Wasserquelle auf der Site konfiguriert (für automatische EC-Berechnung)
+
+!!! info "Rechner teils nur ab einer bestimmten Erfahrungsstufe sichtbar"
+    Einige der unten beschriebenen Rechner-Bereiche (Wasser-Mischer, EC-Budget-Rechner, Ausbringungskanäle) sind erst ab der UI-Erfahrungsstufe **Fortgeschritten** bzw. **Experte** sichtbar. Findest du eine Karte oder einen Abschnitt nicht, prüfe deine Erfahrungsstufe unter **Einstellungen**.
 
 ---
 
@@ -22,14 +25,17 @@ Die elektrische Leitfähigkeit (EC) misst die Konzentration gelöster Nährstoff
 - **Optimal**: Pflanze wächst bestmöglich
 - **Zu hoch**: Salz-Stress, Wurzelschäden, Nährstoff-Blockaden
 
-Typische EC-Zielwerte:
+Typische EC-Zielbereiche, gegen die Kamerplanter deine berechnete End-EC validiert:
 
-| Phase | Hydroponik / Coco | Erde |
-|-------|------------------|------|
-| Sämling | 0,4–0,8 mS/cm | 0,4–0,6 mS/cm |
-| Vegetativ | 1,2–1,8 mS/cm | 0,8–1,2 mS/cm |
-| Blüte | 1,6–2,2 mS/cm | 1,0–1,4 mS/cm |
-| Spätblüte | 0,6–1,0 mS/cm | — |
+<!-- Quelle: src/backend/app/domain/engines/ec_budget_engine.py EC_MAX_TABLE (REQ-004-A §4.2) -->
+
+| Substrat | Sämling (mS/cm) | Vegetativ (mS/cm) | Blüte (mS/cm) | Ausspülung (mS/cm) |
+|----------|-----------------|--------------------|--------------|--------------------|
+| Hydroponik | 0,8 – 1,2 | 1,6 – 2,4 | 1,8 – 2,8 | 0,0 – 0,3 |
+| Coco | 0,8 – 1,0 | 1,6 – 2,0 | 1,8 – 2,4 | 0,0 – 0,3 |
+| Erde | 0,4 – 0,6 | 0,8 – 1,4 | 1,0 – 1,6 | 0,0 – 0,3 |
+
+Diese Werte sind identisch mit der Tabelle im [Nährlösungs-Mischleitfaden](../guides/nutrient-mixing.md#ec-ziel-substrat) — beide werden aus derselben Quelle im Code abgeleitet, damit sie nicht auseinanderdriften.
 
 ### EC-Budget
 
@@ -72,7 +78,7 @@ Das Mischprotokoll zeigt dir nach der Berechnung drei transparente Kennwerte:
 
 ### Schritt 1: Zum Bereich Düngung navigieren
 
-Klicke in der Navigation auf **Düngung → Dünger**.
+Klicke in der Navigation auf **Düngung → Düngemittel**.
 
 ### Schritt 2: Neuen Dünger anlegen
 
@@ -86,7 +92,9 @@ Klicke auf **Dünger hinzufügen**.
 | Typ | Basisdünger, Supplement, Booster, Biologisch, **CalMag** |
 | NPK-Verhältnis | Stickstoff/Phosphor/Kalium-Anteile |
 | EC-Beitrag | EC-Erhöhung pro ml/L (steht auf dem Etikett oder Datenblatt) |
-| Mischpriorität | Reihenfolge beim Mischen (niedrigere Zahl = früher) |
+| Mischpriorität | Freie Zahl von 1–100. Niedrigere Zahl = früher einmischen (Standardwert: 50) |
+| Max. Dosierung (ml/L) | Obergrenze laut Hersteller, ab der Kamerplanter die berechnete Dosis kappt und warnt |
+| Tanksicher | Ob der Dünger unverändert im Vorratstank gelagert werden darf |
 | Dosierung (ml/L) | Standarddosierung pro Liter Wasser |
 
 !!! tip "Eigener Dünger-Typ CalMag"
@@ -104,9 +112,9 @@ Bei Düngern für den Freilandeinsatz (Kompost, Hornspäne, Pflanzenjauchen) tr�
 | Freisetzungsgeschwindigkeit | Sofort, Wochen, Monate oder ganze Saison — wie schnell die Nährstoffe pflanzenverfügbar werden |
 
 !!! danger "Mischfolge beachten — kritisch!"
-    Die Reihenfolge beim Mischen von Düngern ist chemisch bedeutsam. Falsche Mischfolge kann zu Ausfällungen führen, die Nährstoffe unverfügbar machen. Kamerplanter erzwingt die korrekte Reihenfolge automatisch.
+    Die Reihenfolge beim Mischen von Düngern ist chemisch bedeutsam. Falsche Mischfolge kann zu Ausfällungen führen, die Nährstoffe unverfügbar machen. Kamerplanter sortiert deine ausgewählten Dünger beim Berechnen einer Mischanleitung automatisch nach ihrer **Mischpriorität** (Feld oben) — es gibt keine fest im Code verankerte Reihenfolge.
 
-    **Korrekte Mischfolge:**
+    **Empfohlene Mischpriorität-Konvention** (frei anpassbar je Dünger):
     1. Wasser mit Zimmertemperatur (18–22 °C)
     2. Silizium-Zusätze (falls verwendet)
     3. **CalMag** (immer vor Sulfaten!)
@@ -114,6 +122,39 @@ Bei Düngern für den Freilandeinsatz (Kompost, Hornspäne, Pflanzenjauchen) tr�
     5. Basis B (Phosphor + Schwefel + Magnesium)
     6. Weitere Supplemente und Booster
     7. pH-Korrektur (pH Down / pH Up) — immer zuletzt
+
+    Damit diese Reihenfolge tatsächlich eingehalten wird, muss die Mischpriorität jedes Düngers entsprechend gesetzt sein (z. B. CalMag = 10, Basis A = 20, Basis B = 30). Die Vorbelegung neuer Dünger ist 50 — passe sie beim Anlegen an, wenn dein Dünger zuerst oder zuletzt eingemischt werden soll.
+
+---
+
+## Dünger-Bestand, Unverträglichkeiten und Verwendung
+
+Auf der Detailseite eines Düngers (**Düngung → Düngemittel** → Dünger anklicken) findest du drei weitere Bereiche:
+
+### Bestand (Tab „Bestand")
+
+Hier erfasst du einzelne Gebinde/Käufe dieses Düngers:
+
+| Feld | Beschreibung |
+|------|-------------|
+| Aktuelles Volumen (ml) | Restmenge in der Flasche/im Kanister |
+| Kaufdatum | Wann wurde das Gebinde gekauft? |
+| Ablaufdatum | Mindesthaltbarkeitsdatum, falls angegeben |
+| Chargennummer | Herstellerchargen-Nummer |
+| Kosten/Liter (€) | Für Kostenübersicht und Durchschnittspreis |
+
+Kamerplanter zeigt eine Zusammenfassung (Gesamt-Volumen, Ø Kosten/Liter, Anzahl Einträge) sowie eine Warnung, wenn ein Gebinde innerhalb der nächsten 30 Tage abläuft.
+
+### Unverträglichkeiten
+
+Ist ein Dünger als unverträglich mit einem anderen hinterlegt (z. B. CalMag mit einem Sulfat-Supplement), erscheint auf der Detailseite eine Warnung mit Grund und Schweregrad.
+
+!!! info "Unverträglichkeiten derzeit nur über die API pflegbar"
+    Das Anlegen und Entfernen von Unverträglichkeits-Einträgen zwischen zwei Düngern ist aktuell nur über die REST-API (`POST /fertilizers/{key}/incompatibilities`) möglich — die Oberfläche zeigt bestehende Einträge nur an. Wende dich bei Bedarf an deine Betreiber:in oder trage die Kombination als Notiz im Freitextfeld des Düngers ein.
+
+### Verwendung in Nährstoffplänen
+
+Der Abschnitt „Verwendung" zeigt dir, in welchen Nährstoffplänen dieser Dünger eingesetzt wird — als Gantt-Diagramm über die Phasen der jeweiligen Pläne hinweg. So siehst du auf einen Blick, in welchen Plänen und Phasen ein Dünger vorkommt, bevor du ihn löschst oder seine Dosierung änderst.
 
 ---
 
@@ -131,7 +172,7 @@ Gib einen Namen ein (z.B. "Tomaten Hochbeet 2026") und wähle den Substrat-Typ (
 
 ### Schritt 3: Phaseneinträge hinzufügen
 
-Für jede Wachstumsphase fügst du die Dünger-Dosierungen ein:
+Der neue Plan öffnet sich auf dem Tab **Phaseneinträge** — er zeigt die Phasen als Gantt-Zeitleiste. Für jede Wachstumsphase fügst du die Dünger-Dosierungen ein:
 
 1. Klicke auf **Phase hinzufügen**.
 2. Wähle die Phase (Keimung, Vegetativ, Blüte, usw.).
@@ -143,7 +184,7 @@ Für jede Wachstumsphase fügst du die Dünger-Dosierungen ein:
 
 ### Schritt 4: Plan einem Pflanzdurchlauf zuweisen
 
-1. Öffne den gewünschten **Pflanzdurchlauf** unter **Durchläufe**.
+1. Öffne den gewünschten **Pflanzdurchlauf** unter **Durchläufe** und wechsle zum Tab **Düngung & Bewässerung**.
 2. Klicke auf **Nährstoffplan zuweisen**.
 3. Wähle den Plan aus der Liste.
 
@@ -151,49 +192,98 @@ Alle Pflanzen in diesem Durchlauf nutzen von nun an diesen Plan für ihre Gieße
 
 ---
 
-## Gießereignis erfassen (Feeding Event — Dünge-/Bewässerungseintrag)
+## Ausbringungskanäle (Multi-Channel Delivery) {#ausbringungskanaele-multi-channel-delivery}
 
-Nach jedem Düngen dokumentierst du ein Gießereignis. Das hilft beim Verfolgen der tatsächlichen Nährstoffgabe und der Substrat-EC über die Zeit.
+Ab der Erfahrungsstufe **Fortgeschritten** kannst du für einen Phaseneintrag statt einer einzelnen Dosierung mehrere **Ausbringungskanäle** definieren — zum Beispiel eine automatische Fertigation über den Tropf-Tank plus eine gelegentliche Blattdüngung. Jeder Kanal hat eine eigene Anwendungsmethode, eigene Dünger-Dosierungen und optional einen eigenen Zeitplan.
+
+### Kanal anlegen
+
+1. Öffne den Nährstoffplan und klicke bei einem Phaseneintrag auf **Kanal hinzufügen**.
+2. Vergib eine **Kanal-ID** und wähle die **Ausbringungsmethode**:
+
+| Methode | Bedeutung | Typische Parameter |
+|---------|-----------|--------------------|
+| Fertigation | Automatisierte Dosierung über einen Tank | Durchläufe/Tag, Pumpendauer (s), Durchfluss (ml/min), optional verknüpfter Tank |
+| Gießen (Drench) | Manuelles Gießen mit Gießkanne oder Schlauch | Volumen pro Gießvorgang (L) |
+| Blattsprühung | Foliar-Düngung über den Blattapparat | Volumen pro Sprühvorgang (L) |
+| Oberflächendüngung | Feststoffdünger aufstreuen | Gramm pro Pflanze, Gramm pro m² |
+
+3. Trage optional Ziel-EC und Ziel-pH für diesen Kanal ein.
+4. Aktiviere bei Bedarf einen **eigenen Gießplan** für den Kanal (Wochentage oder Intervall, bevorzugte Uhrzeit, Erinnerung Stunden vorher) — ohne eigenen Plan gilt der Plan-Standard.
+5. Weise dem Kanal über **Düngemittel** die gewünschten Dünger mit ml/L-Dosierung zu (optional als „optional" markierbar, falls ein Dünger bei Bedarf weggelassen werden darf).
+
+### Kanal-Validierung
+
+Kamerplanter prüft die Kanäle gegen das EC-Budget der Phase und zeigt auf dem Tab **Validierung** an, ob alle Kanäle gültig sind oder ob es Probleme gibt (inklusive Toleranzbereich).
+
+### Gießvorgang aus einem Kanal protokollieren
+
+Über den Button **„Gießvorgang für diesen Kanal protokollieren"** öffnest du direkt ein vorausgefülltes Gießprotokoll-Formular (Anwendungsmethode, Ziel-EC/-pH und Dünger-Dosierungen sind bereits übernommen) — siehe [Gießprotokoll](watering-log.md).
+
+!!! note "Bestehende Einzeldünger-Pläne bleiben gültig"
+    Pläne ohne Ausbringungskanäle funktionieren unverändert weiter (Legacy-Modus). Über **„Zu Multi-Kanal konvertieren"** kannst du einen bestehenden Phaseneintrag in einen Standard-Ausbringungskanal umwandeln — das lässt sich nicht rückgängig machen.
+
+---
+
+## Plan duplizieren und validieren
+
+- **Klonen**: Klicke in der Nährstoffplan-Liste auf das Kopier-Symbol, um eine Kopie eines Plans mit neuem Namen anzulegen — praktisch, um einen bewährten Plan als Ausgangspunkt für eine Variante zu nutzen.
+- **Validieren**: Der Tab **Validierung** in der Plan-Detailansicht prüft automatisch, sobald du ihn öffnest, ob der Plan vollständig ist (alle Phasen abgedeckt) und ob die EC-Budgets je Phase eingehalten werden.
+- **Dosierungsrechner**: Der Tab **Dosierungsrechner** berechnet dir die exakten Mengen dieses Plans für einen konkreten Standort bzw. ein konkretes Gießvolumen — nützlich, um vor dem Anmischen schnell die tatsächlich benötigte Menge zu ermitteln.
+
+---
+
+## Gießvorgang protokollieren
+
+Nach jedem Gießen oder Düngen dokumentierst du den Vorgang im **Gießprotokoll**. Das hilft beim Verfolgen der tatsächlichen Nährstoffgabe und der Substrat-EC über die Zeit. Details zu Feldern, Erfassung und Auswertung findest du auf der Seite [Gießprotokoll](watering-log.md) — hier nur die beiden Einstiegspunkte:
 
 ### Schnell erfassen über den Pflanzdurchlauf
 
-1. Öffne einen **Pflanzdurchlauf**.
-2. Klicke auf **Gießen bestätigen** (oder **Gießen — schnell**).
-3. Bestätige die vorgeschlagene Menge und EC — oder passe sie an.
+1. Öffne einen **Pflanzdurchlauf** und wechsle zum Tab **Düngung & Bewässerung** — dort siehst du die kommenden Gießtermine aus dem Gießplan.
+2. Klicke bei einem Termin auf **Schnell bestätigen** oder öffne **Gießen bestätigen**, um vorher Ist-EC/-pH und Volumen anzupassen.
 
 ### Detailliert erfassen
 
-1. Navigiere zu **Düngung → Gießereignisse**.
-2. Klicke auf **Neues Ereignis**.
-3. Wähle Pflanze(n) oder Pflanzdurchlauf.
-4. Trage die tatsächlich verwendeten Mengen ein.
-5. Hinterlege optional Ist-EC, pH und Abfluss-EC (für Runoff-Analyse).
+1. Öffne den Menüpunkt **Gießprotokoll** (eigener Menüpunkt auf oberster Ebene, nicht unter Düngung).
+2. Klicke auf **Gießvorgang erfassen**.
+3. Wähle Pflanze(n) und/oder Stellplätze, Anwendungsmethode, Volumen und optional Dünger mit Dosierung.
+4. Hinterlege optional EC/pH vorher und nachher sowie Abfluss-EC/-pH (für Runoff-Analyse).
 
 !!! tip "Runoff-EC messen"
     Bei Topf- und Coco-Kulturen gibt die Abfluss-EC (das Wasser, das unten aus dem Topf läuft) Auskunft über die Salzakkumulation im Substrat. Ist die Abfluss-EC deutlich höher als die Eingabe-EC, ist es Zeit für einen Spülgang.
 
 ---
 
-## Spülprotokoll (Flushing)
+## Spülung berechnen (Flushing) {#spulung-berechnen-flushing}
 
-Vor der Ernte kann ein Spülgang helfen, überschüssige Salze aus dem Substrat zu waschen. Kamerplanter führt dich durch diesen Prozess.
+Vor der Ernte kann ein Spülgang helfen, überschüssige Salze aus dem Substrat zu waschen. Kamerplanter bietet dafür einen **Rechner** — es gibt aktuell keinen Button an der Pflanze, der einen Spülgang „startet" oder automatisch Gieß-Aufgaben anlegt.
 
 !!! note "Wissenschaftlicher Stand"
     Das Flushing ist in Gärtner-Kreisen weit verbreitet, der wissenschaftliche Nachweis für verbesserten Geschmack ist aber umstritten. Bei Living Soil und organischer Düngung wird ausdrücklich davon abgeraten, da das Mikrobiom geschädigt wird.
 
-1. Öffne die Pflanze und klicke auf **Spülprotokoll starten**.
-2. Das System schlägt eine Dauer vor (abhängig vom Substrat-Typ).
-3. Während des Spülens wechsle zu reinem, pH-adjustiertem Wasser.
-4. Kamerplanter erstellt automatisch Gieß-Aufgaben für den Spülzeitraum.
+### Rechner bedienen
 
-**Empfohlene Spüldauer (Orientierungswerte):**
+1. Öffne **Düngung → Nährstoff-Berechnungen** und die Karte **Spülung**.
+2. Trage die aktuelle EC deiner Nährlösung und die Anzahl Tage bis zur geplanten Ernte ein.
+3. Klicke auf **Berechnen**.
+
+Das Ergebnis zeigt die empfohlene Spüldauer, den Starttag (heute + verbleibende Tage minus Spüldauer) und einen Tag-für-Tag-Plan mit Ziel-EC, Aktion (z. B. „Vierteldosis-Spülung") und Dosierungs-Prozentsatz — die letzten 40 % der Spüldauer laufen mit reinem Wasser (0 mS/cm).
+
+!!! info "Substrat aktuell nicht auswählbar"
+    Die Karte hat derzeit kein Substrat-Auswahlfeld — der Rechner geht serverseitig von Coco als Substrat aus (Spüldauer 10–21 Tage). Für Hydroponik oder Erde orientiere dich stattdessen an der Tabelle unten.
+
+**Empfohlene Spüldauer nach Substrat:**
+
+<!-- Quelle: src/backend/app/domain/engines/nutrient_engine.py FlushingProtocol.FLUSH_DURATIONS -->
 
 | Substrat | Spüldauer |
 |---------|----------|
-| Hydroponik | 7–14 Tage |
+| Hydroponik / Blähton / Perlite / Steinwolle | 7–14 Tage |
 | Coco | 10–21 Tage |
-| Erde | 21–42 Tage |
-| Living Soil | Kein Flushing empfohlen |
+| Erde / Living Soil | 14–30 Tage |
+
+!!! warning "Werte weichen von früheren Angaben ab"
+    Frühere Versionen dieser Seite nannten für Erde 21–42 Tage — das entsprach nicht dem tatsächlich hinterlegten Wert. Die Tabelle oben ist jetzt konsistent mit dem [Nährlösungs-Mischleitfaden](../guides/nutrient-mixing.md#flush-substrat).
 
 ---
 
@@ -231,7 +321,7 @@ Statt Dosierungen von Hand aus den Tabellen oben abzuleiten, lässt du sie dir i
 1. Öffne **Düngung → Nährstoff-Berechnungen** und wähle die Karte **Flächendosierung (Freiland)**.
 2. Trage die Keys der gewünschten Dünger ein (kommagetrennt), z.B. Kompost und Hornspäne.
 3. Gib entweder die **Beetfläche in m²** direkt ein, oder trage stattdessen einen **Standort** ein. Ist eine Fläche eingetragen, hat sie Vorrang — der Standort wird dann ignoriert. Bleibt das Flächenfeld leer, übernimmt Kamerplanter die hinterlegte Fläche des gewählten Standorts.
-4. Wähle optional den **Nährstoffbedarf** der Pflanze (Stark-/Mittel-/Schwachzehrer, Stickstoffsammler) — das liefert zusätzliche Hinweise, ersetzt aber nicht die Mengenberechnung selbst.
+4. Wähle optional den **Nährstoffbedarf** der Pflanze (Stark-/Mittel-/Schwachzehrer, N-Fixierer) — das liefert zusätzliche Hinweise, ersetzt aber nicht die Mengenberechnung selbst.
 5. Klicke auf **Berechnen**.
 
 Das Ergebnis zeigt je Dünger die Gesamtmenge in Gramm bzw. Liter für die angegebene Fläche, das hinterlegte Verdünnungsverhältnis, die Freisetzungsgeschwindigkeit und ergänzende Hinweise.
@@ -253,10 +343,29 @@ Kamerplanter berechnet automatisch den CalMag-Bedarf, wenn du die Wasserquelle a
 
 ---
 
+## Wasser-Mischer und EC-Budget-Rechner {#wasser-mischer-und-ec-budget-rechner}
+
+Auf **Düngung → Nährstoff-Berechnungen** findest du neben dem Mischprotokoll und der Flächendosierung zwei weitere Karten, die je nach Erfahrungsstufe sichtbar sind:
+
+### Wasser-Mischer (ab Stufe Fortgeschritten)
+
+Gibst du die EC deines Leitungswassers, dessen Alkalinität und deine gewünschte Ziel-EC des Mischwassers ein, berechnet der Wasser-Mischer rückwärts den benötigten **Osmosewasser-Anteil (%)**, um genau diese Ziel-EC zu erreichen — und zeigt dazu die resultierende effektive Wasser-EC.
+
+### EC-Budget-Rechner (ab Stufe Experte)
+
+Der EC-Budget-Rechner ist die ausführlichste Variante des Mischprotokolls: Zusätzlich zu Ziel-EC, Substrat, Phase und Volumen kannst du hier CalMag- und Silizium-Dünger mit fester Dosierung vorab abziehen, die Anzahl bereits durchlaufener Substrat-Zyklen angeben (für den automatischen Coco-CalMag-Boost) und einen **gemessenen EC-Wert samt Wassertemperatur** eintragen.
+
+!!! tip "EC-Temperaturkorrektur (EC@25)"
+    Die elektrische Leitfähigkeit hängt von der Wassertemperatur ab — ein und dieselbe Nährlösung zeigt bei 30 °C eine höhere EC als bei 20 °C. Trägst du im EC-Budget-Rechner deinen gemessenen EC-Wert **und** die Wassertemperatur ein, rechnet Kamerplanter automatisch auf die Referenztemperatur 25 °C um (`EC@25 = EC_gemessen / (1 + 0,02 × (T − 25))`) und zeigt diesen korrigierten Wert im Ergebnis an. So bleiben Messungen bei unterschiedlichen Temperaturen vergleichbar.
+
+Das Ergebnis zeigt eine farbige EC-Budget-Leiste (Basiswasser/Silizium/CalMag/Dünger/pH-Reserve), Warnungen, eine Dosierungstabelle und eine nummerierte Mischanleitung — identisch zur Berechnungslogik des Mischprotokolls, nur mit mehr Eingabemöglichkeiten.
+
+---
+
 ## Häufige Fragen
 
-??? question "Was ist der Unterschied zwischen einem Nährstoffplan und einem Gießereignis?"
-    Ein **Nährstoffplan** ist das Rezept — er definiert für jede Phase, welche Dünger in welcher Menge verwendet werden sollen. Ein **Gießereignis** ist die Aufzeichnung einer tatsächlich durchgeführten Düngung. Das eine ist die Planung, das andere die Dokumentation.
+??? question "Was ist der Unterschied zwischen einem Nährstoffplan und einem Gießprotokoll-Eintrag?"
+    Ein **Nährstoffplan** ist das Rezept — er definiert für jede Phase, welche Dünger in welcher Menge verwendet werden sollen. Ein **Gießprotokoll-Eintrag** ist die Aufzeichnung einer tatsächlich durchgeführten Gießung oder Düngung. Das eine ist die Planung, das andere die Dokumentation — Details dazu im [Gießprotokoll](watering-log.md).
 
 ??? question "Muss ich jeden Gießvorgang erfassen?"
     Nein, das ist optional. Kamerplanter funktioniert auch ohne vollständige Gieß-Dokumentation. Wenn du aber die Runoff-EC verfolgen oder die Nährstoffgabe optimieren möchtest, lohnt sich eine konsequente Erfassung.
@@ -280,6 +389,7 @@ Kamerplanter berechnet automatisch den CalMag-Bedarf, wenn du die Wasserquelle a
 
 ## Siehe auch
 
+- [Gießprotokoll](watering-log.md)
 - [Tankmanagement](tanks.md)
 - [Wachstumsphasen](growth-phases.md)
 - [Guides: Nährlösung mischen](../guides/nutrient-mixing.md)

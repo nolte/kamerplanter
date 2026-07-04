@@ -12,8 +12,8 @@ Qualität, Aroma und Haltbarkeit.
 
 ## Voraussetzungen
 
-- Ein abgeschlossener oder begonnener Ernte-Vorgang in Kamerplanter (REQ-007)
-- Kein aktives IPM-Behandlungs-Karenzfenster für die betreffenden Pflanzen
+- Ein abgeschlossener oder begonnener Ernte-Vorgang in Kamerplanter <!-- REQ-007 -->
+- Kein aktives Behandlungs-Karenzfenster für Integrierten Pflanzenschutz (IPM) für die betreffenden Pflanzen
 
 ---
 
@@ -44,12 +44,20 @@ stateDiagram-v2
     Storage --> [*]: Consumption or sale
 ```
 
-1. Navigiere zum Pflanzdurchlauf und öffne den **Erntebereich**.
+1. Navigiere zu **Erntechargen** (`/ernte/batches`) und klicke auf **Erntecharge
+   erstellen**.
 2. Das System prüft automatisch alle Karenzzeiten.
-3. Erstelle einen **Ernte-Batch** (HarvestBatch) mit Gewicht, Datum und Qualitäts-
-   Erstbewertung.
-4. Lege ein **Nachernte-Protokoll** an und wähle den Protokoll-Typ.
-5. Erfasse regelmäßig **Messungen** (Gewicht, Temperatur, Luftfeuchte).
+3. Erstelle die **Erntecharge** (HarvestBatch) mit Nassgewicht, Erntedatum und
+   Erntetyp. Die Qualitätsbewertung trägst du danach separat im Tab
+   **Qualität** ein.
+
+!!! warning "Noch nicht implementiert"
+    Die folgenden Schritte sind spezifiziert, aber noch nicht gebaut:
+
+    4. Ein eigenes **Nachernte-Protokoll** mit wählbarem Protokoll-Typ (Trocknung/Curing/Lagerung als Zustandsmaschine) anlegen.
+    5. Regelmäßige **Messungen** (Gewicht, Temperatur, Luftfeuchte) strukturiert je Protokollschritt erfassen.
+
+    Aktuell steht dir dafür ausschließlich das Feld **Tatsächliches Trockengewicht (g)** im Bearbeiten-Tab der Erntecharge zur Verfügung — siehe [Erntemanagement](../user-guide/harvest.md#trocknung-dokumentieren).
 
 ---
 
@@ -193,17 +201,14 @@ Salzgehalt: 3–5 % (höher durch Gochugaru und Fischsauce).
 ### Qualitäts-Scoring in Kamerplanter
 
 Nach der Ernte und am Ende des Curingprozesses erfasse eine Qualitätsbewertung
-(QualityAssessment) in Kamerplanter:
+(QualityAssessment) im Tab **Qualität** der Erntecharge:
 
-- **Visueller Zustand**: Ausgezeichnet / Gut / Akzeptabel / Besorgniserregend / Kritisch
-- **Aromaqualität**: Ausgezeichnet / Gut / Akzeptabel / Abweichend / Schimmelig
-- **Gewichtsverlauf**: Täglich oder wöchentlich wiegen und in Kamerplanter erfassen
-- **Wasseraktivität (a_w)**: Cannabis-Ziel: 0,55–0,65; Schimmelpilze ab a_w > 0,65
+- **Erscheinungsbewertung**, **Aromabewertung** und **Farbbewertung**: jeweils 0–100 Punkte
+- **Mängel**: frei eintragbare Schlagworte (z.B. `mold`, `pests`, `hermaphrodite`) — bekannte Schlagworte fließen mit einem definierten Punktabzug in die Bewertung ein
+- **Gesamt-Score** (0–100) und **Note** (A+/A/B/C/D): werden automatisch aus den drei Bewertungen und den Mängeln berechnet — siehe Notenschwellen in [Erntemanagement](../user-guide/harvest.md#qualitätsbewertung)
 
-!!! tip "Gewicht täglich erfassen"
-    Durch tägliches Wiegen kannst du den Trocknungsfortschritt objektiv verfolgen.
-    Cannabis verliert typischerweise 75–80 % seines Frischgewichts beim Trocknen.
-    Eine Anzeige der Gewichtskurve zeigt, wann das Plateau erreicht ist.
+!!! note "Teilweise verfügbar"
+    Ein tägliches Gewichts-Tracking mit Trocknungsfortschritts- oder Wasseraktivitäts-Anzeige (a_w) während der Trocknung existiert noch nicht. Du kannst lediglich das **tatsächliche Trockengewicht** einmalig am Ende eintragen. Nutze bis dahin die faustregelbasierte Orientierung: Cannabis verliert typischerweise 75–80 % seines Frischgewichts beim Trocknen; Ziel-Wasseraktivität für die Lagerung liegt bei 0,55–0,65 (Schimmelrisiko ab a_w > 0,65).
 
 ---
 
@@ -231,7 +236,7 @@ Nach der Ernte und am Ende des Curingprozesses erfasse eine Qualitätsbewertung
 
 ## Siehe auch
 
-- [Ernte (REQ-007)](../user-guide/harvest.md)
+- [Ernte](../user-guide/harvest.md) <!-- REQ-007 -->
 - [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 - [Sensorik](../user-guide/sensors.md)
 - [VPD-Optimierung](vpd-optimization.md)

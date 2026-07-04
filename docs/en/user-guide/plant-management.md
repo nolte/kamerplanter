@@ -31,22 +31,27 @@ The hierarchy is: Family → Species → Cultivar. Each cultivar belongs to exac
 
 ### Key Species Fields
 
+Field labels in the UI are shown in German (or English, depending on your language setting); you'll find the internal field name (code name) in parentheses, e.g. for API access or CSV import.
+
 | Field | Description | Example |
 |-------|------------|---------|
-| Lifecycle | Annual, Biennial, or Perennial | Annual |
-| Growth Habit | Herb, Shrub, Tree, Vine | Herb |
-| Root Type | Fibrous, Taproot, Tuberous, ... | Fibrous |
-| Frost Sensitivity | Hardy, Half-hardy, Tender | Tender |
-| Nutrient Demand | Heavy feeder, Medium feeder, Light feeder | Heavy feeder |
-| Photoperiodism | Short-day, Long-day, Day-neutral | Day-neutral |
-| Toxicity | Toxicity for cats/dogs (ASPCA data) | Toxic to cats |
-| **Propagation Methods** | One or more typical propagation methods (multi-select) | Seed, Cutting |
+| Lifecycle (`cycle_type`, part of the lifecycle configuration — see [Growth Phases](growth-phases.md)) | Annual, Biennial, or Perennial | Annual |
+| Growth Habit (`growth_habit`) | Herb, Shrub, Tree, Vine, ... | Herb |
+| Root Type (`root_type`) | Fibrous, Taproot, Tuberous, Bulbous, Corm | Fibrous |
+| Frost Sensitivity (`frost_sensitivity`) | Sensitive, Moderate, Hardy, Very hardy | Very hardy |
+| Nutrient Demand (`nutrient_demand_level`) | Heavy feeder, Medium feeder, Light feeder, Nitrogen fixer | Heavy feeder |
+| Photoperiodism (`photoperiod_type`, part of the lifecycle configuration) | Short-day, Long-day, Day-neutral | Day-neutral |
+| Toxicity (`toxicity_severity`) | Toxicity for cats/dogs (ASPCA data; ASPCA = American Society for the Prevention of Cruelty to Animals) | Toxic to cats |
+| **Propagation Methods** (`propagation_methods`) | One or more typical propagation methods (multi-select) | Seed, Cutting |
+
+!!! note "Not all fields are available in the create dialog"
+    The **New Species** dialog only covers the required fields from step 3 plus growth habit and root type. The remaining fields in this table are set afterwards on the species detail page.
 
 ### Propagation Methods (propagation_methods)
 
 The **Propagation Methods** field is a multi-select that records how a species is typically propagated. It is visible in **Intermediate mode** and above (REQ-021).
 
-This information feeds into care reminders, propagation planning (REQ-017), and the AI knowledge assistant. All 143 pre-loaded crop species already include their standard propagation methods.
+This information feeds into care reminders, propagation planning (REQ-017), and the AI knowledge assistant. All bundled crop species master data already includes the standard propagation methods.
 
 | Value | Label | Description |
 |-------|-------|-------------|
@@ -113,7 +118,7 @@ The field complements the structured fields `propagation_methods` (techniques) a
 !!! note "Visibility by expertise level"
     The **Propagation Notes** field appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
 
-All 183 species with populated propagation methods already have an expert notes text.
+All bundled species with populated propagation methods already have an expert notes text.
 
 ### Editing a Species
 
@@ -192,10 +197,42 @@ Families group related species and form the basis for crop rotation planning. Ka
 2. Click **New Family**
 3. Enter the name and optionally the crop rotation category
 
+The actual crop-rotation planning (recommended successor families, wait times, automatic check when creating a plant) is managed separately under **Master Data → Crop Rotation** — see [Companion Planting & Crop Rotation](../guides/companion-planting.md#crop-rotation).
+
 ---
 
-!!! tip "Advanced / For developers"
-    **Preparing master data with AI:** If you are a developer or system administrator working with the Kamerplanter codebase, you can use the built-in Claude Code agent pipeline to generate and scientifically review new plant species documents automatically. The pipeline covers taxonomy, growth phases, nutrient profiles, pest data, and companion planting relationships, and outputs import-ready CSV for bulk upload. See the full guide: [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md).
+## Managing Activities
+
+Besides botanical master data, Kamerplanter also maintains **Activities** as their own master data — reusable templates for care tasks such as topping, defoliation, repotting, or harvest preparation. They form the basis for the [activity plan tab of a planting run](planting-runs.md#activity-plan-tab) and for [workflow templates](tasks.md).
+
+### Where to find them
+
+Navigate to **Master Data → Activities**. Built-in system activities can be edited but not deleted.
+
+### Creating an Activity
+
+Click **Create Activity** and fill in the sections:
+
+| Section | Fields |
+|---------|--------|
+| Identification | Name and description, both in German and English |
+| Classification | Category (e.g. Training/HST [High-Stress Training], Training/LST [Low-Stress Training], Pruning, Defoliation, Transplanting, Harvest Prep, Propagation, General), skill level, stress level, recovery days |
+| Execution | Estimated duration, required tools, whether photo documentation is required |
+| Scope | **Compatible Species** — leave empty for the activity to apply to **all species** ("Universal"); add species to restrict it ("Species-Specific") |
+| Phase Restrictions | **Forbidden Phases** (e.g. flowering, germination) and restricted sub-phases where the activity should only be used with caution |
+| Tags & Sorting | Free-text tags and the display order in lists |
+
+!!! tip "Species-specific instead of universal"
+    Use **Compatible Species** to avoid accidentally suggesting a cannabis-specific training technique (high-stress training) for tomatoes or houseplants, for example.
+
+<!-- Source: src/frontend/src/pages/stammdaten/ActivityCreateDialog.tsx, src/frontend/src/i18n/locales/de/translation.json (pages.activities) -->
+
+---
+
+## Preparing Master Data with AI
+
+!!! tip "For advanced users"
+    Manually compiling all plant data is time-consuming. For developers and advanced users, Kamerplanter offers an **AI-powered pipeline** (Claude Code agents) that automatically prepares and quality-checks new plant species. This is not required for everyday garden use — the bundled master data and CSV import cover most use cases. More details: [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md).
 
 ---
 
@@ -249,6 +286,8 @@ flowchart LR
 - [Plant Identification](plant-identification.md) — Identify a species from a photo
 - [Setting Up Plant Identification](../deployment/inference-service.md) — Start the reference image acquisition run (for administrators)
 - [Growth Phases](growth-phases.md) — Phase control per species
-- [Planting Runs](planting-runs.md) — Accompany plants from sowing to harvest
+- [Planting Runs](planting-runs.md) — Accompany plants from sowing to harvest, apply an activity plan
+- [Companion Planting & Crop Rotation](../guides/companion-planting.md) — Compatibility and crop-rotation master data
+- [Task Planning](tasks.md) — Workflow templates based on activities
 - [Fertilization](fertilization.md) — Nutrient plans and feeding charts
 - [Propagation Management](propagation.md) — Lineage graph, cuttings, grafting

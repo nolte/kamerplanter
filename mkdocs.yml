@@ -153,6 +153,7 @@ plugins:
             Fehlerbehebung: Troubleshooting
             Pflanzendaten per AI: AI Plant Data Pipeline
             Home Assistant Integration: Home Assistant Integration
+            Klimazonen & Winterhärte: Climate Zones & Hardiness
             Browser-Push einrichten: Set Up Browser Push
             RAG-Wissensbasis: RAG Knowledge Base
             Service Accounts: Service Accounts
@@ -327,6 +328,7 @@ nav:
       - Fehlerbehebung: de/guides/troubleshooting.md
       - Pflanzendaten per AI: de/guides/ai-plant-data-pipeline.md
       - Home Assistant Integration: de/guides/home-assistant-integration.md
+      - Klimazonen & Winterhärte: de/guides/climate-zones.md
       - Browser-Push einrichten: de/guides/browser-push-setup.md
       - RAG-Wissensbasis: de/guides/rag-knowledge-base.md
       - Datenaufbewahrung: de/guides/data-retention.md

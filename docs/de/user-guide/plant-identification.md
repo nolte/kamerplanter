@@ -75,7 +75,7 @@ Wenn du weißt, was auf dem Foto zu sehen ist, kannst du dem System einen Hinwei
 | **Ganze Pflanze** | Die gesamte Pflanze im Überblick |
 
 !!! note "Anfängermodus"
-    Im Anfänger-Modus (Standard für neue Nutzer) ist diese Auswahl ausgeblendet. Das System arbeitet automatisch. Erfahrene Nutzer können die Auswahl in den Kontoeinstellungen einblenden.
+    Im Anfängermodus (Standard für neue Nutzer) ist diese Auswahl ausgeblendet. Das System arbeitet automatisch. Erfahrene Nutzer können die Auswahl in den Kontoeinstellungen einblenden.
 
 ---
 
@@ -161,14 +161,14 @@ Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schal
 === "Full-Modus"
 
     1. Klicke oben rechts auf dein Profilbild
-    2. Wähle **Konto-Einstellungen** > **Datenschutz**
+    2. Wähle **Kontoeinstellungen** > **Datenschutz**
     3. Klicke unter **Einwilligungen** neben **Foto-Identifikation** auf **Widerrufen**
 
     Der Widerruf wird mit Zeitstempel im Backend gespeichert und gilt sofort. Du kannst die Einwilligung jederzeit erneut erteilen.
 
 === "Light-Modus"
 
-    Im Light-Modus gibt es keine serverseitigen Datenschutz-Einstellungen. Die Einwilligung ist im **lokalen Browserspeicher** hinterlegt.
+    Im Light-Modus gibt es keine serverseitigen Datenschutzeinstellungen. Die Einwilligung ist im **lokalen Browserspeicher** hinterlegt.
 
     1. Öffne die **Kontoeinstellungen** (oben rechts)
     2. Klicke auf **Foto-Identifikation** > **Einwilligung zurücksetzen**
@@ -221,7 +221,7 @@ Platform-Admins können die Qualität des Referenz-Index verbessern, indem sie u
     Vor der Übertragung werden alle EXIF-Metadaten entfernt — dazu gehören GPS-Koordinaten, Kameramodell und Aufnahmezeitpunkt. Pl@ntNet erhält nur die reinen Bilddaten.
 
 ??? question "Kann ich eine Pflanzenkrankheit per Foto erkennen?"
-    Die Krankheitsdiagnose per Foto ist noch nicht in dieser Phase verfügbar. Für die Diagnose von Schädlingen und Krankheiten nutze bitte die [Pflanzenschutz (IPM)](pest-management.md)-Funktionen mit manueller Inspektion.
+    Diese Pflanzenidentifikation (Pl@ntNet) erkennt nur die **Art** einer Pflanze, keine Krankheiten. Für Schädlinge gibt es eine eigene Foto-Funktion: Die [Schädlingserkennung per Foto](pest-detection.md) liefert eine konfidenz-gewichtete Einschätzung, ob Schädlinge oder typische Schadbilder erkennbar sind. Für allgemeine Krankheitsdiagnosen (Pilzbefall, Nährstoffmängel) nutze bitte die manuelle Inspektion im [Pflanzenschutz (IPM)](pest-management.md).
 
 ??? question "Ich habe die Pflanze falsch identifiziert — was jetzt?"
     Öffne die Pflanze in der Stammdaten-Übersicht und ändere die zugeordnete Art manuell. Gehe auf **Bearbeiten** und wähle eine andere Art aus der Suche.
@@ -233,4 +233,5 @@ Platform-Admins können die Qualität des Referenz-Index verbessern, indem sie u
 - [Stammdaten verwalten](plant-management.md)
 - [Onboarding-Wizard](onboarding.md)
 - [Datenschutz & DSGVO](privacy.md)
+- [Schädlingserkennung per Foto](pest-detection.md)
 - [Pflanzenschutz (IPM)](pest-management.md)

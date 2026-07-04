@@ -45,9 +45,9 @@ flowchart TB
         RD[(Redis<br/>Cache 4h TTL)]
     end
 
-    subgraph "Background Tasks (Celery)"
-        GDT[generate_daily_tips]
-        RVC[reindex_vector_chunks]
+    subgraph "Background Tasks"
+        GDT[Celery: generate_daily_tips]
+        RVC["Knowledge-Service:<br/>POST /ingest (manuell)"]
     end
 
     TC --> AR
@@ -152,42 +152,51 @@ class AiProviderRegistry:
 
 ---
 
-## RAG-Pipeline
+## RAG-Pipeline (Retrieval-Augmented Generation)
 
 ### Embedding-Modell
 
-- **Modell:** `sentence-transformers/all-MiniLM-L6-v2`
-- **Dimensionen:** 384
-- **Modellgröße:** ~23 MB
-- **Betrieb:** Lokal, kein API-Key, kein externer Dienst
+- **Modell:** `multilingual-e5-large` (siehe [ADR-006](../adr/006-embedding-modell-e5-base-hybrid-search.md))
+- **Dimensionen:** 1024
+- **Betrieb:** Eigenständiger `embedding-service` (ONNX Runtime — Open Neural Network Exchange), kein API-Key, kein externer Dienst
 
-Das Embedding-Modell läuft als Python-Prozess im Backend-Container. Es erzeugt Vektoren für:
-- Neue oder aktualisierte Stammdaten-Dokumente (Celery-Task `reindex_vector_chunks`)
+Der Embedding-Service läuft als eigenständiger Microservice, den der Knowledge-Service über HTTP anspricht. Er erzeugt Vektoren für:
+- Knowledge-YAML-Chunks beim Reindex (`POST /ingest` am Knowledge-Service)
 - Eingehende Nutzer-Anfragen zur Ähnlichkeitssuche
 
-### Vektorspeicher (pgvector auf TimescaleDB)
+!!! note "Modellwahl"
+    ADR-006 hat ursprünglich `multilingual-e5-base` (768 Dimensionen) eingeführt; die Konfiguration wurde seither auf die größere `multilingual-e5-large`-Variante (1024 Dimensionen) angehoben. Das Präfix-Schema (`"query: "`/`"passage: "`) aus ADR-006 gilt unverändert.
+
+### Vektorspeicher (dedizierte PostgreSQL + pgvector-Instanz)
+
+Die Vektoren liegen **nicht** in TimescaleDB, sondern in einer eigenen PostgreSQL-Instanz mit der `pgvector`-Extension (Datenbank `kamerplanter_vectors`, eigener Container/Pod `vectordb`). Das hält die Vektorsuche von der Sensor-Zeitreihen-Last auf TimescaleDB getrennt.
 
 ```sql
 CREATE TABLE ai_vector_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_type VARCHAR(64) NOT NULL,
-    -- 'species' | 'cultivar' | 'growth_phase' | 'care_rule' | 'pest' | 'disease'
+    -- 'care_rule' (aktuell einziger Quelltyp aus den RAG-Guide-YAMLs)
     source_key VARCHAR(128) NOT NULL,
-    chunk_index INT NOT NULL DEFAULT 0,
-    chunk_text TEXT NOT NULL,
-    embedding vector(384) NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    embedding vector(1024) NOT NULL,
+    search_text tsvector,
     metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- IVFFlat-Index für Cosine-Similarity-Suche
-CREATE INDEX idx_ai_vector_chunks_embedding
-    ON ai_vector_chunks USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
+-- HNSW-Index für Cosine-Similarity-Suche (löst IVFFlat ab, ADR-006)
+CREATE INDEX idx_ai_chunks_embedding_hnsw
+    ON ai_vector_chunks USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 200);
+
+-- GIN-Index für die Volltext-Komponente der Hybrid Search
+CREATE INDEX idx_ai_chunks_search_text
+    ON ai_vector_chunks USING gin(search_text);
 ```
 
-TimescaleDB wurde als Vektorspeicher gewählt, da es bereits im Stack vorhanden ist (kein zusätzlicher Dienst wie Qdrant oder Chroma).
+Die Suche kombiniert Vektor-Ähnlichkeit und Volltext-Suche per Reciprocal Rank Fusion (Hybrid Search, siehe ADR-006) — reine Cosine-Similarity allein wird nicht mehr verwendet.
 
 ### Chunk-Konfiguration
 
@@ -201,29 +210,27 @@ TimescaleDB wurde als Vektorspeicher gewählt, da es bereits im Stack vorhanden 
 ### Retrieval-Strategie
 
 ```python
-# app/domain/engines/rag_retriever.py
+# src/knowledge-service/app/vectordb/repository.py (vereinfacht)
 
-class RagRetriever:
-    async def retrieve(
+class VectorChunkRepository:
+    def hybrid_search(
         self,
         query: str,
         *,
         top_k: int = 5,
-        source_type_filter: list[str] | None = None,
-        metadata_filter: dict | None = None,
-    ) -> list[RagChunk]:
-        """Cosine-Ähnlichkeitssuche auf ai_vector_chunks.
+        source_type: str | None = None,
+    ) -> list[dict]:
+        """Hybrid Search: Vektor-Ähnlichkeit + Volltext-Suche, per RRF fusioniert.
 
         Args:
-            query: Nutzer-Anfrage oder Kontext-Beschreibung.
+            query: Nutzer-Anfrage oder Kontext-Beschreibung (wird mit dem
+                E5-Präfix "query: " eingebettet).
             top_k: Anzahl zurückgegebener Chunks.
-            source_type_filter: Optionale Einschränkung auf bestimmte
-                Quelltypen (z.B. ['pest', 'disease'] für Diagnose).
-            metadata_filter: Optionaler JSONB-Filter (z.B. Phase).
+            source_type: Optionale Einschränkung auf einen Quelltyp.
         """
-        query_embedding = self._embed(query)
-        # pgvector Cosine-Similarity: <=>
-        # (1 - cosine_distance) >= similarity_threshold
+        query_embedding = self._embedding.embed(query, prefix="query: ")
+        # pgvector Cosine-Distanz (<=>) UND PostgreSQL Full-Text-Search
+        # (tsvector/tsquery), Ranking-Fusion per Reciprocal Rank Fusion
         ...
 ```
 
@@ -271,14 +278,14 @@ sequenceDiagram
 
 ### Graceful Degradation
 
-Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Reranker-Service löst ebenfalls diesen Fallback aus — mit einem `WARNING`-Logeintrag (`reranker_fallback`).
+Ist `RERANKER_URL` leer oder nicht gesetzt, gibt `RerankerEngine.available` `False` zurück. In diesem Fall wird die ursprüngliche Chunk-Liste auf `top_k` Einträge gekürzt und direkt an den LLM-Kontext übergeben. Ein Timeout oder HTTP-Fehler des Re-Ranker-Service löst ebenfalls diesen Fallback aus — mit einem `WARNING`-Logeintrag (`reranker_fallback`).
 
 ### Ressourcenbedarf
 
 | Szenario | RAM | CPU | Latenz/Query |
 |----------|-----|-----|-------------|
-| Reranker aktiv (20→5) | 1,5–4 GB | 1–2 Kerne | +~500ms |
-| Reranker deaktiviert | 0 | 0 | 0ms |
+| Re-Ranker aktiv (20→5) | 1,5–4 GB | 1–2 Kerne | +~500ms |
+| Re-Ranker deaktiviert | 0 | 0 | 0ms |
 
 !!! tip "Erster Docker-Build"
     Der erste Build des `reranker-service`-Images dauert 10–15 Minuten, da `BAAI/bge-reranker-v2-m3` heruntergeladen und via `optimum` nach ONNX exportiert wird. Folge-Builds nutzen den gecachten Layer und sind in Sekunden abgeschlossen.
@@ -456,18 +463,18 @@ Die Antwortqualität wird automatisch evaluiert:
 | `ai_conversations` | Chat-Verläufe mit Nachrichtenhistorie | 90 Tage |
 | `ai_tip_cache` | Gecachte Tipp-Karten | 7 Tage |
 
-### TimescaleDB Tabellen
+### VectorDB-Tabellen (dedizierte PostgreSQL + pgvector-Instanz)
 
 | Tabelle | Beschreibung |
 |---------|-------------|
-| `ai_vector_chunks` | Vektor-Index (384-dim, all-MiniLM-L6-v2) für RAG |
+| `ai_vector_chunks` | Vektor-Index (1024-dim, multilingual-e5-large) + `search_text`-Volltextindex für RAG Hybrid Search |
 
 ### Edge Collections (ArangoDB)
 
 | Collection | Von → Nach | Zweck |
 |------------|-----------|-------|
-| `ai_tip_references_plant` | `ai_tip_cache` → `plant_instances` | Zuordnung Tip zu Pflanze |
-| `ai_tip_references_run` | `ai_tip_cache` → `planting_runs` | Zuordnung Tip zu Durchlauf |
+| `ai_tip_references_plant` | `ai_tip_cache` → `plant_instances` | Zuordnung Tipp zu Pflanze |
+| `ai_tip_references_run` | `ai_tip_cache` → `planting_runs` | Zuordnung Tipp zu Durchlauf |
 | `ai_conversation_about` | `ai_conversations` → `plant_instances / planting_runs` | Konversationskontext |
 
 ---
@@ -502,7 +509,7 @@ backend:
     AI_OLLAMA_MODEL: gemma3:4b
     AI_TIP_CACHE_TTL_HOURS: "4"
     AI_MAX_CONCURRENT_TIPS: "5"           # 1 für CPU-only
-    AI_EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+    EMBEDDING_MODEL: multilingual-e5-large   # Knowledge-Service, 1024 Dimensionen
     AI_RAG_TOP_K: "5"
     AI_CONVERSATION_RETENTION_DAYS: "90"
 ```
@@ -709,5 +716,5 @@ CREATE INDEX idx_species_embeddings_hnsw
 - [Bilderkennung in Betrieb nehmen](../deployment/inference-service.md)
 - [pgvector Dokumentation](https://github.com/pgvector/pgvector)
 - [BAAI/bge-reranker-v2-m3](https://huggingface.co/BAAI/bge-reranker-v2-m3)
-- [sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+- [intfloat/multilingual-e5-large](https://huggingface.co/intfloat/multilingual-e5-large)
 - [facebookresearch/dinov2](https://github.com/facebookresearch/dinov2)

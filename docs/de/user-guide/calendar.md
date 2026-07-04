@@ -1,85 +1,134 @@
 # Kalender
 
-Der Kalender zeigt alle geplanten und vergangenen Aktivitäten in einer zentralen Ansicht: Aufgaben, Phasenübergänge, Gießereignisse, IPM-Inspektionen und Tankwartungen. Feeds lassen sich als iCal-Link in Google Calendar, Apple Calendar oder Thunderbird abonnieren.
+Der Kalender zeigt alle geplanten und vergangenen Aktivitäten in einer zentralen Ansicht: Aufgaben, Phasenübergänge, Gießvorschau, Termine für Integrierten Pflanzenschutz (IPM), Ernten und Tankwartungen — wahlweise als Monatsraster, Liste, Phasen-Timeline, Aussaatkalender oder Saisonübersicht. Ereignisse lassen sich als iCal-Feed in externe Kalender-Apps abonnieren.
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens eine aktive Pflanze oder einen aktiven Pflanzdurchlauf
+- Mindestens eine aktive Pflanze oder ein aktiver Pflanzdurchlauf
 - Für externe Kalender-Integration: Ein Kalender-Feed muss eingerichtet sein
 
 ---
 
 ## Die Kalenderansicht öffnen
 
-Klicke in der Navigation auf **Kalender**. Die Kalenderansicht öffnet sich in der Monatsansicht.
+Klicke in der Navigation auf **Kalender**. Die Ansicht öffnet standardmäßig in der Monatsansicht.
 
 ---
 
-## Ansichtsmodi
+## Die fünf Ansichten
 
-Der Kalender bietet vier Ansichtsmodi, zwischen denen du oben rechts wechseln kannst:
+Oben im Kalender wechselst du über Tabs zwischen fünf Ansichten:
 
-| Modus | Beschreibung |
-|-------|-------------|
-| **Monat** | Gesamtübersicht des Monats mit Ereignissen pro Tag |
-| **Woche** | Detaillierte Wochenansicht mit Zeitachse |
-| **Tag** | Alle Ereignisse eines Tages in der Tagesdetailansicht |
-| **Liste** | Tabellarische Listenansicht aller kommenden Ereignisse |
+| Tab | Beschreibung |
+|-----|-------------|
+| **Monatsansicht** | Monatsraster mit bis zu drei Ereignissen pro Tag; weitere werden als „+N" zusammengefasst |
+| **Listenansicht** | Tabellarische Liste aller im aktuellen Monat gefilterten Ereignisse, sortierbar |
+| **Phasen-Timeline** | Balkendiagramm der Phasenwechsel je Pflanzdurchlauf/Pflanze im aktuellen Monat |
+| **Aussaatkalender** | Wochengenauer Anbaukalender für Freilandpflanzen über das ganze Jahr |
+| **Saisonübersicht** | 12-Monats-Kachelraster mit Aussaat-, Ernte- und Blüte-Anzahl pro Monat |
 
-Für den täglichen Überblick empfiehlt sich die **Wochen-** oder **Listenansicht**.
+!!! note "Keine Wochen- oder Tagesansicht"
+    Kamerplanter bietet aktuell keine dedizierte Wochen- oder Tagesansicht. Für einen engen Zeitraum nutzt du am besten die Listenansicht.
 
 ---
 
 ## Ereignis-Kategorien und Farbkodierung
 
-Jede Ereignis-Kategorie hat eine eigene Farbe für schnelle visuelle Orientierung:
+Jede der elf Ereignis-Kategorien hat eine eigene Farbe für schnelle visuelle Orientierung. Über die Filter-Chips oberhalb des Kalenders blendest du einzelne Kategorien ein oder aus:
 
-| Farbe | Kategorie | Beschreibung |
-|-------|----------|-------------|
-| Blau | Aufgaben | Alle geplanten Pflegeaufgaben |
-| Grün | Phasenübergänge | Geplante oder durchgeführte Phasenwechsel |
-| Türkis | Gießereignisse | Dokumentierte Gießvorgänge |
-| Orange | IPM / Pflanzenschutz | Inspektionen und Behandlungen |
-| Rot | Ernten | Geplante und durchgeführte Ernten |
-| Grau | Tankwartung | Wasserwechsel, Kalibrierungen |
+| Kategorie | Beschreibung |
+|-----------|-------------|
+| Training | High-/Low-Stress-Training (HST/LST)-Maßnahmen |
+| Schnitt | Rückschnitt, Entlaubung |
+| Umtopfen | Umtopf-Termine |
+| Düngung | Düngeereignisse |
+| Pflanzenschutz | IPM-Inspektionen und Behandlungen |
+| Ernte | Geplante und durchgeführte Ernten |
+| Wartung | Allgemeine Pflegeaufgaben |
+| Phasenwechsel | Geplante oder durchgeführte Phasenwechsel |
+| Tankwartung | Wasserwechsel, Kalibrierungen |
+| Gießplan-Vorschau | Vorausberechnete Gießtermine aus aktiven Gießplänen |
+| Sonstiges | Freie/benutzerdefinierte Ereignisse |
+
+<!-- Quelle: src/frontend/src/pages/kalender/CalendarPage.tsx (ALL_CATEGORIES) -->
 
 ---
 
 ## Ereignisse filtern
 
-Für große Gärten mit vielen Pflanzen kann der Kalender schnell unübersichtlich werden. Nutze die Filter-Leiste oben:
+In der Monats-, Listen- und Phasen-Timeline-Ansicht stehen zwei Filter zur Verfügung:
 
-- **Kategorie**: Nur bestimmte Ereignistypen anzeigen
-- **Standort (Location)**: Nur Ereignisse eines bestimmten Bereichs
-- **Pflanze / Durchlauf**: Nur Ereignisse einer Pflanze oder eines Durchlaufs
-- **Priorität**: Nur kritische oder hohe Priorität
-- **Status**: Nur offene, erledigte oder überfällige Aufgaben
+- **Kategorie**: Klicke auf einen Kategorie-Chip, um ihn ein- oder auszublenden. Mehrere Kategorien lassen sich gleichzeitig kombinieren.
+- **Pflanze / Durchlauf**: Der Filterbaum am rechten Rand (ab Tablet-Breite) listet alle Pflanzdurchläufe mit ihren Pflanzen zum Ankreuzen.
 
-!!! tip "Filter kombinieren"
-    Du kannst mehrere Filter gleichzeitig aktiv haben. So siehst du z.B. nur die kritischen offenen Aufgaben für "Growzelt A" in der nächsten Woche.
+Für den Aussaatkalender und die Saisonübersicht steht stattdessen ein **Standort**-Filter zur Verfügung.
 
----
-
-## Aufgabe direkt aus dem Kalender heraus erledigen
-
-Klicke auf ein Aufgaben-Ereignis im Kalender. Ein kompaktes Panel öffnet sich mit:
-
-- Titel und Beschreibung der Aufgabe
-- Zugehörige Pflanze(n)
-- Schaltfläche **Erledigt markieren**
-
-So kannst du Aufgaben direkt im Kalender abhaken, ohne zur Aufgaben-Listenansicht wechseln zu müssen.
+!!! note "Keine Prioritäts- oder Status-Filter"
+    Ein Filter nach Priorität oder nach Status (offen/erledigt/überfällig) existiert im Kalender nicht. Diese Filter findest du stattdessen in der [Aufgaben-Übersicht](tasks.md).
 
 ---
 
-## Neue Aufgabe aus dem Kalender erstellen
+## Ereignisse ansehen
 
-1. Klicke auf einen leeren Tag oder eine leere Zeitstelle im Kalender.
-2. Ein Schnellerstellungs-Dialog öffnet sich.
-3. Gib Titel, Typ und Pflanzenzuordnung ein.
-4. Klicke auf **Erstellen** — die Aufgabe erscheint sofort im Kalender.
+Klicke in der Monatsansicht auf ein einzelnes Ereignis, um ein Detail-Popover mit Titel, Kategorie, Datum und Beschreibung zu öffnen. Bei Gießplan-Vorschau-Ereignissen zeigt das Popover zusätzlich Ziel-EC, Ziel-pH und die anzumischenden Dünger; über **Gegossen** bestätigst du den Gießvorgang direkt aus dem Popover heraus.
+
+Klicke auf einen Tag mit mehreren Ereignissen, um alle Ereignisse dieses Tages in einem Tages-Popover zu sehen — Phasenwechsel werden dabei nach Pflanzdurchlauf gruppiert.
+
+Über **Details anzeigen** springst du von einem Ereignis zur zugehörigen Aufgabe oder Pflanze.
+
+!!! note "Kein direktes Abhaken oder Erstellen im Kalender"
+    Der Kalender selbst bietet keine Schaltfläche „Erledigt markieren" für normale Aufgaben (das gilt nur für Gießvorschau-Ereignisse) und auch keinen Schnellerstellungs-Dialog für neue Aufgaben. Beides erledigst du in der [Aufgaben-Übersicht](tasks.md).
+
+---
+
+## Phasen-Timeline
+
+Die Phasen-Timeline zeigt für jeden Pflanzdurchlauf und jede Einzelpflanze eine Zeile mit farbigen Balken pro Wachstumsphase im aktuell angezeigten Monat. Balken werden je nach Status unterschiedlich dargestellt (abgeschlossen / aktuell / geplant). Über die Filter **Durchläufe filtern** und **Pflanzen filtern** blendest du einzelne Gruppen aus.
+
+---
+
+## Aussaatkalender (Freiland)
+
+Für Freilandgärtner bietet Kamerplanter einen wochengenauen Aussaatkalender über das ganze Kalenderjahr.
+
+### Aufbau
+
+Jede Zeile zeigt eine Art mit ihren Anbau-Balken über 52 Wochen:
+
+| Balken | Bedeutung |
+|--------|-----------|
+| Voranzucht | Aussaat drinnen (vor dem letzten Frost) |
+| Auspflanzen | Direktsaat oder Auspflanzen ins Beet |
+| Wachstum | Zeitraum zwischen Aussaat/Auspflanzen und Ernte/Blüte, automatisch aus Lücken befüllt |
+| Ernte | Erntefenster |
+| Blüte | Blühfenster (bei Zierpflanzen anstelle von Ernte) |
+
+Über die Kategorie-Chips (z.B. Gemüse, Küchenkraut, Balkonpflanze, Zwiebel-/Knollenpflanze) filterst du die angezeigten Arten. Mit dem Stern-Symbol markierst du Favoriten — die Option **Nur Favoriten** blendet den Rest aus. Über das Lupen-Symbol öffnest du die Art-Detailseite. Eine gestrichelte Linie markiert die **Eisheiligen** (Standard: 15. Mai), ein hervorgehobener Streifen die aktuelle Woche.
+
+<!-- Quelle: src/backend/app/domain/engines/sowing_calendar_engine.py -->
+
+!!! tip "Vorrangregeln der Terminberechnung"
+    - Sind für eine Art explizite **Direktsaat-Monate** hinterlegt, haben sie Vorrang vor der Berechnung „Tage nach letztem Frost".
+    - Bei **frostempfindlichen** Arten wird der Auspflanz-Termin automatisch nicht vor die Eisheiligen gelegt.
+    - Die **Wachstum**-Balken werden automatisch in die Lücke zwischen Aussaat/Auspflanzen und Ernte/Blüte eingefügt, sofern keine expliziten Wachstumsmonate hinterlegt sind.
+
+### Jahr und Standort wählen
+
+Über die Jahresnavigation oben im Kalender wechselst du das angezeigte Kalenderjahr; über den Standort-Filter beschränkst du die Anzeige auf einen Standort.
+
+!!! info "Frostdaten nur über die API konfigurierbar"
+    Der letzte Frosttermin und die Eisheiligen werden aktuell **nicht** über ein Formularfeld am Standort gepflegt — es gibt kein entsprechendes Eingabefeld im Standort-Formular. Ohne eigene Angabe verwendet Kamerplanter feste Standardwerte für Mitteleuropa (1. Mai letzter Frost, 15. Mai Eisheilige). Wer eigene Werte hinterlegen möchte, kann das aktuell nur über die technische API tun.
+
+---
+
+## Saisonübersicht
+
+Die Saisonübersicht zeigt ein Kachelraster mit allen zwölf Monaten des gewählten Jahres. Jede Kachel nennt die Anzahl an Aussaat-, Ernte- und Blüh-Ereignissen aus dem Aussaatkalender für diesen Monat; der aktuelle Monat ist hervorgehoben. Ein Klick auf eine Kachel springt in die Monatsansicht für diesen Monat.
+
+!!! note "Aufgaben-Anzahl noch nicht befüllt"
+    Die Kachel zeigt zusätzlich ein Feld „Aufgaben" — dieses ist aktuell immer 0, da die zugrunde liegende Aggregation von Aufgaben pro Monat noch nicht angebunden ist.
 
 ---
 
@@ -92,24 +141,15 @@ Du kannst deinen Kamerplanter-Kalender in externe Kalender-Apps abonnieren. So e
 
 ### Schritt 1: Kalender-Feed einrichten
 
-1. Navigiere zu **Kalender → Feeds** (Tab oben rechts im Kalender).
-2. Klicke auf **Neuer Feed**.
-3. Gib dem Feed einen Namen (z.B. "Mein Hauptkalender" oder "Nur Growzelt A").
+1. Öffne den Bereich **iCal-Feeds** unten im Kalender.
+2. Klicke auf **Feed erstellen**.
+3. Gib dem Feed einen Namen (z.B. „Mein Hauptkalender"). Der Feed übernimmt beim Erstellen deine aktuell aktivierten Kategorie-Filter.
 
-### Schritt 2: Feed konfigurieren
+### Schritt 2: Feed-URL kopieren
 
-| Einstellung | Beschreibung |
-|-------------|-------------|
-| Name | Anzeigename in der externen App |
-| Kategorien | Welche Ereignistypen soll der Feed enthalten? |
-| Standort-Filter | Nur Ereignisse eines bestimmten Bereichs |
-| Priorität-Filter | Nur ab einer bestimmten Priorität |
+Nach dem Speichern erscheint der Feed in der Liste mit seiner `webcal://`-URL. Klicke auf **URL kopieren**.
 
-### Schritt 3: Feed-URL kopieren
-
-Nach dem Speichern erscheint eine `webcal://`-URL. Kopiere diese URL.
-
-### Schritt 4: In externem Kalender abonnieren
+### Schritt 3: In externem Kalender abonnieren
 
 === "Google Calendar"
 
@@ -139,54 +179,41 @@ Nach dem Speichern erscheint eine `webcal://`-URL. Kopiere diese URL.
     1. Installiere eine App wie **ICSx5** aus dem Play Store.
     2. Füge die `webcal://`-URL als neues Abonnement hinzu.
 
-### Feed aktualisieren oder löschen
+### Feed-Token erneuern
 
-Feeds können jederzeit bearbeitet oder gelöscht werden unter **Kalender → Feeds**. Beim Löschen wird der Feed-Link ungültig — er muss in der externen App ebenfalls entfernt werden.
+Jeder Feed hat eine geheime, in der URL enthaltene Token-Kennung. Über **Token erneuern** generierst du eine neue Token-Kennung und damit eine neue Feed-URL.
 
----
+!!! warning "Alter Link wird sofort ungültig"
+    Sobald du den Token erneuerst, funktioniert die bisherige `webcal://`-URL nicht mehr — die externe App zeigt einen Fehler statt neuer Ereignisse. Trage die neue URL in jeder App nach, in der du den Feed abonniert hast. Nutze diese Funktion, wenn du einen Feed-Link versehentlich geteilt hast oder den Zugriff eines ehemaligen Mitglieds beenden willst.
 
-## Aussaatkalender (Freiland)
+### Feed löschen
 
-Für Freilandgärtner bietet Kamerplanter einen integrierten Aussaatkalender, der zeigt, wann Voranzucht, Direktsaat und Auspflanzen für deine Pflanzen sinnvoll sind.
+Feeds können jederzeit unter **iCal-Feeds** gelöscht werden. Beim Löschen wird der Feed-Link ungültig — er muss in der externen App ebenfalls entfernt werden.
 
-### Aussaatkalender öffnen
-
-Klicke im Kalender oben auf **Aussaatkalender** (Tab).
-
-Der Aussaatkalender zeigt:
-- **Voranzucht-Zeitfenster** (Indoor): Wann Samen drinnen vorziehen
-- **Direktsaat-Zeitfenster**: Wann Direktsaat ins Beet möglich ist
-- **Auspflanzen**: Wann vorgezogene Pflanzen raus können
-- **Erwartete Erntezeit**: Auf Basis der Wachstumsdauer der Sorte
-
-### Frosttermin konfigurieren
-
-Damit der Aussaatkalender korrekte Termine berechnet, hinterlege den letzten Frosttermin für deinen Standort:
-
-1. Öffne **Einstellungen → Standort** oder öffne die Site-Detailseite.
-2. Trage unter **Frostdaten** den mittleren letzten Frosttermin für deinen Standort ein (z.B. "15. April" für Mitteleuropa).
-3. Das System berechnet alle Aussaatdaten relativ zu diesem Datum.
+!!! info "Ablaufdatum nur über die API"
+    Kamerplanter unterstützt intern ein optionales Ablaufdatum für Feeds — nach Ablauf liefert der Feed-Endpunkt einen Fehler (HTTP 410 „Gone") statt Ereignissen. Ein Ablaufdatum lässt sich aktuell nicht über die Oberfläche setzen, nur über die technische API.
 
 ---
 
 ## Häufige Fragen
 
 ??? question "Warum sehe ich eine Aufgabe im Kalender, die ich schon abgehakt habe?"
-    Abgehakte Aufgaben werden standardmäßig nicht ausgeblendet, sondern als erledigt markiert angezeigt. Aktiviere im Filter **Nur offene Aufgaben**, um erledigte auszublenden.
+    Abgehakte Aufgaben werden im Kalender weiterhin angezeigt. Blende sie über die [Aufgaben-Übersicht](tasks.md) mit dem Status-Filter aus.
 
-??? question "Kann ich wiederkehrende Ereignisse im Kalender anlegen?"
-    Ja, aber nur über Pflegeprofile und Workflow-Templates — nicht direkt im Kalender. Ein Pflegeprofil mit wöchentlichem Düngeintervall erstellt automatisch wiederkehrende Aufgaben, die im Kalender erscheinen.
+??? question "Kann ich wiederkehrende Ereignisse anlegen?"
+    Ja — direkt beim Erstellen einer Aufgabe über das Feld **Wiederholung** (täglich/wöchentlich/zweiwöchentlich/monatlich), sichtbar ab der Erfahrungsstufe „Fortgeschritten". Zusätzlich erzeugen aktive Pflegeprofile automatisch wiederkehrende Gieß- und Düngeerinnerungen. Beide Quellen erscheinen im Kalender. Mehr dazu: [Aufgaben](tasks.md).
 
 ??? question "Wie oft aktualisiert sich der iCal-Feed?"
     Der iCal-Feed wird bei jeder Abfrage durch die externe App in Echtzeit generiert. Die Aktualisierungsfrequenz hängt von der externen Kalender-App ab — Google Calendar aktualisiert ca. alle 24 Stunden, Apple Calendar alle 12 Stunden.
 
 ??? question "Kann ich den Kalender auf mehrere Personen im Garten aufteilen?"
-    Ja. Du kannst mehrere Feeds mit unterschiedlichen Filtern (z.B. nach Standort oder Kategorie) anlegen und an verschiedene Personen weitergeben. Jedes Mitglied des Mandanten erhält so seinen personalisierten Kalender-Feed.
+    Ja. Du kannst mehrere Feeds mit unterschiedlichen Kategorie-Filtern anlegen und die jeweilige URL an verschiedene Personen weitergeben.
 
 ---
 
 ## Siehe auch
 
 - [Aufgaben](tasks.md)
+- [Pflegeerinnerungen](care-reminders.md)
 - [Dashboard](dashboard.md)
 - [Pflanzdurchläufe](planting-runs.md)

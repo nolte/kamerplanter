@@ -1,16 +1,13 @@
-# Companion Planting
+# Companion Planting & Crop Rotation
 
-Companion planting means growing different plant species together in one space so they
-support each other. Kamerplanter gives you concrete recommendations based on a
-compatibility database and shows which combinations work well — and which you should
-avoid.
+Kamerplanter helps you with two closely related growing decisions: **which plant species help or harm each other** (companion planting) and **which botanical family should follow which one on the same slot** (crop rotation). Both are managed through global master data and are partly checked automatically when you create a plant.
 
 ---
 
 ## Prerequisites
 
-- At least one location (bed or greenhouse) set up in Kamerplanter
-- Plant species available in master data (or imported via search)
+- Plant species with an assigned botanical family in master data
+- For the automatic check: a location with slots set up
 
 ---
 
@@ -46,9 +43,7 @@ Beans        → Nitrogen fixation for corn and squash
 Squash       → Large leaves shade the soil, retain moisture
 ```
 
-!!! example "Setting up in Kamerplanter"
-    Create a planting run of type "mixed_culture" and choose corn as the primary plant.
-    The system suggests beans and squash as companions.
+Kamerplanter's master data marks all three pairings as compatible (corn + beans: 0.9 · corn + squash: 0.85 · beans + squash: 0.8). Set up a separate [planting run](../user-guide/planting-runs.md) for each of the three species at the same location — there is no dedicated "mixed culture" run type (see [What a Planting Run Is](../user-guide/planting-runs.md#what-is-a-planting-run)).
 
 ### Tomato & Basil
 
@@ -62,7 +57,7 @@ Probably the most well-known companion planting pair in greenhouse and outdoor g
 
 ### Carrot & Onion
 
-Classic vegetable pairing:
+Classic vegetable pairing (score 0.9):
 
 - Onions and carrots use different soil layers
 - Onion scent disrupts carrot fly oviposition
@@ -108,69 +103,72 @@ Two flowers that can be used almost anywhere:
 | Onion + peas | Growth inhibition of peas | Different bed sections |
 | Potato + squash | Strong nutrient competition | Plan rotation accordingly |
 
+<!-- Source: src/backend/app/migrations/seed_data/companion_planting.yaml -->
+
 ---
 
-## Using Companion Planting in Kamerplanter
+## Maintaining Compatibility Master Data
 
-### Step 1: Create a planting run as mixed culture
+### Where to find it
 
-1. Navigate to **Planting Runs** and click **New Run**.
-2. Select **Mixed Culture** as the run type.
-3. Choose your primary plant (e.g., tomato).
-4. The system immediately shows you recommendations for companion plants.
+- Navigation: **Master Data → Companion Planting** — global management, independent of a specific bed.
+- Alternatively, directly on the species detail page: the **Companion Planting** tab (visible from the "Expert" experience level), pre-selected for that species.
 
-!!! info "Screenshot pending"
-    This screenshot will be added in a future version.
+### How it works
 
-### Step 2: Select companion plants
-
-Kamerplanter distinguishes three entry roles:
-
-| Role | Meaning |
-|------|---------|
-| **Primary** | Main plant of the bed (e.g., tomato) |
-| **Companion** | Beneficial companion (e.g., basil) |
-| **Trap crop** | Actively attracts pests to protect the primary plant (e.g., marigolds) |
-
-For each recommendation, the system shows:
-
-- **Compatibility score** (0.0–1.0): Higher = more recommended
-- **Effect type**: Pest repellency, growth enhancement, soil improvement, etc.
-- **Rationale**: Short explanation (e.g., "Whitefly repellent via essential oils")
-- **Match level**: Species level (exact) or family level (fallback, 20% score reduction)
-
-### Step 3: Compatibility check
-
-Once you have assembled a plant combination, check the overall compatibility:
-
-- **Green**: All combinations are compatible
-- **Yellow (warning)**: One or more incompatible pairs found; planting possible but
-  not recommended
-- **Red**: Critically incompatible combination (e.g., fennel + tomato)
+1. Select a species from the dropdown. Kamerplanter shows two cards: **Compatible Species** and **Incompatible Species**.
+2. Click **Add Compatibility**, choose the partner species, and assign a **score** between 0.1 (weak) and 1.0 (strong) — this is the compatibility score, such as the 0.9 score used for tomato and basil.
+3. Click **Add Incompatibility**, choose the partner species, and enter a short **reason** (e.g. "allelopathy").
 
 !!! note "Family-level fallback"
-    If no specific entry exists for a species pair, the system checks the family level.
-    A family-level match is reduced by 20% in score and marked as "family level" so
-    you can distinguish it from species-level matches.
+    If no entry exists yet for a specific species pair, Kamerplanter automatically looks for a matching compatibility at the **family level** when you request a recommendation. Such a fallback match is reduced by 20% in score (score × 0.8) and marked "family level" instead of "species level".
+
+!!! info "Who maintains this data?"
+    Compatibility and incompatibility entries are global master data, visible to all users. They are therefore maintained by **platform admins** — a corresponding permission guard for the underlying interface is currently being added. You can still record your own, plant-specific observations independently in the plant diary, once a user interface for it is available (see [Planting Runs: Plant Diary](../user-guide/planting-runs.md#plant-diary-currently-api-only)).
+
+<!-- Source: src/frontend/src/pages/stammdaten/CompanionPlantingPage.tsx, src/backend/app/api/v1/companion_planting/router.py -->
 
 ---
 
-## Integrating Crop Rotation
+## Automatic Check When Creating a Plant (Slot Neighborhood)
 
-Companion planting and crop rotation complement each other. Kamerplanter tracks a
-4-year cycle per bed:
+When you create a **single plant** via **Plants → Plant Instances → New Plant** and assign it a **slot**, Kamerplanter automatically checks the directly adjacent slots:
 
-<!-- diagram-source: user-described — 4-year crop-rotation cycle per bed by nutrient-demand category -->
-```mermaid
-flowchart LR
-    A["Year 1<br/>Heavy feeders<br/>Tomato, squash, corn"] --> B["Year 2<br/>Medium feeders<br/>Carrot, onion, lettuce"]
-    B --> C["Year 3<br/>Light feeders<br/>Herbs, peas"]
-    C --> D["Year 4<br/>Green manure<br/>Phacelia, clover, lupine"]
-    D --> A
-```
+- If an **incompatible** species is already planted there, Kamerplanter rejects the creation with an error message.
+- If a **compatible** species is planted there, this is recorded internally as a benefit.
 
-For companion planting: plants from the same nutrient category do not improve soil
-health — combine heavy feeders with legumes where possible.
+!!! warning "Does not apply to plants from a planting run"
+    The neighborhood check currently only applies when you create a plant individually via the **Plant Instances** master-data page. When plants are created automatically from a [planting run's](../user-guide/planting-runs.md) entries, **no** compatibility check takes place.
+
+<!-- Source: src/backend/app/domain/engines/companion_planting_engine.py, src/backend/app/domain/services/plant_instance_service.py -->
+
+---
+
+## Crop Rotation
+
+Crop rotation means deliberately alternating botanical families on a slot over the years — this prevents one-sided nutrient depletion and the buildup of family-specific pests and diseases in the soil.
+
+### Maintaining successor master data
+
+- Navigation: **Master Data → Crop Rotation**. Alternatively, on the species detail page: the **Crop Rotation** tab ("Expert" experience level), pre-selected with that species' family.
+
+1. Select a **source family**. Kamerplanter shows the already recorded **successor families**.
+2. Click **Add Successor**, choose the target family, and enter the **wait time in years** (1–10). This is how long to wait before a plant of the source family is grown on the same slot again.
+
+### Automatic check
+
+When you create a **single plant** with a slot, Kamerplanter also checks that slot's planting history over a default period of **3 years**:
+
+| Result | Meaning |
+|--------|---------|
+| **Critical** (blocks creation) | The same botanical family was already grown on the same slot within the last 3 years |
+| **Warning** | The planned family shares a high pest/disease risk with a family previously grown there |
+| **Positive** | The planned family is recorded as a recommended successor of a family previously grown there (including a nitrogen-benefit note for nitrogen-fixing predecessors) |
+| **No indication** | No matching data available for this combination |
+
+A critical result blocks the plant's creation with an error message. As with the companion-planting check, this only applies to individually created plants, not to those created automatically from a planting run.
+
+<!-- Source: src/backend/app/domain/engines/crop_rotation_validator.py, src/backend/app/config/constants.py (DEFAULT_ROTATION_WINDOW_YEARS = 3) -->
 
 ---
 
@@ -183,22 +181,22 @@ health — combine heavy feeders with legumes where possible.
 
 ??? question "Does companion planting work in greenhouses and indoors?"
     Yes, with limitations. Aromatic pest repellency works indoors too. However, space
-    is often limited, and some companions (e.g., tall marigold varieties) can hinder
-    air circulation. Kamerplanter marks recommendations that are primarily validated
-    for outdoor food crops.
+    is often limited, and some companions (e.g. tall marigold varieties) can hinder
+    air circulation. The bundled compatibility data is compiled primarily for
+    outdoor food crops.
 
 ??? question "Where does the compatibility data come from?"
-    The seed data in Kamerplanter is based on established gardening references and
-    recognized companion planting sources. Each entry carries a source citation
-    (e.g., "Mein schoener Garten", "fryd.app", "experiential knowledge").
+    The bundled master data is based on established gardening references and
+    recognized companion-planting recommendations. The interface currently does not
+    show a source citation per individual entry.
 
 ??? question "Can I add my own compatibility pairs?"
-    Currently only platform admins manage the global compatibility edges. You can
-    record your own observations in the plant diary (PlantDiaryEntry).
+    The user interface for this (**Master Data → Companion Planting**) is open to all users; however, maintenance is intended for **platform admins**, since the data applies globally across all tenants. You should record your own, plant-specific observations in the plant diary instead.
 
-## See also
+## See Also
 
 - [Planting Runs](../user-guide/planting-runs.md)
 - [Locations & Substrates](../user-guide/locations-substrates.md)
+- [Master Data: Plant Species](../user-guide/plant-management.md)
 - [Pest Management (IPM)](../user-guide/pest-management.md)
 - [GDD Calculation](gdd-calculation.md)

@@ -1,49 +1,67 @@
-# Tasks and Care Reminders
+# Tasks
 
-Kamerplanter automatically creates tasks from workflows and care profiles and reminds you in time of all upcoming care activities. You retain full control at all times: tasks can be adjusted, recreated, and managed flexibly.
+Kamerplanter combines manually created tasks, automatically generated care reminders, and task packages created from workflow templates into a single shared queue. You retain full control at all times: tasks can be adjusted, edited in bulk, and managed flexibly.
 
 ---
 
 ## Prerequisites
 
 - At least one plant or an active planting run
-- Care profiles are suggested automatically but can also be configured manually
+- For automatic care reminders: a care profile (created automatically on first access) — see [Care Reminders](care-reminders.md)
 
 ---
 
 ## Tasks at a Glance
 
-Find the task overview under **Tasks** in the navigation. The view shows:
+Open **Tasks** in the navigation (`/aufgaben/queue`). The overview groups all entries by urgency:
 
-- **Due Today**: Tasks that should be completed today
-- **Overdue**: Tasks that have passed their due date (marked red)
-- **Next Week**: Tasks for the next 7 days
-- **All Tasks**: Complete list with filter and sort options
+- **Overdue**: Past the due date (marked red)
+- **Today**: Due today
+- **This Week**: Due within the next 7 days
+- **Future**: Everything else without a fixed due date, or due later
 
-Each task displays:
-- Type (watering, fertilizing, inspection, harvest, etc.)
-- Associated plant(s) or planting run
-- Priority (Low / Normal / High / Critical)
+Use the **Source** filter (All / Tasks / Care) to show only manually or workflow-created tasks, only automatic care reminders, or both together.
+
+Each task shows:
+
+- Title and category
+- Associated plant or planting run
+- Priority (Low / Medium / High / Critical), if it differs from "Medium"
 - Due date
 
 ---
 
-## Task Types
+## Task Categories
 
-Kamerplanter distinguishes between manually created tasks and automatically generated tasks:
+Kamerplanter has twelve task categories:
 
-**Automatically generated tasks are created by:**
-- Watering schedule (based on configured interval or substrate moisture)
-- Care profile engine (reminders for fertilizing, repotting, cleaning)
-- Phase transitions (task "Check if ready for next phase")
-- Tank maintenance (water changes, calibrations)
-- IPM inspection plans (pest control)
-- Sensor failures ("Check sensor XY")
-- Seasonal triggers (frost protection, overwintering)
+| Category | Description |
+|----------|-------------|
+| Maintenance | General care work |
+| Feeding | Fertilization events |
+| Training | High-/low-stress training (HST/LST) measures |
+| Pruning | Cutting back |
+| Defoliation (ausgeizen) | Removing side shoots (mainly tomatoes) |
+| Transplant | Repotting appointments |
+| Plant Protection | Integrated Pest Management (IPM) measures |
+| Harvest | Harvest appointments |
+| Observation | Maturity observation, inspection rounds |
+| Care Reminder | Automatically generated from the care profile |
+| Seasonal Task | Tasks tied to the season |
+| Phenological Task | Tasks tied to natural events |
 
-**Manually creatable tasks:**
-- Any single task (free text)
-- Tasks from workflow templates
+<!-- Source: src/backend/app/common/enums.py (TaskCategory) -->
+
+!!! note "No dedicated \"Watering\" task type"
+    There is no dedicated "Watering" category. Automatic watering reminders run under the **Care Reminder** category; manual watering tasks are created under **Maintenance** or **Observation**, depending on context.
+
+---
+
+## Where Tasks Come From
+
+- **Created manually**: via the **Create Task** button
+- **From workflow templates**: by applying a workflow template (see below)
+- **Automatically as a care reminder**: from a plant's care profile (watering, fertilizing, repotting, pest check, location check, humidity check) — see [Care Reminders](care-reminders.md)
 
 ---
 
@@ -51,23 +69,25 @@ Kamerplanter distinguishes between manually created tasks and automatically gene
 
 ### Step 1: Add a New Task
 
-Click **Create Task** (top right) in the task overview.
+Click **Create Task** in the task overview.
 
 ### Step 2: Describe the Task
 
 | Field | Description |
 |-------|-------------|
 | Title | Short, clear description |
-| Description | Full details and instructions |
-| Type | Category (Watering, Fertilizing, Inspection, Training, Harvest, Other) |
-| Priority | Low / Normal / High / Critical |
+| Instruction | Step-by-step guidance for carrying out the task |
+| Category | One of the twelve task categories |
 | Due Date | When must the task be completed? |
-| Plant / Run | Assignment to plant(s) or planting run |
-| Tags | Free keywords (e.g. "urgent", "discuss-with-partner") |
+| Priority | Low / Medium / High / Critical |
+| Estimated Duration (min) | For time planning |
+| Plant | Assignment to a plant |
 
-### Step 3: Optional — Set a Reminder
+Additional fields — **Skill Level**, **Recurrence**, **Assigned To**, **Timer Duration/Label**, and **Tags** — only appear from the "Intermediate" experience level onward (Settings → Experience Level).
 
-Enable the reminder feature to receive a notification before the due date.
+### Step 3: Checklist (Optional)
+
+Add as many checklist items as you like (press Enter to confirm). The checklist is for your own overview while carrying out the task — it does not block completion.
 
 ### Step 4: Save
 
@@ -80,20 +100,24 @@ The task appears immediately in the task overview and in the calendar.
 ### Completing a Single Task
 
 1. Open the task by clicking its title.
-2. Click **Mark as Complete**.
-3. Optional: enter a completion date and a note.
+2. Click **Start** to set it to in progress (optional, activates the timer if configured).
+3. Click **Complete**. Optionally enter notes, the actual duration, and a difficulty and quality rating (1–5).
 4. Confirm.
+
+!!! warning "Photo required"
+    If **Photo Required** is enabled for the task, Kamerplanter blocks completion until at least one photo has been uploaded.
 
 ### Ticking Off a Task from the List View
 
-Click the checkmark icon next to a task in the list. The task is immediately marked as complete.
+Click the checkmark icon next to a task in the list. The task is immediately marked as complete (unless a photo is required).
 
-!!! tip "Adaptive schedules"
-    Kamerplanter learns from your completion patterns. If you consistently tick off a watering task one day early, the system adjusts the interval automatically (up to ±30 % deviation from the original interval).
+### Timer
+
+If a task has a timer duration set (e.g. for mixing protocols: "stir and wait"), the countdown timer appears once you start the task.
 
 ---
 
-## Editing multiple tasks at once
+## Editing Multiple Tasks at Once
 
 When many tasks pile up, you can handle them in bulk instead of touching each one individually.
 
@@ -109,123 +133,91 @@ When many tasks pile up, you can handle them in bulk instead of touching each on
 
 ## Using Workflow Templates
 
-Workflow templates are predefined task packages for common care scenarios. Instantiating a template means the system creates a set of concrete tasks from the template for your plant or run.
+Workflow templates are predefined task packages for recurring care scenarios. Applying a template means the system creates a set of concrete tasks from it for your plant, run, site, or tank.
 
 ### Step 1: Select a Template
 
-Navigate to **Tasks → Workflow Templates**. You will see predefined system templates:
+Navigate to **Tasks → Workflow Templates** (`/aufgaben/workflows`). Kamerplanter ships four system templates:
 
-**Indoor templates:**
-- Cannabis SOG (Sea of Green)
-- Cannabis SCROG (Screen of Green)
-- Nutrient Solution Change (hydroponics)
-- Probe Calibration
+| Template | Target Entity | Category | Description |
+|----------|---------------|----------|-------------|
+| Cannabis SOG | Plant | Harvest | Sea of Green workflow for cannabis, from transplanting into SOG positions through harvest (6 tasks across the vegetative and flowering phases) |
+| Tomato Standard | Plant | Maintenance | Standard tomato growing: transplanting, staking, deshooting, weekly feeding, ripeness observation, harvest |
+| General Maintenance | Plant | Maintenance | General recurring inspection and care tasks, independent of plant species |
+| Tank Anmischen (Tank Mixing) | Tank | Feeding | Step-by-step mixing protocol for nutrient solutions in the correct mixing order, including stir-and-wait timers |
 
-**Houseplant templates:**
-- Tropical Foliage Plant (Standard)
-- Orchid (Phalaenopsis)
-- Cactus / Succulent
-- Calathea / Maranta
-- Repotting Workflow
-- Overwintering Workflow
+<!-- Source: src/backend/app/migrations/seed_data/workflows.yaml -->
 
-**Outdoor templates:**
-- Frost Protection Workflow
-- Hardening-Off Workflow (indoor → outdoor)
-- Spring Bed Preparation
-- Propagation Workflow
-- Season-End Workflow (autumn)
-- Rose Annual Care
+!!! tip "Tasks adapt to the growth phase"
+    Tasks tied to a specific growth phase (e.g. "Flip to 12/12" in Cannabis SOG) are created with status **Dormant** when applying the template and only activate once the plant actually reaches that phase.
 
-### Step 2: Apply Template to a Plant or Run
+### Step 2: Apply the Template to an Entity
 
 1. Click **Apply Template** next to the desired template.
-2. Select the target plant(s) or planting run.
-3. Choose a start date.
-4. The system calculates all due dates automatically based on the template and growth phase.
-5. Confirm — all tasks are created.
+2. Select the matching target entity (plant, planting run, site, or tank — depending on the template).
+3. Confirm — all tasks are created immediately. Due dates are calculated from today according to the day offsets stored in the template.
 
 ### Creating Your Own Templates
 
-When you use a sequence of tasks repeatedly:
+If you use a sequence of tasks repeatedly, you can create your own template:
 
 1. Navigate to **Tasks → Workflow Templates → New Template**.
-2. Give the template a name and description.
-3. Add tasks (title, type, days from start).
-4. Save. The template is now available for all your plants.
+2. Provide a name, description, category, and target entity/entities.
+3. Open the newly created template and use **Add Task** to add individual task templates with title, instruction, category, trigger, and day offset.
+4. The template is then available for all your plants or target entities.
+
+!!! note "Best suited for experienced users"
+    The workflow editor targets experienced users — some dropdown fields use technical labels. For getting started, the four system templates are usually a better fit than building a template from scratch.
 
 ---
 
-## Care Profiles and Automatic Reminders
+## Activity Plans
 
-Care profiles define the basic care behaviour of a plant: how often to water? how often to fertilize? when to repot?
-
-### Viewing and Adjusting a Care Profile
-
-1. Open a plant and switch to the **Care** tab.
-2. The system automatically suggests a care profile based on the plant species.
-3. Click **Edit Profile** to adjust the intervals.
-
-**Adjustable parameters:**
-- Watering interval (days) or mode (based on substrate moisture)
-- Fertilization interval (weeks)
-- Repotting interval (months)
-- Seasonal multipliers (e.g. water less in winter)
-
-### Predefined Care Styles
-
-Kamerplanter knows nine care styles, automatically derived from the plant family:
-
-| Care Style | Typical Plants | Characteristic |
-|-----------|----------------|---------------|
-| Tropical | Monstera, Philodendron, Ficus | High humidity, regular watering |
-| Mediterranean | Rosemary, thyme, lavender | Drought-resistant, water rarely |
-| Succulent / Cactus | Cacti, echeveria, aloe | Rare watering, winter dormancy |
-| Orchid | Phalaenopsis, dendrobium | Soaking instead of watering, temperature drop |
-| Fern | Ferns, calathea | High humidity, no waterlogging |
-| Vegetable (heavy feeder) | Tomato, courgette, pepper | Intensive fertilization, regular watering |
-| Vegetable (light feeder) | Herbs, lettuce, radishes | Little fertilizer, moderate watering |
-| Cannabis | Cannabis | Phase-dependent watering and feeding |
-| Hydroponics | All hydro plants | EC/pH control, reservoir changes |
+For an individual planting run, you can additionally apply an **activity plan** — a task suggestion list derived from the activities defined for the plant species. You will find it in the **Activity Plan** tab on the planting run's detail page. More: [Planting Runs](planting-runs.md).
 
 ---
 
-## Filtering and Sorting Tasks
+## Care Reminders
+
+Automatically generated watering, fertilizing, and other care reminders are not a separate area — they appear in the same task overview (Source filter "Care"). For how the care profile works, which reminder types exist, and how escalation works, see [Care Reminders](care-reminders.md).
+
+---
+
+## Filtering Tasks
 
 The task overview provides these filters:
 
-- **By Status**: Open / Complete / Overdue
-- **By Type**: Watering, Fertilizing, Inspection, Harvest, Training, Other
-- **By Plant or Run**
-- **By Location**
-- **By Priority**
-- **By Tags**
+- **Source**: All / Tasks / Care
+- **Category**: one of the twelve task categories (only for the "Tasks" source)
+- **Plant**: narrow down to a specific plant
 
-Click the filter button at the top of the list to show or hide the filter bar.
+!!! note "No filter by location, priority, or tags"
+    These filters do not currently exist in the task overview.
 
 ---
 
 ## Frequently Asked Questions
 
-??? question "How many automatic tasks does Kamerplanter create per day?"
-    That depends on the number of plants and active care profiles. Kamerplanter bundles multiple tasks where possible (e.g. "Water all plants in Tent A" instead of individual watering tasks per plant). You can configure in settings whether tasks are bundled per plant or per location.
-
 ??? question "Can I delete an automatically created task?"
-    Yes. You can delete any task regardless of its origin. If you delete a task from a running care plan, Kamerplanter creates a new task on the next planning run (daily) — provided the care profile is still active.
+    Yes, as long as it is in status Pending, Skipped, or Dormant. Tasks already started or completed can no longer be deleted. If you delete an open care reminder, Kamerplanter creates a new one on the next daily planning run if needed — provided the care profile is still active.
 
 ??? question "What happens to the tasks when I remove a plant?"
-    When you remove a plant, its still-open tasks (pending, in progress, dormant) are automatically removed from the queue — they are no longer relevant once the plant is gone. Tasks that were already completed, skipped, or failed are kept as history. Removed plants also no longer generate new automatic tasks (such as care reminders or flush hints).
+    When you remove a plant, its still-open tasks (pending, in progress, dormant) are automatically removed from the queue. Tasks that were already completed, skipped, or failed are kept as history. Removed plants also no longer generate new automatic care reminders.
 
-??? question "What does the red marking on overdue tasks mean?"
-    A red marking means a task has passed its due date. It is a notice, not an automatic escalation. Kamerplanter escalates overdue tasks to "Critical" priority after 48 hours.
+??? question "Does Kamerplanter automatically escalate overdue tasks?"
+    Only for **watering reminders**: if a watering reminder remains unconfirmed, the system raises the notification urgency to "High" after 2 days and to "Critical" after 4 days; a final warning follows after 7 days. There is no automatic escalation for other task types — the red overdue marking is purely a visual indicator there.
+
+??? question "Can I create recurring tasks?"
+    Yes, directly when creating a task via the **Recurrence** field (daily/weekly/biweekly/monthly) — visible from the "Intermediate" experience level onward. As soon as you complete a recurring task, Kamerplanter automatically creates the next instance.
 
 ??? question "Can I assign tasks to other members of my tenant?"
-    Yes, if you are working in a shared garden (with multiple members). Open the task and assign it via the **Assigned To** field.
+    Yes, if you are working in a shared garden (with multiple members). Open the task and enter the appropriate user in the **Assigned To** field (visible from the "Intermediate" experience level).
 
 ---
 
 ## See Also
 
 - [Calendar](calendar.md)
+- [Care Reminders](care-reminders.md)
 - [Planting Runs](planting-runs.md)
 - [Pest Management (IPM)](pest-management.md)

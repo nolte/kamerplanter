@@ -2,8 +2,13 @@
 
 Eine korrekt gemischte Nährlösung ist die Grundlage für gesundes Pflanzenwachstum. Kamerplanter berechnet automatisch EC-Budgets (das verfügbare Leitfähigkeits-Kontingent der Nährstoffe), skaliert Herstellerrezepte und validiert die Mischfolge — so werden Ausfällungen und Wirkungsverluste verhindert.
 
+!!! info "Zwei Begriffe vorab: Fertigation und Drain-to-Waste"
+    **Fertigation** ("Fertilizer" + "Irrigation") bezeichnet das automatisierte Ausbringen von Nährlösung über die Bewässerung — meist per Tropfsystem und Pumpe, statt von Hand mit der Gießkanne. In Kamerplanter ist Fertigation eine der [Ausbringungsmethoden](../user-guide/fertilization.md#ausbringungskanaele-multi-channel-delivery) neben Gießen, Blattdüngung und Aufstreuen.
+
+    **Drain-to-Waste** ("zum Abfluss entwässern") ist eine Bewässerungsstrategie ohne Rezirkulation. Du gießt bewusst mit einem Überschuss (meist 10–30 % mehr als das Substrat aufnehmen kann), sodass am Topfboden Ablaufwasser (Runoff) entsteht. Dieses wird verworfen statt wiederverwendet — im Gegensatz zu rezirkulierenden Systemen wie NFT (Nutrient Film Technique) oder Ebb & Flow. Der Vorteil: Salzanreicherung im Substrat wird verhindert, weil überschüssige Nährstoffe ausgespült statt wiederverwendet werden. Mehr dazu im Abschnitt [Ablaufanalyse](#ablaufanalyse-runoff) unten.
+
 !!! danger "Mischfolge einhalten"
-    CalMag **immer zuerst** in Wasser einrühren, bevor andere Dünger hinzugefügt werden — insbesondere vor Sulfaten und Phosphaten. Falsche Reihenfolge führt zu Calciumsulfat-Ausfällungen (CaSO₄) und unwirksamer Nährlösung.
+    CalMag (Calcium-Magnesium-Supplement) **immer zuerst** in Wasser einrühren, bevor andere Dünger hinzugefügt werden — insbesondere vor Sulfaten und Phosphaten. Falsche Reihenfolge führt zu Calciumsulfat-Ausfällungen (CaSO₄) und unwirksamer Nährlösung.
 
 ---
 
@@ -12,7 +17,7 @@ Eine korrekt gemischte Nährlösung ist die Grundlage für gesundes Pflanzenwach
 - EC-Messgerät (Leitfähigkeitsmessgerät)
 - pH-Messgerät oder -Tester
 - Bekannte EC-Werte des Gieß-/Mischwassers (Leitungswasser oder RO-Wasser)
-- Dünger in Kamerplanter angelegt (unter **Stammdaten > Dünger**)
+- Dünger in Kamerplanter angelegt (unter **Düngung → Düngemittel**)
 
 ---
 
@@ -115,9 +120,11 @@ Kamerplanter prüft automatisch folgende Kombinationen:
 
 ---
 
-## EC-Zielwerte nach Phase und Substrat
+## EC-Zielwerte nach Phase und Substrat {#ec-ziel-substrat}
 
 Kamerplanter validiert die berechnete End-EC gegen phasen- und substratspezifische Maximalwerte:
+
+<!-- Quelle: src/backend/app/domain/engines/ec_budget_engine.py EC_MAX_TABLE (REQ-004-A §4.2) -->
 
 | Substrat | Sämling (mS) | Vegetativ (mS) | Blüte (mS) | Ausspülung (mS) |
 |----------|-------------|----------------|-----------|-----------------|
@@ -127,6 +134,21 @@ Kamerplanter validiert die berechnete End-EC gegen phasen- und substratspezifisc
 
 !!! tip "Frisches Coco: CalMag-Boost automatisch"
     Bei frisch angesetzten Coco-Batches (0 Nutzungszyklen) erhöht Kamerplanter die CalMag-Dosis automatisch um 20 %, da ungenutztes Coco Calcium und Magnesium aus der Lösung aufnimmt (Kationenaustausch).
+
+---
+
+## EC-Temperaturkorrektur (EC@25)
+
+Die elektrische Leitfähigkeit eines Messwerts hängt von der Wassertemperatur ab — dieselbe Nährlösung zeigt bei wärmerem Wasser eine höhere EC an als bei kühlerem. Damit Messungen bei unterschiedlichen Temperaturen vergleichbar bleiben, korrigiert Kamerplanter optional auf die Referenztemperatur 25 °C:
+
+```
+EC@25 = EC_gemessen / (1 + 0,02 × (T − 25))
+```
+
+Trägst du im [EC-Budget-Rechner](../user-guide/fertilization.md#wasser-mischer-und-ec-budget-rechner) sowohl deinen gemessenen EC-Wert als auch die Wassertemperatur ein, berechnet Kamerplanter automatisch diesen korrigierten Wert und zeigt ihn zusätzlich zur unkorrigierten Messung an.
+
+!!! example "Beispiel"
+    Du misst 1,9 mS/cm bei 30 °C Wassertemperatur. Korrigiert auf 25 °C: `EC@25 = 1,9 / (1 + 0,02 × 5) = 1,9 / 1,1 ≈ 1,73 mS/cm`. Der unkorrigierte Wert würde die Nährlösung stärker erscheinen lassen, als sie bei Referenztemperatur tatsächlich ist.
 
 ---
 
@@ -148,7 +170,7 @@ Kamerplanter gibt Anweisungen, ob pH Up (Kalilauge) oder pH Down (Phosphorsäure
 
 ---
 
-## Ablaufanalyse (Runoff)
+## Ablaufanalyse (Runoff) {#ablaufanalyse-runoff}
 
 Beim Drain-to-Waste-Betrieb (Coco, Rockwool) liefert die Ablaufanalyse wichtige Informationen:
 
@@ -163,9 +185,11 @@ Beim Drain-to-Waste-Betrieb (Coco, Rockwool) liefert die Ablaufanalyse wichtige 
 
 ---
 
-## Ausspülung (Flushing) vor der Ernte
+## Ausspülung (Flushing) vor der Ernte {#flush-substrat}
 
-Kamerplanter berechnet automatisch einen Ausspülungsplan. Die empfohlene Spüldauer hängt vom Substrat ab:
+Kamerplanter berechnet automatisch einen Ausspülungsplan über den [Spülungs-Rechner](../user-guide/fertilization.md#spulung-berechnen-flushing). Die empfohlene Spüldauer hängt vom Substrat ab:
+
+<!-- Quelle: src/backend/app/domain/engines/nutrient_engine.py FlushingProtocol.FLUSH_DURATIONS -->
 
 | Substrat | Empfohlene Spüldauer |
 |----------|----------------------|
@@ -217,5 +241,6 @@ Die Wassertemperatur beeinflusst Löslichkeit und biologische Wirksamkeit:
 ## Siehe auch
 
 - [Dünge-Logik](../user-guide/fertilization.md)
+- [Gießprotokoll](../user-guide/watering-log.md) — Runoff-Analyse pro Eintrag
 - [Tankmanagement](../user-guide/tanks.md)
 - [VPD-Optimierung](vpd-optimization.md)

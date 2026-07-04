@@ -1,95 +1,108 @@
 # Gießprotokoll
 
-Das Gießprotokoll (WateringLog) ist das zentrale, vereinheitlichte Protokoll aller Bewässerungsvorgänge in Kamerplanter. Es fasst sowohl manuelle als auch automatisch erfasste Gießereignisse zusammen und bietet dir eine lückenlose Übersicht über die Bewässerungshistorie deiner Pflanzen — als Grundlage für fundierte Entscheidungen bei Nährstoffplanung und Substratmanagement.
+Das Gießprotokoll (WateringLog) ist der zentrale Ort, an dem du jeden Gieß- und Düngevorgang dokumentierst — egal ob reine Bewässerung oder Düngung mit Nährstoffen. Es ersetzt die früheren, getrennten Modelle für Bewässerungs- und Düngeereignisse durch einen einzigen Eintragstyp und gibt dir eine lückenlose Historie pro Pflanze, Stellplatz oder Standort.
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens ein angelegter Pflanzdurchlauf oder eine Pflanze
-- Zugeordnetes Substrat (empfohlen, für Substrat-Feuchte-Tracking)
+- Mindestens eine Pflanze **oder** ein Stellplatz, dem du den Eintrag zuordnen kannst (mindestens eines von beidem ist Pflicht)
 
 ---
 
-## Abgrenzung: WateringLog, WateringEvents und FeedingEvents
+## Ein Wort zum Datenmodell
 
-Kamerplanter unterscheidet drei verwandte Konzepte:
+Frühere Versionen von Kamerplanter unterschieden zwei getrennte Modelle: `WateringEvent` (reine Bewässerung) und `FeedingEvent` (Düngung mit Nährstoffdaten). Beide sind als **veraltet** markiert und werden schrittweise abgelöst.
 
-| Begriff | Beschreibung | Typischer Auslöser |
-|---------|-------------|-------------------|
-| **WateringEvent** | Ein einzelnes Bewässerungsereignis — Zeitpunkt, Menge, Quelle | Manuelle Erfassung oder Gießplan-Bestätigung |
-| **FeedingEvent** | Ein Dünge-/Bewässerungsereignis mit Nährstoffdaten (EC, pH, Dosierungen) | Düngung nach Nährstoffplan (REQ-004) |
-| **WateringLog** | Vereinheitlichtes Protokoll — fasst WateringEvents und FeedingEvents in einer Ansicht zusammen | Automatisch aggregiert |
+Das `WateringLog` ersetzt beide Modelle durch einen einzigen Eintragstyp, der sowohl reine Bewässerung als auch Düngung abbildet — je nachdem, ob du Dünger und Messwerte einträgst oder nicht. Es **aggregiert nicht** mehrere Einzelereignisse zu einer Zusammenfassung; jeder Eintrag im Protokoll ist eine eigenständige, unveränderliche Aufzeichnung eines einzelnen Gieß- oder Düngevorgangs.
 
-!!! note "Unterschied zu FeedingEvents"
-    FeedingEvents dokumentieren Bewässerungen, bei denen Dünger hinzugefügt wurde — mit vollständigem Nährstoffprofil (EC-Ziel, pH-Ziel, Produktdosierungen). Das WateringLog zeigt beide Typen nebeneinander, damit du die Bewässerungshistorie ohne Kontextwechsel nachverfolgen kannst.
+!!! note "Legacy-Ansicht Düngeereignisse"
+    Die alte Übersicht „Düngeereignisse" (`FeedingEvent`) ist aus Kompatibilitätsgründen weiterhin erreichbar, aber nicht mehr in der Navigation verlinkt — sie zeigt nur historische Alteinträge. Neue Einträge legst du ausschließlich im Gießprotokoll an.
 
 ---
 
-## Das Gießprotokoll aufrufen
+## Das Gießprotokoll öffnen
 
-1. Navigiere zu einem **Pflanzdurchlauf** oder einer **Pflanze**.
-2. Klicke auf den Tab **Gießprotokoll** (oder **Bewässerung**).
-3. Die Protokollansicht zeigt alle Bewässerungsereignisse in chronologischer Reihenfolge.
+Das Gießprotokoll ist ein **eigener Menüpunkt auf oberster Navigationsebene** — es liegt nicht unter „Düngung", da es sowohl reine Bewässerung als auch Düngung abdeckt.
 
-!!! info "Screenshot folgt"
-    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
+1. Klicke in der Navigation auf **Gießprotokoll**.
+2. Die Listenansicht zeigt alle Einträge, standardmäßig nach Zeitpunkt absteigend sortiert.
 
----
-
-## Was das Gießprotokoll anzeigt
-
-Pro Eintrag werden folgende Informationen angezeigt:
-
-| Feld | Beschreibung |
-|------|-------------|
-| **Datum & Uhrzeit** | Zeitpunkt des Gießvorgangs |
-| **Menge (Liter)** | Bewässerungsmenge in Liter |
-| **EC** | Elektrische Leitfähigkeit der Nährlösung (falls Dünger eingesetzt) |
-| **pH** | pH-Wert der Gießlösung (falls erfasst) |
-| **Typ** | `Bewässerung` oder `Düngung` |
-| **Quelle** | Manuell, Gießplan, automatisch |
-| **Notiz** | Optionale Freitext-Anmerkung |
+Alternativ erreichst du gefilterte Ansichten über die Detailseite einer Pflanze, eines Stellplatzes oder eines Standorts.
 
 ---
 
-## Gießereignis manuell eintragen
+## Was die Liste anzeigt
 
-1. Klicke auf **Neues Gießereignis**.
-2. Trage Menge und Zeitpunkt ein.
-3. Optional: EC, pH und eine Notiz ergänzen.
-4. Klicke auf **Speichern**.
+Pro Eintrag werden folgende Spalten angezeigt (einige nur, wenn mindestens ein Eintrag einen Wert dafür hat):
 
-!!! tip "Gießplan nutzen"
-    Wenn du einen Gießplan (WateringSchedule) für deinen Pflanzdurchlauf konfiguriert hast, erzeugt Kamerplanter automatisch Aufgaben. Durch Bestätigung dieser Aufgaben werden Gießereignisse automatisch im Protokoll eingetragen — du musst nichts manuell erfassen.
+| Spalte | Beschreibung |
+|--------|-------------|
+| Zeitpunkt | Wann der Vorgang protokolliert wurde |
+| Pflanzen | Verknüpfte Pflanzen (bis zu 3 als Chips, Rest als Zähler) |
+| Anwendungsart | Fertigation (automatisierte Nährlösungsausbringung über die Bewässerung, siehe [Nährlösung mischen](../guides/nutrient-mixing.md)), Gießen (Drench), Blattdüngung oder Aufstreuen |
+| Volumen (L) | Eingesetzte Wassermenge |
+| Verwendete Dünger | Namen der eingesetzten Düngemittel (nur sichtbar, wenn Dünger verwendet wurden) |
+| EC vorher / EC nachher | Gemessene Leitfähigkeit (nur sichtbar, wenn erfasst) |
+| pH vorher / pH nachher | Gemessener pH-Wert (nur sichtbar, wenn erfasst) |
+| Wasserquelle | Tank, Leitungswasser, Osmosewasser, Regenwasser, Destilliert oder Brunnenwasser (nur sichtbar, wenn erfasst) |
 
 ---
 
-## Gießprotokoll und Nährstoffplanung
+## Gießvorgang manuell erfassen
 
-Das WateringLog ist eng mit der Dünge-Logik (REQ-004) verzahnt:
+1. Klicke auf **Gießvorgang erfassen**.
+2. **Grunddaten**:
+    - Pflanze(n) wählen (Mehrfachauswahl) und/oder Stellplatz-Keys eintragen (kommagetrennt)
+    - **Anwendungsart** wählen (Fertigation, Gießen, Blattdüngung, Aufstreuen)
+    - **Wasserquelle** angeben (optional)
+    - **Volumen (L)** eintragen
+    - Vorgang bei Bedarf als **ergänzend** markieren (zusätzliche Gießrunde außerhalb des regulären Plans)
+3. **Messwerte**: Trage optional EC und pH vor und nach dem Gießen ein.
+4. **Ablaufwerte**: Trage optional Abfluss-EC, Abfluss-pH und Abflussvolumen ein (für die Runoff-Analyse).
+5. **Verwendete Dünger**: Füge über **Dünger hinzufügen** beliebig viele Dünger mit ihrer Dosierung in ml/L hinzu.
+6. Trage optional ein, wer den Vorgang durchgeführt hat, und eine Notiz.
+7. Klicke auf **Speichern**.
 
-- **EC-Verlauf** über mehrere Gießvorgänge ist in der Protokollansicht als Minigraph sichtbar (bei vorhandenen Daten).
-- **Spülungserkennung**: Wenn EC und pH erfasst werden, kann Kamerplanter Spülvorgänge (Flushing) automatisch kennzeichnen.
-- **Runoff-Analyse**: Bei erfasstem Runoff-EC können Nährstoff-Akkumulationen im Substrat erkannt werden.
+!!! warning "Pflanzen oder Stellplätze sind Pflicht"
+    Ein Eintrag muss mindestens eine Pflanze oder einen Stellplatz referenzieren — sonst lässt er sich nicht speichern. Ergänzende Gießrunden (**ergänzend** aktiviert) können außerdem nicht gleichzeitig die Anwendungsart **Fertigation** verwenden.
+
+### Aus einem Ausbringungskanal protokollieren
+
+Ist ein Nährstoffplan-Phaseneintrag mit einem [Ausbringungskanal](fertilization.md#ausbringungskanaele-multi-channel-delivery) verknüpft, kannst du den Gießvorgang direkt aus dem Kanal heraus protokollieren — das Formular ist dann bereits mit Anwendungsmethode, Ziel-EC/-pH und den Dünger-Dosierungen des Kanals vorausgefüllt.
+
+---
+
+## Eintrag ansehen und bearbeiten
+
+Klicke einen Eintrag in der Liste an, um zur Detailseite zu gelangen. Sie zeigt zwei Tabs:
+
+- **Details**: Verknüpfte Pflanzen/Stellplätze, Mess- und Ablaufwerte, verwendete Dünger, sowie — falls vorhanden — wer den Vorgang durchgeführt hat, der zugehörige Ausbringungskanal und der verknüpfte Nährstoffplan.
+- **Bearbeiten**: Alle Felder außer den verknüpften Pflanzen/Stellplätzen lassen sich nachträglich korrigieren.
+
+Auf der Detailseite kannst du außerdem über den Button **„Ablauf analysieren"** eine Runoff-Analyse für diesen Eintrag anstoßen (benötigt EC/pH/Volumen sowohl für die Zufuhr als auch für den Ablauf). Sie bewertet EC-Drift, pH-Drift und Ablaufmenge und gibt eine Gesamteinschätzung sowie Hinweise pro Kennwert aus — siehe [Ablaufanalyse](../guides/nutrient-mixing.md#ablaufanalyse-runoff) für die zugrunde liegenden Schwellenwerte.
 
 ---
 
 ## Häufige Fragen
 
-??? question "Werden automatische Bewässerungen (Home Assistant) auch protokolliert?"
-    Ja. Wenn Kamerplanter über die Home-Assistant-Integration Bewässerungsdaten empfängt, werden diese automatisch als WateringEvents im Protokoll eingetragen — mit der Quelle `automatisch`.
+??? question "Werden automatische Bewässerungen über Home Assistant protokolliert?"
+    Nein, aktuell nicht automatisch. Es gibt derzeit keine automatische Übernahme von Home-Assistant-Bewässerungsereignissen in das Gießprotokoll — Einträge entstehen durch manuelle Erfassung, durch Bestätigen eines Gießplan-Termins oder durch Bestätigen einer Pflegeerinnerung (Gießen/Düngen).
 
-??? question "Wie lange werden Gießprotokolle aufbewahrt?"
-    Gießprotokolle werden entsprechend der Datenaufbewahrungsrichtlinie (NFR-011) gespeichert. Standardmäßig bleiben Roheinträge 90 Tage vollständig erhalten, danach werden sie zu täglichen Aggregaten verdichtet.
+??? question "Wie lange werden Gießprotokoll-Einträge aufbewahrt?"
+    Für das Gießprotokoll gibt es derzeit keine eigene automatische Verdichtung oder Löschfrist — Einträge bleiben erhalten, bis du sie manuell löschst oder deine Daten im Rahmen der DSGVO-Betroffenenrechte löschen lässt.
 
 ??? question "Kann ich Einträge im Protokoll nachträglich korrigieren?"
-    Ja. Klicke auf einen Eintrag und wähle **Bearbeiten**. Änderungen werden mit Zeitstempel protokolliert.
+    Ja. Öffne den Eintrag und wechsle zum Tab **Bearbeiten**.
+
+??? question "Muss ich jeden Gießvorgang erfassen?"
+    Nein, das ist optional. Kamerplanter funktioniert auch ohne vollständige Dokumentation. Willst du aber die Runoff-EC verfolgen oder deine Nährstoffgabe optimieren, lohnt sich eine konsequente Erfassung.
 
 ---
 
 ## Siehe auch
 
-- [Dünge-Logik](fertilization.md) — Nährstoffpläne und FeedingEvents (REQ-004)
+- [Dünge-Logik](fertilization.md) — Nährstoffpläne und Ausbringungskanäle (REQ-004)
 - [Pflanzdurchläufe](planting-runs.md) — Gießplan konfigurieren
 - [Tankmanagement](tanks.md) — Bewässerungstanks und Befüllungen
+- [Guides: Nährlösung mischen](../guides/nutrient-mixing.md) — Ablaufanalyse-Schwellenwerte
