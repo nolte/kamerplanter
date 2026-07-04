@@ -461,7 +461,7 @@ lifecycle_configs:
     dormancy_required: true
     vernalization_required: true
     vernalization_min_days: 30
-    critical_day_length_hours: null
+    critical_day_length_hours: 12
 
   "Dahlia pinnata":
     cycle_type: perennial
@@ -510,7 +510,7 @@ lifecycle_configs:
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
-    critical_day_length_hours: null
+    critical_day_length_hours: 13
 
   "Apium graveolens var. rapaceum":
     cycle_type: biennial

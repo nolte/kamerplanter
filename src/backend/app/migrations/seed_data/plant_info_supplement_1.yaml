@@ -198,6 +198,8 @@ lifecycle_configs:
   "Syngonium podophyllum":
     cycle_type: perennial
     photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
 
   "Dahlia x cultorum":
     cycle_type: perennial

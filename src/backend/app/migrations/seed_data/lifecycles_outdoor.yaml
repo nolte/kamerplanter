@@ -416,6 +416,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    critical_day_length_hours: 14
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_standard"
     phases:
@@ -561,6 +562,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 60
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_standard"
     phases:
@@ -718,6 +720,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 21
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_fruit_early"
     phases:
@@ -769,6 +772,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 60
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_fruit_early"
     phases:
@@ -871,6 +875,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 33
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_fruit_early"
     phases:
@@ -922,6 +927,8 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 35
+    critical_day_length_hours: 16
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_fruit_sprouting"
     phases:
@@ -1209,6 +1216,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 33
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_fruit_sprouting"
     phases:
@@ -1268,6 +1276,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 25
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_full_fruit"
     phases:
@@ -1618,6 +1627,7 @@ lifecycles:
     dormancy_required: true
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    vernalization_min_days: 35
     cycle_restart_phase_order: 1
     phase_sequence: "perennial_early_harvest"
     phases:
@@ -1669,6 +1679,7 @@ lifecycles:
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "long_day"
+    critical_day_length_hours: 13
     phase_sequence: "annual_harvest"
     phases:
       - name: "germination"
@@ -1867,6 +1878,7 @@ lifecycles:
     dormancy_required: false
     vernalization_required: false
     photoperiod_type: "day_neutral"
+    critical_day_length_hours: 10
     phase_sequence: "annual_flower"
     phases:
       - name: "germination"
