@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kp-vectordb"
+version = "1.0.0"
+description = "Shared pgvector connection pool + migration runner for Kamerplanter microservices"
+requires-python = ">=3.14"
+dependencies = [
+    "psycopg[binary]>=3.2.0",
+    "psycopg-pool>=3.2.0",
+    "structlog>=24.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["kp_vectordb*"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

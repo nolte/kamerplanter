@@ -1,9 +1,9 @@
-"""VectorDB connection pool management."""
+"""VectorDB connection pool management (shared kp_vectordb infrastructure)."""
 
 import structlog
 from psycopg_pool import ConnectionPool
 
-from app.config import Settings
+from .config import VectorDbConfig
 
 logger = structlog.get_logger(__name__)
 
@@ -11,8 +11,8 @@ logger = structlog.get_logger(__name__)
 class VectorDbConnection:
     """Manages a psycopg connection pool to the pgvector database."""
 
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
+    def __init__(self, config: VectorDbConfig) -> None:
+        self._config = config
         self._pool: ConnectionPool | None = None
 
     def connect(self) -> ConnectionPool:
@@ -21,25 +21,25 @@ class VectorDbConnection:
             return self._pool
 
         conninfo = (
-            f"host={self._settings.vectordb_host} "
-            f"port={self._settings.vectordb_port} "
-            f"dbname={self._settings.vectordb_database} "
-            f"user={self._settings.vectordb_username} "
-            f"password={self._settings.vectordb_password}"
+            f"host={self._config.host} "
+            f"port={self._config.port} "
+            f"dbname={self._config.database} "
+            f"user={self._config.username} "
+            f"password={self._config.password}"
         )
 
         self._pool = ConnectionPool(
             conninfo=conninfo,
-            min_size=self._settings.vectordb_pool_min_size,
-            max_size=self._settings.vectordb_pool_max_size,
+            min_size=self._config.pool_min_size,
+            max_size=self._config.pool_max_size,
             open=True,
         )
 
         logger.info(
             "vectordb_connected",
-            host=self._settings.vectordb_host,
-            port=self._settings.vectordb_port,
-            database=self._settings.vectordb_database,
+            host=self._config.host,
+            port=self._config.port,
+            database=self._config.database,
         )
         return self._pool
 
