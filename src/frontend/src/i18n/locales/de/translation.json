@@ -380,6 +380,7 @@
     "validationWithDetail": "Validierungsfehler: {{detail}}",
     "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
     "unknown": "Ein unbekannter Fehler ist aufgetreten.",
+    "loadFailed": "Die Daten konnten nicht geladen werden.",
     "optionsLoadFailed": "Auswahloptionen konnten nicht geladen werden."
   },
   "entities": {
@@ -555,6 +556,8 @@
     },
     "admin": {
       "title": "Administration",
+      "tenantNotFound": "Mandant nicht gefunden.",
+      "userNotFound": "Benutzer nicht gefunden.",
       "haSection": "Home Assistant Integration",
       "haUrl": "Home Assistant URL",
       "haUrlHelper": "z.B. http://homeassistant.local:8123",
@@ -1895,6 +1898,7 @@
       "vpdStatus": "Status",
       "gdd": "GDD-Rechner",
       "gddBaseTemp": "Basistemperatur (°C)",
+      "gddTempsLabel": "Min,Max (pro Zeile)",
       "gddResult": "Akkumulierte GDD",
       "photoperiod": "Photoperioden-Übergang",
       "currentHours": "Aktuelle Stunden",

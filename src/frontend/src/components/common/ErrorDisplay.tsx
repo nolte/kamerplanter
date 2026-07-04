@@ -14,7 +14,14 @@ const ERROR_PATTERNS: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /internal error/i, key: 'errors.server' },
 ];
 
+/** Matches an i18n key from the `errors.*` namespace (e.g. `errors.loadFailed`). */
+const ERROR_KEY_PATTERN = /^errors\.[a-zA-Z0-9.]+$/;
+
 function translateError(error: string, t: (key: string) => string): string {
+  // Slices store i18n keys (FE-L5) — resolve them to the active locale directly.
+  if (ERROR_KEY_PATTERN.test(error)) {
+    return t(error);
+  }
   for (const { pattern, key } of ERROR_PATTERNS) {
     if (pattern.test(error)) {
       return t(key);

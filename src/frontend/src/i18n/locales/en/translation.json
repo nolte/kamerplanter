@@ -380,6 +380,7 @@
     "validationWithDetail": "Validation error: {{detail}}",
     "duplicate": "An entry with this name already exists.",
     "unknown": "An unknown error occurred.",
+    "loadFailed": "Failed to load data.",
     "optionsLoadFailed": "Selection options could not be loaded."
   },
   "entities": {
@@ -555,6 +556,8 @@
     },
     "admin": {
       "title": "Administration",
+      "tenantNotFound": "Tenant not found.",
+      "userNotFound": "User not found.",
       "haSection": "Home Assistant Integration",
       "haUrl": "Home Assistant URL",
       "haUrlHelper": "e.g. http://homeassistant.local:8123",
@@ -1895,6 +1898,7 @@
       "vpdStatus": "Status",
       "gdd": "GDD Calculator",
       "gddBaseTemp": "Base Temperature (°C)",
+      "gddTempsLabel": "Min,Max (one per line)",
       "gddResult": "Accumulated GDD",
       "photoperiod": "Photoperiod Transition",
       "currentHours": "Current Hours",

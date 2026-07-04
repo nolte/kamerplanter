@@ -190,7 +190,7 @@ export default function AdminEditTenantPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (!tenant) return <Alert severity="error">Tenant not found</Alert>;
+  if (!tenant) return <Alert severity="error">{t('pages.admin.tenantNotFound')}</Alert>;
 
   return (
     <Box sx={{ mt: 2 }}>

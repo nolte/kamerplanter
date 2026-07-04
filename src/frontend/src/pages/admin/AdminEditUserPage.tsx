@@ -188,7 +188,7 @@ export default function AdminEditUserPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (!user) return <Alert severity="error">User not found</Alert>;
+  if (!user) return <Alert severity="error">{t('pages.admin.userNotFound')}</Alert>;
 
   return (
     <Box sx={{ mt: 2 }}>
