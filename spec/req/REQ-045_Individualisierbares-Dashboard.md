@@ -7,7 +7,7 @@ Kategorie: Visualisierung / Benutzerführung
 Fokus: Frontend (mit Backend-Persistenz)
 Technologie: FastAPI, React 19, ArangoDB, react-grid-layout (lazy), MUI 7, Redux Toolkit, TanStack Query
 Status: Entwurf
-Version: 1.0
+Version: 1.2
 Abhängigkeit: REQ-009 (Dashboard-Widget-Katalog & Datenquellen — SSOT), REQ-021 (Erfahrungsstufen), REQ-042 (Modulare Feature-Sichtbarkeit), REQ-024 (Multi-Tenant/Permission-Matrix), REQ-027 (Light-Modus), REQ-020 (Onboarding), REQ-022 (Pflegeerinnerungen), REQ-031 (KI-Daily-Tip), UI-NFR-001 (Responsive), UI-NFR-002 (Barrierefreiheit), UI-NFR-003 (Bundle-Budget), UI-NFR-012 (PWA-Offline), UI-NFR-019 (Kiosk-Modus), NFR-007 (Performance)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-009 (Dashboard-Widget-Katalog & Datenquellen — SSOT), REQ-0
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.2 | 2026-07-04 | **Scope-Erweiterung + Review-Nachschärfung.** Pro-Breakpoint-Layouts (getrennt Desktop/Tablet/Mobile) von Phase 2 nach **v1** gezogen → Datenmodell auf `schema_version 2` umgestellt: `widgets` (welche + Config, breakpoint-unabhängig) getrennt von `placements` pro Breakpoint (`lg`/`md`/`sm`). Discoverability-Findings U-004 (Deep-Link von `/dashboard` → Einstellungen) + U-005 (First-Use-Coachmark) in v1 aufgenommen. Neue UI-NFR-Regeln referenziert: UI-NFR-002 R-024..R-027 (Drag-and-Drop-Alternativen / Meaningful Sequence dynamischer Grids), UI-NFR-003 R-028 (route-spezifisches Bundle-Budget). |
 | 1.1 | 2026-07-04 | **Frontend-Design-Review eingearbeitet** (`spec/analysis/req-045-frontend-design-review.md`): K-001 Read-Only-Rendering von `react-grid-layout` entkoppelt (reines CSS-Grid; DnD-Library erst im Bearbeiten-Modus lazy) — löst den Bundle-Budget-Selbstwiderspruch. K-002 Touch-Targets auf **48 px** (UI-NFR-001 R-011) korrigiert. Neu: DOM-Order-Regel `(y, x)` (U-002), Empty-State bei 0 Widgets (U-003), tastaturbedienbares Kebab-Menü im Bearbeiten-Modus (U-001), Resize-Handle-Hit-Area 48 px (U-006), `prefers-reduced-motion` (O-003). Offen (Issue #368): U-004/U-005 Discoverability, O-001 Parallel-Load, neue UI-NFR-Regeln. |
 | 1.0 | 2026-07-04 | Erstfassung. Realisiert die in **REQ-009 v2.1 §6 als „Phase 2" geparkten** Punkte *Drag-and-Drop-Widget-Anordnung* und *per-User-Layout* als eigene Personalisierungs-Schicht. REQ-009 bleibt Single Source of Truth für Widget-Datenquellen, Polling-Intervalle und Aggregation; REQ-045 ergänzt jeden Widget-Typ um Layout-Metadaten und spezifiziert die nutzerindividuelle Konfiguration in den Einstellungen. |
 
@@ -51,11 +52,13 @@ REQ-009 liefert einen reichen Katalog an Dashboard-Widgets, legt aber in v2.1 (K
 | Zurücksetzen auf Erfahrungsstufen-Default | ✅ | — |
 | Persistenz pro Nutzer & Tenant (+ Light-Modus localStorage) | ✅ | — |
 | Ein Dashboard pro Nutzer | ✅ | — |
+| **Pro-Breakpoint-Layouts (getrennt Desktop/Tablet/Mobile)** | ✅ (v1.2; `placements` je Breakpoint, fehlender Breakpoint aus `lg` abgeleitet) | — |
+| **Discoverability: Deep-Link `/dashboard` → Einstellungen (U-004)** | ✅ (v1.2) | — |
+| **Discoverability: einmaliger First-Use-Coachmark (U-005)** | ✅ (v1.2) | — |
 | Mehrere benannte Dashboards / Tabs | — | ✅ |
 | Dashboards teilen / als Tenant-Default publizieren | — | ✅ |
 | Custom-Widgets via Plugin-API | — | ✅ (REQ-009 Phase 2) |
 | WebSocket-Live-Deltas | — | ✅ (REQ-009 Phase 2) |
-| Pro-Breakpoint-Layouts (getrennt Desktop/Tablet/Mobile) | — | ✅ (v1: ein Basis-Layout, Mobile auto-gestapelt) |
 
 ## 2. ArangoDB-Modellierung
 
@@ -75,16 +78,20 @@ tenant-scoped) gespeichert — genau wie `module_visibility` (REQ-042). Damit gi
   "experience_level": "beginner",       // REQ-021 — Quelle des Default-Layouts
   "module_visibility": { "…": "…" },    // REQ-042 — gated welche Widgets wählbar sind
   "dashboard_layout": {                  // NEU (REQ-045); null/absent => Default aus experience_level
-    "schema_version": 1,
-    "columns": 12,                        // Basis-Grid-Spalten (Desktop)
-    "widgets": [
+    "schema_version": 2,                  // v2: welche-Widgets von Positionen getrennt (per Breakpoint)
+    "widgets": [                          // WELCHE Widgets (+ Config) — breakpoint-unabhängig
       {
         "instance_id": "w-8f3c…",         // eindeutig innerhalb dieses Layouts (uuid4)
         "widget_key": "tasks_today",      // referenziert dashboardWidgetCatalog / REQ-009 §1.5
-        "x": 0, "y": 0, "w": 4, "h": 4,   // Grid-Position & -Größe (Spalten/Zeilen)
         "config": {}                       // widget-spezifisch, validiert gegen config_schema
       }
-    ]
+    ],
+    "placements": {                        // WO die Widgets liegen — je Breakpoint (UI-NFR-001)
+      // lg = Desktop ≥1200px (12 cols), md = Tablet 600–1199px (8 cols), sm = Mobile <600px (4 cols)
+      "lg": [ { "instance_id": "w-8f3c…", "x": 0, "y": 0, "w": 4, "h": 4 } ],
+      "md": [ { "instance_id": "w-8f3c…", "x": 0, "y": 0, "w": 4, "h": 4 } ],
+      "sm": [ { "instance_id": "w-8f3c…", "x": 0, "y": 0, "w": 4, "h": 4 } ]
+    }
   }
 }
 ```
@@ -95,8 +102,14 @@ tenant-scoped) gespeichert — genau wie `module_visibility` (REQ-042). Damit gi
   abgeleitete Default-Layout (`DEFAULT_DASHBOARD_LAYOUT_BY_EXPERTISE`, §3). Das Default wird **nicht**
   materialisiert gespeichert — erst die erste Nutzeränderung persistiert ein vollständiges Layout
   (Set-Semantik, identisch zu `saveModuleVisibility`, REQ-042).
-- `widgets` ist die **vollständige** Widget-Liste des Nutzers (kein Delta). Reihenfolge im Array ist
-  die kanonische Reihenfolge für Mobile-Stapelung (Fallback, wenn `x/y` nicht anwendbar).
+- **`widgets`** ist die **vollständige** Widget-Liste des Nutzers (welche Widgets + deren `config`) — die
+  eine Quelle der Wahrheit dafür, *welche* Widgets angezeigt werden, breakpoint-unabhängig (kein Delta).
+- **`placements`** hält je Breakpoint (`lg`/`md`/`sm`) die *Positionen*. Jeder `placement`-Eintrag
+  referenziert eine `instance_id` aus `widgets`. Ein **fehlender Breakpoint wird aus `lg` abgeleitet**
+  (Auto-Stapelung / react-grid-layout-Auto-Generate) — der Nutzer *kann* jeden Breakpoint anpassen, *muss*
+  aber nicht. So bleibt „welche Widgets" über alle Breakpoints konsistent; nur die Anordnung divergiert.
+- **Migration v1→v2:** Ein Alt-Layout mit `columns` + `widgets[].x/y/w/h` wird gelesen als `lg`-Placement;
+  `widgets` verliert die Positionsfelder, `md`/`sm` werden abgeleitet. Konvertierung beim Laden (tolerant).
 - Zurücksetzen = `dashboard_layout` auf `null` setzen (PATCH mit explizitem `null`) → Default greift wieder.
 
 ## 3. Technische Umsetzung
@@ -107,22 +120,34 @@ Erweiterung von `app/domain/models/user_preference.py`:
 
 ```python
 from uuid import uuid4
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-DASHBOARD_LAYOUT_SCHEMA_VERSION = 1
+DASHBOARD_LAYOUT_SCHEMA_VERSION = 2
+# Grid-Spalten je Breakpoint (UI-NFR-001): Desktop / Tablet / Mobile.
+GRID_COLS_BY_BREAKPOINT: dict[str, int] = {"lg": 12, "md": 8, "sm": 4}
 GRID_MAX_COLUMNS = 12
 
 
 class DashboardWidgetInstance(BaseModel):
-    """Eine Widget-Instanz im personalisierten Dashboard-Layout (REQ-045)."""
+    """Welches Widget (+ Config) — breakpoint-unabhängig (REQ-045)."""
 
     instance_id: str = Field(default_factory=lambda: f"w-{uuid4().hex[:12]}")
     widget_key: str
-    x: int = Field(ge=0, le=GRID_MAX_COLUMNS - 1)
+    config: dict[str, object] = Field(default_factory=dict)
+
+
+class WidgetPlacement(BaseModel):
+    """Position/Größe einer Widget-Instanz in einem Breakpoint-Grid (REQ-045).
+
+    `w` wird clientseitig auf die Spaltenzahl des jeweiligen Breakpoints
+    geklammert (react-grid-layout); das Modell erlaubt bis zum lg-Maximum.
+    """
+
+    instance_id: str
+    x: int = Field(ge=0)
     y: int = Field(ge=0)
     w: int = Field(ge=1, le=GRID_MAX_COLUMNS)
     h: int = Field(ge=1, le=24)
-    config: dict[str, object] = Field(default_factory=dict)
 
 
 class DashboardLayout(BaseModel):
@@ -131,11 +156,13 @@ class DashboardLayout(BaseModel):
     Set-Semantik: enthält die vollständige Widget-Liste des Nutzers. Ein
     unbekannter `widget_key` (nicht in der Backend-Widget-Registry) wird beim
     Speichern verworfen und geloggt — analog zu module_visibility (REQ-042).
+    Positionen liegen je Breakpoint in `placements`; ein fehlender Breakpoint
+    wird clientseitig aus `lg` abgeleitet.
     """
 
     schema_version: int = DASHBOARD_LAYOUT_SCHEMA_VERSION
-    columns: int = Field(default=GRID_MAX_COLUMNS, ge=1, le=GRID_MAX_COLUMNS)
     widgets: list[DashboardWidgetInstance] = Field(default_factory=list)
+    placements: dict[str, list[WidgetPlacement]] = Field(default_factory=dict)
 
     @field_validator("widgets")
     @classmethod
@@ -146,6 +173,19 @@ class DashboardLayout(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError("instance_id-Werte im Dashboard-Layout müssen eindeutig sein")
         return widgets
+
+    @model_validator(mode="after")
+    def _placements_are_consistent(self) -> "DashboardLayout":
+        known = {w.instance_id for w in self.widgets}
+        for breakpoint, places in self.placements.items():
+            if breakpoint not in GRID_COLS_BY_BREAKPOINT:
+                raise ValueError(f"unbekannter Breakpoint: {breakpoint}")
+            for placement in places:
+                if placement.instance_id not in known:
+                    raise ValueError(
+                        f"placement referenziert unbekannte instance_id: {placement.instance_id}"
+                    )
+        return self
 ```
 
 An `UserPreference` wird ergänzt:
@@ -184,7 +224,13 @@ def _sanitize_layout(layout: DashboardLayout) -> DashboardLayout:
             "dashboard_layout.unknown_widgets_dropped",
             widget_keys=[w.widget_key for w in dropped],
         )
-    return layout.model_copy(update={"widgets": keep})
+    # Placements verwaister instance_ids ebenfalls entfernen (Konsistenz je Breakpoint).
+    kept_ids = {w.instance_id for w in keep}
+    pruned = {
+        breakpoint: [p for p in places if p.instance_id in kept_ids]
+        for breakpoint, places in layout.placements.items()
+    }
+    return layout.model_copy(update={"widgets": keep, "placements": pruned})
 ```
 
 > **Hinweis (Nicht-Ziel):** Das Backend prüft `x/y/w/h` nur auf Wertebereiche (Pydantic-Constraints),
@@ -366,13 +412,26 @@ analog `ModulesSettingsTab.tsx`):
   Zeitraum für `harvest_forecast`).
 - **Barrierefreie Reihenfolge/Größe (UI-NFR-002):** „Nach oben/unten"-Buttons und Größen-Stepper pro Widget
   — vollwertige, tastaturbedienbare Alternative zum Drag-and-Drop.
+- **Breakpoint-Umschalter (v1.2):** Ein Segmented-Control „Desktop / Tablet / Mobile" wählt, für welchen
+  Breakpoint (`lg`/`md`/`sm`) Reihenfolge und Größe bearbeitet werden. Ein „für alle Breakpoints
+  übernehmen"-Button kopiert die aktuelle Anordnung in die übrigen `placements`.
 - „Auf Standard zurücksetzen"-Button (→ `saveDashboardLayout(null)`).
 - Nicht verfügbare Widgets ausgegraut mit i18n-Begründung (`unavailable_reason`).
 
+**Discoverability (U-004 / U-005, v1.2):**
+
+- **Deep-Link von `/dashboard` (U-004):** Im Seiten-Header sitzt neben dem „Bearbeiten"-Toggle ein
+  zweiter Icon-Button „⚙ Widgets verwalten" mit Deep-Link auf `/settings#dashboard`. Zusätzlich öffnet das
+  Widget-Kebab-Menü (unten) „Konfigurieren" den Config-Dialog **inline** — ohne Zwangsnavigation zu Settings.
+- **First-Use-Coachmark (U-005):** Beim ersten Dashboard-Besuch erscheint ein einmaliger, schließbarer
+  Hinweis („Du kannst dein Dashboard anpassen …"), gemerkt über das localStorage-Flag
+  `dashboard_personalization_hint_dismissed`. Für Beginner besonders wertvoll (kleinstes Default-Set).
+
 **Direktmanipulation — Bearbeiten-Modus auf `/dashboard`:**
 
-- Toggle „Bearbeiten"; darunter wird `react-grid-layout` **erst jetzt** per `React.lazy()` nachgeladen
-  (Drag-and-Drop + Resize innerhalb `min/maxSize`); „Speichern"/„Abbrechen".
+- Toggle „Bearbeiten"; darunter wird `react-grid-layout` (als `ResponsiveReactGridLayout`) **erst jetzt**
+  per `React.lazy()` nachgeladen; Drag-and-Drop + Resize innerhalb `min/maxSize` wirken auf den im
+  Breakpoint-Umschalter gewählten Breakpoint; „Speichern"/„Abbrechen".
 - **Tastatur-Parität im Bearbeiten-Modus (UI-NFR-002, U-001):** Jedes Widget trägt ein fokussierbares
   Kebab-Menü (`⋮`) mit „Nach oben/unten", „Kleiner/Größer" und (falls `hasConfig`) „Konfigurieren". Die
   react-grid-layout-Drag-/Resize-Handles erhalten `tabIndex={-1}` (nicht fokussierbar, nur Maus/Touch),
@@ -383,22 +442,27 @@ analog `ModulesSettingsTab.tsx`):
   MUI-`IconButton`-Padding), damit es auf Touch-Tablets präzise treffbar ist.
 - **Reduzierte Bewegung (UI-NFR-002 R-022, O-003):** Bei `prefers-reduced-motion: reduce` wird die
   react-grid-layout-`transitionDuration` auf 0 gesetzt.
-- Auf Mobile (< 600 px, UI-NFR-001) ist Drag-and-Drop deaktiviert; die Anordnung erfolgt über die
-  Reihenfolge-Buttons; das Grid rendert einspaltig (Stapelung nach `y`, dann `x`, dann Array-Reihenfolge).
+- Auf Mobile (< 600 px, UI-NFR-001) ist Drag-and-Drop deaktiviert; die Anordnung des `sm`-Breakpoints
+  erfolgt über die Reihenfolge-/Größen-Buttons (Settings). Ohne eigenes `sm`-Placement stapelt das Grid
+  einspaltig nach der `lg`-Reihenfolge (`y`, dann `x`).
 
-Beide Flächen mutieren denselben `DashboardLayout` und rufen `saveDashboardLayout`.
+Beide Flächen mutieren denselben `DashboardLayout` (`widgets` + `placements[breakpoint]`) und rufen
+`saveDashboardLayout`.
 
 ### 3.9 Frontend — Rendering & Resilienz
 
 - **Read-Only-Rendering ohne DnD-Library (UI-NFR-003, K-001):** Außerhalb des Bearbeiten-Modus rendert
-  `DashboardPage.tsx` das effektive Layout (gespeichert oder Default) über ein **reines CSS-Grid**
-  (`grid-column`/`grid-row` aus `x/y/w/h` berechnet) — **nicht** über `react-grid-layout`. Damit wird die
-  DnD-Bibliothek (+ `react-draggable`/`react-resizable`, ~35–50 KB gzip) beim normalen Öffnen der
-  meistbesuchten Seite gar nicht geladen und erst beim Aktivieren des „Bearbeiten"-Toggles per
-  `React.lazy()` nachgezogen (§3.8). Widget-Komponenten kommen lazy aus der Registry (§3.4).
-- **DOM-Order = Lesereihenfolge (UI-NFR-002 R-004 / WCAG 1.3.2, U-002):** Die Widgets werden **nach
-  `(y, x)` sortiert** in die DOM eingefügt — unabhängig von der Reihenfolge im `widgets`-Array. So folgt
-  Tab-/Screenreader-Reihenfolge auf allen Breakpoints der visuellen „oben-links-zuerst"-Anordnung.
+  `DashboardPage.tsx` das effektive Layout (gespeichert oder Default) über ein **reines CSS-Grid** —
+  **nicht** über `react-grid-layout`. Die Spaltenzahl folgt dem aktiven Breakpoint (`GRID_COLS_BY_BREAKPOINT`
+  lg=12/md=8/sm=4, via CSS-Media-Queries), `grid-column`/`grid-row` werden aus `placements[breakpoint]`
+  (Fallback `lg`) berechnet. Damit wird die DnD-Bibliothek (+ `react-draggable`/`react-resizable`,
+  ~35–50 KB gzip) beim normalen Öffnen der meistbesuchten Seite gar nicht geladen und erst beim Aktivieren
+  des „Bearbeiten"-Toggles per `React.lazy()` nachgezogen (§3.8). Widget-Komponenten kommen lazy aus der
+  Registry (§3.4).
+- **DOM-Order = Lesereihenfolge (UI-NFR-002 R-004/R-026 / WCAG 1.3.2, U-002):** Die Widgets werden **nach
+  `(y, x)` des aktiven Breakpoint-Placements sortiert** in die DOM eingefügt — unabhängig von der
+  Reihenfolge im `widgets`-Array. So folgt Tab-/Screenreader-Reihenfolge auf **jedem** Breakpoint der
+  visuellen „oben-links-zuerst"-Anordnung.
 - **Fehler-Isolation (REQ-009 DoD):** Jedes Widget ist in eine `ErrorBoundary` gekapselt; ein einzelner
   Widget-Fehler zeigt Inline-Fehler + Retry, blockiert aber nicht das gesamte Dashboard.
 - **Empty-/Loading-States:** je Widget verpflichtend (REQ-009 DoD).
@@ -443,11 +507,11 @@ Beide Flächen mutieren denselben `DashboardLayout` und rufen `saveDashboardLayo
   `daily_tip` nur mit Whitelist-AI-Provider.
 - **REQ-020** (Onboarding) — `onboarding_progress`-Widget nur bei unvollständigem Onboarding.
 - **REQ-022** (Pflegeerinnerungen) / **REQ-031** (KI-Daily-Tip) — Widget-Datenquellen.
-- **UI-NFR-001** (Responsive) — Grid-Kollaps, Mobile-Stapelung, Touch-Targets ≥ 48 px (R-011).
-- **UI-NFR-002** (Barrierefreiheit) — tastaturbedienbare Konfiguration in den Einstellungen als
-  vollwertige Alternative zum Drag-and-Drop; Fokusführung; ARIA für Grid-Items.
-- **UI-NFR-003** (Bundle-Budget 300 KB, W-016) — `react-grid-layout` und Widget-Komponenten **lazy**;
-  nur im Dashboard-Chunk / erst im Bearbeiten-Modus geladen.
+- **UI-NFR-001** (Responsive) — Breakpoints `lg`/`md`/`sm`, Mobile-Stapelung, Touch-Targets ≥ 48 px (R-011).
+- **UI-NFR-002** (Barrierefreiheit) — **R-024..R-027** (Drag-and-Drop-Alternativen: tastaturbedienbares
+  Kebab-Menü, Handles nicht im Tab-Index, Meaningful Sequence dynamischer Grids); ARIA-Live bei Reorder.
+- **UI-NFR-003** — **R-028** (route-spezifisches Bundle-Budget für `/dashboard`); `react-grid-layout` nur
+  im Bearbeiten-Modus lazy, Read-Only per CSS-Grid.
 - **UI-NFR-012** (PWA-Offline) — Layout offline aus Cache; Polling-Pause.
 - **UI-NFR-019** (Kiosk) — **ausgenommen**: Kiosk behält festes Layout, keine Personalisierung.
 - **NFR-007** (Performance) — Layout-Laden Teil des `UserPreference`-GET; Persistenz debounced.
@@ -472,6 +536,11 @@ Beide Flächen mutieren denselben `DashboardLayout` und rufen `saveDashboardLayo
       persistiert und ist nach Reload sichtbar.
 - [ ] **Anordnen (Drag-and-Drop):** Im Bearbeiten-Modus auf `/dashboard` lassen sich Widgets per Maus/Touch
       verschieben und in der Größe (innerhalb `min/maxSize`) ändern.
+- [ ] **Pro-Breakpoint-Layouts (v1.2):** Der Breakpoint-Umschalter (Desktop/Tablet/Mobile) bearbeitet
+      `placements[lg|md|sm]` getrennt; ein fehlender Breakpoint wird aus `lg` abgeleitet; „für alle
+      übernehmen" kopiert die aktuelle Anordnung. `widgets` (welche Widgets) bleibt breakpoint-übergreifend gleich.
+- [ ] **Discoverability (v1.2, U-004/U-005):** „⚙ Widgets verwalten"-Deep-Link im `/dashboard`-Header →
+      `/settings#dashboard`; einmaliger First-Use-Coachmark (localStorage `dashboard_personalization_hint_dismissed`).
 - [ ] **Barrierefreie Alternative (UI-NFR-002):** Reihenfolge und Größe sind vollständig über
       Tastatur/Buttons im Settings-Tab steuerbar — ohne Drag-and-Drop.
 - [ ] **Per-Widget-Konfiguration:** Widgets mit `hasConfig` bieten einen Konfig-Dialog; Config wird in
@@ -490,9 +559,9 @@ Beide Flächen mutieren denselben `DashboardLayout` und rufen `saveDashboardLayo
       verworfen + geloggt (Layout wird nicht komplett abgelehnt).
 - [ ] **Fehler-Isolation:** Ein fehlerhaftes Widget blockiert das Dashboard nicht (ErrorBoundary + Retry).
 - [ ] **Responsive (UI-NFR-001):** < 600 px → einspaltige Stapelung, kein Drag-and-Drop, Touch-Targets ≥ 48 px (R-011); Resize-Handle-Hit-Area ≥ 48 px.
-- [ ] **Barrierefreiheit (UI-NFR-002):** Tab-/Screenreader-Reihenfolge folgt `(y, x)`; Bearbeiten-Modus per Kebab-Menü voll tastaturbedienbar (Drag-Handles nicht im Tab-Index); `prefers-reduced-motion` respektiert.
+- [ ] **Barrierefreiheit (UI-NFR-002 R-024..R-027):** Tab-/Screenreader-Reihenfolge folgt `(y, x)` je Breakpoint; Bearbeiten-Modus per Kebab-Menü voll tastaturbedienbar (Drag-Handles nicht im Tab-Index); Reorder-Aktionen via ARIA-Live angekündigt; `prefers-reduced-motion` respektiert.
 - [ ] **Leeres Dashboard:** bei 0 Widgets Empty-State mit CTA (Widgets auswählen / Standard wiederherstellen) statt leerer Seite.
-- [ ] **Bundle (UI-NFR-003):** Read-Only-Rendering per CSS-Grid **ohne** `react-grid-layout`; DnD-Library + Widgets lazy (erst im Bearbeiten-Modus); 300-KB-Budget des Dashboard-Chunks eingehalten.
+- [ ] **Bundle (UI-NFR-003 R-028):** Read-Only-Rendering per CSS-Grid **ohne** `react-grid-layout`; DnD-Library + Widgets lazy (erst im Bearbeiten-Modus); route-spezifisches Bundle-Budget des `/dashboard`-Chunks CI-überwacht.
 - [ ] **PWA-Offline (UI-NFR-012):** Layout offline sofort strukturiert sichtbar; Widget-Daten aus Cache.
 - [ ] **Kiosk ausgenommen (UI-NFR-019):** `/kiosk` bleibt unverändert festes Layout; **kein** Aufruf von `dashboard/widgets/catalog` oder `PATCH dashboard_layout` von `/kiosk` aus (verifizierbar auf Netzwerk-/Code-Splitting-Ebene).
 - [ ] **i18n:** Alle Widget-Labels, Beschreibungen, Begründungen und Settings-Texte in DE + EN.
@@ -582,6 +651,27 @@ THEN:  - Statt einer leeren Seite erscheint ein Empty-State mit Text + zwei CTAs
        - "Standard wiederherstellen" setzt dashboard_layout=null (Erfahrungsstufen-Default)
 ```
 
+**Szenario 10: Pro-Breakpoint-Layout (v1.2)**
+```
+GIVEN: Layout mit 4 Widgets; placements existieren für "lg", aber nicht für "sm"
+WHEN:  Nutzer wählt im Bearbeiten-Modus den Breakpoint "Mobile" und ordnet zwei
+       Widgets per Reihenfolge-Buttons um
+THEN:  - PATCH persistiert ein neues placements.sm (widgets-Liste unverändert)
+       - Auf Desktop (lg) bleibt die Anordnung unangetastet
+       - Vor der Bearbeitung wurde "sm" aus "lg" abgeleitet (einspaltig gestapelt)
+       - Tab-/Screenreader-Reihenfolge folgt auf jedem Breakpoint dessen (y, x)
+```
+
+**Szenario 11: Migration Alt-Layout v1 → v2**
+```
+GIVEN: Persistiertes dashboard_layout mit schema_version=1 (widgets[].x/y/w/h, columns=12)
+WHEN:  /dashboard lädt das Layout
+THEN:  - Der Client liest die Positionen als placements.lg
+       - widgets tragen nur noch widget_key + config (ohne x/y/w/h)
+       - md/sm werden aus lg abgeleitet
+       - Beim nächsten Speichern wird schema_version=2 persistiert
+```
+
 ---
 
 **Hinweise für RAG-Integration:**
@@ -591,5 +681,3 @@ THEN:  - Statt einer leeren Seite erscheint ein Empty-State mit Text + zwei CTAs
   Bundle-Budget, ErrorBoundary, Reset-Semantik
 - Verknüpfung: Personalisierungs-Schicht über REQ-009 (Widget-SSOT), gated durch REQ-042/REQ-021/REQ-024/REQ-027
 - Tech-Stack: FastAPI, Pydantic v2, ArangoDB (UserPreference), React 19, react-grid-layout, MUI 7, Redux Toolkit
-</content>
-</invoke>
