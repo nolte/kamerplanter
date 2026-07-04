@@ -162,9 +162,10 @@ Erzeuge die YAML-Datei strikt nach dem plant_info.schema.yaml Format.
 | Dokument-Wert | Schema-Enum | Feld |
 |---------------|-------------|------|
 | tender | sensitive | frost_sensitivity |
-| half-hardy | moderate | frost_sensitivity |
+| half-hardy / half_hardy | moderate | frost_sensitivity |
 | hardy | hardy | frost_sensitivity |
 | fully hardy | very_hardy | frost_sensitivity |
+| cutting_stem (Stammsteckling) | cutting (+ `wood_stage`) | propagation_configs.method |
 | rhizomatous (Alt-Doku) | tuberous | root_type (+ `# ENUM-MISMATCH`-Kommentar) |
 | aerial (Alt-Doku) | fibrous | root_type (+ `# ENUM-MISMATCH`-Kommentar) |
 | easy (Stresstoleranz) | low | stress_tolerance |
