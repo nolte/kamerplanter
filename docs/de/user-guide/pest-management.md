@@ -175,6 +175,7 @@ Einige IPM-Funktionen stehen bereits als REST-Endpunkte zur Verfügung, auch wen
 
 ## Siehe auch
 
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md) — Ursache anhand des Symptoms eingrenzen
 - [Schädlings-Detailseite](pest-detail.md) — Steckbrief, Referenzbilder, IPM-Gegenmaßnahmen und Nützlinge pro Schädling
 - [Behandlungs-Detailseite](treatment-detail.md) — Wirkweise, Dosierung, Karenzzeit und Sicherheitshinweise für ein konkretes Behandlungsmittel
 - [Schädlingserkennung per Foto](pest-detection.md) — Foto hochladen und automatisch einschätzen lassen

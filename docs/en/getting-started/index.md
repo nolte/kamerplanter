@@ -18,11 +18,17 @@ Welcome to Kamerplanter! Whether you want to keep a few houseplants alive, grow 
 
     **Continue to:** [Your First Plant](erste-pflanze.md)
 
+    For the complete workflow across the whole season (sowing calendar, companion planting, crop rotation, overwintering): [Journey: The Outdoor Garden Year](../guides/journey-garden-year.md)
+
 === "Indoor Grow"
 
     Running a grow tent with a controlled environment? Kamerplanter tracks phases, VPD, EC values, and nutrient plans — all the way to harvest.
 
     **Continue to:** [Your First Plant](erste-pflanze.md)
+
+    For the complete cycle from germination to cure: [Journey: Cannabis Grow Cycle](../guides/journey-cannabis-cycle.md)
+
+    Growing hydroponically (NFT or DWC)? See [Journey: Hydroponics Setup](../guides/journey-hydroponics-setup.md)
 
 ---
 
@@ -66,3 +72,9 @@ Kamerplanter needs to be set up on a server or computer before you can use it in
 
 !!! tip "Tip"
     If someone else has set up Kamerplanter for you (e.g. in a community garden), you don't need to worry about installation. Just open the URL in your browser and start with the [Onboarding Wizard](erste-pflanze.md).
+
+---
+
+## Not sure what a term means?
+
+Kamerplanter uses a few terms from horticulture and plant care (e.g. VPD, EC, pre-harvest interval). The [glossary](../reference/glossary.md) gives you short, plain-language explanations.

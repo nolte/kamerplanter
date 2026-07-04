@@ -206,6 +206,7 @@ Für alle nicht gelisteten Familien greift der Fallback-Stil `tropical`, sofern 
 
 ## Siehe auch
 
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md)
 - [Aufgaben](tasks.md)
 - [Pflanzdurchläufe](planting-runs.md)
 - [Wachstumsphasen](growth-phases.md)

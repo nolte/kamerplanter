@@ -102,6 +102,7 @@ Auf der Detailseite kannst du außerdem über den Button **„Ablauf analysieren
 
 ## Siehe auch
 
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md)
 - [Dünge-Logik](fertilization.md) — Nährstoffpläne und Ausbringungskanäle (REQ-004)
 - [Pflanzdurchläufe](planting-runs.md) — Gießplan konfigurieren
 - [Tankmanagement](tanks.md) — Bewässerungstanks und Befüllungen

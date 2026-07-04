@@ -389,6 +389,7 @@ Das Ergebnis zeigt eine farbige EC-Budget-Leiste (Basiswasser/Silizium/CalMag/D�
 
 ## Siehe auch
 
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md)
 - [Gießprotokoll](watering-log.md)
 - [Tankmanagement](tanks.md)
 - [Wachstumsphasen](growth-phases.md)

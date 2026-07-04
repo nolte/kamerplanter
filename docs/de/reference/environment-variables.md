@@ -535,5 +535,5 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 ## Siehe auch
 
 - [Lokales Setup](../development/local-setup.md)
-- [Fehlerbehebung](../guides/troubleshooting.md)
+- [Betriebs-Fehlerbehebung](../development/troubleshooting.md)
 - [Deployment Kubernetes](../deployment/kubernetes.md)

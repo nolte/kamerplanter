@@ -102,6 +102,7 @@ The detail page also has an **"Analyze Runoff"** button that runs a runoff analy
 
 ## See Also
 
+- [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md)
 - [Fertilization](fertilization.md) — Nutrient plans and delivery channels (REQ-004)
 - [Planting Runs](planting-runs.md) — Configuring a watering schedule
 - [Tank Management](tanks.md) — Irrigation tanks and fills
