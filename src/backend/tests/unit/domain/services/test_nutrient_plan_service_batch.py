@@ -10,7 +10,7 @@ import pytest
 
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.site import RoWaterProfile, SiteWaterConfig, TapWaterProfile
-from tests.conftest import wire_get_or_raise
+from tests.conftest import wire_get_or_raise, wire_or_raise
 
 
 def _make_tap(**kwargs) -> TapWaterProfile:
@@ -108,7 +108,10 @@ def mock_validator():
 
 @pytest.fixture
 def mock_site_repo():
-    return MagicMock()
+    repo = MagicMock()
+    wire_or_raise(repo, "Site", by_key="get_site_by_key", or_raise="get_site_or_raise")
+    wire_or_raise(repo, "Location", by_key="get_location_by_key", or_raise="get_location_or_raise")
+    return repo
 
 
 @pytest.fixture

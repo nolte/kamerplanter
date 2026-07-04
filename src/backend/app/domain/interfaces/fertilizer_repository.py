@@ -19,6 +19,9 @@ class IFertilizerRepository(ABC):
     def get_by_key(self, key: FertilizerKey) -> Fertilizer | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: FertilizerKey) -> Fertilizer: ...
+
+    @abstractmethod
     def create(self, fertilizer: Fertilizer) -> Fertilizer: ...
 
     @abstractmethod

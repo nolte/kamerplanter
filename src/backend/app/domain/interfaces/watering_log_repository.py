@@ -12,6 +12,9 @@ class IWateringLogRepository(ABC):
     def get_by_key(self, key: str) -> WateringLog | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: str) -> WateringLog: ...
+
+    @abstractmethod
     def get_all(self, offset: int = 0, limit: int = 50) -> tuple[list[WateringLog], int]: ...
 
     @abstractmethod

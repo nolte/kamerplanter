@@ -86,6 +86,9 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
     def get_phase_entry_by_key(self, key: NutrientPlanPhaseEntryKey) -> NutrientPlanPhaseEntry | None:
         return self._phase_entries.get_by_key(key)
 
+    def get_phase_entry_or_raise(self, key: NutrientPlanPhaseEntryKey) -> NutrientPlanPhaseEntry:
+        return self._phase_entries.get_or_raise(key)
+
     def update_phase_entry(
         self,
         key: NutrientPlanPhaseEntryKey,

@@ -72,6 +72,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         doc = coll.get(key)
         return WorkflowTemplate(**self._from_doc(doc)) if doc else None
 
+    def get_workflow_template_or_raise(self, key: WorkflowTemplateKey) -> WorkflowTemplate:
+        return self.get_or_raise_by(self.get_workflow_template_by_key, "WorkflowTemplate", key)
+
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate:
         coll = self._db.collection(col.WORKFLOW_TEMPLATES)
         data = self._to_doc(template)
@@ -130,6 +133,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     def get_phase_by_key(self, key: str) -> WorkflowPhase | None:
         doc = self._db.collection(col.WORKFLOW_PHASES).get(key)
         return WorkflowPhase(**self._from_doc(doc)) if doc else None
+
+    def get_phase_or_raise(self, key: str) -> WorkflowPhase:
+        return self.get_or_raise_by(self.get_phase_by_key, "WorkflowPhase", key)
 
     def create_phase(self, phase: WorkflowPhase) -> WorkflowPhase:
         coll = self._db.collection(col.WORKFLOW_PHASES)
@@ -216,6 +222,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     def get_task_template_by_key(self, key: str) -> TaskTemplate | None:
         doc = self._db.collection(col.TASK_TEMPLATES).get(key)
         return TaskTemplate(**self._from_doc(doc)) if doc else None
+
+    def get_task_template_or_raise(self, key: str) -> TaskTemplate:
+        return self.get_or_raise_by(self.get_task_template_by_key, "TaskTemplate", key)
 
     def create_task_template(self, template: TaskTemplate) -> TaskTemplate:
         coll = self._db.collection(col.TASK_TEMPLATES)
@@ -307,6 +316,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
     def get_task_by_key(self, key: TaskKey) -> Task | None:
         return super().get_by_key(key)
+
+    def get_task_or_raise(self, key: TaskKey) -> Task:
+        return super().get_or_raise(key)
 
     def create_task(self, task: Task) -> Task:
         t = super().create(task)
@@ -458,6 +470,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         doc = coll.get(key)
         return WorkflowExecution(**self._from_doc(doc)) if doc else None
 
+    def get_workflow_execution_or_raise(self, key: WorkflowExecutionKey) -> WorkflowExecution:
+        return self.get_or_raise_by(self.get_workflow_execution_by_key, "WorkflowExecution", key)
+
     def update_workflow_execution(self, key: WorkflowExecutionKey, execution: WorkflowExecution) -> WorkflowExecution:
         coll = self._db.collection(col.WORKFLOW_EXECUTIONS)
         data = self._to_doc(execution)
@@ -492,6 +507,9 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     def get_comment_by_key(self, key: str) -> TaskComment | None:
         doc = self._db.collection(col.TASK_COMMENTS).get(key)
         return TaskComment(**self._from_doc(doc)) if doc else None
+
+    def get_comment_or_raise(self, key: str) -> TaskComment:
+        return self.get_or_raise_by(self.get_comment_by_key, "TaskComment", key)
 
     def update_comment(self, key: str, comment: TaskComment) -> TaskComment:
         coll = self._db.collection(col.TASK_COMMENTS)

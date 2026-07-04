@@ -18,6 +18,9 @@ class IFeedingRepository(ABC):
     def get_by_key(self, key: FeedingEventKey) -> FeedingEvent | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: FeedingEventKey) -> FeedingEvent: ...
+
+    @abstractmethod
     def create(self, event: FeedingEvent) -> FeedingEvent: ...
 
     @abstractmethod

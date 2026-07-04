@@ -12,11 +12,29 @@ from app.domain.models.task import (
     WorkflowTemplate,
 )
 from app.domain.services.task_service import TaskService
+from tests.conftest import wire_or_raise
 
 
 @pytest.fixture
 def mock_repo():
-    return MagicMock()
+    repo = MagicMock()
+    wire_or_raise(repo, "Task", by_key="get_task_by_key", or_raise="get_task_or_raise")
+    wire_or_raise(
+        repo,
+        "WorkflowTemplate",
+        by_key="get_workflow_template_by_key",
+        or_raise="get_workflow_template_or_raise",
+    )
+    wire_or_raise(repo, "WorkflowPhase", by_key="get_phase_by_key", or_raise="get_phase_or_raise")
+    wire_or_raise(repo, "TaskTemplate", by_key="get_task_template_by_key", or_raise="get_task_template_or_raise")
+    wire_or_raise(repo, "TaskComment", by_key="get_comment_by_key", or_raise="get_comment_or_raise")
+    wire_or_raise(
+        repo,
+        "WorkflowExecution",
+        by_key="get_workflow_execution_by_key",
+        or_raise="get_workflow_execution_or_raise",
+    )
+    return repo
 
 
 @pytest.fixture

@@ -12,6 +12,9 @@ class IImportJobRepository(ABC):
     def get_by_key(self, key: ImportJobKey) -> ImportJob | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: ImportJobKey) -> ImportJob: ...
+
+    @abstractmethod
     def update(self, key: ImportJobKey, job: ImportJob) -> ImportJob: ...
 
     @abstractmethod

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
 
@@ -246,6 +247,24 @@ class BaseArangoRepository[TModel: BaseModel]:
         result = self.get_by_key(key)
         if result is None:
             raise NotFoundError(self._require_entity_name(), key)
+        return result
+
+    def get_or_raise_by[T](self, getter: Callable[[str], T | None], entity_name: str, key: str) -> T:
+        """Run a custom single-doc ``getter`` and raise when it returns ``None``.
+
+        Facade repositories load *secondary* entities through hand-written
+        getters (``get_schedule_by_key`` → ``MaintenanceSchedule``,
+        ``get_workflow_template_by_key`` → ``WorkflowTemplate``). Calling the
+        inherited :meth:`get_or_raise` there would raise with the *primary*
+        model's name. This helper funnels the copied ``getter`` + ``None`` check
+        + :class:`NotFoundError` block (DUP-B6) into the base while letting the
+        caller name the entity that was actually loaded. Composed-view backed
+        facades should prefer delegating to the view's :meth:`get_or_raise`
+        instead, which derives ``entity_name`` from the bound model.
+        """
+        result = getter(key)
+        if result is None:
+            raise NotFoundError(entity_name, key)
         return result
 
     def get_all(

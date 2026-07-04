@@ -12,6 +12,9 @@ class ISubstrateRepository(ABC):
     def get_substrate_by_key(self, key: SubstrateKey) -> Substrate | None: ...
 
     @abstractmethod
+    def get_substrate_or_raise(self, key: SubstrateKey) -> Substrate: ...
+
+    @abstractmethod
     def create_substrate(self, substrate: Substrate) -> Substrate: ...
 
     @abstractmethod
@@ -22,6 +25,9 @@ class ISubstrateRepository(ABC):
 
     @abstractmethod
     def get_batch_by_key(self, key: BatchKey) -> SubstrateBatch | None: ...
+
+    @abstractmethod
+    def get_batch_or_raise(self, key: BatchKey) -> SubstrateBatch: ...
 
     @abstractmethod
     def get_batches_by_substrate(self, substrate_key: SubstrateKey) -> list[SubstrateBatch]: ...

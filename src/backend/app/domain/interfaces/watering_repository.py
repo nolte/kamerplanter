@@ -15,6 +15,9 @@ class IWateringRepository(ABC):
     def get_by_key(self, key: WateringEventKey) -> WateringEvent | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: WateringEventKey) -> WateringEvent: ...
+
+    @abstractmethod
     def get_all(
         self,
         offset: int = 0,

@@ -12,6 +12,9 @@ class IDataExportRepository(ABC):
     def get_by_key(self, key: DataExportRequestKey) -> DataExportRequest | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: DataExportRequestKey) -> DataExportRequest: ...
+
+    @abstractmethod
     def update(self, key: DataExportRequestKey, export_request: DataExportRequest) -> DataExportRequest: ...
 
     @abstractmethod

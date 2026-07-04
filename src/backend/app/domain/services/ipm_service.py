@@ -2,7 +2,7 @@ from datetime import datetime
 
 from app.common.datetimes import now_utc
 from app.common.enums import TreatmentType
-from app.common.exceptions import NotFoundError, ResistanceWarningError
+from app.common.exceptions import ResistanceWarningError
 from app.domain.engines.inspection_scheduler import InspectionScheduler
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
@@ -50,10 +50,7 @@ class IpmService:
         return self._repo.get_all_pests(offset, limit)
 
     def get_pest(self, key: str) -> Pest:
-        pest = self._repo.get_pest_by_key(key)
-        if not pest:
-            raise NotFoundError("Pest", key)
-        return pest
+        return self._repo.get_pest_or_raise(key)
 
     def get_inspection_photo_refs_for_pest(self, tenant_key: str, pest_key: str) -> list[str]:
         """Return a tenant's inspection photo attachment ids for a given pest.
@@ -131,10 +128,7 @@ class IpmService:
         return self._repo.get_all_diseases(offset, limit)
 
     def get_disease(self, key: str) -> Disease:
-        disease = self._repo.get_disease_by_key(key)
-        if not disease:
-            raise NotFoundError("Disease", key)
-        return disease
+        return self._repo.get_disease_or_raise(key)
 
     def create_disease(self, disease: Disease) -> Disease:
         return self._repo.create_disease(disease)
@@ -165,10 +159,7 @@ class IpmService:
         return self._repo.get_all_treatments(offset, limit)
 
     def get_treatment(self, key: str) -> Treatment:
-        treatment = self._repo.get_treatment_by_key(key)
-        if not treatment:
-            raise NotFoundError("Treatment", key)
-        return treatment
+        return self._repo.get_treatment_or_raise(key)
 
     def create_treatment(self, treatment: Treatment) -> Treatment:
         return self._repo.create_treatment(treatment)

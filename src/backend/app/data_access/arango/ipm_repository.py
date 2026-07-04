@@ -36,6 +36,9 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def get_pest_by_key(self, key: PestKey) -> Pest | None:
         return super().get_by_key(key)
 
+    def get_pest_or_raise(self, key: PestKey) -> Pest:
+        return super().get_or_raise(key)
+
     def get_pest_by_scientific_name(self, scientific_name: str) -> Pest | None:
         return self.find_one_by_field("scientific_name", scientific_name)
 
@@ -59,6 +62,9 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def get_disease_by_key(self, key: DiseaseKey) -> Disease | None:
         return self._diseases.get_by_key(key)
 
+    def get_disease_or_raise(self, key: DiseaseKey) -> Disease:
+        return self._diseases.get_or_raise(key)
+
     def create_disease(self, disease: Disease) -> Disease:
         return self._diseases.create(disease)
 
@@ -78,6 +84,9 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
 
     def get_treatment_by_key(self, key: TreatmentKey) -> Treatment | None:
         return self._treatments.get_by_key(key)
+
+    def get_treatment_or_raise(self, key: TreatmentKey) -> Treatment:
+        return self._treatments.get_or_raise(key)
 
     def create_treatment(self, treatment: Treatment) -> Treatment:
         return self._treatments.create(treatment)

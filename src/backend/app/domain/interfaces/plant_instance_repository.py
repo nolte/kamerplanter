@@ -12,6 +12,9 @@ class IPlantInstanceRepository(ABC):
     def get_by_key(self, key: PlantID) -> PlantInstance | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: PlantID) -> PlantInstance: ...
+
+    @abstractmethod
     def get_by_instance_id(self, instance_id: str) -> PlantInstance | None: ...
 
     @abstractmethod

@@ -12,6 +12,9 @@ class ICalendarFeedRepository(ABC):
     def get_by_key(self, key: CalendarFeedKey) -> CalendarFeed | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: CalendarFeedKey) -> CalendarFeed: ...
+
+    @abstractmethod
     def get_by_token(self, token: str) -> CalendarFeed | None: ...
 
     @abstractmethod

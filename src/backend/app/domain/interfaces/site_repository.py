@@ -12,6 +12,9 @@ class ISiteRepository(ABC):
     def get_site_by_key(self, key: SiteKey) -> Site | None: ...
 
     @abstractmethod
+    def get_site_or_raise(self, key: SiteKey) -> Site: ...
+
+    @abstractmethod
     def create_site(self, site: Site) -> Site: ...
 
     @abstractmethod
@@ -25,6 +28,9 @@ class ISiteRepository(ABC):
 
     @abstractmethod
     def get_location_by_key(self, key: LocationKey) -> Location | None: ...
+
+    @abstractmethod
+    def get_location_or_raise(self, key: LocationKey) -> Location: ...
 
     @abstractmethod
     def create_location(self, location: Location) -> Location: ...
@@ -46,6 +52,9 @@ class ISiteRepository(ABC):
 
     @abstractmethod
     def get_slot_by_key(self, key: SlotKey) -> Slot | None: ...
+
+    @abstractmethod
+    def get_slot_or_raise(self, key: SlotKey) -> Slot: ...
 
     @abstractmethod
     def create_slot(self, slot: Slot) -> Slot: ...

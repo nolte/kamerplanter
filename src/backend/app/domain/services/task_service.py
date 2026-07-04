@@ -51,9 +51,7 @@ class TaskService:
         return self._repo.get_workflow_usage_stats(wf_keys)
 
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
-        wt = self._repo.get_workflow_template_by_key(key)
-        if not wt:
-            raise NotFoundError("WorkflowTemplate", key)
+        wt = self._repo.get_workflow_template_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(wt, tenant_key, "WorkflowTemplate")
         return wt
@@ -124,10 +122,7 @@ class TaskService:
         return self._repo.get_phases_for_workflow(wf_key)
 
     def get_workflow_phase(self, key: str) -> WorkflowPhase:
-        phase = self._repo.get_phase_by_key(key)
-        if not phase:
-            raise NotFoundError("WorkflowPhase", key)
-        return phase
+        return self._repo.get_phase_or_raise(key)
 
     def create_workflow_phase(self, phase: WorkflowPhase) -> WorkflowPhase:
         self.get_workflow_template(phase.workflow_template_key)
@@ -155,10 +150,7 @@ class TaskService:
         return self._repo.get_task_templates_for_workflow(wf_key)
 
     def get_task_template(self, key: str) -> TaskTemplate:
-        tt = self._repo.get_task_template_by_key(key)
-        if not tt:
-            raise NotFoundError("TaskTemplate", key)
-        return tt
+        return self._repo.get_task_template_or_raise(key)
 
     def create_task_template(self, template: TaskTemplate) -> TaskTemplate:
         return self._repo.create_task_template(template)
@@ -260,9 +252,7 @@ class TaskService:
         return self._repo.get_all_tasks(offset, limit, filters, tenant_key=tenant_key)
 
     def get_task(self, key: str, tenant_key: str = "") -> Task:
-        task = self._repo.get_task_by_key(key)
-        if not task:
-            raise NotFoundError("Task", key)
+        task = self._repo.get_task_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(task, tenant_key, "Task")
         return task
@@ -548,9 +538,7 @@ class TaskService:
 
     def update_comment(self, task_key: str, comment_key: str, text: str) -> TaskComment:
         self.get_task(task_key)  # ensure task exists
-        comment = self._repo.get_comment_by_key(comment_key)
-        if not comment:
-            raise NotFoundError("TaskComment", comment_key)
+        comment = self._repo.get_comment_or_raise(comment_key)
         if comment.task_key != task_key:
             raise ValidationError("Comment does not belong to this task.")
         comment.comment_text = text
@@ -559,9 +547,7 @@ class TaskService:
 
     def delete_comment(self, task_key: str, comment_key: str) -> bool:
         self.get_task(task_key)  # ensure task exists
-        comment = self._repo.get_comment_by_key(comment_key)
-        if not comment:
-            raise NotFoundError("TaskComment", comment_key)
+        comment = self._repo.get_comment_or_raise(comment_key)
         if comment.task_key != task_key:
             raise ValidationError("Comment does not belong to this task.")
         return self._repo.delete_comment(comment_key)
@@ -726,10 +712,7 @@ class TaskService:
     # ── Workflow Execution ──
 
     def get_workflow_execution(self, key: str) -> WorkflowExecution:
-        we = self._repo.get_workflow_execution_by_key(key)
-        if not we:
-            raise NotFoundError("WorkflowExecution", key)
-        return we
+        return self._repo.get_workflow_execution_or_raise(key)
 
     def get_executions_for_template(self, template_key: str) -> list[dict]:
         return self._repo.get_executions_for_template(template_key)

@@ -24,6 +24,9 @@ class IIpmRepository(ABC):
     def get_pest_by_key(self, key: PestKey) -> Pest | None: ...
 
     @abstractmethod
+    def get_pest_or_raise(self, key: PestKey) -> Pest: ...
+
+    @abstractmethod
     def get_pest_by_scientific_name(self, scientific_name: str) -> Pest | None: ...
 
     @abstractmethod
@@ -43,6 +46,9 @@ class IIpmRepository(ABC):
     def get_disease_by_key(self, key: DiseaseKey) -> Disease | None: ...
 
     @abstractmethod
+    def get_disease_or_raise(self, key: DiseaseKey) -> Disease: ...
+
+    @abstractmethod
     def create_disease(self, disease: Disease) -> Disease: ...
 
     @abstractmethod
@@ -57,6 +63,9 @@ class IIpmRepository(ABC):
 
     @abstractmethod
     def get_treatment_by_key(self, key: TreatmentKey) -> Treatment | None: ...
+
+    @abstractmethod
+    def get_treatment_or_raise(self, key: TreatmentKey) -> Treatment: ...
 
     @abstractmethod
     def create_treatment(self, treatment: Treatment) -> Treatment: ...
