@@ -10,7 +10,10 @@ from app.domain.interfaces.graph_repository import IGraphRepository
 
 class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.SPECIES)
+        # Pure edge/graph manager: custom AQL + edge helpers only, returns raw
+        # dicts. Explicit raw opt-in keeps the typed base API's fail-fast guard
+        # from tripping on this legitimately unbound repository (FR-002 A3).
+        BaseArangoRepository.__init__(self, db, col.SPECIES, raw=True)
 
     # ── Companion Planting ────────────────────────────────────────────
 

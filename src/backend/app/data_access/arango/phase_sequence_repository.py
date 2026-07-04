@@ -12,7 +12,10 @@ from app.domain.models.phase_sequence import (
 
 class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoRepository):
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.PHASE_DEFINITIONS)
+        # Custom-AQL-only repository over several phase collections; never uses
+        # the typed base CRUD. Explicit raw opt-in satisfies the fail-fast guard
+        # for this legitimately unbound repository (FR-002 A3).
+        BaseArangoRepository.__init__(self, db, col.PHASE_DEFINITIONS, raw=True)
 
     # ── PhaseDefinition ──
 

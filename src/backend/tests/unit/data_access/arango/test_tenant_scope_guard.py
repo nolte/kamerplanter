@@ -60,19 +60,26 @@ class _FakeDb:
 
 
 class _ScopedRepo(BaseArangoRepository):
-    """Minimal tenant-scoped repo exercising the real base get_all path."""
+    """Minimal tenant-scoped repo exercising the real base get_all path.
+
+    Unbound raw view (this test asserts on raw dicts), so it opts into raw
+    mode to satisfy the FR-002 A3 fail-fast guard.
+    """
 
     is_tenant_scoped = True
 
     def __init__(self, db) -> None:
-        super().__init__(db, "scoped_collection")
+        super().__init__(db, "scoped_collection", raw=True)
 
 
 class _GlobalRepo(BaseArangoRepository):
-    """Minimal global (tenant-less) repo — no guard must fire."""
+    """Minimal global (tenant-less) repo — no guard must fire.
+
+    Unbound raw view; opts into raw mode (FR-002 A3).
+    """
 
     def __init__(self, db) -> None:
-        super().__init__(db, "global_collection")
+        super().__init__(db, "global_collection", raw=True)
 
 
 # Real tenant-scoped repositories (all reach the guard through get_all).
