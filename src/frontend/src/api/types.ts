@@ -109,7 +109,14 @@ export type FertilizerType =
   | 'biological'
   | 'ph_adjuster'
   | 'organic'
-  | 'silicate';
+  | 'silicate'
+  | 'calmag';
+export type NutrientReleaseSpeed = 'immediate' | 'weeks' | 'months' | 'season_long';
+export type NutrientDemandLevel =
+  | 'heavy_feeder'
+  | 'medium_feeder'
+  | 'light_feeder'
+  | 'nitrogen_fixer';
 export type PhEffect = 'acidic' | 'alkaline' | 'neutral';
 export type ApplicationMethod = 'fertigation' | 'drench' | 'foliar' | 'top_dress' | 'any';
 export type Bioavailability = 'immediate' | 'slow_release' | 'microbial_dependent';
@@ -1568,6 +1575,11 @@ export interface Fertilizer {
   shelf_life_days: number | null;
   storage_temp_min: number | null;
   storage_temp_max: number | null;
+  // ── Area-based dosing fields (REQ-004 W-013, outdoor organic fertilization) ──
+  application_rate_g_per_m2: number | null;
+  application_rate_l_per_m2: number | null;
+  dilution_ratio: string | null;
+  nutrient_release_speed: NutrientReleaseSpeed | null;
   notes: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -1590,6 +1602,10 @@ export interface FertilizerCreate {
   shelf_life_days?: number | null;
   storage_temp_min?: number | null;
   storage_temp_max?: number | null;
+  application_rate_g_per_m2?: number | null;
+  application_rate_l_per_m2?: number | null;
+  dilution_ratio?: string | null;
+  nutrient_release_speed?: NutrientReleaseSpeed | null;
   notes?: string | null;
 }
 
@@ -1610,6 +1626,10 @@ export interface FertilizerUpdate {
   shelf_life_days?: number | null;
   storage_temp_min?: number | null;
   storage_temp_max?: number | null;
+  application_rate_g_per_m2?: number | null;
+  application_rate_l_per_m2?: number | null;
+  dilution_ratio?: string | null;
+  nutrient_release_speed?: NutrientReleaseSpeed | null;
   notes?: string | null;
 }
 
@@ -2070,6 +2090,10 @@ export interface MixingProtocolRequest {
   base_water_ph: number;
   fertilizer_keys: string[];
   substrate_type?: SubstrateType;
+  // ── Additive REQ-004-A fields (AP-10) ──
+  alkalinity_ppm?: number;
+  phase?: PhaseName;
+  recipe_ml_per_liter?: Record<string, number> | null;
 }
 
 export interface MixingDosage {
@@ -2084,6 +2108,38 @@ export interface MixingProtocolResponse {
   dosages: MixingDosage[];
   calculated_ec: number;
   ph_adjustment: { needed: boolean; direction: string; delta: number };
+  warnings: string[];
+  instructions: string[];
+  // ── Additive REQ-004-A transparency fields (AP-10) ──
+  ec_net: number;
+  ec_ph_reserve: number;
+  valid: boolean;
+}
+
+// ── Area-based dosing (REQ-004 W-013, AP-11) ────────────────────────
+
+export interface AreaDosingRequest {
+  fertilizer_keys: string[];
+  area_m2?: number | null;
+  location_key?: string | null;
+  demand_level?: NutrientDemandLevel | null;
+}
+
+export interface AreaDosingItem {
+  fertilizer_key: string | null;
+  product_name: string;
+  rate_g_per_m2: number | null;
+  rate_l_per_m2: number | null;
+  total_grams: number | null;
+  total_liters: number | null;
+  dilution_ratio: string | null;
+  nutrient_release_speed: NutrientReleaseSpeed | null;
+  note: string | null;
+}
+
+export interface AreaDosingResponse {
+  area_m2: number;
+  items: AreaDosingItem[];
   warnings: string[];
   instructions: string[];
 }

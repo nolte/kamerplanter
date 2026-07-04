@@ -65,10 +65,11 @@ const FORM_MAX_WIDTH = 1280;
 /** Reading-column max width for prose textareas (UI-NFR-008 R-054, ~70-80 chars). */
 const READING_COL_MAX = 760;
 
-const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate'] as const;
+const fertilizerTypes = ['base', 'supplement', 'booster', 'biological', 'ph_adjuster', 'organic', 'silicate', 'calmag'] as const;
 const phEffects = ['acidic', 'alkaline', 'neutral'] as const;
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress', 'any'] as const;
 const bioavailabilities = ['immediate', 'slow_release', 'microbial_dependent'] as const;
+const releaseSpeeds = ['immediate', 'weeks', 'months', 'season_long'] as const;
 
 const editSchema = z.object({
   product_name: z.string().min(1).max(200),
@@ -89,6 +90,14 @@ const editSchema = z.object({
   shelf_life_days: z.number().int().min(1).nullable(),
   storage_temp_min: z.number().nullable(),
   storage_temp_max: z.number().nullable(),
+  application_rate_g_per_m2: z.number().gt(0).nullable(),
+  application_rate_l_per_m2: z.number().gt(0).nullable(),
+  dilution_ratio: z
+    .string()
+    .regex(/^\d+:\d+$/, 'dilutionRatioError')
+    .nullable()
+    .or(z.literal('')),
+  nutrient_release_speed: z.enum(releaseSpeeds).nullable().or(z.literal('')),
   notes: z.string().nullable(),
 });
 
@@ -245,6 +254,10 @@ export default function FertilizerDetailPage() {
       shelf_life_days: null,
       storage_temp_min: null,
       storage_temp_max: null,
+      application_rate_g_per_m2: null,
+      application_rate_l_per_m2: null,
+      dilution_ratio: '',
+      nutrient_release_speed: '',
       notes: null,
     },
   });
@@ -290,6 +303,10 @@ export default function FertilizerDetailPage() {
         shelf_life_days: f.shelf_life_days,
         storage_temp_min: f.storage_temp_min,
         storage_temp_max: f.storage_temp_max,
+        application_rate_g_per_m2: f.application_rate_g_per_m2,
+        application_rate_l_per_m2: f.application_rate_l_per_m2,
+        dilution_ratio: f.dilution_ratio ?? '',
+        nutrient_release_speed: f.nutrient_release_speed ?? '',
         notes: f.notes,
       });
       setStocks(st);
@@ -341,6 +358,10 @@ export default function FertilizerDetailPage() {
         shelf_life_days: data.shelf_life_days,
         storage_temp_min: data.storage_temp_min,
         storage_temp_max: data.storage_temp_max,
+        application_rate_g_per_m2: data.application_rate_g_per_m2,
+        application_rate_l_per_m2: data.application_rate_l_per_m2,
+        dilution_ratio: data.dilution_ratio ? data.dilution_ratio : null,
+        nutrient_release_speed: data.nutrient_release_speed ? data.nutrient_release_speed : null,
         notes: data.notes,
       });
       notification.success(t('common.save'));
@@ -471,6 +492,11 @@ export default function FertilizerDetailPage() {
     fertilizer.shelf_life_days != null ||
     fertilizer.storage_temp_min != null ||
     fertilizer.storage_temp_max != null;
+  const hasAreaDosingData =
+    fertilizer.application_rate_g_per_m2 != null ||
+    fertilizer.application_rate_l_per_m2 != null ||
+    fertilizer.dilution_ratio != null ||
+    fertilizer.nutrient_release_speed != null;
 
   return (
     <Box data-testid="fertilizer-detail-page">
@@ -698,6 +724,43 @@ export default function FertilizerDetailPage() {
                   <Typography variant="body2">
                     {fertilizer.shelf_life_days} {t('common.days')}
                   </Typography>
+                </DetailRow>
+              )}
+            </DetailSection>
+          )}
+
+          {/* Outdoor area dosing section — only when data exists (REQ-004 W-013) */}
+          {hasAreaDosingData && (
+            <DetailSection
+              title={t('pages.fertilizers.sectionAreaDosing')}
+              intro={t('pages.fertilizers.sectionAreaDosingIntro')}
+            >
+              {fertilizer.application_rate_g_per_m2 != null && (
+                <DetailRow label={t('pages.fertilizers.applicationRateGPerM2')}>
+                  <Typography variant="body2">
+                    {fertilizer.application_rate_g_per_m2} g/m²
+                  </Typography>
+                </DetailRow>
+              )}
+              {fertilizer.application_rate_l_per_m2 != null && (
+                <DetailRow label={t('pages.fertilizers.applicationRateLPerM2')}>
+                  <Typography variant="body2">
+                    {fertilizer.application_rate_l_per_m2} L/m²
+                  </Typography>
+                </DetailRow>
+              )}
+              {fertilizer.dilution_ratio != null && (
+                <DetailRow label={t('pages.fertilizers.dilutionRatio')}>
+                  <Typography variant="body2">{fertilizer.dilution_ratio}</Typography>
+                </DetailRow>
+              )}
+              {fertilizer.nutrient_release_speed != null && (
+                <DetailRow label={t('pages.fertilizers.nutrientReleaseSpeed')}>
+                  <Chip
+                    label={t(`enums.nutrientReleaseSpeed.${fertilizer.nutrient_release_speed}`)}
+                    size="small"
+                    variant="outlined"
+                  />
                 </DetailRow>
               )}
             </DetailSection>
@@ -1067,6 +1130,55 @@ export default function FertilizerDetailPage() {
               inputMode="numeric"
               helperText={t('pages.fertilizers.shelfLifeHelper')}
             />
+          </EditSection>
+
+          {/* Section: Outdoor area dosing (REQ-004 W-013) */}
+          <EditSection
+            title={t('pages.fertilizers.sectionAreaDosing')}
+            intro={t('pages.fertilizers.sectionAreaDosingIntro')}
+          >
+            <FormRow>
+              <FormNumberField
+                name="application_rate_g_per_m2"
+                control={control}
+                label={t('pages.fertilizers.applicationRateGPerM2')}
+                min={0}
+                suffix="g/m²"
+                inputMode="decimal"
+                helperText={t('pages.fertilizers.applicationRateGPerM2Helper')}
+              />
+              <FormNumberField
+                name="application_rate_l_per_m2"
+                control={control}
+                label={t('pages.fertilizers.applicationRateLPerM2')}
+                min={0}
+                suffix="L/m²"
+                inputMode="decimal"
+                helperText={t('pages.fertilizers.applicationRateLPerM2Helper')}
+              />
+            </FormRow>
+            <FormRow>
+              <FormTextField
+                name="dilution_ratio"
+                control={control}
+                label={t('pages.fertilizers.dilutionRatio')}
+                placeholder="1:10"
+                helperText={t('pages.fertilizers.dilutionRatioHelper')}
+              />
+              <FormSelectField
+                name="nutrient_release_speed"
+                control={control}
+                label={t('pages.fertilizers.nutrientReleaseSpeed')}
+                helperText={t('pages.fertilizers.nutrientReleaseSpeedHelper')}
+                options={[
+                  { value: '', label: t('pages.fertilizers.nutrientReleaseSpeedNone') },
+                  ...releaseSpeeds.map((v) => ({
+                    value: v,
+                    label: t(`enums.nutrientReleaseSpeed.${v}`),
+                  })),
+                ]}
+              />
+            </FormRow>
           </EditSection>
 
           {/* Notes (full-width, R-058 — multiline prose belongs single-column) */}

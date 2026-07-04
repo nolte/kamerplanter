@@ -27,8 +27,11 @@ import type {
   MixingSafetyResponse,
   WaterMixReverseResponse,
   EcBudgetResponse,
+  AreaDosingResponse,
+  AreaDosingItem,
   SubstrateType,
   PhaseName,
+  NutrientDemandLevel,
 } from '@/api/types';
 
 export default function NutrientCalculationsPage() {
@@ -41,6 +44,8 @@ export default function NutrientCalculationsPage() {
   const [mpTargetPh, setMpTargetPh] = useState(6.0);
   const [mpBaseEc, setMpBaseEc] = useState(0.3);
   const [mpBasePh, setMpBasePh] = useState(7.2);
+  const [mpAlkalinity, setMpAlkalinity] = useState(0);
+  const [mpPhase, setMpPhase] = useState<PhaseName>('vegetative');
   const [mpFertKeys, setMpFertKeys] = useState('');
   const [mpResult, setMpResult] = useState<MixingProtocolResponse | null>(null);
 
@@ -68,6 +73,13 @@ export default function NutrientCalculationsPage() {
   const [wmTargetBaseEc, setWmTargetBaseEc] = useState(0.15);
   const [wmResult, setWmResult] = useState<WaterMixReverseResponse | null>(null);
 
+  // ── Area-based Dosing (REQ-004 W-013) ────────────────────────────────
+  const [adFertKeys, setAdFertKeys] = useState('');
+  const [adAreaM2, setAdAreaM2] = useState<number | ''>('');
+  const [adLocationKey, setAdLocationKey] = useState('');
+  const [adDemandLevel, setAdDemandLevel] = useState<NutrientDemandLevel | ''>('');
+  const [adResult, setAdResult] = useState<AreaDosingResponse | null>(null);
+
   // ── EC Budget ──────────────────────────────────────────────────────
   const [ebTargetEc, setEbTargetEc] = useState(1.8);
   const [ebSubstrate, setEbSubstrate] = useState<SubstrateType>('coco');
@@ -92,6 +104,8 @@ export default function NutrientCalculationsPage() {
         target_ph: mpTargetPh,
         base_water_ec: mpBaseEc,
         base_water_ph: mpBasePh,
+        alkalinity_ppm: mpAlkalinity,
+        phase: mpPhase,
         fertilizer_keys: keys,
       });
       setMpResult(result);
@@ -135,6 +149,21 @@ export default function NutrientCalculationsPage() {
         fertilizer_keys: keys,
       });
       setMsResult(result);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  const calcAreaDosing = async () => {
+    try {
+      const keys = adFertKeys.split(',').map((k) => k.trim()).filter(Boolean);
+      const result = await calcApi.calculateAreaDosing({
+        fertilizer_keys: keys,
+        area_m2: adAreaM2 !== '' ? adAreaM2 : undefined,
+        location_key: adLocationKey.trim() || undefined,
+        demand_level: adDemandLevel || undefined,
+      });
+      setAdResult(result);
     } catch (err) {
       handleError(err);
     }
@@ -210,6 +239,42 @@ export default function NutrientCalculationsPage() {
     { value: 'vegetative', label: t('enums.phaseName.vegetative') },
     { value: 'flowering', label: t('enums.phaseName.flowering') },
     { value: 'flushing', label: t('enums.phaseName.flushing') },
+  ];
+
+  const DEMAND_LEVEL_OPTIONS: { value: NutrientDemandLevel; label: string }[] = [
+    { value: 'heavy_feeder', label: t('enums.nutrientDemandLevel.heavy_feeder') },
+    { value: 'medium_feeder', label: t('enums.nutrientDemandLevel.medium_feeder') },
+    { value: 'light_feeder', label: t('enums.nutrientDemandLevel.light_feeder') },
+    { value: 'nitrogen_fixer', label: t('enums.nutrientDemandLevel.nitrogen_fixer') },
+  ];
+
+  const areaDosingColumns: Column<AreaDosingItem>[] = [
+    { id: 'product', label: t('pages.nutrientCalc.product'), render: (r) => r.product_name },
+    {
+      id: 'totalGrams',
+      label: t('pages.nutrientCalc.areaTotalGrams'),
+      render: (r) => (r.total_grams != null ? r.total_grams.toFixed(1) : '—'),
+      align: 'right',
+    },
+    {
+      id: 'totalLiters',
+      label: t('pages.nutrientCalc.areaTotalLiters'),
+      render: (r) => (r.total_liters != null ? r.total_liters.toFixed(1) : '—'),
+      align: 'right',
+    },
+    {
+      id: 'releaseSpeed',
+      label: t('pages.nutrientCalc.areaReleaseSpeed'),
+      render: (r) =>
+        r.nutrient_release_speed != null
+          ? t(`enums.nutrientReleaseSpeed.${r.nutrient_release_speed}`)
+          : '—',
+    },
+    {
+      id: 'note',
+      label: t('pages.nutrientCalc.areaNote'),
+      render: (r) => r.note ?? '—',
+    },
   ];
 
   const dosageColumns: Column<MixingDosage>[] = [
@@ -303,6 +368,34 @@ export default function NutrientCalculationsPage() {
                   <HelpTooltip term="ph" iconOnly />
                 </Box>
               </Box>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                  <TextField
+                    type="number"
+                    label={t('pages.nutrientCalc.mixingAlkalinity')}
+                    value={mpAlkalinity}
+                    onChange={(e) => setMpAlkalinity(Number(e.target.value))}
+                    fullWidth
+                    sx={{ mb: 2 }}
+                    slotProps={{ htmlInput: { min: 0, max: 500, step: 'any' } }}
+                    helperText={t('pages.nutrientCalc.mixingAlkalinityHelper')}
+                  />
+                  <HelpTooltip term="alkalinity" iconOnly />
+                </Box>
+                <TextField
+                  select
+                  label={t('pages.nutrientCalc.mixingPhase')}
+                  value={mpPhase}
+                  onChange={(e) => setMpPhase(e.target.value as PhaseName)}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  helperText={t('pages.nutrientCalc.mixingPhaseHelper')}
+                >
+                  {PHASE_OPTIONS.map((o) => (
+                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                  ))}
+                </TextField>
+              </Box>
               <TextField
                 label={t('pages.nutrientCalc.fertilizerKeys')}
                 value={mpFertKeys}
@@ -316,13 +409,32 @@ export default function NutrientCalculationsPage() {
               </Button>
               {mpResult && (
                 <Box sx={{ mt: 2 }}>
-                  <Alert severity="info" sx={{ mb: 1 }}>
+                  <Alert severity={mpResult.valid ? 'success' : 'error'} sx={{ mb: 1 }}>
+                    <Chip
+                      label={mpResult.valid ? t('pages.nutrientCalc.mixingValid') : t('pages.nutrientCalc.mixingInvalid')}
+                      size="small"
+                      color={mpResult.valid ? 'success' : 'error'}
+                      sx={{ mr: 1 }}
+                    />
                     {t('pages.nutrientCalc.calculatedEc')}: {mpResult.calculated_ec.toFixed(2)} mS/cm
                     {mpResult.ph_adjustment.needed && (
                       <>
                         {' | '}pH {mpResult.ph_adjustment.direction}: {mpResult.ph_adjustment.delta.toFixed(2)}
                       </>
                     )}
+                  </Alert>
+                  <Alert severity="info" icon={false} sx={{ mb: 1 }}>
+                    <Tooltip title={t('pages.nutrientCalc.ecNetHelper')} arrow enterTouchDelay={0}>
+                      <span tabIndex={0} style={{ cursor: 'help', textDecoration: 'underline dotted' }}>
+                        {t('pages.nutrientCalc.ecNetLabel')}: {mpResult.ec_net.toFixed(3)} mS/cm
+                      </span>
+                    </Tooltip>
+                    {' | '}
+                    <Tooltip title={t('pages.nutrientCalc.ecPhReserveHelper')} arrow enterTouchDelay={0}>
+                      <span tabIndex={0} style={{ cursor: 'help', textDecoration: 'underline dotted' }}>
+                        {t('pages.nutrientCalc.ecPhReserveLabel')}: {mpResult.ec_ph_reserve.toFixed(3)} mS/cm
+                      </span>
+                    </Tooltip>
                   </Alert>
                   {mpResult.warnings.map((w, i) => (
                     <Alert key={i} severity="warning" sx={{ mb: 0.5 }}>
@@ -571,6 +683,120 @@ export default function NutrientCalculationsPage() {
           </Card>
         </Grid>
 
+        {/* Area-based Dosing (REQ-004 W-013) */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                {t('pages.nutrientCalc.areaDosing')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.areaDosingIntro')}
+              </Typography>
+              <TextField
+                label={t('pages.nutrientCalc.fertilizerKeys')}
+                value={adFertKeys}
+                onChange={(e) => setAdFertKeys(e.target.value)}
+                fullWidth
+                sx={{ mb: 2 }}
+                helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
+              />
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 0, sm: 2 }, alignItems: { sm: 'flex-start' } }}>
+                <TextField
+                  type="number"
+                  label={t('pages.nutrientCalc.areaM2')}
+                  value={adAreaM2}
+                  onChange={(e) => setAdAreaM2(e.target.value === '' ? '' : Number(e.target.value))}
+                  placeholder="10"
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                  helperText={t('pages.nutrientCalc.areaM2Helper')}
+                />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, pt: { xs: 0, sm: 2.25 }, pb: { xs: 1, sm: 0 }, alignSelf: { xs: 'flex-start', sm: 'auto' } }}
+                >
+                  {t('pages.nutrientCalc.areaOrLocation')}
+                </Typography>
+                <TextField
+                  label={t('pages.nutrientCalc.locationKey')}
+                  value={adLocationKey}
+                  onChange={(e) => setAdLocationKey(e.target.value)}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  helperText={t('pages.nutrientCalc.locationKeyHelper')}
+                />
+              </Box>
+              {adAreaM2 !== '' && adLocationKey.trim() !== '' && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  {t('pages.nutrientCalc.areaOverridesLocationHint')}
+                </Alert>
+              )}
+              <TextField
+                select
+                label={t('pages.nutrientCalc.demandLevel')}
+                value={adDemandLevel}
+                onChange={(e) => setAdDemandLevel(e.target.value as NutrientDemandLevel | '')}
+                fullWidth
+                sx={{ mb: 2 }}
+                helperText={t('pages.nutrientCalc.demandLevelHelper')}
+              >
+                <MenuItem value="">{t('pages.nutrientCalc.demandLevelNone')}</MenuItem>
+                {DEMAND_LEVEL_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                ))}
+              </TextField>
+              <Button variant="contained" onClick={calcAreaDosing} fullWidth>
+                {t('pages.nutrientCalc.calculate')}
+              </Button>
+              {adResult && (
+                <Box sx={{ mt: 2 }}>
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    {t('pages.nutrientCalc.areaM2')}: {adResult.area_m2} m²
+                  </Alert>
+                  {adResult.warnings.map((w, i) => (
+                    <Alert key={i} severity="warning" sx={{ mb: 0.5 }}>
+                      {w}
+                    </Alert>
+                  ))}
+                  {adResult.items.length > 0 && (
+                    <Box sx={{ mt: 1 }}>
+                      <DataTable
+                        columns={areaDosingColumns}
+                        rows={adResult.items}
+                        getRowKey={(r) => r.fertilizer_key ?? r.product_name}
+                        variant="simple"
+                        ariaLabel={t('pages.nutrientCalc.areaDosing')}
+                        mobileCardRenderer={(r) => (
+                          <MobileCard
+                            title={r.product_name}
+                            subtitle={r.note ?? undefined}
+                            fields={[
+                              { label: t('pages.nutrientCalc.areaTotalGrams'), value: r.total_grams != null ? r.total_grams.toFixed(1) : '—' },
+                              { label: t('pages.nutrientCalc.areaTotalLiters'), value: r.total_liters != null ? r.total_liters.toFixed(1) : '—' },
+                              {
+                                label: t('pages.nutrientCalc.areaReleaseSpeed'),
+                                value: r.nutrient_release_speed != null ? t(`enums.nutrientReleaseSpeed.${r.nutrient_release_speed}`) : '—',
+                              },
+                            ]}
+                          />
+                        )}
+                      />
+                    </Box>
+                  )}
+                  {adResult.instructions.map((inst, i) => (
+                    <Typography key={i} variant="body2" sx={{ mt: 0.5 }}>
+                      {inst}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
         {/* EC Budget (full width) */}
         <Grid size={12}>
           <Card>
@@ -597,14 +823,18 @@ export default function NutrientCalculationsPage() {
                     />
                     <HelpTooltip term="ec" iconOnly />
                   </Box>
-                  <TextField
-                    type="number"
-                    label={t('pages.nutrientCalc.alkalinity')}
-                    value={wmAlkalinity}
-                    onChange={(e) => setWmAlkalinity(Number(e.target.value))}
-                    fullWidth
-                    slotProps={{ htmlInput: { min: 0, max: 500, step: 10 } }}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                    <TextField
+                      type="number"
+                      label={t('pages.nutrientCalc.alkalinity')}
+                      value={wmAlkalinity}
+                      onChange={(e) => setWmAlkalinity(Number(e.target.value))}
+                      fullWidth
+                      slotProps={{ htmlInput: { min: 0, max: 500, step: 10 } }}
+                      helperText={t('pages.nutrientCalc.mixingAlkalinityHelper')}
+                    />
+                    <HelpTooltip term="alkalinity" iconOnly />
+                  </Box>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
                     <TextField
                       type="number"
