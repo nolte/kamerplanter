@@ -284,7 +284,7 @@ PEST_DETECTION_PRIMARY_ADAPTER=local_pest_symptom
 !!! warning "Voraussetzung: Inferenz-Service + Few-Shot-Index"
     Der lokale Schadbild-Adapter erkennt über **Few-Shot-Klassifikation mit einem frozen DINOv2-Modell** (kein separates, lizenzkritisches Modell). Damit der Button erscheint und echte Befunde liefert, sind **zwei** Schritte nötig:
 
-    1. **Inferenz-Service bereitstellen** (derselbe Dienst wie für die Pflanzenerkennung, REQ-029-A). Sobald er erreichbar ist, beantwortet er `GET /pest/ready`.
+    1. **Inferenz-Service bereitstellen** (derselbe Dienst wie für die Pflanzenerkennung). Sobald er erreichbar ist, beantwortet er `GET /pest/ready`. <!-- REQ-029-A -->
     2. **Few-Shot-Index aufbauen** — einmalig pro Klasse ~30 CC0/CC-BY-Bilder von GBIF beschaffen und als Prototypen indizieren. **Keine GBIF-Zugangsdaten nötig** (öffentliche Occurrence-Suche):
 
         ```bash
@@ -405,7 +405,7 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
     Die Plattform-Admin-Rolle kann nur von einem bestehenden Platform-Admin vergeben werden — direkt über die API oder im Admin-Bereich. Beim ersten Setup wird der erste registrierte Nutzer automatisch als Platform-Admin konfiguriert.
 
 ??? question "Kann ein Platform-Admin auch Tenant-Daten einsehen?"
-    Ja. Platform-Admins haben Lesezugriff auf alle mandantengebundenen Daten. Diese Berechtigung sollte auf vertrauenswürdige Personen beschränkt und mit einem Audit-Log versehen sein (REQ-024).
+    Ja. Platform-Admins haben Lesezugriff auf alle mandantengebundenen Daten. Diese Berechtigung sollte auf vertrauenswürdige Personen beschränkt und mit einem Audit-Log versehen sein. <!-- REQ-024 -->
 
 ??? question "Gibt es eine Viewer-Rolle für den Admin-Bereich?"
     Ja. Die Plattform-Rolle `viewer` bietet Lesezugriff auf alle Admin-Statistiken und Mandanten-Übersichten, jedoch keine Schreibberechtigungen.
@@ -426,7 +426,7 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
 
 ## Siehe auch
 
-- [Mandanten & Gärten](tenants.md) — Mandantenverwaltung als Tenant-Admin (REQ-024)
+- [Mandanten & Gärten](tenants.md) — Mandantenverwaltung als Tenant-Admin <!-- REQ-024 -->
 - [Datenschutz (DSGVO)](privacy.md) — Betroffenenrechte und DSGVO-Compliance
 - [Authentifizierung](../api/authentication.md) — JWT, OAuth2/OIDC, Service Accounts
 - [Pflanze per Foto identifizieren](plant-identification.md) — Endnutzer-Anleitung

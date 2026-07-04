@@ -1,6 +1,6 @@
 # Sensors and Measurement Data
 
-Kamerplanter is designed for four data sources for climate, substrate, and light data (REQ-005 v2.7): automatic IoT/MQTT sensors, Home Assistant, a weather API for outdoor locations, and manual entry. Home Assistant (automatic polling) and manual entry at the tank are currently the only sources usable in production — the remaining sources are specified but not yet implemented (details below).
+Kamerplanter is designed for four data sources for climate, substrate, and light data: automatic IoT/MQTT sensors, Home Assistant, a weather API for outdoor locations, and manual entry. Home Assistant (automatic polling) and manual entry at the tank are currently the only sources usable in production — the remaining sources are specified but not yet implemented (details below). <!-- REQ-005 v2.7 -->
 
 ---
 
@@ -156,7 +156,7 @@ DLI is not a stand-alone sensor reading; it is calculated from PPFD × lighting 
 ## Outdoor Sensors: Setting Up a Weather API
 
 !!! warning "Not yet implemented"
-    Weather API integration (DWD, OpenWeatherMap, Open-Meteo) is **specified (REQ-005 v2.7) but not yet implemented**. The following sections describe the planned behavior in future tense. Currently outdoor measurements are only captured via Home Assistant or manual entry at the tank.
+    Weather API integration (DWD, OpenWeatherMap, Open-Meteo) is **specified but not yet implemented**. The following sections describe the planned behavior in future tense. Currently outdoor measurements are only captured via Home Assistant or manual entry at the tank. <!-- REQ-005 v2.7 -->
 
 If you have no outdoor sensor, you will be able to retrieve climate data from a weather service.
 

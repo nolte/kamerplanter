@@ -5,7 +5,7 @@ ist. Dieses Dokument beschreibt die Retention-Matrix, den automatischen Durchset
 Mechanismus (Celery-Task), die TimescaleDB-Aggregierung für Sensordaten und die
 Konfigurierbarkeit per Umgebungsvariablen.
 
-Grundlage: NFR-011 (Vorratsdatenspeicherung & Aufbewahrungsfristen), DSGVO Art. 5 Abs. 1 lit. e.
+Grundlage: DSGVO Art. 5 Abs. 1 lit. e. <!-- NFR-011 -->
 
 ---
 

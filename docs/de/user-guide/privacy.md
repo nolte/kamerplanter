@@ -1,7 +1,7 @@
 # Datenschutz & DSGVO
 
 !!! note "Teilweise verfügbar"
-    Die DSGVO-Betroffenenrechte (intern verfolgt als REQ-025) sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ("Konto-Einstellungen > Datenschutz") folgt noch — die auf dieser Seite beschriebenen Klickstrecken sind daher im Futur formuliert und beschreiben das geplante UI-Verhalten. Bis die Oberfläche verfügbar ist, lassen sich alle Funktionen bereits heute direkt über die API nutzen (siehe [Zugriff über die API](#fur-technische-nutzer-zugriff-uber-die-api-schon-heute-nutzbar)).
+    Die DSGVO-Betroffenenrechte sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ("Konto-Einstellungen > Datenschutz") folgt noch — die auf dieser Seite beschriebenen Klickstrecken sind daher im Futur formuliert und beschreiben das geplante UI-Verhalten. Bis die Oberfläche verfügbar ist, lassen sich alle Funktionen bereits heute direkt über die API nutzen (siehe [Zugriff über die API](#fur-technische-nutzer-zugriff-uber-die-api-schon-heute-nutzbar)). <!-- REQ-025 -->
 
 Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle über deine persönlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder löschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen erreichbar.
 
@@ -281,13 +281,15 @@ Kamerplanter speichert verschiedene Datenkategorien mit unterschiedlichen Aufbew
 | Datenkategorie | Aufbewahrungsfrist | Begründung |
 |----------------|-------------------|-------------|
 | Persönliche Profildaten | Bis zur Löschung + 90 Tage | DSGVO |
-| Sensordaten (roh) | 90 Tage | NFR-011 |
-| Sensordaten (stündlich aggregiert) | 2 Jahre | NFR-011 |
-| Sensordaten (täglich aggregiert) | 5 Jahre | NFR-011 |
+| Sensordaten (roh) | 90 Tage | Speicherbegrenzung |
+| Sensordaten (stündlich aggregiert) | 2 Jahre | Speicherbegrenzung |
+| Sensordaten (täglich aggregiert) | 5 Jahre | Speicherbegrenzung |
 | IP-Adressen | 7 Tage, dann anonymisiert | Datensparsamkeit |
 | Ernte-/Behandlungsdaten | Gesetzliche Mindestfrist | CanG / PflSchG |
 | Einwilligungs-Log | 3 Jahre nach Widerruf | Nachweispflicht |
 | Löschungs-Audit-Log | 1 Jahr | Nachweispflicht |
+
+<!-- NFR-011 -->
 
 ### Sensor-Daten-Downsampling
 

@@ -180,7 +180,7 @@ Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schal
 
 ## Self-Hosted-Erkennung mit DINOv2
 
-Alternativ zur Pl@ntNet-Erkennung kann die Bilderkennung **vollständig auf dem eigenen Server** laufen (REQ-029-A): Ein DINOv2-Modell erzeugt aus dem Foto einen Merkmals-Vektor und vergleicht ihn mit lizenzsauberen Referenzbildern der bekannten Arten. Vorteile: keine laufenden Kosten, kein Drittanbieter, **die Fotos verlassen die Instanz nicht**.
+Alternativ zur Pl@ntNet-Erkennung kann die Bilderkennung **vollständig auf dem eigenen Server** laufen: Ein DINOv2-Modell erzeugt aus dem Foto einen Merkmals-Vektor und vergleicht ihn mit lizenzsauberen Referenzbildern der bekannten Arten. Vorteile: keine laufenden Kosten, kein Drittanbieter, **die Fotos verlassen die Instanz nicht**. <!-- REQ-029-A -->
 
 **Für dich als Nutzer ändert sich der Bedienablauf nicht** — derselbe Dialog, dieselbe Vorschlagsliste. Sobald der Betreiber die Self-Hosted-Erkennung aktiviert hat, wird sie automatisch bevorzugt; Pl@ntNet dient dann nur noch als Rückfalloption.
 

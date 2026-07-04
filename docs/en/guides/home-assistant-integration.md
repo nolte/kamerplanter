@@ -58,7 +58,7 @@ flowchart LR
 | Direction | Token | Purpose | Where to create |
 |-----------|-------|---------|----------------|
 | **HA → Kamerplanter** | Kamerplanter API key (`kp_` prefix) | HA reads plant data, tank values, tasks | Kamerplanter: **Settings** > **API Keys** |
-| **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter reads sensor data, controls actuators (REQ-005, REQ-018) | Home Assistant: **Profile** > **Long-Lived Access Tokens** |
+| **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter reads sensor data, controls actuators <!-- REQ-005, REQ-018 --> | Home Assistant: **Profile** > **Long-Lived Access Tokens** |
 
 !!! warning "Both tokens required"
     Without the **Kamerplanter API key**, the HA integration cannot query data. Without the **HA Access Token**, Kamerplanter cannot read sensor data from Home Assistant or control actuators. For read-only use (HA dashboard only), the Kamerplanter API key alone is sufficient.
@@ -151,7 +151,7 @@ The integration automatically checks reachability via `/api/health`.
 
 | Mode | Description |
 |------|------------|
-| **Light mode** | No authentication required (REQ-027) |
+| **Light mode** | No authentication required <!-- REQ-027 --> |
 | **API key** | API key with `kp_` prefix (recommended) |
 | **Login** | Username and password as fallback |
 

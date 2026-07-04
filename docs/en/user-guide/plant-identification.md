@@ -180,7 +180,7 @@ If you revoke your consent to image transfer, all camera buttons are immediately
 
 ## Self-Hosted Recognition with DINOv2
 
-As an alternative to Pl@ntNet, image recognition can run **entirely on your own server** (REQ-029-A): a DINOv2 model turns the photo into a feature vector and compares it against license-clean reference images of the known species. Benefits: no running costs, no third party, **photos never leave the instance**.
+As an alternative to Pl@ntNet, image recognition can run **entirely on your own server**: a DINOv2 model turns the photo into a feature vector and compares it against license-clean reference images of the known species. Benefits: no running costs, no third party, **photos never leave the instance**. <!-- REQ-029-A -->
 
 **Nothing changes for you as a user** — same dialog, same suggestion list. Once the operator has enabled self-hosted recognition, it is preferred automatically; Pl@ntNet then only serves as a fallback.
 
