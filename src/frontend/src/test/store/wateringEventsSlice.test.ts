@@ -24,7 +24,7 @@ describe('wateringEventsSlice', () => {
     expect(fulfilled.events).toEqual([{ key: 'w1' }]);
     expect(fulfilled.loading).toBe(false);
     const rejected = reducer(baseState, { type: fetchWateringEvents.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load watering events');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchLocationWateringEvents.fulfilled stores events', () => {

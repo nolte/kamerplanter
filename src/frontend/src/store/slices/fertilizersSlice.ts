@@ -73,7 +73,7 @@ const fertilizersSlice = createSlice({
       })
       .addCase(fetchFertilizers.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load fertilizers';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchFertilizer.fulfilled, (state, action) => {
         state.currentFertilizer = action.payload;

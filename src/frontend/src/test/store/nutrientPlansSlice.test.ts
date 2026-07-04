@@ -43,7 +43,7 @@ describe('nutrientPlansSlice', () => {
 
   it('fetchNutrientPlans.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchNutrientPlans.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load nutrient plans');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchNutrientPlan.fulfilled stores the selected plan', () => {

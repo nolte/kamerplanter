@@ -42,7 +42,7 @@ describe('careRemindersSlice', () => {
     const fulfilled = reducer(baseState, { type: fetchDashboard.fulfilled.type, payload: [entryA] });
     expect(fulfilled.dashboard).toEqual([entryA]);
     const rejected = reducer(baseState, { type: fetchDashboard.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load care dashboard');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchProfile.fulfilled stores the current profile', () => {

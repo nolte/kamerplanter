@@ -176,7 +176,7 @@ const ipmSlice = createSlice({
       })
       .addCase(fetchPests.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load pests';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchPest.fulfilled, (state, action) => {
         state.currentPest = action.payload;
@@ -192,7 +192,7 @@ const ipmSlice = createSlice({
       })
       .addCase(fetchDiseases.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load diseases';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchDisease.fulfilled, (state, action) => {
         state.currentDisease = action.payload;
@@ -208,7 +208,7 @@ const ipmSlice = createSlice({
       })
       .addCase(fetchTreatments.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load treatments';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchTreatment.fulfilled, (state, action) => {
         state.currentTreatment = action.payload;

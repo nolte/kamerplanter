@@ -93,7 +93,7 @@ const careRemindersSlice = createSlice({
       })
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load care dashboard';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Profile
       .addCase(fetchProfile.fulfilled, (state, action) => {

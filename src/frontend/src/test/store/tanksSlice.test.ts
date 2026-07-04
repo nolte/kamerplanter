@@ -65,7 +65,7 @@ describe('tanksSlice', () => {
 
   it('fetchTanks.rejected falls back to a default message when none is given', () => {
     const state = reducer(undefined, { type: fetchTanks.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load tanks');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchTank.fulfilled stores the selected tank', () => {

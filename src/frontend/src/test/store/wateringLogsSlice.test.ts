@@ -43,7 +43,7 @@ describe('wateringLogsSlice', () => {
 
   it('fetchWateringLogs.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchWateringLogs.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load watering logs');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchWateringLog.fulfilled stores the selected log', () => {

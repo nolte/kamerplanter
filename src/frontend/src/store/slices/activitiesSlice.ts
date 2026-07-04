@@ -53,7 +53,7 @@ const activitiesSlice = createSlice({
       })
       .addCase(fetchActivities.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load activities';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchActivity.fulfilled, (state, action) => {
         state.current = action.payload;

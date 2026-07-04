@@ -46,7 +46,7 @@ describe('calendarSlice', () => {
     });
     expect(fulfilled.events).toEqual([{ key: 'ev1' }]);
     const rejected = reducer(initial(), { type: fetchCalendarEvents.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load calendar events');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchCalendarFeeds stores feeds and toggles feedsLoading', () => {
@@ -58,7 +58,7 @@ describe('calendarSlice', () => {
     expect(fulfilled.feeds).toEqual([{ key: 'feed1' }]);
     expect(fulfilled.feedsLoading).toBe(false);
     const rejected = reducer(initial(), { type: fetchCalendarFeeds.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load feeds');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('createCalendarFeed.fulfilled appends the new feed', () => {
@@ -92,7 +92,7 @@ describe('calendarSlice', () => {
     expect(fulfilled.sowingFrostConfig).toEqual({ last: '05-15' });
     expect(fulfilled.sowingYear).toBe(2026);
     const rejected = reducer(initial(), { type: fetchSowingCalendar.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load sowing calendar');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchSeasonOverview stores the overview', () => {
@@ -103,7 +103,7 @@ describe('calendarSlice', () => {
     });
     expect(fulfilled.seasonOverview).toEqual({ months: [] });
     const rejected = reducer(initial(), { type: fetchSeasonOverview.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load season overview');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 });
 

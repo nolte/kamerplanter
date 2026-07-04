@@ -134,7 +134,7 @@ const tasksSlice = createSlice({
       })
       .addCase(fetchWorkflows.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load workflows';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(deleteWorkflowThunk.fulfilled, (state, action) => {
         state.workflows = state.workflows.filter((w) => w.key !== action.payload);
@@ -154,7 +154,7 @@ const tasksSlice = createSlice({
       })
       .addCase(fetchTasks.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load tasks';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Single task
       .addCase(fetchTask.fulfilled, (state, action) => {
@@ -171,7 +171,7 @@ const tasksSlice = createSlice({
       })
       .addCase(fetchTaskQueue.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load task queue';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       // Overdue tasks
       .addCase(fetchOverdueTasks.fulfilled, (state, action) => {

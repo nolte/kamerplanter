@@ -65,7 +65,7 @@ describe('ipmSlice', () => {
     const fulfilled = reducer(baseState, { type: fetchPests.fulfilled.type, payload: [{ key: 'p1' }] });
     expect(fulfilled.pests).toEqual([{ key: 'p1' }]);
     const rejected = reducer(baseState, { type: fetchPests.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load pests');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchPest.fulfilled stores the current pest', () => {
@@ -77,7 +77,7 @@ describe('ipmSlice', () => {
     const fulfilled = reducer(baseState, { type: fetchDiseases.fulfilled.type, payload: [{ key: 'd1' }] });
     expect(fulfilled.diseases).toEqual([{ key: 'd1' }]);
     const rejected = reducer(baseState, { type: fetchDiseases.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load diseases');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchDisease.fulfilled stores the current disease', () => {
@@ -89,7 +89,7 @@ describe('ipmSlice', () => {
     const fulfilled = reducer(baseState, { type: fetchTreatments.fulfilled.type, payload: [{ key: 't1' }] });
     expect(fulfilled.treatments).toEqual([{ key: 't1' }]);
     const rejected = reducer(baseState, { type: fetchTreatments.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load treatments');
+    expect(rejected.error).toBe('errors.loadFailed');
   });
 
   it('fetchTreatment.fulfilled stores the current treatment', () => {

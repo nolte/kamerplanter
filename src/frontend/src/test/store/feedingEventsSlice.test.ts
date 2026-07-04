@@ -43,7 +43,7 @@ describe('feedingEventsSlice', () => {
 
   it('fetchFeedingEvents.rejected falls back to a default message', () => {
     const state = reducer(undefined, { type: fetchFeedingEvents.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load feeding events');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchFeedingEvent.fulfilled stores the selected event', () => {

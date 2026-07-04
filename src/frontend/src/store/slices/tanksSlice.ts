@@ -61,7 +61,7 @@ const tanksSlice = createSlice({
       })
       .addCase(fetchTanks.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load tanks';
+        state.error = action.error.message ?? 'errors.loadFailed';
       })
       .addCase(fetchTank.fulfilled, (state, action) => {
         state.currentTank = action.payload;
