@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.location_types.schemas import (
     LocationTypeCreate,
     LocationTypeResponse,
@@ -16,20 +17,20 @@ router = APIRouter(prefix="/location-types", tags=["location-types"], dependenci
 @router.get("", response_model=list[LocationTypeResponse])
 def list_location_types(service: LocationTypeService = Depends(get_location_type_service)):
     items = service.list_all()
-    return [LocationTypeResponse(key=lt.key or "", **lt.model_dump(exclude={"key"})) for lt in items]
+    return [to_response(lt, LocationTypeResponse) for lt in items]
 
 
 @router.get("/{key}", response_model=LocationTypeResponse)
 def get_location_type(key: str, service: LocationTypeService = Depends(get_location_type_service)):
     lt = service.get(key)
-    return LocationTypeResponse(key=lt.key or "", **lt.model_dump(exclude={"key"}))
+    return to_response(lt, LocationTypeResponse)
 
 
 @router.post("", response_model=LocationTypeResponse, status_code=201)
 def create_location_type(body: LocationTypeCreate, service: LocationTypeService = Depends(get_location_type_service)):
     lt = LocationType(**body.model_dump())
     created = service.create(lt)
-    return LocationTypeResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, LocationTypeResponse)
 
 
 @router.put("/{key}", response_model=LocationTypeResponse)
@@ -40,7 +41,7 @@ def update_location_type(
 ):
     lt = LocationType(**body.model_dump())
     updated = service.update(key, lt)
-    return LocationTypeResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+    return to_response(updated, LocationTypeResponse)
 
 
 @router.delete("/{key}", status_code=204)

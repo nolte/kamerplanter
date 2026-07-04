@@ -2,6 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.watering_events.schemas import (
     VolumeSuggestionResponse,
     WateringConfirmRequest,
@@ -23,7 +24,7 @@ router = APIRouter(tags=["watering-events"])
 
 
 def _event_response(e: WateringEvent) -> WateringEventResponse:
-    return WateringEventResponse(key=e.key or "", **e.model_dump(exclude={"key"}))
+    return to_response(e, WateringEventResponse)
 
 
 @router.post("/watering-events", response_model=WateringEventWithWarnings, status_code=201)

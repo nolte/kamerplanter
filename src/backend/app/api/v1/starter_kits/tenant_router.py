@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.starter_kits.schemas import (
     SpeciesAvailability,
     StarterKitResponse,
@@ -20,7 +21,7 @@ def list_starter_kits_for_tenant(
     service: StarterKitService = Depends(get_starter_kit_service),
 ):
     kits = service.list_kits_for_tenant(ctx.tenant_key, difficulty)
-    return [StarterKitResponse(key=k.key or "", **k.model_dump(exclude={"key"})) for k in kits]
+    return [to_response(k, StarterKitResponse) for k in kits]
 
 
 @router.get("/{kit_id}", response_model=StarterKitTenantResponse)
@@ -31,8 +32,8 @@ def get_starter_kit_for_tenant(
 ):
     detail = service.get_kit_detail_for_tenant(kit_id, ctx.tenant_key)
     kit = detail["kit"]
-    return StarterKitTenantResponse(
-        key=kit.key or "",
+    return to_response(
+        kit,
+        StarterKitTenantResponse,
         species_availability=[SpeciesAvailability(**sa) for sa in detail["species_availability"]],
-        **kit.model_dump(exclude={"key"}),
     )

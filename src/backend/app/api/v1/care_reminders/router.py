@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.care_reminders.schemas import (
     CareConfirmationResponse,
     CareProfileResponse,
@@ -16,11 +17,11 @@ router = APIRouter(prefix="/care-reminders", tags=["care-reminders"], dependenci
 
 
 def _profile_to_response(p) -> CareProfileResponse:
-    return CareProfileResponse(key=p.key or "", **p.model_dump(exclude={"key"}))
+    return to_response(p, CareProfileResponse)
 
 
 def _confirmation_to_response(c) -> CareConfirmationResponse:
-    return CareConfirmationResponse(key=c.key or "", **c.model_dump(exclude={"key"}))
+    return to_response(c, CareConfirmationResponse)
 
 
 @router.get("/plants/{plant_key}/profile", response_model=CareProfileResponse)

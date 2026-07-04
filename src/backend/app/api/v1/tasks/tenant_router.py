@@ -617,7 +617,7 @@ def list_task_comments(
 ):
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     comments = service.list_comments(task_key)
-    return [TaskCommentResponse(key=c.key or "", **c.model_dump(exclude={"key"})) for c in comments]
+    return [to_response(c, TaskCommentResponse) for c in comments]
 
 
 @router.post("/{task_key}/comments", response_model=TaskCommentResponse, status_code=201)
@@ -629,7 +629,7 @@ def create_task_comment(
 ):
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     comment = service.create_comment(task_key, body.comment_text, created_by=ctx.user_key)
-    return TaskCommentResponse(key=comment.key or "", **comment.model_dump(exclude={"key"}))
+    return to_response(comment, TaskCommentResponse)
 
 
 @router.put("/{task_key}/comments/{comment_key}", response_model=TaskCommentResponse)
@@ -642,7 +642,7 @@ def update_task_comment(
 ):
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     comment = service.update_comment(task_key, comment_key, body.comment_text)
-    return TaskCommentResponse(key=comment.key or "", **comment.model_dump(exclude={"key"}))
+    return to_response(comment, TaskCommentResponse)
 
 
 @router.delete("/{task_key}/comments/{comment_key}", status_code=204)
@@ -665,7 +665,7 @@ def get_task_history(
 ):
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     entries = service.get_task_history(task_key)
-    return [TaskAuditEntryResponse(key=e.key or "", **e.model_dump(exclude={"key"})) for e in entries]
+    return [to_response(e, TaskAuditEntryResponse) for e in entries]
 
 
 @router.get("/executions/{key}", response_model=WorkflowExecutionResponse)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.species.schemas import (
     ReferenceImageEntry,
     SpeciesCreate,
@@ -24,7 +25,7 @@ def _species_response(s: Species, family_repo: ArangoBotanicalFamilyRepository) 
         fam = family_repo.get_by_key(s.family_key)
         if fam:
             family_name = fam.name
-    return SpeciesResponse(key=s.key or "", family_name=family_name, **s.model_dump(exclude={"key"}))
+    return to_response(s, SpeciesResponse, family_name=family_name)
 
 
 @router.get("", response_model=SpeciesListResponse)
@@ -43,14 +44,7 @@ def list_species(
         if fam:
             family_map[fk] = fam.name
     return SpeciesListResponse(
-        items=[
-            SpeciesResponse(
-                key=s.key or "",
-                family_name=family_map.get(s.family_key or ""),
-                **s.model_dump(exclude={"key"}),
-            )
-            for s in items
-        ],
+        items=[to_response(s, SpeciesResponse, family_name=family_map.get(s.family_key or "")) for s in items],
         total=total,
         offset=offset,
         limit=limit,

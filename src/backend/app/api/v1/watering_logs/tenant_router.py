@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.watering_logs.schemas import (
     ResolvedFertilizer,
     ResolvedPlant,
@@ -37,11 +38,11 @@ def _log_response(
         for fu in log.fertilizers_used:
             name = fert_name_map.get(fu.fertilizer_key, fu.fertilizer_key)
             resolved_ferts.append(ResolvedFertilizer(key=fu.fertilizer_key, name=name, ml_per_liter=fu.ml_per_liter))
-    return WateringLogResponse(
-        key=log.key or "",
+    return to_response(
+        log,
+        WateringLogResponse,
         resolved_plants=resolved,
         resolved_fertilizers=resolved_ferts,
-        **log.model_dump(exclude={"key"}),
     )
 
 

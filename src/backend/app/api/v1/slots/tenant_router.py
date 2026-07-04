@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.slots.schemas import SlotCreate, SlotResponse
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_site_service
@@ -27,7 +28,7 @@ def list_slots(
     loc = service.get_location(location_key)
     service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
     items = service.list_slots(location_key)
-    return [SlotResponse(key=s.key or "", **s.model_dump(exclude={"key"})) for s in items]
+    return [to_response(s, SlotResponse) for s in items]
 
 
 @router.get("/{key}", response_model=SlotResponse)
@@ -37,7 +38,7 @@ def get_slot(
     service: SiteService = Depends(get_site_service),
 ):
     slot = _verify_slot_tenant(key, ctx, service)
-    return SlotResponse(key=slot.key or "", **slot.model_dump(exclude={"key"}))
+    return to_response(slot, SlotResponse)
 
 
 @router.post("", response_model=SlotResponse, status_code=201)
@@ -50,7 +51,7 @@ def create_slot(
     service.get_site(loc.site_key, tenant_key=ctx.tenant_key)
     slot = Slot(**body.model_dump())
     created = service.create_slot(slot)
-    return SlotResponse(key=created.key or "", **created.model_dump(exclude={"key"}))
+    return to_response(created, SlotResponse)
 
 
 @router.put("/{key}", response_model=SlotResponse)
@@ -63,7 +64,7 @@ def update_slot(
     _verify_slot_tenant(key, ctx, service)
     slot = Slot(**body.model_dump())
     updated = service.update_slot(key, slot)
-    return SlotResponse(key=updated.key or "", **updated.model_dump(exclude={"key"}))
+    return to_response(updated, SlotResponse)
 
 
 @router.delete("/{key}", status_code=204)

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.mapping import to_response
 from app.api.v1.starter_kits.schemas import StarterKitResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_starter_kit_service
@@ -14,7 +15,7 @@ def list_starter_kits(
     service: StarterKitService = Depends(get_starter_kit_service),
 ):
     kits = service.list_kits(difficulty)
-    return [StarterKitResponse(key=k.key or "", **k.model_dump(exclude={"key"})) for k in kits]
+    return [to_response(k, StarterKitResponse) for k in kits]
 
 
 @router.get("/{kit_id}", response_model=StarterKitResponse)
@@ -23,4 +24,4 @@ def get_starter_kit(
     service: StarterKitService = Depends(get_starter_kit_service),
 ):
     kit = service.get_kit_by_id(kit_id)
-    return StarterKitResponse(key=kit.key or "", **kit.model_dump(exclude={"key"}))
+    return to_response(kit, StarterKitResponse)

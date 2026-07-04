@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.ipm.schemas import (
     BeneficialResponse,
     DiseaseCreate,
@@ -62,28 +63,28 @@ def _pest_response(p: Pest, ref_counts: dict[str, int] | None = None) -> PestRes
     count = 0
     if ref_counts and p.detection_slug:
         count = ref_counts.get(p.detection_slug, 0)
-    return PestResponse(
-        key=p.key or "",
+    return to_response(
+        p,
+        PestResponse,
         has_reference_images=count > 0,
         reference_image_count=count,
-        **p.model_dump(exclude={"key"}),
     )
 
 
 def _disease_response(d: Disease) -> DiseaseResponse:
-    return DiseaseResponse(key=d.key or "", **d.model_dump(exclude={"key"}))
+    return to_response(d, DiseaseResponse)
 
 
 def _treatment_response(t: Treatment) -> TreatmentResponse:
-    return TreatmentResponse(key=t.key or "", **t.model_dump(exclude={"key"}))
+    return to_response(t, TreatmentResponse)
 
 
 def _inspection_response(i: Inspection) -> InspectionResponse:
-    return InspectionResponse(key=i.key or "", **i.model_dump(exclude={"key"}))
+    return to_response(i, InspectionResponse)
 
 
 def _application_response(a: TreatmentApplication) -> TreatmentApplicationResponse:
-    return TreatmentApplicationResponse(key=a.key or "", **a.model_dump(exclude={"key"}))
+    return to_response(a, TreatmentApplicationResponse)
 
 
 def _beneficial_response(b: Beneficial) -> BeneficialResponse:

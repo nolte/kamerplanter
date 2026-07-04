@@ -7,6 +7,7 @@ get_current_tenant enforces membership. Preferences are user-global
 
 from fastapi import APIRouter, Depends
 
+from app.api.mapping import to_response
 from app.api.v1.user_preferences.schemas import UserPreferenceResponse, UserPreferenceUpdate
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_user_preference_service
@@ -22,7 +23,7 @@ def get_preferences(
     service: UserPreferenceService = Depends(get_user_preference_service),
 ):
     pref = service.get_preferences(ctx.user_key)
-    return UserPreferenceResponse(key=pref.key or "", **pref.model_dump(exclude={"key"}))
+    return to_response(pref, UserPreferenceResponse)
 
 
 @router.patch("", response_model=UserPreferenceResponse)
@@ -33,4 +34,4 @@ def update_preferences(
 ):
     updates = body.model_dump(exclude_none=True)
     pref = service.update_preferences(ctx.user_key, updates)
-    return UserPreferenceResponse(key=pref.key or "", **pref.model_dump(exclude={"key"}))
+    return to_response(pref, UserPreferenceResponse)
