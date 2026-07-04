@@ -148,10 +148,13 @@ new_species:
     spacing_cm: "10"
     mature_height_cm: "40"
     mature_width_cm: "15"
-    sowing_indoor_weeks_before_last_frost: 8
+    sowing_indoor_weeks_before_last_frost: 10
     sowing_outdoor_after_last_frost_days: 0
-    direct_sow_months: [3, 4]
-    harvest_months: [7, 8, 9]
+    # Spring set/seed onions (3,4) + autumn-set overwintering onions (9,10); harvest
+    # June for overwintering sets through September for seed onions — synced from the
+    # audited Steckbrief §1.2 (source of truth, #308). Source refs: Steckbrief 16,18,19.
+    direct_sow_months: [3, 4, 9, 10]
+    harvest_months: [6, 7, 8, 9]
     bloom_months: [6, 7]
     pruning_type: none
     toxicity:
@@ -1096,7 +1099,10 @@ lifecycle_configs:
   "Allium cepa":
     cycle_type: biennial
     photoperiod_type: long_day
+    dormancy_required: true
     vernalization_required: true
+    vernalization_min_days: 90
+    critical_day_length_hours: 13.75
 
   "Allium sativum":
     cycle_type: perennial
