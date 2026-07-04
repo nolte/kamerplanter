@@ -213,5 +213,5 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
 ## Siehe auch
 
 - [Erste Schritte — Onboarding](onboarding.md)
-- [Benutzerkonten & Authentifizierung](../api/authentication.md)
+- [Konto & Anmeldung](account.md)
 - [Standorte & Substrate](locations-substrates.md)

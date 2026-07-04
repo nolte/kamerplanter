@@ -213,5 +213,5 @@ You can leave a tenant as long as you are not the only admin:
 ## See Also
 
 - [Getting Started — Onboarding](onboarding.md)
-- [User Accounts & Authentication](../api/authentication.md)
+- [Account & Sign-In](account.md)
 - [Locations & Substrates](locations-substrates.md)

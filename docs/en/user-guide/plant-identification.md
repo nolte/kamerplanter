@@ -126,7 +126,7 @@ If the recognised species is unknown to the system, you see the notice "This spe
 3. Then add your plant as described above
 
 !!! note "New species"
-    Newly created species initially only have basic data (name, family, genus). You can add care data and additional information later in the master data management section or by fetching it via external data enrichment.
+    Newly created species initially only have basic data (name, family, genus). You can add care data and additional information later in the master data management section or by fetching it via [external data enrichment](../guides/data-enrichment.md).
 
 ---
 
@@ -231,6 +231,7 @@ Platform admins can improve the quality of the reference index by deselecting un
 ## See Also
 
 - [Plant Master Data](plant-management.md)
+- [External Data Enrichment](../guides/data-enrichment.md) — automatically fill in missing master data for new species
 - [Onboarding Wizard](onboarding.md)
 - [Privacy & GDPR](privacy.md)
 - [Pest Detection by Photo](pest-detection.md)

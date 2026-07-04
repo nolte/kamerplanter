@@ -126,7 +126,7 @@ Falls die erkannte Art dem System unbekannt ist, siehst du den Hinweis „Diese 
 3. Lege anschließend deine Pflanze an wie oben beschrieben
 
 !!! note "Neue Arten"
-    Neu angelegte Arten haben zunächst nur die Grunddaten (Name, Familie, Gattung). Pflegedaten und weitere Informationen kannst du später in der Stammdaten-Verwaltung ergänzen oder über die externe Datenanreicherung abrufen.
+    Neu angelegte Arten haben zunächst nur die Grunddaten (Name, Familie, Gattung). Pflegedaten und weitere Informationen kannst du später in der Stammdaten-Verwaltung ergänzen oder über die [externe Datenanreicherung](../guides/data-enrichment.md) abrufen.
 
 ---
 
@@ -231,6 +231,7 @@ Platform-Admins können die Qualität des Referenz-Index verbessern, indem sie u
 ## Siehe auch
 
 - [Stammdaten verwalten](plant-management.md)
+- [Externe Datenanreicherung](../guides/data-enrichment.md) — fehlende Stammdaten neuer Arten automatisch ergänzen
 - [Onboarding-Wizard](onboarding.md)
 - [Datenschutz & DSGVO](privacy.md)
 - [Schädlingserkennung per Foto](pest-detection.md)

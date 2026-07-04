@@ -10,3 +10,4 @@ In-depth guides on specific topics of plant production and system usage.
 - [Troubleshooting](troubleshooting.md) — Common problems and solutions
 - [Plant Data via AI](ai-plant-data-pipeline.md) — Prepare and review new plants using Claude Code Agents
 - [Set Up Browser Push](browser-push-setup.md) — Generate VAPID keys and configure them for web push notifications
+- [External Data Enrichment](data-enrichment.md) — Automatically fill in missing species data from GBIF and Perenual

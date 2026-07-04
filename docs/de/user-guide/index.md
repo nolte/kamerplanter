@@ -19,6 +19,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Kalender](calendar.md) | Kalenderansicht und Aussaatkalender | REQ-015 |
 | [Dashboard](dashboard.md) | Übersicht und Kennzahlen | REQ-009 |
 | [Onboarding-Wizard](onboarding.md) | Geführte Ersteinrichtung mit Starter-Kits und Favoriten | REQ-020 |
+| [Konto & Anmeldung](account.md) | Registrierung, Login, Profil- und Sitzungsverwaltung | — |
 | [Module & Funktionen](module-visibility.md) | Funktionsbereiche gezielt ein- oder ausblenden | REQ-042 |
 | [Pflegeerinnerungen](care-reminders.md) | Automatische Gieß- und Pflegepläne | REQ-022 |
 | [Mandantenverwaltung](tenants.md) | Persönliche und gemeinschaftliche Gärten verwalten | REQ-024 |

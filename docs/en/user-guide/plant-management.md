@@ -238,50 +238,19 @@ Click **Create Activity** and fill in the sections:
 
 ## Importing Master Data via CSV
 
-For initial setup or batch updates, master data can be imported via CSV files. The import follows a secure **two-phase process**:
-
-<!-- diagram-source: user-described — two-phase CSV master-data import flow with a validation-and-fix loop before confirmation -->
-```mermaid
-flowchart LR
-    A["Upload CSV"] --> B["Preview & Validation"]
-    B --> C["Fix errors"]
-    C --> B
-    B --> D["Confirm import"]
-```
-
-### Supported Entities
-
-| Entity | Identification | Use Case |
-|--------|---------------|----------|
-| Species | `scientific_name` | Initial population of botanical species |
-| Cultivar | `name` + `parent_species` | Cultivar catalog imports |
-| BotanicalFamily | `name` | Plant families |
-| NutrientPlan | `name` + `source_chart` | Manufacturer feeding charts |
-
-### Performing an Import
-
-1. Navigate to **Master Data** > **Import**
-2. Select the **Entity** (Species, Cultivar, Family, or Nutrient Plan)
-3. Upload your **CSV file** — encoding and delimiter are auto-detected
-4. Review the **Preview**: Each row is validated individually, errors are shown per field
-5. Choose the **Duplicate strategy** (Skip, Update, or Fail)
-6. Click **Confirm Import**
-
-!!! tip "Download CSV templates"
-    Under **Import** > **Templates**, CSV templates are available for each entity. These contain all supported columns with example values.
-
-!!! tip "Use AI-generated CSV data"
-    The [AI pipeline](../guides/ai-plant-data-pipeline.md) provides ready-made CSV lines in section 8 of each plant document that can be imported directly.
+For initial setup or batch creation, you can also import species, cultivars, and botanical families via a CSV file instead of creating them one by one. The import runs through a secure two-phase process (validation report before the actual creation) and is described in full on its own page, [Master Data Import](import.md) — which also covers the supported columns per data type and how duplicates and validation errors are handled.
 
 ---
 
 ## Prerequisites
 
 - Kamerplanter instance running and accessible
-- For CSV import: CSV file in UTF-8 format
+- For CSV import: see the prerequisites on the [Master Data Import](import.md) page
 
 ## See Also
 
+- [Master Data Import](import.md) — Import species, cultivars, and families via CSV file
+- [External Data Enrichment](../guides/data-enrichment.md) — Automatically fill in missing species data from GBIF and Perenual
 - [Preparing plant data with AI](../guides/ai-plant-data-pipeline.md) — Detailed guide to the AI pipeline
 - [Plant Identification](plant-identification.md) — Identify a species from a photo
 - [Setting Up Plant Identification](../deployment/inference-service.md) — Start the reference image acquisition run (for administrators)

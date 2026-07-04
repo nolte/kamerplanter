@@ -10,3 +10,4 @@ Tiefgehende Anleitungen zu spezifischen Themen der Pflanzenproduktion und System
 - [Fehlerbehebung](troubleshooting.md) — Häufige Probleme und Lösungen
 - [Pflanzendaten per AI](ai-plant-data-pipeline.md) — Neue Pflanzen per Claude Code Agent aufbereiten und reviewen
 - [Browser-Push einrichten](browser-push-setup.md) — VAPID-Schlüssel erzeugen und für Web-Push-Benachrichtigungen hinterlegen
+- [Externe Datenanreicherung](data-enrichment.md) — Fehlende Artdaten automatisch aus GBIF und Perenual ergänzen

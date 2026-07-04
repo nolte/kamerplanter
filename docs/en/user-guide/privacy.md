@@ -339,5 +339,5 @@ Certain sensor data can allow inferences about presence patterns (CO₂ concentr
 
 ## See Also
 
-- [Account Settings](../api/authentication.md)
+- [Account & Sign-In](account.md)
 - [Tenants & Gardens](tenants.md)
