@@ -1,19 +1,51 @@
 # Datenschutz & DSGVO
 
-!!! warning "Noch nicht implementiert"
-    Die auf dieser Seite beschriebenen DSGVO-Funktionen (REQ-025) sind **spezifiziert, aber noch nicht implementiert**. Diese Dokumentation beschreibt das geplante Verhalten.
+!!! note "Teilweise verfügbar"
+    Die DSGVO-Betroffenenrechte (intern verfolgt als REQ-025) sind als **API-Self-Service unter `/api/v1/privacy/`** vollständig implementiert und produktiv nutzbar. Die **grafische Oberfläche** ("Konto-Einstellungen > Datenschutz") folgt noch — die auf dieser Seite beschriebenen Klickstrecken sind daher im Futur formuliert und beschreiben das geplante UI-Verhalten. Bis die Oberfläche verfügbar ist, lassen sich alle Funktionen bereits heute direkt über die API nutzen (siehe [Zugriff über die API](#fur-technische-nutzer-zugriff-uber-die-api-schon-heute-nutzbar)).
 
-Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle über deine persönlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder löschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen direkt in deinem Konto erreichbar.
+Kamerplanter ist nach dem Prinzip **Datenschutz durch Technikgestaltung** (Privacy by Design) entwickelt. Du hast die volle Kontrolle über deine persönlichen Daten: Du kannst sie jederzeit exportieren, berichtigen oder löschen lassen. Alle Betroffenenrechte nach DSGVO Art. 15–21 sind als Self-Service-Funktionen erreichbar.
 
 ---
 
-## Datenschutz-Einstellungen öffnen
+## Für technische Nutzer: Zugriff über die API (schon heute nutzbar)
 
-1. Klicke oben rechts auf dein Profilbild oder die Initialen
-2. Wähle **Konto-Einstellungen**
-3. Klicke auf den Tab **Datenschutz**
+Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten beschriebenen Funktionen stehen bereits als REST-Endpunkte unter `/api/v1/privacy/` zur Verfügung. Eine angemeldete Sitzung (Bearer-Token) ist erforderlich, außer bei `GET /api/v1/privacy/policy`.
 
-Der Datenschutz-Bereich hat vier Tabs: **Meine Daten**, **Einwilligungen**, **Verarbeitung einschränken** und **Account löschen**.
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Am einfachsten lassen sich die Endpunkte über die interaktive API-Dokumentation unter `/docs` (OpenAPI/Swagger) ausprobieren — dort können Anfragen direkt im Browser ausgeführt werden. Alternativ per `curl`, z.B. für den Datenexport:
+    ```bash
+    curl -X POST https://<deine-instanz>/api/v1/privacy/export \
+      -H "Authorization: Bearer <dein-access-token>"
+    ```
+
+| Endpunkt | Zweck |
+|----------|-------|
+| `POST /api/v1/privacy/export` | Datenexport anfordern (Art. 15/20) |
+| `GET /api/v1/privacy/export/{export_key}` | Export-Status abfragen |
+| `GET /api/v1/privacy/export/{export_key}/download` | Export herunterladen |
+| `POST /api/v1/privacy/email-change` | E-Mail-Änderung anfordern (Art. 16) |
+| `POST /api/v1/privacy/email-change/confirm` | E-Mail-Änderung per Token bestätigen |
+| `POST /api/v1/privacy/erasure` | Account-Löschung anfordern (Art. 17) |
+| `GET /api/v1/privacy/erasure/{erasure_key}` | Löschstatus abfragen |
+| `POST /api/v1/privacy/restrict` | Verarbeitung einschränken (Art. 18) |
+| `DELETE /api/v1/privacy/restrict/{restriction_key}` | Einschränkung aufheben |
+| `POST /api/v1/privacy/object` | Widerspruch einlegen (Art. 21) |
+| `GET /api/v1/privacy/consents` | Einwilligungen auflisten (Art. 7) |
+| `POST /api/v1/privacy/consents` | Einwilligung erteilen |
+| `DELETE /api/v1/privacy/consents/{purpose}` | Einwilligung widerrufen |
+| `GET /api/v1/privacy/policy` | Datenschutzerklärung abrufen (kein Login nötig) |
+
+---
+
+## Datenschutz-Einstellungen öffnen (geplante Oberfläche)
+
+Sobald die Oberfläche verfügbar ist, wird sich der Datenschutz-Bereich so öffnen lassen:
+
+1. Oben rechts auf das Profilbild oder die Initialen klicken
+2. **Konto-Einstellungen** wählen
+3. Auf den Tab **Datenschutz** klicken
+
+Der Datenschutz-Bereich wird vier Tabs haben: **Meine Daten**, **Einwilligungen**, **Verarbeitung einschränken** und **Account löschen**.
 
 ---
 
@@ -23,11 +55,15 @@ Du hast das Recht zu erfahren, welche Daten das System über dich gespeichert ha
 
 ### Datenexport anfordern
 
-1. Navigiere zu **Datenschutz** > **Meine Daten**
-2. Klicke auf **Daten exportieren**
+Sobald die Oberfläche verfügbar ist:
+
+1. Zu **Datenschutz** > **Meine Daten** navigieren
+2. Auf **Daten exportieren** klicken
 3. Das System erstellt den Export asynchron (dauert je nach Datenmenge 1–5 Minuten)
-4. Du erhältst eine Benachrichtigung (In-App oder E-Mail), wenn der Export bereit ist
-5. Lade die JSON-Datei herunter — der Link ist **72 Stunden** gültig
+4. Eine Benachrichtigung (In-App oder E-Mail) informiert, wenn der Export bereit ist
+5. Die JSON-Datei herunterladen — der Link ist **72 Stunden** gültig
+
+Schon heute per API: `POST /api/v1/privacy/export` startet den Export, `GET /api/v1/privacy/export/{export_key}` liefert den Status, `GET /api/v1/privacy/export/{export_key}/download` liefert die Download-Metadaten.
 
 Der Export enthält alle Daten, die dem System über dich bekannt sind:
 - Profildaten (Name, E-Mail, Einstellungen)
@@ -45,11 +81,15 @@ Der Export enthält alle Daten, die dem System über dich bekannt sind:
 
 Du hast das Recht, deine Daten zu berichtigen.
 
-1. Navigiere zu **Datenschutz** > **Meine Daten** > **E-Mail ändern**
-2. Gib deine neue E-Mail-Adresse ein
+Sobald die Oberfläche verfügbar ist:
+
+1. Zu **Datenschutz** > **Meine Daten** > **E-Mail ändern** navigieren
+2. Die neue E-Mail-Adresse eingeben
 3. Das System sendet einen **Verifikationslink an die neue Adresse**
-4. Klicke auf den Link in der E-Mail
-5. Die neue E-Mail ist jetzt aktiv — alle aktiven Sitzungen werden beendet
+4. Auf den Link in der E-Mail klicken
+5. Die neue E-Mail ist danach aktiv — alle aktiven Sitzungen werden beendet
+
+Schon heute per API: `POST /api/v1/privacy/email-change` initiiert die Änderung, `POST /api/v1/privacy/email-change/confirm` bestätigt sie per Token (kein Login nötig).
 
 !!! note "Sicherheitshinweis"
     Nach der Bestätigung der neuen E-Mail werden alle offenen Sitzungen (Browser, App) beendet. Du musst dich neu anmelden. Deine alte E-Mail erhält eine Informations-Mail über die Änderung.
@@ -58,13 +98,17 @@ Du hast das Recht, deine Daten zu berichtigen.
 
 ## Verarbeitung einschränken (Art. 18 DSGVO)
 
-Du kannst die Verarbeitung deiner Daten für bestimmte Zwecke einschränken — zum Beispiel wenn du die Richtigkeit deiner Daten bestreitest oder die Verarbeitung für unrechtmäßig hältst.
+Du kannst die Verarbeitung deiner Daten für bestimmte Zwecke einschränken — zum Beispiel, wenn du die Richtigkeit deiner Daten bestreitest oder die Verarbeitung für unrechtmäßig hältst.
 
-1. Navigiere zu **Datenschutz** > **Verarbeitung einschränken**
-2. Wähle den Verarbeitungszweck aus der Liste
-3. Klicke auf **Einschränken**
+Sobald die Oberfläche verfügbar ist:
+
+1. Zu **Datenschutz** > **Verarbeitung einschränken** navigieren
+2. Den Verarbeitungszweck aus der Liste wählen
+3. Auf **Einschränken** klicken
 
 Während einer Einschränkung werden die betroffenen Daten nicht mehr aktiv verarbeitet. Die Einschränkung kann jederzeit aufgehoben werden.
+
+Schon heute per API: `POST /api/v1/privacy/restrict` legt eine Einschränkung an, `DELETE /api/v1/privacy/restrict/{restriction_key}` hebt sie wieder auf.
 
 ---
 
@@ -84,10 +128,14 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 
 ### Einwilligung widerrufen
 
-1. Navigiere zu **Datenschutz** > **Einwilligungen**
-2. Du siehst alle erteilten Einwilligungen mit Datum
-3. Klicke neben der optionalen Einwilligung auf **Widerrufen**
+Sobald die Oberfläche verfügbar ist:
+
+1. Zu **Datenschutz** > **Einwilligungen** navigieren
+2. Alle erteilten Einwilligungen mit Datum ansehen
+3. Neben der optionalen Einwilligung auf **Widerrufen** klicken
 4. Der Widerruf wird mit Zeitstempel gespeichert und gilt ab sofort
+
+Schon heute per API: `GET /api/v1/privacy/consents` listet alle Zwecke mit aktuellem Status, `POST /api/v1/privacy/consents` erteilt eine Einwilligung, `DELETE /api/v1/privacy/consents/{purpose}` widerruft sie.
 
 !!! warning "Auswirkungen eines Widerrufs"
     Wenn du die Einwilligung für externe Stammdatenanreicherung widerrufst, werden keine neuen Daten mehr von GBIF oder Perenual abgerufen. Bestehende angereicherte Daten bleiben erhalten.
@@ -97,7 +145,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 Die [Pflanzenerkennung per Foto](plant-identification.md) sendet dein Bild zur Analyse an Pl@ntNet (CIRAD/INRIA, Frankreich/EU). Die Einwilligung ist erforderlich, weil das Foto die Kamerplanter-Instanz kurzzeitig verlässt.
 
 !!! note "Einwilligungs-Verhalten je Modus"
-    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten), ist hier in den Datenschutzeinstellungen widerrufbar und bleibt über Browser und Geräte hinweg erhalten.
+    **Full-Modus:** Die Einwilligung wird als Consent-Record im Backend gespeichert (Tabelle weiter unten) und bleibt über Browser und Geräte hinweg erhalten. Widerrufbar ist sie schon heute über `DELETE /api/v1/privacy/consents/plant_identification`; sobald die Datenschutz-Oberfläche verfügbar ist, wird das auch dort möglich sein.
 
     **Light-Modus:** Das Consent-Subsystem steht im [Light-Modus](light-mode.md) nicht zur Verfügung. Die Einwilligung wird stattdessen **clientseitig im Browser** (localStorage) eingeholt und gespeichert. Der Einwilligungs-Dialog erscheint beim ersten Upload in der jeweiligen Browser-Sitzung. Dieselben Transparenzinformationen (Foto geht an Pl@ntNet/Frankreich, EXIF-Daten werden entfernt, keine dauerhafte Speicherung) werden in beiden Modi angezeigt.
 
@@ -125,11 +173,15 @@ Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordi
 
 Du kannst der Verarbeitung deiner Daten zu bestimmten Zwecken widersprechen, wenn die Verarbeitung auf berechtigtem Interesse basiert.
 
-1. Navigiere zu **Datenschutz** > **Verarbeitung einschränken**
-2. Wähle den Verarbeitungszweck
-3. Klicke auf **Widerspruch einlegen**
+Sobald die Oberfläche verfügbar ist:
+
+1. Zu **Datenschutz** > **Verarbeitung einschränken** navigieren
+2. Den Verarbeitungszweck wählen
+3. Auf **Widerspruch einlegen** klicken
 
 Das System prüft den Widerspruch. Bei Verarbeitungen auf Basis von Art. 6(1)(f) DSGVO (berechtigtes Interesse) wird die Verarbeitung eingestellt, sofern keine zwingenden legitimen Gründe vorliegen.
+
+Schon heute per API: `POST /api/v1/privacy/object`.
 
 ---
 
@@ -142,9 +194,13 @@ Du hast das Recht auf Löschung deiner Daten.
 
 ### Ablauf der Löschung
 
-1. Navigiere zu **Datenschutz** > **Account löschen**
-2. Bestätigen mit Passwort (oder OAuth Re-Authentifizierung)
-3. Klicke auf **Account endgültig löschen**
+Sobald die Oberfläche verfügbar ist:
+
+1. Zu **Datenschutz** > **Account löschen** navigieren
+2. Mit Passwort bestätigen (oder OAuth Re-Authentifizierung)
+3. Auf **Account endgültig löschen** klicken
+
+Schon heute per API: `POST /api/v1/privacy/erasure` (Passwort im Request-Body) startet die Löschung, `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status.
 
 Was dann passiert:
 

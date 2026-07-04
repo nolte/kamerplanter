@@ -1,147 +1,78 @@
 # KI-Assistent
 
-Der KI-Assistent in Kamerplanter gibt dir kontextabhängige Pflegehinweise, unterstützt bei der Diagnose von Problemen und beantwortet Fragen zu deinen Pflanzen — direkt auf Basis deiner eigenen Daten.
+!!! warning "Noch nicht implementiert"
+    Die auf dieser Seite beschriebene KI-Assistent-**Oberfläche** (Chat-Panel, Tipp-Karten, Diagnose-Modus) ist geplant (interne Referenz: REQ-031) und noch nicht verfügbar; im Frontend ist sie noch nicht umgesetzt. Die Seite `KIAssistentPage` existiert bislang nur als Platzhalter ("Diese Funktion ist noch in Vorbereitung") und ist noch nicht in der Navigation verlinkt. Diese Dokumentation beschreibt das **geplante Verhalten** im Futur. Schon heute nutzbar ist die zugrunde liegende Wissensbasis direkt über die API — siehe nächster Abschnitt.
+
+Der KI-Assistent wird kontextabhängige Pflegehinweise geben, bei der Diagnose von Problemen unterstützen und Fragen zu deinen Pflanzen beantworten — direkt auf Basis deiner eigenen Daten.
 
 ---
 
-## Voraussetzungen
+### Für technische Nutzer: KI-Antworten über die API
+
+Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Auch ohne fertige Oberfläche steht die Wissensbasis bereits über zwei API-Endpunkte zur Verfügung:
+
+| Endpunkt | Zweck |
+|----------|-------|
+| `GET /api/v1/knowledge/search` | Semantische Suche in der Wissensbasis (Pflanzenwissen, Guides) |
+| `POST /api/v1/knowledge/ask` | Frage stellen — das System generiert eine Antwort aus der Wissensbasis, sofern ein KI-Provider konfiguriert ist |
+
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Es gibt keine Chat-Oberfläche. Beide Endpunkte sind über die interaktive API-Dokumentation (`/docs`) direkt testbar; eine angemeldete Sitzung ist erforderlich. Details siehe [API-Referenz](../api/overview.md). Der Betreiber muss zusätzlich einen KI-Provider konfigurieren (siehe [KI-Provider einrichten](ai-providers.md)) — ohne Provider liefert `/ask` einen Fehler.
+
+---
+
+## Voraussetzungen (geplant)
 
 - Mindestens ein angelegter Pflanzdurchlauf oder eine Pflanze
 - Ein konfigurierter KI-Provider (siehe [KI-Provider einrichten](ai-providers.md))
 - Für den Chat: Erfahrungsstufe **Intermediate** oder höher (siehe [Erfahrungsstufen](#erfahrungsstufen-und-ki-funktionen))
 
 !!! tip "Kein API-Key nötig"
-    Mit Ollama (lokal) kannst du den KI-Assistenten vollständig auf deiner eigenen Hardware betreiben — ohne Konto bei einem Cloud-Dienst und ohne Datenweitergabe.
+    Mit Ollama (lokal) wird sich der KI-Assistent vollständig auf eigener Hardware betreiben lassen — ohne Konto bei einem Cloud-Dienst und ohne Datenweitergabe.
 
 ---
 
-## Tipp-Karten
+## Geplante Funktionen im Überblick
 
-Tipp-Karten sind kompakte Pflegehinweise, die automatisch auf der Detailseite deiner Pflanze oder deines Pflanzdurchlaufs erscheinen. Das System analysiert den aktuellen Zustand und gibt 2 bis 4 priorisierte Empfehlungen.
+### Tipp-Karten
 
-### Was Tipp-Karten anzeigen
+Tipp-Karten sollen als kompakte Pflegehinweise automatisch auf der Detailseite einer Pflanze oder eines Pflanzdurchlaufs erscheinen. Das System wird den aktuellen Zustand analysieren und 2 bis 4 priorisierte Empfehlungen anzeigen (Titel, Erklärung, Empfehlung, Priorität). Neue Karten sollen täglich sowie sofort bei Phasenwechsel, EC-/pH-Abweichung oder neuem IPM-Ereignis generiert werden. Karten sollen sich als erledigt oder nicht relevant markieren lassen.
 
-Jede Karte zeigt:
+### Chat-Funktion
 
-- **Titel** — Knappe Zusammenfassung des Hinweises
-- **Erklärung** — Was das System erkannt hat und warum es relevant ist
-- **Empfehlung** — Was du konkret tun kannst
-- **Priorität** — Kritisch, hoch, mittel oder niedrig (farblich markiert)
+Der Chat soll einen freien Dialog mit dem KI-Assistenten ermöglichen. Das System soll dabei den vollständigen Kontext der Pflanze kennen: aktuelle Phase, Messwerte (EC, pH, VPD), Düngehistorie und aktive Schädlingsereignisse. Antworten sollen gestreamt (Wort für Wort) erscheinen. Die Chat-Funktion soll ab Erfahrungsstufe **Intermediate** verfügbar sein; Beginner sollen nur Tipp-Karten sehen.
 
-!!! info "Screenshot folgt"
-    Dieser Screenshot wird in einer zukünftigen Version ergänzt.
-
-### Wann werden Tipp-Karten aktualisiert?
-
-Das System generiert täglich neue Tipp-Karten für alle aktiven Durchläufe. Zusätzlich werden Karten sofort neu generiert, wenn:
-
-- Die Wachstumsphase wechselt
-- Ein EC- oder pH-Wert außerhalb des Zielbereichs liegt
-- Ein IPM-Ereignis (Schädlingsbefall, Krankheit) eingetragen wurde
-
-!!! note "Zwischenspeicherung"
-    Tipp-Karten werden für 4 Stunden gespeichert. Falls du eine Karte als erledigt markierst oder ablehnst, erscheint sie nicht erneut, bis sich der Zustand der Pflanze wesentlich ändert.
-
-### Tipp-Karte ablehnen oder als erledigt markieren
-
-Klicke auf das Dreipunkt-Menü einer Karte:
-
-- **Erledigt** — Der Hinweis wird als umgesetzt markiert und verschwindet
-- **Nicht relevant** — Die Karte wird ausgeblendet; das System lernt daraus
-- **Details** — Zeigt die Quellen, auf denen die Empfehlung basiert
-
----
-
-## Chat-Funktion
-
-Der Chat ermöglicht einen freien Dialog mit dem KI-Assistenten. Das System kennt dabei den vollständigen Kontext deiner Pflanze: aktuelle Phase, Messwerte (EC, pH, VPD), Düngehistorie und aktive Schädlingsereignisse.
-
-!!! info "Verfügbarkeit"
-    Die Chat-Funktion ist ab der Erfahrungsstufe **Intermediate** verfügbar. Beginner sehen nur Tipp-Karten.
-
-### Chat öffnen
-
-1. Öffne die Detailseite einer Pflanze oder eines Pflanzdurchlaufs.
-2. Klicke auf **KI-Chat** (Symbol in der oberen Symbolleiste).
-3. Das Chat-Panel öffnet sich seitlich.
-
-### Beispielfragen
-
-Das System versteht Fragen in natürlicher Sprache. Einige Beispiele:
-
-!!! example "Fragen die du stellen kannst"
+!!! example "Beispielfragen, die künftig gestellt werden können"
     - "Meine unteren Blätter werden gelb — was kann das sein?"
     - "Soll ich in Woche 4 der Blüte den PK-Boost schon starten?"
     - "Der EC ist heute von 1.4 auf 1.8 gestiegen — muss ich spülen?"
     - "Wann ist der optimale Erntezeitpunkt für meine Sorte?"
-    - "Die Luftfeuchtigkeit war heute 80 % — wie hoch ist mein Schimmelrisiko?"
-    - "Kann ich Topping noch durchführen oder ist die Pflanze schon zu weit?"
 
-### Antworten werden gestreamt
+### Diagnose-Modus
 
-Antworten erscheinen Wort für Wort, sobald das Modell sie generiert. Du musst nicht auf die vollständige Antwort warten.
-
-### Chat-Verlauf
-
-Alle Gespräche werden gespeichert und sind unter **KI-Chat > Verlauf** abrufbar. Der Verlauf wird nach 90 Tagen automatisch gelöscht (DSGVO-Richtlinie).
-
-!!! warning "Cloud-Provider und Datenschutz"
-    Bei Nutzung von OpenAI oder Anthropic werden deine Pflanzdaten an externe Server übertragen. Beim ersten Öffnen des Chats mit einem Cloud-Provider wird deine Einwilligung abgefragt. Wenn du keine Daten weitergeben möchtest, verwende Ollama (lokal).
+Der Diagnose-Modus soll die gezielte Analyse bei konkreten Problemen ermöglichen: Symptom beschreiben, System analysiert es auf Basis der aktuellen Messwerte, der Pflegehistorie und der internen Wissensbasis. Das Ergebnis soll eine priorisierte Liste möglicher Ursachen mit konkreten Handlungsempfehlungen sein.
 
 ---
 
-## Diagnose-Modus
+## Provider-Auswahl und Datenschutz (geplant)
 
-Der Diagnose-Modus ist für die gezielte Analyse bei konkreten Problemen gedacht. Du beschreibst ein Symptom — das System analysiert es auf Basis deiner aktuellen Messwerte, der Pflegehistorie und der internen Wissensbasis.
-
-### Diagnose starten
-
-1. Öffne die Detailseite der betroffenen Pflanze.
-2. Klicke auf **Diagnose** (oder öffne den Chat und tippe das Symptom ein).
-3. Beschreibe das Problem möglichst genau.
-
-!!! example "Symptome die das System analysieren kann"
-    - Gelbe oder braune Blätter (Verfärbungsmuster beschreiben: oben/unten, gleichmäßig/fleckig)
-    - Verformte oder kleine Blätter
-    - Schädlingszeichen (Gespinste, Fraßspuren, kleine Insekten)
-    - EC-Drift (steigend oder fallend)
-    - Ungewöhnlich langsames Wachstum
-    - Wurzelverfärbungen
-
-### Wie das System analysiert
-
-Das System kombiniert:
-
-1. **Deinen IST-Zustand** — Phase, aktuelle EC/pH/VPD-Werte, letzte Pflege-Ereignisse
-2. **Stammdaten der Pflanzenart** — bekannte Empfindlichkeiten, Nährstoffbedarf pro Phase
-3. **Wissensbasis** — kuratiertes Expertenwissen zu Symptomen, Ursachen und Gegenmaßnahmen
-
-Das Ergebnis ist eine priorisierte Liste möglicher Ursachen mit konkreten Handlungsempfehlungen.
-
----
-
-## Provider-Auswahl und Datenschutz
-
-Du kannst unter **Einstellungen > KI-Provider** wählen, welches System deine Anfragen bearbeitet.
+Sobald die Oberfläche verfügbar ist, wird sich unter **Einstellungen > KI-Provider** auswählen lassen, welches System die Anfragen bearbeitet. Bis dahin erfolgt die Provider-Wahl ausschließlich über Betreiber-Konfiguration (siehe [KI-Provider einrichten](ai-providers.md)).
 
 | Provider | Datenweitergabe | API-Key | Kosten |
 |----------|----------------|---------|--------|
 | Ollama (lokal) | Keine | Nicht nötig | Kostenlos (eigene Hardware) |
 | llama.cpp | Keine | Nicht nötig | Kostenlos (eigene Hardware) |
-| OpenAI | Übertragung an OpenAI (USA) | Erforderlich | Pay-per-Token |
-| Anthropic Claude | Übertragung an Anthropic (USA) | Erforderlich | Pay-per-Token |
 | OpenAI-kompatibel | Abhängig vom Anbieter | Abhängig | Variabel |
+| Anthropic Claude | Übertragung an Anthropic (USA) | Erforderlich | Pay-per-Token |
 
-!!! warning "Cloud-Provider erfordern DSGVO-Einwilligung"
-    Bei der ersten Nutzung eines Cloud-Providers fragt Kamerplanter nach deiner Einwilligung zur Datenübertragung. Du kannst diese Einwilligung jederzeit unter **Einstellungen > Datenschutz** widerrufen.
-
-Wie du einen Provider einrichtest, erklärt die Seite [KI-Provider einrichten](ai-providers.md).
+!!! warning "Cloud-Provider und Datenschutz"
+    Bei Nutzung eines Cloud-Providers werden Pflanzdaten an externe Server übertragen. Sobald die UI verfügbar ist, wird beim ersten Öffnen des Chats mit einem Cloud-Provider eine Einwilligung abgefragt werden. Wer keine Daten weitergeben möchte, sollte Ollama (lokal) einsetzen.
 
 ---
 
-## Erfahrungsstufen und KI-Funktionen
+## Erfahrungsstufen und KI-Funktionen (geplant) {#erfahrungsstufen-und-ki-funktionen}
 
-Die verfügbaren KI-Funktionen passen sich deiner eingestellten Erfahrungsstufe an.
+Die verfügbaren KI-Funktionen sollen sich an die eingestellte Erfahrungsstufe anpassen.
 
 | Funktion | Beginner | Intermediate | Expert |
 |----------|:--------:|:------------:|:------:|
@@ -152,35 +83,27 @@ Die verfügbaren KI-Funktionen passen sich deiner eingestellten Erfahrungsstufe 
 | Quellen der Empfehlungen einsehen | — | — | Ja |
 | Technische Kontextdaten im Chat | — | — | Ja |
 
-Die Erfahrungsstufe kannst du jederzeit unter **Einstellungen > Erfahrungsstufe** ändern.
-
 ---
 
-## Wenn kein KI-Provider verfügbar ist
+## Verhalten ohne konfigurierten KI-Provider
 
-Kamerplanter funktioniert auch ohne KI-Provider. In diesem Fall generiert das System regelbasierte Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase — ohne Sprachmodell. Die Qualität ist geringer, aber das System ist nie ohne Empfehlungen.
-
-!!! note "Regelbasierter Fallback"
-    Der Fallback greift automatisch, wenn kein Provider konfiguriert ist oder der konfigurierte Provider nicht erreichbar ist. Du siehst in diesem Fall das Symbol "Regelbasiert" auf den Tipp-Karten.
+Kamerplanter wird auch ohne KI-Provider funktionieren. In diesem Fall soll das System regelbasierte Tipp-Karten auf Basis der Stammdaten und der aktuellen Phase generieren — ohne Sprachmodell. Die Qualität wird geringer sein, das System soll aber nie ohne Empfehlungen bleiben.
 
 ---
 
 ## Häufige Fragen
 
 ??? question "Werden meine Pflanzdaten für das Training von KI-Modellen verwendet?"
-    Nein. Kamerplanter sendet deine Daten nur zur Beantwortung deiner konkreten Anfrage an den konfigurierten Provider. Eine Nutzung für Modell-Training ist vertraglich ausgeschlossen (OpenAI API, Anthropic API). Bei lokalen Providern (Ollama, llama.cpp) verlassen deine Daten dein Netzwerk nie.
+    Nein. Kamerplanter wird Daten nur zur Beantwortung einer konkreten Anfrage an den konfigurierten Provider senden. Eine Nutzung für Modell-Training ist vertraglich ausgeschlossen (OpenAI API, Anthropic API). Bei lokalen Providern (Ollama, llama.cpp) verlassen Daten das eigene Netzwerk nie.
 
-??? question "Wie aktuell ist die Wissensbasis des KI-Assistenten?"
-    Die Stammdaten (Pflanzenarten, Nährstoffprofile, Schädlingsdaten) werden wöchentlich neu indexiert. Die thematischen Guides (Expertenwissen zu Diagnose, Düngung, Umwelt) werden bei jedem Kamerplanter-Update gepflegt und aktualisiert.
+??? question "Wie aktuell ist die Wissensbasis, die `/knowledge/ask` heute schon nutzt?"
+    Die Stammdaten (Pflanzenarten, Nährstoffprofile, Schädlingsdaten) werden wöchentlich neu indexiert. Die thematischen Guides werden bei jedem Kamerplanter-Update gepflegt und aktualisiert.
 
 ??? question "Kann ich eigene Pflegehinweise oder Guides zur Wissensbasis hinzufügen?"
     Tenant-Admins können eigene Wissensbasen in YAML-Format hochladen. Diese werden automatisch in die RAG-Wissensbasis integriert. Wie das funktioniert, erklärt der Guide [RAG-Wissensbasis verstehen](../guides/rag-knowledge-base.md).
 
-??? question "Warum liefert der KI-Assistent manchmal unterschiedliche Antworten auf dieselbe Frage?"
-    Sprachmodelle sind probabilistische Systeme — die Antworten variieren leicht. Die Faktenbasis (deine Messwerte, Stammdaten, Wissensbasis) ist immer gleich, aber die Formulierung und Gewichtung kann abweichen. Bei kritischen Entscheidungen (z.B. Erntezeitpunkt) empfehlen wir, mehrere Anfragen zu stellen und die Antworten zu vergleichen.
-
-??? question "Der Assistent antwortet sehr langsam — was kann ich tun?"
-    Bei lokalen Providern (Ollama) hängt die Geschwindigkeit von deiner Hardware ab. Tipps zur Optimierung: (1) GPU-Beschleunigung aktivieren, falls vorhanden. (2) Kleineres Modell verwenden (z.B. `llama3.2:3b` statt `gemma3:4b`). (3) Für Tipp-Karten ist die Geschwindigkeit weniger kritisch, da diese täglich im Hintergrund generiert werden.
+??? question "Wann kommt die Chat-Oberfläche?"
+    Ein konkreter Termin ist nicht festgelegt. REQ-031 ist spezifiziert; der Fortschritt lässt sich am Backlog/Issue-Tracker des Projekts verfolgen.
 
 ---
 

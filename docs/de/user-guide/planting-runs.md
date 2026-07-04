@@ -20,13 +20,15 @@ Ein Pflanzdurchlauf ist ein leichtgewichtiger Gruppencontainer. Er selbst hat ke
 - Eine Pflanze kann jederzeit aus dem Durchlauf herausgelöst werden
 - Phasen-Übergänge können für alle Pflanzen gleichzeitig oder für einzelne separat ausgelöst werden
 
-**Drei Typen von Pflanzdurchläufen:**
+**Zwei Typen von Pflanzdurchläufen:**
 
 | Typ | Beschreibung | Beispiel |
 |-----|-------------|---------|
 | **Monokultur** | Alle Pflanzen sind eine Art und eine Sorte | 20 Tomaten "San Marzano" |
 | **Klon** | Stecklinge einer Mutterpflanze | 10 Cannabis-Klone von Mutter "WW-01" |
-| **Mischkultur** | Mehrere Arten in einer Gruppe | Tomaten + Basilikum + Tagetes |
+
+!!! note "Mischkultur wird nicht als eigener Durchlauf-Typ abgebildet"
+    Ein Pflanzdurchlauf gruppiert immer eine Art/Sorte. Mischkultur-Beete (z.B. Tomaten + Basilikum + Tagetes) werden über **mehrere separate Durchläufe je Art am selben Standort** sowie über die Kompatibilitätsprüfung auf Standort-/Stammdatenebene abgebildet. Details dazu im Guide [Mischkultur & Companion Planting](../guides/companion-planting.md).
 
 ---
 
@@ -45,7 +47,7 @@ Klicke auf **Neuer Durchlauf**. Ein Dialog öffnet sich.
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
 | Name | Eindeutiger Name für den Durchlauf | "Tomaten Hochbeet A 2026" |
-| Typ | Monokultur, Klon oder Mischkultur | Monokultur |
+| Typ | Monokultur oder Klon | Monokultur |
 | Site | Welche Anlage? | "Mein Garten" |
 | Standort (Location) | Konkreter Bereich | "Hochbeet A" |
 | Geplanter Start | Wann soll gepflanzt werden? | 15.04.2026 |
@@ -58,15 +60,7 @@ Klicke auf **Eintrag hinzufügen**:
 1. Wähle **Pflanzenart** (Spezies) aus den Stammdaten.
 2. Wähle optional eine **Sorte** (Cultivar).
 3. Gib die **Anzahl** der Pflanzen ein.
-4. Wähle die **Rolle** (Primärpflanze, Begleitpflanze, Fangpflanze).
-5. Wähle das **Substrat**.
-
-Bei Mischkultur-Durchläufen kannst du mehrere Einträge mit unterschiedlichen Arten hinzufügen.
-
-!!! example "Beispiel: Mischkultur-Beet"
-    - Tomaten "Roma", 8 Stück, Rolle: Primärpflanze
-    - Basilikum "Genovese", 12 Stück, Rolle: Begleitpflanze
-    - Tagetes, 6 Stück, Rolle: Fangpflanze
+4. Wähle das **Substrat**.
 
 ### Schritt 5: Pflanzen erstellen lassen
 
@@ -127,7 +121,7 @@ Nach dem Gießen dokumentierst du das Ereignis für alle Pflanzen gleichzeitig:
 Eine Ernte für alle Pflanzen des Durchlaufs gleichzeitig dokumentieren:
 
 1. Klicke auf **Ernte-Batch erstellen**.
-2. Das System prüft alle Karenzzeiten.
+2. Das System prüft alle Karenzzeiten (die gesetzliche Wartezeit zwischen Behandlung und Ernte).
 3. Trage Frischmasse und Qualitätsbewertung ein.
 4. Bestätige — ein Ernte-Batch wird mit allen Pflanzen des Durchlaufs verknüpft.
 
@@ -166,12 +160,15 @@ Das Entfernen einer Pflanze aus dem Durchlauf löscht die Pflanze nicht.
 
 ## Sukzessions-Aussaat (gestaffelte Durchläufe)
 
-Für kontinuierliche Ernte (z.B. alle 3 Wochen frischer Salat) unterstützt Kamerplanter gestaffelte Pflanzdurchläufe:
+!!! warning "Noch nicht implementiert"
+    Die automatische Sukzessions-Aussaat ist geplant (interne Referenz: REQ-013 v2.3, siehe Issue #299), aber noch nicht umgesetzt. Der Button "Folgepflanzung anlegen" existiert noch nicht. Bis zur Umsetzung lässt sich derselbe Effekt manuell erreichen, indem ein weiterer Durchlauf mit passend versetztem Startdatum neu angelegt wird (siehe [Einen neuen Pflanzdurchlauf anlegen](#einen-neuen-pflanzdurchlauf-anlegen)).
 
-1. Erstelle den ersten Durchlauf wie gewohnt.
-2. Klicke auf **Folgepflanzung anlegen**.
-3. Wähle das Intervall (z.B. 21 Tage nach dem ersten Durchlauf).
-4. Kamerplanter kopiert die Durchlauf-Konfiguration und versetzt das Startdatum entsprechend.
+Für kontinuierliche Ernte (z.B. alle 3 Wochen frischer Salat) wird Kamerplanter gestaffelte Pflanzdurchläufe unterstützen:
+
+1. Der erste Durchlauf wird wie gewohnt angelegt.
+2. Auf **Folgepflanzung anlegen** klicken.
+3. Das Intervall wählen (z.B. 21 Tage nach dem ersten Durchlauf).
+4. Kamerplanter wird die Durchlauf-Konfiguration kopieren und das Startdatum entsprechend versetzen.
 
 ---
 

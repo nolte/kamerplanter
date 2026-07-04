@@ -20,13 +20,15 @@ A planting run is a lightweight group container. It has no lifecycle of its own 
 - A plant can be detached from the run at any time
 - Phase transitions can be triggered for all plants simultaneously or for individual plants separately
 
-**Three types of planting runs:**
+**Two types of planting runs:**
 
 | Type | Description | Example |
 |------|-------------|---------|
 | **Monoculture** | All plants are one species and one variety | 20 tomatoes "San Marzano" |
 | **Clone** | Cuttings from one mother plant | 10 cannabis clones from mother "WW-01" |
-| **Mixed culture** | Multiple species in one group | Tomatoes + basil + marigolds |
+
+!!! note "Mixed culture is not a separate run type"
+    A planting run always groups one species/variety. Mixed-culture beds (e.g. tomatoes + basil + marigolds) are modeled through **multiple separate runs per species at the same location**, combined with compatibility checks at the location/master-data level. See the [Companion Planting](../guides/companion-planting.md) guide for details.
 
 ---
 
@@ -45,7 +47,7 @@ Click **New Run**. A dialog opens.
 | Field | Description | Example |
 |-------|-------------|---------|
 | Name | Unique name for the run | "Tomatoes Raised Bed A 2026" |
-| Type | Monoculture, clone, or mixed culture | Monoculture |
+| Type | Monoculture or clone | Monoculture |
 | Site | Which facility? | "My Garden" |
 | Location | Specific area | "Raised Bed A" |
 | Planned Start | When to plant? | 15 April 2026 |
@@ -58,15 +60,7 @@ Click **Add Entry**:
 1. Select the **species** from the master data.
 2. Optionally select a **cultivar**.
 3. Enter the **quantity** of plants.
-4. Select the **role** (primary plant, companion plant, trap crop).
-5. Select the **substrate**.
-
-For mixed-culture runs you can add multiple entries with different species.
-
-!!! example "Example: Mixed-culture bed"
-    - Tomatoes "Roma", 8 plants, role: Primary
-    - Basil "Genovese", 12 plants, role: Companion
-    - Marigolds, 6 plants, role: Trap crop
+4. Select the **substrate**.
 
 ### Step 5: Let Kamerplanter Create the Plants
 
@@ -127,7 +121,7 @@ After watering, document the event for all plants simultaneously:
 Document a harvest for all plants in the run at once:
 
 1. Click **Create Harvest Batch**.
-2. The system checks all pre-harvest intervals.
+2. The system checks all pre-harvest intervals (PHI — the mandatory wait between a treatment and harvest).
 3. Enter fresh weight and quality rating.
 4. Confirm — a harvest batch linked to all plants in the run is created.
 
@@ -166,12 +160,15 @@ Detaching a plant from the run does not delete the plant.
 
 ## Succession Sowing (Staggered Runs)
 
-For continuous harvest (e.g. fresh lettuce every 3 weeks) Kamerplanter supports staggered planting runs:
+!!! warning "Not yet implemented"
+    Automatic succession sowing is planned (internal reference: REQ-013 v2.3, see Issue #299) but not yet implemented. The "Create Follow-Up Planting" button does not exist yet. Until it ships, the same effect can be achieved manually by creating another run with an appropriately shifted start date (see [Creating a New Planting Run](#creating-a-new-planting-run)).
+
+For continuous harvest (e.g. fresh lettuce every 3 weeks) Kamerplanter will support staggered planting runs:
 
 1. Create the first run as usual.
 2. Click **Create Follow-Up Planting**.
 3. Select the interval (e.g. 21 days after the first run).
-4. Kamerplanter copies the run configuration and shifts the start date accordingly.
+4. Kamerplanter will copy the run configuration and shift the start date accordingly.
 
 ---
 
