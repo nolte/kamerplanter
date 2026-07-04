@@ -778,6 +778,76 @@ class ReminderType(StrEnum):
     WINTER_PROTECTION = "winter_protection"
 
 
+# ── REQ-022 v2.5 Overwintering / Winter hardiness ──
+
+
+class HardinessRating(StrEnum):
+    """REQ-022 §OverwinteringProfile — overwintering strategy for a plant."""
+
+    HARDY = "hardy"  # stays outdoors without protection
+    NEEDS_PROTECTION = "needs_protection"  # fleece / mulch / earthing up
+    FROST_FREE = "frost_free"  # move into a frost-free winter quarter (5-12 C)
+    DIG_AND_STORE = "dig_and_store"  # dig tubers/bulbs up and store them
+
+
+class WinterAction(StrEnum):
+    """REQ-022 §OverwinteringProfile — concrete winter protection measure."""
+
+    NONE = "none"
+    MULCH = "mulch"
+    FLEECE = "fleece"
+    EARTH_UP = "earth_up"
+    MOVE_INDOORS = "move_indoors"
+    DIG_STORE = "dig_store"
+    WRAP = "wrap"
+
+
+class SpringAction(StrEnum):
+    """REQ-022 §OverwinteringProfile — spring uncovering/reactivation action."""
+
+    UNCOVER = "uncover"
+    MOVE_OUTDOORS = "move_outdoors"
+    REPLANT = "replant"
+    PRUNE = "prune"
+    HARDEN_OFF = "harden_off"
+
+
+class TuberStatus(StrEnum):
+    """REQ-022 §Knollen-/Zwiebel-Zyklus — tuber/bulb annual lifecycle status."""
+
+    PLANTED = "planted"
+    GROWING = "growing"
+    DIG_PENDING = "dig_pending"
+    DRYING = "drying"
+    STORED = "stored"
+    PRE_SPROUTING = "pre_sprouting"
+
+
+class WinterQuarterLight(StrEnum):
+    """REQ-022 §OverwinteringProfile — light level in the winter quarter."""
+
+    BRIGHT = "bright"
+    SEMI_BRIGHT = "semi_bright"
+    DARK = "dark"
+
+
+class WinterWatering(StrEnum):
+    """REQ-022 §OverwinteringProfile — watering regime during overwintering."""
+
+    NONE = "none"
+    MINIMAL = "minimal"
+    REDUCED = "reduced"
+    NORMAL = "normal"
+
+
+class WinterHardinessLight(StrEnum):
+    """REQ-022 §Winterhärte-Ampel / REQ-039 — hardiness traffic light."""
+
+    GREEN = "green"  # winter hardy in situ
+    YELLOW = "yellow"  # needs protection in situ
+    RED = "red"  # must be relocated / dug up
+
+
 class ConfirmAction(StrEnum):
     CONFIRMED = "confirmed"
     SNOOZED = "snoozed"

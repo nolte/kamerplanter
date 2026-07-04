@@ -1,8 +1,43 @@
 from datetime import date, timedelta
 
-from app.common.enums import CareStyleType, ConfirmAction, ReminderType, WateringMethod
+from app.common.enums import (
+    CareStyleType,
+    ConfirmAction,
+    FrostTolerance,
+    HardinessRating,
+    ReminderType,
+    TuberStatus,
+    WateringMethod,
+)
+from app.domain.engines.winter_hardiness_engine import map_frost_sensitivity
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
+from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.species import SeasonalWateringAdjustment, WateringGuide
+
+# ── Overwintering / winter reminder wiring (REQ-022 §3.2) ──────────────
+
+#: Reminder types whose generation is driven by an ``OverwinteringProfile`` and
+#: suppressed for frost-hardy species (REQ-022 §"Winterschutz-Guard").
+WINTER_PROTECTION_TYPES: frozenset[ReminderType] = frozenset(
+    {
+        ReminderType.WINTER_PROTECTION,
+        ReminderType.SPRING_UNCOVER,
+        ReminderType.TUBER_DIG,
+        ReminderType.STORAGE_CHECK,
+    }
+)
+
+#: Care styles for which deadheading reminders make sense (blooming ornamentals).
+DEADHEADING_CARE_STYLES: frozenset[CareStyleType] = frozenset(
+    {
+        CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+        CareStyleType.OUTDOOR_PERENNIAL,
+        CareStyleType.ROSE,
+    }
+)
+
+#: Months in which deadheading is generated (northern-hemisphere growing season).
+DEADHEADING_MONTHS: frozenset[int] = frozenset({5, 6, 7, 8, 9})
 
 # ── Dormancy-aware phases ──────────────────────────────────────────────
 
@@ -265,6 +300,13 @@ FAMILY_CARE_MAP: dict[str, CareStyleType] = {
     "Lamiaceae": CareStyleType.HERB_TROPICAL,
     "Oleaceae": CareStyleType.MEDITERRANEAN,
     "Moraceae": CareStyleType.TROPICAL,
+    # REQ-022 §"FAMILY_CARE_MAP-Erweiterung für Zierpflanzen" — annual outdoor
+    # ornamentals (pansy, primrose, geranium, lobelia, busy Lizzie).
+    "Violaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+    "Primulaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+    "Geraniaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+    "Campanulaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
+    "Balsaminaceae": CareStyleType.OUTDOOR_ANNUAL_ORNAMENTAL,
 }
 
 
@@ -279,6 +321,7 @@ class CareReminderEngine:
         current_phase: str | None = None,
         hemisphere: str = "north",
         phase_watering_interval: int | None = None,
+        overwintering_profile: OverwinteringProfile | None = None,
     ) -> date | None:
         """Calculate the next due date for a specific reminder type."""
         interval = self._get_interval_days(
@@ -286,6 +329,7 @@ class CareReminderEngine:
             reminder_type,
             hemisphere,
             phase_watering_interval=phase_watering_interval,
+            overwintering_profile=overwintering_profile,
         )
         if interval is None:
             return None
@@ -324,10 +368,31 @@ class CareReminderEngine:
         month: int | None = None,
         has_active_watering_plan: bool = False,
         has_nutrient_plan: bool = False,
+        overwintering_profile: OverwinteringProfile | None = None,
+        frost_sensitivity: FrostTolerance | None = None,
+        cultivar_traits: list[str] | None = None,
     ) -> bool:
         """Check whether a reminder should be generated."""
         if month is None:
             month = date.today().month
+
+        # Winter protection reminders (REQ-022 §3.2) — driven by the
+        # OverwinteringProfile and evaluated before the dormancy guard, since
+        # they fire exactly as the plant enters/leaves dormancy.
+        if reminder_type in WINTER_PROTECTION_TYPES:
+            return self._should_generate_winter_reminder(
+                reminder_type,
+                overwintering_profile,
+                frost_sensitivity,
+                month,
+            )
+
+        # Deadheading (REQ-022 §3.2 / AB-016) — blooming ornamentals only, and
+        # never for self-cleaning cultivars.
+        if reminder_type == ReminderType.DEADHEADING:
+            if cultivar_traits and "self_cleaning" in cultivar_traits:
+                return False
+            return profile.care_style in DEADHEADING_CARE_STYLES and month in DEADHEADING_MONTHS
 
         # Gießplan-Guard: suppress watering/fertilizing if active watering plan
         if has_active_watering_plan and reminder_type in (
@@ -484,16 +549,66 @@ class CareReminderEngine:
 
     # ── Private helpers ──────────────────────────────────────────────
 
+    @staticmethod
+    def _should_generate_winter_reminder(
+        reminder_type: ReminderType,
+        overwintering_profile: OverwinteringProfile | None,
+        frost_sensitivity: FrostTolerance | None,
+        month: int,
+    ) -> bool:
+        """Gate the four overwintering reminder types against the profile.
+
+        No profile → nothing to remind about. Frost-hardy species never receive
+        winter-protection reminders (REQ-022 §"Winterschutz-Guard").
+        """
+        if overwintering_profile is None:
+            return False
+        if map_frost_sensitivity(frost_sensitivity) == "hardy":
+            return False
+
+        profile = overwintering_profile
+        is_dig_and_store = profile.hardiness_rating == HardinessRating.DIG_AND_STORE
+
+        if reminder_type == ReminderType.WINTER_PROTECTION:
+            return month == profile.winter_action_month
+        if reminder_type == ReminderType.SPRING_UNCOVER:
+            return profile.spring_action is not None and profile.spring_action_month == month
+        if reminder_type == ReminderType.TUBER_DIG:
+            return is_dig_and_store and month == profile.winter_action_month
+        if reminder_type == ReminderType.STORAGE_CHECK:
+            return (
+                is_dig_and_store
+                and profile.storage_check_interval_days is not None
+                and profile.tuber_status in (TuberStatus.DRYING, TuberStatus.STORED)
+            )
+        return False
+
     def _get_interval_days(
         self,
         profile: CareProfile,
         reminder_type: ReminderType,
         hemisphere: str = "north",
         phase_watering_interval: int | None = None,
+        overwintering_profile: OverwinteringProfile | None = None,
     ) -> int | None:
         """Get the interval in days for a reminder type, season-adjusted."""
         month = date.today().month
         is_winter = self._is_winter(month, hemisphere)
+
+        # Overwintering reminder types (REQ-022 §3.2).
+        if reminder_type == ReminderType.DEADHEADING:
+            return 7
+        if reminder_type == ReminderType.STORAGE_CHECK:
+            if overwintering_profile and overwintering_profile.storage_check_interval_days:
+                return overwintering_profile.storage_check_interval_days
+            return 30
+        if reminder_type in (
+            ReminderType.WINTER_PROTECTION,
+            ReminderType.SPRING_UNCOVER,
+            ReminderType.TUBER_DIG,
+        ):
+            # Annual, month-gated actions — recur once per year.
+            return 365
 
         if reminder_type == ReminderType.WATERING:
             # Phase-specific interval takes priority over care profile

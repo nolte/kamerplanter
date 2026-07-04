@@ -11,3 +11,4 @@ export * as plantInstancesApi from './endpoints/plantInstances';
 export * as phasesApi from './endpoints/phases';
 export * as calculationsApi from './endpoints/calculations';
 export * as successionPlansApi from './endpoints/successionPlans';
+export * as overwinteringProfilesApi from './endpoints/overwinteringProfiles';

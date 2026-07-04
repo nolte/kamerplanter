@@ -11,9 +11,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.enums import (
+    FrostTolerance,
+    HardinessRating,
+    ReminderType,
+    SpringAction,
+    TuberStatus,
+    WinterAction,
+)
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareProfile
+from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species import Species
 from app.domain.services.care_reminder_service import CareReminderService
 
 
@@ -123,3 +133,74 @@ def test_returns_empty_when_no_plants(
 
     assert entries == []
     mock_care_repo.get_profile_by_plant_key.assert_not_called()
+
+
+def test_generates_winter_reminders_from_overwintering_profile(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+    mock_plant_repo: MagicMock,
+) -> None:
+    """B1 — a frost-tender plant with a dig-and-store overwintering profile must
+    surface the winter-protection / tuber-dig / storage-check reminders."""
+    plant = _plant("plant-1")
+    mock_plant_repo.get_all.return_value = ([plant], 1)
+    mock_care_repo.get_profile_by_plant_key.return_value = _profile("plant-1")
+
+    current_month = date.today().month
+    owp = OverwinteringProfile(
+        plant_key="plant-1",
+        hardiness_rating=HardinessRating.DIG_AND_STORE,
+        winter_action=WinterAction.DIG_STORE,
+        winter_action_month=current_month,
+        spring_action=SpringAction.REPLANT,
+        spring_action_month=3,
+        storage_check_interval_days=30,
+        tuber_status=TuberStatus.STORED,
+    )
+    overwintering_repo = MagicMock()
+    overwintering_repo.get_profile_by_plant_key.return_value = owp
+
+    species = Species(scientific_name="Dahlia pinnata", frost_sensitivity=FrostTolerance.SENSITIVE)
+    species_repo = MagicMock(
+        get_by_key=MagicMock(return_value=species),
+        get_cultivar_by_key=MagicMock(return_value=None),
+    )
+
+    service = CareReminderService(
+        mock_care_repo,
+        engine,
+        plant_repo=mock_plant_repo,
+        species_repo=species_repo,
+        nutrient_plan_repo=MagicMock(get_plant_plan=MagicMock(return_value=None)),
+        overwintering_repo=overwintering_repo,
+    )
+    entries = service.get_care_dashboard_for_tenant("tenant-1")
+
+    reminder_types = {e.reminder_type for e in entries}
+    assert ReminderType.WINTER_PROTECTION in reminder_types
+    assert ReminderType.TUBER_DIG in reminder_types
+    assert ReminderType.STORAGE_CHECK in reminder_types
+    overwintering_repo.get_profile_by_plant_key.assert_called_once_with("plant-1")
+
+
+def test_no_winter_reminders_without_overwintering_repo(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+    mock_plant_repo: MagicMock,
+) -> None:
+    """Existing non-winter behaviour is unchanged when no overwintering repo is
+    wired: winter reminder types never appear."""
+    plant = _plant("plant-1")
+    mock_plant_repo.get_all.return_value = ([plant], 1)
+    mock_care_repo.get_profile_by_plant_key.return_value = _profile("plant-1")
+
+    service = _build_service(mock_care_repo, engine, mock_plant_repo)
+    entries = service.get_care_dashboard_for_tenant("tenant-1")
+
+    winter_types = {
+        ReminderType.WINTER_PROTECTION,
+        ReminderType.SPRING_UNCOVER,
+        ReminderType.TUBER_DIG,
+        ReminderType.STORAGE_CHECK,
+    }
+    assert not ({e.reminder_type for e in entries} & winter_types)

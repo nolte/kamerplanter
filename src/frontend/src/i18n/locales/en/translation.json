@@ -241,6 +241,7 @@
     "search": "Search",
     "loading": "Loading...",
     "noData": "No data available",
+    "none": "None",
     "name": "Name",
     "actions": "Actions",
     "back": "Back",
@@ -335,6 +336,7 @@
     "plantIdentification": "Identify Plant",
     "calculations": "Calculations",
     "durchlaeufe": "Planting Runs",
+    "overwintering": "Overwintering",
     "plantingRuns": "Planting Runs",
     "successionPlans": "Succession Planting",
     "tanks": "Tanks",
@@ -1054,7 +1056,79 @@
       "title": "Dashboard",
       "welcome": "Welcome to Kamerplanter",
       "quickActions": "Quick Actions",
-      "stats": "Statistics"
+      "stats": "Statistics",
+      "winterProtection": {
+        "title": "Winter Protection Overview",
+        "subtitle": "Winter-hardiness traffic light for your plants ahead of the cold season.",
+        "empty": "No overwintering profiles yet. Create profiles to see the winter-hardiness traffic light.",
+        "error": "The winter-hardiness overview could not be loaded. Please try again later.",
+        "allClear": "All clear – no plant currently needs help overwintering.",
+        "actionRequired": "Action required – move into winter quarters",
+        "unknownSubject": "Unknown plant",
+        "tile": {
+          "green": "Hardy",
+          "yellow": "Needs protection",
+          "red": "Move indoors"
+        }
+      }
+    },
+    "overwintering": {
+      "title": "Overwintering",
+      "listIntro": "Manage the overwintering profiles of your plants: hardiness, protection measures and winter quarters.",
+      "create": "Create profile",
+      "edit": "Edit profile",
+      "empty": "No overwintering profiles yet.",
+      "formIntro": "Define how this plant is overwintered. Only hardiness, protection measure and month are required.",
+      "subject": "Plant / run",
+      "plant": "Plant",
+      "plantHelp": "The plant this profile applies to.",
+      "plantRequired": "Please select a plant.",
+      "winterActionRatingNote": "The options are limited to measures that match the selected hardiness.",
+      "hardinessSection": "Hardiness & autumn action",
+      "hardinessSectionDesc": "How hardy the plant is and what protective action is taken in autumn.",
+      "hardinessRating": "Hardiness",
+      "hardinessRatingHelper": "Determines the traffic-light colour on the dashboard: hardy (green), needs protection (yellow), must move into winter quarters or be dug up (red).",
+      "hardinessRatingHelp": {
+        "hardy": "Survives winter outdoors without extra protection.",
+        "needs_protection": "Needs extra winter protection (e.g. mulch or fleece) but stays outdoors.",
+        "frost_free": "Must spend winter frost-free, e.g. in a conservatory or cellar.",
+        "dig_and_store": "Must be dug up before the first frost and stored separately."
+      },
+      "winterAction": "Protection measure",
+      "winterActionHelper": "Which protective measure is taken in autumn, e.g. mulching or moving to winter quarters.",
+      "winterActionMonth": "Action month",
+      "winterActionMonthHelper": "Month of the action (1 = January … 12 = December).",
+      "hardinessZoneMin": "Minimum hardiness zone",
+      "hardinessZoneMinHelper": "USDA hardiness zone from which the plant survives outdoors, e.g. \"7a\".",
+      "springSection": "Spring",
+      "springSectionDesc": "When and how the overwintering ends in spring.",
+      "springAction": "Spring action",
+      "springActionHelper": "Action that ends the overwintering in spring, e.g. removing cover or planting out.",
+      "springActionMonth": "Spring action month",
+      "springActionMonthHelper": "Month of the spring action (1 = January … 12 = December).",
+      "winterQuarterSection": "Winter quarters",
+      "winterQuarterSectionDesc": "Conditions at the overwintering location: temperature, light and watering.",
+      "winterQuarterTempMin": "Min. temperature",
+      "winterQuarterTempMinHelper": "Lowest recommended temperature in the winter quarters.",
+      "winterQuarterTempMax": "Max. temperature",
+      "winterQuarterTempMaxHelper": "Highest recommended temperature in the winter quarters.",
+      "winterQuarterLight": "Light level",
+      "winterQuarterLightHelper": "Light conditions at the overwintering location.",
+      "winterWatering": "Winter watering regime",
+      "winterWateringHelper": "How often to water during winter.",
+      "tuberSection": "Tuber/bulb storage",
+      "tuberSectionDesc": "Only relevant for the hardiness rating \"Dig up & store\": how and how often the tuber or bulb is checked.",
+      "storageMedium": "Storage medium",
+      "storageMediumHelper": "Material the tuber or bulb is stored in, e.g. dry sand or newspaper.",
+      "storageCheckIntervalDays": "Check interval",
+      "storageCheckIntervalDaysHelper": "How often the stored tuber should be checked for rot or drying out.",
+      "daysUnit": "days",
+      "tuberStatus": "Tuber status",
+      "tuberStatusHelper": "Current status of the stored tuber or bulb.",
+      "notes": "Notes",
+      "autoGenerated": "Automatic",
+      "autoGeneratedHelp": "Automatically generated from the plant species defaults.",
+      "auto": "Auto"
     },
     "botanicalFamilies": {
       "title": "Botanical Families",
@@ -4216,6 +4290,52 @@
       "hardy": "Hardy",
       "very_hardy": "Very Hardy"
     },
+    "hardinessRating": {
+      "hardy": "Winter hardy",
+      "needs_protection": "Needs protection",
+      "frost_free": "Frost-free quarters",
+      "dig_and_store": "Dig up & store"
+    },
+    "winterAction": {
+      "none": "None",
+      "mulch": "Mulch",
+      "fleece": "Fleece",
+      "earth_up": "Earth up",
+      "move_indoors": "Move indoors",
+      "dig_store": "Dig up & store",
+      "wrap": "Wrap"
+    },
+    "springAction": {
+      "uncover": "Uncover",
+      "move_outdoors": "Move outdoors",
+      "replant": "Replant",
+      "prune": "Prune",
+      "harden_off": "Harden off"
+    },
+    "tuberStatus": {
+      "planted": "Planted",
+      "growing": "Growing",
+      "dig_pending": "Dig pending",
+      "drying": "Drying",
+      "stored": "Stored",
+      "pre_sprouting": "Pre-sprouting"
+    },
+    "winterQuarterLight": {
+      "bright": "Bright",
+      "semi_bright": "Semi-bright",
+      "dark": "Dark"
+    },
+    "winterWatering": {
+      "none": "No watering",
+      "minimal": "Minimal",
+      "reduced": "Reduced",
+      "normal": "Normal"
+    },
+    "winterHardinessLight": {
+      "green": "Green",
+      "yellow": "Yellow",
+      "red": "Red"
+    },
     "plantCategory": {
       "indoor_houseplant": "Houseplant",
       "outdoor_ornamental": "Garden Ornamental",
@@ -4753,6 +4873,11 @@
       "beginnerTip": "Sunny windowsill in summer ≈ 10–15 mol/m²/d. In winter only 3–5.",
       "unit": "mol/m²/d",
       "typicalRange": "5–40 mol/m²/d"
+    },
+    "hardiness_zones": {
+      "short": "Hardiness zones — how much frost the plant can survive",
+      "long": "USDA system with zones 1–13. Germany lies in zones 6–8. A plant rated for zone 7 survives temperatures down to about -15°C.",
+      "beginnerTip": "Only relevant for outdoor plants and overwintering. Not important for purely indoor plants."
     },
     "dinov2": {
       "short": "AI image recognition model by Meta — identifies plants from visual features",

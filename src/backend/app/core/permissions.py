@@ -40,6 +40,7 @@ class ResourceType(StrEnum):
     OBSERVATION = "observation"
     SENSOR = "sensor"
     CARE_PROFILE = "care_profile"
+    OVERWINTERING_PROFILE = "overwintering_profile"
     IPM_TREATMENT = "ipm_treatment"
     CALENDAR_FEED = "calendar_feed"
     NOTIFICATION_CHANNEL = "notification_channel"
@@ -110,6 +111,7 @@ _PLANT_DOMAIN: list[ResourceType] = [
     ResourceType.OBSERVATION,
     ResourceType.SENSOR,
     ResourceType.CARE_PROFILE,
+    ResourceType.OVERWINTERING_PROFILE,
     ResourceType.IPM_TREATMENT,
     ResourceType.CALENDAR_FEED,
     ResourceType.NOTIFICATION_CHANNEL,

@@ -165,6 +165,7 @@ export const navItemConfig: Record<string, ExperienceLevel> = {
   '/pflanzen/plant-instances': 'beginner',
   '/pflanzen/identifikation': 'beginner',
   '/aufgaben/queue': 'beginner',
+  '/ueberwinterung/profile': 'intermediate',
   '/kalender': 'intermediate',
   // intermediate adds
   '/standorte/sites': 'intermediate',
