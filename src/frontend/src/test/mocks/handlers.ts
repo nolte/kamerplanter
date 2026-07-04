@@ -482,6 +482,28 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
 
+  // REQ-022 Overwintering profiles (tenant-scoped + non-scoped fallback)
+  http.get('/api/v1/t/:tenant/overwintering-profiles/hardiness-overview', () => {
+    return HttpResponse.json({ green: 0, yellow: 0, red: 0, total: 0, red_plants: [] });
+  }),
+  http.get('/api/v1/overwintering-profiles/hardiness-overview', () => {
+    return HttpResponse.json({ green: 0, yellow: 0, red: 0, total: 0, red_plants: [] });
+  }),
+  http.get('/api/v1/t/:tenant/overwintering-profiles', () => {
+    return HttpResponse.json([]);
+  }),
+  http.get('/api/v1/overwintering-profiles', () => {
+    return HttpResponse.json([]);
+  }),
+  http.post('/api/v1/t/:tenant/overwintering-profiles', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'ow-new', auto_generated: false, ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+  http.post('/api/v1/overwintering-profiles', async ({ request }) => {
+    const body = (await request.json()) as Record<string, unknown>;
+    return HttpResponse.json({ key: 'ow-new', auto_generated: false, ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
+  }),
+
   // Cultivars (nested under species)
   http.get('/api/v1/species/:key/cultivars', () => {
     return HttpResponse.json([]);

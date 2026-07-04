@@ -42,6 +42,7 @@ import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ContentCutIcon from '@mui/icons-material/ContentCut';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
@@ -130,6 +131,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.calculations'),
           path: '/pflanzen/calculations',
           icon: <CalculateIcon />,
+        },
+        {
+          label: t('nav.overwintering'),
+          path: '/ueberwinterung/profile',
+          icon: <AcUnitIcon />,
         },
       ],
     },
