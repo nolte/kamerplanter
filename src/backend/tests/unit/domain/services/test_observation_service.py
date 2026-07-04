@@ -8,6 +8,7 @@ from app.data_access.timescale.null_observation_repository import NullObservatio
 from app.domain.models.observation import SensorReading
 from app.domain.models.sensor import Sensor
 from app.domain.services.observation_service import ObservationService
+from tests.conftest import wire_or_raise
 
 
 @pytest.fixture
@@ -17,7 +18,7 @@ def mock_obs_repo():
 
 @pytest.fixture
 def mock_sensor_repo():
-    return MagicMock()
+    return wire_or_raise(MagicMock(), "Sensor", by_key="get", or_raise="get_or_raise")
 
 
 @pytest.fixture

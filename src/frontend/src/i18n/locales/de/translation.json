@@ -241,6 +241,7 @@
     "search": "Suchen",
     "loading": "Wird geladen...",
     "noData": "Keine Daten vorhanden",
+    "none": "Keine",
     "name": "Name",
     "actions": "Aktionen",
     "back": "Zurück",
@@ -335,6 +336,7 @@
     "plantIdentification": "Pflanze erkennen",
     "calculations": "Berechnungen",
     "durchlaeufe": "Durchläufe",
+    "overwintering": "Überwinterung",
     "plantingRuns": "Pflanzdurchläufe",
     "tanks": "Tanks",
     "duengung": "Düngung",
@@ -1053,7 +1055,79 @@
       "title": "Dashboard",
       "welcome": "Willkommen bei Kamerplanter",
       "quickActions": "Schnellaktionen",
-      "stats": "Statistiken"
+      "stats": "Statistiken",
+      "winterProtection": {
+        "title": "Winterschutz-Übersicht",
+        "subtitle": "Winterhärte-Ampel Ihrer Pflanzen für die kommende Kältesaison.",
+        "empty": "Noch keine Überwinterungsprofile angelegt. Legen Sie Profile an, um die Winterhärte-Ampel zu sehen.",
+        "error": "Die Winterhärte-Übersicht konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
+        "allClear": "Alles im grünen Bereich – aktuell braucht keine Pflanze Hilfe beim Überwintern.",
+        "actionRequired": "Handlungsbedarf – ins Winterquartier holen",
+        "unknownSubject": "Unbekannte Pflanze",
+        "tile": {
+          "green": "Winterhart",
+          "yellow": "Schutz nötig",
+          "red": "Einräumen"
+        }
+      }
+    },
+    "overwintering": {
+      "title": "Überwinterung",
+      "listIntro": "Verwalten Sie Überwinterungsprofile Ihrer Pflanzen: Winterhärte, Schutzmaßnahmen und Winterquartier.",
+      "create": "Profil erstellen",
+      "edit": "Profil bearbeiten",
+      "empty": "Noch keine Überwinterungsprofile vorhanden.",
+      "formIntro": "Legen Sie fest, wie diese Pflanze überwintert wird. Nur die Winterhärte, die Schutzmaßnahme und der Monat sind Pflichtfelder.",
+      "subject": "Pflanze / Durchlauf",
+      "plant": "Pflanze",
+      "plantHelp": "Die Pflanze, für die dieses Profil gilt.",
+      "plantRequired": "Bitte wählen Sie eine Pflanze aus.",
+      "winterActionRatingNote": "Die Auswahl ist auf Maßnahmen abgestimmt, die zur gewählten Winterhärte passen.",
+      "hardinessSection": "Winterhärte & Herbstmaßnahme",
+      "hardinessSectionDesc": "Wie winterhart die Pflanze ist und was im Herbst zu ihrem Schutz getan wird.",
+      "hardinessRating": "Winterhärte",
+      "hardinessRatingHelper": "Bestimmt die Ampelfarbe im Dashboard: winterhart (grün), Schutz nötig (gelb), muss ins Winterquartier oder ausgegraben werden (rot).",
+      "hardinessRatingHelp": {
+        "hardy": "Übersteht den Winter im Freien ohne zusätzlichen Schutz.",
+        "needs_protection": "Braucht im Winter zusätzlichen Schutz (z. B. Mulch oder Vlies), bleibt aber draußen.",
+        "frost_free": "Muss den Winter frostfrei verbringen, z. B. im Wintergarten oder Keller.",
+        "dig_and_store": "Muss vor dem ersten Frost ausgegraben und getrennt eingelagert werden."
+      },
+      "winterAction": "Schutzmaßnahme",
+      "winterActionHelper": "Welche Schutzmaßnahme im Herbst durchgeführt wird, z. B. Mulchen oder Umzug ins Winterquartier.",
+      "winterActionMonth": "Monat der Maßnahme",
+      "winterActionMonthHelper": "Monat der Maßnahme (1 = Januar … 12 = Dezember).",
+      "hardinessZoneMin": "Minimale Winterhärtezone",
+      "hardinessZoneMinHelper": "USDA-Winterhärtezone, ab der die Pflanze im Freien übersteht, z. B. „7a“.",
+      "springSection": "Frühjahr",
+      "springSectionDesc": "Wann und wie die Überwinterung im Frühjahr endet.",
+      "springAction": "Frühjahrsmaßnahme",
+      "springActionHelper": "Maßnahme, die die Überwinterung im Frühjahr beendet, z. B. Abdecken entfernen oder Auspflanzen.",
+      "springActionMonth": "Monat der Frühjahrsmaßnahme",
+      "springActionMonthHelper": "Monat der Frühjahrsmaßnahme (1 = Januar … 12 = Dezember).",
+      "winterQuarterSection": "Winterquartier",
+      "winterQuarterSectionDesc": "Bedingungen am Überwinterungsort: Temperatur, Licht und Gießverhalten.",
+      "winterQuarterTempMin": "Min. Temperatur",
+      "winterQuarterTempMinHelper": "Tiefste empfohlene Temperatur im Winterquartier.",
+      "winterQuarterTempMax": "Max. Temperatur",
+      "winterQuarterTempMaxHelper": "Höchste empfohlene Temperatur im Winterquartier.",
+      "winterQuarterLight": "Lichtverhältnisse",
+      "winterQuarterLightHelper": "Lichtverhältnisse am Überwinterungsort.",
+      "winterWatering": "Gießregime im Winter",
+      "winterWateringHelper": "Wie oft im Winter gegossen werden soll.",
+      "tuberSection": "Knollen-/Zwiebellagerung",
+      "tuberSectionDesc": "Nur bei der Winterhärte „Ausgraben & einlagern“ relevant: wie und wie oft die Knolle oder Zwiebel kontrolliert wird.",
+      "storageMedium": "Lagermedium",
+      "storageMediumHelper": "Material, in dem die Knolle oder Zwiebel gelagert wird, z. B. trockener Sand oder Zeitungspapier.",
+      "storageCheckIntervalDays": "Kontrollintervall",
+      "storageCheckIntervalDaysHelper": "Wie oft die Lagerung auf Fäulnis oder Austrocknung kontrolliert werden soll.",
+      "daysUnit": "Tage",
+      "tuberStatus": "Knollenstatus",
+      "tuberStatusHelper": "Aktueller Status der eingelagerten Knolle oder Zwiebel.",
+      "notes": "Notizen",
+      "autoGenerated": "Automatisch",
+      "autoGeneratedHelp": "Automatisch aus den Standardwerten der Pflanzenart erzeugt.",
+      "auto": "Auto"
     },
     "botanicalFamilies": {
       "title": "Botanische Familien",
@@ -4165,6 +4239,52 @@
       "hardy": "Hardy",
       "very_hardy": "Sehr hardy"
     },
+    "hardinessRating": {
+      "hardy": "Winterhart",
+      "needs_protection": "Schutz nötig",
+      "frost_free": "Frostfreies Quartier",
+      "dig_and_store": "Ausgraben & einlagern"
+    },
+    "winterAction": {
+      "none": "Keine",
+      "mulch": "Mulchen",
+      "fleece": "Vlies",
+      "earth_up": "Anhäufeln",
+      "move_indoors": "Ins Quartier holen",
+      "dig_store": "Ausgraben & lagern",
+      "wrap": "Umwickeln"
+    },
+    "springAction": {
+      "uncover": "Abdecken entfernen",
+      "move_outdoors": "Nach draußen stellen",
+      "replant": "Auspflanzen",
+      "prune": "Rückschnitt",
+      "harden_off": "Abhärten"
+    },
+    "tuberStatus": {
+      "planted": "Gepflanzt",
+      "growing": "Im Wachstum",
+      "dig_pending": "Ausgraben fällig",
+      "drying": "Trocknend",
+      "stored": "Eingelagert",
+      "pre_sprouting": "Vorgetrieben"
+    },
+    "winterQuarterLight": {
+      "bright": "Hell",
+      "semi_bright": "Halbschattig",
+      "dark": "Dunkel"
+    },
+    "winterWatering": {
+      "none": "Kein Gießen",
+      "minimal": "Minimal",
+      "reduced": "Reduziert",
+      "normal": "Normal"
+    },
+    "winterHardinessLight": {
+      "green": "Grün",
+      "yellow": "Gelb",
+      "red": "Rot"
+    },
     "plantCategory": {
       "indoor_houseplant": "Zimmerpflanze",
       "outdoor_ornamental": "Gartenzierpflanze",
@@ -4696,6 +4816,11 @@
       "beginnerTip": "Sonnige Fensterbank im Sommer ≈ 10–15 mol/m²/d. Im Winter nur 3–5.",
       "unit": "mol/m²/d",
       "typicalRange": "5–40 mol/m²/d"
+    },
+    "hardiness_zones": {
+      "short": "Winterhärtezonen — wie viel Frost hält die Pflanze aus?",
+      "long": "USDA-System mit Zonen 1–13. Deutschland liegt in Zone 6–8. Eine Pflanze in Zone 7 übersteht Temperaturen bis ca. -15°C.",
+      "beginnerTip": "Nur relevant für Outdoor-Pflanzen und Überwinterung. Für reine Zimmerpflanzen unwichtig."
     },
     "dinov2": {
       "short": "KI-Bilderkennungsmodell von Meta — erkennt Pflanzen anhand visueller Merkmale",

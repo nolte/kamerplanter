@@ -2,7 +2,6 @@ from datetime import datetime
 
 import structlog
 
-from app.common.exceptions import NotFoundError
 from app.domain.interfaces.observation_repository import IObservationRepository
 from app.domain.interfaces.sensor_repository import ISensorRepository
 from app.domain.models.observation import AggregatedReading, SensorReading
@@ -20,9 +19,7 @@ class ObservationService:
         self._sensor_repo = sensor_repo
 
     def record_reading(self, reading: SensorReading) -> None:
-        sensor = self._sensor_repo.get(reading.sensor_key)
-        if sensor is None:
-            raise NotFoundError("Sensor", reading.sensor_key)
+        self._sensor_repo.get_or_raise(reading.sensor_key)
         self._obs_repo.insert(reading)
 
     def record_readings_batch(self, readings: list[SensorReading]) -> int:

@@ -11,6 +11,9 @@ class ISensorRepository(ABC):
     def get(self, key: str) -> Sensor | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: str) -> Sensor: ...
+
+    @abstractmethod
     def find_by_tank(self, tank_key: str) -> list[Sensor]: ...
 
     @abstractmethod

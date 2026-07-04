@@ -11,6 +11,9 @@ class ILocationTypeRepository(ABC):
     def get_by_key(self, key: str) -> LocationType | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: str) -> LocationType: ...
+
+    @abstractmethod
     def create(self, location_type: LocationType) -> LocationType: ...
 
     @abstractmethod

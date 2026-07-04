@@ -134,6 +134,28 @@ class ValidationError(KamerplanterError):
         )
 
 
+class WinterPathViolationError(KamerplanterError):
+    """REQ-022 §D5 — ``OverwinteringProfile.winter_action`` contradicts the
+    hardiness-derived winter path (in-situ path A vs. relocated path B)."""
+
+    def __init__(self, winter_action: str, path: str, allowed: list[str]) -> None:
+        super().__init__(
+            message=(
+                f"Winter action '{winter_action}' is not allowed on winter path {path}. "
+                f"Allowed actions: {', '.join(allowed)}."
+            ),
+            error_code="WINTER_PATH_VIOLATION",
+            status_code=422,
+            details=[
+                {
+                    "field": "winter_action",
+                    "reason": (f"Path {path} requires one of {', '.join(allowed)}; got '{winter_action}'."),
+                    "code": "WINTER_PATH_VIOLATION",
+                }
+            ],
+        )
+
+
 class FeedExpiredError(KamerplanterError):
     """REQ-015 v1.6 CF-005 — calendar feed past expires_at returns HTTP 410."""
 

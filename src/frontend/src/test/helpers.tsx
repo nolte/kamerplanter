@@ -17,6 +17,7 @@ import identificationReducer from '@/store/slices/identificationSlice';
 import pestDetectionReducer from '@/store/slices/pestDetectionSlice';
 import ipmReducer from '@/store/slices/ipmSlice';
 import tenantsReducer from '@/store/slices/tenantSlice';
+import overwinteringProfilesReducer from '@/store/slices/overwinteringProfilesSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -31,6 +32,7 @@ const rootReducer = combineReducers({
   pestDetection: pestDetectionReducer,
   ipm: ipmReducer,
   tenants: tenantsReducer,
+  overwinteringProfiles: overwinteringProfilesReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need

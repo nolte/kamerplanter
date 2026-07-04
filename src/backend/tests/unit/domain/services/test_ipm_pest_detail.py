@@ -36,6 +36,12 @@ class _FakeRepo:
     def get_pest_by_key(self, key):
         return self._pest if self._pest and self._pest.key == key else None
 
+    def get_pest_or_raise(self, key):
+        pest = self.get_pest_by_key(key)
+        if pest is None:
+            raise NotFoundError("Pest", key)
+        return pest
+
     def get_treatments_for_pest(self, key):
         return list(self._treatments)
 
@@ -45,6 +51,12 @@ class _FakeRepo:
 
     def get_treatment_by_key(self, key):
         return self._treatment if self._treatment and self._treatment.key == key else None
+
+    def get_treatment_or_raise(self, key):
+        treatment = self.get_treatment_by_key(key)
+        if treatment is None:
+            raise NotFoundError("Treatment", key)
+        return treatment
 
     def get_pests_for_treatment(self, key):
         return list(self._pests)

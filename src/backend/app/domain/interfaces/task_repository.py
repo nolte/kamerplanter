@@ -27,6 +27,9 @@ class ITaskRepository(ABC):
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None: ...
 
     @abstractmethod
+    def get_workflow_template_or_raise(self, key: WorkflowTemplateKey) -> WorkflowTemplate: ...
+
+    @abstractmethod
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate: ...
 
     @abstractmethod
@@ -41,6 +44,9 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_phase_by_key(self, key: str) -> WorkflowPhase | None: ...
+
+    @abstractmethod
+    def get_phase_or_raise(self, key: str) -> WorkflowPhase: ...
 
     @abstractmethod
     def create_phase(self, phase: WorkflowPhase) -> WorkflowPhase: ...
@@ -65,6 +71,9 @@ class ITaskRepository(ABC):
     def get_task_template_by_key(self, key: str) -> TaskTemplate | None: ...
 
     @abstractmethod
+    def get_task_template_or_raise(self, key: str) -> TaskTemplate: ...
+
+    @abstractmethod
     def create_task_template(self, template: TaskTemplate) -> TaskTemplate: ...
 
     @abstractmethod
@@ -84,6 +93,9 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_task_by_key(self, key: TaskKey) -> Task | None: ...
+
+    @abstractmethod
+    def get_task_or_raise(self, key: TaskKey) -> Task: ...
 
     @abstractmethod
     def create_task(self, task: Task) -> Task: ...
@@ -126,6 +138,9 @@ class ITaskRepository(ABC):
     def get_workflow_execution_by_key(self, key: WorkflowExecutionKey) -> WorkflowExecution | None: ...
 
     @abstractmethod
+    def get_workflow_execution_or_raise(self, key: WorkflowExecutionKey) -> WorkflowExecution: ...
+
+    @abstractmethod
     def update_workflow_execution(
         self,
         key: WorkflowExecutionKey,
@@ -141,6 +156,9 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_comment_by_key(self, key: str) -> TaskComment | None: ...
+
+    @abstractmethod
+    def get_comment_or_raise(self, key: str) -> TaskComment: ...
 
     @abstractmethod
     def update_comment(self, key: str, comment: TaskComment) -> TaskComment: ...

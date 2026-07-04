@@ -88,9 +88,7 @@ class NutrientPlanService:
         return self._repo.get_phase_entries(plan_key)
 
     def update_phase_entry(self, key: NutrientPlanPhaseEntryKey, data: dict) -> NutrientPlanPhaseEntry:
-        existing = self._repo.get_phase_entry_by_key(key)
-        if existing is None:
-            raise NotFoundError("NutrientPlanPhaseEntry", key)
+        existing = self._repo.get_phase_entry_or_raise(key)
         allowed_fields = {
             "phase_name",
             "sequence_order",
@@ -116,9 +114,7 @@ class NutrientPlanService:
         return self._repo.update_phase_entry(key, existing)
 
     def delete_phase_entry(self, key: NutrientPlanPhaseEntryKey) -> bool:
-        existing = self._repo.get_phase_entry_by_key(key)
-        if existing is None:
-            raise NotFoundError("NutrientPlanPhaseEntry", key)
+        self._repo.get_phase_entry_or_raise(key)
         return self._repo.delete_phase_entry(key)
 
     # ── Channel fertilizer assignment ─────────────────────────────────
@@ -131,9 +127,7 @@ class NutrientPlanService:
         ml_per_liter: float,
         optional: bool = False,
     ) -> dict:
-        entry = self._repo.get_phase_entry_by_key(entry_key)
-        if entry is None:
-            raise NotFoundError("NutrientPlanPhaseEntry", entry_key)
+        entry = self._repo.get_phase_entry_or_raise(entry_key)
         # Validate channel exists
         channel_ids = [ch.channel_id for ch in entry.delivery_channels]
         if channel_id not in channel_ids:
@@ -360,9 +354,7 @@ class NutrientPlanService:
             raise NotFoundError("NutrientPlanPhaseEntry", f"sequence_order={sequence_order}")
 
         # Load site with tenant isolation
-        site = self._site_repo.get_site_by_key(site_key)
-        if site is None:
-            raise NotFoundError("Site", site_key)
+        site = self._site_repo.get_site_or_raise(site_key)
         if tenant_key and hasattr(site, "tenant_key") and site.tenant_key != tenant_key:
             raise NotFoundError("Site", site_key)
 
@@ -407,9 +399,7 @@ class NutrientPlanService:
         # engine only receives the numeric area.
         area_m2: float | None = None
         if location_key:
-            location = self._site_repo.get_location_by_key(location_key)
-            if location is None:
-                raise NotFoundError("Location", location_key)
+            location = self._site_repo.get_location_or_raise(location_key)
             if tenant_key and getattr(location, "tenant_key", "") not in ("", tenant_key):
                 raise NotFoundError("Location", location_key)
             if location.area_m2 <= 0:
@@ -499,9 +489,7 @@ class NutrientPlanService:
             raise NotFoundError("NutrientPlanPhaseEntry", f"sequence_order={sequence_order}")
 
         # Load site with tenant isolation
-        site = self._site_repo.get_site_by_key(site_key)
-        if site is None:
-            raise NotFoundError("Site", site_key)
+        site = self._site_repo.get_site_or_raise(site_key)
         if tenant_key and hasattr(site, "tenant_key") and site.tenant_key != tenant_key:
             raise NotFoundError("Site", site_key)
 
@@ -584,9 +572,7 @@ class NutrientPlanService:
         plan = self.get_plan(plan_key, tenant_key=tenant_key)
 
         # Load site with tenant isolation
-        site = self._site_repo.get_site_by_key(site_key)
-        if site is None:
-            raise NotFoundError("Site", site_key)
+        site = self._site_repo.get_site_or_raise(site_key)
         if tenant_key and hasattr(site, "tenant_key") and site.tenant_key != tenant_key:
             raise NotFoundError("Site", site_key)
 

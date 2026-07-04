@@ -10,6 +10,9 @@ class IPhaseRepository(ABC):
     def get_lifecycle_by_key(self, key: str) -> LifecycleConfig | None: ...
 
     @abstractmethod
+    def get_lifecycle_or_raise(self, key: str) -> LifecycleConfig: ...
+
+    @abstractmethod
     def get_lifecycle_by_species(self, species_key: str) -> LifecycleConfig | None: ...
 
     @abstractmethod
@@ -23,6 +26,9 @@ class IPhaseRepository(ABC):
 
     @abstractmethod
     def get_phase_by_key(self, key: PhaseKey) -> GrowthPhase | None: ...
+
+    @abstractmethod
+    def get_phase_or_raise(self, key: PhaseKey) -> GrowthPhase: ...
 
     @abstractmethod
     def create_phase(self, phase: GrowthPhase) -> GrowthPhase: ...

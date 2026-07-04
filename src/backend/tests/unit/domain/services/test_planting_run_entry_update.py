@@ -13,7 +13,7 @@ from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.common.exceptions import InvalidRunStateError, ValidationError
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.services.planting_run_service import PlantingRunService
-from tests.conftest import wire_get_or_raise
+from tests.conftest import wire_get_or_raise, wire_or_raise
 
 RUN_KEY = "r1"
 ENTRY_KEY = "e1"
@@ -42,6 +42,7 @@ def _service(existing: PlantingRunEntry, run: PlantingRun | None = None):
     repo.get_by_key.return_value = run
     wire_get_or_raise(repo, "PlantingRun")
     repo.get_entry_by_key.return_value = existing
+    wire_or_raise(repo, "PlantingRunEntry", by_key="get_entry_by_key", or_raise="get_entry_or_raise")
 
     captured: dict[str, PlantingRunEntry] = {}
 

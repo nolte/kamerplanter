@@ -71,6 +71,10 @@ const PlantingRunListPage = lazy(
 const PlantingRunDetailPage = lazy(
   () => import('@/pages/durchlaeufe/PlantingRunDetailPage'),
 );
+// REQ-022 Überwinterung
+const OverwinteringListPage = lazy(
+  () => import('@/pages/ueberwinterung/OverwinteringListPage'),
+);
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
 const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
 const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
@@ -286,6 +290,16 @@ export const router = createBrowserRouter(
 
           {/* REQ-022 Pflege — merged into aufgaben/queue */}
           <Route path="pflege" element={<Navigate to="/aufgaben/queue" replace />} />
+
+          {/* REQ-022 Überwinterung */}
+          <Route
+            path="ueberwinterung/profile"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <OverwinteringListPage />
+              </Suspense>
+            }
+          />
 
           {/* REQ-015 Kalender */}
           <Route

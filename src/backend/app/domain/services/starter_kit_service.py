@@ -7,7 +7,9 @@ class StarterKitService:
     def __init__(self, db) -> None:
         from app.data_access.arango import collections as col
 
-        self._repo = BaseArangoRepository(db, col.STARTER_KITS)
+        # Service-embedded dict view: methods below wrap the raw dict into
+        # StarterKit themselves, so opt into raw mode (FR-002 A3).
+        self._repo = BaseArangoRepository(db, col.STARTER_KITS, raw=True)
         self._db = db
 
     def list_kits(self, difficulty: str | None = None) -> list[StarterKit]:

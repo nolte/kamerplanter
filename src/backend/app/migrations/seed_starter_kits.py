@@ -17,7 +17,9 @@ logger = structlog.get_logger()
 def run_seed_starter_kits() -> None:
     """Seed starter kits into the database. Idempotent."""
     db = get_db()
-    repo = BaseArangoRepository(db, col.STARTER_KITS)
+    # Seed helper works with raw dicts (find_by_field + create), so opt into
+    # raw mode to satisfy the typed base API's fail-fast guard (FR-002 A3).
+    repo = BaseArangoRepository(db, col.STARTER_KITS, raw=True)
     data = load_yaml("starter_kits.yaml")
 
     # Build species scientific_name → _key map from DB

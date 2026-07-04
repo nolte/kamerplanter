@@ -42,6 +42,12 @@ class _FakeSiteRepo:
     def get_location_by_key(self, key: str) -> Location | None:
         return self._locations.get(key)
 
+    def get_location_or_raise(self, key: str) -> Location:
+        location = self._locations.get(key)
+        if location is None:
+            raise NotFoundError("Location", key)
+        return location
+
 
 def _fertilizers() -> dict[str, Fertilizer]:
     return {

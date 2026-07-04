@@ -1,7 +1,7 @@
 from datetime import date
 
 from app.common.enums import IrrigationStrategy, SubstrateType
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ValidationError
 from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.domain.engines.substrate_lifecycle_manager import SubstrateLifecycleManager
 from app.domain.engines.substrate_mix_engine import calculate_mix_properties
@@ -18,10 +18,7 @@ class SubstrateService:
         return self._repo.get_all_substrates(offset, limit)
 
     def get_substrate(self, key: SubstrateKey) -> Substrate:
-        substrate = self._repo.get_substrate_by_key(key)
-        if substrate is None:
-            raise NotFoundError("Substrate", key)
-        return substrate
+        return self._repo.get_substrate_or_raise(key)
 
     def create_substrate(self, substrate: Substrate) -> Substrate:
         return self._repo.create_substrate(substrate)
@@ -39,10 +36,7 @@ class SubstrateService:
         return self._repo.get_batches_by_substrate(substrate_key)
 
     def get_batch(self, key: BatchKey) -> SubstrateBatch:
-        batch = self._repo.get_batch_by_key(key)
-        if batch is None:
-            raise NotFoundError("SubstrateBatch", key)
-        return batch
+        return self._repo.get_batch_or_raise(key)
 
     def create_batch(self, batch: SubstrateBatch) -> SubstrateBatch:
         self.get_substrate(batch.substrate_key)
@@ -103,9 +97,7 @@ class SubstrateService:
         # Resolve all component substrates
         substrate_map: dict[str, Substrate] = {}
         for comp in components:
-            sub = self._repo.get_substrate_by_key(comp.substrate_key)
-            if sub is None:
-                raise NotFoundError("Substrate", comp.substrate_key)
+            sub = self._repo.get_substrate_or_raise(comp.substrate_key)
             if sub.is_mix:
                 raise ValidationError(f"Cannot use mix '{comp.substrate_key}' as a component (no nested mixes).")
             substrate_map[comp.substrate_key] = sub
@@ -142,9 +134,7 @@ class SubstrateService:
 
         substrate_map: dict[str, Substrate] = {}
         for comp in components:
-            sub = self._repo.get_substrate_by_key(comp.substrate_key)
-            if sub is None:
-                raise NotFoundError("Substrate", comp.substrate_key)
+            sub = self._repo.get_substrate_or_raise(comp.substrate_key)
             substrate_map[comp.substrate_key] = sub
 
         return calculate_mix_properties(components, substrate_map)

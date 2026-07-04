@@ -21,7 +21,9 @@ class OnboardingService:
     def __init__(self, db, starter_kit_service: StarterKitService) -> None:
         from app.data_access.arango import collections as col
 
-        self._repo = BaseArangoRepository(db, col.ONBOARDING_STATES)
+        # Service-embedded dict view: methods below wrap the raw dict into
+        # OnboardingState themselves, so opt into raw mode (FR-002 A3).
+        self._repo = BaseArangoRepository(db, col.ONBOARDING_STATES, raw=True)
         self._db = db
         self._kit_service = starter_kit_service
         self._engine = OnboardingEngine()

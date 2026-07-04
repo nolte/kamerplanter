@@ -21,6 +21,7 @@ from app.data_access.arango.location_assignment_repository import ArangoLocation
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
+from app.data_access.arango.overwintering_profile_repository import ArangoOverwinteringProfileRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
@@ -66,6 +67,7 @@ from app.domain.services.fertilizer_service import FertilizerService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
+from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
@@ -552,6 +554,19 @@ def get_care_reminder_repo() -> ArangoCareReminderRepository:
     return ArangoCareReminderRepository(get_db())
 
 
+def get_overwintering_profile_repo() -> ArangoOverwinteringProfileRepository:
+    return ArangoOverwinteringProfileRepository(get_db())
+
+
+def get_overwintering_profile_service() -> OverwinteringProfileService:
+    return OverwinteringProfileService(
+        get_overwintering_profile_repo(),
+        site_repo=get_site_repo(),
+        plant_repo=get_plant_repo(),
+        planting_run_repo=get_planting_run_repo(),
+    )
+
+
 def get_care_reminder_service() -> CareReminderService:
     return CareReminderService(
         get_care_reminder_repo(),
@@ -563,6 +578,7 @@ def get_care_reminder_service() -> CareReminderService:
         phase_seq_repo=get_phase_sequence_repo(),
         species_repo=get_species_repo(),
         nutrient_plan_repo=get_nutrient_plan_repo(),
+        overwintering_repo=get_overwintering_profile_repo(),
     )
 
 

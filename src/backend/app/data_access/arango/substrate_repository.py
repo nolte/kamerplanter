@@ -22,6 +22,9 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
     def get_substrate_by_key(self, key: SubstrateKey) -> Substrate | None:
         return super().get_by_key(key)
 
+    def get_substrate_or_raise(self, key: SubstrateKey) -> Substrate:
+        return super().get_or_raise(key)
+
     def create_substrate(self, substrate: Substrate) -> Substrate:
         return super().create(substrate)
 
@@ -35,6 +38,9 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
 
     def get_batch_by_key(self, key: BatchKey) -> SubstrateBatch | None:
         return self._batches.get_by_key(key)
+
+    def get_batch_or_raise(self, key: BatchKey) -> SubstrateBatch:
+        return self._batches.get_or_raise(key)
 
     def get_batches_by_substrate(self, substrate_key: SubstrateKey) -> list[SubstrateBatch]:
         return self._batches.find_by_field("substrate_key", substrate_key)

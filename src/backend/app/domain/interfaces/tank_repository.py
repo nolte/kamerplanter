@@ -23,6 +23,9 @@ class ITankRepository(ABC):
     def get_by_key(self, key: TankKey) -> Tank | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: TankKey) -> Tank: ...
+
+    @abstractmethod
     def create(self, tank: Tank) -> Tank: ...
 
     @abstractmethod
@@ -96,6 +99,9 @@ class ITankRepository(ABC):
 
     @abstractmethod
     def get_schedule_by_key(self, key: MaintenanceScheduleKey) -> MaintenanceSchedule | None: ...
+
+    @abstractmethod
+    def get_schedule_or_raise(self, key: MaintenanceScheduleKey) -> MaintenanceSchedule: ...
 
     @abstractmethod
     def update_schedule(

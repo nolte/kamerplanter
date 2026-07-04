@@ -13,6 +13,9 @@ class ISpeciesRepository(ABC):
     def get_by_key(self, key: SpeciesKey) -> Species | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: SpeciesKey) -> Species: ...
+
+    @abstractmethod
     def get_by_scientific_name(self, name: str) -> Species | None: ...
 
     @abstractmethod
@@ -35,6 +38,9 @@ class ISpeciesRepository(ABC):
 
     @abstractmethod
     def get_cultivar_by_key(self, key: CultivarKey) -> Cultivar | None: ...
+
+    @abstractmethod
+    def get_cultivar_or_raise(self, key: CultivarKey) -> Cultivar: ...
 
     @abstractmethod
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar: ...

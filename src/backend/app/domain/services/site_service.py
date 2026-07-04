@@ -1,4 +1,3 @@
-from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import LocationKey, SiteKey, SlotKey
 from app.domain.engines.water_mix_engine import WaterSourceValidator, WaterSourceWarning
@@ -17,9 +16,7 @@ class SiteService:
         return self._repo.get_all_sites(offset, limit, tenant_key=tenant_key)
 
     def get_site(self, key: SiteKey, tenant_key: str = "") -> Site:
-        site = self._repo.get_site_by_key(key)
-        if site is None:
-            raise NotFoundError("Site", key)
+        site = self._repo.get_site_or_raise(key)
         if tenant_key:
             verify_tenant_ownership(site, tenant_key, "Site")
         return site
@@ -54,10 +51,7 @@ class SiteService:
         return self._repo.get_locations_by_site(site_key)
 
     def get_location(self, key: LocationKey) -> Location:
-        location = self._repo.get_location_by_key(key)
-        if location is None:
-            raise NotFoundError("Location", key)
-        return location
+        return self._repo.get_location_or_raise(key)
 
     def create_location(self, location: Location) -> Location:
         if location.parent_location_key:
@@ -95,10 +89,7 @@ class SiteService:
         return self._repo.get_slots_by_location(location_key)
 
     def get_slot(self, key: SlotKey) -> Slot:
-        slot = self._repo.get_slot_by_key(key)
-        if slot is None:
-            raise NotFoundError("Slot", key)
-        return slot
+        return self._repo.get_slot_or_raise(key)
 
     def create_slot(self, slot: Slot) -> Slot:
         self.get_location(slot.location_key)

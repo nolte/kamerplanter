@@ -1,4 +1,4 @@
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ValidationError
 from app.domain.engines.activity_plan_engine import ActivityPlanEngine
 from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -38,15 +38,12 @@ class ActivityPlanService:
         species_name = species_key
         family_name = ""
         if self._species_repo:
-            species = self._species_repo.get_by_key(species_key)
-            if species:
-                species_name = (species.common_names[0] if species.common_names else "") or species.scientific_name
-                if species.family_key and self._family_repo:
-                    family = self._family_repo.get_by_key(species.family_key)
-                    if family:
-                        family_name = family.name
-            else:
-                raise NotFoundError("Species", species_key)
+            species = self._species_repo.get_or_raise(species_key)
+            species_name = (species.common_names[0] if species.common_names else "") or species.scientific_name
+            if species.family_key and self._family_repo:
+                family = self._family_repo.get_by_key(species.family_key)
+                if family:
+                    family_name = family.name
         return species, species_name, family_name
 
     def _resolve_lifecycle_key(
@@ -192,9 +189,7 @@ class ActivityPlanService:
         tenant_key: str = "",
     ) -> dict:
         """Create tasks from a workflow template's task templates for a single plant."""
-        wt = self._task_repo.get_workflow_template_by_key(workflow_template_key)
-        if not wt:
-            raise NotFoundError("WorkflowTemplate", workflow_template_key)
+        self._task_repo.get_workflow_template_or_raise(workflow_template_key)
 
         templates = self._task_repo.get_task_templates_for_workflow(workflow_template_key)
         created_keys: list[str] = []
@@ -238,9 +233,7 @@ class ActivityPlanService:
         tenant_key: str = "",
     ) -> dict:
         """Create tasks from a workflow template for all plants in a run."""
-        run = self._run_repo.get_by_key(run_key)
-        if not run:
-            raise NotFoundError("PlantingRun", run_key)
+        self._run_repo.get_or_raise(run_key)
 
         plant_dicts = self._run_repo.get_run_plants(run_key)
         if not plant_dicts:

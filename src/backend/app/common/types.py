@@ -65,6 +65,7 @@ type LocationAssignmentKey = str
 # REQ-022 Care Reminders
 type CareProfileKey = str
 type CareConfirmationKey = str
+type OverwinteringProfileKey = str
 
 # REQ-020 Onboarding
 type StarterKitKey = str

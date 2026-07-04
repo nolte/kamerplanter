@@ -19,6 +19,9 @@ class IPlantingRunRepository(ABC):
     def get_by_key(self, key: PlantingRunKey) -> PlantingRun | None: ...
 
     @abstractmethod
+    def get_or_raise(self, key: PlantingRunKey) -> PlantingRun: ...
+
+    @abstractmethod
     def create(self, run: PlantingRun) -> PlantingRun: ...
 
     @abstractmethod
@@ -37,6 +40,9 @@ class IPlantingRunRepository(ABC):
 
     @abstractmethod
     def get_entry_by_key(self, entry_key: PlantingRunEntryKey) -> PlantingRunEntry | None: ...
+
+    @abstractmethod
+    def get_entry_or_raise(self, entry_key: PlantingRunEntryKey) -> PlantingRunEntry: ...
 
     @abstractmethod
     def update_entry(self, entry_key: PlantingRunEntryKey, entry: PlantingRunEntry) -> PlantingRunEntry: ...
