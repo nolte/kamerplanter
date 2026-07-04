@@ -9,9 +9,11 @@ from app.domain.interfaces.activity_repository import IActivityRepository
 from app.domain.models.activity import Activity
 
 
-class ArangoActivityRepository(IActivityRepository, BaseArangoRepository):
+class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityRepository):
+    _model_cls = Activity
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.ACTIVITIES)
+        super().__init__(db, col.ACTIVITIES)
 
     def get_all(
         self,
@@ -54,24 +56,10 @@ class ArangoActivityRepository(IActivityRepository, BaseArangoRepository):
             count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
             total = next(count_cursor, 0)
             return items, total
-        docs, total = BaseArangoRepository.get_all(self, offset, limit)
-        return [Activity(**doc) for doc in docs], total
-
-    def get_by_key(self, key: ActivityKey) -> Activity | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return Activity(**doc) if doc else None
+        return super().get_all(offset, limit)
 
     def get_by_name(self, name: str) -> Activity | None:
-        docs = self.find_by_field("name", name)
-        return Activity(**docs[0]) if docs else None
-
-    def create(self, activity: Activity) -> Activity:
-        doc = BaseArangoRepository.create(self, activity)
-        return Activity(**doc)
-
-    def update(self, key: ActivityKey, activity: Activity) -> Activity:
-        doc = BaseArangoRepository.update(self, key, activity)
-        return Activity(**doc)
+        return self.find_one_by_field("name", name)
 
     def delete(self, key: ActivityKey) -> bool:
         activity_id = f"{col.ACTIVITIES}/{key}"
@@ -79,7 +67,7 @@ class ArangoActivityRepository(IActivityRepository, BaseArangoRepository):
         for edge_col in [col.TASK_USES_ACTIVITY]:
             query = f"FOR e IN {edge_col} FILTER e._to == @aid REMOVE e IN {edge_col}"
             self._db.aql.execute(query, bind_vars={"aid": activity_id})
-        return BaseArangoRepository.delete(self, key)
+        return super().delete(key)
 
     def get_system_activities(self) -> list[Activity]:
         query = f"""

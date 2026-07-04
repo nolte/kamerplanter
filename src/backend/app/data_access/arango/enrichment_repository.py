@@ -1,6 +1,5 @@
 from arango.database import StandardDatabase
 
-from app.common.types import ExternalMappingKey, SourceKey, SyncRunKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.enrichment_repository import (
@@ -11,38 +10,25 @@ from app.domain.interfaces.enrichment_repository import (
 from app.domain.models.enrichment import ExternalMapping, ExternalSource, SyncRun
 
 
-class ArangoExternalSourceRepository(IExternalSourceRepository, BaseArangoRepository):
+class ArangoExternalSourceRepository(BaseArangoRepository[ExternalSource], IExternalSourceRepository):
+    _model_cls = ExternalSource
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.EXTERNAL_SOURCES)
+        super().__init__(db, col.EXTERNAL_SOURCES)
 
     def get_all(self) -> list[ExternalSource]:
-        docs, _ = BaseArangoRepository.get_all(self, offset=0, limit=100)
-        return [ExternalSource(**doc) for doc in docs]
-
-    def get_by_key(self, key: SourceKey) -> ExternalSource | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return ExternalSource(**doc) if doc else None
+        items, _ = super().get_all(offset=0, limit=100)
+        return items
 
     def get_by_source_key(self, source_key: str) -> ExternalSource | None:
-        docs = self.find_by_field("source_key", source_key)
-        return ExternalSource(**docs[0]) if docs else None
-
-    def create(self, source: ExternalSource) -> ExternalSource:
-        doc = BaseArangoRepository.create(self, source)
-        return ExternalSource(**doc)
-
-    def update(self, key: SourceKey, source: ExternalSource) -> ExternalSource:
-        doc = BaseArangoRepository.update(self, key, source)
-        return ExternalSource(**doc)
+        return self.find_one_by_field("source_key", source_key)
 
 
-class ArangoExternalMappingRepository(IExternalMappingRepository, BaseArangoRepository):
+class ArangoExternalMappingRepository(BaseArangoRepository[ExternalMapping], IExternalMappingRepository):
+    _model_cls = ExternalMapping
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.EXTERNAL_MAPPINGS)
-
-    def get_by_key(self, key: ExternalMappingKey) -> ExternalMapping | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return ExternalMapping(**doc) if doc else None
+        super().__init__(db, col.EXTERNAL_MAPPINGS)
 
     def get_by_internal(self, internal_collection: str, internal_key: str, source_key: str) -> ExternalMapping | None:
         query = """
@@ -69,14 +55,6 @@ class ArangoExternalMappingRepository(IExternalMappingRepository, BaseArangoRepo
         cursor = self._db.aql.execute(query, bind_vars={"col": internal_collection, "key": internal_key})
         return [ExternalMapping(**self._from_doc(doc)) for doc in cursor]
 
-    def create(self, mapping: ExternalMapping) -> ExternalMapping:
-        doc = BaseArangoRepository.create(self, mapping)
-        return ExternalMapping(**doc)
-
-    def update(self, key: ExternalMappingKey, mapping: ExternalMapping) -> ExternalMapping:
-        doc = BaseArangoRepository.update(self, key, mapping)
-        return ExternalMapping(**doc)
-
     def find_unmapped_species(self, source_key: str) -> list[dict[str, str]]:
         query = """
         FOR s IN species
@@ -94,17 +72,11 @@ class ArangoExternalMappingRepository(IExternalMappingRepository, BaseArangoRepo
         return [dict(doc) for doc in cursor]  # type: ignore[arg-type]
 
 
-class ArangoSyncRunRepository(ISyncRunRepository, BaseArangoRepository):
+class ArangoSyncRunRepository(BaseArangoRepository[SyncRun], ISyncRunRepository):
+    _model_cls = SyncRun
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.SYNC_RUNS)
-
-    def create(self, run: SyncRun) -> SyncRun:
-        doc = BaseArangoRepository.create(self, run)
-        return SyncRun(**doc)
-
-    def update(self, key: SyncRunKey, run: SyncRun) -> SyncRun:
-        doc = BaseArangoRepository.update(self, key, run)
-        return SyncRun(**doc)
+        super().__init__(db, col.SYNC_RUNS)
 
     def get_by_source(self, source_key: str, limit: int = 20) -> list[SyncRun]:
         query = """

@@ -4,31 +4,24 @@ from app.common.types import UserKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.erasure_repository import IErasureRepository
-from app.domain.models.privacy import ErasureRequest, ErasureRequestKey
+from app.domain.models.privacy import ErasureRequest
 
 
-class ArangoErasureRepository(IErasureRepository, BaseArangoRepository):
+class ArangoErasureRepository(BaseArangoRepository[ErasureRequest], IErasureRepository):
     """ArangoDB persistence for REQ-025 erasure requests (Art. 17)."""
 
+    _model_cls = ErasureRequest
+
     def __init__(self, db: StandardDatabase) -> None:
-        BaseArangoRepository.__init__(self, db, col.ERASURE_REQUESTS)
+        super().__init__(db, col.ERASURE_REQUESTS)
 
     def create(self, erasure: ErasureRequest) -> ErasureRequest:
-        doc = BaseArangoRepository.create(self, erasure)
-        created = ErasureRequest(**doc)
+        created = super().create(erasure)
         if erasure.user_key and created.key:
             user_id = f"{col.USERS}/{erasure.user_key}"
             erasure_id = f"{col.ERASURE_REQUESTS}/{created.key}"
             self.create_edge(col.REQUESTED_ERASURE, user_id, erasure_id)
         return created
-
-    def get_by_key(self, key: ErasureRequestKey) -> ErasureRequest | None:
-        doc = BaseArangoRepository.get_by_key(self, key)
-        return ErasureRequest(**doc) if doc else None
-
-    def update(self, key: ErasureRequestKey, erasure: ErasureRequest) -> ErasureRequest:
-        doc = BaseArangoRepository.update(self, key, erasure)
-        return ErasureRequest(**doc)
 
     def list_by_user(self, user_key: UserKey) -> list[ErasureRequest]:
         query = """

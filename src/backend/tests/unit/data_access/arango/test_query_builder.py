@@ -6,7 +6,34 @@ reserved ``@__offset``/``@__limit`` parameters and never appear in the count
 query's bind_vars.
 """
 
+import pytest
+
 from app.data_access.arango.query_builder import AQLBuilder
+
+
+def test_filter_rejects_unknown_operator():
+    with pytest.raises(ValueError, match="Unsupported AQL operator"):
+        AQLBuilder("things").filter("name", "DROP", "x")
+
+
+def test_filter_rejects_hostile_field_name():
+    with pytest.raises(ValueError, match="Invalid AQL field name"):
+        AQLBuilder("things").filter("name == 1 OR 1", "==", "x")
+
+
+def test_filter_allows_whitelisted_operators():
+    query, _ = AQLBuilder("things").filter("tags", "IN", ["a"]).build_list()
+    assert "doc.tags IN @v0" in query
+
+
+def test_sort_rejects_invalid_direction():
+    with pytest.raises(ValueError, match="Invalid sort direction"):
+        AQLBuilder("things").sort("name", "SIDEWAYS")
+
+
+def test_sort_allows_underscore_key_field():
+    query, _ = AQLBuilder("things").sort("_key").build_list()
+    assert "SORT doc._key ASC" in query
 
 
 def test_build_list_binds_offset_and_limit():

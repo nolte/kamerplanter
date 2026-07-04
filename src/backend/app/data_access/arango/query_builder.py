@@ -1,10 +1,23 @@
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, ClassVar
 
 
 class AQLBuilder:
     """Builds parameterized AQL queries to prevent injection."""
+
+    #: Comparison operators allowed in :meth:`filter`. ``op`` is interpolated
+    #: into the query text, so it is whitelisted to keep the builder injection
+    #: safe even though callers pass code-level constants today.
+    _ALLOWED_OPS: ClassVar[frozenset[str]] = frozenset({"==", "!=", ">", ">=", "<", "<=", "IN", "NOT IN", "LIKE"})
+
+    #: Sort directions allowed in :meth:`sort`.
+    _ALLOWED_DIRECTIONS: ClassVar[frozenset[str]] = frozenset({"ASC", "DESC"})
+
+    #: Field names are interpolated (``doc.<field>``); restrict to identifiers
+    #: and dotted paths so a hostile field name cannot break out of the clause.
+    _FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
     def __init__(self, collection: str) -> None:
         self._collection = collection
@@ -16,6 +29,10 @@ class AQLBuilder:
         self._var_counter = 0
 
     def filter(self, field: str, op: str, value: Any) -> AQLBuilder:
+        if op not in self._ALLOWED_OPS:
+            raise ValueError(f"Unsupported AQL operator: {op!r}")
+        if not self._FIELD_RE.match(field):
+            raise ValueError(f"Invalid AQL field name: {field!r}")
         var_name = f"v{self._var_counter}"
         self._var_counter += 1
         self._filters.append(f"doc.{field} {op} @{var_name}")
@@ -23,6 +40,10 @@ class AQLBuilder:
         return self
 
     def sort(self, field: str, direction: str = "ASC") -> AQLBuilder:
+        if direction not in self._ALLOWED_DIRECTIONS:
+            raise ValueError(f"Invalid sort direction: {direction!r}")
+        if not self._FIELD_RE.match(field):
+            raise ValueError(f"Invalid AQL sort field: {field!r}")
         self._sort = f"doc.{field} {direction}"
         return self
 
