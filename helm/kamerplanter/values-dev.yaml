@@ -32,6 +32,11 @@ controllers:
           REQUIRE_EMAIL_VERIFICATION: "false"
           KAMERPLANTER_MODE: "light"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
+          # Home Assistant runs in-cluster (homeassistant.default.svc), so its URL
+          # resolves to a private/cluster address. The SSRF guard (url_safety.py)
+          # rejects private HA endpoints unless this is explicitly allowed. Required
+          # for the self-hosted dev cluster; keep the guard strict in hosted SaaS.
+          HA_ALLOW_PRIVATE_ENDPOINT: "true"
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"
@@ -182,6 +187,11 @@ controllers:
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
+          # Home Assistant runs in-cluster (homeassistant.default.svc), so its URL
+          # resolves to a private/cluster address. The SSRF guard (url_safety.py)
+          # rejects private HA endpoints unless this is explicitly allowed. Required
+          # for the self-hosted dev cluster; keep the guard strict in hosted SaaS.
+          HA_ALLOW_PRIVATE_ENDPOINT: "true"
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"
@@ -235,6 +245,11 @@ controllers:
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
+          # Home Assistant runs in-cluster (homeassistant.default.svc), so its URL
+          # resolves to a private/cluster address. The SSRF guard (url_safety.py)
+          # rejects private HA endpoints unless this is explicitly allowed. Required
+          # for the self-hosted dev cluster; keep the guard strict in hosted SaaS.
+          HA_ALLOW_PRIVATE_ENDPOINT: "true"
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: kamerplanter-timescaledb
           TIMESCALEDB_PORT: "5432"

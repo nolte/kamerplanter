@@ -54,7 +54,7 @@ def migrate_fertilizer_calmag_type(db: StandardDatabase, *, dry_run: bool = Fals
 
     cursor = db.aql.execute(
         f"FOR doc IN {col.FERTILIZERS} RETURN {{ _key: doc._key, "
-        "product_name: doc.product_name, fertilizer_type: doc.fertilizer_type }}"
+        "product_name: doc.product_name, fertilizer_type: doc.fertilizer_type }"
     )
 
     for doc in cursor:

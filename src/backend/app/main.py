@@ -91,83 +91,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     ensure_collections(db)
     logger.info("database_ready")
 
-    from app.migrations.seed_location_types import seed_location_types
+    # NFR-016 / ADR-005: versioned, tracked, lock-guarded migrations run FIRST
+    # (fatal on failure — a stale-enum volume must be repaired before any seed
+    # reads it, e.g. the retired `harvest` phase from #306). Then the seed
+    # registry runs with per-seed error isolation (a bad reference-data seed no
+    # longer wedges the whole startup).
+    from app.migrations.framework.runner import run_pending_migrations
+    from app.migrations.seeds.registry import run_seeds
 
-    seed_location_types(db)
-
-    from app.migrations.seed_data import run_seed
-
-    run_seed()
-
-    from app.migrations.seed_starter_kits import run_seed_starter_kits
-
-    run_seed_starter_kits()
-
-    from app.migrations.seed_adventskalender import run_seed_adventskalender
-
-    run_seed_adventskalender()
-
-    from app.migrations.seed_plant_info import run_seed_plant_info
-
-    run_seed_plant_info()
-
-    from app.migrations.seed_plant_info_extended import run_seed_plant_info_extended
-
-    run_seed_plant_info_extended()
-
-    from app.migrations.seed_overwintering_profiles import run_seed_overwintering_profiles
-
-    run_seed_overwintering_profiles()
-
-    from app.migrations.seed_fertilizers import run_seed_fertilizers
-
-    run_seed_fertilizers()
-
-    from app.migrations.seed_plagron import run_seed_plagron
-
-    run_seed_plagron()
-
-    from app.migrations.seed_gardol import run_seed_gardol
-
-    run_seed_gardol()
-
-    from app.migrations.seed_nutrient_plans_outdoor import (
-        run_seed_nutrient_plans_outdoor,
-    )
-
-    run_seed_nutrient_plans_outdoor()
-
-    from app.migrations.seed_nutrient_plans_ro import run_seed_nutrient_plans_ro
-
-    run_seed_nutrient_plans_ro()
-
-    from app.migrations.seed_activities import run_seed_activities
-
-    run_seed_activities()
-
-    from app.migrations.seed_phase_sequences import run_seed_phase_sequences
-
-    run_seed_phase_sequences()
-
-    from app.migrations.seed_lifecycles_outdoor import run_seed_lifecycles_outdoor
-
-    run_seed_lifecycles_outdoor()
-
-    from app.migrations.migrate_lifecycle_to_phase_sequence import (
-        run_migrate_lifecycle_to_phase_sequence,
-    )
-
-    run_migrate_lifecycle_to_phase_sequence()
+    run_pending_migrations(db)
+    run_seeds(db)
 
     if settings.kamerplanter_mode == "light":
-        from app.migrations.seed_light_mode import run_seed_light_mode
-
-        run_seed_light_mode()
         logger.info("light_mode_active")
-
-    from app.migrations.backfill_tenant_key import backfill_tenant_key
-
-    backfill_tenant_key(db)
 
     # Register notification channels
     from app.domain.engines.notification_channel_registry import NotificationChannelRegistry

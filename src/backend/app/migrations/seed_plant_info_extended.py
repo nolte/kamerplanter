@@ -239,6 +239,34 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
     return species_list
 
 
+# Flat toxicity convention keys (only plant_info_indoor_1.yaml). Folded into a
+# structured Toxicity model; never passed through as standalone Species fields.
+_FLAT_TOXICITY_KEYS = frozenset({"is_toxic", "toxic_to", "toxic_parts", "toxin"})
+
+
+def _flat_toxicity_to_model(source: dict[str, Any]) -> Toxicity:
+    """Fold the flat toxicity convention of one enrichment entry into a ``Toxicity``.
+
+    ``is_toxic: false`` (no ``toxic_to``) becomes a verified-non-toxic profile with
+    all booleans False and empty lists. ``toxicity_severity`` is deliberately NOT
+    mapped onto ``Toxicity.severity`` — the two use different scales (see
+    ``Species.toxicity_severity`` / ``ToxicitySeverity``), so ``severity`` stays None.
+    """
+    if not source.get("is_toxic"):
+        return Toxicity()
+
+    toxic_to = source.get("toxic_to") or []
+    toxin = source.get("toxin")
+    return Toxicity(
+        is_toxic_cats="cats" in toxic_to,
+        is_toxic_dogs="dogs" in toxic_to,
+        is_toxic_children=("humans" in toxic_to) or ("children" in toxic_to),
+        toxic_parts=source.get("toxic_parts") or [],
+        toxic_compounds=[toxin] if toxin else [],
+        severity=None,
+    )
+
+
 def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Build enrichment map with proper enum conversions."""
     enum_field_map: dict[str, type] = {
@@ -262,6 +290,9 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         for field, value in fields.items():
             if field in propagation_keys:
                 continue
+            if field in _FLAT_TOXICITY_KEYS:
+                # Consumed below into a structured Toxicity — never passed through.
+                continue
             if field == "watering_guide" and value is not None:
                 converted[field] = _build_watering_guide(value)
             elif field == "toxicity" and value is not None:
@@ -274,6 +305,10 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 converted[field] = enum_field_map[field](value)
             else:
                 converted[field] = value
+        # Flat toxicity convention → structured Toxicity, unless a nested
+        # ``toxicity:`` block was already provided for this entry.
+        if "toxicity" not in converted and "is_toxic" in fields:
+            converted["toxicity"] = _flat_toxicity_to_model(fields)
         configs = _build_propagation_configs(fields)
         if configs:
             converted["propagation_configs"] = configs
@@ -415,6 +450,16 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         needs_update = False
 
         for field, value in updates.items():
+            if field not in type(existing).model_fields:
+                # Defense-in-depth against field drift: a single unknown field must
+                # not crash the whole file's enrichment. Skip it, keep the rest.
+                logger.warning(
+                    "enrichment_unknown_field",
+                    name=sci_name,
+                    field=field,
+                    source=yaml_filename,
+                )
+                continue
             current = getattr(existing, field, None)
             if current is None or current == "" or current == []:
                 setattr(existing, field, value)
@@ -709,11 +754,16 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 continue
 
             trait_strings = cv_entry.get("traits", [])
+            # days_to_maturity is not meaningful for ornamentals; the model enforces
+            # ge=1, so coerce any stray 0/negative value to None instead of crashing.
+            dtm = cv_entry.get("days_to_maturity")
+            if dtm is not None and dtm < 1:
+                dtm = None
             cultivar = Cultivar(
                 name=cv_name,
                 species_key=sp_key,
                 breeder=cv_entry.get("breeder"),
-                days_to_maturity=cv_entry.get("days_to_maturity"),
+                days_to_maturity=dtm,
                 traits=[PlantTrait(t) for t in trait_strings if t in PlantTrait.__members__.values()],
                 seed_type=cv_entry.get("seed_type", ""),
             )

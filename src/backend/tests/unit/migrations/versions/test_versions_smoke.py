@@ -1,0 +1,77 @@
+"""Smoke tests for the concrete version modules.
+
+Each migration's ``up`` runs as a safe no-op against an empty database (idempotency
+floor), honours ``dry_run``, and every irreversible migration's ``down`` raises
+:class:`IrreversibleMigrationError` while the reversible baseline's ``down`` is a
+no-op.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.migrations.framework.discovery import load_migrations
+from app.migrations.framework.report import IrreversibleMigrationError, MigrationReport
+
+
+class _NoopAql:
+    """Returns an empty cursor for every query — an empty database."""
+
+    def execute(self, *args, **kwargs):
+        return iter([])
+
+
+class _NoopCollection:
+    def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
+        raise AssertionError("no document should be written on an empty database")
+
+
+class _NoopDb:
+    """An empty database: scans return nothing, so every migration is a no-op."""
+
+    def __init__(self) -> None:
+        self.aql = _NoopAql()
+
+    def collection(self, name: str) -> _NoopCollection:
+        return _NoopCollection()
+
+
+def _migrations():
+    return load_migrations()
+
+
+class TestVersionSmoke:
+    def test_up_is_noop_on_empty_db(self):
+        for migration in _migrations():
+            report = migration.up(_NoopDb())
+            assert isinstance(report, MigrationReport)
+            assert report.version == migration.version
+            assert report.changed == 0
+            assert report.noop is True
+
+    def test_up_dry_run_writes_nothing(self):
+        for migration in _migrations():
+            report = migration.up(_NoopDb(), dry_run=True)
+            assert report.dry_run is True
+            assert report.changed == 0
+
+    def test_down_matches_reversibility(self):
+        for migration in _migrations():
+            if migration.reversible:
+                report = migration.down(_NoopDb())
+                assert isinstance(report, MigrationReport)
+            else:
+                with pytest.raises(IrreversibleMigrationError):
+                    migration.down(_NoopDb())
+
+    def test_baseline_is_the_only_reversible(self):
+        migrations = _migrations()
+        assert migrations[0].name == "baseline"
+        assert migrations[0].reversible is True
+        assert all(not m.reversible for m in migrations[1:])
+
+    def test_retire_harvest_is_the_last_migration(self):
+        # AC-6 relies on the harvest reclassification being the final migration,
+        # so it runs (before seeds) on every legacy volume.
+        migrations = _migrations()
+        assert migrations[-1].name == "retire_harvest_phase"
