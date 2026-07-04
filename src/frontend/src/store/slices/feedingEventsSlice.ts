@@ -1,71 +1,22 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { FeedingEvent } from '@/api/types';
 import * as api from '@/api/endpoints/feeding-events';
+import { createListSlice } from '@/store/createListSlice';
 
-interface FeedingEventsState {
-  events: FeedingEvent[];
-  currentEvent: FeedingEvent | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: FeedingEventsState = {
-  events: [],
-  currentEvent: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchFeedingEvents = createAsyncThunk(
-  'feedingEvents/fetchAll',
-  async ({
-    offset,
-    limit,
-  }: {
-    offset?: number;
-    limit?: number;
-  } = {}) => {
-    return api.listFeedingEvents(offset, limit);
-  },
-);
-
-export const fetchFeedingEvent = createAsyncThunk(
-  'feedingEvents/fetchOne',
-  async (key: string) => {
-    return api.getFeedingEvent(key);
-  },
-);
-
-const feedingEventsSlice = createSlice({
+// `listFeedingEvents` returns a plain array. The slice keeps its domain-named
+// state fields (`events`/`currentEvent`) so page selectors stay unchanged
+// (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'feedingEvents',
-  initialState,
-  reducers: {
-    clearCurrentEvent(state) {
-      state.currentEvent = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchFeedingEvents.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchFeedingEvents.fulfilled, (state, action) => {
-        state.loading = false;
-        state.events = action.payload;
-      })
-      .addCase(fetchFeedingEvents.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
-      })
-      .addCase(fetchFeedingEvent.fulfilled, (state, action) => {
-        state.currentEvent = action.payload;
-      });
-  },
+  list: ({ offset, limit }: { offset?: number; limit?: number } = {}) =>
+    api.listFeedingEvents(offset, limit),
+  getOne: (key) => api.getFeedingEvent(key),
+  itemsField: 'events',
+  currentField: 'currentEvent',
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrentEvent, clearError } = feedingEventsSlice.actions;
-export default feedingEventsSlice.reducer;
+export const fetchFeedingEvents = fetchList;
+export const fetchFeedingEvent = fetchOne!;
+export const clearCurrentEvent = actions.clearCurrent;
+export const { clearError } = actions;
+export default reducer;

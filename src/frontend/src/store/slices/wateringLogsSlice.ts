@@ -1,71 +1,22 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { WateringLog } from '@/api/types';
 import * as api from '@/api/endpoints/watering-logs';
+import { createListSlice } from '@/store/createListSlice';
 
-interface WateringLogsState {
-  logs: WateringLog[];
-  currentLog: WateringLog | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: WateringLogsState = {
-  logs: [],
-  currentLog: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchWateringLogs = createAsyncThunk(
-  'wateringLogs/fetchAll',
-  async ({
-    offset,
-    limit,
-  }: {
-    offset?: number;
-    limit?: number;
-  } = {}) => {
-    return api.listWateringLogs(offset, limit);
-  },
-);
-
-export const fetchWateringLog = createAsyncThunk(
-  'wateringLogs/fetchOne',
-  async (key: string) => {
-    return api.getWateringLog(key);
-  },
-);
-
-const wateringLogsSlice = createSlice({
+// `listWateringLogs` returns a plain array. The slice keeps its domain-named
+// state fields (`logs`/`currentLog`) so page selectors stay unchanged
+// (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'wateringLogs',
-  initialState,
-  reducers: {
-    clearCurrentLog(state) {
-      state.currentLog = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchWateringLogs.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchWateringLogs.fulfilled, (state, action) => {
-        state.loading = false;
-        state.logs = action.payload;
-      })
-      .addCase(fetchWateringLogs.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
-      })
-      .addCase(fetchWateringLog.fulfilled, (state, action) => {
-        state.currentLog = action.payload;
-      });
-  },
+  list: ({ offset, limit }: { offset?: number; limit?: number } = {}) =>
+    api.listWateringLogs(offset, limit),
+  getOne: (key) => api.getWateringLog(key),
+  itemsField: 'logs',
+  currentField: 'currentLog',
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrentLog, clearError } = wateringLogsSlice.actions;
-export default wateringLogsSlice.reducer;
+export const fetchWateringLogs = fetchList;
+export const fetchWateringLog = fetchOne!;
+export const clearCurrentLog = actions.clearCurrent;
+export const { clearError } = actions;
+export default reducer;

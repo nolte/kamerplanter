@@ -100,7 +100,7 @@ const tenantSlice = createSlice({
       })
       .addCase(loadMyTenants.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message ?? 'Failed to load tenants';
+        state.error = action.error.message ?? 'errors.tenantsLoadFailed';
       })
       .addCase(createOrganization.fulfilled, (state, action) => {
         state.myTenants = action.payload;

@@ -55,7 +55,7 @@ describe('userPreferencesSlice', () => {
       type: fetchPreferences.rejected.type,
       error: {},
     });
-    expect(state.error).toBe('Failed to load preferences');
+    expect(state.error).toBe('errors.preferencesLoadFailed');
   });
 
   it('updateUserPreferences.fulfilled replaces the stored preferences', () => {

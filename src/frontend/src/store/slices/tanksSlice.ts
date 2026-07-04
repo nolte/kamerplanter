@@ -1,73 +1,22 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { Tank } from '@/api/types';
 import * as api from '@/api/endpoints/tanks';
+import { createListSlice } from '@/store/createListSlice';
 
-interface TanksState {
-  tanks: Tank[];
-  currentTank: Tank | null;
-  loading: boolean;
-  error: string | null;
-}
-
-const initialState: TanksState = {
-  tanks: [],
-  currentTank: null,
-  loading: false,
-  error: null,
-};
-
-export const fetchTanks = createAsyncThunk(
-  'tanks/fetchAll',
-  async ({
-    offset,
-    limit,
-    tankType,
-  }: {
-    offset?: number;
-    limit?: number;
-    tankType?: string;
-  } = {}) => {
-    return api.listTanks(offset, limit, tankType);
-  },
-);
-
-export const fetchTank = createAsyncThunk(
-  'tanks/fetchOne',
-  async (key: string) => {
-    return api.getTank(key);
-  },
-);
-
-const tanksSlice = createSlice({
+// `listTanks` returns a plain array (no pagination envelope). The slice keeps
+// its domain-named state fields (`tanks`/`currentTank`) so page selectors
+// (`s.tanks.tanks`) stay unchanged (FR-002 §B1).
+const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'tanks',
-  initialState,
-  reducers: {
-    clearCurrentTank(state) {
-      state.currentTank = null;
-    },
-    clearError(state) {
-      state.error = null;
-    },
-  },
-  extraReducers: (builder) => {
-    builder
-      .addCase(fetchTanks.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchTanks.fulfilled, (state, action) => {
-        state.loading = false;
-        state.tanks = action.payload;
-      })
-      .addCase(fetchTanks.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
-      })
-      .addCase(fetchTank.fulfilled, (state, action) => {
-        state.currentTank = action.payload;
-      });
-  },
+  list: ({ offset, limit, tankType }: { offset?: number; limit?: number; tankType?: string } = {}) =>
+    api.listTanks(offset, limit, tankType),
+  getOne: (key) => api.getTank(key),
+  itemsField: 'tanks',
+  currentField: 'currentTank',
+  paginated: false,
+  singleFetchTogglesStatus: false,
 });
 
-export const { clearCurrentTank, clearError } = tanksSlice.actions;
-export default tanksSlice.reducer;
+export const fetchTanks = fetchList;
+export const fetchTank = fetchOne!;
+export const clearCurrentTank = actions.clearCurrent;
+export const { clearError } = actions;
+export default reducer;

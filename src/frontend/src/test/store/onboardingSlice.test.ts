@@ -90,7 +90,7 @@ describe('onboardingSlice', () => {
 
   it('fetchOnboardingState.rejected falls back to a default message', () => {
     const state = reducer(initial(), { type: fetchOnboardingState.rejected.type, error: {} });
-    expect(state.error).toBe('Failed to load onboarding state');
+    expect(state.error).toBe('errors.onboardingStateLoadFailed');
   });
 
   it('fetchStarterKits handles pending, fulfilled and rejected', () => {
@@ -98,7 +98,7 @@ describe('onboardingSlice', () => {
     const fulfilled = reducer(initial(), { type: fetchStarterKits.fulfilled.type, payload: [{ id: 'k1' }] });
     expect(fulfilled.kits).toEqual([{ id: 'k1' }]);
     const rejected = reducer(initial(), { type: fetchStarterKits.rejected.type, error: {} });
-    expect(rejected.error).toBe('Failed to load starter kits');
+    expect(rejected.error).toBe('errors.starterKitsLoadFailed');
   });
 
   it('completeOnboarding.fulfilled marks the existing state completed', () => {

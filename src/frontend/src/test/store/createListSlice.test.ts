@@ -10,7 +10,7 @@ interface Item {
 function makeSlice(overrides: Partial<Parameters<typeof createListSlice<Item>>[0]> = {}) {
   return createListSlice<Item>({
     name: 'widgets',
-    list: async (offset, limit) => ({ items: [], total: 0, offset, limit }),
+    list: async ({ offset = 0, limit = 50 } = {}) => ({ items: [], total: 0, offset, limit }),
     getOne: async (key) => ({ key }),
     ...overrides,
   });
@@ -113,7 +113,7 @@ describe('createListSlice', () => {
   it('omits fetchOne when getOne is not configured', () => {
     const { fetchOne } = createListSlice<Item>({
       name: 'listOnly',
-      list: async (offset, limit) => ({ items: [], total: 0, offset, limit }),
+      list: async ({ offset = 0, limit = 50 } = {}) => ({ items: [], total: 0, offset, limit }),
     });
     expect(fetchOne).toBeUndefined();
   });
@@ -127,7 +127,7 @@ describe('createListSlice', () => {
   });
 
   it('loads via the real thunk using the configured list function', async () => {
-    const list = vi.fn(async (offset: number, limit: number) => ({
+    const list = vi.fn(async ({ offset = 0, limit = 50 }: { offset?: number; limit?: number } = {}) => ({
       items: [{ key: 'a' }],
       total: 1,
       offset,
@@ -136,7 +136,7 @@ describe('createListSlice', () => {
     const { reducer, fetchList } = makeSlice({ list });
     const store = configureStore({ reducer: { widgets: reducer } });
     await store.dispatch(fetchList({ offset: 5, limit: 25 }));
-    expect(list).toHaveBeenCalledWith(5, 25);
+    expect(list).toHaveBeenCalledWith({ offset: 5, limit: 25 });
     expect(store.getState().widgets.items).toEqual([{ key: 'a' }]);
     expect(store.getState().widgets.offset).toBe(5);
   });

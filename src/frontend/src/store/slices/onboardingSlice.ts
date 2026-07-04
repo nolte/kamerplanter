@@ -191,7 +191,7 @@ const onboardingSlice = createSlice({
       })
       .addCase(fetchOnboardingState.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load onboarding state';
+        state.error = action.error.message ?? 'errors.onboardingStateLoadFailed';
       })
       // Fetch kits
       .addCase(fetchStarterKits.pending, (state) => {
@@ -204,7 +204,7 @@ const onboardingSlice = createSlice({
       })
       .addCase(fetchStarterKits.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'Failed to load starter kits';
+        state.error = action.error.message ?? 'errors.starterKitsLoadFailed';
       })
       // Complete
       .addCase(completeOnboarding.fulfilled, (state) => {
