@@ -63,6 +63,9 @@ Das EC-Netto-Budget wird in Segmente aufgeteilt (in dieser Reihenfolge):
 | pH-Reserve | 3 | Puffer für pH-Adjuster (0,02–0,05 mS je nach Wasserhärte) |
 | Basisdünger | 4 | Restbudget wird auf Basisdünger verteilt |
 
+!!! tip "So findest du diese Werte im Nährstoff-Rechner"
+    Im Mischprotokoll (**Düngung → Nährstoff-Berechnungen → Mischprotokoll**) trägst du die Karbonathärte deines Wassers als **Alkalinität** (ppm CaCO₃) ein. Kamerplanter berechnet daraus automatisch die pH-Reserve und zeigt sie zusammen mit dem Netto-EC-Budget (`ec_net`) und der Gültigkeit des Rezepts (`valid`) im Ergebnis an. Details zur Bedienung: [Dünge-Logik — Alkalinität und pH-Reserve](../user-guide/fertilization.md#alkalinitaet-und-ph-reserve).
+
 ### Stufe 3 — Rezeptskalierung
 
 Wenn Herstellerrezepte (ml/L je Dünger) in Kamerplanter hinterlegt sind, skaliert das System proportional:
