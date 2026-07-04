@@ -1107,81 +1107,125 @@ lifecycle_configs:
   "Allium sativum":
     cycle_type: perennial
     photoperiod_type: long_day
+    dormancy_required: true
+    vernalization_required: true
+    critical_day_length_hours: 13
 
   "Anemone hupehensis":
     cycle_type: perennial
     photoperiod_type: short_day
+    dormancy_required: true
+    vernalization_required: false
+    critical_day_length_hours: 14
 
   "Asparagus officinalis":
     cycle_type: perennial
     photoperiod_type: day_neutral
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 30
 
   "Astilbe chinensis":
     cycle_type: perennial
     photoperiod_type: long_day
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 70
 
   "Brassica oleracea var. sabellica":
     cycle_type: biennial
     photoperiod_type: long_day
+    dormancy_required: false
     vernalization_required: true
 
   "Buxus sempervirens":
     cycle_type: perennial
     photoperiod_type: day_neutral
+    dormancy_required: true
+    vernalization_required: false
 
   "Calendula officinalis":
     cycle_type: annual
     photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
 
   "Clematis spp.":
     cycle_type: perennial
     photoperiod_type: long_day
+    dormancy_required: true
+    vernalization_required: true
 
   "Cornus mas":
     cycle_type: perennial
     photoperiod_type: day_neutral
+    dormancy_required: true
+    vernalization_required: true
 
   "Delphinium elatum":
     cycle_type: perennial
     photoperiod_type: long_day
+    dormancy_required: true
+    vernalization_required: true
+    critical_day_length_hours: 14
 
   "Echinacea purpurea":
     cycle_type: perennial
     photoperiod_type: long_day
+    dormancy_required: true
+    vernalization_required: true
 
   # Enriched species lifecycle overrides
   "Capsicum annuum":
     cycle_type: annual
     photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
 
   "Cichorium intybus":
     cycle_type: perennial
     photoperiod_type: long_day
+    dormancy_required: true
+    vernalization_required: true
+    critical_day_length_hours: 14
 
   "Coriandrum sativum":
     cycle_type: annual
     photoperiod_type: long_day
+    dormancy_required: false
+    vernalization_required: false
+    critical_day_length_hours: 12
 
   "Cucumis sativus":
     cycle_type: annual
     photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
 
   "Cucurbita maxima":
     cycle_type: annual
     photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
 
   "Cucurbita pepo":
     cycle_type: annual
     photoperiod_type: day_neutral
+    dormancy_required: false
+    vernalization_required: false
 
   "Daucus carota":
     cycle_type: biennial
     photoperiod_type: long_day
+    dormancy_required: false
     vernalization_required: true
 
   "Foeniculum vulgare":
     cycle_type: annual
     photoperiod_type: long_day
+    dormancy_required: false
+    vernalization_required: true
+    vernalization_min_days: 5
 
 # ==============================================================================
 # S6  GROWTH PHASES (selected key species)
