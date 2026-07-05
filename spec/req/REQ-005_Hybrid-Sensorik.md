@@ -91,7 +91,7 @@ Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **
 
 | Warnung | Trigger | Aktion | Verknüpfung |
 |---------|---------|--------|-------------|
-| **Frostwarnung** | Nachttemperatur < 2°C vorhergesagt | Push: "Frost heute Nacht! 7 frostempfindliche Pflanzen schützen!" | REQ-022 OverwinteringProfile, REQ-001 `frost_sensitivity` |
+| **Frostwarnung** | Nachttemperatur < 2°C vorhergesagt | Push: "Frost heute Nacht! 7 frostempfindliche Pflanzen schützen!" | REQ-022 OverwinteringProfile, REQ-001 `frost_sensitivity`, **REQ-047 SeasonState** (Live-Winter-Trigger `growing→pre_winter→winter_dormancy`) |
 | **Hitzewellenwarnung** | Tagesmax > 35°C für ≥3 Tage | Push: "Hitzewelle! Morgens/abends gießen, Salat schattieren" | REQ-022 Gießerinnerungen |
 | **Regenvorhersage** | >5mm Regen in nächsten 24h | Gieß-Erinnerung verschieben/unterdrücken | REQ-022 Adaptive Watering |
 | **Trockenperiode** | <2mm Regen in letzten 7 Tagen | Push: "Trockenperiode — Gießbedarf erhöht" | REQ-022 |
@@ -124,6 +124,7 @@ Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **
 - **REQ-002 (Sites):** Nur Sites mit `type: 'outdoor'` oder `type: 'greenhouse'` erhalten Wetterdaten. GPS-Koordinaten (`gps_coordinates`) werden für den API-Call verwendet.
 - **REQ-022 (Pflegeerinnerungen):** `CareReminderEngine` prüft vor Gieß-Erinnerung die Wettervorhersage. Bei >5mm Regen in den nächsten 24h wird die Erinnerung unterdrückt oder mit Hinweis "Es regnet — Gießen wahrscheinlich nicht nötig" angezeigt.
 - **REQ-006 (Aufgaben):** Frostwarnung generiert automatisch einen Task "Frostschutz anbringen" mit hoher Priorität.
+- **REQ-047 (Saison-/Überwinterungs-Automatik):** Die `SeasonSignalResolver`-Kaskade konsumiert die `:WeatherForecast`-Frost-/Min-Temp-Vorhersage (`temp_min_c`, Frostschwelle < 2°C) und die Außentemperatur-Sensorik als **Live-Stufe** (Stufe 1) der Saison-Zustandserkennung. Fehlen frische Livedaten (`data_freshness` CRITICAL), degradiert REQ-047 auf Klimanormale (REQ-041) bzw. Kalender-Fallback.
 - **Dashboard (REQ-009):** Wetter-Widget zeigt 3-Tages-Vorhersage für aktive Outdoor-Sites.
 
 ## 2. ArangoDB-Modellierung

@@ -8,7 +8,7 @@ Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB (Geo-Index), Celery, React, TypeScript, MUI
 Status: Entwurf
 Version: 1.2
-Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-003 (Phasensteuerung/Dormanz), REQ-022 (Überwinterung/Winterhärte-Ampel), REQ-005 (Frostwarnung), REQ-015-A (Aussaatkalender)
+Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-003 (Phasensteuerung/Dormanz), REQ-022 (Überwinterung/Winterhärte-Ampel), REQ-005 (Frostwarnung), REQ-015-A (Aussaatkalender), REQ-047 (Saison-/Überwinterungs-Automatik — Konsument von Ampel + Frostterminen)
 ```
 
 ## Versionshistorie
@@ -98,8 +98,8 @@ Kanonische, global gepflegte Referenz der USDA-Zonen 1–13 (inkl. Halbzonen). N
     - `temp_min_f: float`, `temp_max_f: float` (US-Referenzwerte, da Schema in °F definiert ist)
     - `description_de: str` (z.B. "Mittleres Jahresminimum −17,8 °C bis −15,0 °C")
     - `representative_regions_de: list[str]` (z.B. `["Bayerischer Wald", "Erzgebirge"]` — illustrativ, nicht autoritativ)
-    - `typical_last_frost_md: Optional[str]` (Richtwert letzter Frost als `MM-DD`, z.B. `"05-15"` — speist REQ-015-A-Default)
-    - `typical_first_frost_md: Optional[str]` (Richtwert erster Frost als `MM-DD`, z.B. `"10-05"`)
+    - `typical_last_frost_md: Optional[str]` (Richtwert letzter Frost als `MM-DD`, z.B. `"05-15"` — speist REQ-015-A-Default **und** REQ-047 SeasonState-Stufe 2 `pre_spring→growing`)
+    - `typical_first_frost_md: Optional[str]` (Richtwert erster Frost als `MM-DD`, z.B. `"10-05"` — speist REQ-047 SeasonState-Stufe 2 `growing→pre_winter`)
   - Indizes:
     - PERSISTENT INDEX on `[zone]` UNIQUE
     - PERSISTENT INDEX on `[zone_number, subzone]`
@@ -200,7 +200,7 @@ def evaluate_winter_hardiness(
     return "green"
 ```
 
-> Diese Funktion ersetzt die in REQ-022 inline beschriebene String-Vergleichslogik durch einen Zonen-numerischen Vergleich. REQ-022 `CareReminderEngine` ruft sie auf; die `hardy`-Kurzschluss-Regel (keine Winterschutz-Erinnerungen) bleibt unverändert.
+> Diese Funktion ersetzt die in REQ-022 inline beschriebene String-Vergleichslogik durch einen Zonen-numerischen Vergleich. REQ-022 `CareReminderEngine` ruft sie auf; die `hardy`-Kurzschluss-Regel (keine Winterschutz-Erinnerungen) bleibt unverändert. **REQ-047** (Saison-/Überwinterungs-Automatik) ruft `evaluate_winter_hardiness` beim `OverwinteringMaterializer` auf: Das Ampel-Ergebnis bestimmt, ob überhaupt ein Profil materialisiert wird (grün → nein, Winterschutz-Guard) und die Pfad-Zuordnung `derived_path` (gelb → A/in-situ, rot → B/verlagert; Invariante D5).
 
 <!-- Spec-Audit 2026-07-02 D5 -->
 > **Winter-Pfad-Speisung (Invariante D5, REQ-022):** Die hier abgeleitete Winterhärte-/Klimazonen-Bewertung speist die verbindliche **Winter-Pfad-Entscheidung**: Ergebnis **grün/gelb** → die Pflanze verbleibt in-situ und betritt die `dormancy`-GrowthPhase (REQ-003, Kältestunden-Akkumulation `chill_hours_accumulated`); Ergebnis **rot** → Überwinterungs-Entscheidung via `OverwinteringProfile.winter_action` (REQ-022, `move_indoors`/`dig_store`) mit geschützter Ruhe statt Freiland-Dormanz. Beide Winter-Darstellungen (REQ-003-Dormanz vs. REQ-022-OverwinteringProfile) dürfen einander nie widersprechen — Details in REQ-022 §"Konsistenz-Invariante D5".

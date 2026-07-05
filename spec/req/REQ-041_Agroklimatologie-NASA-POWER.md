@@ -8,7 +8,7 @@ Fokus: Backend
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, REST-API (NASA POWER)
 Status: Entwurf
 Version: 1.0
-Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter), REQ-002 (Standort), REQ-037 (Evapotranspiration — Strahlungsinput), REQ-039 (Klimazonen — Klimanormale)
+Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter), REQ-002 (Standort), REQ-037 (Evapotranspiration — Strahlungsinput), REQ-039 (Klimazonen — Klimanormale), REQ-047 (Saison-/Überwinterungs-Automatik — Klimanormale als Saison-Fallback)
 ```
 
 ## Versionshistorie
@@ -91,7 +91,7 @@ NASA-POWER-Tagesdaten werden in die **bestehende** Collection `weather_forecasts
 
 ### 2.2 Neue Collection `:ClimateNormal` (Klimanormale)
 
-Langjährige Monatsmittel werden in einer **neuen** Doc-Collection `climate_normals` abgelegt. Sie werden selten aktualisiert (POWER-Climatology ändert sich nur mit neuen Daten-Releases) und dienen REQ-039 (Klimazonen) sowie REQ-022 (Überwinterung/Aussaatfenster).
+Langjährige Monatsmittel werden in einer **neuen** Doc-Collection `climate_normals` abgelegt. Sie werden selten aktualisiert (POWER-Climatology ändert sich nur mit neuen Daten-Releases) und dienen REQ-039 (Klimazonen) sowie REQ-022/REQ-047 (Überwinterung/Aussaatfenster). **REQ-047** nutzt `monthly_temp_min_c` und `coldest_month_min_c` als **Stufe-2-Signal** (klimatologischer Saison-Fallback) der SeasonState-Engine, wenn ein Standort keine Live-Wetterdaten hat.
 
 - **`:ClimateNormal`** — Langjähriges klimatisches Mittel pro Standort
   - Collection: `climate_normals`
@@ -107,7 +107,7 @@ Langjährige Monatsmittel werden in einer **neuen** Doc-Collection `climate_norm
     - `monthly_solar_mj_m2: list[float]` (12 Werte; `ALLSKY_SFC_SW_DWN`, Tagesmittel je Monat)
     - `annual_temp_avg_c: float`
     - `annual_precip_mm: float`
-    - `coldest_month_min_c: float` (Eingang für Hardiness-Zonen-Ableitung, REQ-039)
+    - `coldest_month_min_c: float` (Eingang für Hardiness-Zonen-Ableitung, REQ-039; Saison-Fallback-Signal für REQ-047 SeasonState — markiert den kältesten Monat für die `winter_dormancy→pre_spring`-Bedingung)
     - `fetched_at: datetime`
 
 ### 2.3 Edges
