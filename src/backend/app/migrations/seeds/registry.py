@@ -67,6 +67,7 @@ def _build_jobs() -> list[SeedJob]:
     from app.migrations.seed_plant_info import run_seed_plant_info
     from app.migrations.seed_plant_info_extended import run_seed_plant_info_extended
     from app.migrations.seed_starter_kits import run_seed_starter_kits
+    from app.migrations.seed_substrates import run_seed_substrates
 
     jobs: list[SeedJob] = [
         # Structurally required: location types are referenced by site/location setup.
@@ -76,6 +77,7 @@ def _build_jobs() -> list[SeedJob]:
         SeedJob("adventskalender", lambda db: run_seed_adventskalender()),
         SeedJob("plant_info", lambda db: run_seed_plant_info()),
         SeedJob("plant_info_extended", lambda db: run_seed_plant_info_extended()),
+        SeedJob("substrates", lambda db: run_seed_substrates()),
         SeedJob("overwintering_profiles", lambda db: run_seed_overwintering_profiles()),
         SeedJob("fertilizers", lambda db: run_seed_fertilizers()),
         SeedJob("plagron", lambda db: run_seed_plagron()),
