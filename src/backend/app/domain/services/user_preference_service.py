@@ -1,9 +1,41 @@
 import structlog
 
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.domain.models.user_preference import UserPreference
+from app.domain.models.user_preference import DashboardLayout, UserPreference
+from app.domain.services.dashboard_widget_catalog import WIDGET_BY_KEY
 
 logger = structlog.get_logger()
+
+# REQ-045 — backend widget registry, derived from the single widget-metadata
+# source (WIDGET_CATALOG) so the two backend lists cannot drift. MUST stay in
+# sync with the frontend ``dashboardWidgetCatalog`` (contract test, REQ-045 §6).
+KNOWN_WIDGET_KEYS: frozenset[str] = frozenset(WIDGET_BY_KEY)
+
+
+def _sanitize_layout(layout: DashboardLayout) -> DashboardLayout:
+    """Drop widgets with an unknown widget_key (warn-log), keep the rest.
+
+    Deliberately tolerant (like module_visibility): the backend does not
+    reject a whole layout just because one widget key does not (yet/anymore)
+    exist — forward/backward compatibility across client versions.
+    """
+    keep: list = []
+    dropped: list = []
+    for widget in layout.widgets:
+        (keep if widget.widget_key in KNOWN_WIDGET_KEYS else dropped).append(widget)
+    if dropped:
+        logger.warning(
+            "dashboard_layout.unknown_widgets_dropped",
+            widget_keys=[w.widget_key for w in dropped],
+        )
+    # Prune placements referencing orphaned instance_ids (per-breakpoint consistency).
+    kept_ids = {w.instance_id for w in keep}
+    pruned = {
+        breakpoint_key: [p for p in places if p.instance_id in kept_ids]
+        for breakpoint_key, places in layout.placements.items()
+    }
+    return layout.model_copy(update={"widgets": keep, "placements": pruned})
+
 
 KNOWN_MODULE_KEYS: frozenset[str] = frozenset(
     {
@@ -58,6 +90,13 @@ class UserPreferenceService:
             unknown = set(mv) - KNOWN_MODULE_KEYS
             if unknown:
                 logger.warning("unknown_module_visibility_keys", keys=sorted(unknown))
+        # REQ-045 — sanitize a submitted layout (drop unknown widgets). An
+        # explicit null resets to the experience-level default; "unset" (key
+        # absent) leaves the stored layout untouched — the router uses
+        # exclude_unset so this distinction survives.
+        if "dashboard_layout" in updates and updates["dashboard_layout"] is not None:
+            layout = DashboardLayout.model_validate(updates["dashboard_layout"])
+            updates["dashboard_layout"] = _sanitize_layout(layout).model_dump()
         pref = self.get_preferences(user_key)
         data = pref.model_dump()
         data.update(updates)

@@ -112,6 +112,7 @@ plugins:
             Tankmanagement: Tank Management
             Kalender: Calendar
             Dashboard: Dashboard
+            Dashboard personalisieren: Personalizing Your Dashboard
             Onboarding-Wizard: Onboarding Wizard
             Light-Modus: Light Mode
             KI-Assistent: AI Assistant
@@ -288,6 +289,7 @@ nav:
       - Tankmanagement: de/user-guide/tanks.md
       - Kalender: de/user-guide/calendar.md
       - Dashboard: de/user-guide/dashboard.md
+      - Dashboard personalisieren: de/user-guide/dashboard-personalization.md
       - Onboarding-Wizard: de/user-guide/onboarding.md
       - Konto & Anmeldung: de/user-guide/account.md
       - Module & Funktionen: de/user-guide/module-visibility.md

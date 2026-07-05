@@ -1,9 +1,9 @@
 # Dashboard
 
 !!! info "Partially implemented"
-    The **care dashboard** (pending tasks, tank status) is implemented. **Advanced analytics** (yield trends, sensor heatmaps, time-series charts) are planned but not yet built. <!-- REQ-009 -->
+    The **care dashboard** (pending tasks, tank status) and **widget personalization** (choosing, arranging, and resizing widgets) are implemented. **Advanced analytics** (yield trends, sensor heatmaps, time-series charts) are planned but not yet built. <!-- REQ-009 -->
 
-The dashboard is the home screen of Kamerplanter. It gives you a quick overview of your plants, upcoming tasks, active warnings, and key metrics — all at a glance without having to navigate through individual sections.
+The dashboard is the home screen of Kamerplanter. It gives you a quick overview of your plants, upcoming tasks, active warnings, and key metrics — all at a glance without having to navigate through individual sections. You can fully [build your own selection of widgets](dashboard-personalization.md).
 
 ---
 
@@ -109,7 +109,7 @@ The dashboard adapts to your experience level (configurable under **Account → 
     Sensor data appears on the dashboard only when at least one sensor is configured and active. If you have no smart home integration, use manual measurements — these appear on the dashboard too, labelled "Manual".
 
 ??? question "Can I customize the dashboard or rearrange widgets?"
-    Full drag-and-drop dashboard customization is planned for a future version. Currently the dashboard adapts automatically based on your experience level and the extent of your setup.
+    Yes. Using the **Settings → Dashboard** tab or the **Edit** mode directly on the dashboard, you can choose widgets, arrange them via drag-and-drop (or via keyboard-operable buttons), and resize them. See [Personalizing Your Dashboard](dashboard-personalization.md) for details.
 
 ??? question "Why do some plants not appear on the dashboard?"
     The dashboard shows only **active** plants (not completed, not removed). Plants in a completed planting run no longer appear. If an active plant is missing, check that it is in the correct tenant.
@@ -118,6 +118,7 @@ The dashboard adapts to your experience level (configurable under **Account → 
 
 ## See Also
 
+- [Personalizing Your Dashboard](dashboard-personalization.md) — choose, arrange, and configure widgets
 - [Tasks](tasks.md)
 - [Calendar](calendar.md)
 - [Tank Management](tanks.md)

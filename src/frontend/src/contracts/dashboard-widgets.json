@@ -1,0 +1,22 @@
+{
+  "$comment": "REQ-045 consumer-driven contract. Frontend dashboardWidgetCatalog keys and backend KNOWN_WIDGET_KEYS MUST both equal this set. See src/backend/tests/contracts/test_dashboard_widgets_contract.py and src/frontend/src/test/contracts/dashboardWidgets.contract.test.ts.",
+  "widget_keys": [
+    "quick_actions",
+    "active_plants_summary",
+    "tasks_today",
+    "care_reminders",
+    "daily_tip",
+    "weather_forecast",
+    "onboarding_progress",
+    "winter_protection",
+    "ipm_alerts",
+    "harvest_forecast",
+    "next_calendar_events",
+    "community_activity",
+    "sensor_live",
+    "tank_status",
+    "phase_timeline",
+    "vpd_gauge",
+    "plant_grid"
+  ]
+}

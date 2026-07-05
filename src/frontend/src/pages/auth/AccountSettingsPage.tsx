@@ -96,6 +96,7 @@ import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
 import ModulesSettingsTab from './ModulesSettingsTab';
+import DashboardSettingsTab from './DashboardSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
 import StorageSettingsTab from './StorageSettingsTab';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
@@ -169,6 +170,7 @@ export default function AccountSettingsPage() {
         { key: 'notifications', label: t('pages.auth.tabNotifications') },
         { key: 'experience', label: t('pages.auth.tabExperience') },
         { key: 'modules', label: t('pages.auth.tabModules') },
+        { key: 'dashboard', label: t('pages.auth.tabDashboard') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
         ...haPublishTab,
         ...storageTab,
@@ -963,6 +965,9 @@ export default function AccountSettingsPage() {
 
       {/* ── Modules Tab (REQ-042) ── */}
       {activeTab === 'modules' && <ModulesSettingsTab />}
+
+      {/* ── Dashboard Tab (REQ-045) ── */}
+      {activeTab === 'dashboard' && <DashboardSettingsTab />}
 
       {/* ── HA Publish-Selection Tab ── */}
       {activeTab === 'ha-publish' && <HaPublishSettingsTab />}
