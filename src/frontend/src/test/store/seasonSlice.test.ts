@@ -9,6 +9,7 @@ import reducer, {
   resetOverwintering,
 } from '@/store/slices/seasonSlice';
 import * as api from '@/api/endpoints/season';
+import { ApiError } from '@/api/errors';
 import type { OverwinteringProfile, SeasonState } from '@/api/types';
 
 // Isolated module mock — no real HTTP, no handlers.ts.
@@ -148,5 +149,47 @@ describe('seasonSlice thunks', () => {
     await store.dispatch(resetOverwintering('plant-1'));
     expect(mocked.resetPlantOverwintering).toHaveBeenCalledWith('plant-1');
     expect(store.getState().season.currentProfile).toEqual(profile);
+  });
+
+  it('fetchOverwintering treats a 404 as "no profile" (winter-hardy plant), not an error', async () => {
+    mocked.getPlantOverwintering.mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'err-1',
+          error_code: 'ENTITY_NOT_FOUND',
+          message: 'not found',
+          details: [],
+          timestamp: new Date().toISOString(),
+          path: '/plants/plant-1/overwintering',
+          method: 'GET',
+        },
+        404,
+      ),
+    );
+    const store = makeStore();
+    await store.dispatch(fetchOverwintering('plant-1'));
+    expect(store.getState().season.currentProfile).toBeNull();
+    expect(store.getState().season.profileError).toBeNull();
+  });
+
+  it('fetchOverwintering surfaces a real server error instead of masquerading as "no profile"', async () => {
+    mocked.getPlantOverwintering.mockRejectedValue(
+      new ApiError(
+        {
+          error_id: 'err-2',
+          error_code: 'INTERNAL_ERROR',
+          message: 'boom',
+          details: [],
+          timestamp: new Date().toISOString(),
+          path: '/plants/plant-1/overwintering',
+          method: 'GET',
+        },
+        500,
+      ),
+    );
+    const store = makeStore();
+    await store.dispatch(fetchOverwintering('plant-1'));
+    expect(store.getState().season.currentProfile).toBeNull();
+    expect(store.getState().season.profileError).toBeTruthy();
   });
 });

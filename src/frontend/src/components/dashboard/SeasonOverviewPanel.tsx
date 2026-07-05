@@ -212,12 +212,16 @@ export default function SeasonOverviewPanel() {
                   arrow
                   enterTouchDelay={0}
                 >
+                  {/* tabIndex makes the "why live/climate/calendar?" explanation reachable
+                      via keyboard — a plain Chip is not focusable by default and the
+                      Tooltip would otherwise only ever open on mouse hover (WCAG 2.1 AA). */}
                   <Chip
                     icon={<TriggerIcon />}
                     label={t(`enums.seasonTriggerTier.${state.trigger_tier}`)}
                     size="small"
                     variant="outlined"
                     color={state.trigger_tier === 'live' ? 'info' : 'default'}
+                    tabIndex={0}
                     data-testid={`season-trigger-${state.site_key}`}
                   />
                 </Tooltip>

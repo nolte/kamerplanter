@@ -255,6 +255,7 @@ export default function OverwinteringOverrideDialog({
               control={control}
               label={t('pages.overwintering.hardinessRating')}
               required
+              autoFocus
               helperText={t('pages.overwintering.hardinessRatingHelper')}
               options={hardinessRatings.map((v) => ({
                 value: v,

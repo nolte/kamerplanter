@@ -17,6 +17,8 @@ import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSeasonOverview } from '@/store/slices/seasonSlice';
+import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
+import { fetchPlantingRuns } from '@/store/slices/plantingRunsSlice';
 import * as overwinteringApi from '@/api/endpoints/overwinteringProfiles';
 import type { OverwinteringProfile, SpringAction } from '@/api/types';
 
@@ -51,6 +53,8 @@ export default function SpringReturnAssistant() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const overview = useAppSelector((s) => s.season.overview);
+  const plantInstances = useAppSelector((s) => s.plantInstances.items);
+  const plantingRuns = useAppSelector((s) => s.plantingRuns.runs);
   const [profiles, setProfiles] = useState<OverwinteringProfile[]>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
@@ -80,6 +84,28 @@ export default function SpringReturnAssistant() {
       ignore = true;
     };
   }, [isPreSpring]);
+
+  // Resolve plant_key/planting_run_key to a readable name for the action list below
+  // — an opaque database key would be unreadable for the target "no expertise
+  // needed" audience (bounded fetch, mirrors the site-name lookup in
+  // SeasonOverviewPanel; falls back gracefully to the raw key past the limit).
+  useEffect(() => {
+    if (!isPreSpring) return;
+    dispatch(fetchPlantInstances({ limit: 200 }));
+    dispatch(fetchPlantingRuns({ limit: 200 }));
+  }, [dispatch, isPreSpring]);
+
+  const plantNameByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of plantInstances) map.set(p.key, p.plant_name ?? p.instance_id);
+    return map;
+  }, [plantInstances]);
+
+  const runNameByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of plantingRuns) map.set(r.key, r.name);
+    return map;
+  }, [plantingRuns]);
 
   const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
 
@@ -138,9 +164,14 @@ export default function SpringReturnAssistant() {
 
         {/* Staggered hardening-off checklist (Abhärten). */}
         <Tooltip title={t('pages.season.spring.hardenOffHelp')} arrow enterTouchDelay={0}>
+          {/* component="span" + tabIndex: keeps the label out of the heading outline
+              (it is a sub-label, not a section title) while making the "what does
+              hardening-off mean?" explanation reachable via keyboard (WCAG 2.1 AA). */}
           <Typography
+            component="span"
             variant="subtitle2"
-            sx={{ cursor: 'help', textDecoration: 'underline dotted' }}
+            tabIndex={0}
+            sx={{ display: 'inline-block', cursor: 'help', textDecoration: 'underline dotted' }}
           >
             {t('pages.season.spring.hardenOffTitle')}
           </Typography>
@@ -192,6 +223,8 @@ export default function SpringReturnAssistant() {
                       <ListItem key={p.key} disableGutters sx={{ py: 0 }}>
                         <ListItemText
                           primary={
+                            (p.plant_key && plantNameByKey.get(p.plant_key)) ??
+                            (p.planting_run_key && runNameByKey.get(p.planting_run_key)) ??
                             p.plant_key ??
                             p.planting_run_key ??
                             t('pages.dashboard.winterProtection.unknownSubject')

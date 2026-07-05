@@ -5,6 +5,7 @@ import type {
   SeasonState,
 } from '@/api/types';
 import * as api from '@/api/endpoints/season';
+import { isApiError } from '@/api/errors';
 
 /**
  * REQ-047 §4.1–§4.3 — season & overwintering-automation state.
@@ -49,7 +50,18 @@ export const fetchSeasonState = createAsyncThunk(
 
 export const fetchOverwintering = createAsyncThunk(
   'season/fetchOverwintering',
-  async (plantKey: string) => api.getPlantOverwintering(plantKey),
+  async (plantKey: string): Promise<OverwinteringProfile | null> => {
+    try {
+      return await api.getPlantOverwintering(plantKey);
+    } catch (err) {
+      // REQ-047 §4.3/§4.4 — 404 is the domain-legitimate "no profile" signal
+      // (winter-hardy plant, or not yet materialised), not a failure. A real
+      // failure (500, network) must still reject so the UI never confuses
+      // "couldn't load" with "this plant needs no winter protection".
+      if (isApiError(err) && err.statusCode === 404) return null;
+      throw err;
+    }
+  },
 );
 
 export const overrideOverwintering = createAsyncThunk(

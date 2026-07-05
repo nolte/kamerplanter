@@ -14,6 +14,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   clearCurrentProfile,
@@ -54,7 +55,9 @@ export default function OverwinteringSection({ plantKey }: Props) {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const { currentProfile, profileLoading } = useAppSelector((s) => s.season);
+  const { currentProfile, profileLoading, profileError } = useAppSelector(
+    (s) => s.season,
+  );
   const [editOpen, setEditOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -114,6 +117,28 @@ export default function OverwinteringSection({ plantKey }: Props) {
 
   if (profileLoading && !currentProfile) {
     return <LoadingSkeleton variant="card" />;
+  }
+
+  // A failed read must never be mistaken for the legitimate "no profile needed,
+  // this plant is winter-hardy" empty state below (UI-NFR-004 R-015/R-016) — the
+  // two look identical to a user unless the error is surfaced explicitly.
+  if (profileError && !currentProfile) {
+    return (
+      <Card data-testid="overwintering-section-error">
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AcUnitIcon color="primary" />
+            <Typography variant="h6" component="h2">
+              {t('pages.season.override.title')}
+            </Typography>
+          </Box>
+          <ErrorDisplay
+            error={profileError}
+            onRetry={() => dispatch(fetchOverwintering(plantKey))}
+          />
+        </CardContent>
+      </Card>
+    );
   }
 
   // No profile: winter-hardy plant or not yet materialised. Explain, don't alarm.
@@ -192,17 +217,28 @@ export default function OverwinteringSection({ plantKey }: Props) {
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
+            // Mobile-first: 2 columns on phones, progressively more on wider
+            // screens — these are short label/value pairs, so md/lg desktop
+            // width is worth using rather than staying capped at 3 columns.
+            gridTemplateColumns: {
+              xs: 'repeat(2, 1fr)',
+              sm: 'repeat(3, 1fr)',
+              md: 'repeat(4, 1fr)',
+            },
             gap: 2,
           }}
         >
           {p.derived_path && (
             <Box>
               <Tooltip title={t(`pages.season.override.pathHelp.${p.derived_path}`)} arrow enterTouchDelay={0}>
+                {/* tabIndex: the dotted-underline label is the only affordance that
+                    explains "in-situ" vs. "relocate" — must be keyboard-reachable. */}
                 <Typography
+                  component="span"
                   variant="caption"
                   color="text.secondary"
-                  sx={{ display: 'block', cursor: 'help', textDecoration: 'underline dotted' }}
+                  tabIndex={0}
+                  sx={{ display: 'block', cursor: 'help', textDecoration: 'underline dotted', width: 'fit-content' }}
                 >
                   {t('pages.season.override.winterPath')}
                 </Typography>

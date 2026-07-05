@@ -21,6 +21,7 @@ import successionPlansReducer from '@/store/slices/successionPlansSlice';
 import overwinteringProfilesReducer from '@/store/slices/overwinteringProfilesSlice';
 import seasonReducer from '@/store/slices/seasonSlice';
 import dashboardReducer from '@/store/slices/dashboardSlice';
+import plantingRunsReducer from '@/store/slices/plantingRunsSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -39,6 +40,7 @@ const rootReducer = combineReducers({
   overwinteringProfiles: overwinteringProfilesReducer,
   season: seasonReducer,
   dashboard: dashboardReducer,
+  plantingRuns: plantingRunsReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need
