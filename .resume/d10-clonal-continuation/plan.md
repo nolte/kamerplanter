@@ -208,5 +208,6 @@ Erste unerledigte Box = Wiedereinstiegspunkt der nächsten Session.
       `origin/develop` = PR #388: Backend 3309 unit + ruff clean, FE tsc/eslint
       clean, 34 merge-betroffene Tests grün). Doku aktualisiert (`mkdocs --strict`).
       Rebase-Konflikte (2× growth-phases.md „Siehe auch") gelöst (beide Link-Sets).
-- [ ] PR nach `develop` via `pull-request-create` (Closes #381, Refs #305/#385);
-      Draft → ready nach erstem grünem CI.
+- [x] PR nach `develop` via `pull-request-create`: **PR #390 (Draft)**
+      (`f1c46554d`→gepusht), Closes #381, Refs #305/#385. Branch auf `origin/develop`
+      (inkl. #388) rebased. **Offen:** Draft → ready nach erstem grünem CI.
