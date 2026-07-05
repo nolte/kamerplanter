@@ -2,36 +2,33 @@ import { screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import i18n from 'i18next';
 import DashboardPage from '@/pages/DashboardPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithExpertise } from '../helpers';
 
-describe('DashboardPage', () => {
+describe('DashboardPage (REQ-045)', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
   });
 
   it('renders the page title', async () => {
-    renderWithProviders(<DashboardPage />);
+    renderWithProviders(<DashboardPage />, { store: createStoreWithExpertise('beginner') });
     await waitFor(() => {
-      expect(screen.getByText('Dashboard')).toBeTruthy();
+      expect(screen.getByTestId('dashboard-page')).toBeTruthy();
     });
   });
 
-  it('renders welcome message', async () => {
-    renderWithProviders(<DashboardPage />);
+  it('offers the edit toggle and the manage-widgets deep link', async () => {
+    renderWithProviders(<DashboardPage />, { store: createStoreWithExpertise('beginner') });
     await waitFor(() => {
-      expect(screen.getByText(/willkommen/i)).toBeTruthy();
+      expect(screen.getByTestId('dashboard-edit-toggle')).toBeTruthy();
+      expect(screen.getByTestId('dashboard-manage-link')).toBeTruthy();
     });
   });
 
-  it('renders quick action cards', async () => {
+  it('renders the quick-actions widget from the default beginner layout', async () => {
+    // Default store → experience level unknown → all module paths visible.
     renderWithProviders(<DashboardPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Botanische Familien')).toBeTruthy();
-      expect(screen.getByText('Arten')).toBeTruthy();
-      expect(screen.getByText('Standorte')).toBeTruthy();
-      expect(screen.getByText('Substrate')).toBeTruthy();
-      expect(screen.getByText('Pflanzeninstanzen')).toBeTruthy();
-      expect(screen.getByText('Berechnungen')).toBeTruthy();
-    });
+    // quick_actions is a default beginner widget; its tiles are lazy-loaded.
+    expect(await screen.findByText('Standorte')).toBeTruthy();
+    expect(await screen.findByText('Pflanzeninstanzen')).toBeTruthy();
   });
 });

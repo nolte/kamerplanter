@@ -1002,7 +1002,6 @@
       "oauthProfileError": "Could not load user profile.",
       "oauthProcessing": "Processing login…",
       "oauthErrorTitle": "Sign-in failed",
-      "backToLogin": "Back to login",
       "oauthErrors": {
         "accessDenied": "Sign-in was cancelled at the provider.",
         "invalidState": "The sign-in session has expired. Please try again.",
@@ -1021,7 +1020,8 @@
       "timezoneHelper": "e.g. Europe/Berlin, America/New_York",
       "emailReadOnly": "Your email address cannot be changed here.",
       "unlinkProvider": "Unlink provider",
-      "deleteAccountDescription": "Your account and all your data will be permanently deleted. This action cannot be undone."
+      "deleteAccountDescription": "Your account and all your data will be permanently deleted. This action cannot be undone.",
+      "tabDashboard": "Dashboard"
     },
     "tenants": {
       "selectTenant": "Select Garden",
@@ -4913,6 +4913,144 @@
       "short": "Natural enemies of pest organisms",
       "long": "Beneficial organisms (e.g. ladybirds, lacewings, parasitic wasps, predatory mites) feed on or parasitise pests. Their deliberate use is biological pest control and protects people and the environment.",
       "beginnerTip": "Ladybirds against aphids is the best-known example. In greenhouses, beneficials can be purchased and released."
+    }
+  },
+  "dashboard": {
+    "manageWidgets": "Manage widgets",
+    "coachmark": "You can personalize your dashboard: add, arrange and resize widgets — via “Edit” or in the settings.",
+    "empty": {
+      "title": "Your dashboard is empty",
+      "hint": "Add widgets from the catalog to build your start page.",
+      "chooseWidgets": "Choose widgets",
+      "restoreDefault": "Restore default"
+    },
+    "widgetError": {
+      "title": "Widget could not be loaded",
+      "hint": "An error occurred while loading this widget."
+    },
+    "manage": "Manage widgets",
+    "gate": {
+      "moduleHidden": "Module hidden",
+      "lightMode": "Not available in Light mode",
+      "aiDisabled": "AI feature — available after registration"
+    },
+    "categories": {
+      "essentials": "Essentials",
+      "insights": "Insights",
+      "cultivation": "Cultivation",
+      "monitoring": "Monitoring"
+    },
+    "edit": {
+      "enter": "Edit",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveUpOf": "Move {{widget}} up",
+      "moveDownOf": "Move {{widget}} down",
+      "movedUp": "{{widget}} moved up",
+      "movedDown": "{{widget}} moved down",
+      "removed": "{{widget}} removed",
+      "grew": "{{widget}} enlarged",
+      "shrank": "{{widget}} shrunk",
+      "grow": "Larger",
+      "shrink": "Smaller",
+      "growOf": "Enlarge {{widget}}",
+      "shrinkOf": "Shrink {{widget}}",
+      "configureOf": "Configure {{widget}}",
+      "configure": "Configure",
+      "remove": "Remove",
+      "widgetMenu": "Menu for {{widget}}",
+      "breakpointSwitcher": "Select breakpoint",
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobile",
+      "applyToAll": "Apply the current arrangement to all breakpoints",
+      "applyToAllShort": "Apply to all"
+    },
+    "config": {
+      "title": "Configure {{widget}}",
+      "noOptions": "No options available",
+      "fields": {
+        "location": "Location",
+        "timeframe_days": "Timeframe (days)"
+      }
+    },
+    "settings": {
+      "title": "Dashboard widgets",
+      "subtitle": "Choose which widgets appear on your start page, arrange them and adjust their size.",
+      "reset": "Restore default",
+      "arrange": "Arrange & size",
+      "noActive": "No active widgets. Enable widgets from the catalog below.",
+      "inactiveModuleHidden": "inactive (module hidden)"
+    },
+    "widgets": {
+      "quick_actions": {
+        "label": "Quick actions",
+        "description": "Direct tiles to frequently used areas."
+      },
+      "active_plants_summary": {
+        "label": "Active plants",
+        "description": "Overview of your active plants."
+      },
+      "tasks_today": {
+        "label": "Tasks today",
+        "description": "Tasks due and overdue today."
+      },
+      "care_reminders": {
+        "label": "Care reminders",
+        "description": "Upcoming care reminders."
+      },
+      "daily_tip": {
+        "label": "Tip of the day",
+        "description": "Daily AI care tip for your plants."
+      },
+      "weather_forecast": {
+        "label": "Weather forecast",
+        "description": "Weather for your outdoor locations."
+      },
+      "onboarding_progress": {
+        "label": "Setup progress",
+        "description": "Your progress through initial setup."
+      },
+      "winter_protection": {
+        "label": "Winter protection",
+        "description": "Winter-hardiness traffic light of your plants."
+      },
+      "ipm_alerts": {
+        "label": "Plant-protection alerts",
+        "description": "Current pest and disease alerts."
+      },
+      "harvest_forecast": {
+        "label": "Harvest forecast",
+        "description": "Expected harvest dates."
+      },
+      "next_calendar_events": {
+        "label": "Next events",
+        "description": "Your next calendar entries."
+      },
+      "community_activity": {
+        "label": "Community activity",
+        "description": "Activity from your community gardens."
+      },
+      "sensor_live": {
+        "label": "Sensor live values",
+        "description": "Current readings from your sensors."
+      },
+      "tank_status": {
+        "label": "Tank status",
+        "description": "Fill levels of your nutrient tanks."
+      },
+      "phase_timeline": {
+        "label": "Phase timeline",
+        "description": "Growth phases of your plants over time."
+      },
+      "vpd_gauge": {
+        "label": "VPD gauge",
+        "description": "Current vapour pressure deficit (VPD)."
+      },
+      "plant_grid": {
+        "label": "Plant grid",
+        "description": "Tile overview of all your plants."
+      }
     }
   }
 }

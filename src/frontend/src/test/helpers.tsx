@@ -19,6 +19,7 @@ import ipmReducer from '@/store/slices/ipmSlice';
 import tenantsReducer from '@/store/slices/tenantSlice';
 import successionPlansReducer from '@/store/slices/successionPlansSlice';
 import overwinteringProfilesReducer from '@/store/slices/overwinteringProfilesSlice';
+import dashboardReducer from '@/store/slices/dashboardSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -35,6 +36,7 @@ const rootReducer = combineReducers({
   tenants: tenantsReducer,
   successionPlans: successionPlansReducer,
   overwinteringProfiles: overwinteringProfilesReducer,
+  dashboard: dashboardReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need

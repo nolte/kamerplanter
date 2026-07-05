@@ -189,5 +189,6 @@ When you later register or sign in, your locally stored settings are automatical
 
 - [Onboarding Wizard](onboarding.md) — Set your experience level and choose a starter kit
 - [Dashboard](dashboard.md) — Overview and widgets
+- [Personalizing Your Dashboard](dashboard-personalization.md) — choose, arrange, and configure widgets
 - [Tenant Management](tenants.md) — Manage multiple gardens and user roles
 - [Light Mode](light-mode.md) — Run Kamerplanter without login

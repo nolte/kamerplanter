@@ -1,9 +1,9 @@
 # Dashboard
 
 !!! info "Teilweise implementiert"
-    Das **Pflege-Dashboard** (fällige Aufgaben, Tank-Status) ist implementiert. **Erweiterte Analytik** (Ertrags-Trends, Sensor-Heatmaps, Verlaufsdiagramme) sind geplant aber noch nicht umgesetzt. <!-- REQ-009 -->
+    Das **Pflege-Dashboard** (fällige Aufgaben, Tank-Status) und die **Widget-Personalisierung** (Widgets auswählen, anordnen, in der Größe ändern) sind implementiert. **Erweiterte Analytik** (Ertrags-Trends, Sensor-Heatmaps, Verlaufsdiagramme) sind geplant aber noch nicht umgesetzt. <!-- REQ-009 -->
 
-Das Dashboard ist die Startseite von Kamerplanter. Es gibt dir einen schnellen Überblick über deine Pflanzen, anstehende Aufgaben, aktive Warnungen und wichtige Kennzahlen — alles auf einen Blick, ohne durch einzelne Bereiche navigieren zu müssen.
+Das Dashboard ist die Startseite von Kamerplanter. Es gibt dir einen schnellen Überblick über deine Pflanzen, anstehende Aufgaben, aktive Warnungen und wichtige Kennzahlen — alles auf einen Blick, ohne durch einzelne Bereiche navigieren zu müssen. Du kannst die angezeigten Widgets vollständig [selbst zusammenstellen](dashboard-personalization.md).
 
 ---
 
@@ -109,7 +109,7 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
     Sensordaten erscheinen nur im Dashboard, wenn mindestens ein Sensor konfiguriert und aktiv ist. Falls du keine Smart-Home-Integration hast, nutze manuelle Messungen — diese erscheinen ebenfalls im Dashboard, sind aber mit einem "Manuell"-Label versehen.
 
 ??? question "Kann ich das Dashboard anpassen oder Widgets neu anordnen?"
-    Eine vollständige Drag-and-Drop-Anpassung des Dashboards ist für eine zukünftige Version geplant. Aktuell passt sich das Dashboard automatisch basierend auf deiner Erfahrungsstufe und dem Umfang deiner Einrichtung an.
+    Ja. Über den Tab **Einstellungen → Dashboard** oder den **Bearbeiten**-Modus direkt auf dem Dashboard kannst du Widgets auswählen, per Drag-and-Drop (oder tastaturbedienbar über Buttons) anordnen und in der Größe ändern. Details dazu findest du unter [Dashboard personalisieren](dashboard-personalization.md).
 
 ??? question "Warum erscheinen manche Pflanzen nicht im Dashboard?"
     Das Dashboard zeigt nur **aktive** Pflanzen (nicht abgeschlossene, nicht entfernte). Pflanzen in einem abgeschlossenen Pflanzdurchlauf erscheinen nicht mehr. Falls eine aktive Pflanze nicht erscheint, prüfe, ob sie im richtigen Mandanten ist.
@@ -118,6 +118,7 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
 
 ## Siehe auch
 
+- [Dashboard personalisieren](dashboard-personalization.md) — Widgets auswählen, anordnen und konfigurieren
 - [Aufgaben](tasks.md)
 - [Kalender](calendar.md)
 - [Tankmanagement](tanks.md)

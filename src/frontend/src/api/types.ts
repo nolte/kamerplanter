@@ -3697,6 +3697,53 @@ export interface UserPreference {
   watering_can_liters: number;
   smart_home_enabled: boolean;
   module_visibility?: Record<string, ModuleVisibilityState>;
+  /** REQ-045 — personalized dashboard layout; null/absent = experience default. */
+  dashboard_layout?: DashboardLayout | null;
+}
+
+// ── REQ-045 Individualisierbares Dashboard ───────────────────────────
+export type DashboardBreakpoint = 'lg' | 'md' | 'sm';
+
+export interface DashboardWidgetInstance {
+  instance_id: string;
+  widget_key: string;
+  config?: Record<string, unknown>;
+}
+
+export interface WidgetPlacement {
+  instance_id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface DashboardLayout {
+  schema_version: number;
+  widgets: DashboardWidgetInstance[];
+  placements: Partial<Record<DashboardBreakpoint, WidgetPlacement[]>>;
+}
+
+export interface DashboardWidgetCatalogEntry {
+  widget_key: string;
+  category: string;
+  default_level: ExperienceLevel;
+  default_size: { w: number; h: number };
+  min_size: { w: number; h: number };
+  max_size: { w: number; h: number };
+  required_module: string | null;
+  available: boolean;
+  unavailable_reason: string | null;
+}
+
+export interface DashboardWidgetCatalogResponse {
+  widgets: DashboardWidgetCatalogEntry[];
+}
+
+export interface DashboardAggregatedResponse {
+  generated_at: string;
+  tenant_key: string;
+  widgets: Record<string, unknown>;
 }
 
 // ── Watering Schedule types ──────────────────────────────────────────

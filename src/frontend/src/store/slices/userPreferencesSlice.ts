@@ -3,6 +3,7 @@ import type {
   UserPreference,
   ExperienceLevel,
   ModuleVisibilityState,
+  DashboardLayout,
 } from '@/api/types';
 import * as api from '@/api/endpoints/userPreferences';
 import { isLightMode } from '@/config/mode';
@@ -11,6 +12,11 @@ import {
   writeLocalModuleVisibility,
   clearLocalModuleVisibility,
 } from '@/lib/moduleVisibilityStorage';
+import {
+  readLocalDashboardLayout,
+  writeLocalDashboardLayout,
+  clearLocalDashboardLayout,
+} from '@/lib/dashboardLayoutStorage';
 import type { RootState } from '@/store/store';
 
 interface UserPreferencesState {
@@ -84,6 +90,46 @@ export const migrateLocalModuleVisibility = createAsyncThunk(
   },
 );
 
+/**
+ * REQ-045 — persist the full personalized dashboard layout (set-semantics).
+ * ``null`` resets to the experience-level default. In Light mode the layout
+ * lives in localStorage; in Full mode it is PATCHed to the server.
+ */
+export const saveDashboardLayout = createAsyncThunk(
+  'userPreferences/saveDashboardLayout',
+  async (layout: DashboardLayout | null) => {
+    if (isLightMode) {
+      writeLocalDashboardLayout(layout);
+      return layout;
+    }
+    const pref = await api.updatePreferences({ dashboard_layout: layout });
+    return pref.dashboard_layout ?? null;
+  },
+);
+
+/**
+ * REQ-045 / REQ-027 — migrate a localStorage layout into the server-side
+ * preference after a Light-mode user signs up. The local layout wins only when
+ * the server has none yet.
+ */
+export const migrateLocalDashboardLayout = createAsyncThunk(
+  'userPreferences/migrateLocalDashboardLayout',
+  async (_: void, { getState }) => {
+    if (isLightMode) return null;
+    const local = readLocalDashboardLayout();
+    if (!local) return null;
+    const state = getState() as RootState;
+    const serverHasLayout = state.userPreferences.preferences?.dashboard_layout != null;
+    if (serverHasLayout) {
+      clearLocalDashboardLayout();
+      return null;
+    }
+    const pref = await api.updatePreferences({ dashboard_layout: local });
+    clearLocalDashboardLayout();
+    return pref;
+  },
+);
+
 const userPreferencesSlice = createSlice({
   name: 'userPreferences',
   initialState,
@@ -102,9 +148,11 @@ const userPreferencesSlice = createSlice({
       .addCase(fetchPreferences.fulfilled, (state, action) => {
         state.loading = false;
         state.preferences = action.payload;
-        // In Light mode localStorage is the source of truth for overrides.
+        // In Light mode localStorage is the source of truth for overrides
+        // and the personalized dashboard layout.
         if (isLightMode && state.preferences) {
           state.preferences.module_visibility = readLocalModuleVisibility();
+          state.preferences.dashboard_layout = readLocalDashboardLayout();
         }
       })
       .addCase(fetchPreferences.rejected, (state, action) => {
@@ -122,6 +170,25 @@ const userPreferencesSlice = createSlice({
         }
       })
       .addCase(migrateLocalModuleVisibility.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.preferences = action.payload;
+        }
+      })
+      // REQ-045 dashboard layout — optimistic update so rapid consecutive
+      // edits (toggle/reorder/resize) each read the latest layout instead of
+      // racing on the pre-PATCH store value (lost-update bug).
+      .addCase(saveDashboardLayout.pending, (state, action) => {
+        if (state.preferences) {
+          state.preferences.dashboard_layout = action.meta.arg;
+        }
+      })
+      .addCase(saveDashboardLayout.fulfilled, (state, action) => {
+        if (state.preferences) {
+          // Reconcile with the server-sanitized layout (unknown widgets dropped).
+          state.preferences.dashboard_layout = action.payload;
+        }
+      })
+      .addCase(migrateLocalDashboardLayout.fulfilled, (state, action) => {
         if (action.payload) {
           state.preferences = action.payload;
         }

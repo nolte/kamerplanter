@@ -32,6 +32,10 @@ def update_preferences(
     ctx: TenantContext = Depends(get_current_tenant),
     service: UserPreferenceService = Depends(get_user_preference_service),
 ):
-    updates = body.model_dump(exclude_none=True)
+    # REQ-045 reset semantics: dump with exclude_unset so a deliberately-sent
+    # ``dashboard_layout: null`` (reset to default) is not swallowed, then keep
+    # the historical exclude_none behaviour for every other field.
+    updates = body.model_dump(exclude_unset=True)
+    updates = {k: v for k, v in updates.items() if v is not None or k == "dashboard_layout"}
     pref = service.update_preferences(ctx.user_key, updates)
     return to_response(pref, UserPreferenceResponse)

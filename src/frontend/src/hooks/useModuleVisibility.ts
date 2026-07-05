@@ -7,6 +7,11 @@ import {
   moduleCatalog,
   type ModuleKey,
 } from '@/config/moduleCatalog';
+import type { ModuleVisibilityState } from '@/api/types';
+
+// Stable empty fallback so the selector does not hand back a fresh object every
+// render (which would churn every downstream useMemo keyed on `overrides`).
+const EMPTY_OVERRIDES: Record<string, ModuleVisibilityState> = {};
 
 /**
  * REQ-042 — combine the REQ-021 experience-level default with the personal
@@ -15,7 +20,7 @@ import {
 export function useModuleVisibility() {
   const { isNavVisible } = useExpertiseLevel();
   const overrides = useAppSelector(
-    (s) => s.userPreferences.preferences?.module_visibility ?? {},
+    (s) => s.userPreferences.preferences?.module_visibility ?? EMPTY_OVERRIDES,
   );
 
   return useMemo(() => {

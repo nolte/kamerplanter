@@ -1002,7 +1002,6 @@
       "oauthProfileError": "Profil konnte nicht geladen werden.",
       "oauthProcessing": "Anmeldung wird verarbeitet...",
       "oauthErrorTitle": "Anmeldung fehlgeschlagen",
-      "backToLogin": "Zurück zur Anmeldung",
       "oauthErrors": {
         "accessDenied": "Die Anmeldung wurde beim Anbieter abgebrochen.",
         "invalidState": "Die Anmeldesitzung ist abgelaufen. Bitte versuchen Sie es erneut.",
@@ -1021,7 +1020,8 @@
       "timezoneHelper": "z.B. Europe/Berlin, America/New_York",
       "emailReadOnly": "Die E-Mail-Adresse kann nicht geändert werden.",
       "unlinkProvider": "Anbieter trennen",
-      "deleteAccountDescription": "Ihr Konto und alle Ihre Daten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden."
+      "deleteAccountDescription": "Ihr Konto und alle Ihre Daten werden dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "tabDashboard": "Dashboard"
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -4914,6 +4914,144 @@
       "short": "Natürliche Fressfeinde von Schädlingen",
       "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
       "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
+    }
+  },
+  "dashboard": {
+    "manageWidgets": "Widgets verwalten",
+    "coachmark": "Du kannst dein Dashboard anpassen: Widgets hinzufügen, anordnen und in der Größe ändern — über „Bearbeiten“ oder in den Einstellungen.",
+    "empty": {
+      "title": "Dein Dashboard ist leer",
+      "hint": "Füge Widgets aus dem Katalog hinzu, um deine Startseite zu gestalten.",
+      "chooseWidgets": "Widgets auswählen",
+      "restoreDefault": "Standard wiederherstellen"
+    },
+    "widgetError": {
+      "title": "Widget konnte nicht geladen werden",
+      "hint": "Beim Laden dieses Widgets ist ein Fehler aufgetreten."
+    },
+    "manage": "Widgets verwalten",
+    "gate": {
+      "moduleHidden": "Modul ausgeblendet",
+      "lightMode": "Im Light-Modus nicht verfügbar",
+      "aiDisabled": "KI-Funktion — erst nach Registrierung verfügbar"
+    },
+    "categories": {
+      "essentials": "Wesentliches",
+      "insights": "Einblicke",
+      "cultivation": "Anbau",
+      "monitoring": "Monitoring"
+    },
+    "edit": {
+      "enter": "Bearbeiten",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "moveUpOf": "{{widget}} nach oben verschieben",
+      "moveDownOf": "{{widget}} nach unten verschieben",
+      "movedUp": "{{widget}} nach oben verschoben",
+      "movedDown": "{{widget}} nach unten verschoben",
+      "removed": "{{widget}} entfernt",
+      "grew": "{{widget}} vergrößert",
+      "shrank": "{{widget}} verkleinert",
+      "grow": "Größer",
+      "shrink": "Kleiner",
+      "growOf": "{{widget}} vergrößern",
+      "shrinkOf": "{{widget}} verkleinern",
+      "configureOf": "{{widget}} konfigurieren",
+      "configure": "Konfigurieren",
+      "remove": "Entfernen",
+      "widgetMenu": "Menü für {{widget}}",
+      "breakpointSwitcher": "Breakpoint auswählen",
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobil",
+      "applyToAll": "Aktuelle Anordnung für alle Breakpoints übernehmen",
+      "applyToAllShort": "Für alle übernehmen"
+    },
+    "config": {
+      "title": "{{widget}} konfigurieren",
+      "noOptions": "Keine Einstellungen verfügbar",
+      "fields": {
+        "location": "Standort",
+        "timeframe_days": "Zeitraum (Tage)"
+      }
+    },
+    "settings": {
+      "title": "Dashboard-Widgets",
+      "subtitle": "Wähle aus, welche Widgets auf deiner Startseite erscheinen, ordne sie an und passe ihre Größe an.",
+      "reset": "Auf Standard zurücksetzen",
+      "arrange": "Anordnen & Größe",
+      "noActive": "Keine aktiven Widgets. Aktiviere unten Widgets aus dem Katalog.",
+      "inactiveModuleHidden": "inaktiv (Modul ausgeblendet)"
+    },
+    "widgets": {
+      "quick_actions": {
+        "label": "Schnellzugriff",
+        "description": "Direkte Kacheln zu häufig genutzten Bereichen."
+      },
+      "active_plants_summary": {
+        "label": "Aktive Pflanzen",
+        "description": "Überblick über deine aktiven Pflanzen."
+      },
+      "tasks_today": {
+        "label": "Aufgaben heute",
+        "description": "Heute fällige und überfällige Aufgaben."
+      },
+      "care_reminders": {
+        "label": "Pflegeerinnerungen",
+        "description": "Anstehende Pflegeerinnerungen."
+      },
+      "daily_tip": {
+        "label": "Tipp des Tages",
+        "description": "Täglicher KI-Pflegetipp für deine Pflanzen."
+      },
+      "weather_forecast": {
+        "label": "Wettervorhersage",
+        "description": "Wetter für deine Outdoor-Standorte."
+      },
+      "onboarding_progress": {
+        "label": "Einrichtungsfortschritt",
+        "description": "Dein Fortschritt bei der Ersteinrichtung."
+      },
+      "winter_protection": {
+        "label": "Winterschutz",
+        "description": "Winterhärte-Ampel deiner Pflanzen."
+      },
+      "ipm_alerts": {
+        "label": "Pflanzenschutz-Warnungen",
+        "description": "Aktuelle Schädlings- und Krankheitswarnungen."
+      },
+      "harvest_forecast": {
+        "label": "Ernteprognose",
+        "description": "Voraussichtliche Erntetermine."
+      },
+      "next_calendar_events": {
+        "label": "Nächste Termine",
+        "description": "Deine nächsten Kalendereinträge."
+      },
+      "community_activity": {
+        "label": "Community-Aktivität",
+        "description": "Aktivitäten aus deinen Gemeinschaftsgärten."
+      },
+      "sensor_live": {
+        "label": "Sensor-Livewerte",
+        "description": "Aktuelle Messwerte deiner Sensoren."
+      },
+      "tank_status": {
+        "label": "Tankstatus",
+        "description": "Füllstände deiner Nährlösungstanks."
+      },
+      "phase_timeline": {
+        "label": "Phasen-Zeitleiste",
+        "description": "Wachstumsphasen deiner Pflanzen im Zeitverlauf."
+      },
+      "vpd_gauge": {
+        "label": "VPD-Anzeige",
+        "description": "Aktuelles Dampfdruckdefizit (VPD)."
+      },
+      "plant_grid": {
+        "label": "Pflanzenübersicht",
+        "description": "Kachelübersicht all deiner Pflanzen."
+      }
     }
   }
 }
