@@ -9,13 +9,10 @@ For every outdoor or greenhouse site, you decide where Kamerplanter gets its wea
 
 ## Prerequisites
 
-- A site of type **Outdoor** or **Greenhouse** — indoor sites (grow tent, room, balcony, …) don't show the "Weather Source" section, since you already measure there via [sensors](sensors.md) or Home Assistant.
-- **GPS coordinates** for this site. Without stored coordinates, Kamerplanter shows a hint that you first need to add the coordinates.
+- A site with the **type** **Outdoor** or **Greenhouse** — you set the type directly in the site form (see [Locations & Substrates](locations-substrates.md#filling-in-basic-data)). For the other types (Indoor, Windowsill, Balcony, Grow Tent) the "Weather Source" section doesn't appear, since you already measure there via [sensors](sensors.md) or Home Assistant.
+- **GPS coordinates** (latitude and longitude) for this site — also editable directly in the site form. Without stored coordinates, Kamerplanter shows a hint that you first need to add the coordinates.
 - Your role in the tenant is **Grower** or **Admin** (see [Tenants & Gardens](tenants.md#roles-and-permissions)) — as a **Viewer** you can only see the configuration, not change it.
 - For the Home Assistant option, additionally: a stored Home Assistant access token (see [Home Assistant Integration](../guides/home-assistant-integration.md#setting-up-tokens)).
-
-!!! info "For technical users"
-    GPS coordinates are currently only editable via the API — the site form does not yet have an input field for this. See [Locations & Substrates](locations-substrates.md#creating-a-new-site) for details.
 
 ---
 
@@ -39,10 +36,13 @@ For most outdoor growers, a public weather service is the simplest path — it w
 | **German Weather Service (DWD)** | No | Best coverage in German-speaking regions. |
 | **OpenWeatherMap** | Yes | Worldwide, requires your own API key. |
 
-Select the desired service from the list. If you choose **OpenWeatherMap**, you also enter your personal API key (which you can create for free on the OpenWeatherMap website).
+Select the desired service from the list. If you choose **OpenWeatherMap**, you can also enter your personal API key (which you can create for free on the OpenWeatherMap website).
 
 !!! info "Your API key stays secret"
     The OpenWeatherMap key is stored encrypted and is never shown to you again in plain text — only a "Key stored" note confirms it has been saved. If you edit the source later, simply leave the field empty to keep the stored key unchanged.
+
+!!! tip "Don't have your own key?"
+    If you leave the key field empty, OpenWeatherMap still works, provided your instance operator has configured a **global fallback key** (an instance-wide setting under **Weather Services**, see [Configuring Weather Services](weather-services.md)). If neither your own nor a global key is available, the connection test reports an error.
 
 ### Step 3b: Or Use Home Assistant as a Source
 
@@ -120,7 +120,8 @@ Below the source list, Kamerplanter shows the attribution notices for the servic
 
 ## See Also
 
-- [Locations & Substrates](locations-substrates.md) — creating sites and GPS coordinates
+- [Locations & Substrates](locations-substrates.md) — setting the site type and GPS coordinates
+- [Configuring Weather Services](weather-services.md) — instance-wide defaults, global OpenWeatherMap fallback key (platform admin)
 - [Sensors and Measurement Data](sensors.md) — other data sources for climate and substrate values
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — setting up an access token
 - [Personalizing Your Dashboard](dashboard-personalization.md) — the "Weather forecast" widget

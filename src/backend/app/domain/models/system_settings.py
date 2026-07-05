@@ -47,6 +47,32 @@ class StorageSettings(BaseModel):
     s3_force_tls: bool | None = None
 
 
+class WeatherProviderSettings(BaseModel):
+    """Instance-wide public weather-provider configuration (REQ-046 follow-up).
+
+    Central admin override for the public weather services (Open-Meteo, DWD,
+    OpenWeatherMap), mirroring the Home-Assistant DB-override + env-fallback
+    pattern. A ``None`` field means "fall back to the corresponding environment
+    variable" — see ``WeatherSettingsService.get_effective_weather_settings``.
+
+    The global OpenWeatherMap key is stored **Fernet-encrypted**
+    (``openweathermap_global_api_key_encrypted``) — never plaintext. It acts as
+    the instance-wide fallback key when a site has not configured its own
+    per-site OpenWeatherMap key.
+    """
+
+    open_meteo_enabled: bool | None = None
+    open_meteo_base_url: str | None = None
+    dwd_enabled: bool | None = None
+    dwd_base_url: str | None = None
+    openweathermap_enabled: bool | None = None
+    openweathermap_base_url: str | None = None
+    # Fernet ciphertext of the global OWM fallback key (never plaintext).
+    openweathermap_global_api_key_encrypted: str | None = None
+    fetch_timeout_s: int | None = None
+    default_public_source: str | None = None
+
+
 class SystemSettings(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     home_assistant: HomeAssistantSettings = Field(default_factory=HomeAssistantSettings)
@@ -54,6 +80,7 @@ class SystemSettings(BaseModel):
         default_factory=PlantIdentificationSettings,
     )
     storage: StorageSettings = Field(default_factory=StorageSettings)
+    weather_providers: WeatherProviderSettings = Field(default_factory=WeatherProviderSettings)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

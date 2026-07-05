@@ -99,6 +99,7 @@ import ModulesSettingsTab from './ModulesSettingsTab';
 import DashboardSettingsTab from './DashboardSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
 import StorageSettingsTab from './StorageSettingsTab';
+import WeatherProvidersSettingsTab from './WeatherProvidersSettingsTab';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
@@ -164,6 +165,11 @@ export default function AccountSettingsPage() {
     const storageTab: TabDef[] = canManageStorage
       ? [{ key: 'storage', label: t('pages.auth.tabStorage') }]
       : [];
+    // REQ-046 follow-up — the instance-wide weather-provider config is an
+    // operator/platform-admin decision, gated exactly like the storage tab.
+    const weatherTab: TabDef[] = canManageStorage
+      ? [{ key: 'weather-providers', label: t('pages.auth.tabWeatherProviders') }]
+      : [];
     if (isLightMode) {
       return [
         { key: 'profile', label: t('pages.auth.tabProfile') },
@@ -174,6 +180,7 @@ export default function AccountSettingsPage() {
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
         ...haPublishTab,
         ...storageTab,
+        ...weatherTab,
       ];
     }
     return [
@@ -187,6 +194,7 @@ export default function AccountSettingsPage() {
       { key: 'ha', label: t('pages.auth.tabIntegrations') },
       ...haPublishTab,
       ...storageTab,
+      ...weatherTab,
       { key: 'platform', label: t('pages.auth.tabPlatform') },
       { key: 'account', label: t('pages.auth.tabAccount') },
     ];
@@ -974,6 +982,9 @@ export default function AccountSettingsPage() {
 
       {/* ── Storage Tab (NFR-013) ── */}
       {activeTab === 'storage' && <StorageSettingsTab />}
+
+      {/* ── Weather Providers Tab (REQ-046) ── */}
+      {activeTab === 'weather-providers' && <WeatherProvidersSettingsTab />}
 
       {/* ── Admin Tab ── */}
       {activeTab === 'ha' && (

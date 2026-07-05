@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from app.data_access.external.ha_client import HomeAssistantClient
     from app.domain.engines.encryption_engine import EncryptionEngine
     from app.domain.models.site import Site
+    from app.domain.services.weather_settings_service import EffectiveWeatherSettings
     from app.domain.services.weather_source_resolver import WeatherSourceResolver
 
 logger = structlog.get_logger(__name__)
@@ -105,6 +106,7 @@ class WeatherSourceService:
         encryption_engine: EncryptionEngine,
         resolver: WeatherSourceResolver,
         ha_client_factory: Callable[[], HomeAssistantClient | None],
+        weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
     ) -> None:
         self._config_repo = weather_source_config_repo
         self._site_repo = site_repo
@@ -114,6 +116,9 @@ class WeatherSourceService:
         # decrypting stored config, so it is not used here yet.
         self._resolver = resolver
         self._ha_client_factory = ha_client_factory
+        # DB-backed effective provider config; when absent, the enable flags fall
+        # back to the raw env kill-switches (``settings.<p>_enabled``).
+        self._weather_settings_provider = weather_settings_provider
 
     # ── Site ownership ────────────────────────────────────────────────
 
@@ -232,9 +237,10 @@ class WeatherSourceService:
     # ── Available sources ─────────────────────────────────────────────
 
     def available_sources(self, tenant_key: str) -> AvailableWeatherSources:
+        effective = self._weather_settings_provider() if self._weather_settings_provider is not None else None
         sources: list[AvailableWeatherSource] = []
         for source_name in WeatherAdapterRegistry.public_sources():
-            if not self._provider_enabled(source_name):
+            if not self._provider_enabled(source_name, effective):
                 continue
             adapter_cls = WeatherAdapterRegistry.get(source_name)
             sources.append(
@@ -253,7 +259,11 @@ class WeatherSourceService:
         return AvailableWeatherSources(sources=sources, ha_token_set=ha_token_set)
 
     @staticmethod
-    def _provider_enabled(source_name: str) -> bool:
+    def _provider_enabled(source_name: str, effective: EffectiveWeatherSettings | None = None) -> bool:
+        if effective is not None:
+            provider = effective.provider(source_name)
+            # Unknown providers (e.g. a future nasa-power) default to enabled.
+            return provider.enabled if provider is not None else True
         check = _PROVIDER_ENABLED.get(source_name)
         return check() if check is not None else True
 

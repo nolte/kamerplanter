@@ -6,6 +6,7 @@ from app.api.v1.admin.pests.router import router as pests_admin_router
 from app.api.v1.admin.recognition.router import router as recognition_admin_router
 from app.api.v1.admin.reference_images.router import router as reference_images_router
 from app.api.v1.admin.settings.router import router as admin_settings_router
+from app.api.v1.admin.weather_providers.router import router as weather_providers_admin_router
 from app.api.v1.attachments.token_router import router as attachment_token_router
 from app.api.v1.botanical_families.router import router as families_router
 from app.api.v1.calculations.router import router as calculations_router
@@ -62,6 +63,10 @@ api_router.include_router(mode_router)
 
 # Admin settings — available in both modes
 api_router.include_router(admin_settings_router)
+# REQ-046 — central public weather-provider admin. platform-admin-gated
+# (light-mode-aware, like admin/settings/storage), so it is mode-agnostic and
+# registered once for both light and full mode.
+api_router.include_router(weather_providers_admin_router)
 # Recognition status is read-only + get_current_user-gated, like admin settings —
 # available in both light and full mode (the inference feature itself is optional).
 api_router.include_router(recognition_admin_router)

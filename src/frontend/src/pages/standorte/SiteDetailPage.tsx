@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -13,9 +13,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import SensorsIcon from '@mui/icons-material/Sensors';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useForm, useWatch } from 'react-hook-form';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -26,6 +24,7 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormSelectField from '@/components/form/FormSelectField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -42,15 +41,17 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import type { Sensor, SiteWaterConfig } from '@/api/types';
+import { buildSiteResolver, gpsToFields, gpsToPayload, siteTypeOptions, type SiteFormData } from './siteForm';
 
-const schema = z.object({
-  name: z.string().min(1),
-  climate_zone: z.string(),
-  total_area_m2: z.number().min(0),
-  timezone: z.string(),
-});
-
-type FormData = z.infer<typeof schema>;
+const DEFAULT_VALUES: SiteFormData = {
+  name: '',
+  type: 'indoor',
+  gps_lat: '',
+  gps_lon: '',
+  climate_zone: '',
+  total_area_m2: 0,
+  timezone: 'UTC',
+};
 
 export default function SiteDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -73,10 +74,17 @@ export default function SiteDetailPage() {
   });
   const sensorTableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
-  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { name: '', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
+  const resolver = useMemo(() => buildSiteResolver(t), [t]);
+  const typeOptions = useMemo(() => siteTypeOptions(t), [t]);
+  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<SiteFormData>({
+    resolver,
+    defaultValues: DEFAULT_VALUES,
   });
+  // REQ-046 follow-up — the weather/frost section further down this page
+  // only ever unlocks for outdoor/greenhouse sites with GPS coordinates; the
+  // discreet hint below keeps that connection visible while editing.
+  const watchedType = useWatch({ control, name: 'type' });
+  const weatherEnabledForType = watchedType === 'outdoor' || watchedType === 'greenhouse';
 
   const loadSensors = useCallback(async () => {
     if (!key) return;
@@ -98,7 +106,14 @@ export default function SiteDetailPage() {
 
   useEffect(() => {
     if (current) {
-      reset({ name: current.name, climate_zone: current.climate_zone, total_area_m2: current.total_area_m2, timezone: current.timezone ?? 'UTC' });
+      reset({
+        name: current.name,
+        type: current.type,
+        ...gpsToFields(current.gps_coordinates),
+        climate_zone: current.climate_zone,
+        total_area_m2: current.total_area_m2,
+        timezone: current.timezone ?? 'UTC',
+      });
       const wc = current.water_config;
       setWaterConfig({
         has_ro_system: wc?.has_ro_system ?? false,
@@ -121,12 +136,17 @@ export default function SiteDetailPage() {
   // Clear dynamic breadcrumbs on unmount
   useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: SiteFormData) => {
     if (!key) return;
     try {
       setSaving(true);
       await api.updateSite(key, {
-        ...data,
+        name: data.name,
+        type: data.type,
+        gps_coordinates: gpsToPayload(data),
+        climate_zone: data.climate_zone,
+        total_area_m2: data.total_area_m2,
+        timezone: data.timezone,
         water_config: waterConfig,
       });
       notification.success(t('common.save'));
@@ -180,7 +200,27 @@ export default function SiteDetailPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.sites.sectionBasicDataDesc')}
             </Typography>
-            <FormTextField name="name" control={control} label={t('pages.sites.name')} required autoFocus />
+            <FormRow>
+              <FormTextField name="name" control={control} label={t('pages.sites.name')} required autoFocus />
+              <FormSelectField name="type" control={control} label={t('pages.sites.type')} options={typeOptions} helperText={t('pages.sites.typeHelper')} required />
+            </FormRow>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 0.5 }}>
+              {t('pages.sites.gpsHelper')}
+            </Typography>
+            <FormRow>
+              <FormNumberField name="gps_lat" control={control} label={t('pages.sites.gpsLat')} min={-90} max={90} />
+              <FormNumberField name="gps_lon" control={control} label={t('pages.sites.gpsLon')} min={-180} max={180} />
+            </FormRow>
+            {!weatherEnabledForType && (
+              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 2 }} data-testid="site-weather-type-hint">
+                <Typography variant="caption">
+                  {t('pages.sites.weatherTypeHint', {
+                    outdoorLabel: t('enums.siteType.outdoor'),
+                    greenhouseLabel: t('enums.siteType.greenhouse'),
+                  })}
+                </Typography>
+              </Alert>
+            )}
             <FormRow>
               <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
               <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />

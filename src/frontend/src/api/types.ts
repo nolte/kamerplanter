@@ -4910,6 +4910,47 @@ export interface WeatherTestResponse {
   error?: string | null;
 }
 
+// ── Admin weather providers (REQ-046 follow-up, platform-admin) ───────────
+
+/** Effective, masked config of one central public weather provider. */
+export interface WeatherProviderInfo {
+  source_name: string;
+  enabled: boolean;
+  base_url: string;
+  attribution: string;
+}
+
+/** `GET /admin/weather-providers` — masked instance-wide provider config. */
+export interface WeatherProvidersResponse {
+  providers: WeatherProviderInfo[];
+  openweathermap_global_api_key_set: boolean;
+  fetch_timeout_s: number;
+  default_public_source: string;
+}
+
+/**
+ * `PUT /admin/weather-providers` payload. A `null`/omitted field is left
+ * unchanged; the global OWM key follows the "unchanged on empty/masked" rule.
+ */
+export interface WeatherProvidersUpdate {
+  open_meteo_enabled?: boolean | null;
+  open_meteo_base_url?: string | null;
+  dwd_enabled?: boolean | null;
+  dwd_base_url?: string | null;
+  openweathermap_enabled?: boolean | null;
+  openweathermap_base_url?: string | null;
+  openweathermap_global_api_key?: string | null;
+  fetch_timeout_s?: number | null;
+  default_public_source?: 'open-meteo' | 'dwd' | 'openweathermap' | null;
+}
+
+/** `POST /admin/weather-providers/{source_name}/test` response. */
+export interface WeatherProviderTestResponse {
+  reachable: boolean;
+  preview: WeatherTestPreviewItem[];
+  error?: string | null;
+}
+
 /** One HA entity offered by the HA entity pickers. */
 export interface HaEntityItem {
   entity_id: string;
