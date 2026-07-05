@@ -51,7 +51,13 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             filter_parts.append("doc.species_key == @species_key")
             bind_vars["species_key"] = species_key
         if tenant_key:
-            filter_parts.append("doc.tenant_key == @tenant_key")
+            # Workflow templates are a hybrid catalog: globally seeded system
+            # templates (is_system, empty tenant_key) PLUS per-tenant custom
+            # templates. Mirror the fertilizer/nutrient-plan repositories and
+            # union the caller's own rows with the global rows; a foreign
+            # tenant's rows stay excluded (SEC-B4). A strict equality filter
+            # here (PR #324) hid every system template from real tenants.
+            filter_parts.append('(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)')
             bind_vars["tenant_key"] = tenant_key
         if target_entity_type:
             filter_parts.append("(@target_entity_type IN doc.target_entity_types)")
