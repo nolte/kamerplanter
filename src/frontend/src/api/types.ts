@@ -717,6 +717,8 @@ export interface PlantInstance {
   substrate_type_override: SubstrateType | null;
   species: PlantSpeciesSummary | null;
   cultivar: PlantCultivarSummary | null;
+  /** Key of the mother instance this pup descended from via clonal continuation (D10, REQ-017). */
+  mother_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }

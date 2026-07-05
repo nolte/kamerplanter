@@ -1856,6 +1856,8 @@
       "taskCompleteQuick": "Als erledigt markieren",
       "taskCompleted": "Aufgabe als erledigt markiert.",
       "infoIntro": "Übersicht über diese Pflanzeninstanz: aktueller Standort, Wachstumsphase, Gießstatus und verknüpfte Stammdaten.",
+      "descendedFrom": "Kindel von",
+      "descendedFromTooltip": "Diese Pflanze ist als Kindel (Klon-Ableger) aus einer Mutterpflanze hervorgegangen. Klicke auf den Namen, um zur Mutter zu wechseln.",
       "wateringLogIntro": "Alle Gieß- und Düngungsvorgänge dieser Pflanze. EC-Werte nach dem Gießen helfen dabei, die Nährstoffversorgung zu überwachen.",
       "caMgPpm": "Ca / Mg (ppm)",
       "ecTooltip": "Elektrische Leitfähigkeit (EC, mS/cm): Maß für die Nährstoffkonzentration in der Nährlösung. Höherer Wert = mehr gelöste Nährstoffe. Typisch: 0,8–2,5 mS/cm je nach Phase.",

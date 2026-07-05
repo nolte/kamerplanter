@@ -341,4 +341,40 @@ GET /api/v1/t/{tenant_slug}/plant-instances/survival-stats
 
 - [Growth Phases — User Guide: Removing a Plant](../user-guide/growth-phases.md#pflanze-entfernen)
 - [Growth Phases — User Guide: Survival Rate and Loss-Cause Analysis](../user-guide/growth-phases.md#ueberlebensrate-verlustursachen)
+
+---
+
+## Plant Instances: Pup Ancestry (`mother_key`)
+
+When a monocarpic mother plant automatically transitions into its final flowering phase, Kamerplanter automatically creates a new plant instance (the pup) and links it to the mother plant. <!-- REQ-003 D10 / REQ-017 -->
+
+### Additional Field in the Plant Instance Response
+
+```
+GET /api/v1/t/{tenant_slug}/plant-instances/{key}
+```
+
+`PlantResponse` now additionally includes:
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `mother_key` | string \| null | Key of the mother plant this instance descended from as a pup. `null` for directly created plants. |
+
+The authoritative ancestry relationship is additionally stored as a `descended_from` graph edge (pup → mother); `mother_key` mirrors it for cheap frontend access without requiring a graph-traversal query.
+
+### Trigger and Behaviour
+
+- The automatic pup spawn is triggered as soon as a plant species configured as monocarpic (`flowering_strategy: "monocarpic"`) automatically transitions into one of its terminal reproductive phases (flowering, fruiting, or ripening).
+- Exactly one new plant instance is created; re-evaluating the same transition does **not** create a second pup (idempotent — guarded by the existence of an inbound `descended_from` edge on the mother).
+- The pup inherits `tenant_key`, `species_key`, `cultivar_key`, and the mother's location, **but no slot** (`slot_key: null`) — the mother plant keeps its slot while it senesces. Its `planted_on` is set to the transition date.
+- In addition to the edge, a `PropagationEvent` with `method: "clone"` is persisted (mother → pup).
+
+!!! note "No dedicated endpoint, no manual trigger"
+    The pup spawn is a side effect of the automatic phase transition (see [Growth Phases — Automatic Phase Transitions](../user-guide/growth-phases.md#automatic-phase-transitions)) and has **no** dedicated REST endpoint for manual triggering or for querying propagation history. The full propagation API (ancestry traversal, listing propagation events per plant) remains REQ-017 follow-up work. <!-- REQ-017 -->
+
+### See Also
+
+- [Growth Phases — User Guide: Monocarpic Plants](../user-guide/growth-phases.md#monokarpische-pflanzen)
+- [Propagation Management — User Guide](../user-guide/propagation.md#automatische-kindel-fortfuehrung)
+- [Database Schema — Plant Instance Graph](database-schema.md#plant-instance-graph)
 - [Error Handling](../api/error-handling.md)

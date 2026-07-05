@@ -32,6 +32,17 @@ class CyclicLifecycleEngine:
         """D6/D10: flowers once then dies (agave, bromeliad, many bamboos)."""
         return lifecycle.flowering_strategy == FloweringStrategy.MONOCARPIC
 
+    def is_monocarpic_terminal(self, lifecycle: LifecycleConfig, current_phase_name: str) -> bool:
+        """D10: whether a monocarpic plant has just entered its terminal reproductive
+        phase (``flowering`` / ``fruit_development`` / ``ripening``).
+
+        This is the single decision point at which continuation happens through a
+        clonal pup (a **new** plant instance, REQ-017) rather than a seasonal cycle
+        restart — the mother lives on, senescent, until it dies. Pure: the caller
+        passes the (D8-normalised) current phase name; the side effect of spawning
+        and linking the pup belongs to the service layer (NFR-001)."""
+        return self.is_monocarpic(lifecycle) and core_phase(current_phase_name) in _REPRODUCTIVE_TERMINAL
+
     def effective_max_seasons(self, lifecycle: LifecycleConfig) -> int | None:
         """Season bound: explicit ``max_seasons``, else 2 for biennials, else None."""
         if lifecycle.max_seasons is not None:

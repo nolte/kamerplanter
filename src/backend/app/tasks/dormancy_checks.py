@@ -1,6 +1,7 @@
 import structlog
 
 from app.common.dependencies import get_lifecycle_repo, get_phase_sequence_repo, get_plant_repo, get_species_repo
+from app.common.enums import TransitionTrigger
 from app.domain.engines.dormancy_trigger import DormancyTrigger
 from app.tasks import celery_app
 
@@ -33,7 +34,9 @@ def check_dormancy_triggers(current_temp_c: float, day_length_hours: float) -> d
                     from app.common.dependencies import get_phase_service
 
                     phase_service = get_phase_service()
-                    phase_service.transition_phase(plant.key or "", dormancy_key, reason="dormancy_trigger")
+                    phase_service.transition_phase(
+                        plant.key or "", dormancy_key, reason="dormancy_trigger", trigger=TransitionTrigger.AUTO
+                    )
                     triggered += 1
                     logger.info("dormancy_triggered", plant_key=plant.key)
         except Exception as e:

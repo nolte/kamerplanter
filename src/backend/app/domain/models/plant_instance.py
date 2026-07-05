@@ -34,6 +34,15 @@ class PlantInstance(BaseModel):
     )
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None
+    # ── Genetic lineage (REQ-017 / REQ-003 D10) ──
+    mother_key: str | None = Field(
+        default=None,
+        description="Denormalized lineage pointer to the parent (mother) plant instance this "
+        "instance descended from — set for clonal pups spawned when a monocarpic mother enters "
+        "its terminal reproductive phase (D10). None for directly-planted instances. The "
+        "authoritative link is the descended_from graph edge (child → mother); this field "
+        "mirrors it for cheap frontend ancestry lookups.",
+    )
     # ── Controlled backward transitions (REQ-003 E3) ──
     reversion_count: int = Field(
         default=0,

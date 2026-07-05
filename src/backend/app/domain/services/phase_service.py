@@ -1,6 +1,8 @@
-import contextlib
 from datetime import UTC, datetime
 
+import structlog
+
+from app.common.enums import TransitionTrigger
 from app.common.exceptions import NotFoundError
 from app.common.types import PhaseKey, PlantID
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
@@ -11,6 +13,8 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, PhaseHistory, PhaseTransitionRule, RequirementProfile
 from app.domain.models.plant_instance import PlantInstance
+
+logger = structlog.get_logger()
 
 
 class PhaseService:
@@ -28,7 +32,13 @@ class PhaseService:
         self._on_phase_transition_callbacks: list = []
 
     def register_on_transition(self, callback) -> None:
-        """Register a callback(plant_key: str, phase_name: str) to invoke after phase transitions."""
+        """Register a post-transition callback to invoke after phase transitions.
+
+        The callback is invoked as ``callback(plant_key, phase_name, trigger=...)``
+        where ``trigger`` is a :class:`TransitionTrigger` distinguishing an
+        automatic (Celery) advance from a manual (API) one. Callbacks that do not
+        care about the trigger accept it as a keyword-only argument and ignore it.
+        """
         self._on_phase_transition_callbacks.append(callback)
 
     def _resolve_phases_for_species(self, species_key: str) -> tuple[list[dict], str, dict]:
@@ -257,7 +267,16 @@ class PhaseService:
         reason: str = "manual",
         *,
         force: bool = False,
+        trigger: TransitionTrigger = TransitionTrigger.MANUAL,
     ) -> PlantInstance:
+        """Move a plant into ``target_phase_key`` and fire post-transition callbacks.
+
+        ``trigger`` records whether the change was driven automatically (the Celery
+        ``check_auto_transitions`` scan) or manually (a user via the API). It is
+        forwarded to every registered callback so trigger-sensitive effects — the
+        REQ-003 D10 clonal-pup spawn only reacts to ``AUTO`` — can gate on it. The
+        default is ``MANUAL`` so the interactive API path stays unchanged.
+        """
         plant = self._transition_engine.execute_transition(plant_key, target_phase_key, reason, force=force)
 
         # Resolve phase name for callbacks
@@ -267,10 +286,23 @@ class PhaseService:
             if phase:
                 phase_name = phase.name
 
-        # Notify registered callbacks (e.g. activate dormant tasks)
+        # Notify registered callbacks (e.g. activate dormant tasks, D10 pup spawn).
+        # A failing callback must neither break the transition nor take siblings
+        # down with it — but it must NOT fail silently either (observability): each
+        # failure is logged. Callbacks that touch side effects are additionally
+        # expected to log their own success/failure with domain context.
         for callback in self._on_phase_transition_callbacks:
-            with contextlib.suppress(Exception):
-                callback(plant_key, phase_name)
+            try:
+                callback(plant_key, phase_name, trigger=trigger)
+            except Exception:
+                logger.warning(
+                    "phase_transition_callback_failed",
+                    plant_key=plant_key,
+                    phase_name=phase_name,
+                    trigger=trigger.value,
+                    callback=getattr(callback, "__name__", repr(callback)),
+                    exc_info=True,
+                )
 
         return plant
 

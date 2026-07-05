@@ -613,8 +613,16 @@ class TaskService:
 
     # ── Dormant Task Activation ──
 
-    def activate_dormant_tasks_for_phase(self, plant_key: str, phase_name: str) -> list[Task]:
-        """Activate dormant tasks whose trigger_phase matches the new phase."""
+    def activate_dormant_tasks_for_phase(
+        self, plant_key: str, phase_name: str, *, trigger: object = None
+    ) -> list[Task]:
+        """Activate dormant tasks whose trigger_phase matches the new phase.
+
+        ``trigger`` is part of the shared post-transition callback contract
+        (:meth:`PhaseService.register_on_transition`) but is irrelevant here — a
+        dormant task is activated by reaching its phase regardless of whether the
+        transition was automatic or manual — so it is accepted and ignored.
+        """
         dormant_tasks = self._repo.get_dormant_tasks_for_phase(plant_key, phase_name)
         activated: list[Task] = []
         now = datetime.now(UTC)

@@ -25,8 +25,16 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
     # ── Basic CRUD ────────────────────────────────────────────────────
 
-    def get_by_instance_id(self, instance_id: str) -> PlantInstance | None:
-        return self.find_one_by_field("instance_id", instance_id)
+    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None:
+        """Look up a plant by its (globally unique) ``instance_id``.
+
+        ``instance_id`` carries a unique index, so a bare lookup already returns at
+        most one document. When ``tenant_key`` is given the match is additionally
+        constrained to that tenant (SEC-001, defence in depth) so a caller can never
+        act on another tenant's instance even if an id were to collide.
+        """
+        extra = [("tenant_key", "==", tenant_key)] if tenant_key else None
+        return self.find_one_by_field("instance_id", instance_id, extra_filters=extra)
 
     def create(self, plant: PlantInstance) -> PlantInstance:
         created = super().create(plant)
@@ -53,6 +61,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         self.delete_edges(col.PLACED_IN, from_id=plant_id)
         self.delete_edges(col.PHASE_HISTORY_EDGE, from_id=plant_id)
         self.delete_edges(col.CURRENT_PHASE, from_id=plant_id)
+        # REQ-017 / D10 lineage: a descended_from edge points child → mother, so a
+        # plant can be either endpoint. Remove edges in BOTH directions so deleting
+        # a pup (outbound) or a mother (inbound) never leaves a dangling edge — an
+        # orphaned inbound edge would otherwise keep ``has_descendants(mother)`` true
+        # and permanently block a re-spawn.
+        self.delete_edges(col.DESCENDED_FROM, vertex_id=plant_id, direction="any")
         return super().delete(key)
 
     # ── Slot-based queries ────────────────────────────────────────────
@@ -98,6 +112,32 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
     def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
         return self.find_by_field("species_key", species_key)
+
+    # ── Genetic lineage (REQ-017 / REQ-003 D10) ───────────────────────
+
+    def create_descended_from_edge(self, child_key: PlantID, mother_key: PlantID) -> None:
+        """Link a clonal pup back to its mother: child (descendant) → mother (ancestor)."""
+        child_id = f"{col.PLANT_INSTANCES}/{child_key}"
+        mother_id = f"{col.PLANT_INSTANCES}/{mother_key}"
+        self.create_edge(col.DESCENDED_FROM, child_id, mother_id)
+
+    def has_descendants(self, mother_key: PlantID) -> bool:
+        """Whether ``mother_key`` already has a descendant (inbound descended_from edge).
+
+        The edge points child → mother, so descendants are the *inbound* neighbours
+        of the mother vertex. Only the existence is needed (D10 idempotency guard),
+        so the traversal is capped at a single hop and stops at the first match.
+        """
+        mother_id = f"{col.PLANT_INSTANCES}/{mother_key}"
+        query = """
+        FOR v, e IN 1..1 INBOUND @mother_id GRAPH 'kamerplanter_graph'
+          OPTIONS {edgeCollections: [@edge_col]}
+          LIMIT 1
+          RETURN 1
+        """
+        bind_vars = {"mother_id": mother_id, "edge_col": col.DESCENDED_FROM}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return next(cursor, None) is not None
 
     def resolve_phase_name(self, phase_key: str) -> str:
         """Resolve a GrowthPhase key to its name."""

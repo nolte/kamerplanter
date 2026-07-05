@@ -197,6 +197,20 @@ class TransitionTriggerType(StrEnum):
     VERNALIZATION_BASED = "vernalization_based"
 
 
+class TransitionTrigger(StrEnum):
+    """How a phase transition was initiated.
+
+    ``AUTO`` — the Celery ``check_auto_transitions`` scan advanced the plant on a
+    time/photoperiod/vernalization trigger. ``MANUAL`` — a user drove the change
+    through the API. REQ-003 D10 clonal continuation only spawns a pup on an
+    ``AUTO`` transition (Q1): a manual correction into the terminal phase must not
+    create a clonal descendant.
+    """
+
+    AUTO = "auto"
+    MANUAL = "manual"
+
+
 class GrowthDeterminacy(StrEnum):
     """Whether a species finishes at a terminal phase or keeps a stable
     productive phase with concurrent growth/flower/fruit (REQ-003 E4)."""
