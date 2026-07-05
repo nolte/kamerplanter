@@ -611,6 +611,30 @@ export const handlers = [
     return HttpResponse.json({ key: 'ow-new', auto_generated: false, ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
   }),
 
+  // REQ-047 Season & overwintering automation (tenant-scoped defaults)
+  http.get('/api/v1/t/:tenant/season/overview', () => {
+    return HttpResponse.json({ states: [] });
+  }),
+  http.get('/api/v1/t/:tenant/sites/:siteKey/season-state', ({ params }) => {
+    return HttpResponse.json({
+      site_key: params.siteKey,
+      season_state_id: 'ss-1',
+      phase: 'growing',
+      trigger_tier: 'calendar',
+      trigger_reason_i18n_key: 'pages.season.trigger.calendar',
+      season_year: null,
+      entered_phase_at: null,
+      last_min_temp_c: null,
+      forecast_first_frost_date: null,
+      estimated_first_frost_md: null,
+      estimated_last_frost_md: null,
+      evaluated_at: null,
+    });
+  }),
+  http.get('/api/v1/t/:tenant/plants/:plantKey/overwintering', () => {
+    return new HttpResponse(null, { status: 404 });
+  }),
+
   // Cultivars (nested under species)
   http.get('/api/v1/species/:key/cultivars', () => {
     return HttpResponse.json([]);

@@ -19,6 +19,7 @@ import ipmReducer from '@/store/slices/ipmSlice';
 import tenantsReducer from '@/store/slices/tenantSlice';
 import successionPlansReducer from '@/store/slices/successionPlansSlice';
 import overwinteringProfilesReducer from '@/store/slices/overwinteringProfilesSlice';
+import seasonReducer from '@/store/slices/seasonSlice';
 import dashboardReducer from '@/store/slices/dashboardSlice';
 
 const rootReducer = combineReducers({
@@ -36,6 +37,7 @@ const rootReducer = combineReducers({
   tenants: tenantsReducer,
   successionPlans: successionPlansReducer,
   overwinteringProfiles: overwinteringProfilesReducer,
+  season: seasonReducer,
   dashboard: dashboardReducer,
 });
 

@@ -1076,6 +1076,73 @@
         }
       }
     },
+    "season": {
+      "overviewTitle": "Season & overwintering",
+      "phaseHelp": {
+        "growing": "Growing season – plants are actively growing, no winter measures needed.",
+        "pre_winter": "Winter is approaching. Now is the window to add protection, bring pots indoors or dig up tubers.",
+        "winter_dormancy": "Winter dormancy: plants rest under protection. They are watered much less and not fertilised.",
+        "pre_spring": "Spring reactivation: time to uncover, pre-sprout and gradually harden off before moving plants back outside."
+      },
+      "triggerHelp": {
+        "live": "This assessment is based on real weather data (forecast or sensor) for your site.",
+        "climatological": "Estimated from your site's long-term climate values, without live weather data.",
+        "calendar": "Rough estimate by season and hemisphere – without site-specific data."
+      },
+      "trigger": {
+        "frostForecast": "Frost in the forecast",
+        "liveTemp": "Based on measured outdoor temperature",
+        "climateEstimate": "Based on long-term climate values",
+        "calendar": "Based on the season (calendar)",
+        "unknown": "Determined automatically"
+      },
+      "frost": {
+        "now": "Frost risk right now",
+        "inDays": "First frost in {{count}} day",
+        "inDays_other": "First frost in {{count}} days",
+        "typical": "First frost typically around {{date}}"
+      },
+      "spring": {
+        "title": "Return assistant",
+        "subtitle": "Spring is near: here's how to move your overwintered plants back outside, step by step.",
+        "lateFrostWarning": "Don't put plants out yet – frost is still forecast for {{date}}.",
+        "hardenOffTitle": "Harden off (gradually acclimatise to the outdoors)",
+        "hardenOffHelp": "\"Hardening off\" means slowly acclimatising sensitive plants to sun, wind and cold so they don't go into shock.",
+        "hardenOff": {
+          "step1": "Days 1–3: place outside for 2–3 hours in a semi-shaded, wind-sheltered spot.",
+          "step2": "Days 4–6: extend the time outdoors each day, gradually allowing more sun.",
+          "step3": "From day 7: leave outdoors all day – bring back in at night if late frost threatens."
+        },
+        "actionsTitle": "Upcoming spring actions"
+      },
+      "override": {
+        "title": "Overwintering",
+        "autoBadge": "Auto-derived from species profile",
+        "overriddenBadge": "Adjusted",
+        "autoHint": "This overwintering plan was derived automatically from the species profile and your site's hardiness. You don't need to create anything – but you can adjust individual values.",
+        "emptyHint": "This plant needs no winter protection – it is considered hardy at your site. No overwintering plan is created automatically.",
+        "adjust": "Adjust",
+        "resetButton": "Reset to automatic",
+        "dialogTitle": "Adjust overwintering",
+        "dialogIntro": "Override individual values of the automatically created plan. Once you change something, the automation only fills remaining gaps and no longer overwrites your input.",
+        "saved": "Overwintering plan adjusted.",
+        "resetDone": "Reset to automatic.",
+        "resetConfirmTitle": "Reset to automatic?",
+        "resetConfirmMessage": "Your manual adjustments will be discarded and the plan will be derived automatically from the species profile and site again.",
+        "winterPath": "Winter path",
+        "path": {
+          "A": "In-situ (protect in place)",
+          "B": "Relocate (winter quarter)"
+        },
+        "pathHelp": {
+          "A": "Path A: the plant stays at its location and is protected in place (e.g. with fleece or mulch).",
+          "B": "Path B: the plant must move to a winter quarter, or the tubers must be dug up and stored."
+        },
+        "winterQuarterTemp": "Winter quarter temperature",
+        "winterWateringHelper": "How much to water during winter dormancy.",
+        "dormancyActive": "Dormancy care active"
+      }
+    },
     "overwintering": {
       "title": "Overwintering",
       "listIntro": "Manage the overwintering profiles of your plants: hardiness, protection measures and winter quarters.",
@@ -4459,6 +4526,17 @@
       "green": "Green",
       "yellow": "Yellow",
       "red": "Red"
+    },
+    "seasonPhase": {
+      "growing": "Growing season",
+      "pre_winter": "Winter approaching",
+      "winter_dormancy": "Winter dormancy",
+      "pre_spring": "Spring reactivation"
+    },
+    "seasonTriggerTier": {
+      "live": "Live weather",
+      "climatological": "Climate estimate",
+      "calendar": "Calendar"
     },
     "plantCategory": {
       "indoor_houseplant": "Houseplant",

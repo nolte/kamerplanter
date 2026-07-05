@@ -22,6 +22,7 @@ import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchHardinessOverview } from '@/store/slices/overwinteringProfilesSlice';
+import SeasonOverviewPanel from './SeasonOverviewPanel';
 import type { WinterHardinessLight } from '@/api/types';
 
 /** REQ-022 §Winterhärte-Ampel — traffic-light colour → MUI palette token. */
@@ -91,6 +92,10 @@ export default function WinterProtectionWidget() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.dashboard.winterProtection.subtitle')}
         </Typography>
+
+        {/* REQ-047 §4.1 — per-site season state + trigger source (renders only
+            when the tenant has outdoor/greenhouse sites with a season state). */}
+        <SeasonOverviewPanel />
 
         {overviewLoading && total === 0 ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
