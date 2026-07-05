@@ -19,9 +19,6 @@ With the master data import, you don't have to create plant species, cultivars, 
 | Cultivar | Cultivars | Parent species + cultivar name |
 | Botanical family | Botanical Families | Name |
 
-!!! warning "Cultivar import: validation only, records are not created yet"
-    You can already select, upload, and validate the **Cultivars** data type — the validation report reliably shows you which rows would be correct. However, when you confirm the import, new cultivars are **not yet** created in the database. Until this is available, create cultivars via **Master Data → Add Cultivar** on the species detail page (see [Managing Cultivars](plant-management.md#managing-cultivars)).
-
 ## Downloading a CSV Template
 
 So you don't have to guess which columns are expected, Kamerplanter provides a matching template for each data type:
@@ -46,8 +43,13 @@ This downloads a CSV file with exactly the column headers supported for the sele
 !!! note "Scientific name must follow the \"Genus species\" pattern"
     For the **Species** data type, `scientific_name` must start with a capitalized genus name followed by a lower-case species epithet, e.g. `Solanum lycopersicum`. If the value doesn't follow this pattern, the validation report flags an error.
 
-!!! warning "For species, only three fields are actually saved"
-    The species template contains many columns (growth habit, root type, suitability, dimensions, …), and these are confirmed as correct in the validation report. When creating a **new** species, Kamerplanter currently still only stores **Scientific Name**, **Common Name**, and **Description**. You'll need to add the remaining information afterwards on the [species detail page](plant-management.md#editing-a-species). For botanical families, on the other hand, all four columns are stored in full.
+!!! note "Two columns with a special role: `family_name` and `cycle_type`"
+    When creating a **new** species, Kamerplanter stores every column listed in the template — with two exceptions:
+
+    - `family_name` is mapped best-effort to **`family_key`**, a direct key reference to the botanical family. There is **no lookup against an existing family's display name** — enter the target family's exact key here, not just a freely written name.
+    - `cycle_type` is checked in the validation report but **not saved** — the species model has no matching field for it. Add the life cycle afterwards on the [species detail page](plant-management.md#editing-a-species) if needed.
+
+    For botanical families, all four columns are stored in full.
 
 ## Uploading a File
 
@@ -115,11 +117,11 @@ If a record with the same unique identifier already exists (e.g. the same scient
 | Option | Behavior |
 |--------|----------|
 | **Skip** | The row is ignored when confirming; the existing record stays unchanged. |
-| **Update** | Intended for a future update of the existing record. |
+| **Update** | The existing record is updated with the values from the CSV row — empty cells never overwrite an existing value. |
 | **Report Error** | The row is counted as a failure; nothing is saved. |
 
-!!! warning "Update currently has no effect on existing records"
-    The **Update** option does not yet modify existing records. Until this changes, choose **Skip** to avoid accidental duplicates, and edit existing entries directly in the relevant master data view instead (e.g. on the [species detail page](plant-management.md#editing-a-species)).
+!!! note "Update applies to species and botanical families, not yet to cultivars"
+    For the **Species** and **Botanical Families** data types, the **Update** option updates the existing record as described above. For **Cultivars**, the validation report does not yet detect duplicates (see [Frequently Asked Questions](#frequently-asked-questions) below) — the **Update** option therefore has no effect for this data type yet. Until this changes, edit existing cultivars directly on the [species detail page](plant-management.md#managing-cultivars).
 
 ## Result After the Import
 
@@ -141,13 +143,13 @@ If errors occurred, they are also listed. Use **New Import** to start the next r
     No. Once confirmed, the import job is complete. To process the same file again (e.g. after a correction), upload it again via **New Import**.
 
 ??? question "Are duplicates detected automatically when I upload again?"
-    Yes, as long as the data type's unique identifier (e.g. scientific name for species, name for botanical families) already exists in the database. The row is then marked as a duplicate in the validation report.
+    For **Species** (scientific name) and **Botanical Families** (name), yes — as long as the unique identifier already exists in the database, the row is marked as a duplicate in the validation report. For **Cultivars**, the validation report does not yet detect duplicates; every valid cultivar row is created as a new record when you confirm, even if a cultivar with the same name already exists.
 
 ??? question "What happens if I leave the page during the preview?"
     The unconfirmed import job is lost — nothing had been saved yet anyway. Upload the file again via New Import.
 
 ??? question "Can I also use the import for nutrient plans or other master data?"
-    No, the CSV import currently supports only species, cultivars (validation only, see note above), and botanical families.
+    No, the CSV import currently supports only species, cultivars, and botanical families.
 
 ## See Also
 

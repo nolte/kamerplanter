@@ -24,6 +24,7 @@ from app.data_access.external.email_notification_channel import EmailNotificatio
 from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
 from app.data_access.external.pwa_notification_channel import PwaNotificationChannel
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
+from app.domain.models.notification import Notification
 
 _CONTRACT_PATH = (
     Path(__file__).resolve().parents[4] / "src" / "frontend" / "src" / "contracts" / "notification-channels.json"
@@ -33,6 +34,11 @@ _CONTRACT_PATH = (
 def _load_contract_channels() -> set[str]:
     data = json.loads(_CONTRACT_PATH.read_text(encoding="utf-8"))
     return set(data["user_facing_channels"])
+
+
+def _load_contract_config_keys() -> dict[str, list[str]]:
+    data = json.loads(_CONTRACT_PATH.read_text(encoding="utf-8"))
+    return data["channel_config_keys"]
 
 
 def _register_all_user_facing_channels() -> None:
@@ -73,3 +79,32 @@ class TestNotificationChannelContract:
             channel = NotificationChannelRegistry.get(channel_key)
             assert channel is not None, f"Channel '{channel_key}' not found in registry"
             assert channel.channel_key == channel_key
+
+
+class TestEmailConfigKeyContract:
+    """Guards issue #367 item #4: the email channel reads `config.email`.
+
+    The frontend previously wrote `config.address`/`config.digest_mode` while the
+    backend reads `config.email`/`config.digest`, so email settings were silently
+    dropped. These tests pin the backend read key behaviourally so it cannot drift
+    away from the shared contract again.
+    """
+
+    @staticmethod
+    def _notification() -> Notification:
+        return Notification(notification_type="test", title="Hi", body="Body")
+
+    def test_contract_declares_email_and_digest(self) -> None:
+        keys = _load_contract_config_keys()
+        assert sorted(keys["email"]) == ["digest", "email"]
+
+    async def test_email_channel_reads_the_email_config_key(self) -> None:
+        channel = EmailNotificationChannel(MagicMock())
+        result = await channel.send(self._notification(), {"email": "user@example.com"})
+        assert result.success is True
+
+    async def test_email_channel_ignores_the_legacy_address_key(self) -> None:
+        channel = EmailNotificationChannel(MagicMock())
+        result = await channel.send(self._notification(), {"address": "user@example.com"})
+        assert result.success is False
+        assert "No email address configured" in (result.error or "")

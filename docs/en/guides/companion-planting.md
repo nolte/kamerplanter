@@ -124,7 +124,7 @@ Two flowers that can be used almost anywhere:
     If no entry exists yet for a specific species pair, Kamerplanter automatically looks for a matching compatibility at the **family level** when you request a recommendation. Such a fallback match is reduced by 20% in score (score × 0.8) and marked "family level" instead of "species level".
 
 !!! info "Who maintains this data?"
-    Compatibility and incompatibility entries are global master data, visible to all users. They are therefore maintained by **platform admins** — a corresponding permission guard for the underlying interface is currently being added. You can still record your own, plant-specific observations independently in the plant diary, once a user interface for it is available (see [Planting Runs: Plant Diary](../user-guide/planting-runs.md#plant-diary-currently-api-only)).
+    Compatibility and incompatibility entries are global master data, visible to all users. Only **platform admins** may create or change them — regular user accounts still see the edit controls, but saving fails with an "Unauthorized" error. You can still record your own, plant-specific observations independently in the plant diary, once a user interface for it is available (see [Planting Runs: Plant Diary](../user-guide/planting-runs.md#plant-diary-currently-api-only)).
 
 <!-- Source: src/frontend/src/pages/stammdaten/CompanionPlantingPage.tsx, src/backend/app/api/v1/companion_planting/router.py -->
 
@@ -191,7 +191,7 @@ A critical result blocks the plant's creation with an error message. As with the
     show a source citation per individual entry.
 
 ??? question "Can I add my own compatibility pairs?"
-    The user interface for this (**Master Data → Companion Planting**) is open to all users; however, maintenance is intended for **platform admins**, since the data applies globally across all tenants. You should record your own, plant-specific observations in the plant diary instead.
+    Only if you are a **platform admin** — the data applies globally across all tenants and is therefore write-protected for regular user accounts. You should record your own, plant-specific observations in the plant diary instead.
 
 ## See Also
 

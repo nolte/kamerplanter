@@ -124,7 +124,7 @@ Zwei Kräuter, die sich fast überall einsetzen lassen:
     Liegt für ein konkretes Artenpaar noch kein Eintrag vor, sucht Kamerplanter bei einer Empfehlungsabfrage automatisch nach einer Kompatibilität auf **Familienebene**. Ein solcher Fallback-Treffer wird im Score um 20 % reduziert (Score × 0,8) und als "Familienebene" statt "Artebene" gekennzeichnet.
 
 !!! info "Wer darf diese Daten pflegen?"
-    Kompatibilitäts- und Inkompatibilitäts-Einträge sind globale Stammdaten, die für alle Nutzer:innen sichtbar sind. Sie werden deshalb von **Platform-Admins** gepflegt — ein entsprechender Berechtigungs-Schutz für die zugrundeliegende Schnittstelle wird aktuell nachgerüstet. Eigene Beobachtungen zu deinen Pflanzen kannst du unabhängig davon im Pflanzentagebuch festhalten, sobald dafür eine Oberfläche verfügbar ist (siehe [Pflanzdurchläufe: Pflanzentagebuch](../user-guide/planting-runs.md#pflanzentagebuch)).
+    Kompatibilitäts- und Inkompatibilitäts-Einträge sind globale Stammdaten, die für alle Nutzer:innen sichtbar sind. Nur **Platform-Admins** dürfen sie anlegen oder ändern — normale Nutzerkonten sehen die Bearbeitungsschaltflächen zwar, erhalten beim Speichern aber eine Fehlermeldung ("Nicht autorisiert"). Eigene Beobachtungen zu deinen Pflanzen kannst du unabhängig davon im Pflanzentagebuch festhalten, sobald dafür eine Oberfläche verfügbar ist (siehe [Pflanzdurchläufe: Pflanzentagebuch](../user-guide/planting-runs.md#pflanzentagebuch)).
 
 <!-- Quelle: src/frontend/src/pages/stammdaten/CompanionPlantingPage.tsx, src/backend/app/api/v1/companion_planting/router.py -->
 
@@ -191,7 +191,7 @@ Ein kritisches Ergebnis blockiert das Anlegen der Pflanze mit einer Fehlermeldun
     zeigt die Oberfläche aktuell nicht an.
 
 ??? question "Kann ich eigene Kompatibilitätspaare hinzufügen?"
-    Die Bedienoberfläche dafür (**Stammdaten → Mischkultur**) steht allen Nutzer:innen offen; vorgesehen ist die Pflege aber für **Platform-Admins**, da die Daten global für alle Mandanten gelten. Eigene, pflanzenbezogene Beobachtungen hältst du stattdessen im Pflanzentagebuch fest.
+    Nur, wenn du **Platform-Admin** bist — die Daten gelten global für alle Mandanten und sind deshalb schreibgeschützt für normale Nutzerkonten. Eigene, pflanzenbezogene Beobachtungen hältst du stattdessen im Pflanzentagebuch fest.
 
 ## Siehe auch
 
