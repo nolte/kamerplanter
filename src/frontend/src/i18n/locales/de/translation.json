@@ -4950,6 +4950,8 @@
       "movedUp": "{{widget}} nach oben verschoben",
       "movedDown": "{{widget}} nach unten verschoben",
       "removed": "{{widget}} entfernt",
+      "grew": "{{widget}} vergrößert",
+      "shrank": "{{widget}} verkleinert",
       "grow": "Größer",
       "shrink": "Kleiner",
       "growOf": "{{widget}} vergrößern",

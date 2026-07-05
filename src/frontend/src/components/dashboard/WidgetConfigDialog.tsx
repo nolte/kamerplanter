@@ -7,6 +7,8 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import type { WidgetKey } from '@/config/dashboardWidgetCatalog';
 
 interface ConfigField {
@@ -35,6 +37,8 @@ export default function WidgetConfigDialog({
   onSave: (config: Record<string, unknown>) => void;
 }) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const fields = CONFIG_SCHEMA[widgetKey as WidgetKey] ?? [];
   const [draft, setDraft] = useState<Record<string, unknown>>({ ...config });
 
@@ -44,20 +48,34 @@ export default function WidgetConfigDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs" data-testid="widget-config-dialog">
-      <DialogTitle>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullScreen={fullScreen}
+      fullWidth
+      maxWidth="xs"
+      aria-labelledby="widget-config-dialog-title"
+      data-testid="widget-config-dialog"
+    >
+      <DialogTitle id="widget-config-dialog-title">
         {t('dashboard.config.title', { widget: t(`dashboard.widgets.${widgetKey}.label`) })}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {fields.length === 0 && (
-            <TextField disabled label={t('dashboard.config.noOptions')} value="" variant="standard" />
+            <TextField
+              disabled
+              label={t('dashboard.config.noOptions')}
+              value=""
+              variant="standard"
+            />
           )}
-          {fields.map((field) => (
+          {fields.map((field, idx) => (
             <TextField
               key={field.name}
               label={t(`dashboard.config.fields.${field.name}`, { defaultValue: field.name })}
               type={field.type}
+              autoFocus={idx === 0}
               value={(draft[field.name] as string | number | undefined) ?? ''}
               onChange={(e) =>
                 setDraft((prev) => ({
@@ -66,7 +84,12 @@ export default function WidgetConfigDialog({
                 }))
               }
               fullWidth
-              slotProps={{ htmlInput: { 'data-testid': `config-field-${field.name}` } }}
+              slotProps={{
+                htmlInput: {
+                  'data-testid': `config-field-${field.name}`,
+                  ...(field.type === 'number' ? { inputMode: 'numeric', min: 1 } : {}),
+                },
+              }}
             />
           ))}
         </Stack>
@@ -75,7 +98,12 @@ export default function WidgetConfigDialog({
         <Button onClick={onClose} sx={{ minHeight: 48 }}>
           {t('common.cancel')}
         </Button>
-        <Button onClick={handleSave} variant="contained" sx={{ minHeight: 48 }} data-testid="widget-config-save">
+        <Button
+          onClick={handleSave}
+          variant="contained"
+          sx={{ minHeight: 48 }}
+          data-testid="widget-config-save"
+        >
           {t('common.save')}
         </Button>
       </DialogActions>

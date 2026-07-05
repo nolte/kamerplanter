@@ -4949,6 +4949,8 @@
       "movedUp": "{{widget}} moved up",
       "movedDown": "{{widget}} moved down",
       "removed": "{{widget}} removed",
+      "grew": "{{widget}} enlarged",
+      "shrank": "{{widget}} shrunk",
       "grow": "Larger",
       "shrink": "Smaller",
       "growOf": "Enlarge {{widget}}",

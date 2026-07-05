@@ -189,5 +189,6 @@ Wenn du dich später registrierst oder anmeldest, werden die lokal gespeicherten
 
 - [Onboarding-Wizard](onboarding.md) — Erfahrungsstufe einstellen und Starter-Kit wählen
 - [Dashboard](dashboard.md) — Übersicht und Widgets
+- [Dashboard personalisieren](dashboard-personalization.md) — Widgets auswählen, anordnen und konfigurieren
 - [Mandanten & Gärten](tenants.md) — Mehrere Gärten und Nutzerrollen verwalten
 - [Light-Modus](light-mode.md) — Kamerplanter ohne Login betreiben

@@ -60,7 +60,10 @@ export default function DashboardSettingsTab() {
   const [announcement, setAnnouncement] = useState('');
   const [configTarget, setConfigTarget] = useState<DashboardWidgetInstance | null>(null);
 
-  const activeKeys = useMemo(() => new Set(layout.widgets.map((w) => w.widget_key)), [layout.widgets]);
+  const activeKeys = useMemo(
+    () => new Set(layout.widgets.map((w) => w.widget_key)),
+    [layout.widgets],
+  );
 
   const orderedActive = useMemo(() => {
     const placements = placementsForBreakpoint(layout, breakpoint);
@@ -96,7 +99,16 @@ export default function DashboardSettingsTab() {
 
   return (
     <Box data-testid="dashboard-settings-tab">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 1,
+          mb: 1,
+        }}
+      >
         <Typography variant="h6">{t('dashboard.settings.title')}</Typography>
         <Button
           startIcon={<RestartAltIcon />}
@@ -121,7 +133,15 @@ export default function DashboardSettingsTab() {
       {/* ── Active widgets: accessible reorder/resize (UI-NFR-002) ── */}
       <Card variant="outlined" sx={{ mb: 3 }}>
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 1,
+            }}
+          >
             <Typography variant="subtitle1">{t('dashboard.settings.arrange')}</Typography>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <ToggleButtonGroup
@@ -131,14 +151,20 @@ export default function DashboardSettingsTab() {
                 onChange={(_, v) => v && setBreakpoint(v)}
                 aria-label={t('dashboard.edit.breakpointSwitcher')}
               >
-                <ToggleButton value="lg" sx={{ minHeight: 44 }}>{t('dashboard.edit.desktop')}</ToggleButton>
-                <ToggleButton value="md" sx={{ minHeight: 44 }}>{t('dashboard.edit.tablet')}</ToggleButton>
-                <ToggleButton value="sm" sx={{ minHeight: 44 }}>{t('dashboard.edit.mobile')}</ToggleButton>
+                <ToggleButton value="lg" sx={{ minWidth: 48, minHeight: 48 }}>
+                  {t('dashboard.edit.desktop')}
+                </ToggleButton>
+                <ToggleButton value="md" sx={{ minWidth: 48, minHeight: 48 }}>
+                  {t('dashboard.edit.tablet')}
+                </ToggleButton>
+                <ToggleButton value="sm" sx={{ minWidth: 48, minHeight: 48 }}>
+                  {t('dashboard.edit.mobile')}
+                </ToggleButton>
               </ToggleButtonGroup>
               <Button
                 size="small"
                 onClick={() => save(copyPlacementsToAllBreakpoints(layout, breakpoint))}
-                sx={{ minHeight: 44 }}
+                sx={{ minHeight: 48 }}
               >
                 {t('dashboard.edit.applyToAllShort')}
               </Button>
@@ -213,7 +239,12 @@ export default function DashboardSettingsTab() {
                       <IconButton
                         size="small"
                         aria-label={t('dashboard.edit.shrinkOf', { widget: label })}
-                        onClick={() => save(resizeWidget(layout, breakpoint, instance.instance_id, -1, -1))}
+                        onClick={() =>
+                          save(
+                            resizeWidget(layout, breakpoint, instance.instance_id, -1, -1),
+                            t('dashboard.edit.shrank', { widget: label }),
+                          )
+                        }
                         sx={{ minWidth: 48, minHeight: 48 }}
                       >
                         <RemoveIcon fontSize="small" />
@@ -223,7 +254,12 @@ export default function DashboardSettingsTab() {
                       <IconButton
                         size="small"
                         aria-label={t('dashboard.edit.growOf', { widget: label })}
-                        onClick={() => save(resizeWidget(layout, breakpoint, instance.instance_id, 1, 1))}
+                        onClick={() =>
+                          save(
+                            resizeWidget(layout, breakpoint, instance.instance_id, 1, 1),
+                            t('dashboard.edit.grew', { widget: label }),
+                          )
+                        }
                         sx={{ minWidth: 48, minHeight: 48 }}
                       >
                         <AddIcon fontSize="small" />
@@ -251,53 +287,66 @@ export default function DashboardSettingsTab() {
       </Card>
 
       {/* ── Widget catalog: add / remove ── */}
-      {grouped.map(({ category, widgets }) => (
-        <Accordion key={category} defaultExpanded data-testid={`dashboard-category-${category}`}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography>{t(`dashboard.categories.${category}`)}</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Stack divider={<Divider flexItem />}>
-              {widgets.map((def) => {
-                const entry = catalogByKey.get(def.key);
-                const gated = entry ? !entry.available : false;
-                const checked = activeKeys.has(def.key);
-                return (
-                  <Box
-                    key={def.key}
-                    sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1, minHeight: 48, opacity: gated ? 0.6 : 1 }}
-                    data-testid={`dashboard-widget-row-${def.key}`}
-                  >
-                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                        <Typography variant="body1">{t(def.labelKey)}</Typography>
-                        {gated && (
-                          <Chip
-                            size="small"
-                            icon={<LockIcon />}
-                            label={t(entry?.unavailable_reason ?? 'dashboard.gate.moduleHidden')}
-                            color="default"
-                          />
-                        )}
-                      </Stack>
-                      <Typography variant="caption" color="text.secondary">
-                        {t(def.descriptionKey)}
-                      </Typography>
+      {grouped.map(({ category, widgets }) => {
+        const categoryHeadingId = `dashboard-category-heading-${category}`;
+        return (
+          <Accordion key={category} defaultExpanded data-testid={`dashboard-category-${category}`}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} id={categoryHeadingId}>
+              <Typography>{t(`dashboard.categories.${category}`)}</Typography>
+            </AccordionSummary>
+            {/* role="group" + aria-labelledby link this widget list to its category
+              heading so screen-readers announce the context (UI-NFR-002 R-010),
+              analog ModulesSettingsTab.tsx (REQ-042). */}
+            <AccordionDetails role="group" aria-labelledby={categoryHeadingId}>
+              <Stack divider={<Divider flexItem />}>
+                {widgets.map((def) => {
+                  const entry = catalogByKey.get(def.key);
+                  const gated = entry ? !entry.available : false;
+                  const checked = activeKeys.has(def.key);
+                  return (
+                    <Box
+                      key={def.key}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        py: 1,
+                        minHeight: 48,
+                        opacity: gated ? 0.6 : 1,
+                      }}
+                      data-testid={`dashboard-widget-row-${def.key}`}
+                    >
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                          <Typography variant="body1">{t(def.labelKey)}</Typography>
+                          {gated && (
+                            <Chip
+                              size="small"
+                              icon={<LockIcon />}
+                              label={t(entry?.unavailable_reason ?? 'dashboard.gate.moduleHidden')}
+                              color="default"
+                            />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {t(def.descriptionKey)}
+                        </Typography>
+                      </Box>
+                      <Switch
+                        checked={checked}
+                        disabled={gated}
+                        onChange={() => handleToggle(def.key)}
+                        slotProps={{ input: { 'aria-label': t(def.labelKey) } }}
+                        data-testid={`dashboard-switch-${def.key}`}
+                      />
                     </Box>
-                    <Switch
-                      checked={checked}
-                      disabled={gated}
-                      onChange={() => handleToggle(def.key)}
-                      slotProps={{ input: { 'aria-label': t(def.labelKey) } }}
-                      data-testid={`dashboard-switch-${def.key}`}
-                    />
-                  </Box>
-                );
-              })}
-            </Stack>
-          </AccordionDetails>
-        </Accordion>
-      ))}
+                  );
+                })}
+              </Stack>
+            </AccordionDetails>
+          </Accordion>
+        );
+      })}
 
       {configTarget && (
         <WidgetConfigDialog

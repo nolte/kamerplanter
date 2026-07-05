@@ -13,6 +13,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Skeleton from '@mui/material/Skeleton';
 import { visuallyHidden } from '@mui/utils';
 import EditIcon from '@mui/icons-material/Edit';
+import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
 import TabletIcon from '@mui/icons-material/Tablet';
@@ -25,7 +26,11 @@ import WidgetConfigDialog from '@/components/dashboard/WidgetConfigDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchWidgetCatalog, fetchAggregated } from '@/store/slices/dashboardSlice';
 import { useDashboardLayout } from '@/hooks/useDashboardLayout';
-import { dashboardWidgetCatalog, placementsForBreakpoint, type WidgetKey } from '@/config/dashboardWidgetCatalog';
+import {
+  dashboardWidgetCatalog,
+  placementsForBreakpoint,
+  type WidgetKey,
+} from '@/config/dashboardWidgetCatalog';
 import {
   moveWidget,
   resizeWidget,
@@ -35,7 +40,10 @@ import {
   setWidgetConfig,
   sortByReadingOrder,
 } from '@/lib/dashboardLayoutOps';
-import { isPersonalizationHintDismissed, dismissPersonalizationHint } from '@/lib/dashboardLayoutStorage';
+import {
+  isPersonalizationHintDismissed,
+  dismissPersonalizationHint,
+} from '@/lib/dashboardLayoutStorage';
 import type { DashboardLayout, DashboardWidgetInstance, WidgetPlacement } from '@/api/types';
 
 const DashboardEditGrid = lazy(() => import('@/components/dashboard/DashboardEditGrid'));
@@ -105,11 +113,31 @@ export default function DashboardPage() {
       isFirst: idx <= 0,
       isLast: idx === orderedInstances.length - 1,
       hasConfig: def?.hasConfig ?? false,
-      onMoveUp: () => mutate(moveWidget(working ?? layout, breakpoint, instance.instance_id, 'up'), t('dashboard.edit.movedUp', { widget: label })),
-      onMoveDown: () => mutate(moveWidget(working ?? layout, breakpoint, instance.instance_id, 'down'), t('dashboard.edit.movedDown', { widget: label })),
-      onGrow: () => mutate(resizeWidget(working ?? layout, breakpoint, instance.instance_id, 1, 1)),
-      onShrink: () => mutate(resizeWidget(working ?? layout, breakpoint, instance.instance_id, -1, -1)),
-      onRemove: () => mutate(removeWidget(working ?? layout, instance.instance_id), t('dashboard.edit.removed', { widget: label })),
+      onMoveUp: () =>
+        mutate(
+          moveWidget(working ?? layout, breakpoint, instance.instance_id, 'up'),
+          t('dashboard.edit.movedUp', { widget: label }),
+        ),
+      onMoveDown: () =>
+        mutate(
+          moveWidget(working ?? layout, breakpoint, instance.instance_id, 'down'),
+          t('dashboard.edit.movedDown', { widget: label }),
+        ),
+      onGrow: () =>
+        mutate(
+          resizeWidget(working ?? layout, breakpoint, instance.instance_id, 1, 1),
+          t('dashboard.edit.grew', { widget: label }),
+        ),
+      onShrink: () =>
+        mutate(
+          resizeWidget(working ?? layout, breakpoint, instance.instance_id, -1, -1),
+          t('dashboard.edit.shrank', { widget: label }),
+        ),
+      onRemove: () =>
+        mutate(
+          removeWidget(working ?? layout, instance.instance_id),
+          t('dashboard.edit.removed', { widget: label }),
+        ),
       onConfigure: () => setConfigTarget(instance),
     };
   };
@@ -135,7 +163,15 @@ export default function DashboardPage() {
 
   return (
     <Box data-testid="dashboard-page">
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 1,
+        }}
+      >
         <PageTitle title={t('pages.dashboard.title')} />
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
           {editMode && (
@@ -146,13 +182,25 @@ export default function DashboardPage() {
               onChange={(_, v) => v && setBreakpoint(v)}
               aria-label={t('dashboard.edit.breakpointSwitcher')}
             >
-              <ToggleButton value="lg" aria-label={t('dashboard.edit.desktop')} sx={{ minWidth: 48, minHeight: 48 }}>
+              <ToggleButton
+                value="lg"
+                aria-label={t('dashboard.edit.desktop')}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
                 <DesktopWindowsIcon fontSize="small" />
               </ToggleButton>
-              <ToggleButton value="md" aria-label={t('dashboard.edit.tablet')} sx={{ minWidth: 48, minHeight: 48 }}>
+              <ToggleButton
+                value="md"
+                aria-label={t('dashboard.edit.tablet')}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
                 <TabletIcon fontSize="small" />
               </ToggleButton>
-              <ToggleButton value="sm" aria-label={t('dashboard.edit.mobile')} sx={{ minWidth: 48, minHeight: 48 }}>
+              <ToggleButton
+                value="sm"
+                aria-label={t('dashboard.edit.mobile')}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
                 <SmartphoneIcon fontSize="small" />
               </ToggleButton>
             </ToggleButtonGroup>
@@ -162,7 +210,9 @@ export default function DashboardPage() {
               <Button
                 size="small"
                 startIcon={<DashboardCustomizeIcon />}
-                onClick={() => mutate(copyPlacementsToAllBreakpoints(working ?? layout, breakpoint))}
+                onClick={() =>
+                  mutate(copyPlacementsToAllBreakpoints(working ?? layout, breakpoint))
+                }
                 sx={{ minHeight: 48 }}
               >
                 {t('dashboard.edit.applyToAllShort')}
@@ -181,10 +231,19 @@ export default function DashboardPage() {
           </Tooltip>
           {editMode ? (
             <>
-              <Button onClick={cancelEdit} sx={{ minHeight: 48 }} data-testid="dashboard-edit-cancel">
+              <Button
+                onClick={cancelEdit}
+                sx={{ minHeight: 48 }}
+                data-testid="dashboard-edit-cancel"
+              >
                 {t('common.cancel')}
               </Button>
-              <Button variant="contained" onClick={saveEdit} sx={{ minHeight: 48 }} data-testid="dashboard-edit-save">
+              <Button
+                variant="contained"
+                onClick={saveEdit}
+                sx={{ minHeight: 48 }}
+                data-testid="dashboard-edit-save"
+              >
                 {t('common.save')}
               </Button>
             </>
@@ -203,7 +262,22 @@ export default function DashboardPage() {
       </Box>
 
       {!editMode && !hintDismissed && (
-        <Alert severity="info" onClose={dismissHint} sx={{ mb: 2 }} data-testid="dashboard-coachmark">
+        <Alert
+          severity="info"
+          action={
+            <IconButton
+              aria-label={t('common.close')}
+              color="inherit"
+              size="small"
+              onClick={dismissHint}
+              sx={{ minWidth: 48, minHeight: 48 }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+          sx={{ mb: 2 }}
+          data-testid="dashboard-coachmark"
+        >
           {t('dashboard.coachmark')}
         </Alert>
       )}
@@ -220,11 +294,24 @@ export default function DashboardPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
             {t('dashboard.empty.hint')}
           </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
-            <Button variant="contained" onClick={() => navigate('/settings#dashboard')} sx={{ minHeight: 48 }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            sx={{ justifyContent: 'center' }}
+          >
+            <Button
+              variant="contained"
+              onClick={() => navigate('/settings#dashboard')}
+              sx={{ minHeight: 48 }}
+            >
               {t('dashboard.empty.chooseWidgets')}
             </Button>
-            <Button variant="outlined" onClick={reset} sx={{ minHeight: 48 }} data-testid="dashboard-empty-reset">
+            <Button
+              variant="outlined"
+              onClick={reset}
+              sx={{ minHeight: 48 }}
+              data-testid="dashboard-empty-reset"
+            >
               {t('dashboard.empty.restoreDefault')}
             </Button>
           </Stack>
