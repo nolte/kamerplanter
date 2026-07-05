@@ -4048,6 +4048,62 @@
       "targetedPestsIntro": "Diese Schädlinge lassen sich mit der Maßnahme bekämpfen — klicke auf einen Namen für Details.",
       "targetedDiseasesIntro": "Diese Pflanzenkrankheiten lassen sich mit dieser Maßnahme behandeln oder eindämmen.",
       "viewPestDetail": "Details anzeigen"
+    },
+    "weatherSource": {
+      "title": "Wetterquelle",
+      "intro": "Lege fest, woher die Wetterdaten für diesen Standort kommen: von einem öffentlichen Wetterdienst oder aus deiner Home-Assistant-Installation. Mehrere Quellen kannst du priorisieren – die oberste (#1) hat Vorrang, tiefere Quellen springen als Rückfallebene ein, wenn eine höhere gerade nicht erreichbar ist.",
+      "empty": "Noch keine Wetterquelle konfiguriert. Füge z. B. Open-Meteo hinzu – kostenlos und ohne Anmeldung.",
+      "addSource": "Quelle hinzufügen",
+      "editSource": "Quelle bearbeiten",
+      "addSourceIntro": "Wähle die Art der Datenquelle. Ein öffentlicher Wetterdienst funktioniert sofort ohne eigene Hardware; Home Assistant nutzt deine vor Ort gemessenen Sensorwerte.",
+      "kindSwitchAria": "Art der Wetterquelle",
+      "editLockedHint": "Art und Anbieter können nach dem Anlegen nicht mehr geändert werden. Lösche die Quelle und füge sie neu hinzu, um zu wechseln.",
+      "haModeSwitchAria": "Home-Assistant-Betriebsart",
+      "haDisabledTitle": "Home Assistant nicht verbunden",
+      "haDisabledHint": "Um HA-Sensoren als Wetterquelle zu nutzen, hinterlege zuerst ein Home-Assistant-Zugangstoken.",
+      "haSettingsLink": "Zu den Home-Assistant-Einstellungen",
+      "provider": "Wetterdienst",
+      "providerHelper": "Öffentlicher Anbieter, der die Vorhersage für deine Standortkoordinaten liefert.",
+      "providerHint": {
+        "open-meteo": "Empfohlen – kostenlos, ohne Anmeldung, weltweit.",
+        "dwd": "Deutscher Wetterdienst – beste Abdeckung im DACH-Raum.",
+        "openweathermap": "Weltweit – benötigt einen eigenen API-Schlüssel.",
+        "nasa-power": "Weltweit – Reanalyse-Daten (historisch/abgeleitet)."
+      },
+      "apiKey": "API-Schlüssel",
+      "apiKeyHelper": "Wird verschlüsselt gespeichert und nie im Klartext angezeigt.",
+      "apiKeyStoredHelper": "Ein Schlüssel ist bereits hinterlegt. Leer lassen, um ihn unverändert zu übernehmen.",
+      "toggleKeyVisibility": "Schlüssel anzeigen/verbergen",
+      "weatherEntity": "Wetter-Entität",
+      "weatherEntityHelper": "Eine HA weather.*-Entität (z. B. Met.no) liefert bereits eine fertige Tagesvorhersage – meist die einfachere Wahl.",
+      "noWeatherEntities": "Keine Wetter-Entitäten gefunden. Prüfe, ob deine Home-Assistant-Integration weather.*-Entitäten bereitstellt, oder nutze stattdessen die Einzelsensoren-Zuordnung.",
+      "sensorMappingHelper": "Ordne einzelne HA-Sensoren den Wetterfeldern zu. Nicht zugeordnete Felder bleiben leer. Mindestens ein Feld muss zugeordnet sein.",
+      "noSensorEntities": "Keine Sensoren gefunden. Prüfe deine Home-Assistant-Verbindung und ob passende Sensor-Entitäten vorhanden sind.",
+      "sensorGroupTemperature": "Temperatur",
+      "sensorGroupPrecipitationWind": "Niederschlag & Wind",
+      "sensorGroupOther": "Weitere Messwerte",
+      "sensorField": {
+        "temp_min_entity": "Temperatur Minimum",
+        "temp_max_entity": "Temperatur Maximum",
+        "temp_current_entity": "Temperatur aktuell",
+        "humidity_entity": "Luftfeuchte",
+        "precipitation_entity": "Niederschlag (mm)",
+        "wind_speed_entity": "Windgeschwindigkeit",
+        "wind_gust_entity": "Windböen",
+        "pressure_entity": "Luftdruck"
+      },
+      "moveUp": "Priorität erhöhen",
+      "moveDown": "Priorität verringern",
+      "priorityHint": "Position {{position}} in der Rückfallreihenfolge – #1 wird zuerst versucht, danach folgen die weiteren Quellen, falls diese gerade nicht erreichbar ist.",
+      "enableToggle": "Quelle aktiv",
+      "testSource": "Quelle testen",
+      "configure": "Konfigurieren",
+      "keyStored": "Schlüssel hinterlegt",
+      "testReachable": "Quelle erreichbar – Vorschau der gelieferten Werte:",
+      "testUnreachable": "Quelle nicht erreichbar.",
+      "previewValues": "min {{min}} °C / max {{max}} °C / Regen {{rain}} mm",
+      "attribution": "Datenquellen: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap gemäß deren Nutzungsbedingungen.",
+      "gpsRequiredHint": "Für diesen Standort können Wetterquellen konfiguriert werden, sobald GPS-Koordinaten hinterlegt sind."
     }
   },
   "tankAlerts": {
@@ -4859,6 +4915,31 @@
       "neglect": "Vernachlässigung",
       "mechanical": "Mechanischer Schaden",
       "unknown": "Unbekannt"
+    },
+    "weatherSource": {
+      "open-meteo": "Open-Meteo",
+      "dwd": "Deutscher Wetterdienst (DWD)",
+      "openweathermap": "OpenWeatherMap",
+      "nasa-power": "NASA POWER",
+      "ha_weather": "Home Assistant"
+    },
+    "weatherSourceKind": {
+      "public": "Öffentlicher Dienst",
+      "home_assistant": "Home Assistant"
+    },
+    "haWeatherMode": {
+      "weather_entity": "Eine Wetter-Entität",
+      "sensor_mapping": "Einzelne Sensoren"
+    },
+    "weatherDataKind": {
+      "forecast": "Vorhersage",
+      "observed": "Ist-Wert",
+      "reanalysis": "Reanalyse"
+    },
+    "weatherDataKindHint": {
+      "forecast": "Vorhersage – ein berechneter Erwartungswert für ein zukünftiges Datum, noch keine Messung.",
+      "observed": "Ist-Wert – ein tatsächlich gemessener Wert (z. B. von einem Home-Assistant-Sensor), kein berechneter Schätzwert.",
+      "reanalysis": "Reanalyse – historische, aus Modellen abgeleitete Wetterdaten der Vergangenheit, keine Live-Messung und keine Vorhersage."
     }
   },
   "sensorChart": {
@@ -5091,7 +5172,9 @@
       },
       "weather_forecast": {
         "label": "Wettervorhersage",
-        "description": "Wetter für deine Outdoor-Standorte."
+        "description": "Wetter für deine Outdoor-Standorte.",
+        "emptyHint": "Wetterdaten erscheinen hier, sobald du für einen Outdoor- oder Gewächshaus-Standort eine Wetterquelle eingerichtet hast.",
+        "configureCta": "Standorte öffnen"
       },
       "onboarding_progress": {
         "label": "Einrichtungsfortschritt",

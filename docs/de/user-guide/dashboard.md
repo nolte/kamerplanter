@@ -123,3 +123,4 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
 - [Kalender](calendar.md)
 - [Tankmanagement](tanks.md)
 - [Sensorik](sensors.md)
+- [Wetterquellen je Standort](weather-sources.md) — Quelle für das Widget „Wettervorhersage" einrichten

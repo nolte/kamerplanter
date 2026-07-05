@@ -105,6 +105,7 @@ plugins:
             Wachstumsphasen: Growth Phases
             Dünge-Logik: Fertilization Logic
             Sensorik: Sensors
+            Wetterquellen: Weather Sources
             Aufgaben: Tasks
             Ernte: Harvest
             Pflanzenschutz (IPM): Pest Management (IPM)
@@ -281,6 +282,7 @@ nav:
       - Dünge-Logik: de/user-guide/fertilization.md
       - Gießprotokoll: de/user-guide/watering-log.md
       - Sensorik: de/user-guide/sensors.md
+      - Wetterquellen: de/user-guide/weather-sources.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
       - Pflanzenschutz (IPM): de/user-guide/pest-management.md

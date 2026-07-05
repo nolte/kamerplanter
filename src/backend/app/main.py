@@ -11,10 +11,14 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 import app.data_access.external.demo_pest_adapter  # noqa: F401  register REQ-044 demo adapter (opt-in preview)
+import app.data_access.external.dwd_weather_adapter  # noqa: F401  register REQ-046 weather adapter
 import app.data_access.external.gbif_adapter  # noqa: F401  register adapter
+import app.data_access.external.home_assistant_weather_adapter  # noqa: F401  register REQ-046 weather adapter
 import app.data_access.external.kindwise_pest_adapter  # noqa: F401  register REQ-044 cloud adapter (opt-in)
 import app.data_access.external.local_embedding_adapter  # noqa: F401  register identification adapter (priority 1)
 import app.data_access.external.local_pest_adapters  # noqa: F401  register REQ-044 self-hosted adapters
+import app.data_access.external.open_meteo_weather_adapter  # noqa: F401  register REQ-046 weather adapter
+import app.data_access.external.openweathermap_weather_adapter  # noqa: F401  register REQ-046 weather adapter
 import app.data_access.external.perenual_adapter  # noqa: F401  register adapter
 import app.data_access.external.plantnet_adapter  # noqa: F401  register REQ-029 adapter
 import app.data_access.storage.registry  # noqa: F401  register NFR-013 storage adapter factories

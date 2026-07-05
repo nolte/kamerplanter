@@ -112,7 +112,7 @@ Kamerplanter bietet aktuell 17 Widgets in vier Kategorien an. Welche Widgets fü
 | Widget | Beschreibung |
 |--------|-------------|
 | Tipp des Tages | Täglicher KI-Pflegetipp für deine Pflanzen. |
-| Wettervorhersage | Wetter für deine Outdoor-Standorte (mit Standort-Konfiguration). |
+| Wettervorhersage | Verweist auf die [Wetterquellen-Einrichtung](weather-sources.md) deiner Freiland-/Gewächshaus-Standorte; zeigt aktuell noch keine Vorhersagewerte direkt im Widget an. |
 | Ernteprognose | Voraussichtliche Erntetermine (mit Zeitraum-Konfiguration). |
 | Community-Aktivität | Aktivitäten aus deinen Gemeinschaftsgärten. |
 
@@ -202,3 +202,4 @@ Im [Light-Modus](light-mode.md) — ohne Registrierung — wird dein Layout stat
 - [Onboarding-Wizard](onboarding.md) — Erfahrungsstufe einstellen
 - [Light-Modus](light-mode.md) — Kamerplanter ohne Login betreiben
 - [Mandanten & Gärten](tenants.md) — Mehrere Gärten verwalten
+- [Wetterquellen je Standort](weather-sources.md) — Quelle für das Widget „Wettervorhersage" einrichten

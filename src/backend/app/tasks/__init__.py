@@ -26,6 +26,7 @@ celery_app.conf.update(
         "app.tasks.tenant_tasks",
         "app.tasks.vernalization_updates",
         "app.tasks.watering_tasks",
+        "app.tasks.weather_tasks",
     ],
     task_serializer="json",
     accept_content=["json"],
@@ -135,4 +136,11 @@ if settings.timescaledb_enabled:
     celery_app.conf.beat_schedule["sensor-ingest-ha-5min"] = {
         "task": "app.tasks.sensor_ingestion_tasks.ingest_ha_readings",
         "schedule": 300,
+    }
+
+# REQ-046 daily weather fetch (conditional kill-switch)
+if settings.weather_enabled:
+    celery_app.conf.beat_schedule["weather-fetch-daily"] = {
+        "task": "app.tasks.weather_tasks.fetch_weather_forecasts",
+        "schedule": crontab(hour=6, minute=0),
     }

@@ -1,6 +1,6 @@
 # Sensors and Measurement Data
 
-Kamerplanter is designed for four data sources for climate, substrate, and light data: automatic IoT/MQTT sensors, Home Assistant, a weather API for outdoor locations, and manual entry. Home Assistant (automatic polling) and manual entry at the tank are currently the only sources usable in production — the remaining sources are specified but not yet implemented (details below). <!-- REQ-005 v2.7 -->
+Kamerplanter is designed for four data sources for climate, substrate, and light data: automatic IoT/MQTT sensors, Home Assistant, weather services for outdoor and greenhouse locations, and manual entry. Home Assistant (automatic polling), **weather services** (for outdoor/greenhouse locations with GPS coordinates), and manual entry at the tank are currently usable in production — the direct IoT/MQTT connection is specified but not yet implemented (details below). <!-- REQ-005 v2.7, REQ-046 -->
 
 ---
 
@@ -13,12 +13,12 @@ Kamerplanter is designed for four data sources for climate, substrate, and light
 
 ## The Data Sources at a Glance
 
-The specification defines a four-tier fallback chain. Currently, only **one automatic path (Home Assistant) and manual entry at the tank** are actually implemented — there is no automatic switching between tiers:
+The specification defines a four-tier fallback chain. Currently, **two automatic paths (Home Assistant and weather services for outdoor/greenhouse locations) and manual entry at the tank** are implemented — only the direct IoT/MQTT connection is still missing:
 
 ```
 1. Automatic (IoT/MQTT) — planned
 2. Home Assistant REST API — REAL, implemented
-3. Weather API (outdoor only) — planned
+3. Weather service (outdoor/greenhouse only) — REAL, implemented
 4. Manual entry — REAL, currently tank only
 ```
 
@@ -26,10 +26,10 @@ The specification defines a four-tier fallback chain. Currently, only **one auto
 The sensor data model already has an `mqtt_topic` field reserved for a future direct MQTT connection. This ingestion path is **not yet implemented** — the field currently has no effect and does not need to be filled in.
 
 **2. Home Assistant (automatic)**
-A background job polls the current value of every active sensor with a configured HA entity ID every 5 minutes and writes it to the time-series database (source `ha_auto`). This is the only automatic path currently implemented.
+A background job polls the current value of every active sensor with a configured HA entity ID every 5 minutes and writes it to the time-series database (source `ha_auto`). This is one of two automatic paths currently implemented.
 
-**3. Weather API (outdoor only) — planned**
-For outdoor locations, Kamerplanter is planned to retrieve climate data from the German Weather Service (DWD), Open-Meteo, or OpenWeatherMap. See the [Outdoor Sensors](#outdoor-sensors-setting-up-a-weather-api) section below.
+**3. Weather service (outdoor/greenhouse only)**
+For outdoor and greenhouse locations with stored GPS coordinates, you can configure and prioritize one or more weather services (Open-Meteo, German Weather Service, OpenWeatherMap) or your own Home Assistant weather source as a data source — if your preferred source becomes unavailable, the next one automatically takes over. See [Weather Sources per Location](weather-sources.md) for details.
 
 **4. Manual Entry — currently tank only**
 
@@ -153,38 +153,27 @@ DLI is not a stand-alone sensor reading; it is calculated from PPFD × lighting 
 
 ---
 
-## Outdoor Sensors: Setting Up a Weather API
+## Outdoor Sensors: Setting Up a Weather Service {#outdoor-sensors-setting-up-a-weather-api}
 
-!!! warning "Not yet implemented"
-    Weather API integration (DWD, OpenWeatherMap, Open-Meteo) is **specified but not yet implemented**. The following sections describe the planned behavior in future tense. Currently outdoor measurements are only captured via Home Assistant or manual entry at the tank. <!-- REQ-005 v2.7 -->
+If you have no outdoor sensor of your own, you can instead retrieve climate data from a weather service or your Home Assistant installation — configured per site in the **Weather Source** section of the site detail page.
 
-If you have no outdoor sensor, you will be able to retrieve climate data from a weather service.
+In short:
 
-### Step 1: Enter Location Coordinates
+1. The site needs GPS coordinates (currently only editable via the API — see [Locations & Substrates](locations-substrates.md#creating-a-new-site)).
+2. You select a public weather service (**Open-Meteo** — recommended, no API key required; **German Weather Service**; **OpenWeatherMap** — requires your own API key) or your Home Assistant weather source.
+3. Optionally, you prioritize several sources as a fallback chain and check each source before saving via **Test Source**.
 
-You will be able to enter GPS coordinates (latitude, longitude) for the site under **Expert Settings**.
-
-### Step 2: Select Weather Data Source
-
-You will be able to choose between the following sources:
-
-- **Open-Meteo** (recommended): Free, no API key required
-- **German Weather Service (DWD)**: Official German weather data
-- **OpenWeatherMap**: Global, 1000 free requests/day
-
-### Step 3: Set Refresh Interval
-
-You will be able to set how often weather data is fetched (recommended: hourly).
+For the full step-by-step guide, see [Weather Sources per Location](weather-sources.md).
 
 !!! note "Weather data as a supplement"
-    Weather data reflects conditions at the weather measurement station, not exactly in your garden. For deviations (e.g. a shaded spot), manual adjustments will still be necessary.
+    Weather data reflects conditions at the weather measurement station, not exactly in your garden. For deviations (e.g. a shaded spot), manual adjustments remain useful.
 
 ---
 
 ## Sensor Failures, Fallback, and Interpolation
 
 !!! warning "Not yet implemented"
-    Automatic failure detection for sensors, an automatic switch to a fallback source, and bridging short outages via interpolation are **specified but not yet implemented**. Currently, when a Home Assistant sensor fails, no new value simply appears — there is neither a warning nor an automatically created task nor a substitute value.
+    Automatic failure detection for Home Assistant sensors, an automatic switch to a fallback source, and bridging short outages via interpolation are **specified but not yet implemented**. Currently, when a Home Assistant sensor fails, no new value simply appears — there is neither a warning nor an automatically created task nor a substitute value. [Weather sources](weather-sources.md) are an exception: the prioritized fallback chain between several configured services is already implemented there.
 
 The planned behavior is as follows: if a sensor delivers no data for more than 6 hours, Kamerplanter will detect the failure, show a warning, switch to the next available source, and create a "Check sensor" task. Short outages (under 2 hours) are planned to be bridged by interpolating the last known values.
 
@@ -215,6 +204,7 @@ Automatically collected measurements are downsampled in stages and eventually de
 ## See Also
 
 - [My Plant Doesn't Look Well — Symptom Diagnosis](plant-health-troubleshooting.md)
+- [Weather Sources per Location](weather-sources.md)
 - [Dashboard](dashboard.md)
 - [Tasks](tasks.md)
 - [Tank Management](tanks.md)

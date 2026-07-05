@@ -121,9 +121,11 @@ has_climate_normal       sites              climate_normals          // NEU — 
 
 ## 3. Technische Umsetzung (Python)
 
-### 3.1 `NasaPowerWeatherAdapter` gegen das REQ-005-ABC
+### 3.1 `NasaPowerWeatherAdapter` gegen das `WeatherAdapter`-ABC
 
-Der Adapter implementiert das in REQ-005 etablierte `WeatherAdapter`-ABC (Adapter-Pattern analog REQ-011) und registriert sich in derselben `WeatherAdapterRegistry`. Er ergänzt eine zweite Methode für den Klimanormale-Pfad.
+> **Registry-Ownership (REQ-046):** Das `WeatherAdapter`-ABC und die `WeatherAdapterRegistry` sind seit REQ-046 dort beheimatet (SSOT der Wetter-Datenquellen-Schicht) — nicht mehr in REQ-005. REQ-041 **definiert keine eigene Registry**, sondern registriert `NasaPowerWeatherAdapter` in der REQ-046-Registry. REQ-041 bleibt SSOT für den POWER-Adapter selbst, `:ClimateNormal` und `solar_radiation_mj_m2`.
+
+Der Adapter implementiert das in **REQ-046** beheimatete `WeatherAdapter`-ABC (Adapter-Pattern analog REQ-011) und registriert sich in derselben `WeatherAdapterRegistry`. Er ergänzt eine zweite Methode für den Klimanormale-Pfad.
 
 ```python
 from abc import abstractmethod
@@ -131,7 +133,7 @@ from datetime import date, datetime, timedelta
 
 import httpx
 
-from app.domain.interfaces.weather_adapter import WeatherAdapter  # REQ-005-ABC
+from app.domain.interfaces.weather_adapter import WeatherAdapter  # REQ-046-ABC
 from app.domain.models.weather import WeatherForecast
 from app.domain.models.climate import ClimateNormal
 
@@ -294,7 +296,7 @@ Reiht sich in die bestehenden REQ-005-Tasks ein, ohne sie zu ersetzen:
 - `NASA_POWER_BASE_URL` (Default `https://power.larc.nasa.gov/api/temporal`) — überschreibbar für Tests/Proxy.
 - `NASA_POWER_ENABLED: bool` (Default `true`) — globaler Kill-Switch.
 - `NASA_POWER_DAILY_DAYS_BACK: int` (Default `14`), `NASA_POWER_CLIMATE_TTL_DAYS: int` (Default `180`), `NASA_POWER_MAX_RPS: float` (Default `1.0`).
-- **Site-Ebene:** `Site.weather_source_priority: list[str]` (REQ-002-Erweiterung) — geordnete Quellenliste je Standort, z.B. `["dwd", "open-meteo", "nasa-power"]` (DACH) bzw. `["nasa-power", "open-meteo"]` (global). Default leitet sich aus GPS ab (innerhalb DACH-Bounding-Box → DWD zuerst).
+- **Site-Ebene:** Die geordnete Quellenliste je Standort (z.B. `["dwd", "open-meteo", "nasa-power"]` (DACH) bzw. `["nasa-power", "open-meteo"]` (global)) wird über REQ-046 (`:WeatherSourceConfig`, löst die ursprünglich skizzierte `Site.weather_source_priority: list[str]` ab) konfiguriert. Default leitet sich aus GPS ab (innerhalb DACH-Bounding-Box → DWD zuerst).
 
 **Deployment:**
 
@@ -310,8 +312,9 @@ Reiht sich in die bestehenden REQ-005-Tasks ein, ohne sie zu ersetzen:
 
 ## 6. Abhängigkeiten
 
-- **REQ-005 (Hybrid-Sensorik/Wetter):** Liefert das `WeatherAdapter`-ABC, die `WeatherAdapterRegistry`, das `:WeatherForecast`-Modell, die `has_forecast`-Edge und die Celery-Tasks (`fetch_weather_forecasts`, `check_frost_warnings`, `adjust_watering_reminders`), in die sich dieser Adapter einreiht. **Harte Abhängigkeit.**
-- **REQ-002 (Standortverwaltung):** Liefert `Site.gps_coordinates`, `Site.type` (`outdoor`/`greenhouse`/`indoor`) und `hemisphere`. Erweiterung um `Site.weather_source_priority`. **Harte Abhängigkeit.**
+- **REQ-046 (Wetterdienst-Datenquellen):** SSOT für das `WeatherAdapter`-ABC und die `WeatherAdapterRegistry`, in die sich `NasaPowerWeatherAdapter` registriert, sowie für die Quellen-Priorisierung (`:WeatherSourceConfig`, löst `Site.weather_source_priority` ab) und die additiven `:WeatherForecast`-Felder (`data_kind`, `is_current_conditions`). **Harte Abhängigkeit** (Registry-Ownership von REQ-005 hierher umgehängt).
+- **REQ-005 (Hybrid-Sensorik/Wetter):** Liefert das `:WeatherForecast`-Basismodell, die `has_forecast`-Edge, den `source`-Provenance-Enum und die Celery-Tasks (`fetch_weather_forecasts`, `check_frost_warnings`, `adjust_watering_reminders`), in die sich dieser Adapter einreiht. **Harte Abhängigkeit.**
+- **REQ-002 (Standortverwaltung):** Liefert `Site.gps_coordinates`, `Site.type` (`outdoor`/`greenhouse`/`indoor`) und `hemisphere`. Die Quellen-Priorität je Standort wird über REQ-046 (`:WeatherSourceConfig`) konfiguriert. **Harte Abhängigkeit.**
 - **REQ-037 (Evapotranspiration):** Konsument des neuen Feldes `solar_radiation_mj_m2` als Strahlungseingang der ET₀-Berechnung. **Konsumierende Abhängigkeit** (REQ-041 liefert den Eingang).
 - **REQ-039 (Klimazonen):** Konsument von `:ClimateNormal` (insb. `coldest_month_min_c`, `monthly_*`) für die Hardiness-/Köppen-Zonen-Ableitung. **Konsumierende Abhängigkeit.**
 - **REQ-022 (Pflegeerinnerungen):** Profitiert mittelbar (Aussaatfenster/Überwinterung über Klimanormale + hemisphere). Keine direkte Code-Kopplung.

@@ -20,17 +20,19 @@ const GenericWidget = lazy(() => import('./widgets/GenericWidget')) as WidgetCom
 const QuickActionsWidget = lazy(() => import('./widgets/QuickActionsWidget')) as WidgetComponent;
 // Existing REQ-022 widget — prop-less, extra props are ignored.
 const WinterProtectionWidget = lazy(() => import('./WinterProtectionWidget')) as WidgetComponent;
+// REQ-046 weather widget — prop-less, extra props are ignored.
+const WeatherForecastWidget = lazy(() => import('./widgets/WeatherForecastWidget')) as WidgetComponent;
 
 export const widgetRegistry: Record<WidgetKey, WidgetComponent> = {
   quick_actions: QuickActionsWidget,
   winter_protection: WinterProtectionWidget,
+  weather_forecast: WeatherForecastWidget,
   // The remaining widgets share the generic shell until their bespoke REQ-009
   // views land. They still receive their widgetKey/config props.
   active_plants_summary: GenericWidget,
   tasks_today: GenericWidget,
   care_reminders: GenericWidget,
   daily_tip: GenericWidget,
-  weather_forecast: GenericWidget,
   onboarding_progress: GenericWidget,
   ipm_alerts: GenericWidget,
   harvest_forecast: GenericWidget,

@@ -4800,3 +4800,121 @@ export interface WinterHardinessOverview {
   total: number;
   red_plants: WinterHardinessOverviewEntry[];
 }
+
+// ── REQ-046 Weather sources ───────────────────────────────────────────────
+
+/** Coarse class used for the two-way UI switch (public service vs. HA). */
+export type WeatherSourceKind = 'public' | 'home_assistant';
+
+/** The two confirmed Home-Assistant weather modes. */
+export type HaWeatherMode = 'weather_entity' | 'sensor_mapping';
+
+/** Provenance classification of a produced weather record. */
+export type WeatherDataKind = 'forecast' | 'observed' | 'reanalysis';
+
+/** HA `sensor.*` field mapping (mode B). All fields optional; unmapped stays null. */
+export interface HaSensorMapping {
+  temp_min_entity?: string | null;
+  temp_max_entity?: string | null;
+  temp_current_entity?: string | null;
+  humidity_entity?: string | null;
+  precipitation_entity?: string | null;
+  wind_speed_entity?: string | null;
+  wind_gust_entity?: string | null;
+  pressure_entity?: string | null;
+}
+
+/** Home-Assistant source configuration (mode A / mode B). */
+export interface WeatherSourceHaConfig {
+  mode: HaWeatherMode;
+  weather_entity_id?: string | null;
+  sensor_mapping?: HaSensorMapping | null;
+}
+
+/** Public-service source configuration in a request (plaintext api_key in). */
+export interface WeatherSourcePublicConfigRequest {
+  /** Plaintext OWM key. Empty / null / masked ("••••") means "unchanged". */
+  api_key?: string | null;
+  units_hint?: string | null;
+}
+
+/** Public-service source configuration in a response (masked out, AC-8). */
+export interface WeatherSourcePublicConfigResponse {
+  api_key_set: boolean;
+  units_hint?: string | null;
+}
+
+/** One prioritised source entry in the request body. */
+export interface WeatherSourceEntryRequest {
+  source_name: string;
+  kind: WeatherSourceKind;
+  enabled: boolean;
+  public_config?: WeatherSourcePublicConfigRequest | null;
+  ha_config?: WeatherSourceHaConfig | null;
+}
+
+/** One prioritised source entry in the response body (masked). */
+export interface WeatherSourceEntryResponse {
+  source_name: string;
+  kind: WeatherSourceKind;
+  enabled: boolean;
+  public_config?: WeatherSourcePublicConfigResponse | null;
+  ha_config?: WeatherSourceHaConfig | null;
+}
+
+/** PUT body — the full prioritised source list for a site. */
+export interface WeatherSourceConfigRequest {
+  enabled: boolean;
+  sources: WeatherSourceEntryRequest[];
+}
+
+/** GET response — the persisted, masked weather-source configuration. */
+export interface WeatherSourceConfigResponse {
+  site_key: string;
+  enabled: boolean;
+  sources: WeatherSourceEntryResponse[];
+  updated_at?: string | null;
+  updated_by?: string;
+}
+
+/** One selectable source advertised by the registry. */
+export interface AvailableSourceItem {
+  source_name: string;
+  kind: string;
+  requires_api_key: boolean;
+}
+
+/** `GET /weather-sources/available` response. */
+export interface AvailableSourcesResponse {
+  sources: AvailableSourceItem[];
+  ha_token_set: boolean;
+}
+
+/** One preview row returned by the connection test. */
+export interface WeatherTestPreviewItem {
+  forecast_date: string;
+  temp_min_c?: number | null;
+  temp_max_c?: number | null;
+  precipitation_mm?: number | null;
+  wind_speed_kmh?: number | null;
+  humidity_percent?: number | null;
+  source: string;
+  data_kind: string;
+  is_current_conditions: boolean;
+}
+
+/** `POST /weather-sources/test` response (reachability + preview, AC-7). */
+export interface WeatherTestResponse {
+  reachable: boolean;
+  preview: WeatherTestPreviewItem[];
+  error?: string | null;
+}
+
+/** One HA entity offered by the HA entity pickers. */
+export interface HaEntityItem {
+  entity_id: string;
+  friendly_name: string;
+  state?: string | null;
+  unit_of_measurement?: string | null;
+  device_class?: string | null;
+}

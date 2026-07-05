@@ -96,6 +96,45 @@ class HomeAssistantClient:
             )
         return results
 
+    def list_weather_entities(self) -> list[dict]:
+        """GET /api/states -> all weather.* entities (REQ-046 §3.4, mode A).
+
+        Companion to :meth:`list_sensor_entities`, which hard-filters ``sensor.``
+        and is therefore not reusable for weather entities.
+        """
+        url = f"{self._base_url}/api/states"
+        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        resp.raise_for_status()
+        results = []
+        for entity in resp.json():
+            eid: str = entity.get("entity_id", "")
+            if not eid.startswith("weather."):
+                continue
+            attrs = entity.get("attributes", {})
+            results.append(
+                {
+                    "entity_id": eid,
+                    "friendly_name": attrs.get("friendly_name", eid),
+                    "state": entity.get("state"),
+                }
+            )
+        return results
+
+    def get_state_attributes(self, entity_id: str) -> dict | None:
+        """GET /api/states/{entity_id} -> the raw ``attributes`` block or None.
+
+        Unlike :meth:`get_state`, this returns the full attribute dict (including
+        ``forecast``) without collapsing non-numeric values, as required by the
+        weather.* forecast reader (REQ-046 §3.4). Returns ``None`` on 404.
+        """
+        url = f"{self._base_url}/api/states/{entity_id}"
+        resp = httpx.get(url, headers=self._headers, timeout=self._timeout)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("attributes", {})
+
     def get_state(self, entity_id: str) -> dict | None:
         """GET /api/states/{entity_id} -> parsed state dict or None."""
         url = f"{self._base_url}/api/states/{entity_id}"

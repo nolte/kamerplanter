@@ -101,6 +101,9 @@ Click **Save**. The site appears in the overview.
 !!! info "For technical users"
     Besides name, climate zone, area, and timezone, a site also tracks GPS coordinates and average frost dates (last spring frost, first autumn frost, and the German "Eisheilige" date) in the background. This setting is currently only available via the API — it is not yet editable in the site form. The benefit: once a site has a GPS position, Kamerplanter can calculate the actual day length at your location and correctly evaluate automatic, photoperiod-triggered phase transitions (e.g. flower onset for outdoor short-day plants) — see [Automatic Phase Transitions](growth-phases.md#automatic-phase-transitions). Frost dates also feed into the sowing calendar.
 
+!!! tip "GPS coordinates unlock weather sources"
+    For sites of type Outdoor or Greenhouse, a stored GPS position also unlocks the **Weather Source** section on the site detail page — there you select and prioritize public weather services or a Home Assistant source, see [Weather Sources per Location](weather-sources.md).
+
 ---
 
 ## Adding Locations and Slots
@@ -256,3 +259,4 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 - [Planting Runs](planting-runs.md)
 - [Fertilization](fertilization.md)
 - [Growth Phases](growth-phases.md)
+- [Weather Sources per Location](weather-sources.md)
