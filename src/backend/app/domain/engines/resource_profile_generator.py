@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.domain.engines.phase_resource_resolver import resolve_nutrient
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 
 # Fallback defaults used when no YAML profile data is provided.
@@ -110,17 +111,28 @@ class ResourceProfileGenerator:
         )
 
     def generate_nutrient_profile(self, phase_name: str, phase_key: str = "") -> NutrientProfile:
-        """Generate a nutrient profile for a given phase."""
-        profile = self._profiles.get(phase_name, {})
-        nut = profile.get("nutrient", {})
+        """Generate a nutrient profile for a given phase.
 
-        npk = nut.get("npk_ratio", (3, 1, 2))
+        The per-phase base NPK/EC/pH come from the loaded profile table, but the
+        *regime* decisions (rest/flush → no feed, E8 pH target) are delegated to the
+        phase resource resolver (REQ-003 E8) so there is a single source of that logic.
+        This also corrects rest phases (e.g. dormancy) to no-feed, which the raw table
+        did not encode.
+        """
+        nut = self._profiles.get(phase_name, {}).get("nutrient", {})
+
+        regime = resolve_nutrient(
+            phase_name,
+            base_npk=tuple(nut.get("npk_ratio", (3, 1, 2))),
+            base_ec_ms=nut.get("target_ec_ms", 1.5),
+            base_ph=nut.get("target_ph", 6.0),
+        )
 
         return NutrientProfile(
             phase_key=phase_key,
-            npk_ratio=tuple(npk),
-            target_ec_ms=nut.get("target_ec_ms", 1.5),
-            target_ph=nut.get("target_ph", 6.0),
+            npk_ratio=regime.npk_ratio,
+            target_ec_ms=regime.target_ec_ms,
+            target_ph=regime.target_ph,
         )
 
     @staticmethod

@@ -330,6 +330,7 @@ def get_watering_service() -> WateringService:
         substrate_repo=get_substrate_repo(),
         lifecycle_repo=get_lifecycle_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+        sensor_service=get_sensor_service(),
     )
 
 

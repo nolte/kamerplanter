@@ -927,6 +927,12 @@ export interface NutrientProfile {
   calcium_ppm: number | null;
   magnesium_ppm: number | null;
   micro_nutrients: Record<string, number>;
+  /** REQ-003 E8: whether this phase is fed at all (false for flush/rest — 0:0:0). */
+  feed?: boolean;
+  /** REQ-003 E8: whether the phase target pH keeps micronutrients available (pH gating). */
+  micros_available?: boolean;
+  /** Human-readable pH / micronutrient-availability guidance from the resolver. */
+  ph_note?: string;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -4009,6 +4015,10 @@ export interface VolumeSuggestion {
   volume_ml_max: number;
   source: string;
   adjustments: string[];
+  /** REQ-003 E7: phase is watered without nutrients (flush/rest regime). */
+  water_only?: boolean;
+  /** Human-readable phase-regime note from the resolver (e.g. flush/rest/standard). */
+  regime_note?: string;
 }
 
 // ── REQ-012 Import Types ─────────────────────────────────────────────

@@ -137,6 +137,14 @@ Kamerplanter validiert die berechnete End-EC gegen phasen- und substratspezifisc
 
 ---
 
+## Flush und Ruhephase: automatisch ohne Düngung {#flush-ruhephase-ohne-duengung}
+
+Ergänzend zur Tabelle oben gilt für zwei Phasen eine feste Regel, die Kamerplanter automatisch anwendet: Für die Phasen **Spülung (Flush)** und **Ruhephase (Winterruhe/Dormanz)** berechnet das Nährstoffprofil der Phase immer **0:0:0** (keine Düngung) — unabhängig vom sonst hinterlegten Rezept. In der Nährstoff-Ansicht der jeweiligen Phase (siehe [Wachstumsphasen](../user-guide/growth-phases.md#npk-profil)) erscheint dafür der Chip „Keine Düngung (Flush / Ruhephase)". Für dein Mischprotokoll bedeutet das: In diesen Phasen entfällt das Ansetzen einer Nährlösung komplett — du gießt nur mit klarem Wasser.
+
+Zusätzlich prüft Kamerplanter den Ziel-pH-Wert jeder Phase auf **Mikronährstoff-Verfügbarkeit**: Liegt der Ziel-pH außerhalb des optimalen Fensters von pH 6,0–6,5, sperren sich Eisen, Mangan, Zink, Kupfer und Bor zunehmend aus der Aufnahme (Chlorose-Risiko — helle, gelbliche Blattadern). Kamerplanter zeigt diese Warnung als „Spurennährstoffe blockiert (pH-Sperre)" in der Nährstoff-Ansicht der Phase an.
+
+---
+
 ## EC-Temperaturkorrektur (EC@25)
 
 Die elektrische Leitfähigkeit eines Messwerts hängt von der Wassertemperatur ab — dieselbe Nährlösung zeigt bei wärmerem Wasser eine höhere EC an als bei kühlerem. Damit Messungen bei unterschiedlichen Temperaturen vergleichbar bleiben, korrigiert Kamerplanter optional auf die Referenztemperatur 25 °C:
@@ -244,3 +252,4 @@ Die Wassertemperatur beeinflusst Löslichkeit und biologische Wirksamkeit:
 - [Gießprotokoll](../user-guide/watering-log.md) — Runoff-Analyse pro Eintrag
 - [Tankmanagement](../user-guide/tanks.md)
 - [VPD-Optimierung](vpd-optimization.md)
+- [Wachstumsphasen](../user-guide/growth-phases.md#npk-profil) — phasenabhängiges Nährstoffprofil

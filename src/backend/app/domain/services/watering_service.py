@@ -1,5 +1,7 @@
 from datetime import UTC, date, datetime
 
+import structlog
+
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
@@ -13,6 +15,19 @@ from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
+
+logger = structlog.get_logger(__name__)
+
+# ── Soil-moisture sensor override (REQ-005) ────────────────────────────────
+# The metric_type a soil-moisture sensor is registered under (free-form on the
+# Sensor model). A live reading for the plant's location beats the static default.
+SOIL_MOISTURE_METRIC = "soil_moisture"
+# Volumetric water content (% VWC) thresholds. At/above WET the root zone is
+# saturated → suppress the event; at/below DRY the full recommended volume stands;
+# in between the volume scales linearly. Deliberately conservative — the override
+# only ever *reduces* volume, so the waterlogging cap remains the upper bound.
+_SENSOR_WET_MOISTURE_PCT = 70.0
+_SENSOR_DRY_MOISTURE_PCT = 30.0
 
 
 class WateringService:
@@ -32,6 +47,7 @@ class WateringService:
         substrate_repo=None,
         lifecycle_repo=None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
+        sensor_service=None,
     ) -> None:
         self._repo = repo
         self._engine = engine
@@ -47,6 +63,7 @@ class WateringService:
         self._substrate_repo = substrate_repo
         self._lifecycle_repo = lifecycle_repo
         self._phase_seq_repo = phase_seq_repo
+        self._sensor_service = sensor_service
 
     # ── Create ─────────────────────────────────────────────────────────
 
@@ -210,22 +227,35 @@ class WateringService:
         plant_key: PlantInstanceKey,
         reference_date: date | None = None,
         hemisphere: str = "north",
+        et_net_demand_ml: float | None = None,
     ) -> VolumeSuggestion:
         """Suggest a watering volume for a plant based on its phase, species, substrate, and container.
 
-        Gathers all relevant data from repositories and delegates to WateringVolumeEngine.
+        Gathers all relevant data from repositories and delegates to WateringVolumeEngine,
+        then applies the REQ-005/037 override precedence — ``ET/sensor > static default``,
+        with the ``waterlogging_tolerance`` cap (applied inside the resolver) as the
+        upper bound:
+
+        * ``et_net_demand_ml`` is the **REQ-037 evapotranspiration seam** — a computed
+          net irrigation demand (ml) that, when supplied, replaces the static per-event
+          volume. It defaults to ``None`` and is inert until the REQ-037 follow-up wires
+          a real ET calculator in; the hook is exercised by tests so it does not rot.
+        * a live soil-moisture sensor reading for the plant's location (REQ-005) scales
+          the recommended volume down when the root zone is already wet.
         """
 
         plant = self._get_plant(plant_key)
         ref_date = reference_date or date.today()
 
-        # Gather species watering guide
+        # Gather species watering guide + root-zone waterlogging tolerance
         species_vol_min: int | None = None
         species_vol_max: int | None = None
         species_seasonal: list[dict] | None = None
+        waterlogging_tolerance: str | None = None
         if self._species_repo and plant.species_key:
             species = self._species_repo.get_by_key(plant.species_key)
             if species:
+                waterlogging_tolerance = getattr(species, "waterlogging_tolerance", None)
                 # Check cultivar override first
                 guide = None
                 if plant.cultivar_key and hasattr(self._species_repo, "get_cultivar_by_key"):
@@ -280,7 +310,7 @@ class WateringService:
                     if req_profile and req_profile.irrigation_volume_ml_per_plant > 0:
                         phase_irrigation_vol = req_profile.irrigation_volume_ml_per_plant
 
-        return self._volume_engine.suggest_volume(
+        suggestion = self._volume_engine.suggest_volume(
             container_volume_liters=plant.container_volume_liters,
             substrate_type=substrate_type,
             water_retention=water_retention,
@@ -291,8 +321,121 @@ class WateringService:
             species_volume_ml_min=species_vol_min,
             species_volume_ml_max=species_vol_max,
             species_seasonal_adjustments=species_seasonal,
+            waterlogging_tolerance=waterlogging_tolerance,
             reference_date=ref_date,
             hemisphere=hemisphere,
+        )
+
+        # ── ET override (REQ-037 seam) — beats the static default when supplied ──
+        if et_net_demand_ml is not None and et_net_demand_ml >= 0:
+            suggestion = self._apply_volume_override(
+                suggestion,
+                new_volume_ml=et_net_demand_ml,
+                source="evapotranspiration_demand",
+                note=f"et_net_demand={round(et_net_demand_ml)}ml",
+                allow_zero=True,  # an ET demand of 0 means "irrigate nothing", not 10 ml
+            )
+
+        # ── Live soil-moisture sensor override (REQ-005) — reduces when wet ──
+        moisture = self._latest_soil_moisture_percent(plant_key)
+        if moisture is not None:
+            factor = self._moisture_volume_factor(moisture)
+            if factor < 1.0:
+                suggestion = self._apply_volume_override(
+                    suggestion,
+                    new_volume_ml=suggestion.volume_ml * factor,
+                    source="sensor_soil_moisture",
+                    note=f"soil_moisture={round(moisture)}%→x{factor:.2f}",
+                    allow_zero=True,
+                )
+
+        return suggestion
+
+    # ── Override helpers (REQ-005/037) ─────────────────────────────────────
+
+    def _latest_soil_moisture_percent(self, plant_key: PlantInstanceKey) -> float | None:
+        """Latest live soil-moisture reading (% VWC) for the plant's location, or None.
+
+        Resolves plant → slot → location, finds a ``soil_moisture`` sensor there and
+        read-throughs its live Home Assistant state (REQ-005 semi-automatic tier).
+        Returns None when no sensor service, location, sensor, or live value is available
+        — the caller then falls back to the static recommendation.
+        """
+        if self._sensor_service is None:
+            return None
+        slot = self._site_repo.get_slot_for_plant(plant_key)
+        if slot is None or not getattr(slot, "location_key", None):
+            return None
+        try:
+            sensors = self._sensor_service.get_sensors_for_location(slot.location_key)
+        except Exception as exc:
+            # Don't fail the volume suggestion on a sensor-lookup error — fall back to
+            # the static recommendation, but log so a real outage is distinguishable
+            # from "location has no soil-moisture sensor".
+            logger.warning(
+                "soil_moisture_sensor_lookup_failed",
+                plant_key=plant_key,
+                location_key=slot.location_key,
+                error=str(exc),
+            )
+            return None
+        moisture_sensors = [
+            s for s in sensors if s.metric_type == SOIL_MOISTURE_METRIC and getattr(s, "is_active", True)
+        ]
+        if not moisture_sensors:
+            return None
+        live = self._sensor_service.get_live_state_for_sensors(moisture_sensors)
+        entry = (live.get("values") or {}).get(SOIL_MOISTURE_METRIC)
+        value = entry.get("value") if entry else None
+        # Avoid a tuple-except (a known ruff-format 0.15.x mangling trap) — narrow by type.
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int | float):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                return None
+        return None
+
+    @staticmethod
+    def _moisture_volume_factor(moisture_percent: float) -> float:
+        """Map a soil-moisture reading (% VWC) to a volume factor in [0, 1]."""
+        if moisture_percent >= _SENSOR_WET_MOISTURE_PCT:
+            return 0.0
+        if moisture_percent <= _SENSOR_DRY_MOISTURE_PCT:
+            return 1.0
+        span = _SENSOR_WET_MOISTURE_PCT - _SENSOR_DRY_MOISTURE_PCT
+        return (_SENSOR_WET_MOISTURE_PCT - moisture_percent) / span
+
+    @staticmethod
+    def _apply_volume_override(
+        suggestion: VolumeSuggestion,
+        *,
+        new_volume_ml: float,
+        source: str,
+        note: str,
+        allow_zero: bool = False,
+    ) -> VolumeSuggestion:
+        """Return a copy of the suggestion with an override applied to the volume.
+
+        Scales min/max by the same ratio so the range keeps its shape, records the
+        override in ``adjustments`` and re-labels ``source`` so the API surfaces which
+        input drove the recommendation.
+        """
+        floor = 0 if allow_zero else 10
+        new_ml = max(floor, round(new_volume_ml))
+        prev_ml = suggestion.volume_ml
+        scale = (new_ml / prev_ml) if prev_ml > 0 else 1.0
+        return suggestion.model_copy(
+            update={
+                "volume_ml": new_ml,
+                "volume_ml_min": max(floor, round(suggestion.volume_ml_min * scale)),
+                "volume_ml_max": max(floor, round(suggestion.volume_ml_max * scale)),
+                "source": source,
+                "adjustments": [*suggestion.adjustments, note],
+            }
         )
 
     def _get_plant(self, plant_key: PlantInstanceKey):

@@ -1230,6 +1230,25 @@ export default function PlantInstanceDetailPage() {
                             title={wateringVolume.hint}
                           />
                         )}
+                        {wateringVolume?.raw.water_only && (
+                          <Tooltip title={t('pages.plantInstances.phaseRegime.waterOnlyTooltip')} arrow enterTouchDelay={0}>
+                            <Box
+                              component="span"
+                              sx={{ display: 'inline-flex', cursor: 'help' }}
+                              tabIndex={0}
+                              role="note"
+                              aria-label={t('pages.plantInstances.phaseRegime.waterOnlyTooltip')}
+                            >
+                              <Chip
+                                icon={<OpacityIcon />}
+                                label={t('pages.plantInstances.phaseRegime.waterOnly')}
+                                size="small"
+                                color="info"
+                                variant="filled"
+                              />
+                            </Box>
+                          </Tooltip>
+                        )}
                       </Box>
 
                       {/* Fertilizer dosages */}
@@ -1248,6 +1267,22 @@ export default function PlantInstanceDetailPage() {
                               />
                             );
                           })}
+                        </Box>
+                      )}
+
+                      {/* Phase-regime + sensor helper text (REQ-003 E7) */}
+                      {wateringVolume && (wateringVolume.raw.water_only || wateringVolume.raw.source === 'sensor_soil_moisture') && (
+                        <Box sx={{ width: '100%' }}>
+                          {wateringVolume.raw.water_only && wateringVolume.raw.regime_note && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {wateringVolume.raw.regime_note}
+                            </Typography>
+                          )}
+                          {wateringVolume.raw.source === 'sensor_soil_moisture' && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {t('pages.plantInstances.phaseRegime.sensorAdjusted')}
+                            </Typography>
+                          )}
                         </Box>
                       )}
                     </Box>

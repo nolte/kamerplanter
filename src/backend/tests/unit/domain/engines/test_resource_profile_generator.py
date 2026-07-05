@@ -49,6 +49,18 @@ class TestNutrientProfileGeneration:
         assert p.npk_ratio == (0, 0, 0)
         assert p.target_ec_ms == 0.0
 
+    def test_dormancy_is_no_feed_via_resolver(self):
+        # Consolidation fix: the raw table listed dormancy as (3,1,2)/1.5, but E8
+        # (resolve_nutrient) makes rest phases no-feed — the resolver is authoritative.
+        p = self.gen.generate_nutrient_profile("dormancy")
+        assert p.npk_ratio == (0, 0, 0)
+        assert p.target_ec_ms == 0.0
+
+    def test_extended_rest_phase_no_feed(self):
+        # winter_rest maps to dormancy (D8) -> no feed even without a table entry.
+        p = self.gen.generate_nutrient_profile("winter_rest")
+        assert p.npk_ratio == (0, 0, 0)
+
 
 class TestFromYamlPhases:
     def test_from_yaml_phases(self):
