@@ -11,9 +11,10 @@ import editGridSrc from '@/components/dashboard/DashboardEditGrid.tsx?raw';
  * source-level guard fails fast if a future refactor reintroduces the library
  * into the read-only path.
  */
-// Match the quoted module specifier only, so prose mentions of the library in
-// doc comments do not trip the guard.
-const SPECIFIER = "'react-grid-layout'";
+// Match the quoted module specifier prefix, so any entrypoint (the main entry,
+// the `/legacy` compat subpath, or `/css/*` styles) is caught, while prose
+// mentions of the library in doc comments do not trip the guard.
+const SPECIFIER = "'react-grid-layout";
 
 describe('dashboard route bundle budget', () => {
   it('read-only grid does not import react-grid-layout', () => {
