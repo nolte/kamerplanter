@@ -158,7 +158,7 @@ def duplicate_workflow(
     service: TaskService = Depends(get_task_service),
 ):
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
-    duplicated = service.duplicate_workflow_template(key, name)
+    duplicated = service.duplicate_workflow_template(key, name, tenant_key=ctx.tenant_key)
     return _wf_response(duplicated)
 
 
