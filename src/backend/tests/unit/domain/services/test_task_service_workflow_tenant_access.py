@@ -67,3 +67,25 @@ class TestWorkflowTemplateWriteGuard:
         updated = service.update_workflow_template("a1", {"name": "Renamed"})
         assert updated.name == "Renamed"
         repo.update_workflow_template.assert_called_once()
+
+
+class TestWorkflowTemplateDuplicate:
+    def test_duplicate_of_system_template_is_owned_by_duplicating_tenant(self) -> None:
+        # A tenant may copy a global system template, but the copy must be a
+        # private tenant-scoped template — never inherit the source's empty
+        # tenant_key, which would make it globally visible to every tenant.
+        service, repo = _service(_wf("sys1", "", is_system=True))
+
+        def _create(clone: WorkflowTemplate) -> WorkflowTemplate:
+            clone.key = "clone1"
+            return clone
+
+        repo.create_workflow_template.side_effect = _create
+        repo.get_phases_for_workflow.return_value = []
+        repo.get_task_templates_for_workflow.return_value = []
+
+        result = service.duplicate_workflow_template("sys1", "My Copy", tenant_key="tenant_a")
+
+        assert result.tenant_key == "tenant_a"
+        assert result.is_system is False
+        assert repo.create_workflow_template.call_args[0][0].tenant_key == "tenant_a"

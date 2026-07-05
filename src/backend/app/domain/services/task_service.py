@@ -81,11 +81,19 @@ class TaskService:
             raise ValidationError("Cannot delete system workflow templates.")
         return self._repo.delete_workflow_template(key)
 
-    def duplicate_workflow_template(self, key: str, new_name: str) -> WorkflowTemplate:
-        """Duplicate a workflow template including all its task templates."""
-        source = self.get_workflow_template(key)
+    def duplicate_workflow_template(self, key: str, new_name: str, tenant_key: str = "") -> WorkflowTemplate:
+        """Duplicate a workflow template including all its task templates.
+
+        The clone is owned by ``tenant_key`` (the duplicating tenant), never by
+        the source's tenant. A tenant may duplicate a global system template,
+        but the copy must be a private, tenant-scoped template — leaving it with
+        the source's empty tenant_key would make it globally visible to every
+        tenant now that the catalog list unions global rows.
+        """
+        source = self.get_workflow_template(key, tenant_key=tenant_key)
         clone = WorkflowTemplate(
             name=new_name,
+            tenant_key=tenant_key,
             description=source.description,
             species_compatible=list(source.species_compatible),
             species_key=source.species_key,
