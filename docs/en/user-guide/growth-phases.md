@@ -241,6 +241,32 @@ Click **Resume Growth**. Kamerplanter resets the cycle to the vegetative phase (
 
 ---
 
+## Monocarpic Plants: Flowering Once and Automatic Pup Continuation {#monokarpische-pflanzen}
+
+Some plant species are **monocarpic**: they flower exactly once in their lifetime and then die — well-known examples include many agaves, bromeliads, and guzmanias. In a species' lifecycle configuration this is recorded as the reproductive strategy **"Monocarpic (flowers once)"**, as opposed to **"Polycarpic (flowers repeatedly)"** for plants that flower repeatedly over several years.
+
+For monocarpic species, Kamerplanter does **not** represent continuation of the crop as a new cycle of the same plant, but through a separate successor plant: as soon as a monocarpic mother plant automatically transitions into its final flowering phase (flowering, fruiting, or ripening — depending on how its phase sequence ends), Kamerplanter automatically creates exactly one new plant instance, the **pup** (the clonal offset), and links it to the mother plant.
+
+!!! note "Not a cycle restart"
+    The mother plant is **not** reset and does not start a new cultivation cycle — it senesces in place and keeps its previous location and slot until it is removed (see [Removing a Plant](#pflanze-entfernen)). Continuation of the crop happens exclusively through the newly created pup.
+
+When automatically created, the pup inherits:
+
+- the tenant, plant species, and cultivar of the mother plant
+- the mother plant's location — but **no** fixed slot, because the mother plant keeps occupying its slot while it senesces
+- the date of the automatic transition as its planting date
+
+It starts in the **pup establishment** phase, if the species' phase sequence defines one — otherwise in the first phase of the sequence.
+
+For this reason, the pup's detail view shows an ancestry link **"Descended from …"** that leads to the mother plant.
+
+!!! tip "Re-evaluation does not create a second pup"
+    If the automatic transition is re-evaluated for the same mother plant, Kamerplanter does not create a second pup or a duplicate ancestry link.
+
+More on propagation history and the other (manual) propagation methods: [Propagation Management — Automatic Pup Continuation for Monocarpic Plants](propagation.md#automatische-kindel-fortfuehrung). <!-- REQ-003 D10 / REQ-017 -->
+
+---
+
 ## Removing a Plant: Recording the Ending Type and Loss Cause {#pflanze-entfernen}
 
 When a plant reaches the end of its lifecycle — whether through harvest, natural senescence, or an unexpected loss — you remove it via the **Remove Plant** button on its detail page. You can optionally record **how** the lifecycle ended. <!-- REQ-003 E5 -->
@@ -332,6 +358,9 @@ Plants without an ending type set (simply removed, without classification) still
 ??? question "Can I change the ending type or loss cause afterwards?"
     No. The classification happens once, in the removal dialog when you remove the plant, and cannot be edited afterwards.
 
+??? question "My agave has started flowering — do I need to create an offset myself?"
+    No. For species classified as monocarpic (reproductive strategy "Monocarpic"), Kamerplanter automatically creates the pup as soon as the plant transitions into its final flowering phase — you don't need to trigger anything manually. The mother plant stays at its location and senesces in place; the pup continues the crop. Details: [Monocarpic Plants](#monokarpische-pflanzen).
+
 ---
 
 ## See Also
@@ -342,3 +371,4 @@ Plants without an ending type set (simply removed, without classification) still
 - [Planting Runs](planting-runs.md)
 - [Watering Log](watering-log.md#suggested-watering-volume) — suggested watering volume
 - [Guides: Nutrient Mixing](../guides/nutrient-mixing.md#flush-rest-phases-no-feed) — flush/rest phases with no feed
+- [Propagation Management](propagation.md)

@@ -8,7 +8,7 @@ from app.common.dependencies import (
     get_plant_repo,
     get_site_repo,
 )
-from app.common.enums import LightType, TransitionTriggerType
+from app.common.enums import LightType, TransitionTrigger, TransitionTriggerType
 from app.domain.calculators.photoperiod_calculator import effective_light_hours
 from app.domain.calculators.sun_calculator import calculate_sun_times
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
@@ -142,7 +142,11 @@ def check_auto_transitions() -> dict:
                     continue
 
                 if fire:
-                    phase_service.transition_phase(plant.key or "", rule.to_phase_key, reason=reason)
+                    # AUTO trigger: the D10 clonal-pup spawn only reacts to
+                    # automatic transitions (a manual API correction must not).
+                    phase_service.transition_phase(
+                        plant.key or "", rule.to_phase_key, reason=reason, trigger=TransitionTrigger.AUTO
+                    )
                     transitioned += 1
                     logger.info(
                         "auto_transition",

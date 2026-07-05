@@ -149,6 +149,11 @@ BENEFICIALS = "beneficials"  # WP-8 — Nützlings-Stammdaten
 # REQ-010 User-contributed pest reference images (tenant-private gallery)
 PEST_IMAGE_CONTRIBUTIONS = "pest_image_contributions"
 
+# REQ-017 Propagation / lineage — one document per propagation event (clone /
+# seed cross / graft / division). D10 persists the monocarpic-mother→pup clone
+# event; the full propagation API/router remains a REQ-017 follow-up.
+PROPAGATION_EVENTS = "propagation_events"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -242,6 +247,7 @@ DOCUMENT_COLLECTIONS = [
     PEST_DETECTIONS,
     BENEFICIALS,
     PEST_IMAGE_CONTRIBUTIONS,
+    PROPAGATION_EVENTS,
 ]
 
 # Edge collections
@@ -288,6 +294,9 @@ HAS_PHASE_ENTRY = "has_phase_entry"
 PLAN_USES_FERTILIZER = "plan_uses_fertilizer"
 FOLLOWS_PLAN = "follows_plan"
 CLONED_FROM = "cloned_from"
+# REQ-017 genetic lineage — child (descendant) → parent (ancestor). D10 links a
+# monocarpic mother's clonal pup back to the mother instance.
+DESCENDED_FROM = "descended_from"
 WATERED_PLANT = "watered_plant"
 SHARES_PEST_RISK = "shares_pest_risk"
 FAMILY_COMPATIBLE_WITH = "family_compatible_with"
@@ -455,6 +464,7 @@ EDGE_COLLECTIONS = [
     PLAN_USES_FERTILIZER,
     FOLLOWS_PLAN,
     CLONED_FROM,
+    DESCENDED_FROM,
     WATERED_PLANT,
     SHARES_PEST_RISK,
     FAMILY_COMPATIBLE_WITH,
@@ -753,6 +763,12 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": CLONED_FROM,
         "from_vertex_collections": [NUTRIENT_PLANS],
         "to_vertex_collections": [NUTRIENT_PLANS],
+    },
+    {
+        # REQ-017 lineage: child (descendant) instance → parent (ancestor) instance.
+        "edge_collection": DESCENDED_FROM,
+        "from_vertex_collections": [PLANT_INSTANCES],
+        "to_vertex_collections": [PLANT_INSTANCES],
     },
     {
         "edge_collection": WATERED_PLANT,

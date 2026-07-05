@@ -16,7 +16,7 @@ class IPlantInstanceRepository(ABC):
     def get_or_raise(self, key: PlantID) -> PlantInstance: ...
 
     @abstractmethod
-    def get_by_instance_id(self, instance_id: str) -> PlantInstance | None: ...
+    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None: ...
 
     @abstractmethod
     def create(self, plant: PlantInstance) -> PlantInstance: ...
@@ -38,6 +38,20 @@ class IPlantInstanceRepository(ABC):
 
     @abstractmethod
     def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]: ...
+
+    @abstractmethod
+    def create_descended_from_edge(self, child_key: PlantID, mother_key: PlantID) -> None:
+        """Create the REQ-017 lineage edge child (descendant) → mother (ancestor)."""
+        ...
+
+    @abstractmethod
+    def has_descendants(self, mother_key: PlantID) -> bool:
+        """Whether any instance descends from ``mother_key`` (inbound descended_from edge).
+
+        Backs the D10 idempotency guard: a monocarpic mother that already has a
+        clonal pup must not spawn a second one on re-evaluation.
+        """
+        ...
 
     @abstractmethod
     def resolve_phase_name(self, phase_key: str) -> str:

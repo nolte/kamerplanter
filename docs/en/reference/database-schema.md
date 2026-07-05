@@ -74,7 +74,7 @@ The `seed_profile` object field bundles genuine seed/germination metadata for se
 
 | Collection | Description | Key fields |
 |-----------|-------------|-----------|
-| `plant_instances` | Individual plants | `instance_id` (unique), `current_phase_key`, `sown_at` |
+| `plant_instances` | Individual plants | `instance_id` (unique), `current_phase_key`, `sown_at`, `mother_key` (pup ancestry, REQ-017) |
 | `planting_runs` | Planting runs (groups) | `name`, `state`, `tenant_key` |
 | `planting_run_entries` | Entries within a run | `species_key`, `planned_count` |
 
@@ -170,6 +170,12 @@ planned → active → harvesting → completed
 | `user_preferences` | User preferences | `expertise_level`, `show_all_fields` |
 | `user_favorites` | Favorited species, plans, fertilizers | `_from` (user), `_to` (target entity) |
 
+### Propagation (REQ-017)
+
+| Collection | Description | Key fields |
+|-----------|-------------|-----------|
+| `propagation_events` | Propagation events — currently only the automatic pup-clone case (D10) | `method` (`clone`), `parent_plant_keys[]`, `child_plant_keys[]`, `happened_at` |
+
 ### Miscellaneous
 
 | Collection | Description |
@@ -220,6 +226,7 @@ planned → active → harvesting → completed
 | `current_phase` | `plant_instances` | `growth_phases` | Current phase of plant |
 | `phase_history_edge` | `plant_instances` | `phase_histories` | Plant's phase history |
 | `follows_plan` | `plant_instances` | `nutrient_plans` | Plant follows nutrient plan |
+| `descended_from` | `plant_instances` (pup) | `plant_instances` (mother) | Genetic lineage — currently only the automatic pup-clone case for monocarpic plants (REQ-017) |
 
 ### Planting Run Graph
 

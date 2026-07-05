@@ -85,6 +85,32 @@ class TestShouldRestartCycle:
         assert restart is False
 
 
+class TestIsMonocarpicTerminal:
+    """D10: the pure terminal-decision predicate that gates clonal-pup spawning."""
+
+    def setup_method(self) -> None:
+        self.engine = CyclicLifecycleEngine()
+
+    def _mono(self) -> LifecycleConfig:
+        return _lc(cycle_type=CycleType.PERENNIAL, flowering_strategy=FloweringStrategy.MONOCARPIC)
+
+    def test_monocarpic_in_terminal_reproductive_phase_is_terminal(self) -> None:
+        for phase in ("flowering", "fruit_development", "ripening"):
+            assert self.engine.is_monocarpic_terminal(self._mono(), phase) is True
+
+    def test_monocarpic_via_extended_phase_name(self) -> None:
+        # bract_coloring maps to flowering (D8) — a bromeliad's single terminal bloom.
+        assert self.engine.is_monocarpic_terminal(self._mono(), "bract_coloring") is True
+
+    def test_monocarpic_before_terminal_phase_is_not_terminal(self) -> None:
+        for phase in ("seedling", "vegetative", "juvenile", "mature"):
+            assert self.engine.is_monocarpic_terminal(self._mono(), phase) is False
+
+    def test_polycarpic_in_flowering_is_not_terminal(self) -> None:
+        polycarpic = _lc(cycle_type=CycleType.PERENNIAL, flowering_strategy=FloweringStrategy.POLYCARPIC)
+        assert self.engine.is_monocarpic_terminal(polycarpic, "flowering") is False
+
+
 class TestStaysInProductivePhase:
     """E4: indeterminate species stay in a stable productive phase (no auto-advance)."""
 

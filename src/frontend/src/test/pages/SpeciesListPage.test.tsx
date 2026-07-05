@@ -193,9 +193,12 @@ describe('SpeciesListPage', () => {
       await screen.findByText('Ocimum basilicum');
       const search = screen.getByPlaceholderText('Tabelle durchsuchen...');
       await user.type(search, 'Malus');
+      // The DataTable search is debounced; waitFor's default 1000ms poll window
+      // overruns under full-suite + v8-coverage load. Give it explicit headroom
+      // so system load, not correctness, decides the outcome.
       await waitFor(() => {
         expect(screen.queryByText('Ocimum basilicum')).toBeNull();
-      });
+      }, { timeout: 5000 });
       expect(screen.getByText('Malus domestica')).toBeTruthy();
     });
 

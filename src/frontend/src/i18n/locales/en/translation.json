@@ -1856,6 +1856,8 @@
       "taskCompleteQuick": "Mark as done",
       "taskCompleted": "Task marked as done.",
       "infoIntro": "Overview of this plant instance: current location, growth phase, watering status, and linked master data.",
+      "descendedFrom": "Descended from",
+      "descendedFromTooltip": "This plant emerged as a pup (clonal offset) from a mother plant. Click the name to jump to the mother.",
       "wateringLogIntro": "All watering and fertilization events for this plant. EC values after watering help monitor nutrient supply.",
       "caMgPpm": "Ca / Mg (ppm)",
       "ecTooltip": "Electrical Conductivity (EC, mS/cm): measures nutrient concentration in the solution. Higher value = more dissolved nutrients. Typical: 0.8–2.5 mS/cm depending on growth phase.",

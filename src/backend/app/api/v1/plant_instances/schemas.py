@@ -63,6 +63,8 @@ class PlantResponse(BaseModel):
     current_phase: str = ""
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None
+    # REQ-017 / REQ-003 D10 — clonal-pup ancestry pointer (mother instance key).
+    mother_key: str | None = None
     container_volume_liters: float | None = None
     substrate_type_override: SubstrateType | None = None
     species: SpeciesSummary | None = None
