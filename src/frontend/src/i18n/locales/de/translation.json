@@ -4936,7 +4936,14 @@
       "repotting": "Umtopfen",
       "pest_check": "Schädlingskontrolle",
       "location_check": "Standort-Check",
-      "humidity_check": "Luftfeuchte-Check"
+      "humidity_check": "Luftfeuchte-Check",
+      "deadheading": "Verblühtes entfernen",
+      "winter_protection": "Winterschutz anbringen",
+      "spring_uncover": "Winterschutz abnehmen",
+      "tuber_dig": "Knollen ausgraben",
+      "storage_check": "Lagerkontrolle",
+      "dormancy_health_check": "Winterruhe-Kontrolle",
+      "quarter_climate_check": "Winterquartier-Klima prüfen"
     },
     "wateringMethod": {
       "soak": "Tauchen",

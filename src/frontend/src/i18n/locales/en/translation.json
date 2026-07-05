@@ -4935,7 +4935,14 @@
       "repotting": "Repotting",
       "pest_check": "Pest Check",
       "location_check": "Location Check",
-      "humidity_check": "Humidity Check"
+      "humidity_check": "Humidity Check",
+      "deadheading": "Deadheading",
+      "winter_protection": "Apply winter protection",
+      "spring_uncover": "Remove winter protection",
+      "tuber_dig": "Lift tubers",
+      "storage_check": "Storage check",
+      "dormancy_health_check": "Dormancy check",
+      "quarter_climate_check": "Winter-quarter climate check"
     },
     "wateringMethod": {
       "soak": "Soak",
