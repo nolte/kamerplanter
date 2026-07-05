@@ -96,8 +96,33 @@ class OverwinteringProfileResponse(BaseModel):
     tuber_status: TuberStatus | None = None
     notes: str | None = None
     auto_generated: bool = False
+    # REQ-047 §2.3 auto-materialisation fields.
+    user_overridden: bool = False
+    derived_path: str | None = None
+    dormancy_care_active: bool = False
+    materialized_at: datetime | None = None
+    source_template_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class OverwinteringOverrideRequest(BaseModel):
+    """REQ-047 §4.3 — override individual fields of an auto-materialised profile."""
+
+    hardiness_rating: HardinessRating | None = None
+    winter_action: WinterAction | None = None
+    winter_action_month: int | None = Field(default=None, ge=1, le=12)
+    spring_action: SpringAction | None = None
+    spring_action_month: int | None = Field(default=None, ge=1, le=12)
+    winter_quarter_key: str | None = None
+    winter_quarter_temp_min: float | None = None
+    winter_quarter_temp_max: float | None = None
+    winter_quarter_light: WinterQuarterLight | None = None
+    winter_watering: WinterWatering | None = None
+    storage_medium: str | None = Field(default=None, max_length=200)
+    storage_check_interval_days: int | None = Field(default=None, ge=1, le=365)
+    tuber_status: TuberStatus | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class WinterHardinessOverviewEntryResponse(BaseModel):

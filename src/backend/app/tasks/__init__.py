@@ -20,6 +20,7 @@ celery_app.conf.update(
         "app.tasks.reference_contribution_tasks",
         "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
+        "app.tasks.season_tasks",
         "app.tasks.sensor_ingestion_tasks",
         "app.tasks.storage_tasks",
         "app.tasks.tank_maintenance_tasks",
@@ -143,4 +144,11 @@ if settings.weather_enabled:
     celery_app.conf.beat_schedule["weather-fetch-daily"] = {
         "task": "app.tasks.weather_tasks.fetch_weather_forecasts",
         "schedule": crontab(hour=6, minute=0),
+    }
+
+# REQ-047 daily season-state evaluation (after the weather fetch; kill-switch)
+if settings.season_state_eval_enabled:
+    celery_app.conf.beat_schedule["season-evaluate-states-daily"] = {
+        "task": "app.tasks.season_tasks.evaluate_season_states",
+        "schedule": crontab(hour=6, minute=30),
     }

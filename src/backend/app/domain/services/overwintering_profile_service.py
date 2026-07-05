@@ -133,6 +133,100 @@ class OverwinteringProfileService:
         self.get_profile(key, tenant_key)
         return self._repo.delete_profile(key)
 
+    # ── REQ-047 per-plant profile access / override ─────────────────────
+
+    def get_plant_profile(self, plant_key: str, tenant_key: str) -> OverwinteringProfile:
+        """Return the plant's (auto-materialised) overwintering profile.
+
+        Raises :class:`NotFoundError` (404) when the plant has no profile yet.
+        """
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            raise NotFoundError(_ENTITY, plant_key)
+        verify_tenant_ownership(profile, tenant_key, _ENTITY)
+        return profile
+
+    def override_plant_profile(self, plant_key: str, tenant_key: str, updates: dict) -> OverwinteringProfile:
+        """Override individual fields of the plant's profile (sets ``user_overridden``).
+
+        A contradiction with the hardiness-derived winter path (D5) is rejected
+        with 422; an otherwise invalid merge with 422 (never a 500).
+        """
+        profile = self.get_plant_profile(plant_key, tenant_key)
+        data = profile.model_dump()
+        data.update(updates)
+        data["tenant_key"] = tenant_key
+        data["user_overridden"] = True
+        try:
+            merged = OverwinteringProfile(**data)
+        except PydanticValidationError as exc:
+            raise ValidationError(
+                "The overwintering profile update is invalid.",
+                details=[
+                    {
+                        "field": ".".join(str(loc) for loc in err["loc"]) or "body",
+                        "reason": err["msg"],
+                        "code": err["type"],
+                    }
+                    for err in exc.errors()
+                ],
+            ) from exc
+        self._require_single_subject(merged)
+        self._validate_d5(merged)
+        return self._repo.update_profile(profile.key or "", merged)
+
+    def rematerialize_plant_profile(
+        self,
+        plant_key: str,
+        tenant_key: str,
+        *,
+        frost_sensitivity: FrostTolerance | None = None,
+        species_zone: str | None = None,
+        site_zone: str | None = None,
+        is_geophyte: bool = False,
+        species_key: str | None = None,
+        winter_action_month: int = 10,
+        spring_action_month: int = 3,
+    ) -> OverwinteringProfile:
+        """Reset the plant's profile to the automatic derivation (``user_overridden=False``).
+
+        Re-derives ``hardiness_rating`` / ``winter_action`` / ``spring_action`` and
+        the winter-quarter fields from the ampel + species template, in place,
+        satisfying the D5 invariant by construction.
+        """
+        from datetime import UTC, datetime
+
+        profile = self.get_plant_profile(plant_key, tenant_key)
+        light = evaluate_winter_hardiness(frost_sensitivity, species_zone, site_zone)
+        rating = _LIGHT_TO_RATING[light]
+        action = _LIGHT_TO_ACTION[light]
+        if light == WinterHardinessLight.RED and is_geophyte:
+            rating = HardinessRating.DIG_AND_STORE
+            action = WinterAction.DIG_STORE
+
+        spring_action, spring_month = self._derive_spring_action(light, action, spring_action_month)
+        template = self._resolve_template(species_key)
+        quarter = self._template_quarter_fields(template, action)
+
+        merged = profile.model_copy(
+            update={
+                "hardiness_zone_min": species_zone,
+                "hardiness_rating": rating,
+                "winter_action": action,
+                "winter_action_month": winter_action_month,
+                "spring_action": spring_action,
+                "spring_action_month": spring_month,
+                "user_overridden": False,
+                "auto_generated": True,
+                "derived_path": derive_winter_path(light),
+                "materialized_at": datetime.now(UTC),
+                "source_template_key": template.key if template is not None else None,
+                **quarter,
+            }
+        )
+        validate_d5_invariant(merged, light)
+        return self._repo.update_profile(profile.key or "", merged)
+
     # ── Auto-generation ─────────────────────────────────────────────────
 
     def auto_generate_profile(

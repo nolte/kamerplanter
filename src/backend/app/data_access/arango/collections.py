@@ -80,6 +80,9 @@ OVERWINTERING_PROFILES = "overwintering_profiles"
 #: (§4.3), distinct from the per-instance ``OVERWINTERING_PROFILES``.
 OVERWINTERING_PROFILE_TEMPLATES = "overwintering_profile_templates"
 
+# REQ-047 Season & overwintering automation
+SEASON_STATES = "season_states"
+
 # REQ-020 Onboarding
 STARTER_KITS = "starter_kits"
 ONBOARDING_STATES = "onboarding_states"
@@ -219,6 +222,7 @@ DOCUMENT_COLLECTIONS = [
     CARE_CONFIRMATIONS,
     OVERWINTERING_PROFILES,
     OVERWINTERING_PROFILE_TEMPLATES,
+    SEASON_STATES,
     STARTER_KITS,
     ONBOARDING_STATES,
     USER_PREFERENCES,
@@ -374,6 +378,9 @@ OVERWINTERS_AT = "overwinters_at"
 #: ``_from`` so each subject references at most one shared template.
 USES_OVERWINTERING_TEMPLATE = "uses_overwintering_template"
 
+# REQ-047 Season & overwintering automation edge
+HAS_SEASON_STATE = "has_season_state"  # sites → season_states (1:1)
+
 # REQ-014 Tank Fill edges
 HAS_FILL_EVENT = "has_fill_event"
 MIXED_INTO = "mixed_into"
@@ -526,6 +533,7 @@ EDGE_COLLECTIONS = [
     HAS_OVERWINTERING_PROFILE,
     OVERWINTERS_AT,
     USES_OVERWINTERING_TEMPLATE,
+    HAS_SEASON_STATE,
     INCLUDES_SPECIES,
     INCLUDES_CULTIVAR,
     INCLUDES_TEMPLATE,
@@ -1042,6 +1050,12 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PLANTING_RUNS, PLANT_INSTANCES],
         "to_vertex_collections": [OVERWINTERING_PROFILE_TEMPLATES],
     },
+    # REQ-047 Season & overwintering automation
+    {
+        "edge_collection": HAS_SEASON_STATE,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [SEASON_STATES],
+    },
     # REQ-020 Onboarding
     {
         "edge_collection": INCLUDES_SPECIES,
@@ -1378,6 +1392,15 @@ def ensure_collections(db: StandardDatabase) -> None:
     uses_overwintering_template_col = db.collection(USES_OVERWINTERING_TEMPLATE)
     uses_overwintering_template_col.add_persistent_index(fields=["_from"], unique=True)
     uses_overwintering_template_col.add_persistent_index(fields=["_to"], unique=False)
+
+    # REQ-047 Season state indexes — one state per site (unique site_key within a
+    # tenant); the has_season_state edge is 1:1 on _from.
+    season_states_col = db.collection(SEASON_STATES)
+    season_states_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    season_states_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
+
+    has_season_state_col = db.collection(HAS_SEASON_STATE)
+    has_season_state_col.add_persistent_index(fields=["_from"], unique=True)
 
     # REQ-020 Onboarding indexes
     starter_kits_col = db.collection(STARTER_KITS)

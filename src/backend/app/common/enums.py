@@ -812,6 +812,9 @@ class ReminderType(StrEnum):
     STORAGE_CHECK = "storage_check"
     SPRING_UNCOVER = "spring_uncover"
     WINTER_PROTECTION = "winter_protection"
+    # REQ-047 §2.5 season-/dormancy-driven control reminders
+    DORMANCY_HEALTH_CHECK = "dormancy_health_check"
+    QUARTER_CLIMATE_CHECK = "quarter_climate_check"
 
 
 # ── REQ-022 v2.5 Overwintering / Winter hardiness ──
@@ -882,6 +885,31 @@ class WinterHardinessLight(StrEnum):
     GREEN = "green"  # winter hardy in situ
     YELLOW = "yellow"  # needs protection in situ
     RED = "red"  # must be relocated / dug up
+
+
+class SeasonPhase(StrEnum):
+    """REQ-047 §2.2 — season state machine of an outdoor/greenhouse site.
+
+    Directed cycle (one per ``season_year``):
+    growing → pre_winter → winter_dormancy → pre_spring → growing.
+    """
+
+    GROWING = "growing"  # vegetation period — no winter activity
+    PRE_WINTER = "pre_winter"  # winter approaching: preparation / action window
+    WINTER_DORMANCY = "winter_dormancy"  # protected rest / in-situ dormancy (dormancy care mode)
+    PRE_SPRING = "pre_spring"  # late winter / spring: reactivation window
+
+
+class SeasonTriggerTier(StrEnum):
+    """REQ-047 §1 — which cascade tier produced the current season state.
+
+    Best-source-wins cascade: live weather → climatological (site frost dates) →
+    calendar (hemisphere presets). Surfaced for UI transparency.
+    """
+
+    LIVE = "live"
+    CLIMATOLOGICAL = "climatological"
+    CALENDAR = "calendar"
 
 
 class ConfirmAction(StrEnum):
