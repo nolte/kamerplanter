@@ -97,7 +97,7 @@ Beide Seiten findest du in der Navigation unter **Phasen**. Da hier grundlegende
 Neben dem manuellen Wechsel (siehe unten) kann ein Phasenübergang in einem Phasenablauf auch automatisch ausgelöst werden. Kamerplanter unterstützt drei Auslösearten:
 
 - **Zeitbasiert**: Der Übergang erfolgt automatisch, sobald eine Pflanze eine festgelegte Anzahl von Tagen in ihrer aktuellen Phase verbracht hat.
-- **Photoperiodisch**: Der Übergang in die Blüte erfolgt, sobald die Tageslänge am Standort der Pflanze einen artspezifischen Schwellenwert unterschreitet (Kurztagspflanzen) bzw. überschreitet (Langtagspflanzen). Dafür müssen für den Standort GPS-Koordinaten hinterlegt sein (siehe [Standorte und Substrate](locations-substrates.md)).
+- **Photoperiodisch**: Der Übergang in die Blüte erfolgt, sobald die maßgebliche Tageslänge (Stunden Licht pro Tag) einen artspezifischen Schwellenwert unterschreitet (Kurztagspflanzen) bzw. überschreitet (Langtagspflanzen). Kamerplanter ermittelt diese Tageslänge auf zwei Wegen: Bei **Indoor-Pflanzen** wird sie aus dem Lichtprogramm des Standorts abgeleitet (Einschalt-/Ausschaltzeit des Kunstlichts, z. B. 12/12 zur Blüteeinleitung). Bei **Outdoor-Pflanzen** wird sie aus der astronomischen Tageslänge am Standort berechnet, wofür GPS-Koordinaten hinterlegt sein müssen (siehe [Standorte und Substrate](locations-substrates.md)). Steht für einen künstlich beleuchteten Standort ein gültiges Lichtprogramm bereit, hat dieses Vorrang — eine künstlich beleuchtete Pflanze erlebt nicht die natürliche Tageslänge.
 - **Vernalisationsbasiert**: Bei zweijährigen Pflanzen mit Kälteperiode (z. B. Möhre zur Samengewinnung) zählt Kamerplanter kalte Tage; ist die artspezifische Mindestanzahl erreicht, wird der Übergang aus der Winterruhe in die Blüte automatisch freigegeben.
 
 Bei Pflanzenarten mit einer sogenannten „unbestimmten" (indeterminaten) Wuchsform — dazu zählen z. B. viele Tomaten-, Paprika- und Gurkensorten sowie zahlreiche Zimmerpflanzen — unterdrückt Kamerplanter automatische Weiterschaltungen, sobald die Pflanze ihre stabile, dauerhaft produktive Phase erreicht hat. Statt linear weiter Richtung Fruchtreife und Lebensende zu schalten, bleibt die Pflanze in dieser einen Phase, in der Wachstum, Blüte und Fruchtansatz gleichzeitig weiterlaufen und laufend geerntet werden kann.
@@ -179,7 +179,7 @@ Die Tageslichtlänge (Stunden Licht pro Tag) steuert bei vielen Pflanzen den Üb
 | Blüte-Einleitung | 12/12 (12h Licht, 12h Dunkel) |
 
 !!! tip "Tipp: Automatische Blüteeinleitung"
-    Bei Pflanzen mit hinterlegten Phasen-Definitionen und einem Standort mit GPS-Koordinaten kann die Blüte photoperiodisch ausgelöst werden (siehe [Automatische Phasenübergänge](#automatische-phasenuebergaenge)).
+    Bei Pflanzen mit hinterlegten Phasen-Definitionen kann die Blüte photoperiodisch ausgelöst werden — indoor aus dem Lichtprogramm des Standorts, outdoor aus der astronomischen Tageslänge bei hinterlegten GPS-Koordinaten (siehe [Automatische Phasenübergänge](#automatische-phasenuebergaenge)).
 
 ### NPK-Profil (Nährstoffverhältnis)
 
