@@ -45,14 +45,16 @@ class SurvivalStats(BaseModel):
     """Aggregated survival / failure-cause statistics for one tenant (REQ-003 G1)."""
 
     total: int = Field(ge=0, description="All plant instances of the tenant.")
-    terminated: int = Field(ge=0, description="Instances with any termination_type set.")
+    terminated: int = Field(ge=0, description="Concluded instances (removed_on set).")
     active: int = Field(ge=0, description="Still-growing instances (total minus terminated).")
     died: int = Field(ge=0, description="Instances lost to an unplanned death.")
-    survived: int = Field(ge=0, description="Instances that were NOT an unplanned death (total minus died).")
+    survived: int = Field(
+        ge=0, description="Concluded instances that were NOT an unplanned death (terminated minus died)."
+    )
     survival_rate: float = Field(
         ge=0,
         le=1,
-        description="survived / total as a fraction in [0, 1]; 0 when there are no instances.",
+        description="survived / terminated as a fraction in [0, 1]; 0 when no instance has concluded.",
     )
     by_termination_type: list[TerminationTypeCount] = Field(default_factory=list)
     by_termination_cause: list[TerminationCauseCount] = Field(default_factory=list)

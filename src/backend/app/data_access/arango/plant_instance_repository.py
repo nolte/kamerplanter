@@ -130,11 +130,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             RETURN {
               termination_type: p.termination_type,
               termination_cause: p.termination_cause,
-              phase_key: p.current_phase_key
+              phase_key: p.current_phase_key,
+              removed_on: p.removed_on
             }
         )
         LET total = LENGTH(rows)
-        LET terminated = LENGTH(FOR r IN rows FILTER r.termination_type != null RETURN 1)
+        LET terminated = LENGTH(FOR r IN rows FILTER r.removed_on != null RETURN 1)
         LET died = LENGTH(FOR r IN rows FILTER r.termination_type == @died RETURN 1)
         LET by_type = (
           FOR r IN rows

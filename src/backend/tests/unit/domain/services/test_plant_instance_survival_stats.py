@@ -1,8 +1,10 @@
 """Tests for survival-rate / failure-cause aggregation (REQ-003 G1).
 
 ``get_survival_stats`` turns the repository's raw aggregation into a survival
-model: ``survived`` counts everything that is NOT an unplanned ``died`` loss,
-the termination-type/cause breakdowns are mapped onto their enums, and the
+model: ``survived`` counts concluded instances (``terminated``) that were NOT an
+unplanned ``died`` loss, ``survival_rate`` is ``survived / terminated`` over
+concluded instances, the termination-type/cause breakdowns are mapped onto their
+enums, and the
 loss-by-phase counts are merged by resolved phase *name* (per-lifecycle phase
 keys of the same canonical phase are summed) and sorted most-affected first.
 Tenant isolation is verified by pinning the tenant_key handed to the repo and
@@ -74,8 +76,8 @@ class TestSurvivalStats:
         assert stats.terminated == 6
         assert stats.active == 4  # total - terminated
         assert stats.died == 4
-        assert stats.survived == 6  # total - died
-        assert stats.survival_rate == 0.6
+        assert stats.survived == 2  # terminated - died (concluded, not died)
+        assert stats.survival_rate == 0.3333  # survived / terminated = 2 / 6
 
         type_counts = {c.termination_type: c.count for c in stats.by_termination_type}
         assert type_counts == {

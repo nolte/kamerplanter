@@ -122,7 +122,7 @@ export default function SurvivalStatsPanel({ stats }: Props) {
                 <Typography variant="body2" color="text.secondary">
                   {t('pages.plantInstances.survival.rateCaption', {
                     survived: stats.survived,
-                    total: stats.total,
+                    terminated: stats.terminated,
                   })}
                 </Typography>
               </Box>

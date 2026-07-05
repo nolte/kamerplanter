@@ -226,12 +226,15 @@ class PlantInstanceService:
     def get_survival_stats(self, tenant_key: str) -> SurvivalStats:
         """Aggregate the tenant's plant instances for survival analytics (REQ-003 G1).
 
-        ``survived`` is every instance that was NOT an unplanned loss
-        (harvested/senesced/cancelled/still-growing all count as survived; only
-        ``died`` is a loss). Unplanned losses are additionally broken down by the
+        ``terminated`` counts instances that have concluded (``removed_on`` set);
+        ``active`` are those still in cultivation. ``survived`` is every concluded
+        instance that was NOT an unplanned loss (harvested/senesced/cancelled/
+        plain-removed all count as survived; only ``died`` is a loss), and
+        ``survival_rate`` is ``survived / terminated`` over concluded instances —
+        still-growing instances are excluded so an all-active tenant does not read
+        as a misleading 100 %. Unplanned losses are additionally broken down by the
         frozen growth phase they occurred in — merged by resolved phase *name* so
-        the same canonical phase across species aggregates, and sorted with the
-        most-affected phase first.
+        the same canonical phase across species aggregates, most-affected first.
         """
         if not tenant_key:
             raise ValidationError("tenant_key is required for survival statistics")
@@ -240,9 +243,9 @@ class PlantInstanceService:
         total = int(raw.get("total", 0))
         terminated = int(raw.get("terminated", 0))
         died = int(raw.get("died", 0))
-        survived = total - died
         active = total - terminated
-        survival_rate = round(survived / total, 4) if total else 0.0
+        survived = max(terminated - died, 0)
+        survival_rate = round(survived / terminated, 4) if terminated else 0.0
 
         by_type = [
             TerminationTypeCount(termination_type=TerminationType(row["value"]), count=row["count"])

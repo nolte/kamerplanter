@@ -1893,7 +1893,7 @@
         "intro": "Auswertung aller angelegten Pflanzen: wie viele überlebt haben und woran Verluste liegen.",
         "empty": "Noch keine Pflanzen erfasst.",
         "rateChip": "Überlebensrate {{percent}} %",
-        "rateCaption": "{{survived}} von {{total}} überlebt",
+        "rateCaption": "{{survived}} von {{terminated}} abgeschlossenen Pflanzen überlebt",
         "total": "Pflanzen gesamt",
         "active": "Noch in Kultur",
         "survived": "Überlebt",
@@ -1915,7 +1915,7 @@
         "tableAria": "Überlebensstatistik",
         "chartAria": "Balkendiagramm der Verlustverteilung",
         "dimensionToggleAria": "Verlust-Dimension umschalten",
-        "definitionNote": "„Überlebt“ umfasst geerntete, seneszente, abgebrochene und noch wachsende Pflanzen; nur „Verlust“ (eingegangen) zählt als Ausfall."
+        "definitionNote": "„Überlebt“ umfasst abgeschlossene Pflanzen (geerntet, seneszent, abgebrochen, ohne Angabe entfernt), die nicht eingegangen sind; noch wachsende Pflanzen zählen als „Noch in Kultur“. Die Überlebensrate bezieht sich nur auf abgeschlossene Pflanzen."
       }
     },
     "phases": {

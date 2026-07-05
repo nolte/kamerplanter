@@ -58,6 +58,10 @@ def test_survival_stats_query_is_tenant_scoped() -> None:
     assert db.aql.bind_vars["tenant_key"] == "tenant-A"
     # No literal tenant value interpolated into the query string.
     assert "tenant-A" not in (db.aql.query or "")
+    # Regression guard: "concluded" (terminated) is derived from removed_on, not
+    # termination_type — otherwise plain-removed / pre-feature plants would be
+    # miscounted as still-in-cultivation and inflate the survival rate.
+    assert "r.removed_on != null" in (db.aql.query or "")
 
 
 def test_survival_stats_rejects_empty_tenant_key() -> None:

@@ -1893,7 +1893,7 @@
         "intro": "Analysis of all recorded plants: how many survived and what losses stem from.",
         "empty": "No plants recorded yet.",
         "rateChip": "Survival rate {{percent}}%",
-        "rateCaption": "{{survived}} of {{total}} survived",
+        "rateCaption": "{{survived}} of {{terminated}} concluded plants survived",
         "total": "Plants total",
         "active": "Still growing",
         "survived": "Survived",
@@ -1915,7 +1915,7 @@
         "tableAria": "Survival statistics",
         "chartAria": "Bar chart of the loss distribution",
         "dimensionToggleAria": "Toggle loss dimension",
-        "definitionNote": "\"Survived\" includes harvested, senesced, cancelled and still-growing plants; only \"died\" counts as a loss."
+        "definitionNote": "\"Survived\" covers concluded plants (harvested, senesced, cancelled, plain-removed) that did not die; still-growing plants count as \"Still growing\". The survival rate refers only to concluded plants."
       }
     },
     "phases": {
