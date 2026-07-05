@@ -207,6 +207,53 @@ class TestPhaseFactor:
         assert result.volume_ml == 500
 
 
+class TestPhaseRegimeConsolidation:
+    """The engine consumes the phase resource resolver (REQ-003 E7) instead of an
+    own phase-factor table — so water-only regimes and the waterlogging cap surface."""
+
+    def test_flush_phase_surfaces_water_only(self, engine: WateringVolumeEngine):
+        result = engine.suggest_volume(
+            species_volume_ml_min=200,
+            species_volume_ml_max=400,
+            phase_name="flushing",
+        )
+        assert result.water_only is True
+        assert "flush" in result.regime_note
+
+    def test_standard_phase_is_not_water_only(self, engine: WateringVolumeEngine):
+        result = engine.suggest_volume(
+            species_volume_ml_min=200,
+            species_volume_ml_max=400,
+            phase_name="vegetative",
+        )
+        assert result.water_only is False
+
+    def test_waterlogging_sensitive_caps_engine_volume(self, engine: WateringVolumeEngine):
+        base = engine.suggest_volume(
+            species_volume_ml_min=200,
+            species_volume_ml_max=400,
+            phase_name="vegetative",
+        )
+        sensitive = engine.suggest_volume(
+            species_volume_ml_min=200,
+            species_volume_ml_max=400,
+            phase_name="vegetative",
+            waterlogging_tolerance="sensitive",
+        )
+        assert sensitive.volume_ml < base.volume_ml
+
+    def test_extended_rest_phase_reduces_volume(self, engine: WateringVolumeEngine):
+        # winter_rest maps to dormancy (D8) — the raw-string table missed it, the
+        # resolver applies the rest reduction and water-only flag.
+        result = engine.suggest_volume(
+            species_volume_ml_min=200,
+            species_volume_ml_max=400,
+            phase_name="winter_rest",
+        )
+        assert result.water_only is True
+        assert result.volume_ml < 300
+
+
 class TestContainerScaling:
     def test_large_container_scales_species_guide(self, engine: WateringVolumeEngine):
         """A 20L container should scale up species guide (damped by sqrt)."""

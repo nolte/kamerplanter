@@ -8,6 +8,10 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Divider from '@mui/material/Divider';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditIcon from '@mui/icons-material/Edit';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -124,9 +128,40 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
             <Grid size={{ xs: 12, md: 6 }}>
               <Card variant="outlined">
                 <CardContent>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-                    {t('pages.profiles.nutrients')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {t('pages.profiles.nutrients')}
+                    </Typography>
+                    {nutProfile.feed === false && (
+                      <Tooltip title={t('pages.profiles.noFeedTooltip')} arrow enterTouchDelay={0}>
+                        <Box
+                          component="span"
+                          sx={{ display: 'inline-flex', cursor: 'help' }}
+                          tabIndex={0}
+                          role="note"
+                          aria-label={t('pages.profiles.noFeedTooltip')}
+                        >
+                          <Chip
+                            label={t('pages.profiles.noFeed')}
+                            size="small"
+                            color="info"
+                            variant="outlined"
+                          />
+                        </Box>
+                      </Tooltip>
+                    )}
+                  </Box>
+                  {nutProfile.micros_available === false && (
+                    <Alert severity="warning" sx={{ mb: 1.5 }}>
+                      <AlertTitle>{t('pages.profiles.microLockoutTitle')}</AlertTitle>
+                      {t('pages.profiles.microLockoutIntro')}
+                      {nutProfile.ph_note ? (
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          {nutProfile.ph_note}
+                        </Typography>
+                      ) : null}
+                    </Alert>
+                  )}
                   <ProfileRow label={t('pages.profiles.npkRatio')} value={nutProfile.npk_ratio.join(' – ')} />
                   <Divider sx={{ my: 1 }} />
                   <ProfileRow label="EC" value={`${nutProfile.target_ec_ms} mS/cm`} />

@@ -32,6 +32,35 @@ class TestIrrigation:
         reg = resolve_irrigation("vegetative", base_volume_ml=300, waterlogging_tolerance="sensitive")
         assert reg.volume_ml_per_plant <= 300 * 0.7
 
+    def test_waterlogging_tolerant_allows_more_volume(self) -> None:
+        # tolerant roots may take more water per event than a moderate/unset one.
+        moderate = resolve_irrigation("vegetative", base_volume_ml=300)
+        tolerant = resolve_irrigation("vegetative", base_volume_ml=300, waterlogging_tolerance="tolerant")
+        assert tolerant.volume_ml_per_plant > moderate.volume_ml_per_plant
+
+    def test_flowering_elevates_volume_above_base(self) -> None:
+        # the consolidated per-phase factor preserves the flowering elevation the
+        # watering engine used to own (1.2x) for the common moderate/unset case.
+        reg = resolve_irrigation("flowering", base_volume_ml=300)
+        assert reg.volume_ml_per_plant > 300
+        assert reg.water_only is False
+
+    def test_flushing_elevates_volume_and_is_water_only(self) -> None:
+        reg = resolve_irrigation("flushing", base_volume_ml=300)
+        assert reg.volume_ml_per_plant > 300  # elevated to leach salts
+        assert reg.water_only is True
+
+    def test_extended_flowering_phase_inherits_factor(self) -> None:
+        # pre_bloom maps to flowering (D8) -> inherits the flowering volume factor,
+        # which the engine's former raw-string table missed.
+        reg = resolve_irrigation("pre_bloom", base_volume_ml=300)
+        assert reg.volume_ml_per_plant > 300
+
+    def test_germination_lower_than_seedling(self) -> None:
+        germ = resolve_irrigation("germination", base_volume_ml=300)
+        seed = resolve_irrigation("seedling", base_volume_ml=300)
+        assert germ.volume_ml_per_plant < seed.volume_ml_per_plant < 300
+
 
 class TestNutrient:
     def test_rest_phase_no_feed(self) -> None:

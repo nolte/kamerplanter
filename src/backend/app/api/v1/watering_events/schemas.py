@@ -114,3 +114,11 @@ class VolumeSuggestionResponse(BaseModel):
     volume_ml_max: int = Field(description="Upper bound of recommended range")
     source: str = Field(description="Which data source determined the volume")
     adjustments: list[str] = Field(default_factory=list, description="Applied adjustments")
+    water_only: bool = Field(
+        default=False,
+        description="Phase regime (REQ-003 E7): watered without nutrients (flush/rest)",
+    )
+    regime_note: str = Field(
+        default="",
+        description="Human-readable phase-regime note from the resolver",
+    )

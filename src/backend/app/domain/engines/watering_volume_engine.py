@@ -15,6 +15,7 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 from app.common.enums import IrrigationStrategy, SubstrateType, WaterRetention
+from app.domain.engines.phase_resource_resolver import resolve_irrigation
 
 
 class VolumeSuggestion(BaseModel):
@@ -27,6 +28,14 @@ class VolumeSuggestion(BaseModel):
     adjustments: list[str] = Field(
         default_factory=list,
         description="Applied adjustments (phase, seasonal, substrate, etc.)",
+    )
+    water_only: bool = Field(
+        default=False,
+        description="E7 regime: this phase is watered without nutrients (flush/rest).",
+    )
+    regime_note: str = Field(
+        default="",
+        description="Human-readable phase-regime note from the phase resource resolver.",
     )
 
 
@@ -64,16 +73,9 @@ _STRATEGY_MODIFIER: dict[str, float] = {
     "continuous": 0.50,  # minimal per event (always running)
 }
 
-# ── Phase factor: multiplier relative to vegetative baseline ──
-_PHASE_FACTOR: dict[str, float] = {
-    "germination": 0.30,
-    "seedling": 0.50,
-    "vegetative": 1.00,
-    "flowering": 1.20,
-    "flushing": 1.40,
-    "dormancy": 0.25,
-    "harvest": 0.60,
-}
+# Per-phase volume modulation now lives in the phase resource resolver
+# (``resolve_irrigation``, REQ-003 E7) — the single authoritative source consumed
+# below — so this engine no longer keeps its own phase-factor table.
 
 DEFAULT_VOLUME_ML = 250
 DEFAULT_RANGE_PERCENT = 0.25  # +-25% for min/max when only a point estimate is available
@@ -95,6 +97,7 @@ class WateringVolumeEngine:
         species_volume_ml_min: int | None = None,
         species_volume_ml_max: int | None = None,
         species_seasonal_adjustments: list[dict] | None = None,
+        waterlogging_tolerance: str | None = None,
         reference_date: date | None = None,
         hemisphere: str = "north",
     ) -> VolumeSuggestion:
@@ -111,6 +114,9 @@ class WateringVolumeEngine:
             species_volume_ml_min: WateringGuide lower bound.
             species_volume_ml_max: WateringGuide upper bound.
             species_seasonal_adjustments: List of SeasonalWateringAdjustment dicts.
+            waterlogging_tolerance: Species root-zone tolerance ("sensitive" /
+                "moderate" / "tolerant") — caps/allows the per-event volume via the
+                phase resource resolver (REQ-003 E7).
             reference_date: Date for seasonal lookup (defaults to today).
             hemisphere: "north" or "south" for seasonal logic.
 
@@ -165,16 +171,37 @@ class WateringVolumeEngine:
             adjustments,
         )
 
-        # ── Apply phase factor (if not already from RequirementProfile) ─
-        if source != "phase_requirement_profile" and phase_name:
-            factor = _PHASE_FACTOR.get(phase_name.lower(), 1.0)
-            if factor != 1.0:
-                volume_ml *= factor
-                if vol_min is not None:
-                    vol_min *= factor
-                if vol_max is not None:
-                    vol_max *= factor
-                adjustments.append(f"phase_factor={phase_name}*{factor}")
+        # ── Apply the authoritative per-phase regime (REQ-003 E7) ──────
+        # The phase resource resolver owns per-phase volume modulation, the
+        # water-only (flush/rest) flag and the waterlogging-tolerance cap. An
+        # explicit RequirementProfile volume is treated as already phase-specific,
+        # so its magnitude is respected (no re-modulation) — but the regime flags
+        # are still surfaced for guidance.
+        water_only = False
+        regime_note = ""
+        # The waterlogging cap is phase-independent, so the resolver also runs when a
+        # tolerance is set but the phase is unknown (effective phase = vegetative → no
+        # phase factor, only the tolerance multiplier).
+        if phase_name or waterlogging_tolerance:
+            effective_phase = phase_name or "vegetative"
+            regime = resolve_irrigation(
+                effective_phase,
+                base_frequency_days=3.0,
+                base_volume_ml=volume_ml,
+                waterlogging_tolerance=waterlogging_tolerance,
+            )
+            if phase_name:
+                water_only = regime.water_only
+                regime_note = regime.note
+            if source != "phase_requirement_profile" and volume_ml > 0:
+                scale = regime.volume_ml_per_plant / volume_ml
+                if abs(scale - 1.0) > 1e-9:
+                    volume_ml = regime.volume_ml_per_plant
+                    if vol_min is not None:
+                        vol_min *= scale
+                    if vol_max is not None:
+                        vol_max *= scale
+                    adjustments.append(f"phase_regime={effective_phase}→{regime.note}")
 
         # ── Scale species guide by container size if both available ────
         if source == "species_watering_guide" and container_volume_liters is not None:
@@ -202,6 +229,8 @@ class WateringVolumeEngine:
             volume_ml_max=final_max,
             source=source,
             adjustments=adjustments,
+            water_only=water_only,
+            regime_note=regime_note,
         )
 
     # ── Private helpers ────────────────────────────────────────────────

@@ -30,12 +30,33 @@ _FEEDER_EC_FACTOR: dict[NutrientDemandLevel, float] = {
     NutrientDemandLevel.NITROGEN_FIXER: 0.6,
 }
 
-# Waterlogging tolerance -> max fraction of the base volume that may be applied.
+# Waterlogging tolerance -> multiplier on the phase-modulated volume. A sensitive
+# root zone gets less water per event (drainage/anoxia risk), a tolerant one may
+# take more. Applied AFTER the per-phase factor so a phase that legitimately needs
+# elevated volume (flowering/flushing) is not silently clamped to the base for the
+# common ``moderate``/unset case.
 _WATERLOGGING_VOLUME_CAP: dict[str, float] = {
     "sensitive": 0.7,
     "moderate": 1.0,
     "tolerant": 1.3,
 }
+
+# Per-phase volume factor relative to the vegetative baseline (core-phase keyed).
+# Consolidated from the former WateringVolumeEngine._PHASE_FACTOR so the resolver is
+# the single authoritative phase-modulation source; extended phase names inherit the
+# factor of their core phase via ``core_phase`` (e.g. pre_bloom -> flowering). Rest
+# phases, flushing and dry_storage are handled by their dedicated regimes below.
+_PHASE_VOLUME_FACTOR: dict[str, float] = {
+    "germination": 0.30,
+    "seedling": 0.50,
+    "flowering": 1.20,
+    "ripening": 0.60,  # formerly the retired "harvest" phase (0.60)
+}
+
+# Flushing gets an elevated water-only volume to leach accumulated salts.
+_FLUSHING_VOLUME_FACTOR = 1.40
+# Rest/dormancy: minimal maintenance water.
+_REST_VOLUME_FACTOR = 0.25
 
 # E8 pH-gating: most micronutrients (Fe, Mn, Zn, Cu, B) are most available in the
 # slightly-acidic window pH 6.0–6.5 (soil_ph_preference, REQ-001); molybdenum is the
@@ -98,33 +119,53 @@ def resolve_irrigation(
     base_volume_ml: float = 300.0,
     waterlogging_tolerance: str | None = None,
 ) -> IrrigationRegime:
-    """E7: resolve the irrigation regime for a phase."""
-    core = core_phase(phase_name)
-    cap = _WATERLOGGING_VOLUME_CAP.get(waterlogging_tolerance or "moderate", 1.0)
-    max_volume = base_volume_ml * cap
+    """E7: resolve the irrigation regime for a phase.
 
+    ``base_volume_ml`` is the caller's already-resolved per-event volume (from the
+    phase profile / species guide / container calc). This function applies the
+    authoritative per-phase factor and the waterlogging-tolerance multiplier on top
+    of it, so the watering engine no longer needs its own phase-factor table.
+    """
+    core = core_phase(phase_name)
+    tolerance_factor = _WATERLOGGING_VOLUME_CAP.get(waterlogging_tolerance or "moderate", 1.0)
+
+    # ``dry_storage`` maps to dormancy but is drier than a normal rest — check first.
     if phase_name == "dry_storage":
         return IrrigationRegime(0.0, 0.0, water_only=True, note="dry storage — no watering")
     if is_rest_phase(phase_name):
-        # rest: much less frequent, minimal volume
         return IrrigationRegime(
             frequency_days=base_frequency_days * 4,
-            volume_ml_per_plant=min(base_volume_ml * 0.25, max_volume),
+            volume_ml_per_plant=base_volume_ml * _REST_VOLUME_FACTOR * tolerance_factor,
             water_only=True,
             note="rest/dormancy — minimal water, no feed",
         )
     if core == "flushing":
         return IrrigationRegime(
-            base_frequency_days, min(base_volume_ml, max_volume), water_only=True, note="flush — water only"
+            frequency_days=base_frequency_days,
+            volume_ml_per_plant=base_volume_ml * _FLUSHING_VOLUME_FACTOR * tolerance_factor,
+            water_only=True,
+            note="flush — water only, elevated volume to leach salts",
         )
     if core in ("germination", "seedling"):
         return IrrigationRegime(
             frequency_days=max(1.0, base_frequency_days / 2),
-            volume_ml_per_plant=min(base_volume_ml * 0.4, max_volume),
+            volume_ml_per_plant=base_volume_ml * _PHASE_VOLUME_FACTOR[core] * tolerance_factor,
             water_only=False,
             note="establishment — frequent, low volume",
         )
-    return IrrigationRegime(base_frequency_days, min(base_volume_ml, max_volume), water_only=False, note="standard")
+    factor = _PHASE_VOLUME_FACTOR.get(core, 1.0)
+    if factor > 1.0:
+        note = f"{core} — elevated volume (x{factor})"
+    elif factor < 1.0:
+        note = f"{core} — reduced volume (x{factor})"
+    else:
+        note = "standard"
+    return IrrigationRegime(
+        frequency_days=base_frequency_days,
+        volume_ml_per_plant=base_volume_ml * factor * tolerance_factor,
+        water_only=False,
+        note=note,
+    )
 
 
 def resolve_nutrient(

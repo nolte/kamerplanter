@@ -84,6 +84,18 @@ The detail page also has an **"Analyze Runoff"** button that runs a runoff analy
 
 ---
 
+## Suggested Watering Volume {#suggested-watering-volume}
+
+For plants with a growth phase set, Kamerplanter automatically suggests a watering volume — shown as a chip on the plant detail page and pre-filled when you confirm a due watering task. The suggestion takes into account:
+
+- the current **growth phase** (see [Watering Volume per Phase](growth-phases.md#watering-volume-per-phase)),
+- the plant species' **waterlogging tolerance** as an upper bound,
+- a **live soil-moisture sensor** configured at the location (see [Sensors](sensors.md)): if the soil is already wet, Kamerplanter automatically reduces the volume and shows a hint about it.
+
+The suggestion is non-binding — you can always enter a different volume when logging the watering.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "Are automatic irrigations via Home Assistant logged?"
@@ -107,3 +119,4 @@ The detail page also has an **"Analyze Runoff"** button that runs a runoff analy
 - [Planting Runs](planting-runs.md) — Configuring a watering schedule
 - [Tank Management](tanks.md) — Irrigation tanks and fills
 - [Guides: Mixing Nutrient Solutions](../guides/nutrient-mixing.md) — Runoff analysis thresholds
+- [Growth Phases](growth-phases.md#watering-volume-per-phase) — phase-dependent watering and feeding rules

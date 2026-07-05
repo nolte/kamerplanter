@@ -84,6 +84,18 @@ Auf der Detailseite kannst du außerdem über den Button **„Ablauf analysieren
 
 ---
 
+## Vorgeschlagene Gießmenge {#vorgeschlagene-giessmenge}
+
+Für Pflanzen mit hinterlegter Wachstumsphase schlägt Kamerplanter automatisch eine Gießmenge vor — sichtbar als Chip auf der Pflanzen-Detailseite und als vorausgefüllter Wert beim Bestätigen einer fälligen Gießaufgabe. In den Vorschlag fließen ein:
+
+- die aktuelle **Wachstumsphase** (siehe [Bewässerungsmenge je Phase](growth-phases.md#bewaesserungsmenge-je-phase)),
+- die **Staunässe-Toleranz** der Pflanzenart als Obergrenze,
+- ein am Standort eingerichteter **Live-Bodenfeuchte-Sensor** (siehe [Sensorik](sensors.md)): Ist der Boden bereits feucht, reduziert Kamerplanter die Menge automatisch und zeigt dazu einen Hinweistext.
+
+Der Vorschlag ist unverbindlich — du kannst beim Erfassen des Gießvorgangs jederzeit ein abweichendes Volumen eintragen.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Werden automatische Bewässerungen über Home Assistant protokolliert?"
@@ -107,3 +119,4 @@ Auf der Detailseite kannst du außerdem über den Button **„Ablauf analysieren
 - [Pflanzdurchläufe](planting-runs.md) — Gießplan konfigurieren
 - [Tankmanagement](tanks.md) — Bewässerungstanks und Befüllungen
 - [Guides: Nährlösung mischen](../guides/nutrient-mixing.md) — Ablaufanalyse-Schwellenwerte
+- [Wachstumsphasen](growth-phases.md#bewaesserungsmenge-je-phase) — phasenabhängige Gieß- und Düngeregeln
