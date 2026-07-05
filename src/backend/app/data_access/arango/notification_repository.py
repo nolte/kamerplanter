@@ -161,6 +161,25 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return [self._to_notification(doc) for doc in cursor]
 
+    def find_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+        """Return the tenant's notifications carrying ``group_key`` (any user).
+
+        Backs cross-run idempotency for producers that must emit a group at most
+        once (e.g. one frost forecast warning per ``(site_key, forecast_date)``).
+        A non-empty result means the group was already notified — the producer
+        then skips re-notifying.
+        """
+        query = (
+            f"FOR doc IN {NOTIFICATIONS} "
+            f"FILTER doc.group_key == @group_key AND doc.tenant_key == @tenant_key "
+            f"RETURN doc"
+        )
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"group_key": group_key, "tenant_key": tenant_key},
+        )
+        return [self._to_notification(doc) for doc in cursor]
+
     def count_unread(self, user_key: str, tenant_key: str | None = None) -> int:
         """Count unread notifications for a user."""
         filters = ["doc.user_key == @user_key", "doc.read_at == null"]

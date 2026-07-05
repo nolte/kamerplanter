@@ -64,6 +64,17 @@ Falls du Tanks konfiguriert hast, zeigt das Dashboard den aktuellen Zustand dein
 - pH-Wert (mit Ampel-Indikator)
 - Nächster Wasserwechsel
 
+### Wettervorhersage und Frost-Frühwarnung {#wettervorhersage-und-frost-fruehwarnung}
+
+Hast du für einen deiner Freiland- oder Gewächshaus-Standorte eine [Wetterquelle eingerichtet](weather-sources.md), zeigt dir das Widget **Wettervorhersage** dessen Tagesvorhersage: Minimal- und Maximaltemperatur je Tag, jeweils mit der [Herkunfts-Kennzeichnung](weather-sources.md#herkunft-der-wetterdaten-erkennen) der zugrundeliegenden Quelle (z. B. Open-Meteo, DWD oder deine Home-Assistant-Wetterstation). Betreust du mehrere Standorte, zeigt das Widget den ersten Standort mit hinterlegten GPS-Koordinaten und einer eingerichteten Quelle; der Standortname wird dabei mit angezeigt.
+
+Wird für diesen Standort innerhalb des Vorhersage-Zeitraums eine Frostnacht erwartet, erscheint zusätzlich eine deutlich hervorgehobene **Frost-Frühwarnung** mit dem erwarteten Datum und der voraussichtlichen Minimaltemperatur — schon bevor die Temperatur tatsächlich fällt. Über dieselbe Frostnacht informiert dich Kamerplanter zusätzlich aktiv per [Benachrichtigung](notifications.md#frost-fruehwarnung).
+
+!!! tip "Frühwarnung statt Reaktion"
+    Diese Frühwarnung ergänzt das bestehende, reaktive Frost-Signal, das auf einer aktuell gemessenen Temperatur beruht (z. B. über einen Sensor oder Home Assistant) — sie schützt dich zusätzlich davor, eine kommende Frostnacht erst zu bemerken, wenn es bereits zu spät für Schutzmaßnahmen ist.
+
+Ohne eingerichtete Wetterquelle, ohne hinterlegte GPS-Koordinaten für den Standort oder solange dein Betreiber die Wettervorhersage-Funktion nicht aktiviert hat, zeigt das Widget stattdessen einen Hinweis mit einem Link zur Standort-Einrichtung.
+
 ---
 
 ## Pflegeerinnerungen-Dashboard
@@ -124,3 +135,4 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
 - [Tankmanagement](tanks.md)
 - [Sensorik](sensors.md)
 - [Wetterquellen je Standort](weather-sources.md) — Quelle für das Widget „Wettervorhersage" einrichten
+- [Benachrichtigungen](notifications.md#frost-fruehwarnung) — Frost-Frühwarnung als aktive Benachrichtigung

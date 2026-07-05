@@ -838,7 +838,12 @@ def get_observation_service():
 def get_sensor_service():
     from app.domain.services.sensor_service import SensorService
 
-    return SensorService(get_sensor_repo(), get_ha_client())
+    return SensorService(
+        get_sensor_repo(),
+        get_ha_client(),
+        weather_forecast_repo=get_weather_forecast_repo(),
+        site_repo=get_site_repo(),
+    )
 
 
 # ── REQ-002 LocationType dependencies ───────────────────────────────

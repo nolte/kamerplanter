@@ -49,6 +49,15 @@ class INotificationRepository(ABC):
     ) -> list[Notification]: ...
 
     @abstractmethod
+    def find_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+        """Return the tenant's notifications carrying ``group_key`` (any user).
+
+        Backs cross-run idempotency for producers that must emit a group at most
+        once (e.g. one frost forecast warning per ``(site_key, forecast_date)``).
+        """
+        ...
+
+    @abstractmethod
     def count_unread(self, user_key: str, tenant_key: str | None = None) -> int: ...
 
     @abstractmethod

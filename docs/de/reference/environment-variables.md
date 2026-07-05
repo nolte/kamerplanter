@@ -194,6 +194,24 @@ Sind beide Variablen gesetzt, aktiviert das Backend zusätzlich den Home-Assista
 
 ---
 
+## Wettervorhersage & Frost-Frühwarnung <!-- REQ-046 / Issue #392 --> {#wettervorhersage-frost-fruehwarnung}
+
+Diese Variablen steuern die Wettervorhersage-Abholung und die darauf aufbauende proaktive Frost-Frühwarnung. Ohne `WEATHER_ENABLED=true` bleiben beide Funktionen vollständig deaktiviert — Standorte ohne konfigurierte Wetterquelle sind davon unabhängig ebenfalls nicht betroffen.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `WEATHER_ENABLED` | `false` | Nein | Kill-Switch für die gesamte Wetterfunktion (Quellenabholung + Frost-Frühwarnung). Details zur eigentlichen Quellenkonfiguration siehe [Wetterquellen je Standort](../user-guide/weather-sources.md). |
+| `FROST_FORECAST_HORIZON_DAYS` | `2` | Nein | Vorhersage-Zeitraum in Tagen ab heute (inklusive), der auf einen erwarteten Frosttag geprüft wird — Standard deckt heute plus den Folgetag ab. |
+| `FROST_FORECAST_THRESHOLD_CELSIUS` | `2.0` | Nein | Minimaltemperatur, ab der ein vorhergesagter Tag als Frosttag gilt. Bewusst **getrennt** vom reaktiven Schwellwert unten, mit einem etwas konservativeren (näher an 0 °C liegenden) Wert, da eine mehrtägige Vorhersage unsicherer ist als eine aktuelle Messung. |
+
+Zum Vergleich — der bestehende **reaktive** Frost-Schwellwert (aktuell gemessene Temperatur, unverändert durch diese Erweiterung):
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `FROST_WARNING_THRESHOLD_CELSIUS` | `3.0` | Nein | Schwellwert für die reaktive Frost-Warnung (`binary_sensor.kp_{location}_frost_warning`), basierend auf der zuletzt gemessenen Lufttemperatur. |
+
+---
+
 ## Rate Limiting
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -537,3 +555,5 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Lokales Setup](../development/local-setup.md)
 - [Betriebs-Fehlerbehebung](../development/troubleshooting.md)
 - [Deployment Kubernetes](../deployment/kubernetes.md)
+- [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
+- [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)

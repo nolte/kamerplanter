@@ -194,6 +194,24 @@ When both variables are set, the backend also enables the Home Assistant channel
 
 ---
 
+## Weather Forecast & Frost Early-Warning <!-- REQ-046 / Issue #392 --> {#weather-forecast-frost-early-warning}
+
+These variables control the weather forecast fetching and the proactive frost early-warning built on top of it. Without `WEATHER_ENABLED=true`, both features stay fully disabled — sites without a configured weather source are likewise unaffected.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `WEATHER_ENABLED` | `false` | No | Kill switch for the entire weather feature (source fetching + frost early-warning). See [Weather Sources per Location](../user-guide/weather-sources.md) for the actual source configuration. |
+| `FROST_FORECAST_HORIZON_DAYS` | `2` | No | Forecast horizon in days from today (inclusive) scanned for an expected frost day — the default covers today plus the next day. |
+| `FROST_FORECAST_THRESHOLD_CELSIUS` | `2.0` | No | Minimum temperature at or below which a forecast day counts as a frost day. Deliberately **separate** from the reactive threshold below, set a touch more conservative (closer to 0 °C) since a multi-day-ahead forecast carries more uncertainty than a live reading. |
+
+For comparison — the existing **reactive** frost threshold (current measured temperature, unchanged by this feature):
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `FROST_WARNING_THRESHOLD_CELSIUS` | `3.0` | No | Threshold for the reactive frost warning (`binary_sensor.kp_{location}_frost_warning`), based on the most recently measured air temperature. |
+
+---
+
 ## Rate Limiting
 
 | Variable | Default | Required | Description |
@@ -537,3 +555,5 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [Local Setup](../development/local-setup.md)
 - [Operations Troubleshooting](../development/troubleshooting.md)
 - [Kubernetes Deployment](../deployment/kubernetes.md)
+- [Weather Sources per Location — User Guide](../user-guide/weather-sources.md)
+- [Notifications: Frost Early-Warning — User Guide](../user-guide/notifications.md#frost-early-warning)

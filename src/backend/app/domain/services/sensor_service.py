@@ -1,10 +1,19 @@
+from datetime import date, timedelta
+
 import structlog
 
 from app.config.settings import settings
 from app.data_access.external.ha_client import HomeAssistantClient
-from app.domain.engines.frost_warning_engine import evaluate_frost_warning, pick_air_temperature
+from app.domain.engines.frost_warning_engine import (
+    evaluate_forecast_frost_warning,
+    evaluate_frost_warning,
+    pick_air_temperature,
+)
 from app.domain.interfaces.sensor_repository import ISensorRepository
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
 from app.domain.models.sensor import Sensor
+from app.domain.models.weather import WeatherForecast
 
 logger = structlog.get_logger(__name__)
 
@@ -14,9 +23,15 @@ class SensorService:
         self,
         repo: ISensorRepository,
         ha_client: HomeAssistantClient | None,
+        weather_forecast_repo: IWeatherForecastRepository | None = None,
+        site_repo: ISiteRepository | None = None,
     ) -> None:
         self._repo = repo
         self._ha_client = ha_client
+        # Optional (Issue #392): the proactive forecast path degrades gracefully
+        # when either is absent — the reactive path never depends on them.
+        self._weather_forecast_repo = weather_forecast_repo
+        self._site_repo = site_repo
 
     def create_sensor(self, sensor: Sensor) -> Sensor:
         return self._repo.create(sensor)
@@ -138,15 +153,24 @@ class SensorService:
         self,
         location_key: str,
         threshold_celsius: float | None = None,
+        site_key: str | None = None,
+        tenant_key: str = "",
     ) -> dict:
-        """Compute the reactive frost-warning state for a location — NO persistence.
+        """Compute the frost-warning state for a location — NO persistence.
 
         Backs the Home Assistant ``binary_sensor.kp_{location}_frost_warning``
-        entity. The warning is derived from the location's most recent ambient
-        temperature reading (read-through via Home Assistant) and the configured
-        threshold. When no temperature reading is available the ``frost_warning``
-        is ``None`` (Home Assistant reports ``unknown``) rather than a fabricated
-        ``False``.
+        entity. The reactive ``frost_warning`` is derived from the location's most
+        recent ambient temperature reading (read-through via Home Assistant) and
+        the configured threshold; when no reading is available it is ``None``
+        (Home Assistant reports ``unknown``) rather than a fabricated ``False``.
+
+        Issue #392 adds the *additive* proactive forecast fields
+        (``forecast_frost_warning`` etc.) derived from the persisted daily
+        forecasts for the location's site (``site_key`` / ``tenant_key`` supplied
+        by the router). The forecast path degrades gracefully: no forecast repo,
+        ``weather_enabled`` off, no ``site_key``, no site coordinates, or no
+        usable in-horizon record all leave the forecast fields ``None`` and the
+        reactive field untouched — never a 500.
         """
         threshold = threshold_celsius if threshold_celsius is not None else settings.frost_warning_threshold_celsius
 
@@ -162,6 +186,8 @@ class SensorService:
         else:
             source = "ha_live"
 
+        forecast = self._forecast_frost_summary(site_key, tenant_key)
+
         return {
             "location_key": location_key,
             "frost_warning": frost_warning,
@@ -169,4 +195,110 @@ class SensorService:
             "threshold_celsius": threshold,
             "source": source,
             "entity_id": entity_id,
+            "forecast_frost_warning": forecast["predicted"],
+            "forecast_min_temperature": forecast["min_temp"],
+            "forecast_expected_date": forecast["expected_date"],
+            "forecast_source": forecast["source"],
         }
+
+    def get_site_weather_forecast(self, site_key: str, tenant_key: str = "") -> dict:
+        """Return the in-horizon daily forecast for a site plus the frost summary.
+
+        Backs the dashboard/per-site ``WeatherForecastWidget`` (Issue #392, R7):
+        the in-horizon daily forecast rows (with ``source`` / ``data_kind``
+        provenance) and the proactive frost early-warning summary. Graceful: no
+        forecast repo, ``weather_enabled`` off, unknown/foreign site, no
+        coordinates, or no forecast records all yield an empty ``forecasts`` list
+        with ``None`` summary fields — never a 500.
+        """
+        empty: dict = {
+            "site_key": site_key,
+            "forecasts": [],
+            "forecast_frost_warning": None,
+            "forecast_min_temperature": None,
+            "forecast_expected_date": None,
+            "forecast_source": None,
+        }
+        try:
+            forecasts = self._load_site_forecasts(site_key, tenant_key)
+            if forecasts is None:
+                return empty
+
+            today = date.today()
+            horizon_days = settings.frost_forecast_horizon_days
+            horizon_end = today + timedelta(days=horizon_days)
+            in_horizon = sorted(
+                (record for record in forecasts if today <= record.forecast_date <= horizon_end),
+                key=lambda record: record.forecast_date,
+            )
+            summary = evaluate_forecast_frost_warning(
+                forecasts,
+                settings.frost_forecast_threshold_celsius,
+                horizon_days,
+                today,
+            )
+            return {
+                "site_key": site_key,
+                "forecasts": [self._forecast_day_dict(record) for record in in_horizon],
+                "forecast_frost_warning": summary["predicted"],
+                "forecast_min_temperature": summary["min_temp"],
+                "forecast_expected_date": summary["expected_date"],
+                "forecast_source": summary["source"],
+            }
+        except Exception as exc:
+            logger.warning("site_weather_forecast_failed", site_key=site_key, error=str(exc))
+            return empty
+
+    @staticmethod
+    def _forecast_day_dict(record: WeatherForecast) -> dict:
+        return {
+            "forecast_date": record.forecast_date,
+            "temp_min_c": record.temp_min_c,
+            "temp_max_c": record.temp_max_c,
+            "precipitation_mm": record.precipitation_mm,
+            "wind_speed_kmh": record.wind_speed_kmh,
+            "humidity_percent": record.humidity_percent,
+            "weather_code": record.weather_code,
+            "source": record.source,
+            "data_kind": record.data_kind,
+        }
+
+    def _forecast_frost_summary(self, site_key: str | None, tenant_key: str) -> dict:
+        """Compute the proactive frost summary for a site, never raising.
+
+        Returns the ``evaluate_forecast_frost_warning`` mapping, or the all-``None``
+        "unknown" mapping when no usable forecast source is available (R5).
+        """
+        unknown: dict = {"predicted": None, "min_temp": None, "expected_date": None, "source": None}
+        try:
+            forecasts = self._load_site_forecasts(site_key, tenant_key)
+            if forecasts is None:
+                return unknown
+            return evaluate_forecast_frost_warning(
+                forecasts,
+                settings.frost_forecast_threshold_celsius,
+                settings.frost_forecast_horizon_days,
+                date.today(),
+            )
+        except Exception as exc:
+            logger.warning("forecast_frost_warning_failed", site_key=site_key, error=str(exc))
+            return unknown
+
+    def _load_site_forecasts(self, site_key: str | None, tenant_key: str) -> list[WeatherForecast] | None:
+        """Load the persisted daily forecasts for a site, or ``None`` when the
+        proactive path is unavailable (repo missing, weather disabled, no
+        ``site_key``, unknown/foreign site, or a site without coordinates).
+
+        Tenant isolation (R10): the forecast read is scoped by ``tenant_key``, and
+        when the site repo is available the site's own ``tenant_key`` is verified
+        so a foreign site key cannot probe the proactive path.
+        """
+        if self._weather_forecast_repo is None or not settings.weather_enabled or not site_key:
+            return None
+        if self._site_repo is not None:
+            site = self._site_repo.get_site_by_key(site_key)
+            if site is None or site.gps_coordinates is None:
+                return None
+            if tenant_key and site.tenant_key != tenant_key:
+                return None
+        return self._weather_forecast_repo.find_by_site(site_key, tenant_key)

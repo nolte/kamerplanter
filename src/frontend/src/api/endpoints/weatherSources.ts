@@ -2,6 +2,7 @@ import { tenantClient } from '../client';
 import type {
   AvailableSourcesResponse,
   HaEntityItem,
+  SiteWeatherForecastResponse,
   WeatherSourceConfigRequest,
   WeatherSourceConfigResponse,
   WeatherSourceEntryRequest,
@@ -50,6 +51,21 @@ export async function testSource(
   const { data } = await tenantClient.post<WeatherTestResponse>(
     `${SITES}/${siteKey}/weather-sources/test`,
     entry,
+  );
+  return data;
+}
+
+/**
+ * Issue #392 — per-site daily weather forecast plus the proactive frost
+ * early-warning summary consumed by the dashboard `WeatherForecastWidget`.
+ * Graceful by contract: an unconfigured site returns an empty `forecasts` list
+ * with `null` frost fields rather than an error.
+ */
+export async function getSiteWeatherForecast(
+  siteKey: string,
+): Promise<SiteWeatherForecastResponse> {
+  const { data } = await tenantClient.get<SiteWeatherForecastResponse>(
+    `${SITES}/${siteKey}/weather-forecast`,
   );
   return data;
 }

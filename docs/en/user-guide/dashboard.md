@@ -64,6 +64,17 @@ If you have tanks configured, the dashboard shows the current state of your tank
 - pH value (with traffic-light indicator)
 - Next water change
 
+### Weather Forecast and Frost Early-Warning {#weather-forecast-and-frost-early-warning}
+
+If you've set up a [weather source](weather-sources.md) for one of your outdoor or greenhouse sites, the **Weather forecast** widget shows its daily forecast: minimum and maximum temperature per day, each with the [provenance label](weather-sources.md#understanding-weather-data-provenance) of the underlying source (e.g. Open-Meteo, DWD, or your Home Assistant weather station). If you manage several sites, the widget shows the first site with stored GPS coordinates and a configured source; the site name is shown alongside it.
+
+If a frost night is expected for that site within the forecast window, a prominently highlighted **frost early-warning** also appears, with the expected date and the predicted minimum temperature — before the temperature has actually dropped. Kamerplanter also actively informs you about the same frost night via [notification](notifications.md#frost-early-warning).
+
+!!! tip "Early warning instead of a reaction"
+    This early warning complements the existing, reactive frost signal, which is based on a currently measured temperature (e.g. from a sensor or Home Assistant) — it additionally protects you from noticing an upcoming frost night only once it's already too late to take protective measures.
+
+Without a configured weather source, without stored GPS coordinates for the site, or as long as your operator hasn't enabled the weather forecast feature, the widget instead shows a hint with a link to the site setup.
+
 ---
 
 ## Care Reminders Dashboard
@@ -124,3 +135,4 @@ The dashboard adapts to your experience level (configurable under **Account → 
 - [Tank Management](tanks.md)
 - [Sensors](sensors.md)
 - [Weather Sources per Location](weather-sources.md) — set up the source for the "Weather forecast" widget
+- [Notifications](notifications.md#frost-early-warning) — frost early-warning as an active notification
