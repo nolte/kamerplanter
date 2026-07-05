@@ -82,7 +82,7 @@ def update_plan(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.get_plan(key, tenant_key=ctx.tenant_key)
+    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     data = body.model_dump(exclude_none=True)
     updated = service.update_plan(key, data)
     return _plan_response(updated)
@@ -94,7 +94,7 @@ def delete_plan(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.get_plan(key, tenant_key=ctx.tenant_key)
+    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     service.delete_plan(key)
 
 
@@ -106,7 +106,7 @@ def clone_plan(
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
     service.get_plan(key, tenant_key=ctx.tenant_key)
-    cloned = service.clone_plan(key, body.new_name, body.author)
+    cloned = service.clone_plan(key, body.new_name, body.author, tenant_key=ctx.tenant_key)
     return _plan_response(cloned)
 
 
@@ -138,7 +138,7 @@ def create_entry(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.get_plan(key, tenant_key=ctx.tenant_key)
+    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     entry = NutrientPlanPhaseEntry(plan_key=key, **body.model_dump())
     created = service.create_phase_entry(key, entry)
     return _entry_response(created)
@@ -152,7 +152,7 @@ def update_entry(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.get_plan(key, tenant_key=ctx.tenant_key)
+    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     data = body.model_dump(exclude_none=True)
     updated = service.update_phase_entry(ek, data)
     return _entry_response(updated)
@@ -165,7 +165,7 @@ def delete_entry(
     ctx: TenantContext = Depends(get_current_tenant),
     service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
-    service.get_plan(key, tenant_key=ctx.tenant_key)
+    service.get_plan(key, tenant_key=ctx.tenant_key, for_write=True)
     service.delete_phase_entry(ek)
 
 

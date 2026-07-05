@@ -246,14 +246,15 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
 
     # ── Clone ────────────────────────────────────────────────────────
 
-    def clone(self, source_key: NutrientPlanKey, new_name: str, author: str = "") -> NutrientPlan:
+    def clone(self, source_key: NutrientPlanKey, new_name: str, author: str = "", tenant_key: str = "") -> NutrientPlan:
         source = self.get_by_key(source_key)
         if source is None:
             raise ValueError(f"Source plan '{source_key}' not found")
 
-        # Create new plan
+        # Create new plan owned by the cloning tenant (never the source's tenant).
         new_plan = NutrientPlan(
             name=new_name,
+            tenant_key=tenant_key,
             description=source.description,
             recommended_substrate_type=source.recommended_substrate_type,
             author=author,

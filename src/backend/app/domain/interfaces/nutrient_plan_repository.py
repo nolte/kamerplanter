@@ -88,4 +88,6 @@ class INutrientPlanRepository(ABC):
     # ── Clone ────────────────────────────────────────────────────────
 
     @abstractmethod
-    def clone(self, source_key: NutrientPlanKey, new_name: str, author: str = "") -> NutrientPlan: ...
+    def clone(
+        self, source_key: NutrientPlanKey, new_name: str, author: str = "", tenant_key: str = ""
+    ) -> NutrientPlan: ...
