@@ -40,6 +40,10 @@ $defs:
       photoperiod_type:
         type: string
         enum: [short_day, long_day, day_neutral]
+      critical_day_length_hours:
+        type: number
+        minimum: 0
+        maximum: 24
       phase_sequence:
         type: string
         description: "Reference to a PhaseSequence by name"
@@ -48,8 +52,41 @@ $defs:
         items:
           $ref: "#/$defs/growth_phase"
         minItems: 1
+      # Optional explicit branching transitions between this lifecycle's phases
+      # (referenced by phase name). Used e.g. for a stress-induced premature
+      # vegetative -> bolting transition (REQ-003 E6).
+      transition_rules:
+        type: array
+        items:
+          $ref: "#/$defs/transition_rule"
     required: [scientific_name, cycle_type, dormancy_required, vernalization_required,
                photoperiod_type, phases]
+    additionalProperties: false
+
+  transition_rule:
+    type: object
+    properties:
+      from_phase:
+        $ref: "_defs.schema.yaml#/$defs/phase_name"
+      to_phase:
+        $ref: "_defs.schema.yaml#/$defs/phase_name"
+      trigger_type:
+        $ref: "_defs.schema.yaml#/$defs/transition_trigger_type"
+      auto_transition_after_days:
+        type: integer
+        minimum: 1
+      notification_before_days:
+        type: integer
+        minimum: 0
+      priority:
+        type: integer
+      is_reversion:
+        type: boolean
+        description: "E3: controlled backward transition without cycle-restart semantics."
+      is_premature:
+        type: boolean
+        description: "E6: stress-induced premature transition ending the harvest window early."
+    required: [from_phase, to_phase]
     additionalProperties: false
 
   growth_phase:

@@ -1,6 +1,6 @@
 """Tests for CyclicLifecycleEngine (REQ-003 D1/D4/D6/D10)."""
 
-from app.common.enums import CycleType, FloweringStrategy, MaturityStage
+from app.common.enums import CycleType, FloweringStrategy, GrowthDeterminacy, MaturityStage
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
 from app.domain.models.lifecycle import LifecycleConfig
 
@@ -83,3 +83,39 @@ class TestShouldRestartCycle:
             _lc(cycle_type=CycleType.ANNUAL), current_season_number=1, current_phase_name="senescence"
         )
         assert restart is False
+
+
+class TestStaysInProductivePhase:
+    """E4: indeterminate species stay in a stable productive phase (no auto-advance)."""
+
+    def setup_method(self) -> None:
+        self.engine = CyclicLifecycleEngine()
+
+    def test_indeterminate_in_productive_phase_is_suppressed(self) -> None:
+        lc = _lc(cycle_type=CycleType.ANNUAL, growth_determinacy=GrowthDeterminacy.INDETERMINATE)
+        # tomato-style: once flowering/fruiting, an onward time/gdd trigger is suppressed.
+        assert self.engine.stays_in_productive_phase(lc, "flowering") is True
+        assert self.engine.stays_in_productive_phase(lc, "fruit_development") is True
+        # extended productive names normalise via the D8 role map
+        assert self.engine.stays_in_productive_phase(lc, "flowering_fruit") is True
+        assert self.engine.stays_in_productive_phase(lc, "fruiting") is True
+
+    def test_indeterminate_before_productive_still_advances(self) -> None:
+        lc = _lc(cycle_type=CycleType.ANNUAL, growth_determinacy=GrowthDeterminacy.INDETERMINATE)
+        # veg -> flowering must still fire; only the exit from the productive phase is suppressed.
+        assert self.engine.stays_in_productive_phase(lc, "vegetative") is False
+        assert self.engine.stays_in_productive_phase(lc, "seedling") is False
+
+    def test_determinate_proceeds_linearly(self) -> None:
+        lc = _lc(cycle_type=CycleType.ANNUAL, growth_determinacy=GrowthDeterminacy.DETERMINATE)
+        assert self.engine.stays_in_productive_phase(lc, "flowering") is False
+        assert self.engine.stays_in_productive_phase(lc, "fruit_development") is False
+
+    def test_unset_determinacy_defaults_to_linear(self) -> None:
+        lc = _lc(cycle_type=CycleType.ANNUAL)
+        assert lc.growth_determinacy is None
+        assert self.engine.stays_in_productive_phase(lc, "flowering") is False
+
+    def test_semi_determinate_is_not_suppressed(self) -> None:
+        lc = _lc(cycle_type=CycleType.ANNUAL, growth_determinacy=GrowthDeterminacy.SEMI_DETERMINATE)
+        assert self.engine.stays_in_productive_phase(lc, "flowering") is False

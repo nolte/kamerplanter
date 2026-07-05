@@ -37,6 +37,35 @@ _WATERLOGGING_VOLUME_CAP: dict[str, float] = {
     "tolerant": 1.3,
 }
 
+# E8 pH-gating: most micronutrients (Fe, Mn, Zn, Cu, B) are most available in the
+# slightly-acidic window pH 6.0–6.5 (soil_ph_preference, REQ-001); molybdenum is the
+# inverse — its availability rises as pH climbs.
+_MICRO_PH_OPTIMAL_MIN = 6.0
+_MICRO_PH_OPTIMAL_MAX = 6.5
+
+
+def ph_micronutrient_availability(target_ph: float) -> tuple[bool, str]:
+    """E8: whether the phase target pH keeps micronutrients available, plus a note.
+
+    Pure lookup — returns ``(available, note)`` where ``available`` is True only inside
+    the optimal micronutrient window. Above the window the base micros (Fe/Mn/Zn/Cu/B)
+    lock out while molybdenum stays available; below it micro uptake rises but Mo and
+    phosphorus drop.
+    """
+    if target_ph > _MICRO_PH_OPTIMAL_MAX:
+        return False, (
+            f"pH {target_ph} above {_MICRO_PH_OPTIMAL_MAX}: Fe/Mn/Zn/Cu/B lock out "
+            "(chlorosis risk); molybdenum stays available"
+        )
+    if target_ph < _MICRO_PH_OPTIMAL_MIN:
+        return False, (
+            f"pH {target_ph} below {_MICRO_PH_OPTIMAL_MIN}: micronutrient uptake rises "
+            "but molybdenum and phosphorus availability drop"
+        )
+    return True, (
+        f"pH {target_ph} within the optimal micronutrient window ({_MICRO_PH_OPTIMAL_MIN}-{_MICRO_PH_OPTIMAL_MAX})"
+    )
+
 
 @dataclass(frozen=True)
 class IrrigationRegime:
@@ -56,6 +85,10 @@ class NutrientRegime:
     npk_ratio: tuple[int, int, int]
     target_ec_ms: float
     note: str
+    # E8 pH-gating — the phase target pH and the resulting micronutrient availability.
+    target_ph: float = 6.0
+    micros_available: bool = True
+    ph_note: str = ""
 
 
 def resolve_irrigation(
@@ -99,18 +132,44 @@ def resolve_nutrient(
     *,
     base_npk: tuple[int, int, int] = (3, 1, 2),
     base_ec_ms: float = 1.5,
+    base_ph: float = 6.0,
     nutrient_demand_level: NutrientDemandLevel | None = None,
 ) -> NutrientRegime:
-    """E8: resolve the nutrient regime for a phase."""
-    core = core_phase(phase_name)
+    """E8: resolve the nutrient regime for a phase.
+
+    Surfaces the per-phase ``target_ph`` and the pH-gated micronutrient availability
+    (``micros_available`` / ``ph_note``) alongside the NPK/EC guidance, so the caller
+    can warn when the phase pH would lock micronutrients out.
+    """
+    micros_available, ph_note = ph_micronutrient_availability(base_ph)
     if is_rest_phase(phase_name):
-        return NutrientRegime(feed=False, npk_ratio=(0, 0, 0), target_ec_ms=0.0, note="rest/dormancy — no feed")
+        return NutrientRegime(
+            feed=False,
+            npk_ratio=(0, 0, 0),
+            target_ec_ms=0.0,
+            note="rest/dormancy — no feed",
+            target_ph=base_ph,
+            micros_available=micros_available,
+            ph_note=ph_note,
+        )
+    core = core_phase(phase_name)
     if core == "flushing":
-        return NutrientRegime(feed=False, npk_ratio=(0, 0, 0), target_ec_ms=0.0, note="flush — 0-0-0")
+        return NutrientRegime(
+            feed=False,
+            npk_ratio=(0, 0, 0),
+            target_ec_ms=0.0,
+            note="flush — 0-0-0",
+            target_ph=base_ph,
+            micros_available=micros_available,
+            ph_note=ph_note,
+        )
     factor = _FEEDER_EC_FACTOR.get(nutrient_demand_level or NutrientDemandLevel.MEDIUM_FEEDER, 1.0)
     return NutrientRegime(
         feed=True,
         npk_ratio=base_npk,
         target_ec_ms=round(base_ec_ms * factor, 2),
         note=f"feed scaled by {nutrient_demand_level.value if nutrient_demand_level else 'medium_feeder'}",
+        target_ph=base_ph,
+        micros_available=micros_available,
+        ph_note=ph_note,
     )

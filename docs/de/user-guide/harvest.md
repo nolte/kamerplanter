@@ -179,7 +179,7 @@ Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte
     Nein. Erntechargen können nach dem Erstellen nicht gelöscht werden, da sie zur lückenlosen Dokumentation des Anbaus gehören. Du kannst jedoch Notizen und Gewichtswerte nachträglich korrigieren.
 
 ??? question "Wechselt eine Pflanze nach der Endernte automatisch ihren Status?"
-    Nein. Das Anlegen einer Erntecharge mit Erntetyp „Endernte" ändert den Pflanzen-Status nicht automatisch. Wenn die Pflanze für dich abgeschlossen ist, entfernst du sie manuell über **Pflanze entfernen** auf ihrer Detailseite. Erst dann verschwindet sie aus der aktiven Aufgaben-Warteschlange; ihre Stammdaten und Historie bleiben erhalten.
+    Nein. Das Anlegen einer Erntecharge mit Erntetyp „Endernte" ändert den Pflanzen-Status nicht automatisch. Wenn die Pflanze für dich abgeschlossen ist, entfernst du sie manuell über [**Pflanze entfernen**](growth-phases.md#pflanze-entfernen) auf ihrer Detailseite — dabei kannst du optional festhalten, dass sie geerntet wurde. Erst dann verschwindet sie aus der aktiven Aufgaben-Warteschlange; ihre Stammdaten und Historie bleiben erhalten.
 
 ??? question "Warum wird die Ernte blockiert, obwohl ich schon lange nicht mehr behandelt habe?"
     Prüfe im Tab **Pflanzenschutz** (IPM) die Liste aller Behandlungen und ihre Karenzzeiten. Manchmal sind ältere Behandlungen noch eingetragen, deren Karenzzeit noch nicht abgelaufen ist. Wenn die Behandlung irrtümlich eingetragen wurde, kannst du sie unter Pflanzenschutz korrigieren.

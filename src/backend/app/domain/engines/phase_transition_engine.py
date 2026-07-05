@@ -73,6 +73,16 @@ class PhaseTransitionEngine:
         rules = self._phase_repo.get_transition_rules(current_phase_key)
         return any(r.to_phase_key == target_phase_key and r.is_reversion for r in rules)
 
+    def _is_premature(self, current_phase_key: str | None, target_phase_key: str) -> bool:
+        """E6: a stress-induced premature transition (e.g. vegetative → bolting under
+        heat/long-day stress), flagged on the transition rule with ``is_premature=True``.
+        Recorded on the resulting phase history so analytics can tell it apart from a
+        planned bolting."""
+        if not current_phase_key:
+            return False
+        rules = self._phase_repo.get_transition_rules(current_phase_key)
+        return any(r.to_phase_key == target_phase_key and r.is_premature for r in rules)
+
     def validate_transition(self, plant_key: str, target_phase_key: str, *, force: bool = False) -> list[str]:
         """Validate if transition is allowed. Returns list of warnings (empty = OK)."""
         warnings: list[str] = []
@@ -167,10 +177,12 @@ class PhaseTransitionEngine:
                     actual_duration_days=duration,
                     transition_reason=reason,
                     cycle_number=h.cycle_number,
+                    is_premature=h.is_premature,
                 )
                 self._phase_repo.update_phase_history(h.key or "", updated)
 
-        # Create new history entry
+        # Create new history entry — flag a stress-induced premature transition (E6)
+        # so it is distinguishable from a planned bolting in the history/analytics.
         new_history = PhaseHistory(
             plant_instance_key=plant_key,
             phase_key=target_phase_key,
@@ -178,6 +190,7 @@ class PhaseTransitionEngine:
             entered_at=now,
             transition_reason=reason,
             cycle_number=new_cycle_number,
+            is_premature=self._is_premature(plant.current_phase_key, target_phase_key),
         )
         self._phase_repo.create_phase_history(new_history)
 
@@ -231,6 +244,7 @@ class PhaseTransitionEngine:
                         actual_duration_days=duration,
                         transition_reason=termination_type.value,
                         cycle_number=h.cycle_number,
+                        is_premature=h.is_premature,
                     ),
                 )
 

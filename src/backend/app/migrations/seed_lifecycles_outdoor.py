@@ -1,12 +1,16 @@
 """Seed lifecycle configs and growth phases for outdoor species from YAML."""
 
+from typing import Any
+
 import structlog
 
 from app.common.dependencies import get_db, get_lifecycle_repo, get_phase_sequence_repo
-from app.common.enums import CycleType, PhotoperiodType, StressTolerance
+from app.common.enums import CycleType, PhotoperiodType, StressTolerance, TransitionTriggerType
 from app.data_access.arango import collections as col
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
+from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
+from app.domain.models.phase import PhaseTransitionRule
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -57,6 +61,60 @@ def _ensure_has_phase_sequence_edge(
     edge_col = db.collection(col.HAS_PHASE_SEQUENCE)
     edge_col.insert({"_from": species_id, "_to": seq_id})
     return True
+
+
+def _seed_transition_rules(
+    repo: IPhaseRepository,
+    lifecycle_key: str,
+    entry: dict[str, Any],
+) -> int:
+    """Create explicit phase-transition rules for a lifecycle (idempotent).
+
+    Rules reference this lifecycle's own growth phases by name (resolved to the
+    per-species GrowthPhase keys). A rule is skipped when one with the same
+    ``to_phase`` already governs the ``from_phase``, so re-runs never duplicate.
+    Returns the number of newly created rules.
+    """
+    rules_data = entry.get("transition_rules", [])
+    if not rules_data:
+        return 0
+
+    phases = repo.get_phases_by_lifecycle(lifecycle_key)
+    phase_key_by_name = {p.name: (p.key or "") for p in phases}
+
+    created = 0
+    for rule_data in rules_data:
+        from_name = rule_data["from_phase"]
+        to_name = rule_data["to_phase"]
+        from_key = phase_key_by_name.get(from_name)
+        to_key = phase_key_by_name.get(to_name)
+        if not from_key or not to_key:
+            logger.warning(
+                "transition_rule_phase_not_found",
+                scientific_name=entry["scientific_name"],
+                from_phase=from_name,
+                to_phase=to_name,
+            )
+            continue
+
+        # Idempotency: skip if a rule to the same target phase already exists.
+        if any(r.to_phase_key == to_key for r in repo.get_transition_rules(from_key)):
+            continue
+
+        rule = PhaseTransitionRule(
+            from_phase_key=from_key,
+            to_phase_key=to_key,
+            trigger_type=TransitionTriggerType(rule_data.get("trigger_type", "manual")),
+            auto_transition_after_days=rule_data.get("auto_transition_after_days"),
+            notification_before_days=rule_data.get("notification_before_days", 3),
+            priority=rule_data.get("priority", 0),
+            is_reversion=rule_data.get("is_reversion", False),
+            is_premature=rule_data.get("is_premature", False),
+        )
+        repo.create_transition_rule(rule)
+        created += 1
+
+    return created
 
 
 def _cleanup_orphaned_lifecycles() -> int:
@@ -193,6 +251,8 @@ def run_seed_lifecycles_outdoor() -> None:
                         existing.phase_sequence_key = ps_key
                         repo.update_lifecycle(existing.key or "", existing)
                     _ensure_has_phase_sequence_edge(species_key, ps_key)
+            # Transition rules are seeded idempotently even for pre-existing lifecycles.
+            _seed_transition_rules(repo, existing.key or "", entry)
             skipped += 1
             continue
 
@@ -252,6 +312,9 @@ def run_seed_lifecycles_outdoor() -> None:
 
             nut = profile_gen.generate_nutrient_profile(phase_data["name"], phase_key)
             repo.create_nutrient_profile(nut)
+
+        # Seed explicit branching transition rules (e.g. premature bolting, E6).
+        _seed_transition_rules(repo, lc_key, entry)
 
         created += 1
         logger.info(

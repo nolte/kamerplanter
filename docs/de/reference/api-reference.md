@@ -243,3 +243,102 @@ POST /api/v1/t/{tenant_slug}/notifications/pwa/unsubscribe
 - [Dünge-Logik](../user-guide/fertilization.md)
 - [Pflegeerinnerungen](../user-guide/care-reminders.md)
 - [Umgebungsvariablen — Browser Push (VAPID)](environment-variables.md#browser-push-pwa-vapid)
+
+---
+
+## Pflanzinstanzen: Entfernen mit Abschlussart & Überlebens-Statistik
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/plant-instances/` und erfordern ein gültiges JWT-Token. <!-- REQ-003 E5/G1 -->
+
+### Pflanze entfernen (mit optionaler Abschlussklassifizierung)
+
+Entfernt eine Pflanzinstanz. Der Request-Body ist optional und abwärtskompatibel: ein leerer Body (bzw. gar kein Body) entspricht dem bisherigen einfachen Entfernen ohne Klassifizierung.
+
+```
+POST /api/v1/t/{tenant_slug}/plant-instances/{key}/remove
+```
+
+**Request-Body (optional):**
+
+```json
+{
+  "termination_type": "died",
+  "termination_cause": "pest"
+}
+```
+
+| Feld | Typ | Pflicht | Werte |
+|------|-----|---------|-------|
+| `termination_type` | string \| null | Nein | `harvested`, `senesced`, `died`, `cancelled` |
+| `termination_cause` | string \| null | Nein — nur zusammen mit `termination_type: "died"` gültig | `disease`, `pest`, `frost`, `heat`, `drought`, `waterlogging`, `neglect`, `mechanical`, `unknown` |
+
+**Verhalten:**
+
+- Ohne Body oder mit `termination_type: null`: reines Entfernen, wie vor der Einführung dieser Felder — `removed_on` wird gesetzt, keine weitere Klassifizierung.
+- Mit `termination_type: "died"`: Die aktuelle Wachstumsphase wird über die Phasenübergangs-Engine **eingefroren** (der offene Phasenhistorie-Eintrag wird geschlossen, ohne eine Seneszenz-Transition auszulösen), und `termination_cause` wird für die Verlustursachen-Auswertung übernommen.
+- Bei jedem Wert von `termination_type`: Offene Aufgaben und Pflegeerinnerungen der Pflanze werden aus der Warteschlange entfernt; abgeschlossene/übersprungene Aufgaben bleiben als Historie erhalten.
+
+**Response (200):** `PlantResponse` — enthält jetzt zusätzlich die Felder `termination_type` und `termination_cause` (beide `null`, wenn nicht klassifiziert).
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `404` | Pflanzinstanz nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | `termination_cause` gesetzt, aber `termination_type` ungleich `died` (`VALIDATION_ERROR`) |
+
+**Beispiel — Verlust durch Schädlingsbefall:**
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/plant-instances/plant_instances/101/remove" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"termination_type": "died", "termination_cause": "pest"}'
+```
+
+### Überlebens-Statistik abrufen
+
+Liefert eine mandantenweite Auswertung aller Pflanzinstanzen: Überlebensrate, Aufschlüsselung nach Abschlussart, nach Wachstumsphase (nur ungeplante Verluste) und nach Verlustursache.
+
+```
+GET /api/v1/t/{tenant_slug}/plant-instances/survival-stats
+```
+
+**Response (200):**
+
+```json
+{
+  "total": 42,
+  "terminated": 18,
+  "active": 24,
+  "died": 3,
+  "survived": 39,
+  "survival_rate": 0.9286,
+  "by_termination_type": [
+    { "termination_type": "harvested", "count": 12 },
+    { "termination_type": "died", "count": 3 },
+    { "termination_type": "cancelled", "count": 2 },
+    { "termination_type": "senesced", "count": 1 }
+  ],
+  "by_termination_cause": [
+    { "termination_cause": "pest", "count": 2 },
+    { "termination_cause": "frost", "count": 1 }
+  ],
+  "loss_by_phase": [
+    { "phase_name": "seedling", "count": 2 },
+    { "phase_name": "vegetative", "count": 1 }
+  ]
+}
+```
+
+`survived` zählt jede Pflanze, die **kein** ungeplanter Verlust war — geerntete, natürlich abgestorbene, abgebrochene und noch aktive Pflanzen zählen alle als überlebt; nur `termination_type: "died"` zählt als Verlust. `loss_by_phase` ist nach dem aufgelösten Phasen-**Namen** aggregiert (nicht nach Phasen-Key), damit dieselbe kanonische Phase über mehrere Arten hinweg zusammengefasst wird, und absteigend nach Anzahl sortiert.
+
+!!! note "Reihenfolge der Routen"
+    `/survival-stats` ist im Router **vor** `/{key}` deklariert, damit der literale Pfad nicht versehentlich als Pflanzen-Key interpretiert wird.
+
+### Siehe auch
+
+- [Wachstumsphasen — Benutzerhandbuch: Eine Pflanze entfernen](../user-guide/growth-phases.md#pflanze-entfernen)
+- [Wachstumsphasen — Benutzerhandbuch: Überlebensrate und Verlustursachen auswerten](../user-guide/growth-phases.md#ueberlebensrate-verlustursachen)
+- [Fehlerbehandlung](../api/error-handling.md)

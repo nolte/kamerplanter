@@ -10,6 +10,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import TransitionTriggerType
 from app.domain.calculators.sun_calculator import calculate_sun_times
+from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
 from app.domain.engines.transition_trigger_evaluator import TransitionTriggerEvaluator
 from app.tasks import celery_app
 
@@ -43,6 +44,7 @@ def check_auto_transitions() -> dict:
     lifecycle_repo = get_lifecycle_repo()
     site_repo = get_site_repo()
     evaluator = TransitionTriggerEvaluator()
+    cyclic = CyclicLifecycleEngine()
 
     transitioned = 0
     errors = 0
@@ -87,6 +89,17 @@ def check_auto_transitions() -> dict:
                     )
                 ):
                     fire, reason = True, "auto_vernalization"
+
+                # E4: an indeterminate species stays in its stable productive phase —
+                # suppress any onward auto-advance even though the trigger would fire.
+                current_phase_name = current_phase_info.get("phase", "")
+                if fire and lifecycle and cyclic.stays_in_productive_phase(lifecycle, current_phase_name):
+                    logger.info(
+                        "auto_transition_suppressed_indeterminate",
+                        plant_key=plant.key,
+                        current_phase=current_phase_name,
+                    )
+                    continue
 
                 if fire:
                     phase_service.transition_phase(plant.key or "", rule.to_phase_key, reason=reason)

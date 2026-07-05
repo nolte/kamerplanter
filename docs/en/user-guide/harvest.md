@@ -179,7 +179,7 @@ Some growers maintain a dark period of 24–48 hours immediately before harvest.
     No. Harvest batches cannot be deleted after creation, as they are part of the complete growing documentation. You can, however, correct notes and weight values afterwards.
 
 ??? question "Does a plant automatically change status after a full harvest?"
-    No. Creating a harvest batch with harvest type "full harvest" does not automatically change the plant's status. If the plant is done for you, remove it manually via **Remove Plant** on its detail page. Only then does it disappear from the active task queue; its master data and history are retained.
+    No. Creating a harvest batch with harvest type "full harvest" does not automatically change the plant's status. If the plant is done for you, remove it manually via [**Remove Plant**](growth-phases.md#pflanze-entfernen) on its detail page — you can optionally record that it was harvested. Only then does it disappear from the active task queue; its master data and history are retained.
 
 ??? question "Why is the harvest blocked even though I haven't treated in a long time?"
     Check the **Pest Management** (IPM) tab for the full list of treatments and their pre-harvest intervals. Sometimes older treatments are still recorded with unexpired intervals. If a treatment was entered by mistake, you can correct it under Pest Management.

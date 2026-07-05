@@ -1,10 +1,13 @@
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
+from app.common.enums import TerminationCause, TerminationType
+from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -15,6 +18,12 @@ from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Cultivar, Species
+from app.domain.models.survival_stats import (
+    PhaseLossCount,
+    SurvivalStats,
+    TerminationCauseCount,
+    TerminationTypeCount,
+)
 
 
 class PlantInstanceService:
@@ -97,9 +106,33 @@ class PlantInstanceService:
         self.get_plant(key)
         return self._repo.update(key, plant)
 
-    def remove_plant(self, key: PlantID) -> PlantInstance:
-        plant = self.get_plant(key)
-        from datetime import date
+    def remove_plant(
+        self,
+        key: PlantID,
+        *,
+        termination_type: TerminationType | None = None,
+        termination_cause: TerminationCause | None = None,
+        tenant_key: str = "",
+    ) -> PlantInstance:
+        """Soft-remove a plant, optionally classifying how its lifecycle ended (E5).
+
+        Backward compatible: with no ``termination_type`` the plant is simply marked
+        ``removed_on`` (the previous behaviour). When ``termination_type='died'`` the
+        current growth phase is **frozen** via the transition engine — the open
+        phase-history entry is closed in place and NO senescence transition happens —
+        and ``termination_cause`` is recorded for failure analytics. ``termination_cause``
+        is only valid together with ``died``.
+
+        ``tenant_key`` re-verifies ownership inside the service (SEC-001, defence in
+        depth): the isolation invariant must not depend solely on the router fetching
+        the plant first. Empty (the default) preserves the pre-existing behaviour for
+        internal callers and tests.
+        """
+        plant = self.get_plant(key, tenant_key=tenant_key)
+
+        # E5: a cause only makes sense for an unplanned death.
+        if termination_cause is not None and termination_type != TerminationType.DIED:
+            raise ValidationError("termination_cause is only valid for termination_type='died'")
 
         # REQ-034 §2.1 / AC-08 — hard-delete the gallery photos before the
         # instance is removed so no orphan storage bytes remain.
@@ -111,11 +144,23 @@ class PlantInstanceService:
             self._photo_cleanup(plant)
             plant.photo_refs = []
             plant.cover_photo_ref = None
+            # Persist the cleanup now: the 'died' path below reloads the plant
+            # through the transition engine, which would otherwise not see it.
+            plant = self._repo.update(key, plant)
 
-        plant.removed_on = date.today()
-        updated = self._repo.update(key, plant)
+        if termination_type == TerminationType.DIED and self._phase_repo is not None:
+            # Freeze the current phase and record the unplanned loss (no senescence).
+            engine = PhaseTransitionEngine(self._phase_repo, self._repo, self._phase_seq_repo)
+            updated = engine.terminate(key, TerminationType.DIED, termination_cause=termination_cause)
+        else:
+            plant.termination_type = termination_type
+            plant.termination_cause = termination_cause
+            plant.removed_on = date.today()
+            updated = self._repo.update(key, plant)
 
-        # Remove the now-obsolete open tasks of this plant from the queue.
+        # Remove the now-obsolete open tasks of this plant from the queue — this
+        # includes the CARE_REMINDER-category tasks that surface care reminders
+        # (REQ-022), so removing/terminating a plant cancels its reminders too.
         # Completed/skipped/failed tasks are kept as history.
         self._delete_open_tasks_for_plant(key)
         # Watering/feeding tasks hang off the planting run, not the instance, so
@@ -177,6 +222,62 @@ class PlantInstanceService:
                     self._task_repo.delete_task(task.key)
                     deleted += 1
         return deleted
+
+    def get_survival_stats(self, tenant_key: str) -> SurvivalStats:
+        """Aggregate the tenant's plant instances for survival analytics (REQ-003 G1).
+
+        ``survived`` is every instance that was NOT an unplanned loss
+        (harvested/senesced/cancelled/still-growing all count as survived; only
+        ``died`` is a loss). Unplanned losses are additionally broken down by the
+        frozen growth phase they occurred in — merged by resolved phase *name* so
+        the same canonical phase across species aggregates, and sorted with the
+        most-affected phase first.
+        """
+        if not tenant_key:
+            raise ValidationError("tenant_key is required for survival statistics")
+
+        raw = self._repo.get_survival_stats(tenant_key)
+        total = int(raw.get("total", 0))
+        terminated = int(raw.get("terminated", 0))
+        died = int(raw.get("died", 0))
+        survived = total - died
+        active = total - terminated
+        survival_rate = round(survived / total, 4) if total else 0.0
+
+        by_type = [
+            TerminationTypeCount(termination_type=TerminationType(row["value"]), count=row["count"])
+            for row in raw.get("by_type", [])
+            if row.get("value") is not None
+        ]
+        by_cause = [
+            TerminationCauseCount(termination_cause=TerminationCause(row["value"]), count=row["count"])
+            for row in raw.get("by_cause", [])
+            if row.get("value") is not None
+        ]
+
+        # Merge loss counts by resolved phase NAME: phase keys are per-lifecycle,
+        # so the same canonical phase across species must be summed together.
+        phase_counts: dict[str, int] = {}
+        for row in raw.get("by_phase", []):
+            phase_key = row.get("value")
+            name = self.resolve_phase_name(phase_key) if phase_key else ""
+            phase_counts[name] = phase_counts.get(name, 0) + int(row["count"])
+        loss_by_phase = [
+            PhaseLossCount(phase_name=name, count=count)
+            for name, count in sorted(phase_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+
+        return SurvivalStats(
+            total=total,
+            terminated=terminated,
+            active=active,
+            died=died,
+            survived=survived,
+            survival_rate=survival_rate,
+            by_termination_type=by_type,
+            by_termination_cause=by_cause,
+            loss_by_phase=loss_by_phase,
+        )
 
     def get_plants_in_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
         return self._repo.get_active_by_slot(slot_key)

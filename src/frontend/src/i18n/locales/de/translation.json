@@ -1875,6 +1875,47 @@
         "nfcWriting": "Schreibe…",
         "nfcSuccess": "NFC-Tag erfolgreich beschrieben!",
         "nfcError": "Fehler beim Beschreiben: {{error}}"
+      },
+      "termination": {
+        "title": "Pflanze entfernen",
+        "intro": "Wie hat der Lebenszyklus von „{{name}}“ geendet? Die Angabe ist optional, hilft aber der Überlebens- und Verlustanalyse.",
+        "typeLabel": "Art des Abschlusses",
+        "typeHelper": "Geerntet und Seneszenz gelten als planmäßiges Ende, „Verlust“ als ungeplanter Ausfall.",
+        "typeUnspecified": "Ohne Angabe (einfach entfernen)",
+        "causeLabel": "Verlustursache",
+        "causeHelper": "Woran ist die Pflanze eingegangen? Fließt in die Verlustursachen-Auswertung ein.",
+        "causeExplainer": "Bei einem Verlust wird die aktuelle Wachstumsphase „eingefroren“, damit die Auswertung erkennt, in welcher Phase Ausfälle auftreten.",
+        "irreversibleNote": "Die Pflanze wird als entfernt markiert. Das lässt sich später nicht mehr rückgängig machen.",
+        "confirmDisabledHint": "Bitte zuerst eine Verlustursache auswählen."
+      },
+      "survival": {
+        "title": "Überlebensrate & Verlustursachen",
+        "intro": "Auswertung aller angelegten Pflanzen: wie viele überlebt haben und woran Verluste liegen.",
+        "empty": "Noch keine Pflanzen erfasst.",
+        "rateChip": "Überlebensrate {{percent}} %",
+        "rateCaption": "{{survived}} von {{total}} überlebt",
+        "total": "Pflanzen gesamt",
+        "active": "Noch in Kultur",
+        "survived": "Überlebt",
+        "died": "Verluste (eingegangen)",
+        "byTypeTitle": "Nach Art des Abschlusses",
+        "byPhaseTitle": "Nach Wachstumsphase",
+        "byCauseTitle": "Nach Verlustursache",
+        "outcome": "Abschluss",
+        "phase": "Phase",
+        "cause": "Ursache",
+        "count": "Anzahl",
+        "chartTitle": "Verlust-Verteilung",
+        "byPhase": "Nach Phase",
+        "byCause": "Nach Ursache",
+        "byPhaseHint": "Zeigt, in welcher Wachstumsphase die meisten Verluste auftreten (Verlustursache je Phase).",
+        "byCauseHint": "Zeigt, welche Ursache die meisten Verluste verursacht.",
+        "phaseUnknown": "Ohne Phase",
+        "noLosses": "Keine Verluste erfasst – alle Pflanzen leben bisher.",
+        "tableAria": "Überlebensstatistik",
+        "chartAria": "Balkendiagramm der Verlustverteilung",
+        "dimensionToggleAria": "Verlust-Dimension umschalten",
+        "definitionNote": "„Überlebt“ umfasst geerntete, seneszente, abgebrochene und noch wachsende Pflanzen; nur „Verlust“ (eingegangen) zählt als Ausfall."
       }
     },
     "phases": {
@@ -4774,6 +4815,23 @@
       "low": "Gering",
       "medium": "Mittel",
       "high": "Hoch"
+    },
+    "terminationType": {
+      "harvested": "Geerntet",
+      "senesced": "Natürlich abgestorben (Seneszenz)",
+      "died": "Verlust (eingegangen)",
+      "cancelled": "Abgebrochen"
+    },
+    "terminationCause": {
+      "disease": "Krankheit",
+      "pest": "Schädlingsbefall",
+      "frost": "Frost",
+      "heat": "Hitze",
+      "drought": "Trockenheit",
+      "waterlogging": "Staunässe",
+      "neglect": "Vernachlässigung",
+      "mechanical": "Mechanischer Schaden",
+      "unknown": "Unbekannt"
     }
   },
   "sensorChart": {

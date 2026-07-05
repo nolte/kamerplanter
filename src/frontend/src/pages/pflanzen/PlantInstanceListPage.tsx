@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import Skeleton from '@mui/material/Skeleton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -24,6 +25,8 @@ import { listSites, listLocations, getSlot } from '@/api/endpoints/sites';
 import { listPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
 import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
+import SurvivalStatsPanel from './SurvivalStatsPanel';
+import { useSurvivalStats } from '@/hooks/useSurvivalStats';
 import { kamiPlants } from '@/assets/brand/illustrations';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
 import PlantCoverPreview from './photos/PlantCoverPreview';
@@ -44,6 +47,9 @@ export default function PlantInstanceListPage() {
   const [slotMap, setSlotMap] = useState<Map<string, Slot>>(new Map());
   const [plantRunMap, setPlantRunMap] = useState<Map<string, { runKey: string; runName: string }>>(new Map());
   const tableState = useTableUrlState({ defaultSort: { column: 'plantedOn', direction: 'desc' } });
+  // REQ-003 G1 — survival / failure-cause analytics. Re-fetched whenever the
+  // instance list changes (create/remove) so the panel stays in sync.
+  const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(items.length);
 
   useEffect(() => {
     dispatch(fetchPlantInstances({}));
@@ -411,6 +417,18 @@ export default function PlantInstanceListPage() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {t('pages.plantInstances.intro')}
         </Typography>
+      )}
+
+      {survivalStatsLoading && !survivalStats && (
+        <Skeleton
+          variant="rectangular"
+          height={160}
+          sx={{ mb: 3, borderRadius: 1 }}
+          data-testid="survival-stats-loading"
+        />
+      )}
+      {survivalStats && survivalStats.total > 0 && (
+        <SurvivalStatsPanel stats={survivalStats} />
       )}
 
       <DataTable

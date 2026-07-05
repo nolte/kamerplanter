@@ -7,7 +7,9 @@ from app.api.v1.plant_instances.schemas import (
     CultivarSummary,
     PlantCreate,
     PlantResponse,
+    RemovePlantRequest,
     SpeciesSummary,
+    SurvivalStatsResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
 )
@@ -50,6 +52,20 @@ def list_plants(
 ):
     items, _total = service.list_plants(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_to_response(p, service) for p in items]
+
+
+@router.get("/survival-stats", response_model=SurvivalStatsResponse)
+def get_survival_stats(
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantInstanceService = Depends(get_plant_instance_service),
+):
+    """Survival-rate / failure-cause analytics for the tenant's plants (REQ-003 G1).
+
+    Declared before ``/{key}`` so the literal path is not captured by the
+    plant-key path parameter.
+    """
+    stats = service.get_survival_stats(ctx.tenant_key)
+    return SurvivalStatsResponse(**stats.model_dump())
 
 
 @router.get("/{key}", response_model=PlantResponse)
@@ -102,11 +118,16 @@ def update_plant(
 @router.post("/{key}/remove", response_model=PlantResponse)
 def remove_plant(
     key: str,
+    body: RemovePlantRequest | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    service.get_plant(key, tenant_key=ctx.tenant_key)
-    removed = service.remove_plant(key)
+    removed = service.remove_plant(
+        key,
+        termination_type=body.termination_type if body else None,
+        termination_cause=body.termination_cause if body else None,
+        tenant_key=ctx.tenant_key,
+    )
     return _to_response(removed, service)
 
 
