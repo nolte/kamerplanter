@@ -3,6 +3,8 @@
 from datetime import UTC, date, datetime
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.domain.services.dashboard_service import (
     DashboardCounts,
     DashboardService,
@@ -98,12 +100,22 @@ class TestDashboardSummary:
         assert result.counts.tanks_low == 1
         assert result.counts.care_reminders_due == 7
         assert result.upcoming_tasks == [{"key": "task-1"}]
-        assert result.recent_activities == [{"key": "act-1"}]
+        # recent_activities is deferred (no per-tenant event log yet): the section
+        # is an explicit empty list and the activity repo is never consulted.
+        assert result.recent_activities == []
+        activity_repo.list_recent.assert_not_called()
 
-    def test_falls_back_when_repos_lack_optional_methods(self):
-        # Repos without the expected methods must not crash the service.
-        plant_repo = MagicMock(spec=[])  # no methods
-        task_repo = MagicMock(spec=[])
+    def test_optional_repos_none_degrade_to_empty(self):
+        # Absent OPTIONAL repos (tank/care/activity) are a legit configuration,
+        # not an error: their tiles degrade to 0/[] via a plain presence check.
+        plant_repo = MagicMock()
+        plant_repo.count_for_tenant.return_value = 4
+        plant_repo.count_active_for_tenant.return_value = 4
+        task_repo = MagicMock()
+        task_repo.count_open_due_on.return_value = 1
+        task_repo.count_overdue.return_value = 0
+        task_repo.list_upcoming.return_value = []
+
         svc = _service(
             plant_repo=plant_repo,
             task_repo=task_repo,
@@ -114,9 +126,44 @@ class TestDashboardSummary:
 
         result = svc.get_summary("t-1")
 
-        assert result.counts.plants_total == 0
-        assert result.counts.open_tasks_today == 0
-        assert result.upcoming_tasks == []
+        assert result.counts.plants_total == 4
+        assert result.counts.tanks_low == 0
+        assert result.counts.care_reminders_due == 0
+        assert result.recent_activities == []
+
+    def test_missing_required_method_raises_loudly(self):
+        # REQ-009 R7/R8 regression: a missing REQUIRED repository method is a
+        # programming/wiring error and MUST surface loudly, never collapse to a
+        # legit-looking 0 (the exact masking that caused the hard-zero dashboard).
+        plant_repo = MagicMock(spec=[])  # lacks count_for_tenant
+        task_repo = MagicMock()
+        task_repo.count_open_due_on.return_value = 0
+        task_repo.count_overdue.return_value = 0
+        task_repo.list_upcoming.return_value = []
+
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+
+        with pytest.raises(AttributeError):
+            svc.get_summary("t-1")
+
+    def test_active_plants_present_yield_nonzero_count(self):
+        # REQ-009 R8(a): with active plants present the tile reports a real count,
+        # not a hard 0.
+        plant_repo = MagicMock()
+        plant_repo.count_for_tenant.return_value = 12
+        plant_repo.count_active_for_tenant.return_value = 9
+        task_repo = MagicMock()
+        task_repo.count_open_due_on.return_value = 0
+        task_repo.count_overdue.return_value = 0
+        task_repo.list_upcoming.return_value = []
+
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+
+        result = svc.get_summary("t-1")
+
+        assert result.counts.plants_total == 12
+        assert result.counts.plants_active == 9
+        assert result.counts.plants_active > 0
 
     def test_swallows_repo_exceptions_per_section(self):
         plant_repo = MagicMock()

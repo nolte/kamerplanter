@@ -1,7 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
 
+from app.common.enums import TaskStatus
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -722,6 +723,114 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         """
         cursor = self._db.aql.execute(query, bind_vars={"template_key": template_key})
         return list(cursor)
+
+    # ── Dashboard counts (REQ-009) ──
+
+    #: A task is "open" for the dashboard while it is still actionable, i.e. it
+    #: has neither been completed nor skipped/failed/dormant.
+    _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+
+    #: Shared orphan guard mirroring ``get_all_tasks``: a plant_instance task
+    #: whose plant was soft-removed (``removed_on``) or no longer exists must not
+    #: surface — otherwise the dashboard counts drift from the user-facing queue.
+    _ORPHAN_GUARD = (
+        " LET _plant = doc.entity_type == 'plant_instance'"
+        " ? DOCUMENT(CONCAT(@plant_col, '/', doc.entity_key))"
+        " : null"
+        " FILTER doc.entity_type != 'plant_instance'"
+        " OR (_plant != null AND _plant.removed_on == null)"
+    )
+
+    def count_open_due_on(self, tenant_key: str, today: date) -> int:
+        """Count open tasks of ``tenant_key`` whose due date falls on ``today``.
+
+        ``due_date`` is a datetime persisted as an ISO string; the first ten
+        characters are its calendar date, compared against ``today`` so the count
+        is timezone-offset agnostic. Orphaned plant tasks are excluded to match
+        the user-facing queue (``get_all_tasks``).
+        """
+        self._require_tenant_key(tenant_key, "count_open_due_on")
+        query = f"""
+        RETURN LENGTH(
+          FOR doc IN @@col
+            FILTER doc.tenant_key == @tenant_key
+            FILTER doc.status IN @open_statuses
+            FILTER doc.due_date != null
+            FILTER LEFT(doc.due_date, 10) == @today
+            {self._ORPHAN_GUARD}
+            RETURN 1
+        )
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "open_statuses": self._OPEN_STATUSES,
+            "today": today.isoformat(),
+            "plant_col": col.PLANT_INSTANCES,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
+
+    def count_overdue(self, tenant_key: str, today: date) -> int:
+        """Count open tasks of ``tenant_key`` whose due date is before ``today``."""
+        self._require_tenant_key(tenant_key, "count_overdue")
+        query = f"""
+        RETURN LENGTH(
+          FOR doc IN @@col
+            FILTER doc.tenant_key == @tenant_key
+            FILTER doc.status IN @open_statuses
+            FILTER doc.due_date != null
+            FILTER LEFT(doc.due_date, 10) < @today
+            {self._ORPHAN_GUARD}
+            RETURN 1
+        )
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "open_statuses": self._OPEN_STATUSES,
+            "today": today.isoformat(),
+            "plant_col": col.PLANT_INSTANCES,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
+
+    def list_upcoming(
+        self,
+        tenant_key: str,
+        today: date,
+        window_end: date,
+        limit: int,
+    ) -> list[dict]:
+        """List open tasks of ``tenant_key`` due within ``[today, window_end]``.
+
+        Sorted by due date ascending and capped at ``limit``. Returns raw
+        document dicts; the dashboard service consumes them directly.
+        """
+        self._require_tenant_key(tenant_key, "list_upcoming")
+        query = f"""
+        FOR doc IN @@col
+          FILTER doc.tenant_key == @tenant_key
+          FILTER doc.status IN @open_statuses
+          FILTER doc.due_date != null
+          FILTER LEFT(doc.due_date, 10) >= @today
+            AND LEFT(doc.due_date, 10) <= @window_end
+          {self._ORPHAN_GUARD}
+          SORT doc.due_date ASC
+          LIMIT @limit
+          RETURN doc
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "open_statuses": self._OPEN_STATUSES,
+            "today": today.isoformat(),
+            "window_end": window_end.isoformat(),
+            "limit": limit,
+            "plant_col": col.PLANT_INSTANCES,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [self._from_doc(doc) for doc in cursor]
 
     # ── Batch ──
 

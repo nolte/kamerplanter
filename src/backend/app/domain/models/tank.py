@@ -28,6 +28,10 @@ class Tank(BaseModel):
     is_light_proof: bool = False
     has_uv_sterilizer: bool = False
     has_ozone_generator: bool = False
+    # REQ-009 / REQ-014: per-tank low-fill threshold driving the dashboard
+    # "tanks low" tile. A tank counts as low when its most recent
+    # TankState.fill_level_percent falls below this value.
+    low_threshold_percent: float = Field(default=20.0, ge=0, le=100)
     installed_on: date | None = None
     location_key: str | None = None
     notes: str | None = None

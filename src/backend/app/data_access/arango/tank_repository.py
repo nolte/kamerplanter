@@ -308,6 +308,47 @@ class ArangoTankRepository(BaseArangoRepository[Tank], ITankRepository):
     def get_tanks_for_location(self, location_key: LocationKey) -> list[Tank]:
         return self.find_by_field("location_key", location_key)
 
+    def count_below_threshold(self, tenant_key: str) -> int:
+        """Count ``tenant_key`` tanks whose latest fill is below their threshold (REQ-009).
+
+        For each tenant tank the most recent ``TankState`` (by ``recorded_at``)
+        that carries a ``fill_level_percent`` is resolved in-query; the tank is
+        counted when that latest fill level is below the tank's own
+        ``low_threshold_percent`` (defaulting to 20 % for tanks persisted before
+        the field existed). Tanks without any fill-level reading are never counted.
+
+        Both collections are bound (``@@tanks`` / ``@@states``, never
+        interpolated) and the tank scan is filtered on ``tenant_key``; the
+        empty-tenant sentinel is rejected up-front (SEC-B4).
+        """
+        self._require_tenant_key(tenant_key, "count_below_threshold")
+        query = """
+        RETURN LENGTH(
+          FOR tank IN @@tanks
+            FILTER tank.tenant_key == @tenant_key
+            LET latest_fill = FIRST(
+              FOR s IN @@states
+                FILTER s.tank_key == tank._key AND s.fill_level_percent != null
+                SORT s.recorded_at DESC
+                LIMIT 1
+                RETURN s.fill_level_percent
+            )
+            LET threshold = tank.low_threshold_percent != null
+              ? tank.low_threshold_percent
+              : @default_threshold
+            FILTER latest_fill != null AND latest_fill < threshold
+            RETURN 1
+        )
+        """
+        bind_vars = {
+            "@tanks": self._collection_name,
+            "@states": col.TANK_STATES,
+            "tenant_key": tenant_key,
+            "default_threshold": Tank.model_fields["low_threshold_percent"].default,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
+
     def get_active_nutrient_plans(self, tank_key: TankKey) -> list[dict]:
         query = """
         LET tank = DOCUMENT(CONCAT(@tanks, '/', @tank_key))
