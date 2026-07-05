@@ -1858,6 +1858,11 @@
       "phTooltip": "pH value: measures acidity of the nutrient solution. Affects nutrient availability. Optimal: 5.5–6.5 for most crops.",
       "npkTooltip": "NPK ratio: Nitrogen (N) – Phosphorus (P) – Potassium (K). Defines the ratio of primary nutrients in the fertilizer. Vegetative: N-heavy; Flowering: P/K-heavy.",
       "ecAfterTooltip": "EC value (Electrical Conductivity) of the runoff water after watering, in mS/cm. Indicates remaining nutrient concentration in the substrate.",
+      "phaseRegime": {
+        "waterOnly": "Water only — no feed",
+        "waterOnlyTooltip": "In this phase the plant is watered with plain water only, without fertilizer. During a \"flush\" (rinsing shortly before harvest) excess salts are washed out of the substrate; during rest/dormancy (winter) the plant needs almost no nutrients.",
+        "sensorAdjusted": "A live soil-moisture sensor adjusted the recommended volume."
+      },
       "duplicate": "Duplicate plant",
       "duplicateTitle": "Duplicate plant",
       "tag": {
@@ -2007,7 +2012,11 @@
       "irrigationVolume": "Irrigation Volume (ml)",
       "editDesc": "Adjust the environment and nutrient requirements for this growth phase.",
       "requirementsDesc": "Light, temperature, humidity, and irrigation parameters.",
-      "nutrientsDesc": "NPK ratio, EC and pH targets, and trace elements."
+      "nutrientsDesc": "NPK ratio, EC and pH targets, and trace elements.",
+      "noFeed": "No feed (flush / rest phase)",
+      "noFeedTooltip": "This phase is not fertilized (NPK 0:0:0). During a \"flush\" the plant is rinsed with water only before harvest to wash residual salts out of the substrate; during rest/dormancy growth pauses.",
+      "microLockoutTitle": "Micronutrients locked out (pH lockout)",
+      "microLockoutIntro": "The target pH of this phase is outside the optimal range. As a result, some micronutrients (e.g. iron, manganese) cannot be absorbed by the plant — this is called a \"pH lockout\". It can cause leaf yellowing (chlorosis)."
     },
     "calculations": {
       "title": "Calculations",

@@ -137,6 +137,14 @@ Kamerplanter validates the calculated final EC against phase- and substrate-spec
 
 ---
 
+## Flush and Rest Phases: Automatically No Feed {#flush-rest-phases-no-feed}
+
+In addition to the table above, Kamerplanter automatically applies a fixed rule for two phases: for **flushing** and **dormancy (winter rest)**, the phase's nutrient profile is always **0:0:0** (no feed) — regardless of any recipe otherwise stored. The phase's nutrient view (see [Growth Phases](../user-guide/growth-phases.md#npk-profile)) shows the chip "No feed (flush / rest phase)" for this. For your mixing routine, this means: in these phases there is nothing to mix — you water with plain water only.
+
+Kamerplanter also checks each phase's target pH for **micronutrient availability**: if the target pH falls outside the optimal window of pH 6.0–6.5, iron, manganese, zinc, copper, and boron increasingly lock out of uptake (chlorosis risk — pale, yellowish leaf veins). Kamerplanter shows this warning as "Micronutrients locked out (pH lockout)" in the phase's nutrient view.
+
+---
+
 ## EC Temperature Correction (EC@25)
 
 The electrical conductivity of a reading depends on water temperature — the same nutrient solution shows a higher EC in warmer water than in cooler water. To keep measurements taken at different temperatures comparable, Kamerplanter can optionally correct to the 25 °C reference temperature:
@@ -244,3 +252,4 @@ Water temperature affects solubility and biological effectiveness:
 - [Watering Log](../user-guide/watering-log.md) — runoff analysis per entry
 - [Tank Management](../user-guide/tanks.md)
 - [VPD Optimization](vpd-optimization.md)
+- [Growth Phases](../user-guide/growth-phases.md#npk-profile) — phase-dependent nutrient profile

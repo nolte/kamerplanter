@@ -38,3 +38,16 @@ class NutrientProfileResponse(NutrientProfileCreate):
     key: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # ── Computed E8 guidance (REQ-003) — surfaced from the phase resource resolver ──
+    feed: bool = Field(
+        default=True,
+        description="Whether this phase is fed at all (False for flush/rest — 0:0:0).",
+    )
+    micros_available: bool = Field(
+        default=True,
+        description="Whether the phase target pH keeps micronutrients available (pH gating).",
+    )
+    ph_note: str = Field(
+        default="",
+        description="Human-readable pH / micronutrient-availability guidance.",
+    )

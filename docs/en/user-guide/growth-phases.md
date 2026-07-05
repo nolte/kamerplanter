@@ -181,18 +181,35 @@ The day length (hours of light per day) controls the transition to flowering in 
 !!! tip "Automatic flower induction"
     For plants with defined phase data, flowering can be triggered photoperiodically — indoors from the location's light schedule, outdoors from the astronomical day length when GPS coordinates are configured (see [Automatic Phase Transitions](#automatic-phase-transitions)).
 
-### NPK Profile (Nutrient Ratio)
+### Watering Volume per Phase {#watering-volume-per-phase}
+
+The recommended watering volume on the plant detail page automatically adapts to the current phase:
+
+- **Germination and seedling**: frequent but low volume per watering — the young root system cannot yet handle large amounts.
+- **Flowering and flushing**: elevated volume.
+- **Dormancy (winter rest)**: minimal water, just enough to keep the substrate from drying out completely.
+- **Dry storage** (e.g. resting bulbs/tubers): no watering at all.
+
+Flushing and dormancy are additionally flagged with the chip "**Water only — no feed**": the plant is still watered in these phases, but not fertilized — during a flush to wash residual salts out of the substrate before harvest, during dormancy because growth has paused.
+
+Two further factors affect the suggested volume:
+
+- The plant species' **waterlogging tolerance** caps the volume — a waterlogging-sensitive species is suggested less, a tolerant one somewhat more.
+- A **live soil-moisture sensor** configured at the plant's location (see [Sensors](sensors.md)) automatically reduces the suggested volume when the root zone is already wet; a hint on the detail page indicates this.
+
+!!! warning "Not yet implemented"
+    An additional, evapotranspiration-based adjustment of this recommendation from live weather data is prepared as an extension point, but does not yet draw on real weather data. <!-- REQ-037 -->
+
+### NPK Profile (Nutrient Ratio) {#npk-profile}
 
 The nitrogen-phosphorus-potassium ratio changes across phases:
 
 - **Vegetative**: High nitrogen (N) for leaf growth
 - **Flowering**: Less nitrogen, more phosphorus (P) and potassium (K)
 - **Late flowering**: Minimal nitrogen, high PK share
+- **Flushing and dormancy**: no feed at all (NPK 0:0:0) — the phase's nutrient view shows the chip "**No feed (flush / rest phase)**" for this.
 
-Each phase also has a target pH stored for the nutrient solution. The pH value affects how well individual micronutrients (iron, manganese, zinc, copper, boron) can be taken up by the plant: outside an optimal window of pH 6.0–6.5, these micronutrients increasingly lock out (chlorosis risk — pale, yellowish leaf veins), while molybdenum behaves the other way round and becomes more available as pH rises.
-
-!!! note "Partially available: target pH & micronutrient availability per phase"
-    Kamerplanter already calculates the pH-dependent micronutrient availability for every phase in the background. A warning or recommendation about it in the nutrient UI does not exist yet, though — that is planned for a future extension of the fertilization logic. <!-- REQ-003 E8 -->
+Each phase also has a target pH stored for the nutrient solution. The pH value affects how well individual micronutrients (iron, manganese, zinc, copper, boron) can be taken up by the plant: outside an optimal window of pH 6.0–6.5, these micronutrients increasingly lock out (chlorosis risk — pale, yellowish leaf veins), while molybdenum behaves the other way round and becomes more available as pH rises. If a phase's target pH falls outside this window, Kamerplanter shows this in the phase's nutrient view (tab **Growth Phases** → click a phase) as the warning "**Micronutrients locked out (pH lockout)**" with a plain-language explanation. <!-- REQ-003 E8 -->
 
 ### Distinguishing Planned from Premature Bolting
 
@@ -323,3 +340,5 @@ Plants without an ending type set (simply removed, without classification) still
 - [Fertilization](fertilization.md)
 - [Harvest](harvest.md)
 - [Planting Runs](planting-runs.md)
+- [Watering Log](watering-log.md#suggested-watering-volume) — suggested watering volume
+- [Guides: Nutrient Mixing](../guides/nutrient-mixing.md#flush-rest-phases-no-feed) — flush/rest phases with no feed

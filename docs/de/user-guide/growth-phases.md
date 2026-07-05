@@ -181,18 +181,35 @@ Die Tageslichtlänge (Stunden Licht pro Tag) steuert bei vielen Pflanzen den Üb
 !!! tip "Tipp: Automatische Blüteeinleitung"
     Bei Pflanzen mit hinterlegten Phasen-Definitionen kann die Blüte photoperiodisch ausgelöst werden — indoor aus dem Lichtprogramm des Standorts, outdoor aus der astronomischen Tageslänge bei hinterlegten GPS-Koordinaten (siehe [Automatische Phasenübergänge](#automatische-phasenuebergaenge)).
 
-### NPK-Profil (Nährstoffverhältnis)
+### Bewässerungsmenge je Phase {#bewaesserungsmenge-je-phase}
+
+Die empfohlene Gießmenge auf der Pflanzen-Detailseite passt sich automatisch an die aktuelle Phase an:
+
+- **Keimung und Jungpflanze**: häufig, aber wenig Wasser pro Gießvorgang — die junge Wurzel verträgt noch keine großen Mengen.
+- **Blüte und Spülung (Flush)**: erhöhtes Volumen.
+- **Ruhephase (Winterruhe)**: minimale Wassermenge, nur zur Substraterhaltung.
+- **Trockenlagerung** (z. B. ruhende Zwiebeln/Knollen): keine Bewässerung.
+
+Spülung und Ruhephase sind zusätzlich mit dem Chip „**Nur Wasser — kein Dünger**" gekennzeichnet: In diesen Phasen wird zwar gegossen, aber nicht gedüngt — beim Flush, um vor der Ernte Restsalze aus dem Substrat zu waschen, in der Ruhephase, weil das Wachstum pausiert.
+
+Zwei weitere Faktoren wirken auf die vorgeschlagene Menge:
+
+- Die **Staunässe-Toleranz** der Pflanzenart begrenzt die Menge nach oben — staunässe-empfindliche Arten bekommen weniger, tolerante etwas mehr vorgeschlagen.
+- Ein am Standort eingerichteter **Live-Bodenfeuchte-Sensor** (siehe [Sensorik](sensors.md)) reduziert die vorgeschlagene Menge automatisch, wenn der Boden bereits feucht ist; ein Hinweistext auf der Detailseite macht das kenntlich.
+
+!!! warning "Noch nicht implementiert"
+    Eine zusätzliche, verdunstungsbasierte Anpassung dieser Empfehlung anhand von Live-Wetterdaten ist als Erweiterungspunkt vorbereitet, bezieht aber noch keine echten Wetterdaten ein. <!-- REQ-037 -->
+
+### NPK-Profil (Nährstoffverhältnis) {#npk-profil}
 
 Das Stickstoff-Phosphor-Kalium-Verhältnis ändert sich über die Phasen:
 
 - **Vegetativ**: Viel Stickstoff (N) für Blattwachstum
 - **Blüte**: Weniger Stickstoff, mehr Phosphor (P) und Kalium (K)
 - **Spätblüte**: Minimaler Stickstoff, hoher PK-Anteil
+- **Spülung (Flush) und Ruhephase**: keine Düngung (NPK 0:0:0) — die Nährstoff-Ansicht der Phase zeigt dafür den Chip „**Keine Düngung (Flush / Ruhephase)**".
 
-Jede Phase hat außerdem einen hinterlegten Ziel-pH-Wert für die Nährlösung. Der pH-Wert beeinflusst, wie gut einzelne Mikronährstoffe (Eisen, Mangan, Zink, Kupfer, Bor) von der Pflanze aufgenommen werden können: Außerhalb eines optimalen Fensters von pH 6,0–6,5 sperren sich diese Mikronährstoffe zunehmend aus (Chlorose-Risiko — helle, gelbliche Blattadern), während sich Molybdän gegenläufig verhält und bei steigendem pH besser verfügbar wird.
-
-!!! note "Teilweise verfügbar: Ziel-pH & Mikronährstoff-Verfügbarkeit je Phase"
-    Kamerplanter berechnet die pH-abhängige Mikronährstoff-Verfügbarkeit für jede Phase bereits im Hintergrund. Eine Warnung oder Empfehlung dazu in der Nährstoff-Oberfläche gibt es aktuell aber noch nicht — das ist für eine kommende Erweiterung der Dünge-Logik vorgesehen. <!-- REQ-003 E8 -->
+Jede Phase hat außerdem einen hinterlegten Ziel-pH-Wert für die Nährlösung. Der pH-Wert beeinflusst, wie gut einzelne Mikronährstoffe (Eisen, Mangan, Zink, Kupfer, Bor) von der Pflanze aufgenommen werden können: Außerhalb eines optimalen Fensters von pH 6,0–6,5 sperren sich diese Mikronährstoffe zunehmend aus (Chlorose-Risiko — helle, gelbliche Blattadern), während sich Molybdän gegenläufig verhält und bei steigendem pH besser verfügbar wird. Liegt der Ziel-pH einer Phase außerhalb dieses Fensters, zeigt Kamerplanter das in der Nährstoff-Ansicht der Phase (Tab **Wachstumsphasen** → Phase anklicken) als Warnung „**Spurennährstoffe blockiert (pH-Sperre)**" mit einer laienverständlichen Erklärung an. <!-- REQ-003 E8 -->
 
 ### Geplantes und vorzeitiges Schossen unterscheiden
 
@@ -323,3 +340,5 @@ Pflanzen ohne gesetzte Abschlussart (einfach entfernt, ohne Klassifizierung) fli
 - [Dünge-Logik](fertilization.md)
 - [Ernte](harvest.md)
 - [Pflanzdurchläufe](planting-runs.md)
+- [Gießprotokoll](watering-log.md#vorgeschlagene-giessmenge) — vorgeschlagene Gießmenge
+- [Guides: Nährlösung mischen](../guides/nutrient-mixing.md#flush-ruhephase-ohne-duengung) — Flush/Ruhephase ohne Düngung

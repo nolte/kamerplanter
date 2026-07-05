@@ -1858,6 +1858,11 @@
       "phTooltip": "pH-Wert: Maß für den Säuregehalt der Nährlösung. Beeinflusst die Nährstoffverfügbarkeit. Optimal: 5,5–6,5 für die meisten Kulturen.",
       "npkTooltip": "NPK-Verhältnis: Stickstoff (N) – Phosphor (P) – Kalium (K). Bestimmt das Verhältnis der Hauptnährstoffe in der Düngung. Vegetativ: N-betont; Blüte: P/K-betont.",
       "ecAfterTooltip": "EC-Wert (Elektrische Leitfähigkeit) des Abflusswassers nach dem Gießen in mS/cm. Gibt Aufschluss über die verbleibende Nährstoffkonzentration im Substrat.",
+      "phaseRegime": {
+        "waterOnly": "Nur Wasser — kein Dünger",
+        "waterOnlyTooltip": "In dieser Phase wird nur mit klarem Wasser gegossen, ohne Dünger. Beim „Flush\" (Spülen kurz vor der Ernte) wird überschüssiges Salz aus dem Substrat gewaschen; in der Ruhephase (Winter) braucht die Pflanze kaum Nährstoffe.",
+        "sensorAdjusted": "Ein Live-Bodenfeuchte-Sensor hat die empfohlene Gießmenge angepasst."
+      },
       "duplicate": "Pflanze duplizieren",
       "duplicateTitle": "Pflanze duplizieren",
       "tag": {
@@ -2007,7 +2012,11 @@
       "requirementsDesc": "Licht, Temperatur, Luftfeuchtigkeit und Bewässerungsparameter.",
       "nutrientsDesc": "NPK-Verhältnis, EC- und pH-Zielwerte sowie Spurenelemente.",
       "irrigationFrequency": "Bewässerungsintervall",
-      "irrigationVolume": "Bewässerungsmenge (ml)"
+      "irrigationVolume": "Bewässerungsmenge (ml)",
+      "noFeed": "Keine Düngung (Flush / Ruhephase)",
+      "noFeedTooltip": "In dieser Phase wird nicht gedüngt (NPK 0:0:0). Beim „Flush\" wird vor der Ernte nur mit Wasser gespült, um Restsalze aus dem Substrat auszuwaschen; in der Ruhephase ruht das Wachstum.",
+      "microLockoutTitle": "Spurennährstoffe blockiert (pH-Sperre)",
+      "microLockoutIntro": "Der Ziel-pH-Wert dieser Phase liegt außerhalb des optimalen Bereichs. Dadurch können einzelne Spurennährstoffe (z. B. Eisen, Mangan) von der Pflanze nicht aufgenommen werden — man nennt das eine „pH-Sperre\". Das kann zu Blattaufhellung (Chlorose) führen."
     },
     "calculations": {
       "title": "Berechnungen",
