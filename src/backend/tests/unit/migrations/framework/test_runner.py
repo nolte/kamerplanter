@@ -2,16 +2,35 @@
 
 from __future__ import annotations
 
+import time as _real_time
+
 import pytest
 
 from app.migrations.framework import runner as runner_module
 from app.migrations.framework import tracking
 from app.migrations.framework.report import (
     IrreversibleMigrationError,
+    MigrationBarrierTimeoutError,
     MigrationLockError,
     NonLinearHistoryError,
 )
 from app.migrations.framework.runner import MigrationRunner
+
+
+class _FakeTime:
+    """Stand-in for the runner's ``time`` module: real monotonic, recorded sleep.
+
+    Substituted for ``runner_module.time`` (not the global module) so the barrier
+    can be driven deterministically without a real sleep and without pytest's own
+    ``time`` calls interfering.
+    """
+
+    def __init__(self) -> None:
+        self.sleeps: list[float] = []
+        self.monotonic = _real_time.monotonic
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
 
 
 class TestPlan:
@@ -146,15 +165,84 @@ class TestInspection:
         assert [row["version"] for row in runner.history(fake_db)] == ["0001", "0002"]
 
 
+class TestPreconditionUnmet:
+    def test_unmet_precondition_leaves_migration_and_successors_pending(self, fake_db, make_migration):
+        # 0002 reports its precondition unmet — it and 0003 must stay pending,
+        # and 0002 must NOT be recorded (M-1 keeps history linear).
+        m1 = make_migration("0001", up_changed=1)
+        m2 = make_migration("0002", precondition_unmet=True)
+        m3 = make_migration("0003", up_changed=1)
+        runner = MigrationRunner([m1, m2, m3])
+
+        reports = runner.upgrade(fake_db)
+
+        assert [r.version for r in reports] == ["0001", "0002"]
+        assert reports[-1].precondition_unmet is True
+        # Only 0001 recorded; 0002/0003 remain pending for a later boot.
+        assert tracking.applied_versions(fake_db) == {"0001"}
+        assert m3.up_calls == []  # successor never ran
+
+    def test_precondition_met_on_retry_records_applied(self, fake_db, make_migration):
+        # First boot: precondition unmet → pending. Second boot: same version now
+        # succeeds → recorded, and the successor applies too.
+        runner1 = MigrationRunner([make_migration("0001", precondition_unmet=True), make_migration("0002")])
+        runner1.upgrade(fake_db)
+        assert tracking.applied_versions(fake_db) == set()
+
+        runner2 = MigrationRunner([make_migration("0001"), make_migration("0002")])
+        runner2.upgrade(fake_db)
+        assert tracking.applied_versions(fake_db) == {"0001", "0002"}
+
+
 class TestRunPendingMigrations:
-    def test_lock_contention_is_not_fatal(self, fake_db, monkeypatch):
-        # A concurrent replica holds the lock: run_pending_migrations must skip,
-        # not crash the startup.
+    def test_lock_contention_waits_then_returns_once_head_reached(self, fake_db, monkeypatch):
+        # A concurrent replica holds the lock: this runner must WAIT until the
+        # winner's applied set reaches head, then complete startup (not serve
+        # traffic against un-migrated data).
         monkeypatch.setattr(runner_module, "load_migrations", lambda: [])
+        monkeypatch.setattr(
+            MigrationRunner,
+            "upgrade",
+            lambda self, db: (_ for _ in ()).throw(MigrationLockError("held")),
+        )
 
-        def _raise_locked(_db):
-            raise MigrationLockError("held")
+        # runner.migrations is [] → head set empty → barrier satisfied at once.
+        assert runner_module.run_pending_migrations(fake_db) == []
 
-        monkeypatch.setattr(MigrationRunner, "upgrade", lambda self, db: _raise_locked(db))
+    def test_lock_contention_polls_until_winner_finishes(self, fake_db, make_migration, monkeypatch):
+        migrations = [make_migration("0001"), make_migration("0002")]
+        monkeypatch.setattr(runner_module, "load_migrations", lambda: list(migrations))
+        monkeypatch.setattr(
+            MigrationRunner,
+            "upgrade",
+            lambda self, db: (_ for _ in ()).throw(MigrationLockError("held")),
+        )
+
+        # Replace only the runner's `time` reference so pytest internals keep the
+        # real clock; record sleeps and let monotonic run real (deadline is far).
+        fake_time = _FakeTime()
+        monkeypatch.setattr(runner_module, "time", fake_time)
+
+        # Head reached on the third applied_versions() poll (winner finishing).
+        polls = iter([set(), {"0001"}, {"0001", "0002"}])
+        monkeypatch.setattr(tracking, "applied_versions", lambda db: next(polls))
 
         assert runner_module.run_pending_migrations(fake_db) == []
+        assert len(fake_time.sleeps) == 2  # slept between the two not-yet-ready polls
+
+    def test_barrier_timeout_raises_to_fail_readiness(self, fake_db, make_migration, monkeypatch):
+        migrations = [make_migration("0001")]
+        monkeypatch.setattr(runner_module, "load_migrations", lambda: list(migrations))
+        monkeypatch.setattr(
+            MigrationRunner,
+            "upgrade",
+            lambda self, db: (_ for _ in ()).throw(MigrationLockError("held")),
+        )
+        monkeypatch.setattr(runner_module, "time", _FakeTime())
+        # A non-positive budget makes the deadline already-elapsed: the winner
+        # never reaches head, so the barrier fails readiness at once.
+        monkeypatch.setattr(runner_module, "BARRIER_TIMEOUT_SECONDS", -1.0)
+        monkeypatch.setattr(tracking, "applied_versions", lambda db: set())
+
+        with pytest.raises(MigrationBarrierTimeoutError):
+            runner_module.run_pending_migrations(fake_db)

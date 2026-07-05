@@ -16,9 +16,22 @@ from arango.database import StandardDatabase
 from app.migrations.framework import tracking
 from app.migrations.framework.base import Migration
 from app.migrations.framework.discovery import load_migrations, normalize_version, validate_sequence
-from app.migrations.framework.report import MigrationLockError, MigrationReport, NonLinearHistoryError
+from app.migrations.framework.report import (
+    MigrationBarrierTimeoutError,
+    MigrationLockError,
+    MigrationReport,
+    NonLinearHistoryError,
+)
 
 logger = structlog.get_logger()
+
+# The replica that loses the lock race waits for the winner to reach head before
+# it completes startup.  The budget is generous (a migration may legitimately run
+# longer than the lock TTL, whereupon another replica takes over and finishes it)
+# but bounded, so a genuinely wedged winner eventually fails this replica's
+# readiness instead of serving traffic against un-migrated data.
+BARRIER_TIMEOUT_SECONDS = tracking.LOCK_TTL_SECONDS * 2
+BARRIER_POLL_INTERVAL_SECONDS = 2.0
 
 
 class MigrationRunner:
@@ -82,7 +95,7 @@ class MigrationRunner:
         """Apply all pending migrations (optionally up to ``target``) under the lock."""
         normalized_target = normalize_version(target) if target is not None else None
 
-        tracking.acquire_lock(db)
+        owner = tracking.acquire_lock(db)
         try:
             applied = tracking.applied_versions(db)
             self._check_linear(applied)
@@ -98,6 +111,18 @@ class MigrationRunner:
                 report = migration.up(db, dry_run=dry_run)
                 duration_ms = (time.perf_counter() - start) * 1000.0
                 report.duration_ms = round(duration_ms, 3)
+                if report.precondition_unmet and not dry_run:
+                    # The migration did no work because a precondition was absent
+                    # (M-1: leave it AND every later migration pending so a later
+                    # boot retries it in order; do NOT record it applied).
+                    logger.warning(
+                        "migration_precondition_unmet_left_pending",
+                        version=migration.version,
+                        name=migration.name,
+                        details=report.details,
+                    )
+                    reports.append(report)
+                    break
                 if not dry_run:
                     tracking.record(db, migration, duration_ms)
                 logger.info(
@@ -112,7 +137,7 @@ class MigrationRunner:
                 reports.append(report)
             return reports
         finally:
-            tracking.release_lock(db)
+            tracking.release_lock(db, owner)
 
     def downgrade(
         self,
@@ -124,7 +149,7 @@ class MigrationRunner:
         """Roll back applied migrations above ``target``, newest first, under the lock."""
         normalized_target = normalize_version(target)
 
-        tracking.acquire_lock(db)
+        owner = tracking.acquire_lock(db)
         try:
             applied = tracking.applied_versions(db)
             to_rollback = sorted(
@@ -151,7 +176,7 @@ class MigrationRunner:
                 reports.append(report)
             return reports
         finally:
-            tracking.release_lock(db)
+            tracking.release_lock(db, owner)
 
     def current(self, db: StandardDatabase) -> str | None:
         """Return the highest applied version, or ``None``."""
@@ -162,16 +187,54 @@ class MigrationRunner:
         return tracking.history(db)
 
 
+def _await_head(
+    db: StandardDatabase,
+    required: set[str],
+    *,
+    timeout: float,
+    interval: float,
+) -> bool:
+    """Block until the applied set covers ``required`` (head reached) or timeout.
+
+    Returns ``True`` once ``tracking.applied_versions(db) ⊇ required`` (the
+    winning runner finished), ``False`` if the bounded budget elapses first.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        if required <= tracking.applied_versions(db):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(interval)
+
+
 def run_pending_migrations(db: StandardDatabase) -> list[MigrationReport]:
     """Startup entrypoint: apply every pending migration — FATAL on failure (M-4).
 
-    A held lock (a concurrent replica already migrating) is NOT fatal: this runner
-    skips gracefully and the winning runner applies the pending set exactly once
-    (M-8).  Any other exception propagates and aborts the startup (M-4).
+    A held lock (a concurrent replica already migrating) is NOT fatal to *this*
+    runner: it does not apply anything itself (M-8 — single runner), but it MUST
+    NOT complete startup against un-migrated data either.  So it waits until the
+    winning runner's applied set reaches the discovered head, then returns ``[]``.
+    If the winner never reaches head within the bounded budget, this runner
+    raises :class:`MigrationBarrierTimeoutError` so readiness fails and the
+    orchestrator restarts it (M-4).  Any other exception propagates unchanged.
     """
     runner = MigrationRunner()
     try:
         return runner.upgrade(db)
     except MigrationLockError:
-        logger.info("migrations_locked_by_other_runner_skipping")
+        required = {m.version for m in runner.migrations}
+        logger.info("migrations_locked_by_other_runner_waiting", required=sorted(required))
+        reached = _await_head(
+            db,
+            required,
+            timeout=BARRIER_TIMEOUT_SECONDS,
+            interval=BARRIER_POLL_INTERVAL_SECONDS,
+        )
+        if not reached:
+            raise MigrationBarrierTimeoutError(
+                "Timed out waiting for the migrating replica to reach head "
+                f"(required={sorted(required)}, applied={sorted(tracking.applied_versions(db))})"
+            ) from None
+        logger.info("migrations_barrier_reached_head", head=max(required) if required else None)
         return []

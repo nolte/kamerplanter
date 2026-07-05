@@ -50,13 +50,16 @@ class Migration:
         raise IrreversibleMigrationError(f"Migration {self.version} ({self.name}) is not reversible")
 
     def checksum(self) -> str:
-        """Return the SHA-256 of this migration's ``up`` source (M-7).
+        """Return the SHA-256 of this migration's whole-class source (M-7).
 
-        Drift between the stored and the current checksum flags a migration that
-        was edited after having been applied — applied migrations are immutable
-        and corrections must ship as a new version.
+        Hashing the entire class — ``up``, ``down`` and any class-level helpers —
+        rather than ``up`` alone means an in-place edit to *any* part of an
+        already-applied migration surfaces as drift.  Drift between the stored
+        and current checksum flags a migration edited after having been applied;
+        applied migrations are immutable and corrections must ship as a new
+        version.
         """
-        source = inspect.getsource(type(self).up)
+        source = inspect.getsource(type(self))
         return hashlib.sha256(source.encode("utf-8")).hexdigest()
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
