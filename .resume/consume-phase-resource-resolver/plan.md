@@ -203,5 +203,15 @@ U_gate=0.7, load-bearing Dims confirmed). Entscheidungen (Teach-back):
       Tooltip-Chips tastatur-unerreichbar → tabIndex/role/aria-label) → **Tests**
       (4 ProfilesSection-Guidance-Tests, vitest 1893 grün; Watering-Card bewusst geskippt =
       2476-Zeilen-Page ohne Test-Infra) → **Doku** (mkdocs-agent läuft).
-- [ ] **RESUME HIER:** Quality-Gate grün (ruff/eslint/tsc, pytest/vitest) nach Docs-Agent
-- [ ] PR nach develop erstellt (#383 verlinkt)
+- [x] Quality-Gate grün: Backend ruff clean + **3624 pytest passed** (`-p no:randomly`);
+      Frontend tsc clean, eslint 0 errors, **vitest 1893 passed**; mkdocs `--strict` grün.
+      **Falle gefangen:** pre-commit `ruff format 0.15.x` zerlegte `except (TypeError, ValueError):`
+      → SyntaxError (bekannt, `feedback_ruff_format_except_tuple.md`) → durch Typ-Narrowing ersetzt.
+      Rebase auf origin/develop (#387) clean.
+- [x] **PR #388 (Draft) nach develop erstellt**, Closes #383, Labels enhancement+documentation.
+      https://github.com/nolte/kamerplanter/pull/388
+
+## FERTIG — Issue #383 vollständig bis zum PR abgearbeitet.
+Nächster manueller Schritt (nicht Teil von „bis zum PR"): Draft→Ready + automerge via
+`pull-request-merge`-Skill nach grüner CI. Follow-ups: REQ-037 Voll-ET, REQ-005 Wetter-Ingestion,
+persistierter Bodenfeuchte-Pfad, Watering-Card-Subkomponente für Testbarkeit.
