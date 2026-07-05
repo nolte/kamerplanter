@@ -168,4 +168,7 @@ Erste unerledigte Box = Wiedereinstiegspunkt der nächsten Session.
 - [x] **Follow-up-Issues angelegt:** #381 (A3/D10 klonale Fortführung, REQ-017),
       #382 (B1/E1 Indoor-Photoperiode, REQ-018), #383 (E7/E8 Resolver→Service-
       Integration). Nichts still fallengelassen.
-- [ ] PR nach `develop` via `pull-request-create`; #305 verlinkt.
+- [x] PR nach `develop`: **#385 (Draft)** via `pull-request-create`; Closes #305,
+      Refs #381/#382/#383. 2× auf develop rebased (#376/#377, dann #378/#379); Gate
+      grün: Backend 3402 pytest, Frontend tsc/eslint/vitest 1889, mkdocs strict.
+      **FERTIG** — Draft nach erstem grünem CI auf ready flippen.
