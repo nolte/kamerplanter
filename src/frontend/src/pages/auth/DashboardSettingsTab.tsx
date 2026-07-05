@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
 import Box from '@mui/material/Box';
@@ -27,6 +27,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import LockIcon from '@mui/icons-material/Lock';
 import WidgetConfigDialog from '@/components/dashboard/WidgetConfigDialog';
+import { useAppDispatch } from '@/store/hooks';
+import { fetchWidgetCatalog } from '@/store/slices/dashboardSlice';
 import { useDashboardLayout } from '@/hooks/useDashboardLayout';
 import {
   dashboardWidgetCatalog,
@@ -55,8 +57,16 @@ type Breakpoint = 'lg' | 'md' | 'sm';
 export default function DashboardSettingsTab() {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
-  const { layout, catalogByKey, isWidgetRenderable, persist, reset } = useDashboardLayout();
+  const dispatch = useAppDispatch();
+  const { layout, catalogByKey, catalogLoaded, isWidgetRenderable, persist, reset } = useDashboardLayout();
   const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
+
+  // The settings tab is reachable directly via /settings#dashboard without
+  // visiting /dashboard first — load the server-authoritative widget catalog so
+  // gated widgets show as locked (not silently toggleable).
+  useEffect(() => {
+    if (!catalogLoaded) void dispatch(fetchWidgetCatalog());
+  }, [dispatch, catalogLoaded]);
   const [announcement, setAnnouncement] = useState('');
   const [configTarget, setConfigTarget] = useState<DashboardWidgetInstance | null>(null);
 

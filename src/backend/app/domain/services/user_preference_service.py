@@ -2,32 +2,14 @@ import structlog
 
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.user_preference import DashboardLayout, UserPreference
+from app.domain.services.dashboard_widget_catalog import WIDGET_BY_KEY
 
 logger = structlog.get_logger()
 
-# REQ-045 — backend widget registry. MUST stay in sync with the frontend
-# ``dashboardWidgetCatalog`` (contract test, REQ-045 §6).
-KNOWN_WIDGET_KEYS: frozenset[str] = frozenset(
-    {
-        "quick_actions",
-        "active_plants_summary",
-        "tasks_today",
-        "care_reminders",
-        "daily_tip",
-        "weather_forecast",
-        "onboarding_progress",
-        "winter_protection",
-        "ipm_alerts",
-        "harvest_forecast",
-        "next_calendar_events",
-        "community_activity",
-        "sensor_live",
-        "tank_status",
-        "phase_timeline",
-        "vpd_gauge",
-        "plant_grid",
-    }
-)
+# REQ-045 — backend widget registry, derived from the single widget-metadata
+# source (WIDGET_CATALOG) so the two backend lists cannot drift. MUST stay in
+# sync with the frontend ``dashboardWidgetCatalog`` (contract test, REQ-045 §6).
+KNOWN_WIDGET_KEYS: frozenset[str] = frozenset(WIDGET_BY_KEY)
 
 
 def _sanitize_layout(layout: DashboardLayout) -> DashboardLayout:

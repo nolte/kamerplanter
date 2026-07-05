@@ -9,7 +9,7 @@ import {
   placementsForBreakpoint,
   type WidgetKey,
 } from '@/config/dashboardWidgetCatalog';
-import { sortByReadingOrder } from '@/lib/dashboardLayoutOps';
+import { sortByReadingOrder, packByReadingOrder } from '@/lib/dashboardLayoutOps';
 import type { DashboardLayout, DashboardWidgetInstance } from '@/api/types';
 
 const ROW_HEIGHT = 44; // px per grid row unit
@@ -34,13 +34,19 @@ export default function DashboardReadonlyGrid({
   const cols = GRID_COLS_BY_BREAKPOINT[breakpoint];
 
   const ordered = useMemo(() => {
-    const placements = placementsForBreakpoint(layout, breakpoint);
+    // A breakpoint without its own placements is derived from lg, whose x/w
+    // assume 12 columns. Re-pack into the active breakpoint's column count so a
+    // widget at lg-x=8 doesn't overflow the 8-column tablet grid (the read-only
+    // grid has no react-grid-layout re-compaction).
+    const hasOwn = Boolean(layout.placements[breakpoint]?.length);
+    const raw = placementsForBreakpoint(layout, breakpoint);
+    const placements = hasOwn ? raw : packByReadingOrder(raw, cols);
     const byId = new Map<string, DashboardWidgetInstance>(layout.widgets.map((w) => [w.instance_id, w]));
     return sortByReadingOrder(placements)
       .map((p) => ({ placement: p, widget: byId.get(p.instance_id) }))
       .filter((x): x is { placement: typeof x.placement; widget: DashboardWidgetInstance } => Boolean(x.widget))
       .filter((x) => renderableKeys(x.widget.widget_key));
-  }, [layout, breakpoint, renderableKeys]);
+  }, [layout, breakpoint, cols, renderableKeys]);
 
   return (
     <Box

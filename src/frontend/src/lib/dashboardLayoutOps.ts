@@ -15,6 +15,33 @@ export function sortByReadingOrder(placements: WidgetPlacement[]): WidgetPlaceme
   return [...placements].sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
+/**
+ * Re-pack placements row-by-row into a grid of `cols` columns, preserving
+ * reading order. Used by the read-only grid when a narrower breakpoint (md/sm)
+ * is derived from the wider `lg` placements: the lg coordinates assume 12
+ * columns, so rendering them verbatim into an 8-column grid overflows. Each
+ * width is clamped to `cols`; heights are preserved.
+ */
+export function packByReadingOrder(placements: WidgetPlacement[], cols: number): WidgetPlacement[] {
+  const ordered = sortByReadingOrder(placements);
+  const packed: WidgetPlacement[] = [];
+  let x = 0;
+  let y = 0;
+  let rowHeight = 0;
+  for (const p of ordered) {
+    const w = Math.min(p.w, cols);
+    if (x + w > cols) {
+      x = 0;
+      y += rowHeight;
+      rowHeight = 0;
+    }
+    packed.push({ instance_id: p.instance_id, x, y, w, h: p.h });
+    x += w;
+    rowHeight = Math.max(rowHeight, p.h);
+  }
+  return packed;
+}
+
 function withPlacements(layout: DashboardLayout, breakpoint: Breakpoint, placements: WidgetPlacement[]): DashboardLayout {
   return { ...layout, placements: { ...layout.placements, [breakpoint]: placements } };
 }

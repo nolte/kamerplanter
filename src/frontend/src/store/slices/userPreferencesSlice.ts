@@ -174,9 +174,17 @@ const userPreferencesSlice = createSlice({
           state.preferences = action.payload;
         }
       })
-      // REQ-045 dashboard layout
+      // REQ-045 dashboard layout — optimistic update so rapid consecutive
+      // edits (toggle/reorder/resize) each read the latest layout instead of
+      // racing on the pre-PATCH store value (lost-update bug).
+      .addCase(saveDashboardLayout.pending, (state, action) => {
+        if (state.preferences) {
+          state.preferences.dashboard_layout = action.meta.arg;
+        }
+      })
       .addCase(saveDashboardLayout.fulfilled, (state, action) => {
         if (state.preferences) {
+          // Reconcile with the server-sanitized layout (unknown widgets dropped).
           state.preferences.dashboard_layout = action.payload;
         }
       })

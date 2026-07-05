@@ -11,6 +11,7 @@ import {
   resizeWidget,
   sortByReadingOrder,
   copyPlacementsToAllBreakpoints,
+  packByReadingOrder,
 } from '@/lib/dashboardLayoutOps';
 import type { DashboardLayout } from '@/api/types';
 
@@ -122,5 +123,22 @@ describe('dashboardLayoutOps', () => {
     const all = copyPlacementsToAllBreakpoints(base, 'lg');
     expect(all.placements.md).toBeDefined();
     expect(all.placements.sm).toBeDefined();
+  });
+
+  it('packByReadingOrder re-flows 12-col placements into a narrower grid (no overflow)', () => {
+    // lg placement at x=8,w=4 would overflow an 8-column grid (gridColumn 9).
+    const lg = [
+      { instance_id: 'a', x: 0, y: 0, w: 8, h: 4 },
+      { instance_id: 'b', x: 8, y: 0, w: 4, h: 4 },
+    ];
+    const packed = packByReadingOrder(lg, 8);
+    // Every packed placement must fit within the 8 columns.
+    for (const p of packed) {
+      expect(p.x + p.w).toBeLessThanOrEqual(8);
+    }
+    // Reading order is preserved: a before b.
+    expect(packed.map((p) => p.instance_id)).toEqual(['a', 'b']);
+    // b wraps to the next row since 8+4 > 8.
+    expect(packed[1].y).toBeGreaterThan(0);
   });
 });
