@@ -97,7 +97,7 @@ Both pages are available in the navigation under **Phases**. Since they edit fun
 In addition to the manual transition (see below), a phase transition within a sequence can also be triggered automatically. Kamerplanter supports three trigger types:
 
 - **Time-based**: The transition fires automatically once a plant has spent a defined number of days in its current phase.
-- **Photoperiod-based**: The transition to flowering fires once the day length at the plant's site drops below (short-day plants) or rises above (long-day plants) a species-specific threshold. This requires GPS coordinates to be configured for the site (see [Locations and Substrates](locations-substrates.md)).
+- **Photoperiod-based**: The transition to flowering fires once the effective day length (hours of light per day) drops below (short-day plants) or rises above (long-day plants) a species-specific threshold. Kamerplanter derives this day length in two ways: for **indoor plants** it is taken from the location's light schedule (the grow light's on/off times, e.g. 12/12 to induce flowering); for **outdoor plants** it is computed from the astronomical day length at the site, which requires GPS coordinates to be configured (see [Locations and Substrates](locations-substrates.md)). When an artificially lit location has a valid light schedule, that schedule takes precedence — an artificially lit plant does not experience the natural day length.
 - **Vernalization-based**: For biennial plants with a cold requirement (e.g. carrot grown for seed), Kamerplanter counts cold days; once the species-specific minimum is reached, the transition from dormancy to flowering is unlocked automatically.
 
 For plant species with a so-called "indeterminate" growth habit — this includes many tomato, pepper and cucumber varieties as well as numerous houseplants — Kamerplanter suppresses automatic advances once the plant has reached its stable, permanently productive phase. Instead of linearly advancing towards fruit ripening and the end of the cycle, the plant stays in that one phase, where growth, flowering and fruit set continue concurrently and harvest is ongoing.
@@ -179,7 +179,7 @@ The day length (hours of light per day) controls the transition to flowering in 
 | Flower induction | 12/12 (12 h light, 12 h dark) |
 
 !!! tip "Automatic flower induction"
-    For plants with defined phase data and a site with GPS coordinates, flowering can be triggered photoperiodically (see [Automatic Phase Transitions](#automatic-phase-transitions)).
+    For plants with defined phase data, flowering can be triggered photoperiodically — indoors from the location's light schedule, outdoors from the astronomical day length when GPS coordinates are configured (see [Automatic Phase Transitions](#automatic-phase-transitions)).
 
 ### NPK Profile (Nutrient Ratio)
 
