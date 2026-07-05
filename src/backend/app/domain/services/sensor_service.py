@@ -1,6 +1,8 @@
 import structlog
 
+from app.config.settings import settings
 from app.data_access.external.ha_client import HomeAssistantClient
+from app.domain.engines.frost_warning_engine import evaluate_frost_warning, pick_air_temperature
 from app.domain.interfaces.sensor_repository import ISensorRepository
 from app.domain.models.sensor import Sensor
 
@@ -131,3 +133,40 @@ class SensorService:
         """Read-through live query for a tank — NO persistence."""
         sensors = self._repo.find_by_tank(tank_key)
         return self.get_live_state_for_sensors(sensors)
+
+    def get_location_frost_warning(
+        self,
+        location_key: str,
+        threshold_celsius: float | None = None,
+    ) -> dict:
+        """Compute the reactive frost-warning state for a location — NO persistence.
+
+        Backs the Home Assistant ``binary_sensor.kp_{location}_frost_warning``
+        entity. The warning is derived from the location's most recent ambient
+        temperature reading (read-through via Home Assistant) and the configured
+        threshold. When no temperature reading is available the ``frost_warning``
+        is ``None`` (Home Assistant reports ``unknown``) rather than a fabricated
+        ``False``.
+        """
+        threshold = threshold_celsius if threshold_celsius is not None else settings.frost_warning_threshold_celsius
+
+        sensors = self._repo.find_by_location(location_key)
+        live = self.get_live_state_for_sensors(sensors)
+        temperature, entity_id = pick_air_temperature(live["values"])
+        frost_warning = evaluate_frost_warning(temperature, threshold)
+
+        if live["source"] == "unavailable":
+            source = "unavailable"
+        elif temperature is None:
+            source = "no_temperature"
+        else:
+            source = "ha_live"
+
+        return {
+            "location_key": location_key,
+            "frost_warning": frost_warning,
+            "temperature_celsius": temperature,
+            "threshold_celsius": threshold,
+            "source": source,
+            "entity_id": entity_id,
+        }

@@ -8,15 +8,15 @@ interface UseOriginProtectionInput {
 }
 
 /**
- * Single point that performs the unsafe `origin` read.
- *
- * TODO(REQ-001 v5.0): the backend does not yet deliver the `origin` field on all
- * entities. Until it does, this helper is the ONLY place doing the cast — every
- * page reads the origin through it instead of repeating the inline `as unknown`
- * cast (Code-Review FE-L2).
+ * Reads the server-provided `origin` provenance marker off an entity (REQ-001/
+ * REQ-011). The backend now serves `origin` on all origin-tagged master data
+ * (Species, Cultivar, Fertilizer, NutrientPlan, Treatment, Disease), so the read
+ * is fully type-safe — pages call this instead of touching `origin` inline.
  */
-export function resolveOrigin(entity: unknown): DataOrigin | undefined {
-  return (entity as { origin?: DataOrigin } | null | undefined)?.origin;
+export function resolveOrigin(
+  entity: { origin?: DataOrigin } | null | undefined,
+): DataOrigin | undefined {
+  return entity?.origin;
 }
 
 export interface OriginProtection {

@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
 import SettingsIcon from '@mui/icons-material/Settings';
+import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import Sidebar from './Sidebar';
@@ -62,6 +63,11 @@ export default function MainLayout() {
   const handleSettings = () => {
     handleMenuClose();
     navigate('/settings');
+  };
+
+  const handlePrivacy = () => {
+    handleMenuClose();
+    navigate('/privacy');
   };
 
   const handleLogout = async () => {
@@ -165,6 +171,10 @@ export default function MainLayout() {
                 <MenuItem onClick={handleSettings}>
                   <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
                   {t('pages.auth.accountSettings')}
+                </MenuItem>
+                <MenuItem onClick={handlePrivacy} data-testid="menu-privacy">
+                  <ListItemIcon><PrivacyTipIcon fontSize="small" /></ListItemIcon>
+                  {t('pages.auth.privacySettings')}
                 </MenuItem>
                 <MenuItem onClick={handleLogout}>
                   <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>

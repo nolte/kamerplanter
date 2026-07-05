@@ -1,5 +1,11 @@
 // Enums (mirrors src/backend/app/common/enums.py)
 
+/**
+ * Data-provenance / ownership marker (REQ-001/REQ-011, mirrors backend
+ * `DataOrigin`). Drives read-only / deletion-protection logic (UI-NFR-018).
+ */
+export type DataOrigin = 'system' | 'enrichment' | 'import' | 'tenant';
+
 export type GrowthHabit =
   | 'herb'
   | 'shrub'
@@ -261,6 +267,7 @@ export interface PropagationConfig {
 
 export interface Species {
   key: string;
+  origin?: DataOrigin;
   scientific_name: string;
   common_names: string[];
   family_key: string | null;
@@ -411,6 +418,7 @@ export interface SpeciesCreate {
 
 export interface Cultivar {
   key: string;
+  origin?: DataOrigin;
   name: string;
   species_key: string;
   breeder: string | null;
@@ -1634,6 +1642,7 @@ export interface TimeseriesStatusResponse {
 
 export interface Fertilizer {
   key: string;
+  origin?: DataOrigin;
   product_name: string;
   brand: string;
   fertilizer_type: FertilizerType;
@@ -1759,6 +1768,7 @@ export interface NutrientPlanUsage {
 
 export interface NutrientPlan {
   key: string;
+  origin?: DataOrigin;
   name: string;
   description: string;
   recommended_substrate_type: SubstrateType | null;
@@ -2519,6 +2529,7 @@ export interface PestImage {
 
 export interface Disease {
   key: string;
+  origin?: DataOrigin;
   scientific_name: string;
   common_name: string;
   pathogen_type: string;
@@ -2552,6 +2563,7 @@ export interface DiseaseUpdate {
 
 export interface Treatment {
   key: string;
+  origin?: DataOrigin;
   name: string;
   name_de: string | null;
   treatment_type: string;

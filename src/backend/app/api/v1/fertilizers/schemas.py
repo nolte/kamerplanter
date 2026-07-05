@@ -2,6 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import DataOrigin
+
 # ── Fertilizer schemas ──────────────────────────────────────────────
 
 
@@ -76,6 +78,9 @@ class FertilizerResponse(BaseModel):
     dilution_ratio: str | None = None
     nutrient_release_speed: str | None = None
     notes: str | None
+    # Provenance is derived from tenant_key in the router (empty => shared system
+    # catalog, set => tenant-owned); fertilizers carry no stored origin field.
+    origin: DataOrigin = DataOrigin.SYSTEM
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

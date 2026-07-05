@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import DtmReference, PlantTrait
+from app.common.enums import DataOrigin, DtmReference, PlantTrait
 
 
 class CultivarCreate(BaseModel):
@@ -34,5 +34,6 @@ class CultivarResponse(BaseModel):
     bearing_start_year_max: int | None = None
     disease_resistances: list[str]
     phase_watering_overrides: dict[str, int] | None = None
+    origin: DataOrigin = DataOrigin.SYSTEM
     created_at: datetime | None = None
     updated_at: datetime | None = None

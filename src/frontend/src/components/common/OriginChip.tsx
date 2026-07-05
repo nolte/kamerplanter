@@ -4,9 +4,10 @@ import Tooltip from '@mui/material/Tooltip';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
+import type { DataOrigin } from '@/api/types';
 
-/** Origin marker as defined by UI-NFR-018 §3 + §4.2. */
-export type DataOrigin = 'system' | 'enrichment' | 'import' | 'tenant';
+/** Origin marker as defined by UI-NFR-018 §3 + §4.2. Canonical type in `@/api/types`. */
+export type { DataOrigin };
 
 interface OriginChipProps {
   /** Origin string from REQ-001/REQ-024 entities. Takes precedence over isSystem. */

@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Alert from '@mui/material/Alert';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -103,9 +104,10 @@ export default function SpeciesDetailPage() {
   const [nutrientPlans, setNutrientPlans] = useState<NutrientPlan[]>([]);
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
   const { toggleFavorite, isFavorite } = useSowingFavorites();
-  // TODO: REQ-001 v5.0 origin field — backend pending; treat tenant as default until implemented.
   const speciesOrigin = resolveOrigin(current);
-  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: speciesOrigin });
+  const { isReadOnly, isDeletionProtected, tooltipText: originTooltipText } = useOriginProtection({
+    origin: speciesOrigin,
+  });
 
   const {
     control,
@@ -225,6 +227,15 @@ export default function SpeciesDetailPage() {
           </Box>
         }
       />
+
+      {/* UI-NFR-018 R-014: persistent, origin-specific explanation — visible on every
+          tab (not just when the Edit tab is opened) so the "why can't I edit this"
+          question is answered immediately, without relying on hovering the chip. */}
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="species-readonly-banner">
+          {originTooltipText}
+        </Alert>
+      )}
 
       <Tabs
         value={tab}

@@ -202,10 +202,12 @@ The integration automatically creates entities for all selected plants, location
 |--------|------|------------|
 | `sensor.kp_{location}_active_plants` | Sensor | Number of active plants |
 | `sensor.kp_{location}_vpd_current` | Sensor | Current VPD value |
-| `binary_sensor.kp_{location}_frost_warning` | Binary Sensor | Frost warning — not yet populated, see note below |
+| `binary_sensor.kp_{location}_frost_warning` | Binary Sensor | Reactive frost warning — `on` when the location's current air temperature drops to/below the threshold (see note below) |
 
-!!! note "Frost warning requires the planned weather API"
-    This entity is used in the "Frost Warning: Greenhouse Heating" automation example further below, but is currently **not populated** by Kamerplanter: the underlying frost detection needs live weather data, and the weather API integration (DWD, OpenWeatherMap, Open-Meteo) is **specified but not yet implemented** in Kamerplanter — see [Sensors: Outdoor Sensors](../user-guide/sensors.md#outdoor-sensors-setting-up-a-weather-api). Until then, you can build the same automation using your own HA outdoor temperature sensor instead of the Kamerplanter entity.
+!!! note "Reactive, not predictive"
+    This entity is populated **reactively**: if the location has a sensor with metric `temperature_celsius` (or, as a fallback, `water_temp_celsius`) linked through Home Assistant (see [Setting Up Tokens](#setting-up-tokens) above), Kamerplanter reports `on` once the latest measured air temperature drops to/below the threshold — default **3 °C**, configurable for self-hosters via the `FROST_WARNING_THRESHOLD_CELSIUS` environment variable — and `off` otherwise. If the location has no air-temperature source, the entity honestly reports `unknown` instead of a fabricated "no frost". The HA coordinator polls the backend endpoint `GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning` per location for this. <!-- REQ-005, REQ-018, REQ-039 -->
+
+    What this entity is **not**: a predictive weather forecast. It only evaluates the *current* reading — a frost warning based on an actual weather forecast (DWD, OpenWeatherMap, Open-Meteo) remains planned but not yet implemented — see [Sensors: Outdoor Sensors](../user-guide/sensors.md#outdoor-sensors-setting-up-a-weather-api).
 
 ### Calendar & Tasks
 
@@ -418,6 +420,8 @@ action:
 ```
 
 ### Frost Warning: Greenhouse Heating
+
+Requires an air-temperature sensor linked via Home Assistant at the "Greenhouse" location (see the `frost_warning` entity note above).
 
 ```yaml
 alias: "KP: Frost warning - heating on"

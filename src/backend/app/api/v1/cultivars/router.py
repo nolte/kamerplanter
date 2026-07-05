@@ -4,6 +4,7 @@ from app.api.mapping import to_response
 from app.api.v1.cultivars.schemas import CultivarCreate, CultivarResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_species_service
+from app.common.enums import DataOrigin
 from app.domain.models.species import Cultivar
 from app.domain.services.species_service import SpeciesService
 
@@ -22,7 +23,12 @@ def list_cultivars(species_key: str, service: SpeciesService = Depends(get_speci
 
 @router.post("", response_model=CultivarResponse, status_code=201)
 def create_cultivar(species_key: str, body: CultivarCreate, service: SpeciesService = Depends(get_species_service)):
-    cultivar = Cultivar(species_key=species_key, **body.model_dump(exclude={"species_key"}))
+    # User-created cultivars are tenant-owned (editable); seeded ones stay 'system'.
+    cultivar = Cultivar(
+        species_key=species_key,
+        origin=DataOrigin.TENANT,
+        **body.model_dump(exclude={"species_key"}),
+    )
     created = service.create_cultivar(cultivar)
     return to_response(created, CultivarResponse)
 

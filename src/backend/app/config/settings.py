@@ -185,6 +185,13 @@ class Settings(BaseSettings):
     # operators who run it on an RFC1918/loopback address must opt in explicitly.
     ha_allow_private_endpoint: bool = False
 
+    # Reactive frost-warning threshold (°C) for the HA
+    # ``binary_sensor.kp_{location}_frost_warning`` entity. A warning fires when
+    # a location's latest ambient temperature is at/below this value. The small
+    # positive margin over 0 °C accounts for ground frost occurring while
+    # screen-height air temperature still reads a few degrees higher.
+    frost_warning_threshold_celsius: float = 3.0
+
     # TimescaleDB (optional — for sensor time-series)
     timescaledb_enabled: bool = False
     timescaledb_host: str = "localhost"

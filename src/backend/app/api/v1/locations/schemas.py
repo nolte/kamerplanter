@@ -54,3 +54,18 @@ class LocationTreeNode(BaseModel):
     active_plant_count: int = 0
     tank_name: str | None = None
     children: list[LocationTreeNode] = []
+
+
+class FrostWarningResponse(BaseModel):
+    """Reactive frost-warning state backing ``binary_sensor.kp_{location}_frost_warning``.
+
+    ``frost_warning`` is ``None`` when no ambient-temperature reading is
+    available (Home Assistant surfaces this as ``unknown``).
+    """
+
+    location_key: str
+    frost_warning: bool | None
+    temperature_celsius: float | None = None
+    threshold_celsius: float
+    source: str
+    entity_id: str | None = None

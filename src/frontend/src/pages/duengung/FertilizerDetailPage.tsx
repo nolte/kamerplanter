@@ -222,9 +222,10 @@ export default function FertilizerDetailPage() {
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
   const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-fertilizer-favorites');
-  // TODO: REQ-001 v5.0 origin field — backend pending; fertilizers currently have no origin field.
   const fertilizerOrigin = resolveOrigin(fertilizer);
-  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: fertilizerOrigin });
+  const { isReadOnly, isDeletionProtected, tooltipText: originTooltipText } = useOriginProtection({
+    origin: fertilizerOrigin,
+  });
 
   const stocksTableState = useTableLocalState({ defaultSort: { column: 'purchase_date', direction: 'desc' } });
 
@@ -563,6 +564,15 @@ export default function FertilizerDetailPage() {
           )}
         </Box>
       </Box>
+
+      {/* UI-NFR-018 R-014: persistent, origin-specific explanation — visible on
+          every tab, so the "why can't I edit this" question is answered before
+          the user even opens the Edit tab. */}
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="fertilizer-readonly-banner">
+          {originTooltipText}
+        </Alert>
+      )}
 
       <Tabs
         value={tab}
@@ -912,6 +922,14 @@ export default function FertilizerDetailPage() {
             {t('pages.fertilizers.editIntro')}
           </Typography>
 
+          {/* UI-NFR-018 R-027: when read-only the whole form must reject input, not
+            just hide the save button — fieldset[disabled] grays out and disables
+            every native form control beneath it (matches SpeciesEditTab pattern). */}
+          <Box
+            component="fieldset"
+            disabled={isReadOnly}
+            sx={{ border: 'none', p: 0, m: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}
+          >
           {/* UI-NFR-008 R-061: Master-detail layout — left column = Identification (master,
               capped at reading width), right column = stacked compact panels (Properties).
               NPK/Mixing/Storage/Notes remain full-width below to give the numeric inputs and
@@ -1200,6 +1218,8 @@ export default function FertilizerDetailPage() {
           </EditSection>
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+          </Box>
+
           {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
           {!isReadOnly && (
             <FormActions

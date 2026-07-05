@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import IconButton from '@mui/material/IconButton';
@@ -117,6 +118,15 @@ export default function NutrientPlanDetailPage() {
           )}
         </Box>
       </Box>
+
+      {/* UI-NFR-018 R-014: persistent, origin-specific explanation — visible on
+          every tab, so the "why can't I edit this" question is answered before
+          the user even opens the Edit tab. */}
+      {c.isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="nutrient-plan-readonly-banner">
+          {c.planOriginTooltip}
+        </Alert>
+      )}
 
       <Tabs value={c.tab} onChange={(_, v) => c.setTab(v)} sx={{ mb: 2 }}>
         <Tab label={t('pages.nutrientPlans.tabPhaseEntries')} {...tabA11yProps('nutrientPlan', 0)} />

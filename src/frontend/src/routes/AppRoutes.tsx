@@ -18,6 +18,7 @@ const PasswordResetConfirmPage = lazy(
   () => import('@/pages/auth/PasswordResetConfirmPage'),
 );
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
+const PrivacySettingsPage = lazy(() => import('@/pages/auth/PrivacySettingsPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
 
 // Tenant pages
@@ -238,6 +239,19 @@ export const router = createBrowserRouter(
               </Suspense>
             }
           />
+
+          {/* REQ-025 Datenschutz & Betroffenenrechte (DSGVO) — full mode only
+              (per-registered-user self-service; light mode is anonymous) */}
+          {!isLightMode && (
+            <Route
+              path="privacy"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <PrivacySettingsPage />
+                </Suspense>
+              }
+            />
+          )}
 
           {/* Admin: Edit tenant/user — full mode only */}
           {!isLightMode && (

@@ -59,11 +59,11 @@ describe('useOriginProtection', () => {
 describe('resolveOrigin', () => {
   it('returns the origin when present', () => {
     expect(resolveOrigin({ origin: 'system' })).toBe('system');
-    expect(resolveOrigin({ origin: 'enrichment', name: 'x' })).toBe('enrichment');
+    expect(resolveOrigin({ origin: 'enrichment' })).toBe('enrichment');
   });
 
   it('returns undefined when the entity has no origin', () => {
-    expect(resolveOrigin({ name: 'no origin here' })).toBeUndefined();
+    expect(resolveOrigin({})).toBeUndefined();
   });
 
   it('returns undefined for null and undefined entities', () => {

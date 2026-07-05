@@ -192,6 +192,41 @@ class TestApplyEnrichment:
         # growth_habit was "herb" (not empty), should be proposed only
         assert mapping.field_mappings["growth_habit"].accepted is False
         assert mapping.field_mappings["growth_habit"].confidence == 0.7
+        # Writing enrichment data promotes the record's provenance (REQ-011).
+        mock_species_repo.update_field.assert_any_call("sp_1", "origin", "enrichment")
+
+    def test_origin_not_touched_when_nothing_applied(
+        self,
+        engine,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_external_data,
+    ):
+        # Species already has every enrichable field populated → nothing is
+        # auto-accepted, so the provenance marker must stay untouched.
+        full_species = Species(
+            _key="sp_1",
+            scientific_name="Rosa canina",
+            common_names=["Rose"],
+            genus="Rosa",
+            growth_habit="shrub",
+            root_type="fibrous",
+            native_habitat="Asia",
+            hardiness_zones=["6a", "8b"],
+            synonyms=["Rosa old"],
+            description="Existing description.",
+            taxonomic_authority="L.",
+            taxonomic_status="ACCEPTED",
+            family_key="fam_rosaceae",
+        )
+        mock_species_repo.get_by_key.return_value = full_species
+        mock_mapping_repo.get_by_internal.return_value = None
+        mock_mapping_repo.create.side_effect = lambda m: ExternalMapping(**{**m.model_dump(), "_key": "em_1"})
+
+        engine._apply_enrichment("sp_1", "gbif", sample_external_data)
+
+        origin_calls = [c for c in mock_species_repo.update_field.call_args_list if c.args[1] == "origin"]
+        assert origin_calls == []
 
     def test_propose_only_for_existing_values(self, engine, mock_species_repo, mock_mapping_repo, sample_external_data):
         species_with_data = Species(
@@ -325,7 +360,10 @@ class TestAcceptRejectFields:
         result = engine.accept_fields("sp_1", "gbif", ["genus"])
 
         assert result.field_mappings["genus"].accepted is True
-        mock_species_repo.update_field.assert_called_once_with("sp_1", "genus", "Rosa")
+        # The accepted field is written, and the record's provenance is promoted
+        # to 'enrichment' (REQ-011).
+        mock_species_repo.update_field.assert_any_call("sp_1", "genus", "Rosa")
+        mock_species_repo.update_field.assert_any_call("sp_1", "origin", "enrichment")
 
     def test_reject_fields(self, engine, mock_mapping_repo):
         mapping = ExternalMapping(

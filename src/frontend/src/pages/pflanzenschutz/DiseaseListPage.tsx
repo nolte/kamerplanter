@@ -76,7 +76,6 @@ export default function DiseaseListPage() {
     },
     {
       // UI-NFR-018 R-002/R-019/R-020: Origin column (secondary, hidden below md)
-      // TODO: REQ-001 v5.0 origin field — backend pending; falls back to undefined.
       id: 'origin',
       label: t('common.origin.filterLabel'),
       render: (r) => <OriginChip origin={resolveOrigin(r)} />,

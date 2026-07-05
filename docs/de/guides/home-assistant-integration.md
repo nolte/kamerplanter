@@ -202,10 +202,12 @@ Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, 
 |--------|-----|-------------|
 | `sensor.kp_{location}_active_plants` | Sensor | Anzahl aktiver Pflanzen |
 | `sensor.kp_{location}_vpd_current` | Sensor | Aktueller VPD-Wert |
-| `binary_sensor.kp_{location}_frost_warning` | Binary Sensor | Frostwarnung — noch nicht befüllt, siehe Hinweis unten |
+| `binary_sensor.kp_{location}_frost_warning` | Binary Sensor | Reaktive Frostwarnung — `on`, wenn die aktuelle Lufttemperatur des Standorts den Schwellwert unterschreitet (siehe Hinweis unten) |
 
-!!! note "Frostwarnung setzt die geplante Wetter-API voraus"
-    Diese Entity wird im Automations-Beispiel „Frostwarnung: Gewächshaus-Heizung" weiter unten verwendet, wird aber von Kamerplanter aktuell **nicht befüllt**: Die zugrunde liegende Frosterkennung braucht Live-Wetterdaten, und die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist in Kamerplanter **spezifiziert, aber noch nicht implementiert** — siehe [Sensorik: Sensoren für Freiland](../user-guide/sensors.md#sensoren-für-freiland-wetter-api-einrichten). Bis dahin kannst du dieselbe Automation mit einem eigenen HA-Außentemperatursensor statt der Kamerplanter-Entity umsetzen.
+!!! note "Reaktiv, nicht vorausschauend"
+    Diese Entity wird **reaktiv** befüllt: Ist am Standort ein Sensor mit Metrik `temperature_celsius` (ersatzweise `water_temp_celsius`) über Home Assistant eingebunden (siehe [Tokens einrichten](#tokens-einrichten) weiter oben), meldet Kamerplanter `on`, sobald die aktuellste gemessene Lufttemperatur den Schwellwert — Standard **3 °C**, für Self-Hoster konfigurierbar über die Umgebungsvariable `FROST_WARNING_THRESHOLD_CELSIUS` — unterschreitet, sonst `off`. Hat der Standort keine Lufttemperatur-Quelle, meldet die Entity ehrlich `unknown` statt eines erfundenen „kein Frost". Der HA-Coordinator fragt dafür pro Standort den Backend-Endpunkt `GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning` ab. <!-- REQ-005, REQ-018, REQ-039 -->
+
+    Was diese Entity **nicht** ist: eine vorausschauende Wetterprognose. Sie wertet nur den *aktuellen* Messwert aus — eine Frostwarnung auf Basis einer echten Wettervorhersage (DWD, OpenWeatherMap, Open-Meteo) bleibt weiterhin geplant, aber noch nicht umgesetzt — siehe [Sensorik: Sensoren für Freiland](../user-guide/sensors.md#sensoren-fuer-freiland-wetter-api-einrichten).
 
 ### Kalender & Aufgaben
 
@@ -418,6 +420,8 @@ action:
 ```
 
 ### Frostwarnung: Gewächshaus-Heizung
+
+Setzt voraus, dass am Standort „Gewächshaus" ein Lufttemperatur-Sensor über Home Assistant eingebunden ist (siehe Hinweis zur `frost_warning`-Entity weiter oben).
 
 ```yaml
 alias: "KP: Frostwarnung - Heizung ein"

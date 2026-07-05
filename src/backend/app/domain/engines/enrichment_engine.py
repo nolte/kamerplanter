@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import structlog
 
-from app.common.enums import SyncStatus, SyncTrigger
+from app.common.enums import DataOrigin, SyncStatus, SyncTrigger
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.domain.interfaces.enrichment_repository import IExternalMappingRepository, ISyncRunRepository
 from app.domain.interfaces.external_source_adapter import ExternalSourceAdapter
@@ -138,6 +138,7 @@ class EnrichmentEngine:
 
         field_mappings: dict[str, FieldMapping] = {}
         external_dict = external_data.model_dump()
+        applied_any = False
 
         for field in ENRICHABLE_FIELDS:
             external_value = external_dict.get(field)
@@ -156,6 +157,7 @@ class EnrichmentEngine:
                     accepted_at=datetime.now(UTC),
                 )
                 self._species_repo.update_field(species_key, field, external_value)
+                applied_any = True
             else:
                 field_mappings[field] = FieldMapping(
                     external_value=external_value,
@@ -176,6 +178,13 @@ class EnrichmentEngine:
                     accepted=True,
                     accepted_at=datetime.now(UTC),
                 )
+                applied_any = True
+
+        # Promote the record's provenance to 'enrichment' (REQ-011) once external
+        # data has actually been written into the species — this drives the
+        # read-only origin chip in the frontend (UI-NFR-018).
+        if applied_any:
+            self._species_repo.update_field(species_key, "origin", DataOrigin.ENRICHMENT.value)
 
         existing = self._mapping_repo.get_by_internal("species", species_key, source_key)
         checksum = self._compute_checksum(external_data)
@@ -202,12 +211,19 @@ class EnrichmentEngine:
         if mapping is None:
             raise ValueError(f"No mapping found for species={species_key}, source={source_key}")
 
+        applied_any = False
         for field in fields:
             fm = mapping.field_mappings.get(field)
             if fm and not fm.accepted and fm.external_value is not None:
                 fm.accepted = True
                 fm.accepted_at = datetime.now(UTC)
                 self._species_repo.update_field(species_key, field, fm.external_value)
+                applied_any = True
+
+        # A manual field acceptance also writes external data into the species,
+        # so mark its provenance as 'enrichment' (REQ-011).
+        if applied_any:
+            self._species_repo.update_field(species_key, "origin", DataOrigin.ENRICHMENT.value)
 
         assert mapping.key is not None
         return self._mapping_repo.update(mapping.key, mapping)

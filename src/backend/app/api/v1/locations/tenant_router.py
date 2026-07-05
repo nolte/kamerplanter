@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.api.mapping import to_response
-from app.api.v1.locations.schemas import LocationCreate, LocationResponse
+from app.api.v1.locations.schemas import FrostWarningResponse, LocationCreate, LocationResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_site_service
@@ -138,3 +138,23 @@ def get_location_sensors_live(
     sensors = sensor_service.get_sensors_for_location(key)
     result = sensor_service.get_live_state_for_sensors(sensors)
     return LiveStateResponse(**result)
+
+
+@router.get("/{key}/frost-warning", response_model=FrostWarningResponse)
+def get_location_frost_warning(
+    key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: SiteService = Depends(get_site_service),
+    sensor_service: SensorService = Depends(get_sensor_service),
+):
+    """Reactive frost-warning state for a location (Home Assistant read path).
+
+    Backs ``binary_sensor.kp_{location}_frost_warning``: the HA coordinator
+    learns which locations to surface from ``/ha-publish/enabled-keys/location``
+    (opt-in) and polls this route per location. The warning is derived from the
+    location's latest ambient temperature; ``frost_warning`` is ``null`` when no
+    temperature reading is available.
+    """
+    _verify_location_tenant(key, ctx, service)
+    result = sensor_service.get_location_frost_warning(key)
+    return FrostWarningResponse(**result)

@@ -1,6 +1,21 @@
 from enum import StrEnum
 
 
+class DataOrigin(StrEnum):
+    """Data-provenance / ownership marker for master-data records (REQ-001 / REQ-011).
+
+    Drives the read-only / deletion-protection logic in the frontend
+    (UI-NFR-018): ``system`` and ``enrichment`` records are curated and
+    read-only, ``tenant`` records are user-owned and editable. Values mirror the
+    frontend ``DataOrigin`` union in ``OriginChip.tsx`` exactly.
+    """
+
+    SYSTEM = "system"
+    ENRICHMENT = "enrichment"
+    IMPORT = "import"
+    TENANT = "tenant"
+
+
 class PlantCategory(StrEnum):
     INDOOR_HOUSEPLANT = "indoor_houseplant"
     OUTDOOR_ORNAMENTAL = "outdoor_ornamental"

@@ -17,6 +17,7 @@ from app.api.v1.nutrient_plans.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_nutrient_plan_service
+from app.common.enums import DataOrigin
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.nutrient_plan import NutrientPlan, NutrientPlanPhaseEntry
 from app.domain.models.tenant_context import TenantContext
@@ -26,7 +27,10 @@ router = APIRouter(prefix="/nutrient-plans", tags=["nutrient-plans"])
 
 
 def _plan_response(p: NutrientPlan) -> NutrientPlanResponse:
-    return to_response(p, NutrientPlanResponse)
+    # Provenance is derived from tenant ownership: the shared catalog uses an
+    # empty tenant_key (system), tenant-created plans carry their tenant_key.
+    origin = DataOrigin.TENANT if p.tenant_key else DataOrigin.SYSTEM
+    return to_response(p, NutrientPlanResponse, origin=origin)
 
 
 def _entry_response(e: NutrientPlanPhaseEntry) -> PhaseEntryResponse:

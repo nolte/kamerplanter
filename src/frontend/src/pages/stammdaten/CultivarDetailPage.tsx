@@ -14,6 +14,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import Alert from '@mui/material/Alert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import { useForm } from 'react-hook-form';
@@ -83,9 +84,10 @@ export default function CultivarDetailPage() {
   const [savingOverrides, setSavingOverrides] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // TODO: REQ-001 v5.0 origin field — backend pending; cultivars currently have no origin field.
   const cultivarOrigin = resolveOrigin(cultivar);
-  const { isReadOnly, isDeletionProtected } = useOriginProtection({ origin: cultivarOrigin });
+  const { isReadOnly, isDeletionProtected, tooltipText: originTooltipText } = useOriginProtection({
+    origin: cultivarOrigin,
+  });
 
   const {
     control,
@@ -266,6 +268,14 @@ export default function CultivarDetailPage() {
         }
       />
 
+      {/* UI-NFR-018 R-014: persistent, origin-specific explanation shown next to the
+          title, so it is visible before the user even opens the form below. */}
+      {isReadOnly && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="cultivar-readonly-banner">
+          {originTooltipText}
+        </Alert>
+      )}
+
       {/* Species context chip */}
       {species && (
         <Chip
@@ -286,6 +296,14 @@ export default function CultivarDetailPage() {
           {t('pages.cultivars.editIntro')}
         </Typography>
 
+        {/* UI-NFR-018 R-027: when read-only the whole form must reject input, not
+          just hide the save button — fieldset[disabled] grays out and disables
+          every native form control beneath it (matches SpeciesEditTab pattern). */}
+        <Box
+          component="fieldset"
+          disabled={isReadOnly}
+          sx={{ border: 'none', p: 0, m: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
+        >
         {/* ── Panel 1: Grunddaten ── */}
         {/* UI-NFR-008 R-037/R-038: Card panel with h6 heading, required fields first */}
         <Card variant="outlined">
@@ -407,6 +425,7 @@ export default function CultivarDetailPage() {
         <Typography variant="caption" color="text.secondary">
           * {t('common.required')}
         </Typography>
+        </Box>
 
         {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
         {!isReadOnly && (
