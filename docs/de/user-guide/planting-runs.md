@@ -107,7 +107,9 @@ Solange ein Durchlauf im Status "Geplant" ist und Einträge (keine Aufnahme) ver
 3. Bestätige die Anzahl der zu erstellenden Pflanzen im Dialog.
 4. Kamerplanter legt automatisch alle Einzelpflanzen mit fortlaufenden IDs im Format `BEREICH-SCHLÜSSEL_PRÄFIX_LAUFNUMMER` an (z.B. `hochbeet-a_TOM_01` bis `hochbeet-a_TOM_08`, wobei `hochbeet-a` der interne Schlüssel des gewählten Bereichs ist) und setzt den Durchlauf auf Status **"Aktiv"**.
 
-<!-- Quelle: src/frontend/src/pages/durchlaeufe/PlantingRunCreateDialog.tsx, PlantingRunDetailPage.tsx, src/backend/app/domain/engines/planting_run_engine.py -->
+Bekommt dabei eine Pflanze einen Stellplatz zugewiesen, prüft Kamerplanter für sie automatisch Fruchtfolge und Mischkultur-Kompatibilität — genauso wie bei einer einzeln angelegten Pflanze. Ein Konflikt bei auch nur einer Pflanze verhindert die Anlage des **gesamten Durchlaufs**. Details dazu im Guide [Mischkultur & Fruchtfolge](../guides/companion-planting.md).
+
+<!-- Quelle: src/frontend/src/pages/durchlaeufe/PlantingRunCreateDialog.tsx, PlantingRunDetailPage.tsx, src/backend/app/domain/engines/planting_run_engine.py, src/backend/app/domain/services/planting_run_service.py (_validate_batch_planting) -->
 
 ---
 

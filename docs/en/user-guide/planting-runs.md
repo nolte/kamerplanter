@@ -107,7 +107,9 @@ As long as a run is "Planned" and used entries (not adoption), the individual pl
 3. Confirm the number of plants to be created in the dialog.
 4. Kamerplanter automatically creates all individual plants with sequential IDs in the format `LOCATION-KEY_PREFIX_SEQUENCE` (e.g. `raised-bed-a_TOM_01` to `raised-bed-a_TOM_08`, where `raised-bed-a` is the internal key of the chosen location) and sets the run to **"Active"**.
 
-<!-- Source: src/frontend/src/pages/durchlaeufe/PlantingRunCreateDialog.tsx, PlantingRunDetailPage.tsx, src/backend/app/domain/engines/planting_run_engine.py -->
+If a plant is assigned a slot in the process, Kamerplanter automatically checks crop rotation and companion-planting compatibility for it — exactly as for an individually created plant. A conflict for even a single plant blocks the creation of the **entire run**. See the [Companion Planting & Crop Rotation](../guides/companion-planting.md) guide for details.
+
+<!-- Source: src/frontend/src/pages/durchlaeufe/PlantingRunCreateDialog.tsx, PlantingRunDetailPage.tsx, src/backend/app/domain/engines/planting_run_engine.py, src/backend/app/domain/services/planting_run_service.py (_validate_batch_planting) -->
 
 ---
 

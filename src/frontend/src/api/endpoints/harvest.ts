@@ -113,6 +113,29 @@ export async function getBatch(key: string): Promise<HarvestBatch> {
   return data;
 }
 
+// -- Harvest completion (REQ-007) ---------------------------------------
+
+export interface HarvestCompleteResult {
+  plant_key: string;
+  termination_type: string | null;
+  removed_on: string | null;
+}
+
+/**
+ * Explicitly finish a plant's harvest ("Ernte abschließen"): the plant
+ * transitions to its terminal `harvested` state via the phase engine.
+ */
+export async function completeHarvest(
+  plantKey: string,
+  onDate?: string,
+): Promise<HarvestCompleteResult> {
+  const { data } = await client.post<HarvestCompleteResult>(
+    `${BASE}/plants/${plantKey}/complete`,
+    onDate ? { on_date: onDate } : {},
+  );
+  return data;
+}
+
 export async function updateBatch(
   key: string,
   payload: HarvestBatchUpdate,

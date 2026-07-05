@@ -86,7 +86,31 @@ More on pre-harvest intervals: [Integrated Pest Management (IPM)](pest-managemen
 - **Continuous**: For "cut and come again" crops (e.g. cut lettuce, basil) where small amounts are harvested continuously.
 
 !!! note "No automatic status or quality change"
-    Neither the harvest type selection nor creating a batch automatically changes the plant's status — not even for "full harvest". A quality assessment is also not requested when creating the batch; it happens separately (see below).
+    Neither the harvest type selection nor creating a batch automatically changes the plant's status — not even for "full harvest". You can create as many partial or continuous batches for the same plant as you like. A quality assessment is also not requested when creating the batch; it happens separately (see below). Once the plant is truly done for you, you end its lifecycle through the separate, explicit **Complete Harvest** action (see below) — unlike merely creating a batch, that action does change the status, and permanently so.
+
+---
+
+## Completing the Harvest (Terminal Plant State)
+
+Creating harvest batches documents what you harvested — but as described above, it does not end the plant's lifecycle. That is what the dedicated **Complete Harvest** action is for.
+
+### What happens
+
+1. Open the harvest batch and switch to the **Details** tab.
+2. In the **Complete Harvest** section, click the button of the same name.
+3. Confirm the dialog — it explicitly warns that this step **cannot be undone**.
+
+After confirming, the plant moves to its terminal "harvested" state: its phase history is closed, an occupied slot is freed, and the plant disappears from the active task queue. Existing harvest batches, quality assessments, and yield data are fully retained. Clicking the action again on an already-completed plant instead shows a notice that it is already completed and changes nothing further.
+
+!!! danger "Cannot be undone"
+    Unlike harvest batches or quality assessments, there is no correction or undo function for completing the harvest. Only use this action once you truly have no further partial harvests or observations planned for this plant.
+
+Completing the harvest is different from **Remove Plant** on the plant detail page: "Complete Harvest" is the recommended path for an actually finished harvest and additionally records the harvest reason in the plant's history. "Remove Plant" remains available for all other cases (e.g. a plant that was not harvested but died or was given away).
+
+!!! info "API only: completing an entire planting run at once"
+    If the plant belongs to a [Planting Run](planting-runs.md), you can also complete every still-active plant of the whole run in a single call. There is currently **no button in the UI** for this — the feature is only reachable via the technical API. Until a UI exists, complete plants of a run individually through their respective harvest batch.
+
+<!-- Source: src/frontend/src/pages/ernte/HarvestBatchDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest / complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py -->
 
 ---
 
@@ -176,10 +200,10 @@ Some growers maintain a dark period of 24–48 hours immediately before harvest.
 ## Frequently Asked Questions
 
 ??? question "Can I undo a harvest?"
-    No. Harvest batches cannot be deleted after creation, as they are part of the complete growing documentation. You can, however, correct notes and weight values afterwards.
+    No. Harvest batches cannot be deleted after creation, as they are part of the complete growing documentation. You can, however, correct notes and weight values afterwards. The separate **Complete Harvest** step also cannot be undone — check before confirming that no further partial harvests are planned.
 
 ??? question "Does a plant automatically change status after a full harvest?"
-    No. Creating a harvest batch with harvest type "full harvest" does not automatically change the plant's status. If the plant is done for you, remove it manually via **Remove Plant** on its detail page. Only then does it disappear from the active task queue; its master data and history are retained.
+    No. Creating a harvest batch with harvest type "full harvest" does not automatically change the plant's status. Once the plant is truly done for you, end its lifecycle explicitly via **Complete Harvest** on the harvest batch's detail page (see above). Only then does it disappear permanently and irreversibly from the active task queue and the occupied slot is freed; its master data and history are retained.
 
 ??? question "Why is the harvest blocked even though I haven't treated in a long time?"
     Check the **Pest Management** (IPM) tab for the full list of treatments and their pre-harvest intervals. Sometimes older treatments are still recorded with unexpired intervals. If a treatment was entered by mistake, you can correct it under Pest Management.

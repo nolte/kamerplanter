@@ -99,6 +99,24 @@ describe('harvest endpoints — batches', () => {
     await harvest.updateBatch('b1', payload);
     expect(client.put).toHaveBeenCalledWith('/harvest/batches/b1', payload);
   });
+
+  it('completeHarvest posts to the plant complete endpoint with empty body', async () => {
+    client.post.mockResolvedValue({
+      data: { plant_key: 'pl1', termination_type: 'harvested', removed_on: '2026-07-05' },
+    });
+    await harvest.completeHarvest('pl1');
+    expect(client.post).toHaveBeenCalledWith('/harvest/plants/pl1/complete', {});
+  });
+
+  it('completeHarvest passes an explicit on_date when given', async () => {
+    client.post.mockResolvedValue({
+      data: { plant_key: 'pl1', termination_type: 'harvested', removed_on: '2026-06-01' },
+    });
+    await harvest.completeHarvest('pl1', '2026-06-01');
+    expect(client.post).toHaveBeenCalledWith('/harvest/plants/pl1/complete', {
+      on_date: '2026-06-01',
+    });
+  });
 });
 
 describe('harvest endpoints — quality, yield, stats', () => {

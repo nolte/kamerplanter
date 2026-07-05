@@ -132,15 +132,15 @@ Zwei Kräuter, die sich fast überall einsetzen lassen:
 
 ## Automatische Prüfung beim Anlegen einer Pflanze (Stellplatz-Nachbarschaft)
 
-Wenn du eine **einzelne Pflanze** über **Pflanzen → Pflanzeninstanzen → Neue Pflanze** anlegst und ihr dabei einen **Stellplatz** zuweist, prüft Kamerplanter automatisch die direkt benachbarten Stellplätze:
+Wenn eine Pflanze einen **Stellplatz** zugewiesen bekommt — sei es einzeln über **Pflanzen → Pflanzeninstanzen → Neue Pflanze** oder gesammelt beim Erzeugen der Pflanzen eines [Pflanzdurchlaufs](../user-guide/planting-runs.md) — prüft Kamerplanter automatisch die direkt benachbarten Stellplätze:
 
 - Steht dort bereits eine als **inkompatibel** hinterlegte Art, lehnt Kamerplanter die Anlage mit einer Fehlermeldung ab.
 - Steht dort eine **kompatible** Art, wird das intern als Vorteil vermerkt.
 
-!!! warning "Gilt nicht für Pflanzen aus einem Pflanzdurchlauf"
-    Die Nachbarschaftsprüfung greift aktuell nur, wenn du eine Pflanze einzeln über die Stammdaten-Seite **Pflanzeninstanzen** anlegst. Werden Pflanzen automatisch aus den Einträgen eines [Pflanzdurchlaufs](../user-guide/planting-runs.md) erzeugt, findet **keine** Kompatibilitätsprüfung statt.
+!!! note "Beim Pflanzdurchlauf wird der gesamte Batch geprüft"
+    Erzeugst du Pflanzen über die Schaltfläche **Pflanzen erstellen** eines Pflanzdurchlaufs (siehe [Pflanzdurchläufe, Schritt 6](../user-guide/planting-runs.md)), prüft Kamerplanter jede stellplatzzugewiesene Pflanze einzeln, genauso wie bei der Einzelanlage. Anders als bei einer einzelnen Pflanze verhindert dabei schon ein einziger Konflikt die Anlage des **gesamten Durchlaufs** — solange auch nur ein Eintrag eine Inkompatibilität auslöst, wird keine einzige Pflanze des Durchlaufs angelegt. Bereits bestehende Pflanzen, die du über **Bestehende Pflanzen aufnehmen** in einen Durchlauf übernimmst, durchlaufen diese Prüfung nicht erneut, da für sie kein neuer Stellplatzbezug entsteht.
 
-<!-- Quelle: src/backend/app/domain/engines/companion_planting_engine.py, src/backend/app/domain/services/plant_instance_service.py -->
+<!-- Quelle: src/backend/app/domain/engines/companion_planting_engine.py, src/backend/app/domain/services/plant_instance_service.py, src/backend/app/domain/services/planting_run_service.py (_validate_batch_planting) -->
 
 ---
 
@@ -157,7 +157,7 @@ Fruchtfolge bedeutet, auf einem Stellplatz über die Jahre bewusst zwischen bota
 
 ### Automatische Prüfung
 
-Beim Anlegen einer **einzelnen Pflanze** mit Stellplatz prüft Kamerplanter zusätzlich die Anbau-Historie dieses Stellplatzes über einen Standard-Zeitraum von **3 Jahren**:
+Bekommt eine Pflanze einen Stellplatz zugewiesen — einzeln angelegt oder über die Pflanzen-Erstellung eines Pflanzdurchlaufs — prüft Kamerplanter zusätzlich die Anbau-Historie dieses Stellplatzes über einen Standard-Zeitraum von **3 Jahren**:
 
 | Ergebnis | Bedeutung |
 |----------|-----------|
@@ -166,7 +166,7 @@ Beim Anlegen einer **einzelnen Pflanze** mit Stellplatz prüft Kamerplanter zus�
 | **Positiv** | Die geplante Familie ist als empfohlener Nachfolger einer zuvor dort angebauten Familie hinterlegt (inkl. Hinweis auf den Stickstoff-Vorteil bei stickstoffbindenden Vorfrüchten) |
 | **Kein Hinweis** | Keine passenden Daten für diese Kombination vorhanden |
 
-Ein kritisches Ergebnis blockiert das Anlegen der Pflanze mit einer Fehlermeldung. Wie bei der Mischkultur-Prüfung gilt das nur für einzeln angelegte Pflanzen, nicht für automatisch aus einem Pflanzdurchlauf erzeugte.
+Ein kritisches Ergebnis blockiert das Anlegen der Pflanze mit einer Fehlermeldung. Wie bei der Mischkultur-Prüfung gilt das genauso für Pflanzen, die gesammelt über einen Pflanzdurchlauf erzeugt werden: Ein einziger kritischer Konflikt verhindert die Anlage des gesamten Durchlaufs.
 
 <!-- Quelle: src/backend/app/domain/engines/crop_rotation_validator.py, src/backend/app/config/constants.py (DEFAULT_ROTATION_WINDOW_YEARS = 3) -->
 

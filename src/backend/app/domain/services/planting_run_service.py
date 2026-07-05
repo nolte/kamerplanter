@@ -4,6 +4,8 @@ from app.common.enums import PlantingRunStatus
 from app.common.exceptions import InvalidRunStateError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, PlantingRunKey
+from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
+from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -28,6 +30,8 @@ class PlantingRunService:
         phase_repo: IPhaseRepository | None = None,
         site_repo: ISiteRepository | None = None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
+        rotation_validator: CropRotationValidator | None = None,
+        companion_engine: CompanionPlantingEngine | None = None,
     ) -> None:
         self._repo = run_repo
         self._plant_repo = plant_repo
@@ -38,6 +42,12 @@ class PlantingRunService:
         self._phase_repo = phase_repo
         self._site_repo = site_repo
         self._phase_seq_repo = phase_seq_repo
+        # REQ-028/REQ-013 — the batch-creation path runs the same rotation +
+        # companion checks as the single-plant path (PlantInstanceService).
+        # Optional so solitary run tests can omit them; when unwired the checks
+        # are skipped exactly as ``skip_validation`` does on a single plant.
+        self._rotation = rotation_validator
+        self._companion = companion_engine
 
     def _resolve_initial_phase(self, species_key: str) -> tuple[str, str]:
         """Resolve (phase_key, phase_name) for initial phase assignment.
@@ -250,6 +260,24 @@ class PlantingRunService:
 
     # ── Batch operations ──────────────────────────────────────────────
 
+    def _validate_batch_planting(self, plant_specs: list[dict], available_slots: list) -> None:
+        """Run rotation + companion checks for every slot-assigned batch plant.
+
+        Mirrors ``PlantInstanceService.create_plant``: each instance that will
+        receive a slot is validated against crop-rotation history and companion
+        compatibility at that slot; instances without a slot (overflow beyond the
+        available slots) are skipped, matching the single-plant ``if plant.slot_key``
+        guard. No-op when the engines are unwired.
+        """
+        if self._rotation is None or self._companion is None:
+            return
+        for i, spec in enumerate(plant_specs):
+            slot_key = available_slots[i].key if i < len(available_slots) else None
+            if not slot_key:
+                continue
+            self._rotation.validate_or_raise(slot_key, spec["species_key"])
+            self._companion.check_or_raise(spec["species_key"], slot_key)
+
     def create_plants(self, run_key: PlantingRunKey) -> dict:
         """Batch-create PlantInstances from run entries."""
         run = self.get_run(run_key)
@@ -275,6 +303,14 @@ class PlantingRunService:
 
         # Resolve available slots at the run's location
         available_slots = self._get_available_slots(run.location_key)
+
+        # Rotation + companion checks — mirror the single-plant path
+        # (PlantInstanceService.create_plant). Only slot-assigned instances are
+        # validated; overflow plants beyond the available slots have slot_key=None
+        # and skip the checks exactly as a single plant with slot_key=None would.
+        # Validated up-front so a conflict raises before any PlantInstance is
+        # written (no partial batch left behind on failure).
+        self._validate_batch_planting(plant_specs, available_slots)
 
         # Resolve initial phase per species — prefer PhaseSequence, fallback to LifecycleConfig
         initial_phases: dict[str, tuple[str, str]] = {}  # species_key -> (phase_key, phase_name)
