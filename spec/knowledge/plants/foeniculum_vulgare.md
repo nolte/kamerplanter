@@ -116,6 +116,26 @@
 - pH-Vorzug quellentreu auf 6.0–7.0 gesetzt und mit §1.6 (Topf-pH 6,0–7,5) sowie §2.3 (Nährlösungs-pH 6.0–6.5) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 (Quellen schwanken zwischen 0,6 cm/¼ in und 1–2 cm; §4.2 dieses Dokuments nennt bereits 1–2 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2–3 (kühle, trockene Lagerung; bei Tiefkühl-/Kühlschranklagerung deutlich länger) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Samen sollen mit Substrat bedeckt werden — Dunkelheit begünstigt gleichmäßige Keimung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (optional; 1–2 Tage Einweichen verbessert Keimrate; wissenschaftlich untersuchte Priming-Techniken existieren, sind aber nicht zwingend erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.3–11.2 (Quellenwerte weichen stark voneinander ab: Saatgutkataloge nennen ca. 300 Korn/g ≈ 3,3 g/1000 Korn, ein Laborwert nennt 1,12 g/100 Korn ≈ 11,2 g/1000 Korn — beide Werte hier transparent gegenübergestellt, kein Mittelwert gebildet) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: keine belastbare Angabe zur initialen Aussaatdichte (vor dem Ausdünnen) für Knollenfenchel gefunden; Endabstand siehe §1.6 (25–30 cm) --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Fenchel gilt übereinstimmend als Dunkelkeimer — Samen werden mit ca. 1 cm Substrat bedeckt (Homesteadculture: "need darkness to germinate, cover with ¼ inch dirt"; konsistent mit der bereits in §4.2 dokumentierten Praxis-Saattiefe von 1–2 cm). Die Tausendkornmasse ist mit deutlicher Quellenunsicherheit behaftet — Saatgutkataloge (z. B. True Leaf Market) implizieren über die Samen-pro-Gramm-Angabe deutlich leichtere Samen als der in Wikifarmer zitierte Laborwert; beide Werte werden hier dokumentiert, ohne künstlich zu mitteln.
+
+Quellen (§1.8): [Homesteadculture — Fennel Seeds (Foeniculum vulgare) Sweet Fennel Seeds](https://homesteadculture.com/fennel/) (Dunkelkeimer, Saattiefe ¼ in, Keimung 1–2 Wochen); [Wikifarmer — Foeniculum vulgare Fennel seeds](https://wikifarmer.com/library/en/article/foemiculum-vulgare-fennel-seeds) (Keimfähigkeit 2–3 Jahre, 100-Korn-Gewicht 1,12 g); [True Leaf Market — Fennel Seeds Sweet](https://trueleafmarket.com/products/fennel-seeds-sweet) (Saatgutkatalog-Dichteangabe, daraus abgeleitete leichtere Tausendkornmasse); [PubMed 27080166 — Seed germination of medicinal plant fennel as affected by different priming techniques](https://pubmed.ncbi.nlm.nih.gov/27080166/) (wissenschaftliche Bestätigung von Priming/Presoak als optionale, keimfördernde Vorbehandlung); bereits gelistete Quelle 7 [USU Extension — How to Grow Fennel in Your Garden](https://extension.usu.edu/yardandgarden/research/fennel-in-the-garden) (Keimtemperatur-Korridor 15–21 °C)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -358,3 +378,9 @@ Foeniculum vulgare var. azoricum,"Knollenfenchel;Gemüsefenchel;Florence Fennel;
 18. [Almanac.com — Fennel: Planting, Growing, and Harvesting Fennel Bulbs](https://www.almanac.com/plant/fennel) — "Florence fennel is biennial but grown as an annual for bulbs. Left in the ground, it will flower and set fennel seeds in year two."
 19. [Gardenia.net — Fennel Bulb (Foeniculum vulgare var. azoricum)](https://www.gardenia.net/plant/foeniculum-vulgare-var-azoricum-fennel-bulb) — "the biennial bulging fennel grown as an annual for eating"
 <!-- /Quelle: growing-phase-auditor 2026-07 (cycle_type/cultivation_cycle_type-Korrektur) -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+20. [Homesteadculture — Fennel Seeds (Foeniculum vulgare) Sweet Fennel Seeds](https://homesteadculture.com/fennel/) — Dunkelkeimer, Saattiefe, Keimdauer
+21. [Wikifarmer — Foeniculum vulgare Fennel seeds](https://wikifarmer.com/library/en/article/foemiculum-vulgare-fennel-seeds) — Keimfähigkeitsdauer, 100-Korn-Gewicht
+22. [True Leaf Market — Fennel Seeds Sweet](https://trueleafmarket.com/products/fennel-seeds-sweet) — Saatgutkatalog-Referenzwerte
+23. [PubMed 27080166 — Seed germination of fennel as affected by different priming techniques](https://pubmed.ncbi.nlm.nih.gov/27080166/) — Priming/Presoak als optionale Vorbehandlung
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

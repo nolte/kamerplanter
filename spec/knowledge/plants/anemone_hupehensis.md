@@ -122,6 +122,10 @@
 **Hinweis (pH):** Die Art ist sehr pH-tolerant — die Quellen (RHS, NC State Extension) nennen sauer, neutral und alkalisch als geeignet (effektive Spanne ~5,5–8,0). Der hier gesetzte Vorzugsbereich 6.0–7.0 ist quellentreu zum Substrat-Vorzug aus §1.6 und den Nährstoffprofilen in §2.3 harmonisiert; höhere pH-Werte werden toleriert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Anemone hupehensis wird im Erwerbs- und Hobbygarten praktisch ausschließlich über Rhizomteilung bzw. Wurzelstecklinge vermehrt (division/cutting_stem, siehe §1.3) — dies ist deutlich schneller und sortenecht, während echte Samenvermehrung bei Anemone hupehensis in der gärtnerischen Praxis kaum verwendet wird (u.a. wegen sehr unregelmäßiger, langsamer Keimung und weil Hybriden/Cultivare durch Samen nicht sortenrein reproduziert werden). Es werden daher KEINE Keimwerte erfunden; `species.seed_profile` bleibt für diese Art unbefüllt (null). -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -116,6 +116,31 @@
 | Boden-pH-Vorzug (min–max) | 5.0–6.5 (FAO-Optimum; Feinabstimmung 5,8–6,5 wie in §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 (70–80°F laut Univ. Kentucky Tobacco Production Guide, konstant über 10–14 Tage; unter 65°F/18°C deutlich verlangsamt) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (§1.3 nennt 25–30°C als Praxisoptimum) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; nicht eingraben, §1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unter optimalen Bedingungen 7–10 Tage; §2.1-Phasendauer 10–21 Tage deckt auch suboptimale Anzuchtbedingungen ab) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 5 (praktische Lagerung bei Zimmertemperatur/Kühlschrank; Genbank-Studien zeigen bei -15/-18°C Tiefkühllagerung Haltbarkeit von 30 bis über 50 Jahren) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (§1.3 bereits belegt: Lichtkeimer, nicht eingraben) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (für Standardanzucht nicht erforderlich; wissenschaftliche Studie zeigt, dass Vorkühlung/cold-stratification die Keimrate zusätzlich verbessern kann, ist aber keine Voraussetzung) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.05–0.12 (extrem kleines Saatgut; §1.3: 10.000–20.000 Samen/g ≈ 0,05–0,1 g/1000 Korn; Saatguthandel nennt teils 0,12 g/1000 Korn — Sortenvariation) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Anzucht erfolgt in Aussaatschalen zur späteren Pikierung/Auspflanzung (§1.6: 60–80 × 90–100 cm Pflanzabstand), keine Flächen-/Reihensaat mit belegter Kornzahl je m² --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. §1.3 dieses Steckbriefs (bereits zitierte Quellen: 10.000–20.000 Samen/g, Lichtkeimer, 25–30°C) — Cross-Check
+2. [University of Kentucky — Tobacco Production Guide](https://tobacco.ca.uky.edu) (bereits im Quellenverzeichnis zitiert) — Keimtemperatur konstant 70–80°F (21–27°C) über 10–14 Tage
+3. [TrueLeafMarket — Ideal Germination Conditions for Tobacco Seeds](https://trueleafmarket.com/blogs/articles/ideal-germination-conditions-for-tobacco-seeds) — Keimdauer 7–10 Tage unter Idealbedingungen, Lichtkeimer-Bestätigung
+4. [OnlineTobaccoSeedStore — Storing Your Seeds](https://www.onlinetobaccoseedstore.com/storing-your-seeds/) — Keimfähigkeitsdauer praktisch 2–5+ Jahre bei kühler/dunkler Lagerung, ca. 10 % Keimratenverlust pro Jahr
+5. [Weberseeds/UF Seeds/Various Seed Catalogs — Nicotiana tabacum](https://weberseeds.nl/eshop/en/Seeds/Seeds-A-Z/Nicotiana-tabacum-Tobacco::110.html) — Tausendkornmasse ≈ 0,12 g (Cross-Check TKG)
+6. [Suppression of LOX activity enhanced seed vigour and longevity of tobacco (Nicotiana tabacum L.) seeds during storage, PMC6161406](https://pmc.ncbi.nlm.nih.gov/articles/PMC6161406/) (bereits im Quellenverzeichnis zitiert) — Langzeit-Keimfähigkeit bei Tiefkühllagerung (-15/-18°C): 30–50+ Jahre
+7. [CORESTA — Pre-chilling improves tobacco (Nicotiana tabacum L.) seed germination](https://www.coresta.org/abstracts/pre-chilling-improves-tobacco-nicotiana-tabacum-l-seed-germination-27921.html) — Vorkühlung verbessert Keimrate zusätzlich (optional, nicht obligatorisch)
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -465,3 +490,10 @@ Oriental Izmir,Nicotiana tabacum,"oriental_type;aromatic;small_leaf;sun_cured",1
 12. [Greg.app — Pollinating Tobacco](https://greg.app/pollinate-tobacco/) — Selbstbestäubung/Selbstfruchtbarkeit von N. tabacum
 13. [FAO — Crop salt tolerance data (Annex 1)](https://www.fao.org/4/y4263e/y4263e0e.htm) — Beleg, dass Tabak NICHT in der Maas-Hoffman-Salztoleranztabelle gelistet ist
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+14. [TrueLeafMarket — Ideal Germination Conditions for Tobacco Seeds](https://trueleafmarket.com/blogs/articles/ideal-germination-conditions-for-tobacco-seeds) — Keimtemperatur/-dauer, Lichtkeimer
+15. [OnlineTobaccoSeedStore — Storing Your Seeds](https://www.onlinetobaccoseedstore.com/storing-your-seeds/) — Keimfähigkeitsdauer, Lagerungsempfehlungen
+16. [Suppression of LOX activity enhanced seed vigour and longevity of tobacco (Nicotiana tabacum L.) seeds during storage, PMC6161406](https://pmc.ncbi.nlm.nih.gov/articles/PMC6161406/) — Langzeit-Keimfähigkeit bei Tiefkühllagerung (30–50+ Jahre bei -15/-18°C)
+17. [CORESTA — Pre-chilling improves tobacco seed germination](https://www.coresta.org/abstracts/pre-chilling-improves-tobacco-nicotiana-tabacum-l-seed-germination-27921.html) — Optionale Vorkühlung als Keimförderung
+18. [Weberseeds — Nicotiana tabacum, Tobacco](https://weberseeds.nl/eshop/en/Seeds/Seeds-A-Z/Nicotiana-tabacum-Tobacco::110.html) — Tausendkornmasse Cross-Check
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->

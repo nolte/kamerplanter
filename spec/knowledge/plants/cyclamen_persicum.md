@@ -117,6 +117,31 @@
 **Hinweis:** Cyclamen persicum ist eine schattenverträgliche Unterholz-Staude (shade-adapted understory herb) mit niedrigem Lichtkompensationspunkt (light compensation point) — sie behauptet sich im Halbschatten unter Baumkronen. Der angegebene Bereich nennt ausschließlich den Kompensationspunkt (Netto-Photosynthese = 0); der Sättigungspunkt (light saturation point) liegt deutlich höher und ist hier bewusst nicht eingetragen. Die Knolle besitzt keine schützende Korkschicht, sondern nur eine dünne, durchlässige Epidermis und ist dadurch besonders empfindlich gegen osmotischen Schock durch lösliche Salze (salt-sensitive); Gärtner halten die Substrat-EC (Sättigungspaste, nicht Gießwasser-EC) bei oder unter 1 dS/m. Staunässe (waterlogging) führt rasch zu Knollen-/Kronenfäule (crown rot).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 (ISHS: Optimum bei 15°C im Dunkeln; keine Keimung bei 5°C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 20 (Keimung oberhalb 20°C stark gehemmt bzw. ausbleibend; praxisübliche Anzucht bei 18–20°C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1 (Praxis-Empfehlung ~0,6–1,3 cm mit feiner Vermiculit-/Substratschicht abgedeckt — ausreichend um Dunkelheit sicherzustellen) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 30 (30–60 Tage, unterer Wert; stark temperatur- und frischeabhängig) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Trockenlagerung erhält hohe Keimfähigkeit über mind. 2 Jahre bei -30°C bis +20°C; Praxisempfehlung: Aussaat innerhalb 1 Jahres für beste Ergebnisse) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (Einweichen 12–24 Std. in lauwarmem Wasser vor Aussaat verbessert Wasseraufnahme und Keimrate) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine Quelle mit TKG-Wert für Cyclamen persicum gefunden --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Einzelsaat in Schalen/Töpfen, keine Reihen-/Flächenkultur mit dokumentierter Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Cyclamen persicum ist ein ausgeprägter Dunkelkeimer — bereits sehr geringe Dauerbelichtung hemmt die Keimung (kontinuierliche Weißlichtbestrahlung wirkt inhibitorisch, auch bei niedriger Bestrahlungsstärke). Nach Keimung müssen Sämlinge zügig ans Licht (helles, indirektes Licht), da Dunkelheit danach zu Vergeilung führt. Dies harmonisiert mit der bereits in §1.3 dokumentierten Praxis (18–20°C, Dunkelheit, 4–6 Wochen).
+
+**Quellen (§1.8):**
+- [ISHS — Characteristics of Cyclamen persicum Mill. Seed Germination](https://www.ishs.org/ishs-article/261_45) — Optimum 15°C im Dunkeln, keine Keimung bei 5°C oder über 20°C, Dauerlicht-Inhibition
+- [trailingpetunia.com — Cyclamen Seed Germination Secrets: Temperature, Light & Moisture Tips](https://www.trailingpetunia.com/blogs/news/cyclamen-seed-germination-secrets-temperature-light-moisture-tips) — Dunkelkeimer, 18–20°C praxisüblich, Keimdauer 30–60 Tage
+- [Outside Pride — Planting Instructions for Cyclamen Seeds](https://www.outsidepride.com/resources/planting/cyclamen-planting/) und [Wilson Garden Pots — The Complete Guide to Growing Cyclamen from Seed](https://www.wilsongardenpots.com/a/growing-cyclamen-from-seed) — Saattiefe ¼–½ Zoll, Einweichen vor Aussaat
+- [Missing Henry Mitchell — Cyclamen from seed: Presoaking method](https://missinghenrymitchell.com/2013/12/23/cyclamen-from-seed-presoaking-method/) und [Cyclamen Society — Growing from Seed](https://www.cyclamen.org/cyclamen-society-seeds-distribution/propagation/) — Einweichen 12–24 Std. vor Aussaat
+- [PMC — Storage-related Studies zur Keimfähigkeit von Cyclamen-Samen bei -30°C bis +20°C](https://www.ncbi.nlm.nih.gov/pmc/) und [trailingpetunia.com — When to Plant Cyclamen Seeds for Best Germination Rates](https://www.trailingpetunia.com/blogs/news/when-to-plant-cyclamen-seeds-for-best-germination-rates) — Keimfähigkeitsdauer ≥2 Jahre bei Trockenlagerung, Praxisempfehlung Aussaat binnen 1 Jahr
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenübersicht
@@ -335,3 +360,11 @@ Cyclamen persicum,"Alpenveilchen;Cyclamen;Persian Cyclamen",Primulaceae,Cyclamen
 22. [Cafe Planta — Cyclamen Cold Tolerance: What Temperature Is Too Cold?](https://cafeplanta.com/blogs/resources/cyclamen-cold-tolerance) — Kältestress ab < 4 °C (40 °F), Frost besonders schädlich
 23. [Cyclamen Society — FAQs](https://www.cyclamen.org/faqs/) — C. persicum "not completely frost hardy", muss bei hartem Winter ins Haus geholt werden
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+24. [ISHS — Characteristics of Cyclamen persicum Mill. Seed Germination](https://www.ishs.org/ishs-article/261_45) — Keimtemperatur-Optimum, Dunkelkeim-Anforderung
+25. [trailingpetunia.com — Cyclamen Seed Germination Secrets](https://www.trailingpetunia.com/blogs/news/cyclamen-seed-germination-secrets-temperature-light-moisture-tips) — Praxis-Keimtemperatur, Keimdauer
+26. [Outside Pride — Planting Instructions for Cyclamen Seeds](https://www.outsidepride.com/resources/planting/cyclamen-planting/) — Saattiefe
+27. [Missing Henry Mitchell — Cyclamen from seed: Presoaking method](https://missinghenrymitchell.com/2013/12/23/cyclamen-from-seed-presoaking-method/) — Einweich-Vorbehandlung
+28. [trailingpetunia.com — When to Plant Cyclamen Seeds for Best Germination Rates](https://www.trailingpetunia.com/blogs/news/when-to-plant-cyclamen-seeds-for-best-germination-rates) — Keimfähigkeitsdauer, Lagerempfehlung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->

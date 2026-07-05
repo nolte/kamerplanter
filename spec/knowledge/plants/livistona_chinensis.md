@@ -119,6 +119,29 @@
 **Hinweis (Salz/Wasser):** Bezugsgröße der Salztoleranz ist Sprühnebel-/Substratsalzbelastung (salt spray); Gardenia/IFAS stufen die Art als "moderately tolerant of salt spray" ein. Staunässe wird schlecht vertragen — schlecht drainierte, vernässte Böden führen zu Wurzelverlust und Wurzelfäule (Phytophthora). Der pH-Vorzug ist quellentreu auf den mit §1.6 und §2.3 harmonisierten Korridor 6.0–7.0 gesetzt; RHS bestätigt zusätzlich eine Toleranz gegenüber leicht alkalischen Böden.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 25 (konstant; §1.3 sowie Useful Tropical Plants nennen praktikable Keimtemperaturen ab 25°C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Keimung beschleunigt sich deutlich zwischen 30–50°C; darüber praktisch nicht kultivierbar) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 (Gattungs-Analogie: Livistona saribus wird 2–3 cm tief gesät; allgemeine Palmen-Faustregel ~1,25–2,5 cm Tiefe je nach Samengröße) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 25 (Komplettkeimung binnen 25 Tagen bei 30–50°C dokumentiert; bei niedrigeren Temperaturen und Frischsaat 30–90 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | < 1 (rekalzitranter Samen — kein Überleben bei Subzero-Lagerung; bei 15°C ca. 45 % Keimfähigkeit nach 6 Monaten, danach starker Abfall) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: kein belegter Licht-/Dunkelkeimer-Status für Livistona chinensis auffindbar; remote Keimung (Wurzel wächst vor Spross unterirdisch) lässt keinen eindeutigen Rückschluss zu --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (24–48 h warmes Wasser vor Aussaat) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: kein belegter TKG-Wert für Livistona chinensis aus zwei unabhängigen Quellen; nur Samendurchmesser (9–18 mm) dokumentiert, keine Masse --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Aussaat erfolgt einzeln in Töpfe/Anzuchtschalen, kein Feld-/Reihenanbau --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. [Useful Tropical Plants — Livistona chinensis](https://tropical.theferns.info/viewtropical.php?id=Livistona+chinensis) — Keimtemperatur (15–50°C keimfähig, Komplettkeimung binnen 25 Tagen bei 30–50°C), Frischsaat-Keimdauer 1–2 Monate
+2. Wen B. (2009) — [Storage of recalcitrant seeds: A case study of the Chinese fan palm, Livistona chinensis](https://www.researchgate.net/publication/233717274_Storage_of_recalcitrant_seeds_A_case_study_of_the_Chinese_fan_palm_Livistona_chinensis), Seed Science and Technology 37(1) — rekalzitranter Samen, kein Subzero-Überleben, 45 % Keimfähigkeit nach 6 Monaten Lagerung bei 15°C
+3. [Live to Plant — Palm Tree Plant Seeds: Guide to Storing, Sowing and Germination](https://livetoplant.com/palm-tree-plant-seeds-guide-to-storing-sowing-and-germination/) — allgemeine Palmen-Saattiefe-Faustregel (~1,25–2,5 cm)
+4. [Viriar — Livistona saribus growing guide](https://www.viriar.com/products/livistona-saribus-taraw-palm) — Saattiefe 2–3 cm bei naher verwandter Livistona-Art (Gattungs-Analogie)
+5. §1.3 dieses Steckbriefs (bereits zitierte Quellen: Einweichen 24–48 h, Keimung bei 25–28°C nach 1–3 Monaten) — Cross-Check Keimtemperatur und Vorbehandlung (presoak)
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

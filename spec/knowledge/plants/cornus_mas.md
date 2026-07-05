@@ -125,6 +125,30 @@
 **Standort-Hinweise:** Cornus mas wächst von voller Sonne bis Halbschatten (full sun to partial shade); im lichten Gehölzschatten (light woodland) noch vital, jedoch nicht im Vollschatten — daher `partial_shade`. Die Art verlangt durchlässige, frische Böden und verträgt Staunässe schlecht (Quellen betonen durchgängig "well-drained"), daher Staunässe-Toleranz `sensitive`. Salzempfindlich: keine Eignung für Küstenexposition (maritime exposure) und kein Auftausalz (deicing salt) — Klasse `sensitive`. Boden-pH 6,5–8,0 (mäßig sauer bis alkalisch; toleriert sehr kalkhaltige Böden) — harmonisiert mit §1.6 (Substrat) und §2.3 (Nährstoffprofile). Für LCP, Wurzeltiefe in cm und Maas-Hoffman-Salzparameter (ECe-Schwelle, Slope) liegen keine zwei unabhängigen, art-spezifisch belegten Quellwerte vor; Wurzelsystem ist morphologisch ein Herzwurzler (heart root, mittlere Tiefe).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | <!-- DATEN FEHLEN: Quellen dokumentieren nur die Stratifikations-Behandlungstemperaturen (siehe Vorbehandlung), nicht die tatsächliche Keim-/Austriebstemperatur im Frühjahrsbeet --> | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | <!-- DATEN FEHLEN: siehe min --> | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1 (3/8 Zoll ≈ 0,95 cm; Saatbett andrücken und mulchen) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 365 (ausgeprägte Doppel-Dormanz — Keimung erfolgt frühestens nach 12–15 Monaten, oft sporadisch verteilt über 2–3 Jahre) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine belegte Lagerfähigkeits-Kennzahl gefunden --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine explizite Quelle zu Licht-/Dunkelkeimung gefunden --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | warm_stratification, cold_stratification (Doppel-Dormanz: ca. 12 Wochen warm bei ~20°C, gefolgt von mind. 12 Wochen kalt bei ~4°C; alternative Quelle nennt reine Kaltstratifikation 90 Tage nach Entfernen des Fruchtfleischs) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 220 (Spanne ca. 200–230 g, berechnet aus 4.300–5.000 Samen/kg bzw. ~125 Samen/oz) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Gehölzvermehrung in Baumschulbeeten/Töpfen, keine dokumentierte flächenbezogene Standard-Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Cornus-mas-Samen besitzen eine ausgeprägte physiologische Doppel-Dormanz (harte Steinkern-Schale + Embryo-Dormanz) — ohne Vorbehandlung keimen Samen oft erst im zweiten oder dritten Frühjahr nach der Aussaat. Das Fruchtfleisch muss vor der Stratifikation entfernt werden (enthält Keimhemmstoffe). Anritzen/Ankerben der harten Steinschale (Skarifikation) vor der Stratifikation kann die Keimung beschleunigen. Samen tragen oft Doppelembryonen — Anzuchttöpfe nicht vorzeitig verwerfen, da ein zweiter Keimling erst im Folgejahr erscheinen kann.
+
+**Quellen (§1.8):**
+- [Sheffield's Seed Company — Cornus mas](https://sheffields.com/seeds/Cornus/mas) — Warmstratifikation 180 Tage ODER Kaltstratifikation 90 Tage, Samenzahl ~125/oz
+- [UF/IFAS — Cornus mas, Landscape Plant Propagation Information](https://hort.ifas.ufl.edu/database/lppi/sp103.shtml) — Saattiefe 3/8", Warm-/Kaltstratifikations-Kombination, sporadische Keimung über 2–3 Jahre, Doppelembryonen
+- [PFAF — Cornus mas Plant Database](https://pfaf.org/user/plant.aspx?LatinName=Cornus+mas) — Kaltstratifikation 3–4 Monate nach Entfernen des Fruchtfleischs, Skarifikation beschleunigt Keimung
+- [Vilmorin Tree Seeds — Cornus mas](https://www.vilmorin-tree-seeds.com/seeds/ornamental-nurseries/1102-cornus-mas.html) — Samenzahl 4.300–5.000 Samen/kg (Zweitbeleg TKG), Herbstaussaat nach Stratifikation
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -331,3 +355,8 @@ Cornus mas,"Kornelkirsche;Herlitze;Cornelian Cherry",Cornaceae,Cornus,perennial,
 13. [Koppert — Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Räuber-Gallmücke gegen Blattläuse, Ausbringrate
 14. [Wikipedia / GDD5-Phänologie temperate Gehölze](https://en.wikipedia.org/wiki/Growing_degree-day) — GDD-Basistemperatur 5 °C als Standard-Wuchs-/Phänologie-Basis temperater Laubgehölze
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+15. [Sheffield's Seed Company — Cornus mas](https://sheffields.com/seeds/Cornus/mas) — Stratifikationsprotokoll, Saatgutmenge/oz
+16. [UF/IFAS — Cornus mas, Landscape Plant Propagation Information](https://hort.ifas.ufl.edu/database/lppi/sp103.shtml) — Saattiefe, Keimverzögerung 2–3 Jahre, Doppelembryonen
+17. [Vilmorin Tree Seeds — Cornus mas](https://www.vilmorin-tree-seeds.com/seeds/ornamental-nurseries/1102-cornus-mas.html) — Samenzahl je kg (TKG-Zweitbeleg)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->

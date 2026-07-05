@@ -117,6 +117,30 @@
 **Hinweis:** Echte Schatten-/Unterwuchs-Pflanze (deep_shade) — als C3-Pflanze mit niedrigem Lichtkompensationspunkt (light compensation point, LCP) typisch für tiefschattenadaptierte tropische Understory-Arten (Spanne schattentoleranter Arten 10–50 µmol/m²/s; hier unteres Band). Der LCP (Netto-Photosynthese = 0) ist NICHT mit Sättigungs-/Optimumwerten zu verwechseln; bestes Wachstum bei hellem indirektem Licht (PPFD-Ziel siehe §2.2). Flaches Wurzelsystem (shallow roots), daher staunässeempfindlich (Wurzelfäule-Risiko). Salzempfindlich: gedeiht nicht in salzigen Böden, hohe Dünger-/Salzfrachten schädigen die Wurzeln; eine quantitative ECe-Schwelle (Maas-Hoffman a) ist für diese Art nicht belastbar belegt. pH-Vorzug quellentreu auf 6.0–7.0 begrenzt (harmonisiert mit §1.6 und §2.3); breitere Toleranz (leicht sauer bis neutral, ~pH 5.1–8.0) wird in Quellen genannt.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 29 (85 °F; unterhalb dessen verlangsamt sich die Keimung deutlich und Krankheitsrisiko steigt) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 35 (95 °F; Optimum ca. 90 °F/32 °C laut mehreren Palmensamen-Anbietern) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | -- <!-- DATEN FEHLEN: keine 2 unabhängigen Quellen mit konkreter cm-Angabe; Praxis: Samen nur oberflächlich/knapp bedeckt aussäen --> | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 42 (6–14 Wochen It. Fachhandel; Palmensamen keimen notorisch langsam und uneinheitlich, teils bis 6 Monate bei älterem Saatgut, vgl. S.1.3) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 0.5 (Frischsamen: höchste Keimrate direkt nach Ernte; Keimfähigkeit hält sich nur ca. 4–6 Monate — Chamaedorea-Samen gelten als kurzlebig/rekalzitrant, kein Langzeit-Lagersaatgut) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | -- <!-- DATEN FEHLEN: kein Licht-/Dunkelkeimungs-Nachweis aus 2 unabhängigen Quellen für Chamaedorea elegans auffindbar --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification, presoak (Samenschale anfeilen/anritzen + 1–7 Tage in Wasser einweichen, taeglich Wasser wechseln; teils zusaetzlich GA3-Behandlung in der Praxis) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 167 (ca. 6.000 Samen/kg It. Fachhandelsangaben; grosse, harte Palmensamen) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | -- <!-- DATEN FEHLEN: Chamaedorea wird einzeln in Toepfen/Schalen ausgesaet, keine Reihen-/Direktsaat mit definierter Endabstands-Flaechendichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (S.1.8):
+1. Interne Keiminfos S.1.3 dieses Dokuments (frische Samen bei 27–32 degC, Keimung 3–6 Monate) -- bereits als Quelle im Dokument gefuehrt.
+2. VIRIAR -- Chamaedorea elegans, Parlor Palm (Seeds) / Growing Guide: Keimtemperatur 85–95 degF, Keimdauer 4–6 Wochen bis deutlich laenger, hoechste Keimrate bei sofortiger Aussaat nach Ernte, Keimfaehigkeit nur 4–6 Monate: https://www.viriar.com/products/chamaedorea-elegans-parlor-palm-20-x-fresh-seeds ; https://www.viriar.com/blogs/palms-tree-encyklopedia/chamaedorea-elegans-parlor-palm
+3. FSHS (Florida State Horticultural Society) -- Temperature and Desiccation Affect the Germination of Chamaedorea Palm Seeds: 90 degF (32 degC) fuer schnellste, gleichmaessigste Keimung; Keimverzoegerung/Krankheitsrisiko bei niedrigeren Temperaturen: https://journals.flvc.org/fshs/article/download/92298/88490/0
+4. Plant World Seeds -- Chamaedorea elegans Seeds (Parlour Palm): Vorbehandlung Anfeilen der Samenschale + Einweichen 24–48 h: https://www.plant-world-seeds.com/store/view_seed_item/7049/chamaedorea-elegans-seeds
+5. Sheffield's Seed Company -- Chamaedorea elegans: Samenzaehlung ca. 6.000 Samen/kg: https://sheffields.com/seeds/Chamaedorea/elegans
+6. TropicalSeeds.com -- Chamaedorea elegans: Keimdauer 6–14 Wochen, Vorbehandlung Einweichen 1–7 Tage: https://www.tropicalseeds.com/chamaedorea-elegans
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

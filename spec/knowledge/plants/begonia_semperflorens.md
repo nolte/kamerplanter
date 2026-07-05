@@ -114,6 +114,24 @@
 **Hinweis:** Als schattenadaptierte Unterwuchspflanze (understory) hat die Wachsbegonie einen niedrigen Lichtkompensationspunkt (light compensation point) — geschätzt im Bereich 10–25 µmol/m²/s; bronzeblättrige Sorten liegen am oberen Rand, grünblättrige am unteren. Der hier genannte Wert ist NUR der Kompensationspunkt (Netto-Photosynthese = 0). Davon klar zu trennen sind der Lichtsättigungspunkt (Sättigung der Photosynthese, je nach Akklimatisation ~200–800 µmol/m²/s) und die Photoinhibitions-Schwelle (oberhalb ~1200 µmol/m²/s, in Vollsonne 2100 µmol/m²/s droht Photoschaden, Fv/Fm fällt auf 0.45–0.52). Wachsbegonien sind ausgesprochen salzempfindlich (Substrat-ECe, NICHT Gießwasser-EC) — kein verlässlicher quantitativer Maas-Hoffman-Schwellenwert publiziert; daher Schwelle/Slope als Daten fehlen markiert, Klasse aber qualitativ als `sensitive` belegbar.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Feinstsamen, Lichtkeimer — nicht abdecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14–28 (KA-Feld: 14) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine Vorbehandlung erforderlich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.0125–0.014 (extreme Feinstsamen; ca. 70.000–80.000 Samen/g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Aussaat erfolgt in Schalen/auf der Substratoberfläche mit anschließendem Pikieren/Verschulen und Auspflanzen als Jungpflanze — keine Direktsaat mit Feld-Enddichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Neil Sperry's GARDENS — How many seeds per ounce?](https://neilsperry.com/2021/10/how-many-seeds-per-ounce/10-14-21-wax-begonia-seeds-low-res/); [HowStuffWorks — Wax Begonia, Fibrous Begonia: A Profile of Annuals](https://home.howstuffworks.com/define-wax-begonia-fibrous-begonia.htm); [Plant Care Today — Growing Wax Begonias from Seed](https://plantcaretoday.com/growing-wax-begonias-seed.html); [Little Yellow Wheelbarrow — Begonias from Seed](https://www.littleyellowwheelbarrow.com/grow-begonias-seed-indoors/); [Laidback Gardener — Successfully Sowing Begonias From Seed](https://laidbackgardener.blog/2017/01/08/successfully-sowing-begonias-from-seed/); [American Begonia Society — Seed Collection and Storage](https://www.begonias.org/seed-collection-and-storage/); [Live to Plant — All About Begonia Plant Seeds](https://livetoplant.com/all-about-begonia-plant-seeds-germination-storage-and-sowing/).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -114,6 +114,31 @@
 | Boden-pH-Vorzug (soil pH preference) | 6.5–7.5 (neutral bis leicht alkalisch; konsistent mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 (60°F; untere praxisübliche Grenze) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 (70°F; obere praxisübliche Grenze; Optimum als "quite low" beschrieben) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.3 (1/8 Zoll ≈ 0,3 cm; nur leicht mit Erde bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (14–21 Tage typisch, unterer Wert; ungleichmäßige Keimung über bis zu 5 Wochen möglich, stark sortenabhängig) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (Samen verlieren Keimfähigkeit rasch bei Raumlagerung — Praxisempfehlung: binnen 1 Jahr aussäen; Kühlschranklagerung in luftdichtem Behälter verlängert die Haltbarkeit über mehrere Jahre) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (1–2 Wochen feucht-kühl im Kühlschrank verbessert die Keimrate deutlich; erweicht die Samenschale) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine Quelle mit TKG-Wert für Delphinium elatum gefunden --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Einzelsaat in Schalen/Töpfen bzw. weiter Pflanzabstand (60–80 cm) im Beet, keine dokumentierte Flächen-Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Delphinium-Samen sind ausgesprochen kurzlebig und verlieren die Keimfähigkeit bei ungekühlter Lagerung innerhalb eines Jahres deutlich — dies deckt sich mit dem bereits in §1.2 dokumentierten Praxishinweis "möglichst frisch aussäen (max. 1 Jahr)". Als Dunkelkeimer werden Samen nur leicht mit Substrat bedeckt; Kaltstratifikation im Kühlschrank ist die Standard-Vorbehandlung zur Verbesserung der Keimrate.
+
+**Quellen (§1.8):**
+- [Empress of Dirt — Germination Trick for Delphinium Seeds (Cold Stratification in Fridge)](https://empressofdirt.net/best-delphinium-seed-germination-method/) — Kaltstratifikation, Keimtemperatur, Dunkelkeim-Empfehlung (Erde bedecken)
+- [Eden Brothers — How to Plant Delphinium Seeds](https://grow.edenbrothers.com/planting-guides/delphinium-seeds/) — Saattiefe 1/8 Zoll, Keimtemperatur 60–68°F
+- [Gardeners Path — How to Grow and Care for Dreamy Delphinium Flowers](https://gardenerspath.com/plants/flowers/grow-delphiniums/) — Keimtemperatur 65–70°F, Kaltstratifikation
+- [Smokey's Gardens — Delphinium Planting & Growing Instructions](https://smokeysgardens.com/delphinium-planting-growing-instructions/) und [Saga — How and when to sow delphinium seeds](https://www.saga.co.uk/magazine/gardens/how-and-when-to-sow-delphinium-seeds) — Keimfähigkeitsdauer 1 Jahr bei Raumlagerung, Kühllagerung verlängert Haltbarkeit
+- [Coohom — Do Delphiniums Need Light to Germinate?](https://www.coohom.com/article/do-delphiniums-need-light-to-germinate) und [Garden.org — Germinating Delphinium Seed](https://garden.org/frogs/view/16858/) — Dunkelkeim-Präferenz, leichtes Bedecken mit Substrat
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -346,3 +371,12 @@ Delphinium elatum,"Hoher Rittersporn;Garten-Rittersporn;Garden Delphinium",Ranun
 9. [greg.app — Delphinium Roots 101](https://greg.app/delphiniums-roots/) — tiefreichendes faseriges/fleischig-faseriges Wurzelsystem (~90 cm; keine echte Pfahlwurzel) + oberflächliche Faserwurzeln, Staunässe-Empfindlichkeit
 10. [gardenia.net — Delphinium Care](https://www.gardenia.net/guide/learn-how-to-plant-and-care-for-your-delphiniums) — Boden-pH 6.5–7.5, Optimaltemperatur, Hitzeempfindlichkeit
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+11. [Empress of Dirt — Germination Trick for Delphinium Seeds (Cold Stratification in Fridge)](https://empressofdirt.net/best-delphinium-seed-germination-method/) — Kaltstratifikation, Dunkelkeim-Empfehlung
+12. [Eden Brothers — How to Plant Delphinium Seeds](https://grow.edenbrothers.com/planting-guides/delphinium-seeds/) — Saattiefe, Keimtemperatur
+13. [Gardeners Path — How to Grow and Care for Dreamy Delphinium Flowers](https://gardenerspath.com/plants/flowers/grow-delphiniums/) — Keimtemperatur, Kaltstratifikation (Zweitbeleg)
+14. [Smokey's Gardens — Delphinium Planting & Growing Instructions](https://smokeysgardens.com/delphinium-planting-growing-instructions/) — Keimfähigkeitsdauer
+15. [Saga — How and when to sow delphinium seeds for vivid towering displays](https://www.saga.co.uk/magazine/gardens/how-and-when-to-sow-delphinium-seeds) — Keimfähigkeitsdauer (Zweitbeleg)
+16. [Coohom — Do Delphiniums Need Light to Germinate?](https://www.coohom.com/article/do-delphiniums-need-light-to-germinate) — Dunkelkeim-Präferenz
+17. [Garden.org — Germinating Delphinium Seed](https://garden.org/frogs/view/16858/) — Dunkelkeim-Präferenz (Zweitbeleg)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->

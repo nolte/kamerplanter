@@ -112,6 +112,29 @@
 **Hinweis:** Als schattentolerante Unterwuchs-Art (understory shrub) subtropischer Breitlaubwälder liegt der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) sehr niedrig; dies erklärt die gute Eignung als Zimmerpflanze an hellem, indirektem Standort. Der Lichtsättigungspunkt liegt deutlich höher (Größenordnung 200–400 µmol/m²/s), pralle Mittagssonne kann jedoch Blattverbrennungen (Photoinhibition) verursachen. Die Art bevorzugt durchlässige, leicht saure, humusreiche Substrate (pH 5.0–6.5) und reagiert empfindlich auf Staunässe (Wurzelfäule-Risiko). Sie ist keine salzangepasste Art; eine quantitative Maas-Hoffman-Schwelle (ECe) ist in der Literatur nicht belegt — Bewässerung mit salzarmem Wasser empfohlen. Der pH-Vorzug 5.0–6.5 ist mit dem Kultur-Zielwert pH 6.0–6.5 in §1.6/§2.3 konsistent (Zielkorridor liegt innerhalb der Präferenzspanne).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 (Tezuka & Fujihara 2012: Keimung bei 15–30 °C, KEINE Keimung bei 5–10 °C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Tezuka & Fujihara 2012, Optimum bei ca. 25 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | <!-- DATEN FEHLEN: keine belegte cm-Angabe aus zwei unabhängigen Quellen; Praxis-Empfehlung ist Oberflächenaussaat/nur minimal mit Substrat bedecken, aber ohne konkreten Zahlenwert --> | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 28 (unterer Wert der eigenen §1.3-Spanne 4–8 Wochen; grob konsistent mit Tezuka & Fujihara: bis zu 40 Tage bei günstiger Erntezeit) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | < 1 (ca. 2 Monate bei 4 °C feuchter Lagerung; rekalzitrantes, desikkationsempfindliches Saatgut — verliert Keimfähigkeit vollständig nach ca. 50 Tagen bei Raumtemperatur oder −18 °C) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: kein aus zwei unabhängigen Quellen belegter Licht-/Dunkelkeimer-Status; Tezuka & Fujihara (2012) untersuchten Temperatur/Desikkation/Samenschale, nicht gezielt Licht vs. Dunkelheit --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (kurze, FEUCHTE Kältelagerung bei ca. 5 °C beschleunigt die Keimung laut Tezuka & Fujihara 2012 — ausdrücklich NICHT als Trockenstratifikation, da das Saatgut desikkationsempfindlich/rekalzitrant ist) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: nur 1 Quelle (HortScience/ASHS 2026, 0.96 ± 0.14 g) verfügbar; kein zweiter unabhängiger Beleg gefunden, daher gemäß Zwei-Quellen-Pflicht nicht übernommen --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Ardisia crenata wird als Einzeltopf-/Zimmerpflanze kultiviert, keine Reihen-/Direktsaatkultur mit klarem Endabstand --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert, wo verfügbar):**
+- Keimtemperatur: [Tezuka & Fujihara (2012) — Seed and Embryo Germination in Ardisia crenata, Journal of Botany](https://onlinelibrary.wiley.com/doi/10.1155/2012/679765) (peer-reviewed, 15–30 °C, keine Keimung bei 5–10 °C, Optimum ~25 °C); [Best Plants — Growing Coral Berry Plants](https://bestplants.com/ardisia-crenata-care/) (55–70 °F ≈ 13–21 °C als Praxisrichtwert, konsistent mit unterem Bereich)
+- Tage bis Keimung: eigene §1.3 (Steckbrief, 4–8 Wochen); [Tezuka & Fujihara (2012)](https://onlinelibrary.wiley.com/doi/10.1155/2012/679765) (Keimung bis zu 40 Tage bei güstiger Erntezeit, bis zu 13 Wochen für 80 % Keimrate ohne Vorbehandlung — Größenordnung konsistent)
+- Keimfähigkeitsdauer: [HortScience/ASHS (2026) — Seed Desiccation Sensitivity and Longevity of Two Ardisia Species (A. crenata and A. japonica)](https://journals.ashs.org/view/journals/hortsci/61/2/article-p457.xml) (peer-reviewed: Longevität ~2 Monate bei 4 °C, vollständiger Viabilitätsverlust nach ~50 Tagen bei Raumtemperatur/−18 °C, rekalzitrante Samen); [Tezuka & Fujihara (2012)](https://onlinelibrary.wiley.com/doi/10.1155/2012/679765) (bestätigt Verschlechterung bei Trockenlagerung, bessere Keimung nach feuchter Kältelagerung)
+- Vorbehandlung (cold_stratification, feucht): [Tezuka & Fujihara (2012) — Seed and Embryo Germination in Ardisia crenata](https://onlinelibrary.wiley.com/doi/10.1155/2012/679765) (schnellere Keimung nach längerer Feuchtkältelagerung bei ~5 °C); [HortScience/ASHS (2026)](https://journals.ashs.org/view/journals/hortsci/61/2/article-p457.xml) (empfiehlt kurze 4 °C-Lagerung nach Entfernen von Oberflächenwasser, NICHT Trockenlagerung)
+- Tausendkornmasse: nur [HortScience/ASHS (2026)](https://journals.ashs.org/view/journals/hortsci/61/2/article-p457.xml) (0.96 ± 0.14 g) — kein zweiter unabhängiger Beleg gefunden (Fruchtgrößen-Angaben in [IUCN GISD — Ardisia crenata](https://www.iucngisd.org/gisd/pdf.php?sc=1285) beziehen sich auf die Beere/Drupe von 5–8 mm Ø, nicht auf das Einzelsamengewicht) → als DATEN FEHLEN belassen
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -322,3 +345,10 @@ Ardisia crenata,"Korallenmyrte;Spitzblume;Korallenbeere;Ardisie;Coral Ardisia;Co
 14. [PFAF — Ardisia crenata](https://pfaf.org/user/Plant.aspx?LatinName=Ardisia+crenata) — Blütezeit Juni–Juli, Samenreife September–Dezember, Vermehrung
 15. [hortica.de — Gekerbte Spitzblume: Pflege von A–Z](https://hortica.de/pflanzen/gekerbte-spitzblume-pflege-von-a-z/) — Blütezeit "Mai, Juni", Beerenreife November–Januar
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+16. [Tezuka, K. & Fujihara, K. (2012) — Seed and Embryo Germination in Ardisia crenata, Journal of Botany, Article ID 679765](https://onlinelibrary.wiley.com/doi/10.1155/2012/679765) — peer-reviewed Keimtemperatur (15–30 °C), Desikkations-/Kältelagerungseffekte, keine Keimung bei 5–10 °C
+17. [Guo, X. et al. (2026) — Seed Desiccation Sensitivity and Longevity of Two Ardisia Species (A. crenata and A. japonica), HortScience 61(2):457](https://journals.ashs.org/view/journals/hortsci/61/2/article-p457.xml) — peer-reviewed Tausendkornmasse (0.96 ± 0.14 g), Keimfähigkeitsdauer (~2 Monate bei 4 °C, rekalzitrantes Saatgut), Lagerungsempfehlung
+18. [IUCN Global Invasive Species Database — Ardisia crenata](https://www.iucngisd.org/gisd/pdf.php?sc=1285) — Beeren-/Drupengröße (5–8 mm Ø), Samenzahl pro Pflanze (30–225, Mittel 129)
+19. [Best Plants — Growing Coral Berry Plants: How To Care For Ardisia Crenata](https://bestplants.com/ardisia-crenata-care/) — Praxis-Keimtemperatur (55–70 °F), Aussaathinweise
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

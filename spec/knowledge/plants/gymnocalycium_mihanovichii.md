@@ -122,6 +122,16 @@
 **Hinweise zu 1.7:** Lichtkompensationspunkt aus Habitat-Einordnung abgeleitet — *G. mihanovichii* ist ein Unterholz-Kaktus (im natürlichen Bestand im Schatten größerer Pflanzen, vgl. §1.1), schattentolerante Arten zeigen niedrige LCP-Werte von 10–50 µmol/m²/s; die hier angegebene Spanne 10–30 ordnet die Art im schattentoleranten Bereich ein (nur Kompensationspunkt, nicht Sättigung/Photoinhibition). Kakteen tolerieren zwar hohe PPFD-Werte (bis nahe 2000 µmol/m²/s) ohne Photoinhibition, der chlorophyll-freie veredelte Scion verbrennt jedoch in direkter Mittagssonne — daher Halbschatten (`partial_shade`). Salztoleranz: Cactaceae reagieren generell empfindlich auf erhöhte Substrat-Salinität (ECe), *G. mihanovichii* ist kein Halophyt; die Bezugsgröße ist die Substrat-ECe (nicht die Gießwasser-EC). Boden-pH 6.0–7.5 harmonisiert mit §1.6 (Substrat-Empfehlung pH 6.0–7.0) und §2.3 (Nährlösung pH 6.0–7.0).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Pfropfung) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+Entfällt für den in diesem Steckbrief beschriebenen Gegenstand. Dieses Dokument bildet ausdrücklich den **im Handel erhältlichen, veredelten "Mondkaktus"** ab (§1.1: "Der im Handel erhältliche 'Mondkaktus' ist ein veredelter Kaktus…") — die chlorophyllfreie Hibotan-Mutante von *G. mihanovichii*, die ohne Pfropfunterlage nicht überlebensfähig ist. Konsistent damit führt §1.3 dieses Dokuments **ausschließlich** `grafting` und `offset` als Vermehrungsmethoden, explizit **kein** `seed`: "Die bunte Hibotan-Mutante ist ohne Pfropfunterlage nicht lebensfähig… Heimvermehrung für den normalen Hobbybereich schwierig." Ein Seed-Profil ist daher für den hier dokumentierten Kulturgegenstand nicht anwendbar.
+
+Hinweis zur Abgrenzung: Die chlorophyllhaltige **Wildform** (grüne Reinart) von *Gymnocalycium mihanovichii* wird in der Kakteenzucht durchaus aus Samen gezogen — dies betrifft jedoch eine andere Kultur-/Handelsform als die in diesem Steckbrief primär beschriebene Handelsware. Sollte künftig ein eigener Steckbrief für die samenvermehrte, chlorophyllhaltige Wildform angelegt werden, ist dort ein vollständiges Seed-Profil zu recherchieren (Keimtemperatur, Saattiefe, Licht-/Dunkelkeimung etc. gemäß den für Kakteen üblichen Parametern).
+
+Quellen (§1.8-Entscheidung): §1.1 und §1.3 dieses Dokuments (bereits oben zitiert); [Wikipedia — Gymnocalycium mihanovichii](https://en.wikipedia.org/wiki/Gymnocalycium_mihanovichii) (Pfropfung der Hibotan-Mutante, fehlendes Chlorophyll); [MasterClass — Moon Cactus Care Guide](https://www.masterclass.com/articles/moon-cactus-care-guide) (Vermehrung ausschließlich über Pfropfung/Kindel, keine Samenvermehrung des Handelsprodukts erwähnt)
+<!-- /SECTION MISSING -->
+
 ---
 
 ## 2. Wachstumsphasen

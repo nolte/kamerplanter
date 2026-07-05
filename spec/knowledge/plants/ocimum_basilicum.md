@@ -127,6 +127,26 @@ Hinweis: Regelmaessiges Ernten/Entspitzen ueber den Blattknoten foerdert buschig
 Hinweis: Basilikum ist eine Sonnenpflanze mit flachem, faserigem Wurzelsystem (Hauptaktivitaet in den oberen ~15--20 cm). Staunaesse ist der haeufigste Kulturfehler und beguenstigt Pythium/Fusarium. Die Salztoleranz wird in der Literatur als salz-sensibel bis maessig sensibel eingestuft; ein praezise quantifizierter Maas-Hoffman-Schwellenwert fehlt fuer die Art.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 12 (sehr langsame, ungleichmäßige Keimung unterhalb ~15 °C moeglich) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer -- Samen nur andruecken, nicht mit Erde bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (Spanne 5--10 Tage je nach Temperatur; unter Optimalbedingungen bereits 3--4 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | -- (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1.5--2.1 (sortenabhaengig; Einzelsamen 0.28--1.94 mg) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 200--300 (Direktsaat in Reihen vor Vereinzelung; Anzucht/Nursery-Broadcast deutlich dichter, ca. 2000 Korn/m²) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Basilikumsamen sind Lichtkeimer und bilden bei Wasserkontakt eine schleimige Huelle (Mucilage), die massgeblich zur langen Keimfaehigkeit beitraegt. Keimtemperatur- und Keimdauer-Werte decken sich mit den bereits in §1.3 dokumentierten Praxisangaben (Johnny's Selected Seeds, NCSU Extension). Die Tausendkornmasse variiert je nach Studie und Sorte deutlich (0.28--2.10 g); der hier angegebene Bereich deckt die haeufigsten Literaturwerte ab. Fuer Direktsaat in Reihen wird ueblicherweise deutlich dichter gesaet und anschliessend auf Endabstand (§1.6, 25--30 cm) vereinzelt.
+
+Quellen (§1.8): [NCSU Extension -- Ocimum basilicum](https://plants.ces.ncsu.edu/plants/ocimum-basilicum/); [Johnny's Selected Seeds -- Hydroponic Container Basil Guide](https://www.johnnyseeds.com/growers-library/herbs/basil/hydroponic-container-basil-guide.html); [West Coast Seeds -- How to Grow Basil](https://www.westcoastseeds.com/blogs/wcs-academy/grow-basil); [RHS -- How to grow Basil](https://www.rhs.org.uk/herbs/basil/grow-your-own); [Fontana Seeds -- Everything you need to know about basil seeds](https://www.fontanaseeds.com/pages/everything-you-need-to-know-about-basil-seeds); [ScienceDirect -- Physicochemical characterization of basil (Ocimum basilicum L.) seeds](https://www.sciencedirect.com/science/article/abs/pii/S2214786121000048); [Rutgers NJAES FS1279 -- Ultra-Niche Crops Series: Fresh-Market Basil](https://njaes.rutgers.edu/fs1279/); [ScienceDirect -- Optimization of seed rate and seedling establishment technique for raising the nursery of French basil](https://www.sciencedirect.com/science/article/abs/pii/S0926669016301546)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

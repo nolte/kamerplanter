@@ -106,6 +106,26 @@
 | Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.5 (harmonisiert mit §2.3 pH 6.0–7.0 und §1.6; RHS/PFAF/Extension nennen 6.0–7.5, Optimum 6.5–7.0) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 8 (Untergrenze; darunter praktisch keine Keimung) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.3 (ca. 1/2 inch; kommerziell teils flacher bei 1/4–3/8 inch) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 12 (Spanne 12–21 Tage — Pastinake keimt notorisch langsam und ungleichmäßig) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (sehr kurzlebiges Saatgut; jährlich frisches Saatgut kaufen empfohlen) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine belastbare, artspezifische Aussage zu Licht-/Dunkelkeimung gefunden --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich; nur frisches Saatgut verwenden) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 5.5 (Spanne ca. 5–7 g je nach Quelle/Sorte) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 130 (Direktsaat in Reihen vor Vereinzelung auf 10–15 cm; abgeleitet aus 20 Korn/Fuß Reihenlänge bei ~50 cm Reihenabstand) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Pastinakensaatgut zählt zu den kurzlebigsten Gemüsesamen überhaupt — bereits nach 15 Monaten Lagerung ist kaum noch Keimfähigkeit vorhanden, weshalb jede Saison frisches Saatgut beschafft werden sollte. Die Keimung ist zudem notorisch langsam und ungleichmäßig (2–3 Wochen); gleichmäßige Bodenfeuchte während der gesamten Keimphase ist entscheidend, da austrocknendes Saatbett die Keimung endgültig abbricht.
+
+Quellen (§1.8): [Harvest to Table — How to Grow Parsnips From Seed](https://harvesttotable.com/parsnips-seed-starting-tips/); [Savvy Gardening — Growing Parsnips: A Seed to Harvest Guide](https://savvygardening.com/growing-parsnips/); [PFAF — Pastinaca sativa](https://pfaf.org/user/plant.aspx?LatinName=Pastinaca+sativa); [Old Farmer's Almanac — Growing Parsnips](https://www.almanac.com/plant/parsnips); [Holmes Seed Company — Parsnip Growing Guide](https://www.holmesseed.com/growers-guidebook/growing-guides/parsnip-growing-guide/); [Illinois Extension — Parsnip](https://extension.illinois.edu/gardening/parsnip); [Manitoba Agriculture — Parsnip Cultivars/Production (PDF)](https://www.gov.mb.ca/agriculture/crops/crop-management/pubs/bmz00s14p.pdf); [Vital Seeds / West Coast Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -333,3 +353,12 @@ Pastinaca sativa,"Pastinake;Hammermöhre;Parsnip",Apiaceae,Pastinaca,biennial,da
 17. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Freilassungsraten
 18. [Sound Horticulture — Aphid Tech Sheet](https://soundhorticulture.com/pages/aphids) — Aphidius/Aphidoletes Ausbringraten und Etablierung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+19. [Harvest to Table — How to Grow Parsnips From Seed](https://harvesttotable.com/parsnips-seed-starting-tips/) — Keimtemperatur min 46°F (~8 °C), Keimfähigkeit sehr kurz (<15 Monate), Keimdauer 14–21 Tage
+20. [Savvy Gardening — Growing Parsnips: A Seed to Harvest Guide](https://savvygardening.com/growing-parsnips/) — Keimtemperatur 40–80°F, Keimdauer 12–14 Tage bei Optimum
+21. [Old Farmer's Almanac — Growing Parsnips](https://www.almanac.com/plant/parsnips) — Saattiefe 1/2 inch, Keimdauer 2–3 Wochen
+22. [Holmes Seed Company — Parsnip Growing Guide](https://www.holmesseed.com/growers-guidebook/growing-guides/parsnip-growing-guide/) — Saattiefe 1/2 inch, kommerzielle Anbauhinweise
+23. [Illinois Extension — Parsnip](https://extension.illinois.edu/gardening/parsnip) — Aussaatdichte 20 Samen/Fuß in 2-inch-Band
+24. [Manitoba Agriculture — Parsnip Cultivars/Production (PDF)](https://www.gov.mb.ca/agriculture/crops/crop-management/pubs/bmz00s14p.pdf) — kommerzielle Saattiefe 1/4–3/8 inch, Saatgutrate 3–5 lbs/acre
+25. [Vital Seeds / West Coast Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/) — Pastinake 140–200 Samen/Gramm (TKG ~5–7 g)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

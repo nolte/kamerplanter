@@ -109,6 +109,26 @@
 > **Hinweise:** Schatten-/Sonnentoleranz = wächst in voller Sonne bis Halbschatten; in Halbschatten deutlich reduzierter Blütenansatz (Blüte verlangt volle Sonne). Salztoleranz: *T. majus* gilt in peer-reviewed Studien als salzempfindlich (salt-sensitive); ECe-Bezug = Substrat-Sättigungsextrakt, nicht Gießwasser-EC. Staunässe-Toleranz sensitive: gute Drainage ist zwingend, Nässe fördert Wurzelfäule, dennoch keine Trockenheit (dislikes drought).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 13 (unterhalb 55 °F/13 °C verlangsamt sich die Keimung deutlich) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 (kultivierbarer Bereich bis 27 °C; Optimum 18–21 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.3 (ca. 1/2 Zoll; Samen benötigen Dunkelheit) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–14 Tage je nach Bodentemperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Spanne 3–5 Jahre bei kühler, trockener, dunkler Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Samen benötigen Dunkelheit zur Keimung; Ball-Seed-Produktionsdaten führen Nasturtium ohne "Germination Lighting"-Vermerk aber mit Pflicht-Abdeckung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak; scarification (harte Samenschale; Einweichen 12–24 h in lauwarmem Wasser ODER Anritzen/Anschleifen beschleunigt die Keimung; beides optional, da Keimung auch ohne Vorbehandlung zuverlässig erfolgt) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 115 (grobkörniger Samen; Ball-Seed-Katalog nennt 8 Samen/g ≈ 125 g/1000 Korn, Herstellerangaben ~9,26 Samen/g ≈ 108 g/1000 Korn — Mittelwert) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: keine Reihen-/Flächen-Direktsaat üblich; Kapuzinerkresse wird einzeln im Pflanzabstand 25–30 cm gesetzt (siehe §1.6), keine Massen-/Reihendichte publiziert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Kapuzinerkresse hat für eine Sommerblume ungewöhnlich große, harte Samen (ähnlich Erbsengröße). Ball Horticultural führt in der professionellen Seed-Crop-Information-Tabelle für "Nasturtium" eine Keimtemperatur von 65–70 °F (18–21 °C) mit Pflicht-Abdeckung ("Cover Seed: Yes") — konsistent mit der Dunkelkeim-Anforderung mehrerer Konsumentenquellen. Nach dem Auflaufen sollten die Keimlinge sofort Licht erhalten.
+
+Quellen (§1.8): [Ball Horticultural Company — Seed Crop Information Guide (Nasturtium-Zeile: 220 Samen/oz, 8 Samen/g, Cover Seed: Yes, 65–70 °F)](https://www.panamseed.com/media/culture/pas/seedcropchart_ball.pdf); [Biology Insights — How to Germinate Nasturtium Seeds](https://biologyinsights.com/how-to-germinate-nasturtium-seeds/); [Plant Grower World — Nasturtium Seed Germination Time Secrets Revealed](https://plantgrowerworld.com/nasturtium-germination-time-secrets-revealed/); [Almanac — Planting and Growing Nasturtiums from Seed](https://www.almanac.com/plant/nasturtiums); [Territorial Seed — Night And Day Nasturtium Seed](https://territorialseed.com/products/nasturtium-night-and-day); [Seed to Fork — Nicking Nasturtium Seeds (Scarification)](https://seedtofork.com/nicking-nasturtium/); [Fontana Seeds — Everything you need to know about Nasturtium Seeds (Soak/Presoak)](https://www.fontanaseeds.com/pages/everything-you-need-to-know-about-nasturtium-seeds); [Gardenek — How to Collect and Store Nasturtium Seeds (Viability 3–5 Jahre)](https://gardenek.com/how-to-collect-and-store-nasturtium-seeds/); [Meadowlark Journal — How to Harvest Nasturtium Seeds](https://meadowlarkjournal.com/blog/harvest-nasturtium-seeds); [nimrod.bio — Seeds Per Gram Chart](https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

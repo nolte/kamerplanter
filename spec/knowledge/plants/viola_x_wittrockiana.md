@@ -131,6 +131,26 @@ Quelle: ASPCA (als ungiftig gelistet), Kamerplanter REQ-001 Seed-Daten AB-015.
 | Boden-pH-Vorzug | 5.4–6.2 (Optimum 5.4–5.8 laut Extension; oberhalb 5.8 drohen Eisen-/Bor-Mangel. Oberer Wert auf die in §2.3 verwendete Spanne harmonisiert) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 (Ball Horticultural Seed Crop Information Guide: 65–75 °F ≈ 18–24 °C professionelle Zielspanne; deckt sich mit §1.3 „Optimale Keimtemperatur 15–18 °C" plus Toleranzbereich nach oben) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 (obere Grenze vor der artspezifischen Thermoinhibition ab 22 °C, siehe §1.3/§2.2; Ball-Guide-Obergrenze 75 °F ≈ 24 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.2 (Lichtkeimer-Praxis: Samen nur leicht andrücken oder dünn mit Vermiculit bedecken, siehe §1.3; publizierte Werte reichen von 1/16 Zoll ≈ 0,16 cm bis dünner Vermiculit-Abdeckung) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 (Spanne 10–14 Tage, deckungsgleich mit §1.3 „Keimdauer: 10–14 Tage"; externe Quellen nennen ebenfalls 10–14 Tage bei 18–24 °C) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Saatgut verliert nach ca. 3–4 Jahren spürbar an Keimfähigkeit; für beste Ergebnisse frisches Saatgut aus den letzten 1–2 Jahren verwenden) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (mehrere unabhängige Gartenbau-Quellen fordern explizit vollständige Dunkelheit zur Keimung — Abdeckung mit Vermiculit oder lichtundurchlässiger Haube; Licht hemmt die Keimung. Dies steht im Widerspruch zum Wortlaut „Lichtkeimer" im bestehenden §1.3-Text, siehe Hinweis unten) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: widersprüchliche Quellenlage — eine Quelle empfiehlt Kältestratifikation (60–90 Tage, feuchter Sand im Kühlschrank) für Frühjahrsaussaat, eine andere beschreibt den Dormanzbruch stattdessen über trockene Warmlagerung (after-ripening) ohne Kältebedarf; keine zwei unabhängigen Quellen bestätigen dieselbe Vorbehandlung --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1.0 (Ball-Seed-Katalog: 1.050–1.400 Samen/g ≈ 0,7–1,0 g/1000 Korn für Standard-Cultivars; sortenabhängig groessere Werte bei Grossbluetigen Serien wie Spring Grandio F1 mit ca. 1,7 g/1000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Beet-/Balkonpflanze, die als Jungpflanze/Plug pikiert und im Pflanzabstand 20–25 cm ausgepflanzt wird (siehe §1.6); keine Reihen-/Flächen-Direktsaatdichte publiziert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis zum Licht-/Dunkelkeim-Widerspruch:** Der bestehende §1.3-Text bezeichnet Viola als „Lichtkeimer" mit der Anweisung, Samen nur leicht anzudrücken. Die für dieses Seed-Profile recherchierten unabhängigen Gartenbau-Quellen (Bloom Outlet, Hobby Farms/verwandte Anzuchtanleitungen) fordern dagegen übereinstimmend vollständige Dunkelheit bis zum Auflaufen ("cover lightly with vermiculite or a dark dome... Light will hinder results"). Diese Diskrepanz wird hier dokumentiert, aber NICHT rückwirkend in §1.3 korrigiert (außerhalb des Scopes dieser Sektion) — eine gezielte Lebenszyklus-/Keim-Prüfung durch `plant-lifecycle` bzw. `growing-phase-auditor` sollte den Widerspruch zwischen §1.3 und §1.8 auflösen.
+
+Quellen (§1.8): [Ball Horticultural Company — Seed Crop Information Guide (Viola-Zeile: 30.000–40.000 Samen/oz, 1.050–1.400 Samen/g, Cover Seed: Yes, 65–75 °F)](https://www.panamseed.com/media/culture/pas/seedcropchart_ball.pdf); [Bloom Outlet — Viola wittrockiana (Pansy) Seed Guide](https://bloomoutlet.com/viola-wittrockiana-pansy-seed-guide/); [Hobby Farms — Growing Pansies From Seed: Tips for Success](https://www.hobbyfarms.com/starting-pansies-from-seed-gardening/); [Excel at Gardening — Pansy Seed Library](https://excelatgardening.com/home/seed-library/seed-catalog/pansy/); [Everwilde Farms — Swiss Giant Pansy Seed Mix](https://www.everwilde.com/store/Pansy-Mix-Swiss-Giants-Wildflower-Seeds.html); [Urban Farmer — Seed Count Approximately 24,415 Seeds Per Ounce (Cool Wave)](https://ufseeds.com/seed-count/approximately-11000-seeds-per-ounce); [Urban Farmer — Clear Mix Spring Grandio F1 Viola Seeds](https://www.ufseeds.com/product/clear-mix-spring-grandio-f1-pansy-seeds---1000-seeds/PASGCM-1000Seeds.html)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -115,6 +115,24 @@
 **Hinweis:** Wuchs in voller Sonne bis Halbschatten (partial shade); im Freiland (USDA 10–11) bevorzugt volle Sonne, im Zimmer hell-indirekt. Extrem nässeempfindlich — Wurzelfäule (root rot) auf schlecht drainierten/nassen Böden ist die häufigste Todesursache, daher `waterlogging_tolerance = sensitive`. Salzaufbau aus hartem Gießwasser oder Überdüngung verursacht Blattspitzennekrosen (`moderately_sensitive`); die von UF/IFAS genannte „moderate" Toleranz bezieht sich ausschließlich auf Aerosol-/Sprühsalz an Küstenstandorten, nicht auf Substrat-Salzgehalt. Der pH-Vorzug 6.5–7.5 ist konsistent mit der Substrat-Empfehlung in §1.6 und den Nährstoffprofilen in §2.3; UF/IFAS und NC Extension bestätigen Toleranz gegenüber leicht sauren bis alkalischen Böden.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Oberflächensaat, nur leicht andrücken/halb einbetten) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14–56 (KA-Feld: 14) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: qualitativ übereinstimmend als kurzlebig beschrieben (deutlicher Rückgang bereits nach wenigen Monaten; bei Kühllagerung laut einer Quelle bis ca. 2 Jahre), aber kein belastbarer Einzelwert aus ≥2 Quellen --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak, scarification | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine Angabe aus ≥2 seriösen Quellen auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: reine Topf-/Zimmerpflanze, keine Reihen-/Direktsaat mit Feld-Enddichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Live to Plant — Ponytail Palm Plant Seeds: Guide to Storing, Sowing and Germination](https://livetoplant.com/ponytail-palm-plant-seeds-guide-to-storing-sowing-and-germination/); [World of Succulents — Beaucarnea recurvata](https://worldofsucculents.com/beaucarnea-recurvata/); [Gardening Know How — Harvesting Ponytail Palm Seeds](https://www.gardeningknowhow.com/houseplants/ponytail-palm/propagating-ponytail-palm-seeds.htm); [Garden Guides — How To Plant Ponytail Palm Seeds](https://www.gardenguides.com/90683-plant-ponytail-palm-seeds/); [Foliage Factory — Ponytail Palm Care Guide](https://www.foliage-factory.com/post/the-ultimate-guide-to-beaucarnea-recurvata).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

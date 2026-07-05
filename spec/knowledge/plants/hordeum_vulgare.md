@@ -123,6 +123,34 @@
 **Hinweise §1.7:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist für *Hordeum vulgare* nicht aus zwei unabhängigen, art-spezifischen quantitativen Quellen belegbar und daher als DATEN FEHLEN markiert (Studien nennen für Gerste primär einen Lichtsättigungspunkt von ca. 400 µmol/m²/s sowie einen relativ — ca. 73 % — niedrigeren Kompensationspunkt als Weizen, ohne absoluten µmol-Wert für Gerste). Schattentoleranz: Gerste ist auf Vollsonne (`full_sun`, ≥ 6 h direkte Sonne) gezüchtet und braucht volles Licht für maximalen Ertrag; sie ist allerdings ein vergleichsweise schattenakklimatisierungsfähiges Getreide (physiologische Anpassung, geringere Dunkelatmung), was sie toleranter als Weizen macht — dies bleibt jedoch Freitext und ändert die Standort-Einstufung `full_sun` nicht. Effektive Wurzeltiefe nach FAO-56 (Tabelle 22) Zr = 1,0–1,5 m. Staunässe: Gerste reagiert empfindlich (`sensitive`) bereits auf kurzzeitige Vernässung (Ertragsverluste bis ~70 %). Salztoleranz nach Maas & Hoffman (1977): Schwellen-ECe 8,0 dS/m (gemessen als Substrat-ECe des Sättigungsextrakts, NICHT als Gießwasser-EC), Slope 5,0 %/dS/m, Klassifikation „tolerant" — Gerste zählt zu den salztolerantesten annuellen Kulturen; der ECe-Wert > 6 dS/m ist mit der Klasse `tolerant` konsistent. Der pH-Vorzug 6,0–7,5 ist quellentreu (Gerste bevorzugt 6,0–8,0, ist aber empfindlich gegen sauren Boden pH < 5) und mit den pH-Angaben in §1.6 und §2.3 derselben Datei harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 (praktische Untergrenze für Feldaussaat; Keimung ab ca. 3–4 °C messbar, aber sehr langsam) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Optimum ca. 20 °C nach kardinaler Temperaturmodellierung, Tc ≈ 40 °C als absolute Obergrenze — siehe Hinweis) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 3 (agronomischer Standardwert 3–5 cm; in kühl-feuchten Klimaten auch 0,5–1 cm möglich) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (unterer Wert von 5–10 Tagen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (praxisnaher Wert für normale kühl-trockene Lagerung; unter optimierter Kühllagerung [-20 °C] sind Keimraten >90 % auch nach 23–33 Jahren dokumentiert, siehe Hinweis) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Blaulicht hemmt nachweislich die Keimung primär-dormanter Körner; Standard-Keimtests [EBC 3.6.2] erfolgen im Dunkelraum) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine: bei zertifiziertem, nicht-dormantem Saatgut ist keine Stratifikation/Skarifikation nötig; primäre Dormanz wird durch Nachreife, nicht durch eine der Standard-Vorbehandlungs-Enums gebrochen --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 45 (Mittelwert; Sortenspanne ca. 24,4–61,5 g, Durchschnitt 44,8 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 350 (kommerzielle Praxis 300–400 Korn/m²; Feldversuche testeten eine Spanne von 24–340 Korn/m²) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Die kardinalen Keimtemperaturen (Basis/Optimum/Maximum) variieren je nach Studienmodell; ein Halothermal-Time-Modell nennt Tb ≈ 15 °C als modellierte Basis für maximale Keimrate, während Feldpraxis und andere Studien eine deutlich niedrigere praktische Untergrenze (0–4 °C) für erste, langsame Keimung belegen — dieser Widerspruch ist modellbedingt (Keimrate vs. Keimfähigkeit) und kein Fehler.
+
+Quellen (§1.8):
+1. [MDPI Plants 2023 — Effect of Abiotic Stresses from Drought, Temperature, and Density on Germination and Seedling Growth of Barley](https://www.mdpi.com/2223-7747/12/9/1792) — Keimtemperaturbereich, Feldtemperatur 0–20 °C
+2. [MDPI Life 2022 — Using Halothermal Time Model to Describe Barley Seed Germination](https://www.mdpi.com/2075-1729/12/2/209) — Kardinaltemperaturen Tb/To/Tc
+3. [The Seed Vine — Hordeum vulgare (Barley, Organic)](https://theseedvine.com.au/product/hordeum-vulgare/) — Keimdauer 5–10 Tage
+4. [PMC4923255 — Sowing Density: Root Distribution and Biomass Allocation of Spring Barley](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4923255/) — Aussaatdichte-Versuchsspanne 24–340 Korn/m²
+5. [PMC6491919 — Dissecting the Genetic Basis of Grain Size and Weight in Barley](https://pmc.ncbi.nlm.nih.gov/articles/PMC6491919/) — Tausendkornmasse-Spanne
+6. [PMC6483959 — Genotype by environment interaction ... 1000-kernel weight in spring barley](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6483959/) — TKM-Durchschnitt 44,8 g
+7. [Wiley Plant, Cell & Environment 2014 — Inhibition of germination of dormant barley grains by blue light](https://onlinelibrary.wiley.com/doi/full/10.1111/pce.12239) — Dunkelkeimer-Beleg, Lichtempfindlichkeit dormanter Körner
+8. [PMC6016650 — Rapid loss of seed viability in ex situ conserved wheat and barley at 4 °C vs. −20 °C storage](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6016650/) — Langzeit-Keimfähigkeit unter Kühllagerung
+
 ---
 
 ## 2. Wachstumsphasen

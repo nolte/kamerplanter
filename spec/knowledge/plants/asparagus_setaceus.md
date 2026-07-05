@@ -116,6 +116,24 @@
 **Hinweis:** *A. setaceus* gedeiht im natürlichen Verbreitungsgebiet in halbschattiger bis lichtschattiger Lage (dappled/partial shade) und ist gegenüber direkter Mittagssonne empfindlich (Verbrennungsgefahr der Phyllokladien). Die fleischigen Knollenwurzeln speichern Wasser, reagieren aber empfindlich auf Staunässe und Überwässerung (Wurzelfäule). Die Pflanze ist salzempfindlich: weiches, kalkarmes Gießwasser wird bevorzugt, und Düngesalz-Akkumulation im Substrat führt zu Nadelbräune — daher Klasse `sensitive`. Quantitative Maas-Hoffman-Salztoleranzwerte (ECe-Schwelle ~4,1 dS/m) existieren nur für den Speisespargel *A. officinalis* und sind auf die Zierart NICHT übertragbar. Der Boden-pH-Vorzug 6.0–6.5 ist mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährstoffprofile) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 16 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 26 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 (Oberflächensaat, nur leicht andrücken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 21–35 (KA-Feld: 21) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine artspezifische Angabe aus ≥2 seriösen Quellen auffindbar --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak, scarification | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine artspezifische Angabe; der nahe verwandte Asparagus densiflorus 'Sprengeri' liegt bei ca. 59 g/1000 (17.000 Samen/kg), jedoch nicht auf A. setaceus übertragbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: reine Topf-/Zimmerpflanze, keine Reihen-/Direktsaat mit Feld-Enddichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [RHS — Asparagus setaceus](https://www.rhs.org.uk/plants/27185/asparagus-setaceus/details); [Gardenia.net — Asparagus setaceus](https://www.gardenia.net/plant/asparagus-setaceus-asparagus-fern-grow-care-tips); [Gardening Plants and Flowers — How To Grow Asparagus Fern From Seeds](https://gardening-plant.com/blogs/news/how-to-grow-asparagus-fern-from-seeds); [Outsidepride — Planting Instructions for Asparagus Fern](https://www.outsidepride.com/resources/planting/asparagus-fern-planting/); [johnysfarm.com — Grow Asparagus Fern from Seed](https://johnysfarm.com/how-to-grow-asparagus-fern-from-seed/); [treeshrubseeds.com — Asparagus sprengeri Seed Description (Kongener-Vergleichswert TKG)](https://www.treeshrubseeds.com/specieslist?id=295&ID2=2).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

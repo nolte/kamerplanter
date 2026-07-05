@@ -119,6 +119,32 @@
 **Hinweis:** Klassifizierung *moderately_sensitive* gestützt auf Studien, in denen Koriander Gießwasser-EC bis ~2 dS/m ohne signifikanten Ertragsrückgang toleriert, darüber zunehmender Salzstress. Der pH-Vorzug 6,2–6,8 ist das Optimum innerhalb der in §1.6/§2.3 genannten verträglichen Spanne pH 6,0–7,0 (kein Widerspruch — Vorzug ⊂ Toleranzbereich).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Keimung generell 15–32°C möglich, Optimum 19–21°C bzw. bis 27°C für schnellere Keimung) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (½ inch ≈ 1.3 cm bis 2 cm Reihensaat) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (7–20 Tage, unterer Wert; abhängig von Temperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (2–4 Jahre bei kühler, trockener, dunkler Lagerung in luftdichtem Behälter) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak, scarification (Einweichen 12–24 Std. und/oder Aufbrechen der Doppelfrucht/Mericarpien vor Aussaat verbessert Keimrate deutlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 10 (Spanne 7.6–13.6 g je nach Sorte/Studie, Mittelwert ~10 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 200 (entspricht ca. 2,0 Mio. keimfähigen Samen/ha bei Reihensaat mit 30 cm Reihenabstand) | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Koriander ist ein Dunkelkeimer mit ausgeprägter Doppelfrucht (Mericarpium-Paar) — durch Zerdrücken/Aufbrechen der Fruchtschale vor der Aussaat wird die Keimrate deutlich erhöht (wirkt wie eine Skarifikation). Als Pfahlwurzler verträgt Koriander keine Verpflanzung — ausschließlich Direktsaat (siehe §1.3).
+
+**Quellen (§1.8):**
+- [Easyseeds — Coriandrum sativum (Coriander)](https://www.easyseeds.eu/en/coriandrum-sativum-coriander/) — Keimtemperatur 15–32°C, Dunkelkeimer, Saattiefe
+- [analyzeseeds.com — Germination of Coriander Seed in 15C and 20-30C Temperatures (Laurie Conradson)](https://analyzeseeds.com/wp-content/uploads/2016/06/Germination_of_Coriander_Seed_in_15C_and_20-30C_2012.pdf) — ISTA-Prüftemperaturen 15°C und 20–30°C
+- [ScienceDirect — Physical properties of coriander seeds](https://www.sciencedirect.com/science/article/abs/pii/S0260877406002226) und [Agronomy Society of NZ — Achievement of maximum seed yield in coriander](https://www.agronomysociety.org.nz/files/1997_8._Max_seed_yield_in_coriander.pdf) — Tausendkornmasse 7,6–13,6 g
+- [ResearchGate — Effect of seed rate and sowing method on foliage production of coriander](https://www.researchgate.net/publication/360861385_EFFECT_OF_SEED_RATE_AND_SOWING_METHOD_ON_FOLIAGE_PRODUCTION_OF_DIFFERENT_GENOTYPES_OF_CORIANDER_Coriandrum_sativum_L) und [Province of Manitoba — Coriander](https://www.gov.mb.ca/agriculture/crops/crop-management/coriander.html) — Aussaatdichte 2,0–2,5 Mio. Samen/ha, Reihenabstand
+- [Tower Landscape Design — How to Properly Store Coriander Seeds](https://towerlandscapedesign.com/how-to-store-coriander-seeds/) und [Todd's Seeds — How Long Do Coriander Seeds Last](https://toddsseeds.com/how-long-do-coriander-seeds-last/) — Keimfähigkeitsdauer 2–4 Jahre
+- [Home Microgreens — Growing Cilantro From Seed: to Soak or Not to Soak](https://homemicrogreens.com/growing-cilantro-from-seed/) und [Matt Magnusson — Testing How To Best Germinate Coriander Seeds](https://mattmagnusson.com/germinate-coriander-seeds/) — Einweichen + Aufbrechen der Doppelfrucht (presoak + scarification)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen

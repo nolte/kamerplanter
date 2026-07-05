@@ -133,6 +133,30 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 - **Lichtsaettigung statt Kompensationspunkt:** Die art-spezifische Lichtsaettigung liegt lt. peer-reviewed Messung bei ~1200 umol/m2/s; ein belastbarer Lichtkompensationspunkt fuer *Apium graveolens* war nicht aus zwei unabhaengigen Quellen belegbar.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 (Pressman 1988: Keimprozentsatz am hoechsten bei 15 °C unter den getesteten Regimes) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 22 (eigene §1.3: Optimalbereich 18–22 °C; externe Quelle nennt Spanne bis 24 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer, eigene §1.3: NICHT mit Erde bedecken, nur andrücken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (unterer Wert der eigenen §1.3-Spanne 14–21 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Sellerie-Saatgut hält sich bei kühler, trockener Lagerung bis zu 3 Jahre) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (eigene §1.3 explizit Lichtkeimer; peer-reviewed durch Pressman 1988 bestätigt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: keine Stratifikation/Skarifikation/Einweichen für Selleriesaatgut als Standardempfehlung dokumentiert; die in der Literatur beschriebene morphologische Dormanz wird durch Licht (nicht durch Kälte/Skarifikation) aufgehoben, siehe light_germination --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.4 (Sortenspanne ca. 0.39–0.42 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Knollen-/Stangensellerie werden ausschließlich vorkultiviert und pikiert/verpflanzt (siehe §1.2: "Direktsaat nicht praxistauglich"), kein Reihen-Direktsaat-Endabstand anwendbar. Nur Schnittsellerie wird direkt gesät, jedoch ohne klar dokumentierten Endabstand in der Reihe --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert):**
+- Keimtemperatur: [Pressman (1988) — Germination of annual and biennial celery (Apium graveolens) seeds, Physiologia Plantarum](https://onlinelibrary.wiley.com/doi/10.1111/j.1399-3054.1988.tb06623.x); eigene Keimhinweise §1.3 (Steckbrief, 18–22 °C)
+- Saattiefe: eigene Keimhinweise §1.3 (Steckbrief, explizit Lichtkeimer, nicht bedecken); [Johnny's Selected Seeds — Growing Celery & Celeriac](https://www.johnnyseeds.com/growers-library/vegetables/celery-and-celeriac/celery-and-celeriac-key-growing-information.html) (Oberflächensaat)
+- Tage bis Keimung: eigene Keimhinweise §1.3 (Steckbrief, 14–21 Tage); [Johnny's Selected Seeds — Growing Celery & Celeriac](https://www.johnnyseeds.com/growers-library/vegetables/celery-and-celeriac/celery-and-celeriac-key-growing-information.html) (14–21 Tage bei 65–75 °F)
+- Keimfähigkeitsdauer: allgemeine Gemüsesaatgut-Referenzwerte für feinsamige Doldenblütler (Sellerie/Petersilie/Möhre gelten konsistent als 2–3 Jahre keimfähig); [Grow Your Heirlooms — Seed Viability Chart](https://www.growyourheirlooms.com/seed-viability-chart-2/) (Sellerie 3 Jahre)
+- Licht-/Dunkelkeimer: [Pressman (1988) — Germination of annual and biennial celery seeds](https://onlinelibrary.wiley.com/doi/10.1111/j.1399-3054.1988.tb06623.x) (Keimung nur in Licht, nicht in Dunkelheit); [PMC9456436 — Transcriptome Analyses Reveal the Role of Light in Releasing the Morphological Dormancy of Celery Seed](https://pmc.ncbi.nlm.nih.gov/articles/PMC9456436/)
+- Tausendkornmasse: [Wikifarmer — Apium graveolens Celery seeds](https://wikifarmer.com/library/en/article/apium-graveolens-celery-seeds) (Weight of 100 seeds 0.041–0.042 g ≈ 0.41–0.42 g/1000); [Urban Farmer — Giant Red (F1) Celery Seeds](https://www.ufseeds.com/product/giant-red-celery-seeds---1000-seeds/CEGR-1000-seeds.html) (2576 Samen/g ≈ 0.39 g/1000)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

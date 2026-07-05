@@ -129,6 +129,24 @@
 -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 5 (Keimung möglich zwischen 5–30 °C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 (Optimum ~20 °C; Keimhemmung ab >20–25 °C, bei 35 °C vollständig unterdrückt) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.3 (½ Zoll) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unterer Wert; Spanne 7–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Spanne 1–5 je nach Quelle/Lagerbedingung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (negativ photoblastisch) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (optional; beschleunigt Keimung, ist aber nicht zwingend erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 13 (Spanne 12–15; errechnet aus Sortenkatalogdaten 69–81 Korn/g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 100 (Spanne ~90–110 bei Reihensaat, z. B. 12–15 Korn/Fuß Reihenlänge bzw. 9 Korn/sqft) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [How to grow Bloomsdale long standing spinach — UNH Extension](https://extension.unh.edu/resource/how-grow-bloomsdale-long-standing-spinach-spinacia-oleracea) und [Effect of Temperature on Seed Germination in Spinach — ResearchGate](https://www.researchgate.net/publication/312048125_Effect_of_Temperature_on_Seed_Germination_in_Spinach_Spinacia_oleracea) (Keimtemperatur 5–30 °C, Optimum 20 °C, Keimdauer 7–14 Tage); [Spinach Growing Guide — UF Seeds](https://www.ufseeds.com/spinach-growing-info.html) und [Grow Spinach from Seed — Backbone Valley Nursery](https://backbonevalleynursery.com/grow-spinach-from-seed-in-the-garden/) (Saattiefe ½ Zoll); [Do Spinach Seeds Need Light to Germinate? — Chef's Resource](https://www.chefsresource.com/do-spinach-seeds-need-light-to-germinate/) und [7 Seeds That Need Light / 8 That Require Darkness — Gardening Know How](https://www.gardeningknowhow.com/garden-how-to/seeds/seeds-that-need-light-and-seeds-that-need-darkness-to-germinate) (Dunkelkeimer); [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) und [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html) (Keimfähigkeitsdauer 1–5 Jahre); [Bloomsdale Organic Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/bloomsdale-organic-spinach-seeds---1-ounce/OSPBL-1+Ounce.html) (69 Korn/g) und [Seaside F1 Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/seaside-f1-spinach-seeds---500000-seeds/SPSS-500,000seeds.html) (81 Korn/g) für die Tausendkornmasse; [Direct Seeding Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/methods-tools-supplies/direct-seeding/direct-seeding-guidelines.html) (12–15 Korn/Fuß Reihenlänge) und Square-Foot-Gardening-Konvention (9 Korn/sqft, zitiert u.a. bei [Eden Brothers Planting Guide](https://grow.edenbrothers.com/planting-guides/spinach-seeds/)) für die Aussaatdichte.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -361,3 +379,17 @@ Spinacia oleracea,"Spinat;Echter Spinat;Spinach",Amaranthaceae,Spinacia,annual,l
 17. [Aphidend (Aphidoletes aphidimyza) — Koppert](https://www.koppert.com/aphidend/) — Gallmücke gegen Blattläuse, Ausbringrate
 18. [Phytoseiulus persimilis — Koppert](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Spinnmilben-Raubmilbe, Rate / Klimabedarf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+19. [How to grow Bloomsdale long standing spinach — UNH Extension](https://extension.unh.edu/resource/how-grow-bloomsdale-long-standing-spinach-spinacia-oleracea) — Keimtemperatur/-dauer
+20. [Effect of Temperature on Seed Germination in Spinach — ResearchGate](https://www.researchgate.net/publication/312048125_Effect_of_Temperature_on_Seed_Germination_in_Spinach_Spinacia_oleracea) — Keimtemperatur-Optimum 20 °C, Inhibition >20–25 °C
+21. [Spinach Growing Guide — UF Seeds](https://www.ufseeds.com/spinach-growing-info.html) — Saattiefe ½ Zoll
+22. [Grow Spinach from Seed in the Garden — Backbone Valley Nursery](https://backbonevalleynursery.com/grow-spinach-from-seed-in-the-garden/) — Saattiefe ½ Zoll
+23. [Do Spinach Seeds Need Light to Germinate? — Chef's Resource](https://www.chefsresource.com/do-spinach-seeds-need-light-to-germinate/) — Dunkelkeimer (negativ photoblastisch)
+24. [7 Seeds That Need Light and 8 That Require Darkness — Gardening Know How](https://www.gardeningknowhow.com/garden-how-to/seeds/seeds-that-need-light-and-seeds-that-need-darkness-to-germinate) — Dunkelkeimer-Bestätigung
+25. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) — Keimfähigkeitsdauer 1–5 Jahre
+26. [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html) — Keimfähigkeitsdauer, Lagerbedingungen
+27. [Bloomsdale Organic Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/bloomsdale-organic-spinach-seeds---1-ounce/OSPBL-1+Ounce.html) — 69 Korn/g
+28. [Seaside F1 Spinach Seeds — UF Seeds](https://www.ufseeds.com/product/seaside-f1-spinach-seeds---500000-seeds/SPSS-500,000seeds.html) — 81 Korn/g
+29. [Direct Seeding Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/methods-tools-supplies/direct-seeding/direct-seeding-guidelines.html) — 12–15 Korn/Fuß Reihenlänge
+30. [How to Plant Spinach Seeds — Eden Brothers Planting Guides](https://grow.edenbrothers.com/planting-guides/spinach-seeds/) — Square-Foot-Gardening-Dichte (9 Korn/sqft)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

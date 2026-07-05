@@ -136,6 +136,13 @@ Hinweis: Nach der letzten Ernte (Juli/August bei einmaltragenden Sorten) werden 
 | Boden-pH-Vorzug (min--max) | 5.5--6.5 (optimal 5.8--6.2; bis 6.8 auf schweren Boeden toleriert) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+Entfällt für den Regelfall dieses Steckbriefs. Fragaria x ananassa wird gärtnerisch und kommerziell praktisch ausschließlich vegetativ über Ausläufer (Runner/Stolonen, `offset`) bzw. Kronenteilung (`division`) vermehrt (vgl. §1.3). Zwar führt §1.3 formal auch `seed` als Methode, das Dokument selbst stellt jedoch klar, dass Samenvermehrung bei Hybridsorten **nicht sortenecht** ist ("Saatgut-Vermehrung ist bei F. x ananassa unzuverlässig, da Hybridsorten nicht samenecht fallen") und nur für Ausnahmefälle (z. B. samenechte Sorten der nahe verwandten Art F. vesca wie 'Alexandria') relevant ist — nicht für den Standard-Anbau von F. x ananassa. Ein Seed-Profil für die Hybridart selbst würde daher Praxisrelevanz suggerieren, die nicht gegeben ist.
+
+Quellen (§1.8-Entscheidung): §1.3 dieses Dokuments (bereits oben zitiert); [PFAF — Fragaria x ananassa](https://pfaf.org/user/Plant.aspx?LatinName=Fragaria+x+ananassa) (vegetative Standardvermehrung); [Gardenia — Echinacea… nicht zutreffend, siehe stattdessen: RHS — Strawberries: Propagating from runners](https://www.rhs.org.uk/fruit/strawberries/grow-your-own) (Ausläufer als gärtnerischer Standard, keine Samenvermehrung für Sorten)
+
 ---
 
 ## 2. Wachstumsphasen

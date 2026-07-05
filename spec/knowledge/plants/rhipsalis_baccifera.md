@@ -117,6 +117,31 @@
 **Hinweis Standortqualität:** Schattentoleranter Epiphyt mit flachem, sauerstoffbedürftigem Wurzelsystem (adventive/Luftwurzeln mit Velamen). Effektive Wurzeltiefe ergibt sich aus der flachen Bewurzelung und der empfohlenen Topftiefe (≥ 12 cm), nicht aus tiefer Bodendurchwurzelung. Salzempfindlichkeit und Staunässe-Empfindlichkeit hängen zusammen: weiches, kalkarmes Gießwasser und exzellente Drainage verhindern sowohl Salzanreicherung als auch Wurzelfäule. Der pH-Vorzug 6.0–7.0 ist konsistent mit §1.6 (Substrat) und §2.3 (Nährlösung).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+> Rhipsalis baccifera wird in der Praxis fast ausschließlich über Stecklinge vermehrt (siehe §1.3); Aussaat ist als Sekundärmethode mit deutlich geringerer Erfolgsquote dokumentiert.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 19 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Oberflächenaussaat, Samen nur andrücken, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Spanne 14–42 Tage / 2–6 Wochen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine belegte Jahresangabe aus 2 unabhängigen Quellen --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (Keimrate 80 %+ bei Fernrot-/Rot-/Weißlicht, nahe 0 % im Dunkeln) | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: Samen extrem klein (staubfein), keine belegte TKG-Angabe --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: ausschließlich Topf-/Schalenaussaat, keine Freiland-/Reihenkultur --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine dokumentierte Vorbehandlung — Frischsaat wird empfohlen (Keimfähigkeit nimmt bei Lagerung ab), keine Stratifikation/Skarifikation genannt.
+
+Quellen (§1.8):
+1. [Germination Response of the Epiphytic Cactus Rhipsalis baccifera to Different Light Conditions and Water Availability — ResearchGate](https://www.researchgate.net/publication/249158680_Germination_Response_of_the_Epiphytic_Cactus_Rhipsalis_baccifera_J_S_Miller_Stearn_to_Different_Light_Conditions_and_Water_Availability) — Keimung 80 %+ bei Licht, nahe 0 % dunkel; Lichtsättigung bei 13,5 µmol/m²/s
+2. [Seed traits and germination in the Cactaceae family: a review across the Americas — SciELO](https://www.scielo.org.mx/scielo.php?script=sci_arttext&pid=S2007-42982020000300417) — Photoblastie epiphytischer Kakteenarten (Gattungskontext)
+3. [Smart Garden Guide — Rhipsalis Care](https://smartgardenguide.com/rhipsalis-care-mistletoe-cactus/) — Keimdauer 2–6 Wochen, Aussaat aus reifen Beeren (bereits §1.3)
+4. [ForwardPlant — Optimal Soil for Mistletoe Cactus](https://www.forwardplant.com/care/soil/rhipsalis-baccifera/) — Aussaat 19–24 °C, Oberflächenaussaat ohne Bedeckung, Frischsaat empfohlen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

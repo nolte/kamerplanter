@@ -115,6 +115,29 @@
 **Hinweis:** Lichtkompensationspunkt-Werte sind als typische Spanne für krautige C3-Kühljahres-Apiaceae angesetzt (Netto-Photosynthese = 0; Sättigung und Optimum liegen deutlich höher, siehe §2.2 PPFD/DLI). Liebstöckel gedeiht am besten in voller Sonne, verträgt aber lichten Halbschatten (in heißen Lagen sogar bevorzugt nachmittags beschattet) — `full_sun` mit Halbschatten-Toleranz. pH-Vorzug quellentreu auf 6.0–7.5 gespannt und mit §1.6 (Topf pH 6,5–7,5) sowie §2.3 (Nährlösung pH 6,5–7,0) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — nur andrücken, max. 0,3 cm falls überhaupt bedeckt) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 (unterer Wert der artüblichen 10–21 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (verliert Keimfähigkeit sehr schnell; Empfehlung: jährlich frisches Saatgut verwenden, spätestens im 2. Jahr aussäen) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (2–3 Wochen kühl-feucht empfohlen für gleichmäßigere Keimung) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 2.8 (berechnet aus ca. 10.000 Samen/Unze gängiger Saatgutkataloge) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: mehrjährige Einzelpflanzen-Kultur mit ca. 80–100 cm Pflanzabstand (§1.6), keine Reihen-/Feld-Direktsaatdichte dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [Johnny's Selected Seeds — Growing Lovage (L. officinale) From Seed](https://www.johnnyseeds.com/growers-library/herbs/lovage/lovage-key-growing-information.html) — Keimtemperatur, Keimdauer
+2. [Sow True Seed — Planting Guide and Seed Saving Notes for Lovage](https://sowtrueseed.com/pages/planting-guide-and-seed-saving-notes-for-lovage) — Stratifikation, Keimtemperatur
+3. [Gardening Know How — Lovage Seed Germination](https://www.gardeningknowhow.com/edible/herbs/lovage/seed-grown-lovage-plants.htm) — Keimdauer, Lichtkeimer, Kühlschrank-Stratifikation
+4. [SurvivalGardenSeeds — Lovage: The Forgotten Herb Every Garden Needs](https://survivalgardenseeds.com/blogs/survival-garden-training/lovage-the-forgotten-herb) — Kurzlebigkeit des Saatguts (Umbelliferae-typisch)
+5. [Seed Needs — Lovage Herb Seeds For Planting](https://www.seedneeds.com/products/lovage-herb-seeds-for-planting) — Saatgutzähldichte (Basis TKM-Schätzung)
+
 ---
 
 ## 2. Wachstumsphasen

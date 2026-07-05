@@ -117,6 +117,8 @@
 | Boden-pH-Vorzug (min–max) | 5.5–8.0 (anpassungsfähig; mild sauer bis basisch; sehr saure Böden ungünstig; harmonisiert mit §1.6 Topf-Empfehlung pH 5,5–7,0 als engerer Kultur-Optimalbereich) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Begründung: §1.3 nennt ausschließlich cutting_stem und layering als Vermehrungsmethoden; `seed` ist nicht gelistet. Zwar keimt Viburnum opulus aus Samen mit doppelter (warm+cold) Morphophysiologischer Dormanz, siehe PMC3119608 in Quelle 12 der bestehenden §1.7-Belege, doch die gartenbauliche Standardvermehrung dieser Art erfolgt praxisweit über Stecklinge/Absenker — daher entfällt gemäß Klassifikations-Regel (maßgeblich §1.3) die Seed-Profile-Sektion.) -->
+
 ---
 
 ## 2. Wachstumsphasen

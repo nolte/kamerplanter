@@ -112,11 +112,33 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
 
 > **Hinweise (Steckbrief-Erweiterung 2026-06):**
-> - **Lichtkompensationspunkt (light compensation point, LCP):** Messwert für *H. rosa-sinensis* 15 µmol/m²/s (peer-reviewed); konsistent mit dem typischen LCP-Bereich von C3-Sonnenpflanzen (heliophyte) von 8–16 µmol/m²/s. Angesetzte Spanne 10–18 µmol/m²/s. Der **Lichtsättigungspunkt (light saturation point)** liegt deutlich höher (≈ 322 µmol/m²/s gemessen, hohe Lichtansprüche bis ≥ 800–1200 µmol/m²/s für reiche Blüte) — dieser Sättigungswert gehört NICHT in das LCP-Feld.
+> - **Lichtkompensationspunkt (light compensation point, LCP):** Messwert für *H. rosa-sinensis* 15 µmol/m²/s (peer-reviewed); konsistent mit dem typischen LCP-Bereich von C3-Sonnenpflanzen (heliophyte) von 8–16 µmol/m²/s. Angesetzte Spanne 10–18 µmol/m²/s. Der **Lichtsättigungspunkt (light saturation point)** liegt deutlich höher (≈ 322 µmol/m²/s gemessen, hohe Lichtansprüche bis ≥ 800–1200 µmol/m²/s für reiche Blüte) — dieser Sättigungswert gehört NICHT ins LCP-Feld.
 > - **Sonnentoleranz:** Vollsonne bevorzugt (6–8 h direkte Sonne); lichter Halbschatten wird toleriert, reduziert aber Blütenzahl und -größe. Bei > 35 °C profitiert die Pflanze von Nachmittagsschatten.
 > - **Staunässe:** keine Toleranz für stehendes Wasser; flaches, feinwurzeliges (fibrous) Wurzelsystem reagiert empfindlich auf anaerobe Nässe (Wurzelfäule-Gefahr) — gleichmäßig feucht, aber nie nass.
 > - **Salztoleranz:** als moderately_tolerant eingestuft; Wachstum und Vitalität werden ab ≈ 7 dS/m Gießwasser-EC deutlich limitiert, niedrige Hintergrundsalinität (~0,5 dS/m) ist unkritisch. Sortenabhängige Unterschiede (salztolerante vs. -sensitive Cultivars) sind belegt. Klassisch quantifizierte Maas-Hoffman-Schwellenwerte (ECe-Schwelle/Slope, bezogen auf Substrat-ECe) liegen für die Art nicht publiziert vor.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 24 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.6 (ca. 0,5–1 cm je nach Quelle; nicht andrücken, dünn mit sterilem Anzuchtsubstrat bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unterer Wert von 1–4 Wochen bzw. 10–21 Tagen je nach Quelle) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (praxisnahe untere Schätzung; Lagerung kann 1–3 Jahre erreichen, siehe Hinweis) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Samen werden dünn bedeckt ausgesät — kein strikter Licht- oder Dunkelkeimer dokumentiert) | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification, presoak (harte Samenschale anritzen/anschleifen UND 24 h in warmem Wasser einweichen — beide Maßnahmen unabhängig dokumentiert) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine belastbare TKM-Angabe für Hibiscus rosa-sinensis aus ≥2 unabhängigen Quellen auffindbar (Samengröße ca. 0,4 × 0,3 cm dokumentiert, aber keine Gewichtsangabe) --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Zierstrauch in Topfkultur/Einzelaussaat, keine Reihen-/Feld-Direktsaat-Dichte dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [UF/IFAS — Hibiscus rosa-sinensis: Landscape Plant Propagation Information](https://hort.ifas.ufl.edu/database/lppi/sp181.shtml) — Keimtemperatur, Anzuchtbedingungen
+2. [Floritica — How to Grow Hibiscus from Seed: A Complete Step-by-Step Guide](https://floritica.com/how-to-grow-hibiscus-from-seed/) — Keimtemperatur, Einweichen, Scarifizierung, Keimdauer
+3. [lifetips.alibaba.com — How Deep to Plant Hibiscus Seeds](https://lifetips.alibaba.com/plant-care/how-deep-to-plant-hibiscus-seeds) — Saattiefe
+4. [growplants.org — Hibiscus rosa sinensis: How to grow & care](https://www.growplants.org/growing/hibiscus-rosa-sinensis) — Lagerungsfähigkeit Saatgut (1–3 Jahre)
 
 ---
 

@@ -114,6 +114,33 @@
 > **Hinweis (Freitext, nicht KA-Feld):** Phacelia ist sehr anpassungsfähig und toleriert Böden im weiten pH-Bereich 5,5–8,6; der oben genannte Vorzug 6,0–7,5 ist das Optimum (harmonisiert mit §1.6). Sie bevorzugt volle Sonne (Heimat: Wüstenregionen), verträgt aber Halbschatten und bleibt im Schatten länger grün — daher die Einstufung `partial_shade`. Pfahlwurzel mit dichten Faserwurzeln; Tiefenangaben in der Literatur reichen von 10 Zoll (~25 cm) bis ~75 cm.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 20 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5–2 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 12 (Spanne 12–30 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Praxis-Faustregel; Langzeitlagerungsstudie zeigt messbare Keimfähigkeit bis zu 8–9 Jahren unter optimaler Kühl-/Dunkellagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (negativ photoblastisch — Keimung wird durch Licht gehemmt) | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | 1.7–3.0 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ca. 700–1150 (berechnet aus Aussaatmenge 2 g/m² ÷ TKG 1,7–3,0 g; siehe §1.3/§4.2) | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine dokumentierte Vorbehandlung erforderlich — Phacelia wird als Dunkelkeimer direkt gesät und leicht mit Erde bedeckt (siehe Saattiefe); Skarifikation/Stratifikation werden in keiner der recherchierten Quellen genannt.
+
+Quellen (§1.8):
+1. [Nature of Seed Dormancy in Phacelia tanacetifolia — Science/PubMed 1966](https://pubmed.ncbi.nlm.nih.gov/17749733/) — negativ photoblastische, dunkelkeimende Samen
+2. [Reversal of the inhibitory effect of light and high temperature on germination of Phacelia tanacetifolia seeds by melatonin — PubMed](https://pubmed.ncbi.nlm.nih.gov/22225610/) — Keimrate 92 % dunkel vs. 48,7 % Licht bei 15 °C
+3. [Lacy Phacelia Wildflower Seed — Outside Pride](https://www.outsidepride.com/seed/flower-seed/lacy-phacelia-wildflower-seed.html) — Saattiefe ¼ Zoll, Keimdauer 15–30 Tage, Bodentemperatur 40–68 °F
+4. [Freudenberger Feldsaaten — Phacelia](https://www.freudenberger.net/phacelia.asp) / [Agrarshop-online — Phacelia](https://www.agrarshop-online.com/de/saatgut/landwirtschaft/einzelsaaten/phacelia-phacelia-tanacetifolia/index.php) — Saattiefe 1–2 cm, Aussaatmenge 2 g/m²
+5. [ReinSaat GmbH — Phacelia Gipha](https://www.reinsaat.at/shop/DE/sommer-_und_herbstanbau_sorten/phacelia/) — TKG 1,72 g
+6. [Landwirtschaftskammer Kärnten/NÖ — Phazelia PDF](https://ktn.lko.at/media.php?filename=download%3D%2F2015.12.04%2F1449215390345274.pdf) — TKG-Bereich 1,6–3 g
+7. [finchandfolly.com — Seed Viability](https://www.finchandfolly.com/seed-viability) — Keimfähigkeit 2 Jahre bei kühler, dunkler Lagerung (4–10 °C)
+8. [The Sowing Value of Tansy Phacelia Seeds in the Long-Term Storage — ResearchGate](https://www.researchgate.net/publication/309330815_The_Sowing_Value_of_Tansy_Phacelia_Phacelia_Tanacetifolia_Benth_Seeds_in_the_Long-Term_Storage) — Keimfähigkeit über 8–9 Jahre Lagerung messbar erhalten (Sorte Vetrovska)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -68,7 +68,7 @@
 | Giftige Inhaltsstoffe | keine bekannten Giftstoffe | `species.toxicity.toxic_compounds` |
 | Schweregrad | none | `species.toxicity.severity` |
 | Kontaktallergen | false | `species.allergen_info.contact_allergen` |
-| Pollenallergen | false | `species.allergen_info.pollen_allergen` |
+| Pollenallergen | false (Insektenbestäubung; Pollen nicht aerogen) | `species.allergen_info.pollen_allergen` |
 
 ### 1.5 Rückschnitt
 
@@ -114,6 +114,24 @@
 
 **Standort-Hinweis:** Understory-/Cloud-Forest-Art aus Ostafrika — gedeiht bei gefiltertem Licht (Nord-/Ostfenster), direkte Sonne wird gemieden. Netto-Photosynthese-Optimum bei ca. 70 µmol/m²/s PPFD (nicht mit dem Kompensationspunkt zu verwechseln). Sehr empfindlich gegen Salzanreicherung im kleinen Topfvolumen (Blattrandverbrennung); regelmäßiges Durchspülen des Substrats empfohlen. Der pH-Vorzug 6.0–6.5 ist mit §1.6 (Substrat) und §2.3 (Nährstoffprofile) harmonisiert; einzelne Quellen nennen 5.8–6.5.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; Samen nur auf Substratoberfläche auflegen, nicht abdecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (unterer Wert; erste Sämlinge oft ab Tag 14, vereinzelt bis 60–90 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: Quellen benennen nur eine Kurzzeit-Haltbarkeit ("mehrere Monate" bei Zimmertemperatur); kein belegter Jahreswert bei kühl-trockener Lagerung aus zwei unabhängigen Quellen --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (frisches, staubfeines Saatgut wird direkt oberflächlich ausgesät; keine Stratifikation/Skarifikation nötig) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: Saatgut ist staubfein (vergleichbar Begonien/Gesneriaceae), keine belegte Tausendkornmasse auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Topf-/Schalenkultur, keine Reihen-/Direktsaat üblich --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [How Do You Propagate and Grow African Violets From Seeds? — African Violet Resource Center](https://africanvioletresourcecenter.com/how-do-you-propagate-and-grow-african-violets-from-seeds/) und [How to Grow Gorgeous African Violets from Seed — Tower Landscape Design](https://towerlandscapedesign.com/growing-african-violets-from-seed/) (Keimtemperatur 21–27 °C, Keimdauer ab 14 Tagen bis 60–90 Tage, Lichtkeimer mit 10 h Licht/Tag, staubfeines Saatgut, kurze Haltbarkeit von Kapsel-Samen); [How to grow African violets — RHS Growing Guide](https://www.rhs.org.uk/plants/african-violets/growing-guide) und [How to Grow African Violets — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/how-to-grow-african-violets) (Oberflächenaussaat, Lichtbedarf zur Keimung).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
 ---
 
@@ -473,3 +491,9 @@ Ness Golden Chalice,Streptocarpus ionanthus,standard;frilled;yellow_toned_white,
 11. [Taylor & Francis — Photosynthetic and biochemical characterization of in vitro-derived African violet (Saintpaulia ionantha)](https://www.tandfonline.com/doi/full/10.1080/17429145.2015.1018967) — Netto-Photosynthese-Optimum ~70 µmol/m²/s PPFD, Anzucht 70–100 µmol (Lichtphysiologie, T_opt-Plausibilisierung)
 12. [African Violet Society of America — Mixing it Up (Substrat & pH)](https://africanvioletsocietyofamerica.org/learn/violets-101/mixing-it-up-2/) — Substrat-pH leicht sauer 5.8–6.5, Dolomitkalk/Torf (soil_ph_preference)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+13. [How Do You Propagate and Grow African Violets From Seeds? — African Violet Resource Center](https://africanvioletresourcecenter.com/how-do-you-propagate-and-grow-african-violets-from-seeds/) — Keimtemperatur, Keimdauer, Lichtbedarf
+14. [How to Grow Gorgeous African Violets from Seed — Tower Landscape Design](https://towerlandscapedesign.com/growing-african-violets-from-seed/) — Keimdauer 14–90 Tage, Saatguthaltbarkeit
+15. [How to grow African violets — RHS Growing Guide](https://www.rhs.org.uk/plants/african-violets/growing-guide) — Oberflächenaussaat
+16. [How to Grow African Violets — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/how-to-grow-african-violets) — Aussaatpraxis, Lichtkeimung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

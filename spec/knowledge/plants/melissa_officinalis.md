@@ -112,6 +112,30 @@
 **Hinweis:** Die Salztoleranz-Schwelle bezieht sich auf die Substrat-/Wurzelzonen-Salinität (ECe bzw. Bewässerungswasser-EC der Studien), nicht auf die Nährlösungs-Ziel-EC der Phasenprofile. Der Lichtsättigungspunkt liegt deutlich über dem Kompensationspunkt; M. officinalis erreicht unter Vollsonne die höchste Netto-CO₂-Assimilation, gilt aber zugleich als halbschattenverträglich (gehört nicht in das Kompensationspunkt-Feld). Der pH-Vorzug 6.0–7.0 ist mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährlösungs-pH 6.0–6.5) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 (65–70°F, konsistent mit §2.2 Keimphase Tag 18–22°C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; Samen auf Substratoberfläche andrücken, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (7–14 Tage bei 18–21°C; ohne Stratifikation ggf. bis 40 Tage möglich) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (3–5 Jahre bei kühler, trockener Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (mind. 7 Tage Kühlschrank-/Gefrierstratifikation verbessert Keimrate deutlich; auch ohne Stratifikation keimfähig, aber langsamer/ungleichmäßiger) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.5–0.7 (zwei unabhängige Quellen: ≈2000 Samen/g bzw. 0,6–0,7 g/1000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Kräutergarten-/Topfkultur mit Einzel-/Horstaussaat, keine belegte Flächen-/Reihensaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. [Wisconsin Horticulture Extension — Lemon Balm](https://hort.extension.wisc.edu/articles/lemon-balm-melissa-officinalis/) — Keimtemperatur 65–70°F (18–21°C), Lichtkeimer, Keimdauer 7–14 Tage
+2. [Truleaf.org — How to Grow Lemon Balm](https://truleaf.org/insights/growing-lemon-balm) — Cross-Check Keimtemperatur/-dauer, Stratifikationsempfehlung (mind. 7 Tage kühl/gefroren)
+3. [Ecofarming Daily — How to Grow, Harvest & Use Lemon Balm](https://ecofarmingdaily.com/grow-crops/grow-fruits-vegetables/fruit-and-vegetable-crops/growing-using-lemon-balm/) — Lichtkeimer-Bestätigung, Keimdauer 5–10 Tage
+4. [SurvivalGardenSeeds — Lemon Balm Seeds](https://survivalgardenseeds.com/products/lemon-balm-seed-for-planting) — Keimfähigkeitsdauer 3–5 Jahre bei kühler, trockener Lagerung
+5. [Grainedevie — Seeds of Lemon Balm](https://www.en.grainedevie.net/lemon-balm-seeds.html) — Tausendkornmasse ≈ 0,5 g (≈2000 Samen/g)
+6. [Jelitto Perennial Seed — Melissa officinalis](https://www.jelitto.com/Seed/Herbs/MELISSA+officinalis+Portion+s.html) — Tausendkornmasse 0,6–0,7 g/1000 Korn (professioneller Staudensaatgut-Anbieter)
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -118,6 +118,24 @@
 
 **Salztoleranz-Hinweis:** Maas-Hoffman-Parameter (FAO Annex 1): Schwelle a = 6,8 dS/m bezogen auf den ECe des gesättigten Substrat-Extrakts (NICHT die Gießwasser-EC), darüber 16 % Ertragsverlust je dS/m. Die Einstufung moderately_tolerant (MT) passt zur Schwelle (> 6 dS/m). <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 (Mindest-Bodentemperatur für zuverlässiges Feldauflaufen) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 5 (Spanne 5–7; optimale Feld-Saattiefe für Kornsorghum) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (unterer Wert; Spanne 5–15 je nach Bodentemperatur/-feuchte) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 5 (Spanne 5–10 bei kühler, trockener, dunkler Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: kein artspezifischer Beleg aus zwei unabhängigen Quellen zur Licht-/Dunkelkeimung; Saatgut wird praxisüblich abgedeckt (5–7 cm), was auf Dunkelkeimung/Indifferenz hindeutet, aber nicht explizit belegt ist --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (kein Stratifizierungs- oder Skarifizierungsbedarf bei domestizierten Kornsorghum-Sorten belegt) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 25 (Spanne 21–30; Cross-Check über TKW-Literatur und Saatgutgrößen-Katalogdaten 9.000–22.000 Korn/lb konsistent) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 25 (Spanne 21–30, umgerechnet aus 210.000–300.000 Pflanzen/ha Feldversuchsdichten) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Sorghum Seed Germination (Jowar) — Agri Farming](https://www.agrifarming.in/sorghum-seed-germination-jowar-period-procedure) (Keimtemperatur/-dauer, Bodentemperatur-Schwelle); [Sorghum Growth Stages — Bayer Crop Science](https://www.cropscience.bayer.us/articles/bayer/sorghum-growth-stages) und [Sorghum Growth Management Guide — EOS](https://eos.com/crop-management-guide/sorghum-growth-stages/) (Auflaufzeit 3–10 Tage, Saattiefe); [Thousand Kernel Weight — Alberta Grains](https://www.albertagrains.com/the-growing-point/articles-library/thousand-kernel-weight) und [Grain Sorghum Planting Rate Considerations — Pioneer](https://www.pioneer.com/us/agronomy/planting_rate.html) (TKW-Cross-Check via Korn/lb); [Sorghum Seeding Rates — Sorghum Checkoff](https://www.sorghumcheckoff.com/agronomy-insights/sorghum-seeding-rates/) und [Grain Sorghum Row Spacing, Plant Population — NMWRRI](https://nmwrri.nmsu.edu/footer_pages/nm-wrri-library-database-files/wrri-library-pdfs/wrrilibrary1/001088.pdf) (Pflanzdichte 210.000–300.000/ha); [Long-Term Storage and Longevity of Orthodox Seeds — PMC systematic review](https://pmc.ncbi.nlm.nih.gov/articles/PMC7347988/) und [Seed viability of sorghum active collection — ResearchGate/genebank data](https://www.researchgate.net/figure/Seed-viability-of-sorghum-active-collection-from-27-years-of-regeneration-conserved-in_tbl1_26628879) (Keimfähigkeitsdauer 5–10 Jahre, Genbank->85 % Viabilität nach 5–21 Jahren).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -372,3 +390,14 @@ Bepari,Sorghum bicolor,"grain_sorghum;medium_tall;early",105,open_pollinated
 13. [Butchee et al. 2012, Int. J. Agronomy — Determining Critical Soil pH for Grain Sorghum](https://onlinelibrary.wiley.com/doi/10.1155/2012/130254) — Boden-pH-Optimum/Toleranz, Säureempfindlichkeit
 14. [University of Nebraska-Lincoln Extension — Nutrient Management for Grain Sorghum (G1669)](https://extensionpublications.unl.edu/assets/html/g1669/build/g1669.htm) — Mikronährstoffe (Zn, Mn) kritische Blattwerte
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+15. [Sorghum Seed Germination (Jowar), Period, Procedure — Agri Farming](https://www.agrifarming.in/sorghum-seed-germination-jowar-period-procedure) — Keimtemperatur, Keimdauer, Saattiefe
+16. [Sorghum Growth Stages — Bayer Crop Science](https://www.cropscience.bayer.us/articles/bayer/sorghum-growth-stages) — Auflaufzeit 3–10 Tage
+17. [Sorghum Growth Management In-Depth Guide — EOS](https://eos.com/crop-management-guide/sorghum-growth-stages/) — Auflauf-/Wachstumsstadien
+18. [Thousand kernel weight — Alberta Grains](https://www.albertagrains.com/the-growing-point/articles-library/thousand-kernel-weight) — TKW-Konzept/Cross-Check
+19. [Grain Sorghum Planting Rate Considerations — Pioneer](https://www.pioneer.com/us/agronomy/planting_rate.html) — Saatgutgröße 9.000–22.000 Korn/lb
+20. [Sorghum Seeding Rates — Sorghum Checkoff](https://www.sorghumcheckoff.com/agronomy-insights/sorghum-seeding-rates/) — Aussaatdichte-Empfehlungen
+21. [Grain Sorghum Row Spacing, Plant Population, and Irrigation — NMWRRI](https://nmwrri.nmsu.edu/footer_pages/nm-wrri-library-database-files/wrri-library-pdfs/wrrilibrary1/001088.pdf) — Pflanzdichte 210.000–300.000/ha
+22. [Long-Term Storage and Longevity of Orthodox Seeds: A Systematic Review — PMC](https://pmc.ncbi.nlm.nih.gov/articles/PMC7347988/) — Saatgut-Halbwertszeit 5–10 (ambient) bis 40–60 Jahre (optimal)
+23. [Seed viability of sorghum active collection from 27 years of regeneration — ResearchGate (Genbank-Daten)](https://www.researchgate.net/figure/Seed-viability-of-sorghum-active-collection-from-27-years-of-regeneration-conserved-in_tbl1_26628879) — >85 % Viabilität nach 5–21 Jahren Lagerung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

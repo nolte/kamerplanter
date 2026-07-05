@@ -124,6 +124,24 @@
 - *Boden-pH:* Mild sauer bis mild alkalisch toleriert; Vorzug 6,0–7,5 (harmonisiert mit §1.6 Substrat-Empfehlung und §2.3 Nährstoffprofilen). Unterhalb pH ~5,5 droht Mangan-Toxizität (Mn-empfindliche Art), daher untere Grenze nicht weiter absenken.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.6 (¼ Zoll) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4 (unterer Wert; Spanne 4–14 Tage bei Optimaltemperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Spanne 2–3; höchste Keimrate im ersten Jahr) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Licht für Keimung nicht zwingend erforderlich; Saatgut wird praxisüblich dünn mit Vermiculit abgedeckt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (kein Stratifizierungs- oder Skarifizierungsbedarf) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: nur ein Katalogwert (218 Korn/g, Crackerjack-Sorte) auffindbar, kein zweiter unabhängiger Beleg zur Cross-Validierung --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Kultur erfolgt praxisüblich über Vorkultur/Transplant, keine belegte Flächen-Aussaatdichte für Direktsaat --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Tagetes Plant Growing Guide — GardenersHQ](https://www.gardenershq.com/Tagetes-Marigold.php) (Keimtemperatur 22–24 °C, Saattiefe ¼ Zoll, Licht nicht zwingend, Vermiculit-Abdeckung); [Crackerjack African Marigold Seeds — Everwilde](https://www.everwilde.com/store/African-Marigold-Crackerjack-Wildflower-Seeds.html) und [Marigolds Are Easily Grown From Seed — Horticulture.co.uk](https://horticulture.co.uk/marigolds/sowing/) (Keimdauer 4–14 Tage); [How to Save Marigold Seeds for Next Year — Ramniwas Bagh](https://ramniwasbagh.com/how-to-save-marigold-seeds-for-next-year/) und [Seed storage of African marigold (Tagetes erecta L.) for ex-situ conservation — Ingenta/Seed Science and Technology](https://www.ingentaconnect.com/content/ista/sst/2004/00000032/00000002/art00020) (Keimfähigkeitsdauer 2–3 Jahre).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -414,3 +432,10 @@ American Giant Mix,Tagetes erecta,"very_tall;mixed_colors;cut_flower",65,open_po
 15. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Blattlaus-Schlupfwespe, Ausbringrate/Etablierung
 16. [PT Horticulture — Role of Manganese in Plant Culture](https://www.pthorticulture.com/en-us/training-center/role-of-manganese-in-plant-culture) — Mn-Empfindlichkeit Marigold, Mn-Toxizität bei pH < 5,5
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+17. [Tagetes Plant Growing Guide — GardenersHQ](https://www.gardenershq.com/Tagetes-Marigold.php) — Keimtemperatur, Saattiefe, Lichtangabe
+18. [Crackerjack African Marigold Seeds — Everwilde](https://www.everwilde.com/store/African-Marigold-Crackerjack-Wildflower-Seeds.html) — Keimdauer, Saatgutkatalogdaten (218 Korn/g)
+19. [Tagetes Marigolds Are Easily Grown From Seed — Horticulture.co.uk](https://horticulture.co.uk/marigolds/sowing/) — Keimdauer-Bestätigung
+20. [How to Save Marigold Seeds for Next Year — Ramniwas Bagh](https://ramniwasbagh.com/how-to-save-marigold-seeds-for-next-year/) — Keimfähigkeitsdauer 2–3 Jahre
+21. [Seed storage of African marigold (Tagetes erecta L.) for ex-situ conservation — Seed Science and Technology / Ingenta](https://www.ingentaconnect.com/content/ista/sst/2004/00000032/00000002/art00020) — Keimfähigkeitsdauer, Lagerbedingungen
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

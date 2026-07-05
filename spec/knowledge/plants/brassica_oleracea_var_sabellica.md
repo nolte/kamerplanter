@@ -112,6 +112,29 @@
 > **Hinweis Salztoleranz:** Bezugsgröße ist die Substrat-Sättigungsextrakt-Leitfähigkeit (ECe), nicht der Gießwasser-EC. Grünkohl selbst hat keinen publizierten eigenen Maas-Hoffman-Wert; übernommen vom gattungsgleichen Brassica oleracea (Kopfkohl, Rating MS).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 (Keimung noch bei 40 °F möglich, sehr langsam) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 (Optimum nahe 70 °F) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 (RHS: 1 cm; andere Quellen 0,6–1,2 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (5–7 Tage bei Optimaltemperatur; bis 14 Tage bei kühlem Boden) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (kein Lichtbedürfnis; übliche Bedeckung mit 1 cm Erde — Kohlgemüse gilt physiologisch als lichtindifferent) | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.3 (ca. 300 Samen/g, gattungstypisch für Brassica-Gemüsesaatgut) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 5 (Endabstand 30–60 cm je nach Sorte It. RHS, mittlerer Reihenwert ~45 cm quadratisch angenommen) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (S.1.8):
+1. RHS — How to grow Kale: Saattiefe 1 cm, Endabstand 30–60 cm je nach Sorte: https://www.rhs.org.uk/vegetables/kale/grow-your-own
+2. Harvest to Table — Kale Seed Starting Tips: Keimtemperatur 40–70 °F, Keimdauer 5–7 Tage bei 70 °F, Keimfähigkeit "bis zu 4 Jahre": https://harvesttotable.com/kale-seed-starting-tips/
+3. Johnny's Selected Seeds — Growing Kale: Key Growing Information: Keimung 5–8 Tage, Kulturhinweise: https://www.johnnyseeds.com/growers-library/vegetables/kale/kale-key-growing-information.html
+4. Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate: Kohlgemüse zählt zu den lichtindifferenten Gemüsearten: https://gardenbetty.com/seed-germination-light-darkness/
+5. Nimrod Bio — Seeds Per Gram Chart (Brassica-Gemüse ca. 300 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -116,6 +116,10 @@
 **Hinweis (Salz):** Quellenlage uneinheitlich — einzelne Gartenlisten führen Astilbe als salzverträglich, doch University-Extension-/RHS-nahe Quellen und das feuchte Halbschatten-Profil sprechen klar für eine salzempfindliche (sensitive) Einstufung; Astilbe wird nicht als Küsten-/Streusalzpflanze empfohlen. Bezugsgröße einer etwaigen Schwelle wäre Substrat-ECe, nicht Gießwasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Astilbe chinensis wird gärtnerisch praktisch ausschließlich durch Teilung des Rhizoms vermehrt — §1.3 dieses Steckbriefs nennt ausschließlich "division" als Vermehrungsmethode. Die im Handel verbreiteten Sorten sind zudem Hybriden/Kultivare, die aus Samen nicht sortenecht nachkommen. Keine belastbaren, artspezifischen Keimwerte aus ≥2 seriösen Quellen auffindbar; keine Werte erfunden.) -->
+
 ---
 
 ## 2. Wachstumsphasen

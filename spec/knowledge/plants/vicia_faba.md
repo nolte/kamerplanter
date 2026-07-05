@@ -113,6 +113,26 @@
 | Boden-pH-Vorzug (soil pH preference) | 6,0–7,5 (harmonisiert mit §1.6 und §2.3; mäßig sauer bis neutral/leicht basisch; bei pH < 6,0 kalken) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 6 (RHS nennt Bodentemperatur 6–24 °C; peer-reviewed wird eine Mindesttemperatur von 7 °C für zufriedenstellende Keimung/Jugendentwicklung genannt) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 (RHS-Bodentemperaturspanne 6–24 °C; Optimum 10–21 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 5 (RHS/gängige Gartenbau-Praxis: 5 cm/2 Zoll Saattiefe) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–21 Tage; unter optimalen Bedingungen 10–14 Tage, maximale Keimgeschwindigkeit bei 20 °C) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (bei guter Lagerung 1–2 Jahre; Keimrate sinkt nach 24 Monaten Lagerung deutlich) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Studien lassen Ackerbohnensamen zur Keimung explizit im Dunkeln keimen; Aussaattiefe von 5 cm entspricht ohnehin einer lichtlosen Umgebung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (harte, große Samenschale; Einweichen 12–24 h in ungechlortem Wasser vor der Aussaat beschleunigt und vergleichmäßigt die Keimung; Skarifikation wird für diese Art nicht spezifisch empfohlen) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 500 (großkörnige Leguminose; publizierte Spannen reichen von 300–800 g, je nach Sorte und Kornform, üblich 325–750 g/1000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 45 (agronomische Zielpflanzenzahl 45 lebensfähige Pflanzen/m²; auf 65/m² erhöht bei Spätsaat oder Trockenstress) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Ackerbohnensamen zählen mit 0,3–0,8 g pro Einzelkorn zu den größten in Mitteleuropa kultivierten Körnerleguminosen-Samen. Die empfohlene Aussaattiefe (5 cm) ist deutlich größer als bei den meisten Gemüsearten, was mit der Samengröße und dem Bedarf an gleichmäßiger Feuchte während der relativ langsamen Keimung zusammenhängt. Bei Frühjahrssaat unter kühlen Bodenbedingungen (6–10 °C) verlängert sich die Keimdauer entsprechend auf das obere Ende der Spanne (bis 21 Tage).
+
+Quellen (§1.8): [RHS — How to grow broad beans](https://www.rhs.org.uk/vegetables/broad-beans/grow-your-own); [Harvest to Table — The Ultimate Fava Bean Growing Guide](https://harvesttotable.com/how_to_grow_broad_beans/); [PMC9098359 — Assessment of the Effects of Seed Storage Time on Germination Rate and Performance Evaluation of Ethiopian Faba Bean Varieties](https://pmc.ncbi.nlm.nih.gov/articles/PMC9098359/); [Saskatchewan Pulse Growers — Faba Beans Seeding](https://saskpulse.com/growing-pulses/faba-beans/faba-beans-seeding/); [RealAgriculture — Pulse School: Know Your Seed Size — Keys to Getting Faba Beans Off to a Strong Start](https://www.realagriculture.com/2016/03/pulse-school-know-your-seed-weight-keys-to-getting-faba-beans-off-to-a-strong-start/); [Homestead and Chill — How to Grow & Use Fava Beans](https://homesteadandchill.com/how-to-grow-fava-beans/); [Gardening Know How — How to Grow Fava Beans](https://www.gardeningknowhow.com/edible/vegetables/beans/growing-fava-beans.htm)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

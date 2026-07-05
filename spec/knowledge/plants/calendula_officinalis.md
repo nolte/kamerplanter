@@ -108,6 +108,30 @@
 > **Hinweise:** Wurzelmuster ist eine Herzwurzel (heart root), die sich aus der Pfahlwurzel verzweigt; die effektive durchwurzelte Tiefe bleibt flach bis mittel (20–30 cm). Calendula gilt als salzempfindlich (salt sensitive) — wächst noch bei niedriger bis mäßiger NaCl-Belastung, vegetatives Wachstum nimmt jedoch bereits ab etwa 50–100 mM NaCl deutlich ab. Belastbare Maas-Hoffman-Koeffizienten (Substrat-ECe, nicht Gießwasser-EC) sind nicht publiziert. Der pH-Optimumbereich 6,0–7,0 ist konsistent mit §1.6 (Topf pH 5,5–7,0) und §2.3 (Nährlösung pH 5,5–7,0).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 16 (Studien-Optimum 16–17 °C; extremer Toleranzbereich 2–32 °C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 (praxisübliche Zielspanne 70–75 °F laut Saatgutanbietern) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.6 (dünn mit Erde bedecken, ca. 1/4 Zoll) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (7–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (3–5 Jahre bei kühler, trockener Lagerung; unterer Wert verwendet) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 10 (Sortenspanne ca. 9–14 g je 1000 Korn, abgeleitet aus Samenzahl-Angaben verschiedener Anbieter) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 16 (Endabstand 25 cm x 25 cm It. S.1.6/S.4.2) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. ScienceDirect / Experts@Minnesota — "Seed germination of calendula in response to temperature": Kardinaltemperaturen 2–32 °C, Optimum 16–17 °C, Hitzeschock >35 °C reduziert Keimung: https://www.sciencedirect.com/science/article/abs/pii/S0926669013005839
+2. Sow Right Seeds — How to Grow Calendula: Keimtemperatur 70–75 °F, Keimdauer 7–14 Tage, Dunkelheit für Keimung nötig: https://sowrightseeds.com/blogs/planters-library/how-grow-heirloom-calendula-from-seed
+3. True Leaf Market — Calendula Pacific Beauty Mix Flower Seeds: ca. 2.100 Samen/Unze (≈ 74 Samen/g): https://trueleafmarket.com/products/calendula-pacific-beauty-mixture-flower-seeds
+4. Nimrod Bio — Seeds Per Gram Chart (Calendula ca. 100–120 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+5. Meadowlark Journal — The Easiest Way to Grow Calendula from Seed: Keimfähigkeit 3–5 Jahre bei kühler, trockener Lagerung: https://meadowlarkjournal.com/blog/calendula-from-seed
+6. Interne Pflegeangaben S.4.2 dieses Dokuments (Vereinzeln auf 25–30 cm Abstand) — bereits als Quelle im Dokument geführt.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -109,6 +109,34 @@
 Freitext-Hinweis (gehört NICHT in die KA-Felder oben): Die Netto-Photosynthese sättigt erst bei sehr hohem PPFD (~800–1000 µmol/m²/s); oberhalb von ~33–34 °C Blatttemperatur fällt sie auf unter die Hälfte des Maximums (Photoinhibition/Hitzestress). Salztoleranz-Klasse und ECe-Schwelle stammen aus der Maas-Hoffman-Klassifikation (Maas 1990: „moderately tolerant", 6–8 dS/m); cultivar-abhängige Unterschiede sind dokumentiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+> Rosmarin wird in der Praxis fast ausschließlich über Stecklinge vermehrt (siehe §1.3, "easy" bei Stecklingen vs. "difficult" bei Aussaat); die Aussaat ist als Sekundärmethode mit notorisch niedriger und unregelmäßiger Keimrate dokumentiert.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.3–0.6 (Lichtkeimer, nur leicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Spanne 14–30 Tage, bei kühleren Bedingungen bis 42 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (notorisch niedrige Keimrate 10–20 %; bei frischem Saatgut <1 Jahr 30–50 %; nach 18 Monaten bereits 60 % Keimfähigkeitsverlust dokumentiert) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: widersprüchliche Quellenlage — ein Teil der Quellen empfiehlt Kältestratifikation (4–6 Wochen bei 1–4 °C), andere halten Stratifikation für kontraproduktiv, da Rosmarin kein Kältebedürfnis hat; nicht dual belegbar --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1–3 (Quellen uneinheitlich: 2,86 g vs. ≈1 g je 1000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Anzucht ausschließlich in Presstöpfen/Anzuchtschalen, keine Freiland-Direktsaat üblich (siehe §1.2) --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [Coohom — Does Rosemary Need Light to Germinate?](https://www.coohom.com/article/does-rosemary-need-light-to-germinate) — Lichtkeimer, nicht bedecken
+2. [Johnny's Selected Seeds — How To Grow Rosemary From Seed](https://www.johnnyseeds.com/growers-library/herbs/rosemary/rosemary-key-growing-information.html) — Keimtemperatur 18–24 °C, kaum bedecken
+3. [Week& — How Long Does It Take Rosemary to Germinate?](https://www.weekand.com/home-garden/article/long-rosemary-germinate-18027756.php) — niedrige Keimrate 10–20 %, 14–30 Tage
+4. [Sprigbox — How to plant Rosemary from seeds](https://getsprigbox.com/blogs/herbs/how-to-plant-rosemary-from-seeds) — Keimfähigkeitsverlust: frisches Saatgut 30–50 %, nach 18 Monaten −60 %
+5. [Lifetips/Alibaba — How to Seed Rosemary](https://lifetips.alibaba.com/plant-care/seeding-rosemary) — Stratifikationsempfehlung 4–6 Wochen bei 1–4 °C (widersprüchlich zu Quelle 6)
+6. [Gardenersbasics.com — How to Germinate Rosemary Seeds](https://www.gardenersbasics.com/tools/blog/how-to-germinate-rosemary-seeds) — Stratifikation/Skarifikation als unnötig/kontraproduktiv eingestuft (kein Kältebedürfnis)
+7. [Weberseeds.nl — Rosmarinus officinalis](https://weberseeds.nl/eshop/en/Seeds/Seeds-A-Z/Rosmarinus-officinalis-Rosemary::131.html) — TKG 2,86 g/1000 Korn
+8. [Outsidepride — Rosemary Seed For Planting](https://www.outsidepride.com/seed/herb-seed/rosemary-herb-seed.html) — ca. 1000 Samen/g (≈1 g/1000 Korn)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

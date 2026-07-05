@@ -131,6 +131,32 @@ Angaben fuer Mitteleuropa (Zone 7–8), letzter Frost ca. Mitte Mai.
 **Hinweis (kein KA-Feld):** Der Lichtkompensationspunkt steigt mit der Blatttemperatur; bei >30 °C liegt er hoeher. Die Lichtsaettigung liegt mit ~1000–1100 µmol/m²/s sehr hoch (linearer Anstieg der Nettophotosynthese bis dahin) — dieser Wert gehoert NICHT in das Kompensationspunkt-Feld, sondern erklaert den hohen Lichtbedarf der Art.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 35 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 3.5 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | -- <!-- DATEN FEHLEN: Aubergine wird in Anzuchttoepfen einzeln vorkultiviert und im Endabstand 50--60 cm ausgepflanzt; keine belastbare, durch 2 Quellen bestaetigte "Aussaatdichte pro m2" fuer Direktsaat/Reihenkultur dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min (18°C) und Saattiefe/Keimdauer decken sich mit den bereits in §1.3 zitierten Quellen (RHS, PFAF, Deep Green Permaculture). Die Keimtemperatur-Obergrenze (35°C) wurde ergaenzend recherchiert: Studien zu African Eggplant (Solanum aethiopicum, nahe verwandt) zeigen die geringste Keimrate bei 30--35°C, kultivierte Wachstumsratgeber nennen 35°C (95°F) als Schwelle fuer Keimschaeden bei S. melongena. Der Licht-/Dunkelkeim-Status "indifferent" ist durch eine Studie zu Solanum melongena belegt (photoblastische Indifferenz bei ~25°C), konsistent mit den bereits zitierten Anzuchtanleitungen, die keine Lichtkeim-Anforderung nennen.
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- Multiresearchjournal / ARCC Journals -- Temperature and Light Effects on Germination Behaviour of (African) Eggplant Seeds (geringste Keimrate bei 30--35°C; photoblastische Indifferenz bei 25°C): https://arccjournals.com/journal/agricultural-science-digest/A-623
+- Touchhealthy -- The Optimal Temperature for Eggplant Seed Germination (Keimschaeden oberhalb 35°C / 95°F): https://touchhealthy.com/blog-detail/the-optimal-temperature-for-eggplant-seed-germination-a-touchhealthy-guide
+- Illinois Extension -- Seed Viability in Storage (Eggplant: 4 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Eggplant: 4--5 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- World Vegetable Center / AVRDC -- Standardized Protocol for Eggplant Seed Regeneration and Seed Storage (Tausendkornmasse 3.0--3.98 g): https://www.researchgate.net/publication/290240919_STANDARDIZED_PROTOCOL_FOR_EGGPLANT_SEED_REGENERATION_AND_SEED_STORAGE_AT_AVRDC_-_THE_WORLD_VEGETABLE_CENTER
+- Vital Seeds -- Seeds per Gram (Aubergine: 240--390 Samen/g ≈ 2.6--4.2 g/1000): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

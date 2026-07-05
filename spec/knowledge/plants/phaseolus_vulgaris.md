@@ -126,6 +126,32 @@ Hinweis: Kein Rueckschnitt noetig. Bei Stangenbohnen: Triebspitze kappen, wenn d
 | Boden-pH-Vorzug (soil pH preference) | 6.0--6.8 (leicht sauer bis neutral; konsistent mit pH 6.0--6.8 in 1.6 und 6.0--6.5 in 2.3; FAO nennt fuer Trockenbohne enger 5.5--6.0) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 3–5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (Spanne 5–10 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Spanne 2–4 Jahre; unter optimaler kühler Lagerung auch bis 5 Jahre keimfähig) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | 250–450 (kleinsamige Buschbohnensorten am unteren, großsamige Sorten am oberen Rand) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ca. 30–45 (berechnet aus Reihenabstand 40–50 cm × Abstand in der Reihe 5–8 cm) | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine — Bohnensamen ausdrücklich NICHT vorquellen (Erstickungs-/Fäulnisgefahr bei großen, stärkereichen Samen); Direktsaat in abgetrockneten, erwärmten Boden.
+
+Quellen (§1.8):
+1. [NCSU Extension — Phaseolus vulgaris](https://plants.ces.ncsu.edu/plants/phaseolus-vulgaris/) — Keimtemperatur, Saattiefe, kein Vorquellen (bereits §1.3)
+2. [Purdue University NewCrop — Phaseolus vulgaris](https://hort.purdue.edu/newcrop/duke_energy/Phaseolus_vulgaris.html) — Keimtemperatur, Saattiefe (bereits §1.3)
+3. [Marker-Trait Association Analysis of Seed Traits in Accessions of Common Bean — PMC7344293](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7344293/) — 100-Korn-Gewicht Ø 28 g (≈280 g/1000 Korn)
+4. [Morphological Seed Characterization of Common and Runner Bean — PMC6354170 (Slowenische Genbank)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6354170/) — 100-Korn-Gewicht Mesoamerika 25–40 g, Anden >40 g (≈250–450+ g/1000 Korn)
+5. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) — Bohne 2–4 Jahre keimfähig
+6. [Garden Betty — Seed Viability Chart](https://gardenbetty.com/how-long-do-seeds-really-last-plus-a-cheat-sheet-on-seed-storage-life/) — Bohne bei optimaler Lagerung bis 5 Jahre keimfähig
+7. [DripWorks — Green Beans Growing Guide](https://www.dripworks.com/resources/growing-guides/green-beans-growing-guide) / [Johnny's Selected Seeds — Bush Bean Key Growing Information](https://www.johnnyseeds.com/growers-library/vegetables/beans/bush-bean-key-growing-information.html) — Pflanzabstand ≈36 sq in/Pflanze (≈43 Pflanzen/m²), konsistent mit §1.6-Abstandsangaben
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -181,7 +207,7 @@ Hinweis: Bohnen faulen leicht in nasser, kalter Erde. NICHT vorquellen. Boden mu
 | Luftfeuchtigkeit Nacht (%) | 60--75 | `requirement_profiles.humidity_night_percent` |
 | VPD-Ziel (kPa) | -- (Freiland) | `requirement_profiles.vpd_target_kpa` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
-| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt stomataerer Schliessung; oberhalb des moderaten Saemling-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Schwelle (kPa) | 1.3 (kritischer Punkt stomataeren Schliessung; oberhalb des moderaten Saemling-Korridors) | `requirement_profiles.vpd_threshold_kpa` |
 | VPD-Sensitivitaet | medium | `requirement_profiles.vpd_sensitivity` |
 | Photosynthese-T_opt (degC) | 25--28 | `requirement_profiles.photosynthesis_temp_opt_c` |
 | Far-Red-Fraction FR/(R+FR) | 0.45--0.5 (offenes Tageslicht/Vollsonne, R:FR ~1.1--1.3) | `requirement_profiles.far_red_fraction` |

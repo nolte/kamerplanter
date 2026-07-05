@@ -127,6 +127,26 @@ Angaben fuer Mitteleuropa (Zone 7--8). Rucola ist ein Sukzessionsgemuese par exc
 **Hinweis Schatten/Sonne:** Rucola vertraegt volle Sonne, profitiert im Sommer aber von leichtem Schatten (Halbschatten bremst Schossen). Bezugsgroesse der Salztoleranz ist die Substrat-Saettigungsextrakt-Leitfaehigkeit (ECe), nicht die Giesswasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 20 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 (flach; Licht muss die Samen zumindest teilweise erreichen können) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 3 | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (Samen benötigen direktes Licht zur Keimung und sollten nicht tief vergraben werden) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine erforderlich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: verfügbare Quellenangaben zu Samen/Unze widersprechen sich stark (2,2 g vs. rechnerisch ~0,5 g je nach Bezugsquelle) — kein belastbarer konsistenter Wert --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 2.000–4.000 (Cut-and-Come-Again-Streusaat für Baby-Leaf-Ernte; deutlich geringer bei Reihensaat mit Ausdünnen) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Rucola ist zwei­fach belegt ein Lichtkeimer — Samen sollten nicht tief vergraben werden, da Lichtexposition die Keimung deutlich fördert (Seed Savers Exchange, Sow True Seed). Die geringe Saattiefe (0,5 cm) aus §1.3 ist damit konsistent, da eine dünne Substratschicht noch ausreichend Lichtdurchlässigkeit erlaubt. Die Aussaatdichte bezieht sich auf die intensive Streusaat für Baby-Leaf-Cut-and-Come-Again-Kultur; bei klassischer Reihensaat mit Ausdünnen auf Endabstand (vgl. §1.6) liegt die Bestandsdichte deutlich niedriger.
+
+Quellen (§1.8): [Wisconsin Horticulture — Arugula, Eruca sativa](https://hort.extension.wisc.edu/articles/arugula/) (Keimtemperatur 10–21 °C, bereits als Quelle 9 im Hauptquellenverzeichnis gelistet); [Johnny's Selected Seeds — Arugula Key Growing Information](https://www.johnnyseeds.com/growers-library/vegetables/greens/arugula-key-growing-information.html) (7–14 Tage, Saattiefe 1/8 in, bereits als Quelle 10 gelistet); [Seed Savers Exchange — How to Grow and Save Arugula](https://seedsavers.org/wp-content/uploads/2023/07/PDF-Grow-_-Save-Arugula-1.pdf) (Lichtkeimer, nicht vergraben); [Sow True Seed — Planting Guide and Seed Saving Notes for Arugula](https://sowtrueseed.com/pages/planting-guide-and-seed-saving-notes-for-arugula) (Keimfähigkeit 3–4 Jahre); [Northwest Edible Life — How To Grow Arugula In The Pacific Northwest](https://nwedible.com/how-to-grow-arugula/) (Aussaatdichte Baby-Leaf-Streusaat); [Harvest to Table — The Ultimate Arugula Growing Guide](https://harvesttotable.com/how-to-grow-arugula/) (Aussaatdichte ~200 Korn/sq ft für Cut-and-Come-Again)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

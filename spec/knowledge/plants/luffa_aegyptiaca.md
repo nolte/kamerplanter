@@ -136,6 +136,33 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 24 (§1.3; Gardenersbasics/Jerra's Garden bestätigen 24–30°C bzw. 70–90°F) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (§1.3: 1,5–2 cm, seitlich gelegt) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (§1.3: 7–14 Tage nach Einweichen; Gardenersbasics/Superseeds bestätigen 7–10 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (bei kühler, trockener Lagerung 3–5 Jahre) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (zwei artspezifische Studien zu *Luffa cylindrica*/*aegyptiaca* zeigen, dass Dunkelheit die Keimung/den Sämlingsvigor hemmt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak, scarification (24–48 h Einweichen Standard; bei hartschaligen/"stubborn" Samen zusätzliches Anritzen der Samenschale empfohlen) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 97–106 (großes, flaches Kürbisgewächs-Samenkorn, 14×7 mm) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Einzelaussaat je Pflanzstelle/Topf (§1.6: 60–100 cm in der Reihe, 150–200 cm Reihenabstand) statt Flächen-/Reihensaat; kein sinnvoller Flächendichte-Wert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. §1.3 dieses Steckbriefs (bereits zitierte Quellen: Keimtemperatur 24–30°C, Saattiefe 1,5–2 cm, Keimdauer 7–14 Tage nach Einweichen) — Cross-Check
+2. [Gardeners Basics — How to Start Luffa Seeds Indoors](https://www.gardenersbasics.com/tools/blog/how-to-start-luffa-seeds-indoors-gardeners-basics) — Keimtemperatur 75–85°F (24–29°C), Keimdauer 7–21 Tage
+3. [Jerra's Garden — How to Grow & Quickly Germinate Luffa](https://www.jerrasgarden.com/blogs/gardening-info-growing-guides/how-to-grow-quickly-germinate-luffa-seeds) — Einweichen 24 h, Anritzen der Samenschale bei hartnäckigen Samen (Skarifikation)
+4. [Study of Effect of Temperature, Water, Light and Darkness on Seed Germination in Luffa Cylindrical L.](https://www.academia.edu/97099183/Study_of_Effect_of_Temperature_Water_Light_and_Darkness_on_Seed_Germination_in_Luffa_Cylindrical_L) — Dunkelheit hemmt Keimung/Sämlingsvigor (positiv photoblastisch)
+5. [The Effects of Light and Temperature on Germination and Growth of Luffa aegyptiaca (ResearchGate)](https://www.researchgate.net/publication/230356554_The_Effects_of_Light_and_Temperature_on_Germination_and_Growth_of_Luffa_aegyptiaca) — Optimaltemperatur 25–30°C, Lichteinfluss auf Keimung
+6. [SurvivalGardenSeeds — Luffa Gourd Seeds](https://survivalgardenseeds.com/products/luffa-or-loofah-seed-for-planting) — Keimfähigkeitsdauer 3–5 Jahre bei kühler, trockener Lagerung
+7. [Kellogg Garden Organics — How to Grow Luffa Plants](https://kellogggarden.com/blog/gardening/how-to-grow-luffa-plants/) — Keimfähigkeitsdauer, Saatgutlagerung
+8. Rani, N. et al. — [SEEDS AND SEEDLINGS CHARACTERISTICS OF SPONGE GOURD (LUFFA CYLINDRICA (L.) ROEM.)](https://www.researchgate.net/publication/319910758_SEEDS_AND_SEEDLINGS_CHARACTERISTICS_OF_SPONGE_GOURD_LUFFA_CYLINDRICA_L_ROEM) — 100-Korn-Masse 10,59 g (≈ TKG 105,9 g), Samengröße 14×7 mm
+9. [Engineering properties of luffa (L. Cylindrica) seed relevant to the processing machineries](https://www.researchgate.net/publication/325284239_Engineering_properties_of_luffa_L_Cylindrica_seed_relevant_to_the_processing_machineries) — Einzelsamenmasse Ø 97,3 mg (≈ TKG 97,3 g), Gewichtsverteilung
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

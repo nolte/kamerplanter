@@ -129,13 +129,31 @@ Hinweis: Die Blaetter sind essbar und naehrstoffreich (wie Mangold -- gleiche Ar
 | Salztoleranz-Klasse | moderately_tolerant | `species.salt_tolerance_class` |
 | Salztoleranz ECe-Schwelle (dS/m) | 4.0 (Maas-Hoffman a; Substrat-ECe-Saettigungsextrakt, NICHT Giesswasser-EC; FAO-Wert fuer Red Beet/Speisebete) | `species.salt_tolerance_ece_threshold_ds_m` |
 | Salztoleranz Slope (%/dS/m) | 9.0 (Maas-Hoffman b; Ertragsverlust je dS/m oberhalb der Schwelle) | `species.salt_tolerance_slope_pct` |
-| Boden-pH-Vorzug | 6.0--7.5 | `species.soil_ph_preference` |
+| Boden-pH-Vorzug (min–max) | 6.0--7.5 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 Hinweise:
 - **Lichtkompensationspunkt (light compensation point, LCP):** Bereich fuer C3-Pflanzen bei Umgebungs-CO2; temperaturabhaengig (ca. 20 umol/m2/s bei 15 degC bis ueber 50 umol/m2/s bei 30 degC). Lichtsaettigung und Optimumwerte liegen deutlich hoeher (siehe PPFD-Zielwerte in Sektion 2.2) und sind NICHT Teil des Kompensationspunkts.
 - **Salztoleranz:** Speisebete (Red Beet) ist nach FAO/Maas-Hoffman moderately_tolerant (Schwelle 4.0 dS/m, Slope 9.0 %/dS/m). Die nahe verwandte Zuckerruebe (sugar beet) ist toleranter (Schwelle 7.0 dS/m, Slope 5.9 %/dS/m); eine alternative Quelle (Shannon & Grieve, USDA) nennt fuer "Beet, garden" 5.3 dS/m / 7.3 %/dS/m. Fuer Speisebete wird hier der konservativere FAO-Red-Beet-Wert verwendet.
 - **Boden-pH:** harmonisiert mit Sektion 1.6 (6.0--7.5); saure Boeden unter pH 6.0 werden schlecht vertragen, leicht alkalische Boeden bis 7.5 toleriert.
+
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 8 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 20 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5–14 (KA-Feld: 5) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent <!-- Praezisierung ggue. §1.3 "Dunkelkeimer": mehrere unabhaengige, aktuellere Gartenbau-Uebersichten (Garden Betty, Harvest to Table) fuehren Beta vulgaris/Beet explizit in der Gruppe "light indifferent" (keimt sowohl mit als auch ohne Licht); die in §1.3 etablierte Aussaattiefe von 2–3 cm schliesst Lichteinfall in der Praxis ohnehin aus, macht die Art aber physiologisch nicht zum obligaten Dunkelkeimer. §1.3 bleibt unveraendert (ausserhalb des Scopes dieser Ergaenzung) — Diskrepanz hier dokumentiert, keine Werte erfunden. --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (12–24 h lauwarmes Wasser gemaess §1.3; RHS nennt alternativ 1 h) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 17–25 (KA-Feld: 20; Mehrkeim-Knaeuelfruechte/Glomerulen, deutlich schwerer als das entkeimte Einzelsamenkorn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ~29–33 (bei Endabstand 10–15 cm in der Reihe × 25–30 cm Reihenabstand, siehe §1.2/§1.6/§4.2) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [RHS — How to grow Beetroot](https://www.rhs.org.uk/vegetables/beetroot/grow-your-own); [West Coast Seeds — Seeds per gram](https://www.westcoastseeds.com/blogs/glossary/seeds-per-gram); [nimrod.bio — Vegetable Seeds Per Gram (PDF-Tabelle)](https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf); [idseed.org — Beta vulgaris L. subsp. vulgaris Fact Sheet](https://seedidguide.idseed.org/fact_sheets/34042/); [Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate](https://gardenbetty.com/seed-germination-light-darkness/); [Harvest to Table — Vegetable Seed Germination Special Requirements](https://harvesttotable.com/vegetable-seed-germination-special-requirements/); [Osborne Seed — Seed Viability Chart](https://www.osborneseed.com/pages/seed-viability-chart); [Gardening Channel — Seed Life Chart](https://www.gardeningchannel.com/seed-life-chart-how-long-will-seeds-last/).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
 ---
 

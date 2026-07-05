@@ -120,6 +120,16 @@ new_species_family_map:
 
 new_species:
   - scientific_name: "Allium cepa"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 25
+      sowing_depth_cm: 1.5
+      days_to_germination: 7
+      seed_viability_years: 2
+      light_germination: dark
+      thousand_seed_weight_g: 3.5
+      sowing_density_per_m2: 80
     common_names: ["Zwiebel", "Kuechenzwiebel", "Onion", "Common Onion"]
     genus: Allium
     plant_category: outdoor_vegetable
@@ -279,6 +289,16 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Asparagus officinalis"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1.3
+      days_to_germination: 14
+      seed_viability_years: 3
+      light_germination: light
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 18
     common_names: ["Spargel", "Asparagus", "Garden Asparagus"]
     genus: Asparagus
     plant_category: outdoor_vegetable
@@ -379,6 +399,16 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Brassica oleracea var. sabellica"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 21
+      sowing_depth_cm: 1
+      days_to_germination: 5
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 3.3
+      sowing_density_per_m2: 5
     common_names: ["Gruenkohl", "Kale", "Borecole"]
     genus: Brassica
     plant_category: outdoor_vegetable
@@ -476,6 +506,16 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Calendula officinalis"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 16
+      germination_temp_max_c: 24
+      sowing_depth_cm: 0.6
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 10
+      sowing_density_per_m2: 16
     common_names: ["Ringelblume", "Pot Marigold", "Calendula"]
     genus: Calendula
     plant_category: herb
@@ -576,6 +616,12 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Cornus mas"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      sowing_depth_cm: 1
+      days_to_germination: 365
+      pretreatment: [cold_stratification, warm_stratification]
+      thousand_seed_weight_g: 220
     common_names: ["Kornelkirsche", "Dirndlstrauch", "Cornelian Cherry"]
     genus: Cornus
     plant_category: outdoor_ornamental
@@ -630,6 +676,15 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Delphinium elatum"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 21
+      sowing_depth_cm: 0.3
+      days_to_germination: 14
+      seed_viability_years: 1
+      light_germination: dark
+      pretreatment: [cold_stratification]
     common_names: ["Rittersporn", "Delphinium", "Larkspur"]
     genus: Delphinium
     plant_category: outdoor_ornamental
@@ -680,6 +735,17 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Echinacea purpurea"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 21
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 7
+      light_germination: light
+      pretreatment: [cold_stratification]
+      thousand_seed_weight_g: 3.5
+      sowing_density_per_m2: 300
     common_names: ["Purpur-Sonnenhut", "Purple Coneflower", "Echinacea"]
     genus: Echinacea
     plant_category: outdoor_ornamental
@@ -734,6 +800,16 @@ new_species:
 
 species_enrichment:
   "Allium porrum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 8
+      germination_temp_max_c: 24
+      sowing_depth_cm: 1
+      days_to_germination: 10
+      seed_viability_years: 2
+      light_germination: dark
+      thousand_seed_weight_g: 3
+      sowing_density_per_m2: 15
     frost_sensitivity: hardy
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
@@ -753,6 +829,15 @@ species_enrichment:
     harvest_months: [9, 10, 11, 12, 1, 2]
 
   "Allium schoenoprasum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 25
+      sowing_depth_cm: 1
+      days_to_germination: 10
+      seed_viability_years: 2
+      light_germination: dark
+      thousand_seed_weight_g: 0.9
     frost_sensitivity: very_hardy
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
@@ -776,6 +861,16 @@ species_enrichment:
     pruning_months: [4, 5, 6, 7, 8, 9]
 
   "Anethum graveolens":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 8
+      germination_temp_max_c: 26
+      sowing_depth_cm: 0.5
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 1.2
+      sowing_density_per_m2: 21
     frost_sensitivity: moderate
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
@@ -817,6 +912,17 @@ species_enrichment:
     bloom_months: [7, 8]
 
   "Beta vulgaris subsp. vulgaris":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 8
+      germination_temp_max_c: 20
+      sowing_depth_cm: 2.5
+      days_to_germination: 5
+      seed_viability_years: 4
+      light_germination: indifferent
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 20
+      sowing_density_per_m2: 29
     frost_sensitivity: moderate
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
@@ -837,6 +943,16 @@ species_enrichment:
     bloom_months: [6, 7]
 
   "Brassica oleracea var. botrytis":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 30
+      sowing_depth_cm: 0.6
+      days_to_germination: 4
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 3
+      sowing_density_per_m2: 3.3
     frost_sensitivity: moderate
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
@@ -857,6 +973,16 @@ species_enrichment:
     bloom_months: [5, 6]
 
   "Brassica oleracea var. gemmifera":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 8
+      germination_temp_max_c: 25
+      sowing_depth_cm: 1.5
+      days_to_germination: 5
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 3.3
+      sowing_density_per_m2: 3
     frost_sensitivity: very_hardy
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
@@ -876,6 +1002,16 @@ species_enrichment:
     harvest_months: [10, 11, 12, 1, 2]
 
   "Brassica oleracea var. gongylodes":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1.5
+      days_to_germination: 5
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 3.3
+      sowing_density_per_m2: 22
     frost_sensitivity: moderate
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
@@ -895,6 +1031,16 @@ species_enrichment:
     harvest_months: [5, 6, 7, 8, 9, 10]
 
   "Brassica oleracea var. italica":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 7
+      germination_temp_max_c: 29
+      sowing_depth_cm: 2
+      days_to_germination: 5
+      seed_viability_years: 3
+      light_germination: indifferent
+      thousand_seed_weight_g: 3.7
+      sowing_density_per_m2: 7
     frost_sensitivity: moderate
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
@@ -936,8 +1082,26 @@ species_enrichment:
     bloom_months: [6, 7, 8]
     pruning_type: summer_pruning
     pruning_months: [6, 7, 8]
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 35
+      sowing_depth_cm: 0.5
+      days_to_germination: 10
+      seed_viability_years: 2
+      light_germination: dark
+      thousand_seed_weight_g: 5.7
+      # sowing_density_per_m2: MISSING - not in source document
 
   "Cichorium intybus":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 3.5
+      germination_temp_max_c: 29
+      sowing_depth_cm: 1.5
+      days_to_germination: 7
+      seed_viability_years: 3
+      thousand_seed_weight_g: 1.1
+      sowing_density_per_m2: 12
     frost_sensitivity: hardy
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
@@ -958,6 +1122,17 @@ species_enrichment:
     sowing_indoor_weeks_before_last_frost: 5
 
   "Coriandrum sativum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1.5
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: dark
+      pretreatment: [scarification, presoak]
+      thousand_seed_weight_g: 10
+      sowing_density_per_m2: 200
     frost_sensitivity: moderate
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
@@ -1001,8 +1176,25 @@ species_enrichment:
     bloom_months: [6, 7, 8]
     pruning_type: summer_pruning
     pruning_months: [6, 7, 8]
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 35
+      sowing_depth_cm: 2
+      days_to_germination: 3
+      seed_viability_years: 5
+      light_germination: dark
+      thousand_seed_weight_g: 25
+      # sowing_density_per_m2: MISSING - not in source document
 
   "Cucurbita maxima":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 29
+      sowing_depth_cm: 2
+      days_to_germination: 3
+      seed_viability_years: 3
+      thousand_seed_weight_g: 100
     frost_sensitivity: sensitive
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
@@ -1047,6 +1239,15 @@ species_enrichment:
     direct_sow_months: [5, 6]
     harvest_months: [7, 8, 9, 10]
     bloom_months: [6, 7, 8, 9]
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 35
+      sowing_depth_cm: 2
+      days_to_germination: 7
+      seed_viability_years: 4
+      light_germination: dark
+      thousand_seed_weight_g: 150
+      # sowing_density_per_m2: MISSING - not in source document
 
   "Daucus carota":
     frost_sensitivity: moderate
@@ -1068,8 +1269,27 @@ species_enrichment:
     harvest_months: [6, 7, 8, 9, 10, 11]
     bloom_months: [6, 7]
     pruning_type: none
+    seed_profile:
+      germination_temp_min_c: 5
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1
+      days_to_germination: 10
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 1.25
+      sowing_density_per_m2: 90
 
   "Foeniculum vulgare":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 21
+      sowing_depth_cm: 1
+      days_to_germination: 7
+      seed_viability_years: 2
+      light_germination: dark
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 3.3
     frost_sensitivity: moderate
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
@@ -1091,9 +1311,272 @@ species_enrichment:
     pruning_type: none
     allelopathy_score: 0.0
 
+  "Solanum melongena":
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 35
+      sowing_depth_cm: 0.5
+      days_to_germination: 7
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 3.5
+      # sowing_density_per_m2: MISSING - not in source document
+
+  "Raphanus sativus":
+    seed_profile:
+      germination_temp_min_c: 5
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1
+      days_to_germination: 3
+      seed_viability_years: 5
+      light_germination: dark
+      thousand_seed_weight_g: 8.7
+      sowing_density_per_m2: 170
+
 # ==============================================================================
 # S5  LIFECYCLE CONFIGS
 # ==============================================================================
+
+  "Apium graveolens":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 22
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 0.4
+
+  "Avena sativa":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 30
+      sowing_depth_cm: 3
+      days_to_germination: 5
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 25
+      sowing_density_per_m2: 300
+
+  "Brassica oleracea var. capitata":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 5
+      germination_temp_max_c: 24
+      sowing_depth_cm: 1
+      days_to_germination: 4
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 4
+      sowing_density_per_m2: 2
+
+  "Cannabis sativa":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 29
+      sowing_depth_cm: 1
+      days_to_germination: 1
+      seed_viability_years: 5
+      light_germination: dark
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 20
+
+  "Citrullus lanatus":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 35
+      sowing_depth_cm: 2
+      days_to_germination: 4
+      seed_viability_years: 4
+      light_germination: dark
+      thousand_seed_weight_g: 70
+      sowing_density_per_m2: 0.6
+
+  "Cucumis melo":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 25
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1.5
+      days_to_germination: 5
+      seed_viability_years: 5
+      thousand_seed_weight_g: 22
+
+  "Eruca vesicaria":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 20
+      sowing_depth_cm: 0.5
+      days_to_germination: 3
+      seed_viability_years: 3
+      light_germination: light
+      sowing_density_per_m2: 2000
+
+  "Glycine max":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 30
+      sowing_depth_cm: 2.5
+      days_to_germination: 5
+      light_germination: dark
+      thousand_seed_weight_g: 97.3
+      sowing_density_per_m2: 20
+
+  "Hordeum vulgare":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 30
+      sowing_depth_cm: 3
+      days_to_germination: 5
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 45
+      sowing_density_per_m2: 350
+
+  "Lens culinaris":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 5
+      germination_temp_max_c: 35
+      sowing_depth_cm: 4
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: indifferent
+      thousand_seed_weight_g: 40
+      sowing_density_per_m2: 120
+
+  "Luffa aegyptiaca":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 24
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1.5
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: light
+      pretreatment: [scarification, presoak]
+      thousand_seed_weight_g: 97
+
+  "Matricaria chamomilla":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 20
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 0.09
+      sowing_density_per_m2: 1100
+
+  "Nicotiana tabacum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 30
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 5
+      light_germination: light
+      thousand_seed_weight_g: 0.05
+
+  "Oryza sativa":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 35
+      sowing_depth_cm: 2
+      days_to_germination: 5
+      seed_viability_years: 2
+      light_germination: indifferent
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 25
+      sowing_density_per_m2: 250
+
+  "Physalis peruviana":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 29
+      sowing_depth_cm: 0.5
+      days_to_germination: 14
+      light_germination: light
+      thousand_seed_weight_g: 1
+
+  "Sorghum bicolor":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 27
+      sowing_depth_cm: 5
+      days_to_germination: 5
+      seed_viability_years: 5
+      thousand_seed_weight_g: 25
+      sowing_density_per_m2: 25
+
+  "Tagetes erecta":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 24
+      sowing_depth_cm: 0.6
+      days_to_germination: 4
+      seed_viability_years: 2
+      light_germination: indifferent
+
+  "Triticum aestivum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 35
+      sowing_depth_cm: 4
+      days_to_germination: 7
+      seed_viability_years: 3
+      thousand_seed_weight_g: 45
+      sowing_density_per_m2: 400
+
+  "Verbena x hybrida":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 26
+      sowing_depth_cm: 0.3
+      days_to_germination: 14
+      light_germination: dark
+      pretreatment: [cold_stratification]
+      thousand_seed_weight_g: 2.9
+
+  "Vicia faba":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 6
+      germination_temp_max_c: 24
+      sowing_depth_cm: 5
+      days_to_germination: 7
+      seed_viability_years: 2
+      light_germination: dark
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 500
+      sowing_density_per_m2: 45
+
+  "Zea mays":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 32
+      sowing_depth_cm: 4
+      days_to_germination: 4
+      seed_viability_years: 2
+      light_germination: indifferent
+      thousand_seed_weight_g: 280
+      sowing_density_per_m2: 5
 
 lifecycle_configs:
   "Allium cepa":

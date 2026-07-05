@@ -125,6 +125,26 @@ Mitteleuropa (Zone 7–8), Bezugspunkt: letzter Frost Mitte Mai.
 | Boden-pH-Vorzug (min–max) | 6.0–7.5 (leicht sauer bis leicht alkalisch; Optimum 6.5–6.8; harmoniert mit der Fertigations-pH-Empfehlung 6.0–6.8 in §2.3/§3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2.5 (Spanne 2–3 cm, vgl. §1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Gartensaatgut-Faustregel für großsamige Asteraceen; Keimfähigkeit sinkt danach graduell, verschwindet aber nicht abrupt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Saattiefe 2–3 cm; Dunkelkeimer gemäß §1.3 dieses Dokuments, bestätigt durch University of Minnesota Extension) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine erforderlich; kultivierte Sorten benötigen weder Stratifikation noch Skarifikation --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 40–120 (starke Sortenabhängigkeit: Ölsonnenblumen ca. 40–70 g/1000 Korn, Konditorsonnenblumen/Knabberkerne ca. 90–120 g/1000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 3–11 (aus §1.6-Platzbedarf 30–60 cm abgeleitet: Riesensorten ~60 cm-Raster ≈ 2,8 Pflanzen/m², Zwergsorten ~30 cm-Raster ≈ 11 Pflanzen/m²; deckt sich mit Feldversuchen 3,5–8,3 Pflanzen/m² je nach Sorte/Standraum) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Sonnenblumen sind belegte Dunkelkeimer — bereits in §1.3 dokumentiert (Saattiefe 2–3 cm) und durch die University of Minnesota Extension bestätigt. Die Tausendkornmasse variiert stark zwischen Öl- und Konditorsonnenblumen (ca. 40–70 g vs. 90–120 g je 1000 Korn); da dieser Steckbrief sowohl Zier- als auch Nutzsorten (Riesen-, Zwerg-, verzweigende Sorten) abdeckt, wird die volle Spanne dokumentiert statt ein einzelner Sortentyp-Wert. Die Aussaatdichte wurde konsistent aus dem bereits in §1.6 dokumentierten Platzbedarf abgeleitet und durch unabhängige Feldstudien-Werte (2,8–8,3 Pflanzen/m²) bestätigt.
+
+Quellen (§1.8): [University of Minnesota Extension — Growing Sunflowers](https://extension.umn.edu/flowers/growing-sunflowers) (bereits als Quelle 2 im Hauptquellenverzeichnis gelistet; Dunkelkeimer, Saattiefe, Keimtemperatur); [Homestead and Chill — Seed Viability Chart](https://homesteadandchill.com/old-seeds-viability-chart/) (Keimfähigkeitsdauer Gartensaatgut ~3–4 Jahre); [Stone Post Gardens — Demystifying the Size of the Mighty Sunflower Seed](https://stonepostgardens.com/size-of-a-sunflower-seed/) (Tausendkornmasse Ölsonnenblume 40–70 g); [OCL Journal — Confectionery sunflower breeding and supply chain in Eastern Europe](https://www.ocl-journal.org/articles/ocl/full_html/2019/01/ocl190002/ocl190002.html) (Tausendkornmasse Konditorsonnenblume 90–120 g); [MDPI Agronomy — Sunflower Yield and Yield Components for Various Agricultural Practices](https://www.mdpi.com/2073-4395/14/1/36) (Aussaatdichte 2,8–8,3 Pflanzen/m² je nach Sorte/Standraum, Steppenzone)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -553,3 +573,9 @@ Autumn Beauty,Helianthus annuus,--,--,branching;multicolor;tall;ornamental,open_
 18. Reuter, D.J. & Robinson, J.B. (1997) — Plant Analysis: An Interpretation Manual, 2nd Ed., CSIRO Publishing (Sonnenblume Blattgewebe-Suffizienz Mn 15–99, Zn 15–69, Cu 6–24 ppm): https://www.publishing.csiro.au/book/437/
 19. ShunCy / KEGG PATHWAY han00195 — Helianthus annuus C3-Photosynthese (Photosynthese-Typ c3): https://www.genome.jp/pathway/han00195
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+20. Homestead and Chill — Seed Viability Chart: https://homesteadandchill.com/old-seeds-viability-chart/ — Keimfähigkeitsdauer Gartensaatgut
+21. Stone Post Gardens — Demystifying the Size of the Mighty Sunflower Seed: https://stonepostgardens.com/size-of-a-sunflower-seed/ — Tausendkornmasse Ölsonnenblume
+22. OCL Journal — Confectionery sunflower breeding and supply chain in Eastern Europe: https://www.ocl-journal.org/articles/ocl/full_html/2019/01/ocl190002/ocl190002.html — Tausendkornmasse Konditorsonnenblume
+23. MDPI Agronomy — Sunflower Yield and Yield Components for Various Agricultural Practices: https://www.mdpi.com/2073-4395/14/1/36 — Aussaatdichte Pflanzen/m²
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

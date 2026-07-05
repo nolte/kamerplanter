@@ -119,6 +119,26 @@
 **Hinweis:** Vollsonniger Standort (full sun) mit mind. 6 h Direktsonne fördert die reichste Blüte; Halbschatten wird toleriert, reduziert aber die Blütenzahl. Flaches, faseriges Wurzelsystem (≈ 15–30 cm) → empfindlich gegen Staunässe (waterlogging), Pythium-Wurzelfäule ist die häufigste Verlustursache. Salztoleranz: in der Floristik-Produktion als mäßig salzempfindlich (moderately_sensitive) eingestuft — bereits ab Substrat-ECe ≈ 3 dS/m sinken Wuchs, Blüte und Chlorophyllgehalt deutlich; präzise Maas-Hoffman-Parameter (a/b) sind für die Zierpflanze nicht publiziert. Der pH-Vorzug 5.8–6.5 (Optimum der Nährstoffverfügbarkeit, insbes. Fe/Mn) ist enger als der in §1.6/§2.3 genannte tolerierbare Korridor 6.0–7.0; unter pH 5.5 droht Fe/Mn-Toxizität, deutlich über 6.6 Fe-Mangel-Chlorose.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.3 (ca. 1/8 inch; nur mit einer duennen Schicht feinen Substrats/Vermiculits bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–14 Tage; einzelne Quellen nennen bis zu 20 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine artspezifische Angabe zur Lagerfähigkeit von Pelargonium-Saatgut in seriösen Quellen auffindbar --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification (mechanisches Anschleifen der harten Testa mit Sandpapier/Nagelfeile ODER 6–12h Einweichen in warmem Wasser steigert die Keimrate von <1% auf 90–100% innerhalb von 2 Wochen) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: verfügbare Zahl (~220–225 Samen/g, entsprechend ~4.4 g TKG) stammt aus nur einer Produktquelle (Renee's Garden 'Fancy Pants') und ist nicht durch eine zweite, unabhängige Quelle bestätigt --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- SECTION MISSING: kein Reihen-/Direktsaat-Feldanbau — Pelargonium zonale wird in Zellplatten/Einzeltöpfen ausgesät, keine Flächen-Aussaatdichte dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Pelargonium-Samen besitzen eine harte, wasserundurchlässige Testa. Ohne Vorbehandlung keimen sie extrem schlecht (< 1 % innerhalb von 2 Wochen); durch leichtes Anschleifen der Samenschale (Scarifizierung) oder Einweichen in warmem Wasser (6–12 h) lässt sich die Keimrate auf 90–100 % steigern. Samen sind Lichtkeimer und werden daher nur hauchdünn bedeckt.
+
+Quellen (§1.8): [Thompson & Morgan — Raising F1 Hybrid Geraniums from Seed](https://www.thompson-morgan.com/raising-f1-geraniums-from-seed); [Flower Patch Farmhouse — Grow Geraniums from Seed (Pelargoniums)](https://www.flowerpatchfarmhouse.com/grow-geraniums-from-seed-pelargoniums/); [Horticulture.co.uk — Seed Sowing Geraniums](https://horticulture.co.uk/geraniums/sowing/); [Dave's Garden — Propagation: Geranium seed germination](https://davesgarden.com/community/forums/t/1227563/); [Carol J. Michel — Pelargonium Seeds](https://caroljmichel.com/pelargonium-seeds/); [Scented Leaf — Growing pelargoniums from seeds](http://blog.scentedleaf.com/2010/12/growing-pelargoniums-from-seeds.html); [Senior Gardening — Growing Geraniums from Seed](http://www.senior-gardening.com/features/seed_geraniums-2009.html)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -336,3 +356,12 @@ Pelargonium zonale,"Zimmerpelargonie;Zonale Geranie;Stehende Geranie;Zonal Geran
 19. [Garten-Land Wohlhüter — Pelargonium zonale](https://www.garten-land.de/pflanzen/beet-balkon/pelargonium-zonale) — Blütezeit Mai–Oktober
 20. [Hauenstein AG — Geranie/Pelargonium](https://www.hauenstein-rafz.ch/de/pflanzenwelt/pflanzenportrait/sommerflor/Geranie-Pelargonium.php) — Blütezeit Mai–Oktober, Überwinterung ~10 °C
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+21. [Thompson & Morgan — Raising F1 Hybrid Geraniums from Seed](https://www.thompson-morgan.com/raising-f1-geraniums-from-seed) — Keimtemperatur 18–20 °C, Lichtkeimer
+22. [Flower Patch Farmhouse — Grow Geraniums from Seed (Pelargoniums)](https://www.flowerpatchfarmhouse.com/grow-geraniums-from-seed-pelargoniums/) — Saattiefe max. 1/8 inch
+23. [Horticulture.co.uk — Seed Sowing Geraniums](https://horticulture.co.uk/geraniums/sowing/) — Lichtkeimer, harte Testa, hard-coated seeds germinate in 14 Tagen bei 20 °C
+24. [Dave's Garden — Propagation: Geranium seed germination](https://davesgarden.com/community/forums/t/1227563/) — Praxiserfahrung Scarifizierung/Einweichen
+25. [Carol J. Michel — Pelargonium Seeds](https://caroljmichel.com/pelargonium-seeds/) — Scarifizierungs-Technik, Keimraten-Vergleich (90–100% vs. <1%)
+26. [Scented Leaf — Growing pelargoniums from seeds](http://blog.scentedleaf.com/2010/12/growing-pelargoniums-from-seeds.html) — Nick+Soak-Methode, Keimung in 2 Tagen nach Vorbehandlung
+27. [Senior Gardening — Growing Geraniums from Seed](http://www.senior-gardening.com/features/seed_geraniums-2009.html) — Keimdauer bis 20 Tage, Anzuchtpraxis
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

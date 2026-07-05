@@ -125,6 +125,31 @@ Hinweis: Beschaedigte oder gelbe Aussenblaetter regelmaessig entfernen. Bluetens
 | Boden-pH-Vorzug (min--max) | 6.0--7.0 (neutral bis leicht sauer; harmoniert mit der Topf-Substratempfehlung in 1.6 und den Naehrstoffprofilen in 2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 8 (eigene Keimhinweise §1.3; sehr langsame Keimung unterhalb dieses Wertes) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 (Optimalbereich 18--24 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 (Spanne 0.5--2 cm je nach Quelle; eigene §1.3 nennt 1--2 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 (unterer Wert der eigenen §1.3-Spanne 10--20 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Lauch zählt zu den kurzlebigen Allium-Saatgütern) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (eigene §1.3 nennt Lauch explizit als Dunkelkeimer, 1--2 cm Erdabdeckung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: keine Stratifikation/Skarifikation/Einweichen für Lauchsaatgut dokumentiert --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.0 (Sortenspanne ca. 2.2--3.55 g je nach Quelle/Sorte) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 15 (aus Pflanzabstand §1.6: 15--20 cm Reihe × 30--40 cm Reihenabstand ≈ 13--22/m²) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert):**
+- Keimtemperatur: eigene Keimhinweise §1.3 (Steckbrief); [West Coast Seeds — How to Grow Leeks from Seed](https://www.westcoastseeds.com/blogs/wcs-academy/grow-leeks) (65–75 °F ≈ 18–24 °C)
+- Saattiefe: eigene Keimhinweise §1.3 (Steckbrief, 1–2 cm); [The Seed Collection — How to Grow Leek Seeds](https://www.theseedcollection.com.au/growguide/leek-seeds) (5 mm) / [Johnny's Selected Seeds — Leeks Key Growing Information](https://www.johnnyseeds.com/growers-library/vegetables/leeks/leeks-key-growing-information.html)
+- Tage bis Keimung: eigene Keimhinweise §1.3 (Steckbrief, 10–20 Tage); [Master Gardener Association of San Diego County — Leeks](https://www.mastergardenersd.org/leeks/) (10–14 Tage bei 21 °C)
+- Keimfähigkeitsdauer: [PMC7230053 — The effects of high oxygen partial pressure on vegetable Allium seeds with a short shelf-life](https://pmc.ncbi.nlm.nih.gov/articles/PMC7230053/); [SeedSavers — Growing Guide: Leeks](https://seedsavers.org/grow-leeks/)
+- Licht-/Dunkelkeimer: eigene Keimhinweise §1.3 (Steckbrief, explizit Dunkelkeimer); allgemeine Allium-Keimcharakteristik konsistent mit Allium cepa/schoenoprasum in dieser Artenreihe
+- Tausendkornmasse: [Cambridge Core — Leek (Allium porrum L.) seed development and germination](https://www.cambridge.org/core/services/aop-cambridge-core/content/view/E5B14C565572593ABA66F11BDAEA95AF/S0960258500001185a.pdf/leek_allium_porrum_l_seed_development_and_germination.pdf) (3.55 g); [Molesseeds/Vital Seeds — Seeds per gram Kataloge](https://www.westcoastseeds.com/blogs/glossary/seeds-per-gram) (320–450 Samen/g ≈ 2.2–3.1 g/1000)
+- Aussaatdichte: eigene Pflanzabstand-Angabe §1.6 (Steckbrief); [West Coast Seeds — How to Grow Leeks from Seed](https://www.westcoastseeds.com/blogs/wcs-academy/grow-leeks) (6 Samen/ft, Reihenabstand 24 in ≈ 11/m² als Quervalidierung der Größenordnung)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenuebersicht

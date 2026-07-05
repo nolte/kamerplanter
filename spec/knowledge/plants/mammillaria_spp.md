@@ -120,6 +120,30 @@
 **Hinweis:** Mammillaria betreibt obligaten Crassulaceen-Säurestoffwechsel (CAM, Crassulacean Acid Metabolism) — Stomata öffnen nachts, was den Lichtkompensationspunkt nicht im klassischen Tagesmittel-Sinn definiert; die angegebene Spanne (10–40 µmol/m²/s) entspricht dem für Wüsten-CAM-Sukkulenten typisch sehr niedrigen Kompensationsbereich. Lichtsättigung der nächtlichen CO₂-Fixierung wird erst bei hohen Tages-PAR-Summen (≈ 20–22 mol/m²/Tag) erreicht (Nobel; gehört NICHT in das Kompensationspunkt-Feld). Wurzelsystem flach und faserig (oberste ~5–15 cm) — passt zur Strategie, kurze Oberflächenfeuchte schnell aufzunehmen. Wegen Wasserspeichergewebe extrem staunässe- und (qualitativ) salzempfindlich. Boden-pH-Vorzug konsistent mit §1.6 und §2.3 (pH 6.0–7.0).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 (§1.3 bereits 22–28°C; Fachliteratur nennt konsistent 20–30°C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; Samen nur auf Substratoberfläche auflegen, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (Radikula-Austritt innerhalb 5–10 Tagen bei Mammillaria als vergleichsweise schnellem Keimer; Keimung erfolgt in Schüben mit langen Intervallen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 5 (praktische Nutzungsgrenze — nach 5 Jahren Lagerung sinkt die Keimrate spürbar; bei optimaler trockener/kühler/dunkler Lagerung sind Jahrzehnte möglich) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (direktes Licht für zuverlässige, gleichmäßige Keimung erforderlich; Keimung im Dunkeln/Halbschatten ungleichmäßig bis faulend) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (keine Stratifikation/Skarifikation erforderlich; einzelne großblütige Arten zeigen einen artspezifischen "Keimbarriere"-Effekt, der durch Trocknen/Neuversuch, nicht durch klassische Vorbehandlung, überwunden wird) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: kein belegter TKG-Wert für Mammillaria spp. aus zwei unabhängigen Quellen auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Aussaat erfolgt in Anzuchtschalen/Töpfen, keine Flächen-/Reihensaat --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. [Plant Grower World — Germinate Cactus Seeds Like a Pro](https://plantgrowerworld.com/germinating-cactus-seeds-guide/) — Keimtemperatur 21–27°C (70–80°F), Keimdauer 1–2 Wochen, Lichtbedarf
+2. [Koehres-Kakteen — Sowing Instructions](https://www.kaktus-koehres.de/Downloads/sowing_instructions.pdf) — Aussaat auf Substratoberfläche, direktes Licht erforderlich, Keimtemperatur 20–30°C
+3. [OBLOG (Opuntiads) — Cactus Seed Responses to Temperature](https://opuntiads.com/oblog/cactus-seed-responses-to-temperature/) — Mammillaria als schneller Keimer (Radikula binnen 5–10 Tagen), Keimung in Schüben
+4. [UnusualSeeds — How To Grow Mammillaria From Seeds](https://unusualseeds.net/how-to-grow-mammillaria-from-seeds/) — Keimfähigkeitsprüfung, artspezifische Keimbarriere bei großblütigen Arten (Trocknen/Neuversuch)
+5. [CactiGuide.com Forum — Seed viability](https://cactiguide.com/forum/viewtopic.php?t=21450) — Keimfähigkeit nach 5 Jahren Lagerung deutlich reduziert; Jahrzehnte bei optimaler Lagerung möglich
+6. §1.3 dieses Steckbriefs (bereits zitierte Quelle: Samen bei 22–28°C, Keimung 1–3 Wochen) — Cross-Check Keimtemperatur/-dauer
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

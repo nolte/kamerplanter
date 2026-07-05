@@ -105,6 +105,30 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.5 (Optimum 6,5–7,0; harmonisiert mit §1.6/§2.3; höhere pH-Werte beugen Kohlhernie vor) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Optimum ca. 21 °C/70 °F; Keimung auch bis 30 °C möglich) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (5–10 Tage bei Optimaltemperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (kein Lichtbedürfnis; übliche Bedeckung mit 1,5 cm Erde — Kohlgemüse gilt physiologisch als lichtindifferent) | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.3 (ca. 300 Samen/g, gattungstypisch für Brassica-Gemüsesaatgut) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 22 (Endabstand 15 cm in der Reihe, Reihenabstand 30 cm It. RHS) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. RHS — How to grow Kohl rabi: Saattiefe 1,5 cm, Endabstand 15 cm, Reihenabstand 30 cm, Keimung "in weniger als zwei Wochen": https://www.rhs.org.uk/vegetables/kohl-rabi/grow-your-own
+2. Harvest to Table — Kohlrabi Seed Starting Tips: Keimtemperatur optimal 70 °F (21 °C), 5–10 Tage bis Keimung, Keimfähigkeit 4 Jahre: https://harvesttotable.com/kohlrabi-seed-starting-tips/
+3. Iowa State University Extension (Yard and Garden) — Growing Kohlrabi in the Home Garden: Endabstand ca. 10–15 cm, Kulturhinweise: https://yardandgarden.extension.iastate.edu/how-to/growing-kohlrabi-home-garden
+4. Gardening Know How — Kohlrabi Seed Propagation: Keimtemperatur-Toleranz 10–30 °C, Keimfähigkeit "bis zu 4 Jahre": https://www.gardeningknowhow.com/edible/vegetables/kohlrabi/how-to-plant-kohlrabi-seeds.htm
+5. Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate: Kohlgemüse zählt zu den lichtindifferenten Gemüsearten: https://gardenbetty.com/seed-germination-light-darkness/
+6. Nimrod Bio — Seeds Per Gram Chart (Brassica-Gemüse ca. 300 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

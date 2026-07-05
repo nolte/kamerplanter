@@ -115,6 +115,29 @@
 **Hinweis:** Schattenpflanze (shade) aus ostafrikanischen Bergwäldern — gedeiht von Halbschatten bis Tiefschatten (deep shade tolerant), verträgt aber keine pralle Mittagssonne (Blattverbrennung). Der pH-Optimumkorridor 6.0–6.5 (Quellen [11], [12]) liegt innerhalb des in §1.6/§2.3 genannten verträglichen Bereichs 6.0–7.0 — kein Widerspruch. Salzempfindlich (moderately_sensitive): bereits bei Substrat-ECe ~7 dS/m messbarer Frischmasseverlust (Quelle [10]).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 (Optimum enger bei 22–25 °C je nach Quelle) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — nur auf die Oberfläche legen und andrücken, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (unterer Wert von 5–15 Tagen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (kurzlebiges Saatgut; explizit als 1-Jahres-Saatgut in Keimfähigkeits-Übersichten geführt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine: keine Stratifikation/Skarifikation/Einweichen dokumentiert --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.7 (sehr feines Saatgut; ca. 1.400–1.500 Samen/g laut Saatgutpackungs-Füllgewichten, entspricht ~0,67–0,71 g/1.000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Beetpflanze wird in Presstopf-/Multitopfplatten ausgesät, keine Flächendichte-Angabe wie bei Reihenkulturen dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [UMN Extension — Impatiens](https://extension.umn.edu/flowers/impatiens) — Keimtemperatur, Lichtkeimer
+2. [Iowa State University Extension — How to Start Impatiens from Seed](https://yardandgarden.extension.iastate.edu/how-to/how-start-impatiens-seed) — Keimtemperatur, Keimdauer, Saattiefe/Licht
+3. [Burpee — How to Grow Impatiens from Seed](https://www.burpee.com/garden-guide/ornamental-gardening/growing-impatiens-from-seed) — Keimdauer, Anzuchtbedingungen
+4. [McKenzie Seeds / Harris Seeds — Impatiens-Saatgutpackungen (Füllgewicht/Samenzahl)](https://mckenzieseeds.com/products/impatiens-tropical-fizz-hybrid) — Basis der TKM-Schätzung
+5. [joegardener — Seed Longevity Chart](https://joegardener.com/wp-content/uploads/2020/12/Seed-Longevity-Chart.pdf) — Keimfähigkeitsdauer 1 Jahr
+
 ---
 
 ## 2. Wachstumsphasen

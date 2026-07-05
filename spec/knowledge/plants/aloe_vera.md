@@ -116,6 +116,10 @@
 | Boden-pH-Vorzug (soil pH preference) | 6.0–8.5 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Aloe vera wird im Hobby- und Erwerbsanbau ganz überwiegend über Kindel/Ableger (offset, siehe §1.3) vermehrt — dies ist schneller, sortenecht und liefert eine erntereife Pflanze deutlich früher als Samenvermehrung. Echte Samenvermehrung ist bei Aloe vera selten (u.a. weil die Art in Kultur oft klonal/steril bzw. selbstinkompatibel ist und kaum brauchbares Saatgut im Handel verfügbar ist) und für den praktischen Kamerplanter-Anwendungsfall nicht relevant. Es werden daher KEINE Keimwerte erfunden; `species.seed_profile` bleibt für diese Art unbefüllt (null). -->
+
 ---
 
 ## 2. Wachstumsphasen

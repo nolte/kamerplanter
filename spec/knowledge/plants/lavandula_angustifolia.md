@@ -108,6 +108,31 @@
 | Boden-pH-Vorzug (min–max) | 6.5–7.5 (neutral bis leicht alkalisch; harmoniert mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — nur andrücken, max. 0,3 cm falls überhaupt bedeckt) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (unterer Wert der artüblichen 14–60 Tage nach Stratifikation; einzelne Sorten wie 'Munstead' können ohne Stratifikation bereits in 3–7 Tagen keimen, siehe Hinweis) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 5 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (für gleichmäßige/zuverlässige Keimung empfohlen, für einzelne Sorten wie 'Munstead' nicht zwingend erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1.1 (ca. 900–1.000 Samen/g je nach Quelle/Sorte, entspricht ~1,0–1,1 g/1.000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Lavendel wird kommerziell überwiegend über Stecklinge/Jungpflanzen kultiviert, keine belastbare Reihen-Direktsaat-Dichte (Korn/m²) aus den geprüften Quellen --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Cold Stratification ist nicht bei allen Sorten zwingend — 'Munstead' und einige weitere englische Sorten keimen auch ohne Kältebehandlung, wenn auch etwas langsamer und unregelmäßiger als mit Stratifikation.
+
+Quellen (§1.8):
+1. [Bloom Outlet — Lavandula angustifolia (English Lavender) Seed Guide](https://bloomoutlet.com/lavandula-angustifolia-english-lavender-seed-guide/) — Keimtemperatur, Stratifikation
+2. [Twin Flame Lavender Farm — Comprehensive Guide for Successfully Germinating Lavender from Seed](https://twinflamelavender.farm/3-hacks-4-myths-busted-comprehensive-guide-for-successfully-germinating-lavender-from-seed-in-7-days/) — Keimdauer, sortenabhängige Stratifikationsanforderung, Lichtkeimer
+3. [Gardenia.net — How to Grow Lavender from Seeds](https://www.gardenia.net/guide/how-to-grow-lavender-from-seeds-fragrant-flowers-made-simple) — Saattiefe/Lichtkeimer, Keimtemperatur
+4. [Urban Farmer — English Lavender Seeds](https://www.ufseeds.com/product/english-lavender-seeds/LAEN.html) — Saatgutzähldichte (Samen/Gramm)
+5. [Gardeners Basics — Flower Seed Viability Chart](https://www.gardenersbasics.com/tools/blog/flower-seed-viability-chart-for-gardeners) — Keimfähigkeitsdauer bis 5 Jahre
+
 ---
 
 ## 2. Wachstumsphasen

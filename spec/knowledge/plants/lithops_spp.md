@@ -115,6 +115,28 @@
 **Hinweis:** Lithops sind volle Sonne (full sun) gewohnt (Kieswüsten Südafrika/Namibia, kein Kronendach), benötigen aber im Mitteleuropa-Sommer Schutz vor intensiver Mittagssonne (40% Schattiergewebe April–September) zur Vermeidung von Verbrennungen — das ist Stressschutz, keine echte Schattentoleranz. Lichtkompensationspunkt (light compensation point, LCP): CAM-Sukkulenten haben sehr niedrige LCP-Werte, ein artspezifischer Wert für Lithops ist aber nicht belegt. Salztoleranz: Lithops reagieren empfindlich (sensitive) auf Dünger-/Salzanreicherung im Substrat; Symptome (gelbe Körper, weiße Salzkruste, braune Spitzen) treten schon bei geringer Überdüngung auf — quantitative ECe-Schwellen (Substrat-ECe, nicht Gießwasser-EC) sind in der Literatur nicht belegt. Boden-pH 6.0–7.0 (quellentreu); dies überschneidet sich mit der in §1.6/§2.3 genannten Spanne 6.5–7.5 — der konsensgestützte Optimalbereich liegt bei 6.5–7.0. <!-- W-013 -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 (Tag; Nachttemperatur 10–15°C — Temperaturwechsel fördert Keimung) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 28 (obere Konsensgrenze aus §1.3 22–28°C und Beci-Lithops-Tagesspanne 20–25°C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; nur auf feuchtes Substrat andrücken, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–24 Tage; vereinzelte Samen keimen erst nach Wochen bis Monaten) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 10 (bei kühler, dunkler, trockener Lagerung; viele Arten bleiben deutlich länger keimfähig) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (keine Stratifikation/Skarifikation dokumentiert) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: kein belegter TKG-Wert für Lithops spp. aus zwei unabhängigen Quellen auffindbar; Samen extrem klein/staubfein --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Aussaat erfolgt in Anzuchtschalen/Töpfen (kein Feld-/Reihenanbau); kein Flächendichte-Wert anwendbar --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. [Beci Lithops — How To Grow Lithops From Seed](https://www.lithops.me/en/how-to-grow-lithops-from-seed/) — Keimtemperatur (Tag 20–25°C, Nacht 10–15°C), Keimdauer (7–24 Tage), Aussaat auf Substratoberfläche ohne Bedeckung
+2. [World of Succulents — How to Grow Lithops from Seed](https://worldofsucculents.com/grow-lithops-seed/) — Keimdauer (bis zu 6 Wochen, vereinzelt länger), Lichtbedarf beim Keimen
+3. [BCSS Forum — Growing Lithops from seed](https://forum.bcss.org.uk/viewtopic.php?t=144166) — Keimfähigkeitsdauer > 10 Jahre bei kühler, trockener, dunkler Lagerung
+4. §1.3 dieses Steckbriefs (bereits zitierte Quellen: Samen bei 22–28°C, Keimung 7–21 Tage, Substratoberfläche ohne Bedeckung) — Cross-Check Keimtemperatur/-tiefe
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
