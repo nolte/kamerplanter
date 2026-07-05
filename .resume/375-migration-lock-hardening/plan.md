@@ -134,4 +134,6 @@ non-fatal), which is acceptable but must be called out in the PR.
 - [x] D4 implemented (whole-class checksum) → `base.py` hashes `inspect.getsource(type(self))`.
 - [x] Full backend gate green → ruff check + format clean; `pytest tests/unit` 3189 passed
       (162 migration tests incl. new lock/barrier/precondition).
-- [ ] PR opened to develop (`pull-request-create`), links #375
+- [x] PR opened to develop (`pull-request-create`), links #375
+      → **PR #386 (Draft)** https://github.com/nolte/kamerplanter/pull/386
+        Rebased onto develop (#385, no file overlap); pushed; awaiting first CI pass to flip ready.
