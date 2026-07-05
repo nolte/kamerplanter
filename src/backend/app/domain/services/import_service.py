@@ -89,7 +89,10 @@ class ImportService:
             from app.domain.models.species import Species
 
             def create_species(data: dict):
-                species = Species(scientific_name=data["scientific_name"], **_species_fields_from_row(data))
+                species = Species(
+                    scientific_name=data["scientific_name"],
+                    **_species_fields_from_row(data, self._family_repo),
+                )
                 self._species_repo.create(species)
 
             return create_species
@@ -143,10 +146,13 @@ class ImportService:
                     from app.domain.models.species import Species
 
                     self._species_repo.create(
-                        Species(scientific_name=data["scientific_name"], **_species_fields_from_row(data))
+                        Species(
+                            scientific_name=data["scientific_name"],
+                            **_species_fields_from_row(data, self._family_repo),
+                        )
                     )
                     return
-                for field, value in _species_fields_from_row(data).items():
+                for field, value in _species_fields_from_row(data, self._family_repo).items():
                     setattr(existing, field, value)
                 self._species_repo.update(existing.key, existing)
 
@@ -207,7 +213,7 @@ def _to_bool(value: str | None) -> bool | None:
     return None
 
 
-def _species_fields_from_row(data: dict) -> dict:
+def _species_fields_from_row(data: dict, family_repo=None) -> dict:
     """Map the SPECIES CSV template columns to ``Species`` model fields.
 
     Only ``scientific_name`` is required (handled by the caller); every other
@@ -217,8 +223,14 @@ def _species_fields_from_row(data: dict) -> dict:
 
     Two template columns have no direct model field:
       * ``cycle_type`` — no matching ``Species`` field → intentionally dropped;
-      * ``family_name`` — mapped best-effort to ``family_key`` (the natural
-        family reference); the model has no ``family_name`` display field.
+      * ``family_name`` — resolved to the referenced ``BotanicalFamily`` document
+        via ``family_repo.get_by_name`` and stored as ``family_key`` (an ArangoDB
+        ``_key``). When no family matches (or no ``family_repo`` is wired) the
+        ``family_key`` is left unset rather than filled with the display name —
+        writing the name into the ``_key``-typed field produced a dangling
+        reference that ``crop_rotation_validator.get_by_key`` could never resolve,
+        silently breaking the crop-rotation / companion family checks for
+        imported species.
     """
     from app.common.enums import GrowthHabit, RootType, Suitability
 
@@ -226,8 +238,11 @@ def _species_fields_from_row(data: dict) -> dict:
     if data.get("common_name"):
         # Template column is singular; the model stores a list of common names.
         fields["common_names"] = [data["common_name"]]
-    if data.get("family_name"):
-        fields["family_key"] = data["family_name"]
+    family_name = data.get("family_name")
+    if family_name and family_repo is not None:
+        family = family_repo.get_by_name(family_name)
+        if family is not None and family.key:
+            fields["family_key"] = family.key
     if data.get("growth_habit"):
         fields["growth_habit"] = GrowthHabit(data["growth_habit"].lower())
     if data.get("root_type"):

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import SyncStatus
+from app.common.enums import DataOrigin, SyncStatus
 from app.domain.engines.enrichment_engine import EnrichmentEngine
 from app.domain.models.enrichment import ExternalMapping, ExternalSpeciesData, FieldMapping, SyncRun
 from app.domain.models.species import Species
@@ -228,6 +228,61 @@ class TestApplyEnrichment:
         origin_calls = [c for c in mock_species_repo.update_field.call_args_list if c.args[1] == "origin"]
         assert origin_calls == []
 
+    def test_apply_enrichment_promotes_system_origin(
+        self,
+        engine,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_external_data,
+    ):
+        # A seed ('system') species is promoted to 'enrichment' once enriched.
+        system_species = Species(
+            _key="sp_1",
+            scientific_name="Rosa canina",
+            common_names=[],
+            genus="",
+            growth_habit="herb",
+            root_type="fibrous",
+            origin=DataOrigin.SYSTEM,
+        )
+        mock_species_repo.get_by_key.return_value = system_species
+        mock_mapping_repo.get_by_internal.return_value = None
+        mock_mapping_repo.create.side_effect = lambda m: ExternalMapping(**{**m.model_dump(), "_key": "em_1"})
+
+        engine._apply_enrichment("sp_1", "gbif", sample_external_data)
+
+        mock_species_repo.update_field.assert_any_call("sp_1", "origin", "enrichment")
+
+    def test_apply_enrichment_preserves_tenant_origin(
+        self,
+        engine,
+        mock_species_repo,
+        mock_mapping_repo,
+        sample_external_data,
+    ):
+        # A user-created ('tenant') species is enriched field-by-field but keeps
+        # its origin, so the owner never loses edit/delete rights (fix-forward).
+        tenant_species = Species(
+            _key="sp_1",
+            scientific_name="Rosa canina",
+            common_names=[],
+            genus="",
+            growth_habit="herb",
+            root_type="fibrous",
+            origin=DataOrigin.TENANT,
+        )
+        mock_species_repo.get_by_key.return_value = tenant_species
+        mock_mapping_repo.get_by_internal.return_value = None
+        mock_mapping_repo.create.side_effect = lambda m: ExternalMapping(**{**m.model_dump(), "_key": "em_1"})
+
+        engine._apply_enrichment("sp_1", "gbif", sample_external_data)
+
+        # Fields are still enriched (e.g. the empty common_names is written) ...
+        mock_species_repo.update_field.assert_any_call("sp_1", "common_names", ["Dog Rose"])
+        # ... but the origin is never flipped away from 'tenant'.
+        origin_calls = [c for c in mock_species_repo.update_field.call_args_list if c.args[1] == "origin"]
+        assert origin_calls == []
+
     def test_propose_only_for_existing_values(self, engine, mock_species_repo, mock_mapping_repo, sample_external_data):
         species_with_data = Species(
             _key="sp_1",
@@ -356,6 +411,10 @@ class TestAcceptRejectFields:
         )
         mock_mapping_repo.get_by_internal.return_value = mapping
         mock_mapping_repo.update.side_effect = lambda key, m: m
+        # A seed ('system') species — provenance may be promoted to 'enrichment'.
+        mock_species_repo.get_by_key.return_value = Species(
+            _key="sp_1", scientific_name="Rosa canina", origin=DataOrigin.SYSTEM
+        )
 
         result = engine.accept_fields("sp_1", "gbif", ["genus"])
 
@@ -364,6 +423,32 @@ class TestAcceptRejectFields:
         # to 'enrichment' (REQ-011).
         mock_species_repo.update_field.assert_any_call("sp_1", "genus", "Rosa")
         mock_species_repo.update_field.assert_any_call("sp_1", "origin", "enrichment")
+
+    def test_accept_fields_preserves_tenant_origin(self, engine, mock_species_repo, mock_mapping_repo):
+        # A user-created ('tenant') species keeps its origin on manual acceptance,
+        # so the owner never loses edit/delete rights to their own record.
+        mapping = ExternalMapping(
+            _key="em_1",
+            internal_collection="species",
+            internal_key="sp_1",
+            source_key="gbif",
+            external_id="123",
+            field_mappings={
+                "genus": FieldMapping(external_value="Rosa", confidence=0.7, accepted=False),
+            },
+        )
+        mock_mapping_repo.get_by_internal.return_value = mapping
+        mock_mapping_repo.update.side_effect = lambda key, m: m
+        mock_species_repo.get_by_key.return_value = Species(
+            _key="sp_1", scientific_name="Rosa canina", origin=DataOrigin.TENANT
+        )
+
+        engine.accept_fields("sp_1", "gbif", ["genus"])
+
+        # The field is still written, but origin is left untouched.
+        mock_species_repo.update_field.assert_any_call("sp_1", "genus", "Rosa")
+        origin_calls = [c for c in mock_species_repo.update_field.call_args_list if c.args[1] == "origin"]
+        assert origin_calls == []
 
     def test_reject_fields(self, engine, mock_mapping_repo):
         mapping = ExternalMapping(

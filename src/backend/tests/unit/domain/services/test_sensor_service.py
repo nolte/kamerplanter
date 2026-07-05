@@ -237,6 +237,22 @@ class TestGetLocationFrostWarning:
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
 
+    def test_unknown_when_temperature_state_non_numeric(self, service, mock_repo, mock_ha_client):
+        # Home Assistant reports "unavailable"/"unknown" as the *value* of an
+        # otherwise-live entity. That must not raise (→ 500); the endpoint reports
+        # an honest unknown instead.
+        mock_repo.find_by_location.return_value = [self._temp_sensor()]
+        mock_ha_client.get_state.return_value = {
+            "value": "unavailable",
+            "last_changed": "2026-03-01T02:00:00Z",
+            "entity_id": "sensor.loc_temp",
+            "unit": "°C",
+        }
+        result = service.get_location_frost_warning("loc1")
+        assert result["frost_warning"] is None
+        assert result["temperature_celsius"] is None
+        assert result["source"] == "no_temperature"
+
     def test_unknown_when_ha_unavailable(self, service_no_ha, mock_repo):
         mock_repo.find_by_location.return_value = [self._temp_sensor()]
         result = service_no_ha.get_location_frost_warning("loc1")

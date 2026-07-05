@@ -58,6 +58,32 @@ class TestPickAirTemperature:
         assert temp is None
         assert entity_id is None
 
+    def test_non_numeric_value_skipped_not_raised(self):
+        # Home Assistant reports "unavailable"/"unknown" as the entity value; that
+        # must not raise ValueError (→ 500 on the frost-warning endpoint).
+        for bad in ("unavailable", "unknown", ""):
+            values = {"temperature_celsius": {"value": bad, "entity_id": "sensor.air"}}
+            temp, entity_id = pick_air_temperature(values)
+            assert temp is None
+            assert entity_id is None
+
+    def test_non_numeric_primary_falls_back_to_numeric_secondary(self):
+        # A non-numeric canonical metric is skipped; the numeric fallback wins.
+        values = {
+            "temperature_celsius": {"value": "unavailable", "entity_id": "sensor.air"},
+            "water_temp_celsius": {"value": 1.5, "entity_id": "sensor.water"},
+        }
+        temp, entity_id = pick_air_temperature(values)
+        assert temp == 1.5
+        assert entity_id == "sensor.water"
+
+    def test_numeric_string_is_parsed(self):
+        # A numeric HA state delivered as a string still parses.
+        values = {"temperature_celsius": {"value": "2.5", "entity_id": "sensor.air"}}
+        temp, entity_id = pick_air_temperature(values)
+        assert temp == 2.5
+        assert entity_id == "sensor.air"
+
     def test_empty_values(self):
         temp, entity_id = pick_air_temperature({})
         assert temp is None

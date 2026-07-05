@@ -70,8 +70,13 @@ class TestVersionSmoke:
         assert migrations[0].reversible is True
         assert all(not m.reversible for m in migrations[1:])
 
-    def test_retire_harvest_is_the_last_migration(self):
-        # AC-6 relies on the harvest reclassification being the final migration,
-        # so it runs (before seeds) on every legacy volume.
-        migrations = _migrations()
-        assert migrations[-1].name == "retire_harvest_phase"
+    def test_retire_harvest_runs_before_seeds(self):
+        # AC-6 relies on the harvest reclassification running before any plan seed
+        # reads phase entries on a legacy volume. The framework guarantees this by
+        # running *every* discovered migration before the seeds (O-1), so it is
+        # enough that the migration is present — it need not be the last one.
+        # (Later migrations, e.g. v0006, read raw documents and never trigger the
+        # strict Pydantic phase read that AC-6 guards against, so ordering after
+        # v0005 is safe.)
+        names = [m.name for m in _migrations()]
+        assert "retire_harvest_phase" in names

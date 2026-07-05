@@ -46,7 +46,7 @@ Es lädt eine CSV-Datei mit genau den Spaltenüberschriften herunter, die für d
 !!! note "Zwei Spalten mit Sonderrolle: `family_name` und `cycle_type`"
     Beim Anlegen einer **neuen** Art übernimmt Kamerplanter alle in der Vorlage aufgeführten Spalten — mit zwei Ausnahmen:
 
-    - `family_name` wird bestmöglich als **`family_key`** übernommen, also als direkter Schlüsselverweis auf die botanische Familie. Es findet dabei **kein Abgleich mit dem Anzeigenamen** einer bestehenden Familie statt — trage hier den exakten Schlüssel der Zielfamilie ein, nicht nur einen frei formulierten Namen.
+    - `family_name` wird über den **Anzeigenamen** mit einer bereits vorhandenen botanischen Familie abgeglichen. Passt der Name zu einer Familie, wird die Art korrekt mit ihr verknüpft. Findet Kamerplanter keine passende Familie, bleibt die Familienzuordnung leer (statt einen ungültigen Verweis anzulegen) — lege die Familie in diesem Fall zuerst an und wiederhole den Import.
     - `cycle_type` wird im Validierungsbericht geprüft, aber **nicht gespeichert** — die Art hat dafür kein passendes Datenfeld. Trage den Lebenszyklus bei Bedarf nachträglich auf der [Artdetailseite](plant-management.md#art-bearbeiten) ein.
 
     Bei Pflanzenfamilien werden alle vier Spalten vollständig übernommen.

@@ -48,15 +48,26 @@ _FULL_SPECIES_DATA = {
 def _service() -> tuple[ImportService, MagicMock, MagicMock]:
     species_repo = MagicMock()
     family_repo = MagicMock()
+    # Default: no family matches by name. Individual tests opt into a match so
+    # ``family_key`` resolves to a real BotanicalFamily _key (never the display
+    # name) — a MagicMock return value would fail Species' str|None validation.
+    family_repo.get_by_name.return_value = None
     svc = ImportService(MagicMock(), species_repo=species_repo, family_repo=family_repo)
     return svc, species_repo, family_repo
+
+
+def _family(key: str) -> MagicMock:
+    fam = MagicMock()
+    fam.key = key
+    return fam
 
 
 # ── #2 species full-column mapping ──────────────────────────────────────
 
 
 def test_create_species_maps_all_template_columns():
-    svc, species_repo, _ = _service()
+    svc, species_repo, family_repo = _service()
+    family_repo.get_by_name.return_value = _family("fam_rosaceae")
     create_fn = svc._get_create_fn(EntityType.SPECIES)
 
     create_fn(_FULL_SPECIES_DATA)
@@ -65,7 +76,9 @@ def test_create_species_maps_all_template_columns():
     species: Species = species_repo.create.call_args[0][0]
     assert species.scientific_name == "Rosa canina"
     assert species.common_names == ["Dog rose"]
-    assert species.family_key == "Rosaceae"  # family_name → family_key (best-effort)
+    # family_name is resolved by display name to the referenced family's _key.
+    family_repo.get_by_name.assert_called_once_with("Rosaceae")
+    assert species.family_key == "fam_rosaceae"
     assert species.growth_habit == GrowthHabit.SHRUB
     assert species.root_type == RootType.FIBROUS
     assert species.description == "A wild rose"
@@ -79,6 +92,36 @@ def test_create_species_maps_all_template_columns():
     assert species.balcony_suitable == Suitability.NO
     assert species.greenhouse_recommended is True
     assert species.support_required is False
+
+
+def test_create_species_family_name_resolved_to_real_key():
+    """A known family name resolves to the family's _key, not the display name."""
+    svc, species_repo, family_repo = _service()
+    family_repo.get_by_name.return_value = _family("fam_solanaceae")
+    create_fn = svc._get_create_fn(EntityType.SPECIES)
+
+    create_fn({"scientific_name": "Solanum lycopersicum", "family_name": "Solanaceae"})
+
+    species: Species = species_repo.create.call_args[0][0]
+    family_repo.get_by_name.assert_called_once_with("Solanaceae")
+    assert species.family_key == "fam_solanaceae"
+
+
+def test_create_species_unknown_family_name_leaves_key_unset():
+    """An unknown family name must NOT be written into the _key-typed field.
+
+    Writing the display name there produced a dangling reference that the
+    crop-rotation / companion family checks could never resolve.
+    """
+    svc, species_repo, family_repo = _service()
+    family_repo.get_by_name.return_value = None
+    create_fn = svc._get_create_fn(EntityType.SPECIES)
+
+    create_fn({"scientific_name": "Rosa canina", "family_name": "Totally Unknown Family"})
+
+    species: Species = species_repo.create.call_args[0][0]
+    family_repo.get_by_name.assert_called_once_with("Totally Unknown Family")
+    assert species.family_key is None
 
 
 def test_create_species_is_empty_tolerant():

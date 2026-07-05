@@ -182,8 +182,10 @@ class EnrichmentEngine:
 
         # Promote the record's provenance to 'enrichment' (REQ-011) once external
         # data has actually been written into the species — this drives the
-        # read-only origin chip in the frontend (UI-NFR-018).
-        if applied_any:
+        # read-only origin chip in the frontend (UI-NFR-018). Only SYSTEM (seed)
+        # records are promoted: a user-created ('tenant') species keeps its origin
+        # so the owner never loses edit/delete rights to their own master data.
+        if applied_any and species.origin == DataOrigin.SYSTEM:
             self._species_repo.update_field(species_key, "origin", DataOrigin.ENRICHMENT.value)
 
         existing = self._mapping_repo.get_by_internal("species", species_key, source_key)
@@ -221,9 +223,13 @@ class EnrichmentEngine:
                 applied_any = True
 
         # A manual field acceptance also writes external data into the species,
-        # so mark its provenance as 'enrichment' (REQ-011).
+        # so mark its provenance as 'enrichment' (REQ-011) — but only for SYSTEM
+        # (seed) records. A user-created ('tenant') species keeps its origin so the
+        # owner never loses edit/delete rights to their own master data.
         if applied_any:
-            self._species_repo.update_field(species_key, "origin", DataOrigin.ENRICHMENT.value)
+            species = self._species_repo.get_by_key(species_key)
+            if species is not None and species.origin == DataOrigin.SYSTEM:
+                self._species_repo.update_field(species_key, "origin", DataOrigin.ENRICHMENT.value)
 
         assert mapping.key is not None
         return self._mapping_repo.update(mapping.key, mapping)

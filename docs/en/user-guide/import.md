@@ -46,7 +46,7 @@ This downloads a CSV file with exactly the column headers supported for the sele
 !!! note "Two columns with a special role: `family_name` and `cycle_type`"
     When creating a **new** species, Kamerplanter stores every column listed in the template — with two exceptions:
 
-    - `family_name` is mapped best-effort to **`family_key`**, a direct key reference to the botanical family. There is **no lookup against an existing family's display name** — enter the target family's exact key here, not just a freely written name.
+    - `family_name` is matched by **display name** against an already existing botanical family. When the name matches a family, the species is linked to it correctly. When Kamerplanter finds no matching family, the family assignment is left empty (instead of writing an invalid reference) — create the family first and repeat the import in that case.
     - `cycle_type` is checked in the validation report but **not saved** — the species model has no matching field for it. Add the life cycle afterwards on the [species detail page](plant-management.md#editing-a-species) if needed.
 
     For botanical families, all four columns are stored in full.

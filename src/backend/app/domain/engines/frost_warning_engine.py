@@ -79,5 +79,15 @@ def pick_air_temperature(values: dict[str, dict]) -> tuple[float | None, str | N
         raw = entry.get("value")
         if raw is None:
             continue
-        return float(raw), entry.get("entity_id")
+        # A non-numeric live state (Home Assistant reports ``"unavailable"`` /
+        # ``"unknown"`` as the entity value) must not surface as a 500 on the
+        # frost-warning endpoint. Skip this metric and fall through to the next
+        # candidate; if none is numeric we honestly report "no temperature".
+        # NB: the ``as exc`` binding is deliberate — a bare tuple-except without it
+        # is miscompiled by ``ruff format`` into invalid ``except A, B:`` syntax.
+        try:
+            temperature = float(raw)
+        except (ValueError, TypeError) as exc:  # noqa: F841
+            continue
+        return temperature, entry.get("entity_id")
     return None, None
