@@ -211,6 +211,12 @@
 | Boden-pH-Vorzug (min–max) | 5.0–6.5 (FAO-Optimum 5,0–6,0; obere Grenze zur Schorf-Vermeidung möglichst unter 6,0 halten — konsistent mit §1.6/§3.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Solanum tuberosum wird kommerziell und im Hausgarten ausschließlich über Pflanzknollen (Tuber) vermehrt (siehe §1.3: "tuber" führt als Methode). Echter botanischer Samen (True Potato Seed, TPS) existiert ausschließlich zu Züchtungszwecken ("seed (selten, für Züchtung)" in §1.3) und ist keine praxisrelevante Anbaumethode für Kamerplanter-Nutzer — TPS-Sämlinge benötigen zudem eine zusätzliche Vegetationsperiode, bevor überhaupt erntefähige Knollen entstehen. Ein seed_profile für die reguläre Kultur entfällt daher. -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 3. Düngung & Nährstoffversorgung
@@ -438,3 +444,6 @@ Annabelle,Solanum tuberosum,Agrico,2003,"very_early;festkochend",75,,open_pollin
 13. [Secondary and Micro-nutrients for Vegetable and Field Crops — MSU Extension E486](https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486) — Mikronährstoff-Suffizienzbereiche (Blattgewebe) zur Plausibilisierung
 14. [The R to FR Ratio — Greenhouse Product News](https://gpnmag.com/article/r-fr-ratio/) — R:FR ≈ 1,1–1,4 bzw. FR-Fraction ≈ 0,5 in offenem Tageslicht/Vollsonne
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+15. [Klassifikationsentscheid §1.8: §1.3 dieses Dokuments (Vermehrungsmethoden "tuber" führend, "seed" nur selten/Züchtung) — keine externe Quelle nötig, da SECTION MISSING allein aus bestehendem §1.3-Inhalt begründet ist]
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

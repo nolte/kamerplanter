@@ -102,6 +102,30 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 7 (45 °F; sehr langsame Keimung) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 (Optimum 21–29 °C / 70–85 °F) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2.0 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (5–10 Tage bei Optimaltemperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (3–4 Jahre je nach Quelle; unterer Wert verwendet) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (kein Lichtbedürfnis; übliche Bedeckung mit 2 cm Erde — Kohlgemüse gilt physiologisch als lichtindifferent) | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.7 (Sortenspanne 3.2–4.2 g je 1000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 7 (Endabstand 30 cm in der Reihe, 45 cm Reihenabstand It. RHS Calabrese) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. RHS — How to grow Calabrese: Saattiefe 2 cm, Endabstand 30 cm x 45 cm Reihenabstand, Keimung "in ein paar Wochen": https://www.rhs.org.uk/vegetables/calabrese/grow-your-own
+2. Harvest to Table — Broccoli Seed Starting Tips: Keimtemperatur 45–85 °F, optimal 70–85 °F, Keimung 5–10 Tage: https://harvesttotable.com/broccoli-seed-starting-tips/
+3. Todd's Seeds — How Long Are Broccoli Seeds Good For?: Keimfähigkeit 3–4 Jahre: https://toddsseeds.com/how-long-are-broccoli-seeds-good-for/
+4. Urban Farmer / Ufseeds — Waltham 29 / Green Magic F1 / Green Sprouting Calabrese Broccoli Seeds (Samenzählungen 239–314 Samen/g): https://www.ufseeds.com/product/waltham-29-broccoli-seeds---1%2F4-pound/BRWA-1_4-pound.html
+5. Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate: Kohlgemüse zählt zu den lichtindifferenten Gemüsearten: https://gardenbetty.com/seed-germination-light-darkness/
+6. Nimrod Bio — Seeds Per Gram Chart (Brassica-Gemüse ca. 300 Samen/g, Bestätigung Größenordnung): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

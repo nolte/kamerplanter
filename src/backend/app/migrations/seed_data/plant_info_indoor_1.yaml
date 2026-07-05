@@ -634,6 +634,13 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Ardisia crenata"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 30
+      days_to_germination: 28
+      seed_viability_years: 1
+      pretreatment: [cold_stratification]
     propagation_configs:
       - method: seed
         months: [5, 6, 7]
@@ -669,6 +676,14 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Asparagus setaceus"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 16
+      germination_temp_max_c: 26
+      sowing_depth_cm: 0.5
+      days_to_germination: 21
+      light_germination: light
+      pretreatment: [scarification, presoak]
     propagation_configs:
       - method: division
         months: [3, 4, 5]
@@ -769,6 +784,14 @@ new_species:
       max_ph: 6
 
   - scientific_name: "Beaucarnea recurvata"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 27
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      light_germination: light
+      pretreatment: [scarification, presoak]
     propagation_configs:
       - method: seed
         months: [5, 6, 7]
@@ -843,6 +866,15 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Begonia semperflorens"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 27
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 0.0125
     propagation_configs:
       - method: seed
         months: [1, 2, 3]
@@ -959,6 +991,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Chamaedorea elegans"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 29
+      germination_temp_max_c: 35
+      days_to_germination: 42
+      pretreatment: [scarification, presoak]
+      thousand_seed_weight_g: 167
     propagation_configs:
       - method: seed
         months: [3, 4, 5]
@@ -992,6 +1031,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Clivia miniata"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 29
+      sowing_depth_cm: 1.5
+      days_to_germination: 28
+      light_germination: indifferent
     propagation_configs:
       - method: division
         months: [5, 6]
@@ -1067,6 +1113,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Coffea arabica"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 24
+      germination_temp_max_c: 30
+      sowing_depth_cm: 2
+      days_to_germination: 45
+      light_germination: dark
+      pretreatment: [presoak]
     propagation_configs:
       - method: seed
         months: [4, 5, 6]
@@ -1222,6 +1276,15 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Cyclamen persicum"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 20
+      sowing_depth_cm: 1
+      days_to_germination: 30
+      seed_viability_years: 2
+      light_germination: dark
+      pretreatment: [presoak]
     propagation_configs:
       - method: seed
         months: [8, 9, 10]

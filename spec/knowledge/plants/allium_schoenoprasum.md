@@ -129,6 +129,31 @@ Hinweis: Regelmaessiges Schneiden (3--5 cm ueber Bodenniveau) foerdert den Neuau
 **Hinweis:** Salztoleranz- und Wurzeltiefe-Werte sind aus der eng verwandten Referenzart Zwiebel/Lauch (Allium cepa, FAO-29-Datenbank) abgeleitet, da fuer A. schoenoprasum keine eigenen Maas-Hoffman-Parameter publiziert sind. Die ECe-Schwelle bezieht sich auf die Substrat-Saettigungsextrakt-Leitfaehigkeit (ECe), nicht auf die Giesswasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 (eigene Keimhinweise §1.3; sehr langsame Keimung unterhalb dieses Wertes) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 (Aussaat/Keimung indoor bei 20–25 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 (Spanne 0.5–2 cm je nach Quelle; eigene §1.3 nennt 1–2 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 (unterer Wert der Spanne 10–21 Tage; bei Optimaltemperatur bereits ab 7 Tage möglich) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Empfehlung: möglichst frisches Saatgut aus der Vorjahresernte verwenden) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (eigene §1.3 nennt Schnittlauch explizit als Dunkelkeimer, 1–2 cm Erdabdeckung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: Kaltphase (4–6 Wochen bei 5 °C, siehe §1.3) verbessert die Keimrate, ist laut eigener Quelle aber NICHT zwingend erforderlich -- daher kein verbindlicher cold_stratification-Eintrag, sondern als optionale Zusatzmaßnahme im Freitext dokumentiert --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.9–1.4 (peer-reviewte Kasachstan-Population 0.88 g; Handelssaatgut-Kataloge ~1.4 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Schnittlauch wird ueblicherweise in Modulen/Toepfen mit 5–10 Samen/Zelle vorkultiviert und als Horst verpflanzt, nicht als Reihen-Direktsaat mit klarem Endabstand; siehe RHS-Modulsaat-Empfehlung --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert):**
+- Keimtemperatur: eigene Keimhinweise §1.3 (Steckbrief); [Bishy Barnabees Cottage Garden — How to Grow Chives from Seed](https://www.bishybarnabeescottagegarden.com/blogs/individual-flower-pages/how-to-grow-chives-allium-schoenoprasum-from-seed) (20–25 °C indoor)
+- Saattiefe: eigene Keimhinweise §1.3 (Steckbrief, 1–2 cm); [RHS — How to grow Chives](https://www.rhs.org.uk/herbs/chives/grow-your-own) (0.5–1 cm)
+- Tage bis Keimung: eigene Keimhinweise §1.3 (Steckbrief, 14–21 Tage bzw. 7–14 bei Optimaltemperatur); [Johnny's Selected Seeds — Growing Chives from Seed](https://www.johnnyseeds.com/growers-library/herbs/chives/chives-key-growing-information.html) (10–14 Tage bei 18–24 °C)
+- Keimfähigkeitsdauer: [Bishy Barnabees Cottage Garden — How to Grow Chives from Seed](https://www.bishybarnabeescottagegarden.com/blogs/individual-flower-pages/how-to-grow-chives-allium-schoenoprasum-from-seed) (2–3 Jahre); allgemeine Allium-Kurzlebigkeit konsistent mit Allium cepa/porrum in dieser Artenreihe
+- Licht-/Dunkelkeimer: eigene Keimhinweise §1.3 (Steckbrief, explizit Dunkelkeimer); [RHS — How to grow Chives](https://www.rhs.org.uk/herbs/chives/grow-your-own) (Aussaat mit Erdabdeckung, kein Lichtkeimer-Hinweis)
+- Tausendkornmasse: [PMC12467962 — Seed Morphology of Allium L. Endemic Species from Section Schoenoprasum](https://pmc.ncbi.nlm.nih.gov/articles/PMC12467962/) (0.883 g, peer-reviewed); Handelssaatgut-Kataloge (Weight of 100 seeds 0.140 g ≈ 1.4 g/1000)
+- Aussaatdichte: [RHS — How to grow Chives](https://www.rhs.org.uk/herbs/chives/grow-your-own) (5–10 Samen/Modul); eigene Kulturhinweise §1.3/§4.2 (Horstteilung/Modulkultur statt Reihensaat)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

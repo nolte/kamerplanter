@@ -136,6 +136,32 @@ Hinweis: Kein Rueckschnitt erforderlich. Bei zu dichter Aussaat Saemling auf 3--
 Hinweis: Der Lichtkompensationspunkt (light compensation point, LCP -- Netto-Photosynthese = 0) ist fuer Radieschen nicht eigenstaendig publiziert; angegeben ist die fuer krautige C3-Blattgemuese typische Spanne (Tomate als verwandte C3-Art: ~18--21 umol/m2/s). Lichtsaettigung (light saturation) liegt hingegen weit hoeher (~300--700 umol/m2/s) und gehoert NICHT in das LCP-Feld. Trotz Einstufung full_sun toleriert Radieschen Halbschatten (partial_shade), bildet dort aber mehr Laub statt Knolle. Die Salztoleranz-Werte (ECe 1.2 dS/m, Slope 13 %/dS/m, Klasse MS) stammen aus der FAO-/USDA-Standardtabelle (Maas-Hoffman, bezogen auf den Speicher-/Knollenertrag).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 5 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 3 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 5 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 8.7 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | ca. 170 (berechnet aus Pflanzabstand 5 cm x 10--15 cm gemaess §1.6) | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min/max (5/30 degC), Saattiefe (1--2 cm) und Dunkelkeimer-Status sind bereits in §1.3 dokumentiert. Die Aussaatdichte wurde aus dem in §1.6 bereits dokumentierten Pflanzabstand berechnet (5 cm x 10--15 cm ≈ 160/m2) und liegt konsistent mit der unabhaengig recherchierten Square-Foot-Gardening-Empfehlung (16 Samen/sq ft ≈ 172/m2).
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- Square Foot Gardening -- Growing radishes in raised beds (16 Samen pro Square Foot ≈ 172 Samen/m2 fuer kleine Sorten): https://squarefootgardening.org/2023/06/growing-radishes-in-raised-beds/
+- Johnny's Selected Seeds -- Growing Radish: How to Plant, Grow & Harvest (Reihenkultur-Empfehlungen, Ausduennung): https://www.johnnyseeds.com/growers-library/vegetables/radishes/radishes-key-growing-information.html
+- Illinois Extension -- Seed Viability in Storage (Radish: 5 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Radish: 4--5 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- Vital Seeds -- Seeds per Gram (Radish: 90--140 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Radish: 90--140 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

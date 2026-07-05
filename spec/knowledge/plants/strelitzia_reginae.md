@@ -113,6 +113,24 @@
 **Hinweis:** Sonnenliebend (heliophil) — natürliche Standorte an Flussufern in voller Sonne, randständig auch im lichten Schatten (Quelle: SANBI/PlantZAfrica). Volle Sonne fördert die Blüte, Halbschatten ergibt größere Blüten an längeren Stielen. Fleischige, fingerartige Wurzeln (≈25 mm Durchmesser) bilden einen kompakten Ballen; bodengewachsene Pflanzen wurzeln bis ≈60 cm tief, dehnen sich aber wenig in Breite/Tiefe aus. Staunässe ist kritisch (Wurzelfäule). Salztoleranz: mäßig salzverträglich (moderate Salzwasser-/Salzwind-Toleranz, Küstendickicht-Herkunft); geschützte Lage mit Windschutz empfohlen — die pH-Spanne ist mit §1.6/§2.3 (5.5–7.5) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 25 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | <!-- DATEN FEHLEN: keine artspezifisch belegte Saattiefe aus zwei unabhängigen Quellen; gängige Praxisempfehlung ist flaches Aufsetzen mit dünner Substratabdeckung, aber kein konkreter cm-Wert dual belegt --> | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 30 (unterer Wert; Spanne 30–90+ Tage, teils bis 365 Tage — sehr langsam und erratisch) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: kein belegter Jahreswert; Quellen empfehlen übereinstimmend, Samen frisch bzw. innerhalb einer Vegetationsperiode zu verwenden, da die Keimrate bei suboptimaler Lagerung rasch abnimmt --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: kein artspezifischer Beleg aus zwei unabhängigen Quellen zur Licht-/Dunkelkeimung --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification, presoak (Einweichen 24–48 h in warmem Wasser, danach Skarifizierung der Samenschale mit Sandpapier oder Einkerbung; alternativ Kaltstratifikation bei 4 °C für 2 Wochen als Option) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine belegte Tausendkornmasse auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: keine Reihen-/Direktsaat üblich — Einzeltopf-/Einzelsamen-Kultur, daher keine Flächendichte definiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [How To Grow Strelitzia Reginae From Seeds](https://gardening-plant.com/blogs/news/how-to-grow-strelitzia-reginae-from-seeds) und [How to Grow and Care for Bird of Paradise Plants — Gardener's Path](https://gardenerspath.com/plants/flowers/grow-bird-paradise/) (Keimtemperatur 25–30 °C, Keimdauer 8 Wochen bis mehrere Monate, Skarifizierung + Einweichen); [How Scarification, GA3 and Graphene Oxide Influence the In Vitro Establishment and Development of Strelitzia — MDPI/PMC](https://www.mdpi.com/2223-7747/12/11/2142) (Skarifizierung mit Schwefelsäure signifikant keimfördernd); [GERMINATION METHODS FOR BIRD-OF-PARADISE SEED — NC State Extension (hortscans)](https://hortscans.ces.ncsu.edu/uploads/g/e/germinat_5592db2f311e1.pdf) (Keimmethodik); [Seed Storage & Seed Viability Guide — Dayuseeds](https://www.dayuseeds.com/resources/seed-storage-amp-seed-viability-guide.html) und [Strelitzia reginae — PLANTBOOK](https://www.plantbook.co.za/strelitzia-reginae/) (Empfehlung: Samen frisch verwenden, Viabilität nimmt bei Lagerung rasch ab).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -139,7 +157,7 @@
 | Luftfeuchtigkeit Tag (%) | 40–60 | `requirement_profiles.humidity_day_percent` |
 | VPD-Ziel (kPa) | 0.7–1.5 | `requirement_profiles.vpd_target_kpa` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
-| VPD-Schwelle (kPa) | 1.9 | `requirement_profiles.vpd_threshold_kpa` |
+| VPD-Schwelle (kPa) | 1.9 (kritischer stomatärer Kollaps; oberhalb des 2.0-Ziels) | `requirement_profiles.vpd_threshold_kpa` |
 | VPD-Sensitivität | medium | `requirement_profiles.vpd_sensitivity` |
 | Photosynthese-T_opt (°C) | 24–27 | `requirement_profiles.photosynthesis_temp_opt_c` |
 | Far-Red-Fraction FR/(R+FR) | 0.5 | `requirement_profiles.far_red_fraction` |
@@ -324,3 +342,11 @@ Strelitzia reginae,"Paradiesvogelblume;Königin-Strelitzie;Bird of Paradise;Cran
 16. [Wisconsin Horticulture Extension — Bird of Paradise, Strelitzia reginae](https://hort.extension.wisc.edu/articles/bird-of-paradise-strelitzia-reginae/) — Blüte "autumn, winter and spring"; Kältetoleranz kurzzeitig bis ≈28 °F (≈−2 °C); Samen 4–7 Jahre bis Erstblüte
 17. [samen.de — Strelitzie: Blütezeit und Pflege](https://samen.de/blog/strelitzie-bluetezeit-und-pflege-fuer-exotische-pracht.html) — "blüht hauptsächlich von Winter bis Frühjahr"; bei warmem/hellem Winterstandort bereits ab Dezember
 <!-- /Quelle: growing-phase-auditor 2026-07-04 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+18. [How To Grow Strelitzia Reginae From Seeds](https://gardening-plant.com/blogs/news/how-to-grow-strelitzia-reginae-from-seeds) — Keimtemperatur 80 °F (~27 °C), Keimdauer ~8 Wochen
+19. [How to Grow and Care for Bird of Paradise Plants — Gardener's Path](https://gardenerspath.com/plants/flowers/grow-bird-paradise/) — Keimtemperatur 25–30 °C, Skarifizierung + Einweichen 24–48 h
+20. [How Scarification, GA3 and Graphene Oxide Influence the In Vitro Establishment and Development of Strelitzia — MDPI/PMC10255328](https://www.mdpi.com/2223-7747/12/11/2142) — Skarifizierung signifikant keimfördernd
+21. [GERMINATION METHODS FOR BIRD-OF-PARADISE SEED — NC State Extension](https://hortscans.ces.ncsu.edu/uploads/g/e/germinat_5592db2f311e1.pdf) — Keimmethodik
+22. [Seed Storage & Seed Viability Guide — Dayuseeds](https://www.dayuseeds.com/resources/seed-storage-amp-seed-viability-guide.html) — Allgemeine Viabilitätsprinzipien
+23. [Strelitzia reginae — PLANTBOOK](https://www.plantbook.co.za/strelitzia-reginae/) — Empfehlung frisches Saatgut, Viabilitätsverlust bei Lagerung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

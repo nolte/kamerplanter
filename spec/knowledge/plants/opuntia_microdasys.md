@@ -125,6 +125,26 @@
 **Hinweis:** Sonnenliebende Wüstenart aus offenen, vollbesonnten Standorten (volle Sonne ≥ 6 h/Tag). Flachwurzler mit Hauptwurzelmasse in den oberen ~15 cm; gelegentliche Pfahlwurzel reicht tiefer, in Topfkultur sind 15–30 cm effektive Durchwurzelungstiefe maßgeblich. Sehr staunässeempfindlich (waterlogging-sensitiv) — Fäule ist die häufigste Verlustursache. Salztoleranz-Klasse moderately_sensitive aus Gattungs-/Verwandtschaftsdaten (Opuntia gilt als Glykophyt; Cladoden-Wachstum bereits bei moderater NaCl-Belastung reduziert); numerische Maas-Hoffman-Kennwerte (ECe-Schwelle, Slope) bleiben mangels artspezifischer Quellen offen. Boden-pH-Vorzug quellentreu 6.0–7.5, harmonisiert mit §1.6 und §2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — Samen nur an die Substratoberfläche legen, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Radikula-Austritt teils bereits ab Tag 4, vollständiger Keimprozess ueber 2--3 Wochen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine artspezifische Angabe zur Lagerfähigkeit von O.-microdasys-Samen in seriösen Quellen auffindbar --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification (mechanisches Anschleifen + Einweichen in 3% H2O2 24h steigert Keimrate deutlich; ohne Vorbehandlung nur geringe Keimraten) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: Samengröße (~1--1.2 mm) dokumentiert, keine artspezifische Gewichtsangabe (mg/Samen bzw. TKG) in seriösen Quellen auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- SECTION MISSING: kein Reihen-/Direktsaat-Feldanbau — Opuntia microdasys wird als Zimmer-/Kübelpflanze in Einzeltöpfen ausgesät, keine Flächen-Aussaatdichte dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Die Samenvermehrung ist bei Opuntia microdasys deutlich langsamer und unzuverlässiger als die vegetative Vermehrung (§1.3) und wird vor allem für Sämlingsanzucht/Botanik genutzt, nicht für die kommerzielle Sortenvermehrung. Ohne Vorbehandlung (Scarifizierung/Einweichen) bleiben die Keimraten gering; mechanisches Anschleifen der harten Testa kombiniert mit einem 24-stündigen Bad in 3%iger Wasserstoffperoxid-Lösung erhöhte die Keimrate in einer Studie an vier Opuntia-Arten aus Nordost-Mexiko auf 67,5%. Licht fördert die Keimung bei allen untersuchten Opuntia-Arten gegenüber Dunkelkeimung.
+
+Quellen (§1.8): [Lubera.com — Opuntia microdasys: Pflege, Blüte & Vermehrung des Kaktus](https://www.lubera.com/de/gartenbuch/opuntia-microdasys-pflege-bluete-vermehrung-des-kaktus-p3237); [ResearchGate — Pre-germination treatments in four prickly pear cactus (Opuntia sp.) species from Northeastern Mexico](https://www.researchgate.net/publication/329161299_Pre-germination_treatments_in_four_prickly_pear_cactus_Opuntia_sp_species_from_Northeastern_Mexico); [ResearchGate — Effect of fungi and light on seed germination of three Opuntia species from semiarid lands of central Mexico](https://www.researchgate.net/publication/236078017_Effect_of_fungi_and_light_on_seed_germination_of_three_Opuntia_species_from_semiarid_lands_of_central_Mexico); [NC State Extension — Opuntia microdasys](https://plants.ces.ncsu.edu/plants/opuntia-microdasys/) (Samengröße 1–1.2 mm)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -337,3 +357,7 @@ Opuntia microdasys,"Hasenohren-Kaktus;Bunny Ears;Polka-Dot-Kaktus;Bunny Ears Cac
 23. [Cactusmania.shop — Opuntia microdasys: characteristics and cultivation notes](https://www.cactusmania.shop/2025/06/19/opuntia-microdasys/) — Blüte "spring and summer"; Vermehrung Pad-Stecklinge
 24. [Lubera.com — Opuntia microdasys: Pflege, Blüte & Vermehrung des Kaktus](https://www.lubera.com/de/gartenbuch/opuntia-microdasys-pflege-bluete-vermehrung-des-kaktus-p3237) — Vermehrung via Stecklinge UND Aussaat (Lichtkeimer, ca. 25 °C); Winterruhe 8–10 °C
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+25. [ResearchGate — Pre-germination treatments in four prickly pear cactus (Opuntia sp.) species from Northeastern Mexico](https://www.researchgate.net/publication/329161299_Pre-germination_treatments_in_four_prickly_pear_cactus_Opuntia_sp_species_from_Northeastern_Mexico) — Scarifizierung + H2O2-Einweichen erhöht Keimrate O. microdasys auf 67,5%
+26. [ResearchGate — Effect of fungi and light on seed germination of three Opuntia species from semiarid lands of central Mexico](https://www.researchgate.net/publication/236078017_Effect_of_fungi_and_light_on_seed_germination_of_three_Opuntia_species_from_semiarid_lands_of_central_Mexico) — Licht fördert Keimung gegenüber Dunkelheit bei Opuntia spp.
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

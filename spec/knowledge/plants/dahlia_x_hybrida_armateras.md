@@ -161,6 +161,12 @@ Quellen: ASPCA Toxic and Non-Toxic Plants (Dahlia — toxic to dogs and cats), W
 | Boden-pH-Vorzug (min–max) | 6.5–7.0 (optimaler Vorzug leicht sauer bis neutral; liegt innerhalb der im Dokument genannten tolerierten Spanne 6.0–7.0 in §1.6/§2.3 — Vorzug ⊂ Toleranz, kein Widerspruch) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Dahlia 'Armateras' ist eine benannte Cultivar-Sorte; §1.3 dokumentiert Stecklinge und Knollenteilung als Standardvermehrung. Der Praxis-Hinweis in §1.3 stellt explizit fest, dass Samenvermehrung "Sorteneigenschaften nicht erhalten" kann — nur die botanischen Artmerkmale, nicht die Cultivar-Identität "Armateras". Eine echte Aussaat-/Keim-Metadatenerhebung für diese benannte Sorte wäre daher irreführend und unterbleibt.) -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen

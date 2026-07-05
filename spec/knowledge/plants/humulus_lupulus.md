@@ -130,6 +130,10 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte April bis Mitte M
 | Boden-pH-Vorzug (min--max) | 6.0--7.5 (optimaler Bereich; toleriert insgesamt pH 4.5--8.2, harmonisiert mit §1.6/§2.3/§3.4) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (§1.3 führt ausschließlich cutting_stem/division; Aussaat aus Samen ist laut §1.3-Vermehrungshinweis zwar botanisch möglich, aber praktisch kaum genutzt: Sortenreinheit nicht garantiert, Geschlecht [Humulus lupulus ist zweihäusig] erst nach der Blüte erkennbar — kommerzielle wie Hobby-Vermehrung erfolgt ausschließlich über Rhizomteilung/Stecklinge von garantiert weiblichen Mutterpflanzen) -->
+
 ---
 
 ## 2. Wachstumsphasen

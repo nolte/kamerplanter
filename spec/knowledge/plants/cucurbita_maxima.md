@@ -118,6 +118,28 @@
 > Hinweis: Effektive Wurzeltiefe nach FAO-56 Tab. 22 (Pumpkin/Winter Squash 1,0–1,5 m); überwiegend flach- bis mittelwurzelnd mit weit streichendem Wurzelsystem. Salztoleranz-Kennwerte (ECe-Schwelle, Slope) sind Maas-Hoffman-Werte für Squash/Kürbis (FAO/Ayers & Westcot, Substrat-Sättigungsextrakt-ECe), nicht Gießwasser-EC. C. maxima gilt innerhalb der Gattung als vergleichsweise salzrobust, in der absoluten FAO-Klassifikation jedoch als mäßig empfindlich (moderately_sensitive).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 (70°F, gängige Untergrenze für zügige Keimung; absolute Keimung ab ca. 18°C/65°F möglich, aber deutlich langsamer) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 (85°F Optimalbereich; Toleranz bis 38°C/100°F dokumentiert) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 (¾–1 Zoll ≈ 1.9–2.5 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 3 (3–10 Tage, unterer Wert bei optimaler Wärme) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (3–6 Jahre bei kühler, trockener, dunkler Lagerung; bis zu 4 Jahre unter guten Bedingungen sicher belegt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine explizite, artspezifisch bestätigte Aussage zu Licht-/Dunkelkeimung von Cucurbita maxima gefunden --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (Warmkeimer ohne Stratifikations- oder Skarifikationsbedarf) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 100 (Spanne ca. 65–125 g, aus Samenzahl 8–15 Samen/g errechnet — großes, sortenabhängiges Saatgut) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Kürbis wird als Hügel-/Horstkultur mit sehr weitem Pflanzabstand (150–200 cm) angebaut, keine Reihenkultur mit dokumentierter Flächen-Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+- [MSU Extension — How to Grow Pumpkin and Squash](https://www.canr.msu.edu/resources/how_to_grow_pumpkin_and_squash) — Keimtemperatur 65–100°F, Keimdauer 3–10 Tage
+- [Oklahoma State University Extension — Squash and Pumpkin Production (HLA-6026)](https://extension.okstate.edu/fact-sheets/print-publications/hla/squash-and-pumpkin-production-hla-6026.pdf) — Optimaltemperatur 70–85°F (bereits im Hauptdokument als Quelle #9 geführt)
+- [Pumpkin Nook — Pumpkin Seed Germination](https://www.pumpkinnook.com/howto/germinat.htm) und [Grow Pittsburgh — How-To: Testing Seed Viability](http://www.growpittsburgh.org/wp-content/uploads/How-To-Testing-Seed-Viability.pdf) — Keimfähigkeitsdauer 3–6 Jahre, bis 4 Jahre unter guten Bedingungen
+- [Vital Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/), [Osborne Seed — Seed Count Chart](https://www.osborneseed.com/pages/seed-count-chart), [Farmers Stop — Seeds Per Gram for Common Vegetables](https://www.farmersstop.com/blogs/news/seeds-per-gram-for-common-vegetables-fruits-and-others) — Samenzahl 8–15 Samen/g (TKG-Ableitung)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -375,3 +397,9 @@ Atlantic Giant,Cucurbita maxima,–,–,"giant;exhibition",120,,open_pollinated
 15. [MDPI Plants 2025, 14(11):1674 — Salt Stress Leads to Morphological and Transcriptional Changes in Roots of Pumpkins (Cucurbita spp.)](https://www.mdpi.com/2223-7747/14/11/1674) — relative Salztoleranz C. maxima vs. C. moschata
 16. [PMC3722171 — Pollination Services Provided by Bees in Pumpkin Fields](https://pmc.ncbi.nlm.nih.gov/articles/PMC3722171/) — Cucurbita einhäusig, insektenbestäubt, ohne Insektenbesuch kein Fruchtansatz
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+17. [MSU Extension — How to Grow Pumpkin and Squash](https://www.canr.msu.edu/resources/how_to_grow_pumpkin_and_squash) — Keimtemperatur, Keimdauer
+18. [Pumpkin Nook — Pumpkin Seed Germination](https://www.pumpkinnook.com/howto/germinat.htm) — Keimfähigkeitsdauer, Keimbedingungen
+19. [Grow Pittsburgh — How-To: Testing Seed Viability](http://www.growpittsburgh.org/wp-content/uploads/How-To-Testing-Seed-Viability.pdf) — Keimfähigkeitsdauer (Zweitbeleg)
+20. [Vital Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/) und [Osborne Seed — Seed Count Chart](https://www.osborneseed.com/pages/seed-count-chart) — Samenzahl je Gramm (TKG-Ableitung)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->

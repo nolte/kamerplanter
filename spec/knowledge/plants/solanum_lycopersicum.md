@@ -136,6 +136,30 @@ Hinweis: Bei indeterminierten (Stab-)Tomaten ist regelmaessiges Ausgeizen (Entfe
 Hinweis: Tomate ist staunaesseempfindlich (sensitive) -- Wurzelhypoxie loest binnen Stunden Stomata-Schluss, Blattepinastie und Ethylen-bedingte Schaeden aus; Drainage ist Pflicht. Salztoleranz nach FAO-Klassifikation "moderately sensitive" (Maas-Hoffman: ECe-Schwelle 2.5 dS/m, danach 9.9 % Ertragsverlust je dS/m, bezogen auf Fruchtertrag).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 14 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 35 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 3.3 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | -- <!-- DATEN FEHLEN: Tomate wird in Anzuchttoepfen/-schalen einzeln vorkultiviert und im Endabstand 50--80 cm ausgepflanzt; keine belastbare, durch 2 Quellen bestaetigte "Aussaatdichte pro m2" fuer Reihen-/Breitsaat dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min/max und Saattiefe/Keimdauer decken sich mit den bereits in §1.3 zitierten Quellen (RHS, UMN Extension, AGRR Tomato Temperature Requirements -- Quelle 16 im Quellenverzeichnis). Der Licht-/Dunkelkeim-Status "indifferent" folgt derselben Quellenlage (lichtunabhaengige Keimung, siehe §1.3).
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- Illinois Extension -- Seed Viability in Storage (Tomate: 4 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Tomate: 3--7 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- Vital Seeds -- Seeds per Gram (Tomate: 220--500 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Tomate: 250--380 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

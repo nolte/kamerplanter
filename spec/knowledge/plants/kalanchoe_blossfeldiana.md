@@ -118,6 +118,10 @@
 **Hinweis:** Sukkulente CAM-Pflanze mit flachem, salzempfindlichem Wurzelsystem; Überdüngung führt zu Salzakkumulation (sichtbarer weißer Belag auf Substrat/Topfrand) und Wurzelschäden — daher Einstufung `moderately_sensitive`. Standort: helles indirektes Licht bzw. Halbschatten (partial sun); direkte Mittagssonne kann Blätter verbrennen. pH-Vorzug 6.0–7.0 ist konsistent mit §1.6 (Substrat) und §2.3 (Nährstoffprofile).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (§1.3 führt ausschließlich cutting_stem/cutting_leaf als Vermehrungsmethoden; Kalanchoe blossfeldiana wird im Zierpflanzenbau praktisch ausschließlich über Kopf- und Blattstecklinge vermehrt, keine Aussaat-Praxis dokumentiert) -->
+
 ---
 
 ## 2. Wachstumsphasen

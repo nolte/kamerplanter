@@ -131,6 +131,31 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 **Hinweis Licht:** Der angegebene Wert ist ausschliesslich der Lichtkompensationspunkt (Netto-Photosynthese = 0) auf Blattebene fuer Kuerbisgewaechse. Lichtsaettigung liegt deutlich hoeher (Cucurbitaceae je nach Akklimatisierung ca. 600--1000 umol/m2/s) und ist NICHT Teil dieses Feldes.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 25 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Praxis-Empfehlung Heizmatte; Laborstudien belegen Keimung bereits ab 20°C mit >90% bis 35°C, Optimum ~27°C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (½–1 Zoll ≈ 1.3–2.5 cm, konsistent über mehrere University-Extension-Quellen) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (5–10 Tage, unterer Wert bei optimaler Wärme) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 5 (5–6 Jahre bei kühler, trockener, dunkler Lagerung — deutlich länger bei Tiefkühllagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine explizite, artspezifisch bestätigte Aussage zu Licht-/Dunkelkeimung von Cucumis melo gefunden --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (Warmkeimer ohne Stratifikations- oder Skarifikationsbedarf; Direktsaat in Anzuchttöpfe üblich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 22 (Spanne ca. 18–27 g je nach Sorte, aus Samenzahl 37–56 Samen/g errechnet) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Melone wird als Hügel-/Horstkultur mit weitem Pflanzabstand (60–150 cm) angebaut, keine Reihenkultur mit dokumentierter Flächen-Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Die 25–30°C-Empfehlung der Praxisquellen (Heizmatte) liegt im oberen Bereich der von Laborstudien belegten optimalen Keimtemperatur (Basis ~9,4°C, Optimum ~27,3°C, Obergrenze ~41,4°C) und wird hier als Ziel-Keimtemperaturkorridor übernommen, da sie die schnellste und zuverlässigste Keimung liefert.
+
+**Quellen (§1.8):**
+- [ScienceDirect — Seed germination of melon (Cucumis melo) at sub- and supra-optimal temperatures](https://www.sciencedirect.com/science/article/abs/pii/030442389090068P) — Keimung 20–35°C bei >90%, Basis-/Optimal-/Maximaltemperatur
+- [ScienceDirect — Quantifying seed germination response of melon to temperature and water potential](https://www.sciencedirect.com/science/article/pii/S0254629919319295) — Basis 9,4°C, Optimum 27,3°C, Obergrenze 41,4°C
+- [Iowa State University Extension — Growing Cantaloupe, Muskmelon, and Other Melons](https://yardandgarden.extension.iastate.edu/how-to/growing-cantaloupe-muskmelon-and-other-melons-home-garden) und [UMN Extension — Growing melons in the home garden](https://extension.umn.edu/fruit/growing-melons-home-garden) — Saattiefe 1/2–1 Zoll
+- [SimplySmartGardening — How Long Do Seeds Last?](https://simplysmartgardening.com/how-long-do-seeds-last/) und [Harvest to Table — Melon Seed Starting Tips](https://harvesttotable.com/melons-seed-starting-tips/) — Keimfähigkeitsdauer 5–6 Jahre
+- [Urban Farmer — Sugar Cube F1 Melon Seeds](https://www.ufseeds.com/product/sugar-cube-f1-melon-seeds/MESC.html) und [Urban Farmer — Passport F1 Melon Seeds](https://www.ufseeds.com/product/passport-f1-melon-seeds---1000-seeds/MEPP-1M.html) — Samenzahl 37–45 Samen/g (TKG-Ableitung)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -552,3 +577,12 @@ Cucumis melo,Melone;Zuckermelone;Honigmelone;Melon;Cantaloupe,Cucurbitaceae,Cucu
 17. [New Phytologist (Zhen & Bugbee 2022) -- Photosynthesis in sun and shade: importance of far-red photons](https://nph.onlinelibrary.wiley.com/doi/10.1111/nph.18375) -- Far-Red-Fraction unter offenem Tageslicht/Vollsonne (~0.5 FR/(R+FR))
 18. [PMC -- Estimating Light Acclimation Parameters of Cucumber Leaves](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8860900/) -- Lichtkompensations-/akklimatisierungsparameter Kuerbisgewaechse
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+19. [ScienceDirect -- Seed germination of melon (Cucumis melo) at sub- and supra-optimal temperatures](https://www.sciencedirect.com/science/article/abs/pii/030442389090068P) -- Keimtemperatur-Bereich, Optimum
+20. [ScienceDirect -- Quantifying seed germination response of melon to temperature and water potential](https://www.sciencedirect.com/science/article/pii/S0254629919319295) -- Kardinaltemperaturen
+21. [Iowa State University Extension -- Growing Cantaloupe, Muskmelon, and Other Melons](https://yardandgarden.extension.iastate.edu/how-to/growing-cantaloupe-muskmelon-and-other-melons-home-garden) -- Saattiefe
+22. [UMN Extension -- Growing melons in the home garden](https://extension.umn.edu/fruit/growing-melons-home-garden) -- Saattiefe (Zweitbeleg)
+23. [SimplySmartGardening -- How Long Do Seeds Last?](https://simplysmartgardening.com/how-long-do-seeds-last/) -- Keimfähigkeitsdauer
+24. [Harvest to Table -- Melon Seed Starting Tips](https://harvesttotable.com/melons-seed-starting-tips/) -- Keimfähigkeitsdauer (Zweitbeleg)
+25. [Urban Farmer -- Sugar Cube F1 / Passport F1 Melon Seeds](https://www.ufseeds.com/product/sugar-cube-f1-melon-seeds/MESC.html) -- Samenzahl je Gramm (TKG-Ableitung)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->

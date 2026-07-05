@@ -113,6 +113,26 @@
 **Hinweis Salztoleranz:** Soja gilt nach der Maas-Hoffman-Klassifikation der FAO als mäßig salztolerant (MT). Die ECe-Schwelle von 5,0 dS/m bezieht sich auf den Sättigungsextrakt des Wurzelmediums (Bodensalzgehalt), nicht auf die elektrische Leitfähigkeit der Nährlösung in §2.3 (EC in mS) — beide Größen dürfen nicht gleichgesetzt werden.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2.5 (ca. 1 Zoll; auf schwereren Böden flacher, auf leichten Böden bis 3,8 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (Praxis-Kulturmodell dieses Steckbriefs, §2.1, nennt bereits 5–10 Tage; Feldstudien nennen 7–21 Tage insgesamt bis Feldaufgang) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine belastbare, spezifisch auf Pflanzsaatgut (nicht Speisesoja-Lagerung) bezogene Keimfähigkeitsdauer in Jahren gefunden --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (negativ photoblastisch — Licht hemmt nachweislich die Keimung; Samen werden daher stets bedeckt gesät) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine botanische Vorbehandlung erforderlich; die übliche Bradyrhizobium-japonicum-Saatgutimpfung (siehe §3.2) ist eine biologische Inokulation zur N-Fixierung, keine Keim-Vorbehandlung im Sinne dieses Feldes --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 97.3 (aus 100-Korn-Gewicht von im Mittel 9,73 g bei einer Sortenspanne von 8,7–11,1 g/100 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 20–50 (errechnet aus §1.6-Pflanzabstand 5–10 cm in der Reihe × 40–60 cm Reihenabstand; deckt sich mit gängigen Sojasaatdichten von 300.000–450.000 Korn/ha) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Soja ist ein gut dokumentiert negativ photoblastisches Saatgut — sowohl Licht als auch das Phytohormon-Analogon Karrikin hemmen die Keimung, weshalb Samen stets abgedeckt gesät werden (2 unabhängige wissenschaftliche Quellen). Die Bradyrhizobium-Impfung (§3.1/§3.2) dient der symbiotischen Stickstofffixierung und ist keine botanische Keim-Vorbehandlung (Stratifikation/Skarifikation/Einweichen) im Sinne dieses Feldes, daher hier nicht als `pretreatment` gelistet.
+
+Quellen (§1.8): [ResearchGate — Light inhibits soybean seed germination (Abbildung/Studienfigur)](https://www.researchgate.net/figure/Light-inhibits-soybean-seed-germination-a-b-Healthy-and-uniform-soybean-seeds_fig3_295605945) (Licht hemmt Keimung); [PMC — Karrikins delay soybean seed germination by mediating abscisic acid and gibberellin biogenesis under shaded conditions](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4763256/) (negativ photoblastisch, Licht + Karrikine hemmen Keimung); [PMC — Physical characteristics and nutritional composition of some new soybean genotypes](https://pmc.ncbi.nlm.nih.gov/articles/PMC3931876/) (100-Korn-Gewicht 8,7–11,1 g, Mittel 9,73 g); [Agri Farming — Soybean Seed Germination, Time, Temperature, Process](https://www.agrifarming.in/soybean-seed-germination-time-temperature-process) (Keimtemperatur 24–29 °C optimal, Keimdauer 7–21 Tage, Saattiefe ~25 mm); bereits gelistete Quelle 2 [Iowa State University Extension — Soybean Production](https://crops.extension.iastate.edu/soybean) (Reihen-/Pflanzabstand, Aussaatdichte-Kontext)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -433,3 +453,9 @@ ES Mentor,Glycine max,"grain_type;high_yield;maturity_group_000",100,certified
 21. [SDSU Extension — Plant Nutrient Analysis: Do your soybeans have the right stuff?](https://extension.sdstate.edu/plant-nutrient-analysis-do-your-soybeans-have-right-stuff) — Blattgewebe-Sufficiency-Ranges Mn 30–100, Zn 25–60, Cu 6–20, Mo 1,0–5,0 ppm
 22. [IntechOpen — Soybean Yield Responses to Micronutrient Fertilizers](https://www.intechopen.com/chapters/53893) — Referenz-Sufficiency-Ranges Cu 10–30, Zn 20–50, Mn 20–100, Mo ab 1 ppm (Blattgewebe zur Blüte)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+23. [ResearchGate — Light inhibits soybean seed germination](https://www.researchgate.net/figure/Light-inhibits-soybean-seed-germination-a-b-Healthy-and-uniform-soybean-seeds_fig3_295605945) — Licht hemmt Keimung
+24. [PMC — Karrikins delay soybean seed germination by mediating abscisic acid and gibberellin biogenesis under shaded conditions](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4763256/) — negativ photoblastisch
+25. [PMC — Physical characteristics and nutritional composition of some new soybean genotypes](https://pmc.ncbi.nlm.nih.gov/articles/PMC3931876/) — 100-Korn-Gewicht
+26. [Agri Farming — Soybean Seed Germination, Time, Temperature, Process](https://www.agrifarming.in/soybean-seed-germination-time-temperature-process) — Keimtemperatur, Keimdauer, Saattiefe
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

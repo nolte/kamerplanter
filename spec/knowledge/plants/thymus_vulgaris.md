@@ -108,6 +108,24 @@
 | Boden-pH-Vorzug (min–max) | 6.0–8.0 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; nur andrücken, Abdeckung von wenigen Millimetern verhindert die Keimung vollständig) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (unterer Wert; Spanne 14–28 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Spanne 3–5) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (photoblastisch) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.2 (Spanne 0.15–0.23; errechnet aus Saatgutkatalogdaten, z. B. 4.305 Korn/g bzw. ~170.000 Korn/oz) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Anzucht erfolgt praxisüblich oberflächlich in Schalen/Töpfen zur späteren Pikierung, keine belegte Freiland-Direktsaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Growing Thyme: A Complete Guide — Burpee](https://www.burpee.com/blog/thyme_article10024.html) und [Growing Thyme From Seed: A How-To Guide — Savvy Gardening](https://savvygardening.com/growing-thyme-from-seed/) (Keimtemperatur 15–21 °C, Keimdauer 14–28 Tage, Lichtkeimer, Oberflächenaussaat); [Growing Thyme from Seed: How to Plant and Harvest — Meadowlark Journal](https://meadowlarkjournal.com/blog/growing-thyme-from-seed) (Bestätigung Lichtkeimung, Saattiefe); [Vulgaris, Thyme Seed — UF Seeds](https://www.ufseeds.com/product/vulgaris-thyme-seed---1-ounce/THVUG-1oz.html) (4.305 Korn/g Katalogdaten) und allgemeine Saatgut-Viabilitätsreferenzen für Kräuter ([Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/), [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html)) für die Keimfähigkeitsdauer 3–5 Jahre.
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -313,3 +331,10 @@ Thymus vulgaris,"Thymian;Echter Thymian;Gartenthymian;Thyme",Lamiaceae,Thymus,pe
 10. [Cornell Greenhouse — Hydroponic Recipes (Resh/Cornell)](http://hort.cornell.edu/greenhouse/crops/factsheets/hydroponic-recipes.pdf) — Mikronährstoff-Richtwerte Mn/Zn/Cu/Mo
 11. [Penn State Extension — Hydroponics Plant Nutrition (Mikronährstoffe)](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Richtwerte Mn/Zn/Cu/Mo
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+12. [Growing Thyme: A Complete Guide to Planting, Care, Harvest, and Maintenance — Burpee](https://www.burpee.com/blog/thyme_article10024.html) — Keimtemperatur, Keimdauer
+13. [Growing Thyme From Seed: A How-To Guide for Beginners — Savvy Gardening](https://savvygardening.com/growing-thyme-from-seed/) — Lichtkeimung, Oberflächenaussaat
+14. [Growing Thyme from Seed: How to Plant and Harvest — Meadowlark Journal](https://meadowlarkjournal.com/blog/growing-thyme-from-seed) — Bestätigung Lichtkeimung
+15. [Vulgaris, Thyme Seed — UF Seeds](https://www.ufseeds.com/product/vulgaris-thyme-seed---1-ounce/THVUG-1oz.html) — Saatgutkatalogdaten (4.305 Korn/g)
+16. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) und [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html) — Keimfähigkeitsdauer Kräutersaatgut
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

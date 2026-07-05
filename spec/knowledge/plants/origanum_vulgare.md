@@ -107,6 +107,26 @@
 | Boden-pH-Vorzug (min–max) | 6.0–8.0 (Optimum ~6.8; gedeiht auf kalkhaltigen, leicht alkalischen Böden) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — Samen nur auf die Substratoberfläche streuen, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Quellen uneinheitlich: 2–3 bzw. 3–5 Jahre bei kühler, trockener Lagerung; konservativer Ueberlappungswert gewählt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.1 (sehr feines Saatgut; ca. 9.900–10.500 Samen/g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Oregano wird ueberwiegend in Anzuchtschalen/Zellplatten vorkultiviert und als Jungpflanze ausgepflanzt (siehe §1.2/§4.2); eine Flächen-Aussaatdichte fuer Direktsaat in Korn/m² ist in seriösen Quellen nicht dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Oreganosamen sind ausgesprochen fein (Staubsamen, TKG ~0.1 g) und Lichtkeimer — sie duerfen nur angedrueckt, keinesfalls mit Substrat bedeckt werden. Die Keimfaehigkeitsdauer wird in der Literatur uneinheitlich mit 2–3 bis 3–5 Jahren bei kuehler, trockener Lagerung angegeben; hier konservativ mit 2 Jahren markiert.
+
+Quellen (§1.8): [Johnny's Selected Seeds — Growing Greek Oregano From Seed](https://www.johnnyseeds.com/growers-library/herbs/oregano/oregano-greek-key-growing-information.html); [True Leaf Market — Oregano Herb Growing Guide](https://trueleafmarket.com/pages/oregano-herb-growing-guide); [Eden Brothers — How to Plant Oregano Seeds](https://grow.edenbrothers.com/planting-guides/oregano-seeds/); [Richters — Getting Oregano Right](https://www.richters.com/show.cgi?page=MagazineRack%2FArticles%2Foregano.html); [Wikifarmer — Origanum vulgare: Oregano seeds](https://wikifarmer.com/library/en/article/origanum-vulgare-oregano-seeds); [Gardener's Path — How to Plant and Grow Oregano](https://gardenerspath.com/plants/herbs/grow-oregano/)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -320,3 +340,11 @@ Origanum vulgare,"Oregano;Wilder Majoran;Dost;Wild Marjoram",Lamiaceae,Origanum,
 13. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Tetranychus urticae, Ausbringung/Etablierung
 14. [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/wp-content/uploads/sites/3216/2022/12/2019Biologicalcontrolofaphidsfinal3.pdf) — Aphidius colemani / Aphidoletes aphidimyza gegen Blattläuse, Ausbringraten und Bedingungen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+15. [Johnny's Selected Seeds — Growing Greek Oregano From Seed](https://www.johnnyseeds.com/growers-library/herbs/oregano/oregano-greek-key-growing-information.html) — Keimtemperatur 18–21 °C, Keimdauer 7–14 Tage, Lichtkeimer
+16. [True Leaf Market — Oregano Herb Growing Guide](https://trueleafmarket.com/pages/oregano-herb-growing-guide) — Keimtemperatur 20–25 °C, Keimfähigkeitsdauer 2–3 Jahre
+17. [Eden Brothers — How to Plant Oregano Seeds](https://grow.edenbrothers.com/planting-guides/oregano-seeds/) — Saattiefe max. 1/8 inch, Lichtkeimer (nicht bedecken)
+18. [Richters — Getting Oregano Right](https://www.richters.com/show.cgi?page=MagazineRack%2FArticles%2Foregano.html) — Anbau-/Vermehrungspraxis, Vorkultur vs. Direktsaat
+19. [Wikifarmer — Origanum vulgare: Oregano seeds](https://wikifarmer.com/library/en/article/origanum-vulgare-oregano-seeds) — Saatgutgewicht (~100 mg/1000 Samen), Keimfähigkeitsdauer 3–5 Jahre
+20. [Gardener's Path — How to Plant and Grow Oregano](https://gardenerspath.com/plants/herbs/grow-oregano/) — Lichtkeimer-Bestätigung, Keimdauer 7–14 Tage bei 21 °C
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

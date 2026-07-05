@@ -107,6 +107,31 @@
 | Boden-pH-Vorzug | 6.5–7.5 (unter 6.5 versagt Rhizobium-Symbiose; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 (praktikables Optimum 65–72°F laut Ag Proud/UC Davis-Quellen) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 (weitere Studien nennen Optimum 20–25°C bzw. 25–30°C; Keimung theoretisch auch nahe 0°C, aber dann sehr langsam — hier praktischer Optimalbereich) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.6–1.9 (0,6–1,2 cm auf mittleren/feinen Böden, bis 1,9 cm auf Sandböden; Übertiefe Aussaat = Haupt­ursache für Etablierungsausfall) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (7–14 Tage unter optimalen Bedingungen; bei 10°C ca. 3 Tage bis 50 % Keimung, nahe 0°C bis zu 15 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 5 (praktische Nutzungsgrenze für Aussaatgut); dokumentiertes Extrem: 81 % Keimfähigkeit nach 19 Jahren Lagerung im ungeheizten Lagerschuppen | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Aussaat wird durchgängig flach bedeckt/eingearbeitet empfohlen und keimt zuverlässig; kein Beleg für obligate Lichtkeimung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification (45–73 % harte, wasserundurchlässige Samen je nach Herkunft; Handelssaatgut wird meist bereits mechanisch skarifiziert, bei selbst gewonnenem Saatgut zusätzliche Skarifikation empfohlen) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 2.3 (aus 190.000–230.000 Samen/lb bzw. ≈ 199.000/lb errechnet; zwei unabhängige Quellen im Bereich 2,2–2,5 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 480–740 (errechnet aus praxisüblicher Drillsaat-Aussaatstärke 10–15 lb PLS/acre ≈ 1,1–1,7 g/m² ÷ TKG 2,3 g; bei Breitsaat/Übersaat entsprechend höher) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. [US Forest Service FEIS — Medicago sativa, alfalfa](https://research.fs.usda.gov/feis/species-reviews/medsat) — Keimfähigkeitsdauer 81 % nach 19 Jahren Lagerung (ungeheizter Schuppen), ca. 200.000 Samen/lb
+2. [Wisconsin Team Forage — Seeding Rate of Different Alfalfa Seed Lots](https://fyi.extension.wisc.edu/forage/seeding-rate-of-different-alfalfa-seed-lots/) — Cross-Check Seeds/lb (190.000–230.000, Ø ≈ 199.000/lb) → TKG ≈ 2,28 g
+3. [Iowa State Extension — Establishing a New Stand of Alfalfa](https://crops.extension.iastate.edu/cropnews/2023/04/establishing-new-stand-alfalfa) — Saattiefe 1/4–1/2 Zoll (Lehm/Feinboden), 3/4 Zoll (Sand); Übertiefe Aussaat als Hauptausfallursache
+4. [MSU Extension — Planting methods for successful alfalfa establishment](https://www.canr.msu.edu/news/planting_methods_for_successful_alfalfa_establishment) — Aussaatrate 10–15 lb PLS/acre (Drillsaat), 18–20 lb/acre (Breitsaat)
+5. [Ag Proud — Maximize seeding yield: Plant early](https://www.agproud.com/articles/57380-maximize-seeding-yield-plant-early) — Keimtemperatur-Optimum 65–72°F (18–22°C); Keimung bis nahe 0°C möglich, aber stark verlangsamt (15 Tage bis 50 % Keimung bei 32°F)
+6. [Scialert — Seed Scarification Methods and their Use in Forage Legumes](https://scialert.net/fulltext/?doi=rjss.2012.38.50) — 45–73 % harte Samen bei Luzerne je nach Herkunftsregion; mechanische Skarifikation als effektivste Methode
+7. [ResearchGate — Germination and growth of old alfalfa (Medicago sativa L.) seeds on soil](https://www.researchgate.net/publication/249467314_Germination_and_growth_of_old_alfalfa_Medicago_sativa_L_seeds_on_soil) — Cross-Check Langzeit-Keimfähigkeit alten Saatguts
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

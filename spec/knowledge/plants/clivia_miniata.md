@@ -117,6 +117,29 @@
 > - **Boden-pH:** Der pH-Vorzug 5.5–6.5 deckt den in §2.3 / §3 verwendeten Korridor 6.0–6.5 ab und harmonisiert mit diesem.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (1–2 cm; Samen werden flach in die Erde eingebettet/angedrückt) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 28 (4–8 Wochen, unterer Wert; typisch 4–8 Wochen bis Keimblatt sichtbar, teils bis zu 3 Monate) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: Quellen bestätigen nur qualitativ "frisch geerntete Samen keimen deutlich besser als ältere", ohne belegte Jahreszahl --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Samen werden flach angedrückt/leicht bedeckt und in hellem indirektem Licht gehalten — keine Quelle fordert explizit Dunkelheit oder Licht als Keimbedingung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (Frischsaat direkt nach Ernte ohne Stratifikation empfohlen; keine Kalt-/Warmstratifikation oder Skarifikation dokumentiert) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine Quelle mit TKG-Wert für Clivia miniata gefunden --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Einzelsaat in Töpfen/Schalen, keine Reihen-/Flächenkultur mit dokumentierter Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Clivia-Samen sind großkörnige, fleischige Beerensamen mit hohem Wassergehalt; Keimtemperatur 27–29 °C (80–85 °F) wird von mehreren Anzucht-Ratgebern genannt, während ein weiterer Ratgeber ein Optimum von 20–25 °C nennt — daher die Spanne 20–29 °C. Keimung ist stark asynchron und kann sich über mehrere Monate hinziehen.
+
+**Quellen (§1.8):**
+- [Plant Grower World — Growing Clivias from Seed: A Step-by-Step Guide](https://plantgrowerworld.com/growing-clivias-from-seed/) — Keimtemperatur 80–85°F, Keimdauer 6–8 Wochen
+- [Garden Lovers Club — How to Germinate Clivia Seeds](https://www.gardenloversclub.com/houseplants/clivia/germinate-clivia-seeds/) — Saattiefe 1–2 cm, Keimdauer 4–8 Wochen, helles indirektes Licht während Keimung
+- [Wilson Garden Pots — A Gardener's Guide to Growing Clivias from Seeds](https://www.wilsongardenpots.com/a/growing-clivias-from-seeds) — Optimale Keimtemperatur 20–25°C, Frischsaat-Empfehlung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen

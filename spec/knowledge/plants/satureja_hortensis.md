@@ -125,6 +125,32 @@
 **Hinweis:** Als ausgesprochene Sonnen- und Magerstandort-Pflanze des Mittelmeerraums verlangt Sommer-Bohnenkraut volle Sonne (`full_sun`) — PFAF und NC State Extension geben übereinstimmend an, dass die Art im Schatten nicht gedeiht. Der Lichtkompensationspunkt (light compensation point, LCP) ist als grobe Spanne für lichtbedürftige krautige C3-Sonnenpflanzen angegeben; nicht zu verwechseln mit Lichtsättigung oder Optimum. Die Art ist sehr staunässeempfindlich (`sensitive`): dauerfeuchte Böden führen rasch zu Wurzelfäule. Salztoleranz: Keim- und Sämlingsversuche (Iran) zeigen bereits ab ~40–150 mM NaCl deutliche Keimminderung — die Art gilt als `moderately_sensitive`; ein belastbarer Maas-Hoffman-Schwellenwert (bezogen auf Substrat-ECe) für etablierte Pflanzen liegt nicht vor und bleibt offen. Der Boden-pH-Vorzug 6.0–7.0 ist quellentreu übernommen (zusätzlich werden leicht alkalische Böden gut vertragen) und harmonisiert mit den pH-Angaben in §2.3 (6.0–7.0); die etwas höhere Topfsubstrat-Empfehlung in §1.6 (6.5–7.5) berücksichtigt die Pufferung gedüngter Kräutererde und steht dazu nicht im Widerspruch.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — nur andrücken, nicht bedecken; siehe §1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Spanne 1–3 Jahre je nach Lagerbedingung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | 0.4–0.6 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ca. 25–30 (berechnet aus Reihenabstand 25 cm × Abstand in der Reihe 10–15 cm nach Vereinzeln) | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine dokumentierte Vorbehandlung — Lichtkeimer, keine Stratifikation/Skarifikation in den Quellen genannt.
+
+Quellen (§1.8):
+1. [Johnny's Selected Seeds — Summer Savory Key Growing Information](https://www.johnnyseeds.com/growers-library/herbs/savory/summer-savory-key-growing-information.html) — Keimtemperatur 18–20 °C, Lichtkeimer, nicht bedecken
+2. [Sow Right Seeds — Growing Summer Savory from Seed](https://sowrightseeds.com/blogs/planters-library/summer-savory-how-to-grow-from-seed) — Lichtkeimer, Keimdauer 7–14 Tage, Keimtemperatur 18–24 °C
+3. [Wikifarmer — Satureja hortensis Summer savory seeds](https://wikifarmer.com/library/en/article/satureja-hortensis-summer-savory-seeds) — TKG ≈0,42 g/1000 Korn (100 Korn = 0,042 g)
+4. [SUBA Seeds Company — Summer Savory](https://subaseeds.com/products/herbs/summer-savory/) — 1500–2000 Samen/g (≈0,5–0,67 g/1000 Korn)
+5. [finchandfolly.com — Seed Viability](https://www.finchandfolly.com/seed-viability) — Keimfähigkeit 3 Jahre bei kühler/dunkler Lagerung (4–10 °C)
+6. [Seed Viability Chart — Empress of Dirt](https://empressofdirt.net/seed-viability-chart/) — Bohnenkraut 1–2 Jahre keimfähig (kühl gelagert länger)
+7. Bestehende §1.6-Abstandsangaben (Reihenabstand 25 cm, in der Reihe 10–20 cm nach Vereinzeln) als Berechnungsgrundlage für Aussaatdichte
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -480,3 +506,9 @@ Saturn,Satureja hortensis,–,–,high_yield;aromatic,60–70,–,open_pollinate
 15. [ZE Bees and Trees Wiki — Hydroponic Nutrients for Leafy Greens](https://zebat.wiki/articles/tutorials/hydroponic_nutrients_leafygreens/) — Mikronährstoff-Bereiche Mn/Zn/Cu/Mo (Quelle für §2.3 Mikronährstoffe)
 16. [Harvest to Table — Root Depth / Container Depth Savory](https://harvesttotable.com/how_to_grow_savory/) — flacher Wurzelraum (~20 cm) (Quelle für effective_root_depth_cm)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+17. [Wikifarmer — Satureja hortensis Summer savory seeds](https://wikifarmer.com/library/en/article/satureja-hortensis-summer-savory-seeds) — TKG 0,42 g/1000 Korn
+18. [SUBA Seeds Company — Summer Savory](https://subaseeds.com/products/herbs/summer-savory/) — Samenzahl/g
+19. [Sow Right Seeds — Growing Summer Savory from Seed](https://sowrightseeds.com/blogs/planters-library/summer-savory-how-to-grow-from-seed) — Lichtkeimer, Keimdauer/-temperatur
+20. [finchandfolly.com — Seed Viability](https://www.finchandfolly.com/seed-viability) / [Empress of Dirt — Seed Viability Chart](https://empressofdirt.net/seed-viability-chart/) — Keimfähigkeitsdauer
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->

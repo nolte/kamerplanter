@@ -107,6 +107,31 @@
 | Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–7.0 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 (unterhalb erfolgt Keimung nur sehr langsam) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 (Optimalbereich 20–25 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (Spanne 1–2 cm je nach Quelle) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unterer Wert der Spanne 7–14 Tage bei Optimaltemperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Zwiebelsaatgut zählt zu den kurzlebigsten Kultursaaten; deutlicher Keimfähigkeitsverlust bereits nach 1 Jahr) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (keine Lichtkeimung erforderlich; Saatgut wird ca. 1–2 cm mit Substrat bedeckt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: keine Stratifikation/Skarifikation/Einweichen für Zwiebelsaatgut dokumentiert; Direktsaat ohne Vorbehandlung üblich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.5 (Sortenspanne ca. 3.0–4.5 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 80 (Zieldichte Feldanbau bei Direktsaat; deckt sich mit Pflanzabstand 5–10 cm × 15–20 cm aus §1.6) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert):**
+- Keimtemperatur: [USU Extension — Planting and Spacing](https://extension.usu.edu/vegetableguide/onion/planting-spacing); [Seedsstories — Onion Seeds: 7 Proven Tips For Best Germination Temperature](https://seedsstories.com/onion-seeds-germination-temperatures/)
+- Saattiefe: [Hazera Africa — Basic guidelines to soil preparation and onion sowing](https://af.hazera.com/basic-guidelines-to-soil-preparation-and-onion-sowing/) (10–12 mm); [USU Extension — Planting and Spacing](https://extension.usu.edu/vegetableguide/onion/planting-spacing) (~1 cm)
+- Tage bis Keimung: [Gardening Tips — Onion Seed Germination, Time, Temperature, Process](https://gardeningtips.in/onion-seed-germination-time-temperature-process); [Agri Farming — Onion Seed Germination, Time, Temperature, Procedure](https://www.agrifarming.in/onion-seed-germination-time-temperature-procedure)
+- Keimfähigkeitsdauer: [Journal of Applied and Natural Science — Loss of seed viability in onion (Allium cepa L.) in relation to degradation of lipids during storage](https://journals.ansfoundation.org/index.php/jans/article/view/2431); [ResearchGate — Loss of vigour and viability in aged onion (Allium cepa L.) seeds](https://www.researchgate.net/publication/230582883_Loss_of_vigour_and_viability_in_aged_onion_Allium_cepa_L_seeds)
+- Licht-/Dunkelkeimer: [Potato Onion Guy — Onion Seed Planting](https://www.potatoonionguy.com/grow/onion-seed-planting); [Epic Gardening — Do Seeds Need Light to Germinate?](https://www.epicgardening.com/do-seeds-need-light-to-germinate/)
+- Tausendkornmasse: [scialert.net — Screening the Local Varieties of Onion (Allium cepa L.) for Seed Production](https://scialert.net/fulltext/?doi=ajps.2003.688.691) (3.0–4.2 g); [Easyseeds — Allium cepa (Onion) Klaria](https://www.easyseeds.eu/en/allium-cepa-onion-klaria/) (~4.5 g)
+- Aussaatdichte: [Hazera Africa — Basic guidelines to soil preparation and onion sowing](https://af.hazera.com/basic-guidelines-to-soil-preparation-and-onion-sowing/) (80–90 Pflanzen/m² Zieldichte); [USU Extension — Planting and Spacing](https://extension.usu.edu/vegetableguide/onion/planting-spacing) (Pflanzabstand-Querrechnung ≈ 76–90/m²)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

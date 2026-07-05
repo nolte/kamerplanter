@@ -134,6 +134,30 @@ Hinweis: Regelmaessiges Ernten der aeusseren Blaetter foerdert Nachwuchs. Fuer B
 **Hinweis:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt fuer diese sonnenliebende C3-Blattkultur im typischen Bereich von Sonnenpflanzen-Blaettern (ca. 15--35 umol/m2/s). Lichtsaettigung tritt erst deutlich hoeher ein (mehrere hundert umol/m2/s) -- diese Saettigungswerte gehoeren nicht in das Kompensationspunkt-Feld. Die Salztoleranz ist quellentreu von der eng verwandten Blattkultur Salat (Lactuca sativa) abgeleitet, da fuer Cichorium intybus keine eigenstaendigen Maas-Hoffman-Parameter publiziert sind; Bezugsgroesse ist die elektrische Leitfaehigkeit des Saettigungsextrakts des Substrats (ECe), NICHT die Giesswasser-EC. Der pH-Vorzug 5.5--7.0 ist mit den Angaben in Sektion 1.6 und 2.3 dieser Datei harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 3.5 (Basistemperatur der Keimung It. Acta Physiologiae Plantarum 2019; praktikables Minimum) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 29 (Optimum 28.9 degC It. selber Studie; deutlich hoeher als die im Freiland uebliche Aussaattemperatur von 18--20 degC) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (1--2 cm It. S.1.3; deutsche Fachquellen 0.5--1 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (7--21 Tage je nach Temperatur; unterer Wert bei waermerem Substrat/optimaler Feuchte) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 3 (allgemein 3--5 Jahre bei kuehler, trockener Lagerung; unterer Wert verwendet) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | -- <!-- DATEN FEHLEN: widerspruechliche Quellenlage. Deutsche Fachsaatgut-Kataloge (Sperli, Samen.de, Homefarming, PRIMOZA) klassifizieren Zichorie als Dunkelkeimer; englischsprachige Wildblumen-Saatguthaendler und eine Feldstudie (Portugal) berichten dagegen Lichtkeimung. Ohne zwei konsistente unabhaengige Quellen fuer denselben Wert wird das Feld nicht belegt. --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | -- (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1.1 (errechnet aus 426.000 Samen/lb fuer Futter-/Wildzichorie: 453.592 g / 426.000 Samen x 1000 approx. 1.06 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | 12 (Endabstand 25--30 cm in der Reihe, 30--40 cm Reihenabstand It. S.1.3/S.1.6; bestaetigt durch Johnny's Selected Seeds Endivie-Kulturangaben 20--25 cm x 30--45 cm) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (S.1.8):
+1. Interne Keiminfos S.1.3 dieses Dokuments (Keimtemperatur 18--20 degC optimal / 10 degC minimal, Dunkelkeimer-Praxishinweis, Saattiefe 1--2 cm, Reihen-/Pflanzabstand) -- bereits als Quelle im Dokument gefuehrt.
+2. Acta Physiologiae Plantarum (Springer, 2019) -- Environmental factors' effect on seed germination and seedling growth of chicory: Kardinaltemperaturen Basis 3.5 degC / Optimum 28.9 degC / Maximum 40.2 degC (bereits als Quelle 13 im Dokument gefuehrt, hier fuer S.1.8 direkt herangezogen): https://link.springer.com/article/10.1007/s11738-019-2820-2
+3. Mississippi State University Extension -- Chicory (Cichorium intybus): Keimdauer 7--14 Tage, Kulturhinweise: http://www.ext.msstate.edu/content/chicory-cichorium-intybus
+4. Smith Seed Services -- Chicory Cichorium intybus: Samenzaehlung ca. 426.000 Samen/lb (Futterzichorie): https://smithseed.com/seed/wildlife/chicory/chicory
+5. Johnny's Selected Seeds -- Growing Chicory: Endive & Escarole, Key Growing Information: Endabstand 20--25 cm (8--10 in), Reihenabstand 30--45 cm (12--18 in): https://www.johnnyseeds.com/growers-library/vegetables/chicory/chicory-endive-escarole-key-growing-information.html
+6. Seed Needs / Outside Pride -- Chicory Seeds For Planting: oberflaechennahe Aussaat mit Lichtbeduerfnis (widerspricht deutschen Fachquellen -- daher Feld als DATEN FEHLEN markiert): https://www.seedneeds.com/products/chicory-italian-dandelion-seeds-for-planting
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -89,6 +89,13 @@ new_species:
   # Enrichment fields moved to species_enrichment section below.
 
   - scientific_name: "Tigridia pavonia"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 27
+      sowing_depth_cm: 0.5
+      days_to_germination: 7
+      light_germination: light
     propagation_configs:
       - method: bulb
         months: [3, 4]
@@ -141,6 +148,15 @@ new_species:
       max_ph: 7.0
 
   - scientific_name: "Apium graveolens var. rapaceum"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 16
+      germination_temp_max_c: 22
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 0.4
     propagation_configs:
       - method: seed
         months: [2, 3]
@@ -290,6 +306,15 @@ species_enrichment:
           volume_ml_max: 300
 
   "Petunia x hybrida":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 28
+      sowing_depth_cm: 0
+      days_to_germination: 5
+      seed_viability_years: 2
+      light_germination: light
+      thousand_seed_weight_g: 0.1
     propagation_configs:
       - method: seed
         months: [2, 3, 4]
@@ -372,6 +397,16 @@ species_enrichment:
           volume_ml_max: 600
 
   "Helianthus annuus":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 25
+      sowing_depth_cm: 2.5
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 40
+      sowing_density_per_m2: 3
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -393,6 +428,15 @@ species_enrichment:
     support_required: true
 
   "Viola x wittrockiana":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 24
+      sowing_depth_cm: 0.2
+      days_to_germination: 10
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 1
     propagation_configs:
       - method: seed
         months: [6, 7, 8]

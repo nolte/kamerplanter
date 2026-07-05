@@ -116,6 +116,26 @@
 **Hinweis pH-Vorzug:** Die hier eingetragene Quellen-Vorzugsspanne 5,5–7,0 (PFAF / FAO-Ecocrop) ist weiter als die in §1.6/§2.3 für die Topf-/Nährlösungssteuerung verwendete engere Spanne 5,5–6,5; beide sind konsistent (das Topf-Optimum liegt innerhalb des breiteren Standort-Vorzugs).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 35 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 (Flachsaat; > 5 cm Saattiefe hemmt Feldaufgang deutlich, siehe Hinweis) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (unter Optimalbedingungen; volle Feldemergenz je nach Wasserstand/Temperatur bis zu 9–13 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (bei trockener Lagerung noch hohe Keimrate bis ca. 3 Jahre; danach deutlicher Rückgang unter Praxis-Lagerbedingungen) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (moderne Kultursorten keimen weitgehend lichtunabhängig; nur seltene photoblastische Wildreis-/Unkrautreis-Typen sind lichtabhängig) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (24–48 h Einweichen vor der Aussaat/Inkubation ist Standardpraxis bei Direktsaat-/Nassreisanbau) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 25 (Sortenspanne ca. 16–32 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 250 (Direktsaat; abgeleitet aus IRRI-Aussaatrate 60–80 kg/ha bei TKG ~25 g) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Reis wird kommerziell überwiegend nass vorbehandelt: 24–48 h Einweichen gefolgt von 24–48 h feuchter Inkubation ("pre-germination"/Vorkeimung) vor der Aussaat, um eine zügige und gleichmäßige Keimung zu erreichen — dies gilt vor allem für Direktsaat- und Nassreissysteme. Die Saattiefe sollte flach gehalten werden: Untersuchungen zeigen 12–22 % geringeren Feldaufgang bei 0,5–1 cm Saattiefe und 48–60 % geringeren Aufgang bei 2 cm kombiniert mit Überflutung — daher wird eine Saattiefe von ca. 2–3 cm bei guter Wasserführung als praktikabler Kompromiss angegeben. Die Keimfähigkeit sinkt unter typischen Farm-Lagerbedingungen (30 °C, 70 % rF) sehr schnell (von 95 % auf 1 % innerhalb von 5 Monaten), während trockene/kühle Lagerung (Genbank-Standard) die Lagerfähigkeit auf Jahrzehnte verlängert — der hier angegebene Wert von 2 Jahren bezieht sich auf praxisübliche, nicht klimatisierte Saatgutlagerung.
+
+Quellen (§1.8): [ScialErt — Germination Characteristics of Korean and Southeast Asian Redrice (Oryza sativa L.) Seeds as Affected by Temperature](https://scialert.net/fulltext/?doi=ajps.2010.104.107); [PMC — Optimizing Sowing and Flooding Depth for Anaerobic Germination-Tolerant Genotypes to Enhance Crop Establishment in Dry-Seeded Rice (Oryza sativa L.)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6265439/); [IRRI Rice Knowledge Bank — Seed rate (High)](http://www.knowledgebank.irri.org/decision-tools/rice-doctor/rice-doctor-fact-sheets/item/seed-high-rate); [Wikifarmer — Rice Planting, Seeding Requirements — Seed Rate of Rice](https://wikifarmer.com/library/en/article/rice-planting-seeding-requirements-seed-rate-of-rice); [ScienceDirect — Association Mapping of Thousand Grain Weight using SSR and SNP Markers in Rice](https://link.springer.com/article/10.1007/s12042-021-09282-7); [Agronomy Journal — Photoblastism and Ecophysiology of Seed Germination in Weedy Rice](https://acsess.onlinelibrary.wiley.com/doi/abs/10.2134/agronj2003.1840); [Journal of Experimental Agriculture International — Improving Rice Seed Longevity: Impact of Storage Containers, Conditions and Seed Moisture during Storage](https://journaljeai.com/index.php/JEAI/article/view/3522); [Nature Scientific Reports — Benefits of rice seed priming are offset permanently by prolonged storage and the storage conditions](https://www.nature.com/articles/srep08101)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -410,3 +430,13 @@ Arborio,Oryza sativa,"japonica_type;risotto;high_starch",135,open_pollinated
 14. [IRRI Rice Knowledge Bank — Biological Control of Rice Insect Pests](http://www.knowledgebank.irri.org/bioControl/module_3/06.htm) — Cyrtorhinus lividipennis als Eiräuber von Zikaden/Planthoppern
 15. [MDPI Agronomy — Physiological Factors Limiting Leaf Net Photosynthetic Rate in C3 Crops like Rice](https://www.mdpi.com/2073-4395/12/8/1830) — Reis als C3-Kultur; Lichtsättigung ~1.500–1.800 µmol/m²/s; T_opt Photosynthese 30–35 °C
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+16. [ScialErt — Germination Characteristics of Korean and Southeast Asian Redrice (Oryza sativa L.) Seeds as Affected by Temperature](https://scialert.net/fulltext/?doi=ajps.2010.104.107) — Keimtemperaturoptimum 20–30 °C
+17. [PMC — Optimizing Sowing and Flooding Depth for Anaerobic Germination-Tolerant Genotypes to Enhance Crop Establishment in Dry-Seeded Rice](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6265439/) — Saattiefen-Effekt auf Feldaufgang, Flutungsbedingungen
+18. [IRRI Rice Knowledge Bank — Seed rate (High)](http://www.knowledgebank.irri.org/decision-tools/rice-doctor/rice-doctor-fact-sheets/item/seed-high-rate) — Aussaatrate 60–80 kg/ha Direktsaat, 40 kg/ha Transplantierung
+19. [Wikifarmer — Rice Planting, Seeding Requirements — Seed Rate of Rice](https://wikifarmer.com/library/en/article/rice-planting-seeding-requirements-seed-rate-of-rice) — Aussaatrate-Bestätigung, Nursery-Saatmenge
+20. [Springer Tropical Plant Biology — Association Mapping of Thousand Grain Weight in Rice](https://link.springer.com/article/10.1007/s12042-021-09282-7) — Tausendkornmasse Sortenspanne 16–32 g, Durchschnitt ~25 g
+21. [Agronomy Journal — Photoblastism and Ecophysiology of Seed Germination in Weedy Rice](https://acsess.onlinelibrary.wiley.com/doi/abs/10.2134/agronj2003.1840) — moderne Kultursorten lichtunabhängig keimend (indifferent), Photoblastismus nur bei Wildreis-Typen
+22. [Journal of Experimental Agriculture International — Improving Rice Seed Longevity: Impact of Storage Containers, Conditions and Seed Moisture during Storage](https://journaljeai.com/index.php/JEAI/article/view/3522) — Keimfähigkeit bei Praxis-Lagerung, ~3 Jahre bei trockener Lagerung
+23. [Nature Scientific Reports — Benefits of rice seed priming are offset permanently by prolonged storage and the storage conditions](https://www.nature.com/articles/srep08101) — Keimfähigkeitsverlust unter Farm-Lagerbedingungen (30 °C/70% rF)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

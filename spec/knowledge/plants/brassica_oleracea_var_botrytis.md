@@ -115,6 +115,24 @@
 **Hinweis:** Die ECe-Schwelle bezieht sich auf den Sättigungsextrakt des Substrats (ECe), NICHT auf den Gießwasser-EC. Für Blumenkohl liegen laut FAO keine eigenständigen Maas-Hoffman-Parameter vor (qualitative Einstufung "moderately sensitive"); die Zahlenwerte sind vom nahe verwandten Broccoli übernommen. Eine ältere Einzelstudie (Giuffrida et al. 2005) nennt für Blumenkohl/Broccoli abweichend 1.28 dS/m bei 15.8 %/dS/m.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.6–1.3 (KA-Feld: 0.6) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4–10 (KA-Feld: 4) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 4–5 (KA-Feld: 4) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine Vorbehandlung erforderlich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3–4 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ~3.3 (bei Endabstand 50–60 × 50–60 cm, siehe §1.6; Direktsaat-Monate 4/5/7 laut §1.2) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Harvest to Table — Cauliflower Seed Starting Tips](https://harvesttotable.com/cauliflower-seed-starting-tips/); [Gardening Tips — Cauliflower Seed Germination, Time, Temperature](https://gardeningtips.in/cauliflower-seed-germination-time-temperature); [Bountiful Gardener — How Deep to Plant Cauliflower Seeds](https://www.bountifulgardener.com/how-deep-to-plant-cauliflower-seeds-sowing-and-transplanting-cauliflower/); [Wikifarmer — Brassica oleracea botrytis Cauliflower seeds](https://wikifarmer.com/brassica-oleracea-botrytis-cauliflower-seeds/); [Green Harvest — Seeds per Gram](https://greenharvest.com.au/SeedOrganic/SeedsPerGram.html); [Osborne Seed / Gardening Channel — Seed Viability Charts](https://www.osborneseed.com/pages/seed-viability-chart); [Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate](https://gardenbetty.com/seed-germination-light-darkness/).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

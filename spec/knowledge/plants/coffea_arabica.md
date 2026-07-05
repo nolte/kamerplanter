@@ -123,6 +123,31 @@
 > **Freitext-Hinweis (gehört nicht ins LCP-Feld):** Coffea arabica ist eine ausgesprochene Schattenpflanze (Unterholzart) mit ausgeprägter Schattenanpassung — der Lichtkompensationspunkt ist niedrig und steigt mit zunehmender Anzucht-Lichtintensität. Die Lichtsättigung (light saturation point) liegt je nach Lichtklimatisierung bei ca. 300 µmol/m²/s (schattengezogen) bis 600 µmol/m²/s (sonnengezogen); darüber droht Photoinhibition. Diese Sättigungs- und Optimumwerte sind bewusst NICHT in das Kompensationspunkt-Feld übernommen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 24 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 (nährstoffreiche Anzuchtbeete: 2 cm optimal, statistisch besser als 3 cm; Heimanzucht-Quellen nennen auch ~0.6 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 45 (45–70 Tage bei Samen mit Pergamenthaut/Parchment; Radicula erscheint bereits nach 21–28 Tagen, volle Keimlings-Emergenz dauert deutlich länger) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 0.25 (Kaffeesamen sind recalcitrant/kurzlebig — Keimfähigkeit sinkt bereits nach 3 Monaten deutlich ohne Kühllagerung; unter guten Lagerbedingungen bis zu 6 Monaten [≈0,5 Jahre] erhalten) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (Einweichen in Wasser 24 Std. vor Aussaat; entfernt zusätzlich Fruchtfleisch-Keimhemmstoffe) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine Quelle mit TKG-Wert für Coffea arabica gefunden --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Anzucht erfolgt in Beeten/Töpfen ohne dokumentierte flächenbezogene Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+> **Hinweis:** Kaffeesamen besitzen keine echte Dormanz und keimen prinzipiell sofort nach der Ernte, verlieren aber ihre Keimfähigkeit sehr schnell (kein "trockenlagerbares" orthodoxes Saatgut). Die Radicula-Protrusion erfolgt optimal bei 30 °C im Dunkeln; niedrigere Temperaturen (unter 24 °C) verlängern die Keimzeit auf bis zu 90 Tage.
+
+**Quellen (§1.8):**
+- [Scialert — Pre-sowing Treatment of Coffee (Coffea arabica L.) Seeds to Enhance Emergence and Subsequent Growth of Seedlings](https://scialert.net/fulltext/?doi=rjss.2010.218.226) — Einweichen 24 Std., Sowing-Tiefe 2 cm vs. 3 cm, Parchment-Entfernung
+- [Wageningen University Repository — Coffee (Coffea arabica cv. Rubi) seed germination: mechanism and regulation](https://edepot.wur.nl/192247) — Radicula-Protrusion bei 30 °C im Dunkeln, Tag 5–6
+- [FAO — Arabica coffee manual for Lao PDR](https://www.fao.org/4/ae939e/ae939e04.htm) — Keimdauer 45–70+ Tage bei Pergamenthaut-Samen, 50–90 Tage Keimlings-Emergenz je nach Temperatur
+- [ResearchGate — Seed germination performance of nine Arabica coffee varieties after six months storage](https://www.researchgate.net/publication/351000444_Seed_germination_performance_of_nine_Arabica_coffee_Coffea_arabica_L_varieties_under_the_laboratory_condition_after_six_months_of_storage_period) — Keimfähigkeitsverlust nach 3 Monaten ohne Kühllagerung, Erhalt bis 6 Monate möglich
+- [ResearchGate — Germination and early seedling growth of three Arabica coffee varieties at four seed soaking water temperatures](https://researchgate.net/publication/370441611_Germination_and_early_seedling_growth_of_three_Arabica_coffee_varieties_at_four_seed_soaking_water_temperatures) — Einweich-Vorbehandlung (presoak), Raumtemperaturwasser optimal
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen

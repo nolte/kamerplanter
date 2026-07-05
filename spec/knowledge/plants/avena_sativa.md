@@ -109,6 +109,24 @@
 **Hinweis Salztoleranz:** Die FAO-Klassifikation bewertet die Kornerträge von Hafer für die reife Kultur als „Tolerant" (T), liefert jedoch keine quantitativen Maas-Hoffman-Werte (Schwelle/Slope). Im Keim- und Sämlingsstadium (germination/seedling stage) reagiert Hafer dagegen deutlich empfindlicher auf Salz — frühe Phasen sollten mit geringerer Gießwasser-EC geführt werden. Bezugsgröße der Klasse ist die Substrat-Sättigungsextrakt-Leitfähigkeit (ECe), nicht die Gießwasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 3–5 (KA-Feld: 3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5–10 (KA-Feld: 5) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3–5 (KA-Feld: 3) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine Vorbehandlung erforderlich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 25–40 (starke sortenabhängige Schwankung; Nackthafer leichter, bespelzte Sorten schwerer) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 300–350 | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [NDSU Agriculture — Oat Production in North Dakota](https://ag.ndsu.edu/publications/crops/oat-production-in-north-dakota); [ScienceDirect — Germination response of Oat (Avena sativa L.) to temperature and salinity using halothermal time model](https://www.sciencedirect.com/science/article/pii/S2667064X23001306); [Agri Farming — Oats Seed Germination, Period, Temperature, Process](https://www.agrifarming.in/oats-seed-germination-period-temperature-process); [Alberta Grains — Thousand kernel weight](https://www.albertagrains.com/the-growing-point/articles-library/thousand-kernel-weight); [Alberta Agriculture — Using 1,000 Kernel Weight for Calculating Seeding Rates (Agdex 100/22-1)](https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/agdex81/$file/100_22-1.pdf); [Iowa State Extension — Fine-Tune Oat Seeding Rate This Spring](https://crops.extension.iastate.edu/cropnews/2016/03/fine-tune-oat-seeding-rate-spring); [SARE — Wild Oat (Lichtinhibition bei kongenerischer Art)](https://www.sare.org/publications/manage-weeds-on-your-farm/wild-oat/); [eos.com — Oats: A Guide On How To Raise Productivity Of The Crop (Saattiefe nach Bodenart)](https://eos.com/crop-management-guide/oats-growth-stages/); [Johnny's Selected Seeds — Seed Viability & Storage Guidelines](https://www.johnnyseeds.com/growers-library/methods-tools-supplies/harvesting-handling-storage/seed-storage-guidelines.html).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

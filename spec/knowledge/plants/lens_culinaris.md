@@ -130,6 +130,30 @@
 - **pH:** Vorzug pH 6,0–8,0 (kalkverträglich, leicht alkalisch ideal), harmonisiert mit §1.6 und den Nährstoffprofilen §2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 5 (kühlkeimende Kulturart; entspricht der GDD-Basistemperatur §1.1, langsame Keimung im Kaltboden) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 35 (Optimum laut Studienlage ca. 20 °C, Keimrate steigt bis 35 °C, danach Rückgang) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 4 (agronomischer Richtwert 3–5 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unterer Wert; konsistent mit Phasenübersicht §2.1 Keimung 7–12 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (deutliche Qualitätsminderung nach 2–3 Jahren, größtenteils erschöpft nach ca. 5 Jahren) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Lichtqualität/-intensität beeinflusst die Keimung selbst nicht — wie bei anderen Leguminosen) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine: kein hartes Samenschalen-Skarifikationserfordernis oder Stratifikationsbedarf dokumentiert --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 40 (Sortenspanne: kleinkörnige Typen < 40 g/1.000 Korn bis großkörnige Typen > 70 g/1.000 Korn) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 120 (optimale Zieldichte für australische Anbauumgebungen; andere Studien nennen bis 200 keimfähige Korn/m²) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [Saskatchewan Pulse Growers — Lentils Seeding](https://saskpulse.com/growing-pulses/lentils/lentils-seeding/) — Saattiefe, Aussaatdichte
+2. [MDPI Plants 2023 — Effect of Sowing Date and Environment on Phenology, Growth and Yield of Lentil](https://www.mdpi.com/2223-7747/12/3/474) — Aussaatdichte 120 Korn/m², Saattiefe
+3. [Springer — Effects of different temperatures and duration on germination of Lentil](https://link.springer.com/article/10.3103/S106836741202019X) — Keimtemperaturbereich, Optimum
+4. [PMC10813626 — Blue and Red LED Lights Differently Affect Growth Responses ... Lentil](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10813626/) — Licht-/Dunkelkeimer-Neutralität
+5. [MDPI Agronomy 2024 — Agronomic Performances and Seed Yield Components of Lentil Germplasm](https://www.mdpi.com/2073-4395/14/2/303) — Tausendkornmasse-Spanne
+6. [ResearchGate — Effect of moisture levels and storage periods on seed quality of lentil](https://www.researchgate.net/publication/324978590_Effect_of_moisture_levels_and_storage_periods_on_the_seed_quality_of_lentil_Lens_culinaris_L) — Keimfähigkeitsverlust über Lagerzeit
+
 ---
 
 ## 2. Wachstumsphasen

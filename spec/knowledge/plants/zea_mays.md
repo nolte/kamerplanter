@@ -126,6 +126,26 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 
 **Hinweise §1.7:** Mais ist eine C4-Vollsonnenpflanze (full_sun) und reagiert empfindlich auf Lichtmangel/Beschattung im Bestand; der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt artbedingt niedrig bei ca. 6–14 µmol/m²/s, das Sättigungs-Optimum dagegen sehr hoch (kein C3-typischer Sättigungspunkt, vgl. §1.1). Rund 95 % der Wurzelmasse liegen in 0–60 cm; einzelne Wurzeln reichen bis ~120–150 cm (vgl. §4.1). Staunässe ist kritisch — Mais ist ein Trockenfeldkulturgewächs. Salztoleranz nach Maas-Hoffman: ECe-Schwelle 1.7 dS/m (bezogen auf den Substrat-Sättigungsextrakt ECe, NICHT auf die Gießwasser-EC), Slope ca. 12 % Ertragsverlust je dS/m oberhalb der Schwelle (Süßmais ~11.5 %), Einstufung moderately_sensitive.
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 10 (Bodentemperatur-Minimum; deckungsgleich mit §1.1-GDD-Basistemperatur und §1.3-Praxisangabe „Bodentemperatur min. 10°C") | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 32 (Pioneer-Forschung: optimale Keimung/Auflaufen bei Bodentemperaturen von 29–32 °C; Wachstum bleibt auch bei 35 °C noch schnell) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 4 (Spanne 3–5 cm, siehe §1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4 (unterer Wert der Spanne 4–10 Tage, siehe §1.3) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (praxisübliche Angabe speziell für Zuckermais-Saatgut; bei guter kühl-trockener Lagerung auch länger, aber Vitalitätsverlust ab dem 3. Jahr deutlich) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Mais gilt als photoblastisch neutral/nicht-photoblastisch — Züchtung auf schnelle, gleichmäßige Keimung unabhängig von Licht; Aussaat erfolgt ohnehin lichtlos in 3–5 cm Bodentiefe) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (kein Stratifikations- oder Skarifikationsbedarf; Direktsaat ohne Vorbehandlung Standard) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 280 (übliche Spanne 250–300 g/1000 Korn für Feld-/Zuckermais, je nach Sorte und Kornform) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 5 (aus Reihen-/Pflanzabstand 30–40 cm × 50–70 cm gemäß §1.6 errechnet, ca. 4–6 Pflanzen/m²; deckt sich mit dem unteren Bereich der Midwest Vegetable Production Guide-Empfehlung von 13.000–26.000 Pflanzen/Acre ≈ 3–6/m² für Zuckermais im Hausgarten) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Die im §1.1 dokumentierte GDD-Basistemperatur von 10 °C ist identisch mit der agronomischen Mindest-Keimtemperatur — beide Werte stammen aus derselben physiologischen Kardinaltemperatur-Logik. Feldmais-Landwirtschaft strebt Bodentemperaturen von mind. 50 °F (10 °C), besser 60–65 °F (15,5–18 °C) an, bevor gesät wird, da Kälte-Stress (Chilling Injury) bei der Quellung des Korns zu Imbibitionsschäden führen kann.
+
+Quellen (§1.8): [Pioneer Seeds — Soil Temperature and Corn Emergence](https://www.pioneer.com/us/agronomy/soil_temp_corn_emergence.html); [Sungrowled — Do Seeds Need Light to Germinate? (Mais als non-photoblastic Referenzbeispiel)](https://www.sungrowled.com/News/113902.html); [Farmer and the Fish NYC — How Long Does Corn Seed Last Before It Loses Viability?](https://farmerandthefishnyc.com/how-long-does-corn-seed-last/); [University of Delaware Cooperative Extension — Seed Vigor in Sweet Corn Revisited](https://sites.udel.edu/weeklycropupdate/?p=10301); [Alberta Agriculture — Using 1,000 Kernel Weight for Calculating Seeding Rates, Grain Yield and Test Weight](https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/agdex81/$file/100_22-1.pdf); [Grainews — Thousand kernel weight](https://www.grainews.ca/features/thousand-kernel-weight/); [Bayer Vegetables — Understanding Sweet Corn Populations](https://www.vegetables.bayer.com/ca/en-ca/resources/agronomic-spotlights/understanding-sweet-corn-populations.html)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

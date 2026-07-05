@@ -36,6 +36,13 @@ new_species_family_map:
 
 new_species:
   - scientific_name: "Streptocarpus ionanthus"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 27
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      light_germination: light
     common_names: ["Usambaraveilchen", "Afrikanisches Veilchen", "African Violet"]
     genus: Streptocarpus
     plant_category: indoor_houseplant

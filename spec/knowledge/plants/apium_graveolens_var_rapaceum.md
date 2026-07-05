@@ -132,6 +132,30 @@ Hinweis: Ab Mitte Juli die aeusseren, aelteren Blaetter abbrechen (nicht schneid
 **Hinweis:** Das verwendete Untersuchungslicht in der Praxis liegt deutlich ueber dem (nicht belegten) Kompensationspunkt -- Wachstumsoptima fuer Sellerie wurden bei ca. 200 umol/m2/s PPFD beschrieben; Saettigungs-/Optimumwerte gehoeren NICHT in das Kompensationspunkt-Feld. Die Salztoleranzwerte (ECe 1.8 dS/m, Slope 6.2 %/dS/m) stammen aus dem Maas-Hoffman-Modell (Shannon & Grieve / FAO) und beziehen sich auf den Saettigungsextrakt des Bodens; sie passen zur Klasse `moderately_sensitive` (Schwelle <2 dS/m).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 16 (eigene Keimhinweise §1.3: Minimale Keimtemperatur 16 °C -- sehr langsame Keimung) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 22 (eigene §1.3: Optimaltemperatur konstant 20–22 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer, eigene §1.3: NUR leicht andrücken, NICHT mit Erde bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (unterer Wert der eigenen §1.3-Spanne 14–28 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (art-/gattungstypisch für Apium graveolens; kühl-trockene Lagerung vorausgesetzt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (eigene §1.3 explizit Lichtkeimer; peer-reviewed für die Art Apium graveolens durch Pressman 1988 bestätigt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: keine Stratifikation/Skarifikation/Einweichen für Knollensellerie-Saatgut als Standardempfehlung dokumentiert; morphologische Dormanz wird durch Licht aufgehoben, siehe light_germination --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.4 (art-typisch für Apium graveolens, Sortenspanne ca. 0.39–0.42 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Knollensellerie wird laut eigener §1.2 ausschließlich vorkultiviert und pikiert/verpflanzt ("Direktsaat nicht empfohlen"), kein Reihen-Direktsaat-Endabstand anwendbar --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert):** *Apium graveolens var. rapaceum* ist taxonomisch dieselbe Art wie *Apium graveolens* (Sellerie) — die Saatgut-/Keimbiologie ist auf Artebene konserviert (identische Samenanatomie/-morphologie), daher werden art-level-Quellen mit den eigenen Kulturangaben der Sorte gegengeprüft:
+- Keimtemperatur: eigene Keimhinweise §1.3 (Steckbrief, 16–22 °C); [Pressman (1988) — Germination of annual and biennial celery (Apium graveolens) seeds, Physiologia Plantarum](https://onlinelibrary.wiley.com/doi/10.1111/j.1399-3054.1988.tb06623.x) (art-level Optimum ~15 °C höchste Keimrate, Keimung bis in den 20er-°C-Bereich)
+- Saattiefe: eigene Keimhinweise §1.3 (Steckbrief, explizit Lichtkeimer, nicht bedecken); [Johnny's Selected Seeds — Growing Celery & Celeriac](https://www.johnnyseeds.com/growers-library/vegetables/celery-and-celeriac/celery-and-celeriac-key-growing-information.html) (Oberflächensaat, art-level)
+- Tage bis Keimung: eigene Keimhinweise §1.3 (Steckbrief, 14–28 Tage); [Johnny's Selected Seeds — Growing Celery & Celeriac](https://www.johnnyseeds.com/growers-library/vegetables/celery-and-celeriac/celery-and-celeriac-key-growing-information.html) (art-level 14–21 Tage bei 65–75 °F)
+- Keimfähigkeitsdauer: [Grow Your Heirlooms — Seed Viability Chart](https://www.growyourheirlooms.com/seed-viability-chart-2/) (Sellerie/Apium graveolens 3 Jahre, art-level); allgemeine Referenzwerte für feinsamige Doldenblütler (2–3 Jahre)
+- Licht-/Dunkelkeimer: [Pressman (1988) — Germination of annual and biennial celery seeds](https://onlinelibrary.wiley.com/doi/10.1111/j.1399-3054.1988.tb06623.x) (art-level, Keimung nur in Licht); eigene Keimhinweise §1.3 (Steckbrief, explizit Lichtkeimer)
+- Tausendkornmasse: [Wikifarmer — Apium graveolens Celery Rapaceum seeds](https://wikifarmer.com/library/en/article/apium-graveolens-celery-rapaceum-seeds) (sortenspezifisch); [Wikifarmer — Apium graveolens Celery seeds](https://wikifarmer.com/library/en/article/apium-graveolens-celery-seeds) (art-level 0.41–0.42 g/1000, Querbestätigung Größenordnung)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

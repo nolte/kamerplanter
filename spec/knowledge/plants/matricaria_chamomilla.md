@@ -131,6 +131,30 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 **Hinweis Salztoleranz:** Bezugsgröße ist die Substrat-Sättigungsextrakt-Leitfähigkeit (ECe), nicht die Gießwasser-EC. Mäßiger Salzstress (um 2 dS/m) kann den Gehalt an ätherischen Ölen sogar leicht erhöhen, höhere Werte mindern Wuchs und Blütenbildung.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 (§1.3 bereits belegt: 15–20°C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 20 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer; nur andrücken, max. 2–3 mm Substrat, §1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (§1.3: 7–14 Tage; Fachhandel bestätigt 7–14 Tage bei Zimmertemperatur, kommerzielle Feldaussaat teils 15–20 Tage bei kühlerem Boden) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Konsensbereich 2–5 Jahre bei kühler, trockener Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (§1.3 bereits belegt: Lichtkeimer) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (keine Stratifikation/Skarifikation erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.09 (extrem feines Saatgut; Konsens deutscher Saatguthändler) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 1100–3300 (errechnet aus Aussaatstärke 1–3 kg/ha × TKG 0,09 g; erklärt die für Lichtkeimer typische hohe Bestandesdichte mit natürlicher Selbstausdünnung) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. §1.3 dieses Steckbriefs (bereits zitierte Quellen: Keimtemperatur 15–20°C, Lichtkeimer, Saattiefe oberflächlich) — Cross-Check
+2. [top agrar — So bauen Landwirte Kamille als Kulturpflanze an](https://www.topagrar.com/acker/news/so-bauen-sie-kamille-als-kulturpflanze-an-20024878.html) — Aussaatstärke 1–3 kg/ha, Reihenabstand 30–35 cm, Herbst-/Frühjahrsaussaat
+3. [Samenchilishop — Echte Kamille, 1000 Samen](https://www.samenchilishop.de/index.php/grossmengen/1000-samen/echte-kamille-matricaria-chamomilla-1000-samen) — Tausendkorngewicht 0,09 g
+4. [Weberseeds — Matricaria chamomilla, Echte Kamille](https://weberseeds.nl/eshop/en/Seeds/Seeds-A-Z/Matricaria-chamomilla-Chamomile::98.html) — Cross-Check Tausendkorngewicht (≈ 11.000 Samen/g)
+5. [ExcelAtGardening — Seed Viability Chart](https://excelatgardening.com/home/seed-library/growing-tips-and-seed-saving/seed-viability-chart/) — Keimfähigkeitsdauer 2–5 Jahre bei kühler, trockener Lagerung (Kamille/Korbblütler-Kategorie)
+6. [Bank on Seeds — Common Chamomile Guide](https://bankonseeds.com/pages/common-chamomile-guide) — Keimfähigkeitsdauer 3–5 Jahre bei richtiger Lagerung
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenuebersicht

@@ -127,6 +127,26 @@ Hinweis: Regelmaessiges Ernten der aeusseren Blaetter foerdert buschiges Nachwac
 | Boden-pH-Vorzug (min--max) | 6.0--7.0 (harmonisiert mit Substrat-Empfehlung §1.6) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 5 (sehr langsame Keimung; siehe §1.3) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 22 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 (Lichtkeimer -- nur duenn bedecken oder andruecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Spanne 14--28 Tage; notorisch langsam und ungleichmaessig) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 1 (kurzlebiges Saatgut; deutliche Keimratenabnahme bereits im 2. Jahr) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (24 h Einweichen in lauwarmem Wasser beschleunigt die Keimung um ca. 7 Tage) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 2.0 (Spanne ca. 1.5--2.2 g je nach Sorte/Quelle; entspricht ca. 475--650 Samen/g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 35 (Zielbestandsdichte nach Vereinzelung; Reihenabstand ~22.5 cm, Pflanzabstand ~12.5 cm gemaess §1.6) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Petersiliensamen enthalten keimhemmende Furanocumarine in der Samenschale, was die notorisch lange und ungleichmaessige Keimdauer (2--4 Wochen) erklaert. Einweichen vor der Aussaat verkuerzt die Keimzeit spuerbar. Die Keimfaehigkeit laesst rascher nach als bei vielen anderen Doldenbluetlern -- frisches Saatgut (max. 1 Jahr alt) liefert deutlich zuverlaessigere Ergebnisse.
+
+Quellen (§1.8): [BBC Gardeners' World Magazine -- How to Grow Parsley](https://www.gardenersworld.com/how-to/grow-plants/how-to-grow-parsley/); [Wisconsin Horticulture Extension -- Parsley, Petroselinum crispum](https://hort.extension.wisc.edu/articles/parsley-petroselinum-crispum/); [Wikifarmer -- Petroselinum crispum: Parsley seeds](https://wikifarmer.com/library/en/article/petroselinum-crispum-parsley-seeds); [A Way To Garden -- Estimating viability: how long do seeds last?](https://awaytogarden.com/estimating-viability-how-long-do-seeds-last/); [lovethegarden.com -- How to plant, grow and care for Parsley](https://www.lovethegarden.com/uk-en/article/parsley-petroselinum-crispum); [Southern Exposure Seed Exchange -- Parsley](https://www.southernexposure.com/categories/parsley/)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -547,3 +567,11 @@ Festival 68,Petroselinum crispum,,,high_yield;disease_resistant,70,,open_pollina
 23. NC State Extension Gardener Plant Toolbox / Missouri Botanical Garden Plant Finder -- Petroselinum crispum: https://plants.ces.ncsu.edu/plants/petroselinum-crispum/ ; https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=276060 -- "Plants will bloom in the 2nd year ... in summer"; Samenbildung Juli--September (stuetzt Bluetebeginn Juni/Juli, keine Beleg fuer Bluete bis August)
 <!-- Hinweis: Eine Einzelquelle (gartenjournal.net/petersilie-blueht) nennt abweichend "zwischen Juni und August" ohne Beleg/Zitat einer Primaerquelle; eine zweite Seite derselben Redaktion (gartenjournal.net/petersilie-mehrjaehrig) nennt dagegen "Juni und Juli" -- als interne Widerspruechlichkeit gewertet und durch die 3 uebereinstimmenden Quellen 21-23 fuer das Bluete-Ende Juli nicht entkraeftet. -->
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+24. BBC Gardeners' World Magazine -- How to Grow Parsley: https://www.gardenersworld.com/how-to/grow-plants/how-to-grow-parsley/ -- Keimdauer 3--4 Wochen, Saattiefe 1/4 inch, Einweichen ueber Nacht empfohlen
+25. Wisconsin Horticulture Extension -- Parsley, Petroselinum crispum: https://hort.extension.wisc.edu/articles/parsley-petroselinum-crispum/ -- Keimtemperatur/-dauer, Anbauhinweise
+26. Wikifarmer -- Petroselinum crispum: Parsley seeds: https://wikifarmer.com/library/en/article/petroselinum-crispum-parsley-seeds -- ca. 475--500 Samen/g (TKG ~2.0--2.1 g)
+27. A Way To Garden -- Estimating viability: how long do seeds last?: https://awaytogarden.com/estimating-viability-how-long-do-seeds-last/ -- Petersiliensaatgut nur 1--2 Jahre keimfaehig
+28. lovethegarden.com -- How to plant, grow and care for Parsley: https://www.lovethegarden.com/uk-en/article/parsley-petroselinum-crispum -- Reihenabstand 30 cm, Pflanzabstand 10--15 cm nach Vereinzelung
+29. Southern Exposure Seed Exchange -- Parsley: https://www.southernexposure.com/categories/parsley/ -- Sortenkatalog, Samengewicht/-mengen je Packung
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

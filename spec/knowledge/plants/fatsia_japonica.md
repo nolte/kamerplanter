@@ -120,6 +120,26 @@
 **Hinweis:** Fatsia japonica ist eine schattentolerante immergrüne Understory-Art und verträgt sogar tiefen Schatten (RHS: Vollsonne bis Vollschatten, Optimum Halbschatten); die hier eingetragene Toleranzstufe `shade` ist konservativ gewählt. Der **Lichtsättigungspunkt (light saturation point)** liegt laut Araus et al. (1986) bei ca. **175 µmol/m²/s** (gehört NICHT in das Kompensationspunkt-Feld, daher nur als Freitext). Maritim/küstennah ist die Art salzsprühtolerant (salt spray), aber kein Halophyt — daher Klasse `moderately_tolerant` ohne belegte ECe-Bodenschwelle. Boden-pH quellentreu mit §1.6 und §2.3 (6.0–7.0) harmonisiert; RHS führt zusätzlich allgemeine Toleranz von acid/neutral/alkaline.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | <!-- DATEN FEHLEN: keine belastbare Saattiefen-Angabe für Fatsia japonica in den recherchierten Quellen --> | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (bei 18–24 °C; ohne Kältestratifikation und bei nicht-frischem Saatgut deutlich länger — bis zu 90 Tage berichtet) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine belastbare Angabe zur Lagerfähigkeit gefunden; Quellen empfehlen durchgehend frisches Saatgut --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: kein dokumentiertes Licht-/Dunkelkeimungs-Erfordernis für Fatsia japonica gefunden --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (4–6 Wochen bei 1–4 °C in feuchtem Sand/Vermiculit/Papiertuch; verbessert ungleichmäßige Keimung deutlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- SECTION MISSING: nicht anwendbar — Ziergehölz, Einzeltopf-/Anzuchtschalen-Aussaat, kein Reihen-/Direktsaat-Kontext --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Fatsia-Samen keimen ohne Vorbehandlung langsam und ungleichmäßig (30–90 Tage je nach Quelle); eine 4–6-wöchige Kältestratifikation bei 1–4 °C wird übereinstimmend empfohlen. Die Keimtemperatur 18–24 °C ist durch zwei unabhängige Quellen belegt; die Zeitspannen bis zur Keimung schwanken stark zwischen Quellen (14–21 Tage bei optimaler Wärme/Frische vs. 1–3 Monate bei suboptimalen Bedingungen) — als konservativer unterer Wert wurde 14 Tage übernommen.
+
+Quellen (§1.8): [Bloom Outlet — Fatsia japonica (Japanese Aralia) Seed Guide](https://bloomoutlet.com/fatsia-japonica-japanese-aralia-seed-guide/) (Keimtemperatur 65–75 °F, 14–21 Tage); [Garden Guides — How To Grow Fatsia From Seed](https://www.gardenguides.com/13428496-how-to-grow-fatsia-from-seed/) (Keimtemperatur, Keimdauer-Varianz 2–4 Wochen bis mehrere Monate); [Gardening Know How — Fatsia Seed Propagation](https://www.gardeningknowhow.com/houseplants/aralia-plants/propagating-fatsia-from-seed.htm) (Kältestratifikation 28–42 Tage bei 1–4 °C, ungleichmäßige Keimung ohne Vorbehandlung); [RP Seeds — Fatsia japonica (Japanese Aralia) 20 seeds](https://www.rpseeds.co.uk/products/fatsia-japonica-japanese-aralia-seeds) (kommerzielle Saatgut-Referenz, frisches Saatgut empfohlen)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -332,3 +352,9 @@ Fatsia japonica,"Zimmeraralie;Japanische Aralie;Japanese Aralia;Paperplant",Aral
 <!-- Quelle: growing-phase-auditor 2026-07 -->
 14. [RHS — How to grow Fatsia](https://www.rhs.org.uk/plants/fatsia/how-to-grow-fatsia) — Blütezeit Oktober/November, Frosthärte -10 °C
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+15. [Bloom Outlet — Fatsia japonica (Japanese Aralia) Seed Guide](https://bloomoutlet.com/fatsia-japonica-japanese-aralia-seed-guide/) — Keimtemperatur, Keimdauer
+16. [Garden Guides — How To Grow Fatsia From Seed](https://www.gardenguides.com/13428496-how-to-grow-fatsia-from-seed/) — Keimtemperatur, Keimdauer-Varianz
+17. [Gardening Know How — Fatsia Seed Propagation](https://www.gardeningknowhow.com/houseplants/aralia-plants/propagating-fatsia-from-seed.htm) — Kältestratifikation
+18. [RP Seeds — Fatsia japonica 20 seeds](https://www.rpseeds.co.uk/products/fatsia-japonica-japanese-aralia-seeds) — Kommerzielle Saatgut-Referenz
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

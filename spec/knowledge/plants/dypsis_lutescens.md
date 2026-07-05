@@ -120,6 +120,26 @@
 **Hinweis:** D. lutescens ist eine schattenadaptierte Unterwuchspalme (understory palm); Palmen erreichen Schattentoleranz über konsistent niedrige Dunkelatmung (dark respiration) und damit einen niedrigen Lichtkompensationspunkt (light compensation point), publizierte artspezifische LCP-Zahlen fehlen jedoch (Ng et al. 2015, PLOS ONE; Sterck et al. 2013 nennen für tropische Schattenpflanzen generell 10–50 µmol/m²/s, nicht artspezifisch). UF/IFAS klassifiziert den Standort als "full sun, partial sun, partial shade; shade tolerant"; als dokumentierter Vorzugswert für die Kübel-/Innenkultur wird `partial_shade` gesetzt. Die Salztoleranz ist nach UF/IFAS "moderate" (→ `moderately_tolerant`); die ECe-Schwelle bezieht sich auf die Substrat-Bodenlösung (saturated paste extract), NICHT auf die Gießwasser-EC. Der pH-Vorzug 6.0–7.0 ist mit §1.6 und §2.3 derselben Datei harmonisiert; bei pH > 6.5 treten in alkalischen Böden Mn/Fe-Chlorosen auf.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 25 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 21 (bei vorbehandeltem Saatgut 3–4 Wochen; unbehandelt 2–6 Monate) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 1 (Palmensamen sind überwiegend rekalzitrant — Keimfähigkeit sinkt rasch nach der Ernte; frisches Saatgut dringend bevorzugt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Samen werden ca. 1 cm tief mit Substrat bedeckt; kein dokumentiertes Lichtbedürfnis) | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification, presoak (Anritzen der harten Samenschale + 24–48 h warmes Einweichen, Wasser alle 12–24 h wechseln) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine artspezifische Tausendkornmasse für D. lutescens publiziert --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Zierpalme, Einzeltopf-Aussaat — kein Reihen-/Direktsaat-Kontext --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Die Keimtemperatur 25–30°C ist artspezifisch für Dypsis lutescens belegt; Werte darunter verlängern die Keimzeit um 100–200 %. Palmensamen gelten allgemein als rekalzitrant (kurze Lagerfähigkeit ohne spezielle Kühllagerung), weshalb die Keimfähigkeitsdauer konservativ mit 1 Jahr angesetzt wird — ein Wert, der über die gesamte Familie Arecaceae dokumentiert ist (UF/IFAS Palm Seed Germination Guide), nicht nur für D. lutescens im Speziellen.
+
+Quellen (§1.8): [Viriar — Dypsis lutescens Growing Guide](https://www.viriar.com/blogs/palms-tree-encyklopedia/dypsis-lutescens-areca-palm) (Keimtemperatur 25–30°C); [UF/IFAS BUL274/EP238 — Palm Seed Germination (Meerow & Broschat)](https://ask.ifas.ufl.edu/publication/EP238) (generelle Palmensamen-Keimphysiologie, rekalzitrante Lagerfähigkeit, keine Lichtabhängigkeit); [Greeny Gardener — How To Grow Areca Palm From Seeds](https://greenygardener.com/how-to-grow-areca-palm-from-seeds/) (Skarifikation, Einweichen, Saattiefe 10 mm, Keimung 3–4 Wochen); [Drakenbloedboom — Tips for germinating palm seeds](https://drakenbloedboom.com/en/blogs/insights/tips-for-germinating-palm-seeds) (Einweichen 24–48 h, Substratabdeckung); [The Seed Vine — Dypsis lutescens](https://theseedvine.com.au/product/dypsis-lutescens/) (Keimfähigkeit über 1 Jahr bei sachgerechter Lagerung, rascher Viabilitätsverlust unmittelbar nach Ernte)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

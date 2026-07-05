@@ -125,6 +125,32 @@ Hinweis: Gewaechshaus-Gurken (Schlangengurken) werden an Schnur/Draht gezogen un
 Hinweis (Lichtkompensationspunkt): Die belegten LCP-Werte (~7.5 umol bei 10 degC, ~8.3 umol bei 13 degC) stammen aus Messungen bei kuehlen Temperaturen; bei waermeren Wuchstemperaturen liegt der Kompensationspunkt typischerweise hoeher. Der CO2-Saettigungspunkt (deutlich oberhalb, ~1500--1600 umol mol-1 CO2) ist KEIN Lichtkompensationspunkt und gehoert nicht in dieses Feld. Boden-pH-Vorzug 6.0--6.8 ist mit den Angaben in 1.6 (Erdkultur) und 2.3 (Erdkultur 6.0--6.8) konsistent; fuer Hydro-/Substratkultur gilt weiterhin der niedrigere Bereich 5.5--6.0 aus 2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 15 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 35 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 3 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 5 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 25 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | -- <!-- DATEN FEHLEN: Gurke wird in Toepfe/Pflanzloecher einzeln ausgesaeat und im Endabstand 60--100 cm kultiviert; keine belastbare, durch 2 Quellen bestaetigte "Aussaatdichte pro m2" fuer Reihenkultur dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min (15 degC), Saattiefe (2--3 cm) und Dunkelkeimer-Status sind bereits in §1.3 dokumentiert. Die Keimtemperatur-Obergrenze (35 degC) wurde ergaenzend recherchiert: mehrere Quellen nennen konsistent 32--35 degC als Schwelle, ab der die Keimung gehemmt wird bzw. Saatschaeden auftreten.
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- St. Clare Heirloom Seeds -- Vegetable Seed Germination Soil Temperature Guide (Minimum/Optimum/Maximum je Gemueseart): https://www.stclareseeds.com/vegetable-seed-germination-soil-temperature-guide/
+- GreenUpside -- Lowest Temperature Cucumber Plants Can Tolerate (Keimhemmung oberhalb ~32--35 degC): https://greenupside.com/what-is-the-lowest-temperature-cucumber-plants-can-tolerate/
+- Illinois Extension -- Seed Viability in Storage (Cucumber: 5 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Cucumber: 3--6 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- Vital Seeds -- Seeds per Gram (Cucumber: 40 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Cucumber: 30--45 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -123,6 +123,10 @@ Beim Kauf unbedingt Sorte beachten — Stecklinge/Topfpflanzen sind meist Franz�
 **Hinweis:** Estragon ist eine ausgesprochene Sonnenpflanze (full sun), verträgt in heißen Sommerlagen leichten Nachmittagsschatten. Flachwurzelnd (shallow-rooted) auf rhizombasierten, kriechenden Ausläufern; gegenüber Staunässe (waterlogging) ausgeprägt empfindlich (Wurzel-/Kronenfäule). NaCl-Salzstress reduziert Höhe, Trockenmasse, relativen Wassergehalt und Chlorophyll bereits bei moderaten Konzentrationen — Einstufung als mäßig salzempfindlich (moderately sensitive). Boden-pH-Vorzug neutral bis leicht alkalisch; harmoniert mit den pH-Angaben in §1.6/§2.3 (6,0–7,5), der hier ergänzte engere Vorzugskorridor 6,5–7,5 ist quellentreu (RHS/PFAF/Old Farmer's Almanac).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Französischer Estragon, die in diesem Steckbrief primär dokumentierte und im Handel dominante Kulturform, ist ein steriler Klon ohne keimfähigen Samen; §1.3 dieses Dokuments listet ausschließlich cutting_stem/division als Vermehrungsmethoden und vermerkt explizit "Französ. Estragon NIEMALS aus Samen (steril)". Nur die botanisch abweichende, aromatisch schwächere Varietät Russischer Estragon (var. inodorus) ist generativ samenvermehrbar, ist aber nicht die durch Stecklinge/Topfware verbreitete, in diesem Steckbrief primär behandelte Kulturform (siehe §1.1 "WICHTIG"-Hinweis). Keine Keimwerte erfunden.) -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -123,6 +123,24 @@ Hinweis: Nach dem Ende der Bluehperiode (September/Oktober) das Laub stehen lass
 Hinweis: Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) ist artspezifisch nicht gemessen; angegeben ist die fuer C3-Sonnenpflanzen (shade-intolerant) typische Spanne von 20--40 µmol/m²/s. Tigridia pavonia ist ausgesprochen sonnenliebend und vertraegt keinen Schatten (full_sun; "cannot grow in the shade", PFAF). Die Art reagiert empfindlich auf Staunaesse (waterlogging_tolerance = sensitive) -- Ueberwaesserung und nasser Boden sind die haeufigste Schadensursache und beguenstigen Knollenfaeule. Der pH-Vorzug 6.0--7.0 ist quellentreu eingegrenzt: PFAF nennt "mildly acid, neutral and basic (mildly alkaline)", die Kultur-Empfehlungen in §1.6/§2.3 nennen 6.0--6.5; die Spanne 6.0--7.0 harmonisiert beides ohne Ueberdehnung. Zur Salztoleranz liegen keine artspezifischen Daten vor; die nahe verwandte Gattung Gladiolus (Iridaceae) gilt als salzempfindlich (morphologische Wachstumsdepression bereits bei ECe 2--6 dS/m), was eine 'sensitive'-Einstufung nahelegt, ohne sie direkt zu belegen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 (dünn abgedeckt, Saatkorn teils sichtbar — Licht fördert Keimung) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unterer Wert; Spanne 7–42 Tage, teils deutlich länger/erratisch) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: kein belegter Jahreswert für Tigridia-Saatgut auffindbar --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (kein Beleg für Stratifizierungs-/Skarifizierungsbedarf bei T. pavonia; frisches Saatgut in warmem, feuchtem Substrat ausreichend) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine belegte Tausendkornmasse auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Sämlinge werden im Topf vorkultiviert, keine Reihen-/Direktsaat üblich; zudem blüht Samenvermehrung meist erst im 2. Jahr (§1.3) --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Tigridia pavonia — Pacific Bulb Society](https://www.pacificbulbsociety.org/pbswiki/index.php/Tigridia_pavonia) (Keimzeit 25–35 Tage bei 15–18 °C, bereits in §1.3 verwendet); [TIGRIDIA PAVONIA MIXED COLOURS SEEDS — Plant World Seeds](https://www.plant-world-seeds.com/store/view_seed_item/1303) und [Tigridia pavonia 'Color Mix' — VIRIAR](https://www.viriar.com/blogs/perennial-encyclopedia/tigridia-pavonia-color-mix) (Keimdauer 7–21 Tage bzw. 2–6 Wochen, Keimtemperatur 18–27 °C, Lichtkeimung, dünne Abdeckung); [Mexican Tiger Flower: How To Care For The Tigridia Pavonia](https://plantcaretoday.com/mexican-tiger-flower-care-tigridia.html) (Kulturhinweise, keine Vorbehandlung dokumentiert).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -613,3 +631,7 @@ name,parent_species,breeder,breeding_year,traits,days_to_maturity,disease_resist
 21. Nature Scientific Reports -- Salt-induced stress in Gladiolus grandiflorus: [https://www.nature.com/articles/s41598-021-95243-9](https://www.nature.com/articles/s41598-021-95243-9) — Salzempfindlichkeit naheverwandter Iridaceae (Wachstumsdepression ab ECe 2--6 dS/m)
 22. Wikipedia -- Salt tolerance of crops: [https://en.wikipedia.org/wiki/Salt_tolerance_of_crops](https://en.wikipedia.org/wiki/Salt_tolerance_of_crops) — ECe-Klassifizierung (Maas-Hoffman, Substrat-ECe dS/m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+23. TIGRIDIA PAVONIA MIXED COLOURS SEEDS -- Plant World Seeds: [https://www.plant-world-seeds.com/store/view_seed_item/1303](https://www.plant-world-seeds.com/store/view_seed_item/1303) — Keimdauer, Keimtemperatur, Lichtkeimung
+24. Tigridia pavonia 'Color Mix' -- VIRIAR: [https://www.viriar.com/blogs/perennial-encyclopedia/tigridia-pavonia-color-mix](https://www.viriar.com/blogs/perennial-encyclopedia/tigridia-pavonia-color-mix) — Keimdauer/-temperatur-Bestätigung, Kulturhinweise
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

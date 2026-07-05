@@ -113,6 +113,26 @@
 **Hinweis:** Lichtsättigung (light saturation) der Photosynthese wird bei ~1000–1200 µmol/m²/s erreicht (90 % der Sättigung bei ~1000 µmol/m²/s); maximale Netto-Assimilation (Amax) 15–25 µmol CO₂/m²/s bei 20–25 °C. Diese Sättigungs-/Maximalwerte gehören NICHT in das Kompensationspunkt-Feld. Weizen ist schattenintolerant (im Vergleich zu Gerste höherer Lichtkompensationspunkt). Semi-Dwarf-Sorten sind salztoleranter (ECe-Schwelle ~8.6 dS/m, Slope ~3.0 %/dS/m); die Tabellenwerte gelten für Standard-Brotweizen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 (praktische Keimgrenze; Agri Farming nennt einen Keimbereich von 4–37 °C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 35 (mittlere Kardinaltemperatur Tc laut Ali 1994; praktischer Bereich reicht bis ~37 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 4 (Spanne 3–5 cm; deckt sich mit der Praxisangabe in §4.2) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–10 Tage im Feld; ISTA-Testprotokoll zählt normale Keimlinge nach 8 Tagen aus) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (praktisches Nachbau-Fenster für farm-eigenes/„bin-run"-Saatgut: 1–3 Jahre, danach starker Sortenreinheits- und Vitalitätsverlust) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine zwei unabhängigen, art-spezifischen Quellen zur Licht-/Dunkelkeimung von Weizen gefunden; allgemeine Aussagen zu Gräsern/Getreide sind nicht art-spezifisch belastbar --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Stratifikation noch Skarifikation zur Keimung nötig; die Vernalisation in §1.1 betrifft die generative Entwicklung der Pflanze zur Blüteninduktion, nicht die reine Saatgutkeimung) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 45 (Mittelwert; europäische Winterweizen-Sorten 35,9–58,2 g, Mittel 45,4 g laut GWAS-Studie) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 400 (Zieldichte Drillsaat Winterweizen ca. 350–410 keimfähige Korn/m², abhängig von Feldverlust-Kalkulation) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Die Vernalisationsanforderung von Winterweizen (§1.1) ist ein entwicklungsphysiologischer Kältereiz zur Blüteninduktion und unterscheidet sich klar von der reinen Saatgutkeimung — Weizensaatgut selbst benötigt keine Kältestratifikation, um zu keimen. Farm-eigenes ("bin-run") Saatgut wird laut US-Extension-Quellen praktisch 1–3 Jahre nachgebaut, wobei Sortenreinheit und Triebkraft von Jahr zu Jahr abnehmen; zertifiziertes Saatgut wird dagegen jährlich frisch bezogen und erreicht Keimraten ≥ 85–90 %.
+
+Quellen (§1.8): [Agri Farming — Wheat Seed Germination, Time, Temperature, Procedure](https://www.agrifarming.in/wheat-seed-germination-time-temperature-procedure); [Ali (1994) — Variation in cardinal temperatures for germination among wheat (Triticum aestivum) genotypes, Annals of Applied Biology](https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1744-7348.1994.tb04977.x); [ResearchGate — Wheat seed germination under the influence of temperature regimes (ISTA 8-Tage-Auszählung)](https://www.researchgate.net/publication/266463463_Wheat_seed_germination_under_the_influence_of_temperature_regimes); [PMC4555037 — Analysis of main effect QTL for thousand grain weight in European winter wheat](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4555037/); [Farmers Weekly — Why field loss is important for seed rate calculations](https://www.fwi.co.uk/arable/establishment/why-field-loss-is-important-for-seed-rate-calculations); [Nebraska CropWatch — Determining the Seeding Rate for Winter Wheat](https://cropwatch.unl.edu/determining-seeding-rate-your-winter-wheat/); [AgriLife Today — Farmer-saved wheat seed quality should be checked before planting](https://agrilifetoday.tamu.edu/2015/11/05/farmer-saved-wheat-seed-quality-should-be-checked-before-planting/); [Oklahoma State University Extension — Farmer-Saved Wheat Seed in Oklahoma: Questions and Answers](https://extension.okstate.edu/fact-sheets/farmer-saved-wheat-seed-in-oklahoma-questions-and-answers)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

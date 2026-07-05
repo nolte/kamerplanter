@@ -107,6 +107,24 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.0 (toleriert breiter 5.0–8.0; Optimum ≥ 6.5 für Rhizobium-Symbiose) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 5 (absolutes Minimum, kältetolerant; praktisch zuverlässige Feldkeimung eher ab ca. 13 °C) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | <!-- DATEN FEHLEN: kein belegter oberer Temperaturschwellenwert aus zwei unabhängigen Quellen --> | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 (Spanne 0.6–1.0; max. 10 mm — tiefere Saat verringert Feldaufgang deutlich) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (unterer Wert; Spanne 5–7 Tage unter guten Bedingungen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: kein belegter Jahreswert aus zwei unabhängigen Quellen; harte Samenschale (Hartschaligkeit) legt tendenziell mehrjährige Lagerfähigkeit nahe, aber kein konkreter Wert auffindbar --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: kein artspezifischer Beleg zur Licht-/Dunkelkeimung aus zwei unabhängigen Quellen --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification (bei hartschaligen Saatgutpartien; physikalische Dormanz durch undurchlässige Samenschale ist bei Rotklee dokumentiert; Handelssaatgut ist häufig bereits mechanisch skarifiziert) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1.8 (Spanne 1.5–2.1) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Dosierung erfolgt praxisüblich flächenbezogen in g/m² (siehe §1.6: 20–30 g/m² Flächenansaat), nicht als diskrete Kornzahl/m² — eine Umrechnung würde eine Präzision suggerieren, die durch Verlustraten bei Breitsaat nicht gedeckt ist --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [How to Grow Red Clover from Seed — Sacred Plant Co](https://sacredplantco.com/blogs/growing-guides/how-to-grow-red-clover-from-seeds) (Keimtemperatur-Minimum ~41 °F/5 °C, Kältetoleranz) und [Sowing & Growing: Red Clover — Cotswold Seeds](https://www.cotswoldseeds.com/articles/759/sowing-and-growing-red-clover) (Saattiefe ≤10 mm); [Red Clover — Mississippi State University Extension](https://extension.msstate.edu/agriculture/forages/legumes/red-clover-trifolium-pratense) und [Red Clover — SARE, Managing Cover Crops Profitably](https://www.sare.org/publications/managing-cover-crops-profitably/legume-cover-crops/red-clover/) (Keimdauer 5–7 Tage, Etablierungsbedingungen); [Effect of scarification on seed germination of red clover in hydrotime model terms — ResearchGate](https://www.researchgate.net/publication/233684330_Effect_of_scarification_on_seed_germination_of_red_clover_in_hydrotime_model_terms) und [Effect of pretreatments on seed germination rate of red clover (Trifolium pratense L.) populations — ResearchGate](https://www.researchgate.net/publication/268263028_Effect_of_pretreatments_on_seed_germination_rate_of_red_clover_Trifolium_pratense_L_populations) (physikalische Dormanz/Hartschaligkeit, Skarifizierung); [RED CLOVER — USDA NRCS Plant Guide](https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/pg_trpr2.pdf) und [Feedipedia — Red clover (Trifolium pratense)](https://www.feedipedia.org/node/246) (bereits als Hauptquelle #9 im Dokument geführt; Tausendkornmasse-Cross-Check über Saatgutgewicht/Aussaatmengen-Angaben).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -333,3 +351,12 @@ Trifolium pratense,"Rotklee;Wiesenklee;Red Clover",Fabaceae,Trifolium,perennial,
 14. [Koppert — Aphidius colemani / Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringraten und Etablierungszeit Blattlaus-Nützlinge
 15. [RHS — Aphid predators / biological control](https://www.rhs.org.uk/biodiversity/aphid-predators) — Florfliege/Marienkäfer/Schwebfliege als Blattlausprädatoren
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+16. [How to Grow Red Clover from Seed — Sacred Plant Co](https://sacredplantco.com/blogs/growing-guides/how-to-grow-red-clover-from-seeds) — Keimtemperatur-Minimum, Kältetoleranz
+17. [Sowing & Growing: Red Clover — Cotswold Seeds](https://www.cotswoldseeds.com/articles/759/sowing-and-growing-red-clover) — Saattiefe ≤10 mm
+18. [Red Clover — Mississippi State University Extension](https://extension.msstate.edu/agriculture/forages/legumes/red-clover-trifolium-pratense) — Keimdauer, Etablierung
+19. [Red Clover — SARE, Managing Cover Crops Profitably](https://www.sare.org/publications/managing-cover-crops-profitably/legume-cover-crops/red-clover/) — Keimdauer-Bestätigung
+20. [Effect of scarification on seed germination of red clover in hydrotime model terms — ResearchGate](https://www.researchgate.net/publication/233684330_Effect_of_scarification_on_seed_germination_of_red_clover_in_hydrotime_model_terms) — Physikalische Dormanz, Skarifizierung
+21. [Effect of pretreatments on seed germination rate of red clover (Trifolium pratense L.) populations — ResearchGate](https://www.researchgate.net/publication/268263028_Effect_of_pretreatments_on_seed_germination_rate_of_red_clover_Trifolium_pratense_L_populations) — Vorbehandlungseffekte
+22. [RED CLOVER — USDA NRCS Plant Guide](https://plants.sc.egov.usda.gov/DocumentLibrary/plantguide/pdf/pg_trpr2.pdf) — Tausendkornmasse-Cross-Check
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

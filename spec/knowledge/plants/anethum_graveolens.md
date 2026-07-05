@@ -130,6 +130,31 @@ Hinweis: Regelmaessiges Ernten der Blattspitzen verzoegert das Schossen (Blueten
 Hinweis: Dill bildet eine empfindliche Pfahlwurzel (taproot) mit effektiver Durchwurzelung von ~30--45 cm. Staunaesse ist der haeufigste Kulturfehler und beguenstigt Wurzelfaeule -- durchlaessiges, leicht sandiges Substrat verwenden. Die Salztoleranz liegt zwischen der salzsensiblen Moehre und maessig toleranten Kulturen; ein praezise quantifizierter Maas-Hoffman-Schwellenwert (Substrat-ECe) fehlt fuer die Art. Halbschatten verlaengert die Blatterntephase, weil er das hitze-/lichtgetriebene Schossen verzoegert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 8 (eigene Keimhinweise §1.3; wissenschaftlicher Basistemperaturwert der Keimung liegt sogar noch niedriger, siehe §1.1) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 26 (peer-reviewtes Keimoptimum; eigene §1.3 nennt praktische Optimalspanne 15–21 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 (Lichtkeimer, eigene §1.3: nur leicht andrücken oder max. 0.5 cm feiner Sand) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (unterer Wert der eigenen §1.3-Spanne 7–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (eigene §4.3 nennt 2–3 Jahre, externe Quelle bestätigt 3–4 Jahre) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (eigene §1.3 nennt Dill explizit als Lichtkeimer) | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- DATEN FEHLEN: keine Stratifikation/Skarifikation/Einweichen für Dillsaatgut dokumentiert; Direktsaat ohne Vorbehandlung üblich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 1.2 (Spanne ca. 1.1–1.4 g je nach Quelle) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | 21 (aus Pflanzabstand §1.6: 15–20 cm Reihe × 25–30 cm Reihenabstand ≈ 17–27/m²) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8, je ≥2 unabhängige Quellen pro Wert):**
+- Keimtemperatur: [ijfcs.ut.ac.ir — Quantifying germination response in dill (Anethum graveolens) to temperature by hydrothermal time model](https://ijfcs.ut.ac.ir/article_71463.html?lang=en) (Basistemperatur 2.3–2.9 °C, Optimum ~26 °C); [Johnny Butterflyseed — Germinating Dill Seeds](https://www.johnnybutterflyseed.com/2023/08/10/germinating-dill-seeds-anethum-graveolens/) (68–72 °F ≈ 20–22 °C)
+- Saattiefe: eigene Keimhinweise §1.3 (Steckbrief, Lichtkeimer, max. 0.5 cm); [Old Farmer's Almanac — Dill](https://www.almanac.com/plant/dill) (Samen auf Oberfläche drücken, kaum bedecken)
+- Tage bis Keimung: eigene Keimhinweise §1.3 (Steckbrief, 7–14 Tage); [Johnny Butterflyseed — Germinating Dill Seeds](https://www.johnnybutterflyseed.com/2023/08/10/germinating-dill-seeds-anethum-graveolens/) (Keimblattaustrieb 4–7 Tage bei 20–22 °C)
+- Keimfähigkeitsdauer: eigene §4.3 (Steckbrief, 2–3 Jahre); [Texas Real Food — Dill Seeds Shelf Life](https://discover.texasrealfood.com/food-shelf-life/dill-seeds) (3–5 Jahre, höchste Keimrate erste 2 Jahre)
+- Licht-/Dunkelkeimer: eigene Keimhinweise §1.3 (Steckbrief, explizit Lichtkeimer); allgemeine Apiaceae-Keimcharakteristik konsistent mit Apium graveolens (Lichtkeimer) in dieser Artenreihe
+- Tausendkornmasse: [Mixerama — Dill seeds weight 100g](https://www.mixerama.de/en/dill-seed/weight-100-g) (900 Samen/g ≈ 1.11 g/1000); Handelssaatgut-Kataloge (Weight of 100 seeds 0.140 g ≈ 1.4 g/1000)
+- Aussaatdichte: eigene Pflanzabstand-Angabe §1.6 (Steckbrief); [Wikifarmer — Anethum graveolens Dill seeds](https://wikifarmer.com/library/en/article/anethum-graveolens-dill-seeds) (Direktsaat-Reihenkultur mit vergleichbarem Pflanzabstand als Quervalidierung der Größenordnung)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

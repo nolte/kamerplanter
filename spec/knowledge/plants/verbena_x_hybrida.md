@@ -116,6 +116,26 @@
 | Boden-pH-Vorzug (min–max) | 5.8–6.5 (leicht sauer; quellentreu, harmonisiert mit §1.6/§2.3; Gesamttoleranz der Art reicht bis ~7.0) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 (Gardening Know How nennt 65–75 °F ≈ 18–24 °C als Boden-Zieltemperatur) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 26 (Ball Horticultural Seed Crop Information Guide: 75–80 °F ≈ 24–26 °C professionelle Produktionsvorgabe) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.3 (nur dünn mit Substrat bedecken, ca. 1/16–1/8 Zoll; Ball-Guide führt Verbena mit „Cover Seed: Yes") | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Spanne 14–28 Tage — Verbene keimt notorisch langsam und ungleichmäßig; einzelne Quellen nennen bis zu 40 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine zwei unabhängigen, art-spezifischen Quellen zur Lagerfähigkeit von Verbena-×-hybrida-Saatgut gefunden; nur generische Aussagen zu Papiertüten-Saatgut allgemein --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Ball-Seed-Produktionsdaten: Pflicht-Abdeckung „Cover Seed: Yes" ohne Lichtkeim-Vermerk; mehrere Konsumentenquellen bestätigen eine Dunkelkeim-Präferenz mit Keimhemmung durch Licht) | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (Kühlschrank-Kältebehandlung ca. 10 Tage bis 4 Wochen vor der Aussaat verbessert nachweislich die Keimrate und -gleichmäßigkeit) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 2.9 (Ball-Seed-Katalog: 350 Samen/g ≈ 2,9 g/1000 Korn; unabhängig bestätigt durch Ideal-Florist-Hybrid-Verbena-Saatgut mit ebenfalls ca. 350 Samen/g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Beet-/Balkonpflanze, die einzeln als Jungpflanze/Plug pikiert und ausgepflanzt wird (Pflanzabstand 25–35 cm, siehe §1.6); keine Reihen-/Flächen-Direktsaatdichte publiziert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Die von mehreren Konsumentenquellen berichtete Widersprüchlichkeit ("braucht Dunkelheit" vs. "braucht Licht an der Oberfläche") spiegelt sich auch im bestehenden §1.3-Text wider ("Dunkelkeimer-Tendenz... aber nicht obligat"). Für die professionelle Plug-Produktion (Ball Horticultural, 288er-Zelltrays) gilt die Abdeckungspflicht als Standard, weshalb `dark` als praxisrelevante Einstufung gewählt wurde; die Keimung gelingt in der Praxis aber auch bei leichter Lichtexposition, sodass keine strikte, absolute Lichtabhängigkeit vorliegt.
+
+Quellen (§1.8): [Ball Horticultural Company — Seed Crop Information Guide (Verbena-Zeile: 10.000 Samen/oz, 350 Samen/g, Cover Seed: Yes, 75–80 °F, Sow-to-Transplant 35–42 Tage)](https://www.panamseed.com/media/culture/pas/seedcropchart_ball.pdf); [Gardening Know How — Verbena Seed Germination: How To Grow Verbena From Seed](https://www.gardeningknowhow.com/ornamental/flowers/verbena/verbena-seed-germination.htm); [Sow Right Seeds — Grow Vibrant Verbena Flowers That Beat the Summer Heat](https://sowrightseeds.com/blogs/planters-library/how-to-grow-verbena-flowers-from-seed); [Bright Lane Gardens — How Long to Cold Stratify Seeds for Successful Germination](https://brightlanegardens.com/native-plants/seed-starting/how-long-to-cold-stratify-seeds/); [OSC Seeds — Ideal Florist Mixed Hybrid Verbena Seeds (Seed count ~350/g)](https://www.oscseeds.com/product/ideal-florist-mixed-hybrid-verbena-seeds-6277/); [Park Seed — Know Before You Grow: Verbena Plant](https://www.parkseed.com/blogs/park-seed-blog/know-before-you-grow-verbena-plant)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

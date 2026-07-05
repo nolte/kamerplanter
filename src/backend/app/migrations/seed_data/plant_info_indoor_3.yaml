@@ -179,6 +179,14 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Opuntia microdasys"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      light_germination: light
+      pretreatment: [scarification]
     propagation_configs:
       - method: cutting
         months: [5, 6, 7]
@@ -274,6 +282,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pachira aquatica"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1.5
+      days_to_germination: 14
+      seed_viability_years: 1
+      pretreatment: [presoak]
     propagation_configs:
       - method: seed
         months: [4, 5, 6]
@@ -317,6 +333,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Pelargonium zonale"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0.3
+      days_to_germination: 7
+      light_germination: light
+      pretreatment: [scarification]
     propagation_configs:
       - method: cutting
         months: [3, 4, 5, 8]
@@ -603,6 +627,13 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Rhipsalis baccifera"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 19
+      germination_temp_max_c: 30
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      light_germination: light
     propagation_configs:
       - method: cutting
         months: [5, 6, 7]
@@ -905,6 +936,12 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Strelitzia reginae"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 25
+      germination_temp_max_c: 30
+      days_to_germination: 30
+      pretreatment: [scarification, presoak, cold_stratification]
     propagation_configs:
       - method: division
         months: [3, 4, 9, 10]

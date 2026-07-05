@@ -112,6 +112,24 @@
 | Boden-pH-Vorzug (min–max) | 6,0–7,5 (Optimum 6,0–7,0; verträgt mild sauer bis mild alkalisch) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.6 (¼ Zoll; dünn abdecken, da Licht die Keimung fördert) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4 (unterer Wert; Spanne 4–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Spanne 2–3; artspezifisch nicht separat untersucht, aus Gattungsdaten von T. erecta übertragen — gleiche Samenmorphologie/-lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (Saatgut benötigt Licht zur Keimung, daher nur dünn abdecken) | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3 (Spanne 2.8–3.6; errechnet aus Katalogangaben 280–354 Korn/g zweier unabhängiger Anbieter) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Bedding-Plant-Kultur über Vorkultur/Transplant; keine belegte Flächen-Aussaatdichte für Direktsaat --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [How to Grow Marigolds — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/grow-marigolds) und [Planting French Marigold Seeds — Gardening Know How](https://www.gardeningknowhow.com/ornamental/flowers/marigold/french-marigold-growing.htm) (Keimtemperatur 21–27 °C, Keimdauer 4–14 Tage, Saattiefe ¼ Zoll, Lichtkeimer); [Bonanza French Marigold Flower Seed Mix — Outsidepride](https://www.outsidepride.com/seed/flower-seed/marigold/french-marigold-seeds-bonanza-mix.html) (≈280–300 Korn/g, „Sparky Mix") und [Big Duck Gold F1 Marigold Seeds — UF Seeds](https://www.ufseeds.com/product/big-duck-gold-f1-marigold-seeds/MABDG.html) (354 Korn/g) für die Tausendkornmasse; Keimfähigkeitsdauer analog zu Tagetes erecta (§1.8 dort, [Ramniwas Bagh](https://ramniwasbagh.com/how-to-save-marigold-seeds-for-next-year/) und [Ingenta/Seed Science and Technology](https://www.ingentaconnect.com/content/ista/sst/2004/00000032/00000002/art00020)).
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -285,3 +303,9 @@ Tagetes patula,"Studentenblume;Aufrechte Tagetes;Französische Tagetes;French Ma
 12. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate Spinnmilben-Raubmilbe (2–50/m²), Anwendung
 13. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) / [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-aphids/) — Blattlaus-Nützlinge, Ausbringraten Aphidius/Aphidoletes
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
+14. [How to Grow Marigolds — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/grow-marigolds) — Keimtemperatur, Keimdauer
+15. [Planting French Marigold Seeds — Gardening Know How](https://www.gardeningknowhow.com/ornamental/flowers/marigold/french-marigold-growing.htm) — Saattiefe, Lichtkeimung
+16. [Bonanza French Marigold Flower Seed Mix — Outsidepride](https://www.outsidepride.com/seed/flower-seed/marigold/french-marigold-seeds-bonanza-mix.html) — Saatgutkatalogdaten (~280–300 Korn/g)
+17. [Big Duck Gold F1 Marigold Seeds — UF Seeds](https://www.ufseeds.com/product/big-duck-gold-f1-marigold-seeds/MABDG.html) — Saatgutkatalogdaten (354 Korn/g)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

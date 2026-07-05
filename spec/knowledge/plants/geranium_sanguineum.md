@@ -112,6 +112,26 @@
 **Hinweis:** Als Halbschatten-toleranter C3-Krautige passt sich *Geranium sanguineum* durch niedrigeren Lichtkompensationspunkt an Teilbeschattung an; präzise µmol-Werte liegen nicht art-spezifisch belegt vor. Natürliche Vorkommen auf Küstendünen deuten auf eine gewisse Sand- und Trockenstresstoleranz hin, eine belastbare Salztoleranz-Einstufung ist jedoch aus den verfügbaren Quellen nicht ableitbar.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 16 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | <!-- DATEN FEHLEN: keine belastbare, artspezifische Saattiefen-Angabe für Geranium sanguineum gefunden --> | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (bei stratifiziertem Saatgut und 16–21 °C; unstratifiziert stark verzögert — teils erst im Folgefrühjahr) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine belastbare Angabe zur Lagerfähigkeit für Geranium sanguineum gefunden --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: recherchierte Quellen widersprechen sich für die Gattung Geranium allgemein und treffen keine artspezifische Aussage für G. sanguineum --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (60 Tage Kühlschranklagerung des trockenen Saatguts vor Aussaat empfohlen; ohne Stratifikation keimen viele Samen erst im Folgejahr nach natürlicher Winterkälte) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- SECTION MISSING: nicht anwendbar — Staude wird als Topf-/Zellenaussaat vermehrt, kein Reihen-/Direktsaat-Kontext für Freilandbestände --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Geranium-Arten benötigen zur zuverlässigen Keimung häufig eine Kälteperiode; für G. sanguineum wird explizit eine 60-tägige Kühlschrank-Stratifikation empfohlen. Ohne diese Vorbehandlung ist die Keimung stark verzögert und unregelmäßig (teils erst im Folgefrühjahr nach natürlicher Auswinterung im Freiland). Die Keimtemperatur-Angabe (16–21 °C) und die Keimdauer (7–10 Tage unter optimalen Bedingungen, deutlich länger ohne Stratifikation) stammen aus zwei unabhängigen Quellen zu Cranesbill-Geranien; da eine davon (Harvest to Table) sich explizit auf "Cranesbill" bezieht — den englischen Trivialnamen von G. sanguineum — wird die Angabe als artspezifisch belastbar eingestuft.
+
+Quellen (§1.8): [Harvest to Table — How to Grow Geranium (Cranesbill)](https://harvesttotable.com/how-to-grow-cranesbill-geranium/) (Kältestratifikation 60 Tage, Keimtemperatur 60–70 °F, Keimdauer 7–10 Tage); [Swallowtail Garden Seeds — Geranium Perennial Flower Seeds, Bloody Cranesbill (Geranium sanguineum)](https://www.swallowtailgardenseeds.com/perennials/geranium-seeds.html) (artspezifische Saatgut-Produktseite mit Kulturanleitung); [Hayefield — Geranium sanguineum (Bloody Cranesbill) Seeds](https://hayefield.com/product/geranium-sanguineum-bloody-cranesbill/) (artspezifische Saatgutquelle, keine Aussaatdichten-Angabe für Freiland-Direktsaat)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -309,3 +329,8 @@ Geranium sanguineum,"Blut-Storchschnabel;Blutroter Storchschnabel;Bloody Cranesb
 13. [Koppert — Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Ausbringrate räuberische Gallmücke
 14. [Zhen & Bugbee 2020, Front. Plant Sci.](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.581156/full) — Far-Red-Anteil, Definition FR/(R+FR)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+15. [Harvest to Table — How to Grow Geranium (Cranesbill)](https://harvesttotable.com/how-to-grow-cranesbill-geranium/) — Kältestratifikation, Keimtemperatur, Keimdauer
+16. [Swallowtail Garden Seeds — Geranium sanguineum (Bloody Cranesbill) Seeds](https://www.swallowtailgardenseeds.com/perennials/geranium-seeds.html) — artspezifische Saatgutquelle
+17. [Hayefield — Geranium sanguineum (Bloody Cranesbill) Seeds](https://hayefield.com/product/geranium-sanguineum-bloody-cranesbill/) — artspezifische Saatgutquelle
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

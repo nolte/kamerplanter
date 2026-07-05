@@ -118,6 +118,26 @@
 
 **Hinweis (Standortqualität):** Pachira aquatica ist eine schattentolerante Art mit ausgeprägter Lichtplastizität: Jungpflanzen wachsen im gefilterten Unterwuchs (understory), adulte Bäume erreichen die Vollsonne (full sun) der Kronenschicht — in Zimmerkultur entspricht das hellem, indirektem Licht. Als Sumpf-/Flussuferbewohner toleriert sie kurzzeitige bzw. saisonale Überflutung, leidet aber unter dauerhafter Staunässe (waterlogging) → `moderate`. Salzempfindlich (`sensitive`): Salzanreicherung durch Überdüngung oder hartes Gießwasser verursacht Blattrandnekrosen; periodisches Durchspülen (flushing) des Substrats empfohlen. Der pH-Vorzug 6.0–7.5 ist konsistent mit §1.6 (Substrat) und §2.3 (Nährstoffprofile).
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (ca. 1/2 inch; manche Anleitungen empfehlen stattdessen nur leichtes Bedecken an der Substratoberfläche) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Spanne 2–4 Wochen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | < 1 (sehr kurze Frischsaat-Lebensdauer von nur ca. 20–60 Tagen; Samen müssen kurz nach der Ernte ausgesät werden) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine übereinstimmende Aussage zu Licht-/Dunkelkeimung gefunden — Quellen beschreiben nur "leicht bedecken und mit Folie/Glas abdecken", ohne Licht als Keimfaktor explizit zu nennen --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (24 h Einweichen vor der Aussaat verbessert die Keimung) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine artspezifische Tausendkornmasse für die grossen, kastanienartigen Pachira-Samen in seriösen Quellen auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- SECTION MISSING: kein Reihen-/Direktsaat-Feldanbau — Pachira aquatica wird einzeln je Topf ausgesät, keine Flächen-Aussaatdichte dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Pachira-Samen verlieren ihre Keimfähigkeit sehr schnell (Frischsaat-Prinzip) — bereits nach wenigen Wochen Lagerung sinkt die Keimrate drastisch; frisch geerntete oder schwimmfähige Samen (Floattest) sollten möglichst umgehend ausgesät werden. Vor der Aussaat 24 h in Wasser einweichen beschleunigt und vergleichmäßigt die Keimung.
+
+Quellen (§1.8): [Epic Gardening — Money Tree Plant: Growing Pachira Aquatica](https://www.epicgardening.com/money-tree-plant/); [VIRIAR — Pachira aquatica (Malabar Chestnut, Money Tree): Complete Tree Growing](https://www.viriar.com/blogs/tree-encyclopedia/pachira-aquatica); [Greg.app — How Fast Your Pachira Will Grow](https://greg.app/pachira-lifecycle/); [ResearchGate — Germination of Pachira aquatica as a function of the storage treatments](https://www.researchgate.net/figure/Germination-of-Pachira-aquatica-as-a-function-of-the-storage-treatments-over-time_fig1_222666625); [Useful Tropical Plants — Pachira aquatica](https://tropical.theferns.info/viewtropical.php?id=Pachira+aquatica)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -329,3 +349,10 @@ Pachira aquatica,"Glückskastanie;Malabar-Kastanie;Pachira;Money Tree;Guiana Che
 16. [Metaphycus helvolus — Wikipedia / UCR Biocontrol (Coccus hesperidum)](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Weichschildlaus-Parasitoid, Ausbringrate 5/m²
 17. [Interiorlandscaping — Biological Controls (Cryptolaemus, Metaphycus, Phytoseiulus)](http://www.interiorlandscaping.co.uk/Biologica.htm) — Nützling-Ausbringraten Innenraumkultur
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+18. [Epic Gardening — Money Tree Plant: Growing Pachira Aquatica](https://www.epicgardening.com/money-tree-plant/) — Saattiefe ~1/2 inch, 24h-Einweichen, Keimtemperatur 75–80 °F
+19. [VIRIAR — Pachira aquatica (Malabar Chestnut, Money Tree): Complete Tree Growing](https://www.viriar.com/blogs/tree-encyclopedia/pachira-aquatica) — Keimtemperatur 20–30 °C, Keimdauer 2–3 Wochen
+20. [Greg.app — How Fast Your Pachira Will Grow](https://greg.app/pachira-lifecycle/) — Keimdauer 2–4 Wochen
+21. [ResearchGate — Germination of Pachira aquatica as a function of the storage treatments](https://www.researchgate.net/figure/Germination-of-Pachira-aquatica-as-a-function-of-the-storage-treatments-over-time_fig1_222666625) — sehr kurze Keimfähigkeitsdauer (20–60 Tage je nach Lagerung)
+22. [Useful Tropical Plants — Pachira aquatica](https://tropical.theferns.info/viewtropical.php?id=Pachira+aquatica) — Samenmerkmale, Frischsaat-Empfehlung
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

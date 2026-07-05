@@ -107,6 +107,26 @@
 Quellen: Missouri Botanical Garden Plant Finder; RHS; NC State Extension / NC State Salt-Tolerant-Plants-Liste; PubMed 27352527 (Salztoleranz-Studie); biorxiv 2022 (K⁺-Homöostase & Salztoleranz Echinacea).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 21 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — nur andrücken, nicht mit Substrat bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (bei stratifiziertem Saatgut 7–10 Tage bis Auflauf; unstratifiziert bis zu 20 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 7 (beste Keimrate im 1. Jahr; danach sinkende, aber noch vorhandene Keimfähigkeit bis mindestens 7 Jahre bei kühler/dunkler Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (Samen benötigen Licht zur Keimung — nicht mit Substrat bedecken, nur andrücken) | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (2–3 Wochen bei ca. 5 °C; erhöht Keimrate von ~89 % auf ~98 %, ist aber nicht zwingend erforderlich — vgl. §1.2) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.5–5.5 (errechnet aus 90.000–150.000 Samen/lb) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ca. 300 (Wildblumenwiesen-/Präriebeet-Ansaat: 4 oz/1.000 sq ft ≈ 1,2 g/m²) | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Echinacea purpurea ist ein ausgesprochener Lichtkeimer — Samen dürfen nicht mit Substrat bedeckt werden, da Dunkelheit die Keimung hemmt (übereinstimmend bei Johnny's Selected Seeds, West Coast Seeds Academy und Coohom). Die 2–3-wöchige Kältestratifikation bei ca. 5 °C ist optional, verbessert aber Keimrate und -gleichmäßigkeit deutlich (89 % → 98 %, Homesteading.blog). Die Tausendkornmasse wurde aus zwei unabhängigen Samen-pro-Pfund-Angaben (90.000–128.000 bzw. ~150.000 Samen/lb) errechnet und daher als Spanne angegeben.
+
+Quellen (§1.8): [Homesteading.blog — Growing Echinacea From Seed: Maximizing Germination](https://homesteading.blog/growing-echinacea-seed-cold-stratification) (Keimtemp. 18–20 °C, Stratifikationseffekt 89→98 %, Keimfähigkeit "mindestens 7 Jahre"); [Johnny's Selected Seeds — Echinacea Key Growing Information](https://www.johnnyseeds.com/growers-library/flowers/echinacea/echinacea-key-growing-information.html) (65–70 °F Keimtemp., nicht bedecken); [Coohom — Do Echinacea Seeds Need Light To Germinate](https://www.coohom.com/article/do-echinacea-seeds-need-light-to-germinate) (Lichtkeimer, Keimbeginn ab 5 Tagen bis 3 Wochen); [West Coast Seeds Academy — How to Grow Echinacea](https://www.westcoastseeds.com/blogs/wcs-academy/grow-echinacea) (Lichtkeimer-Bestätigung); [Outside Pride — Purple Coneflower Wild Flower Seed](https://www.outsidepride.com/seed/flower-seed/echinacea/coneflower-purple.html) (90.000–128.000 Samen/lb, Aussaatrate 4 oz/1.000 sq ft); [Montana Native Plants — Growing Echinacea (KR 2010)](https://www.mtnativeplants.org/wp-content/uploads/2018/07/KR-2010-Growing-Echinacea.pdf) (~150.000 Samen/lb)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -133,6 +133,28 @@
 > **Freitext-Hinweis Licht:** Nymphaea ist physiologisch eine Sonnenpflanze (sun plant) mit hoher Optimum-Irradianz (Eopt ≈ 1000 µmol/m²/s PPFD oder höher; PAM-Fluorometrie an N. caerulea). Diese Sättigungs-/Optimumangabe gehört NICHT in das Kompensationspunkt-Feld und ist hier nur als Standort-Orientierung dokumentiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.9 Saatgut & Keimung (Seed Profile)
+
+> **Klassifikations-Hinweis:** §1.4 führt `seed` als eine von drei Vermehrungsmethoden ("Aussaat in Wasser"). In der gärtnerischen Praxis ist die Rhizomteilung jedoch die dominante Methode (siehe Praxishinweis §1.4) — Samenvermehrung ist nahezu ausschließlich wissenschaftlich/züchterisch dokumentiert. Die verfügbare Primärliteratur behandelt vor allem Dormanzdurchbrechung, nicht die für dieses Datenmodell benötigten quantitativen Keimwerte (Temperatur, Tiefe, Tage, TKG) — diese sind daher überwiegend als `DATEN FEHLEN` markiert statt geraten. (Diese Sektion wird als §1.9 geführt, da §1.8 bereits durch "Umgebungs-Physiologie & Standortqualität" belegt ist.)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | <!-- DATEN FEHLEN --> (nur Stratifikationstemperatur 4,4 °C dokumentiert, kein eigentlicher Keimtemperaturwert) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | <!-- DATEN FEHLEN --> | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | <!-- DATEN FEHLEN --> (submerse Aussaat im Wasser — kein bodenanaloges Tiefenmaß definierbar) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | <!-- DATEN FEHLEN --> | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN --> (Dormanz nimmt mit der Lagerzeit nachweislich zu; kein Zahlenwert in Jahren belegt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN --> (nur eine Primärquelle mit Lichtbedarf-Hinweis auffindbar, keine zweite unabhängige art-spezifische Bestätigung — daher nicht dual belegt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN --> (nicht zutreffend — keine Reihen-/Direktsaat; Praxis ist Rhizomteilung/Pflanzkorb) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.9):**
+1. Smits, A.J.M., Van Ruremonde, R. & Van der Velde, G. (1990) — Germination requirements and seed banks of some nymphaeid macrophytes: Nymphaea alba L., Nuphar lutea (L.) Sm. and Nymphoides peltata (Gmel.) O. Kuntze: https://www.researchgate.net/publication/230316163
+2. Breaking Seed Dormancy of Water Lily (Nymphaea Alba L.) Under In Vitro Conditions, Biotechnology & Biotechnological Equipment 24(1): https://www.tandfonline.com/doi/abs/10.2478/V10133-010-0009-3
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -121,6 +121,30 @@
 | Boden-pH-Vorzug (soil pH preference, min–max) | 6.5–7.5 (neutral bis leicht alkalisch; kalkhaltige Böden bevorzugt) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 (Kältereiz-Phase, zwingend für die Keimung cotyledon-reifer Embryonen) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 (Warmphase zur Embryo-Entwicklung bis Torpedo-Stadium, vor dem Kältereiz) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.3 (nur leicht mit feinem Substrat/Grit bedecken, ca. 0,2–0,6 cm je nach Quelle) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 180 (unterer Wert von 6–18 Monaten Gesamtdauer inkl. zweistufiger Warm-Kalt-Stratifikation — kein einfacher linearer Keimprozess, siehe Hinweis) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 0.5 (sehr kurzlebig: <15 % Keimfähigkeit nach 6 Monaten bei Raumtemperatur; im Kühlschrank bei 4 °C bis ca. 9 Monate verlängerbar — daher am besten frisch aussäen) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (kein strikter Photoblastismus dokumentiert; Zuchtbetriebe empfehlen dünne Abdeckung, die noch Lichtdurchlass erlaubt) | `species.seed_profile.light_germination` |
+| Vorbehandlung | cold_stratification (zwingende Kältebehandlung bei 2–7 °C für ≥8 Wochen nach Warmphase; siehe §1.1 Vernalisations-Hinweis — hier keimungsspezifisch, nicht identisch mit der Vernalisation der ausgewachsenen Pflanze) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine belastbare TKM-Angabe für Helleborus niger aus ≥2 unabhängigen Quellen auffindbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Christrose ist eine Garten-/Topfstaude ohne Reihen-/Feld-Direktsaat; keine Flächendichte-Angabe anwendbar --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Helleborus niger zeigt morphophysiologische Dormanz — die Samen durchlaufen zunächst eine Warmphase (20–25 °C) zur Embryo-Reifung bis zum Torpedo-Stadium, danach einen zwingenden Kältereiz (2–7 °C, ≥8 Wochen) bis zum Cotyledon-Stadium, erst danach erfolgt die eigentliche Keimung. Die häufig genannte Zeitspanne „6–18 Monate" bildet diesen gesamten zweistufigen Prozess ab, nicht eine einfache Keimdauer bei konstanter Temperatur.
+
+Quellen (§1.8):
+1. [Whitman et al./ScienceDirect — Temperatures affecting embryo development and seed germination of Christmas Rose (Helleborus niger) after sowing](https://www.sciencedirect.com/science/article/abs/pii/S0304423805002852) — Warm-/Kaltphasen-Temperaturen, Embryo-Entwicklungsstadien
+2. [Gardener's Path — How to Grow Hellebores from Seed](https://gardenerspath.com/plants/flowers/hellebore-seed-planting-tips/) — Keimdauer 6–18 Monate, Saattiefe, Frischsaat-Empfehlung
+3. [Barnhaven — Sowing hellebore seed](https://www.barnhaven.com/en/content/20-hellebore-sowing-instructions) — Saattiefe/Abdeckung, Stratifikationsschema
+4. [Your Flowers Guide — Growing hellebores from seed: the two-year journey](https://yourflowersguide.com/hellebore/hellebores-from-seed-two-year-journey-first-blooms/) — Keimfähigkeitsverlust, Lagerungs-/Frischeempfehlung
+
 ---
 
 ## 2. Wachstumsphasen

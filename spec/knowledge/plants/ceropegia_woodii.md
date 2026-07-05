@@ -115,6 +115,8 @@
 
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Ceropegia woodii wird gemäß §1.3 dieses Dokuments ausschließlich vegetativ vermehrt: cutting_stem, division, offset. Keine seed-Vermehrungsmethode gelistet — die Art bildet zwar Balgfrüchte mit flugfähigen Samen, in Kultur/Zimmerpflanzenhandel erfolgt die Vermehrung jedoch praktisch ausnahmslos über Stängelstecklinge, Teilung und die entlang der Triebe gebildeten Bruttuberkeln/Knöllchen (vgl. Quellen 16/18 dieses Dokuments zu Vermehrung via Stecklinge + Brutknöllchen). Ein Seed Profile (§1.8) entfällt daher — recherchiert im Rahmen von seed-profile-backfill, Batch 4, 2026-07.) -->
+
 ---
 
 ## 2. Wachstumsphasen

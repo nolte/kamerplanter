@@ -135,6 +135,30 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai.
 - **Boden-pH:** Harmonisiert mit der Topf-Substrat-Empfehlung in §1.6 (pH 6.0--7.0) und den Naehrstoffprofilen in §2.3 (pH 6.0--6.8). Optimum schmaler bei 6.0--6.8.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 20 (langsame, ungleichmaessige Keimung It. S.1.3; peer-reviewte Untergrenze fuer nennenswerte Keimung ebenfalls ca. 20 degC) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 35 (Keimrate/Wurzelentwicklung/Saemlingswachstum am besten bei 35 degC It. Temperaturstudie; praxisuebliche Zielspanne 24--32 degC) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2.0 (1--2.5 cm It. Extension-Quellen; S.1.3 nennt 1.5--2 cm quer eingelegt) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4 (4--12 Tage, waermeabhaengig; unterer Wert bei Optimaltemperatur) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (peer-reviewte Studie: nahezu 100% Keimung im Dunkeln bzw. unter Rot-/Weisslicht; anhaltendes Fernrot-/Blaulicht hemmt die Keimung ueber Phytochrom-Steuerung -- Standardpraxis ist ohnehin Erdbedeckung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | -- (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 70 (Sortenspanne ca. 50--100 g je 1000 Korn, abgeleitet aus 10--20 Samen/g; starke Sortenabhaengigkeit Standard- vs. Minisorten) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | 0.6 (Endabstand 80--120 cm in der Reihe x 150--200 cm Reihenabstand It. S.1.6; entspricht ca. 1 Pflanze je 1.4--1.75 m2) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (S.1.8):
+1. Interne Keiminfos S.1.3 dieses Dokuments (Keimtemperatur 24--30 degC optimal / 20 degC minimal, Keimdauer 5--10 Tage, Saattiefe 1.5--2 cm) -- bereits als Quelle im Dokument gefuehrt.
+2. Thanos & Mitrakos -- Watermelon seed germination. 1. Effects of light, temperature and osmotica (Seed Science Research, Cambridge Core, peer-reviewed): Keimung nahezu 100% im Dunkeln/unter Rot-Weisslicht, Fernrotlicht hemmend (Phytochrom-Steuerung); Keimung im Dunkeln optimal bei 20--40 degC, im Licht Hemmung unter 20 degC: https://www.cambridge.org/core/services/aop-cambridge-core/content/view/2AF7194F428B67906E60842BA3B54BDD/S0960258500001288a.pdf/watermelon_seed_germination_1_effects_of_light_temperature_and_osmotica.pdf
+3. Effects of temperature treatment on seed germination, root development and seedling growth of Citrullus lanatus (ResearchGate): 35 degC verbessert Keimrate, Wurzelentwicklung und Saemlingswachstum: https://www.researchgate.net/publication/342550436_Effects_of_temperature_treatment_on_seed_germination_root_development_and_seedling_growth_of_Citrullus_lanatus_watermelon
+4. Farmers Stop -- Seeds Per Gram for Common Vegetables, Fruits and Others: Wassermelone ca. 10--20 Samen/g: https://www.farmersstop.com/blogs/news/seeds-per-gram-for-common-vegetables-fruits-and-others
+5. Grow Organic -- Watermelon Seed Saving and Preservation Techniques: Keimfaehigkeit bis zu 5 Jahre bei kuehler, trockener, dunkler Lagerung: https://www.groworganic.com/blogs/articles/watermelon-seed-saving-and-preservation-techniques
+6. Alabama Cooperative Extension System -- Considerations for Successful Watermelon Production: Endabstand/Reihenabstand fuer Standardsorten (Hills ca. 4 ft/122 cm, Reihen 6 ft/183 cm), bestaetigt Groessenordnung von S.1.6: https://www.aces.edu/blog/topics/crop-production/watermelon-production/
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

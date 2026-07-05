@@ -111,6 +111,8 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.0 (neutral; harmonisiert mit §1.6 und §2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Mentha × piperita ist ein steriler Hybrid aus Mentha aquatica × Mentha spicata; §1.3 dieses Steckbriefs führt ausschließlich cutting_stem, division, layering — KEIN seed. §1.2 bestätigt explizit: "keine Aussaat — ausschließlich vegetative Vermehrung bei Mentha × piperita; Samen kommen nicht sortenecht". Zwar bildet die Art gelegentlich Samen, diese sind jedoch genetisch instabil/nicht sortenecht (der Hybridcharakter spaltet in der Nachkommenschaft auf) und in der Praxis fast nie keimfähig — kommerzielles/gärtnerisches Saatgut existiert nicht. Ein §1.8-Seed-Profile wäre daher botanisch nicht zutreffend und würde einen in der Praxis nicht existierenden Aussaatweg suggerieren. Batch 8, Issue #301, 2026-07. -->
+
 ---
 
 ## 2. Wachstumsphasen

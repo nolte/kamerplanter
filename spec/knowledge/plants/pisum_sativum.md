@@ -133,6 +133,30 @@ Hinweis: Erbsen werden nicht zurueckgeschnitten. Regelmaessiges Ernten der Huels
 Hinweis: Der LCP-Wert ist ein allgemeiner C3-Richtwert (8--16 umol/m2/s netto-Nullpunkt) -- eine Pisum-spezifische Messung war nicht belegbar. Lichtsaettigung liegt deutlich hoeher (mehrere hundert umol/m2/s) und ist hier bewusst NICHT in das Kompensationspunkt-Feld gemischt. Die ECe-Schwelle bezieht sich auf die Bodensaettigungs-Extrakt-Leitfaehigkeit (ECe), nicht auf die Giesswasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 4 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 20 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 3–6 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–14 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Spanne 3–4 Jahre bei kühler, trockener, dunkler Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (8–24 h lauwarmes Wasser) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 150–300 (Gartenerbsen meist mittlere bis halbgroße Klasse; Körnererbsen bis 300 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ca. 35–40 (berechnet aus Reihenabstand 30–50 cm × Abstand in der Reihe 5–8 cm) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [Landwirtschaftskammer Kärnten/NÖ — Körnererbse (Pisum sativum) PDF](https://www.lko.at/media.php?filename=download%3D%2F2015.12.04%2F1449215388267961.pdf) — TKG 220–300 g, Saattiefe 4–6 cm, Keimfähigkeit 3–4 Jahre bei kühler/trockener/dunkler Lagerung
+2. [nutzpflanzenvielfalt.org — Kulturanleitung Erbse](https://nutzpflanzenvielfalt.org/kulturanleitung-erbse/) — Saattiefe, Keimbedingungen (Kontext, vergleichbar mit §1.3)
+3. [1000-seed weight and seed yield values of the pea genotypes — ResearchGate](https://www.researchgate.net/figure/1000-seed-weight-and-seed-yield-values-of-the-pea-genotypes_tbl4_364440403) — TKG-Klassifikation: groß 280–300 g, mittel 160–249 g, sehr klein 90–129 g
+4. [University of Maine Cooperative Extension — Should I soak my peas to help germination?](https://extension.umaine.edu/gardening/2020/02/06/soak-peas-to-help-germination/) — Einweichen über Nacht in lauwarmem Wasser empfohlen
+5. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) — Erbse 3 Jahre keimfähig
+6. UMN/Clemson/PSU Extension — Garden Peas (bereits §1.7 zitiert) — Keimtemperatur-Bereich 4–20 °C
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

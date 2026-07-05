@@ -130,6 +130,31 @@ Hinweis: Ab August/September die Triebspitze (Endknospe) kappen ("Koepfen"). Die
 Hinweis: Der Lichtkompensationspunkt gibt nur den Nettonull-Punkt an. Lichtsaettigung liegt deutlich hoeher (Sonnenkultur), siehe PPFD-Zielwerte in S.2.2. Die ECe-Schwelle bezieht sich auf den Bodensaettigungsextrakt (ECe), nicht auf die Giesswasser-Leitfaehigkeit.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 8 (sehr langsame Keimung; praktikables Minimum) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 25 (Optimum ca. 25 degC / 77 degF) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.5 (1--2 cm Erde, vgl. S.1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (5--8 Tage bei Optimaltemperatur; bis 14--20 Tage bei kuehlerem Substrat) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (kein Lichtbeduerfnis; wird ueblich mit 1--2 cm Erde bedeckt -- Brassica-Gemuesearten gelten physiologisch als lichtindifferent, vgl. Ausnahmeliste Salat/Sellerie/Rucola) | `species.seed_profile.light_germination` |
+| Vorbehandlung | -- (keine Vorbehandlung wie Stratifikation/Skarifikation erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3.3 (ca. 300 Samen/g, gattungstypisch fuer Brassica-Gemuesesaatgut) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | 3 (Endabstand ca. 60 x 60 cm It. S.1.6/RHS) | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (S.1.8):
+1. Interne Keiminfos S.1.3 dieses Dokuments (Keimtemperatur 18--22 degC optimal / 8 degC minimal, Dunkelkeimer-Praxishinweis, Saattiefe 1--2 cm) -- bereits als Quelle im Dokument gefuehrt.
+2. Harvest to Table -- Brussels Sprouts Seed Starting Tips: Keimtemperatur 45--85 degF (7--29 degC), 5--8 Tage bei 77 degF optimal, Keimfaehigkeit 4 Jahre: https://harvesttotable.com/brussels-sprouts-seed-starting-tips/
+3. RHS -- How to grow Brussels sprouts: Saattiefe 2 cm, Endabstand 60 cm x mind. 60 cm zwischen den Reihen: https://www.rhs.org.uk/vegetables/brussels-sprouts/grow-your-own
+4. Garden Betty -- A Guide to Seeds That Need Light (or Total Darkness) to Germinate: fast alle Gemuesearten (Ausnahme Salat, Rucola, Sellerie) sind lichtindifferent: https://gardenbetty.com/seed-germination-light-darkness/
+5. Iowa State University Extension (Yard and Garden) -- Germination Requirements for Annuals and Vegetables: bestaetigt lichtindifferente Keimung bei Kohlgemuese: https://yardandgarden.extension.iastate.edu/how-to/germination-requirements-annuals-and-vegetables
+6. Nimrod Bio -- Seeds Per Gram Chart (Brassica-Gemuese ca. 300 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+7. Green Harvest -- Seeds per Gram Guide (Brassica-Arten, seeds/gram Richtwerte): https://greenharvest.com.au/pages/seeds-per-gram
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

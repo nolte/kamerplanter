@@ -127,6 +127,24 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 - pH-Vorzug 6.5–7.5 harmonisiert mit §1.6 (Substrat) und §2.3: das obere Ende (7.0–7.5) wird gezielt zur Kohlhernie-Unterdrueckung (*Plasmodiophora brassicae*) angestrebt; Optimum-Spanne fuer Naehrstoffverfuegbarkeit liegt bei 6.0–6.8.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 5 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 24 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1–1.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4–10 (KA-Feld: 4) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 4–5 (KA-Feld: 4) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent | `species.seed_profile.light_germination` |
+| Vorbehandlung | <!-- keine Vorbehandlung erforderlich --> | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 3–5 (KA-Feld: 4) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ~2.0–3.3 (bei Endabstand 50–60 cm [kleine Sorten] bzw. 60–80 cm [große Sorten], siehe §1.6; Direktsaat-Monate 3/4/5/6/7 laut §1.2) | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Explore Cornell — Home Gardening Vegetable Growing Guides](http://www.gardening.cornell.edu/homegardening/scene5fdd.html); [PROSEA / Pl@ntUse — Brassica oleracea Headed Cabbage](https://plantuse.plantnet.org/en/Brassica_oleracea_Headed_Cabbage_(PROSEA)); [Wikifarmer — Brassica oleracea capitata Cabbage seeds](https://wikifarmer.com/library/en/article/brassica-oleracea-capitata-cabbage-seeds); [weekand.com — How Long Does It Take Cabbage to Germinate?](https://www.weekand.com/home-garden/article/long-cabbage-germinate-18026663.php); [Osborne Seed / Gardening Channel / Finch + Folly — Seed Viability Charts](https://www.osborneseed.com/pages/seed-viability-chart); [Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate](https://gardenbetty.com/seed-germination-light-darkness/).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

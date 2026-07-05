@@ -133,6 +133,32 @@ Hinweis: Ausgeizen der untersten Triebe bis zur Verzweigungsgabel (Koenigsbluete
 
 Hinweis: Der ECe-Schwellenwert (1.5 dS/m) bezieht sich auf den Saettigungsextrakt des Substrats nach Maas-Hoffman, nicht auf die EC der Naehrloesung in §2.3 (dort EC der zugefuehrten Loesung in mS). Lichtsaettigung liegt bei Paprika deutlich hoeher als der Kompensationspunkt (vgl. PPFD-Ziele 300--600 in §2.2); Werte oberhalb ~600--700 PPFD bringen ohne CO2-Anreicherung kaum Zusatznutzen.
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 18 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 35 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 2 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 5.7 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | -- <!-- DATEN FEHLEN: Paprika wird in Anzuchttoepfen einzeln vorkultiviert und im Endabstand 40--50 cm ausgepflanzt; keine belastbare, durch 2 Quellen bestaetigte "Aussaatdichte pro m2" fuer Direktsaat/Reihenkultur dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min (18 degC), Saattiefe (0.5--1 cm) und Dunkelkeimer-Status sind bereits in §1.3 dokumentiert (Quellenlage siehe dort). Die Keimtemperatur-Obergrenze (35 degC) wurde ergaenzend recherchiert: mehrere praxisorientierte Gartenbau-Quellen nennen konsistent 35 degC (95 degF) als Schwelle, ab der die Keimung deutlich verlangsamt bzw. gestoppt wird.
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- gardeningtips.in -- Capsicum Seed Germination, Time, Period (Bell Pepper) (Keimtemperatur-Optimum 24--29 degC, Hemmung ab 35 degC): https://gardeningtips.in/capsicum-seed-germination-time-period-bell-pepper
+- GreenUpside -- If Your Pepper Seeds Are Not Germinating (Bodentemperatur > 35 degC verlangsamt/stoppt Keimung): https://greenupside.com/if-your-pepper-seeds-are-not-germinating-try-this/
+- Illinois Extension -- Seed Viability in Storage (Pepper: 2 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Pepper: 2--5 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- Vital Seeds -- Seeds per Gram (Peppers, Chillies: 110--250 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Capsicum: 150--200 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

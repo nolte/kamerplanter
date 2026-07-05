@@ -45,6 +45,9 @@ new_species_family_map:
 # ==============================================================================
 new_species:
   - scientific_name: "Nymphaea alba"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      pretreatment: [cold_stratification]
     propagation_configs:
       - method: rhizome_division
         months: [4, 5]

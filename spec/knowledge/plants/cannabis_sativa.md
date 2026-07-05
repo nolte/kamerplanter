@@ -118,6 +118,31 @@ Angaben fuer Mitteleuropa (Zone 7–8) Outdoor sowie ganzjaehrig Indoor.
 | Boden-pH-Vorzug (soil pH preference) | 6.0–7.0 (Erde); Coco/Hydro 5.5–6.1 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 (praxisuebliche Zielspanne 70–85 °F; vgl. S.1.3: 22–28 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.0 (0.5–1 cm It. S.1.3) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 1 (24–72 h bei Papiertuch-Methode; sehr alte/hartschalige Samen bis 7 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 5 (bei kuehler, dunkler, trockener Lagerung 5–10 Jahre moeglich; unterer Wert verwendet) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark (Papiertuch-/Anzucht-Standardmethode: Keimung im Dunkeln, danach sofort viel Licht) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (12–24 h in Wasser einweichen; bei sehr harter Samenschale zusaetzlich Skarifikation ueblich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 20 (starke Sortenspanne ca. 15–40 g je 1000 Korn je nach Drug-Typ/Hanf-Sorte; Einzelsamen ueblich 15–25 mg) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | -- <!-- DATEN FEHLEN: Cannabis wird ueblich einzeln je Topf/Standort kultiviert (S.1.6), keine Reihen-/Direktsaat mit definierter Flaechendichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (S.1.8):
+1. Interne Keiminfos S.1.3 dieses Dokuments (Keimtemperatur 22–28 degC, Keimdauer 1–5 Tage, Saattiefe 0.5–1 cm) -- bereits als Quelle im Dokument gefuehrt.
+2. WeedSeeds.com -- How to Germinate Cannabis Seeds (Paper Towel Method Guide): Keimtemperatur 70–78 degF, Keimung 24–72 h, Dunkelheit waehrend Keimung: https://www.weedseeds.com/learn/growing/germination/
+3. GrowWeedEasy -- How to Germinate Weed Seeds (Paper Towel Method): Keimprotokoll, Feuchtigkeit/Dunkelheit, danach sofortiger Lichtbedarf: https://www.growweedeasy.com/how-to-germinate-seeds-via-paper-towel-method
+4. ILGM -- How to Germinate Cannabis Seeds for Beginners: Einweichen 12–24 h, Keimfaehigkeit bei kuehler dunkler Lagerung 5–10 Jahre: https://ilgm.com/resources/guides/how-to-germinate-cannabis-seeds
+5. Alice Seeds / Ripper Seeds / DNA Genetics -- Cannabis Seed Storage Guides: Kuehl gelagert (4–8 degC) 5 Jahre bei 80–90% Keimrate, gefroren 5–10+ Jahre: https://aliceseeds.com/blogs/knowledge/cannabis-seeds-storage-your-complete-guide ; https://dnagenetics.com/storing-cannabis-seeds-how-to-keep-seeds-viable-for-years/
+6. NC State Extension -- Size Matters: Accounting for Hemp Seed Size When Calibrating Your Grain Drill: Industriehanf ca. 27.000 Samen/lb (~37 mg/Samen); starke Sortenvariabilitaet: https://content.ces.ncsu.edu/size-matters-accounting-for-hemp-seed-size-when-calibrating-your-grain-drill
+7. ResearchGate -- Seed-size variation in Cannabis (Figure): Samengroesse variiert sortenabhaengig sehr stark (Feral-Typen bis Kulturformen): https://www.researchgate.net/figure/Seed-size-variation-in-cannabis-Seeds-at-right-are-a-feral-plant-in-Kashmir-800_fig1_6126750
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
+
 ---
 
 ## 2. Wachstumsphasen

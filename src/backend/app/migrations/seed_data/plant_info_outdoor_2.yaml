@@ -392,6 +392,12 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Geranium sanguineum"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 16
+      germination_temp_max_c: 21
+      days_to_germination: 14
+      pretreatment: [cold_stratification]
     propagation_configs:
       - method: division
         months: [3, 4]
@@ -434,6 +440,14 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Helleborus niger"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0.3
+      days_to_germination: 180
+      light_germination: indifferent
+      pretreatment: [cold_stratification]
     propagation_configs:
       - method: division
         months: [4, 5]
@@ -1456,6 +1470,16 @@ new_species:
   # ---------- Herbs ----------
 
   - scientific_name: "Levisticum officinale"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0
+      days_to_germination: 10
+      seed_viability_years: 1
+      light_germination: light
+      pretreatment: [cold_stratification]
+      thousand_seed_weight_g: 2.8
     propagation_configs:
       - method: division
         months: [3, 4]
@@ -1503,6 +1527,16 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Melissa officinalis"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 21
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: light
+      pretreatment: [cold_stratification]
+      thousand_seed_weight_g: 0.5
     propagation_configs:
       - method: division
         months: [4, 5]
@@ -1555,6 +1589,15 @@ new_species:
       max_ph: 9
 
   - scientific_name: "Origanum vulgare"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 2
+      light_germination: light
+      thousand_seed_weight_g: 0.1
     propagation_configs:
       - method: division
         months: [4, 5]
@@ -1605,6 +1648,16 @@ new_species:
       max_ph: 8
 
   - scientific_name: "Satureja hortensis"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 24
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 2
+      light_germination: light
+      thousand_seed_weight_g: 0.4
+      sowing_density_per_m2: 25
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -1651,6 +1704,15 @@ new_species:
   # ---------- Vegetables ----------
 
   - scientific_name: "Pastinaca sativa"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 8
+      germination_temp_max_c: 25
+      sowing_depth_cm: 1.3
+      days_to_germination: 12
+      seed_viability_years: 1
+      thousand_seed_weight_g: 5.5
+      sowing_density_per_m2: 130
     propagation_configs:
       - method: seed
         months: [3, 4]
@@ -1695,6 +1757,15 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Rheum rhabarbarum"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 13
+      germination_temp_max_c: 27
+      sowing_depth_cm: 1
+      days_to_germination: 10
+      seed_viability_years: 3
+      light_germination: light
+      pretreatment: [cold_stratification, presoak]
     propagation_configs:
       - method: division
         months: [3, 4, 10, 11]
@@ -1739,6 +1810,17 @@ new_species:
       max_ph: 6.8
 
   - scientific_name: "Spinacia oleracea"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 5
+      germination_temp_max_c: 24
+      sowing_depth_cm: 1.3
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: dark
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 13
+      sowing_density_per_m2: 100
     propagation_configs:
       - method: seed
         months: [3, 4, 8, 9]
@@ -1789,6 +1871,15 @@ new_species:
   # ---------- Green manure / cover crops ----------
 
   - scientific_name: "Lupinus polyphyllus"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 12
+      germination_temp_max_c: 18
+      sowing_depth_cm: 1
+      days_to_germination: 8
+      seed_viability_years: 20
+      light_germination: indifferent
+      pretreatment: [cold_stratification, scarification]
     propagation_configs:
       - method: seed
         months: [3, 4]
@@ -1833,6 +1924,17 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Medicago sativa"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0.6
+      days_to_germination: 7
+      seed_viability_years: 5
+      light_germination: indifferent
+      pretreatment: [scarification]
+      thousand_seed_weight_g: 2.3
+      sowing_density_per_m2: 480
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -1874,6 +1976,16 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Phacelia tanacetifolia"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 20
+      sowing_depth_cm: 0.5
+      days_to_germination: 12
+      seed_viability_years: 2
+      light_germination: dark
+      thousand_seed_weight_g: 1.7
+      sowing_density_per_m2: 700
     propagation_configs:
       - method: seed
         months: [4, 5, 6, 7, 8]
@@ -1913,6 +2025,13 @@ new_species:
       max_ph: 8.5
 
   - scientific_name: "Sinapis alba"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      sowing_depth_cm: 0.4
+      days_to_germination: 4
+      seed_viability_years: 4
+      thousand_seed_weight_g: 4
+      sowing_density_per_m2: 300
     propagation_configs:
       - method: seed
         months: [4, 5, 6, 7, 8]
@@ -1954,6 +2073,15 @@ new_species:
   # ---------- Annual ornamentals ----------
 
   - scientific_name: "Tagetes patula"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 21
+      germination_temp_max_c: 27
+      sowing_depth_cm: 0.6
+      days_to_germination: 4
+      seed_viability_years: 2
+      light_germination: light
+      thousand_seed_weight_g: 3
     propagation_configs:
       - method: seed
         months: [3, 4, 5]
@@ -1996,6 +2124,16 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Tropaeolum majus"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 13
+      germination_temp_max_c: 25
+      sowing_depth_cm: 1.3
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: dark
+      pretreatment: [scarification, presoak]
+      thousand_seed_weight_g: 115
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -2071,8 +2209,27 @@ species_enrichment:
     native_habitat: "Mittelmeerraum, Vorderasien"
     pruning_type: none
     pruning_months: []
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0
+      days_to_germination: 5
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 1.1
+      # sowing_density_per_m2: MISSING - two values in source (11-16 for Kopfsalat, 25-33 for Pfluecksalat); cannot determine single target value
 
   "Lavandula angustifolia":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 24
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      seed_viability_years: 5
+      light_germination: light
+      pretreatment: [cold_stratification]
+      thousand_seed_weight_g: 1.1
     propagation_configs:
       - method: cutting
         months: [6, 7, 8]
@@ -2134,6 +2291,16 @@ species_enrichment:
     pruning_months: [6, 7, 8, 9]
 
   "Ocimum basilicum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 12
+      germination_temp_max_c: 30
+      sowing_depth_cm: 0
+      days_to_germination: 5
+      seed_viability_years: 4
+      light_germination: light
+      thousand_seed_weight_g: 1.5
+      sowing_density_per_m2: 200
     propagation_configs:
       - method: seed
         months: [3, 4, 5]
@@ -2165,6 +2332,17 @@ species_enrichment:
     pruning_months: [5, 6, 7, 8, 9]
 
   "Petroselinum crispum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 5
+      germination_temp_max_c: 22
+      sowing_depth_cm: 0.5
+      days_to_germination: 14
+      seed_viability_years: 1
+      light_germination: light
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 2
+      sowing_density_per_m2: 35
     propagation_configs:
       - method: seed
         months: [3, 4, 5, 6, 7]
@@ -2192,6 +2370,16 @@ species_enrichment:
     pruning_months: [5, 6, 7, 8, 9, 10]
 
   "Phaseolus vulgaris":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 10
+      germination_temp_max_c: 25
+      sowing_depth_cm: 3
+      days_to_germination: 5
+      seed_viability_years: 3
+      light_germination: dark
+      thousand_seed_weight_g: 250
+      sowing_density_per_m2: 30
     propagation_configs:
       - method: seed
         months: [5, 6]
@@ -2220,6 +2408,17 @@ species_enrichment:
     pruning_months: []
 
   "Pisum sativum":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 4
+      germination_temp_max_c: 20
+      sowing_depth_cm: 3
+      days_to_germination: 7
+      seed_viability_years: 3
+      light_germination: dark
+      pretreatment: [presoak]
+      thousand_seed_weight_g: 150
+      sowing_density_per_m2: 35
     propagation_configs:
       - method: seed
         months: [3, 4]
@@ -2248,6 +2447,15 @@ species_enrichment:
     pruning_months: []
 
   "Salvia officinalis":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 25
+      sowing_depth_cm: 0.3
+      days_to_germination: 7
+      seed_viability_years: 2
+      light_germination: light
+      thousand_seed_weight_g: 8
     propagation_configs:
       - method: cutting
         months: [6, 7, 8, 9]
@@ -2281,6 +2489,15 @@ species_enrichment:
     pruning_months: [3, 4]
 
   "Salvia rosmarinus":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 24
+      sowing_depth_cm: 0.3
+      days_to_germination: 14
+      seed_viability_years: 1
+      light_germination: light
+      thousand_seed_weight_g: 1
     propagation_configs:
       - method: cutting
         months: [6, 7, 8, 9]
@@ -2341,6 +2558,15 @@ species_enrichment:
     support_required: true
     pruning_type: summer_pruning
     pruning_months: [6, 7, 8, 9]
+    seed_profile:
+      germination_temp_min_c: 14
+      germination_temp_max_c: 35
+      sowing_depth_cm: 0.5
+      days_to_germination: 5
+      seed_viability_years: 4
+      light_germination: indifferent
+      thousand_seed_weight_g: 3.3
+      # sowing_density_per_m2: MISSING - not in source document
 
   "Solanum tuberosum":
     propagation_configs:
@@ -2373,6 +2599,15 @@ species_enrichment:
     pruning_months: []
 
   "Thymus vulgaris":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 15
+      germination_temp_max_c: 21
+      sowing_depth_cm: 0
+      days_to_germination: 14
+      seed_viability_years: 3
+      light_germination: light
+      thousand_seed_weight_g: 0.2
     propagation_configs:
       - method: cutting
         months: [5, 6, 7, 8]
@@ -2409,6 +2644,13 @@ species_enrichment:
     pruning_months: [4, 7]
 
   "Trifolium pratense":
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 5
+      sowing_depth_cm: 1
+      days_to_germination: 5
+      pretreatment: [scarification]
+      thousand_seed_weight_g: 1.8
     propagation_configs:
       - method: seed
         months: [4, 5, 8, 9]

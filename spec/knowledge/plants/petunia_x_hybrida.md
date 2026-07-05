@@ -139,6 +139,26 @@
 - **Staunässe:** Wildtyp-Petunia ist staunässeempfindlich; nasse, schlecht drainierte Substrate begünstigen Pythium-/Phytophthora-Wurzelfäule (vgl. §5.2). Gute Drainage (Perlite-Zusatz) ist Pflicht.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 21 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 28 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer — Samen nur an die Substratoberfläche legen, nicht bedecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 (Spanne 5–15 Tage je nach Temperatur) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Quellen uneinheitlich: 2–3 bzw. 3–5 Jahre bei kühler, trockener Lagerung; konservativer Ueberlappungswert gewählt) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | — (keine Vorbehandlung erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 0.1 (sehr feines Staubsaatgut; ca. 8.800–10.600 Samen/g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- SECTION MISSING: kein Reihen-/Direktsaat-Feldanbau — Petunia x hybrida wird ausschließlich in Zellplatten/Saatschalen vorkultiviert und pikiert, keine Flächen-Direktsaat üblich (siehe §1.2: "Direktsaat nicht empfohlen") --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Hinweis:** Petuniensamen sind extrem feine Staubsamen (TKG ~0.1 g) und strikte Lichtkeimer — sie werden nur auf die feuchte Substratoberfläche gestreut und angedrückt, keinesfalls mit Erde bedeckt. F1-Hybridsaatgut ist häufig pelletiert (umhüllt) erhältlich, um die Handhabung/Vereinzelung zu erleichtern; pelletiertes Saatgut benötigt mehr Feuchtigkeit und keimt etwas langsamer als rohes Saatgut.
+
+Quellen (§1.8): [Iowa State University Extension — How to Start Petunias from Seed Indoors](https://yardandgarden.extension.iastate.edu/how-to/how-start-petunias-seed-indoors); [The Seed Collection — How to Grow Petunia Seeds](https://www.theseedcollection.com.au/growguide/petunia-seeds); [Trailing Petunia — Flower Seed Germination Temperature Chart](https://www.trailingpetunia.com/blogs/news/flower-seed-germination-temperature-chart-the-complete-guide-for-home-commercial-growers); [Dave's Garden — Propagation: How many hours of light is best for petunia seed germination](https://davesgarden.com/community/forums/t/951409/); [Week& — How to Store Petunia Seeds for Best Viability](https://www.weekand.com/home-garden/article/store-petunia-seeds-viability-18038705.php); [Shiplap and Shells — How Long Old Seeds Last: Flower Seed Viability Chart](https://shiplapandshells.com/old-flower-seed-viability/); [Amazon/Outsidepride — Hybrida Mix Petunia Seeds (Seed count reference)](https://www.amazon.com/Outsidepride-Petunia-Hybrida-Flower-Seed/dp/B004IVBV5U); [Green Harvest — Seeds per Gram](https://greenharvest.com.au/SeedOrganic/SeedsPerGram.html)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -611,3 +631,13 @@ SUCCESS! 360 Deep Rose,Petunia × hybrida,Benary,2018,"trailing;rain_tolerant;vi
 36. Missouri Botanical Garden Plant Finder — Petunia (bereits als Quelle 5 gefuehrt): "tender perennial that is winter hardy to USDA Zones 10-11"; "in St. Louis, it is grown as an annual"; Bluete "May through frost"; in frostfreien Zonen (10b–11) uebliche Lebensdauer 2–3 Jahre: https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=a601
 37. Plantura — Petunien Pflanzenportrait (bereits als Quelle 16 gefuehrt): "Petunien sind mehrjaehrig und koennen frostfrei und hell ueberwintert werden"; "Die meisten Petunien, die hier bei uns im Handel erhaeltlich sind, sind einjaehrige Pflanzen": https://www.plantura.garden/blumen-stauden/petunien/petunien-pflanzenportrait
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+38. [Iowa State University Extension — How to Start Petunias from Seed Indoors](https://yardandgarden.extension.iastate.edu/how-to/how-start-petunias-seed-indoors) — Keimtemperatur, Lichtbedarf
+39. [The Seed Collection — How to Grow Petunia Seeds](https://www.theseedcollection.com.au/growguide/petunia-seeds) — Saattiefe (Oberflächenaussaat), Keimdauer
+40. [Trailing Petunia — Flower Seed Germination Temperature Chart: The Complete Guide](https://www.trailingpetunia.com/blogs/news/flower-seed-germination-temperature-chart-the-complete-guide-for-home-commercial-growers) — Keimtemperatur 21–28 °C, Keimdauer 5–15 Tage
+41. [Dave's Garden — Propagation: How many hours of light is best for petunia seed germination](https://davesgarden.com/community/forums/t/951409/) — Lichtkeimer-Bestätigung, Praxiserfahrung
+42. [Week& — How to Store Petunia Seeds for Best Viability](https://www.weekand.com/home-garden/article/store-petunia-seeds-viability-18038705.php) — Keimfähigkeitsdauer 2–3 Jahre
+43. [Shiplap and Shells — How Long Old Seeds Last: Flower Seed Viability Chart](https://shiplapandshells.com/old-flower-seed-viability/) — Keimfähigkeitsdauer 3–5 Jahre, Keimratenabnahme ~15%/Jahr
+44. [Amazon/Outsidepride — Hybrida Mix Petunia Seeds](https://www.amazon.com/Outsidepride-Petunia-Hybrida-Flower-Seed/dp/B004IVBV5U) — ca. 10.000 Samen/Gramm
+45. [Green Harvest — Seeds per Gram](https://greenharvest.com.au/SeedOrganic/SeedsPerGram.html) — Bestätigung Samenzahl (~250.000–300.000 Samen/oz, entspricht 8.800–10.600/g)
+<!-- /Quelle: seed-profile-backfill 2026-07 -->

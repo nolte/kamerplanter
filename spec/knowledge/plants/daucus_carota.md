@@ -132,6 +132,31 @@ Hinweis: Kein Rueckschnitt noetig. Kraut nicht abschneiden, da die Pflanze es fu
 Hinweis: Die Moehre ist salzempfindlich (sensitive) -- bereits ab einer Substrat-Leitfaehigkeit (ECe) von 1.0 dS/m sinkt der Ertrag um ca. 14% je weiterer dS/m (Maas & Hoffman). Die hier genannte effektive Wurzeltiefe ist die agronomisch aktive Zone der Wasseraufnahme; einzelne Wurzeln koennen unter guenstigen Bedingungen deutlich tiefer reichen (in Studien > 1 m).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 5 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 3 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 1.25 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | ca. 90 (berechnet aus Pflanzabstand 3--5 cm x 25--30 cm gemaess §1.6) | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min/max (5/30 degC), Saattiefe (1--2 cm) und Dunkelkeimer-Status sind bereits in §1.3 dokumentiert. Die Aussaatdichte wurde aus dem in §1.6 bereits dokumentierten Pflanzabstand berechnet und liegt in derselben Groessenordnung wie die kommerzielle Bestandsdichte fuer Frischmarkt-Moehren (Bayer Vegetables: 85--90 Pflanzen/m2).
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- Bayer Vegetables -- Understanding Carrot Populations (Frischmarkt-Produktion: 85--90 Pflanzen/m2 fuer Hoechstertrag): https://www.vegetables.bayer.com/ca/en-ca/resources/agronomic-spotlights/understanding-carrot-populations.html
+- Illinois Extension -- Seed Viability in Storage (Carrot: 3 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Carrot: 3--4 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- Vital Seeds -- Seeds per Gram (Carrot: 400--1200 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Carrot: 400--1200 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

@@ -131,6 +131,32 @@ Hinweis: Zucchini werden normalerweise nicht zurueckgeschnitten. Abgestorbene od
 **Hinweis Salz:** Die FAO-/Maas-Hoffman-Tabelle fuehrt "Squash, zucchini" mit Schwelle 4.9 dS/m, Slope 10.5 %/dS/m und Klasse MT (moderately_tolerant); die nah verwandte Form "Squash, scallop" liegt mit 3.2 dS/m / 16 %/dS/m bei MS (moderately sensitive). Fuer Zucchini quellentreu der MT-Wert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 15 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 35 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (bei optimaler Temperatur 5--8 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 4 | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | dark | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (weder Kaeltestratifikation noch Skarifikation noch Einweichen erforderlich) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 150 (grosse, flache Samen; starke Sortenvariation 100--500 g) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | -- <!-- DATEN FEHLEN: Zucchini wird einzeln in Toepfe/Pflanzloecher ausgesaeat und im Endabstand 80--100 cm kultiviert; keine belastbare, durch 2 Quellen bestaetigte "Aussaatdichte pro m2" fuer Reihenkultur dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Keimtemperatur min (15 degC), Saattiefe (2--3 cm) und Dunkelkeimer-Status sind bereits in §1.3 dokumentiert. Die Keimtemperatur-Obergrenze (35 degC) wurde ergaenzend recherchiert: eine Cardinal-Temperature-Studie zu Cucurbita pepo (Pumpkin) bestaetigt eine Keim-Ceiling-Temperatur >35 degC, konsistent mit Gartenbau-Quellen, die 35--38 degC als Obergrenze nennen. Die Tausendkornmasse ist bei Cucurbita pepo extrem sortenabhaengig (grosse, flache Samen) -- Quellen zeigen 2--11 Samen/g, was einer Spanne von ca. 90--500 g/1000 Samen entspricht; als konservativer Mittelwert wird ca. 150 g angegeben.
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- SciAlert -- Study of Cardinal Temperatures for Pumpkin (Cucurbita pepo) Seed Germination (Ceiling-Temperatur >35 degC): https://scialert.net/fulltext/?doi=ja.2006.95.97
+- Clemson HGIC / Oregon State University -- Summer Squash Factsheet (Keimtemperatur-Optimum 21--35 degC, Maximaltemperatur ~38 degC): https://hgic.clemson.edu/factsheet/summer-squash/
+- Illinois Extension -- Seed Viability in Storage (Squash: 4 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Squash & Gourds: 3--6 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- Vital Seeds -- Seeds per Gram (Courgette: 2--11 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Zucchini: 2--10 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

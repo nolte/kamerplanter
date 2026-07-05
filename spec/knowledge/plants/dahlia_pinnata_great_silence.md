@@ -127,6 +127,12 @@
 > **Hinweis Standortqualität:** 'Great Silence' ist eine ausgesprochene Vollsonnen- und C3-Pflanze mit hoher Wasserbedürftigkeit bei gleichzeitig hoher Staunässe- und Salzempfindlichkeit — der scheinbare Widerspruch löst sich über durchlässigen, gleichmäßig feuchten, aber nie staunassen Boden auf. Lichtsättigung und Photoinhibition sind hier NICHT erfasst (gehören nicht in das Kompensationspunkt-Feld).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Dahlia 'Great Silence' ist eine benannte Cultivar-Sorte; §1.3 dokumentiert Knollenteilung/Stecklinge aus Knospenaustrieb als Standard- und einzig sortenechte Vermehrungsmethode. Der Praxis-Hinweis in §1.3 stellt explizit fest: "Samenanzucht liefert keine sortenechten Pflanzen" — eine echte Aussaat-/Keim-Metadatenerhebung für diese Sorte wäre daher irreführend und unterbleibt.) -->
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -613,7 +619,7 @@ Great Silence,Dahlia pinnata,Peter Komen,2018,"informal_decorative;dark_blend;co
 16. [Longfield Gardens — How to Pinch and Stake Dahlias](https://www.longfield-gardens.com/article/how-to-pinch-and-stake-dahlias/) — Pinching, Disbudding, Staking
 17. [Dahlias.com — Dahlia Fertilizing Tips (Swan Island)](https://www.dahlias.com/blog/growing-tips/dahlia-fertilizing-tips/) — Düngungsplan, Produktempfehlungen
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
-18. [MSU Extension — Reducing Time to Flower in Dahlias](https://www.canr.msu.edu/news/reducing-time-to-flower-in-dahlias) — Photoperiode: Dahlien als day-neutral / fakultativ short-day für die Blüte; Kurztag-Effekt auf Tuberisierung (Korrektur photoperiod_type)
+18. [MSU Extension — Reducing Time to Flower in Dahlias](https://www.canr.msu.edu/news/reducing-time-to-flower-in-dahlias) — Photoperiode: Dahlien als day-neutral / fakultativ-kurztägig; Kurztag-Effekt auf Tuberisierung (Korrektur photoperiod_type)
 19. [Dahlia Doctor — How Temperature & Day Length Impact Dahlia Growth & Tubers](https://www.dahliadoctor.com/blogs/second-blog/timing-is-everything-how-temperature-and-day-length-affect-dahlia-growth-and-tuber-formation) — Kurztag fördert Tuberisierung (10–12 h), Wuchs-/Tubertemperatur 15–20 °C (base_temp, Photoperiode)
 20. [Liu et al. 2023, Horticulturae 9(9):1047 — Response of Dahlia Photosynthesis and Transpiration to High-Temperature Stress](https://doi.org/10.3390/horticulturae9091047) — Photosynthese-Optimum/Kontrolle 25/20 °C, signifikanter Pn-Abfall ab 35/30 °C (photosynthesis_temp_opt_c, peer-reviewed)
 21. [Old Farmer's Almanac — Dahlias Growing Guide](https://www.almanac.com/plant/dahlias) — Boden-pH 6,5–7,0, Salzempfindlichkeit, Zone-8-Überwinterung, Lebensdauer (soil_ph_preference, salt_tolerance, lifespan)

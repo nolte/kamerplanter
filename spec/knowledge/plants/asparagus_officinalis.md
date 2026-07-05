@@ -113,6 +113,24 @@
 > Hinweis: Der ECe-Schwellenwert ist die Substrat-Bodensättigungsextrakt-Leitfähigkeit (saturated paste extract), nicht die Gießwasser-EC. Asparagus zählt zu den salztolerantesten Gemüsekulturen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1.3 (ca. 1/2 Zoll) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14–21 (KA-Feld: 14) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3–4 (KA-Feld: 3) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (2–24 h warmes Wasser vor der Aussaat) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | 18–20 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Asparagus wird laut §1.2 dieses Steckbriefs praxisüblich über Kronen-Pflanzung kultiviert ("Kronen-Pflanzung; kein Aussaat nötig", Direktsaat-Monate leer) — keine etablierte Direktsaat-Enddichte im Feld belegbar; §1.6 nennt nur den Kronen-Pflanzabstand (30–40 × 120 cm), keine Aussaatdichte --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):** [Sow Right Seeds — Growing Asparagus from Seed](https://sowrightseeds.com/blogs/planters-library/how-to-grow-asparagus-from-seed); [Gardening Know How — Asparagus Seed Propagation](https://www.gardeningknowhow.com/edible/vegetables/asparagus/planting-asparagus-seed.htm); [The Seed Collection — How to Grow Asparagus Seeds](https://www.theseedcollection.com.au/growguide/asparagus-seeds); [growseed.co.uk — Asparagus Seed Germination](https://www.growseed.co.uk/asparagus-seed-germination.html); [AgEconSearch — Rapid Determination of Seed Number and Thousand Kernel Weight of Asparagus officinalis L.](https://ageconsearch.umn.edu/record/300962/); [Sow True Seed — Planting Guide and Seed Saving Notes for Asparagus](https://sowtrueseed.com/pages/planting-guide-and-seed-saving-notes-for-asparagus); [Reading Food Growing Network — Seed Viability](https://www.readingfoodgrowingnetwork.org.uk/SeedViability.cfm).
+<!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
+
 ---
 
 ## 2. Wachstumsphasen

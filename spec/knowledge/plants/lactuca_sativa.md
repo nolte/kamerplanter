@@ -127,6 +127,33 @@ Hinweis: Bei Pflueck- und Schnittsalat einzelne aeussere Blaetter pfleuecken; da
 | Boden-pH-Vorzug (soil pH preference, min--max) | 6.0--7.0 (optimal 6.0--6.5) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 -->
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (degC) | 4 (praktisches Minimum; absolute Untergrenze laut Quelle 0 degC, aber Keimung dann extrem langsam) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (degC) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0 (Lichtkeimer, nur andruecken) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 5 | `species.seed_profile.days_to_germination` |
+| Keimfaehigkeitsdauer (Jahre) | 3 (uneinheitliche Quellenlage -- siehe Hinweis) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Vorbehandlung | keine (die in §1.3 genannte 24h-Kuehlschranklagerung vor Sommeraussaat dient dem Brechen der Thermodormanz und ist keine echte Kaeltestratifikation im Sinne des Enums) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | ca. 1.1 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m2) | ca. 11--16 (Kopfsalat, aus Pflanzabstand 25--30 x 25--30 cm gemaess §1.6 berechnet); ca. 25--33 (Pfluecksalat, aus 15--20 cm Abstand) | `species.seed_profile.sowing_density_per_m2` |
+
+Hinweis: Die Keimtemperatur-Obergrenze (25 degC, Thermodormanz) und der Lichtkeim-Status sind bereits in §1.3 dokumentiert. Die Keimtemperatur-Untergrenze wurde ergaenzend recherchiert: Salatsamen keimen laut GreenUpside-Zusammenfassung theoretisch noch bei 0 degC, praktisch jedoch erst ab ca. 4--5 degC in brauchbarer Zeit (bei 5 degC ca. 15 Tage). Bei der Keimfaehigkeitsdauer besteht eine auffaellige Quellen-Diskrepanz: Illinois Extension nennt 6 Jahre, Johnny's Selected Seeds 1--6 Jahre, aeltere Literatur (zitiert bei awaytogarden.com) dagegen nur 1 Jahr fuer aeltere Sorten. Als konservativer Mittelwert wird 3 Jahre angegeben. Die Aussaatdichte wurde aus dem in §1.6 bereits dokumentierten Pflanzabstand berechnet (Kopfsalat 25--30 cm, Pfluecksalat 15--20 cm) und liegt in der Groessenordnung kommerzieller Bestandsdichten fuer Kopfsalat.
+
+**Quellen fuer §1.8 (zusaetzlich zu den bereits in §1.3 zitierten Quellen):**
+- GreenUpside -- How Long Do Lettuce Seeds Take To Germinate? (Minimum ~0 degC theoretisch, praktisch ab 4--5 degC; bei 5 degC 15 Tage, bei 10 degC 7 Tage, bei 15 degC 4 Tage): https://greenupside.com/how-long-do-lettuce-seeds-take-to-germinate-how-to-speed-up/
+- Sustainable Market Farming -- Soil Temperatures for Lettuce Germination: https://www.sustainablemarketfarming.com/tag/soil-temperatures-for-lettuce-germinaiton/
+- Illinois Extension -- Seed Viability in Storage (Lettuce: 6 Jahre): https://extension.illinois.edu/blogs/garden-scoop/2021-03-06-seed-viability-storage
+- Johnny's Selected Seeds -- Seed Viability & Storage Guide (Lettuce: 1--6 Jahre): https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html
+- A Way To Garden -- Estimating Viability: How Long Do Seeds Last? (aeltere Literatur nennt fuer Salat teils nur 1 Jahr, moderne Sorten laenger): https://awaytogarden.com/estimating-viability-how-long-do-seeds-last/
+- Vital Seeds -- Seeds per Gram (Lettuce: 600--1200 Samen/g): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
+- Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Lettuce: 600--1200 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
+<!-- /Quelle: seed-profile-backfill 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

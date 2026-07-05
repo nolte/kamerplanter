@@ -106,6 +106,32 @@
 | Boden-pH-Vorzug (soil pH preference, min–max) | 5.5–7.5 (Optimumbereich; weite Toleranz 4.5–8.2, pH-unempfindlich) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | <!-- DATEN FEHLEN: keine dual belegte Keim-Kardinaltemperatur (nur Wuchs-GDD-Basis 0–4 °C in §1.1 belegt, das ist nicht dasselbe wie eine Keimtemperaturschwelle) --> | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | <!-- DATEN FEHLEN: siehe min --> | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.4–0.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 4 (Spanne 4–7 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 4 (Spanne 3–5 Jahre) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine dual belegte Licht-/Dunkelkeimer-Einstufung; eine Studie zeigt lichthemmende Wirkung nur unter Wasserstress, keine generelle Aussage ableitbar --> | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | 4–7 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | ca. 300–500 (Gründüngung, berechnet aus Aussaatmenge 2–3 g/m² ÷ TKG 4–7 g; siehe §1.2/§4.2); bei Ölsaatanbau abweichend 70–110 Pflanzen/m² | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine dokumentierte Vorbehandlung — schnellkeimender Kreuzblütler, keine Stratifikation/Skarifikation in den Quellen genannt.
+
+Quellen (§1.8):
+1. [Canadian Food Inspection Agency — The biology of Sinapis alba L. (mustard)](https://inspection.canada.ca/en/plant-varieties/plants-novel-traits/applicants/directive-94-08/biology-documents/sinapis-alba) — TKG 4–6,1 g/1000 Korn
+2. [US Patent 7279618 — Seeds, oils and seed meals produced from Sinapis alba](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7279618) — TKG 5–6 g/1000 Korn (großsamig)
+3. [Saskatchewan Mustard — Seeding Rate](https://saskmustard.com/production-manual/seeding/seeding-rate/index.html) — Zielbestand 70–110 Pflanzen/m² bei Ölsaatanbau, 7,8–11,2 kg/ha
+4. [Fedco Seeds / Chiltern Seeds — White Mustard](https://www.fedcoseeds.com/seeds/yellow-white-mustard-seed-herb-4642) — Keimdauer <1 Woche, Saattiefe 4–5 mm
+5. [Mustard Seeds Shelf Life — TexasRealFood](https://discover.texasrealfood.com/food-shelf-life/mustard-seeds) — Senfsaatgut 3–4 Jahre keimfähig
+6. [Homestead and Chill — Seed Viability Chart](https://homesteadandchill.com/old-seeds-viability-chart/) — Brassicaceae/Senf bis 4–5 Jahre keimfähig
+7. Bestehende §1.2/§4.2-Angabe Aussaatmenge 2–3 g/m² (Gründüngung, bereits im Dokument sourced) als Berechnungsgrundlage
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen
@@ -229,3 +255,9 @@ Sinapis alba,"Gelbsenf;Weißer Senf;White Mustard;Yellow Mustard",Brassicaceae,S
 11. [eOrganic — Brassicas and Mustards for Cover Cropping in Organic Farming](https://eorganic.org/node/2554) — Wurzelsystem (tiefe Pfahlwurzel), Standort- und Drainageansprüche
 12. [FAO — Annex 1. Crop salt tolerance data](https://www.fao.org/4/y4263e/y4263e0e.htm) — Maas-Hoffman-Methodik (ECe-Schwelle/Slope), Gerste als toleranter Referenzwert (ECe ≈ 8 dS/m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+13. [Canadian Food Inspection Agency — The biology of Sinapis alba L. (mustard)](https://inspection.canada.ca/en/plant-varieties/plants-novel-traits/applicants/directive-94-08/biology-documents/sinapis-alba) — TKG 4–6,1 g/1000 Korn
+14. [US Patent 7279618 — Seeds, oils and seed meals produced from Sinapis alba](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/7279618) — TKG 5–6 g/1000 Korn
+15. [Saskatchewan Mustard — Seeding Rate](https://saskmustard.com/production-manual/seeding/seeding-rate/index.html) — Zielbestand Ölsaatanbau
+16. [Mustard Seeds Shelf Life — TexasRealFood](https://discover.texasrealfood.com/food-shelf-life/mustard-seeds) / [Homestead and Chill — Seed Viability Chart](https://homesteadandchill.com/old-seeds-viability-chart/) — Keimfähigkeitsdauer 3–5 Jahre
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->

@@ -368,6 +368,15 @@ new_species:
     support_required: false
 
   - scientific_name: "Dypsis lutescens"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 25
+      germination_temp_max_c: 30
+      sowing_depth_cm: 1
+      days_to_germination: 21
+      seed_viability_years: 1
+      light_germination: indifferent
+      pretreatment: [scarification, presoak]
     propagation_configs:
       - method: seed
         months: [4, 5, 6]
@@ -497,6 +506,12 @@ new_species:
       max_ph: 6.5
 
   - scientific_name: "Fatsia japonica"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 18
+      germination_temp_max_c: 24
+      days_to_germination: 14
+      pretreatment: [cold_stratification]
     propagation_configs:
       - method: cutting
         months: [7, 8, 9]
@@ -1000,6 +1015,15 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Hibiscus rosa-sinensis"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 24
+      germination_temp_max_c: 29
+      sowing_depth_cm: 0.6
+      days_to_germination: 7
+      seed_viability_years: 1
+      light_germination: indifferent
+      pretreatment: [scarification, presoak]
     propagation_configs:
       - method: cutting
         months: [3, 4, 5]
@@ -1088,6 +1112,13 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Howea forsteriana"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 24
+      germination_temp_max_c: 30
+      sowing_depth_cm: 2
+      days_to_germination: 90
+      pretreatment: [presoak]
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -1172,6 +1203,15 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Impatiens walleriana"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 29
+      sowing_depth_cm: 0
+      days_to_germination: 5
+      seed_viability_years: 1
+      light_germination: light
+      thousand_seed_weight_g: 0.7
     propagation_configs:
       - method: seed
         months: [2, 3, 4]
@@ -1345,6 +1385,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Lithops spp."
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 28
+      sowing_depth_cm: 0
+      days_to_germination: 7
+      seed_viability_years: 10
+      light_germination: light
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -1387,6 +1435,14 @@ new_species:
       max_ph: 7
 
   - scientific_name: "Livistona chinensis"
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 25
+      germination_temp_max_c: 30
+      sowing_depth_cm: 2
+      days_to_germination: 25
+      seed_viability_years: 1
+      pretreatment: [presoak]
     propagation_configs:
       - method: seed
         months: [4, 5]
@@ -1426,6 +1482,14 @@ new_species:
       max_ph: 7.5
 
   - scientific_name: "Mammillaria spp."
+    # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
+    seed_profile:
+      germination_temp_min_c: 20
+      germination_temp_max_c: 30
+      sowing_depth_cm: 0
+      days_to_germination: 5
+      seed_viability_years: 5
+      light_germination: light
     propagation_configs:
       - method: offset
         months: [5, 6, 7]

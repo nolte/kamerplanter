@@ -109,6 +109,32 @@
 | Boden-pH-Vorzug (min–max) (soil pH preference) | 5.5–6.5 (Kalkflieher/calcifuge; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 12 (12–18°C / 55–65°F optimales Bodentemperaturfenster) | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 18 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1 (flach, 0,3–1 cm je nach Quelle; nicht tiefer als 1 cm) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 8 (7,9 Tage bis zur ersten Keimung unter Laborbedingungen nach Vorbehandlung; unbehandelt 14–60 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 20 (harte, wasserundurchlässige Samenschale ermöglicht extreme Langlebigkeit; dokumentiert 75 % Keimfähigkeit nach 49 Jahren Raumtemperatur-Lagerung — Harrington 1972) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | indifferent (Aussaat flach bedeckt bei 1 cm Tiefe wird durchgängig empfohlen und funktioniert zuverlässig; kein Hinweis auf obligate Lichtkeimung) | `species.seed_profile.light_germination` |
+| Vorbehandlung | scarification, cold_stratification (harte Samenschale — Heißwasser-/mechanische Skarifikation plus kalte Stratifikation deutlich keimfördernd) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: kein art-spezifischer TKG-Wert für Lupinus polyphyllus aus zwei unabhängigen Quellen; nur Werte verwandter Arten (z.B. L. perennis ≈ 21,7 g) verfügbar, nicht direkt übertragbar --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Zierstaude/Einzelpflanzung im Garten (§1.6: 40–60 cm Pflanzabstand), keine Flächen-/Reihensaat mit belegter Kornzahl je m² --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Quellen (§1.8):**
+1. [Almanac / West Coast Seeds — How to Grow Lupins](https://www.westcoastseeds.com/blogs/wcs-academy/grow-lupin) — Bodentemperatur 55–65°F (12–18°C), Saattiefe flach
+2. [Johnny's Selected Seeds — Lupine Key Growing Information](https://www.johnnyseeds.com/growers-library/flowers/lupine/lupine-key-growing-information.html) — Saattiefe ~1 cm, Keimdauer 7–21 Tage
+3. [Biology Insights — How to Scarify Lupine Seeds for Better Germination](https://biologyinsights.com/how-to-scarify-lupine-seeds-for-better-germination/) — Heißwasser-Skarifikation, anschließendes 12–24 h Einweichen
+4. [Wellfield Gardens — Stratification and Scarification: A Seed's Path to Germination](https://www.wellfieldgardens.org/post/stratification-and-scarification-a-seed-s-path-to-germination) — Lupine als Beispielart für kombinierte Skarifikation + kalte Stratifikation
+5. [ISTA/Propagation Protocol via NRCS — Lupinus sericeus](https://www.nrcs.usda.gov/plantmaterials/wapmcmt7129.pdf) — Keimtemperatur/Vorbehandlungs-Analogie innerhalb der Gattung Lupinus (cross-check)
+6. [MDPI Diversity 13(6):264 — Risk of Invasive Lupinus polyphyllus Seed Survival in Biomass Treatment Processes](https://www.mdpi.com/1424-2818/13/6/264) — Harrington (1972): 75 % Keimfähigkeit nach 49 Jahren Raumtemperatur-Lagerung; kurzfristige Bodensamenbank-Persistenz vs. jahrzehntelange Laborlagerung
+7. [Biological Flora of Central Europe – Lupinus polyphyllus Lindley (ScienceDirect, bereits in §Quellenverzeichnis zitiert)](https://www.sciencedirect.com/science/article/pii/S1433831922000579) — Cross-Check Samenschale/Langlebigkeit, Vernalisationsverhalten
+8. §1.3/§1.6 dieses Steckbriefs (bereits zitierte Quellen) — Cross-Check Direktsaat, keine Vorkultur wegen Pfahlwurzel
+<!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
+
 ---
 
 ## 2. Wachstumsphasen

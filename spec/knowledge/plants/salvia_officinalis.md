@@ -108,6 +108,31 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.5 (Bestaroma 6,0–7,0; verträgt mild alkalisch bis ~7,8; kalkliebend, meidet sauer) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 15 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 25 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.3 (flach, Lichtkeimer) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 7 (Spanne 7–21 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 2 (Spanne 1–3 Jahre) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | ca. 8 (Spanne 6.7–10.2 g je nach Quelle) | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Anzucht überwiegend als Vorkultur/Pikieren dokumentiert (siehe §1.2), keine belegte Flächen-Aussaatdichte für Direktsaat --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine dokumentierte Vorbehandlung — Lichtkeimer, keine Stratifikation/Skarifikation in den Quellen genannt.
+
+Quellen (§1.8):
+1. [Study on characteristics of seed germination of Salvia officinalis — ResearchGate/PubMed](https://www.researchgate.net/publication/6633559_Study_on_characteristics_of_seed_germination_of_Salvia_officinalis) — höchste Keimrate 63–85 % bei 25 °C und Dauerlicht; TKG 8,03 g/1000 Korn
+2. [FACTORS AFFECTING GERMINATION OF DALMATIAN SAGE (SALVIA OFFICINALIS) SEED — ResearchGate](https://www.researchgate.net/publication/284336181_Factors_affecting_germination_of_dalmatian_sage_Salvia_officinalis_seed) — Keimtemperatur 15–25 °C optimal, 10–29 °C möglich, Licht essenziell
+3. [True Leaf Market — How to Grow Sage from Seed](https://trueleafmarket.com/pages/sage-herb-growing-guide) — Saattiefe ⅛ Zoll (≈0,3 cm), Keimdauer
+4. [Live to Plant — Salvia Plant Seeds Guide](https://livetoplant.com/salvia-plant-seeds-guide-to-storing-sowing-and-germination/) — Keimfähigkeit bis 2 Jahre, Licht essenziell, nicht bedecken
+5. [Wikifarmer — Salvia officinalis Sage seeds](https://wikifarmer.com/salvia-officinalis-sage-seeds/?amp=1) — TKG ≈10,16 g/1000 Korn (100 Korn = 1,016 g)
+6. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) — Salbei 1–3 Jahre keimfähig
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

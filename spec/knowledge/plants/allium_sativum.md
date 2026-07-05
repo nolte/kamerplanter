@@ -110,6 +110,10 @@
 > **Freitext-Hinweis Licht:** Knoblauch ist eine ausgesprochene Vollsonnenkultur (min. 6 h direkte Sonne, optimal ≥ 8 h). Ein art­spezifischer Lichtkompensationspunkt ist in der zugänglichen Literatur nicht aus zwei unabhängigen, seriösen Quellen belegt; als C3-Blattgemüse ist ein Kompensationspunkt im niedrigen zweistelligen PPFD-Bereich plausibel, wird hier aber mangels Beleg nicht eingetragen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Allium sativum wird im Erwerbs- und Hobbyanbau ausschließlich über Brutzehen (offset, siehe §1.3) vermehrt; die Kulturform bildet in Mitteleuropa praktisch keine fertilen Samen aus fruchtbaren Blüten (Blütenschaft/"Scape" wird planmäßig entfernt, siehe §1.5, um die Energie in die Knolle zu lenken). Echte generative Saatgutvermehrung ist nur in Züchtungsprogrammen mit spezifischen fertilen Akzessionen relevant und für den Hausgarten nicht praxisrelevant. Es werden daher KEINE Keimwerte erfunden; `species.seed_profile` bleibt für diese Art unbefüllt (null). -->
+
 ---
 
 ## 2. Wachstumsphasen

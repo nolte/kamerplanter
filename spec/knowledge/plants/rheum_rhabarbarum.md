@@ -109,6 +109,34 @@
 | Boden-pH-Vorzug (soil pH preference) | 5.5–6.5 (konsistent mit §1.6/§2.3; toleriert bis ~6.8) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+> Rhabarber wird überwiegend vegetativ durch Rhizomteilung vermehrt (siehe §1.3); Aussaat ist als Sekundärmethode dokumentiert (v. a. für Sortenzüchtung/neue Pflanzen aus Samen) und wird hier recherchiert.
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 13 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 27 | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 1–2.5 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 10 (Spanne 10–30 Tage) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | 3 (Quellen uneinheitlich: 2–3 Jahre vs. 3–5 Jahre bei kühler/trockener Lagerung) | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light (Gattungs-Studie an Himalaya-Rhabarber-Arten zeigt 87 % Keimung im Licht vs. 9,6 % im Dunkeln; Gattungsevidenz, nicht art-spezifisch belegt für R. rhabarbarum) | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (1–6 h warmes Wasser); vereinzelt zusätzlich cold_stratification empfohlen | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine belegte TKG-Angabe aus 2 unabhängigen Quellen --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Aussaat erfolgt in Presstöpfen/Anzuchtschalen zur Einzelpflanzenanzucht, keine Flächen-Direktsaat --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [RHS — How to grow rhubarb](https://www.rhs.org.uk/vegetables/rhubarb/grow-your-own) — Saattiefe 2,5 cm, Keimtemperatur 13–18 °C, bis zu 30 Tage
+2. [Seeds and Soil Organics — Rhubarb Victoria](https://seedsandsoilorganics.com/product/rhubarb-victoria-rheum-rhabarbarum/) — Keimtemperatur 21–27 °C, Keimdauer 7–14 Tage
+3. [The Seed Collection — How to Grow Rhubarb Seeds](https://www.theseedcollection.com.au/growguide/rhubarb-seeds) — Saattiefe 10 mm
+4. [Gardener's Path — How to Grow Rhubarb From Seed](https://gardenerspath.com/plants/vegetables/propagate-rhubarb-seed/) — Einweichen 4–6 h, Stratifikation als ergänzende Maßnahme genannt
+5. [Practical Self Reliance — Growing Rhubarb from Seed](https://practicalselfreliance.com/growing-rhubarb-from-seed/) — Einweichen 1–2 h vor Aussaat
+6. [Survival Garden Seeds — Victoria Rhubarb Seeds](https://survivalgardenseeds.com/products/victoria-rhubarb-seeds) — Keimfähigkeit 3–5 Jahre bei kühler/trockener Lagerung
+7. [Growplant.org — Rhubarb Life Cycle](https://growplant.org/blog/rhubarb-life-cycle/) — Keimfähigkeit 2–3 Jahre
+8. [Effect of light, temperature and seed mass on germination of two species of the Himalayan rhubarb — ResearchGate](https://www.researchgate.net/publication/235633636_Effect_of_light_temperature_and_seed_mass_on_germination_of_two_species_of_the_Himalayan_rhubarb) — Lichtkeimung 87 % vs. Dunkelkeimung 9,6 % (Gattung Rheum, andere Arten)
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

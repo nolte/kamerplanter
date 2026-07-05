@@ -135,6 +135,30 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 - **Boden-pH:** Quellen nennen 5.5–7.0 bzw. 5.5–6.8; uebernommener Vorzugsbereich 5.5–6.8 harmonisiert mit §1.6 (5.5–7.0) und den Naehrstoffprofilen §2.3 (Wurzelzone 5.8–6.5).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+<!-- Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 20 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 29 (wissenschaftliche Studie belegt sogar Optimum bei 27–32 °C) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 0.5–2 | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 14 (Spanne 14–20 Tage bei 20–25 °C, bis zu 42 Tage bei niedrigeren Temperaturen) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: keine dual belegte Jahresangabe; Lagerungsstudie zeigt hohe Keimfähigkeit bis 16 Monate unter kühler/trockener Lagerung, keine belastbare Übertragung auf eine Standard-Jahresangabe --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | light | `species.seed_profile.light_germination` |
+| Tausendkornmasse (g) | ca. 1 | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: ausschließlich Vorkultur in Presstöpfen/Anzuchtschalen (siehe §1.2), keine Reihen-/Direktsaat-Flächendichte dokumentiert --> | `species.seed_profile.sowing_density_per_m2` |
+
+**Vorbehandlung:** Keine dokumentierte Vorbehandlung — Lichtkeimer, keine Stratifikation/Skarifikation in den Quellen genannt.
+
+Quellen (§1.8):
+1. [Germination Performance of Physalis peruviana L. Seeds under Thermal and Water Stress Conditions — MDPI Agronomy](https://www.mdpi.com/2073-4395/14/6/1213) — Keimtemperatur-Optimum 27–32 °C, Lichtbedarf (Dunkelheit hemmt Keimung signifikant), Saattiefe 1–2 cm
+2. [Purdue University NewCrop — Cape Gooseberry](https://hort.purdue.edu/newcrop/morton/cape_gooseberry.html) / [Gardenia.net — Physalis peruviana](https://www.gardenia.net/plant/physalis-peruviana-gooseberry) — Keimtemperatur 20–25 °C, Keimdauer 14–20 Tage, helles Licht fördert Keimung (bereits §1.3)
+3. [SciELO Brazil — Germination of Physalis peruviana L. seeds under varying conditions of temperature, light, and substrate](https://www.scielo.br/j/rca/a/d8cjK8DhMwjxjvdZQYpWwft/?lang=en) — TKG ≈1 g/1000 Samen (≈1000–1050 Samen/g)
+4. [Association Study Reveals Novel Genes Related to Yield and Quality of Fruit in Cape Gooseberry — PMC5869928](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5869928/) — Samenzahl je Frucht, Saatgutgröße (Kontext TKG)
+5. [Germination Eco-physiology and Emergence of Physalis peruviana Seedlings — ResearchGate](https://www.researchgate.net/publication/330559582_Germination_Eco-physiology_and_Emergence_of_Physalis_peruviana_Seedlings) — Lagerungsstudie: hohe Keimfähigkeit bis 16 Monate bei kühler/trockener Lagerung
+<!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
+
 ---
 
 ## 2. Wachstumsphasen

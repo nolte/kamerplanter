@@ -118,6 +118,29 @@
 **Hinweis:** Der Lichtkompensationspunkt (light compensation point) ist quellenseitig nicht artspezifisch für *Howea forsteriana* gemessen; angegeben ist der für schattentolerante Unterwuchs-Arten (shade-tolerant understory) belegte Bereich (5–25 µmol/m²/s, im Waldunterwuchs meist < 20 µmol/m²/s). Palmen erreichen ihre ausgeprägte Schattentoleranz physiologisch primär über sehr niedrige Dunkelatmung (dark respiration), nicht über maximale Photosynthese. Die Salztoleranz-Klasse `moderately_tolerant` bezieht sich auf **aerosole Salzsprüh-Belastung** (salt spray, z.B. Küstenlage), nicht auf Substrat-Salinität — gegenüber Salzansammlung im Wurzelballen (Gießwasser-Salze, Fluorid) ist die Art empfindlich (siehe §1.6, §3.2).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.8 Saatgut & Keimung (Seed Profile)
+
+<!-- Quelle: seed-profile-backfill 2026-07 (Batch 7) -->
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Keimtemperatur min (°C) | 24 | `species.seed_profile.germination_temp_min_c` |
+| Keimtemperatur max (°C) | 30 (Bodenwärmematte 27–30 °C empfohlen für beste Keimrate) | `species.seed_profile.germination_temp_max_c` |
+| Saattiefe (cm) | 2 (Quellen variieren zwischen ca. 1 und 2,5–5 cm; bei der relativ großen Samengröße 2 cm als Richtwert) | `species.seed_profile.sowing_depth_cm` |
+| Tage bis Keimung | 90 (unterer Wert von „3 Monate bis mehrere Jahre" — sehr langsame, ungleichmäßige Keimung typisch für Arecaceae) | `species.seed_profile.days_to_germination` |
+| Keimfähigkeitsdauer (Jahre) | <!-- DATEN FEHLEN: Quellen empfehlen übereinstimmend frisches Saatgut ("use fresh seeds", "sow as soon as possible"), nennen aber keine quantifizierte Keimfähigkeitsdauer in Jahren --> | `species.seed_profile.seed_viability_years` |
+| Licht-/Dunkelkeimer | <!-- DATEN FEHLEN: keine artspezifische Photoblastismus-Angabe aus ≥2 unabhängigen Quellen; Samen werden generell substratbedeckt ausgesät --> | `species.seed_profile.light_germination` |
+| Vorbehandlung | presoak (24–48 h Einweichen in warmem Wasser; teils zusätzlich mechanisches Anritzen der harten Samenschale oder verdünnte Bleichlösung gegen Schimmel) | `species.seed_profile.pretreatment` |
+| Tausendkornmasse (g) | <!-- DATEN FEHLEN: keine Gewichtsangabe für Howea-forsteriana-Samen in den geprüften Quellen --> | `species.seed_profile.thousand_seed_weight_g` |
+| Aussaatdichte (Korn/m²) | <!-- DATEN FEHLEN: Zimmerpflanze in Einzeltopf-/Mehrfachsämling-Kultur, keine Reihen-/Feld-Direktsaat-Dichte anwendbar --> | `species.seed_profile.sowing_density_per_m2` |
+
+Quellen (§1.8):
+1. [John Denson's World of Gardens — Master the Art of Growing the Kentia Palm](https://johndenson.com/2023/06/30/master-the-art-of-growing-the-kentia-palm-howea-forsteriana-the-ultimate-houseplant-guide/) — Keimtemperatur, Bodenwärme
+2. [Week& — Germination of Kentia Palm Seeds](https://www.weekand.com/home-garden/article/germination-kentia-palm-seeds-18050802.php) — Keimdauer 3 Monate bis mehrere Jahre
+3. [Gardenologist — Germination of Kentia Palm Seeds](https://gardenologist.org/germination-of-kentia-palm-seeds/) — Keimdauer, Frischsaat-Empfehlung
+4. [ABCeeds — Premium Kentia Palm Seeds](https://www.abceeds.com.au/shop/plant-seed-shop/palm-seed-shop/howea-forsteriana/) — Einweichen, Skarifikation, Saattiefe
+5. [MyPalmShop — How to care for Howea forsteriana](https://www.mypalmshop.com/blog/tips-care-howea-forsteriana) — Keimtemperatur, Saattiefe
+
 ---
 
 ## 2. Wachstumsphasen
