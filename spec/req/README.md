@@ -350,6 +350,19 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 🌤️ REQ-046: Wetterdienst-Datenquellen & -Konfiguration
+**Fokus:** Nutzerkonfigurierbare Wetterquellen je Standort — öffentlicher Dienst **vs.** Home-Assistant-Sensoren · **SSOT** der Wetter-Datenquellen-Schicht · **Erweitert:** REQ-005, REQ-002 · **Konsolidiert:** REQ-041, REQ-039
+- Konsolidiert die zuvor über REQ-005/039/041 verstreute Wetter-Adapter-Schicht in **eine** Quelle der Wahrheit: `WeatherAdapter`-ABC, `WeatherAdapterRegistry`, `Site.weather_source_priority` und die konkreten öffentlichen Adapter (DWD / OpenWeatherMap / Open-Meteo) sind hier beheimatet. REQ-041 (`NasaPowerWeatherAdapter`) und REQ-039 (`*ClimateNormalAdapter`) **registrieren** ihre Spezial-Adapter in dieser Registry.
+- **Kern-Mehrwert:** nutzerseitige Datenquellen-Wahl pro Standort — neuer `HomeAssistantWeatherAdapter` (native `weather.*`-Entität **oder** Einzel-Sensor-Mapping) plus priorisierbare Fallback-Kette (öffentlich ↔ HA), Konfigurations-UI und „Quelle testen"-Verbindungstest.
+- Additive `:WeatherForecast`-Erweiterung (`data_kind`, `is_current_conditions`) + neuer `source`-Provenance-Wert `ha_weather` (Quality-Score 0.9); neue Collection `weather_source_configs` + Edge `has_weather_source_config`.
+
+**Highlights:**
+- HA bleibt **strikt optional** — alle Wetterfunktionen laufen mit rein öffentlichen Diensten (Open-Meteo, kein Key); Wetter gilt weiterhin nicht als „Smart-Home-Funktion".
+- OpenWeatherMap-API-Key verschlüsselt via Fernet (REQ-023, `api_key_ref` statt Klartext); tenant-scoped Routen (REQ-024); SSRF-Schutz via `validate_ha_url`.
+- Attributionspflichten (DWD GeoNutzV, Open-Meteo CC-BY-4.0) → NOTICE + UI.
+
+---
+
 ## Technologie-Stack
 
 ### Backend

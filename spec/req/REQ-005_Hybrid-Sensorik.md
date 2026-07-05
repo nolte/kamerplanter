@@ -74,15 +74,18 @@ Das System implementiert einen Hybrid-Ansatz für Datenerfassung mit nahtloser D
 <!-- Quelle: Outdoor-Garden-Planner Review G-010 -->
 ### Wetter-Integration (Freiland)
 
+> **SSOT-Hinweis (REQ-046):** Dieses Kapitel bleibt SSOT für das **Basis-Datenmodell** `:WeatherForecast`, die `has_forecast`-Edge, den `source`-Provenance-Enum, die Warn-Tabelle und die Celery-Tasks. Die **Datenquellen-Schicht darüber** — das `WeatherAdapter`-ABC, die `WeatherAdapterRegistry`, die nutzerseitige Quellen-Auswahl/-Priorisierung (`:WeatherSourceConfig`, ehem. `Site.weather_source_priority`), die konkreten öffentlichen Adapter (DWD / OpenWeatherMap / Open-Meteo) **und** die HA-Wetterquelle (`HomeAssistantWeatherAdapter`) — ist nach **REQ-046 (Wetterdienst-Datenquellen)** ausgelagert. Die dort additiv eingeführten `:WeatherForecast`-Felder (`data_kind`, `is_current_conditions`) und der `source`-Wert `ha_weather` erweitern das hier definierte Basismodell. **Harte Abhängigkeit REQ-046 → REQ-005.**
+
 **Wetter-Integration für Freilandgärten:**
 
 Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **Wetter-API-Anbindung** als zusätzliche Datenquelle für Freiland-Standorte. Die Wetterdaten ergänzen die Sensor-Fallback-Kette (automatisch → semi-automatisch → manuell) um eine vierte Stufe: **extern (Wetter-API)**.
 
-**Datenquellen (Adapter-Pattern, wie REQ-011):**
+**Datenquellen (Adapter-Pattern, wie REQ-011; konkrete Adapter + Konfiguration → REQ-046):**
 - **DWD Open Data** (Deutscher Wetterdienst) — kostenlos, DACH-Region, offizielle Daten
 - **OpenWeatherMap** — global, Freemium (1000 Calls/Tag gratis)
 - **Open-Meteo** — kostenlos, Open Source, keine API-Key nötig
-- Erweiterbar über Adapter-Registry (REQ-011 Pattern)
+- **Home Assistant** als Wetterquelle (native `weather.*`-Entität oder Einzel-Sensor-Mapping) — neu in REQ-046
+- Erweiterbar über die `WeatherAdapterRegistry` (REQ-046; Muster analog REQ-011)
 
 **Wetter-basierte Benachrichtigungen:**
 

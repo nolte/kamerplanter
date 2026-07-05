@@ -112,7 +112,7 @@ Kamerplanter currently offers 17 widgets across four categories. Which widgets a
 | Widget | Description |
 |--------|-------------|
 | Tip of the day | Daily AI care tip for your plants. |
-| Weather forecast | Weather for your outdoor locations (with location configuration). |
+| Weather forecast | Links to the [weather source setup](weather-sources.md) for your outdoor/greenhouse locations; does not display forecast values directly in the widget yet. |
 | Harvest forecast | Expected harvest dates (with timeframe configuration). |
 | Community activity | Activity from your community gardens. |
 
@@ -202,3 +202,4 @@ In [Light Mode](light-mode.md) — without registration — your layout is inste
 - [Onboarding Wizard](onboarding.md) — Set your experience level
 - [Light Mode](light-mode.md) — Run Kamerplanter without login
 - [Tenant Management](tenants.md) — Manage multiple gardens
+- [Weather Sources per Location](weather-sources.md) — set up the source for the "Weather forecast" widget

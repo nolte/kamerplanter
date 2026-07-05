@@ -4047,6 +4047,62 @@
       "targetedPestsIntro": "These pests can be controlled with this measure — click on a name for details.",
       "targetedDiseasesIntro": "These plant diseases can be treated or contained with this measure.",
       "viewPestDetail": "View details"
+    },
+    "weatherSource": {
+      "title": "Weather source",
+      "intro": "Choose where this location's weather data comes from: a public weather service or your Home Assistant installation. You can prioritise several sources – the top one (#1) takes precedence, and lower ones step in as a fallback whenever a higher source is temporarily unreachable.",
+      "empty": "No weather source configured yet. Add Open-Meteo, for example – free and no sign-up required.",
+      "addSource": "Add source",
+      "editSource": "Edit source",
+      "addSourceIntro": "Pick the type of data source. A public weather service works instantly without any hardware; Home Assistant uses the sensor readings measured at your location.",
+      "kindSwitchAria": "Type of weather source",
+      "editLockedHint": "The type and provider can't be changed after creation. Delete the source and add it again to switch.",
+      "haModeSwitchAria": "Home Assistant mode",
+      "haDisabledTitle": "Home Assistant not connected",
+      "haDisabledHint": "To use HA sensors as a weather source, first store a Home Assistant access token.",
+      "haSettingsLink": "Go to Home Assistant settings",
+      "provider": "Weather service",
+      "providerHelper": "Public provider that supplies the forecast for your location's coordinates.",
+      "providerHint": {
+        "open-meteo": "Recommended – free, no sign-up, worldwide.",
+        "dwd": "German Weather Service – best coverage in the DACH region.",
+        "openweathermap": "Worldwide – requires your own API key.",
+        "nasa-power": "Worldwide – reanalysis data (historical/derived)."
+      },
+      "apiKey": "API key",
+      "apiKeyHelper": "Stored encrypted and never shown in plaintext.",
+      "apiKeyStoredHelper": "A key is already stored. Leave empty to keep it unchanged.",
+      "toggleKeyVisibility": "Show/hide key",
+      "weatherEntity": "Weather entity",
+      "weatherEntityHelper": "An HA weather.* entity (e.g. Met.no) already provides a ready-made daily forecast – usually the simpler choice.",
+      "noWeatherEntities": "No weather entities found. Check whether your Home Assistant integration provides weather.* entities, or use the individual sensor mapping instead.",
+      "sensorMappingHelper": "Map individual HA sensors to the weather fields. Unmapped fields stay empty. At least one field must be mapped.",
+      "noSensorEntities": "No sensors found. Check your Home Assistant connection and whether matching sensor entities exist.",
+      "sensorGroupTemperature": "Temperature",
+      "sensorGroupPrecipitationWind": "Precipitation & wind",
+      "sensorGroupOther": "Other readings",
+      "sensorField": {
+        "temp_min_entity": "Temperature minimum",
+        "temp_max_entity": "Temperature maximum",
+        "temp_current_entity": "Temperature current",
+        "humidity_entity": "Humidity",
+        "precipitation_entity": "Precipitation (mm)",
+        "wind_speed_entity": "Wind speed",
+        "wind_gust_entity": "Wind gusts",
+        "pressure_entity": "Air pressure"
+      },
+      "moveUp": "Increase priority",
+      "moveDown": "Decrease priority",
+      "priorityHint": "Position {{position}} in the fallback order – #1 is tried first, followed by the other sources whenever it is temporarily unreachable.",
+      "enableToggle": "Source active",
+      "testSource": "Test source",
+      "configure": "Configure",
+      "keyStored": "Key stored",
+      "testReachable": "Source reachable – preview of the returned values:",
+      "testUnreachable": "Source not reachable.",
+      "previewValues": "min {{min}} °C / max {{max}} °C / rain {{rain}} mm",
+      "attribution": "Data sources: Deutscher Wetterdienst (DWD, GeoNutzV) · Weather data by Open-Meteo.com (CC BY 4.0) · OpenWeatherMap under their terms of use.",
+      "gpsRequiredHint": "Weather sources can be configured for this location once GPS coordinates are stored."
     }
   },
   "tankAlerts": {
@@ -4858,6 +4914,31 @@
       "neglect": "Neglect",
       "mechanical": "Mechanical damage",
       "unknown": "Unknown"
+    },
+    "weatherSource": {
+      "open-meteo": "Open-Meteo",
+      "dwd": "German Weather Service (DWD)",
+      "openweathermap": "OpenWeatherMap",
+      "nasa-power": "NASA POWER",
+      "ha_weather": "Home Assistant"
+    },
+    "weatherSourceKind": {
+      "public": "Public service",
+      "home_assistant": "Home Assistant"
+    },
+    "haWeatherMode": {
+      "weather_entity": "Single weather entity",
+      "sensor_mapping": "Individual sensors"
+    },
+    "weatherDataKind": {
+      "forecast": "Forecast",
+      "observed": "Current",
+      "reanalysis": "Reanalysis"
+    },
+    "weatherDataKindHint": {
+      "forecast": "Forecast – a calculated expectation for a future date, not yet a measurement.",
+      "observed": "Current – an actually measured value (e.g. from a Home Assistant sensor), not an estimate.",
+      "reanalysis": "Reanalysis – historical weather data derived from models, neither a live reading nor a forecast."
     }
   },
   "sensorChart": {
@@ -5090,7 +5171,9 @@
       },
       "weather_forecast": {
         "label": "Weather forecast",
-        "description": "Weather for your outdoor locations."
+        "description": "Weather for your outdoor locations.",
+        "emptyHint": "Weather data appears here once you have configured a weather source for an outdoor or greenhouse location.",
+        "configureCta": "Open locations"
       },
       "onboarding_progress": {
         "label": "Setup progress",

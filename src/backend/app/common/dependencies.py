@@ -722,6 +722,36 @@ def get_sensor_repo():
     return ArangoSensorRepository(get_db())
 
 
+# ── REQ-046 Weather data source dependencies ──────────────────────
+
+
+def get_weather_forecast_repo():
+    from app.data_access.arango.weather_forecast_repository import ArangoWeatherForecastRepository
+
+    return ArangoWeatherForecastRepository(get_db())
+
+
+def get_weather_source_config_repo():
+    from app.data_access.arango.weather_source_config_repository import ArangoWeatherSourceConfigRepository
+
+    return ArangoWeatherSourceConfigRepository(get_db())
+
+
+def get_weather_source_service():
+    from app.domain.services.weather_source_resolver import WeatherSourceResolver
+    from app.domain.services.weather_source_service import WeatherSourceService
+
+    encryption = get_encryption_engine()
+    resolver = WeatherSourceResolver(encryption, get_ha_client)
+    return WeatherSourceService(
+        weather_source_config_repo=get_weather_source_config_repo(),
+        site_repo=get_site_repo(),
+        encryption_engine=encryption,
+        resolver=resolver,
+        ha_client_factory=get_ha_client,
+    )
+
+
 def get_system_settings_repo():
     from app.data_access.arango.system_settings_repository import ArangoSystemSettingsRepository
 

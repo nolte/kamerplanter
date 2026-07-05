@@ -16,6 +16,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Fertilization](fertilization.md) | Nutrient plans, EC budget, mixing order |
 | [Watering Log](watering-log.md) | Document and review watering events |
 | [Sensors](sensors.md) | Sensor data, Home Assistant integration |
+| [Weather Sources](weather-sources.md) | Choose and prioritize a public weather service or Home Assistant per location |
 | [Tasks](tasks.md) | Task planning and workflow templates |
 | [Harvest](harvest.md) | Harvest management and quality scoring |
 | [Pest Management (IPM)](pest-management.md) | Integrated pest management |

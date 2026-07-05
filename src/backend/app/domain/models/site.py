@@ -103,6 +103,10 @@ class Site(BaseModel):
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
+    # REQ-046 §2.1 — derived, denormalized view of the active source names from
+    # :WeatherSourceConfig ([e.source_name for e in sources if e.enabled]); kept
+    # for legacy consumers. New consumers read :WeatherSourceConfig.
+    weather_source_priority: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

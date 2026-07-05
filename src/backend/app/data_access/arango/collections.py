@@ -95,6 +95,10 @@ CALENDAR_FEEDS = "calendar_feeds"
 # REQ-005 Sensors
 SENSORS = "sensors"
 
+# REQ-046 Weather data sources
+WEATHER_FORECASTS = "weather_forecasts"
+WEATHER_SOURCE_CONFIGS = "weather_source_configs"
+
 # REQ-002 Location Types
 LOCATION_TYPES = "location_types"
 
@@ -248,6 +252,9 @@ DOCUMENT_COLLECTIONS = [
     BENEFICIALS,
     PEST_IMAGE_CONTRIBUTIONS,
     PROPAGATION_EVENTS,
+    # REQ-046 Weather data sources
+    WEATHER_FORECASTS,
+    WEATHER_SOURCE_CONFIGS,
 ]
 
 # Edge collections
@@ -376,6 +383,10 @@ GENERATED_TASK = "generated_task"
 # REQ-005 Sensor edges
 MONITORS_TANK = "monitors_tank"
 LOCATED_AT = "located_at"
+
+# REQ-046 Weather data sources edges
+HAS_FORECAST = "has_forecast"  # sites → weather_forecasts (all source values)
+HAS_WEATHER_SOURCE_CONFIG = "has_weather_source_config"  # sites → weather_source_configs (1:1)
 
 # Watering Log edges
 LOG_SLOT = "log_slot"
@@ -548,6 +559,9 @@ EDGE_COLLECTIONS = [
     PEST_DETECTION_OF,
     PEST_DETECTION_FLAGGED,
     PEST_DETECTION_SUGGESTED_INSPECTION,
+    # REQ-046 Weather data sources
+    HAS_FORECAST,
+    HAS_WEATHER_SOURCE_CONFIG,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1204,6 +1218,17 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PEST_DETECTIONS],
         "to_vertex_collections": [INSPECTIONS],
     },
+    # REQ-046 Weather data sources
+    {
+        "edge_collection": HAS_FORECAST,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [WEATHER_FORECASTS],
+    },
+    {
+        "edge_collection": HAS_WEATHER_SOURCE_CONFIG,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [WEATHER_SOURCE_CONFIGS],
+    },
 ]
 
 
@@ -1482,6 +1507,14 @@ def ensure_collections(db: StandardDatabase) -> None:
     attachments_col.add_persistent_index(fields=["tenant_key", "sha256"], unique=False)
     attachments_col.add_persistent_index(fields=["tenant_key", "category"], unique=False)
     attachments_col.add_persistent_index(fields=["storage_key"], unique=True)
+
+    # REQ-046 Weather data sources indexes
+    weather_forecasts_col = db.collection(WEATHER_FORECASTS)
+    weather_forecasts_col.add_persistent_index(fields=["site_key", "forecast_date", "source"], unique=False)
+
+    weather_source_configs_col = db.collection(WEATHER_SOURCE_CONFIGS)
+    # 1:1 per site within a tenant (REQ-046 §2.1).
+    weather_source_configs_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

@@ -192,6 +192,18 @@ class Settings(BaseSettings):
     # screen-height air temperature still reads a few degrees higher.
     frost_warning_threshold_celsius: float = 3.0
 
+    # REQ-046 Weather data sources (public services + Home Assistant)
+    weather_enabled: bool = False
+    weather_default_public_source: str = "open-meteo"
+    open_meteo_base_url: str = "https://api.open-meteo.com/v1/forecast"
+    dwd_base_url: str = "https://api.brightsky.dev"
+    openweathermap_base_url: str = "https://api.openweathermap.org/data/2.5"
+    open_meteo_enabled: bool = True
+    dwd_enabled: bool = True
+    openweathermap_enabled: bool = True
+    weather_fetch_timeout_s: int = 20
+    weather_max_rps_per_provider: float = 1.0
+
     # TimescaleDB (optional — for sensor time-series)
     timescaledb_enabled: bool = False
     timescaledb_host: str = "localhost"

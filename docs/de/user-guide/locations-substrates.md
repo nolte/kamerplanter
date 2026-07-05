@@ -109,6 +109,9 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 !!! info "Für technische Nutzer"
     Neben Name, Klimazone, Fläche und Zeitzone kennt eine Site im Hintergrund auch GPS-Koordinaten sowie durchschnittliche Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst, Datum der Eisheiligen). Diese Einstellung ist derzeit nur über die API verfügbar — im Site-Formular sind diese Felder noch nicht editierbar. Der Nutzen: Ist für eine Site eine GPS-Position hinterlegt, kann Kamerplanter daraus die tatsächliche Tageslänge an deinem Standort berechnen und automatische, photoperiodisch ausgelöste Phasenübergänge (z. B. den Blüteeinsatz bei Freiland-Kurztagspflanzen) korrekt auswerten — siehe [Automatische Phasenübergänge](growth-phases.md#automatische-phasenübergänge). Frost-Termine fließen zusätzlich in den Aussaatkalender ein.
 
+!!! tip "GPS-Koordinaten ermöglichen Wetterquellen"
+    Für Sites vom Typ Außenbereich (Freiland) oder Gewächshaus schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
+
 ---
 
 ## Locations und Slots anlegen
@@ -264,3 +267,4 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 - [Pflanzdurchläufe](planting-runs.md)
 - [Dünge-Logik](fertilization.md)
 - [Wachstumsphasen](growth-phases.md)
+- [Wetterquellen je Standort](weather-sources.md)

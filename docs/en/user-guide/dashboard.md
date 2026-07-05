@@ -123,3 +123,4 @@ The dashboard adapts to your experience level (configurable under **Account → 
 - [Calendar](calendar.md)
 - [Tank Management](tanks.md)
 - [Sensors](sensors.md)
+- [Weather Sources per Location](weather-sources.md) — set up the source for the "Weather forecast" widget

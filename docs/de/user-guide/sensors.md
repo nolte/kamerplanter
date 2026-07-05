@@ -1,6 +1,6 @@
 # Sensorik und Messdaten
 
-Kamerplanter ist für vier Datenquellen für Klima-, Substrat- und Lichtdaten ausgelegt: automatische IoT/MQTT-Sensoren, Home Assistant, eine Wetter-API für Freiland-Standorte und manuelle Eingabe. Aktuell produktiv nutzbar sind **Home Assistant** (automatisches Auslesen) und die **manuelle Eingabe am Tank** — die übrigen Quellen sind spezifiziert, aber noch nicht umgesetzt (Details unten). <!-- REQ-005 v2.7 -->
+Kamerplanter ist für vier Datenquellen für Klima-, Substrat- und Lichtdaten ausgelegt: automatische IoT/MQTT-Sensoren, Home Assistant, Wetterdienste für Freiland- und Gewächshaus-Standorte sowie manuelle Eingabe. Aktuell produktiv nutzbar sind **Home Assistant** (automatisches Auslesen), **Wetterdienste** (für Freiland-/Gewächshaus-Standorte mit GPS-Koordinaten) und die **manuelle Eingabe am Tank** — die automatische IoT/MQTT-Anbindung ist spezifiziert, aber noch nicht umgesetzt (Details unten). <!-- REQ-005 v2.7, REQ-046 -->
 
 ---
 
@@ -13,12 +13,12 @@ Kamerplanter ist für vier Datenquellen für Klima-, Substrat- und Lichtdaten au
 
 ## Die Datenquellen im Überblick
 
-Die Spezifikation sieht eine vierstufige Fallback-Kette vor. Aktuell ist davon **nur ein automatischer Weg (Home Assistant) sowie die manuelle Eingabe am Tank** tatsächlich umgesetzt — ein automatischer Wechsel zwischen den Stufen findet nicht statt:
+Die Spezifikation sieht eine vierstufige Fallback-Kette vor. Aktuell sind davon **zwei automatische Wege (Home Assistant sowie Wetterdienste für Freiland-/Gewächshaus-Standorte) sowie die manuelle Eingabe am Tank** umgesetzt — nur die direkte IoT/MQTT-Anbindung fehlt noch:
 
 ```
 1. Automatisch (IoT/MQTT) — geplant
 2. Home Assistant REST API — REAL, umgesetzt
-3. Wetter-API (nur Freiland) — geplant
+3. Wetterdienst (nur Freiland/Gewächshaus) — REAL, umgesetzt
 4. Manuelle Eingabe — REAL, aktuell nur am Tank
 ```
 
@@ -26,10 +26,10 @@ Die Spezifikation sieht eine vierstufige Fallback-Kette vor. Aktuell ist davon *
 Das Sensor-Datenmodell hat bereits ein `mqtt_topic`-Feld für eine künftige direkte MQTT-Anbindung. Diese Ingestion ist **noch nicht implementiert** — das Feld hat aktuell keine Wirkung und muss nicht ausgefüllt werden.
 
 **2. Home Assistant (automatisch)**
-Ein Hintergrundjob fragt alle 5 Minuten die aktuellen Werte aller aktiven Sensoren mit hinterlegter HA-Entity-ID ab und schreibt sie in die Zeitreihen-Datenbank (Quelle `ha_auto`). Das ist der einzige aktuell implementierte automatische Weg.
+Ein Hintergrundjob fragt alle 5 Minuten die aktuellen Werte aller aktiven Sensoren mit hinterlegter HA-Entity-ID ab und schreibt sie in die Zeitreihen-Datenbank (Quelle `ha_auto`). Das ist einer von zwei aktuell implementierten automatischen Wegen.
 
-**3. Wetter-API (nur Freiland) — geplant**
-Für Freilandstandorte soll Kamerplanter künftig Klimadaten vom Deutschen Wetterdienst (DWD), Open-Meteo oder OpenWeatherMap abrufen können. Siehe Abschnitt [Sensoren für Freiland](#sensoren-fuer-freiland-wetter-api-einrichten) weiter unten.
+**3. Wetterdienst (nur Freiland/Gewächshaus)**
+Für Freiland- und Gewächshaus-Standorte mit hinterlegten GPS-Koordinaten kannst du einen oder mehrere Wetterdienste (Open-Meteo, Deutscher Wetterdienst, OpenWeatherMap) oder deine eigene Home-Assistant-Wetterquelle als Datenquelle konfigurieren und priorisieren — bei Ausfall der bevorzugten Quelle springt automatisch die nächste ein. Details unter [Wetterquellen je Standort](weather-sources.md).
 
 **4. Manuelle Eingabe — aktuell nur am Tank**
 
@@ -153,38 +153,27 @@ DLI ist kein eigener Sensor-Messwert, sondern wird aus PPFD × Beleuchtungsdauer
 
 ---
 
-## Sensoren für Freiland: Wetter-API einrichten {#sensoren-fuer-freiland-wetter-api-einrichten}
+## Sensoren für Freiland: Wetterdienst einrichten {#sensoren-fuer-freiland-wetter-api-einrichten}
 
-!!! warning "Noch nicht implementiert"
-    Die Wetter-API-Integration (DWD, OpenWeatherMap, Open-Meteo) ist **spezifiziert, aber noch nicht implementiert**. Die folgenden Abschnitte beschreiben das geplante Verhalten im Futur. Aktuell werden Freiland-Messwerte nur über Home Assistant oder manuell am Tank erfasst. <!-- REQ-005 v2.7 -->
+Hast du keinen eigenen Sensor im Freien, kannst du stattdessen Klimadaten von einem Wetterdienst oder deiner Home-Assistant-Installation beziehen — konfiguriert je Standort im Abschnitt **Wetterquelle** der Standort-Detailseite.
 
-Wenn du keinen Sensor im Freien hast, wirst du künftig Klimadaten vom Wetterdienst abrufen können.
+Kurz zusammengefasst:
 
-### Schritt 1: Standortkoordinaten hinterlegen
+1. Der Standort braucht GPS-Koordinaten (aktuell nur über die API editierbar — siehe [Standorte & Substrate](locations-substrates.md#eine-neue-site-anlegen)).
+2. Du wählst einen öffentlichen Wetterdienst (**Open-Meteo** — empfohlen, kein API-Schlüssel nötig; **Deutscher Wetterdienst**; **OpenWeatherMap** — eigener API-Schlüssel nötig) oder deine Home-Assistant-Wetterquelle.
+3. Optional priorisierst du mehrere Quellen als Rückfallebene und prüfst jede Quelle vor dem Speichern über **Quelle testen**.
 
-Du wirst unter **Experten-Einstellungen** der Site die GPS-Koordinaten (Breitengrad, Längengrad) hinterlegen können.
-
-### Schritt 2: Wetter-Datenquelle auswählen
-
-Du wirst zwischen folgenden Datenquellen wählen können:
-
-- **Open-Meteo** (empfohlen): Kostenlos, kein API-Key erforderlich
-- **Deutscher Wetterdienst (DWD)**: Offizielle deutsche Wetterdaten
-- **OpenWeatherMap**: Global, 1000 kostenlose Anfragen/Tag
-
-### Schritt 3: Aktualisierungsintervall festlegen
-
-Du wirst festlegen können, wie oft die Wetterdaten abgerufen werden (empfohlen: stündlich).
+Die ausführliche Schritt-für-Schritt-Anleitung findest du unter [Wetterquellen je Standort](weather-sources.md).
 
 !!! note "Wetterdaten als Ergänzung"
-    Wetterdaten spiegeln die Bedingungen am Wettermessstandort wider, nicht exakt in deinem Garten. Bei Abweichungen (z. B. durch einen schattigen Standort) werden manuelle Anpassungen weiterhin nötig sein.
+    Wetterdaten spiegeln die Bedingungen am Wettermessstandort wider, nicht exakt in deinem Garten. Bei Abweichungen (z. B. durch einen schattigen Standort) bleiben manuelle Anpassungen weiterhin sinnvoll.
 
 ---
 
 ## Sensor-Ausfälle, Fallback und Interpolation
 
 !!! warning "Noch nicht implementiert"
-    Eine automatische Ausfallerkennung für Sensoren, ein automatischer Wechsel auf eine Fallback-Quelle sowie das Überbrücken kurzer Ausfälle durch Interpolation sind **spezifiziert, aber noch nicht umgesetzt**. Aktuell erscheint bei einem ausgefallenen Home-Assistant-Sensor einfach kein neuer Messwert — es gibt weder eine Warnung noch eine automatisch erzeugte Aufgabe noch eine Ersatzberechnung.
+    Eine automatische Ausfallerkennung für Home-Assistant-Sensoren, ein automatischer Wechsel auf eine Fallback-Quelle sowie das Überbrücken kurzer Ausfälle durch Interpolation sind **spezifiziert, aber noch nicht umgesetzt**. Aktuell erscheint bei einem ausgefallenen Home-Assistant-Sensor einfach kein neuer Messwert — es gibt weder eine Warnung noch eine automatisch erzeugte Aufgabe noch eine Ersatzberechnung. Eine Ausnahme bilden [Wetterquellen](weather-sources.md): Dort ist die priorisierte Rückfallkette zwischen mehreren konfigurierten Diensten bereits umgesetzt.
 
 Geplant ist folgendes Verhalten: Liefert ein Sensor länger als 6 Stunden keine Daten, wird Kamerplanter dies künftig erkennen, eine Warnung anzeigen, auf die nächste verfügbare Quelle wechseln und eine Aufgabe „Sensor prüfen" anlegen. Kurze Ausfälle (unter 2 Stunden) sollen durch Interpolation der letzten bekannten Werte überbrückt werden.
 
@@ -215,6 +204,7 @@ Automatisch erfasste Messwerte werden gestuft heruntergerechnet und irgendwann g
 ## Siehe auch
 
 - [Meiner Pflanze geht es schlecht — Symptom-Diagnose](plant-health-troubleshooting.md)
+- [Wetterquellen je Standort](weather-sources.md)
 - [Dashboard](dashboard.md)
 - [Aufgaben](tasks.md)
 - [Tankmanagement](tanks.md)

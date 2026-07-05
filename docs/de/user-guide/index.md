@@ -16,6 +16,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Dünge-Logik](fertilization.md) | Nährstoffpläne, EC-Budget, Mischfolge |
 | [Gießprotokoll](watering-log.md) | Gießvorgänge dokumentieren und auswerten |
 | [Sensorik](sensors.md) | Sensordaten, Home Assistant Integration |
+| [Wetterquellen](weather-sources.md) | Öffentlichen Wetterdienst oder Home Assistant je Standort auswählen und priorisieren |
 | [Aufgaben](tasks.md) | Aufgabenplanung und Workflow-Templates |
 | [Ernte](harvest.md) | Erntemanagement und Qualitätsbewertung |
 | [Pflanzenschutz (IPM)](pest-management.md) | Integrierter Pflanzenschutz |

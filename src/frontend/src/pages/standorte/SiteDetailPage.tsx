@@ -6,6 +6,7 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
@@ -31,6 +32,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import LocationTreeSection from './LocationTreeSection';
 import SiteRunsSection from './SiteRunsSection';
+import WeatherSourceSection from './WeatherSourceSection';
 import SensorCreateDialog from './SensorCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -294,6 +296,15 @@ export default function SiteDetailPage() {
 
       {key && <LocationTreeSection siteKey={key} />}
       {key && <SiteRunsSection siteKey={key} />}
+      {key && current && (current.type === 'outdoor' || current.type === 'greenhouse') && (
+        current.gps_coordinates != null ? (
+          <WeatherSourceSection siteKey={key} />
+        ) : (
+          <Alert severity="info" sx={{ mt: 4 }} data-testid="weather-source-gps-hint">
+            {t('pages.weatherSource.gpsRequiredHint')}
+          </Alert>
+        )
+      )}
 
       <ConfirmDialog
         open={deleteOpen}
