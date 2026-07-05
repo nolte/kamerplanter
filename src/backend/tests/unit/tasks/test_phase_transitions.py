@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import GrowthDeterminacy, LightType, PhotoperiodType, TransitionTriggerType
+from app.common.enums import GrowthDeterminacy, LightType, PhotoperiodType, TransitionTrigger, TransitionTriggerType
 from app.domain.models.site import Location
 
 
@@ -129,7 +129,9 @@ class TestCheckAutoTransitions:
         result = module.check_auto_transitions()
 
         assert result == {"transitioned": 1, "errors": 0, "checked": 1}
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_flower", reason="auto_time_based")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_flower", reason="auto_time_based", trigger=TransitionTrigger.AUTO
+        )
 
     def test_no_transition_when_days_below_threshold(self, _task_module):
         module, deps = _task_module
@@ -190,7 +192,9 @@ class TestCheckAutoTransitions:
         result = module.check_auto_transitions()
 
         assert result["transitioned"] == 1
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_flower", reason="auto_photoperiod")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_flower", reason="auto_photoperiod", trigger=TransitionTrigger.AUTO
+        )
 
     def _productive_lifecycle(self, determinacy: GrowthDeterminacy) -> SimpleNamespace:
         return SimpleNamespace(
@@ -241,7 +245,9 @@ class TestCheckAutoTransitions:
         result = module.check_auto_transitions()
 
         assert result["transitioned"] == 1
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_ripening", reason="auto_time_based")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_ripening", reason="auto_time_based", trigger=TransitionTrigger.AUTO
+        )
 
     def test_vernalization_fires_when_chill_met(self, _task_module):
         module, deps = _task_module
@@ -268,7 +274,9 @@ class TestCheckAutoTransitions:
         result = module.check_auto_transitions()
 
         assert result["transitioned"] == 1
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_bolting", reason="auto_vernalization")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_bolting", reason="auto_vernalization", trigger=TransitionTrigger.AUTO
+        )
 
     # ── E1 indoor light-schedule photoperiod trigger (REQ-018, issue #382) ──
 
@@ -294,7 +302,9 @@ class TestCheckAutoTransitions:
         result = module.check_auto_transitions()
 
         assert result["transitioned"] == 1
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_flower", reason="auto_photoperiod")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_flower", reason="auto_photoperiod", trigger=TransitionTrigger.AUTO
+        )
 
     def test_indoor_long_day_fires_from_light_schedule(self, _task_module):
         """Long-day induction fires when the grow-light photoperiod (18h) is
@@ -313,7 +323,9 @@ class TestCheckAutoTransitions:
         result = module.check_auto_transitions()
 
         assert result["transitioned"] == 1
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_flower", reason="auto_photoperiod")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_flower", reason="auto_photoperiod", trigger=TransitionTrigger.AUTO
+        )
 
     def test_dynamic_sunrise_falls_back_to_outdoor(self, _task_module):
         """A sun-tracking location (use_dynamic_sunrise=True) does not use its

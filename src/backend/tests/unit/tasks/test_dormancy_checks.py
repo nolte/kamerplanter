@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.common.enums import TransitionTrigger
+
 
 @pytest.fixture(autouse=True)
 def _task_module(monkeypatch):
@@ -89,7 +91,9 @@ class TestCheckDormancyTriggers:
             result = module.check_dormancy_triggers(current_temp_c=2.0, day_length_hours=8.0)
 
         assert result == {"triggered": 1}
-        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_dormant", reason="dormancy_trigger")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "phase_dormant", reason="dormancy_trigger", trigger=TransitionTrigger.AUTO
+        )
 
     def test_no_trigger_when_conditions_not_met(self, _task_module):
         module, deps = _task_module

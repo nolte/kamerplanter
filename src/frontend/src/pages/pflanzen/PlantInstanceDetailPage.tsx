@@ -224,22 +224,28 @@ export default function PlantInstanceDetailPage() {
   const editSiteKey = useWatch({ control, name: 'site_key' });
   const editLocationKey = useWatch({ control, name: 'location_key' });
 
-  const load = async () => {
+  // `isCancelled` lets the [key]-effect abandon an in-flight load when the user
+  // navigates to a sibling before it settles. Imperative refreshes (post-mutation)
+  // pass the default no-op guard since they always target the current key.
+  const load = async (isCancelled: () => boolean = () => false) => {
     if (!key) return;
     setLoading(true);
     try {
       const p = await plantApi.getPlantInstance(key);
+      if (isCancelled()) return;
       setPlant(p);
       // Resolve the mother instance for the ancestry link (D10 clonal continuation).
       // Kicked off in the same tick as setPlant (before any further awaits) so the
       // "loading" state batches with the initial render — the raw mother_key never
       // flashes on screen before the readable instance_id (or its fallback) resolves.
+      // The isCancelled guard prevents a stale mother (from a previously requested
+      // sibling) from overwriting motherInstance once its response resolves late.
       if (p.mother_key) {
         setMotherLoading(true);
         plantApi.getPlantInstance(p.mother_key)
-          .then(setMotherInstance)
-          .catch(() => setMotherInstance(null))
-          .finally(() => setMotherLoading(false));
+          .then((m) => { if (!isCancelled()) setMotherInstance(m); })
+          .catch(() => { if (!isCancelled()) setMotherInstance(null); })
+          .finally(() => { if (!isCancelled()) setMotherLoading(false); });
       } else {
         setMotherInstance(null);
         setMotherLoading(false);
@@ -369,7 +375,11 @@ export default function PlantInstanceDetailPage() {
     }
   };
 
-  useEffect(() => { load(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let ignore = false;
+    load(() => ignore);
+    return () => { ignore = true; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load care profile when switching to Care tab
   useEffect(() => {

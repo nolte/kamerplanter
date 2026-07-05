@@ -25,8 +25,16 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
     # ── Basic CRUD ────────────────────────────────────────────────────
 
-    def get_by_instance_id(self, instance_id: str) -> PlantInstance | None:
-        return self.find_one_by_field("instance_id", instance_id)
+    def get_by_instance_id(self, instance_id: str, tenant_key: str = "") -> PlantInstance | None:
+        """Look up a plant by its (globally unique) ``instance_id``.
+
+        ``instance_id`` carries a unique index, so a bare lookup already returns at
+        most one document. When ``tenant_key`` is given the match is additionally
+        constrained to that tenant (SEC-001, defence in depth) so a caller can never
+        act on another tenant's instance even if an id were to collide.
+        """
+        extra = [("tenant_key", "==", tenant_key)] if tenant_key else None
+        return self.find_one_by_field("instance_id", instance_id, extra_filters=extra)
 
     def create(self, plant: PlantInstance) -> PlantInstance:
         created = super().create(plant)
@@ -53,6 +61,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         self.delete_edges(col.PLACED_IN, from_id=plant_id)
         self.delete_edges(col.PHASE_HISTORY_EDGE, from_id=plant_id)
         self.delete_edges(col.CURRENT_PHASE, from_id=plant_id)
+        # REQ-017 / D10 lineage: a descended_from edge points child → mother, so a
+        # plant can be either endpoint. Remove edges in BOTH directions so deleting
+        # a pup (outbound) or a mother (inbound) never leaves a dangling edge — an
+        # orphaned inbound edge would otherwise keep ``has_descendants(mother)`` true
+        # and permanently block a re-spawn.
+        self.delete_edges(col.DESCENDED_FROM, vertex_id=plant_id, direction="any")
         return super().delete(key)
 
     # ── Slot-based queries ────────────────────────────────────────────

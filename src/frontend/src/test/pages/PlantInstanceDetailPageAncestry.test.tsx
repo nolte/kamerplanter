@@ -89,11 +89,21 @@ function seedInstances(pup: PlantInstance, mother?: PlantInstance) {
 }
 
 describe('PlantInstanceDetailPage — clonal-continuation ancestry link (D10 / R6)', () => {
-  beforeEach(() => {
-    i18n.changeLanguage('de');
+  // Global setup.ts resets MSW handlers and the tenant slug between tests, but
+  // NOT the i18n language — a prior test file may have left it on 'en'. Awaiting
+  // changeLanguage makes the language deterministic before any render, so the
+  // German label assertions below never race a stale-language render.
+  beforeEach(async () => {
+    await i18n.changeLanguage('de');
     currentKey = 'pup-1';
     setActiveTenantSlug('test-tenant');
   });
+
+  // findBy* uses a 1000ms internal poll timeout by default, independent of the
+  // 30s vitest testTimeout. Under full-suite parallelism (+ v8 coverage), the
+  // heavy detail page plus the sequential mother fetch overrun that window, so
+  // every async query gets an explicit, generous timeout.
+  const QUERY_TIMEOUT = { timeout: 5000 } as const;
 
   it('renders a "Kindel von" link to the mother, labelled with the mother instance_id', async () => {
     const mother = makePlant({ key: 'mother-1', instance_id: 'AGA-MOTHER-042', plant_name: 'Agave mother' });
@@ -103,11 +113,11 @@ describe('PlantInstanceDetailPage — clonal-continuation ancestry link (D10 / R
     renderWithProviders(<PlantInstanceDetailPage />);
 
     // The ancestry label uses the detail-page namespace key.
-    await screen.findByText(i18n.t('pages.plantInstances.descendedFrom'));
+    await screen.findByText(i18n.t('pages.plantInstances.descendedFrom'), {}, QUERY_TIMEOUT);
 
-    const link = await screen.findByTestId('ancestry-mother-link');
+    const link = await screen.findByTestId('ancestry-mother-link', {}, QUERY_TIMEOUT);
     // Human-readable mother instance_id, not the raw key.
-    await waitFor(() => expect(link.textContent).toContain('AGA-MOTHER-042'));
+    await waitFor(() => expect(link.textContent).toContain('AGA-MOTHER-042'), QUERY_TIMEOUT);
     expect(link.getAttribute('href')).toBe('/pflanzen/plant-instances/mother-1');
   });
 
@@ -117,9 +127,9 @@ describe('PlantInstanceDetailPage — clonal-continuation ancestry link (D10 / R
 
     renderWithProviders(<PlantInstanceDetailPage />);
 
-    const link = await screen.findByTestId('ancestry-mother-link');
+    const link = await screen.findByTestId('ancestry-mother-link', {}, QUERY_TIMEOUT);
     expect(link.getAttribute('href')).toBe('/pflanzen/plant-instances/mother-gone');
-    await waitFor(() => expect(link.textContent).toContain('mother-gone'));
+    await waitFor(() => expect(link.textContent).toContain('mother-gone'), QUERY_TIMEOUT);
   });
 
   it('shows no ancestry link when the plant has no mother_key', async () => {
@@ -129,7 +139,7 @@ describe('PlantInstanceDetailPage — clonal-continuation ancestry link (D10 / R
     renderWithProviders(<PlantInstanceDetailPage />);
 
     // Wait for the info card to render, then assert the ancestry block is absent.
-    await screen.findByTestId('plant-info-card');
+    await screen.findByTestId('plant-info-card', {}, QUERY_TIMEOUT);
     expect(screen.queryByTestId('ancestry-mother')).toBeNull();
     expect(screen.queryByText(i18n.t('pages.plantInstances.descendedFrom'))).toBeNull();
   });

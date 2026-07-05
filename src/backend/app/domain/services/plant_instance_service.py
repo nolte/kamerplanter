@@ -1,7 +1,9 @@
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 
-from app.common.enums import TerminationCause, TerminationType
+import structlog
+
+from app.common.enums import TerminationCause, TerminationType, TransitionTrigger
 from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
@@ -27,6 +29,8 @@ from app.domain.models.survival_stats import (
     TerminationTypeCount,
 )
 from app.domain.services.propagation_service import PropagationService
+
+logger = structlog.get_logger()
 
 
 class PlantInstanceService:
@@ -113,21 +117,45 @@ class PlantInstanceService:
 
     # ── Clonal continuation (REQ-003 D10 / REQ-017) ───────────────────────────
 
-    def handle_monocarpic_terminal_transition(self, mother_key: PlantID, phase_name: str) -> PlantInstance | None:
+    def handle_monocarpic_terminal_transition(
+        self,
+        mother_key: PlantID,
+        phase_name: str,
+        *,
+        trigger: TransitionTrigger = TransitionTrigger.MANUAL,
+    ) -> PlantInstance | None:
         """Post-transition seam: spawn one clonal pup for a terminal monocarpic mother.
 
         Registered as an ``on_transition`` callback of the phase service. When a
-        **monocarpic** mother auto-transitions into its terminal reproductive phase
-        (``flowering`` / ``fruit_development`` / ``ripening``), continuation happens
-        through a **new** plant instance (the pup) linked by a ``descended_from``
-        edge (REQ-017) — explicitly NOT a seasonal cycle restart (R1/R8). Returns
-        the spawned pup, or ``None`` when the transition is not a monocarpic terminal
-        one or a pup already exists (idempotent, R7).
+        **monocarpic** mother **auto**-transitions into the **last phase of its
+        species sequence** — which for a monocarp is its terminal reproductive
+        phase — continuation happens through a **new** plant instance (the pup)
+        linked by a ``descended_from`` edge (REQ-017), explicitly NOT a seasonal
+        cycle restart (R1/R8). Returns the spawned pup, or ``None`` when the
+        transition does not qualify or a pup already exists (idempotent, R7).
+
+        Gating (all must hold):
+
+        * ``trigger`` is ``AUTO`` — a manual correction into the terminal phase must
+          not spawn a clone (Q1, Fix #5);
+        * the lifecycle ``is_monocarpic`` and ``phase_name`` is a reproductive
+          terminal phase (the pure engine decision);
+        * the mother's current phase is the **last** phase of its configured
+          sequence — a monocarp with ``…→flowering→fruit_development→ripening`` only
+          continues at ``ripening``, not already at ``flowering`` (Fix #4).
 
         The pure terminal decision lives in :class:`CyclicLifecycleEngine`; only the
         spawn/edge/event side effects live here (NFR-001, R11). Tenant isolation is
         preserved by inheriting the mother's ``tenant_key`` on every new record (R10).
+
+        Failures are caught and logged here rather than surfacing as a broken phase
+        transition: a spawn is a best-effort continuation, and re-evaluation is
+        idempotent, so a transient failure is recovered on the next AUTO scan.
         """
+        # Q1 / Fix #5: only an automatic transition continues a monocarp.
+        if trigger != TransitionTrigger.AUTO:
+            return None
+
         mother = self._repo.get_by_key(mother_key)
         if mother is None or mother.key is None:
             return None
@@ -136,35 +164,77 @@ class PlantInstanceService:
         if lifecycle is None or not self._cyclic.is_monocarpic_terminal(lifecycle, phase_name):
             return None
 
-        # Idempotency guard (R7): a mother that already spawned a pup has an inbound
-        # descended_from edge — re-evaluation must not create a second pup/edge.
-        if self._repo.has_descendants(mother.key):
+        # Fix #4: reproductive-terminal is necessary but not sufficient — the mother
+        # must be in the ACTUAL last phase of its sequence (no successor), so a
+        # species that still has fruit_development/ripening ahead does not continue
+        # prematurely at flowering.
+        if not self._is_last_phase(mother.species_key, mother.current_phase_key or ""):
             return None
 
-        return self._spawn_pup(mother)
+        try:
+            return self._spawn_pup(mother)
+        except Exception:
+            logger.error(
+                "clonal_pup_spawn_failed",
+                mother_key=mother.key,
+                tenant_key=mother.tenant_key,
+                species_key=mother.species_key,
+                phase_name=phase_name,
+                exc_info=True,
+            )
+            # Swallowed on purpose: the phase transition itself must stand, and the
+            # next AUTO re-evaluation retries idempotently (Fix #1).
+            return None
 
-    def _spawn_pup(self, mother: PlantInstance) -> PlantInstance:
+    def _spawn_pup(self, mother: PlantInstance) -> PlantInstance | None:
         """Create the pup instance, its lineage edge and a clone PropagationEvent.
 
         The pup inherits ``tenant_key``, ``species_key``, ``cultivar_key`` and the
         mother's **location** — but NOT the slot (R4): the mother lives on senescent
         and still occupies it. ``planted_on`` is the terminal-transition date. The
         pup's phase is forced to ``pup_establishment`` when the species models it,
-        else falls back to the first sequence phase (R2)."""
-        now = datetime.now(UTC)
-        transition_date = now.date()
+        else falls back to the first sequence phase (R2).
+
+        Idempotency (R7 / Fix #1) is keyed on the **existence of the pup document**,
+        not merely the lineage edge. The pup's ``instance_id`` is the deterministic
+        ``{mother.instance_id}-pup``; a prior partial spawn (doc written, then a
+        transient failure before the edge/event) would otherwise collide on the
+        global unique ``instance_id`` index on retry. So: if the pup already exists
+        its missing lineage edge/event are back-filled and the method returns
+        ``None`` (no second ``create``); only a genuinely absent pup is created.
+        """
         assert mother.key is not None  # guarded by the caller
 
+        # Fix #1: guard on the pup DOCUMENT, not just the edge. A partially-spawned
+        # orphan pup (doc without edge) is completed idempotently instead of
+        # colliding on the unique instance_id index.
+        pup_instance_id = f"{mother.instance_id}-pup"
+        existing_pup = self._repo.get_by_instance_id(pup_instance_id, tenant_key=mother.tenant_key)
+        if existing_pup is not None:
+            self._ensure_lineage_complete(mother, existing_pup)
+            return None
+
+        # Fallback edge-based guard (covers a pup whose instance_id was later
+        # changed): a mother that already has a descendant must not spawn again.
+        if self._repo.has_descendants(mother.key):
+            logger.warning(
+                "clonal_pup_spawn_skipped_existing_descendant",
+                mother_key=mother.key,
+                tenant_key=mother.tenant_key,
+            )
+            return None
+
+        now = datetime.now(UTC)
         pup = PlantInstance(
             tenant_key=mother.tenant_key,
-            instance_id=f"{mother.instance_id}-pup",
+            instance_id=pup_instance_id,
             species_key=mother.species_key,
             cultivar_key=mother.cultivar_key,
             site_key=mother.site_key,
             location_key=mother.location_key,
             slot_key=None,  # R4: mother still holds the slot while senescing
             substrate_key=mother.substrate_key,
-            planted_on=transition_date,
+            planted_on=now.date(),
             current_phase_key=self._resolve_pup_phase_key(mother.species_key),
             current_phase_started_at=now,
             mother_key=mother.key,
@@ -190,18 +260,92 @@ class PlantInstanceService:
             self._repo.create_descended_from_edge(created.key, mother.key)
 
         # REQ-017 provenance: persist the clone event (mother → pup).
-        if self._propagation is not None and created.key:
-            self._propagation.record(
-                PropagationEvent(
-                    tenant_key=mother.tenant_key,
-                    method="clone",
-                    parent_plant_keys=[mother.key],
-                    child_plant_keys=[created.key],
-                    happened_at=now,
-                )
-            )
+        self._record_clone_event(mother, created, now)
 
+        logger.info(
+            "clonal_pup_spawned",
+            mother_key=mother.key,
+            pup_key=created.key,
+            tenant_key=mother.tenant_key,
+            species_key=mother.species_key,
+            pup_phase_key=created.current_phase_key,
+        )
         return created
+
+    def _ensure_lineage_complete(self, mother: PlantInstance, pup: PlantInstance) -> None:
+        """Back-fill a partially-spawned pup's lineage edge/event idempotently (Fix #1).
+
+        Reached when the pup document already exists (a prior spawn wrote it but a
+        transient failure struck before the edge/event). If the mother still has no
+        descendant edge the edge — and the provenance event that goes with it — are
+        created now; otherwise the lineage is already complete and this is a no-op.
+        Never issues a second ``create`` for the pup, so the unique ``instance_id``
+        index is never violated.
+        """
+        assert mother.key is not None
+        if pup.key is None:
+            logger.warning("clonal_pup_backfill_skipped_no_key", mother_key=mother.key, tenant_key=mother.tenant_key)
+            return
+        if self._repo.has_descendants(mother.key):
+            # Doc + edge both present — fully consistent, nothing to do.
+            logger.debug("clonal_pup_already_complete", mother_key=mother.key, pup_key=pup.key)
+            return
+        # Orphan pup: complete the missing edge + provenance event.
+        self._repo.create_descended_from_edge(pup.key, mother.key)
+        self._record_clone_event(mother, pup, datetime.now(UTC))
+        logger.warning(
+            "clonal_pup_lineage_backfilled",
+            mother_key=mother.key,
+            pup_key=pup.key,
+            tenant_key=mother.tenant_key,
+        )
+
+    def _record_clone_event(self, mother: PlantInstance, pup: PlantInstance, when: datetime) -> None:
+        """Persist the REQ-017 clone ``PropagationEvent`` (mother → pup), if wired."""
+        if self._propagation is None or mother.key is None or pup.key is None:
+            return
+        self._propagation.record(
+            PropagationEvent(
+                tenant_key=mother.tenant_key,
+                method="clone",
+                parent_plant_keys=[mother.key],
+                child_plant_keys=[pup.key],
+                happened_at=when,
+            )
+        )
+
+    def _is_last_phase(self, species_key: str, current_phase_key: str) -> bool:
+        """Whether ``current_phase_key`` is the last phase of the species' sequence (Fix #4).
+
+        The last phase is the terminal node of the configured sequence: the entry
+        (PhaseSequence, preferred) or GrowthPhase (LifecycleConfig fallback) with
+        the highest ``sequence_order`` and no successor. Pure resolution over the
+        repositories the service already holds — the engine stays free of I/O (R11).
+        Returns ``False`` when the phase key is empty or the sequence cannot be
+        resolved (fail-closed: no spawn on ambiguity).
+        """
+        if not current_phase_key:
+            return False
+
+        # PhaseSequence first.
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = self._phase_seq_repo.get_entries_for_sequence(seq.key or "")
+                if entries:
+                    last = max(entries, key=lambda e: e.sequence_order)
+                    return last.key == current_phase_key
+
+        # LifecycleConfig fallback.
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle:
+                growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key or "")
+                if growth_phases:
+                    last = max(growth_phases, key=lambda gp: gp.sequence_order)
+                    return last.key == current_phase_key
+
+        return False
 
     def update_plant(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
         self.get_plant(key)
