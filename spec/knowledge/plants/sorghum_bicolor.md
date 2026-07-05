@@ -218,7 +218,7 @@
 | Reife | 0:1:2 | 0.6–1.0 | 5.5–7.5 | 60 | 30 |
 
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
-**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo, ppm):** Belegte Phasen-Sufficiency-Ranges für Mangan, Zink, Kupfer und Molybdän (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) waren über zwei unabhängige seriöse Quellen nicht eindeutig auffindbar → DATEN FEHLEN. Auffindbar waren lediglich kritische Blatt-Mangelschwellen (z. B. Mn-Blattkritikwert ~10–15 ppm im Booting-Stadium, University of Nebraska-Lincoln), die jedoch Defizienz-Grenzwerte und keine phasenbezogenen Nährlösungs-ppm darstellen. Zink ist neben Eisen der praktisch wichtigste Mikronährstoff bei Sorghum; übrige Mikronährstoffe sind bei Sorghum selten ertragslimitierend. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+**Mikronährstoffe je Phase (Mn/Zn/Cu/Mo, ppm):** Belegte Phasen-Sufficiency-Ranges für Mangan, Zink, Kupfer und Molybdän (`nutrient_profiles.manganese_ppm` / `zinc_ppm` / `copper_ppm` / `molybdenum_ppm`) waren über zwei unabhängige seriöse Quellen nicht eindeutig auffindbar — daher <!-- DATEN FEHLEN -->. Auffindbar waren lediglich kritische Blatt-Mangelschwellen (z. B. Mn-Blattkritikwert ~10–15 ppm im Booting-Stadium, University of Nebraska-Lincoln), die jedoch Defizienz-Grenzwerte und keine phasenbezogenen Nährlösungs-ppm darstellen. Zink ist neben Eisen der praktisch wichtigste Mikronährstoff bei Sorghum; übrige Mikronährstoffe sind bei Sorghum selten ertragslimitierend. <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
 ---
 

@@ -1441,7 +1441,6 @@ new_species:
       germination_temp_max_c: 30
       sowing_depth_cm: 2
       days_to_germination: 25
-      seed_viability_years: 1
       pretreatment: [presoak]
     propagation_configs:
       - method: seed

@@ -921,7 +921,7 @@ species_enrichment:
       seed_viability_years: 4
       light_germination: indifferent
       pretreatment: [presoak]
-      thousand_seed_weight_g: 17
+      thousand_seed_weight_g: 20
       sowing_density_per_m2: 29
     frost_sensitivity: moderate
     nutrient_demand_level: medium_feeder
@@ -1369,7 +1369,7 @@ species_enrichment:
       days_to_germination: 4
       seed_viability_years: 4
       light_germination: indifferent
-      thousand_seed_weight_g: 3
+      thousand_seed_weight_g: 4
       sowing_density_per_m2: 2
 
   "Cannabis sativa":
@@ -1415,7 +1415,7 @@ species_enrichment:
       days_to_germination: 3
       seed_viability_years: 3
       light_germination: light
-      sowing_density_per_m2: 2
+      sowing_density_per_m2: 2000
 
   "Glycine max":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources

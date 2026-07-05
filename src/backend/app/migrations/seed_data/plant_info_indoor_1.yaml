@@ -639,7 +639,6 @@ new_species:
       germination_temp_min_c: 15
       germination_temp_max_c: 30
       days_to_germination: 28
-      seed_viability_years: 1
       pretreatment: [cold_stratification]
     propagation_configs:
       - method: seed
