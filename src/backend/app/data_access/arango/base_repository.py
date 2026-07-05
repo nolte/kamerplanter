@@ -165,6 +165,19 @@ class BaseArangoRepository[TModel: BaseModel]:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
+    def _require_tenant_key(self, tenant_key: str, method: str) -> None:
+        """Reject the empty-``tenant_key`` sentinel before issuing a scoped query.
+
+        Single-value tenant-scoped reads (dashboard counts/lists) must never run
+        with an empty ``tenant_key``: that would silently read across every
+        tenant (SEC-001 / SEC-B4). Mirrors the up-front guard in
+        ``ArangoPlantInstanceRepository.get_survival_stats``.
+        """
+        if not tenant_key:
+            raise ValueError(
+                f"{method} is tenant-scoped and requires a non-empty tenant_key (SEC-B4 tenant isolation)."
+            )
+
     def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
         """Fail loudly when a tenant-scoped list query is not tenant-bound.
 

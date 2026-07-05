@@ -1,6 +1,8 @@
+from datetime import date
+
 from arango.database import StandardDatabase
 
-from app.common.enums import ReminderType
+from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import CareProfileKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -65,6 +67,55 @@ class ArangoCareReminderRepository(BaseArangoRepository[CareProfile], ICareRemin
     ) -> CareConfirmation | None:
         results = self.get_confirmations_by_plant(plant_key, reminder_type, limit=1)
         return results[0] if results else None
+
+    # ── Dashboard count (REQ-009) ──────────────────────────────────────
+
+    def count_due_on(self, tenant_key: str, today: date) -> int:
+        """Count care reminders actionable for ``tenant_key`` on ``today``.
+
+        Care reminders are not stored as standalone documents — a ``CareProfile``
+        carries no ``tenant_key`` or ``due_date``, and the live reminder view is
+        computed on the fly. Their *persisted, tenant-scoped, due-dated* form is a
+        care-reminder ``Task`` (``category == care_reminder``), created by the
+        care-reminder engine/service. This count therefore reads the tenant's open
+        care-reminder tasks that are due today **or overdue** (``due_date <=
+        today``), matching REQ-009 R3 (a single care count, so overdue is
+        included).
+
+        The tasks collection is bound via ``@@tasks`` (never interpolated) and
+        filtered on ``tenant_key``; the empty-tenant sentinel is rejected up-front
+        (SEC-B4). ``due_date`` is a datetime stored as an ISO string, compared on
+        its ten-character calendar-date prefix so the count is timezone-offset
+        agnostic; null due dates are excluded. Orphaned plant tasks (removed or
+        missing plant) are excluded to match the user-facing queue.
+        """
+        self._require_tenant_key(tenant_key, "count_due_on")
+        query = """
+        RETURN LENGTH(
+          FOR doc IN @@tasks
+            FILTER doc.tenant_key == @tenant_key
+            FILTER doc.category == @care_category
+            FILTER doc.status IN @open_statuses
+            FILTER doc.due_date != null
+            FILTER LEFT(doc.due_date, 10) <= @today
+            LET _plant = doc.entity_type == 'plant_instance'
+              ? DOCUMENT(CONCAT(@plant_col, '/', doc.entity_key))
+              : null
+            FILTER doc.entity_type != 'plant_instance'
+              OR (_plant != null AND _plant.removed_on == null)
+            RETURN 1
+        )
+        """
+        bind_vars = {
+            "@tasks": col.TASKS,
+            "tenant_key": tenant_key,
+            "care_category": TaskCategory.CARE_REMINDER.value,
+            "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],
+            "today": today.isoformat(),
+            "plant_col": col.PLANT_INSTANCES,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
 
     # ── Edge operations ────────────────────────────────────────────────
 

@@ -29,6 +29,14 @@ from typing import Any
 
 import structlog
 
+from app.domain.interfaces.dashboard_repositories import (
+    ActivityDashboardRepository,
+    CareReminderDashboardRepository,
+    PlantDashboardRepository,
+    TankDashboardRepository,
+    TaskDashboardRepository,
+)
+
 logger = structlog.get_logger(__name__)
 
 
@@ -58,18 +66,24 @@ class DashboardSummary:
 class DashboardService:
     """REQ-009 dashboard aggregator.
 
-    Each loader is injected as a ``Callable`` so the service stays
-    repository-shape-agnostic and unit-testable without ArangoDB.
+    Each repository is injected against a typed ``Protocol``
+    (:mod:`app.domain.interfaces.dashboard_repositories`) rather than probed with
+    ``hasattr``. The required repositories (``plant_repo`` / ``task_repo``) are
+    called directly, so a missing method surfaces as a loud ``AttributeError``
+    instead of silently collapsing a whole tile to ``0`` (REQ-009 R7). The
+    optional repositories (``tank_repo`` / ``care_repo`` / ``activity_repo``) are
+    still guarded by a plain presence check — the guard asks "is the repository
+    wired?", never "does the method happen to exist?".
     """
 
     def __init__(
         self,
         *,
-        plant_repo: Any,
-        task_repo: Any,
-        tank_repo: Any | None = None,
-        care_repo: Any | None = None,
-        activity_repo: Any | None = None,
+        plant_repo: PlantDashboardRepository,
+        task_repo: TaskDashboardRepository,
+        tank_repo: TankDashboardRepository | None = None,
+        care_repo: CareReminderDashboardRepository | None = None,
+        activity_repo: ActivityDashboardRepository | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._plant_repo = plant_repo
@@ -108,68 +122,80 @@ class DashboardService:
         )
 
     # ── Internal aggregators ─────────────────────────────────────────
+    #
+    # Each aggregator distinguishes two failure classes (REQ-009 R7/R8):
+    #
+    # * ``AttributeError`` — a required repository method is missing: a
+    #   programming/wiring error. It is re-raised so the tile can never silently
+    #   collapse to ``0`` (which would be indistinguishable from a legit empty
+    #   tenant). This is the exact masking that caused the hard-zero dashboard.
+    # * any other ``Exception`` — a genuine runtime error (DB down, malformed
+    #   document): logged and degraded to ``0``/``[]`` so one broken section
+    #   never takes down the whole overview.
 
     def _plant_counts(self, tenant_key: str) -> tuple[int, int]:
-        if not hasattr(self._plant_repo, "count_for_tenant"):
-            return 0, 0
         try:
             total = int(self._plant_repo.count_for_tenant(tenant_key) or 0)
-            active = (
-                int(self._plant_repo.count_active_for_tenant(tenant_key) or 0)
-                if hasattr(self._plant_repo, "count_active_for_tenant")
-                else total
-            )
+            active = int(self._plant_repo.count_active_for_tenant(tenant_key) or 0)
             return total, active
+        except AttributeError:
+            raise
         except Exception:
             logger.exception("dashboard.plant_counts.failed", tenant_key=tenant_key)
             return 0, 0
 
     def _task_counts(self, tenant_key: str, today: date) -> tuple[int, int]:
-        if not hasattr(self._task_repo, "count_open_due_on") or not hasattr(self._task_repo, "count_overdue"):
-            return 0, 0
         try:
             return (
                 int(self._task_repo.count_open_due_on(tenant_key, today) or 0),
                 int(self._task_repo.count_overdue(tenant_key, today) or 0),
             )
+        except AttributeError:
+            raise
         except Exception:
             logger.exception("dashboard.task_counts.failed", tenant_key=tenant_key)
             return 0, 0
 
     def _tank_low_count(self, tenant_key: str) -> int:
-        if not self._tank_repo or not hasattr(self._tank_repo, "count_below_threshold"):
+        if self._tank_repo is None:
             return 0
         try:
             return int(self._tank_repo.count_below_threshold(tenant_key) or 0)
+        except AttributeError:
+            raise
         except Exception:
             logger.exception("dashboard.tank_low_count.failed", tenant_key=tenant_key)
             return 0
 
     def _care_due_count(self, tenant_key: str, today: date) -> int:
-        if not self._care_repo or not hasattr(self._care_repo, "count_due_on"):
+        if self._care_repo is None:
             return 0
         try:
             return int(self._care_repo.count_due_on(tenant_key, today) or 0)
+        except AttributeError:
+            raise
         except Exception:
             logger.exception("dashboard.care_due_count.failed", tenant_key=tenant_key)
             return 0
 
     def _upcoming_tasks(self, tenant_key: str, today: date, limit: int = 5) -> list[dict[str, Any]]:
-        if not hasattr(self._task_repo, "list_upcoming"):
-            return []
         try:
             window_end = today + timedelta(days=7)
             return list(self._task_repo.list_upcoming(tenant_key, today, window_end, limit) or [])
+        except AttributeError:
+            raise
         except Exception:
             logger.exception("dashboard.upcoming_tasks.failed", tenant_key=tenant_key)
             return []
 
     def _recent_activities(self, tenant_key: str, now: datetime, limit: int = 5) -> list[dict[str, Any]]:
-        if not self._activity_repo or not hasattr(self._activity_repo, "list_recent"):
+        if self._activity_repo is None:
             return []
         try:
             since = now - timedelta(days=7)
             return list(self._activity_repo.list_recent(tenant_key, since, limit) or [])
+        except AttributeError:
+            raise
         except Exception:
             logger.exception("dashboard.recent_activities.failed", tenant_key=tenant_key)
             return []

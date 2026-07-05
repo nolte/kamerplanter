@@ -204,3 +204,44 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return next(cursor, {})
+
+    # ── Dashboard counts (REQ-009) ────────────────────────────────────
+
+    def count_for_tenant(self, tenant_key: str) -> int:
+        """Count all plant instances owned by ``tenant_key`` (REQ-009).
+
+        The collection is bound via ``@@col`` (never interpolated) and every row
+        is filtered on ``p.tenant_key == @tenant_key``; the empty-tenant sentinel
+        is rejected up-front so the count can never span tenants (SEC-B4).
+        """
+        self._require_tenant_key(tenant_key, "count_for_tenant")
+        query = """
+        RETURN LENGTH(
+          FOR p IN @@col
+            FILTER p.tenant_key == @tenant_key
+            RETURN 1
+        )
+        """
+        bind_vars = {"@col": self._collection_name, "tenant_key": tenant_key}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)
+
+    def count_active_for_tenant(self, tenant_key: str) -> int:
+        """Count *alive* plant instances of ``tenant_key`` (REQ-009).
+
+        "Alive" mirrors the codebase-wide marker: a plant is active while it has
+        not been removed (``removed_on == null``) — the same predicate used by
+        ``get_active_by_slot`` and by ``get_survival_stats`` (``terminated =
+        removed_on != null``).
+        """
+        self._require_tenant_key(tenant_key, "count_active_for_tenant")
+        query = """
+        RETURN LENGTH(
+          FOR p IN @@col
+            FILTER p.tenant_key == @tenant_key AND p.removed_on == null
+            RETURN 1
+        )
+        """
+        bind_vars = {"@col": self._collection_name, "tenant_key": tenant_key}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return int(next(cursor, 0) or 0)

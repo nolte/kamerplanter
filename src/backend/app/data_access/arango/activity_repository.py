@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -88,3 +89,35 @@ class ArangoActivityRepository(BaseArangoRepository[Activity], IActivityReposito
         """
         cursor = self._db.aql.execute(query, bind_vars={"category": category})
         return [Activity(**self._from_doc(doc)) for doc in cursor]
+
+    # ── Dashboard feed (REQ-009) ───────────────────────────────────────
+
+    def list_recent(self, tenant_key: str, since: datetime, limit: int) -> list[dict]:
+        """List ``tenant_key`` activities recorded since ``since`` (REQ-009).
+
+        Returns the tenant's activities whose ``created_at`` is at or after
+        ``since``, most recent first, capped at ``limit``. ``created_at`` is a
+        datetime persisted as an ISO string; ``since`` is compared as an ISO
+        string (both are UTC, so the comparison is well-ordered). The collection
+        is bound via ``@@col`` (never interpolated) and the scan is filtered on
+        ``tenant_key``; the empty-tenant sentinel is rejected up-front (SEC-B4).
+
+        Returns raw document dicts; the dashboard service consumes them directly.
+        """
+        self._require_tenant_key(tenant_key, "list_recent")
+        query = """
+        FOR doc IN @@col
+          FILTER doc.tenant_key == @tenant_key
+          FILTER doc.created_at != null AND doc.created_at >= @since
+          SORT doc.created_at DESC
+          LIMIT @limit
+          RETURN doc
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "since": since.isoformat(),
+            "limit": limit,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [self._from_doc(doc) for doc in cursor]
