@@ -9,7 +9,7 @@ from app.api.v1.profiles.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_phase_service
-from app.domain.engines.phase_resource_resolver import ph_micronutrient_availability
+from app.domain.engines.phase_resource_resolver import nutrient_profile_guidance
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.services.phase_service import PhaseService
 
@@ -19,14 +19,14 @@ router = APIRouter(prefix="/profiles", tags=["profiles"], dependencies=[Depends(
 def _nutrient_response_with_guidance(profile: NutrientProfile) -> NutrientProfileResponse:
     """Map a stored nutrient profile to its response, enriched with E8 guidance.
 
-    The pH-gated micronutrient availability (REQ-003 E8) is derived from the phase
-    target pH via the phase resource resolver, and ``feed`` is derived from the stored
-    NPK/EC so the plant-detail view can surface flush/rest (0:0:0) and pH warnings
-    instead of the raw values alone.
+    The feed/pH-gating rules live in the domain (:func:`nutrient_profile_guidance`);
+    this presentation-layer helper only maps their result onto the response so the
+    plant-detail view can surface flush/rest (0:0:0) and pH warnings.
     """
     response = to_response(profile, NutrientProfileResponse)
-    micros_available, ph_note = ph_micronutrient_availability(profile.target_ph)
-    feed = tuple(profile.npk_ratio) != (0, 0, 0) or profile.target_ec_ms > 0
+    feed, micros_available, ph_note = nutrient_profile_guidance(
+        profile.npk_ratio, profile.target_ec_ms, profile.target_ph
+    )
     return response.model_copy(update={"feed": feed, "micros_available": micros_available, "ph_note": ph_note})
 
 

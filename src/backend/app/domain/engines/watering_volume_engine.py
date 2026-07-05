@@ -179,6 +179,7 @@ class WateringVolumeEngine:
         # are still surfaced for guidance.
         water_only = False
         regime_note = ""
+        dry_regime = False  # a "no watering" phase (dry_storage) — bypasses the 10 ml floor
         # The waterlogging cap is phase-independent, so the resolver also runs when a
         # tolerance is set but the phase is unknown (effective phase = vegetative → no
         # phase factor, only the tolerance multiplier).
@@ -202,6 +203,9 @@ class WateringVolumeEngine:
                     if vol_max is not None:
                         vol_max *= scale
                     adjustments.append(f"phase_regime={effective_phase}→{regime.note}")
+                # A dry-storage regime prescribes zero volume; honour it instead of the
+                # generic 10 ml minimum (REQ-003 E7 — geophytes get no water in storage).
+                dry_regime = regime.volume_ml_per_plant == 0.0
 
         # ── Scale species guide by container size if both available ────
         if source == "species_watering_guide" and container_volume_liters is not None:
@@ -215,13 +219,16 @@ class WateringVolumeEngine:
                 adjustments.append(f"container_scale={scale:.2f}")
 
         # ── Finalize min/max range ─────────────────────────────────────
-        final_ml = max(10, round(volume_ml))  # minimum 10ml
-        if vol_min is not None and vol_max is not None:
-            final_min = max(10, round(vol_min))
-            final_max = max(final_min, round(vol_max))
+        if dry_regime:
+            final_ml = final_min = final_max = 0
         else:
-            final_min = max(10, round(final_ml * (1 - DEFAULT_RANGE_PERCENT)))
-            final_max = round(final_ml * (1 + DEFAULT_RANGE_PERCENT))
+            final_ml = max(10, round(volume_ml))  # minimum 10ml
+            if vol_min is not None and vol_max is not None:
+                final_min = max(10, round(vol_min))
+                final_max = max(final_min, round(vol_max))
+            else:
+                final_min = max(10, round(final_ml * (1 - DEFAULT_RANGE_PERCENT)))
+                final_max = round(final_ml * (1 + DEFAULT_RANGE_PERCENT))
 
         return VolumeSuggestion(
             volume_ml=final_ml,

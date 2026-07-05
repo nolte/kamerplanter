@@ -2,6 +2,7 @@
 
 from app.common.enums import NutrientDemandLevel
 from app.domain.engines.phase_resource_resolver import (
+    nutrient_profile_guidance,
     ph_micronutrient_availability,
     resolve_irrigation,
     resolve_nutrient,
@@ -60,6 +61,15 @@ class TestIrrigation:
         germ = resolve_irrigation("germination", base_volume_ml=300)
         seed = resolve_irrigation("seedling", base_volume_ml=300)
         assert germ.volume_ml_per_plant < seed.volume_ml_per_plant < 300
+
+    def test_sensitive_gets_less_than_moderate_in_elevated_phase(self) -> None:
+        # Documents the deliberate multiplier design: in an elevated phase (flushing),
+        # a waterlogging-sensitive root zone still gets materially less water than a
+        # moderate one, and never more than the un-elevated base volume.
+        moderate = resolve_irrigation("flushing", base_volume_ml=300)
+        sensitive = resolve_irrigation("flushing", base_volume_ml=300, waterlogging_tolerance="sensitive")
+        assert sensitive.volume_ml_per_plant < moderate.volume_ml_per_plant
+        assert sensitive.volume_ml_per_plant <= 300
 
 
 class TestNutrient:
@@ -123,3 +133,27 @@ class TestPhGating:
         assert ph_micronutrient_availability(6.5)[0] is True
         assert ph_micronutrient_availability(6.6)[0] is False
         assert ph_micronutrient_availability(5.9)[0] is False
+
+
+class TestNutrientProfileGuidance:
+    """The single domain source of the stored-profile feed/pH guidance (E8)."""
+
+    def test_feed_true_for_fed_profile(self) -> None:
+        feed, micros, note = nutrient_profile_guidance((3, 1, 2), 1.5, 6.2)
+        assert feed is True
+        assert micros is True
+        assert "optimal" in note
+
+    def test_feed_false_for_zero_profile(self) -> None:
+        feed, _micros, _note = nutrient_profile_guidance((0, 0, 0), 0.0, 6.0)
+        assert feed is False
+
+    def test_positive_ec_counts_as_feed(self) -> None:
+        # a CalMag/micro-only phase (0-0-0 NPK but EC > 0) still feeds.
+        feed, _micros, _note = nutrient_profile_guidance((0, 0, 0), 0.6, 6.0)
+        assert feed is True
+
+    def test_high_ph_locks_out_micros(self) -> None:
+        _feed, micros, note = nutrient_profile_guidance((1, 3, 2), 1.8, 7.2)
+        assert micros is False
+        assert "lock out" in note

@@ -1,5 +1,7 @@
 from datetime import UTC, date, datetime
 
+import structlog
+
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
@@ -13,6 +15,8 @@ from app.domain.interfaces.watering_repository import IWateringRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.feeding_event import FeedingEvent
 from app.domain.models.watering_event import WateringEvent
+
+logger = structlog.get_logger(__name__)
 
 # ── Soil-moisture sensor override (REQ-005) ────────────────────────────────
 # The metric_type a soil-moisture sensor is registered under (free-form on the
@@ -329,6 +333,7 @@ class WateringService:
                 new_volume_ml=et_net_demand_ml,
                 source="evapotranspiration_demand",
                 note=f"et_net_demand={round(et_net_demand_ml)}ml",
+                allow_zero=True,  # an ET demand of 0 means "irrigate nothing", not 10 ml
             )
 
         # ── Live soil-moisture sensor override (REQ-005) — reduces when wet ──
@@ -363,7 +368,16 @@ class WateringService:
             return None
         try:
             sensors = self._sensor_service.get_sensors_for_location(slot.location_key)
-        except Exception:
+        except Exception as exc:
+            # Don't fail the volume suggestion on a sensor-lookup error — fall back to
+            # the static recommendation, but log so a real outage is distinguishable
+            # from "location has no soil-moisture sensor".
+            logger.warning(
+                "soil_moisture_sensor_lookup_failed",
+                plant_key=plant_key,
+                location_key=slot.location_key,
+                error=str(exc),
+            )
             return None
         moisture_sensors = [
             s for s in sensors if s.metric_type == SOIL_MOISTURE_METRIC and getattr(s, "is_active", True)

@@ -141,6 +141,13 @@ class TestEtSeam:
         result = _service(plant, _species()).suggest_volume("p1")
         assert result.source == "species_watering_guide"
 
+    def test_et_zero_demand_means_no_water(self):
+        # ET demand of 0 = "irrigate nothing" — must not be floored to 10 ml.
+        plant = _plant()
+        result = _service(plant, _species()).suggest_volume("p1", et_net_demand_ml=0.0)
+        assert result.volume_ml == 0
+        assert result.source == "evapotranspiration_demand"
+
 
 class TestFlushRegimeSurfacing:
     def test_flush_phase_marks_water_only(self):

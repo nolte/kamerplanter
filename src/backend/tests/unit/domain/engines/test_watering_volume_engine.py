@@ -242,6 +242,19 @@ class TestPhaseRegimeConsolidation:
         )
         assert sensitive.volume_ml < base.volume_ml
 
+    def test_dry_storage_yields_zero_volume(self, engine: WateringVolumeEngine):
+        # REQ-003 E7 / R8: a geophyte in dry_storage gets NO water — the resolver's
+        # 0 must survive the engine's usual 10 ml minimum floor.
+        result = engine.suggest_volume(
+            species_volume_ml_min=200,
+            species_volume_ml_max=400,
+            phase_name="dry_storage",
+        )
+        assert result.volume_ml == 0
+        assert result.volume_ml_min == 0
+        assert result.volume_ml_max == 0
+        assert result.water_only is True
+
     def test_extended_rest_phase_reduces_volume(self, engine: WateringVolumeEngine):
         # winter_rest maps to dormancy (D8) — the raw-string table missed it, the
         # resolver applies the rest reduction and water-only flag.

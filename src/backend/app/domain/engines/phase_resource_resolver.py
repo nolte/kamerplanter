@@ -88,6 +88,23 @@ def ph_micronutrient_availability(target_ph: float) -> tuple[bool, str]:
     )
 
 
+def nutrient_profile_guidance(
+    npk_ratio: tuple[int, int, int],
+    target_ec_ms: float,
+    target_ph: float,
+) -> tuple[bool, bool, str]:
+    """E8 presentation guidance for a stored nutrient profile.
+
+    Returns ``(feed, micros_available, ph_note)``. ``feed`` is the single domain
+    definition of "this profile feeds at all" (any NPK or a positive EC target),
+    so the API layer maps it instead of re-deriving the rule. The pH-gated
+    micronutrient availability comes from :func:`ph_micronutrient_availability`.
+    """
+    feed = tuple(npk_ratio) != (0, 0, 0) or target_ec_ms > 0
+    micros_available, ph_note = ph_micronutrient_availability(target_ph)
+    return feed, micros_available, ph_note
+
+
 @dataclass(frozen=True)
 class IrrigationRegime:
     """Effective per-phase irrigation guidance."""
