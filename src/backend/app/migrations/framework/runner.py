@@ -187,54 +187,44 @@ class MigrationRunner:
         return tracking.history(db)
 
 
-def _await_head(
-    db: StandardDatabase,
-    required: set[str],
-    *,
-    timeout: float,
-    interval: float,
-) -> bool:
-    """Block until the applied set covers ``required`` (head reached) or timeout.
-
-    Returns ``True`` once ``tracking.applied_versions(db) ⊇ required`` (the
-    winning runner finished), ``False`` if the bounded budget elapses first.
-    """
-    deadline = time.monotonic() + timeout
-    while True:
-        if required <= tracking.applied_versions(db):
-            return True
-        if time.monotonic() >= deadline:
-            return False
-        time.sleep(interval)
-
-
 def run_pending_migrations(db: StandardDatabase) -> list[MigrationReport]:
     """Startup entrypoint: apply every pending migration — FATAL on failure (M-4).
 
     A held lock (a concurrent replica already migrating) is NOT fatal to *this*
-    runner: it does not apply anything itself (M-8 — single runner), but it MUST
-    NOT complete startup against un-migrated data either.  So it waits until the
-    winning runner's applied set reaches the discovered head, then returns ``[]``.
-    If the winner never reaches head within the bounded budget, this runner
-    raises :class:`MigrationBarrierTimeoutError` so readiness fails and the
-    orchestrator restarts it (M-4).  Any other exception propagates unchanged.
+    runner and MUST NOT let it complete startup against un-migrated data.  So on
+    lock contention the runner waits for the winner to release the lock and then
+    re-attempts ``upgrade`` itself, bounded by ``BARRIER_TIMEOUT_SECONDS``.
+
+    Re-running ``upgrade`` is the correct barrier — not polling for a fixed
+    "head" — because it is idempotent (already-applied migrations are skipped,
+    M-3) *and* it correctly leaves a legitimately-pending migration pending: a
+    migration that reports ``precondition_unmet`` (e.g. v0004 with no resolvable
+    tenant) is not recorded and stops the loop, so this runner returns normally
+    instead of blocking forever on a head the winner will never reach.  Exactly
+    one runner holds the lock at a time (M-8 — single runner); the others wait
+    and retry.
+
+    If the lock is never released within the budget, this runner raises
+    :class:`MigrationBarrierTimeoutError` so readiness fails and the orchestrator
+    restarts it (M-4).  Any non-lock exception (a real migration failure)
+    propagates unchanged and aborts startup (M-4).
     """
     runner = MigrationRunner()
-    try:
-        return runner.upgrade(db)
-    except MigrationLockError:
-        required = {m.version for m in runner.migrations}
-        logger.info("migrations_locked_by_other_runner_waiting", required=sorted(required))
-        reached = _await_head(
-            db,
-            required,
-            timeout=BARRIER_TIMEOUT_SECONDS,
-            interval=BARRIER_POLL_INTERVAL_SECONDS,
-        )
-        if not reached:
-            raise MigrationBarrierTimeoutError(
-                "Timed out waiting for the migrating replica to reach head "
-                f"(required={sorted(required)}, applied={sorted(tracking.applied_versions(db))})"
-            ) from None
-        logger.info("migrations_barrier_reached_head", head=max(required) if required else None)
-        return []
+    deadline = time.monotonic() + BARRIER_TIMEOUT_SECONDS
+    attempt = 0
+    while True:
+        try:
+            return runner.upgrade(db)
+        except MigrationLockError:
+            attempt += 1
+            if time.monotonic() >= deadline:
+                raise MigrationBarrierTimeoutError(
+                    "Timed out waiting for the concurrent migrating replica to release the lock "
+                    f"(attempts={attempt}, applied={sorted(tracking.applied_versions(db))})"
+                ) from None
+            logger.info(
+                "migrations_locked_by_other_runner_waiting",
+                attempt=attempt,
+                applied=sorted(tracking.applied_versions(db)),
+            )
+            time.sleep(BARRIER_POLL_INTERVAL_SECONDS)

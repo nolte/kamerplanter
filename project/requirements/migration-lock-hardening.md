@@ -82,14 +82,17 @@ behaviour retained only as the timeout escape hatch.
   - _dimension_: `functional` · _status_: `confirmed` · _source_: issue #375 §1 (slow runner deletes new owner's lock) + Q1
 
 - **R4 (finding 2 — losing-replica barrier)** — WHEN `run_pending_migrations` catches
-  `MigrationLockError`, the framework SHALL block startup, polling `tracking.applied_versions` at a
-  bounded interval until it is a superset of the discovered migration head set (the winner finished),
-  and only then complete startup returning `[]`.
-  - _dimension_: `functional` · _status_: `confirmed` · _source_: issue #375 §2 + Q2 (bounded wait-loop) + Q3 (`applied_versions ⊇ head`)
+  `MigrationLockError`, the framework SHALL block startup and re-attempt `upgrade` at a bounded
+  interval until it succeeds (the winner released the lock), and only then complete startup.
+  Re-running `upgrade` — rather than polling for a fixed head — is the barrier because it is
+  idempotent (M-3) and correctly leaves a legitimately-pending migration pending: a former loser
+  that acquires the lock re-evaluates preconditions and behaves exactly like the winner.
+  - _dimension_: `functional` · _status_: `confirmed` · _source_: issue #375 §2 + Q2 (bounded wait) + pre-merge review of PR #386 (see risk note below)
 
 - **R5 (finding 2 — barrier timeout fails readiness)** — WHEN the barrier of R4 exceeds its timeout
-  (derived from `LOCK_TTL_SECONDS` plus margin), the framework SHALL raise so startup/readiness
-  fails and the orchestrator retries, rather than serve traffic against un-migrated data.
+  (derived from `LOCK_TTL_SECONDS` plus margin) without the lock being released, the framework SHALL
+  raise `MigrationBarrierTimeoutError` so startup/readiness fails and the orchestrator retries,
+  rather than serve traffic against un-migrated data.
   - _dimension_: `edge_cases` · _status_: `confirmed` · _source_: issue #375 §2 + Q2 timeout escape hatch
 
 - **R6 (finding 3 — v0004 no-op stays pending)** — WHEN `v0004_backfill_tenant_key` runs and no
@@ -105,7 +108,8 @@ behaviour retained only as the timeout escape hatch.
   - _dimension_: `functional` · _status_: `confirmed` · _source_: issue #375 §4 + Q5 (whole class, not module)
 
 - **R8 (invariant — single-runner preserved)** — The barrier of R4/R5 SHALL NOT weaken the M-8
-  single-runner guarantee: exactly one runner applies the pending set; losing replicas only wait.
+  single-runner guarantee: exactly one runner holds the lock and applies migrations at any instant;
+  a losing replica that later acquires the released lock becomes the (still single) runner.
   - _dimension_: `non_functional` · _status_: `confirmed` · _source_: plan invariants + Q2
 
 - **R9 (deploy note — checksum-format change)** — WHEN the R7 change first ships, every
@@ -116,8 +120,13 @@ behaviour retained only as the timeout escape hatch.
 ## Surviving assumptions / open risks
 
 - **Blocking startup sleep (R4).** The startup path is synchronous today; the barrier adds a bounded
-  blocking poll. Assumed acceptable (confirmed via Q2). Residual: a genuinely stuck winner makes
+  blocking retry. Assumed acceptable (confirmed via Q2). Residual: a genuinely stuck winner makes
   losing replicas wait up to the timeout before failing readiness — mitigated by the R5 escape hatch.
+- **Barrier design corrected in pre-merge review (PR #386).** The first implementation polled
+  `applied_versions ⊇ head`; a review pass caught that in the R6 no-tenant edge the winner leaves
+  v0004+ pending and never reaches head, so losing replicas would wait the full timeout and
+  crash-loop. The retry-`upgrade` barrier (R4) closes this and additionally reclaims a stale lock
+  from a *crashed* winner (the poll design did not), since `acquire_lock` takes over a stale lock.
 - **Light-mode-with-orphans leaves v0004+ pending (R6).** Not recording v0004 leaves it and every
   later migration pending until a boot with a resolvable tenant (required to preserve M-1 linear
   history). Assumed acceptable for this rare edge (confirmed via Q4); self-heals on the next
