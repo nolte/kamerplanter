@@ -23,7 +23,6 @@ from app.common.dependencies import (
     get_ipm_repo,
     get_lifecycle_repo,
     get_species_repo,
-    get_substrate_repo,
 )
 from app.common.enums import (
     CycleType,
@@ -57,7 +56,6 @@ from app.domain.models.species import (
     Toxicity,
     WateringGuide,
 )
-from app.domain.models.substrate import Substrate
 from app.migrations.cultivar_seed import build_cultivar
 from app.migrations.yaml_loader import load_yaml
 
@@ -864,26 +862,6 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                     disease=disease_name,
                 )
 
-    # ── S9: Seed substrates ─────────────────────────────────────────────
-    substrate_repo = get_substrate_repo()
-    substrates_data: list[dict[str, Any]] = yaml_data.get("substrates", [])
-
-    existing_substrates, _ = substrate_repo.get_all_substrates(offset=0, limit=500)
-    existing_substrate_set = {(s.type.value, s.name_de or s.brand or "") for s in existing_substrates}
-
-    substrates_created = 0
-    for raw in substrates_data:
-        substrate = Substrate.model_validate(raw)
-        ident = (substrate.type.value, substrate.name_de or substrate.brand or "")
-
-        if ident in existing_substrate_set:
-            continue
-
-        substrate_repo.create_substrate(substrate)
-        existing_substrate_set.add(ident)
-        substrates_created += 1
-        logger.info("substrate_seeded", type=substrate.type.value, name_de=substrate.name_de)
-
     logger.info(
         "seed_plant_info_complete",
         families=len(new_families),
@@ -895,7 +873,6 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         pests=len(ipm_pests),
         diseases=len(ipm_diseases),
         treatments=len(ipm_treatments),
-        substrates=substrates_created,
     )
 
 
