@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import PhotoperiodType, TransitionTriggerType
+from app.common.enums import GrowthDeterminacy, PhotoperiodType, TransitionTriggerType
 
 
 @pytest.fixture(autouse=True)
@@ -141,6 +141,7 @@ class TestCheckAutoTransitions:
             photoperiod_type=PhotoperiodType.SHORT_DAY,
             critical_day_length_hours=12.0,
             vernalization_min_days=None,
+            growth_determinacy=None,
         )
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = lifecycle
 
@@ -160,6 +161,57 @@ class TestCheckAutoTransitions:
         assert result["transitioned"] == 1
         phase_service.transition_phase.assert_called_once_with("plant_1", "phase_flower", reason="auto_photoperiod")
 
+    def _productive_lifecycle(self, determinacy: GrowthDeterminacy) -> SimpleNamespace:
+        return SimpleNamespace(
+            growth_determinacy=determinacy,
+            photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
+            critical_day_length_hours=None,
+            vernalization_min_days=None,
+        )
+
+    def _productive_phase_service(self) -> MagicMock:
+        phase_service = MagicMock()
+        # a would-fire time trigger out of the productive phase (fruiting -> ripening)
+        phase_service.get_current_phase.return_value = {"days_in_phase": 30, "phase": "fruiting"}
+        phase_service.get_transition_rules.return_value = [
+            SimpleNamespace(
+                trigger_type=TransitionTriggerType.TIME_BASED,
+                auto_transition_after_days=28,
+                to_phase_key="phase_ripening",
+            )
+        ]
+        return phase_service
+
+    def test_indeterminate_stays_in_productive_phase(self, _task_module):
+        """E4: an indeterminate plant in its productive phase is not auto-advanced."""
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(current_phase_key="phase_fruit")], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = self._productive_lifecycle(
+            GrowthDeterminacy.INDETERMINATE
+        )
+        phase_service = self._productive_phase_service()
+        deps.get_phase_service.return_value = phase_service
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 0
+        phase_service.transition_phase.assert_not_called()
+
+    def test_determinate_proceeds_out_of_productive_phase(self, _task_module):
+        """E4: a determinate plant follows the linear path (fruiting -> ripening)."""
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant(current_phase_key="phase_fruit")], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = self._productive_lifecycle(
+            GrowthDeterminacy.DETERMINATE
+        )
+        phase_service = self._productive_phase_service()
+        deps.get_phase_service.return_value = phase_service
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 1
+        phase_service.transition_phase.assert_called_once_with("plant_1", "phase_ripening", reason="auto_time_based")
+
     def test_vernalization_fires_when_chill_met(self, _task_module):
         module, deps = _task_module
         deps.get_plant_repo.return_value.get_all.return_value = ([_plant(chill_days_accumulated=60)], 1)
@@ -167,6 +219,7 @@ class TestCheckAutoTransitions:
             vernalization_min_days=60,
             photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
             critical_day_length_hours=None,
+            growth_determinacy=None,
         )
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = lifecycle
 

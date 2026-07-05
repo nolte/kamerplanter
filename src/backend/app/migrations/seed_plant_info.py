@@ -29,6 +29,7 @@ from app.common.enums import (
     CycleType,
     FloweringStrategy,
     FrostTolerance,
+    GrowthDeterminacy,
     GrowthHabit,
     PathogenType,
     PhotoperiodType,
@@ -458,17 +459,20 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
         _ov = lifecycle_overrides.get(sci_name, {})
         _ov_cult = _ov.get("cultivation_cycle_type")
         _ov_flower = _ov.get("flowering_strategy")
+        _ov_determinacy = _ov.get("growth_determinacy")
 
         existing_lc = lifecycle_repo.get_lifecycle_by_species(sp_key)
         if existing_lc:
             lc_key = existing_lc.key or ""
 
             # Check if lifecycle needs updating
+            _override_determinacy = GrowthDeterminacy(_ov_determinacy) if _ov_determinacy else None
             lc_needs_update = (
                 existing_lc.cycle_type != cycle
                 or existing_lc.photoperiod_type != photo
                 or existing_lc.dormancy_required != dormancy
                 or existing_lc.vernalization_required != vernal
+                or (_override_determinacy is not None and existing_lc.growth_determinacy != _override_determinacy)
             )
             if lc_needs_update:
                 updated_lc = LifecycleConfig(
@@ -487,6 +491,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                     flowering_strategy=(
                         FloweringStrategy(_ov_flower) if _ov_flower else existing_lc.flowering_strategy
                     ),
+                    growth_determinacy=(_override_determinacy or existing_lc.growth_determinacy),
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
@@ -611,6 +616,7 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
                 # seed_data.py never created (no existing lifecycle to inherit from).
                 cultivation_cycle_type=CycleType(_ov_cult) if _ov_cult else None,
                 flowering_strategy=FloweringStrategy(_ov_flower) if _ov_flower else None,
+                growth_determinacy=GrowthDeterminacy(_ov_determinacy) if _ov_determinacy else None,
             )
             created_lc = lifecycle_repo.create_lifecycle(new_lc)
             lc_key = created_lc.key or ""

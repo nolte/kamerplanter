@@ -1875,6 +1875,47 @@
         "nfcWriting": "Writing…",
         "nfcSuccess": "NFC tag written successfully!",
         "nfcError": "Error writing tag: {{error}}"
+      },
+      "termination": {
+        "title": "Remove Plant",
+        "intro": "How did the lifecycle of \"{{name}}\" end? This classification is optional but feeds the survival and loss analysis.",
+        "typeLabel": "Type of ending",
+        "typeHelper": "Harvested and senesced count as a planned end, \"died\" as an unplanned loss.",
+        "typeUnspecified": "Unspecified (just remove)",
+        "causeLabel": "Loss cause",
+        "causeHelper": "What did the plant die from? Feeds the failure-cause analysis.",
+        "causeExplainer": "On a loss the current growth phase is \"frozen\" so the analysis can tell which phase failures occur in.",
+        "irreversibleNote": "The plant will be marked as removed. This cannot be undone afterwards.",
+        "confirmDisabledHint": "Please select a loss cause first."
+      },
+      "survival": {
+        "title": "Survival rate & failure causes",
+        "intro": "Analysis of all recorded plants: how many survived and what losses stem from.",
+        "empty": "No plants recorded yet.",
+        "rateChip": "Survival rate {{percent}}%",
+        "rateCaption": "{{survived}} of {{terminated}} concluded plants survived",
+        "total": "Plants total",
+        "active": "Still growing",
+        "survived": "Survived",
+        "died": "Losses (died)",
+        "byTypeTitle": "By outcome",
+        "byPhaseTitle": "By growth phase",
+        "byCauseTitle": "By failure cause",
+        "outcome": "Outcome",
+        "phase": "Phase",
+        "cause": "Cause",
+        "count": "Count",
+        "chartTitle": "Loss distribution",
+        "byPhase": "By phase",
+        "byCause": "By cause",
+        "byPhaseHint": "Shows which growth phase most losses occur in (failure cause per phase).",
+        "byCauseHint": "Shows which cause drives the most losses.",
+        "phaseUnknown": "No phase",
+        "noLosses": "No losses recorded — all plants have survived so far.",
+        "tableAria": "Survival statistics",
+        "chartAria": "Bar chart of the loss distribution",
+        "dimensionToggleAria": "Toggle loss dimension",
+        "definitionNote": "\"Survived\" covers concluded plants (harvested, senesced, cancelled, plain-removed) that did not die; still-growing plants count as \"Still growing\". The survival rate refers only to concluded plants."
       }
     },
     "phases": {
@@ -4773,6 +4814,23 @@
       "low": "Low",
       "medium": "Medium",
       "high": "High"
+    },
+    "terminationType": {
+      "harvested": "Harvested",
+      "senesced": "Senesced (natural end)",
+      "died": "Died (loss)",
+      "cancelled": "Cancelled"
+    },
+    "terminationCause": {
+      "disease": "Disease",
+      "pest": "Pest infestation",
+      "frost": "Frost",
+      "heat": "Heat",
+      "drought": "Drought",
+      "waterlogging": "Waterlogging",
+      "neglect": "Neglect",
+      "mechanical": "Mechanical damage",
+      "unknown": "Unknown"
     }
   },
   "sensorChart": {

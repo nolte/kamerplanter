@@ -700,6 +700,8 @@ export interface PlantInstance {
   plant_name: string | null;
   planted_on: string;
   removed_on: string | null;
+  termination_type: TerminationType | null;
+  termination_cause: TerminationCause | null;
   current_phase: string;
   current_phase_key: string | null;
   current_phase_started_at: string | null;
@@ -709,6 +711,55 @@ export interface PlantInstance {
   cultivar: PlantCultivarSummary | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** How a plant instance's lifecycle ended (REQ-003 E5). */
+export type TerminationType = 'harvested' | 'senesced' | 'died' | 'cancelled';
+
+/** Cause of an unplanned loss — only valid together with type='died' (REQ-003 E5). */
+export type TerminationCause =
+  | 'disease'
+  | 'pest'
+  | 'frost'
+  | 'heat'
+  | 'drought'
+  | 'waterlogging'
+  | 'neglect'
+  | 'mechanical'
+  | 'unknown';
+
+/** Optional body for POST /{key}/remove — classifies how the lifecycle ended. */
+export interface RemovePlantRequest {
+  termination_type?: TerminationType | null;
+  termination_cause?: TerminationCause | null;
+}
+
+export interface TerminationTypeCount {
+  termination_type: TerminationType;
+  count: number;
+}
+
+export interface TerminationCauseCount {
+  termination_cause: TerminationCause;
+  count: number;
+}
+
+export interface PhaseLossCount {
+  phase_name: string;
+  count: number;
+}
+
+/** Survival-rate / failure-cause analytics for the tenant (REQ-003 G1). */
+export interface SurvivalStats {
+  total: number;
+  terminated: number;
+  active: number;
+  died: number;
+  survived: number;
+  survival_rate: number;
+  by_termination_type: TerminationTypeCount[];
+  by_termination_cause: TerminationCauseCount[];
+  loss_by_phase: PhaseLossCount[];
 }
 
 export interface PlantInstanceCreate {

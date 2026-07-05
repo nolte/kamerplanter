@@ -16,8 +16,8 @@ No persistence: callers pass the season number, plant age and current phase.
 
 from __future__ import annotations
 
-from app.common.enums import CycleType, FloweringStrategy, MaturityStage
-from app.domain.engines.phase_role_map import core_phase
+from app.common.enums import CycleType, FloweringStrategy, GrowthDeterminacy, MaturityStage
+from app.domain.engines.phase_role_map import core_phase, is_productive_phase
 from app.domain.models.lifecycle import LifecycleConfig
 
 # Core reproductive phases after which a monocarpic plant enters terminal
@@ -53,6 +53,26 @@ class CyclicLifecycleEngine:
     def skips_reproductive_phases(self, lifecycle: LifecycleConfig, plant_age_years: int) -> bool:
         """D4 juvenile-skip: a juvenile perennial skips flowering/fruit/ripening."""
         return self.get_maturity_stage(lifecycle, plant_age_years) == MaturityStage.JUVENILE
+
+    def stays_in_productive_phase(self, lifecycle: LifecycleConfig, current_phase_name: str) -> bool:
+        """E4: whether an auto-advance out of the current phase must be suppressed.
+
+        The state machine stays single-current-phase. For an ``indeterminate``
+        species (tomato, pepper, cucumber, many house plants) the productive phase
+        (``fruiting`` / ``flowering_fruit`` / ``flowering``) is a **stable, recurring**
+        phase in which vegetative growth, flowering and fruit set run *concurrently*
+        as attributes of that one phase — harvest is continuous, without a phase
+        change. So once such a plant has reached its productive phase, a time/gdd
+        trigger that would otherwise advance it onward (fruit_development → ripening
+        → terminal) is suppressed; it simply keeps producing.
+
+        ``determinate`` (and the default ``None``) species follow the linear path and
+        are never suppressed. The decision is pure — the caller passes the current
+        phase name (extended names are normalised via the D8 role map).
+        """
+        if lifecycle.growth_determinacy != GrowthDeterminacy.INDETERMINATE:
+            return False
+        return is_productive_phase(current_phase_name)
 
     def should_restart_cycle(
         self,

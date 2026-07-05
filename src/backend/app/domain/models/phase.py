@@ -149,6 +149,12 @@ class PhaseHistory(BaseModel):
     actual_duration_days: int | None = None
     cycle_number: int = Field(default=1, ge=1)
     transition_reason: str = ""
+    is_premature: bool = Field(
+        default=False,
+        description="E6: this phase was entered through a stress-induced premature transition "
+        "(e.g. vegetative → bolting under heat/long-day stress). Distinguishes it in history/"
+        "analytics from a planned bolting (biennial season 2).",
+    )
     performance_score: float | None = Field(default=None, ge=0, le=100)
     created_at: datetime | None = None
     updated_at: datetime | None = None

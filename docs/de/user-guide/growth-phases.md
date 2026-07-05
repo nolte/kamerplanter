@@ -100,6 +100,11 @@ Neben dem manuellen Wechsel (siehe unten) kann ein Phasenübergang in einem Phas
 - **Photoperiodisch**: Der Übergang in die Blüte erfolgt, sobald die Tageslänge am Standort der Pflanze einen artspezifischen Schwellenwert unterschreitet (Kurztagspflanzen) bzw. überschreitet (Langtagspflanzen). Dafür müssen für den Standort GPS-Koordinaten hinterlegt sein (siehe [Standorte und Substrate](locations-substrates.md)).
 - **Vernalisationsbasiert**: Bei zweijährigen Pflanzen mit Kälteperiode (z. B. Möhre zur Samengewinnung) zählt Kamerplanter kalte Tage; ist die artspezifische Mindestanzahl erreicht, wird der Übergang aus der Winterruhe in die Blüte automatisch freigegeben.
 
+Bei Pflanzenarten mit einer sogenannten „unbestimmten" (indeterminaten) Wuchsform — dazu zählen z. B. viele Tomaten-, Paprika- und Gurkensorten sowie zahlreiche Zimmerpflanzen — unterdrückt Kamerplanter automatische Weiterschaltungen, sobald die Pflanze ihre stabile, dauerhaft produktive Phase erreicht hat. Statt linear weiter Richtung Fruchtreife und Lebensende zu schalten, bleibt die Pflanze in dieser einen Phase, in der Wachstum, Blüte und Fruchtansatz gleichzeitig weiterlaufen und laufend geerntet werden kann.
+
+!!! note "Teilweise verfügbar: Einstufung als „unbestimmt" (indeterminate)"
+    Die Logik zur Erkennung und Unterdrückung der automatischen Weiterschaltung ist vollständig implementiert und für die unbestimmt wachsenden Arten Tomate, Paprika und Gurke bereits aktiviert. Ob eine Art als „bestimmt" (determinate), „unbestimmt" (indeterminate) oder „halb-unbestimmt" (semi-determinate) eingestuft ist, lässt sich aktuell aber noch nicht über die Oberfläche oder die öffentliche API pflegen — die Einstufung ist Teil der Lebenszyklus-Konfiguration und wird für weitere Arten schrittweise ergänzt. <!-- REQ-003 E4 -->
+
 !!! note "Teilweise verfügbar"
     Die Auswertungslogik für automatische Übergänge ist vollständig implementiert. Ob und wie oft dein Kamerplanter-Betreiber die Hintergrundprüfung tatsächlich einplant, hängt von der jeweiligen Installation ab. Verlasse dich sicherheitshalber nicht ausschließlich auf automatische Übergänge — kontrolliere den Phasenstand deiner Pflanzen regelmäßig und löse Übergänge bei Bedarf manuell aus (siehe unten).
 
@@ -184,6 +189,18 @@ Das Stickstoff-Phosphor-Kalium-Verhältnis ändert sich über die Phasen:
 - **Blüte**: Weniger Stickstoff, mehr Phosphor (P) und Kalium (K)
 - **Spätblüte**: Minimaler Stickstoff, hoher PK-Anteil
 
+Jede Phase hat außerdem einen hinterlegten Ziel-pH-Wert für die Nährlösung. Der pH-Wert beeinflusst, wie gut einzelne Mikronährstoffe (Eisen, Mangan, Zink, Kupfer, Bor) von der Pflanze aufgenommen werden können: Außerhalb eines optimalen Fensters von pH 6,0–6,5 sperren sich diese Mikronährstoffe zunehmend aus (Chlorose-Risiko — helle, gelbliche Blattadern), während sich Molybdän gegenläufig verhält und bei steigendem pH besser verfügbar wird.
+
+!!! note "Teilweise verfügbar: Ziel-pH & Mikronährstoff-Verfügbarkeit je Phase"
+    Kamerplanter berechnet die pH-abhängige Mikronährstoff-Verfügbarkeit für jede Phase bereits im Hintergrund. Eine Warnung oder Empfehlung dazu in der Nährstoff-Oberfläche gibt es aktuell aber noch nicht — das ist für eine kommende Erweiterung der Dünge-Logik vorgesehen. <!-- REQ-003 E8 -->
+
+### Geplantes und vorzeitiges Schossen unterscheiden
+
+Bei manchen zweijährigen Kulturen (z. B. Blattgemüse wie Spinat oder Salat) kann Hitze- oder Langtag-Stress dazu führen, dass eine Pflanze deutlich früher als geplant Richtung Blüte „schießt" und dadurch ihr Erntefenster verliert. Kamerplanter unterscheidet einen solchen stressbedingten, vorzeitigen Übergang von einem planmäßigen Schossen — etwa der regulären Blüteinleitung im zweiten Standjahr bei zweijährigen Kulturen mit Kälteperiode.
+
+!!! note "Teilweise verfügbar: Kennzeichnung vorzeitiger Übergänge"
+    Kamerplanter erkennt und vermerkt einen stressbedingt vorzeitigen Phasenübergang in der Phasenhistorie, unterschieden von einem planmäßigen Übergang; bei Spinat ist ein solcher langtag-getriggerter Schoss-Übergang bereits hinterlegt. Eine eigene Kennzeichnung dafür in der Phasenverlauf-Ansicht der Oberfläche (z. B. ein Hinweis-Chip) gibt es aktuell aber noch nicht. <!-- REQ-003 E6 -->
+
 ---
 
 ## Perenniale Pflanzen: Dormanz und saisonale Zyklen
@@ -207,6 +224,80 @@ Klicke auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zurück i
 
 ---
 
+## Eine Pflanze entfernen: Abschlussart und Verlustursache erfassen {#pflanze-entfernen}
+
+Wenn eine Pflanze das Ende ihres Lebenszyklus erreicht hat — sei es durch Ernte, natürliches Absterben oder einen unerwarteten Verlust — entfernst du sie über den Button **Pflanze entfernen** auf ihrer Detailseite. Dabei kannst du optional festhalten, **wie** der Lebenszyklus geendet hat. <!-- REQ-003 E5 -->
+
+### Schritt 1: Detailseite öffnen
+
+Navigiere zu **Pflanzen → Pflanzeninstanzen** und öffne die betreffende Pflanze.
+
+### Schritt 2: Entfernen-Dialog öffnen
+
+Klicke auf **Pflanze entfernen**. Ein Dialog fragt, wie der Lebenszyklus der Pflanze geendet ist.
+
+### Schritt 3: Abschlussart wählen (optional)
+
+| Abschlussart | Bedeutung |
+|--------------|-----------|
+| Ohne Angabe (einfach entfernen) | Die Pflanze wird ohne Klassifizierung entfernt (bisheriges Verhalten) |
+| Geerntet | Planmäßiges Ende nach der Ernte |
+| Natürlich abgestorben (Seneszenz) | Planmäßiges Ende am natürlichen Zyklusende |
+| Verlust (eingegangen) | Ungeplanter Ausfall — fragt zusätzlich nach der Verlustursache |
+| Abgebrochen | Du brichst die Kultur bewusst vorzeitig ab |
+
+!!! tip "Die Angabe ist freiwillig"
+    Du kannst den Dialog auch ohne Auswahl bestätigen — die Pflanze wird dann wie bisher einfach als entfernt markiert, ohne dass eine Abschlussart erfasst wird.
+
+### Schritt 4: Bei „Verlust" die Ursache angeben
+
+Wählst du **Verlust (eingegangen)**, musst du zusätzlich eine Verlustursache angeben, bevor du bestätigen kannst:
+
+| Verlustursache | Beispiel |
+|----------------|---------|
+| Krankheit | Pilzbefall, Wurzelfäule |
+| Schädlingsbefall | Spinnmilben, Blattläuse |
+| Frost | Unerwarteter Kälteeinbruch |
+| Hitze | Hitzestress, Sonnenbrand |
+| Trockenheit | Zu selten gegossen |
+| Staunässe | Substrat dauerhaft zu nass |
+| Vernachlässigung | Längere Abwesenheit ohne Vertretung |
+| Mechanischer Schaden | Abgebrochen, umgeknickt |
+| Unbekannt | Ursache lässt sich nicht mehr bestimmen |
+
+!!! note "Die aktuelle Wachstumsphase wird eingefroren"
+    Klassifizierst du eine Pflanze als „Verlust", friert Kamerplanter ihre aktuelle Wachstumsphase ein: Der offene Phasenhistorie-Eintrag wird geschlossen, aber es findet **kein** automatischer Übergang in eine Blattfall-/Seneszenz-Phase statt. So bleibt erkennbar, in welcher Phase der Verlust tatsächlich aufgetreten ist — eine wichtige Grundlage für die [Verlustursachen-Auswertung](#ueberlebensrate-verlustursachen) weiter unten.
+
+### Schritt 5: Bestätigen
+
+Klicke auf **Pflanze entfernen**. Offene Aufgaben und Pflegeerinnerungen dieser Pflanze werden dabei automatisch aus der Warteschlange entfernt; bereits erledigte oder übersprungene Aufgaben bleiben als Verlauf erhalten. <!-- REQ-022 -->
+
+!!! warning "Nicht rückgängig zu machen"
+    Eine entfernte Pflanze lässt sich nicht wieder aktivieren, und die einmal gewählte Abschlussart/Verlustursache lässt sich danach nicht mehr bearbeiten. Prüfe die Angaben daher vor dem Bestätigen.
+
+---
+
+## Überlebensrate und Verlustursachen auswerten {#ueberlebensrate-verlustursachen}
+
+Auf der Übersichtsseite **Pflanzen → Pflanzeninstanzen** zeigt Kamerplanter eine zusammenfassende Auswertung aller angelegten Pflanzen, sobald mindestens eine Pflanze existiert: die **Überlebensrate** — der Anteil aller Pflanzen, die **nicht** als ungeplanter Verlust geendet haben — sowie eine Aufschlüsselung nach Abschlussart, Wachstumsphase und Verlustursache. <!-- REQ-003 G1 -->
+
+!!! note "Was zählt als „überlebt"?"
+    Als überlebt gelten geerntete, natürlich abgestorbene (seneszente) und abgebrochene Pflanzen ebenso wie alle noch wachsenden Pflanzen — nur eine Pflanze mit der Abschlussart „Verlust" (eingegangen) zählt als Ausfall. Diese Definition lässt sich in der aktuellen Version nicht umstellen.
+
+Die Auswertung zeigt dieselben Daten zweimal, damit sie auch ohne Diagramm nutzbar ist:
+
+- **Tabelle**: Gesamtzahl, aktive Pflanzen, überlebte Pflanzen und Verluste, dazu je eine Aufschlüsselung nach Abschlussart, Wachstumsphase und Verlustursache.
+- **Balkendiagramm**: Verluste visualisiert, umschaltbar zwischen **Nach Phase** (in welcher Wachstumsphase treten die meisten Verluste auf?) und **Nach Ursache** (welche Ursache verursacht die meisten Verluste?).
+
+!!! example "Beispiel"
+    Zeigt die Auswertung „Nach Phase" einen deutlichen Ausschlag bei „Jungpflanze", deutet das auf ein systematisches Problem in der frühen Anzuchtphase hin — z. B. zu trockenes oder zu nasses Substrat direkt nach dem Pikieren.
+
+Pflanzen ohne gesetzte Abschlussart (einfach entfernt, ohne Klassifizierung) fließen weiterhin in **Gesamt** und **Aktiv/Überlebt** ein, tauchen aber nicht in den Aufschlüsselungen nach Abschlussart oder Ursache auf.
+
+<!-- Quelle: src/backend/app/domain/models/survival_stats.py, src/frontend/src/pages/pflanzen/SurvivalStatsPanel.tsx, src/frontend/src/pages/pflanzen/TerminationDialog.tsx -->
+
+---
+
 ## Häufige Fragen
 
 ??? question "Was passiert, wenn ich den Phasenübergang zu früh auslöse?"
@@ -220,6 +311,9 @@ Klicke auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zurück i
 
 ??? question "Was ist der Unterschied zwischen Flushing und Dormanz?"
     **Flushing (Spülung)** ist eine Erntevorbereitungs-Phase, bei der die Nährstoffzufuhr reduziert wird, bevor die Pflanze geerntet wird. **Dormanz (Winterruhe)** ist die natürliche Ruhephase mehrjähriger Pflanzen im Winter. Beide sind eigenständige Phasentypen und schließen sich in einem Ablauf gegenseitig aus.
+
+??? question "Kann ich die Abschlussart oder Verlustursache nachträglich ändern?"
+    Nein. Die Angabe erfolgt einmalig im Entfernen-Dialog, wenn du die Pflanze entfernst, und lässt sich danach nicht mehr bearbeiten.
 
 ---
 

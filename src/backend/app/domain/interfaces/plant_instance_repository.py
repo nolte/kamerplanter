@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.models.plant_instance import PlantInstance
@@ -41,4 +42,15 @@ class IPlantInstanceRepository(ABC):
     @abstractmethod
     def resolve_phase_name(self, phase_key: str) -> str:
         """Resolve a GrowthPhase key to its name. Returns empty string if not found."""
+        ...
+
+    @abstractmethod
+    def get_survival_stats(self, tenant_key: str) -> dict[str, Any]:
+        """Aggregate the tenant's plant instances for survival analytics (REQ-003 G1).
+
+        Returns a raw aggregation dict with ``total``, ``terminated``, ``died``
+        counts and ``by_type`` / ``by_cause`` / ``by_phase`` breakdown lists of
+        ``{"value": ..., "count": int}``. Phase names are resolved by the service
+        layer. MUST be tenant-scoped — no cross-tenant document may be counted.
+        """
         ...

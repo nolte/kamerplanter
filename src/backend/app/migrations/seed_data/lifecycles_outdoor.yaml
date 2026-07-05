@@ -1711,12 +1711,29 @@ lifecycles:
         allows_harvest: true
         is_terminal: false
       - name: "senescence"
-        display_name: "Schossen"
+        display_name: "Absterben"
         typical_duration_days: 14
         sequence_order: 5
         stress_tolerance: "high"
         allows_harvest: false
         is_terminal: true
+      # Off-path premature branch: under long days spinach bolts, ending the
+      # leaf-harvest window early (REQ-003 E6). Reachable only via the explicit
+      # photoperiod transition rule below, never by linear auto-advance.
+      - name: "bolting"
+        display_name: "Schossen"
+        typical_duration_days: 21
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+    transition_rules:
+      # E6: photoperiod-triggered premature bolt (long-day stress). Distinct from a
+      # planned biennial bolting — flagged is_premature so PhaseHistory can tell them apart.
+      - from_phase: "vegetative"
+        to_phase: "bolting"
+        trigger_type: "photoperiod_based"
+        is_premature: true
 
   # ============================================================================
   # Gründüngung

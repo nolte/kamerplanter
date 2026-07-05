@@ -54,10 +54,25 @@ describe('plantInstances endpoints', () => {
     expect(client.put).toHaveBeenCalledWith('/plant-instances/pl1', payload);
   });
 
-  it('removePlantInstance posts to remove endpoint', async () => {
+  it('removePlantInstance posts an empty body for a plain removal', async () => {
     client.post.mockResolvedValue({ data: { key: 'pl1' } });
     await plants.removePlantInstance('pl1');
-    expect(client.post).toHaveBeenCalledWith('/plant-instances/pl1/remove');
+    expect(client.post).toHaveBeenCalledWith('/plant-instances/pl1/remove', {});
+  });
+
+  it('removePlantInstance forwards the termination body', async () => {
+    client.post.mockResolvedValue({ data: { key: 'pl1' } });
+    await plants.removePlantInstance('pl1', { termination_type: 'died', termination_cause: 'pest' });
+    expect(client.post).toHaveBeenCalledWith('/plant-instances/pl1/remove', {
+      termination_type: 'died',
+      termination_cause: 'pest',
+    });
+  });
+
+  it('getSurvivalStats gets the analytics endpoint', async () => {
+    client.get.mockResolvedValue({ data: { total: 0 } });
+    await plants.getSurvivalStats();
+    expect(client.get).toHaveBeenCalledWith('/plant-instances/survival-stats');
   });
 
   it('validatePlanting posts species key to slot validation', async () => {

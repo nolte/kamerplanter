@@ -50,6 +50,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
+import TerminationDialog from './TerminationDialog';
 import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
@@ -442,16 +443,20 @@ export default function PlantInstanceDetailPage() {
     }
   };
 
-  const onRemove = async () => {
+  const [removing, setRemoving] = useState(false);
+  const onRemove = async (body: import('@/api/types').RemovePlantRequest) => {
     if (!key) return;
     try {
-      const updated = await plantApi.removePlantInstance(key);
+      setRemoving(true);
+      const updated = await plantApi.removePlantInstance(key, body);
       setPlant(updated);
       notification.success(t('pages.plantInstances.remove'));
+      setRemoveOpen(false);
     } catch (err) {
       handleError(err);
+    } finally {
+      setRemoving(false);
     }
-    setRemoveOpen(false);
   };
 
   const handleQuickCompleteTask = async (taskKey: string, event: React.MouseEvent) => {
@@ -2342,13 +2347,12 @@ export default function PlantInstanceDetailPage() {
         />
       )}
 
-      <ConfirmDialog
+      <TerminationDialog
         open={removeOpen}
-        title={t('pages.plantInstances.remove')}
-        message={t('common.deleteConfirm', { name: plant ? getPlantLabel(plant, species, assignedCultivar) : '' })}
+        plantName={plant ? getPlantLabel(plant, species, assignedCultivar) : ''}
         onConfirm={onRemove}
         onCancel={() => setRemoveOpen(false)}
-        destructive
+        loading={removing}
       />
 
       <ConfirmDialog
