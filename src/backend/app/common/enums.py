@@ -643,6 +643,13 @@ class TaskCategory(StrEnum):
     CARE_REMINDER = "care_reminder"
     SEASONAL = "seasonal"
     PHENOLOGICAL = "phenological"
+    # Categories emitted by the task-template editor (TaskTemplateDialog.tsx).
+    # Added additively — no existing value is removed (alt-volume seed-read
+    # crash trap). i18n keys under enums.taskCategory.* already exist for all.
+    WATERING = "watering"
+    PEST_CONTROL = "pest_control"
+    MONITORING = "monitoring"
+    CLEANING = "cleaning"
 
 
 class ActivityCategory(StrEnum):
