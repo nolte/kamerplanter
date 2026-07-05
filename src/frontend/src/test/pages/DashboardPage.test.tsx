@@ -27,8 +27,11 @@ describe('DashboardPage (REQ-045)', () => {
   it('renders the quick-actions widget from the default beginner layout', async () => {
     // Default store → experience level unknown → all module paths visible.
     renderWithProviders(<DashboardPage />);
-    // quick_actions is a default beginner widget; its tiles are lazy-loaded.
-    expect(await screen.findByText('Standorte')).toBeTruthy();
-    expect(await screen.findByText('Pflanzeninstanzen')).toBeTruthy();
+    // quick_actions is a default beginner widget; its tiles are lazy-loaded, so
+    // give findByText headroom over its 1s default — under coverage
+    // instrumentation on a loaded CI runner the Suspense chunk can take longer
+    // than 1s to resolve, which otherwise flakes this assertion.
+    expect(await screen.findByText('Standorte', undefined, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText('Pflanzeninstanzen', undefined, { timeout: 5000 })).toBeTruthy();
   });
 });
