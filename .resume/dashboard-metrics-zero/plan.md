@@ -211,5 +211,5 @@ Erste unerledigte Box = Wiedereinstiegspunkt der nächsten Session.
       Pflanzen (3 aktiv), 12 überfällige care_reminder-Tasks. **ALT** (deployter
       `hasattr`-Service) = 0/0/0 (Bug reproduziert). **NEU** = plants 4/3,
       care_due 12, open_today 0 (legitim, nichts exakt heute fällig).
-- [ ] **Resume anchor:** PR nach `develop` via `pull-request-create`
-      (GitHub-Text Englisch).
+- [x] PR nach `develop` erstellt (Draft): **#399**
+      (https://github.com/nolte/kamerplanter/pull/399). Alle Boxen erledigt.
