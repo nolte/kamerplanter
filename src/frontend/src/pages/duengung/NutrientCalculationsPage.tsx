@@ -4,7 +4,8 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import TextField from '@mui/material/TextField';
+import TextField, { type TextFieldProps } from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
@@ -33,6 +34,55 @@ import type {
   PhaseName,
   NutrientDemandLevel,
 } from '@/api/types';
+
+/**
+ * A calculation input field. Renders a full-width MUI TextField and, when a
+ * glossary `helpTerm` is given, embeds the contextual HelpTooltip as an
+ * end-adornment *inside* the field rather than as a sibling icon. This keeps the
+ * field at full width (labels no longer truncate) and lets fields sit in a
+ * responsive Grid without a competing icon column.
+ *
+ * Accessibility/tab-order note: the embedded HelpTooltip renders its own
+ * focusable trigger (`tabIndex=0`) as a DOM sibling *after* the native
+ * `<input>` inside the field's root, so keyboard/tab order is
+ * input -> help-icon -> next field, matching the visual left-to-right
+ * reading order. The Tooltip component wires `aria-describedby` to the
+ * trigger automatically, so it doesn't clash with the input's own
+ * label/helperText association (UI-NFR-002 / UI-NFR-008).
+ */
+type CalcFieldProps = Omit<TextFieldProps, 'slotProps'> & {
+  /** Glossary term for the embedded HelpTooltip (UI-NFR-011). */
+  helpTerm?: string;
+  /** Constraints forwarded to the underlying <input> (min/max/step). */
+  htmlInputProps?: Record<string, unknown>;
+};
+
+function CalcField({ helpTerm, htmlInputProps, ...props }: CalcFieldProps) {
+  // Numeric fields default to a decimal-friendly mobile keypad (UI-NFR-008
+  // "Eingabetypen & Input-Modes"). Callers can still override via
+  // htmlInputProps.inputMode if a field ever needs integer-only input.
+  const resolvedHtmlInputProps =
+    props.type === 'number' ? { inputMode: 'decimal' as const, ...htmlInputProps } : htmlInputProps;
+
+  return (
+    <TextField
+      fullWidth
+      {...props}
+      slotProps={{
+        htmlInput: resolvedHtmlInputProps,
+        input: helpTerm
+          ? {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <HelpTooltip term={helpTerm} iconOnly />
+                </InputAdornment>
+              ),
+            }
+          : undefined,
+      }}
+    />
+  );
+}
 
 export default function NutrientCalculationsPage() {
   const { t } = useTranslation();
@@ -303,108 +353,96 @@ export default function NutrientCalculationsPage() {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t('pages.nutrientCalc.mixingProtocol')}
               </Typography>
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.targetVolume')}
-                value={mpVolume}
-                onChange={(e) => setMpVolume(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                slotProps={{ htmlInput: { min: 0.1, step: 0.1 } }}
-                helperText={t('pages.nutrientCalc.targetVolumeHelper')}
-              />
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+              <Grid container spacing={2}>
+                <Grid size={12}>
+                  <CalcField
                     type="number"
+                    label={t('pages.nutrientCalc.targetVolume')}
+                    value={mpVolume}
+                    onChange={(e) => setMpVolume(Number(e.target.value))}
+                    htmlInputProps={{ min: 0.1, step: 0.1 }}
+                    helperText={t('pages.nutrientCalc.targetVolumeHelper')}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
+                    type="number"
+                    helpTerm="ec"
                     label={t('pages.nutrientCalc.targetEc')}
                     value={mpTargetEc}
                     onChange={(e) => setMpTargetEc(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
                     helperText={t('pages.nutrientCalc.ecUnitHelper')}
                   />
-                  <HelpTooltip term="ec" iconOnly />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ph"
                     label={t('pages.nutrientCalc.targetPh')}
                     value={mpTargetPh}
                     onChange={(e) => setMpTargetPh(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, max: 14, step: 0.1 }}
                     helperText={t('pages.nutrientCalc.phUnitHelper')}
                   />
-                  <HelpTooltip term="ph" iconOnly />
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ec"
                     label={t('pages.nutrientCalc.baseWaterEc')}
                     value={mpBaseEc}
                     onChange={(e) => setMpBaseEc(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
                     helperText={t('pages.nutrientCalc.ecUnitHelper')}
                   />
-                  <HelpTooltip term="ec" iconOnly />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ph"
                     label={t('pages.nutrientCalc.baseWaterPh')}
                     value={mpBasePh}
                     onChange={(e) => setMpBasePh(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, max: 14, step: 0.1 }}
                   />
-                  <HelpTooltip term="ph" iconOnly />
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="alkalinity"
                     label={t('pages.nutrientCalc.mixingAlkalinity')}
                     value={mpAlkalinity}
                     onChange={(e) => setMpAlkalinity(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, max: 500, step: 'any' } }}
+                    htmlInputProps={{ min: 0, max: 500, step: 'any' }}
                     helperText={t('pages.nutrientCalc.mixingAlkalinityHelper')}
                   />
-                  <HelpTooltip term="alkalinity" iconOnly />
-                </Box>
-                <TextField
-                  select
-                  label={t('pages.nutrientCalc.mixingPhase')}
-                  value={mpPhase}
-                  onChange={(e) => setMpPhase(e.target.value as PhaseName)}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  helperText={t('pages.nutrientCalc.mixingPhaseHelper')}
-                >
-                  {PHASE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                  ))}
-                </TextField>
-              </Box>
-              <TextField
-                label={t('pages.nutrientCalc.fertilizerKeys')}
-                value={mpFertKeys}
-                onChange={(e) => setMpFertKeys(e.target.value)}
-                fullWidth
-                sx={{ mb: 2 }}
-                helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
-              />
-              <Button variant="contained" onClick={calcMixingProtocol} fullWidth>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    select
+                    label={t('pages.nutrientCalc.mixingPhase')}
+                    value={mpPhase}
+                    onChange={(e) => setMpPhase(e.target.value as PhaseName)}
+                    fullWidth
+                    helperText={t('pages.nutrientCalc.mixingPhaseHelper')}
+                  >
+                    {PHASE_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={12}>
+                  <TextField
+                    label={t('pages.nutrientCalc.fertilizerKeys')}
+                    value={mpFertKeys}
+                    onChange={(e) => setMpFertKeys(e.target.value)}
+                    fullWidth
+                    helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
+                  />
+                </Grid>
+              </Grid>
+              <Button variant="contained" onClick={calcMixingProtocol} fullWidth sx={{ mt: 2 }}>
                 {t('pages.nutrientCalc.calculate')}
               </Button>
               {mpResult && (
@@ -480,27 +518,28 @@ export default function NutrientCalculationsPage() {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t('pages.nutrientCalc.flushing')}
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 2 }}>
-                <TextField
-                  type="number"
-                  label={t('pages.nutrientCalc.currentEc')}
-                  value={flCurrentEc}
-                  onChange={(e) => setFlCurrentEc(Number(e.target.value))}
-                  fullWidth
-                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
-                />
-                <HelpTooltip term="ec" iconOnly />
-              </Box>
-              <TextField
-                type="number"
-                label={t('pages.nutrientCalc.daysUntilHarvest')}
-                value={flDaysUntilHarvest}
-                onChange={(e) => setFlDaysUntilHarvest(Number(e.target.value))}
-                fullWidth
-                sx={{ mb: 2 }}
-                slotProps={{ htmlInput: { min: 1 } }}
-              />
-              <Button variant="contained" onClick={calcFlushing} fullWidth>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
+                    type="number"
+                    helpTerm="ec"
+                    label={t('pages.nutrientCalc.currentEc')}
+                    value={flCurrentEc}
+                    onChange={(e) => setFlCurrentEc(Number(e.target.value))}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
+                    type="number"
+                    label={t('pages.nutrientCalc.daysUntilHarvest')}
+                    value={flDaysUntilHarvest}
+                    onChange={(e) => setFlDaysUntilHarvest(Number(e.target.value))}
+                    htmlInputProps={{ min: 1 }}
+                  />
+                </Grid>
+              </Grid>
+              <Button variant="contained" onClick={calcFlushing} fullWidth sx={{ mt: 2 }}>
                 {t('pages.nutrientCalc.calculate')}
               </Button>
               {flResult && (
@@ -541,81 +580,69 @@ export default function NutrientCalculationsPage() {
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t('pages.nutrientCalc.runoffAnalysis')}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ec"
                     label={t('pages.nutrientCalc.inputEc')}
                     value={roInputEc}
                     onChange={(e) => setRoInputEc(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
                     helperText={t('pages.nutrientCalc.ecUnitHelper')}
                   />
-                  <HelpTooltip term="ec" iconOnly />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ec"
                     label={t('pages.nutrientCalc.runoffEc')}
                     value={roRunoffEc}
                     onChange={(e) => setRoRunoffEc(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
                   />
-                  <HelpTooltip term="ec" iconOnly />
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ph"
                     label={t('pages.nutrientCalc.inputPh')}
                     value={roInputPh}
                     onChange={(e) => setRoInputPh(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, max: 14, step: 0.1 }}
                     helperText={t('pages.nutrientCalc.phUnitHelper')}
                   />
-                  <HelpTooltip term="ph" iconOnly />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                  <TextField
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
                     type="number"
+                    helpTerm="ph"
                     label={t('pages.nutrientCalc.runoffPh')}
                     value={roRunoffPh}
                     onChange={(e) => setRoRunoffPh(Number(e.target.value))}
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    slotProps={{ htmlInput: { min: 0, max: 14, step: 0.1 } }}
+                    htmlInputProps={{ min: 0, max: 14, step: 0.1 }}
                   />
-                  <HelpTooltip term="ph" iconOnly />
-                </Box>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField
-                  type="number"
-                  label={t('pages.nutrientCalc.inputVolume')}
-                  value={roInputVol}
-                  onChange={(e) => setRoInputVol(Number(e.target.value))}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
-                />
-                <TextField
-                  type="number"
-                  label={t('pages.nutrientCalc.runoffVolume')}
-                  value={roRunoffVol}
-                  onChange={(e) => setRoRunoffVol(Number(e.target.value))}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
-                />
-              </Box>
-              <Button variant="contained" onClick={calcRunoff} fullWidth>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
+                    type="number"
+                    label={t('pages.nutrientCalc.inputVolume')}
+                    value={roInputVol}
+                    onChange={(e) => setRoInputVol(Number(e.target.value))}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
+                    type="number"
+                    label={t('pages.nutrientCalc.runoffVolume')}
+                    value={roRunoffVol}
+                    onChange={(e) => setRoRunoffVol(Number(e.target.value))}
+                    htmlInputProps={{ min: 0, step: 0.1 }}
+                  />
+                </Grid>
+              </Grid>
+              <Button variant="contained" onClick={calcRunoff} fullWidth sx={{ mt: 2 }}>
                 {t('pages.nutrientCalc.calculate')}
               </Button>
               {roResult && (
@@ -693,62 +720,65 @@ export default function NutrientCalculationsPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.nutrientCalc.areaDosingIntro')}
               </Typography>
-              <TextField
-                label={t('pages.nutrientCalc.fertilizerKeys')}
-                value={adFertKeys}
-                onChange={(e) => setAdFertKeys(e.target.value)}
-                fullWidth
-                sx={{ mb: 2 }}
-                helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
-              />
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 0, sm: 2 }, alignItems: { sm: 'flex-start' } }}>
-                <TextField
-                  type="number"
-                  label={t('pages.nutrientCalc.areaM2')}
-                  value={adAreaM2}
-                  onChange={(e) => setAdAreaM2(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="10"
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  slotProps={{ htmlInput: { min: 0, step: 'any' } }}
-                  helperText={t('pages.nutrientCalc.areaM2Helper')}
-                />
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ px: 1, pt: { xs: 0, sm: 2.25 }, pb: { xs: 1, sm: 0 }, alignSelf: { xs: 'flex-start', sm: 'auto' } }}
-                >
-                  {t('pages.nutrientCalc.areaOrLocation')}
-                </Typography>
-                <TextField
-                  label={t('pages.nutrientCalc.locationKey')}
-                  value={adLocationKey}
-                  onChange={(e) => setAdLocationKey(e.target.value)}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  helperText={t('pages.nutrientCalc.locationKeyHelper')}
-                />
-              </Box>
-              {adAreaM2 !== '' && adLocationKey.trim() !== '' && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  {t('pages.nutrientCalc.areaOverridesLocationHint')}
-                </Alert>
-              )}
-              <TextField
-                select
-                label={t('pages.nutrientCalc.demandLevel')}
-                value={adDemandLevel}
-                onChange={(e) => setAdDemandLevel(e.target.value as NutrientDemandLevel | '')}
-                fullWidth
-                sx={{ mb: 2 }}
-                helperText={t('pages.nutrientCalc.demandLevelHelper')}
-              >
-                <MenuItem value="">{t('pages.nutrientCalc.demandLevelNone')}</MenuItem>
-                {DEMAND_LEVEL_OPTIONS.map((o) => (
-                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                ))}
-              </TextField>
-              <Button variant="contained" onClick={calcAreaDosing} fullWidth>
+              <Grid container spacing={2} sx={{ alignItems: 'flex-start' }}>
+                <Grid size={12}>
+                  <TextField
+                    label={t('pages.nutrientCalc.fertilizerKeys')}
+                    value={adFertKeys}
+                    onChange={(e) => setAdFertKeys(e.target.value)}
+                    fullWidth
+                    helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <CalcField
+                    type="number"
+                    label={t('pages.nutrientCalc.areaM2')}
+                    value={adAreaM2}
+                    onChange={(e) => setAdAreaM2(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="10"
+                    htmlInputProps={{ min: 0, step: 'any' }}
+                    helperText={t('pages.nutrientCalc.areaM2Helper')}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    label={t('pages.nutrientCalc.locationKey')}
+                    value={adLocationKey}
+                    onChange={(e) => setAdLocationKey(e.target.value)}
+                    fullWidth
+                    helperText={t('pages.nutrientCalc.locationKeyHelper')}
+                  />
+                </Grid>
+                <Grid size={12}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1 }}>
+                    {t('pages.nutrientCalc.areaOrLocation')}
+                  </Typography>
+                </Grid>
+                {adAreaM2 !== '' && adLocationKey.trim() !== '' && (
+                  <Grid size={12}>
+                    <Alert severity="info">
+                      {t('pages.nutrientCalc.areaOverridesLocationHint')}
+                    </Alert>
+                  </Grid>
+                )}
+                <Grid size={12}>
+                  <TextField
+                    select
+                    label={t('pages.nutrientCalc.demandLevel')}
+                    value={adDemandLevel}
+                    onChange={(e) => setAdDemandLevel(e.target.value as NutrientDemandLevel | '')}
+                    fullWidth
+                    helperText={t('pages.nutrientCalc.demandLevelHelper')}
+                  >
+                    <MenuItem value="">{t('pages.nutrientCalc.demandLevelNone')}</MenuItem>
+                    {DEMAND_LEVEL_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              </Grid>
+              <Button variant="contained" onClick={calcAreaDosing} fullWidth sx={{ mt: 2 }}>
                 {t('pages.nutrientCalc.calculate')}
               </Button>
               {adResult && (
@@ -810,44 +840,41 @@ export default function NutrientCalculationsPage() {
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   {t('pages.nutrientCalc.waterMixer')}
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                    <TextField
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <CalcField
                       type="number"
+                      helpTerm="ec"
                       label={t('pages.nutrientCalc.baseWaterEc')}
                       value={wmTapEc}
                       onChange={(e) => setWmTapEc(Number(e.target.value))}
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, max: 2, step: 0.01 } }}
+                      htmlInputProps={{ min: 0, max: 2, step: 0.01 }}
                       helperText={t('pages.nutrientCalc.ecUnitHelper')}
                     />
-                    <HelpTooltip term="ec" iconOnly />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                    <TextField
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <CalcField
                       type="number"
+                      helpTerm="alkalinity"
                       label={t('pages.nutrientCalc.alkalinity')}
                       value={wmAlkalinity}
                       onChange={(e) => setWmAlkalinity(Number(e.target.value))}
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, max: 500, step: 10 } }}
+                      htmlInputProps={{ min: 0, max: 500, step: 10 }}
                       helperText={t('pages.nutrientCalc.mixingAlkalinityHelper')}
                     />
-                    <HelpTooltip term="alkalinity" iconOnly />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                    <TextField
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <CalcField
                       type="number"
+                      helpTerm="ec"
                       label={t('pages.nutrientCalc.targetBaseEc')}
                       value={wmTargetBaseEc}
                       onChange={(e) => setWmTargetBaseEc(Number(e.target.value))}
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, max: 2, step: 0.01 } }}
+                      htmlInputProps={{ min: 0, max: 2, step: 0.01 }}
                       helperText={t('pages.nutrientCalc.ecUnitHelper')}
                     />
-                    <HelpTooltip term="ec" iconOnly />
-                  </Box>
-                </Box>
+                  </Grid>
+                </Grid>
                 <Button variant="outlined" onClick={calcWaterMixReverse} sx={{ mb: 2 }}>
                   {t('pages.nutrientCalc.calculate')}
                 </Button>
@@ -864,122 +891,124 @@ export default function NutrientCalculationsPage() {
                 <Typography variant="subtitle1" sx={{ mb: 1 }}>
                   {t('pages.nutrientCalc.ecBudget')}
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                    <TextField
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <CalcField
                       type="number"
+                      helpTerm="ec"
                       label={t('pages.nutrientCalc.targetEc')}
                       value={ebTargetEc}
                       onChange={(e) => setEbTargetEc(Number(e.target.value))}
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, max: 10, step: 0.1 } }}
+                      htmlInputProps={{ min: 0, max: 10, step: 0.1 }}
                     />
-                    <HelpTooltip term="ec" iconOnly />
-                  </Box>
-                  <TextField
-                    select
-                    label={t('pages.nutrientCalc.substrate')}
-                    value={ebSubstrate}
-                    onChange={(e) => setEbSubstrate(e.target.value as SubstrateType)}
-                    fullWidth
-                  >
-                    {SUBSTRATE_OPTIONS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    select
-                    label={t('pages.nutrientCalc.phase')}
-                    value={ebPhase}
-                    onChange={(e) => setEbPhase(e.target.value as PhaseName)}
-                    fullWidth
-                  >
-                    {PHASE_OPTIONS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    type="number"
-                    label={t('pages.nutrientCalc.targetVolume')}
-                    value={ebVolume}
-                    onChange={(e) => setEbVolume(Number(e.target.value))}
-                    fullWidth
-                    slotProps={{ htmlInput: { min: 0.1, step: 1 } }}
-                  />
-                </Box>
-                <TextField
-                  label={t('pages.nutrientCalc.fertilizerKeys')}
-                  value={ebFertKeys}
-                  onChange={(e) => setEbFertKeys(e.target.value)}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  helperText={t('pages.nutrientCalc.fertilizerKeysEcBudgetHelp')}
-                />
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <TextField
+                      select
+                      label={t('pages.nutrientCalc.substrate')}
+                      value={ebSubstrate}
+                      onChange={(e) => setEbSubstrate(e.target.value as SubstrateType)}
+                      fullWidth
+                    >
+                      {SUBSTRATE_OPTIONS.map((o) => (
+                        <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <TextField
+                      select
+                      label={t('pages.nutrientCalc.phase')}
+                      value={ebPhase}
+                      onChange={(e) => setEbPhase(e.target.value as PhaseName)}
+                      fullWidth
+                    >
+                      {PHASE_OPTIONS.map((o) => (
+                        <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <CalcField
+                      type="number"
+                      label={t('pages.nutrientCalc.targetVolume')}
+                      value={ebVolume}
+                      onChange={(e) => setEbVolume(Number(e.target.value))}
+                      htmlInputProps={{ min: 0.1, step: 1 }}
+                    />
+                  </Grid>
+                  <Grid size={12}>
+                    <TextField
+                      label={t('pages.nutrientCalc.fertilizerKeys')}
+                      value={ebFertKeys}
+                      onChange={(e) => setEbFertKeys(e.target.value)}
+                      fullWidth
+                      helperText={t('pages.nutrientCalc.fertilizerKeysEcBudgetHelp')}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <CalcField
+                      helpTerm="calmag"
                       label={t('pages.nutrientCalc.calmagKey')}
                       value={ebCalmagKey}
                       onChange={(e) => setEbCalmagKey(e.target.value)}
-                      fullWidth
                     />
-                    <HelpTooltip term="calmag" iconOnly />
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                    <TextField
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <CalcField
                       type="number"
+                      helpTerm="calmag"
                       label={t('pages.nutrientCalc.calmagDose')}
                       value={ebCalmagDose}
                       onChange={(e) => setEbCalmagDose(Number(e.target.value))}
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
+                      htmlInputProps={{ min: 0, step: 0.1 }}
                     />
-                    <HelpTooltip term="calmag" iconOnly />
-                  </Box>
-                  <TextField
-                    label={t('pages.nutrientCalc.silicateKey')}
-                    value={ebSilicateKey}
-                    onChange={(e) => setEbSilicateKey(e.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    type="number"
-                    label={t('pages.nutrientCalc.silicateDose')}
-                    value={ebSilicateDose}
-                    onChange={(e) => setEbSilicateDose(Number(e.target.value))}
-                    fullWidth
-                    slotProps={{ htmlInput: { min: 0, step: 0.1 } }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <TextField
-                    type="number"
-                    label={t('pages.nutrientCalc.substrateCycles')}
-                    value={ebSubstrateCycles}
-                    onChange={(e) => setEbSubstrateCycles(e.target.value === '' ? '' : Number(e.target.value))}
-                    fullWidth
-                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
-                  />
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                    <TextField
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <CalcField
+                      label={t('pages.nutrientCalc.silicateKey')}
+                      value={ebSilicateKey}
+                      onChange={(e) => setEbSilicateKey(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                    <CalcField
                       type="number"
+                      label={t('pages.nutrientCalc.silicateDose')}
+                      value={ebSilicateDose}
+                      onChange={(e) => setEbSilicateDose(Number(e.target.value))}
+                      htmlInputProps={{ min: 0, step: 0.1 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <CalcField
+                      type="number"
+                      label={t('pages.nutrientCalc.substrateCycles')}
+                      value={ebSubstrateCycles}
+                      onChange={(e) => setEbSubstrateCycles(e.target.value === '' ? '' : Number(e.target.value))}
+                      htmlInputProps={{ min: 0, step: 1 }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <CalcField
+                      type="number"
+                      helpTerm="ec"
                       label={t('pages.nutrientCalc.measuredEcAtTemp')}
                       value={ebMeasuredEc}
                       onChange={(e) => setEbMeasuredEc(e.target.value === '' ? '' : Number(e.target.value))}
-                      fullWidth
-                      slotProps={{ htmlInput: { min: 0, step: 0.01 } }}
+                      htmlInputProps={{ min: 0, step: 0.01 }}
                     />
-                    <HelpTooltip term="ec" iconOnly />
-                  </Box>
-                  <TextField
-                    type="number"
-                    label={t('pages.nutrientCalc.measuredTemp')}
-                    value={ebMeasuredTemp}
-                    onChange={(e) => setEbMeasuredTemp(e.target.value === '' ? '' : Number(e.target.value))}
-                    fullWidth
-                    slotProps={{ htmlInput: { step: 0.5 } }}
-                  />
-                </Box>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <CalcField
+                      type="number"
+                      label={t('pages.nutrientCalc.measuredTemp')}
+                      value={ebMeasuredTemp}
+                      onChange={(e) => setEbMeasuredTemp(e.target.value === '' ? '' : Number(e.target.value))}
+                      htmlInputProps={{ step: 0.5 }}
+                    />
+                  </Grid>
+                </Grid>
                 <Button variant="contained" onClick={calcEcBudget} fullWidth sx={{ mb: 2 }}>
                   {t('pages.nutrientCalc.calculate')}
                 </Button>

@@ -88,7 +88,12 @@ const s = (w: number, h: number): WidgetSize => ({ w, h });
 
 export const dashboardWidgetCatalog: Record<WidgetKey, DashboardWidgetDefinition> = {
   // ── Essentials ──
-  quick_actions: def('quick_actions', 'essentials', 'beginner', s(12, 2), s(4, 2), s(12, 4), null),
+  // h=4 (not 2): at 12 cols the tile Grid (xs:6/sm:4/md:2) still renders one
+  // full row of 6 icon tiles + a title line; h=2 (2*44+16=104px) clipped that
+  // content in both the edit grid (fixed ROW_HEIGHT) and, previously, the
+  // read-only grid. h=4 matches maxSize.h, i.e. the widget can no longer be
+  // grown further but starts at a height that actually fits its content.
+  quick_actions: def('quick_actions', 'essentials', 'beginner', s(12, 4), s(4, 2), s(12, 4), null),
   tasks_today: def('tasks_today', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'tasks'),
   care_reminders: def('care_reminders', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'care'),
   active_plants_summary: def('active_plants_summary', 'essentials', 'beginner', s(4, 3), s(2, 2), s(8, 6), 'plants'),

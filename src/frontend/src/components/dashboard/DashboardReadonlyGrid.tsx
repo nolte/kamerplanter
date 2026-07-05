@@ -12,13 +12,20 @@ import {
 import { sortByReadingOrder, packByReadingOrder } from '@/lib/dashboardLayoutOps';
 import type { DashboardLayout, DashboardWidgetInstance } from '@/api/types';
 
-const ROW_HEIGHT = 44; // px per grid row unit
+const MIN_ROW_HEIGHT = 44; // px — floor per implicit grid row; content may grow past it
 
 /**
  * REQ-045 §3.9 (K-001) — read-only rendering via a plain CSS grid, **without**
  * react-grid-layout, so the heavy DnD library is not loaded on the most-visited
  * page. DOM order follows (y, x) of the active breakpoint (UI-NFR-002 U-002 /
  * WCAG 1.3.2). Below 600px it stacks into a single column in reading order.
+ *
+ * Layout note: widgets keep their saved **column** placement (`x` / `w`) but
+ * flow to their **natural content height** instead of being locked to a fixed
+ * `h × ROW_HEIGHT` box. The old fixed-height rows left large vertical gaps
+ * whenever a widget's content was shorter than its stored `h`, and clipped
+ * widgets (e.g. quick-actions) whose content was taller. Implicit rows now use
+ * `min-content` with a small floor, so the grid packs tightly with no gaps.
  */
 export default function DashboardReadonlyGrid({
   layout,
@@ -55,21 +62,27 @@ export default function DashboardReadonlyGrid({
         display: 'grid',
         gap: 2,
         gridTemplateColumns: isMobile ? '1fr' : `repeat(${cols}, 1fr)`,
-        gridAutoRows: isMobile ? 'auto' : `${ROW_HEIGHT}px`,
+        // Content-driven rows with a small floor. Widgets flow to their natural
+        // height (no fixed h×ROW_HEIGHT box), so short widgets no longer leave
+        // gaps and tall ones are no longer clipped.
+        gridAutoRows: isMobile ? 'auto' : `minmax(${MIN_ROW_HEIGHT}px, min-content)`,
       }}
     >
       {ordered.map(({ placement, widget }) => (
         <Box
           key={widget.instance_id}
-          sx={
-            isMobile
-              ? undefined
-              : {
-                  gridColumn: `${placement.x + 1} / span ${Math.min(placement.w, cols)}`,
-                  gridRow: `${placement.y + 1} / span ${placement.h}`,
-                  minWidth: 0,
-                }
-          }
+          sx={{
+            // Keep the saved column placement; let the row auto-flow so the
+            // widget takes its content height instead of spanning `h` rows.
+            ...(isMobile ? {} : { gridColumn: `${placement.x + 1} / span ${Math.min(placement.w, cols)}` }),
+            // minWidth: 0 is required on every breakpoint (not just desktop): a
+            // `1fr` track's implicit min-width is `auto` (= the item's
+            // min-content size), so a widget with intrinsically wide content
+            // (e.g. a chart or long unbreakable label) would otherwise force
+            // the single mobile column past the viewport width and cause
+            // horizontal page scroll.
+            minWidth: 0,
+          }}
         >
           <WidgetFrame
             instance={widget}
