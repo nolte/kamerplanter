@@ -241,6 +241,32 @@ Klicke auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zurück i
 
 ---
 
+## Monokarpische Pflanzen: Einmalige Blüte und automatische Kindel-Fortführung {#monokarpische-pflanzen}
+
+Manche Pflanzenarten sind **monokarpisch**: Sie blühen genau einmal in ihrem Leben und sterben danach ab — bekannte Beispiele sind viele Agaven, Bromelien und Guzmanien. In der Lebenszyklus-Konfiguration einer Art ist das als **Blühstrategie „Monokarp (blüht einmal)"** hinterlegt, im Unterschied zu „Polykarp (blüht mehrfach)" bei Pflanzen, die über mehrere Jahre wiederholt blühen.
+
+Für monokarpische Arten bildet Kamerplanter die Fortführung der Kultur **nicht** als neuen Zyklus derselben Pflanze ab, sondern über eine eigenständige Nachfolgepflanze: Sobald eine monokarpische Mutterpflanze automatisch in ihre letzte Blühphase wechselt (Blüte, Fruchtentwicklung oder Reife — je nachdem, wie ihr Phasenablauf endet), erzeugt Kamerplanter automatisch genau eine neue Pflanzeninstanz, das **Kindel** (den klonalen Ableger), und verknüpft es mit der Mutterpflanze.
+
+!!! note "Kein Zyklus-Neustart"
+    Die Mutterpflanze wird dabei **nicht** zurückgesetzt und startet auch keinen neuen Anbauzyklus — sie welkt seneszent aus und behält bis zu ihrer Entfernung (siehe [Eine Pflanze entfernen](#pflanze-entfernen)) ihren bisherigen Standort und Platz. Die Fortführung der Kultur geschieht ausschließlich über das neu angelegte Kindel.
+
+Das Kindel übernimmt beim automatischen Anlegen:
+
+- Mandant, Pflanzenart und Sorte der Mutterpflanze
+- den Standort der Mutterpflanze — aber **keinen** festen Platz, denn die Mutterpflanze belegt ihren Platz weiter, während sie auswelkt
+- als Pflanzdatum das Datum des automatischen Übergangs
+
+Es startet in der Phase **Kindel-Etablierung**, sofern der Phasenablauf der Art eine solche Phase kennt — andernfalls in der ersten Phase des Ablaufs.
+
+In der Detailansicht des Kindels erscheint dafür ein Abstammungs-Link **„Kindel von …"**, der zur Mutterpflanze führt.
+
+!!! tip "Wiederholte Auswertung erzeugt kein zweites Kindel"
+    Wird der automatische Übergang für dieselbe Mutterpflanze erneut ausgewertet, legt Kamerplanter kein zweites Kindel und keine doppelte Abstammungsverknüpfung an.
+
+Mehr zur Vermehrungshistorie und den übrigen (manuellen) Vermehrungsmethoden: [Vermehrungsmanagement — Automatische Kindel-Fortführung bei monokarpischen Pflanzen](propagation.md#automatische-kindel-fortfuehrung). <!-- REQ-003 D10 / REQ-017 -->
+
+---
+
 ## Eine Pflanze entfernen: Abschlussart und Verlustursache erfassen {#pflanze-entfernen}
 
 Wenn eine Pflanze das Ende ihres Lebenszyklus erreicht hat — sei es durch Ernte, natürliches Absterben oder einen unerwarteten Verlust — entfernst du sie über den Button **Pflanze entfernen** auf ihrer Detailseite. Dabei kannst du optional festhalten, **wie** der Lebenszyklus geendet hat. <!-- REQ-003 E5 -->
@@ -332,6 +358,9 @@ Pflanzen ohne gesetzte Abschlussart (einfach entfernt, ohne Klassifizierung) fli
 ??? question "Kann ich die Abschlussart oder Verlustursache nachträglich ändern?"
     Nein. Die Angabe erfolgt einmalig im Entfernen-Dialog, wenn du die Pflanze entfernst, und lässt sich danach nicht mehr bearbeiten.
 
+??? question "Meine Agave ist in die Blüte gewechselt — muss ich jetzt selbst einen Ableger anlegen?"
+    Nein. Bei als monokarpisch eingestuften Arten (Blühstrategie „Monokarp") legt Kamerplanter das Kindel automatisch an, sobald die Pflanze in ihre letzte Blühphase wechselt — du musst nichts manuell auslösen. Die Mutterpflanze bleibt an ihrem Standort und altert seneszent aus; das Kindel führt die Kultur fort. Details: [Monokarpische Pflanzen](#monokarpische-pflanzen).
+
 ---
 
 ## Siehe auch
@@ -342,3 +371,4 @@ Pflanzen ohne gesetzte Abschlussart (einfach entfernt, ohne Klassifizierung) fli
 - [Pflanzdurchläufe](planting-runs.md)
 - [Gießprotokoll](watering-log.md#vorgeschlagene-giessmenge) — vorgeschlagene Gießmenge
 - [Guides: Nährlösung mischen](../guides/nutrient-mixing.md#flush-ruhephase-ohne-duengung) — Flush/Ruhephase ohne Düngung
+- [Vermehrungsmanagement](propagation.md)

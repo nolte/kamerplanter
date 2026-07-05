@@ -15,6 +15,7 @@ import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
+import Skeleton from '@mui/material/Skeleton';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import LabelIcon from '@mui/icons-material/Label';
@@ -179,6 +180,13 @@ export default function PlantInstanceDetailPage() {
   // Planting run references
   const [plantRuns, setPlantRuns] = useState<plantApi.PlantRunRef[]>([]);
 
+  // Mother instance (clonal continuation / D10) — resolved for the ancestry link
+  const [motherInstance, setMotherInstance] = useState<PlantInstance | null>(null);
+  // Tracks the in-flight fetch so the ancestry link can show a skeleton instead of
+  // briefly flashing the raw (often UUID-like) mother_key before the readable
+  // instance_id resolves.
+  const [motherLoading, setMotherLoading] = useState(false);
+
   // Care profile state
   const [careProfile, setCareProfile] = useState<import('@/api/types').CareProfile | null>(null);
   const [careProfileEditOpen, setCareProfileEditOpen] = useState(false);
@@ -222,6 +230,20 @@ export default function PlantInstanceDetailPage() {
     try {
       const p = await plantApi.getPlantInstance(key);
       setPlant(p);
+      // Resolve the mother instance for the ancestry link (D10 clonal continuation).
+      // Kicked off in the same tick as setPlant (before any further awaits) so the
+      // "loading" state batches with the initial render — the raw mother_key never
+      // flashes on screen before the readable instance_id (or its fallback) resolves.
+      if (p.mother_key) {
+        setMotherLoading(true);
+        plantApi.getPlantInstance(p.mother_key)
+          .then(setMotherInstance)
+          .catch(() => setMotherInstance(null))
+          .finally(() => setMotherLoading(false));
+      } else {
+        setMotherInstance(null);
+        setMotherLoading(false);
+      }
       let loadedSpecies: Species | null = null;
       if (p.species_key) {
         try {
@@ -1068,6 +1090,40 @@ export default function PlantInstanceDetailPage() {
                       <Chip label={t(`enums.plantingRunStatus.${r.status}`)} size="small" variant="outlined" />
                     </Link>
                   ))}
+                </Box>
+              )}
+              {plant.mother_key && (
+                <Box data-testid="ancestry-mother">
+                  <Tooltip
+                    title={t('pages.plantInstances.descendedFromTooltip')}
+                    arrow
+                    enterTouchDelay={0}
+                  >
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      tabIndex={0}
+                      role="note"
+                      aria-label={t('pages.plantInstances.descendedFromTooltip')}
+                      sx={{ cursor: 'help', textDecoration: 'underline dotted' }}
+                    >
+                      {t('pages.plantInstances.descendedFrom')}
+                    </Typography>
+                  </Tooltip>
+                  <Typography variant="body1" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                    <AccountTreeIcon fontSize="small" color="action" aria-hidden="true" sx={{ mt: '2px' }} />
+                    <Link
+                      component={RouterLink}
+                      to={`/pflanzen/plant-instances/${plant.mother_key}`}
+                      underline="hover"
+                      data-testid="ancestry-mother-link"
+                      sx={{ wordBreak: 'break-word' }}
+                    >
+                      {motherLoading
+                        ? <Skeleton variant="text" width={110} data-testid="ancestry-mother-skeleton" />
+                        : (motherInstance?.instance_id ?? plant.mother_key)}
+                    </Link>
+                  </Typography>
                 </Box>
               )}
               {plant.removed_on && (

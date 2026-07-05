@@ -74,7 +74,7 @@ Das Objektfeld `seed_profile` bündelt echte Saatgut-/Keim-Metadaten für samenv
 
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
-| `plant_instances` | Einzelne Pflanzen | `instance_id` (unique), `current_phase_key`, `sown_at` |
+| `plant_instances` | Einzelne Pflanzen | `instance_id` (unique), `current_phase_key`, `sown_at`, `mother_key` (Kindel-Abstammung, REQ-017) |
 | `planting_runs` | Pflanzdurchläufe (Gruppen) | `name`, `state`, `tenant_key` |
 | `planting_run_entries` | Einträge eines Durchlaufs | `species_key`, `planned_count` |
 
@@ -170,6 +170,12 @@ planned → active → harvesting → completed
 | `user_preferences` | Nutzerpräferenzen | `expertise_level`, `show_all_fields` |
 | `user_favorites` | Favorisierte Arten, Pläne, Dünger | `_from` (user), `_to` (target entity) |
 
+### Vermehrung (REQ-017)
+
+| Collection | Beschreibung | Wichtige Felder |
+|-----------|-------------|----------------|
+| `propagation_events` | Vermehrungsereignisse — aktuell nur der automatische Kindel-Klon-Fall (D10) | `method` (`clone`), `parent_plant_keys[]`, `child_plant_keys[]`, `happened_at` |
+
 ### Sonstiges
 
 | Collection | Beschreibung |
@@ -220,6 +226,7 @@ planned → active → harvesting → completed
 | `current_phase` | `plant_instances` | `growth_phases` | Aktuelle Phase der Pflanze |
 | `phase_history_edge` | `plant_instances` | `phase_histories` | Phasenhistorie der Pflanze |
 | `follows_plan` | `plant_instances` | `nutrient_plans` | Pflanze folgt Nährlösungsplan |
+| `descended_from` | `plant_instances` (Kindel) | `plant_instances` (Mutter) | Genetische Abstammung — aktuell nur der automatische Kindel-Klon-Fall bei monokarpischen Pflanzen (REQ-017) |
 
 ### Pflanzdurchlauf-Graph
 

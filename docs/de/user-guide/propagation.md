@@ -1,7 +1,7 @@
 # Vermehrungsmanagement
 
-!!! warning "Noch nicht implementiert"
-    Diese Funktion ist **spezifiziert aber noch nicht implementiert**. Die Dokumentation beschreibt das geplante Verhalten. Aktuell existieren Familien-Beziehungen und Artenstammdaten mit Vermehrungsmethoden, aber der Abstammungsgraph (`descended_from`-Edges), Klon-Tracking und Veredelungs-Kompatibilitätsprüfung fehlen noch. <!-- REQ-017 -->
+!!! note "Teilweise verfügbar"
+    Die **manuelle** Vermehrung (Stecklinge nehmen, Samen-Kreuzungen, Veredelung, Teilung) sowie der interaktive Abstammungsgraph sind spezifiziert, aber noch nicht implementiert — die entsprechenden Abschnitte weiter unten beschreiben das geplante Verhalten. Bereits verfügbar ist die **automatische** Kindel-Fortführung bei einmal blühenden (monokarpischen) Pflanzen, siehe [Automatische Kindel-Fortführung bei monokarpischen Pflanzen](#automatische-kindel-fortfuehrung). <!-- REQ-017 -->
 
 Kamerplanter dokumentiert die genetische Abstammung deiner Pflanzen lückenlos: Welche Mutterpflanze lieferte den Steckling? Welche zwei Elternpflanzen wurden gekreuzt? Über welche Unterlage wurde eine Sorte veredelt? Der **Abstammungsgraph** macht diese Beziehungen sichtbar und prüft automatisch Veredelungskompatibilität.
 
@@ -11,6 +11,19 @@ Kamerplanter dokumentiert die genetische Abstammung deiner Pflanzen lückenlos: 
 
 - Mindestens eine Pflanzinstanz (Mutterpflanze) ist angelegt
 - Die Art und Sorte sind in den Stammdaten erfasst
+
+---
+
+## Automatische Kindel-Fortführung bei monokarpischen Pflanzen {#automatische-kindel-fortfuehrung}
+
+Für **monokarpische** Pflanzenarten — sie blühen genau einmal in ihrem Leben und sterben danach ab, z.B. viele Agaven, Bromelien und Guzmanien — läuft die Vermehrung anders als bei den unten beschriebenen manuellen Methoden: Sobald eine solche Mutterpflanze automatisch in ihre letzte Blühphase wechselt, legt Kamerplanter **automatisch** eine neue Pflanzeninstanz an — das **Kindel** (den klonalen Ableger) — und verknüpft es über einen `descended_from`-Abstammungseintrag mit der Mutterpflanze, zusätzlich zu einem hinterlegten Vermehrungsereignis vom Typ „Klon".
+
+Das Kindel übernimmt Mandant, Pflanzenart, Sorte und Standort der Mutterpflanze, jedoch keinen festen Platz — die Mutterpflanze belegt ihren Platz weiter, während sie auswelkt. In der Detailansicht des Kindels erscheint dafür ein Abstammungs-Link **„Kindel von …"** zur Mutterpflanze.
+
+Ausführliche Beschreibung: [Wachstumsphasen — Monokarpische Pflanzen](growth-phases.md#monokarpische-pflanzen). <!-- REQ-003 D10 / REQ-017 -->
+
+!!! tip "Unterschied zur manuellen Stecklings-Vermehrung"
+    Diese automatische Fortführung ersetzt bei monokarpischen Arten die unten beschriebene manuelle Stecklings-Entnahme — du musst dafür nichts über das Menü **Vermehren** auslösen. Für alle anderen Vermehrungsarten (Samen-Kreuzung, Veredelung, Teilung, Steckling bei mehrfach blühenden/polykarpischen Pflanzen) gilt weiterhin die Beschreibung der geplanten manuellen Workflows in den folgenden Abschnitten.
 
 ---
 
@@ -168,6 +181,9 @@ Im Graph sind sichtbar:
 
 ??? question "Die Kompatibilitätsprüfung schlägt fehl, obwohl ich weiß, dass es funktioniert."
     Das System prüft nach botanischer Familie/Gattung. Du kannst die Prüfung übersteuern und manuell einen Kompatibilitäts-Vermerk hinzufügen. Trage die beobachtete Kompatibilität als Notiz in die Pflanzinstanz ein.
+
+??? question "Ist die automatische Kindel-Fortführung dasselbe wie ein manueller Steckling?"
+    Nein. Die automatische Kindel-Fortführung bei monokarpischen Pflanzen ist bereits implementiert und läuft ohne dein Zutun beim automatischen Übergang der Mutterpflanze in ihre letzte Blühphase. Die hier beschriebene manuelle Stecklings-Entnahme über das Menü **Vermehren** ist dagegen noch nicht umgesetzt.
 
 ---
 

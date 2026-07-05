@@ -99,6 +99,32 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
     def get_by_species(self, species_key: SpeciesKey) -> list[PlantInstance]:
         return self.find_by_field("species_key", species_key)
 
+    # ── Genetic lineage (REQ-017 / REQ-003 D10) ───────────────────────
+
+    def create_descended_from_edge(self, child_key: PlantID, mother_key: PlantID) -> None:
+        """Link a clonal pup back to its mother: child (descendant) → mother (ancestor)."""
+        child_id = f"{col.PLANT_INSTANCES}/{child_key}"
+        mother_id = f"{col.PLANT_INSTANCES}/{mother_key}"
+        self.create_edge(col.DESCENDED_FROM, child_id, mother_id)
+
+    def has_descendants(self, mother_key: PlantID) -> bool:
+        """Whether ``mother_key`` already has a descendant (inbound descended_from edge).
+
+        The edge points child → mother, so descendants are the *inbound* neighbours
+        of the mother vertex. Only the existence is needed (D10 idempotency guard),
+        so the traversal is capped at a single hop and stops at the first match.
+        """
+        mother_id = f"{col.PLANT_INSTANCES}/{mother_key}"
+        query = """
+        FOR v, e IN 1..1 INBOUND @mother_id GRAPH 'kamerplanter_graph'
+          OPTIONS {edgeCollections: [@edge_col]}
+          LIMIT 1
+          RETURN 1
+        """
+        bind_vars = {"mother_id": mother_id, "edge_col": col.DESCENDED_FROM}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return next(cursor, None) is not None
+
     def resolve_phase_name(self, phase_key: str) -> str:
         """Resolve a GrowthPhase key to its name."""
         if not phase_key:

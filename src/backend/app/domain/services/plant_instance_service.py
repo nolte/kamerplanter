@@ -7,6 +7,7 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
@@ -17,6 +18,7 @@ from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.propagation import PropagationEvent
 from app.domain.models.species import Cultivar, Species
 from app.domain.models.survival_stats import (
     PhaseLossCount,
@@ -24,6 +26,7 @@ from app.domain.models.survival_stats import (
     TerminationCauseCount,
     TerminationTypeCount,
 )
+from app.domain.services.propagation_service import PropagationService
 
 
 class PlantInstanceService:
@@ -39,6 +42,7 @@ class PlantInstanceService:
         species_repo: ISpeciesRepository | None = None,
         planting_run_repo: IPlantingRunRepository | None = None,
         photo_cleanup: Callable[[PlantInstance], None] | None = None,
+        propagation_service: PropagationService | None = None,
     ) -> None:
         self._repo = plant_repo
         self._site_repo = site_repo
@@ -49,6 +53,11 @@ class PlantInstanceService:
         self._task_repo = task_repo
         self._species_repo = species_repo
         self._run_repo = planting_run_repo
+        # REQ-003 D10 / REQ-017 — clonal-continuation collaborators. The engine
+        # is pure (the terminal decision); the PropagationEvent persistence is
+        # optional so the service stays usable in propagation-less contexts.
+        self._cyclic = CyclicLifecycleEngine()
+        self._propagation = propagation_service
         # REQ-034 §2.1 / AC-08 — cascade gallery-photo deletion when an instance
         # is removed. Injected to avoid a service→service import cycle; no-op
         # when unwired (keeps the service usable in photo-less contexts).
@@ -99,6 +108,98 @@ class PlantInstanceService:
             if slot:
                 slot.currently_occupied = True
                 self._site_repo.update_slot(plant.slot_key, slot)
+
+        return created
+
+    # ── Clonal continuation (REQ-003 D10 / REQ-017) ───────────────────────────
+
+    def handle_monocarpic_terminal_transition(self, mother_key: PlantID, phase_name: str) -> PlantInstance | None:
+        """Post-transition seam: spawn one clonal pup for a terminal monocarpic mother.
+
+        Registered as an ``on_transition`` callback of the phase service. When a
+        **monocarpic** mother auto-transitions into its terminal reproductive phase
+        (``flowering`` / ``fruit_development`` / ``ripening``), continuation happens
+        through a **new** plant instance (the pup) linked by a ``descended_from``
+        edge (REQ-017) — explicitly NOT a seasonal cycle restart (R1/R8). Returns
+        the spawned pup, or ``None`` when the transition is not a monocarpic terminal
+        one or a pup already exists (idempotent, R7).
+
+        The pure terminal decision lives in :class:`CyclicLifecycleEngine`; only the
+        spawn/edge/event side effects live here (NFR-001, R11). Tenant isolation is
+        preserved by inheriting the mother's ``tenant_key`` on every new record (R10).
+        """
+        mother = self._repo.get_by_key(mother_key)
+        if mother is None or mother.key is None:
+            return None
+
+        lifecycle = self._phase_repo.get_lifecycle_by_species(mother.species_key) if self._phase_repo else None
+        if lifecycle is None or not self._cyclic.is_monocarpic_terminal(lifecycle, phase_name):
+            return None
+
+        # Idempotency guard (R7): a mother that already spawned a pup has an inbound
+        # descended_from edge — re-evaluation must not create a second pup/edge.
+        if self._repo.has_descendants(mother.key):
+            return None
+
+        return self._spawn_pup(mother)
+
+    def _spawn_pup(self, mother: PlantInstance) -> PlantInstance:
+        """Create the pup instance, its lineage edge and a clone PropagationEvent.
+
+        The pup inherits ``tenant_key``, ``species_key``, ``cultivar_key`` and the
+        mother's **location** — but NOT the slot (R4): the mother lives on senescent
+        and still occupies it. ``planted_on`` is the terminal-transition date. The
+        pup's phase is forced to ``pup_establishment`` when the species models it,
+        else falls back to the first sequence phase (R2)."""
+        now = datetime.now(UTC)
+        transition_date = now.date()
+        assert mother.key is not None  # guarded by the caller
+
+        pup = PlantInstance(
+            tenant_key=mother.tenant_key,
+            instance_id=f"{mother.instance_id}-pup",
+            species_key=mother.species_key,
+            cultivar_key=mother.cultivar_key,
+            site_key=mother.site_key,
+            location_key=mother.location_key,
+            slot_key=None,  # R4: mother still holds the slot while senescing
+            substrate_key=mother.substrate_key,
+            planted_on=transition_date,
+            current_phase_key=self._resolve_pup_phase_key(mother.species_key),
+            current_phase_started_at=now,
+            mother_key=mother.key,
+        )
+        # No slot_key → the repository creates the doc without a PLACED_IN edge.
+        created = self._repo.create(pup)
+
+        # Initial phase-history entry for the pup (mirrors create_plant).
+        if created.key and self._phase_repo:
+            phase_name = self.resolve_phase_name(pup.current_phase_key or "")
+            self._phase_repo.create_phase_history(
+                PhaseHistory(
+                    plant_instance_key=created.key,
+                    phase_key=pup.current_phase_key or "",
+                    phase_name=phase_name,
+                    entered_at=now,
+                    transition_reason="clonal_pup",
+                )
+            )
+
+        # REQ-017 lineage edge child (pup) → mother.
+        if created.key:
+            self._repo.create_descended_from_edge(created.key, mother.key)
+
+        # REQ-017 provenance: persist the clone event (mother → pup).
+        if self._propagation is not None and created.key:
+            self._propagation.record(
+                PropagationEvent(
+                    tenant_key=mother.tenant_key,
+                    method="clone",
+                    parent_plant_keys=[mother.key],
+                    child_plant_keys=[created.key],
+                    happened_at=now,
+                )
+            )
 
         return created
 
@@ -312,6 +413,37 @@ class PlantInstanceService:
                     return first.key
 
         return None
+
+    #: Canonical entry phase for a clonal pup (REQ-003 D10 flow-template vocab).
+    _PUP_PHASE_NAME = "pup_establishment"
+
+    def _resolve_pup_phase_key(self, species_key: str) -> str | None:
+        """Resolve the forced ``pup_establishment`` phase key for a monocarpic pup.
+
+        Prefers a phase named ``pup_establishment`` in the species' PhaseSequence
+        (then LifecycleConfig); falls back to the species' first phase via
+        :meth:`_resolve_initial_phase_key` when no dedicated pup-entry phase is
+        modelled (R2). Bypasses the normal resolver only for the forced phase.
+        """
+        # PhaseSequence: match the entry whose definition is the pup-entry phase.
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                for entry in self._phase_seq_repo.get_entries_for_sequence(seq.key or ""):
+                    defn = self._phase_seq_repo.get_definition_by_key(entry.phase_definition_key)
+                    if defn and defn.name == self._PUP_PHASE_NAME:
+                        return entry.key
+
+        # LifecycleConfig: match the growth phase by name.
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle:
+                for gp in self._phase_repo.get_phases_by_lifecycle(lifecycle.key or ""):
+                    if gp.name == self._PUP_PHASE_NAME:
+                        return gp.key
+
+        # No dedicated pup-entry phase — fall back to the first sequence phase.
+        return self._resolve_initial_phase_key(species_key)
 
     def resolve_phase_name(self, phase_key: str) -> str:
         """Resolve a GrowthPhase key to its name."""

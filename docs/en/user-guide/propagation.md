@@ -1,7 +1,7 @@
 # Propagation Management
 
-!!! warning "Not yet implemented"
-    This feature is **specified but not yet implemented**. This documentation describes the planned behavior. Currently family relationships and species propagation metadata exist, but the lineage graph (`descended_from` edges), clone tracking, and graft compatibility checks are not yet coded. <!-- REQ-017 -->
+!!! note "Partially available"
+    **Manual** propagation (taking cuttings, seed crosses, grafting, division) and the interactive lineage graph are specified but not yet implemented — the corresponding sections below describe the planned behavior. Already available is the **automatic** pup continuation for plants that flower once (monocarpic plants), see [Automatic Pup Continuation for Monocarpic Plants](#automatische-kindel-fortfuehrung). <!-- REQ-017 -->
 
 Kamerplanter tracks the genetic lineage of your plants completely: which mother plant provided the cutting? Which two parent plants were crossed? Which rootstock was a variety grafted onto? The **lineage graph** makes these relationships visible and automatically checks graft compatibility.
 
@@ -11,6 +11,19 @@ Kamerplanter tracks the genetic lineage of your plants completely: which mother 
 
 - At least one plant instance (mother plant) is created
 - The species and variety are captured in the master data
+
+---
+
+## Automatic Pup Continuation for Monocarpic Plants {#automatische-kindel-fortfuehrung}
+
+For **monocarpic** plant species — they flower exactly once in their lifetime and then die, e.g. many agaves, bromeliads, and guzmanias — propagation works differently from the manual methods described below: as soon as such a mother plant automatically transitions into its final flowering phase, Kamerplanter **automatically** creates a new plant instance — the **pup** (the clonal offset) — and links it to the mother plant via a `descended_from` ancestry record, in addition to a recorded propagation event of type "clone".
+
+The pup inherits the tenant, plant species, cultivar, and location of the mother plant, but no fixed slot — the mother plant keeps occupying its slot while it senesces. For this reason, the pup's detail view shows an ancestry link **"Descended from …"** to the mother plant.
+
+Full description: [Growth Phases — Monocarpic Plants](growth-phases.md#monokarpische-pflanzen). <!-- REQ-003 D10 / REQ-017 -->
+
+!!! tip "Difference from manual cutting propagation"
+    For monocarpic species, this automatic continuation replaces the manual cutting workflow described below — you don't need to trigger anything via the **Propagate** menu. For all other propagation types (seed cross, grafting, division, cuttings for repeatedly-flowering/polycarpic plants), the description of the planned manual workflows in the following sections still applies.
 
 ---
 
@@ -168,6 +181,9 @@ The graph shows:
 
 ??? question "The compatibility check fails even though I know it works."
     The system checks by botanical family/genus. You can override the check and manually add a compatibility note. Record the observed compatibility as a note in the plant instance.
+
+??? question "Is the automatic pup continuation the same as a manual cutting?"
+    No. The automatic pup continuation for monocarpic plants is already implemented and runs without any action from you when the mother plant automatically transitions into its final flowering phase. The manual cutting workflow via the **Propagate** menu described here, on the other hand, is not yet implemented.
 
 ---
 

@@ -1,7 +1,9 @@
 from arango.database import StandardDatabase
 
 from app.config.settings import settings
+from app.data_access.arango import collections as col
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
+from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
@@ -64,6 +66,7 @@ from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
+from app.domain.models.propagation import PropagationEvent
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -76,6 +79,7 @@ from app.domain.services.overwintering_profile_service import OverwinteringProfi
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.propagation_service import PropagationService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
@@ -154,6 +158,12 @@ def get_substrate_service() -> SubstrateService:
     return SubstrateService(get_substrate_repo())
 
 
+def get_propagation_service() -> PropagationService:
+    """REQ-017 propagation service — D10 uses it only to persist the clone event."""
+    repo = BaseArangoRepository(get_db(), col.PROPAGATION_EVENTS, PropagationEvent)
+    return PropagationService(repo)
+
+
 def get_plant_instance_service() -> PlantInstanceService:
     rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
@@ -168,6 +178,7 @@ def get_plant_instance_service() -> PlantInstanceService:
         species_repo=get_species_repo(),
         planting_run_repo=get_planting_run_repo(),
         photo_cleanup=_cascade_plant_photo_cleanup,
+        propagation_service=get_propagation_service(),
     )
 
 
@@ -199,6 +210,12 @@ def get_phase_service() -> PhaseService:
     # REQ-006: Activate dormant tasks when a plant transitions to a new phase
     task_service = get_task_service()
     service.register_on_transition(task_service.activate_dormant_tasks_for_phase)
+    # REQ-003 D10 / REQ-017: when a monocarpic mother enters its terminal
+    # reproductive phase, spawn one clonal pup (new instance + descended_from
+    # edge) instead of a cycle restart. The callback is a no-op for every other
+    # transition (non-monocarpic, non-terminal, or an already-continued mother).
+    plant_service = get_plant_instance_service()
+    service.register_on_transition(plant_service.handle_monocarpic_terminal_transition)
     return service
 
 

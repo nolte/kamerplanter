@@ -53,9 +53,11 @@ class TestD10PupMonocarpy:
     """D10 — pup-based monocarpy (Agave, Bromelie).
 
     Years vegetative → one terminal bloom → the mother rosette dies; continuation is
-    via clonal pups (new instances, ``descended_from`` — DEFERRED to REQ-017 and NOT
-    tested here). Only the phase roles and the terminal-after-flowering decision that
-    already exist in the engine are asserted.
+    via a clonal pup, spawned as a **new** plant instance linked back to the mother
+    by a ``descended_from`` edge (REQ-017). Here the engine-level contract is
+    asserted: the phase roles, the terminal-after-flowering decision, and the pure
+    ``is_monocarpic_terminal`` predicate that gates the pup spawn. The spawn side
+    effect itself is covered by the ``PlantInstanceService`` clonal-pup tests.
     """
 
     def setup_method(self) -> None:
@@ -86,6 +88,14 @@ class TestD10PupMonocarpy:
         )
         assert restart is False
         assert "monocarp" in reason.lower()
+
+    def test_terminal_bloom_gates_the_clonal_pup_spawn(self) -> None:
+        # Entering the terminal reproductive phase is the point at which a clonal
+        # pup is spawned (a new instance), not before it.
+        assert self.engine.is_monocarpic_terminal(self._mother(), "flowering") is True
+        assert self.engine.is_monocarpic_terminal(self._mother(), "juvenile") is False
+        # a bromeliad's bract_coloring bloom (D8 → flowering) also gates the pup.
+        assert self.engine.is_monocarpic_terminal(self._mother(), "bract_coloring") is True
 
     def test_polycarpic_perennial_would_restart_by_contrast(self) -> None:
         # a polycarpic perennial with the SAME phase restarts — isolating the
