@@ -17,19 +17,17 @@ to prove the scoping contract.
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Any
 
 import pytest
 
-from app.data_access.arango.activity_repository import ArangoActivityRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 
 TODAY = date(2026, 4, 29)
-SINCE = datetime(2026, 4, 22, 9, 0, tzinfo=UTC)
 
 
 class _CapturingAql:
@@ -229,37 +227,4 @@ def test_count_below_threshold_rejects_empty_tenant_key() -> None:
 
     with pytest.raises(ValueError, match="tenant"):
         repo.count_below_threshold("")
-    assert db.aql.query is None
-
-
-# ── ActivityRepository ────────────────────────────────────────────────
-
-
-def test_list_recent_is_tenant_scoped_and_windowed() -> None:
-    db = _CapturingDb([{"_key": "a1", "name": "prune"}])
-    repo = ArangoActivityRepository(db)  # type: ignore[arg-type]
-
-    result = repo.list_recent("tenant-A", SINCE, 5)
-
-    assert result == [{"_key": "a1", "name": "prune"}]
-    q = db.aql.query or ""
-    assert "@@col" in q
-    assert "doc.tenant_key == @tenant_key" in q
-    assert "doc.created_at >= @since" in q
-    assert "SORT doc.created_at DESC" in q
-    assert "LIMIT @limit" in q
-    bv = db.aql.bind_vars or {}
-    assert bv["@col"] == "activities"
-    assert bv["tenant_key"] == "tenant-A"
-    assert bv["since"] == SINCE.isoformat()
-    assert bv["limit"] == 5
-    assert "tenant-A" not in q
-
-
-def test_list_recent_rejects_empty_tenant_key() -> None:
-    db = _CapturingDb([])
-    repo = ArangoActivityRepository(db)  # type: ignore[arg-type]
-
-    with pytest.raises(ValueError, match="tenant"):
-        repo.list_recent("", SINCE, 5)
     assert db.aql.query is None

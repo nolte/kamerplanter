@@ -21,7 +21,7 @@ satisfy them.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -76,18 +76,4 @@ class CareReminderDashboardRepository(Protocol):
 
     def count_due_on(self, tenant_key: str, today: date) -> int:
         """Care reminders actionable on ``today`` (due today plus overdue)."""
-        ...
-
-
-@runtime_checkable
-class ActivityDashboardRepository(Protocol):
-    """Recent-activity feed for the dashboard overview."""
-
-    def list_recent(
-        self,
-        tenant_key: str,
-        since: datetime,
-        limit: int,
-    ) -> list[dict[str, Any]]:
-        """Activities recorded since ``since``, most recent first."""
         ...

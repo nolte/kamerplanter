@@ -25,13 +25,15 @@ an authoritative user answer.
 - **For whom:** Kamerplanter users (grower / viewer) reading the tenant-scoped
   dashboard overview (REQ-009). All counts are strictly tenant-isolated
   (SEC-001).
-- **Scope (confirmed, expanded to all 8 probed methods):** implement every method
+- **Scope (confirmed, expanded to all probed methods):** implement every method
   the service probes — `PlantInstanceRepository.count_for_tenant` /
   `count_active_for_tenant`; task-repo `count_open_due_on` / `count_overdue` /
   `list_upcoming`; care-reminder-repo `count_due_on`; tank-repo
-  `count_below_threshold`; activity-repo `list_recent`. All five backend repos are
-  already wired into `get_dashboard_service`
-  (`common/dependencies.py:1058-1068`).
+  `count_below_threshold`. The eighth probed method, activity-repo `list_recent`,
+  is **deferred** (see R5): there is no per-tenant activity event log to feed it,
+  so `recent_activities` is an explicit empty section rather than a scan of the
+  global activity-type catalog. All backend repos are already wired into
+  `get_dashboard_service` (`common/dependencies.py:1058-1068`).
 - **Out of scope (explicit):**
   - Frontend widget shell — the three tiles render correctly via
     `GenericWidget.tsx`; the payload is empty, not the renderer. This fix is
@@ -112,12 +114,19 @@ an authoritative user answer.
 - **R5** — WHEN building the upcoming-tasks list, `list_upcoming(tenant, today,
   window_end, limit)` SHALL return open tasks with `today <= due_date <=
   window_end` (service passes `today + 7d`), sorted by `due_date` ascending,
-  capped at `limit`; and `list_recent(tenant, since, limit)` SHALL return activity
-  records since `since` (service passes `now − 7d`), most-recent first, capped at
-  `limit`.
+  capped at `limit`.
   - _dimension_: `functional` · _status_: `confirmed` · _source_: service call
-    signatures (`dashboard_service.py:157-175`) + existing `get_all_tasks`
-    ordering precedent
+    signature + existing `get_all_tasks` ordering precedent
+  - **`list_recent` / `recent_activities` deferred (review-verified 2026-07-05):**
+    there is **no per-tenant activity event log** to feed a "recent activities"
+    list. The `activities` collection is a global catalog of activity-type
+    *definitions* (`tenant_key == ""`, fields `forbidden_phases` /
+    `species_compatible` / `is_system` / `sort_order`), not a record of performed
+    actions — a tenant-scoped scan of it returns `[]` dressed up as an implemented
+    feature (the exact masking this change removes). `_recent_activities`
+    therefore returns an explicit `[]` (documented deferral to the REQ-009
+    roadmap); `activity_repo` stays wired for a future event-log source. No
+    `list_recent` method is shipped.
 - **R6** — WHERE any of these repository methods is tenant-scoped, the method
   SHALL filter `FILTER doc.tenant_key == @tenant_key` and SHALL reject an empty
   `tenant_key` with a `ValueError` before issuing any query (SEC-001 / SEC-B4),
@@ -125,11 +134,17 @@ an authoritative user answer.
   - _dimension_: `non_functional` · _status_: `confirmed` · _source_: SEC-001
     invariant + Q3; plan "Tenant-Isolation (SEC-001)"
 - **R7** — The `DashboardService` SHALL invoke the repository counts/lists
-  through a typed interface (Protocol/ABC in `domain/interfaces/`) rather than
-  `hasattr` probes, so that a missing method surfaces as a loud error instead of
-  silently collapsing to `0`.
+  through a typed interface (Protocol in `domain/interfaces/`) rather than silent
+  `hasattr`→`0` probes. A **missing** required method SHALL surface as a loud
+  error (an up-front `_require_methods` existence check, before the query call),
+  while an error raised **while a present method runs** (including an internal
+  `AttributeError`) SHALL be degraded per-section to `0`/`[]`. The two must stay
+  distinguishable so a genuine runtime error never masquerades as a missing
+  method, and vice-versa.
   - _dimension_: `non_functional` · _status_: `confirmed` · _source_:
-    "hasattr-Härtung: Protocol/ABC in domain/interfaces"
+    "hasattr-Härtung: Protocol/ABC in domain/interfaces"; refined by review
+    finding #4 (a blanket `except AttributeError: raise` would 500 the whole
+    dashboard on an internal `AttributeError`)
 - **R8** — WHEN active plant instances exist for a tenant, the aggregated
   dashboard response SHALL report `plants_active > 0` (correct cardinality), and a
   regression test SHALL prove that (a) real active plants yield a non-zero count

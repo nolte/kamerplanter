@@ -100,7 +100,10 @@ class TestDashboardSummary:
         assert result.counts.tanks_low == 1
         assert result.counts.care_reminders_due == 7
         assert result.upcoming_tasks == [{"key": "task-1"}]
-        assert result.recent_activities == [{"key": "act-1"}]
+        # recent_activities is deferred (no per-tenant event log yet): the section
+        # is an explicit empty list and the activity repo is never consulted.
+        assert result.recent_activities == []
+        activity_repo.list_recent.assert_not_called()
 
     def test_optional_repos_none_degrade_to_empty(self):
         # Absent OPTIONAL repos (tank/care/activity) are a legit configuration,
