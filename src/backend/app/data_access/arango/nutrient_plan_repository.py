@@ -31,29 +31,34 @@ class ArangoNutrientPlanRepository(BaseArangoRepository[NutrientPlan], INutrient
         *,
         all_tenants: bool = False,
     ) -> tuple[list[NutrientPlan], int]:
+        # Nutrient plans are a hybrid catalog: globally seeded system plans
+        # (empty tenant_key) PLUS per-tenant custom plans.  When a tenant_key is
+        # supplied the query below unions the tenant's own rows with the global
+        # rows; a missing tenant_key must therefore be an explicit system-context
+        # opt-in (all_tenants=True) rather than a silent all-tenant read (SEC-B4).
         self._enforce_tenant_scope(tenant_key, all_tenants)
+        query = f"FOR doc IN {col.NUTRIENT_PLANS}"
+        bind_vars: dict[str, Any] = {}
+        filter_clauses = []
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            filter_clauses.append('(doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)')
         if filters:
-            query = f"FOR doc IN {col.NUTRIENT_PLANS}"
-            bind_vars: dict[str, Any] = {}
-            filter_clauses = []
-            if tenant_key:
-                bind_vars["tenant_key"] = tenant_key
-                filter_clauses.append("doc.tenant_key == @tenant_key")
             for i, (field, value) in enumerate(filters.items()):
                 bind_vars[f"val{i}"] = value
                 filter_clauses.append(f"doc.{field} == @val{i}")
+        if filter_clauses:
             query += " FILTER " + " AND ".join(filter_clauses)
-            count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
-            count_vars = dict(bind_vars)
-            bind_vars["offset"] = offset
-            bind_vars["limit"] = limit
-            query += " SORT doc.name LIMIT @offset, @limit RETURN doc"
-            cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-            items = [NutrientPlan(**self._from_doc(doc)) for doc in cursor]
-            count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
-            total = next(count_cursor, 0)
-            return items, total
-        return super().get_all(offset, limit, tenant_key=tenant_key, all_tenants=all_tenants)
+        count_query = query + " COLLECT WITH COUNT INTO total RETURN total"
+        count_vars = dict(bind_vars)
+        bind_vars["offset"] = offset
+        bind_vars["limit"] = limit
+        query += " SORT doc.name LIMIT @offset, @limit RETURN doc"
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        items = [NutrientPlan(**self._from_doc(doc)) for doc in cursor]
+        count_cursor = self._db.aql.execute(count_query, bind_vars=count_vars)
+        total = next(count_cursor, 0)
+        return items, total
 
     def delete(self, key: NutrientPlanKey) -> bool:
         plan_id = f"{col.NUTRIENT_PLANS}/{key}"
