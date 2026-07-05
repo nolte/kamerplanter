@@ -91,13 +91,17 @@ def backfill_tenant_key(db: StandardDatabase) -> dict[str, int]:
 
     Returns counts of updated documents.
     """
-    stats: dict[str, int] = {"total_updated": 0, "warnings": 0}
+    # ``tenant_resolved`` lets the caller (v0004) distinguish a genuine no-op
+    # from a no-op *forced* by the absence of a default tenant, so an orphaned
+    # dataset can be retried on a later, tenant-bearing boot (issue #375 §3).
+    stats: dict[str, int] = {"total_updated": 0, "warnings": 0, "tenant_resolved": 0}
 
     default_tenant_key = _resolve_default_tenant(db)
     if not default_tenant_key:
         logger.error("No default tenant found — cannot backfill tenant_key")
         return stats
 
+    stats["tenant_resolved"] = 1
     logger.info("Using default tenant_key=%s for orphaned documents", default_tenant_key)
 
     # Phase 1: Assign tenant_key to top-level collections

@@ -41,6 +41,37 @@ def _minutes_to_time_str(minutes: int) -> str:
     return f"{h:02d}:{m:02d}"
 
 
+def _time_str_to_minutes(value: str) -> int:
+    h, m = value.split(":")
+    return int(h) * 60 + int(m)
+
+
+def effective_light_hours(lights_on: str | None, lights_off: str | None) -> float | None:
+    """Hours of light per day for an artificial grow-light schedule (REQ-018).
+
+    Parses two ``HH:MM`` strings and returns the on-duration, handling the
+    midnight wrap: ``18:00``→``06:00`` yields 12h via ``(off - on) mod 24h``.
+    Used as the indoor equivalent of astronomical day length for the
+    ``photoperiod_based`` transition trigger (REQ-003 E1).
+
+    Returns ``None`` (photoperiod trigger then skipped) when either bound is
+    missing/malformed, or when ``lights_on == lights_off`` — equal times are
+    ambiguous (0h permanent-dark vs 24h permanent-light are both nonsensical as
+    a real schedule), so the trigger is skipped rather than guessed.
+    """
+    if not lights_on or not lights_off:
+        return None
+    try:
+        on_minutes = _time_str_to_minutes(lights_on)
+        off_minutes = _time_str_to_minutes(lights_off)
+    except ValueError:
+        # malformed HH:MM (unpack / int() failure) -> skip the trigger
+        return None
+    if on_minutes == off_minutes:
+        return None
+    return ((off_minutes - on_minutes) % (24 * 60)) / 60.0
+
+
 def calculate_dli(ppfd: int, photoperiod_hours: float) -> float:
     """Calculate Daily Light Integral (mol/m²/day).
     DLI = PPFD × photoperiod_hours × 3600 / 1_000_000

@@ -12,13 +12,19 @@ no user input is ever interpolated into a query string.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError
+from arango.exceptions import (
+    DocumentDeleteError,
+    DocumentInsertError,
+    DocumentReplaceError,
+    DocumentRevisionError,
+)
 
 from app.data_access.arango.collections import SCHEMA_MIGRATIONS
 from app.migrations.framework.report import MigrationLockError
@@ -106,19 +112,28 @@ def _is_stale(lock_doc: dict[str, Any], now: datetime) -> bool:
     return (now - acquired_at).total_seconds() > LOCK_TTL_SECONDS
 
 
-def acquire_lock(db: StandardDatabase) -> dict[str, Any]:
+def acquire_lock(db: StandardDatabase) -> str:
     """Acquire the migration lock, or raise :class:`MigrationLockError` (M-8).
 
+    Returns the caller's *owner token* — a per-runner uuid stored in the lock
+    document — which MUST be passed back to :func:`release_lock` so only the
+    holder can free the lock (fencing).
+
     A fresh lock held by another runner blocks this one.  A stale lock (older
-    than the TTL) is taken over so a crashed runner cannot wedge startup.
+    than the TTL) is taken over so a crashed runner cannot wedge startup — but
+    the takeover is a *revision-checked* replace, so when two replicas race to
+    adopt the same stale lock the loser's replace fails its `_rev` check and is
+    surfaced as :class:`MigrationLockError` rather than both proceeding to
+    migrate concurrently.
     """
     col = _collection(db)
     now = datetime.now(UTC)
-    lock_doc = {"_key": LOCK_KEY, "acquired_at": now.isoformat()}
+    owner = str(uuid.uuid4())
+    lock_doc = {"_key": LOCK_KEY, "owner": owner, "acquired_at": now.isoformat()}
 
     try:
         col.insert(lock_doc)
-        return lock_doc
+        return owner
     except DocumentInsertError as exc:
         existing = col.get(LOCK_KEY)
         if existing is None:
@@ -127,16 +142,48 @@ def acquire_lock(db: StandardDatabase) -> dict[str, Any]:
                 col.insert(lock_doc)
             except DocumentInsertError as retry_exc:
                 raise MigrationLockError("Migration lock is held by another runner") from retry_exc
-            return lock_doc
+            return owner
         if _is_stale(existing, now):
-            logger.warning("migration_lock_taken_over", acquired_at=existing.get("acquired_at"))
-            col.replace(lock_doc)
-            return lock_doc
+            logger.warning(
+                "migration_lock_taken_over",
+                acquired_at=existing.get("acquired_at"),
+                previous_owner=existing.get("owner"),
+            )
+            # Compare-and-swap on the revision we just read: if another replica
+            # already replaced this stale lock, the `_rev` mismatch raises and
+            # we treat the lock as held (single-runner guarantee, M-8).
+            takeover = {**lock_doc, "_rev": existing.get("_rev")}
+            try:
+                col.replace(takeover)
+            except (DocumentReplaceError, DocumentRevisionError) as replace_exc:
+                raise MigrationLockError("Migration lock is held by another runner") from replace_exc
+            return owner
         raise MigrationLockError("Migration lock is held by another runner") from exc
 
 
-def release_lock(db: StandardDatabase) -> None:
-    """Release the migration lock if present (idempotent)."""
+def release_lock(db: StandardDatabase, owner: str) -> None:
+    """Release the migration lock iff this runner still owns it (idempotent).
+
+    Only the holder whose ``owner`` token matches the stored one may delete the
+    lock, and only while the revision is unchanged since it was read.  A lock
+    that has been taken over by another replica (because this runner's migration
+    outran the TTL) is left intact, and a delete/replace race is swallowed —
+    never crashing the caller's ``finally: release_lock(...)``.
+    """
     col = _collection(db)
-    if col.has(LOCK_KEY):
-        col.delete(LOCK_KEY)
+    existing = col.get(LOCK_KEY)
+    if existing is None:
+        return  # already released
+    if existing.get("owner") != owner:
+        logger.warning(
+            "migration_lock_not_owned_on_release",
+            stored_owner=existing.get("owner"),
+            our_owner=owner,
+        )
+        return
+    try:
+        col.delete({"_key": LOCK_KEY, "_rev": existing.get("_rev")})
+    except (DocumentDeleteError, DocumentRevisionError) as exc:
+        # Raced with a concurrent takeover between our read and delete — the
+        # lock is no longer ours to free.
+        logger.debug("migration_lock_release_race", error=str(exc))

@@ -127,3 +127,18 @@ def test_cultivar_schema_properties_map_to_model() -> None:
         "Cultivar schema properties with no Cultivar model field and not declared "
         "free-form (add to the model or to _CULTIVAR_SCHEMA_FREEFORM_ONLY):\n" + "\n".join(unexpected)
     )
+
+
+@pytest.mark.parametrize(
+    ("data_file", "schema_stem"),
+    [
+        ("lifecycles_outdoor.yaml", "lifecycles"),
+        ("phase_sequences.yaml", "phase_sequences"),
+    ],
+)
+def test_lifecycle_seed_matches_schema(data_file: str, schema_stem: str) -> None:
+    validator = _build_validator(schema_stem)
+    data = yaml.safe_load((_SEED / data_file).read_text()) or {}
+    errors = sorted(validator.iter_errors(data), key=lambda e: list(e.absolute_path))
+    formatted = [f"{list(e.absolute_path)}: {e.message}" for e in errors[:15]]
+    assert not errors, f"{data_file} has {len(errors)} schema violations:\n" + "\n".join(formatted)

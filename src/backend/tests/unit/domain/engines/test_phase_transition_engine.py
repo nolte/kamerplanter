@@ -9,7 +9,7 @@ from app.common.enums import CycleType
 from app.common.exceptions import PhaseTransitionError
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-from app.domain.models.phase import PhaseHistory
+from app.domain.models.phase import PhaseHistory, PhaseTransitionRule
 from app.domain.models.plant_instance import PlantInstance
 
 
@@ -208,6 +208,43 @@ class TestPerennialCycleRestart:
 
         with pytest.raises(PhaseTransitionError, match="Backward transition not allowed"):
             self.engine.validate_transition("plant-1", "ph-1")
+
+
+class TestPrematureBolting:
+    """E6: a stress-induced vegetative → bolting transition is flagged in history."""
+
+    def setup_method(self) -> None:
+        self.phase_repo = MagicMock()
+        self.plant_repo = MagicMock()
+        self.engine = PhaseTransitionEngine(self.phase_repo, self.plant_repo)
+
+        self.vegetative = _make_phase("ph-veg", "vegetative", 3)
+        self.bolting = _make_phase("ph-bolt", "bolting", 4)
+        self.phase_repo.get_phase_by_key.side_effect = lambda k: {
+            "ph-veg": self.vegetative,
+            "ph-bolt": self.bolting,
+        }.get(k)
+        self.phase_repo.get_phase_history.return_value = []
+
+    def _run_transition(self, *, is_premature: bool) -> PhaseHistory:
+        plant = _make_plant(current_phase_key="ph-veg")
+        self.plant_repo.get_by_key.return_value = plant
+        self.plant_repo.update.return_value = plant
+        rule = PhaseTransitionRule(from_phase_key="ph-veg", to_phase_key="ph-bolt", is_premature=is_premature)
+        self.phase_repo.get_transition_rules.return_value = [rule]
+
+        self.engine.execute_transition("plant-1", "ph-bolt", reason="bolting")
+        return self.phase_repo.create_phase_history.call_args[0][0]
+
+    def test_premature_bolting_flagged_in_history(self) -> None:
+        created = self._run_transition(is_premature=True)
+        assert created.phase_name == "bolting"
+        assert created.is_premature is True
+
+    def test_planned_bolting_not_flagged(self) -> None:
+        created = self._run_transition(is_premature=False)
+        assert created.phase_name == "bolting"
+        assert created.is_premature is False
 
 
 class TestGetCurrentPhasePerennial:

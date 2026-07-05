@@ -8,7 +8,7 @@ consistent, and round-trip through :class:`LifecycleConfig` — including the
 biennial↔vernalization invariant.
 """
 
-from app.common.enums import CycleType, FloweringStrategy
+from app.common.enums import CycleType, FloweringStrategy, GrowthDeterminacy
 from app.domain.models.lifecycle import LifecycleConfig
 from app.migrations.yaml_loader import load_yaml
 
@@ -21,11 +21,13 @@ class TestOverrideDataIntegrity:
 
     def test_all_values_are_valid_enums(self):
         for name, entry in _OVERRIDES.items():
-            assert set(entry).issubset({"cultivation_cycle_type", "flowering_strategy"}), name
+            assert set(entry).issubset({"cultivation_cycle_type", "flowering_strategy", "growth_determinacy"}), name
             if "flowering_strategy" in entry:
                 FloweringStrategy(entry["flowering_strategy"])  # raises on typo
             if "cultivation_cycle_type" in entry:
                 CycleType(entry["cultivation_cycle_type"])
+            if "growth_determinacy" in entry:
+                GrowthDeterminacy(entry["growth_determinacy"])  # raises on typo
 
     def test_biennial_cultivation_implies_monocarpic(self):
         # A crop grown as a biennial flowers once in year two, then dies.

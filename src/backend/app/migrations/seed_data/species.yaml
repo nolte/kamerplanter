@@ -2603,7 +2603,7 @@ lifecycle_overrides:
   # cultivation_cycle_type + flowering_strategy
   Apium graveolens: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   Brassica oleracea var. capitata: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
-  Capsicum annuum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  Capsicum annuum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, growth_determinacy: indeterminate }
   Daucus carota: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   Foeniculum vulgare: { cultivation_cycle_type: annual, flowering_strategy: monocarpic }
   Ocimum basilicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
@@ -2611,7 +2611,10 @@ lifecycle_overrides:
   Petroselinum crispum: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   Petunia x hybrida: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   Physalis peruviana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
-  Solanum lycopersicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  Solanum lycopersicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, growth_determinacy: indeterminate }
+  # Cucumis sativus (cucumber): indeterminate — continuous fruit set on a stable
+  # productive phase, no botanical lifespan/flowering override needed (REQ-003 E4).
+  Cucumis sativus: { growth_determinacy: indeterminate }
   Solanum melongena: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   Verbena x hybrida: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   # flowering_strategy (monocarpic = flowers once then dies; polycarpic = repeat-flowering)

@@ -26,6 +26,10 @@ $defs:
     type: string
     enum: [monocarpic, polycarpic]
 
+  growth_determinacy:
+    type: string
+    enum: [determinate, indeterminate, semi_determinate]
+
   photoperiod_type:
     type: string
     enum: [short_day, long_day, day_neutral]
@@ -113,6 +117,11 @@ $defs:
     type: string
     enum: [phase_entry, days_after_phase, days_after_planting, absolute_date,
            manual, conditional, gdd_threshold, seasonal_month, phenological]
+
+  transition_trigger_type:
+    type: string
+    enum: [time_based, manual, event_based, conditional, gdd_based,
+           photoperiod_based, vernalization_based]
 
   site_type:
     type: string

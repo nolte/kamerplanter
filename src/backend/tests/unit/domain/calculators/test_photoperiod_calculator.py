@@ -1,6 +1,7 @@
 from app.domain.calculators.photoperiod_calculator import (
     calculate_dli,
     calculate_transition_schedule,
+    effective_light_hours,
     is_long_day_triggered,
     is_short_day_triggered,
 )
@@ -55,6 +56,38 @@ class TestDLI:
 
     def test_zero_hours(self):
         assert calculate_dli(400, 0.0) == 0.0
+
+
+class TestEffectiveLightHours:
+    def test_standard_veg_schedule(self):
+        # 06:00 -> 00:00 = 18h (18/6 veg)
+        assert effective_light_hours("06:00", "00:00") == 18.0
+
+    def test_midnight_wrap(self):
+        # 18:00 -> 06:00 crosses midnight = 12h (12/12 bloom flip)
+        assert effective_light_hours("18:00", "06:00") == 12.0
+
+    def test_same_day_window(self):
+        assert effective_light_hours("06:00", "18:00") == 12.0
+
+    def test_fractional_hours(self):
+        assert effective_light_hours("06:00", "12:30") == 6.5
+
+    def test_equal_times_returns_none(self):
+        # ambiguous (0h dark vs 24h light) -> skip the trigger
+        assert effective_light_hours("06:00", "06:00") is None
+
+    def test_missing_on_returns_none(self):
+        assert effective_light_hours(None, "06:00") is None
+
+    def test_missing_off_returns_none(self):
+        assert effective_light_hours("18:00", None) is None
+
+    def test_both_missing_returns_none(self):
+        assert effective_light_hours(None, None) is None
+
+    def test_malformed_returns_none(self):
+        assert effective_light_hours("not-a-time", "06:00") is None
 
 
 class TestPhotoperiodTriggers:

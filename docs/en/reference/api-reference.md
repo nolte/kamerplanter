@@ -243,3 +243,102 @@ POST /api/v1/t/{tenant_slug}/notifications/pwa/unsubscribe
 - [Fertilization Logic](../user-guide/fertilization.md)
 - [Care Reminders](../user-guide/care-reminders.md)
 - [Environment Variables — Browser Push (VAPID)](environment-variables.md#browser-push-pwa-vapid)
+
+---
+
+## Plant Instances: Removal with Ending Type & Survival Statistics
+
+All endpoints are located under the tenant-scoped path `/api/v1/t/{tenant_slug}/plant-instances/` and require a valid JWT token. <!-- REQ-003 E5/G1 -->
+
+### Remove a Plant (with Optional Ending Classification)
+
+Removes a plant instance. The request body is optional and backward compatible: an empty body (or no body at all) matches the previous plain removal without classification.
+
+```
+POST /api/v1/t/{tenant_slug}/plant-instances/{key}/remove
+```
+
+**Request body (optional):**
+
+```json
+{
+  "termination_type": "died",
+  "termination_cause": "pest"
+}
+```
+
+| Field | Type | Required | Values |
+|------|-----|---------|-------|
+| `termination_type` | string \| null | No | `harvested`, `senesced`, `died`, `cancelled` |
+| `termination_cause` | string \| null | No — only valid together with `termination_type: "died"` | `disease`, `pest`, `frost`, `heat`, `drought`, `waterlogging`, `neglect`, `mechanical`, `unknown` |
+
+**Behaviour:**
+
+- Without a body, or with `termination_type: null`: plain removal, as before these fields were introduced — `removed_on` is set, no further classification.
+- With `termination_type: "died"`: the current growth phase is **frozen** via the phase-transition engine (the open phase-history entry is closed without triggering a senescence transition), and `termination_cause` is recorded for the loss-cause analysis.
+- For any `termination_type` value: open tasks and care reminders for the plant are removed from the queue; completed/skipped tasks remain as history.
+
+**Response (200):** `PlantResponse` — now additionally includes the `termination_type` and `termination_cause` fields (both `null` when not classified).
+
+**Error codes:**
+
+| HTTP status | Meaning |
+|-------------|----------|
+| `404` | Plant instance not found or does not belong to the tenant |
+| `422` | `termination_cause` set but `termination_type` is not `died` (`VALIDATION_ERROR`) |
+
+**Example — loss due to pest infestation:**
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/my-garden/plant-instances/plant_instances/101/remove" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"termination_type": "died", "termination_cause": "pest"}'
+```
+
+### Get Survival Statistics
+
+Returns a tenant-wide analysis of all plant instances: survival rate, breakdown by ending type, by growth phase (unplanned losses only), and by loss cause.
+
+```
+GET /api/v1/t/{tenant_slug}/plant-instances/survival-stats
+```
+
+**Response (200):**
+
+```json
+{
+  "total": 42,
+  "terminated": 18,
+  "active": 24,
+  "died": 3,
+  "survived": 39,
+  "survival_rate": 0.9286,
+  "by_termination_type": [
+    { "termination_type": "harvested", "count": 12 },
+    { "termination_type": "died", "count": 3 },
+    { "termination_type": "cancelled", "count": 2 },
+    { "termination_type": "senesced", "count": 1 }
+  ],
+  "by_termination_cause": [
+    { "termination_cause": "pest", "count": 2 },
+    { "termination_cause": "frost", "count": 1 }
+  ],
+  "loss_by_phase": [
+    { "phase_name": "seedling", "count": 2 },
+    { "phase_name": "vegetative", "count": 1 }
+  ]
+}
+```
+
+`survived` counts every plant that was **not** an unplanned loss — harvested, naturally senesced, cancelled and still-active plants all count as survived; only `termination_type: "died"` counts as a loss. `loss_by_phase` is aggregated by the resolved phase **name** (not the phase key), so the same canonical phase across different species is summed together, and sorted in descending order by count.
+
+!!! note "Route ordering"
+    `/survival-stats` is declared **before** `/{key}` in the router so the literal path is not accidentally captured as a plant key.
+
+### See Also
+
+- [Growth Phases — User Guide: Removing a Plant](../user-guide/growth-phases.md#pflanze-entfernen)
+- [Growth Phases — User Guide: Survival Rate and Loss-Cause Analysis](../user-guide/growth-phases.md#ueberlebensrate-verlustursachen)
+- [Error Handling](../api/error-handling.md)

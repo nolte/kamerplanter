@@ -2,6 +2,8 @@ import { tenantClient as client } from '../client';
 import type {
   PlantInstance,
   PlantInstanceCreate,
+  RemovePlantRequest,
+  SurvivalStats,
   ValidatePlantingResponse,
 } from '../types';
 
@@ -37,8 +39,16 @@ export async function updatePlantInstance(
   return data;
 }
 
-export async function removePlantInstance(key: string): Promise<PlantInstance> {
-  const { data } = await client.post<PlantInstance>(`${BASE}/${key}/remove`);
+export async function removePlantInstance(
+  key: string,
+  body?: RemovePlantRequest,
+): Promise<PlantInstance> {
+  const { data } = await client.post<PlantInstance>(`${BASE}/${key}/remove`, body ?? {});
+  return data;
+}
+
+export async function getSurvivalStats(): Promise<SurvivalStats> {
+  const { data } = await client.get<SurvivalStats>(`${BASE}/survival-stats`);
   return data;
 }
 

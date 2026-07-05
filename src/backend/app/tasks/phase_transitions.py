@@ -8,8 +8,10 @@ from app.common.dependencies import (
     get_plant_repo,
     get_site_repo,
 )
-from app.common.enums import TransitionTriggerType
+from app.common.enums import LightType, TransitionTriggerType
+from app.domain.calculators.photoperiod_calculator import effective_light_hours
 from app.domain.calculators.sun_calculator import calculate_sun_times
+from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
 from app.domain.engines.transition_trigger_evaluator import TransitionTriggerEvaluator
 from app.tasks import celery_app
 
@@ -17,9 +19,48 @@ logger = structlog.get_logger()
 
 
 def _day_length_for_plant(plant, site_repo) -> float | None:
-    """Effective outdoor day length (hours) for the plant's site, or None when
-    no site / GPS is known (the photoperiod trigger is then skipped). Indoor
-    light-schedule photoperiod (REQ-018) is a separate follow-up."""
+    """Effective photoperiod (hours of light) for the plant's transition trigger.
+
+    Resolves the indoor grow-light schedule (REQ-018) first: an artificially lit
+    Location provides a fixed photoperiod the plant actually experiences, unlike
+    the astronomical day length. Falls back to the outdoor GPS/sun path when the
+    location has no usable artificial schedule (or none is set). Returns ``None``
+    when neither source yields a value (the photoperiod trigger is then skipped).
+    """
+    indoor = _indoor_light_hours_for_plant(plant, site_repo)
+    if indoor is not None:
+        return indoor
+    return _outdoor_day_length_for_plant(plant, site_repo)
+
+
+def _indoor_light_hours_for_plant(plant, site_repo) -> float | None:
+    """Light-on hours from a usable artificial schedule on the plant's Location.
+
+    A schedule is "usable" when the location uses an artificial light source
+    (``light_type != NATURAL``), has ``use_dynamic_sunrise`` disabled (a
+    sun-tracking schedule is treated as outdoor and falls through), and yields a
+    parseable ``lights_on``/``lights_off`` duration. Returns ``None`` otherwise
+    so the caller falls back to the outdoor path.
+    """
+    location_key = getattr(plant, "location_key", None)
+    if not location_key:
+        return None
+    location = site_repo.get_location_by_key(location_key)
+    if location is None:
+        return None
+    # get_location_by_key is not tenant-scoped and this system task iterates all
+    # tenants (SEC-B4). Only trust a location that belongs to the plant's tenant.
+    plant_tenant = getattr(plant, "tenant_key", None)
+    if plant_tenant and location.tenant_key and location.tenant_key != plant_tenant:
+        return None
+    if location.light_type == LightType.NATURAL or location.use_dynamic_sunrise:
+        return None
+    return effective_light_hours(location.lights_on, location.lights_off)
+
+
+def _outdoor_day_length_for_plant(plant, site_repo) -> float | None:
+    """Astronomical day length (hours) for the plant's outdoor GPS site, or None
+    when no site / GPS is known (the photoperiod trigger is then skipped)."""
     if not plant.site_key:
         return None
     site = site_repo.get_site_by_key(plant.site_key)
@@ -43,6 +84,7 @@ def check_auto_transitions() -> dict:
     lifecycle_repo = get_lifecycle_repo()
     site_repo = get_site_repo()
     evaluator = TransitionTriggerEvaluator()
+    cyclic = CyclicLifecycleEngine()
 
     transitioned = 0
     errors = 0
@@ -87,6 +129,17 @@ def check_auto_transitions() -> dict:
                     )
                 ):
                     fire, reason = True, "auto_vernalization"
+
+                # E4: an indeterminate species stays in its stable productive phase —
+                # suppress any onward auto-advance even though the trigger would fire.
+                current_phase_name = current_phase_info.get("phase", "")
+                if fire and lifecycle and cyclic.stays_in_productive_phase(lifecycle, current_phase_name):
+                    logger.info(
+                        "auto_transition_suppressed_indeterminate",
+                        plant_key=plant.key,
+                        current_phase=current_phase_name,
+                    )
+                    continue
 
                 if fire:
                     phase_service.transition_phase(plant.key or "", rule.to_phase_key, reason=reason)

@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
+from typing import Any
 
 from arango.database import StandardDatabase
 
+from app.common.enums import TerminationType
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -103,3 +105,62 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             return ""
         doc = self._db.collection(col.GROWTH_PHASES).get(phase_key)
         return doc.get("name", "") if doc else ""
+
+    # ── Survival / failure-cause analytics (REQ-003 G1) ───────────────
+
+    def get_survival_stats(self, tenant_key: str) -> dict[str, Any]:
+        """Aggregate the tenant's plant instances for survival analytics.
+
+        A single AQL statement computes the totals and the three COLLECT
+        breakdowns. Every sub-query filters on ``p.tenant_key == @tenant_key``,
+        and the collection name is bound via ``@@col`` (never interpolated), so
+        the query is both injection-safe and strictly tenant-scoped (SEC-B4).
+        The empty ``tenant_key`` sentinel is rejected up-front to avoid an
+        unscoped cross-tenant read.
+        """
+        if not tenant_key:
+            raise ValueError(
+                f"Collection '{self._collection_name}' is tenant-scoped: "
+                "get_survival_stats requires a non-empty tenant_key (SEC-B4)."
+            )
+        query = """
+        LET rows = (
+          FOR p IN @@col
+            FILTER p.tenant_key == @tenant_key
+            RETURN {
+              termination_type: p.termination_type,
+              termination_cause: p.termination_cause,
+              phase_key: p.current_phase_key,
+              removed_on: p.removed_on
+            }
+        )
+        LET total = LENGTH(rows)
+        LET terminated = LENGTH(FOR r IN rows FILTER r.removed_on != null RETURN 1)
+        LET died = LENGTH(FOR r IN rows FILTER r.termination_type == @died RETURN 1)
+        LET by_type = (
+          FOR r IN rows
+            FILTER r.termination_type != null
+            COLLECT value = r.termination_type WITH COUNT INTO count
+            RETURN {value, count}
+        )
+        LET by_cause = (
+          FOR r IN rows
+            FILTER r.termination_type == @died AND r.termination_cause != null
+            COLLECT value = r.termination_cause WITH COUNT INTO count
+            RETURN {value, count}
+        )
+        LET by_phase = (
+          FOR r IN rows
+            FILTER r.termination_type == @died
+            COLLECT value = r.phase_key WITH COUNT INTO count
+            RETURN {value, count}
+        )
+        RETURN {total, terminated, died, by_type, by_cause, by_phase}
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "died": TerminationType.DIED.value,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return next(cursor, {})

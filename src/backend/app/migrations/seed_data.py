@@ -19,6 +19,7 @@ from app.common.dependencies import (
 from app.common.enums import (
     CycleType,
     FloweringStrategy,
+    GrowthDeterminacy,
     PhotoperiodType,
     StressTolerance,
 )
@@ -317,11 +318,13 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         ov = lifecycle_overrides.get(sp.scientific_name, {})
         cult_cycle = ov.get("cultivation_cycle_type")
         flower_strat = ov.get("flowering_strategy")
+        determinacy = ov.get("growth_determinacy")
         lc = LifecycleConfig(
             species_key=species_key,
             cycle_type=cycle,
             cultivation_cycle_type=CycleType(cult_cycle) if cult_cycle else None,
             flowering_strategy=FloweringStrategy(flower_strat) if flower_strat else None,
+            growth_determinacy=GrowthDeterminacy(determinacy) if determinacy else None,
             photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
         )
         created_lc = lifecycle_repo.create_lifecycle(lc)

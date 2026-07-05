@@ -38,6 +38,16 @@ class MigrationDiscoveryError(MigrationError):
     """Raised for missing, duplicate or non-contiguous version modules (M-1)."""
 
 
+class MigrationBarrierTimeoutError(MigrationError):
+    """Raised when a losing replica times out waiting for the winner to migrate.
+
+    The replica that loses the lock race waits for the applied set to reach the
+    discovered head before completing startup; on timeout it fails readiness
+    (rather than serve traffic against un-migrated data) so the orchestrator
+    restarts and retries.
+    """
+
+
 @dataclass
 class MigrationReport:
     """Uniform result of a single migration ``up()``/``down()`` invocation.
@@ -57,6 +67,11 @@ class MigrationReport:
     duration_ms:
         Wall-clock duration filled in by the runner (``0.0`` when computed
         stand-alone).
+    precondition_unmet:
+        ``True`` when the migration did no work because a required precondition
+        was absent (e.g. no default tenant resolvable while orphaned docs still
+        exist).  The runner leaves such a migration *unrecorded* so a later boot
+        retries it, and stops the pending loop to keep history linear (M-1).
     details:
         Free-form, migration-specific payload (e.g. changed keys, per-collection
         counts) preserved for logging and CLI output.
@@ -68,6 +83,7 @@ class MigrationReport:
     changed: int = 0
     dry_run: bool = False
     duration_ms: float = 0.0
+    precondition_unmet: bool = False
     details: dict[str, Any] = field(default_factory=dict)
 
     @property

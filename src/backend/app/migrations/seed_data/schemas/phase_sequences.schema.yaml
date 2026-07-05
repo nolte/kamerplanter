@@ -79,6 +79,21 @@ $defs:
       cycle_restart_entry_order:
         type: integer
         minimum: 0
+      # Cycle/dormancy metadata consumed by seed_phase_sequences.py (optional).
+      dormancy_required:
+        type: boolean
+      vernalization_required:
+        type: boolean
+      vernalization_min_days:
+        type: integer
+        minimum: 1
+      photoperiod_type:
+        type: string
+        enum: [short_day, long_day, day_neutral]
+      critical_day_length_hours:
+        type: number
+        minimum: 0
+        maximum: 24
       tags:
         type: array
         items:

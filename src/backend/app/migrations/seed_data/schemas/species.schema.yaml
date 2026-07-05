@@ -30,8 +30,8 @@ properties:
     type: object
     description: >-
       Per-species lifecycle overrides loaded by seed_data.py
-      (_load_lifecycle_overrides). Authoritative source for cultivation_cycle_type
-      and flowering_strategy — keyed by scientific_name.
+      (_load_lifecycle_overrides). Authoritative source for cultivation_cycle_type,
+      flowering_strategy and growth_determinacy — keyed by scientific_name.
     additionalProperties:
       type: object
       properties:
@@ -39,6 +39,8 @@ properties:
           $ref: "_defs.schema.yaml#/$defs/cycle_type"
         flowering_strategy:
           $ref: "_defs.schema.yaml#/$defs/flowering_strategy"
+        growth_determinacy:
+          $ref: "_defs.schema.yaml#/$defs/growth_determinacy"
       additionalProperties: false
   cultivars:
     type: object

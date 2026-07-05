@@ -97,8 +97,13 @@ Both pages are available in the navigation under **Phases**. Since they edit fun
 In addition to the manual transition (see below), a phase transition within a sequence can also be triggered automatically. Kamerplanter supports three trigger types:
 
 - **Time-based**: The transition fires automatically once a plant has spent a defined number of days in its current phase.
-- **Photoperiod-based**: The transition to flowering fires once the day length at the plant's site drops below (short-day plants) or rises above (long-day plants) a species-specific threshold. This requires GPS coordinates to be configured for the site (see [Locations and Substrates](locations-substrates.md)).
+- **Photoperiod-based**: The transition to flowering fires once the effective day length (hours of light per day) drops below (short-day plants) or rises above (long-day plants) a species-specific threshold. Kamerplanter derives this day length in two ways: for **indoor plants** it is taken from the location's light schedule (the grow light's on/off times, e.g. 12/12 to induce flowering); for **outdoor plants** it is computed from the astronomical day length at the site, which requires GPS coordinates to be configured (see [Locations and Substrates](locations-substrates.md)). When an artificially lit location has a valid light schedule, that schedule takes precedence — an artificially lit plant does not experience the natural day length.
 - **Vernalization-based**: For biennial plants with a cold requirement (e.g. carrot grown for seed), Kamerplanter counts cold days; once the species-specific minimum is reached, the transition from dormancy to flowering is unlocked automatically.
+
+For plant species with a so-called "indeterminate" growth habit — this includes many tomato, pepper and cucumber varieties as well as numerous houseplants — Kamerplanter suppresses automatic advances once the plant has reached its stable, permanently productive phase. Instead of linearly advancing towards fruit ripening and the end of the cycle, the plant stays in that one phase, where growth, flowering and fruit set continue concurrently and harvest is ongoing.
+
+!!! note "Partially available: classification as \"indeterminate\""
+    The logic that detects and suppresses the automatic advance is fully implemented and already active for the indeterminate species tomato, pepper and cucumber. Whether a species is classified as "determinate", "indeterminate" or "semi-determinate" cannot yet be maintained via the UI or the public API, though — the classification is part of the lifecycle configuration and is being extended to further species step by step. <!-- REQ-003 E4 -->
 
 !!! note "Partially available"
     The evaluation logic for automatic transitions is fully implemented. Whether and how often your Kamerplanter operator actually schedules the background check depends on the specific installation. To be safe, don't rely exclusively on automatic transitions — check your plants' phase status regularly and trigger transitions manually when needed (see below).
@@ -174,7 +179,7 @@ The day length (hours of light per day) controls the transition to flowering in 
 | Flower induction | 12/12 (12 h light, 12 h dark) |
 
 !!! tip "Automatic flower induction"
-    For plants with defined phase data and a site with GPS coordinates, flowering can be triggered photoperiodically (see [Automatic Phase Transitions](#automatic-phase-transitions)).
+    For plants with defined phase data, flowering can be triggered photoperiodically — indoors from the location's light schedule, outdoors from the astronomical day length when GPS coordinates are configured (see [Automatic Phase Transitions](#automatic-phase-transitions)).
 
 ### NPK Profile (Nutrient Ratio)
 
@@ -183,6 +188,18 @@ The nitrogen-phosphorus-potassium ratio changes across phases:
 - **Vegetative**: High nitrogen (N) for leaf growth
 - **Flowering**: Less nitrogen, more phosphorus (P) and potassium (K)
 - **Late flowering**: Minimal nitrogen, high PK share
+
+Each phase also has a target pH stored for the nutrient solution. The pH value affects how well individual micronutrients (iron, manganese, zinc, copper, boron) can be taken up by the plant: outside an optimal window of pH 6.0–6.5, these micronutrients increasingly lock out (chlorosis risk — pale, yellowish leaf veins), while molybdenum behaves the other way round and becomes more available as pH rises.
+
+!!! note "Partially available: target pH & micronutrient availability per phase"
+    Kamerplanter already calculates the pH-dependent micronutrient availability for every phase in the background. A warning or recommendation about it in the nutrient UI does not exist yet, though — that is planned for a future extension of the fertilization logic. <!-- REQ-003 E8 -->
+
+### Distinguishing Planned from Premature Bolting
+
+For some biennial crops (e.g. leafy vegetables such as spinach or lettuce), heat or long-day stress can cause a plant to bolt towards flowering much earlier than planned, losing its harvest window prematurely. Kamerplanter distinguishes such a stress-induced, premature transition from planned bolting — for example the regular flower induction in the second growing season for biennial crops with a cold requirement.
+
+!!! note "Partially available: flagging premature transitions"
+    Kamerplanter detects and records a stress-induced, premature phase transition in the phase history, distinguished from a planned transition; for spinach, such a long-day-triggered bolting transition is already seeded. A dedicated indicator for this in the phase-history view of the UI (e.g. a hint chip) does not exist yet, though. <!-- REQ-003 E6 -->
 
 ---
 
@@ -207,6 +224,80 @@ Click **Resume Growth**. Kamerplanter resets the cycle to the vegetative phase (
 
 ---
 
+## Removing a Plant: Recording the Ending Type and Loss Cause {#pflanze-entfernen}
+
+When a plant reaches the end of its lifecycle — whether through harvest, natural senescence, or an unexpected loss — you remove it via the **Remove Plant** button on its detail page. You can optionally record **how** the lifecycle ended. <!-- REQ-003 E5 -->
+
+### Step 1: Open the Detail Page
+
+Navigate to **Plants → Plant Instances** and open the relevant plant.
+
+### Step 2: Open the Removal Dialog
+
+Click **Remove Plant**. A dialog asks how the plant's lifecycle ended.
+
+### Step 3: Choose the Ending Type (Optional)
+
+| Ending Type | Meaning |
+|--------------|-----------|
+| Unspecified (just remove) | The plant is removed without classification (previous behaviour) |
+| Harvested | Planned end after harvest |
+| Senesced (natural end) | Planned end at the natural end of the cycle |
+| Died (loss) | Unplanned loss — additionally asks for the loss cause |
+| Cancelled | You deliberately end the crop early |
+
+!!! tip "The classification is optional"
+    You can confirm the dialog without a selection — the plant is then simply marked as removed, as before, without recording an ending type.
+
+### Step 4: Provide a Cause for "Died"
+
+If you select **Died (loss)**, you must also select a loss cause before you can confirm:
+
+| Loss Cause | Example |
+|----------------|---------|
+| Disease | Fungal infection, root rot |
+| Pest infestation | Spider mites, aphids |
+| Frost | Unexpected cold snap |
+| Heat | Heat stress, sunburn |
+| Drought | Watered too infrequently |
+| Waterlogging | Substrate permanently too wet |
+| Neglect | Extended absence without cover |
+| Mechanical damage | Broken, bent over |
+| Unknown | Cause can no longer be determined |
+
+!!! note "The current growth phase is frozen"
+    Classifying a plant as "Died" freezes its current growth phase: the open phase-history entry is closed, but **no** automatic transition into a senescence phase happens. This keeps it visible which phase the loss actually occurred in — an important basis for the [loss-cause analysis](#ueberlebensrate-verlustursachen) below.
+
+### Step 5: Confirm
+
+Click **Remove Plant**. Open tasks and care reminders for this plant are automatically removed from the queue; already completed or skipped tasks remain as history. <!-- REQ-022 -->
+
+!!! warning "Cannot be undone"
+    A removed plant cannot be reactivated, and the chosen ending type/loss cause cannot be edited afterwards. Double-check the classification before confirming.
+
+---
+
+## Survival Rate and Loss-Cause Analysis {#ueberlebensrate-verlustursachen}
+
+On the **Plants → Plant Instances** overview page, Kamerplanter shows a summary analysis of all recorded plants as soon as at least one plant exists: the **survival rate** — the share of all plants that did **not** end as an unplanned loss — plus a breakdown by ending type, growth phase, and loss cause. <!-- REQ-003 G1 -->
+
+!!! note "What counts as \"survived\"?"
+    Harvested, naturally senesced, and cancelled plants count as survived, as do all still-growing plants — only a plant with the ending type "Died (loss)" counts as a failure. This definition cannot be changed in the current version.
+
+The analysis shows the same data twice, so it is usable even without the chart:
+
+- **Table**: total count, active plants, survived plants and losses, plus a breakdown by ending type, growth phase, and loss cause.
+- **Bar chart**: losses visualised, toggleable between **By Phase** (which growth phase has the most losses?) and **By Cause** (which cause drives the most losses?).
+
+!!! example "Example"
+    If the "By Phase" analysis shows a clear spike at "Seedling", that points to a systematic problem in the early establishment phase — e.g. substrate that is too dry or too wet right after transplanting.
+
+Plants without an ending type set (simply removed, without classification) still count towards **Total** and **Active/Survived**, but do not appear in the breakdowns by ending type or cause.
+
+<!-- Source: src/backend/app/domain/models/survival_stats.py, src/frontend/src/pages/pflanzen/SurvivalStatsPanel.tsx, src/frontend/src/pages/pflanzen/TerminationDialog.tsx -->
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "What happens if I trigger the phase transition too early?"
@@ -220,6 +311,9 @@ Click **Resume Growth**. Kamerplanter resets the cycle to the vegetative phase (
 
 ??? question "What is the difference between flushing and dormancy?"
     **Flushing** is a pre-harvest phase where nutrient supply is reduced before the plant is harvested. **Dormancy** is the natural rest phase of perennial plants in winter. Both are distinct phase types and are mutually exclusive within a sequence.
+
+??? question "Can I change the ending type or loss cause afterwards?"
+    No. The classification happens once, in the removal dialog when you remove the plant, and cannot be edited afterwards.
 
 ---
 
