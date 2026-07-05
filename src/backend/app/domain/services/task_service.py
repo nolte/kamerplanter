@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from dateutil.rrule import rrulestr
 
 from app.common.exceptions import NotFoundError, ValidationError
-from app.common.tenant_guard import verify_tenant_ownership
+from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.interfaces.task_repository import ITaskRepository
@@ -55,7 +55,11 @@ class TaskService:
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_or_raise(key)
         if tenant_key:
-            verify_tenant_ownership(wt, tenant_key, "WorkflowTemplate")
+            # Read access spans the hybrid catalog: the caller's own templates
+            # PLUS globally seeded system templates (empty tenant_key), so the
+            # detail/instantiate/duplicate routes work for the system templates
+            # the list restores. Write ownership is guarded separately below.
+            verify_tenant_read_access(wt, tenant_key, "WorkflowTemplate")
         return wt
 
     def create_workflow_template(self, template: WorkflowTemplate) -> WorkflowTemplate:
@@ -63,6 +67,10 @@ class TaskService:
 
     def update_workflow_template(self, key: str, data: dict) -> WorkflowTemplate:
         wt = self.get_workflow_template(key)
+        if wt.is_system:
+            # Read access is hybrid-catalog-wide, so the router guard now admits
+            # system templates; writes must stay blocked (mirrors delete below).
+            raise ValidationError("Cannot modify system workflow templates.")
         for field, value in data.items():
             setattr(wt, field, value)
         return self._repo.update_workflow_template(key, wt)
