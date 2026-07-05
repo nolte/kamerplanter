@@ -1,65 +1,260 @@
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardActionArea from '@mui/material/CardActionArea';
+import Stack from '@mui/material/Stack';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid';
-import ParkIcon from '@mui/icons-material/Park';
-import ScienceIcon from '@mui/icons-material/Science';
-import PlaceIcon from '@mui/icons-material/Place';
-import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
-import CalculateIcon from '@mui/icons-material/Calculate';
-import LayersIcon from '@mui/icons-material/Layers';
+import Alert from '@mui/material/Alert';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Skeleton from '@mui/material/Skeleton';
+import { visuallyHidden } from '@mui/utils';
+import EditIcon from '@mui/icons-material/Edit';
+import SettingsIcon from '@mui/icons-material/Settings';
+import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
+import TabletIcon from '@mui/icons-material/Tablet';
+import SmartphoneIcon from '@mui/icons-material/Smartphone';
+import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import PageTitle from '@/components/layout/PageTitle';
-import WinterProtectionWidget from '@/components/dashboard/WinterProtectionWidget';
-import { useModuleVisibility } from '@/hooks/useModuleVisibility';
+import DashboardReadonlyGrid from '@/components/dashboard/DashboardReadonlyGrid';
+import { DashboardDataProvider } from '@/components/dashboard/DashboardDataContext';
+import WidgetConfigDialog from '@/components/dashboard/WidgetConfigDialog';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchWidgetCatalog, fetchAggregated } from '@/store/slices/dashboardSlice';
+import { useDashboardLayout } from '@/hooks/useDashboardLayout';
+import { dashboardWidgetCatalog, placementsForBreakpoint, type WidgetKey } from '@/config/dashboardWidgetCatalog';
+import {
+  moveWidget,
+  resizeWidget,
+  removeWidget,
+  setBreakpointPlacements,
+  copyPlacementsToAllBreakpoints,
+  setWidgetConfig,
+  sortByReadingOrder,
+} from '@/lib/dashboardLayoutOps';
+import { isPersonalizationHintDismissed, dismissPersonalizationHint } from '@/lib/dashboardLayoutStorage';
+import type { DashboardLayout, DashboardWidgetInstance, WidgetPlacement } from '@/api/types';
+
+const DashboardEditGrid = lazy(() => import('@/components/dashboard/DashboardEditGrid'));
+
+type Breakpoint = 'lg' | 'md' | 'sm';
 
 export default function DashboardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { isPathVisible } = useModuleVisibility();
+  const dispatch = useAppDispatch();
+  const { layout, activeWidgets, isWidgetRenderable, persist, reset } = useDashboardLayout();
+  const aggregated = useAppSelector((s) => s.dashboard.aggregated);
+  const aggregatedLoading = useAppSelector((s) => s.dashboard.loading);
 
-  const quickActions = [
-    { label: t('nav.botanicalFamilies'), path: '/stammdaten/botanical-families', icon: <ParkIcon sx={{ fontSize: 40 }} /> },
-    { label: t('nav.species'), path: '/stammdaten/species', icon: <ScienceIcon sx={{ fontSize: 40 }} /> },
-    { label: t('nav.sites'), path: '/standorte/sites', icon: <PlaceIcon sx={{ fontSize: 40 }} /> },
-    { label: t('nav.substrates'), path: '/standorte/substrates', icon: <LayersIcon sx={{ fontSize: 40 }} /> },
-    { label: t('nav.plantInstances'), path: '/pflanzen/plant-instances', icon: <LocalFloristIcon sx={{ fontSize: 40 }} /> },
-    { label: t('nav.calculations'), path: '/pflanzen/calculations', icon: <CalculateIcon sx={{ fontSize: 40 }} /> },
-  ];
+  const [editMode, setEditMode] = useState(false);
+  const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
+  const [working, setWorking] = useState<DashboardLayout | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+  const [hintDismissed, setHintDismissed] = useState(isPersonalizationHintDismissed());
+  const [configTarget, setConfigTarget] = useState<DashboardWidgetInstance | null>(null);
+
+  // Parallel initial load (O-001): catalog + aggregated fire independently of
+  // the globally-loaded user preferences.
+  useEffect(() => {
+    void dispatch(fetchWidgetCatalog());
+  }, [dispatch]);
+
+  const activeWidgetKeys = useMemo(() => layout.widgets.map((w) => w.widget_key), [layout.widgets]);
+  useEffect(() => {
+    if (activeWidgetKeys.length) void dispatch(fetchAggregated(activeWidgetKeys));
+  }, [dispatch, activeWidgetKeys.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const effectiveLayout = editMode && working ? working : layout;
+
+  const enterEdit = () => {
+    setWorking(structuredClone(layout));
+    setEditMode(true);
+  };
+  const cancelEdit = () => {
+    setEditMode(false);
+    setWorking(null);
+  };
+  const saveEdit = () => {
+    if (working) persist(working);
+    setEditMode(false);
+    setWorking(null);
+  };
+
+  const mutate = (next: DashboardLayout, announce?: string) => {
+    setWorking(next);
+    if (announce) setAnnouncement(announce);
+  };
+
+  const orderedInstances = useMemo(() => {
+    const placements = placementsForBreakpoint(effectiveLayout, breakpoint);
+    const byId = new Map(effectiveLayout.widgets.map((w) => [w.instance_id, w]));
+    return sortByReadingOrder(placements)
+      .map((p) => byId.get(p.instance_id))
+      .filter((w): w is DashboardWidgetInstance => Boolean(w));
+  }, [effectiveLayout, breakpoint]);
+
+  const widgetProps = (instance: DashboardWidgetInstance) => {
+    const idx = orderedInstances.findIndex((w) => w.instance_id === instance.instance_id);
+    const def = dashboardWidgetCatalog[instance.widget_key as WidgetKey];
+    const label = t(`dashboard.widgets.${instance.widget_key}.label`);
+    return {
+      isFirst: idx <= 0,
+      isLast: idx === orderedInstances.length - 1,
+      hasConfig: def?.hasConfig ?? false,
+      onMoveUp: () => mutate(moveWidget(working ?? layout, breakpoint, instance.instance_id, 'up'), t('dashboard.edit.movedUp', { widget: label })),
+      onMoveDown: () => mutate(moveWidget(working ?? layout, breakpoint, instance.instance_id, 'down'), t('dashboard.edit.movedDown', { widget: label })),
+      onGrow: () => mutate(resizeWidget(working ?? layout, breakpoint, instance.instance_id, 1, 1)),
+      onShrink: () => mutate(resizeWidget(working ?? layout, breakpoint, instance.instance_id, -1, -1)),
+      onRemove: () => mutate(removeWidget(working ?? layout, instance.instance_id), t('dashboard.edit.removed', { widget: label })),
+      onConfigure: () => setConfigTarget(instance),
+    };
+  };
+
+  const handleGridChange = (placements: WidgetPlacement[]) => {
+    mutate(setBreakpointPlacements(working ?? layout, breakpoint, placements));
+  };
+
+  const handleConfigSave = (config: Record<string, unknown>) => {
+    if (!configTarget) return;
+    const base = working ?? layout;
+    const next = setWidgetConfig(base, configTarget.instance_id, config);
+    if (editMode) setWorking(next);
+    else persist(next);
+  };
+
+  const dismissHint = () => {
+    dismissPersonalizationHint();
+    setHintDismissed(true);
+  };
+
+  const isEmpty = effectiveLayout.widgets.length === 0 || activeWidgets.length === 0;
 
   return (
     <Box data-testid="dashboard-page">
-      <PageTitle title={t('pages.dashboard.title')} />
-      <Typography variant="h5" sx={{ mb: 4 }} data-testid="dashboard-welcome">
-        {t('pages.dashboard.welcome')}
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1 }}>
+        <PageTitle title={t('pages.dashboard.title')} />
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          {editMode && (
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={breakpoint}
+              onChange={(_, v) => v && setBreakpoint(v)}
+              aria-label={t('dashboard.edit.breakpointSwitcher')}
+            >
+              <ToggleButton value="lg" aria-label={t('dashboard.edit.desktop')} sx={{ minWidth: 48, minHeight: 48 }}>
+                <DesktopWindowsIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="md" aria-label={t('dashboard.edit.tablet')} sx={{ minWidth: 48, minHeight: 48 }}>
+                <TabletIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="sm" aria-label={t('dashboard.edit.mobile')} sx={{ minWidth: 48, minHeight: 48 }}>
+                <SmartphoneIcon fontSize="small" />
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+          {editMode && (
+            <Tooltip title={t('dashboard.edit.applyToAll')}>
+              <Button
+                size="small"
+                startIcon={<DashboardCustomizeIcon />}
+                onClick={() => mutate(copyPlacementsToAllBreakpoints(working ?? layout, breakpoint))}
+                sx={{ minHeight: 48 }}
+              >
+                {t('dashboard.edit.applyToAllShort')}
+              </Button>
+            </Tooltip>
+          )}
+          <Tooltip title={t('dashboard.manageWidgets')}>
+            <IconButton
+              aria-label={t('dashboard.manageWidgets')}
+              onClick={() => navigate('/settings#dashboard')}
+              sx={{ minWidth: 48, minHeight: 48 }}
+              data-testid="dashboard-manage-link"
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
+          {editMode ? (
+            <>
+              <Button onClick={cancelEdit} sx={{ minHeight: 48 }} data-testid="dashboard-edit-cancel">
+                {t('common.cancel')}
+              </Button>
+              <Button variant="contained" onClick={saveEdit} sx={{ minHeight: 48 }} data-testid="dashboard-edit-save">
+                {t('common.save')}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={enterEdit}
+              sx={{ minHeight: 48 }}
+              data-testid="dashboard-edit-toggle"
+            >
+              {t('dashboard.edit.enter')}
+            </Button>
+          )}
+        </Stack>
+      </Box>
 
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        {t('pages.dashboard.quickActions')}
-      </Typography>
-      <Grid container spacing={2}>
-        {quickActions.filter((a) => isPathVisible(a.path)).map((action) => (
-          <Grid size={{ xs: 6, sm: 4, md: 3 }} key={action.path}>
-            <Card data-testid={`quick-action-${action.path}`}>
-              <CardActionArea onClick={() => navigate(action.path)}>
-                <CardContent sx={{ textAlign: 'center', py: 3 }}>
-                  <Box sx={{ color: 'primary.main', mb: 1 }}>{action.icon}</Box>
-                  <Typography variant="body2">{action.label}</Typography>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+      {!editMode && !hintDismissed && (
+        <Alert severity="info" onClose={dismissHint} sx={{ mb: 2 }} data-testid="dashboard-coachmark">
+          {t('dashboard.coachmark')}
+        </Alert>
+      )}
 
-      <Grid container spacing={2} sx={{ mt: 2 }}>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <WinterProtectionWidget />
-        </Grid>
-      </Grid>
+      <Box aria-live="polite" role="status" sx={visuallyHidden}>
+        {announcement}
+      </Box>
+
+      {isEmpty ? (
+        <Box sx={{ textAlign: 'center', py: 8 }} data-testid="dashboard-empty-state">
+          <Typography variant="h6" gutterBottom>
+            {t('dashboard.empty.title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {t('dashboard.empty.hint')}
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'center' }}>
+            <Button variant="contained" onClick={() => navigate('/settings#dashboard')} sx={{ minHeight: 48 }}>
+              {t('dashboard.empty.chooseWidgets')}
+            </Button>
+            <Button variant="outlined" onClick={reset} sx={{ minHeight: 48 }} data-testid="dashboard-empty-reset">
+              {t('dashboard.empty.restoreDefault')}
+            </Button>
+          </Stack>
+        </Box>
+      ) : (
+        <DashboardDataProvider value={{ payloads: aggregated, loading: aggregatedLoading }}>
+          {editMode ? (
+            <Suspense fallback={<Skeleton variant="rounded" height={400} />}>
+              <DashboardEditGrid
+                layout={effectiveLayout}
+                breakpoint={breakpoint}
+                onChange={handleGridChange}
+                widgetProps={widgetProps}
+              />
+            </Suspense>
+          ) : (
+            <DashboardReadonlyGrid layout={effectiveLayout} renderableKeys={isWidgetRenderable} />
+          )}
+        </DashboardDataProvider>
+      )}
+
+      {configTarget && (
+        <WidgetConfigDialog
+          open
+          widgetKey={configTarget.widget_key}
+          config={configTarget.config ?? {}}
+          onClose={() => setConfigTarget(null)}
+          onSave={handleConfigSave}
+        />
+      )}
     </Box>
   );
 }
