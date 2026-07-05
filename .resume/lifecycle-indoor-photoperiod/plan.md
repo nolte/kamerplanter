@@ -146,6 +146,6 @@ isolation and reusable.
 - [x] 4. Indoor task tests green: short-day fires, long-day fires, dynamic-sunrise→outdoor fallback, natural-light no-fire, autoflower(day-neutral) no-fire, cross-tenant location ignored. Fixture `_plant` now carries `location_key`+`tenant_key`.
 - [x] 5. Quality gate: `ruff check`+`ruff format --check` clean on touched files; `pytest tasks/ domain/` = 2255 passed. UI-review N/A (no frontend); tests role done (46 targeted + 2255 suite); docs role = box 6.
 - [x] 6. Docs updated (DE canonical + EN mirror in sync): `user-guide/growth-phases.md` photoperiod section + tip admonition now describe indoor light-schedule source (indoor wins) vs outdoor GPS.
-- [ ] 7. PR to develop opened (via pull-request-create), #382 linked
+- [x] 7. Draft PR to develop opened via pull-request-create: **#387** (https://github.com/nolte/kamerplanter/pull/387), Closes #382 / Refs #305. Branch fresh (0 behind develop), lint+2255 tests green. Flip to ready after first green CI.
 
-> **Resume anchor:** the next session resumes at the first unchecked box above.
+> **Resume anchor:** all boxes complete. Remaining: wait for CI on #387, then flip draft→ready (and merge via pull-request-merge when approved).
