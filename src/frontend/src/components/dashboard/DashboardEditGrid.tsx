@@ -2,7 +2,10 @@ import { useMemo } from 'react';
 import Box from '@mui/material/Box';
 import GlobalStyles from '@mui/material/GlobalStyles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout';
+// react-grid-layout v2 dropped WidthProvider and the old flat `Layout` item type
+// from the main entry; the `/legacy` subpath keeps the v1-compatible HOC API and
+// re-exports Layout (now `readonly LayoutItem[]`) that this component relies on.
+import GridLayout, { WidthProvider, type Layout } from 'react-grid-layout/legacy';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import WidgetFrame from '@/components/dashboard/WidgetFrame';
@@ -54,7 +57,7 @@ export default function DashboardEditGrid({
   const placements = placementsForBreakpoint(layout, breakpoint);
   const byId = new Map<string, DashboardWidgetInstance>(layout.widgets.map((w) => [w.instance_id, w]));
 
-  const gridLayout: Layout[] = useMemo(
+  const gridLayout: Layout = useMemo(
     () =>
       placements.map((p) => {
         const widget = byId.get(p.instance_id);
@@ -80,7 +83,7 @@ export default function DashboardEditGrid({
     .map((p) => byId.get(p.instance_id))
     .filter((w): w is DashboardWidgetInstance => Boolean(w));
 
-  const handleChange = (next: Layout[]) => {
+  const handleChange = (next: Layout) => {
     onChange(next.map((l) => ({ instance_id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
   };
 
