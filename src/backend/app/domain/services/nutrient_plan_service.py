@@ -1,5 +1,5 @@
 from app.common.exceptions import NotFoundError, ValidationError
-from app.common.tenant_guard import verify_tenant_ownership
+from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.common.types import FertilizerKey, NutrientPlanKey, NutrientPlanPhaseEntryKey
 from app.domain.engines.delivery_channel_engine import DeliveryChannelValidator
 from app.domain.engines.dosage_calculation_engine import (
@@ -43,10 +43,19 @@ class NutrientPlanService:
     ) -> tuple[list[NutrientPlan], int]:
         return self._repo.get_all(offset, limit, filters, tenant_key=tenant_key)
 
-    def get_plan(self, key: NutrientPlanKey, tenant_key: str = "") -> NutrientPlan:
+    def get_plan(self, key: NutrientPlanKey, tenant_key: str = "", *, for_write: bool = False) -> NutrientPlan:
         plan = self._repo.get_or_raise(key)
         if tenant_key:
-            verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
+            # Nutrient plans are a hybrid catalog: read access spans the caller's
+            # own plans PLUS globally seeded plans (empty tenant_key), so the
+            # detail/entries/clone routes work for global plans the list restores.
+            # Writes must stay owner-only — a tenant may read or clone a global
+            # plan but never mutate it (there is no is_system flag; empty
+            # tenant_key IS the global marker), so write callers pass for_write.
+            if for_write:
+                verify_tenant_ownership(plan, tenant_key, "NutrientPlan")
+            else:
+                verify_tenant_read_access(plan, tenant_key, "NutrientPlan")
         return plan
 
     def create_plan(self, plan: NutrientPlan) -> NutrientPlan:
@@ -167,9 +176,15 @@ class NutrientPlanService:
 
     # ── Clone ────────────────────────────────────────────────────────
 
-    def clone_plan(self, source_key: NutrientPlanKey, new_name: str, author: str = "") -> NutrientPlan:
-        self.get_plan(source_key)
-        return self._repo.clone(source_key, new_name, author)
+    def clone_plan(
+        self, source_key: NutrientPlanKey, new_name: str, author: str = "", tenant_key: str = ""
+    ) -> NutrientPlan:
+        # The clone is owned by tenant_key (the cloning tenant), never by the
+        # source. A tenant may clone a global plan, but the copy must be private
+        # and tenant-scoped — inheriting the source's empty tenant_key would make
+        # it globally visible to every tenant now that the list unions global rows.
+        self.get_plan(source_key, tenant_key=tenant_key)
+        return self._repo.clone(source_key, new_name, author, tenant_key=tenant_key)
 
     # ── Validation ───────────────────────────────────────────────────
 
