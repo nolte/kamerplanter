@@ -70,7 +70,10 @@ def test_species_seed_matches_schema() -> None:
 # the same field set in both directions.
 
 # Model fields that are never carried in the seed YAML (persistence/runtime only).
-_CULTIVAR_MODEL_RUNTIME_ONLY = {"key", "created_at", "updated_at"}
+# ``origin`` is a derived data-provenance marker (REQ-011/#367): it defaults to
+# ``system`` for seed data and is set by the enrichment engine / create endpoints,
+# never sourced from the seed YAML.
+_CULTIVAR_MODEL_RUNTIME_ONLY = {"key", "created_at", "updated_at", "origin"}
 # The model's ``species_key`` is supplied through the seed-format map key ``species_name``.
 _CULTIVAR_FIELD_ALIASES = {"species_key": "species_name"}
 # Schema properties that are intentionally descriptive-only (no model counterpart,

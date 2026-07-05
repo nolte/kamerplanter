@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import (
+    DataOrigin,
     EfficacyRating,
     PathogenType,
     PestPressureLevel,
@@ -62,6 +63,9 @@ class Disease(BaseModel):
     environmental_triggers: list[str] = Field(default_factory=list)
     affected_plant_parts: list[PlantPart] = Field(default_factory=list)
     description: str | None = None
+    # Data provenance (REQ-001/REQ-010, UI-NFR-018): seeded IPM data is 'system'
+    # (read-only), user-created records are 'tenant'. Server-managed.
+    origin: DataOrigin = Field(default=DataOrigin.SYSTEM)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -89,6 +93,9 @@ class Treatment(BaseModel):
     mode_of_action_de: str | None = None
     precautions: str | None = None
     precautions_de: str | None = None
+    # Data provenance (REQ-001/REQ-010, UI-NFR-018): seeded IPM data is 'system'
+    # (read-only), user-created records are 'tenant'. Server-managed.
+    origin: DataOrigin = Field(default=DataOrigin.SYSTEM)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

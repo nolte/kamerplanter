@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.v1.companion_planting.schemas import CompatibilitySet, IncompatibilitySet
-from app.common.auth import get_current_user
+from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_species_service
 from app.domain.services.species_service import SpeciesService
 
@@ -18,8 +18,10 @@ def get_incompatible(species_key: str, service: SpeciesService = Depends(get_spe
     return service.get_incompatible_species(species_key)
 
 
-@router.post("/compatible", status_code=201)
+@router.post("/compatible", status_code=201, dependencies=[Depends(require_platform_admin)])
 def set_compatible(body: CompatibilitySet, service: SpeciesService = Depends(get_species_service)):
+    # Global companion edges are shared across all tenants; only platform admins
+    # may write them. require_platform_admin bypasses in light mode (REQ-027).
     from app.common.dependencies import get_graph_repo
 
     graph = get_graph_repo()
@@ -27,8 +29,10 @@ def set_compatible(body: CompatibilitySet, service: SpeciesService = Depends(get
     return {"status": "created"}
 
 
-@router.post("/incompatible", status_code=201)
+@router.post("/incompatible", status_code=201, dependencies=[Depends(require_platform_admin)])
 def set_incompatible(body: IncompatibilitySet, service: SpeciesService = Depends(get_species_service)):
+    # Global companion edges are shared across all tenants; only platform admins
+    # may write them. require_platform_admin bypasses in light mode (REQ-027).
     from app.common.dependencies import get_graph_repo
 
     graph = get_graph_repo()

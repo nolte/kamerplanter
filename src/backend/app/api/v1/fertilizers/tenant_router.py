@@ -14,6 +14,7 @@ from app.api.v1.fertilizers.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
+from app.common.enums import DataOrigin
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 from app.domain.models.tenant_context import TenantContext
@@ -23,7 +24,10 @@ router = APIRouter(prefix="/fertilizers", tags=["fertilizers"])
 
 
 def _fert_response(f: Fertilizer) -> FertilizerResponse:
-    return to_response(f, FertilizerResponse)
+    # Provenance is derived from tenant ownership: the shared catalog uses an
+    # empty tenant_key (system), tenant-created products carry their tenant_key.
+    origin = DataOrigin.TENANT if f.tenant_key else DataOrigin.SYSTEM
+    return to_response(f, FertilizerResponse, origin=origin)
 
 
 @router.get("", response_model=list[FertilizerResponse])

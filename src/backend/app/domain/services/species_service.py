@@ -31,6 +31,10 @@ class SpeciesService:
         species.representative_image_url = existing.representative_image_url
         species.representative_image_attribution = existing.representative_image_attribution
         species.representative_image_license = existing.representative_image_license
+        # The provenance marker is server-managed (REQ-001/REQ-011) and never
+        # submitted by the edit form — preserve it so a full-replace update never
+        # resets an enriched/tenant record back to the 'system' default.
+        species.origin = existing.origin
         return self._repo.update(key, species)
 
     def delete_species(self, key: SpeciesKey) -> bool:
@@ -52,7 +56,10 @@ class SpeciesService:
         return self._repo.get_cultivar_or_raise(key)
 
     def update_cultivar(self, key: CultivarKey, cultivar: Cultivar) -> Cultivar:
-        self.get_cultivar(key)
+        existing = self.get_cultivar(key)
+        # Preserve the server-managed provenance marker across a full-replace
+        # update (the edit form never submits it).
+        cultivar.origin = existing.origin
         return self._repo.update_cultivar(key, cultivar)
 
     def delete_cultivar(self, key: CultivarKey) -> bool:

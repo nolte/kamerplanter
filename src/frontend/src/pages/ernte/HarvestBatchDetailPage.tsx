@@ -13,7 +13,11 @@ import TableCell from '@mui/material/TableCell';
 import TableRow from '@mui/material/TableRow';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import LinearProgress from '@mui/material/LinearProgress';
+import Alert from '@mui/material/Alert';
+import AgricultureIcon from '@mui/icons-material/Agriculture';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,6 +25,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -30,6 +35,7 @@ import FormChipInput from '@/components/form/FormChipInput';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as harvestApi from '@/api/endpoints/harvest';
+import * as plantInstancesApi from '@/api/endpoints/plantInstances';
 import type {
   HarvestBatch,
   QualityAssessment,
@@ -87,6 +93,9 @@ export default function HarvestBatchDetailPage() {
   const [saving, setSaving] = useState(false);
   const [savingQuality, setSavingQuality] = useState(false);
   const [savingYield, setSavingYield] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [harvestCompleted, setHarvestCompleted] = useState(false);
 
   const {
     control: editControl,
@@ -160,6 +169,18 @@ export default function HarvestBatchDetailPage() {
       setQuality(q);
       setYieldMetric(y);
       setError(null);
+
+      // Best-effort: has this plant already reached its terminal "harvested"
+      // state (e.g. completed earlier, or via the whole-run complete action)?
+      // Failing this lookup must not break the rest of the page — the
+      // complete-harvest action below stays available and the backend call
+      // is idempotent regardless.
+      try {
+        const plant = await plantInstancesApi.getPlantInstance(b.plant_key);
+        setHarvestCompleted(plant.removed_on != null);
+      } catch {
+        setHarvestCompleted(false);
+      }
     } catch (err) {
       setError(String(err));
     } finally {
@@ -225,6 +246,21 @@ export default function HarvestBatchDetailPage() {
       handleError(err);
     } finally {
       setSavingYield(false);
+    }
+  };
+
+  const onCompleteHarvest = async () => {
+    if (!batch) return;
+    try {
+      setCompleting(true);
+      const result = await harvestApi.completeHarvest(batch.plant_key);
+      setHarvestCompleted(result.removed_on != null);
+      notification.success(t('pages.harvest.completeHarvestSuccess'));
+      setCompleteOpen(false);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -353,6 +389,35 @@ export default function HarvestBatchDetailPage() {
                 )}
               </TableBody>
             </Table>
+
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="subtitle1" gutterBottom>
+              {t('pages.harvest.completeHarvest')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.harvest.completeHarvestDesc')}
+            </Typography>
+            {harvestCompleted ? (
+              <Alert
+                severity="success"
+                icon={<AgricultureIcon fontSize="inherit" />}
+                data-testid="harvest-already-completed"
+              >
+                {t('pages.harvest.completeHarvestAlreadyDone')}
+              </Alert>
+            ) : (
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<AgricultureIcon />}
+                onClick={() => setCompleteOpen(true)}
+                disabled={completing}
+                data-testid="complete-harvest-button"
+                sx={{ minHeight: 48 }}
+              >
+                {t('pages.harvest.completeHarvest')}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -847,6 +912,17 @@ export default function HarvestBatchDetailPage() {
           />
         </Box>
       )}
+
+      <ConfirmDialog
+        open={completeOpen}
+        title={t('pages.harvest.completeHarvestTitle')}
+        message={t('pages.harvest.completeHarvestConfirm')}
+        confirmLabel={t('pages.harvest.completeHarvestConfirmButton')}
+        onConfirm={onCompleteHarvest}
+        onCancel={() => setCompleteOpen(false)}
+        loading={completing}
+        destructive
+      />
     </Box>
   );
 }

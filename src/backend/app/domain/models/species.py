@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import (
     ClimactericClass,
+    DataOrigin,
     DtmReference,
     FrostTolerance,
     GrowthHabit,
@@ -102,6 +103,11 @@ class Cultivar(BaseModel):
     phase_watering_overrides: dict[str, int] | None = Field(
         default=None,
         description="Per-phase watering interval overrides (phase_name → interval_days)",
+    )
+    origin: DataOrigin = Field(
+        default=DataOrigin.SYSTEM,
+        description="Data provenance marker (REQ-001/REQ-011). Server-managed: seeded records default "
+        "to 'system', user-created ones to 'tenant'. Never set from the edit form.",
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -376,6 +382,14 @@ class Species(BaseModel):
     )
     representative_image_license: str | None = Field(
         default=None, description="License of the representative image (CC0/CC-BY)"
+    )
+    # ── Data provenance / ownership (REQ-001/REQ-011, UI-NFR-018) ──
+    # Server-managed: seeded master data defaults to 'system', the external
+    # enrichment engine promotes a record to 'enrichment' when it writes accepted
+    # fields, and user-created species are marked 'tenant'. Preserved on update.
+    origin: DataOrigin = Field(
+        default=DataOrigin.SYSTEM,
+        description="Data provenance marker driving read-only / deletion-protection logic.",
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None

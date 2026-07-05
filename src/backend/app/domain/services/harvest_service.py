@@ -1,9 +1,15 @@
+from datetime import date
+
 from app.common.datetimes import ensure_aware_utc, now_utc
-from app.common.exceptions import KarenzViolationError
+from app.common.enums import TerminationType
+from app.common.exceptions import KarenzViolationError, NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
 from app.domain.interfaces.harvest_repository import IHarvestRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.harvest import (
     HarvestBatch,
     HarvestIndicator,
@@ -11,6 +17,7 @@ from app.domain.models.harvest import (
     QualityAssessment,
     YieldMetric,
 )
+from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.ipm_service import IpmService
 
 
@@ -21,11 +28,21 @@ class HarvestService:
         ipm_service: IpmService,
         readiness_engine: ReadinessEngine,
         quality_engine: QualityScoringEngine,
+        plant_repo: IPlantInstanceRepository | None = None,
+        run_repo: IPlantingRunRepository | None = None,
+        phase_engine: PhaseTransitionEngine | None = None,
     ) -> None:
         self._repo = repo
         self._ipm = ipm_service
         self._readiness = readiness_engine
         self._quality = quality_engine
+        # REQ-007 / REQ-003 E5 — the explicit "Ernte abschließen" action ends a
+        # plant's lifecycle through the phase engine. Optional so the batch/karenz
+        # tests can build the service without them; the complete-* methods raise a
+        # clear error if invoked while unwired.
+        self._plant_repo = plant_repo
+        self._run_repo = run_repo
+        self._phase_engine = phase_engine
 
     # ── Indicators ──
 
@@ -130,6 +147,80 @@ class HarvestService:
             if field in allowed:
                 setattr(existing, field, value)
         return self._repo.update_batch(key, existing)
+
+    # ── Explicit harvest completion (REQ-007 / REQ-003 E5) ──
+
+    def complete_harvest(
+        self,
+        plant_key: str,
+        tenant_key: str = "",
+        on_date: date | None = None,
+    ) -> PlantInstance:
+        """Explicitly finish a plant's harvest and end its lifecycle.
+
+        This is the operator's explicit "done" signal. It transitions the plant
+        instance to its terminal ``harvested`` state through the phase engine —
+        which freezes the open phase-history entry and sets
+        ``termination_type=HARVESTED`` + ``removed_on`` — never a raw state write
+        and never a backward transition. Creating harvest batches never
+        auto-terminates: partial/multiple harvests (several open batches) stay
+        allowed and are independent of this call (Karenz is gated per batch, not
+        here). Idempotent: an already-terminated or already-removed plant is
+        returned unchanged, so a double-complete cannot re-terminate it.
+        """
+        if self._plant_repo is None or self._phase_engine is None:
+            raise RuntimeError("complete_harvest requires plant_repo and phase_engine to be wired")
+
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None:
+            raise NotFoundError("PlantInstance", plant_key)
+        if tenant_key:
+            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+
+        if plant.termination_type is not None or plant.removed_on is not None:
+            return plant
+
+        return self._phase_engine.terminate(plant_key, TerminationType.HARVESTED, on_date=on_date)
+
+    def complete_harvest_for_run(
+        self,
+        run_key: str,
+        tenant_key: str = "",
+        on_date: date | None = None,
+    ) -> dict:
+        """Explicitly finish a whole run's harvest.
+
+        Terminates every *still-active* instance of the run as ``harvested`` via
+        the phase engine. An instance counts as active while neither
+        ``removed_on`` nor ``termination_type`` is set; already-terminated or
+        removed instances are skipped (no double-/backward transition). Detached
+        (standalone) plants are excluded — they are managed on their own path.
+        """
+        if self._run_repo is None or self._plant_repo is None or self._phase_engine is None:
+            raise RuntimeError("complete_harvest_for_run requires run_repo, plant_repo and phase_engine to be wired")
+
+        run = self._run_repo.get_or_raise(run_key)
+        if tenant_key:
+            verify_tenant_ownership(run, tenant_key, "PlantingRun")
+
+        completed: list[str] = []
+        for row in self._run_repo.get_run_plants(run_key, include_detached=False):
+            plant_key = row.get("_key") or row.get("key", "")
+            if not plant_key:
+                continue
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is None:
+                continue
+            if plant.termination_type is not None or plant.removed_on is not None:
+                continue
+            self._phase_engine.terminate(plant_key, TerminationType.HARVESTED, on_date=on_date)
+            completed.append(plant_key)
+
+        return {
+            "run_key": run_key,
+            "completed_count": len(completed),
+            "completed_keys": completed,
+        }
 
     # ── Quality Assessment ──
 

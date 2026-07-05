@@ -54,9 +54,13 @@ export function useNutrientPlanData() {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  // TODO: REQ-001 v5.0 origin field — backend pending; nutrient plans currently have no origin field.
   const planOrigin = resolveOrigin(plan);
-  const { isReadOnly, isDeletionProtected, canCopyAsTemplate } = useOriginProtection({ origin: planOrigin });
+  const {
+    isReadOnly,
+    isDeletionProtected,
+    canCopyAsTemplate,
+    tooltipText: planOriginTooltip,
+  } = useOriginProtection({ origin: planOrigin });
 
   const {
     control,
@@ -233,14 +237,14 @@ export function useNutrientPlanData() {
   return useMemo(
     () => ({
       key, plan, entries, fertilizers, validation, validating, loading, error, tab, setTab,
-      saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate,
+      saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate, planOriginTooltip,
       isFavorite, toggleFavorite, control, handleSubmit, onSave, resetForm,
       editScheduleMode, editScheduleEnabled, editWeekdaySchedule, handleEditWeekdayToggle,
       deleteOpen, setDeleteOpen, onDelete, load,
     }),
     [
       key, plan, entries, fertilizers, validation, validating, loading, error, tab, setTab,
-      saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate,
+      saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate, planOriginTooltip,
       isFavorite, toggleFavorite, control, handleSubmit, onSave, resetForm,
       editScheduleMode, editScheduleEnabled, editWeekdaySchedule, handleEditWeekdayToggle,
       deleteOpen, onDelete, load,

@@ -20,6 +20,7 @@ from app.api.v1.ipm.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_ipm_service, get_pest_inference_client
+from app.common.enums import DataOrigin
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.beneficial import Beneficial
@@ -160,7 +161,7 @@ def list_diseases(
 
 @router.post("/diseases", response_model=DiseaseResponse, status_code=201)
 def create_disease(body: DiseaseCreate, service: IpmService = Depends(get_ipm_service)):
-    disease = Disease(**body.model_dump())
+    disease = Disease(**body.model_dump(), origin=DataOrigin.TENANT)
     created = service.create_disease(disease)
     return _disease_response(created)
 
@@ -196,7 +197,7 @@ def list_treatments(
 
 @router.post("/treatments", response_model=TreatmentResponse, status_code=201)
 def create_treatment(body: TreatmentCreate, service: IpmService = Depends(get_ipm_service)):
-    treatment = Treatment(**body.model_dump())
+    treatment = Treatment(**body.model_dump(), origin=DataOrigin.TENANT)
     created = service.create_treatment(treatment)
     return _treatment_response(created)
 

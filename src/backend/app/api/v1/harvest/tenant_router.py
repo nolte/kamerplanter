@@ -5,12 +5,15 @@ from app.api.v1.harvest.schemas import (
     HarvestBatchCreate,
     HarvestBatchResponse,
     HarvestBatchUpdate,
+    HarvestCompleteRequest,
+    HarvestCompleteResponse,
     HarvestIndicatorCreate,
     HarvestIndicatorResponse,
     ObservationCreate,
     ObservationResponse,
     QualityAssessmentCreate,
     QualityAssessmentResponse,
+    RunHarvestCompleteResponse,
     YieldMetricCreate,
     YieldMetricResponse,
 )
@@ -133,6 +136,36 @@ def create_batch(
     batch = HarvestBatch(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_harvest_batch(plant_key, batch)
     return _batch_response(created)
+
+
+@router.post("/plants/{plant_key}/complete", response_model=HarvestCompleteResponse)
+def complete_harvest(
+    plant_key: str,
+    body: HarvestCompleteRequest | None = None,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: HarvestService = Depends(get_harvest_service),
+):
+    """REQ-007 — explicit 'Ernte abschließen': end the plant's lifecycle as harvested."""
+    on_date = body.on_date if body else None
+    plant = service.complete_harvest(plant_key, tenant_key=ctx.tenant_key, on_date=on_date)
+    return HarvestCompleteResponse(
+        plant_key=plant.key or plant_key,
+        termination_type=plant.termination_type.value if plant.termination_type else None,
+        removed_on=plant.removed_on,
+    )
+
+
+@router.post("/runs/{run_key}/complete", response_model=RunHarvestCompleteResponse)
+def complete_run_harvest(
+    run_key: str,
+    body: HarvestCompleteRequest | None = None,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: HarvestService = Depends(get_harvest_service),
+):
+    """REQ-007 — explicit 'Ernte abschließen' for a whole run: terminate all active instances."""
+    on_date = body.on_date if body else None
+    result = service.complete_harvest_for_run(run_key, tenant_key=ctx.tenant_key, on_date=on_date)
+    return RunHarvestCompleteResponse(**result)
 
 
 @router.get("/batches/{key}", response_model=HarvestBatchResponse)

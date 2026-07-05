@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from app.common.enums import (
     ClimactericClass,
+    DataOrigin,
     FrostTolerance,
     GrowthHabit,
     HarvestedPart,
@@ -106,6 +107,7 @@ class SpeciesResponse(BaseModel):
     representative_image_url: str | None = None
     representative_image_attribution: str | None = None
     representative_image_license: str | None = None
+    origin: DataOrigin = DataOrigin.SYSTEM
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

@@ -1,5 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
+from dateutil.rrule import rrulestr
+
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.dependency_resolver import DependencyResolver
@@ -361,13 +363,9 @@ class TaskService:
         if completed_task.recurrence_end_date and datetime.now(UTC) >= completed_task.recurrence_end_date:
             return None
 
-        # Parse cron and compute next due date
-        try:
-            from croniter import croniter
-
-            cron = croniter(completed_task.recurrence_rule, datetime.now(UTC))
-            next_dt = cron.get_next(datetime)
-        except Exception:
+        # Compute the next due date from the recurrence rule.
+        next_dt = self._compute_next_recurrence(completed_task.recurrence_rule, datetime.now(UTC))
+        if next_dt is None:
             return None
 
         new_task = Task(
@@ -399,6 +397,41 @@ class TaskService:
             parent_recurring_task_key=completed_task.key,
         )
         return self._repo.create_task(new_task)
+
+    @staticmethod
+    def _compute_next_recurrence(rule: str, after: datetime) -> datetime | None:
+        """Return the next occurrence of a recurrence rule strictly after ``after``.
+
+        The canonical recurrence format is an iCal RRULE string as emitted by the
+        frontend (e.g. ``FREQ=DAILY``, ``FREQ=WEEKLY;INTERVAL=2``,
+        ``FREQ=WEEKLY;BYDAY=MO,WE``), parsed via ``dateutil.rrule``. This aligns
+        with the REQ-015 iCal token so a single format spans task recurrence and
+        calendar export.
+
+        Legacy cron expressions are tolerated as a fallback: if the rule does not
+        parse as an RRULE, it is retried with ``croniter``. No cron strings are
+        known to be persisted today, but the fallback keeps any historically
+        created rule working. An empty or unparseable rule yields ``None``.
+        """
+        if not rule:
+            return None
+
+        # Canonical path: iCal RRULE via dateutil. dtstart=after makes the rule
+        # relative to "now"; inc=False returns the first occurrence *after* it.
+        try:
+            rule_set = rrulestr(rule, dtstart=after)
+        except (ValueError, TypeError) as exc:  # noqa: F841 — parens kept vs ruff-format tuple strip
+            rule_set = None
+        if rule_set is not None:
+            return rule_set.after(after, inc=False)
+
+        # Legacy fallback: cron syntax via croniter.
+        try:
+            from croniter import croniter
+
+            return croniter(rule, after).get_next(datetime)
+        except (ValueError, KeyError, TypeError) as exc:  # noqa: F841 — parens kept vs ruff-format tuple strip
+            return None
 
     def skip_task(self, key: str) -> Task:
         task = self.get_task(key)

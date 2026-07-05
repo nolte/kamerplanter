@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import PestImageStatus, PestSeverity, PlantPart
+from app.common.enums import DataOrigin, PestImageStatus, PestSeverity, PlantPart
 
 
 class PestCreate(BaseModel):
@@ -126,6 +126,7 @@ class DiseaseResponse(BaseModel):
     environmental_triggers: list[str]
     affected_plant_parts: list[str]
     description: str | None = None
+    origin: DataOrigin = DataOrigin.SYSTEM
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -186,6 +187,7 @@ class TreatmentResponse(BaseModel):
     mode_of_action_de: str | None = None
     precautions: str | None = None
     precautions_de: str | None = None
+    origin: DataOrigin = DataOrigin.SYSTEM
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

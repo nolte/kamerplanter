@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.common.enums import DataOrigin
+
 # ── WateringSchedule schema ─────────────────────────────────────────
 
 
@@ -114,6 +116,9 @@ class NutrientPlanResponse(BaseModel):
     watering_schedule: WateringScheduleSchema | None = None
     water_mix_ratio_ro_percent: int | None = None
     cycle_restart_from_sequence: int | None = None
+    # Provenance is derived from tenant_key in the router (empty => shared system
+    # catalog, set => tenant-owned); nutrient plans carry no stored origin field.
+    origin: DataOrigin = DataOrigin.SYSTEM
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

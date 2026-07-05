@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -84,6 +84,27 @@ class HarvestBatchResponse(BaseModel):
     notes: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class HarvestCompleteRequest(BaseModel):
+    """Optional payload for the explicit 'Ernte abschließen' action.
+
+    ``on_date`` back-dates the lifecycle end; defaults to today when omitted.
+    """
+
+    on_date: date | None = None
+
+
+class HarvestCompleteResponse(BaseModel):
+    plant_key: str
+    termination_type: str | None = None
+    removed_on: date | None = None
+
+
+class RunHarvestCompleteResponse(BaseModel):
+    run_key: str
+    completed_count: int
+    completed_keys: list[str]
 
 
 class QualityAssessmentCreate(BaseModel):

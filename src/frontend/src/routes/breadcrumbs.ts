@@ -72,6 +72,9 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // Settings
   '/settings': { label: 'nav.settings', parent: '/dashboard' },
 
+  // REQ-025 Datenschutz & Betroffenenrechte (DSGVO self-service)
+  '/privacy': { label: 'pages.auth.privacySettings', parent: '/dashboard' },
+
   // Admin
   '/admin/tenants': { label: 'pages.auth.adminTenantsTitle', parent: '/settings' },
   '/admin/users': { label: 'pages.auth.adminUsersTitle', parent: '/settings' },

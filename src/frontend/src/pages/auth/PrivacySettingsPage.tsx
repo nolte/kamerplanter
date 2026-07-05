@@ -178,6 +178,7 @@ export default function PrivacySettingsPage() {
         sx={{ mb: 3 }}
         variant="scrollable"
         scrollButtons="auto"
+        aria-label={t('pages.privacy.tabsAriaLabel')}
         data-testid="privacy-tabs"
       >
         <Tab label={t('pages.privacy.tabConsents')} data-testid="privacy-tab-consents" />
@@ -231,7 +232,22 @@ export default function PrivacySettingsPage() {
                     }
                   >
                     <ListItemText
-                      primary={c.label || c.purpose}
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                          {c.label || c.purpose}
+                          {/* Clarifies why no revoke action is offered here: required
+                              consents are tied to core functionality (REQ-025) and
+                              cannot be revoked without deleting the account. */}
+                          {c.required && (
+                            <Chip
+                              label={t('pages.privacy.consentRequired')}
+                              size="small"
+                              variant="outlined"
+                              data-testid={`consent-required-${c.purpose}`}
+                            />
+                          )}
+                        </Box>
+                      }
                       secondary={c.description}
                     />
                   </ListItem>
@@ -337,6 +353,7 @@ export default function PrivacySettingsPage() {
             <Stack spacing={2} sx={{ maxWidth: 480, mb: 3 }}>
               <TextField
                 label={t('pages.privacy.restrictScopeLabel')}
+                helperText={t('pages.privacy.restrictScopeHelper')}
                 value={restrictScope}
                 onChange={(e) => setRestrictScope(e.target.value)}
                 fullWidth

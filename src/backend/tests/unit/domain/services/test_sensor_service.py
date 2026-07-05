@@ -183,3 +183,90 @@ class TestGetLiveStateForSensors:
         result = service_no_ha.get_live_state_for_sensors(sensors)
         assert result["source"] == "unavailable"
         assert result["message"] == "Home Assistant not configured"
+
+
+class TestGetLocationFrostWarning:
+    def _temp_sensor(self) -> Sensor:
+        return Sensor(
+            name="Air Temp",
+            metric_type="temperature_celsius",
+            ha_entity_id="sensor.loc_temp",
+            location_key="loc1",
+        )
+
+    def test_frost_warning_true_below_threshold(self, service, mock_repo, mock_ha_client):
+        mock_repo.find_by_location.return_value = [self._temp_sensor()]
+        mock_ha_client.get_state.return_value = {
+            "value": 1.0,
+            "last_changed": "2026-03-01T02:00:00Z",
+            "entity_id": "sensor.loc_temp",
+            "unit": "°C",
+        }
+        result = service.get_location_frost_warning("loc1")
+        assert result["frost_warning"] is True
+        assert result["temperature_celsius"] == 1.0
+        assert result["threshold_celsius"] == 3.0
+        assert result["source"] == "ha_live"
+        assert result["entity_id"] == "sensor.loc_temp"
+        mock_repo.find_by_location.assert_called_once_with("loc1")
+
+    def test_frost_warning_false_above_threshold(self, service, mock_repo, mock_ha_client):
+        mock_repo.find_by_location.return_value = [self._temp_sensor()]
+        mock_ha_client.get_state.return_value = {
+            "value": 12.5,
+            "last_changed": "2026-03-01T14:00:00Z",
+            "entity_id": "sensor.loc_temp",
+            "unit": "°C",
+        }
+        result = service.get_location_frost_warning("loc1")
+        assert result["frost_warning"] is False
+        assert result["source"] == "ha_live"
+
+    def test_unknown_when_no_temperature_sensor(self, service, mock_repo, mock_ha_client):
+        mock_repo.find_by_location.return_value = [
+            Sensor(name="Humidity", metric_type="humidity_percent", ha_entity_id="sensor.hum", location_key="loc1"),
+        ]
+        mock_ha_client.get_state.return_value = {
+            "value": 60.0,
+            "last_changed": "2026-03-01T14:00:00Z",
+            "entity_id": "sensor.hum",
+            "unit": "%",
+        }
+        result = service.get_location_frost_warning("loc1")
+        assert result["frost_warning"] is None
+        assert result["temperature_celsius"] is None
+        assert result["source"] == "no_temperature"
+
+    def test_unknown_when_temperature_state_non_numeric(self, service, mock_repo, mock_ha_client):
+        # Home Assistant reports "unavailable"/"unknown" as the *value* of an
+        # otherwise-live entity. That must not raise (→ 500); the endpoint reports
+        # an honest unknown instead.
+        mock_repo.find_by_location.return_value = [self._temp_sensor()]
+        mock_ha_client.get_state.return_value = {
+            "value": "unavailable",
+            "last_changed": "2026-03-01T02:00:00Z",
+            "entity_id": "sensor.loc_temp",
+            "unit": "°C",
+        }
+        result = service.get_location_frost_warning("loc1")
+        assert result["frost_warning"] is None
+        assert result["temperature_celsius"] is None
+        assert result["source"] == "no_temperature"
+
+    def test_unknown_when_ha_unavailable(self, service_no_ha, mock_repo):
+        mock_repo.find_by_location.return_value = [self._temp_sensor()]
+        result = service_no_ha.get_location_frost_warning("loc1")
+        assert result["frost_warning"] is None
+        assert result["source"] == "unavailable"
+
+    def test_custom_threshold_override(self, service, mock_repo, mock_ha_client):
+        mock_repo.find_by_location.return_value = [self._temp_sensor()]
+        mock_ha_client.get_state.return_value = {
+            "value": 2.0,
+            "last_changed": "2026-03-01T02:00:00Z",
+            "entity_id": "sensor.loc_temp",
+            "unit": "°C",
+        }
+        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0)
+        assert result["frost_warning"] is False
+        assert result["threshold_celsius"] == 0.0

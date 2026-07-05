@@ -19,9 +19,6 @@ Mit dem Stammdaten-Import legst du Pflanzenarten, Sorten und botanische Familien
 | Sorte | Sorten | Zugehörige Art + Sortenname |
 | Botanische Familie | Pflanzenfamilien | Name |
 
-!!! warning "Sorten-Import: nur Validierung, noch keine Übernahme"
-    Der Datentyp **Sorten** lässt sich bereits auswählen, hochladen und validieren — der Validierungsbericht zeigt dir also zuverlässig, welche Zeilen korrekt wären. Beim Bestätigen werden neue Sorten aktuell jedoch **noch nicht** in der Datenbank angelegt. Lege Sorten bis auf Weiteres über **Stammdaten → Sorte anlegen** auf der Artdetailseite an (siehe [Sorten verwalten](plant-management.md#sorten-verwalten)).
-
 ## CSV-Vorlage herunterladen
 
 Damit du nicht rätseln musst, welche Spalten erwartet werden, bietet dir Kamerplanter für jeden Datentyp eine passende Vorlage an:
@@ -46,8 +43,13 @@ Es lädt eine CSV-Datei mit genau den Spaltenüberschriften herunter, die für d
 !!! note "Wissenschaftlicher Name muss dem Muster \"Gattung Art\" folgen"
     Beim Datentyp **Pflanzenarten** muss `scientific_name` mit einem großgeschriebenen Gattungsnamen gefolgt von einem kleingeschriebenen Artepitheton beginnen, z.B. `Solanum lycopersicum`. Weicht der Wert davon ab, meldet der Validierungsbericht einen Fehler.
 
-!!! warning "Bei Pflanzenarten werden nur drei Felder tatsächlich übernommen"
-    Die Vorlage für Pflanzenarten enthält viele Spalten (Wuchsform, Wurzeltyp, Anbaugeeignetheit, Maße, …), und diese werden im Validierungsbericht korrekt bestätigt. Beim Anlegen einer **neuen** Art übernimmt Kamerplanter aktuell trotzdem nur **Wissenschaftlicher Name**, **Umgangssprachlicher Name** und **Beschreibung**. Die übrigen Angaben ergänzt du im Anschluss manuell auf der [Artdetailseite](plant-management.md#art-bearbeiten). Bei Pflanzenfamilien werden dagegen alle vier Spalten vollständig übernommen.
+!!! note "Zwei Spalten mit Sonderrolle: `family_name` und `cycle_type`"
+    Beim Anlegen einer **neuen** Art übernimmt Kamerplanter alle in der Vorlage aufgeführten Spalten — mit zwei Ausnahmen:
+
+    - `family_name` wird über den **Anzeigenamen** mit einer bereits vorhandenen botanischen Familie abgeglichen. Passt der Name zu einer Familie, wird die Art korrekt mit ihr verknüpft. Findet Kamerplanter keine passende Familie, bleibt die Familienzuordnung leer (statt einen ungültigen Verweis anzulegen) — lege die Familie in diesem Fall zuerst an und wiederhole den Import.
+    - `cycle_type` wird im Validierungsbericht geprüft, aber **nicht gespeichert** — die Art hat dafür kein passendes Datenfeld. Trage den Lebenszyklus bei Bedarf nachträglich auf der [Artdetailseite](plant-management.md#art-bearbeiten) ein.
+
+    Bei Pflanzenfamilien werden alle vier Spalten vollständig übernommen.
 
 ## Datei hochladen
 
@@ -115,11 +117,11 @@ Existiert bereits ein Datensatz mit demselben eindeutigen Kennzeichen (z.B. ders
 | Option | Verhalten |
 |--------|-----------|
 | **Überspringen** | Die Zeile wird beim Bestätigen ignoriert, der bestehende Datensatz bleibt unverändert. |
-| **Aktualisieren** | Vorgesehen für ein zukünftiges Update des bestehenden Datensatzes. |
+| **Aktualisieren** | Der bestehende Datensatz wird mit den Werten der CSV-Zeile aktualisiert — leere Zellen überschreiben dabei nie einen vorhandenen Wert. |
 | **Fehler melden** | Die Zeile wird als Fehler gewertet, nichts wird gespeichert. |
 
-!!! warning "Aktualisieren hat aktuell keinen Effekt auf bestehende Datensätze"
-    Die Option **Aktualisieren** verändert vorhandene Datensätze derzeit noch nicht. Wähle bis auf Weiteres **Überspringen**, um versehentliche Duplikate zu vermeiden, und bearbeite bestehende Einträge stattdessen direkt in der jeweiligen Stammdaten-Ansicht (z.B. auf der [Artdetailseite](plant-management.md#art-bearbeiten)).
+!!! note "Aktualisieren gilt für Pflanzenarten und Pflanzenfamilien, noch nicht für Sorten"
+    Bei den Datentypen **Pflanzenarten** und **Pflanzenfamilien** aktualisiert die Option **Aktualisieren** den bestehenden Datensatz wie oben beschrieben. Für **Sorten** erkennt der Validierungsbericht bislang keine Duplikate — die Option **Aktualisieren** hat für diesen Datentyp deshalb noch keinen Effekt. Bearbeite bestehende Sorten bis auf Weiteres direkt auf der [Artdetailseite](plant-management.md#sorten-verwalten).
 
 ## Ergebnis nach dem Import
 
@@ -141,13 +143,13 @@ Traten Fehler auf, werden sie zusätzlich als Liste angezeigt. Über **Neuer Imp
     Nein. Nach dem Bestätigen ist der Import-Vorgang abgeschlossen. Möchtest du dieselbe Datei erneut verarbeiten (z.B. nach einer Korrektur), lädst du sie über **Neuer Import** erneut hoch.
 
 ??? question "Werden beim erneuten Hochladen automatisch Duplikate erkannt?"
-    Ja, sofern das eindeutige Kennzeichen des Datentyps (z.B. wissenschaftlicher Name bei Pflanzenarten, Name bei Pflanzenfamilien) bereits in der Datenbank existiert. Die Zeile wird dann im Validierungsbericht als Duplikat markiert.
+    Bei **Pflanzenarten** (wissenschaftlicher Name) und **Pflanzenfamilien** (Name) ja, sofern das eindeutige Kennzeichen bereits in der Datenbank existiert — die Zeile wird dann im Validierungsbericht als Duplikat markiert. Bei **Sorten** erkennt der Validierungsbericht aktuell noch keine Duplikate; jede gültige Sorten-Zeile wird beim Bestätigen als neuer Datensatz angelegt, auch wenn bereits eine gleichnamige Sorte existiert.
 
 ??? question "Was passiert, wenn ich die Seite während der Vorschau verlasse?"
     Der noch nicht bestätigte Import-Vorgang geht verloren, es wurde ohnehin noch nichts gespeichert. Lade die Datei erneut hoch.
 
 ??? question "Kann ich mit dem Import auch bestehende Nährstoffpläne oder andere Stammdaten importieren?"
-    Nein, aktuell unterstützt der CSV-Import ausschließlich Pflanzenarten, Sorten (Validierung, siehe Hinweis oben) und botanische Familien.
+    Nein, aktuell unterstützt der CSV-Import ausschließlich Pflanzenarten, Sorten und botanische Familien.
 
 ## Siehe auch
 

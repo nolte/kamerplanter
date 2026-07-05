@@ -10,6 +10,7 @@ from app.api.v1.species.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_family_repo, get_species_service
+from app.common.enums import DataOrigin
 from app.config.settings import settings
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.external.inference_service_client import InferenceServiceClient
@@ -95,7 +96,9 @@ def create_species(
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
 ):
-    species = Species(**body.model_dump())
+    # User-created master data is tenant-owned (editable); seeded species default
+    # to 'system' (read-only). Provenance is server-set, never from the form body.
+    species = Species(**body.model_dump(), origin=DataOrigin.TENANT)
     created = service.create_species(species)
     return _species_response(created, family_repo)
 

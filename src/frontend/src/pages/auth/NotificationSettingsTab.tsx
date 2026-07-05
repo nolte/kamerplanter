@@ -15,10 +15,13 @@ import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
+import FormHelperText from '@mui/material/FormHelperText';
 import Divider from '@mui/material/Divider';
+import Tooltip from '@mui/material/Tooltip';
 import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import { useSnackbar } from 'notistack';
 import {
@@ -51,6 +54,27 @@ const GRID_2COL = {
 // the shared contract in src/contracts/notification-channels.json.
 export const CHANNEL_KEYS = ['home_assistant', 'email', 'pwa', 'apprise'] as const;
 
+// The per-channel `config.*` keys this component reads/writes and sends to the
+// backend. These MUST match the keys the backend reads (e.g. the email channel
+// reads `config.email`/`config.digest`), otherwise settings are silently lost.
+// Guarded by the shared contract in src/contracts/notification-channels.json
+// (frontend: notificationChannels.contract.test.ts; backend:
+// test_notification_channels_contract.py).
+export const CHANNEL_CONFIG_KEYS: Record<
+  (typeof CHANNEL_KEYS)[number],
+  readonly string[]
+> = {
+  home_assistant: [
+    'persistent_notification',
+    'mobile_push',
+    'tts_enabled',
+    'tts_entity_id',
+  ],
+  email: ['email', 'digest'],
+  pwa: [],
+  apprise: ['urls'],
+} as const;
+
 const CHANNEL_LABEL_KEYS: Record<string, string> = {
   home_assistant: 'pages.notifications.settings.channelHomeAssistant',
   email: 'pages.notifications.settings.channelEmail',
@@ -63,6 +87,11 @@ const DEFAULT_CHANNEL_PREF: ChannelPreference = {
   priority: 0,
   config: {},
 };
+
+// Lightweight client-side format check for the email channel's address field.
+// The backend performs the authoritative validation on save — this only gives
+// immediate feedback while typing, it never blocks the save action.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function getChannelPref(
   prefs: NotificationPreferencesResponse | null,
@@ -375,50 +404,95 @@ export default function NotificationSettingsTab() {
                   </Box>
                 )}
 
-                {pref.enabled && channelKey === 'email' && (
-                  <Box sx={{ pl: 4, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <TextField
-                      label={t('pages.notifications.settings.emailAddress')}
-                      size="small"
-                      type="email"
-                      value={(pref.config?.address as string) ?? ''}
-                      onChange={(e) =>
-                        updateChannelConfig(
-                          channelKey,
-                          'address',
-                          e.target.value,
-                        )
-                      }
-                      data-testid="email-address"
-                      sx={{ maxWidth: 400 }}
-                    />
-                    <FormControl size="small" sx={{ maxWidth: 250 }}>
-                      <InputLabel id="email-digest-label">
-                        {t('pages.notifications.settings.emailDigestMode')}
-                      </InputLabel>
-                      <Select
-                        labelId="email-digest-label"
-                        label={t('pages.notifications.settings.emailDigestMode')}
-                        value={(pref.config?.digest_mode as string) ?? 'immediate'}
+                {pref.enabled && channelKey === 'email' && (() => {
+                  const emailValue = (pref.config?.email as string) ?? '';
+                  const emailInvalid =
+                    emailValue.trim().length > 0 && !EMAIL_PATTERN.test(emailValue);
+                  const digestEnabled = (pref.config?.digest as boolean) ?? false;
+
+                  return (
+                    <Box
+                      sx={{ pl: 4, display: 'flex', flexDirection: 'column', gap: 1.5 }}
+                    >
+                      <TextField
+                        label={t('pages.notifications.settings.emailAddress')}
+                        size="small"
+                        type="email"
+                        autoComplete="email"
+                        required
+                        placeholder="name@example.com"
+                        value={emailValue}
                         onChange={(e) =>
                           updateChannelConfig(
                             channelKey,
-                            'digest_mode',
+                            'email',
                             e.target.value,
                           )
                         }
-                        data-testid="email-digest-mode"
-                      >
-                        <MenuItem value="immediate">
-                          {t('pages.notifications.settings.emailImmediate')}
-                        </MenuItem>
-                        <MenuItem value="daily">
-                          {t('pages.notifications.settings.emailDaily')}
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Box>
-                )}
+                        error={emailInvalid}
+                        helperText={
+                          emailInvalid
+                            ? t('pages.notifications.settings.emailAddressError')
+                            : t('pages.notifications.settings.emailAddressHelper')
+                        }
+                        data-testid="email-address"
+                        sx={{ maxWidth: 400 }}
+                      />
+                      <Box>
+                        <Typography
+                          id="email-digest-label"
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            mb: 0.5,
+                          }}
+                        >
+                          {t('pages.notifications.settings.emailDigestMode')}
+                          <Tooltip
+                            title={t('pages.notifications.settings.emailDigestTooltip')}
+                            arrow
+                            placement="top"
+                          >
+                            <InfoOutlinedIcon
+                              sx={{ fontSize: 18, color: 'text.secondary', cursor: 'help' }}
+                              tabIndex={0}
+                              data-testid="email-digest-tooltip-icon"
+                            />
+                          </Tooltip>
+                        </Typography>
+                        <FormControl size="small" sx={{ maxWidth: 280, display: 'block' }}>
+                          <Select
+                            labelId="email-digest-label"
+                            value={digestEnabled ? 'daily' : 'immediate'}
+                            onChange={(e) =>
+                              updateChannelConfig(
+                                channelKey,
+                                'digest',
+                                e.target.value === 'daily',
+                              )
+                            }
+                            data-testid="email-digest-mode"
+                          >
+                            <MenuItem value="immediate">
+                              {t('pages.notifications.settings.emailImmediate')}
+                            </MenuItem>
+                            <MenuItem value="daily">
+                              {t('pages.notifications.settings.emailDaily')}
+                            </MenuItem>
+                          </Select>
+                          <FormHelperText data-testid="email-digest-helper">
+                            {digestEnabled
+                              ? t('pages.notifications.settings.emailDailyHelper')
+                              : t('pages.notifications.settings.emailImmediateHelper')}
+                          </FormHelperText>
+                        </FormControl>
+                      </Box>
+                    </Box>
+                  );
+                })()}
 
                 {pref.enabled && channelKey === 'apprise' && (
                   <Box sx={{ pl: 4 }}>

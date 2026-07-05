@@ -52,6 +52,7 @@ from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
 from app.domain.engines.password_engine import PasswordEngine
+from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
@@ -244,6 +245,8 @@ def get_plant_diary_service():
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
+    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantingRunService(
         get_planting_run_repo(),
         get_plant_repo(),
@@ -254,6 +257,8 @@ def get_planting_run_service() -> PlantingRunService:
         phase_repo=get_lifecycle_repo(),
         site_repo=get_site_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
+        rotation_validator=rotation_validator,
+        companion_engine=companion_engine,
     )
 
 
@@ -379,12 +384,23 @@ def get_harvest_repo() -> ArangoHarvestRepository:
     return ArangoHarvestRepository(get_db())
 
 
+def get_phase_transition_engine() -> PhaseTransitionEngine:
+    return PhaseTransitionEngine(
+        get_lifecycle_repo(),
+        get_plant_repo(),
+        phase_seq_repo=get_phase_sequence_repo(),
+    )
+
+
 def get_harvest_service() -> HarvestService:
     return HarvestService(
         get_harvest_repo(),
         get_ipm_service(),
         ReadinessEngine(),
         QualityScoringEngine(),
+        plant_repo=get_plant_repo(),
+        run_repo=get_planting_run_repo(),
+        phase_engine=get_phase_transition_engine(),
     )
 
 

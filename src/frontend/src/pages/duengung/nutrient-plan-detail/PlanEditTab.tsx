@@ -68,6 +68,14 @@ export default function PlanEditTab({
         {t('pages.nutrientPlans.editIntro')}
       </Typography>
 
+      {/* UI-NFR-018 R-027: when read-only the whole form must reject input, not
+        just hide the save button — fieldset[disabled] grays out and disables
+        every native form control beneath it (matches SpeciesEditTab pattern). */}
+      <Box
+        component="fieldset"
+        disabled={isReadOnly}
+        sx={{ border: 'none', p: 0, m: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}
+      >
       {/* UI-NFR-008 R-061: Master-detail layout — left column = General (identification +
           description, reading-width), right column = stacked compact panel (Advanced).
           Schedule and the phases timeline remain full-width below (R-058). */}
@@ -352,6 +360,8 @@ export default function PlanEditTab({
       </Card>
 
       <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
+      </Box>
+
       {/* UI-NFR-018 R-011: hide save/cancel actions for read-only system/enrichment data */}
       {!isReadOnly && (
         <FormActions

@@ -124,7 +124,7 @@ Two flowers that can be used almost anywhere:
     If no entry exists yet for a specific species pair, Kamerplanter automatically looks for a matching compatibility at the **family level** when you request a recommendation. Such a fallback match is reduced by 20% in score (score × 0.8) and marked "family level" instead of "species level".
 
 !!! info "Who maintains this data?"
-    Compatibility and incompatibility entries are global master data, visible to all users. They are therefore maintained by **platform admins** — a corresponding permission guard for the underlying interface is currently being added. You can still record your own, plant-specific observations independently in the plant diary, once a user interface for it is available (see [Planting Runs: Plant Diary](../user-guide/planting-runs.md#plant-diary-currently-api-only)).
+    Compatibility and incompatibility entries are global master data, visible to all users. Only **platform admins** may create or change them — regular user accounts still see the edit controls, but saving fails with an "Unauthorized" error. You can still record your own, plant-specific observations independently in the plant diary, once a user interface for it is available (see [Planting Runs: Plant Diary](../user-guide/planting-runs.md#plant-diary-currently-api-only)).
 
 <!-- Source: src/frontend/src/pages/stammdaten/CompanionPlantingPage.tsx, src/backend/app/api/v1/companion_planting/router.py -->
 
@@ -132,15 +132,15 @@ Two flowers that can be used almost anywhere:
 
 ## Automatic Check When Creating a Plant (Slot Neighborhood)
 
-When you create a **single plant** via **Plants → Plant Instances → New Plant** and assign it a **slot**, Kamerplanter automatically checks the directly adjacent slots:
+Whenever a plant is assigned a **slot** — whether created individually via **Plants → Plant Instances → New Plant**, or in bulk while creating the plants of a [planting run](../user-guide/planting-runs.md) — Kamerplanter automatically checks the directly adjacent slots:
 
 - If an **incompatible** species is already planted there, Kamerplanter rejects the creation with an error message.
 - If a **compatible** species is planted there, this is recorded internally as a benefit.
 
-!!! warning "Does not apply to plants from a planting run"
-    The neighborhood check currently only applies when you create a plant individually via the **Plant Instances** master-data page. When plants are created automatically from a [planting run's](../user-guide/planting-runs.md) entries, **no** compatibility check takes place.
+!!! note "Planting runs are checked as a whole batch"
+    When you create plants using the **Create Plants** button of a planting run (see [Planting Runs, Step 6](../user-guide/planting-runs.md)), Kamerplanter checks every slot-assigned plant individually, exactly as it does for a single plant. Unlike a single plant, though, a single conflict here blocks the creation of the **entire run** — as soon as one entry triggers an incompatibility, no plant of the run is created at all. Existing plants you bring into a run via **Adopt existing plants** do not go through this check again, since they do not receive a new slot assignment.
 
-<!-- Source: src/backend/app/domain/engines/companion_planting_engine.py, src/backend/app/domain/services/plant_instance_service.py -->
+<!-- Source: src/backend/app/domain/engines/companion_planting_engine.py, src/backend/app/domain/services/plant_instance_service.py, src/backend/app/domain/services/planting_run_service.py (_validate_batch_planting) -->
 
 ---
 
@@ -157,7 +157,7 @@ Crop rotation means deliberately alternating botanical families on a slot over t
 
 ### Automatic check
 
-When you create a **single plant** with a slot, Kamerplanter also checks that slot's planting history over a default period of **3 years**:
+Whenever a plant is assigned a slot — created individually or in bulk via a planting run's plant creation — Kamerplanter also checks that slot's planting history over a default period of **3 years**:
 
 | Result | Meaning |
 |--------|---------|
@@ -166,7 +166,7 @@ When you create a **single plant** with a slot, Kamerplanter also checks that sl
 | **Positive** | The planned family is recorded as a recommended successor of a family previously grown there (including a nitrogen-benefit note for nitrogen-fixing predecessors) |
 | **No indication** | No matching data available for this combination |
 
-A critical result blocks the plant's creation with an error message. As with the companion-planting check, this only applies to individually created plants, not to those created automatically from a planting run.
+A critical result blocks the plant's creation with an error message. As with the companion-planting check, this applies equally to plants created in bulk through a planting run: a single critical conflict blocks the creation of the entire run.
 
 <!-- Source: src/backend/app/domain/engines/crop_rotation_validator.py, src/backend/app/config/constants.py (DEFAULT_ROTATION_WINDOW_YEARS = 3) -->
 
@@ -191,7 +191,7 @@ A critical result blocks the plant's creation with an error message. As with the
     show a source citation per individual entry.
 
 ??? question "Can I add my own compatibility pairs?"
-    The user interface for this (**Master Data → Companion Planting**) is open to all users; however, maintenance is intended for **platform admins**, since the data applies globally across all tenants. You should record your own, plant-specific observations in the plant diary instead.
+    Only if you are a **platform admin** — the data applies globally across all tenants and is therefore write-protected for regular user accounts. You should record your own, plant-specific observations in the plant diary instead.
 
 ## See Also
 

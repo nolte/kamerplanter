@@ -86,7 +86,31 @@ Mehr zur Karenzzeit: [Integrierter Pflanzenschutz (IPM)](pest-management.md)
 - **Fortlaufend**: Für „Cut & Come Again"-Kulturen (z.B. Pflücksalat, Basilikum), bei denen laufend kleine Mengen geerntet werden.
 
 !!! note "Kein automatischer Status- oder Qualitätswechsel"
-    Weder die Erntetyp-Auswahl noch das Anlegen einer Charge ändern automatisch den Status der Pflanze — auch nicht bei „Endernte". Eine Qualitätsbewertung wird beim Anlegen der Charge ebenfalls nicht abgefragt; sie erfolgt separat (siehe unten).
+    Weder die Erntetyp-Auswahl noch das Anlegen einer Charge ändern automatisch den Status der Pflanze — auch nicht bei „Endernte". Du kannst für dieselbe Pflanze beliebig viele Teil- oder Fortlaufend-Chargen anlegen. Eine Qualitätsbewertung wird beim Anlegen der Charge ebenfalls nicht abgefragt; sie erfolgt separat (siehe unten). Wenn die Pflanze für dich fertig geerntet ist, beendest du ihren Lebenszyklus über die separate, explizite Aktion **Ernte abschließen** (siehe unten) — diese ändert den Status anders als das bloße Anlegen einer Charge sehr wohl, und zwar endgültig.
+
+---
+
+## Ernte abschließen (Endzustand der Pflanze)
+
+Das Anlegen von Erntechargen dokumentiert, was du geerntet hast — es beendet aber, wie oben beschrieben, nicht den Lebenszyklus der Pflanze. Dafür gibt es die eigene Aktion **Ernte abschließen**.
+
+### Was passiert dabei?
+
+1. Öffne die Erntecharge und wechsle in den Tab **Details**.
+2. Klicke im Abschnitt **Ernte abschließen** auf die gleichnamige Schaltfläche.
+3. Bestätige den Dialog — er weist ausdrücklich darauf hin, dass der Schritt **nicht rückgängig gemacht werden kann**.
+
+Nach der Bestätigung wechselt die Pflanze in ihren Endzustand „geerntet": Ihre Phasen-Historie wird geschlossen, ein belegter Stellplatz wird freigegeben, und die Pflanze verschwindet aus der aktiven Aufgaben-Warteschlange. Bereits erfasste Erntechargen, Qualitätsbewertungen und Ertragsdaten bleiben vollständig erhalten. Ein zweiter Klick auf eine bereits abgeschlossene Pflanze zeigt stattdessen einen Hinweis, dass sie bereits abgeschlossen ist, und ändert nichts mehr.
+
+!!! danger "Nicht umkehrbar"
+    Anders als bei Erntechargen oder Qualitätsbewertungen gibt es für den Ernte-Abschluss keine Korrektur- oder Rückgängig-Funktion. Nutze die Aktion erst, wenn du wirklich keine weiteren Teilernten oder Beobachtungen mehr für diese Pflanze planst.
+
+Dieser Abschluss ist etwas anderes als **Pflanze entfernen** auf der Pflanzendetailseite: „Ernte abschließen" ist der empfohlene Weg für eine tatsächlich abgeschlossene Ernte und setzt zusätzlich den Erntegrund in der Historie der Pflanze. „Pflanze entfernen" bleibt für alle anderen Fälle verfügbar (z.B. eine Pflanze, die nicht geerntet wurde, sondern eingegangen ist oder abgegeben wurde).
+
+!!! info "Nur über API: Ganzen Pflanzdurchlauf auf einmal abschließen"
+    Gehört die Pflanze zu einem [Pflanzdurchlauf](planting-runs.md), lassen sich auch alle noch aktiven Pflanzen des gesamten Durchlaufs in einem Aufruf abschließen. Dafür gibt es aktuell **keine Schaltfläche in der Oberfläche** — die Funktion ist ausschließlich über die technische API erreichbar. Solange keine Oberfläche dafür existiert, schließt du Pflanzen eines Durchlaufs einzeln über ihre jeweilige Erntecharge ab.
+
+<!-- Quelle: src/frontend/src/pages/ernte/HarvestBatchDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest / complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py -->
 
 ---
 
@@ -176,10 +200,10 @@ Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte
 ## Häufige Fragen
 
 ??? question "Kann ich eine Ernte rückgängig machen?"
-    Nein. Erntechargen können nach dem Erstellen nicht gelöscht werden, da sie zur lückenlosen Dokumentation des Anbaus gehören. Du kannst jedoch Notizen und Gewichtswerte nachträglich korrigieren.
+    Nein. Erntechargen können nach dem Erstellen nicht gelöscht werden, da sie zur lückenlosen Dokumentation des Anbaus gehören. Du kannst jedoch Notizen und Gewichtswerte nachträglich korrigieren. Der separate Schritt **Ernte abschließen** lässt sich ebenfalls nicht rückgängig machen — prüfe vor der Bestätigung, ob wirklich keine weiteren Teilernten mehr geplant sind.
 
 ??? question "Wechselt eine Pflanze nach der Endernte automatisch ihren Status?"
-    Nein. Das Anlegen einer Erntecharge mit Erntetyp „Endernte" ändert den Pflanzen-Status nicht automatisch. Wenn die Pflanze für dich abgeschlossen ist, entfernst du sie manuell über [**Pflanze entfernen**](growth-phases.md#pflanze-entfernen) auf ihrer Detailseite — dabei kannst du optional festhalten, dass sie geerntet wurde. Erst dann verschwindet sie aus der aktiven Aufgaben-Warteschlange; ihre Stammdaten und Historie bleiben erhalten.
+    Nein. Das Anlegen einer Erntecharge mit Erntetyp „Endernte" ändert den Pflanzen-Status nicht automatisch. Für den Abschluss hast du zwei Wege: den erntespezifischen Schritt **Ernte abschließen** auf der Detailseite der Erntecharge (siehe oben) oder [**Pflanze entfernen**](growth-phases.md#pflanze-entfernen) auf der Pflanzen-Detailseite, wobei du optional festhältst, dass sie geerntet wurde. Beide beenden den Lebenszyklus endgültig und unumkehrbar: Die Pflanze verschwindet aus der aktiven Aufgaben-Warteschlange und der belegte Stellplatz wird frei; ihre Stammdaten und Historie bleiben erhalten.
 
 ??? question "Warum wird die Ernte blockiert, obwohl ich schon lange nicht mehr behandelt habe?"
     Prüfe im Tab **Pflanzenschutz** (IPM) die Liste aller Behandlungen und ihre Karenzzeiten. Manchmal sind ältere Behandlungen noch eingetragen, deren Karenzzeit noch nicht abgelaufen ist. Wenn die Behandlung irrtümlich eingetragen wurde, kannst du sie unter Pflanzenschutz korrigieren.

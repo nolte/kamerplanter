@@ -1,15 +1,15 @@
 # Privacy & GDPR
 
 !!! note "Partially available"
-    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** ("Account Settings > Privacy") is still to come — the steps described on this page are therefore written in future tense and describe the planned UI behavior. Until the interface is available, all features can already be used directly via the API (see [Accessing via the API](#for-technical-users-accessing-via-the-api-usable-today)). <!-- REQ-025 -->
+    The GDPR data subject rights are fully implemented and production-ready as an **API self-service under `/api/v1/privacy/`**. The **graphical interface** is now available as well — reachable from the user menu (click your profile picture or initials) > **Privacy**, in Full mode only (not in anonymous [Light mode](light-mode.md)). It covers the main flows: requesting a data export, deleting your account, creating a processing restriction, and viewing consents. A few sub-steps (e.g. revoking consent with a click, changing your email address) are currently only possible via the API — flagged at the relevant spot on this page (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). <!-- REQ-025 -->
 
 Kamerplanter is built on the principle of **Privacy by Design**. You have full control over your personal data: you can export, correct or have it deleted at any time. All data subject rights under GDPR Art. 15–21 are available as self-service features.
 
 ---
 
-## For technical users: Accessing via the API (usable today)
+## For Technical Users / Self-Hosters
 
-This section is aimed at technical users and self-hosters. All features described below are already available as REST endpoints under `/api/v1/privacy/`. A logged-in session (bearer token) is required, except for `GET /api/v1/privacy/policy`.
+This section is aimed at technical users and self-hosters. All GDPR features described below are available as REST endpoints under `/api/v1/privacy/`. Some of them are also directly usable in the graphical interface (see the relevant sections below); a few endpoints — email change, objection, granting/revoking consent with a click, lifting a restriction, export status/download — are currently reachable only via the API. A logged-in session (bearer token) is required, except for `GET /api/v1/privacy/policy`.
 
 !!! info "API only / operator configuration"
     The easiest way to try the endpoints is through the interactive API documentation at `/docs` (OpenAPI/Swagger), where requests can be executed directly in the browser. Alternatively via `curl`, e.g. for a data export:
@@ -37,15 +37,17 @@ This section is aimed at technical users and self-hosters. All features describe
 
 ---
 
-## Opening Privacy Settings (planned interface)
+## Opening Privacy Settings
 
-Once the interface is available, the privacy area will open as follows:
+Here's how to open the privacy area:
 
 1. Click your profile picture or initials in the top right
-2. Choose **Account Settings**
-3. Click the **Privacy** tab
+2. Click **Privacy** in the menu
 
-The privacy area will have four tabs: **My Data**, **Consents**, **Restrict Processing** and **Delete Account**.
+The privacy area has four tabs: **Consents**, **Data Export**, **Delete Account** and **Restrict Processing**.
+
+!!! note "Full mode only"
+    The **Privacy** menu item only appears in **Full mode** with a registered account. In anonymous [Light mode](light-mode.md) there is no user account, and therefore no privacy area.
 
 ---
 
@@ -55,15 +57,14 @@ You have the right to know what data the system has stored about you and to rece
 
 ### Requesting a Data Export
 
-Once the interface is available:
+1. Navigate to **Privacy** > the **Data Export** tab
+2. Click **Request Export**
+3. The interface confirms the request with its current status
 
-1. Navigate to **Privacy** > **My Data**
-2. Click **Export Data**
-3. The system creates the export asynchronously (takes 1–5 minutes depending on data volume)
-4. A notification (in-app or email) is shown when the export is ready
-5. Download the JSON file — the link is valid for **72 hours**
+The export then runs asynchronously in the background (takes 1–5 minutes depending on data volume); the resulting download link is valid for **72 hours**.
 
-Already usable today via the API: `POST /api/v1/privacy/export` starts the export, `GET /api/v1/privacy/export/{export_key}` returns the status, `GET /api/v1/privacy/export/{export_key}/download` returns the download metadata.
+!!! info "API only: Checking status & downloading the file"
+    Checking the progress of a running export request and downloading the finished file is not yet wired up in the interface — for now this only works via the API: `GET /api/v1/privacy/export/{export_key}` returns the status, `GET /api/v1/privacy/export/{export_key}/download` returns the download metadata (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 The export contains all data the system knows about you:
 - Profile data (name, email, settings)
@@ -81,15 +82,10 @@ The export contains all data the system knows about you:
 
 You have the right to have your data corrected.
 
-Once the interface is available:
+!!! info "API only: Changing your email address"
+    Account settings currently show your email address as read-only — changing it is, for now, only possible via the API: `POST /api/v1/privacy/email-change` initiates the change and sends a **verification link to the new address**, `POST /api/v1/privacy/email-change/confirm` confirms it via token (no login needed). Details in [For Technical Users / Self-Hosters](#for-technical-users-self-hosters).
 
-1. Navigate to **Privacy** > **My Data** > **Change Email**
-2. Enter your new email address
-3. The system sends a **verification link to the new address**
-4. Click the link in the email
-5. The new email becomes active — all active sessions are ended
-
-Already usable today via the API: `POST /api/v1/privacy/email-change` initiates the change, `POST /api/v1/privacy/email-change/confirm` confirms it via token.
+The new email becomes active once confirmed — all active sessions are ended.
 
 !!! note "Security notice"
     After confirming the new email, all open sessions (browser, app) are terminated. You need to log in again. Your old email receives an information email about the change.
@@ -100,15 +96,14 @@ Already usable today via the API: `POST /api/v1/privacy/email-change` initiates 
 
 You can restrict the processing of your data for certain purposes — for example if you dispute the accuracy of your data or consider the processing unlawful.
 
-Once the interface is available:
-
-1. Navigate to **Privacy** > **Restrict Processing**
-2. Choose the processing purpose from the list
+1. Navigate to **Privacy** > the **Restrict Processing** tab
+2. Enter the affected data scope (e.g. `sensor_data`, `harvest_records`, `treatment_records`) and choose a reason
 3. Click **Restrict**
 
-During a restriction the affected data is no longer actively processed. The restriction can be lifted at any time.
+The created restriction then appears in the **Active Restrictions** list on the same tab. During a restriction the affected data is no longer actively processed.
 
-Already usable today via the API: `POST /api/v1/privacy/restrict` creates a restriction, `DELETE /api/v1/privacy/restrict/{restriction_key}` lifts it again.
+!!! info "API only: Lifting a restriction"
+    Lifting an existing restriction is not yet wired up in the interface — for now this only works via the API: `DELETE /api/v1/privacy/restrict/{restriction_key}` (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 ---
 
@@ -130,14 +125,10 @@ No optional consent is needed for the core functions of the system. However, som
 
 ### Revoking Consent
 
-Once the interface is available:
+The **Consents** tab in the privacy area shows an overview of all processing purposes with your current status (**Granted** / **Not granted**) and, for required consents, a **Required** label.
 
-1. Navigate to **Privacy** > **Consents**
-2. See all granted consents with their date
-3. Click **Revoke** next to the optional consent
-4. The revocation is saved with a timestamp and takes effect immediately
-
-Already usable today via the API: `GET /api/v1/privacy/consents` lists all purposes with current status, `POST /api/v1/privacy/consents` grants a consent, `DELETE /api/v1/privacy/consents/{purpose}` revokes it.
+!!! info "API only: Granting and revoking consent with a click"
+    The tab is currently **read-only** — there is no toggle in the interface yet to directly grant or revoke a consent. Until then, this only works via the API: `POST /api/v1/privacy/consents` grants a consent, `DELETE /api/v1/privacy/consents/{purpose}` revokes it, taking effect immediately with a timestamp. `GET /api/v1/privacy/consents` returns the same data the tab displays (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 !!! warning "Effects of revoking consent"
     If you revoke consent for external master data enrichment, no new data will be fetched from GBIF or Perenual. Existing enriched data is retained.
@@ -147,7 +138,7 @@ Already usable today via the API: `GET /api/v1/privacy/consents` lists all purpo
 [Plant recognition by photo](plant-identification.md) sends your image to Pl@ntNet (CIRAD/INRIA, France/EU) for analysis. Consent is required because the photo briefly leaves the Kamerplanter instance.
 
 !!! note "Consent behaviour per deployment mode"
-    **Full mode:** Consent is stored as a consent record in the backend (see table below) and persists across browsers and devices. It can already be revoked today via `DELETE /api/v1/privacy/consents/plant_identification`; once the privacy interface is available, this will also be possible there.
+    **Full mode:** Consent is stored as a consent record in the backend (see table below) and persists across browsers and devices. The Consents tab in the privacy interface shows the current status; revoking it currently only works via the API: `DELETE /api/v1/privacy/consents/plant_identification` (see [Revoking Consent](#revoking-consent)).
 
     **Light mode:** The consent subsystem is not available in [Light mode](light-mode.md). Consent is instead obtained and stored **client-side in the browser** (localStorage). The consent dialog appears on the first upload in the respective browser session. The same transparency information (photo is sent to Pl@ntNet/France, EXIF data is removed, no permanent storage) is shown in both modes.
 
@@ -179,15 +170,10 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 
 You can object to the processing of your data for certain purposes where processing is based on legitimate interest.
 
-Once the interface is available:
-
-1. Navigate to **Privacy** > **Restrict Processing**
-2. Choose the processing purpose
-3. Click **Object to Processing**
+!!! info "API only: Filing an objection"
+    There is currently no dedicated area in the interface for filing an objection — it can be filed via `POST /api/v1/privacy/object` (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 The system reviews the objection. For processing based on GDPR Art. 6(1)(f) (legitimate interest), processing will cease unless compelling legitimate reasons are present.
-
-Already usable today via the API: `POST /api/v1/privacy/object`.
 
 ---
 
@@ -200,13 +186,11 @@ You have the right to erasure of your data.
 
 ### Deletion Process
 
-Once the interface is available:
+1. Navigate to **Privacy** > the **Delete Account** tab
+2. Click **Delete Account**
+3. In the confirmation dialog, click **Yes, Delete Account**
 
-1. Navigate to **Privacy** > **Delete Account**
-2. Confirm with password (or OAuth re-authentication)
-3. Click **Permanently Delete Account**
-
-Already usable today via the API: `POST /api/v1/privacy/erasure` (password in the request body) starts the deletion, `GET /api/v1/privacy/erasure/{erasure_key}` returns the status.
+The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion, `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 What happens next:
 
@@ -329,7 +313,7 @@ Certain sensor data can allow inferences about presence patterns (CO₂ concentr
     No. Your plant data is not shared with third parties or used for commercial purposes. The privacy policy governs this bindingly.
 
 ??? question "How long does a data export take?"
-    Depending on the data volume, the export takes 1–5 minutes. You receive a notification when it is complete. The download link is valid for 72 hours.
+    Depending on the data volume, the export takes 1–5 minutes. You currently check the status and download the finished file via the API (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)). The download link is valid for 72 hours.
 
 ??? question "Can I delete individual plant records without deleting my account?"
     Yes. You can delete individual plants, locations and tasks at any time. Account deletion is only necessary if you want to remove all your data at once.
