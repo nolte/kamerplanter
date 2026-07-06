@@ -2,8 +2,8 @@
 
 Für jeden Freiland- oder Gewächshaus-Standort legst du fest, woher Kamerplanter seine Wetterdaten bezieht: von einem öffentlichen Wetterdienst oder aus deiner eigenen Home-Assistant-Installation. Du kannst mehrere Quellen hinterlegen und priorisieren, sodass bei Ausfall der bevorzugten Quelle automatisch eine andere einspringt. <!-- REQ-046 -->
 
-!!! note "Teilweise verfügbar: Vorhersage-Anzeige"
-    Die Quellen-Konfiguration, die Verbindungsprüfung und die automatische, priorisierte Datenabholung im Hintergrund sind vollständig umgesetzt. Eine eigene Ansicht, die die abgeholte Vorhersage laufend anzeigt (z. B. im Dashboard-Widget „Wettervorhersage"), gibt es noch nicht — dort findest du aktuell nur einen Link zu dieser Einrichtung. Werte siehst du bereits jetzt über die [Verbindung testen](#quelle-testen)-Funktion. <!-- REQ-046 -->
+!!! tip "Vorhersage und Frost-Frühwarnung im Dashboard"
+    Sobald du hier mindestens eine Quelle eingerichtet hast, zeigt das Dashboard-Widget „Wettervorhersage" die abgeholte Tagesvorhersage direkt an (Minimal-/Maximaltemperatur je Tag, inklusive [Herkunfts-Kennzeichnung](#herkunft-der-wetterdaten-erkennen)) — und warnt dich proaktiv vor, wenn im Vorhersage-Zeitraum eine Frostnacht erwartet wird. Details dazu unter [Dashboard: Wettervorhersage und Frost-Frühwarnung](dashboard.md#wettervorhersage-und-frost-fruehwarnung) und [Benachrichtigungen: Frost-Frühwarnung](notifications.md#frost-fruehwarnung). <!-- REQ-046 -->
 
 ---
 
@@ -111,7 +111,7 @@ Kamerplanter zeigt unterhalb der Quellenliste die Herkunftsnachweise der genutzt
     Dann bleiben für diesen Zeitraum keine neuen Wetterdaten für den Standort verfügbar. Prüfe in diesem Fall über **Quelle testen**, welche Quelle den Fehler verursacht, und aktiviere bei Bedarf eine zusätzliche Rückfallquelle.
 
 ??? question "Wo sehe ich die eigentliche Wettervorhersage für meinen Standort?"
-    Eine durchgehende Vorhersage-Ansicht ist noch nicht umgesetzt. Aktuell bekommst du über **Quelle testen** eine Vorschau der nächsten drei Tage; das Dashboard-Widget „Wettervorhersage" verlinkt bislang nur auf diese Einrichtungsseite.
+    Im Dashboard-Widget „Wettervorhersage" (siehe [Dashboard](dashboard.md#wettervorhersage-und-frost-fruehwarnung)) — es zeigt die Tagesvorhersage (Minimal-/Maximaltemperatur, Herkunfts-Kennzeichnung) deines ersten Freiland- oder Gewächshaus-Standorts mit hinterlegten GPS-Koordinaten sowie eine Frost-Frühwarnung, sobald im Vorhersage-Zeitraum eine Frostnacht erwartet wird. Über **Quelle testen** bekommst du zusätzlich direkt bei der Einrichtung eine Vorschau der nächsten drei Tage.
 
 ??? question "Kann ich denselben Wetterdienst zweimal hinzufügen?"
     Nein, jeder Anbieter lässt sich nur einmal je Standort hinzufügen. Möchtest du zwei unterschiedliche Perspektiven vergleichen, kombiniere stattdessen zum Beispiel einen öffentlichen Dienst mit deiner Home-Assistant-Quelle.
@@ -125,4 +125,6 @@ Kamerplanter zeigt unterhalb der Quellenliste die Herkunftsnachweise der genutzt
 - [Sensorik und Messdaten](sensors.md) — weitere Datenquellen für Klima- und Substratwerte
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — Zugangstoken einrichten
 - [Dashboard personalisieren](dashboard-personalization.md) — das Widget „Wettervorhersage"
+- [Dashboard: Wettervorhersage und Frost-Frühwarnung](dashboard.md#wettervorhersage-und-frost-fruehwarnung)
+- [Benachrichtigungen: Frost-Frühwarnung](notifications.md#frost-fruehwarnung)
 - [Klimazonen & Winterhärte](../guides/climate-zones.md)

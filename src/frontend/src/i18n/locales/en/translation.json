@@ -5213,7 +5213,13 @@
         "label": "Weather forecast",
         "description": "Weather for your outdoor locations.",
         "emptyHint": "Weather data appears here once you have configured a weather source for an outdoor or greenhouse location.",
-        "configureCta": "Open locations"
+        "configureCta": "Open locations",
+        "loadError": "The weather forecast could not be loaded right now. Please try again later — your other metrics are unaffected.",
+        "siteHeader": "Location: {{name}}",
+        "tempRange": "min {{min}} °C / max {{max}} °C",
+        "frostTitle": "Frost expected",
+        "frostDetail": "Frost is expected on {{date}} — lows around {{temp}} °C.",
+        "frostExplainer": "Frost (temperatures around or below 0 °C) can damage frost-sensitive plants outdoors. Protect them or bring them in ahead of time."
       },
       "onboarding_progress": {
         "label": "Setup progress",

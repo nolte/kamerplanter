@@ -6,7 +6,7 @@ guard mapping to 403 (AC-11), the available list, the connection test never
 500-ing (AC-7), and the HA entity pickers.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import FastAPI
@@ -14,10 +14,10 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.tenant_scoped.weather.tenant_router import router as weather_router
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_weather_source_service
+from app.common.dependencies import get_sensor_service, get_weather_source_service
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler
-from app.common.exceptions import ForbiddenError, KamerplanterError
+from app.common.exceptions import ForbiddenError, KamerplanterError, NotFoundError
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.weather import (
     WeatherForecast,
@@ -240,3 +240,101 @@ def test_ha_sensor_entities_empty_without_token():
 
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+# ── Forecast read endpoint (Issue #392, R7) ────────────────────────────────
+
+
+def _build_forecast_app(sensor_service, source_service=None) -> FastAPI:
+    app = FastAPI()
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+    app.include_router(weather_router, prefix=BASE)
+    app.dependency_overrides[get_sensor_service] = lambda: sensor_service
+    # The forecast read enforces site ownership at the API layer (defense-in-depth);
+    # an owned site passes the guard silently, so default to a permissive mock.
+    app.dependency_overrides[get_weather_source_service] = lambda: source_service or MagicMock()
+    app.dependency_overrides[get_current_tenant] = _ctx
+    return app
+
+
+def test_site_weather_forecast_returns_payload():
+    sensor_service = MagicMock()
+    sensor_service.get_site_weather_forecast.return_value = {
+        "site_key": SITE_KEY,
+        "forecasts": [
+            {
+                "forecast_date": date(2026, 7, 6),
+                "temp_min_c": -1.5,
+                "temp_max_c": 6.0,
+                "precipitation_mm": 0.0,
+                "wind_speed_kmh": 10.0,
+                "humidity_percent": 80.0,
+                "weather_code": "clear",
+                "source": "open-meteo",
+                "data_kind": "forecast",
+            }
+        ],
+        "forecast_frost_warning": True,
+        "forecast_min_temperature": -1.5,
+        "forecast_expected_date": date(2026, 7, 6),
+        "forecast_source": "open-meteo",
+    }
+    client = TestClient(_build_forecast_app(sensor_service))
+
+    resp = client.get(f"{BASE}/sites/{SITE_KEY}/weather-forecast")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["site_key"] == SITE_KEY
+    assert len(body["forecasts"]) == 1
+    assert body["forecasts"][0]["source"] == "open-meteo"
+    assert body["forecasts"][0]["data_kind"] == "forecast"
+    assert body["forecast_frost_warning"] is True
+    assert body["forecast_expected_date"] == "2026-07-06"
+    sensor_service.get_site_weather_forecast.assert_called_once_with(SITE_KEY, TENANT_KEY)
+
+
+def test_site_weather_forecast_graceful_empty():
+    sensor_service = MagicMock()
+    sensor_service.get_site_weather_forecast.return_value = {
+        "site_key": SITE_KEY,
+        "forecasts": [],
+        "forecast_frost_warning": None,
+        "forecast_min_temperature": None,
+        "forecast_expected_date": None,
+        "forecast_source": None,
+    }
+    client = TestClient(_build_forecast_app(sensor_service))
+
+    resp = client.get(f"{BASE}/sites/{SITE_KEY}/weather-forecast")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["forecasts"] == []
+    assert body["forecast_frost_warning"] is None
+
+
+def test_site_weather_forecast_foreign_site_403():
+    # Defense-in-depth: a foreign site is rejected at the API layer (403) and the
+    # forecast service is never consulted — no cross-tenant forecast leak.
+    sensor_service = MagicMock()
+    source_service = MagicMock()
+    source_service.verify_site_owned.side_effect = ForbiddenError("This site belongs to a different tenant.")
+    client = TestClient(_build_forecast_app(sensor_service, source_service))
+
+    resp = client.get(f"{BASE}/sites/{SITE_KEY}/weather-forecast")
+
+    assert resp.status_code == 403
+    sensor_service.get_site_weather_forecast.assert_not_called()
+
+
+def test_site_weather_forecast_unknown_site_404():
+    sensor_service = MagicMock()
+    source_service = MagicMock()
+    source_service.verify_site_owned.side_effect = NotFoundError("Site", SITE_KEY)
+    client = TestClient(_build_forecast_app(sensor_service, source_service))
+
+    resp = client.get(f"{BASE}/sites/{SITE_KEY}/weather-forecast")
+
+    assert resp.status_code == 404
+    sensor_service.get_site_weather_forecast.assert_not_called()

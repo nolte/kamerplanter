@@ -2,8 +2,8 @@
 
 For every outdoor or greenhouse site, you decide where Kamerplanter gets its weather data from: a public weather service or your own Home Assistant installation. You can add several sources and prioritize them, so that if your preferred source becomes unavailable, another one automatically takes over. <!-- REQ-046 -->
 
-!!! note "Partially available: forecast display"
-    The source configuration, the connection test, and the automatic, prioritized background fetching are fully implemented. A dedicated view that continuously displays the fetched forecast (e.g. in the "Weather forecast" dashboard widget) does not exist yet — it currently only links to this setup page. You can already see live values via the [test the connection](#test-the-source) feature. <!-- REQ-046 -->
+!!! tip "Forecast and Frost Early-Warning on the Dashboard"
+    Once you've set up at least one source here, the "Weather forecast" dashboard widget shows the fetched daily forecast directly (minimum/maximum temperature per day, including the [provenance label](#understanding-weather-data-provenance)) — and proactively warns you when a frost night is expected within the forecast window. See [Dashboard: Weather Forecast and Frost Early-Warning](dashboard.md#weather-forecast-and-frost-early-warning) and [Notifications: Frost Early-Warning](notifications.md#frost-early-warning) for details. <!-- REQ-046 -->
 
 ---
 
@@ -111,7 +111,7 @@ Below the source list, Kamerplanter shows the attribution notices for the servic
     Then no new weather data is available for the site for that period. In that case, use **Test Source** to check which source is causing the error, and add an additional fallback source if needed.
 
 ??? question "Where do I see the actual weather forecast for my site?"
-    A continuous forecast view is not implemented yet. Currently, **Test Source** gives you a preview of the next three days; the "Weather forecast" dashboard widget currently only links to this setup page.
+    In the "Weather forecast" dashboard widget (see [Dashboard](dashboard.md#weather-forecast-and-frost-early-warning)) — it shows the daily forecast (minimum/maximum temperature, provenance label) for your first outdoor or greenhouse site with stored GPS coordinates, plus a frost early-warning whenever a frost night is expected within the forecast window. **Test Source** additionally gives you a preview of the next three days right on the setup page.
 
 ??? question "Can I add the same weather service twice?"
     No, each provider can only be added once per site. If you want to compare two different perspectives, combine a public service with your Home Assistant source instead.
@@ -125,4 +125,6 @@ Below the source list, Kamerplanter shows the attribution notices for the servic
 - [Sensors and Measurement Data](sensors.md) — other data sources for climate and substrate values
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — setting up an access token
 - [Personalizing Your Dashboard](dashboard-personalization.md) — the "Weather forecast" widget
+- [Dashboard: Weather Forecast and Frost Early-Warning](dashboard.md#weather-forecast-and-frost-early-warning)
+- [Notifications: Frost Early-Warning](notifications.md#frost-early-warning)
 - [Climate Zones & Hardiness](../guides/climate-zones.md)

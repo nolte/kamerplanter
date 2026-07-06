@@ -192,6 +192,20 @@ class Settings(BaseSettings):
     # screen-height air temperature still reads a few degrees higher.
     frost_warning_threshold_celsius: float = 3.0
 
+    # Proactive (forecast-based) frost early-warning (Issue #392, REQ-005 /
+    # REQ-039). Evaluated over the persisted daily ``weather_forecasts`` records
+    # (REQ-046) instead of the current air temperature, so a grower is warned
+    # *before* a frost night. Deliberately kept SEPARATE from the reactive
+    # ``frost_warning_threshold_celsius`` (3.0 °C): the forecast threshold is set
+    # a touch more conservative (closer to 0 °C) because a multi-day-ahead daily
+    # minimum carries more forecast uncertainty than a just-measured reading, so
+    # only a clearer frost signal should raise the proactive warning.
+    frost_forecast_threshold_celsius: float = 2.0
+    # Horizon as the *number of calendar days scanned starting today* (inclusive).
+    # Default 2 = today + the next day (≈ the 24–48 h window of Issue #392); 1 =
+    # only today; 0 scans no day.
+    frost_forecast_horizon_days: int = 2
+
     # REQ-046 Weather data sources (public services + Home Assistant)
     weather_enabled: bool = False
     weather_default_public_source: str = "open-meteo"

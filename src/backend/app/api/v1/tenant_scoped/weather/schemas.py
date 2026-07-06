@@ -161,6 +161,43 @@ class WeatherTestResponse(BaseModel):
     error: str | None = None
 
 
+# ── Forecast read (Issue #392 — dashboard WeatherForecastWidget) ───────────
+
+
+class SiteWeatherForecastDay(BaseModel):
+    """One in-horizon daily forecast row for the per-site forecast widget.
+
+    Carries the REQ-046 provenance (``source`` / ``data_kind``) so the frontend
+    can render the ``WeatherProvenanceBadge``.
+    """
+
+    forecast_date: date
+    temp_min_c: float | None = None
+    temp_max_c: float | None = None
+    precipitation_mm: float | None = None
+    wind_speed_kmh: float | None = None
+    humidity_percent: float | None = None
+    weather_code: str | None = None
+    source: str
+    data_kind: str = "forecast"
+
+
+class SiteWeatherForecastResponse(BaseModel):
+    """Per-site weather forecast plus the proactive frost early-warning summary.
+
+    Graceful: when no forecast source is available (no coordinates,
+    ``weather_enabled`` off, or no persisted record) ``forecasts`` is empty and
+    every ``forecast_*`` summary field is ``None`` — never a 500.
+    """
+
+    site_key: str
+    forecasts: list[SiteWeatherForecastDay] = Field(default_factory=list)
+    forecast_frost_warning: bool | None = None
+    forecast_min_temperature: float | None = None
+    forecast_expected_date: date | None = None
+    forecast_source: str | None = None
+
+
 # ── HA entity pickers ─────────────────────────────────────────────────────
 
 

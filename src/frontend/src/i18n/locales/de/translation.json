@@ -5214,7 +5214,13 @@
         "label": "Wettervorhersage",
         "description": "Wetter für deine Outdoor-Standorte.",
         "emptyHint": "Wetterdaten erscheinen hier, sobald du für einen Outdoor- oder Gewächshaus-Standort eine Wetterquelle eingerichtet hast.",
-        "configureCta": "Standorte öffnen"
+        "configureCta": "Standorte öffnen",
+        "loadError": "Die Wettervorhersage konnte gerade nicht geladen werden. Versuch es später noch einmal – deine übrigen Kennzahlen sind davon nicht betroffen.",
+        "siteHeader": "Standort: {{name}}",
+        "tempRange": "min {{min}} °C / max {{max}} °C",
+        "frostTitle": "Frost erwartet",
+        "frostDetail": "Für den {{date}} wird Frost erwartet – Tiefstwerte um {{temp}} °C.",
+        "frostExplainer": "Frost (Temperaturen um oder unter 0 °C) kann frostempfindliche Pflanzen im Freien schädigen. Schütze oder räume sie rechtzeitig ein."
       },
       "onboarding_progress": {
         "label": "Einrichtungsfortschritt",

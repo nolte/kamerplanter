@@ -95,7 +95,7 @@ Klicke auf **„Speichern"**, um deine Änderungen zu übernehmen, oder auf **�
 
 Kamerplanter bietet aktuell 17 Widgets in vier Kategorien an. Welche Widgets für dich sichtbar sind, hängt von deiner Erfahrungsstufe, den eingeblendeten [Modulen](module-visibility.md) und deinem Betriebsmodus ([Light- oder Full-Modus](light-mode.md)) ab.
 
-<!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts, src/frontend/src/i18n/locales/de/translation.json (dashboard.widgets.*) -->
+<!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts, src/frontend/src/i18n/locales/de/translation.json (dashboard.widgets.*), src/frontend/src/components/dashboard/widgets/WeatherForecastWidget.tsx -->
 
 ### Wesentliches
 
@@ -112,7 +112,7 @@ Kamerplanter bietet aktuell 17 Widgets in vier Kategorien an. Welche Widgets fü
 | Widget | Beschreibung |
 |--------|-------------|
 | Tipp des Tages | Täglicher KI-Pflegetipp für deine Pflanzen. |
-| Wettervorhersage | Verweist auf die [Wetterquellen-Einrichtung](weather-sources.md) deiner Freiland-/Gewächshaus-Standorte; zeigt aktuell noch keine Vorhersagewerte direkt im Widget an. |
+| Wettervorhersage | Tagesvorhersage (Minimal-/Maximaltemperatur, Herkunfts-Kennzeichnung) deines Freiland-/Gewächshaus-Standorts, inklusive [Frost-Frühwarnung](dashboard.md#wettervorhersage-und-frost-fruehwarnung), sobald du eine [Wetterquelle eingerichtet](weather-sources.md) hast. |
 | Ernteprognose | Voraussichtliche Erntetermine (mit Zeitraum-Konfiguration). |
 | Community-Aktivität | Aktivitäten aus deinen Gemeinschaftsgärten. |
 

@@ -246,6 +246,77 @@ POST /api/v1/t/{tenant_slug}/notifications/pwa/unsubscribe
 
 ---
 
+## Standort-Wettervorhersage & Frost-Frühwarnung <!-- REQ-046 / Issue #392 -->
+
+Beide Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordern ein gültiges JWT-Token. Es gibt keine gesonderte Rollen-Einschränkung — jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen. Beide Endpunkte sind **graceful**: Fehlt eine Wetterquelle, fehlen GPS-Koordinaten am Standort, oder ist die Wettervorhersage-Funktion betreiberseitig deaktiviert (`WEATHER_ENABLED=false`), liefern sie leere/`null`-Vorhersagefelder statt eines Fehlers.
+
+### Wetter-Tagesvorhersage eines Standorts abrufen
+
+Liefert die im Vorhersage-Zeitraum liegenden Tagesvorhersagen eines Standorts (aus der [Wetterquellen-Infrastruktur](../user-guide/weather-sources.md)) plus die zusammengefasste proaktive Frost-Frühwarnung. Speist das Dashboard-Widget „Wettervorhersage".
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/weather-forecast
+```
+
+**Response (200):** `SiteWeatherForecastResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "forecasts": [
+    {
+      "forecast_date": "2026-07-07",
+      "temp_min_c": -1.5,
+      "temp_max_c": 6.0,
+      "precipitation_mm": 0.0,
+      "wind_speed_kmh": 10.0,
+      "humidity_percent": 80.0,
+      "weather_code": "clear",
+      "source": "open-meteo",
+      "data_kind": "forecast"
+    }
+  ],
+  "forecast_frost_warning": true,
+  "forecast_min_temperature": -1.5,
+  "forecast_expected_date": "2026-07-07",
+  "forecast_source": "open-meteo"
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `forecasts` | Liste | Tagesvorhersagen innerhalb des konfigurierten Vorhersage-Zeitraums (Standard: heute + 1 Tag), je Tag mit Herkunfts-Kennzeichnung (`source`, `data_kind`) |
+| `forecast_frost_warning` | boolean \| null | `true`, wenn mindestens ein Tag im Zeitraum eine Minimaltemperatur auf oder unter dem Frost-Vorhersage-Schwellwert erreicht; `null`, wenn keine verwertbare Vorhersage vorliegt |
+| `forecast_min_temperature` | number \| null | Minimaltemperatur des frühesten erwarteten Frosttages |
+| `forecast_expected_date` | string \| null | Datum des frühesten erwarteten Frosttages |
+| `forecast_source` | string \| null | Wetterquelle, aus der dieser Frosttag stammt |
+
+### Zusätzliche Felder in der Frost-Warnung eines Standorts (`Location`)
+
+Die bestehende reaktive Frost-Warnung liefert seit dieser Erweiterung zusätzlich die proaktive Vorhersage für die Site, zu der dieser Standort gehört. Das reaktive Feld `frost_warning` bleibt unverändert, damit der Home-Assistant-Koordinator kompatibel bleibt.
+
+```
+GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
+```
+
+**Response (200):** `FrostWarningResponse` — zusätzlich zu den bestehenden Feldern (`location_key`, `frost_warning`, `temperature_celsius`, `threshold_celsius`, `source`, `entity_id`):
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `forecast_frost_warning` | boolean \| null | Proaktive Vorhersage für die zugehörige Site (additiv, siehe oben) |
+| `forecast_min_temperature` | number \| null | Voraussichtliche Minimaltemperatur des frühesten Frosttages |
+| `forecast_expected_date` | string \| null | Datum des frühesten erwarteten Frosttages |
+| `forecast_source` | string \| null | Herkunft der zugrundeliegenden Vorhersage |
+
+### Siehe auch
+
+- [Dashboard: Wettervorhersage und Frost-Frühwarnung — Benutzerhandbuch](../user-guide/dashboard.md#wettervorhersage-und-frost-fruehwarnung)
+- [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
+- [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
+- [Umgebungsvariablen — Wettervorhersage & Frost-Frühwarnung](environment-variables.md#wettervorhersage-frost-fruehwarnung)
+
+---
+
 ## Pflanzinstanzen: Entfernen mit Abschlussart & Überlebens-Statistik
 
 Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/plant-instances/` und erfordern ein gültiges JWT-Token. <!-- REQ-003 E5/G1 -->

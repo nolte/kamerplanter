@@ -13,6 +13,7 @@ celery_app.conf.update(
         "app.tasks.care_tasks",
         "app.tasks.dormancy_checks",
         "app.tasks.enrichment_tasks",
+        "app.tasks.frost_forecast_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.pest_dataset_tasks",
         "app.tasks.pest_image_tasks",
@@ -143,4 +144,10 @@ if settings.weather_enabled:
     celery_app.conf.beat_schedule["weather-fetch-daily"] = {
         "task": "app.tasks.weather_tasks.fetch_weather_forecasts",
         "schedule": crontab(hour=6, minute=0),
+    }
+    # Issue #392 — proactive frost early-warning, evaluated shortly after the
+    # daily fetch has persisted fresh forecasts.
+    celery_app.conf.beat_schedule["frost-forecast-evaluate-daily"] = {
+        "task": "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "schedule": crontab(hour=6, minute=10),
     }
