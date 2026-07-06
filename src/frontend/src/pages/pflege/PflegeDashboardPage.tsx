@@ -31,7 +31,6 @@ import type { CareDashboardEntry, ReminderType, CareProfile } from '@/api/types'
 import { kamiCare } from '@/assets/brand/illustrations';
 import CareProfileEditDialog from './components/CareProfileEditDialog';
 import CareConfirmDialog from './components/CareConfirmDialog';
-import SpringReturnAssistant from './components/SpringReturnAssistant';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import type { TFunction } from 'i18next';
 
@@ -370,10 +369,6 @@ export default function PflegeDashboardPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3, mt: 1 }}>
         {t('pages.pflege.subtitle')}
       </Typography>
-
-      {/* REQ-047 §4.2 — spring return assistant (only shown while a site is in
-          the pre_spring phase). */}
-      <SpringReturnAssistant />
 
       {totalEntries === 0 ? (
         <EmptyState illustration={kamiCare} message={t('pages.pflege.noReminders')} />
