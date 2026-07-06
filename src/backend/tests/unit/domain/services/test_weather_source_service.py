@@ -226,6 +226,32 @@ class TestAvailableSources:
 
         assert result.ha_token_set is False
 
+    def test_db_disabled_provider_filtered_out(self, registry_guard):
+        """A provider disabled via the DB override (not env) is filtered out."""
+        from app.domain.services.weather_settings_service import (
+            EffectiveWeatherProvider,
+            EffectiveWeatherSettings,
+        )
+
+        _register_public("open-meteo", requires_api_key=False)
+        _register_public("dwd", requires_api_key=False)
+        effective = EffectiveWeatherSettings(
+            providers={
+                "open-meteo": EffectiveWeatherProvider(enabled=True, base_url="https://x"),
+                "dwd": EffectiveWeatherProvider(enabled=False, base_url="https://x"),
+            },
+            fetch_timeout_s=20,
+            default_public_source="open-meteo",
+        )
+        service, *_ = _build_service()
+        service._weather_settings_provider = lambda: effective  # noqa: SLF001
+
+        result = service.available_sources(TENANT_KEY)
+
+        names = {s.source_name for s in result.sources}
+        assert "open-meteo" in names
+        assert "dwd" not in names  # DB-disabled provider filtered out
+
 
 class TestTestSource:
     @pytest.mark.asyncio

@@ -111,4 +111,95 @@ describe('SiteCreateDialog', () => {
     await user.click(await screen.findByTestId('form-cancel-button'));
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it('exposes the site type select and GPS coordinate fields for an expert', async () => {
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={() => {}} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+    expect(await screen.findByTestId('form-field-type')).toBeTruthy();
+    expect(screen.getByTestId('form-field-gps_lat')).toBeTruthy();
+    expect(screen.getByTestId('form-field-gps_lon')).toBeTruthy();
+  });
+
+  it('submits the chosen type and GPS coordinates', async () => {
+    let captured: Record<string, unknown> | null = null;
+    const capture = async ({ request }: { request: Request }) => {
+      captured = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ key: 'site-new', ...captured }, { status: 201 });
+    };
+    server.use(
+      http.post('/api/v1/sites', capture),
+      http.post('/api/v1/t/:tenant/sites', capture),
+    );
+
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={onCreated} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    const nameField = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
+    await user.type(nameField, 'North Field');
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Außenbereich' }));
+
+    await user.type(within(screen.getByTestId('form-field-gps_lat')).getByRole('spinbutton'), '52.5');
+    await user.type(within(screen.getByTestId('form-field-gps_lon')).getByRole('spinbutton'), '13.4');
+
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledOnce();
+    });
+    expect(captured).not.toBeNull();
+    expect(captured!.type).toBe('outdoor');
+    expect(captured!.gps_coordinates).toEqual([52.5, 13.4]);
+  });
+
+  it('sends null GPS coordinates when both fields are empty', async () => {
+    let captured: Record<string, unknown> | null = null;
+    const capture = async ({ request }: { request: Request }) => {
+      captured = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ key: 'site-new', ...captured }, { status: 201 });
+    };
+    server.use(
+      http.post('/api/v1/sites', capture),
+      http.post('/api/v1/t/:tenant/sites', capture),
+    );
+
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={onCreated} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    const nameField = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
+    await user.type(nameField, 'Indoor Tent');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledOnce();
+    });
+    expect(captured!.gps_coordinates).toBeNull();
+  });
+
+  it('blocks submission when a coordinate is out of range', async () => {
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={onCreated} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    const nameField = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
+    await user.type(nameField, 'Bad Coords');
+    await user.type(within(screen.getByTestId('form-field-gps_lat')).getByRole('spinbutton'), '999');
+    await user.type(within(screen.getByTestId('form-field-gps_lon')).getByRole('spinbutton'), '10');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('site-create-dialog')).toBeTruthy();
+    });
+    expect(onCreated).not.toHaveBeenCalled();
+  });
 });

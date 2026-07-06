@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -6,11 +6,12 @@ import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import Alert from '@mui/material/Alert';
+import { useForm, useWatch } from 'react-hook-form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormSelectField from '@/components/form/FormSelectField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
@@ -23,15 +24,17 @@ import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
 import * as api from '@/api/endpoints/sites';
 import type { SiteWaterConfig } from '@/api/types';
+import { buildSiteResolver, gpsToPayload, siteTypeOptions, type SiteFormData } from './siteForm';
 
-const schema = z.object({
-  name: z.string().min(1),
-  climate_zone: z.string(),
-  total_area_m2: z.number().min(0),
-  timezone: z.string(),
-});
-
-type FormData = z.infer<typeof schema>;
+const DEFAULT_VALUES: SiteFormData = {
+  name: '',
+  type: 'indoor',
+  gps_lat: '',
+  gps_lon: '',
+  climate_zone: '',
+  total_area_m2: 0,
+  timezone: 'UTC',
+};
 
 interface Props {
   open: boolean;
@@ -59,22 +62,35 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
     ro_water_profile: { ...RO_WATER_DEFAULTS },
   });
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { name: '', climate_zone: '', total_area_m2: 0, timezone: 'UTC' },
+  const resolver = useMemo(() => buildSiteResolver(t), [t]);
+  const typeOptions = useMemo(() => siteTypeOptions(t), [t]);
+  const { control, handleSubmit, reset } = useForm<SiteFormData>({
+    resolver,
+    defaultValues: DEFAULT_VALUES,
   });
+  // REQ-046 follow-up — the weather/frost section only ever unlocks for
+  // outdoor/greenhouse sites (see WeatherSourceSection in SiteDetailPage).
+  // Watching the live type keeps the discreet hint below the GPS fields in
+  // sync as the user picks a different type, without waiting for submit.
+  const watchedType = useWatch({ control, name: 'type' });
+  const weatherEnabledForType = watchedType === 'outdoor' || watchedType === 'greenhouse';
   useEffect(() => {
     if (!open) {
-      reset();
+      reset(DEFAULT_VALUES);
     }
   }, [open, reset]);
 
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: SiteFormData) => {
     try {
       setSaving(true);
       await api.createSite({
-        ...data,
+        name: data.name,
+        type: data.type,
+        gps_coordinates: gpsToPayload(data),
+        climate_zone: data.climate_zone,
+        total_area_m2: data.total_area_m2,
+        timezone: data.timezone,
         water_config: waterConfig,
       });
       notification.success(t('common.create'));
@@ -100,7 +116,29 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* beginner */}
           <FormTextField name="name" control={control} label={t('pages.sites.name')} helperText={t('pages.sites.nameHelper')} required autoFocus />
+          <ExpertiseFieldWrapper minLevel={fc.type.level}>
+            <FormSelectField name="type" control={control} label={t('pages.sites.type')} options={typeOptions} helperText={t('pages.sites.typeHelper')} required />
+          </ExpertiseFieldWrapper>
           {/* intermediate */}
+          <ExpertiseFieldWrapper minLevel={fc.gps.level}>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 0.5 }}>
+              {t('pages.sites.gpsHelper')}
+            </Typography>
+            <FormRow>
+              <FormNumberField name="gps_lat" control={control} label={t('pages.sites.gpsLat')} min={-90} max={90} />
+              <FormNumberField name="gps_lon" control={control} label={t('pages.sites.gpsLon')} min={-180} max={180} />
+            </FormRow>
+            {!weatherEnabledForType && (
+              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 1.5 }} data-testid="site-weather-type-hint">
+                <Typography variant="caption">
+                  {t('pages.sites.weatherTypeHint', {
+                    outdoorLabel: t('enums.siteType.outdoor'),
+                    greenhouseLabel: t('enums.siteType.greenhouse'),
+                  })}
+                </Typography>
+              </Alert>
+            )}
+          </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.climate_zone.level}>
             <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} helperText={t('pages.sites.climateZoneHelper')} />
           </ExpertiseFieldWrapper>

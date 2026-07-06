@@ -9,13 +9,10 @@ Für jeden Freiland- oder Gewächshaus-Standort legst du fest, woher Kamerplante
 
 ## Voraussetzungen
 
-- Ein Standort vom Typ **Außenbereich** (Freiland) oder **Gewächshaus** — bei Indoor-Standorten (Growzelt, Zimmer, Balkon …) erscheint der Abschnitt „Wetterquelle" nicht, da du dort ohnehin über [Sensoren](sensors.md) oder Home Assistant misst.
-- **GPS-Koordinaten** für diesen Standort. Ohne hinterlegte Koordinaten zeigt Kamerplanter stattdessen einen Hinweis, dass zuerst die Koordinaten ergänzt werden müssen.
+- Ein Standort vom **Typ** **Außenbereich** oder **Gewächshaus** — den Typ legst du direkt im Standort-Formular fest (siehe [Standorte & Substrate](locations-substrates.md#grunddaten-ausfüllen)). Bei den übrigen Typen (Innenbereich, Fensterbrett, Balkon, Growzelt) erscheint der Abschnitt „Wetterquelle" nicht, da du dort ohnehin über [Sensoren](sensors.md) oder Home Assistant misst.
+- **GPS-Koordinaten** (Breiten- und Längengrad) für diesen Standort — ebenfalls direkt im Standort-Formular editierbar. Fehlen sie, zeigt Kamerplanter stattdessen einen Hinweis, dass zuerst die Koordinaten ergänzt werden müssen.
 - Deine Rolle im Mandanten ist **Gärtner** oder **Admin** (siehe [Mandanten & Gärten](tenants.md#rollen-und-berechtigungen)) — als **Beobachter** kannst du die Konfiguration nur ansehen, nicht ändern.
 - Für die Home-Assistant-Option zusätzlich: ein hinterlegtes Home-Assistant-Zugangstoken (siehe [Home Assistant Integration](../guides/home-assistant-integration.md#tokens-einrichten)).
-
-!!! info "Für technische Nutzer"
-    GPS-Koordinaten sind derzeit nur über die API editierbar — im Standort-Formular gibt es dafür noch kein Eingabefeld. Details dazu unter [Standorte & Substrate](locations-substrates.md#eine-neue-site-anlegen).
 
 ---
 
@@ -39,10 +36,13 @@ Für die meisten Freiland-Gärtner ist ein öffentlicher Wetterdienst der einfac
 | **Deutscher Wetterdienst (DWD)** | Nein | Beste Abdeckung im deutschsprachigen Raum. |
 | **OpenWeatherMap** | Ja | Weltweit, benötigt einen eigenen API-Schlüssel. |
 
-Wähle den gewünschten Dienst aus der Liste. Wählst du **OpenWeatherMap**, trägst du zusätzlich deinen persönlichen API-Schlüssel ein (den du kostenlos auf der Website von OpenWeatherMap anlegen kannst).
+Wähle den gewünschten Dienst aus der Liste. Wählst du **OpenWeatherMap**, kannst du zusätzlich deinen persönlichen API-Schlüssel eintragen (den du kostenlos auf der Website von OpenWeatherMap anlegen kannst).
 
 !!! info "Dein API-Schlüssel bleibt geheim"
     Der OpenWeatherMap-Schlüssel wird verschlüsselt gespeichert und dir später nie im Klartext angezeigt — nur ein Hinweis „Schlüssel hinterlegt" bestätigt, dass er gespeichert ist. Bearbeitest du die Quelle später, lässt du das Feld einfach leer, um den gespeicherten Schlüssel unverändert beizubehalten.
+
+!!! tip "Kein eigener Schlüssel zur Hand?"
+    Lässt du das Schlüssel-Feld leer, funktioniert OpenWeatherMap trotzdem, sofern dein Instanz-Betreiber einen **globalen Fallback-Schlüssel** hinterlegt hat (instanzweite Einstellung unter **Wetterdienste**, siehe [Wetterdienste konfigurieren](weather-services.md)). Ist weder ein eigener noch ein globaler Schlüssel vorhanden, meldet der Verbindungstest einen Fehler.
 
 ### Schritt 3b: Oder Home Assistant als Quelle nutzen
 
@@ -120,7 +120,8 @@ Kamerplanter zeigt unterhalb der Quellenliste die Herkunftsnachweise der genutzt
 
 ## Siehe auch
 
-- [Standorte & Substrate](locations-substrates.md) — Standorte anlegen und GPS-Koordinaten
+- [Standorte & Substrate](locations-substrates.md) — Standort-Typ anlegen und GPS-Koordinaten setzen
+- [Wetterdienste konfigurieren](weather-services.md) — instanzweite Vorgaben, globaler OpenWeatherMap-Fallback-Schlüssel (Platform-Admin)
 - [Sensorik und Messdaten](sensors.md) — weitere Datenquellen für Klima- und Substratwerte
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — Zugangstoken einrichten
 - [Dashboard personalisieren](dashboard-personalization.md) — das Widget „Wettervorhersage"

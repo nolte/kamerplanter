@@ -42,22 +42,38 @@ Klicke in der linken Navigation auf **Standorte**. Die Übersichtsseite zeigt al
 
 Klicke auf **Site hinzufügen** (oben rechts). Ein Formular öffnet sich.
 
-### Schritt 3: Grunddaten ausfüllen
+### Schritt 3: Grunddaten ausfüllen {#grunddaten-ausfüllen}
 
 Fülle folgende Felder aus:
 
 | Feld | Beschreibung | Beispiel |
 |------|-------------|---------|
 | Name | Name der Site | "Mein Indoor-Garten" |
+| Typ | Legt fest, welche Funktionen für diese Site verfügbar sind (siehe Tabelle unten) | "Außenbereich" |
+| Breitengrad / Längengrad (GPS) | GPS-Koordinaten der Site — beide Felder gemeinsam ausfüllen oder beide leer lassen | 52,52 / 13,40 |
 | Klimazone | Standort-Klimazone im USDA-Winterhärtezonen-Format | "8a" |
 | Gesamtfläche (m²) | Gesamte Anbaufläche | 12 |
 | Zeitzone | Zeitzone für Aufgaben und Kalender | "Europe/Berlin" |
 
+**Verfügbare Site-Typen:**
+
+| Typ | Beschreibung |
+|-----|-------------|
+| Außenbereich | Freiland — schaltet Wetterquellen und Frostschutz frei |
+| Gewächshaus | Glashaus oder Folientunnel — schaltet Wetterquellen und Frostschutz frei |
+| Innenbereich | Zimmer oder Wohnbereich ohne direkten Außenklimabezug |
+| Fensterbrett | Fensterplatz mit indirektem Außenklimabezug |
+| Balkon | Balkon |
+| Growzelt | Abgeschlossenes Growzelt mit kontrolliertem Klima |
+
 !!! info "Warum USDA-Zonen und nicht Köppen-Klimaklassifikation?"
     Kamerplanter erwartet für die Klimazone das **USDA-Winterhärtezonen-Format** (eine Zahl von 1–13, optional mit Zusatz „a" oder „b", z. B. „8a"), nicht die Köppen-Klimaklassifikation (z. B. „Cfb"). Der Grund: Die Winterhärte-Angaben der Pflanzenarten in den Stammdaten (`hardiness_zones`) nutzen ebenfalls dieses Format — nur so lässt sich später automatisch prüfen, ob eine Art an deinem Standort im Freien überwintern kann. Die passende Zone für deinen Wohnort findest du z. B. über die offizielle [USDA Plant Hardiness Zone Map](https://planthardiness.ars.usda.gov/) oder vergleichbare europäische Winterhärtezonen-Karten.
 
+!!! tip "Warum GPS-Koordinaten wichtig sind"
+    Erst mit hinterlegten GPS-Koordinaten kann Kamerplanter für Außenbereich- und Gewächshaus-Sites automatisch Wetterdaten abrufen und Frostwarnungen berechnen. Trägst du bei einem anderen Typ (z. B. Innenbereich) trotzdem Koordinaten ein, bleiben sie vorerst ungenutzt — schaltest du den Typ später auf Außenbereich oder Gewächshaus um, greifen sie automatisch.
+
 !!! note "Erfahrungsstufen"
-    Je nach deiner Erfahrungsstufe (Einsteiger / Mittelstufe / Experte, einstellbar in den Kontoeinstellungen) siehst du mehr oder weniger Felder. Experten sehen zusätzlich Felder für die Wasserquellen-Konfiguration, GPS-Koordinaten und die Frostdaten.
+    Je nach deiner Erfahrungsstufe (Einsteiger / Mittelstufe / Experte, einstellbar in den Kontoeinstellungen) siehst du mehr oder weniger Felder. Name und Typ siehst du bereits als Einsteiger; die GPS-Koordinaten, die Wasserquellen-Konfiguration, die Klimazone und die Gesamtfläche kommen ab der Mittelstufe hinzu; die Zeitzone ist ein Experten-Feld.
 
 ### Schritt 4: Wasserquelle konfigurieren (optional, ab Mittelstufe)
 
@@ -107,10 +123,10 @@ Wenn du dein Leitungswasser oder eine Umkehrosmose-Anlage nutzt, hinterlege die 
 Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 
 !!! info "Für technische Nutzer"
-    Neben Name, Klimazone, Fläche und Zeitzone kennt eine Site im Hintergrund auch GPS-Koordinaten sowie durchschnittliche Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst, Datum der Eisheiligen). Diese Einstellung ist derzeit nur über die API verfügbar — im Site-Formular sind diese Felder noch nicht editierbar. Der Nutzen: Ist für eine Site eine GPS-Position hinterlegt, kann Kamerplanter daraus die tatsächliche Tageslänge an deinem Standort berechnen und automatische, photoperiodisch ausgelöste Phasenübergänge (z. B. den Blüteeinsatz bei Freiland-Kurztagspflanzen) korrekt auswerten — siehe [Automatische Phasenübergänge](growth-phases.md#automatische-phasenübergänge). Frost-Termine fließen zusätzlich in den Aussaatkalender ein.
+    Neben Name, Typ, GPS-Koordinaten, Klimazone, Fläche und Zeitzone kennt eine Site im Hintergrund auch durchschnittliche Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst, Datum der Eisheiligen). Diese Einstellung ist derzeit nur über die API verfügbar — im Site-Formular ist sie noch nicht editierbar. Der Nutzen: Ist für eine Site eine GPS-Position hinterlegt, kann Kamerplanter daraus die tatsächliche Tageslänge an deinem Standort berechnen und automatische, photoperiodisch ausgelöste Phasenübergänge (z. B. den Blüteeinsatz bei Freiland-Kurztagspflanzen) korrekt auswerten — siehe [Automatische Phasenübergänge](growth-phases.md#automatische-phasenübergänge). Frost-Termine fließen zusätzlich in den Aussaatkalender ein.
 
 !!! tip "GPS-Koordinaten ermöglichen Wetterquellen"
-    Für Sites vom Typ Außenbereich (Freiland) oder Gewächshaus schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
+    Für Sites vom Typ Außenbereich oder Gewächshaus schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
 
 ---
 

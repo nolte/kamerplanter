@@ -75,6 +75,7 @@ export const siteFieldConfig: Record<string, FieldMeta> = {
   name: { level: 'beginner' },
   type: { level: 'beginner' },
   // intermediate
+  gps: { level: 'intermediate' },
   climate_zone: { level: 'intermediate' },
   total_area_m2: { level: 'intermediate' },
   water_config: { level: 'intermediate' },
