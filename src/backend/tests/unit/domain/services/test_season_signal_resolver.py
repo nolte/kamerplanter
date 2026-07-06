@@ -115,6 +115,25 @@ class TestCalendarTier:
         assert signal.reason_i18n_key == "pages.season.trigger.calendar"
         assert signal.hemisphere == "north"
 
+    def test_only_eisheilige_falls_through_to_calendar(self) -> None:
+        """K1 — a site with only a spring terminus (eisheilige, no autumn frost
+        date) cannot drive the climatological winter entry, so the resolver falls
+        through to the calendar tier whose month windows still enter winter."""
+        site = _site(eisheilige_date=date(2027, 5, 15))  # no first/last frost avg
+        resolver = SeasonSignalResolver(_FakeWeatherRepo([]))
+        signal = resolver.resolve(site, date(2026, 9, 1))
+
+        assert signal.tier == SeasonTriggerTier.CALENDAR
+
+    def test_only_last_frost_avg_falls_through_to_calendar(self) -> None:
+        """K1 — likewise for a lone spring last-frost average without an autumn
+        terminus: the climatological tier would strand the site in ``growing``."""
+        site = _site(last_frost_date_avg=date(2027, 4, 15))
+        resolver = SeasonSignalResolver(_FakeWeatherRepo([]))
+        signal = resolver.resolve(site, date(2026, 9, 1))
+
+        assert signal.tier == SeasonTriggerTier.CALENDAR
+
 
 class TestHemisphere:
     def test_southern_hemisphere_from_negative_latitude(self) -> None:

@@ -211,6 +211,9 @@ class Settings(BaseSettings):
     season_spring_temp_c: float = 10.0
     season_signal_threshold_days: int = 3
     season_state_eval_enabled: bool = True
+    #: Look-ahead window (days) for the live frost forecast — the single source of
+    #: truth shared by the signal resolver and the state engine (no copy-paste).
+    season_live_forecast_window_days: int = 7
 
     # TimescaleDB (optional — for sensor time-series)
     timescaledb_enabled: bool = False

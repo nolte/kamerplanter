@@ -2,6 +2,7 @@
 
 from arango.database import StandardDatabase
 
+from app.common.exceptions import DuplicateError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.season_state_repository import ISeasonStateRepository
@@ -42,7 +43,17 @@ class ArangoSeasonStateRepository(BaseArangoRepository[SeasonState], ISeasonStat
         if existing is not None and existing.key:
             return super().update(existing.key, state)
 
-        created = super().create(state)
+        try:
+            created = super().create(state)
+        except DuplicateError:
+            # B3 — two parallel evaluations of a state-less site both reached the
+            # insert; the unique ``(tenant_key, site_key)`` index rejected the
+            # loser. Re-read the winner and update it in place instead of 500-ing
+            # the second reader.
+            winner = self.get_by_site(state.site_key, state.tenant_key)
+            if winner is not None and winner.key:
+                return super().update(winner.key, state)
+            raise
         if state.site_key and created.key:
             from_id = f"{col.SITES}/{state.site_key}"
             to_id = f"{col.SEASON_STATES}/{created.key}"

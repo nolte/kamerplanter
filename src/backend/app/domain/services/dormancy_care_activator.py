@@ -30,18 +30,24 @@ class DormancyCareActivator:
         plant_key: str,
         overwintering_profile: OverwinteringProfile | None,
     ) -> CareProfile | None:
-        """Switch the plant's CareProfile into dormancy-care mode."""
+        """Switch the plant's CareProfile into dormancy-care mode.
+
+        A winter-hardy plant (ampel green) has no overwintering profile (AC-9); it
+        stays in seasonal-normal operation and receives no dormancy-care reminders,
+        consistent with the materializer's winter-protection guard (K4).
+        """
+        if overwintering_profile is None:
+            return None
         profile = self._care_repo.get_profile_by_plant_key(plant_key)
         if profile is None:
             return None
 
         watering = None
         interval = 30
-        if overwintering_profile is not None:
-            if overwintering_profile.winter_watering is not None:
-                watering = overwintering_profile.winter_watering.value
-            if overwintering_profile.storage_check_interval_days:
-                interval = overwintering_profile.storage_check_interval_days
+        if overwintering_profile.winter_watering is not None:
+            watering = overwintering_profile.winter_watering.value
+        if overwintering_profile.storage_check_interval_days:
+            interval = overwintering_profile.storage_check_interval_days
 
         merged = profile.model_copy(
             update={

@@ -25,8 +25,21 @@ from app.common.enums import SeasonPhase, SeasonTriggerTier
 from app.config.settings import settings
 from app.domain.services.season_signal_resolver import SeasonSignal
 
-#: Look-ahead window (days) for the live frost forecast — matches the resolver.
-_LIVE_FORECAST_WINDOW_DAYS = 7
+#: Days after the last frost during which the ``pre_spring → growing`` release may
+#: still fire. A generous half-year window (vs. a tight 45-day cap) so that a
+#: cold year whose ``winter_dormancy → pre_spring`` transition fires late (e.g. in
+#: June) is not stranded in ``pre_spring`` until the next year's wrap (K3), while
+#: still separating the post-frost growing half from the pre-frost autumn half.
+_SPRING_RELEASE_WINDOW_DAYS = 182
+
+#: Autumn/"winter half-year" months in which a live ``growing → pre_winter``
+#: transition may fire, per hemisphere. Binds the temperature-driven live entry to
+#: a plausible season window so that a spring cold snap right after ``→ growing``
+#: cannot immediately push the plant back toward dormancy (K2 hysteresis lock).
+_PRE_WINTER_SEASON_MONTHS: dict[str, set[int]] = {
+    "north": {8, 9, 10, 11, 12},
+    "south": {2, 3, 4, 5, 6},
+}
 
 #: Directed season cycle.
 _NEXT_PHASE: dict[SeasonPhase, SeasonPhase] = {
@@ -208,7 +221,10 @@ class SeasonStateEngine:
         frost_soon = self._frost_within_window(signal, on_date)
 
         if phase == SeasonPhase.GROWING:
-            return min_temp <= self._pre_winter_temp_c or frost_soon
+            # K2 — only enter winter within the autumn/"winter half-year" window, so
+            # a spring cold snap after ``→ growing`` cannot re-trigger dormancy.
+            in_season = on_date.month in _PRE_WINTER_SEASON_MONTHS[signal.hemisphere]
+            return in_season and (min_temp <= self._pre_winter_temp_c or frost_soon)
         if phase == SeasonPhase.PRE_WINTER:
             return min_temp <= self._frost_temp_c or frost_soon
         if phase == SeasonPhase.WINTER_DORMANCY:
@@ -217,7 +233,9 @@ class SeasonStateEngine:
         # PRE_SPRING → growing: last frost passed and no imminent frost.
         last_doy = _parse_md(signal.estimated_last_frost_md)
         if last_doy is not None:
-            last_frost_passed = _gap_after(_doy(on_date.month, on_date.day), last_doy) <= 45
+            # K3 — no tight upper cap: once we are past the last frost within the
+            # growing half of the year, spring is over even in a cold, late year.
+            last_frost_passed = _gap_after(_doy(on_date.month, on_date.day), last_doy) <= _SPRING_RELEASE_WINDOW_DAYS
         else:
             last_frost_passed = min_temp > self._spring_temp_c
         return last_frost_passed and not frost_soon
@@ -236,8 +254,8 @@ class SeasonStateEngine:
             return _in_wrapped(on_doy, first_doy, end)
         if phase == SeasonPhase.WINTER_DORMANCY:
             return last_doy is not None and _gap_before(on_doy, last_doy) <= 30
-        # PRE_SPRING → growing
-        return last_doy is not None and _gap_after(on_doy, last_doy) <= 45
+        # PRE_SPRING → growing (K3 — same generous post-frost window as the live tier).
+        return last_doy is not None and _gap_after(on_doy, last_doy) <= _SPRING_RELEASE_WINDOW_DAYS
 
     @staticmethod
     def _calendar_advance_met(phase: SeasonPhase, signal: SeasonSignal, on_date: date) -> bool:
@@ -256,4 +274,4 @@ class SeasonStateEngine:
         frost_date = signal.forecast_first_frost_date
         if frost_date is None:
             return False
-        return 0 <= (frost_date - on_date).days <= _LIVE_FORECAST_WINDOW_DAYS
+        return 0 <= (frost_date - on_date).days <= settings.season_live_forecast_window_days

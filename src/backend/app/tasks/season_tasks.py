@@ -23,34 +23,32 @@ def evaluate_season_states(self) -> dict:  # noqa: ANN001 — Celery bound-task 
         return {"status": "skipped", "reason": "season_state_eval_disabled"}
 
     from app.common.dependencies import get_season_state_service, get_site_repo
-    from app.data_access.arango.collections import SITES
     from app.domain.models.site import Site
 
     site_repo = get_site_repo()
     service = get_season_state_service()
 
-    db = site_repo._db  # noqa: SLF001 — direct AQL for cross-tenant iteration
-    cursor = db.aql.execute(
-        "FOR s IN @@col FILTER s.type IN @types RETURN s",
-        bind_vars={"@col": SITES, "types": ["outdoor", "greenhouse"]},
-    )
+    # Cross-tenant iteration stays in the data-access layer (NFR-001); docs are
+    # returned normalised so each Site is constructed defensively below.
+    site_docs = site_repo.find_site_docs_by_types(["outdoor", "greenhouse"])
 
     evaluated = 0
     transitions = 0
     errors = 0
-    for doc in cursor:
-        site = Site(**site_repo._from_doc(doc))  # noqa: SLF001
+    for doc in site_docs:
+        # AC-18: constructing the Site (Pydantic) is inside the guard, so a single
+        # schema-drift document is logged and skipped instead of aborting the run.
         try:
-            before = service._repo.get_by_site(site.key or "", site.tenant_key)  # noqa: SLF001
-            state = service.evaluate_site(site)
+            site = Site(**doc)
+            state, changed = service.evaluate_site_detailed(site)
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
-            logger.warning("season_evaluate_site_failed", site_key=site.key, error=str(exc))
+            logger.warning("season_evaluate_site_failed", site_key=doc.get("_key"), error=str(exc))
             errors += 1
             continue
         if state is None:
             continue
         evaluated += 1
-        if before is None or before.phase != state.phase:
+        if changed:
             transitions += 1
             logger.info(
                 "season_transition",

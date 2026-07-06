@@ -69,8 +69,17 @@ class SeasonStateService:
         Returns ``None`` for a non-outdoor/greenhouse site (no season). A second
         run on the same day neither re-transitions nor duplicates side effects.
         """
+        state, _changed = self.evaluate_site_detailed(site, on_date)
+        return state
+
+    def evaluate_site_detailed(self, site: Site, on_date: date | None = None) -> tuple[SeasonState | None, bool]:
+        """Like :meth:`evaluate_site` but also reports whether the phase changed.
+
+        Lets the daily batch task detect (and log) a transition without a second
+        ``get_by_site`` read of its own.
+        """
         if site.type not in _SEASON_SITE_TYPES or not site.key:
-            return None
+            return None, False
         if on_date is None:
             on_date = datetime.now(UTC).date()
 
@@ -100,24 +109,46 @@ class SeasonStateService:
             state.entered_phase_at = now
             self._apply_side_effects(site, transition)
 
-        return self._repo.upsert(state)
+        return self._repo.upsert(state), transition.changed
 
     def _apply_side_effects(self, site: Site, transition: SeasonStateTransition) -> None:
-        """Run the per-transition side effects for every active plant of the site."""
-        if transition.to_phase == SeasonPhase.PRE_WINTER:
+        """Run the per-transition side effects for every active plant of the site.
+
+        REQ-047 §3.2 — the season transition is the *primary* trigger for the
+        winter/spring protection reminders: entering ``pre_winter`` materialises the
+        overwintering profile and creates the winter_protection / tuber_dig tasks;
+        entering ``pre_spring`` clears dormancy-care and creates the spring_uncover
+        task. Both go through the idempotent care-reminder task path.
+        """
+        to_phase = transition.to_phase
+        if to_phase == SeasonPhase.PRE_WINTER:
             for plant in self._active_plants(site):
+                # Materialise first so the freshly derived profile is available to
+                # the winter-reminder gate that follows.
                 self._safe(self._materializer.materialize, plant, site, plant_key=plant.key)
-        elif transition.to_phase == SeasonPhase.WINTER_DORMANCY:
+                self._safe(
+                    self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
+                )
+        elif to_phase == SeasonPhase.WINTER_DORMANCY:
             for plant in self._active_plants(site):
                 self._safe(self._enter_dormancy, plant.key, plant_key=plant.key)
-        elif transition.to_phase in (SeasonPhase.PRE_SPRING, SeasonPhase.GROWING):
+        elif to_phase == SeasonPhase.PRE_SPRING:
+            for plant in self._active_plants(site):
+                self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)
+                self._safe(
+                    self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
+                )
+        elif to_phase == SeasonPhase.GROWING:
             for plant in self._active_plants(site):
                 self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)
 
     def _enter_dormancy(self, plant_key: str) -> None:
-        profile = self._care_service._resolve_overwintering_profile(plant_key)  # noqa: SLF001
-        self._dormancy.activate(plant_key, profile)
         persisted = self._overwintering_repo.get_profile_by_plant_key(plant_key)
+        # Reuse the persisted per-instance profile when present; only fall back to the
+        # shared species-template adapter when there is none (no double read). The
+        # public resolver keeps the N:1 template logic encapsulated (C3).
+        profile = persisted if persisted is not None else self._care_service.resolve_overwintering_profile(plant_key)
+        self._dormancy.activate(plant_key, profile)
         if persisted is not None and persisted.key:
             self._overwintering_repo.update_profile(
                 persisted.key, persisted.model_copy(update={"dormancy_care_active": True})

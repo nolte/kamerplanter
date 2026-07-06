@@ -200,6 +200,49 @@ class TestForeignKeyOwnership:
         assert repo.store == {}
 
 
+class _ForeignSiteRepoStub:
+    """Every location resolves to another tenant's location."""
+
+    def get_location_by_key(self, key):  # noqa: ANN001, ANN201
+        return Location(_key=key, name="Foreign shed", area_m2=1.0, tenant_key="other_tenant")
+
+    def get_site_by_key(self, key):  # noqa: ANN001, ANN201
+        return None
+
+
+class TestOverrideForeignWinterQuarter:
+    """B1 — a per-plant override/reset must never reference another tenant's location."""
+
+    def _seed_red_profile(self, repo: FakeOverwinteringRepo, **overrides) -> None:
+        data = {
+            "plant_key": "p1",
+            "hardiness_rating": HardinessRating.FROST_FREE,
+            "winter_action": WinterAction.MOVE_INDOORS,
+            "winter_action_month": 10,
+            "tenant_key": TENANT,
+        }
+        data.update(overrides)
+        repo.create_profile(OverwinteringProfile(**data))
+
+    def test_override_with_foreign_winter_quarter_rejected(self) -> None:
+        repo = FakeOverwinteringRepo()
+        self._seed_red_profile(repo)
+        service = OverwinteringProfileService(repo, site_repo=_ForeignSiteRepoStub())
+
+        with pytest.raises(NotFoundError):
+            service.override_plant_profile("p1", TENANT, {"winter_quarter_key": "loc_foreign"})
+
+    def test_reset_does_not_retain_foreign_winter_quarter(self) -> None:
+        """A foreign reference already stored on the profile is rejected on reset,
+        never silently carried over."""
+        repo = FakeOverwinteringRepo()
+        self._seed_red_profile(repo, winter_quarter_key="loc_foreign")
+        service = OverwinteringProfileService(repo, site_repo=_ForeignSiteRepoStub())
+
+        with pytest.raises(NotFoundError):
+            service.rematerialize_plant_profile("p1", TENANT, frost_sensitivity=FrostTolerance.SENSITIVE)
+
+
 class TestHardinessOverview:
     def test_aggregates_counts_and_red_list(self, service) -> None:
         service.create_profile(_profile(plant_key="p1"), TENANT)  # green

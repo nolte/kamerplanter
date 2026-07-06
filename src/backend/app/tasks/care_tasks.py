@@ -24,6 +24,7 @@ def generate_due_care_reminders() -> dict:
         get_phase_sequence_repo,
         get_plant_repo,
         get_planting_run_repo,
+        get_season_state_repo,
         get_task_repo,
     )
     from app.common.enums import ReminderType, TaskCategory, TaskPriority, TaskStatus
@@ -36,6 +37,7 @@ def generate_due_care_reminders() -> dict:
     nutrient_plan_repo = get_nutrient_plan_repo()
     lifecycle_repo = get_lifecycle_repo()
     phase_seq_repo = get_phase_sequence_repo()
+    season_repo = get_season_state_repo()
 
     today = date.today()
     created_count = 0
@@ -50,6 +52,19 @@ def generate_due_care_reminders() -> dict:
     # Per-run caches for the winter-reminder context (REQ-022 §3.2, B1).
     species_cache: dict = {}
     cultivar_cache: dict = {}
+    # Per-site SeasonState phase cache (REQ-047 §3.2, C2): a site with a SeasonState
+    # drives its winter reminders by phase, so the month-based path here is only the
+    # fallback for sites without one — no double firing.
+    season_phase_cache: dict = {}
+
+    def _season_phase_for(p) -> object | None:  # noqa: ANN001 — PlantInstance
+        site_key = p.site_key
+        if not site_key:
+            return None
+        if site_key not in season_phase_cache:
+            state = season_repo.get_by_site(site_key, p.tenant_key)
+            season_phase_cache[site_key] = state.phase if state is not None else None
+        return season_phase_cache[site_key]
 
     for profile in profiles:
         plant_key = profile.plant_key
@@ -68,10 +83,11 @@ def generate_due_care_reminders() -> dict:
         # REQ-022 §3.2 winter-reminder gating context (B1): without the
         # overwintering profile + frost sensitivity the engine suppresses every
         # winter-protection reminder, so they would never spawn a task.
-        overwintering_profile = care_service._resolve_overwintering_profile(plant_key)
+        overwintering_profile = care_service.resolve_overwintering_profile(plant_key)
         species = care_service._resolve_species(plant.species_key, species_cache)
         frost_sensitivity = species.frost_sensitivity if species else None
         cultivar_traits = care_service._resolve_cultivar_traits(plant.cultivar_key, cultivar_cache)
+        season_phase = _season_phase_for(plant)
 
         # Always ensure next watering task exists (unless plant has active run schedule)
         if not has_plan:
@@ -113,6 +129,7 @@ def generate_due_care_reminders() -> dict:
                 overwintering_profile=overwintering_profile,
                 frost_sensitivity=frost_sensitivity,
                 cultivar_traits=cultivar_traits,
+                season_phase=season_phase,
             ):
                 continue
 

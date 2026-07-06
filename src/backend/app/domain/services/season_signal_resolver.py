@@ -31,9 +31,6 @@ if TYPE_CHECKING:
     from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
     from app.domain.models.site import Site
 
-#: Look-ahead window (days) for the live frost forecast.
-_LIVE_FORECAST_WINDOW_DAYS = 7
-
 
 def hemisphere_from_site(site: Site) -> Literal["north", "south"]:
     """Derive the hemisphere from the site's GPS latitude.
@@ -93,7 +90,7 @@ class SeasonSignalResolver:
         if not site.key:
             return None
         forecasts = self._weather_repo.find_by_site(site.key, site.tenant_key)
-        window_end = date.fromordinal(on_date.toordinal() + _LIVE_FORECAST_WINDOW_DAYS)
+        window_end = date.fromordinal(on_date.toordinal() + settings.season_live_forecast_window_days)
         fresh = [fc for fc in forecasts if fc.temp_min_c is not None and on_date <= fc.forecast_date <= window_end]
         if not fresh:
             return None
@@ -121,13 +118,16 @@ class SeasonSignalResolver:
     def _try_climatological(self, site: Site, on_date: date) -> SeasonSignal | None:
         """Use the site's average frost dates (REQ-002/015).
 
-        Returns ``None`` when the site carries no frost dates at all — there is no
-        persisted ``:ClimateNormal`` to fall back on, so the site frost dates are
-        the tier-2 source (REQ-047 deviation, documented).
+        Requires the autumn terminus (``first_frost_date_avg``): the engine's
+        climatological ``growing → pre_winter`` condition needs the first-frost
+        day-of-year, so a site that only carries a spring terminus (e.g. just
+        ``eisheilige_date``) could never enter winter on this tier (K1). Such a
+        site falls through to the calendar tier, whose month windows drive every
+        transition — including the winter entry — instead of silently stalling.
         """
         first_md = self._to_md(site.first_frost_date_avg)
         last_md = self._to_md(site.last_frost_date_avg or site.eisheilige_date)
-        if first_md is None and last_md is None:
+        if first_md is None:
             return None
         return SeasonSignal(
             tier=SeasonTriggerTier.CLIMATOLOGICAL,

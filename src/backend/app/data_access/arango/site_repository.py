@@ -21,6 +21,20 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
     def get_all_sites(self, offset: int = 0, limit: int = 50, tenant_key: str | None = None) -> tuple[list[Site], int]:
         return super().get_all(offset, limit, tenant_key=tenant_key)
 
+    def find_site_docs_by_types(self, types: list[str]) -> list[dict]:
+        """Return normalised site docs of the given ``type`` across all tenants.
+
+        Yields already ``_from_doc``-normalised dicts (not ``Site`` models) so a
+        cross-tenant batch consumer (e.g. the daily season task) can construct each
+        model defensively — one schema-drift document must not abort the batch
+        (REQ-047 AC-18). Keeps the AQL in the data-access layer (NFR-001).
+        """
+        cursor = self._db.aql.execute(
+            "FOR s IN @@col FILTER s.type IN @types RETURN s",
+            bind_vars={"@col": self._collection_name, "types": types},
+        )
+        return [self._from_doc(doc) for doc in cursor]
+
     def get_site_by_key(self, key: SiteKey) -> Site | None:
         return super().get_by_key(key)
 

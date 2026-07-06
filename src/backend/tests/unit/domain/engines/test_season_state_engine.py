@@ -130,6 +130,55 @@ class TestNoBackwardTransition:
         assert state.phase == SeasonPhase.PRE_SPRING
 
 
+class TestSpringColdSnapGuard:
+    """K2 — the live growing→pre_winter entry is bound to the autumn window, so a
+    spring cold snap right after ``→ growing`` cannot re-trigger dormancy."""
+
+    def test_cold_spring_nights_do_not_reenter_winter(self) -> None:
+        state = _state(SeasonPhase.GROWING, season_year=None)
+        signal = _live(3.0)  # <= pre_winter_temp_c, but it is spring
+        for day in (10, 11, 12, 13, 14):
+            t = _apply(state, signal, date(2027, 4, day))  # April = spring, not autumn
+            assert not t.changed
+        assert state.phase == SeasonPhase.GROWING
+
+    def test_cool_may_nights_do_not_reenter_winter(self) -> None:
+        state = _state(SeasonPhase.GROWING, season_year=None)
+        signal = _live(4.0)
+        for day in (1, 2, 3, 4):
+            t = _apply(state, signal, date(2027, 5, day))
+            assert not t.changed
+        assert state.phase == SeasonPhase.GROWING
+
+    def test_autumn_cold_still_enters_winter(self) -> None:
+        # The guard must not block the legitimate autumn entry.
+        state = _state(SeasonPhase.GROWING, season_year=None)
+        signal = _live(3.0)
+        for day in (1, 2, 3):
+            _apply(state, signal, date(2026, 9, day))  # September = autumn window
+        assert state.phase == SeasonPhase.PRE_WINTER
+
+
+class TestLateSpringRelease:
+    """K3 — the pre_spring→growing release has no tight 45-day cap, so a cold year
+    whose dormancy→pre_spring transition fires late still reaches growing."""
+
+    def test_release_after_last_frost_even_in_june(self) -> None:
+        state = _state(SeasonPhase.PRE_SPRING, season_year=2026)
+        # Warm, no imminent frost, last frost was 20 April → June is > 45 days later.
+        signal = _live(12.0, last_md="04-20")
+        for day in (10, 11, 12):
+            _apply(state, signal, date(2027, 6, day))
+        assert state.phase == SeasonPhase.GROWING
+
+    def test_climatological_release_after_last_frost_even_late(self) -> None:
+        state = _state(SeasonPhase.PRE_SPRING, season_year=2026)
+        signal = _clim("10-15", "04-20")
+        for day in (5, 6, 7):
+            _apply(state, signal, date(2027, 6, day))
+        assert state.phase == SeasonPhase.GROWING
+
+
 class TestSeasonYearBookkeeping:
     def test_season_year_set_on_winter_entry_and_released_on_spring_exit(self) -> None:
         # Calendar tier advances immediately, making the full cycle easy to drive.

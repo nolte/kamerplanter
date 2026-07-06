@@ -620,6 +620,7 @@ def get_overwintering_profile_service() -> OverwinteringProfileService:
         plant_repo=get_plant_repo(),
         planting_run_repo=get_planting_run_repo(),
         template_repo=get_overwintering_template_repo(),
+        species_repo=get_species_repo(),
     )
 
 
