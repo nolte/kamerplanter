@@ -5275,22 +5275,37 @@
       "noActive": "No active widgets. Enable widgets from the catalog below.",
       "inactiveModuleHidden": "inactive (module hidden)"
     },
+    "events": {
+      "none": "Nothing scheduled in the next 7 days.",
+      "untitled": "Untitled task"
+    },
     "widgets": {
+      "comingSoon": "In preparation",
       "quick_actions": {
         "label": "Quick actions",
         "description": "Direct tiles to frequently used areas."
       },
       "active_plants_summary": {
         "label": "Active plants",
-        "description": "Overview of your active plants."
+        "description": "Overview of your active plants.",
+        "metrics": {
+          "plants_total": "Plants total",
+          "plants_active": "Active"
+        }
       },
       "tasks_today": {
         "label": "Tasks today",
-        "description": "Tasks due and overdue today."
+        "description": "Tasks due and overdue today.",
+        "metrics": {
+          "open_tasks_today": "Due today"
+        }
       },
       "care_reminders": {
         "label": "Care reminders",
-        "description": "Upcoming care reminders."
+        "description": "Upcoming care reminders.",
+        "metrics": {
+          "care_reminders_due": "Reminders due"
+        }
       },
       "daily_tip": {
         "label": "Tip of the day",
@@ -5338,7 +5353,10 @@
       },
       "tank_status": {
         "label": "Tank status",
-        "description": "Fill levels of your nutrient tanks."
+        "description": "Fill levels of your nutrient tanks.",
+        "metrics": {
+          "tanks_low": "Tanks low"
+        }
       },
       "phase_timeline": {
         "label": "Phase timeline",
