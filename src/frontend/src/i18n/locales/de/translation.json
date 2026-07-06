@@ -5219,7 +5219,7 @@
         "siteHeader": "Standort: {{name}}",
         "tempRange": "min {{min}} °C / max {{max}} °C",
         "frostTitle": "Frost erwartet",
-        "frostDetail": "Für den {{date}} wird Frost erwartet – mindestens {{temp}} °C.",
+        "frostDetail": "Für den {{date}} wird Frost erwartet – Tiefstwerte um {{temp}} °C.",
         "frostExplainer": "Frost (Temperaturen um oder unter 0 °C) kann frostempfindliche Pflanzen im Freien schädigen. Schütze oder räume sie rechtzeitig ein."
       },
       "onboarding_progress": {

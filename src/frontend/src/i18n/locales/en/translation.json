@@ -5218,7 +5218,7 @@
         "siteHeader": "Location: {{name}}",
         "tempRange": "min {{min}} °C / max {{max}} °C",
         "frostTitle": "Frost expected",
-        "frostDetail": "Frost is expected on {{date}} — at least {{temp}} °C.",
+        "frostDetail": "Frost is expected on {{date}} — lows around {{temp}} °C.",
         "frostExplainer": "Frost (temperatures around or below 0 °C) can damage frost-sensitive plants outdoors. Protect them or bring them in ahead of time."
       },
       "onboarding_progress": {

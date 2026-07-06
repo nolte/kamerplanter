@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
 
 import structlog
 
@@ -154,7 +154,8 @@ class SensorService:
         location_key: str,
         threshold_celsius: float | None = None,
         site_key: str | None = None,
-        tenant_key: str = "",
+        *,
+        tenant_key: str,
     ) -> dict:
         """Compute the frost-warning state for a location — NO persistence.
 
@@ -201,7 +202,7 @@ class SensorService:
             "forecast_source": forecast["source"],
         }
 
-    def get_site_weather_forecast(self, site_key: str, tenant_key: str = "") -> dict:
+    def get_site_weather_forecast(self, site_key: str, tenant_key: str) -> dict:
         """Return the in-horizon daily forecast for a site plus the frost summary.
 
         Backs the dashboard/per-site ``WeatherForecastWidget`` (Issue #392, R7):
@@ -224,9 +225,9 @@ class SensorService:
             if forecasts is None:
                 return empty
 
-            today = date.today()
+            today = datetime.now(UTC).date()
             horizon_days = settings.frost_forecast_horizon_days
-            horizon_end = today + timedelta(days=horizon_days)
+            horizon_end = today + timedelta(days=horizon_days - 1)
             in_horizon = sorted(
                 (record for record in forecasts if today <= record.forecast_date <= horizon_end),
                 key=lambda record: record.forecast_date,
@@ -278,7 +279,7 @@ class SensorService:
                 forecasts,
                 settings.frost_forecast_threshold_celsius,
                 settings.frost_forecast_horizon_days,
-                date.today(),
+                datetime.now(UTC).date(),
             )
         except Exception as exc:
             logger.warning("forecast_frost_warning_failed", site_key=site_key, error=str(exc))
@@ -291,7 +292,9 @@ class SensorService:
 
         Tenant isolation (R10): the forecast read is scoped by ``tenant_key``, and
         when the site repo is available the site's own ``tenant_key`` is verified
-        so a foreign site key cannot probe the proactive path.
+        fail-closed so a foreign site key cannot probe the proactive path. The
+        comparison is unconditional: an empty ``tenant_key`` (light mode) only
+        matches a site whose ``tenant_key`` is likewise empty — never a bypass.
         """
         if self._weather_forecast_repo is None or not settings.weather_enabled or not site_key:
             return None
@@ -299,6 +302,6 @@ class SensorService:
             site = self._site_repo.get_site_by_key(site_key)
             if site is None or site.gps_coordinates is None:
                 return None
-            if tenant_key and site.tenant_key != tenant_key:
+            if site.tenant_key != tenant_key:
                 return None
         return self._weather_forecast_repo.find_by_site(site_key, tenant_key)

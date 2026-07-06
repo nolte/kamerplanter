@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -206,7 +206,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key="")
         assert result["frost_warning"] is True
         assert result["temperature_celsius"] == 1.0
         assert result["threshold_celsius"] == 3.0
@@ -222,7 +222,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key="")
         assert result["frost_warning"] is False
         assert result["source"] == "ha_live"
 
@@ -236,7 +236,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.hum",
             "unit": "%",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key="")
         assert result["frost_warning"] is None
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
@@ -252,14 +252,14 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1")
+        result = service.get_location_frost_warning("loc1", tenant_key="")
         assert result["frost_warning"] is None
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
 
     def test_unknown_when_ha_unavailable(self, service_no_ha, mock_repo):
         mock_repo.find_by_location.return_value = [self._temp_sensor()]
-        result = service_no_ha.get_location_frost_warning("loc1")
+        result = service_no_ha.get_location_frost_warning("loc1", tenant_key="")
         assert result["frost_warning"] is None
         assert result["source"] == "unavailable"
 
@@ -271,7 +271,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0)
+        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0, tenant_key="")
         assert result["frost_warning"] is False
         assert result["threshold_celsius"] == 0.0
 
@@ -303,7 +303,7 @@ def _site(gps=(52.5, 13.4), tenant_key=TENANT_KEY) -> Site:
 def _forecast(day_offset: int, temp_min_c: float | None, source: str = "open-meteo") -> WeatherForecast:
     return WeatherForecast(
         site_key=SITE_KEY,
-        forecast_date=date.today() + timedelta(days=day_offset),
+        forecast_date=datetime.now(UTC).date() + timedelta(days=day_offset),
         temp_min_c=temp_min_c,
         temp_max_c=None if temp_min_c is None else temp_min_c + 8.0,
         source=source,
@@ -369,7 +369,7 @@ class TestLocationFrostWarningForecast:
         # Proactive path detects the in-horizon frost.
         assert result["forecast_frost_warning"] is True
         assert result["forecast_min_temperature"] == -1.5
-        assert result["forecast_expected_date"] == date.today() + timedelta(days=1)
+        assert result["forecast_expected_date"] == datetime.now(UTC).date() + timedelta(days=1)
         assert result["forecast_source"] == "open-meteo"
 
     def test_tenant_isolation_find_by_site_called_with_tenant(
@@ -408,9 +408,52 @@ class TestLocationFrostWarningForecast:
 
     def test_no_site_key_yields_none(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo):
         self._wire_reactive(mock_repo, mock_ha_client)
-        result = forecast_service.get_location_frost_warning("loc1")
+        result = forecast_service.get_location_frost_warning("loc1", tenant_key=TENANT_KEY)
         assert result["forecast_frost_warning"] is None
         mock_forecast_repo.find_by_site.assert_not_called()
+
+    def test_empty_tenant_key_does_not_leak_owned_site(
+        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, mock_site_repo
+    ):
+        # Fail-closed: an empty tenant_key must NOT read forecasts of a site that
+        # belongs to a real tenant (the former ``tenant_key and ...`` short-circuit
+        # bypassed the guard for an empty tenant_key).
+        mock_site_repo.get_site_by_key.return_value = _site(tenant_key=TENANT_KEY)
+        self._wire_reactive(mock_repo, mock_ha_client)
+        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key="")
+        assert result["forecast_frost_warning"] is None
+        mock_forecast_repo.find_by_site.assert_not_called()
+
+    def test_empty_tenant_key_matches_light_mode_site(
+        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, mock_site_repo
+    ):
+        # Light mode: an empty tenant_key legitimately matches a site whose own
+        # tenant_key is likewise empty, so the forecast read still proceeds.
+        mock_site_repo.get_site_by_key.return_value = _site(tenant_key="")
+        self._wire_reactive(mock_repo, mock_ha_client)
+        mock_forecast_repo.find_by_site.return_value = [_forecast(1, -2.0)]
+        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key="")
+        assert result["forecast_frost_warning"] is True
+        mock_forecast_repo.find_by_site.assert_called_once_with(SITE_KEY, "")
+
+    def test_uses_utc_today_for_horizon(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo):
+        # The read path must anchor its horizon on the UTC calendar day (matching
+        # the notification task) rather than server-local time.
+        self._wire_reactive(mock_repo, mock_ha_client)
+        utc_today = datetime.now(UTC).date()
+        mock_forecast_repo.find_by_site.return_value = [
+            WeatherForecast(
+                site_key=SITE_KEY,
+                forecast_date=utc_today,
+                temp_min_c=-1.0,
+                temp_max_c=5.0,
+                source="open-meteo",
+                fetched_at=datetime(2026, 7, 5, 6, 0, 0),
+            )
+        ]
+        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
+        assert result["forecast_frost_warning"] is True
+        assert result["forecast_expected_date"] == utc_today
 
     def test_repo_exception_never_raises(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo):
         # A forecast-repo failure must degrade to None, never bubble to a 500.
@@ -432,12 +475,12 @@ class TestGetSiteWeatherForecast:
         assert result["site_key"] == SITE_KEY
         # Only in-horizon rows (offsets 0 and 1), sorted by date.
         assert [row["forecast_date"] for row in result["forecasts"]] == [
-            date.today(),
-            date.today() + timedelta(days=1),
+            datetime.now(UTC).date(),
+            datetime.now(UTC).date() + timedelta(days=1),
         ]
         assert result["forecasts"][0]["data_kind"] == "forecast"
         assert result["forecast_frost_warning"] is True
-        assert result["forecast_expected_date"] == date.today() + timedelta(days=1)
+        assert result["forecast_expected_date"] == datetime.now(UTC).date() + timedelta(days=1)
         assert result["forecast_min_temperature"] == -2.0
 
     def test_tenant_scoped_read(self, forecast_service, mock_forecast_repo):

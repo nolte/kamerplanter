@@ -149,16 +149,20 @@ def get_site_weather_forecast(
     site_key: str,
     ctx: TenantContext = Depends(get_current_tenant),
     sensor_service: SensorService = Depends(get_sensor_service),
+    service: WeatherSourceService = Depends(get_weather_source_service),
 ):
     """Read the site's in-horizon daily forecast plus the frost early-warning.
 
     Backs the dashboard/per-site ``WeatherForecastWidget`` (Issue #392, R7): the
     daily forecast rows (with ``source`` / ``data_kind`` provenance) and the
     proactive frost summary (``forecast_frost_warning`` / ``forecast_expected_date``
-    / ``forecast_min_temperature`` / ``forecast_source``). Graceful: no source, no
-    coordinates, or ``weather_enabled`` off → empty ``forecasts`` + ``None``
-    summary, never a 500. Tenant-scoped read (R10).
+    / ``forecast_min_temperature`` / ``forecast_source``). Graceful for owned sites:
+    no source, no coordinates, or ``weather_enabled`` off → empty ``forecasts`` +
+    ``None`` summary, never a 500. Site ownership is enforced at the API layer
+    (404 unknown / 403 foreign), consistent with the sibling weather-source
+    endpoints — defense-in-depth on top of the tenant-scoped service read (R10).
     """
+    service.verify_site_owned(site_key, ctx.tenant_key)
     result = sensor_service.get_site_weather_forecast(site_key, ctx.tenant_key)
     return SiteWeatherForecastResponse(**result)
 

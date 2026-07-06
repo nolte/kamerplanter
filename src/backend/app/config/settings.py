@@ -201,8 +201,9 @@ class Settings(BaseSettings):
     # minimum carries more forecast uncertainty than a just-measured reading, so
     # only a clearer frost signal should raise the proactive warning.
     frost_forecast_threshold_celsius: float = 2.0
-    # Horizon (in days from today, inclusive) scanned for an in-horizon frost.
-    # Default 2 covers today + the next day (≈ the 24–48 h window of Issue #392).
+    # Horizon as the *number of calendar days scanned starting today* (inclusive).
+    # Default 2 = today + the next day (≈ the 24–48 h window of Issue #392); 1 =
+    # only today; 0 scans no day.
     frost_forecast_horizon_days: int = 2
 
     # REQ-046 Weather data sources (public services + Home Assistant)

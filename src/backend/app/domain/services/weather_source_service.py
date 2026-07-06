@@ -130,6 +130,16 @@ class WeatherSourceService:
             raise ForbiddenError("This site belongs to a different tenant.")
         return site
 
+    def verify_site_owned(self, site_key: str, tenant_key: str) -> None:
+        """Public ownership guard for read endpoints needing defense-in-depth.
+
+        Raises :class:`NotFoundError` (unknown site) / :class:`ForbiddenError`
+        (foreign site) exactly like the write-path check, so read routes can
+        enforce site ownership at the API layer consistently with the sibling
+        weather-source endpoints instead of relying solely on a service filter.
+        """
+        self._load_owned_site(site_key, tenant_key)
+
     # ── Read ──────────────────────────────────────────────────────────
 
     def get_config(self, site_key: str, tenant_key: str) -> WeatherSourceConfig | None:

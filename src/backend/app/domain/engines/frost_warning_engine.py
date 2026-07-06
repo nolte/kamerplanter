@@ -45,7 +45,8 @@ DEFAULT_FROST_WARNING_THRESHOLD_CELSIUS: float = 3.0
 #: ``settings.frost_forecast_threshold_celsius``.
 DEFAULT_FROST_FORECAST_THRESHOLD_CELSIUS: float = 2.0
 
-#: Default forecast horizon in days (today + next day) — see
+#: Default forecast horizon as the *number of calendar days scanned starting
+#: today* (inclusive). ``2`` = today + the next day (~24–48 h) — see
 #: ``settings.frost_forecast_horizon_days``.
 DEFAULT_FROST_FORECAST_HORIZON_DAYS: int = 2
 
@@ -83,9 +84,9 @@ def evaluate_forecast_frost_warning(
     """Evaluate a proactive frost early-warning from persisted daily forecasts.
 
     Scans the daily :class:`WeatherForecast` records for the location's site over
-    the inclusive horizon ``today .. today + horizon_days`` and reports whether a
-    frost night is expected within it. Records outside the horizon — including any
-    stale record with ``forecast_date < today`` — are ignored.
+    the inclusive horizon ``today .. today + horizon_days - 1`` and reports whether
+    a frost night is expected within it. Records outside the horizon — including
+    any stale record with ``forecast_date < today`` — are ignored.
 
     Args:
         forecasts: The daily forecast records for one site (any date range;
@@ -94,8 +95,9 @@ def evaluate_forecast_frost_warning(
         threshold_celsius: The proactive warning threshold in °C. A frost is
             predicted when an in-horizon record's ``temp_min_c`` is at or below
             this value.
-        horizon_days: How many days ahead of ``today`` to scan (inclusive). ``0``
-            means only ``today``.
+        horizon_days: The number of calendar days scanned starting today
+            (inclusive). ``1`` means only ``today``; ``2`` means today + the next
+            day. ``0`` (or any non-positive value) scans no day.
         today: The reference "today" (injected so the function stays pure and
             deterministic).
 
@@ -116,7 +118,7 @@ def evaluate_forecast_frost_warning(
     """
     unknown: dict = {"predicted": None, "min_temp": None, "expected_date": None, "source": None}
 
-    horizon_end = today + timedelta(days=horizon_days)
+    horizon_end = today + timedelta(days=horizon_days - 1)
     usable = [
         record for record in forecasts if record.temp_min_c is not None and today <= record.forecast_date <= horizon_end
     ]

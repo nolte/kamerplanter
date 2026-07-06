@@ -114,14 +114,16 @@ class TestEvaluateForecastFrostWarning:
         assert result["source"] == "open-meteo"
 
     def test_horizon_boundary_day_is_inclusive(self):
-        # Day == horizon_days (offset 2 with HORIZON 2) is inside the window.
-        result = self._run([_forecast(self.HORIZON, -1.0)])
+        # horizon_days counts calendar days from today, so the last in-window day
+        # is offset HORIZON - 1 (offset 1 with HORIZON 2 = today + tomorrow).
+        result = self._run([_forecast(self.HORIZON - 1, -1.0)])
         assert result["predicted"] is True
-        assert result["expected_date"] == TODAY + timedelta(days=self.HORIZON)
+        assert result["expected_date"] == TODAY + timedelta(days=self.HORIZON - 1)
 
     def test_horizon_boundary_day_plus_one_is_excluded(self):
-        # Day == horizon_days + 1 is beyond the window → no usable in-horizon frost.
-        result = self._run([_forecast(self.HORIZON + 1, -10.0)])
+        # Day == horizon_days (offset 2 with HORIZON 2) is the first day beyond the
+        # window → no usable in-horizon frost.
+        result = self._run([_forecast(self.HORIZON, -10.0)])
         assert result["predicted"] is None
 
     def test_past_date_is_ignored(self):
@@ -134,12 +136,17 @@ class TestEvaluateForecastFrostWarning:
         assert result["predicted"] is True
         assert result["expected_date"] == TODAY + timedelta(days=1)
 
-    def test_zero_horizon_only_today(self):
-        # HORIZON 0 → only today is scanned; tomorrow's frost is out of window.
-        result = self._run([_forecast(1, -5.0)], horizon=0)
+    def test_horizon_one_scans_only_today(self):
+        # horizon_days 1 → only today is scanned; tomorrow's frost is out of window.
+        result = self._run([_forecast(1, -5.0)], horizon=1)
         assert result["predicted"] is None
-        result_today = self._run([_forecast(0, -1.0)], horizon=0)
+        result_today = self._run([_forecast(0, -1.0)], horizon=1)
         assert result_today["predicted"] is True
+
+    def test_zero_horizon_scans_no_day(self):
+        # horizon_days 0 scans no calendar day at all — not even today.
+        result = self._run([_forecast(0, -5.0)], horizon=0)
+        assert result["predicted"] is None
 
     def test_defaults_exposed(self):
         assert DEFAULT_FROST_FORECAST_THRESHOLD_CELSIUS == 2.0

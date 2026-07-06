@@ -85,9 +85,11 @@ and the on-disk reactive path):**
   - _dimension_: `functional` · _status_: `confirmed` · _source_: Issue #392
     ("evaluate the forecast horizon … raise an early warning"); Turn 2.
 - **R2** — The forecast horizon SHALL be configurable via
-  `settings.frost_forecast_horizon_days` with a default of **2** days (today +
-  next day, ≈ the 24–48 h in Issue #392); the engine SHALL receive
-  `horizon_days` as a parameter.
+  `settings.frost_forecast_horizon_days`, interpreted as the **number of calendar
+  days scanned starting today** (inclusive: `today .. today + horizon_days - 1`),
+  with a default of **2** (today + next day, ≈ the 24–48 h in Issue #392). `1`
+  scans only today; `0` scans no day. The engine SHALL receive `horizon_days` as
+  a parameter.
   - _dimension_: `functional` · _status_: `confirmed` · _source_: Turn 2
     ("Konfigurierbar, Default 2 Tage").
 - **R3** — The forecast frost threshold SHALL be a **separate**
@@ -157,8 +159,8 @@ and the on-disk reactive path):**
 - [ ] Pure engine: in-horizon `temp_min_c ≤ frost_forecast_threshold_celsius`
       → `predicted=true` + earliest such date + its min temp + source; no
       in-horizon frost → `predicted=false`; empty / all-`None` forecast →
-      `predicted=None`. Horizon boundary (day `horizon_days` inclusive, day
-      `horizon_days+1` excluded) covered by tests.
+      `predicted=None`. Horizon boundary (last in-window day `horizon_days - 1`
+      inclusive, day `horizon_days` excluded) covered by tests.
 - [ ] Service combines reactive (unchanged) + forecast (additive); no gps /
       `weather_enabled` off / empty repo → forecast fields `None`, reactive
       unchanged, **no 500** (regression test).
