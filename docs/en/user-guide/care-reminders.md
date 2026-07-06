@@ -121,7 +121,7 @@ Effective interval = base interval × winter factor
 
 ## Overwintering Management
 
-For outdoor and greenhouse plants, Kamerplanter automatically creates an overwintering plan as soon as your site detects that winter is approaching — including a winter-hardiness traffic light, a protection measure, and a dedicated care plan during winter dormancy. You don't need to create a profile for this.
+For outdoor, greenhouse, and balcony plants, Kamerplanter automatically creates an overwintering plan as soon as they are assigned to such a site — including a winter-hardiness traffic light, a protection measure, and a dedicated care plan during winter dormancy. You don't need to create a profile for this.
 
 - [Season Automation](season-automation.md) explains how Kamerplanter detects when winter begins and ends.
 - [Overwintering](overwintering.md) shows you the automatically created plan per plant and how to adjust it if needed.

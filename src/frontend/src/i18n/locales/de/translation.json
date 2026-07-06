@@ -1122,6 +1122,8 @@
         "overriddenBadge": "Angepasst",
         "autoHint": "Dieser Überwinterungsplan wurde automatisch aus dem Arten-Steckbrief und der Winterhärte deines Standorts abgeleitet. Du musst nichts anlegen – kannst einzelne Werte aber anpassen.",
         "emptyHint": "Für diese Pflanze ist kein Winterschutz nötig – sie gilt an deinem Standort als winterhart. Es wird daher automatisch kein Überwinterungsplan angelegt.",
+        "pendingHint": "Diese Pflanze braucht im Winter Schutz (z. B. Abdecken oder Mulchen). Der Überwinterungsplan wird automatisch zu Herbstbeginn bzw. bei einsetzender Kälte angelegt – du musst jetzt nichts tun.",
+        "indoorHint": "Diese Pflanze steht an einem Innen- bzw. geschützten Standort – eine Überwinterung im Freien ist hier nicht nötig. Es wird daher automatisch kein Überwinterungsplan angelegt.",
         "adjust": "Anpassen",
         "resetButton": "Auf Automatik zurücksetzen",
         "dialogTitle": "Überwinterung anpassen",

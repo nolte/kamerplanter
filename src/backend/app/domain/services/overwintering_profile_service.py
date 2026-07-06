@@ -8,6 +8,7 @@ the dashboard hardiness overview.
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import (
+    OVERWINTERING_SITE_TYPES,
     FrostTolerance,
     GrowthHabit,
     HardinessRating,
@@ -34,6 +35,7 @@ from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.overwintering_profile import (
     OverwinteringProfile,
+    PlantOverwinteringStatus,
     WinterHardinessOverview,
     WinterHardinessOverviewEntry,
 )
@@ -103,6 +105,13 @@ class OverwinteringProfileService:
         profile.tenant_key = tenant_key
         self._validate_d5(profile)
         self._verify_subject_ownership(profile, tenant_key)
+        # REQ-047 §3.4 — the *manual* create path only accepts a plant that actually
+        # stands at a frost-exposed site (outdoor / greenhouse / balcony). This blocks
+        # a nonsensical profile on a windowsill/indoor plant (e.g. a staghorn fern).
+        # The automatic materialisation (`auto_generate_profile`) does NOT flow through
+        # here — it builds its document directly and is only ever triggered for an
+        # already frost-relevant site — so this guard cannot block the auto path.
+        self._require_frost_exposed_site(profile, tenant_key)
         self._verify_winter_quarter_ownership(profile, tenant_key)
         self._require_no_existing_profile(profile)
         created = self._repo.create_profile(profile)
@@ -141,6 +150,26 @@ class OverwinteringProfileService:
         self.get_profile(key, tenant_key)
         return self._repo.delete_profile(key)
 
+    def remove_auto_profile_for_plant(self, plant_key: str, tenant_key: str) -> bool:
+        """REQ-047 §3.4 — drop a plant's *auto-generated* overwintering profile.
+
+        Called when a plant is moved off an outdoor/greenhouse site (indoors or no
+        site): a profile that was derived automatically no longer applies. Idempotent
+        and conservative — it only deletes when a profile exists, is owned by the
+        tenant, was ``auto_generated`` and has NOT been ``user_overridden``. A manual
+        or user-touched profile is always kept, and an absent one is a silent no-op.
+        Returns ``True`` iff a profile was actually removed.
+        """
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return False
+        # Fail-safe tenant guard: never touch another tenant's profile.
+        if profile.tenant_key != tenant_key:
+            return False
+        if not profile.auto_generated or profile.user_overridden:
+            return False
+        return self.delete_profile(profile.key or "", tenant_key)
+
     # ── REQ-047 per-plant profile access / override ─────────────────────
 
     def get_plant_profile(self, plant_key: str, tenant_key: str) -> OverwinteringProfile:
@@ -153,6 +182,85 @@ class OverwinteringProfileService:
             raise NotFoundError(_ENTITY, plant_key)
         verify_tenant_ownership(profile, tenant_key, _ENTITY)
         return profile
+
+    def get_plant_hardiness_status(self, plant_key: str, tenant_key: str) -> PlantOverwinteringStatus:
+        """Winter-hardiness status of a plant — three-way, never a bare 404.
+
+        Distinguishes a materialised profile from the "no profile yet, but one is
+        coming at the season transition" case (ampel yellow/red) and the genuinely
+        winter-hardy case (ampel green, no profile ever). When no profile exists,
+        the ampel is derived with the *same* resolution logic the materializer uses
+        (``species.hardiness_zones[0]`` + ``site.climate_zone`` +
+        :func:`evaluate_winter_hardiness`), so status and later materialisation
+        agree by construction.
+
+        Robust: an unresolvable plant/species/site yields ``hardiness_light=None``
+        and ``will_materialize=False`` (unknown) rather than a false all-clear.
+        """
+        # A foreign-owned profile is treated exactly like "no profile": fall through
+        # to the resolve path (which returns None for a foreign plant) rather than
+        # raising a 404. Otherwise the always-200 contract would break for exactly
+        # one case — foreign plant *with* profile → 404 vs. 200 everywhere else —
+        # turning the endpoint into a cross-tenant existence oracle (SEC-001).
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is not None and profile.tenant_key == tenant_key:
+            # A materialised profile only ever exists for a plant on a frost-relevant
+            # site (the materializer / eager trigger guard on OVERWINTERING_SITE_TYPES),
+            # so the site is overwinterable by construction.
+            return PlantOverwinteringStatus(
+                has_profile=True,
+                hardiness_light=_RATING_TO_LIGHT[profile.hardiness_rating],
+                will_materialize=False,
+                site_overwinterable=True,
+            )
+
+        light, site_overwinterable = self._resolve_plant_hardiness(plant_key, tenant_key)
+        return PlantOverwinteringStatus(
+            has_profile=False,
+            hardiness_light=light,
+            # A profile is only ever materialised on a frost-relevant site: an
+            # indoor/windowsill/grow-tent (or unresolved/foreign) plant never gets one,
+            # so `will_materialize` stays False there regardless of a yellow/red ampel.
+            will_materialize=(site_overwinterable and light is not None and light != WinterHardinessLight.GREEN),
+            site_overwinterable=site_overwinterable,
+        )
+
+    def _resolve_plant_hardiness(self, plant_key: str, tenant_key: str) -> tuple[WinterHardinessLight | None, bool]:
+        """Resolve ``(ampel, site_overwinterable)`` from a single plant+site read.
+
+        Mirrors :class:`OverwinteringMaterializer.materialize` exactly for the ampel:
+        it resolves the plant's species (frost sensitivity + first hardiness zone)
+        and its site's climate zone, then evaluates the traffic light. From the same
+        site load it also reports whether the site is of a frost-/overwintering-
+        relevant type (``OVERWINTERING_SITE_TYPES``) — a single read feeds both so the
+        status and any later materialisation agree by construction.
+
+        Any missing key or unresolved / foreign document short-circuits to
+        ``(None, False)`` (unknown). When only the *species* is unresolved but the
+        site is known, the ampel is ``None`` yet the (site-only) eligibility flag is
+        preserved, so an indoor/outdoor distinction survives even without a species.
+        """
+        if self._plant_repo is None or self._species_repo is None or self._site_repo is None:
+            return None, False
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None or plant.tenant_key != tenant_key:
+            return None, False
+        if not plant.site_key:
+            return None, False
+        site = self._site_repo.get_site_by_key(plant.site_key)
+        # Fail-safe tenant guard: a foreign/unknown site is never treated as eligible.
+        if site is None or site.tenant_key != tenant_key:
+            return None, False
+        site_overwinterable = site.type in OVERWINTERING_SITE_TYPES
+        if not plant.species_key:
+            return None, site_overwinterable
+        species = self._species_repo.get_by_key(plant.species_key)
+        if species is None:
+            return None, site_overwinterable
+        species_zone = species.hardiness_zones[0] if species.hardiness_zones else None
+        site_zone = site.climate_zone or None
+        light = evaluate_winter_hardiness(species.frost_sensitivity, species_zone, site_zone)
+        return light, site_overwinterable
 
     def override_plant_profile(self, plant_key: str, tenant_key: str, updates: dict) -> OverwinteringProfile:
         """Override individual fields of the plant's profile (sets ``user_overridden``).
@@ -610,6 +718,44 @@ class OverwinteringProfileService:
             run = self._planting_run_repo.get_by_key(planting_run_key)
             if run is None or run.tenant_key != tenant_key:
                 raise NotFoundError("PlantingRun", planting_run_key)
+
+    def _require_frost_exposed_site(self, profile: OverwinteringProfile, tenant_key: str) -> None:
+        """Reject a plant subject that is not on a frost-exposed site (REQ-047 §3.4).
+
+        Only the *manual* create path calls this. A profile makes sense only for a
+        plant that overwinters at a frost-relevant location — an outdoor bed, an
+        unheated greenhouse or a balcony (``OVERWINTERING_SITE_TYPES``). A plant with
+        no site, on an indoor/windowsill/grow-tent site, or on an unresolvable /
+        foreign-tenant site is rejected with 422.
+
+        Skipped for planting-run subjects (no ``plant_key``) and — to keep existing
+        callers/tests that construct the service without the plant/site repositories
+        working — whenever either repository was not injected.
+        """
+        if not profile.plant_key or self._plant_repo is None or self._site_repo is None:
+            return
+        plant = self._plant_repo.get_by_key(profile.plant_key)
+        # Ownership of the plant itself is already enforced by _verify_subject_ownership;
+        # a fail-safe re-check here keeps this guard self-contained.
+        if plant is None or plant.tenant_key != tenant_key or not plant.site_key:
+            raise self._not_frost_exposed_error()
+        site = self._site_repo.get_site_by_key(plant.site_key)
+        if site is None or site.tenant_key != tenant_key or site.type not in OVERWINTERING_SITE_TYPES:
+            raise self._not_frost_exposed_error()
+
+    @staticmethod
+    def _not_frost_exposed_error() -> ValidationError:
+        return ValidationError(
+            "An overwintering profile can only be created for a plant located at a "
+            "frost-exposed site (outdoor, greenhouse or balcony).",
+            details=[
+                {
+                    "field": "plant_key",
+                    "reason": "The plant is not located at a frost-exposed site (outdoor, greenhouse or balcony).",
+                    "code": "SITE_NOT_FROST_EXPOSED",
+                }
+            ],
+        )
 
     def _verify_winter_quarter_ownership(self, profile: OverwinteringProfile, tenant_key: str) -> None:
         """Reject a winter quarter (location) owned by another tenant (B5)."""

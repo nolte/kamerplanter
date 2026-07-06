@@ -4,6 +4,7 @@ import reducer, {
   clearCurrentProfile,
   fetchSeasonOverview,
   fetchOverwintering,
+  fetchOverwinteringStatus,
   overrideOverwintering,
   resetOverwintering,
 } from '@/store/slices/seasonSlice';
@@ -187,6 +188,57 @@ describe('seasonSlice reducers', () => {
     const cleared = reducer(state, clearCurrentProfile());
     expect(cleared.currentProfile).toBeNull();
     expect(cleared.requestedPlantKey).toBeNull();
+    expect(cleared.currentStatus).toBeNull();
+  });
+
+  it('starts with no hardiness status', () => {
+    const state = reducer(undefined, { type: 'unknown' });
+    expect(state.currentStatus).toBeNull();
+    expect(state.statusLoading).toBe(false);
+  });
+
+  it('fetchOverwinteringStatus pending → fulfilled stores the status', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('req-1', 'plant-1'));
+    state = reducer(state, fetchOverwinteringStatus.pending('req-2', 'plant-1'));
+    expect(state.statusLoading).toBe(true);
+    const status = {
+      has_profile: false,
+      hardiness_light: 'yellow',
+      will_materialize: true,
+      site_overwinterable: true,
+    } as const;
+    state = reducer(state, fetchOverwinteringStatus.fulfilled(status, 'req-2', 'plant-1'));
+    expect(state.statusLoading).toBe(false);
+    expect(state.currentStatus).toEqual(status);
+  });
+
+  it('discards a stale status response after navigating to another plant', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('reqA', 'plant-A'));
+    state = reducer(state, fetchOverwinteringStatus.pending('reqA2', 'plant-A'));
+    // User navigates to B before A's status resolves.
+    state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
+    const staleStatus = {
+      has_profile: false,
+      hardiness_light: 'green',
+      will_materialize: false,
+      site_overwinterable: true,
+    } as const;
+    state = reducer(state, fetchOverwinteringStatus.fulfilled(staleStatus, 'reqA2', 'plant-A'));
+    expect(state.currentStatus).toBeNull();
+  });
+
+  it('a new profile fetch resets a previous plant\'s status', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('reqA', 'plant-A'));
+    const status = {
+      has_profile: false,
+      hardiness_light: 'green',
+      will_materialize: false,
+      site_overwinterable: true,
+    } as const;
+    state = reducer(state, fetchOverwinteringStatus.fulfilled(status, 'reqA2', 'plant-A'));
+    expect(state.currentStatus).toEqual(status);
+    state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
+    expect(state.currentStatus).toBeNull();
   });
 });
 

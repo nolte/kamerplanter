@@ -1,19 +1,19 @@
 # Season Automation: When Does Winter Arrive?
 
-For all your outdoor and greenhouse sites, Kamerplanter automatically detects when winter is approaching, when winter dormancy begins, and when it's time to bring your plants back in spring. You don't need to configure anything — the system automatically uses the best available data source for your site. <!-- REQ-047 -->
+For all your outdoor, greenhouse, and balcony sites, Kamerplanter automatically detects when winter is approaching, when winter dormancy begins, and when it's time to bring your plants back in spring. You don't need to configure anything — the system automatically uses the best available data source for your site. <!-- REQ-047 -->
 
 ---
 
 ## Prerequisites
 
-- At least one site of type **Outdoor** or **Greenhouse** — pure indoor sites (grow tent, room, balcony) have no season automation; the simple, hemisphere-based winter watering adjustment from [Care Reminders](care-reminders.md#seasonal-adjustment) still applies there.
+- At least one site of type **Outdoor**, **Greenhouse**, or **Balcony** — pure indoor sites (indoor, windowsill, grow tent) have no season automation; the simple, hemisphere-based winter watering adjustment from [Care Reminders](care-reminders.md#seasonal-adjustment) still applies there.
 - No further setup needed — the evaluation runs automatically in the background every day.
 
 ---
 
 ## The Four Season Phases
 
-Each outdoor or greenhouse site goes through exactly one cycle of four states per winter:
+Each outdoor, greenhouse, or balcony site goes through exactly one cycle of four states per winter:
 
 <!-- diagram-source: user-described — the four-phase season state machine (REQ-047 §2.2), one cycle per winter -->
 ```mermaid

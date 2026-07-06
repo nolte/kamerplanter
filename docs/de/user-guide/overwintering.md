@@ -1,13 +1,24 @@
 # Überwinterung
 
-Für jede deiner Freiland- oder Gewächshaus-Pflanzen, die nicht winterhart ist, erstellt Kamerplanter automatisch einen passenden Überwinterungsplan — abgeleitet aus dem Steckbrief der Pflanzenart und der Winterhärte deines Standorts. Du musst dafür kein Profil anlegen; du kannst das Ergebnis aber jederzeit einsehen und bei Bedarf anpassen. <!-- REQ-047 -->
+Für jede deiner Freiland-, Gewächshaus- oder Balkon-Pflanzen, die nicht winterhart ist, erstellt Kamerplanter automatisch einen passenden Überwinterungsplan — abgeleitet aus dem Steckbrief der Pflanzenart und der Winterhärte deines Standorts. Der Plan entsteht, sobald die Pflanze einem solchen Standort zugeordnet wird — du musst dafür kein Profil anlegen; du kannst das Ergebnis aber jederzeit einsehen und bei Bedarf anpassen. <!-- REQ-047 -->
 
 ---
 
 ## Voraussetzungen
 
-- Die Pflanze steht an einem Standort vom Typ **Außenbereich** (Freiland) oder **Gewächshaus**.
+- Die Pflanze steht an einem Standort vom Typ **Außenbereich** (Freiland), **Gewächshaus** oder **Balkon**. Diese drei Typen gelten als frostexponiert; Innenbereich, Fensterbrett und Growzelt dagegen nicht.
 - Der Pflanze ist eine Pflanzenart zugeordnet (Stammdaten) — daraus leitet Kamerplanter die Frostempfindlichkeit ab.
+
+---
+
+## Wann der Plan angelegt wird
+
+Kamerplanter legt den Plan sofort an, sobald deine Pflanze einem frostexponierten Standort zugeordnet ist — egal ob du die Pflanze dort neu anlegst oder sie nachträglich von einem anderen Standort dorthin umziehst. Ein eigener Schritt ist dafür nicht nötig.
+
+!!! tip "Sicherheitsnetz zum Saisonwechsel"
+    Falls eine Pflanze aus irgendeinem Grund noch keinen Plan hat — zum Beispiel, weil ihr die Pflanzenart nachträglich zugeordnet wurde —, holt Kamerplanter das spätestens beim Übergang deines Standorts in „Winter kündigt sich an" nach (siehe [Saison-Automatik](season-automation.md)).
+
+Ziehst du eine Pflanze von einem Freiland-, Gewächshaus- oder Balkon-Standort in den Innenbereich um, entfernt Kamerplanter einen automatisch erstellten Plan wieder — sie braucht an ihrem neuen, geschützten Standort schließlich keinen Winterschutz mehr. Hast du den Plan zuvor selbst angepasst, bleibt er dagegen erhalten, auch nach einem Umzug nach drinnen; du kannst ihn dann jederzeit manuell löschen (siehe [Alle Überwinterungspläne im Überblick](#alle-uberwinterungsplane-im-uberblick)).
 
 ---
 
@@ -17,7 +28,16 @@ Für jede deiner Freiland- oder Gewächshaus-Pflanzen, die nicht winterhart ist,
 2. Wechsle zum Tab **Pflege**.
 3. Scrolle zum Abschnitt **Überwinterung**.
 
-Ist die Pflanze an deinem Standort **nicht winterhart**, zeigt dir dieser Abschnitt den automatisch erstellten Plan: Winterhärte-Einstufung, Schutzmaßnahme und deren Monat, Gießvorgabe für die Winterruhe sowie — je nach Art — die Frühjahrsmaßnahme, die Bedingungen im Winterquartier oder die Kontrollintervalle für eingelagerte Knollen. Ein Badge **„Automatisch aus Steckbrief"** kennzeichnet, dass der Plan von Kamerplanter selbst erzeugt wurde.
+Was du dort siehst, hängt vom Standort deiner Pflanze und ihrer Winterhärte ab:
+
+| Situation | Anzeige im Abschnitt „Überwinterung" |
+|-----------|----------------------------------------|
+| Profil bereits vorhanden | Der vollständige Plan (siehe unten) mit Badge „Automatisch aus Steckbrief" oder „Angepasst". |
+| Winterhart an deinem Standort (grüne Ampel) | Hinweis, dass kein Winterschutz nötig ist. |
+| Schutzbedürftig an einem Freiland-, Gewächshaus- oder Balkon-Standort, aber noch kein Profil vorhanden | Hinweis, dass die Pflanze im Winter Schutz braucht und der Plan automatisch angelegt wird. |
+| An einem Innenbereich-, Fensterbrett- oder Growzelt-Standort | Hinweis, dass an diesem Standort keine Freiland-Überwinterung nötig ist. |
+
+Liegt ein Profil vor, zeigt dir der Abschnitt „Überwinterung" den automatisch erstellten Plan: Winterhärte-Einstufung, Schutzmaßnahme und deren Monat, Gießvorgabe für die Winterruhe sowie — je nach Art — die Frühjahrsmaßnahme, die Bedingungen im Winterquartier oder die Kontrollintervalle für eingelagerte Knollen. Ein Badge **„Automatisch aus Steckbrief"** kennzeichnet, dass der Plan von Kamerplanter selbst erzeugt wurde.
 
 !!! tip "Gilt diese Pflanze überhaupt als gefährdet?"
     Ist deine Pflanze an deinem Standort **winterhart** (grüne Ampel), erscheint im Abschnitt „Überwinterung" stattdessen der Hinweis, dass kein Winterschutz nötig ist — es wird bewusst **kein** Plan angelegt und **keine** Winterschutz-Erinnerung erzeugt. Mehr zur Winterhärte-Einstufung unter [Klimazonen & Winterhärte](../guides/climate-zones.md).
@@ -75,16 +95,22 @@ Unter **Pflanzen > Überwinterung** findest du eine Tabelle mit den Überwinteru
 ## Häufige Fragen
 
 ??? question "Ich habe noch nie ein Überwinterungsprofil angelegt — trotzdem sehe ich einen Plan. Woher kommt der?"
-    Kamerplanter erstellt diesen Plan automatisch, sobald dein Standort in die Stufe „Winter kündigt sich an" wechselt (siehe [Saison-Automatik](season-automation.md)) — vorausgesetzt, deine Pflanze gilt an diesem Standort nicht als winterhart. Du musst dafür nichts einrichten.
+    Kamerplanter erstellt diesen Plan automatisch, sobald deine Pflanze einem Freiland-, Gewächshaus- oder Balkon-Standort zugeordnet wird — vorausgesetzt, sie gilt an diesem Standort nicht als winterhart. Das gilt sowohl beim Anlegen der Pflanze als auch bei einem späteren Standortwechsel; hatte die Pflanze zuvor noch keine Art zugeordnet, holt spätestens der Übergang deines Standorts in „Winter kündigt sich an" die Plan-Erstellung nach (siehe [Saison-Automatik](season-automation.md)). Du musst dafür nichts einrichten.
 
 ??? question "Warum sehe ich für meine winterharte Pflanze keinen Überwinterungsplan?"
     Das ist beabsichtigt. Für Pflanzen, die an deinem Standort winterhart sind, legt Kamerplanter bewusst keinen Plan an und erzeugt keine Winterschutz-Erinnerung, da sie ohne zusätzlichen Schutz auskommen.
+
+??? question "Ich sehe den Hinweis, dass meine Pflanze im Winter Schutz braucht, aber noch keinen Plan. Was bedeutet das?"
+    Deine Pflanze gilt an ihrem Standort als schutzbedürftig (gelbe oder rote Ampel), aber der Plan wurde noch nicht angelegt — zum Beispiel, weil ihr gerade erst eine Pflanzenart zugeordnet wurde. Kamerplanter legt den Plan automatisch an; du musst nichts weiter tun.
+
+??? question "Ich habe meine Pflanze nach drinnen umgezogen — wohin ist der Überwinterungsplan verschwunden?"
+    Ziehst du eine Pflanze von einem Freiland-, Gewächshaus- oder Balkon-Standort in den Innenbereich, entfernt Kamerplanter einen automatisch erstellten Plan wieder, da an einem Innenstandort keine Freiland-Überwinterung mehr nötig ist. Hast du den Plan zuvor selbst angepasst, bleibt er dir dagegen erhalten und muss bei Bedarf manuell gelöscht werden.
 
 ??? question "Was passiert, wenn ich einen Wert anpasse und sich später der Steckbrief der Art ändert?"
     Deine Anpassung bleibt erhalten. Sobald du mindestens einen Wert manuell änderst, überschreibt die Automatik ihn nie wieder — sie ergänzt lediglich Felder, die du nie gesetzt hast.
 
 ??? question "Kann ich ein Überwinterungsprofil auch löschen?"
-    Ja, über die Tabelle unter **Pflanzen > Überwinterung** mit dem Papierkorb-Symbol. Bleibt die Pflanze an einem Freiland- oder Gewächshaus-Standort und ist sie nicht winterhart, erstellt Kamerplanter beim nächsten Übergang in „Winter kündigt sich an" automatisch wieder einen neuen Plan.
+    Ja, über die Tabelle unter **Pflanzen > Überwinterung** mit dem Papierkorb-Symbol. Bleibt die Pflanze an einem Freiland-, Gewächshaus- oder Balkon-Standort und ist sie nicht winterhart, legt Kamerplanter beim nächsten Standortwechsel oder spätestens beim nächsten Übergang in „Winter kündigt sich an" automatisch wieder einen neuen Plan an.
 
 ---
 

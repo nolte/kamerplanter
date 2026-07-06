@@ -2,6 +2,7 @@ import { tenantClient as client } from '../client';
 import type {
   OverwinteringOverride,
   OverwinteringProfile,
+  PlantOverwinteringStatus,
   SeasonOverview,
 } from '../types';
 
@@ -23,6 +24,20 @@ export async function getPlantOverwintering(
 ): Promise<OverwinteringProfile> {
   const { data } = await client.get<OverwinteringProfile>(
     `/plants/${plantKey}/overwintering`,
+  );
+  return data;
+}
+
+/**
+ * Winter-hardiness status of a plant instance — always resolves (HTTP 200), even
+ * when no profile exists yet. Used to distinguish "genuinely winter-hardy" from
+ * "profile will be materialised in autumn" in the empty state.
+ */
+export async function getPlantOverwinteringStatus(
+  plantKey: string,
+): Promise<PlantOverwinteringStatus> {
+  const { data } = await client.get<PlantOverwinteringStatus>(
+    `/plants/${plantKey}/overwintering/status`,
   );
   return data;
 }
