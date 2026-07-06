@@ -5274,22 +5274,37 @@
       "noActive": "Keine aktiven Widgets. Aktiviere unten Widgets aus dem Katalog.",
       "inactiveModuleHidden": "inaktiv (Modul ausgeblendet)"
     },
+    "events": {
+      "none": "In den nächsten 7 Tagen steht nichts an.",
+      "untitled": "Unbenannte Aufgabe"
+    },
     "widgets": {
+      "comingSoon": "In Vorbereitung",
       "quick_actions": {
         "label": "Schnellzugriff",
         "description": "Direkte Kacheln zu häufig genutzten Bereichen."
       },
       "active_plants_summary": {
         "label": "Aktive Pflanzen",
-        "description": "Überblick über deine aktiven Pflanzen."
+        "description": "Überblick über deine aktiven Pflanzen.",
+        "metrics": {
+          "plants_total": "Pflanzen gesamt",
+          "plants_active": "Aktiv"
+        }
       },
       "tasks_today": {
         "label": "Aufgaben heute",
-        "description": "Heute fällige und überfällige Aufgaben."
+        "description": "Heute fällige und überfällige Aufgaben.",
+        "metrics": {
+          "open_tasks_today": "Heute fällig"
+        }
       },
       "care_reminders": {
         "label": "Pflegeerinnerungen",
-        "description": "Anstehende Pflegeerinnerungen."
+        "description": "Anstehende Pflegeerinnerungen.",
+        "metrics": {
+          "care_reminders_due": "Erinnerungen fällig"
+        }
       },
       "daily_tip": {
         "label": "Tipp des Tages",
@@ -5337,7 +5352,10 @@
       },
       "tank_status": {
         "label": "Tankstatus",
-        "description": "Füllstände deiner Nährlösungstanks."
+        "description": "Füllstände deiner Nährlösungstanks.",
+        "metrics": {
+          "tanks_low": "Tanks niedrig"
+        }
       },
       "phase_timeline": {
         "label": "Phasen-Zeitleiste",
