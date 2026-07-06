@@ -95,7 +95,7 @@ Click **"Save"** to apply your changes, or **"Cancel"** to discard them and retu
 
 Kamerplanter currently offers 17 widgets across four categories. Which widgets are visible to you depends on your experience level, your enabled [modules](module-visibility.md), and your operating mode ([Light or Full mode](light-mode.md)).
 
-<!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts, src/frontend/src/i18n/locales/en/translation.json (dashboard.widgets.*) -->
+<!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts, src/frontend/src/i18n/locales/en/translation.json (dashboard.widgets.*), src/frontend/src/components/dashboard/widgets/WeatherForecastWidget.tsx -->
 
 ### Essentials
 
@@ -112,7 +112,7 @@ Kamerplanter currently offers 17 widgets across four categories. Which widgets a
 | Widget | Description |
 |--------|-------------|
 | Tip of the day | Daily AI care tip for your plants. |
-| Weather forecast | Links to the [weather source setup](weather-sources.md) for your outdoor/greenhouse locations; does not display forecast values directly in the widget yet. |
+| Weather forecast | Daily forecast (minimum/maximum temperature, provenance label) for your outdoor/greenhouse location, including a [frost early-warning](dashboard.md#weather-forecast-and-frost-early-warning) once you've [set up a weather source](weather-sources.md). |
 | Harvest forecast | Expected harvest dates (with timeframe configuration). |
 | Community activity | Activity from your community gardens. |
 

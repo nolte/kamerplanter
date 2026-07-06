@@ -24,6 +24,27 @@ function activeLocale(): string {
   return lang === 'de' ? 'de-DE' : 'en-US';
 }
 
+/** Matches a bare calendar date `YYYY-MM-DD` with no time component. */
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parse a date/time value into a `Date`.
+ *
+ * A bare `YYYY-MM-DD` string (e.g. a forecast date) is interpreted as a **local**
+ * calendar date rather than UTC midnight: `new Date('2026-07-06')` parses as UTC
+ * midnight, which renders as the *previous* day in negative-UTC-offset zones
+ * (the Americas). Strings that carry a time component are left to the native
+ * parser unchanged, so existing callers are unaffected.
+ */
+function toDate(value: string | Date): Date {
+  if (typeof value !== 'string') return value;
+  const match = DATE_ONLY_RE.exec(value);
+  if (match) {
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  }
+  return new Date(value);
+}
+
 /**
  * Format a date/time string or Date object as locale-aware date+time.
  * Example DE: "04.04.2026, 12:04"
@@ -31,7 +52,7 @@ function activeLocale(): string {
  */
 export function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return '—';
-  const date = typeof value === 'string' ? new Date(value) : value;
+  const date = toDate(value);
   if (isNaN(date.getTime())) return '—';
   return date.toLocaleString(activeLocale(), {
     year: 'numeric',
@@ -49,7 +70,7 @@ export function formatDateTime(value: string | Date | null | undefined): string 
  */
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '—';
-  const date = typeof value === 'string' ? new Date(value) : value;
+  const date = toDate(value);
   if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(activeLocale(), {
     year: 'numeric',

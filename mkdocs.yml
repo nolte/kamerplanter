@@ -136,6 +136,7 @@ plugins:
             Gießprotokoll: Watering Log
             Plattform-Admin: Platform Admin
             Speicher konfigurieren: Configure Storage
+            Wetterdienste konfigurieren: Configuring Weather Services
             Architektur: Architecture
             Überblick: Overview
             Backend: Backend
@@ -317,6 +318,7 @@ nav:
       - Pflanzenfoto-Galerie: de/user-guide/plant-photos.md
       - Plattform-Admin: de/user-guide/admin.md
       - Speicher konfigurieren: de/user-guide/object-storage.md
+      - Wetterdienste konfigurieren: de/user-guide/weather-services.md
   - Architektur:
       - de/architecture/index.md
       - Überblick: de/architecture/overview.md

@@ -147,14 +147,20 @@ def get_location_frost_warning(
     service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
-    """Reactive frost-warning state for a location (Home Assistant read path).
+    """Frost-warning state for a location (Home Assistant read path).
 
     Backs ``binary_sensor.kp_{location}_frost_warning``: the HA coordinator
     learns which locations to surface from ``/ha-publish/enabled-keys/location``
-    (opt-in) and polls this route per location. The warning is derived from the
-    location's latest ambient temperature; ``frost_warning`` is ``null`` when no
-    temperature reading is available.
+    (opt-in) and polls this route per location. The reactive ``frost_warning`` is
+    derived from the location's latest ambient temperature; it is ``null`` when no
+    temperature reading is available. The additive ``forecast_*`` fields (Issue
+    #392) report the proactive, forecast-based early warning for the location's
+    site (``null`` when no forecast source is available).
     """
-    _verify_location_tenant(key, ctx, service)
-    result = sensor_service.get_location_frost_warning(key)
+    loc = _verify_location_tenant(key, ctx, service)
+    result = sensor_service.get_location_frost_warning(
+        key,
+        site_key=loc.site_key,
+        tenant_key=ctx.tenant_key,
+    )
     return FrostWarningResponse(**result)

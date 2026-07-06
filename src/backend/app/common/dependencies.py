@@ -782,18 +782,36 @@ def get_weather_source_config_repo():
     return ArangoWeatherSourceConfigRepository(get_db())
 
 
+def get_weather_settings_service():
+    from app.domain.services.weather_settings_service import WeatherSettingsService
+
+    return WeatherSettingsService(get_system_settings_repo(), get_encryption_engine())
+
+
+def _effective_weather_settings():
+    """Callable injected into the resolver / source service so both use the
+    DB-backed effective provider config (base URL, timeout, enable flags, global
+    OWM fallback key) instead of the raw env defaults."""
+    return get_weather_settings_service().get_effective_weather_settings()
+
+
 def get_weather_source_service():
     from app.domain.services.weather_source_resolver import WeatherSourceResolver
     from app.domain.services.weather_source_service import WeatherSourceService
 
     encryption = get_encryption_engine()
-    resolver = WeatherSourceResolver(encryption, get_ha_client)
+    resolver = WeatherSourceResolver(
+        encryption,
+        get_ha_client,
+        weather_settings_provider=_effective_weather_settings,
+    )
     return WeatherSourceService(
         weather_source_config_repo=get_weather_source_config_repo(),
         site_repo=get_site_repo(),
         encryption_engine=encryption,
         resolver=resolver,
         ha_client_factory=get_ha_client,
+        weather_settings_provider=_effective_weather_settings,
     )
 
 
@@ -865,7 +883,12 @@ def get_observation_service():
 def get_sensor_service():
     from app.domain.services.sensor_service import SensorService
 
-    return SensorService(get_sensor_repo(), get_ha_client())
+    return SensorService(
+        get_sensor_repo(),
+        get_ha_client(),
+        weather_forecast_repo=get_weather_forecast_repo(),
+        site_repo=get_site_repo(),
+    )
 
 
 # ── REQ-002 LocationType dependencies ───────────────────────────────

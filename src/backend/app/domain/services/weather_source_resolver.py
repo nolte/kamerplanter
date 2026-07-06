@@ -25,7 +25,6 @@ from typing import TYPE_CHECKING
 import httpx
 import structlog
 
-from app.config.settings import settings
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import (
     WeatherForecast,
@@ -34,6 +33,10 @@ from app.domain.models.weather import (
     WeatherSourcePublicConfig,
 )
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
+from app.domain.services.weather_settings_service import (
+    EffectiveWeatherSettings,
+    env_effective_weather_settings,
+)
 
 if TYPE_CHECKING:
     from app.data_access.external.ha_client import HomeAssistantClient
@@ -52,24 +55,43 @@ class WeatherSourceResolver:
         self,
         encryption: EncryptionEngine,
         ha_client_factory: Callable[[], HomeAssistantClient | None],
+        weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
     ) -> None:
         self._encryption = encryption
         self._ha_client_factory = ha_client_factory
+        # DB-backed effective provider config (base URL, timeout, enable flags,
+        # global OWM fallback key). When absent, falls back to the env defaults so
+        # the resolver stays usable in isolation.
+        self._weather_settings_provider = weather_settings_provider
 
-    def _build(self, entry: WeatherSourceEntry) -> WeatherAdapter | None:
+    def _effective(self) -> EffectiveWeatherSettings:
+        if self._weather_settings_provider is not None:
+            return self._weather_settings_provider()
+        return env_effective_weather_settings()
+
+    def _build(self, entry: WeatherSourceEntry, effective: EffectiveWeatherSettings) -> WeatherAdapter | None:
         adapter_cls = WeatherAdapterRegistry.get(entry.source_name)
         if adapter_cls is None:
             logger.warning("weather_source_unknown", source=entry.source_name)
             return None
 
+        provider = effective.provider(entry.source_name)
+        # A centrally disabled public provider is skipped entirely.
+        if provider is not None and not provider.enabled:
+            logger.info("weather_source_provider_disabled", source=entry.source_name)
+            return None
+
         if entry.source_name in _KEYLESS_PUBLIC:
-            return adapter_cls()
+            return self._build_public(adapter_cls, provider, effective)
 
         if entry.source_name == "openweathermap":
             api_key: str | None = None
             if isinstance(entry.config, WeatherSourcePublicConfig) and entry.config.api_key_ref:
                 api_key = self._encryption.decrypt(entry.config.api_key_ref)
-            return adapter_cls(api_key=api_key)
+            # No per-site key -> fall back to the instance-wide global key.
+            if not api_key:
+                api_key = effective.openweathermap_global_api_key
+            return self._build_public(adapter_cls, provider, effective, api_key=api_key)
 
         if entry.source_name == "ha_weather":
             ha_client = self._ha_client_factory()
@@ -82,8 +104,24 @@ class WeatherSourceResolver:
         # zero-argument constructor.
         return adapter_cls()
 
-    def _default_entries(self) -> list[WeatherSourceEntry]:
-        source_name = settings.weather_default_public_source
+    @staticmethod
+    def _build_public(
+        adapter_cls: type[WeatherAdapter],
+        provider: object | None,
+        effective: EffectiveWeatherSettings,
+        *,
+        api_key: str | None = None,
+    ) -> WeatherAdapter:
+        """Build a public adapter with the effective base URL + timeout."""
+        kwargs: dict[str, object] = {"timeout_s": float(effective.fetch_timeout_s)}
+        if provider is not None:
+            kwargs["base_url"] = provider.base_url  # type: ignore[attr-defined]
+        if api_key is not None:
+            kwargs["api_key"] = api_key
+        return adapter_cls(**kwargs)  # type: ignore[arg-type]
+
+    def _default_entries(self, effective: EffectiveWeatherSettings) -> list[WeatherSourceEntry]:
+        source_name = effective.default_public_source
         return [WeatherSourceEntry(source_name=source_name, kind="public", enabled=True, config=None)]
 
     async def resolve_daily(self, site: Site, cfg: WeatherSourceConfig | None) -> list[WeatherForecast]:
@@ -91,12 +129,13 @@ class WeatherSourceResolver:
             return []
         latitude, longitude = site.gps_coordinates
 
+        effective = self._effective()
         entries = [entry for entry in cfg.sources if entry.enabled] if cfg is not None else []
         if not entries:
-            entries = self._default_entries()
+            entries = self._default_entries(effective)
 
         for entry in entries:
-            adapter = self._build(entry)
+            adapter = self._build(entry, effective)
             if adapter is None:
                 continue
             try:

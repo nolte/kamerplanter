@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -57,10 +57,15 @@ class LocationTreeNode(BaseModel):
 
 
 class FrostWarningResponse(BaseModel):
-    """Reactive frost-warning state backing ``binary_sensor.kp_{location}_frost_warning``.
+    """Frost-warning state backing ``binary_sensor.kp_{location}_frost_warning``.
 
-    ``frost_warning`` is ``None`` when no ambient-temperature reading is
-    available (Home Assistant surfaces this as ``unknown``).
+    ``frost_warning`` is the *reactive* state (current ambient temperature); it is
+    ``None`` when no reading is available (Home Assistant surfaces this as
+    ``unknown``). Its meaning is unchanged so the HA coordinator does not break.
+
+    The ``forecast_*`` fields (Issue #392) add the *proactive*, forecast-based
+    early warning. They are ``None`` when no usable forecast is available (no
+    coordinates, ``weather_enabled`` off, or no in-horizon record).
     """
 
     location_key: str
@@ -69,3 +74,7 @@ class FrostWarningResponse(BaseModel):
     threshold_celsius: float
     source: str
     entity_id: str | None = None
+    forecast_frost_warning: bool | None = None
+    forecast_min_temperature: float | None = None
+    forecast_expected_date: date | None = None
+    forecast_source: str | None = None

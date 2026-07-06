@@ -14,7 +14,7 @@ Kamerplanter kann dich über fällige Pflegeaufgaben, Sensor-Alarme, Tankfüllst
 
 ---
 
-## Das Benachrichtigungs-Center
+## Das Benachrichtigungs-Center {#das-benachrichtigungs-center}
 
 Oben rechts in der App zeigt das **Glocken-Symbol** an, wie viele ungelesene Benachrichtigungen es gibt. Ein Klick öffnet die Benachrichtigungsliste als Seitenleiste.
 
@@ -105,7 +105,7 @@ Die Testnachricht selbst hat die niedrigste Dringlichkeitsstufe und erscheint ni
 
 ---
 
-## Ruhezeiten (Quiet Hours)
+## Ruhezeiten (Quiet Hours) {#ruhezeiten-quiet-hours}
 
 Unter **Ruhezeiten** legst du ein tägliches Zeitfenster fest (Standard: 22:00–07:00), in dem Kamerplanter Benachrichtigungen **nicht über externe Kanäle** zustellt — die Nachricht wird trotzdem erzeugt und erscheint im Benachrichtigungs-Center, nur eben ohne Push, E-Mail, HA-Meldung oder Apprise-Versand während dieses Zeitfensters.
 
@@ -141,6 +141,21 @@ Diese Eskalationstage sind fest vorgegeben und aktuell nicht individuell einstel
 
 ---
 
+## Frost-Frühwarnung {#frost-fruehwarnung}
+
+Für deine Freiland- und Gewächshaus-Standorte prüft Kamerplanter einmal täglich die aktuelle Wettervorhersage und informiert dich proaktiv, wenn eine Frostnacht bevorsteht — bevor die Temperatur tatsächlich fällt. Die Benachrichtigung nennt den Standort, das erwartete Datum und die voraussichtliche Minimaltemperatur.
+
+- **Dringlichkeit:** Hoch (orange) — sie erscheint wie jede andere Benachrichtigung im [Benachrichtigungs-Center](#das-benachrichtigungs-center) und wird über alle deine aktivierten Zustellkanäle zugestellt.
+- **Keine Wiederholungs-Spam:** Für dieselbe Frostnacht an einem Standort erhältst du die Warnung genau **einmal**. Erst ein neuer oder ein noch früherer erwarteter Frosttermin löst eine neue Benachrichtigung aus.
+- **Ruhezeiten gelten normal:** Anders als Sensor-Alarme unterliegt diese Frost-Frühwarnung deinen konfigurierten [Ruhezeiten](#ruhezeiten-quiet-hours) — wird sie während deiner Ruhezeiten erzeugt, erscheint sie zunächst nur im Benachrichtigungs-Center.
+
+!!! note "Voraussetzungen"
+    Die Frost-Frühwarnung setzt voraus, dass für den betroffenen Standort eine [Wetterquelle eingerichtet](weather-sources.md) ist und GPS-Koordinaten hinterlegt sind. Ohne diese Voraussetzungen bleibt die Warnung aus — dein bestehendes reaktives Frost-Signal aus der aktuell gemessenen Temperatur ist davon nicht betroffen.
+
+Denselben Vorhersage-Zeitraum und dieselbe Minimaltemperatur siehst du außerdem direkt im Dashboard — siehe [Dashboard: Wettervorhersage und Frost-Frühwarnung](dashboard.md#wettervorhersage-und-frost-fruehwarnung).
+
+---
+
 ## Häufige Fragen
 
 ??? question "Ich habe mehrere Kanäle aktiviert — bekomme ich jede Benachrichtigung mehrfach?"
@@ -160,6 +175,8 @@ Diese Eskalationstage sind fest vorgegeben und aktuell nicht individuell einstel
 ## Siehe auch
 
 - [Pflegeerinnerungen](care-reminders.md) — häufigste Quelle für Benachrichtigungen
+- [Wetterquellen je Standort](weather-sources.md) — Voraussetzung für die Frost-Frühwarnung
+- [Dashboard: Wettervorhersage und Frost-Frühwarnung](dashboard.md#wettervorhersage-und-frost-fruehwarnung)
 - [Browser-Push einrichten](../guides/browser-push-setup.md) — VAPID-Setup für den PWA-Kanal
 - [Home Assistant Integration](../guides/home-assistant-integration.md)
 - [Umgebungsvariablen](../reference/environment-variables.md) — Referenz aller Kanal-Konfigurationsvariablen

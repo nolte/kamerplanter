@@ -15,7 +15,34 @@ from app.domain.models.weather import (
     WeatherSourcePublicConfig,
 )
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
+from app.domain.services.weather_settings_service import (
+    EffectiveWeatherProvider,
+    EffectiveWeatherSettings,
+)
 from app.domain.services.weather_source_resolver import WeatherSourceResolver
+
+
+def _effective(
+    *,
+    open_meteo_enabled: bool = True,
+    dwd_enabled: bool = True,
+    openweathermap_enabled: bool = True,
+    openweathermap_global_api_key: str | None = None,
+    default_public_source: str = "open-meteo",
+    base_url: str = "https://example.test",
+):
+    """Build a ``weather_settings_provider`` returning fixed effective settings."""
+    effective = EffectiveWeatherSettings(
+        providers={
+            "open-meteo": EffectiveWeatherProvider(enabled=open_meteo_enabled, base_url=base_url),
+            "dwd": EffectiveWeatherProvider(enabled=dwd_enabled, base_url=base_url),
+            "openweathermap": EffectiveWeatherProvider(enabled=openweathermap_enabled, base_url=base_url),
+        },
+        openweathermap_global_api_key=openweathermap_global_api_key,
+        fetch_timeout_s=15,
+        default_public_source=default_public_source,
+    )
+    return lambda: effective
 
 
 def _forecast(source: str) -> WeatherForecast:
@@ -35,6 +62,10 @@ class _StubAdapter(WeatherAdapter):
     kind = "public"
     result: list[WeatherForecast] = []
     raise_exc: Exception | None = None
+
+    def __init__(self, **kwargs):
+        # Accept the effective base_url / timeout_s the resolver now injects.
+        self._kwargs = kwargs
 
     async def fetch_daily(self, *, latitude, longitude, config=None):
         if self.raise_exc is not None:
@@ -104,12 +135,14 @@ class TestResolveDaily:
         assert records == []
 
     @pytest.mark.asyncio
-    async def test_no_config_uses_default_source(self, registry_guard, monkeypatch):
+    async def test_no_config_uses_default_source(self, registry_guard):
         _register("open-meteo", result=[_forecast("open-meteo")])
-        from app.domain.services import weather_source_resolver as mod
-
-        monkeypatch.setattr(mod.settings, "weather_default_public_source", "open-meteo", raising=False)
-        resolver = WeatherSourceResolver(MagicMock(), lambda: None)
+        # The default public source now comes from the effective settings.
+        resolver = WeatherSourceResolver(
+            MagicMock(),
+            lambda: None,
+            weather_settings_provider=_effective(default_public_source="open-meteo"),
+        )
 
         records = await resolver.resolve_daily(_site(), None)
 
@@ -175,3 +208,71 @@ class TestResolveDaily:
         records = await resolver.resolve_daily(SimpleNamespace(gps_coordinates=None), cfg)
 
         assert records == []
+
+    @pytest.mark.asyncio
+    async def test_owm_without_site_key_uses_global_fallback(self, registry_guard):
+        captured = {}
+
+        class OwmStub(_StubAdapter):
+            source_name = "openweathermap"
+            result = [_forecast("openweathermap")]
+
+            def __init__(self, api_key=None, **kwargs):
+                captured["api_key"] = api_key
+
+        WeatherAdapterRegistry.register(OwmStub)
+        resolver = WeatherSourceResolver(
+            MagicMock(),
+            lambda: None,
+            weather_settings_provider=_effective(openweathermap_global_api_key="global-key"),
+        )
+        # No per-site api_key_ref on the entry.
+        cfg = WeatherSourceConfig(
+            site_key="s1",
+            sources=[_entry("openweathermap", config=WeatherSourcePublicConfig())],
+        )
+
+        records = await resolver.resolve_daily(_site(), cfg)
+
+        assert captured["api_key"] == "global-key"  # instance-wide fallback used
+        assert [r.source for r in records] == ["openweathermap"]
+
+    @pytest.mark.asyncio
+    async def test_disabled_provider_is_skipped(self, registry_guard):
+        _register("open-meteo", result=[_forecast("open-meteo")])
+        _register("dwd", result=[_forecast("dwd")])
+        resolver = WeatherSourceResolver(
+            MagicMock(),
+            lambda: None,
+            weather_settings_provider=_effective(open_meteo_enabled=False),
+        )
+        cfg = WeatherSourceConfig(site_key="s1", sources=[_entry("open-meteo"), _entry("dwd")])
+
+        records = await resolver.resolve_daily(_site(), cfg)
+
+        # open-meteo centrally disabled -> resolver falls through to dwd.
+        assert [r.source for r in records] == ["dwd"]
+
+    @pytest.mark.asyncio
+    async def test_effective_base_url_is_injected(self, registry_guard):
+        captured = {}
+
+        class UrlStub(_StubAdapter):
+            source_name = "open-meteo"
+            result = [_forecast("open-meteo")]
+
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+
+        WeatherAdapterRegistry.register(UrlStub)
+        resolver = WeatherSourceResolver(
+            MagicMock(),
+            lambda: None,
+            weather_settings_provider=_effective(base_url="https://weather.internal/v1"),
+        )
+        cfg = WeatherSourceConfig(site_key="s1", sources=[_entry("open-meteo")])
+
+        await resolver.resolve_daily(_site(), cfg)
+
+        assert captured["base_url"] == "https://weather.internal/v1"
+        assert captured["timeout_s"] == 15.0

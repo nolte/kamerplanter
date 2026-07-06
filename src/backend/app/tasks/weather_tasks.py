@@ -23,6 +23,7 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         return {"status": "skipped", "reason": "weather_disabled"}
 
     from app.common.dependencies import (
+        _effective_weather_settings,
         get_encryption_engine,
         get_ha_client,
         get_site_repo,
@@ -36,7 +37,13 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
     config_repo = get_weather_source_config_repo()
     forecast_repo = get_weather_forecast_repo()
     site_repo = get_site_repo()
-    resolver = WeatherSourceResolver(get_encryption_engine(), get_ha_client)
+    # Inject the DB-backed effective provider config so the fetch honours the
+    # central admin overrides (base URL, timeout, enable flags, global OWM key).
+    resolver = WeatherSourceResolver(
+        get_encryption_engine(),
+        get_ha_client,
+        weather_settings_provider=_effective_weather_settings,
+    )
 
     db = config_repo._db  # noqa: SLF001 — direct AQL for cross-tenant iteration
     cursor = db.aql.execute(

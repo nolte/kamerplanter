@@ -4977,6 +4977,80 @@ export interface WeatherTestResponse {
   error?: string | null;
 }
 
+// ── Admin weather providers (REQ-046 follow-up, platform-admin) ───────────
+
+/** Effective, masked config of one central public weather provider. */
+export interface WeatherProviderInfo {
+  source_name: string;
+  enabled: boolean;
+  base_url: string;
+  attribution: string;
+}
+
+/** `GET /admin/weather-providers` — masked instance-wide provider config. */
+export interface WeatherProvidersResponse {
+  providers: WeatherProviderInfo[];
+  openweathermap_global_api_key_set: boolean;
+  fetch_timeout_s: number;
+  default_public_source: string;
+}
+
+/**
+ * `PUT /admin/weather-providers` payload. A `null`/omitted field is left
+ * unchanged; the global OWM key follows the "unchanged on empty/masked" rule.
+ */
+export interface WeatherProvidersUpdate {
+  open_meteo_enabled?: boolean | null;
+  open_meteo_base_url?: string | null;
+  dwd_enabled?: boolean | null;
+  dwd_base_url?: string | null;
+  openweathermap_enabled?: boolean | null;
+  openweathermap_base_url?: string | null;
+  openweathermap_global_api_key?: string | null;
+  fetch_timeout_s?: number | null;
+  default_public_source?: 'open-meteo' | 'dwd' | 'openweathermap' | null;
+}
+
+/** `POST /admin/weather-providers/{source_name}/test` response. */
+export interface WeatherProviderTestResponse {
+  reachable: boolean;
+  preview: WeatherTestPreviewItem[];
+  error?: string | null;
+}
+
+/**
+ * One in-horizon daily forecast row for the per-site forecast widget
+ * (Issue #392 — `GET /sites/{siteKey}/weather-forecast`). Carries the REQ-046
+ * provenance (`source` / `data_kind`) so the widget can render the
+ * `WeatherProvenanceBadge`.
+ */
+export interface SiteWeatherForecastDay {
+  forecast_date: string;
+  temp_min_c?: number | null;
+  temp_max_c?: number | null;
+  precipitation_mm?: number | null;
+  wind_speed_kmh?: number | null;
+  humidity_percent?: number | null;
+  weather_code?: string | null;
+  source: string;
+  data_kind: string;
+}
+
+/**
+ * `GET /sites/{siteKey}/weather-forecast` response — per-site daily forecast plus
+ * the proactive frost early-warning summary (Issue #392). Graceful: when no
+ * forecast source is available `forecasts` is empty and every `forecast_*`
+ * summary field is `null` (never a 500).
+ */
+export interface SiteWeatherForecastResponse {
+  site_key: string;
+  forecasts: SiteWeatherForecastDay[];
+  forecast_frost_warning?: boolean | null;
+  forecast_min_temperature?: number | null;
+  forecast_expected_date?: string | null;
+  forecast_source?: string | null;
+}
+
 /** One HA entity offered by the HA entity pickers. */
 export interface HaEntityItem {
   entity_id: string;

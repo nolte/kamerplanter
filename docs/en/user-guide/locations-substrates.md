@@ -42,20 +42,36 @@ Click **Locations** in the left navigation. The overview page shows all your sit
 
 Click **Add Site** (top right). A form opens.
 
-### Step 3: Fill in Basic Data
+### Step 3: Fill in Basic Data {#filling-in-basic-data}
 
 | Field | Description | Example |
 |-------|-------------|---------|
 | Name | Site name | "My Indoor Garden" |
+| Type | Determines which features are available for this site (see table below) | "Outdoor" |
+| Latitude / Longitude (GPS) | GPS coordinates of the site — fill in both fields together or leave both empty | 52.52 / 13.40 |
 | Climate Zone | Location climate zone in USDA hardiness-zone format | "8a" |
 | Total Area (m²) | Total growing area | 12 |
 | Timezone | Timezone for tasks and calendar | "Europe/Berlin" |
 
+**Available site types:**
+
+| Type | Description |
+|------|-------------|
+| Outdoor | An open-air site — unlocks weather sources and frost protection |
+| Greenhouse | Glass house or poly tunnel — unlocks weather sources and frost protection |
+| Indoor | A room or living space with no direct outdoor climate exposure |
+| Windowsill | A window spot with indirect outdoor climate exposure |
+| Balcony | Balcony |
+| Grow Tent | Enclosed grow tent with controlled climate |
+
 !!! info "Why USDA zones and not Köppen climate classification?"
     Kamerplanter expects the climate zone in **USDA Plant Hardiness Zone** format (a number from 1–13, optionally with an "a" or "b" suffix, e.g. "8a"), not the Köppen climate classification (e.g. "Cfb"). The reason: the hardiness data for plant species in the master data (`hardiness_zones`) uses the same format — this is what later allows Kamerplanter to check automatically whether a species can overwinter outdoors at your location. You can look up the matching zone for your area via the official [USDA Plant Hardiness Zone Map](https://planthardiness.ars.usda.gov/) or comparable hardiness zone maps for your region.
 
+!!! tip "Why GPS coordinates matter"
+    Only once GPS coordinates are stored can Kamerplanter automatically fetch weather data and calculate frost warnings for Outdoor and Greenhouse sites. If you enter coordinates for a different type (e.g. Indoor) anyway, they remain unused for now — if you later switch the type to Outdoor or Greenhouse, they take effect automatically.
+
 !!! note "Experience levels"
-    Depending on your experience level (Beginner / Intermediate / Expert, configurable in account settings) you will see more or fewer fields. Experts see additional fields for water source configuration, GPS coordinates, and frost dates.
+    Depending on your experience level (Beginner / Intermediate / Expert, configurable in account settings) you will see more or fewer fields. Name and type are already visible at Beginner level; GPS coordinates, water source configuration, climate zone, and total area are added from Intermediate level upward; the timezone is an Expert-level field.
 
 ### Step 4: Configure Water Source (optional, Intermediate and above)
 
@@ -99,7 +115,7 @@ If you use tap water or a reverse osmosis system, enter the water values. The sy
 Click **Save**. The site appears in the overview.
 
 !!! info "For technical users"
-    Besides name, climate zone, area, and timezone, a site also tracks GPS coordinates and average frost dates (last spring frost, first autumn frost, and the German "Eisheilige" date) in the background. This setting is currently only available via the API — it is not yet editable in the site form. The benefit: once a site has a GPS position, Kamerplanter can calculate the actual day length at your location and correctly evaluate automatic, photoperiod-triggered phase transitions (e.g. flower onset for outdoor short-day plants) — see [Automatic Phase Transitions](growth-phases.md#automatic-phase-transitions). Frost dates also feed into the sowing calendar.
+    Besides name, type, GPS coordinates, climate zone, area, and timezone, a site also tracks average frost dates (last spring frost, first autumn frost, and the German "Eisheilige" date) in the background. This setting is currently only available via the API — it is not yet editable in the site form. The benefit: once a site has a GPS position, Kamerplanter can calculate the actual day length at your location and correctly evaluate automatic, photoperiod-triggered phase transitions (e.g. flower onset for outdoor short-day plants) — see [Automatic Phase Transitions](growth-phases.md#automatic-phase-transitions). Frost dates also feed into the sowing calendar.
 
 !!! tip "GPS coordinates unlock weather sources"
     For sites of type Outdoor or Greenhouse, a stored GPS position also unlocks the **Weather Source** section on the site detail page — there you select and prioritize public weather services or a Home Assistant source, see [Weather Sources per Location](weather-sources.md).

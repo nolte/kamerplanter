@@ -14,6 +14,7 @@ from app.api.v1.tenant_scoped.weather.schemas import (
     AvailableSourcesResponse,
     HaEntityItem,
     HaSensorMappingResponse,
+    SiteWeatherForecastResponse,
     WeatherSourceConfigRequest,
     WeatherSourceConfigResponse,
     WeatherSourceEntryRequest,
@@ -24,7 +25,7 @@ from app.api.v1.tenant_scoped.weather.schemas import (
     WeatherTestResponse,
 )
 from app.common.auth import get_current_tenant, require_tenant_role
-from app.common.dependencies import get_weather_source_service
+from app.common.dependencies import get_sensor_service, get_weather_source_service
 from app.common.enums import TenantRole
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.weather import (
@@ -34,6 +35,7 @@ from app.domain.models.weather import (
     WeatherSourceHaConfig,
     WeatherSourcePublicConfig,
 )
+from app.domain.services.sensor_service import SensorService
 from app.domain.services.weather_source_service import (
     AvailableWeatherSources,
     WeatherSourceService,
@@ -140,6 +142,29 @@ def put_weather_source(
     """Store the site's weather-source configuration (encrypts new OWM keys)."""
     saved = service.save_config(site_key, ctx.tenant_key, ctx.user_key, body)
     return _config_response(site_key, saved)
+
+
+@router.get("/sites/{site_key}/weather-forecast", response_model=SiteWeatherForecastResponse)
+def get_site_weather_forecast(
+    site_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    sensor_service: SensorService = Depends(get_sensor_service),
+    service: WeatherSourceService = Depends(get_weather_source_service),
+):
+    """Read the site's in-horizon daily forecast plus the frost early-warning.
+
+    Backs the dashboard/per-site ``WeatherForecastWidget`` (Issue #392, R7): the
+    daily forecast rows (with ``source`` / ``data_kind`` provenance) and the
+    proactive frost summary (``forecast_frost_warning`` / ``forecast_expected_date``
+    / ``forecast_min_temperature`` / ``forecast_source``). Graceful for owned sites:
+    no source, no coordinates, or ``weather_enabled`` off → empty ``forecasts`` +
+    ``None`` summary, never a 500. Site ownership is enforced at the API layer
+    (404 unknown / 403 foreign), consistent with the sibling weather-source
+    endpoints — defense-in-depth on top of the tenant-scoped service read (R10).
+    """
+    service.verify_site_owned(site_key, ctx.tenant_key)
+    result = sensor_service.get_site_weather_forecast(site_key, ctx.tenant_key)
+    return SiteWeatherForecastResponse(**result)
 
 
 @router.get("/weather-sources/available", response_model=AvailableSourcesResponse)

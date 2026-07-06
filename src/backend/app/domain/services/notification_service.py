@@ -1,7 +1,7 @@
 """Notification service — coordinates engine, repositories and channels."""
 
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import structlog
 
@@ -151,6 +151,87 @@ class NotificationService:
             "users_notified": users_notified,
             "total_sent": total_sent,
         }
+
+    async def send_frost_forecast_notifications(
+        self,
+        tenant_key: str,
+        user_keys: list[str],
+        *,
+        site_key: str,
+        site_name: str,
+        expected_date: date,
+        min_temp: float | None,
+        source: str | None,
+    ) -> dict:
+        """Emit a proactive frost early-warning to a tenant's users (Issue #392).
+
+        Idempotent per ``(site_key, expected frost date)`` via ``group_key``: if a
+        frost notification for this site and date already exists for the tenant,
+        no new notification is sent (repeated forecast fetches do not re-notify).
+        A new or earlier frost date yields a new ``group_key`` and therefore a new
+        notification. User notification preferences are honoured by the underlying
+        ``send_notification`` path.
+
+        Args:
+            tenant_key: Owning tenant of the site (R10 tenant isolation).
+            user_keys: Recipient user keys (the tenant's active members).
+            site_key: Site the frost is expected for (idempotency key part).
+            site_name: Human-readable site name for the message body.
+            expected_date: Earliest in-horizon frost date (idempotency key part).
+            min_temp: Expected minimum temperature in °C for that night.
+            source: Provenance of the forecast (e.g. ``open-meteo``).
+
+        Returns:
+            ``{"status": "deduplicated"|"empty"|"complete", "users_notified": int}``.
+        """
+        group_key = f"frost-forecast:{site_key}:{expected_date.isoformat()}"
+
+        # R9 — cross-run idempotency: a persisted notification for this
+        # (site_key, forecast_date) means the frost event was already announced.
+        if self._notification_repo.find_by_group_key(group_key, tenant_key):
+            logger.info(
+                "frost_forecast_notification_deduplicated",
+                tenant_key=tenant_key,
+                site_key=site_key,
+                group_key=group_key,
+            )
+            return {"status": "deduplicated", "users_notified": 0}
+
+        if not user_keys:
+            return {"status": "empty", "users_notified": 0}
+
+        temp_text = f"{min_temp} °C" if min_temp is not None else "unknown"
+        title = "Frost warning"
+        body = f"Frost is expected for {site_name} on the night of {expected_date.isoformat()} (min. {temp_text})."
+        data = {
+            "site_key": site_key,
+            "expected_date": expected_date.isoformat(),
+            "min_temp": min_temp,
+            "source": source,
+        }
+
+        users_notified = 0
+        for user_key in user_keys:
+            await self.send_notification(
+                user_key=user_key,
+                tenant_key=tenant_key,
+                notification_type="frost_forecast_warning",
+                title=title,
+                body=body,
+                urgency=NotificationUrgency.HIGH,
+                data=data,
+                group_key=group_key,
+            )
+            users_notified += 1
+
+        logger.info(
+            "frost_forecast_notifications_sent",
+            tenant_key=tenant_key,
+            site_key=site_key,
+            expected_date=expected_date.isoformat(),
+            users_notified=users_notified,
+        )
+        return {"status": "complete", "users_notified": users_notified}
 
     async def send_email_digest(
         self,

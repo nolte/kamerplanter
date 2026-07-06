@@ -246,6 +246,77 @@ POST /api/v1/t/{tenant_slug}/notifications/pwa/unsubscribe
 
 ---
 
+## Site Weather Forecast & Frost Early-Warning <!-- REQ-046 / Issue #392 -->
+
+Both endpoints live under the tenant-specific path `/api/v1/t/{tenant_slug}/` and require a valid JWT token. There is no separate role restriction — any active tenant member (including the **Viewer** role) may read. Both endpoints are **graceful**: if no weather source is configured, no GPS coordinates are stored for the site, or the weather forecast feature is disabled by the operator (`WEATHER_ENABLED=false`), they return empty/`null` forecast fields instead of an error.
+
+### Retrieve a Site's Daily Weather Forecast
+
+Returns the in-horizon daily forecasts for a site (from the [weather source infrastructure](../user-guide/weather-sources.md)) plus the aggregated proactive frost early-warning summary. Backs the "Weather forecast" dashboard widget.
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/weather-forecast
+```
+
+**Response (200):** `SiteWeatherForecastResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "forecasts": [
+    {
+      "forecast_date": "2026-07-07",
+      "temp_min_c": -1.5,
+      "temp_max_c": 6.0,
+      "precipitation_mm": 0.0,
+      "wind_speed_kmh": 10.0,
+      "humidity_percent": 80.0,
+      "weather_code": "clear",
+      "source": "open-meteo",
+      "data_kind": "forecast"
+    }
+  ],
+  "forecast_frost_warning": true,
+  "forecast_min_temperature": -1.5,
+  "forecast_expected_date": "2026-07-07",
+  "forecast_source": "open-meteo"
+}
+```
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `forecasts` | list | Daily forecasts within the configured forecast horizon (default: today + 1 day), each with a provenance label (`source`, `data_kind`) |
+| `forecast_frost_warning` | boolean \| null | `true` when at least one day in the horizon reaches a minimum temperature at or below the forecast frost threshold; `null` when no usable forecast is available |
+| `forecast_min_temperature` | number \| null | Minimum temperature of the earliest expected frost day |
+| `forecast_expected_date` | string \| null | Date of the earliest expected frost day |
+| `forecast_source` | string \| null | Weather source that this frost day comes from |
+
+### Additional Fields on a Location's Frost Warning (`Location`)
+
+The existing reactive frost warning now additionally returns the proactive forecast for the site that this location belongs to. The reactive `frost_warning` field is unchanged, so the Home Assistant coordinator stays compatible.
+
+```
+GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
+```
+
+**Response (200):** `FrostWarningResponse` — in addition to the existing fields (`location_key`, `frost_warning`, `temperature_celsius`, `threshold_celsius`, `source`, `entity_id`):
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `forecast_frost_warning` | boolean \| null | Proactive forecast for the associated site (additive, see above) |
+| `forecast_min_temperature` | number \| null | Expected minimum temperature of the earliest frost day |
+| `forecast_expected_date` | string \| null | Date of the earliest expected frost day |
+| `forecast_source` | string \| null | Provenance of the underlying forecast |
+
+### See Also
+
+- [Dashboard: Weather Forecast and Frost Early-Warning — User Guide](../user-guide/dashboard.md#weather-forecast-and-frost-early-warning)
+- [Notifications: Frost Early-Warning — User Guide](../user-guide/notifications.md#frost-early-warning)
+- [Weather Sources per Location — User Guide](../user-guide/weather-sources.md)
+- [Environment Variables — Weather Forecast & Frost Early-Warning](environment-variables.md#weather-forecast-frost-early-warning)
+
+---
+
 ## Plant Instances: Removal with Ending Type & Survival Statistics
 
 All endpoints are located under the tenant-scoped path `/api/v1/t/{tenant_slug}/plant-instances/` and require a valid JWT token. <!-- REQ-003 E5/G1 -->
