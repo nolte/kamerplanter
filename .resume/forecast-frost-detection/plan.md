@@ -254,5 +254,8 @@ Erste unerledigte Box = Wiedereinstiegspunkt der nächsten Session.
       Skaffold fährt Primary-Checkout-Code (develop), nicht diesen Worktree-Branch
       (dokumentierte Falle), und das Feature ist hinter `weather_enabled` (default
       off) — ein Live-Drive würde den Branch-Code gar nicht ausführen.
-- [ ] **Resume anchor:** Commit (Conventional Commits, EN) + PR nach `develop`
-      via `pull-request-create`.
+- [x] Commit `41b2f2d3a` (Conventional Commits, EN; alle pre-commit-Hooks grün)
+      + **Draft-PR #404** nach `develop` via `pull-request-create`
+      (https://github.com/nolte/kamerplanter/pull/404). **Alle Boxen erledigt.**
+      Nächster manueller Schritt: nach erster grüner CI auf ready flippen /
+      `automerge`-Label setzen.
