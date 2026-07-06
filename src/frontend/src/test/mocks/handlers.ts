@@ -615,6 +615,16 @@ export const handlers = [
   http.get('/api/v1/t/:tenant/season/overview', () => {
     return HttpResponse.json({ states: [] });
   }),
+  http.get('/api/v1/t/:tenant/plants/:plantKey/overwintering/status', () => {
+    // Consistent with the 404 profile default below: winter-hardy, no profile,
+    // on a frost-relevant (overwinterable) site.
+    return HttpResponse.json({
+      has_profile: false,
+      hardiness_light: 'green',
+      will_materialize: false,
+      site_overwinterable: true,
+    });
+  }),
   http.get('/api/v1/t/:tenant/plants/:plantKey/overwintering', () => {
     return new HttpResponse(null, { status: 404 });
   }),

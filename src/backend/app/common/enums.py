@@ -266,6 +266,19 @@ class SiteType(StrEnum):
     GROW_TENT = "grow_tent"
 
 
+#: REQ-047 §3.4/§3.6 — single source of truth for the frost-/overwintering-relevant
+#: site types. A site of one of these types is exposed to outdoor winter frost, so a
+#: plant on it carries a winter season and (when not winter-hardy) an overwintering
+#: profile: season materialisation, the eager create/move trigger, the move-indoors
+#: profile removal and the per-plant hardiness status all key off this ONE set.
+#: BALCONY is included — a balcony is a frost-exposed outdoor location and its
+#: container/balcony plants need winter protection just like ground/greenhouse ones.
+#: INDOOR / WINDOWSILL / GROW_TENT stay excluded (climate-controlled, no winter).
+#: Defining it once here structurally prevents the drift between the two services
+#: that previously caused a bug.
+OVERWINTERING_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
+
+
 class LightType(StrEnum):
     NATURAL = "natural"
     LED = "led"

@@ -120,7 +120,7 @@ Kamerplanter currently offers 17 widgets across four categories. Which widgets a
 
 | Widget | Description |
 |--------|-------------|
-| Winter protection | Winter-hardiness traffic light of your plants, extended with the [season state](season-automation.md) of your outdoor/greenhouse sites (live weather, climate estimate, or calendar) and a frost countdown. |
+| Winter protection | Winter-hardiness traffic light of your plants, extended with the [season state](season-automation.md) of your outdoor, greenhouse, and balcony sites (live weather, climate estimate, or calendar) and a frost countdown. |
 | Plant-protection alerts | Current pest and disease alerts. |
 | Next events | Your next calendar entries. |
 | Phase timeline | Growth phases of your plants over time. |

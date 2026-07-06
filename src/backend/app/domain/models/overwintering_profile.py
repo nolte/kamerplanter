@@ -10,6 +10,7 @@ from app.common.enums import (
     SpringAction,
     TuberStatus,
     WinterAction,
+    WinterHardinessLight,
     WinterQuarterLight,
     WinterWatering,
 )
@@ -80,6 +81,39 @@ class OverwinteringProfile(BaseModel):
         if self.tuber_status is not None and self.hardiness_rating != HardinessRating.DIG_AND_STORE:
             raise ValueError("tuber_status is only valid when hardiness_rating is 'dig_and_store'.")
         return self
+
+
+class PlantOverwinteringStatus(BaseModel):
+    """REQ-047 §4.3 — winter-hardiness status of a single plant instance.
+
+    Additive companion to ``GET /plants/{key}/overwintering`` (which stays a hard
+    404 when no profile exists). Lets the detail page tell three states apart
+    without abusing the HTTP status code:
+
+    * ``has_profile=True`` — an overwintering profile is materialised.
+    * ``has_profile=False`` + ``will_materialize=True`` — no profile *yet*, but the
+      hardiness ampel is yellow/red *and* the plant sits on a frost-relevant site,
+      so one is auto-materialised at the ``growing → pre_winter`` season transition
+      (do not label as winter-hardy).
+    * ``has_profile=False`` + ``will_materialize=False`` + ``hardiness_light=green``
+      — genuinely winter-hardy, no profile is ever needed.
+
+    ``site_overwinterable`` (REQ-047 §3.4) reports whether the plant's site is of a
+    frost-/overwintering-relevant type (``OVERWINTERING_SITE_TYPES``). It is ``False``
+    for an indoor/windowsill/grow-tent plant (or an unresolved/foreign site): such a
+    plant is NEVER materialised, so ``will_materialize`` stays ``False`` regardless of
+    the ampel and the UI can explain that no outdoor overwintering is due. A
+    materialised profile implies a relevant site, hence ``site_overwinterable=True``.
+
+    ``hardiness_light`` is ``None`` when the species/site context cannot be
+    resolved (unknown) — the UI then shows a neutral text rather than a false
+    "winter-hardy" all-clear.
+    """
+
+    has_profile: bool
+    hardiness_light: WinterHardinessLight | None = None
+    will_materialize: bool = False
+    site_overwinterable: bool = False
 
 
 class WinterHardinessOverviewEntry(BaseModel):

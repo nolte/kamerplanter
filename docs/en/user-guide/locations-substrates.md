@@ -57,11 +57,11 @@ Click **Add Site** (top right). A form opens.
 
 | Type | Description |
 |------|-------------|
-| Outdoor | An open-air site — unlocks weather sources and frost protection |
-| Greenhouse | Glass house or poly tunnel — unlocks weather sources and frost protection |
+| Outdoor | An open-air site — unlocks weather sources and [overwintering automation](overwintering.md) |
+| Greenhouse | Glass house or poly tunnel — unlocks weather sources and [overwintering automation](overwintering.md) |
 | Indoor | A room or living space with no direct outdoor climate exposure |
 | Windowsill | A window spot with indirect outdoor climate exposure |
-| Balcony | Balcony |
+| Balcony | Balcony — unlocks [overwintering automation](overwintering.md); weather sources are only available for Outdoor and Greenhouse |
 | Grow Tent | Enclosed grow tent with controlled climate |
 
 !!! info "Why USDA zones and not Köppen climate classification?"

@@ -13,7 +13,10 @@ from app.common.dependencies import (
     get_overwintering_profile_service,
     get_season_state_service,
 )
-from app.domain.models.overwintering_profile import OverwinteringProfile
+from app.domain.models.overwintering_profile import (
+    OverwinteringProfile,
+    PlantOverwinteringStatus,
+)
 from app.domain.models.season_state import SeasonState
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -63,6 +66,23 @@ def get_plant_overwintering(
     """Read the auto-materialised overwintering profile of a plant instance."""
     profile = service.get_plant_profile(plant_key, ctx.tenant_key)
     return _profile_response(profile)
+
+
+@router.get("/plants/{plant_key}/overwintering/status", response_model=PlantOverwinteringStatus)
+def get_plant_overwintering_status(
+    plant_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
+) -> PlantOverwinteringStatus:
+    """Winter-hardiness status of a plant instance — always 200, even without a profile.
+
+    Additive companion to ``GET /plants/{plant_key}/overwintering`` (whose 404
+    "no profile" contract is unchanged). Lets the detail page tell the genuinely
+    winter-hardy plant (ampel green) apart from one whose profile is only
+    materialised later at the ``growing → pre_winter`` transition (ampel
+    yellow/red), so a protection-needing plant is never mislabelled as hardy.
+    """
+    return service.get_plant_hardiness_status(plant_key, ctx.tenant_key)
 
 
 @router.patch("/plants/{plant_key}/overwintering", response_model=OverwinteringProfileResponse)

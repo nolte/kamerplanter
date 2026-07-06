@@ -121,7 +121,7 @@ Effektives Intervall = Basis-Intervall × Winter-Faktor
 
 ## Überwinterungsmanagement
 
-Für Freiland- und Gewächshaus-Pflanzen erstellt Kamerplanter automatisch einen Überwinterungsplan, sobald dein Standort erkennt, dass der Winter naht — inklusive Winterhärte-Ampel, Schutzmaßnahme und einem eigenen Pflegeplan während der Winterruhe. Du musst dafür kein Profil anlegen. <!-- REQ-047 -->
+Für Freiland-, Gewächshaus- und Balkon-Pflanzen erstellt Kamerplanter automatisch einen Überwinterungsplan, sobald sie einem solchen Standort zugeordnet werden — inklusive Winterhärte-Ampel, Schutzmaßnahme und einem eigenen Pflegeplan während der Winterruhe. Du musst dafür kein Profil anlegen. <!-- REQ-047 -->
 
 - [Saison-Automatik](season-automation.md) erklärt, wie Kamerplanter erkennt, wann der Winter beginnt und endet.
 - [Überwinterung](overwintering.md) zeigt dir den automatisch erstellten Plan je Pflanze und wie du ihn bei Bedarf anpasst.

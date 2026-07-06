@@ -454,7 +454,7 @@ Die maßgebliche Abstammungsbeziehung ist zusätzlich als Graph-Kante `descended
 
 ## Saison- & Überwinterungs-Automatik
 
-Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beide entstehen ohne Nutzerinteraktion aus der täglichen Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->
+Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beides entsteht ohne Nutzerinteraktion, sobald eine Pflanze einem Freiland-, Gewächshaus- oder Balkon-Standort (`OVERWINTERING_SITE_TYPES`) zugeordnet wird — beim Anlegen der Pflanze, bei einem Standortwechsel, sowie zusätzlich als Sicherheitsnetz aus der täglichen Saison-Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->
 
 Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordern ein gültiges JWT-Token.
 
@@ -492,7 +492,7 @@ Existiert für den Standort noch kein Saison-Zustand, wertet der Endpunkt ihn la
 | HTTP-Status | Bedeutung |
 |-------------|----------|
 | `404` | Standort nicht gefunden oder gehört nicht zum Mandanten |
-| `409` | Standort ist vom Typ `indoor` — reine Innenraum-Standorte führen keinen Saison-Zustand |
+| `409` | Standort ist nicht vom Typ `outdoor`, `greenhouse` oder `balcony` — nur diese frostexponierten Standort-Typen führen einen Saison-Zustand |
 
 ### Saison-Übersicht über alle Standorte
 
@@ -500,7 +500,7 @@ Existiert für den Standort noch kein Saison-Zustand, wertet der Endpunkt ihn la
 GET /api/v1/t/{tenant_slug}/season/overview
 ```
 
-Liefert `{"states": [ ... ]}` mit einem `SeasonStateResponse`-Objekt (siehe oben) je Freiland-/Gewächshaus-Standort des Mandanten. Speist das Dashboard-Widget „Winterschutz" (siehe [Dashboard personalisieren](../user-guide/dashboard-personalization.md)).
+Liefert `{"states": [ ... ]}` mit einem `SeasonStateResponse`-Objekt (siehe oben) je Freiland-, Gewächshaus- oder Balkon-Standort des Mandanten. Speist das Dashboard-Widget „Winterschutz" (siehe [Dashboard personalisieren](../user-guide/dashboard-personalization.md)).
 
 ### Überwinterungsprofil einer Pflanze lesen
 
@@ -510,7 +510,35 @@ GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering
 
 **Response (200):** das `OverwinteringProfile`-Objekt inklusive `auto_generated`, `user_overridden`, `derived_path` (`A` = in-situ, `B` = verlagert) und `materialized_at`.
 
-**Fehlercodes:** `404` wenn die Pflanze kein (materialisiertes) Profil hat — z. B. weil sie winterhart ist oder noch kein Übergang in „Winter kündigt sich an" stattgefunden hat.
+**Fehlercodes:** `404` wenn die Pflanze kein (materialisiertes) Profil hat — z. B. weil sie winterhart ist, an keinem frostexponierten Standort steht, oder noch kein Übergang in „Winter kündigt sich an" stattgefunden hat.
+
+### Überwinterungsstatus einer Pflanze lesen
+
+```
+GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/status
+```
+
+Additiver, rein lesender Begleit-Endpunkt zu `GET .../overwintering`: liefert **immer** `200`, auch ganz ohne Profil — praktisch für die Pflanzen-Detailseite, um zwischen „winterhart", „Schutz nötig, Plan folgt" und „Standort nicht frostexponiert" zu unterscheiden, ohne den 404-Fall des Profil-Endpunkts dafür zu missbrauchen.
+
+**Response (200):** `PlantOverwinteringStatus`-Objekt:
+
+```json
+{
+  "has_profile": false,
+  "hardiness_light": "yellow",
+  "will_materialize": true,
+  "site_overwinterable": true
+}
+```
+
+| Feld | Bedeutung |
+|------|----------|
+| `has_profile` | Ob bereits ein Überwinterungsprofil materialisiert ist. |
+| `hardiness_light` | Winterhärte-Ampel (`green`, `yellow`, `red`) oder `null`, wenn sie sich nicht bestimmen lässt (z. B. fehlende Art- oder Standortzuordnung). |
+| `will_materialize` | Ob (noch) automatisch ein Profil angelegt wird — `true` nur, wenn `site_overwinterable` und die Ampel nicht `green` ist. |
+| `site_overwinterable` | Ob der Standort-Typ überhaupt frostexponiert ist (`outdoor`, `greenhouse`, `balcony`). `false` bei Innenbereich, Fensterbrett, Growzelt oder unauflösbarem Standort. |
+
+**Fehlercodes:** keine — der Endpunkt antwortet immer mit `200`, auch für eine fremde oder unauflösbare Pflanze (Schutz vor einem Cross-Tenant-Existence-Oracle über den 404-Unterschied).
 
 ### Überwinterungsprofil übersteuern
 
