@@ -363,6 +363,20 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## ❄️ REQ-047: Saison- & Überwinterungs-Automatik
+**Fokus:** Automatische Winter-/Frühlings-Erkennung ohne manuelle Überwinterungsprofile · **Erweitert:** REQ-022, REQ-039, REQ-005, REQ-046, REQ-041, REQ-002
+- **SeasonState-Engine:** pro Outdoor-/Greenhouse-Standort berechnete Saison-Zustandsmaschine (`growing → pre_winter → winter_dormancy → pre_spring`) mit Hysterese/Oszillationsschutz.
+- **Dreistufige Trigger-Kaskade (beste Quelle gewinnt):** Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender/Hemisphäre-Fallback (REQ-022).
+- **Auto-Materialisierung:** `OverwinteringProfile` entsteht automatisch aus Species-Template (§4.3-Steckbrief) + Winterhärte-Ampel (REQ-039); der Nutzer legt nichts an, kann aber übersteuern (`user_overridden`).
+- **Dormancy-Care-Modus:** Winterruhe-Pflegeplan im CareProfile (reduziertes Gießen nach `winter_watering`, kein Dünger, Fäulnis-/Feuchte-/Klima-Kontrolle im Winterquartier); **Rückhol-Assistent** im Frühling (Abhärten, Vorziehen, Rausstellen).
+
+**Highlights:**
+- Kein Pflicht-Formular mehr — Winter-Hinweise auch ohne Sensorik/Wetterquelle (Saison-/Standort-Fallback).
+- Trigger-Transparenz im Dashboard (Live-Wetter / Klima-Schätzung / Kalender); Invariante D5 (Pfad A in-situ vs. Pfad B verlagert) bleibt gewahrt.
+- Zwei neue Erinnerungstypen `dormancy_health_check`, `quarter_climate_check`; verlustfreie Migration bestehender Profile.
+
+---
+
 ## Technologie-Stack
 
 ### Backend

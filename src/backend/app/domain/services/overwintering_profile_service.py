@@ -9,7 +9,9 @@ from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import (
     FrostTolerance,
+    GrowthHabit,
     HardinessRating,
+    RootType,
     SpringAction,
     WinterAction,
     WinterHardinessLight,
@@ -29,6 +31,7 @@ from app.domain.interfaces.overwintering_profile_template_repository import (
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.overwintering_profile import (
     OverwinteringProfile,
     WinterHardinessOverview,
@@ -37,6 +40,9 @@ from app.domain.models.overwintering_profile import (
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 
 _ENTITY = "OverwinteringProfile"
+
+#: Root types / growth habits that mark a tuber/bulb/corm geophyte (dig-and-store).
+_GEOPHYTE_ROOT_TYPES = frozenset({RootType.TUBEROUS, RootType.BULBOUS, RootType.CORM})
 
 #: Maps a stored ``hardiness_rating`` back onto the traffic light so the D5
 #: invariant can be re-checked without re-resolving species/site context.
@@ -69,12 +75,14 @@ class OverwinteringProfileService:
         plant_repo: IPlantInstanceRepository | None = None,
         planting_run_repo: IPlantingRunRepository | None = None,
         template_repo: IOverwinteringProfileTemplateRepository | None = None,
+        species_repo: ISpeciesRepository | None = None,
     ) -> None:
         self._repo = repo
         self._site_repo = site_repo
         self._plant_repo = plant_repo
         self._planting_run_repo = planting_run_repo
         self._template_repo = template_repo
+        self._species_repo = species_repo
 
     # ── CRUD ────────────────────────────────────────────────────────────
 
@@ -132,6 +140,164 @@ class OverwinteringProfileService:
     def delete_profile(self, key: OverwinteringProfileKey, tenant_key: str) -> bool:
         self.get_profile(key, tenant_key)
         return self._repo.delete_profile(key)
+
+    # ── REQ-047 per-plant profile access / override ─────────────────────
+
+    def get_plant_profile(self, plant_key: str, tenant_key: str) -> OverwinteringProfile:
+        """Return the plant's (auto-materialised) overwintering profile.
+
+        Raises :class:`NotFoundError` (404) when the plant has no profile yet.
+        """
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            raise NotFoundError(_ENTITY, plant_key)
+        verify_tenant_ownership(profile, tenant_key, _ENTITY)
+        return profile
+
+    def override_plant_profile(self, plant_key: str, tenant_key: str, updates: dict) -> OverwinteringProfile:
+        """Override individual fields of the plant's profile (sets ``user_overridden``).
+
+        A contradiction with the hardiness-derived winter path (D5) is rejected
+        with 422; an otherwise invalid merge with 422 (never a 500).
+        """
+        profile = self.get_plant_profile(plant_key, tenant_key)
+        data = profile.model_dump()
+        data.update(updates)
+        data["tenant_key"] = tenant_key
+        data["user_overridden"] = True
+        try:
+            merged = OverwinteringProfile(**data)
+        except PydanticValidationError as exc:
+            raise ValidationError(
+                "The overwintering profile update is invalid.",
+                details=[
+                    {
+                        "field": ".".join(str(loc) for loc in err["loc"]) or "body",
+                        "reason": err["msg"],
+                        "code": err["type"],
+                    }
+                    for err in exc.errors()
+                ],
+            ) from exc
+        self._require_single_subject(merged)
+        self._validate_d5(merged)
+        # B1 — an override may (re)point ``winter_quarter_key`` at a location; reject
+        # a foreign/unknown one with the same 404 as every other write path, so a
+        # tenant can never reference another tenant's location via PATCH.
+        self._verify_winter_quarter_ownership(merged, tenant_key)
+        return self._repo.update_profile(profile.key or "", merged)
+
+    def rematerialize_plant_profile(
+        self,
+        plant_key: str,
+        tenant_key: str,
+        *,
+        frost_sensitivity: FrostTolerance | None = None,
+        species_zone: str | None = None,
+        site_zone: str | None = None,
+        is_geophyte: bool = False,
+        species_key: str | None = None,
+        winter_action_month: int = 10,
+        spring_action_month: int = 3,
+    ) -> OverwinteringProfile:
+        """Reset the plant's profile to the automatic derivation (``user_overridden=False``).
+
+        Re-derives ``hardiness_rating`` / ``winter_action`` / ``spring_action`` and
+        the winter-quarter fields from the ampel + species template, in place,
+        satisfying the D5 invariant by construction.
+        """
+        from datetime import UTC, datetime
+
+        profile = self.get_plant_profile(plant_key, tenant_key)
+        light = evaluate_winter_hardiness(frost_sensitivity, species_zone, site_zone)
+        rating = _LIGHT_TO_RATING[light]
+        action = _LIGHT_TO_ACTION[light]
+        if light == WinterHardinessLight.RED and is_geophyte:
+            rating = HardinessRating.DIG_AND_STORE
+            action = WinterAction.DIG_STORE
+
+        spring_action, spring_month = self._derive_spring_action(light, action, spring_action_month)
+        template = self._resolve_template(species_key)
+        quarter = self._template_quarter_fields(template, action)
+
+        merged = profile.model_copy(
+            update={
+                "hardiness_zone_min": species_zone,
+                "hardiness_rating": rating,
+                "winter_action": action,
+                "winter_action_month": winter_action_month,
+                "spring_action": spring_action,
+                "spring_action_month": spring_month,
+                "user_overridden": False,
+                "auto_generated": True,
+                "derived_path": derive_winter_path(light),
+                "materialized_at": datetime.now(UTC),
+                "source_template_key": template.key if template is not None else None,
+                **quarter,
+            }
+        )
+        validate_d5_invariant(merged, light)
+        # B1 — the reset keeps the existing ``winter_quarter_key`` (it is not part of
+        # the re-derivation). Re-verify ownership so a foreign reference injected
+        # before this guard existed is not silently retained; a stale/foreign one is
+        # rejected with the same 404 as the other write paths.
+        self._verify_winter_quarter_ownership(merged, tenant_key)
+        return self._repo.update_profile(profile.key or "", merged)
+
+    # ── REQ-047 reset orchestration (NFR-001: domain logic out of the router) ──
+
+    def reset_plant_profile(self, plant_key: str, tenant_key: str) -> OverwinteringProfile:
+        """Reset a plant's profile to the automatic derivation (C1).
+
+        Resolves the species / site context the derivation needs (frost
+        sensitivity, hardiness zones, geophyte classification, site climate zone)
+        inside the service instead of the API layer, then delegates to
+        :meth:`rematerialize_plant_profile`. The router only forwards the identifiers.
+        """
+        # Ensure the profile exists and belongs to the tenant (404 otherwise).
+        self.get_plant_profile(plant_key, tenant_key)
+        plant = self._require_owned_plant(plant_key, tenant_key)
+
+        frost_sensitivity, species_zone, is_geophyte = self._resolve_species_context(plant.species_key)
+        site_zone = self._resolve_site_zone(plant, tenant_key)
+
+        return self.rematerialize_plant_profile(
+            plant_key,
+            tenant_key,
+            frost_sensitivity=frost_sensitivity,
+            species_zone=species_zone,
+            site_zone=site_zone,
+            is_geophyte=is_geophyte,
+            species_key=plant.species_key,
+        )
+
+    def _require_owned_plant(self, plant_key: str, tenant_key: str):  # noqa: ANN202 — PlantInstance (avoid import cycle)
+        if self._plant_repo is None:
+            raise NotFoundError("PlantInstance", plant_key)
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None or plant.tenant_key != tenant_key:
+            raise NotFoundError("PlantInstance", plant_key)
+        return plant
+
+    def _resolve_species_context(self, species_key: str | None) -> tuple[FrostTolerance | None, str | None, bool]:
+        """Resolve (frost_sensitivity, species_zone, is_geophyte) for a species."""
+        if not species_key or self._species_repo is None:
+            return None, None, False
+        species = self._species_repo.get_by_key(species_key)
+        if species is None:
+            return None, None, False
+        species_zone = species.hardiness_zones[0] if species.hardiness_zones else None
+        is_geophyte = species.root_type in _GEOPHYTE_ROOT_TYPES or species.growth_habit == GrowthHabit.BULB_GEOPHYTE
+        return species.frost_sensitivity, species_zone, is_geophyte
+
+    def _resolve_site_zone(self, plant, tenant_key: str) -> str | None:  # noqa: ANN001 — PlantInstance
+        """Resolve the owning site's climate zone (tenant-guarded)."""
+        if not plant.site_key or self._site_repo is None:
+            return None
+        site = self._site_repo.get_site_by_key(plant.site_key)
+        if site is not None and site.tenant_key == tenant_key and site.climate_zone:
+            return site.climate_zone
+        return None
 
     # ── Auto-generation ─────────────────────────────────────────────────
 

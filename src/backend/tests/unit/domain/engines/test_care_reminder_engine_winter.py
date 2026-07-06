@@ -5,6 +5,7 @@ from app.common.enums import (
     FrostTolerance,
     HardinessRating,
     ReminderType,
+    SeasonPhase,
     SpringAction,
     TuberStatus,
     WinterAction,
@@ -69,6 +70,77 @@ class TestWinterReminderGeneration:
             month=6,
             overwintering_profile=owp,
             frost_sensitivity=FrostTolerance.SENSITIVE,
+        )
+
+
+class TestSeasonPhaseTrigger:
+    """C2 — when a SeasonState governs the site, the season phase is the primary
+    trigger for the winter reminders; the calendar month is only the fallback."""
+
+    def test_winter_protection_fires_on_pre_winter_regardless_of_month(self) -> None:
+        owp = _owp(
+            hardiness_rating=HardinessRating.NEEDS_PROTECTION, winter_action=WinterAction.MULCH, tuber_status=None
+        )
+        # June is nowhere near the winter_action_month, but the phase drives it.
+        assert ENGINE.should_generate_reminder(
+            _care(),
+            ReminderType.WINTER_PROTECTION,
+            month=6,
+            overwintering_profile=owp,
+            frost_sensitivity=FrostTolerance.SENSITIVE,
+            season_phase=SeasonPhase.PRE_WINTER,
+        )
+
+    def test_tuber_dig_fires_on_pre_winter_for_dig_and_store(self) -> None:
+        owp = _owp()  # dig-and-store
+        assert ENGINE.should_generate_reminder(
+            _care(),
+            ReminderType.TUBER_DIG,
+            month=6,
+            overwintering_profile=owp,
+            frost_sensitivity=FrostTolerance.SENSITIVE,
+            season_phase=SeasonPhase.PRE_WINTER,
+        )
+
+    def test_spring_uncover_fires_on_pre_spring(self) -> None:
+        owp = _owp(
+            hardiness_rating=HardinessRating.NEEDS_PROTECTION, winter_action=WinterAction.MULCH, tuber_status=None
+        )
+        assert ENGINE.should_generate_reminder(
+            _care(),
+            ReminderType.SPRING_UNCOVER,
+            month=8,
+            overwintering_profile=owp,
+            frost_sensitivity=FrostTolerance.SENSITIVE,
+            season_phase=SeasonPhase.PRE_SPRING,
+        )
+
+    def test_month_trigger_suppressed_when_season_state_governs(self) -> None:
+        """With a SeasonState in ``growing`` the pure month trigger must not fire,
+        even in the calendar winter_action_month — no double firing."""
+        owp = _owp(
+            hardiness_rating=HardinessRating.NEEDS_PROTECTION, winter_action=WinterAction.MULCH, tuber_status=None
+        )
+        assert not ENGINE.should_generate_reminder(
+            _care(),
+            ReminderType.WINTER_PROTECTION,
+            month=owp.winter_action_month,
+            overwintering_profile=owp,
+            frost_sensitivity=FrostTolerance.SENSITIVE,
+            season_phase=SeasonPhase.GROWING,
+        )
+
+    def test_winter_protection_not_fired_in_pre_spring(self) -> None:
+        owp = _owp(
+            hardiness_rating=HardinessRating.NEEDS_PROTECTION, winter_action=WinterAction.MULCH, tuber_status=None
+        )
+        assert not ENGINE.should_generate_reminder(
+            _care(),
+            ReminderType.WINTER_PROTECTION,
+            month=10,
+            overwintering_profile=owp,
+            frost_sensitivity=FrostTolerance.SENSITIVE,
+            season_phase=SeasonPhase.PRE_SPRING,
         )
 
 

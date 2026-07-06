@@ -611,6 +611,14 @@ export const handlers = [
     return HttpResponse.json({ key: 'ow-new', auto_generated: false, ...body, created_at: new Date().toISOString(), updated_at: null }, { status: 201 });
   }),
 
+  // REQ-047 Season & overwintering automation (tenant-scoped defaults)
+  http.get('/api/v1/t/:tenant/season/overview', () => {
+    return HttpResponse.json({ states: [] });
+  }),
+  http.get('/api/v1/t/:tenant/plants/:plantKey/overwintering', () => {
+    return new HttpResponse(null, { status: 404 });
+  }),
+
   // Cultivars (nested under species)
   http.get('/api/v1/species/:key/cultivars', () => {
     return HttpResponse.json([]);

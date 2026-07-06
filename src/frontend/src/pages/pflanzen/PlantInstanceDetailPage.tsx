@@ -56,6 +56,7 @@ import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
 import ProfilesSection from './ProfilesSection';
+import OverwinteringSection from './OverwinteringSection';
 import PestScanButton from '@/components/pests/PestScanButton';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
@@ -2020,6 +2021,17 @@ export default function PlantInstanceDetailPage() {
             </>
           ) : (
             <LoadingSkeleton variant="form" />
+          )}
+
+          {/* REQ-047 §4.3 — auto-materialised overwintering profile with the
+              optional per-field override / reset-to-automatic affordances. */}
+          {key && (
+            <Box sx={{ mt: 3 }}>
+              {/* key={key}: remount on plant change so a slow in-flight profile
+                  read for the previous plant can never render here (belt-and-
+                  suspenders alongside the slice-level stale-response guard). */}
+              <OverwinteringSection key={key} plantKey={key} />
+            </Box>
           )}
         </Box>
       )}

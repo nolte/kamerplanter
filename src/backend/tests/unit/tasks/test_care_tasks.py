@@ -25,6 +25,7 @@ def _mock_dependencies(monkeypatch):
         "get_phase_sequence_repo",
         "get_plant_repo",
         "get_planting_run_repo",
+        "get_season_state_repo",
         "get_task_repo",
     ):
         setattr(mock_deps, getter, MagicMock())
@@ -57,6 +58,7 @@ def _wire(deps, *, profiles, plants_with_schedule=None):
         removed_on=None,
         species_key="species_1",
         cultivar_key=None,
+        site_key=None,
     )
     deps.get_plant_repo.return_value = plant_repo
 
@@ -102,6 +104,7 @@ class TestGenerateDueCareReminders:
             instance_id="m1",
             tenant_key="tenant_1",
             removed_on=date(2026, 6, 1),
+            site_key=None,
         )
 
         from app.tasks.care_tasks import generate_due_care_reminders
@@ -152,6 +155,7 @@ class TestGenerateDueCareReminders:
             removed_on=None,
             species_key="species_1",
             cultivar_key=None,
+            site_key=None,
         )
         phase_seq_repo = MagicMock()
         phase_seq_repo.get_entry_by_key.return_value = SimpleNamespace(phase_definition_key="def_1")
@@ -177,6 +181,7 @@ class TestGenerateDueCareReminders:
             removed_on=None,
             species_key="species_1",
             cultivar_key=None,
+            site_key=None,
         )
         # No PhaseSequence repo -> fall back to LifecycleConfig.
         _mock_dependencies.get_phase_sequence_repo.return_value = None
@@ -241,7 +246,7 @@ class TestGenerateDueCareReminders:
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
 
         sentinel_owp = object()
-        service._resolve_overwintering_profile.return_value = sentinel_owp
+        service.resolve_overwintering_profile.return_value = sentinel_owp
         service._resolve_species.return_value = SimpleNamespace(frost_sensitivity="sensitive")
         service._resolve_cultivar_traits.return_value = None
 

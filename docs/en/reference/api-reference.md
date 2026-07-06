@@ -449,3 +449,97 @@ The authoritative ancestry relationship is additionally stored as a `descended_f
 - [Propagation Management — User Guide](../user-guide/propagation.md#automatische-kindel-fortfuehrung)
 - [Database Schema — Plant Instance Graph](database-schema.md#plant-instance-graph)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## Season & Overwintering Automation
+
+These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction from the daily evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
+
+All endpoints are under the tenant-scoped path `/api/v1/t/{tenant_slug}/` and require a valid JWT token.
+
+### Read a Site's Season State
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/season-state
+```
+
+**Response (200):**
+
+```json
+{
+  "site_key": "sites/12",
+  "season_state_id": "season-4f2a9c1b3d0e",
+  "phase": "pre_winter",
+  "trigger_tier": "live",
+  "trigger_reason_i18n_key": "pages.season.trigger.frostForecast",
+  "season_year": 2026,
+  "entered_phase_at": "2026-10-18T06:30:00Z",
+  "last_min_temp_c": 3.5,
+  "forecast_first_frost_date": "2026-10-24",
+  "estimated_first_frost_md": "10-20",
+  "estimated_last_frost_md": "04-15",
+  "evaluated_at": "2026-10-19T06:30:00Z"
+}
+```
+
+`phase` ∈ `growing`, `pre_winter`, `winter_dormancy`, `pre_spring`. `trigger_tier` ∈ `live`, `climatological`, `calendar` — which cascade tier (see [Season Automation](../user-guide/season-automation.md#where-the-assessment-comes-from-the-three-data-sources)) currently determines the state.
+
+If no season state exists yet for the site, the endpoint evaluates it lazily and persists the result instead of returning `404`.
+
+**Error Codes:**
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `404` | Site not found or does not belong to the tenant |
+| `409` | Site is of type `indoor` — pure indoor sites run no season state |
+
+### Season Overview Across All Sites
+
+```
+GET /api/v1/t/{tenant_slug}/season/overview
+```
+
+Returns `{"states": [ ... ]}` with one `SeasonStateResponse` object (see above) per outdoor/greenhouse site of the tenant. Feeds the "Winter Protection" dashboard widget (see [Personalizing the Dashboard](../user-guide/dashboard-personalization.md)).
+
+### Read a Plant's Overwintering Profile
+
+```
+GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering
+```
+
+**Response (200):** the `OverwinteringProfile` object, including `auto_generated`, `user_overridden`, `derived_path` (`A` = in-situ, `B` = relocated) and `materialized_at`.
+
+**Error Codes:** `404` if the plant has no (materialised) profile — e.g. because it is winter-hardy or has not yet transitioned into "winter approaching".
+
+### Override an Overwintering Profile
+
+```
+PATCH /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering
+```
+
+Sets individual fields of the profile and marks it `user_overridden: true`. From then on the automation only fills in missing fields, without overwriting values you've already set.
+
+**Error Codes:**
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `404` | Plant or profile not found, or does not belong to the tenant |
+| `422` | Invalid value, or the chosen protection measure contradicts the winter-hardiness rating (D5 invariant — e.g. "dig up & store" on a winter-hardy rating) |
+
+### Reset an Overwintering Profile to Automatic
+
+```
+POST /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/reset
+```
+
+Resets `user_overridden` to `false` and re-materialises the profile fully from the species profile and the site's winter-hardiness rating.
+
+**Error Codes:** `404` if the plant or profile is not found or does not belong to the tenant.
+
+### See Also
+
+- [Season Automation — User Guide](../user-guide/season-automation.md)
+- [Overwintering — User Guide](../user-guide/overwintering.md)
+- [Environment Variables — Season & Overwintering Automation](environment-variables.md#season-overwintering-automation)
+- [Error Handling](../api/error-handling.md)

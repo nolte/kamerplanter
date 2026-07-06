@@ -449,3 +449,97 @@ Die maßgebliche Abstammungsbeziehung ist zusätzlich als Graph-Kante `descended
 - [Wachstumsphasen — Benutzerhandbuch: Monokarpische Pflanzen](../user-guide/growth-phases.md#monokarpische-pflanzen)
 - [Vermehrungsmanagement — Benutzerhandbuch](../user-guide/propagation.md#automatische-kindel-fortfuehrung)
 - [Datenbankschema — Pflanzinstanz-Graph](database-schema.md#pflanzinstanz-graph)
+
+---
+
+## Saison- & Überwinterungs-Automatik
+
+Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beide entstehen ohne Nutzerinteraktion aus der täglichen Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordern ein gültiges JWT-Token.
+
+### Saison-Zustand eines Standorts lesen
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/season-state
+```
+
+**Response (200):**
+
+```json
+{
+  "site_key": "sites/12",
+  "season_state_id": "season-4f2a9c1b3d0e",
+  "phase": "pre_winter",
+  "trigger_tier": "live",
+  "trigger_reason_i18n_key": "pages.season.trigger.frostForecast",
+  "season_year": 2026,
+  "entered_phase_at": "2026-10-18T06:30:00Z",
+  "last_min_temp_c": 3.5,
+  "forecast_first_frost_date": "2026-10-24",
+  "estimated_first_frost_md": "10-20",
+  "estimated_last_frost_md": "04-15",
+  "evaluated_at": "2026-10-19T06:30:00Z"
+}
+```
+
+`phase` ∈ `growing`, `pre_winter`, `winter_dormancy`, `pre_spring`. `trigger_tier` ∈ `live`, `climatological`, `calendar` — welche Kaskadenstufe (siehe [Saison-Automatik](../user-guide/season-automation.md#woher-die-einschatzung-kommt-die-drei-datenquellen)) den Zustand aktuell bestimmt.
+
+Existiert für den Standort noch kein Saison-Zustand, wertet der Endpunkt ihn lazy aus und persistiert das Ergebnis, statt `404` zurückzugeben.
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `404` | Standort nicht gefunden oder gehört nicht zum Mandanten |
+| `409` | Standort ist vom Typ `indoor` — reine Innenraum-Standorte führen keinen Saison-Zustand |
+
+### Saison-Übersicht über alle Standorte
+
+```
+GET /api/v1/t/{tenant_slug}/season/overview
+```
+
+Liefert `{"states": [ ... ]}` mit einem `SeasonStateResponse`-Objekt (siehe oben) je Freiland-/Gewächshaus-Standort des Mandanten. Speist das Dashboard-Widget „Winterschutz" (siehe [Dashboard personalisieren](../user-guide/dashboard-personalization.md)).
+
+### Überwinterungsprofil einer Pflanze lesen
+
+```
+GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering
+```
+
+**Response (200):** das `OverwinteringProfile`-Objekt inklusive `auto_generated`, `user_overridden`, `derived_path` (`A` = in-situ, `B` = verlagert) und `materialized_at`.
+
+**Fehlercodes:** `404` wenn die Pflanze kein (materialisiertes) Profil hat — z. B. weil sie winterhart ist oder noch kein Übergang in „Winter kündigt sich an" stattgefunden hat.
+
+### Überwinterungsprofil übersteuern
+
+```
+PATCH /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering
+```
+
+Setzt einzelne Felder des Profils und markiert es als `user_overridden: true`. Danach ergänzt die Automatik nur noch fehlende Felder, überschreibt aber keine gesetzten Werte mehr.
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `404` | Pflanze bzw. Profil nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Ungültiger Wert, oder die gewählte Schutzmaßnahme widerspricht der Winterhärte-Ampel (Invariante D5 — z. B. „Ausgraben & lagern" bei winterharter Einstufung) |
+
+### Überwinterungsprofil auf Automatik zurücksetzen
+
+```
+POST /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/reset
+```
+
+Setzt `user_overridden` auf `false` zurück und materialisiert das Profil erneut vollständig aus dem Art-Steckbrief und der Winterhärte-Ampel des Standorts.
+
+**Fehlercodes:** `404` wenn Pflanze oder Profil nicht gefunden werden bzw. nicht zum Mandanten gehören.
+
+### Siehe auch
+
+- [Saison-Automatik — Benutzerhandbuch](../user-guide/season-automation.md)
+- [Überwinterung — Benutzerhandbuch](../user-guide/overwintering.md)
+- [Umgebungsvariablen — Saison- & Überwinterungs-Automatik](environment-variables.md#saison-uberwinterungs-automatik)
+- [Fehlerbehandlung](../api/error-handling.md)

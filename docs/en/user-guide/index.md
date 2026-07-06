@@ -36,6 +36,8 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Modules & Features](module-visibility.md) | Show or hide functional areas individually |
 | [Light Mode](light-mode.md) | Kamerplanter without login for local instances |
 | [Care Reminders](care-reminders.md) | Automatic watering and care schedules |
+| [Season Automation](season-automation.md) | Automatic winter/spring detection from live and climate data |
+| [Overwintering](overwintering.md) | Automatically created overwintering plan per plant |
 | [Notifications](notifications.md) | Notification center and delivery channels |
 | [Tenant Management](tenants.md) | Manage personal and community gardens |
 | [Platform Admin](admin.md) | Platform-wide tenant and user administration |

@@ -374,6 +374,22 @@ PY
 
 ---
 
+## Saison- & Überwinterungs-Automatik
+
+Diese Variablen steuern die Schwellwerte der automatischen Saison-/Überwinterungserkennung (siehe [Saison-Automatik](../user-guide/season-automation.md)). Sie betreffen nur die Live- und Klimatologie-Stufen der Erkennungs-Kaskade — der Kalender-Fallback ist davon unabhängig.
+
+<!-- Quelle: src/backend/app/config/settings.py (season_pre_winter_temp_c, season_frost_temp_c, season_spring_temp_c, season_signal_threshold_days, season_state_eval_enabled) -->
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `SEASON_PRE_WINTER_TEMP_C` | `5.0` | Nein | Temperaturschwelle (°C) für den Übergang von „Wachstumsphase" zu „Winter kündigt sich an". |
+| `SEASON_FROST_TEMP_C` | `2.0` | Nein | Temperaturschwelle (°C) für den Übergang in die Winterruhe. |
+| `SEASON_SPRING_TEMP_C` | `10.0` | Nein | Temperaturschwelle (°C) für den Übergang in die Frühjahrs-Rückholung. |
+| `SEASON_SIGNAL_THRESHOLD_DAYS` | `3` | Nein | Anzahl aufeinanderfolgender Signaltage, bevor ein Übergang ausgelöst wird (Oszillationsschutz). |
+| `SEASON_STATE_EVAL_ENABLED` | `true` | Nein | Schalter für den täglichen Auswertungs-Task. Auf `false` setzen, um die Saison-Automatik komplett zu deaktivieren. |
+
+---
+
 ## Vollständiges .env-Beispiel
 
 ```bash

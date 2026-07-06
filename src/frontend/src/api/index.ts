@@ -12,3 +12,4 @@ export * as phasesApi from './endpoints/phases';
 export * as calculationsApi from './endpoints/calculations';
 export * as successionPlansApi from './endpoints/successionPlans';
 export * as overwinteringProfilesApi from './endpoints/overwinteringProfiles';
+export * as seasonApi from './endpoints/season';

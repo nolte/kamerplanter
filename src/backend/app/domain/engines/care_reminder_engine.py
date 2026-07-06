@@ -6,6 +6,7 @@ from app.common.enums import (
     FrostTolerance,
     HardinessRating,
     ReminderType,
+    SeasonPhase,
     TuberStatus,
     WateringMethod,
 )
@@ -371,21 +372,42 @@ class CareReminderEngine:
         overwintering_profile: OverwinteringProfile | None = None,
         frost_sensitivity: FrostTolerance | None = None,
         cultivar_traits: list[str] | None = None,
+        winter_quarter_has_livedata: bool = False,
+        season_phase: SeasonPhase | None = None,
     ) -> bool:
-        """Check whether a reminder should be generated."""
+        """Check whether a reminder should be generated.
+
+        ``season_phase`` is the REQ-047 SeasonState phase of the plant's site when
+        one exists. It is the *primary* trigger for the winter-protection reminders:
+        given a phase, they fire on the season transition (``pre_winter`` /
+        ``pre_spring``) rather than on a fixed calendar month. ``None`` means the
+        site has no SeasonState, so the month-based calendar fallback applies.
+        """
         if month is None:
             month = date.today().month
 
-        # Winter protection reminders (REQ-022 §3.2) — driven by the
-        # OverwinteringProfile and evaluated before the dormancy guard, since
-        # they fire exactly as the plant enters/leaves dormancy.
+        # Winter protection reminders (REQ-022 §3.2 / REQ-047 §3.2) — driven by the
+        # OverwinteringProfile. When a SeasonState governs the site the season phase
+        # is the trigger (pre_winter → protection/dig, pre_spring → uncover);
+        # otherwise the calendar month is the fallback.
         if reminder_type in WINTER_PROTECTION_TYPES:
             return self._should_generate_winter_reminder(
                 reminder_type,
                 overwintering_profile,
                 frost_sensitivity,
                 month,
+                season_phase,
             )
+
+        # REQ-047 §2.5 dormancy control reminders — only while the dormancy-care
+        # mode is active (set by the season state machine on winter_dormancy).
+        # Evaluated before the generic tail, which would otherwise return True.
+        if reminder_type == ReminderType.DORMANCY_HEALTH_CHECK:
+            return profile.dormancy_care_mode
+        if reminder_type == ReminderType.QUARTER_CLIMATE_CHECK:
+            # The winter-quarter climate warning needs live data of the quarter
+            # (sensor/HA); without it, it cannot fire (REQ-047 §2.5 / AC-13).
+            return profile.dormancy_care_mode and winter_quarter_has_livedata
 
         # Deadheading (REQ-022 §3.2 / AB-016) — blooming ornamentals only, and
         # never for self-cleaning cultivars.
@@ -555,11 +577,17 @@ class CareReminderEngine:
         overwintering_profile: OverwinteringProfile | None,
         frost_sensitivity: FrostTolerance | None,
         month: int,
+        season_phase: SeasonPhase | None = None,
     ) -> bool:
         """Gate the four overwintering reminder types against the profile.
 
         No profile → nothing to remind about. Frost-hardy species never receive
         winter-protection reminders (REQ-022 §"Winterschutz-Guard").
+
+        When ``season_phase`` is given (the plant's site has a REQ-047 SeasonState),
+        the season transition is the trigger: ``winter_protection`` / ``tuber_dig``
+        on ``pre_winter``, ``spring_uncover`` on ``pre_spring`` — independent of the
+        calendar month. Without a SeasonState the month windows are the fallback.
         """
         if overwintering_profile is None:
             return False
@@ -569,18 +597,32 @@ class CareReminderEngine:
         profile = overwintering_profile
         is_dig_and_store = profile.hardiness_rating == HardinessRating.DIG_AND_STORE
 
+        if reminder_type == ReminderType.STORAGE_CHECK:
+            # Recurring while tubers are actually drying/stored — status-gated on
+            # both tiers (never month- or phase-gated).
+            return (
+                is_dig_and_store
+                and profile.storage_check_interval_days is not None
+                and profile.tuber_status in (TuberStatus.DRYING, TuberStatus.STORED)
+            )
+
+        if season_phase is not None:
+            # SeasonState-driven (primary): the phase is the trigger, not the month.
+            if reminder_type == ReminderType.WINTER_PROTECTION:
+                return season_phase == SeasonPhase.PRE_WINTER
+            if reminder_type == ReminderType.TUBER_DIG:
+                return season_phase == SeasonPhase.PRE_WINTER and is_dig_and_store
+            if reminder_type == ReminderType.SPRING_UNCOVER:
+                return season_phase == SeasonPhase.PRE_SPRING and profile.spring_action is not None
+            return False
+
+        # Calendar fallback (no SeasonState for the site): month-gated.
         if reminder_type == ReminderType.WINTER_PROTECTION:
             return month == profile.winter_action_month
         if reminder_type == ReminderType.SPRING_UNCOVER:
             return profile.spring_action is not None and profile.spring_action_month == month
         if reminder_type == ReminderType.TUBER_DIG:
             return is_dig_and_store and month == profile.winter_action_month
-        if reminder_type == ReminderType.STORAGE_CHECK:
-            return (
-                is_dig_and_store
-                and profile.storage_check_interval_days is not None
-                and profile.tuber_status in (TuberStatus.DRYING, TuberStatus.STORED)
-            )
         return False
 
     def _get_interval_days(
@@ -594,6 +636,14 @@ class CareReminderEngine:
         """Get the interval in days for a reminder type, season-adjusted."""
         month = date.today().month
         is_winter = self._is_winter(month, hemisphere)
+
+        # REQ-047 §2.5 dormancy control reminders.
+        if reminder_type == ReminderType.DORMANCY_HEALTH_CHECK:
+            return profile.dormancy_check_interval_days
+        if reminder_type == ReminderType.QUARTER_CLIMATE_CHECK:
+            # Frequent check while the quarter has live data — a temperature
+            # violation is time-critical (plant freezes / breaks dormancy early).
+            return 7
 
         # Overwintering reminder types (REQ-022 §3.2).
         if reminder_type == ReminderType.DEADHEADING:
@@ -613,6 +663,12 @@ class CareReminderEngine:
         if reminder_type == ReminderType.WATERING:
             # Phase-specific interval takes priority over care profile
             base = phase_watering_interval or profile.watering_interval_learned or profile.watering_interval_days
+            # REQ-047 §3.5 dormancy-care mode replaces the seasonal multiplier with
+            # the discrete dormancy_watering regime.
+            if profile.dormancy_care_mode and profile.dormancy_watering is not None:
+                dormant = self._dormancy_watering_interval(profile, base)
+                if dormant is not None or profile.dormancy_watering == "none":
+                    return dormant
             if is_winter:
                 return int(base * profile.winter_watering_multiplier)
             return base
@@ -633,6 +689,23 @@ class CareReminderEngine:
             return profile.humidity_check_interval_days
 
         return None
+
+    @staticmethod
+    def _dormancy_watering_interval(profile: CareProfile, base: int) -> int | None:
+        """REQ-047 §3.5 — discrete dormancy watering interval (days).
+
+        ``none`` → no watering reminder; ``minimal`` → ~38 days; ``reduced`` →
+        ``winter_watering_multiplier × 1.5`` of the base; ``normal`` → the plain
+        seasonal interval.
+        """
+        regime = profile.dormancy_watering
+        if regime == "none":
+            return None
+        if regime == "minimal":
+            return 38
+        if regime == "reduced":
+            return max(1, int(base * profile.winter_watering_multiplier * 1.5))
+        return base
 
     @staticmethod
     def _is_winter(month: int, hemisphere: str) -> bool:

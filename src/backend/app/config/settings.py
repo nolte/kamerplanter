@@ -218,6 +218,17 @@ class Settings(BaseSettings):
     weather_fetch_timeout_s: int = 20
     weather_max_rps_per_provider: float = 1.0
 
+    # REQ-047 Season & overwintering automation — transition thresholds (°C) and
+    # the hysteresis window; SEASON_STATE_EVAL_ENABLED is the Celery kill-switch.
+    season_pre_winter_temp_c: float = 5.0
+    season_frost_temp_c: float = 2.0
+    season_spring_temp_c: float = 10.0
+    season_signal_threshold_days: int = 3
+    season_state_eval_enabled: bool = True
+    #: Look-ahead window (days) for the live frost forecast — the single source of
+    #: truth shared by the signal resolver and the state engine (no copy-paste).
+    season_live_forecast_window_days: int = 7
+
     # TimescaleDB (optional — for sensor time-series)
     timescaledb_enabled: bool = False
     timescaledb_host: str = "localhost"

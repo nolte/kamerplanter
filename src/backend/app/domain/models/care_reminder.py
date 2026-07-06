@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -27,6 +28,16 @@ class CareProfile(BaseModel):
     auto_create_pest_check_task: bool = True
     watering_interval_learned: int | None = None
     fertilizing_interval_learned: int | None = None
+    # ── REQ-047 §2.4 dormancy-care mode (additive) ──
+    #: Active winter-rest care plan. Toggled by the season state machine, not the
+    #: user directly.
+    dormancy_care_mode: bool = False
+    #: Discrete winter watering regime, materialised from
+    #: ``OverwinteringProfile.winter_watering``. ``None`` ⇒ fall back to
+    #: ``winter_watering_multiplier``.
+    dormancy_watering: Literal["none", "minimal", "reduced", "normal"] | None = None
+    #: Interval of the winter-quarter / rest control (rot, moisture, pests).
+    dormancy_check_interval_days: int = 30
     notes: str | None = None
     auto_generated: bool = False
     plant_key: str = ""

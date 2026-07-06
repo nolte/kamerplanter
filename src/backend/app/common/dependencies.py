@@ -620,6 +620,7 @@ def get_overwintering_profile_service() -> OverwinteringProfileService:
         plant_repo=get_plant_repo(),
         planting_run_repo=get_planting_run_repo(),
         template_repo=get_overwintering_template_repo(),
+        species_repo=get_species_repo(),
     )
 
 
@@ -636,6 +637,50 @@ def get_care_reminder_service() -> CareReminderService:
         nutrient_plan_repo=get_nutrient_plan_repo(),
         overwintering_repo=get_overwintering_profile_repo(),
         overwintering_template_repo=get_overwintering_template_repo(),
+    )
+
+
+# ── REQ-047 Season & overwintering automation dependencies ─────────
+
+
+def get_season_state_repo():
+    from app.data_access.arango.season_state_repository import ArangoSeasonStateRepository
+
+    return ArangoSeasonStateRepository(get_db())
+
+
+def get_season_signal_resolver():
+    from app.domain.services.season_signal_resolver import SeasonSignalResolver
+
+    return SeasonSignalResolver(get_weather_forecast_repo())
+
+
+def get_overwintering_materializer():
+    from app.domain.services.overwintering_materializer import OverwinteringMaterializer
+
+    return OverwinteringMaterializer(
+        get_overwintering_profile_service(),
+        get_overwintering_profile_repo(),
+        get_species_repo(),
+        template_repo=get_overwintering_template_repo(),
+    )
+
+
+def get_season_state_service():
+    from app.domain.engines.season_state_engine import SeasonStateEngine
+    from app.domain.services.dormancy_care_activator import DormancyCareActivator
+    from app.domain.services.season_state_service import SeasonStateService
+
+    return SeasonStateService(
+        get_season_state_repo(),
+        get_season_signal_resolver(),
+        SeasonStateEngine(),
+        get_overwintering_materializer(),
+        DormancyCareActivator(get_care_reminder_repo()),
+        get_care_reminder_service(),
+        get_overwintering_profile_repo(),
+        get_plant_repo(),
+        get_site_repo(),
     )
 
 

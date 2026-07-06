@@ -156,6 +156,29 @@ class WinterPathViolationError(KamerplanterError):
         )
 
 
+class SeasonStateUnavailableError(KamerplanterError):
+    """REQ-047 §4.4 — a season state was requested for a site that has none.
+
+    Only outdoor/greenhouse sites run a season state machine; a pure indoor site
+    has no season, so the request is well-formed but conflicts with the site's
+    type (HTTP 409).
+    """
+
+    def __init__(self, site_key: str) -> None:
+        super().__init__(
+            message=f"Site '{site_key}' has no season state (only outdoor/greenhouse sites do).",
+            error_code="SEASON_STATE_UNAVAILABLE",
+            status_code=409,
+            details=[
+                {
+                    "field": "site",
+                    "reason": "Season states exist only for outdoor/greenhouse sites.",
+                    "code": "SEASON_STATE_UNAVAILABLE",
+                }
+            ],
+        )
+
+
 class FeedExpiredError(KamerplanterError):
     """REQ-015 v1.6 CF-005 — calendar feed past expires_at returns HTTP 410."""
 

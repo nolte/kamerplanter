@@ -36,6 +36,8 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Module & Funktionen](module-visibility.md) | Funktionsbereiche gezielt ein- oder ausblenden |
 | [Light-Modus](light-mode.md) | Kamerplanter ohne Login für lokale Instanzen |
 | [Pflegeerinnerungen](care-reminders.md) | Automatische Gieß- und Pflegepläne |
+| [Saison-Automatik](season-automation.md) | Automatische Winter-/Frühlings-Erkennung aus Live- und Klimadaten |
+| [Überwinterung](overwintering.md) | Automatisch erstellter Überwinterungsplan je Pflanze |
 | [Benachrichtigungen](notifications.md) | Benachrichtigungs-Center und Zustellkanäle |
 | [Mandantenverwaltung](tenants.md) | Persönliche und gemeinschaftliche Gärten verwalten |
 | [Plattform-Admin](admin.md) | Plattformweite Mandanten- und Nutzerverwaltung |

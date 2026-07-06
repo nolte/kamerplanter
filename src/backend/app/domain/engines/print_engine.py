@@ -106,6 +106,9 @@ REMINDER_TYPE_LABELS: dict[str, dict[str, str]] = {
         "storage_check": "Lagerkontrolle",
         "spring_uncover": "Winterschutz abnehmen",
         "winter_protection": "Winterschutz anbringen",
+        # REQ-047 season & overwintering automation
+        "dormancy_health_check": "Winterruhe-Kontrolle",
+        "quarter_climate_check": "Winterquartier-Klima prüfen",
     },
     "en": {
         "watering": "Watering",
@@ -119,6 +122,9 @@ REMINDER_TYPE_LABELS: dict[str, dict[str, str]] = {
         "storage_check": "Storage check",
         "spring_uncover": "Remove winter protection",
         "winter_protection": "Apply winter protection",
+        # REQ-047 season & overwintering automation
+        "dormancy_health_check": "Dormancy check",
+        "quarter_climate_check": "Winter-quarter climate check",
     },
 }
 

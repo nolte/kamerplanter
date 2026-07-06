@@ -374,6 +374,22 @@ PY
 
 ---
 
+## Season & Overwintering Automation
+
+These variables control the thresholds of the automatic season/overwintering detection (see [Season Automation](../user-guide/season-automation.md)). They only affect the live and climatological tiers of the detection cascade — the calendar fallback is independent of them.
+
+<!-- Source: src/backend/app/config/settings.py (season_pre_winter_temp_c, season_frost_temp_c, season_spring_temp_c, season_signal_threshold_days, season_state_eval_enabled) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `SEASON_PRE_WINTER_TEMP_C` | `5.0` | No | Temperature threshold (°C) for the transition from "Growing" to "Winter approaching". |
+| `SEASON_FROST_TEMP_C` | `2.0` | No | Temperature threshold (°C) for the transition into winter dormancy. |
+| `SEASON_SPRING_TEMP_C` | `10.0` | No | Temperature threshold (°C) for the transition into spring reactivation. |
+| `SEASON_SIGNAL_THRESHOLD_DAYS` | `3` | No | Number of consecutive signal days required before a transition is triggered (oscillation protection). |
+| `SEASON_STATE_EVAL_ENABLED` | `true` | No | Switch for the daily evaluation task. Set to `false` to disable season automation entirely. |
+
+---
+
 ## Complete .env Example
 
 ```bash

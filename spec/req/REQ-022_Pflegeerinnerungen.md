@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.6 (Konsistenz-Invariante D5: Winter-Pfade dormancy vs. OverwinteringProfile)
+Version: 2.7 (Überwinterung: Auto-Materialisierung + SeasonState-Trigger + Dormancy-Care-Modus, REQ-047)
 ```
 
 ## Versionshistorie
@@ -16,6 +16,7 @@ Version: 2.6 (Konsistenz-Invariante D5: Winter-Pfade dormancy vs. OverwinteringP
 |---------|-------|----------|
 | ≤ 2.5 | — | Historie bis einschließlich 2.5 nicht tabellarisch geführt; Stand 2.5: Run-Owned CareProfile mit Detach-Snapshot (W-010) |
 | 2.6 | 2026-07-02 | Konsistenz-Invariante D5 (Spec-Audit D5): zwei sich gegenseitig ausschließende Winter-Pfade (winterhart in-situ → `dormancy`-Phase REQ-003 vs. frostempfindlich verlagert → `OverwinteringProfile.winter_action`); Ableitung aus `frost_sensitivity` (REQ-001) + Winterhärtezone (REQ-039); REQ-039 in Abhängigkeiten ergänzt |
+| 2.7 | 2026-07-05 | Konzeptionelle Überarbeitung der Überwinterung (→ **REQ-047**): (1) Das `OverwinteringProfile` wird **automatisch aus dem Species-Template + Standort-Ampel materialisiert** — der Nutzer legt **kein** Profil mehr an, kann aber übersteuern (`user_overridden`). (2) Die Winter-/Frühlings-Erinnerungen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`) werden **nicht mehr an festen Monaten**, sondern durch **Saison-Zustandsübergänge** (SeasonState-Engine, REQ-047) ausgelöst; `winter_action_month`/`spring_action_month` bleiben als Kalender-Fallback. (3) Neuer **Dormancy-Care-Modus** im CareProfile (reduziertes Gießen nach `winter_watering`, kein Dünger, Fäulnis-/Feuchte-/Klima-Kontrolle im Winterquartier). (4) Zwei neue Erinnerungstypen `dormancy_health_check`, `quarter_climate_check`. Auslöser-Datenquelle: Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender (Hemisphäre). |
 
 ## 1. Business Case
 
@@ -148,20 +149,24 @@ Ergänzende Presets für Freilandpflanzen, die nicht unter die Zimmerpflanzen-Pr
 | `winter_vegetable` | Reduziert | Vlies bei Kahlfrost, draußen lassen | — | Grünkohl, Feldsalat, Winterpostelein |
 | `spring_bulb` | — (Ruhe im Sommer) | Winterhart (im Boden lassen) | Laub einziehen lassen! | Tulpe, Narzisse, Krokus, Hyazinthe |
 
-**10 Erinnerungstypen:**
+**12 Erinnerungstypen:**
+
+> **Auslöser-Wechsel (REQ-047):** Die saisonalen Winter-/Frühlings-Typen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`, `dormancy_health_check`, `quarter_climate_check`) werden **nicht mehr an festen Monaten** ausgelöst, sondern durch **Saison-Zustandsübergänge** der SeasonState-Engine (REQ-047). Diese speist aus der besten verfügbaren Quelle — Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender/Hemisphäre. Die unten genannten Monats-Defaults (`winter_action_month`, `spring_action_month`) bleiben ausschließlich als **Kalender-Fallback** gültig, wenn weder Livedaten noch Klimanormale für den Standort vorliegen.
 
 | Typ | Schlüssel | Auslöser | Priorität |
 |-----|-----------|----------|-----------|
-| Gießen | `watering` | Intervall seit letzter Bestätigung | `high` (Pflanze vertrocknet) |
+| Gießen | `watering` | Intervall seit letzter Bestätigung (im Dormancy-Care-Modus nach `dormancy_watering`, REQ-047) | `high` (Pflanze vertrocknet) |
 | Düngen | `fertilizing` | Intervall + nur in Aktivmonaten UND Phase `active_growth` / `vegetative` | `medium` |
 | Umtopfen | `repotting` | Monate seit letztem Umtopfen | `low` |
 | Schädlingskontrolle | `pest_check` | Festes Intervall (Default 14 Tage) | `medium` |
 | Standort-Check | `location_check` | Saisonal: konfigurierbar (Default: Oktober + März, hemisphärenabhängig) | `medium` |
 | Luftfeuchte-Check | `humidity_check` | Saisonal: Heizperiode (Okt–Mär NH), nur für feuchtigkeitsempfindliche Presets | `medium` |
-| Winterschutz | `winter_protection` | Saisonal: konfigurierbar (Default: Oktober NH / April SH) | `high` (Pflanze erfriert!) |
-| Frühlings-Auspacken | `spring_uncover` | Saisonal: konfigurierbar (Default: März NH / September SH) | `high` |
-| Knollen ausgraben | `tuber_dig` | Saisonal: Vor erstem Frost (Oktober NH) | `critical` (Knollen erfrieren!) |
-| Knollen-Kontrolle | `storage_check` | Intervall während Lagerung (Default: 30 Tage, Nov–Mär) | `medium` |
+| Winterschutz | `winter_protection` | **SeasonState → `pre_winter`** (REQ-047); Fallback: `winter_action_month` (Default Okt NH / Apr SH) | `high` (Pflanze erfriert!) |
+| Frühlings-Auspacken | `spring_uncover` | **SeasonState → `pre_spring`** (REQ-047); Fallback: `spring_action_month` (Default Mär NH / Sep SH) | `high` |
+| Knollen ausgraben | `tuber_dig` | **SeasonState → `pre_winter`** (REQ-047, vor erstem Frost); Fallback: `winter_action_month` | `critical` (Knollen erfrieren!) |
+| Knollen-Kontrolle | `storage_check` | Intervall während `winter_dormancy` (Default: 30 Tage) | `medium` |
+| Ruhe-/Winterquartier-Kontrolle | `dormancy_health_check` | Intervall (`dormancy_check_interval_days`) während `winter_dormancy` — Fäulnis, Schimmel, Feuchte, Schädlinge (REQ-047) | `medium` |
+| Winterquartier-Klima-Warnung | `quarter_climate_check` | Nur bei Winterquartier-Livedaten: Ist-Temp verletzt `winter_quarter_temp_min/max` (REQ-047) | `high` (Pflanze erfriert/treibt vorzeitig) |
 
 **Dünge-Guard:**
 Dünge-Erinnerungen werden nur generiert, wenn **beide** Bedingungen erfüllt sind:
@@ -221,6 +226,9 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `watering_interval_learned: Optional[float]` (Gelerntes Intervall, `null` = noch nicht adaptiert)
     - `fertilizing_interval_learned: Optional[float]`
     - `notes: Optional[str]` (Freitext-Notiz des Nutzers, z.B. "Mag kein Leitungswasser")
+    - `dormancy_care_mode: bool` (Default `False`; aktiver Winterruhe-Pflegeplan — gesetzt/gelöscht durch SeasonState-Übergänge, REQ-047; nicht direkt nutzer-editierbar)
+    - `dormancy_watering: Optional[Literal['none', 'minimal', 'reduced', 'normal']]` (Default `None`; Gießvorgabe während der Ruhe, materialisiert aus `OverwinteringProfile.winter_watering`; `None` ⇒ Rückfall auf `winter_watering_multiplier`; REQ-047)
+    - `dormancy_check_interval_days: int` (Default `30`; Intervall der Winterquartier-/Ruhe-Kontrolle, Default aus `OverwinteringProfile.storage_check_interval_days`; REQ-047)
     - `created_at: datetime`
     - `updated_at: datetime`
     - `auto_generated: bool` (True wenn automatisch aus Species-Defaults erstellt)
@@ -237,7 +245,9 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `interval_at_time: int` (Gültiges Intervall zum Zeitpunkt der Bestätigung — für Adaptive Learning)
 
 <!-- Quelle: Outdoor-Garden-Planner Review G-002 -->
-- **`:OverwinteringProfile`** — Überwinterungs-Konfiguration pro PlantInstance
+> **Auto-Materialisierung (REQ-047):** Das `OverwinteringProfile` wird **nicht mehr vom Nutzer angelegt**. Es wird beim Saison-Übergang eines Outdoor-Standorts nach `pre_winter` (SeasonState-Engine, REQ-047) **automatisch aus dem Species-Überwinterungs-Template** (`overwintering_profiles.yaml`, extrahiert aus Steckbrief §4.3) **und der Standort-Winterhärte-Ampel** (`evaluate_winter_hardiness`, REQ-039) materialisiert. Der Nutzer kann einzelne Werte optional übersteuern (setzt `user_overridden=True`); die Automatik überschreibt ein übersteuertes Profil nie. Für winterharte Arten (Ampel grün) wird gar kein Profil materialisiert (Winterschutz-Guard).
+
+- **`:OverwinteringProfile`** — Überwinterungs-Konfiguration pro PlantInstance (auto-materialisiert, REQ-047)
   - Collection: `overwintering_profiles`
   - Properties:
     - `hardiness_zone_min: Optional[str]` (Mindest-Winterhärtezone der Pflanze, z.B. "7b")
@@ -261,7 +271,12 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
     - `tuber_status: Optional[Literal['planted', 'growing', 'dig_pending', 'drying', 'stored', 'pre_sprouting']]`
       (Aktueller Status im Knollen-/Zwiebel-Jahreszyklus — nur für `hardiness_rating == 'dig_and_store'`)
     - `notes: Optional[str]`
-    - `auto_generated: bool` (True wenn automatisch aus Species-Defaults erstellt)
+    - `auto_generated: bool` (True wenn automatisch aus Species-Defaults/Template erstellt — bei materialisierten Profilen immer True)
+    - `user_overridden: bool` (Default `False`; True sobald der Nutzer einen Wert manuell gesetzt hat — die Auto-Materialisierung ergänzt dann nur additiv fehlende Felder, überschreibt nie; REQ-047)
+    - `derived_path: Optional[Literal['A', 'B']]` (aus der Ampel abgeleiteter Winter-Pfad — A = in-situ/Dormanz, B = verlagert; Invariante D5; REQ-047)
+    - `dormancy_care_active: bool` (Default `False`; True während der Pflanze im Dormancy-Care-Modus; gesetzt/gelöscht durch SeasonState-Übergänge, REQ-047)
+    - `materialized_at: Optional[datetime]` (Zeitpunkt der Auto-Materialisierung aus dem Template; REQ-047)
+    - `source_template_key: Optional[str]` (`_key` des verwendeten `overwintering_profiles`-Templates — Nachvollziehbarkeit; REQ-047)
     - `created_at: datetime`
     - `updated_at: datetime`
 
@@ -692,7 +707,13 @@ CARE_STYLE_PRESETS: dict[str, dict] = {
 }
 
 CareStyleType = Literal['tropical', 'succulent', 'orchid', 'calathea', 'herb_tropical', 'mediterranean', 'fern', 'cactus', 'outdoor_annual_ornamental', 'custom']
-ReminderType = Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check', 'deadheading']
+ReminderType = Literal[
+    'watering', 'fertilizing', 'repotting', 'pest_check',
+    'location_check', 'humidity_check', 'deadheading',
+    # Saisonale Winter-/Frühlings-Typen — SeasonState-getriggert (REQ-047)
+    'winter_protection', 'spring_uncover', 'tuber_dig', 'storage_check',
+    'dormancy_health_check', 'quarter_climate_check',
+]
 ConfirmAction = Literal['confirmed', 'snoozed', 'skipped']
 
 # --- Dormancy Phases (no fertilizing) ---
@@ -1765,6 +1786,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|
+| REQ-047 | Erweitert von | Saison- & Überwinterungs-Automatik: materialisiert das `OverwinteringProfile` automatisch, verlagert die Winter-/Frühlings-Erinnerungen auf SeasonState-Übergänge (Monatsfelder = Fallback), schaltet den Dormancy-Care-Modus im CareProfile und ergänzt `dormancy_health_check`/`quarter_climate_check`. Kern-Querbezug der Überwinterungs-Überarbeitung. |
 | REQ-006 | Nutzt | Task/TaskService/TaskRepository — alle Erinnerungen als Tasks gespeichert |
 | REQ-001 | Liest | Species + BotanicalFamily für CareProfile-Auto-Generierung (care_style-Mapping) |
 | REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) + RequirementProfile für Species-Defaults; `dormancy`-GrowthPhase + `LifecycleConfig.dormancy_required` + `chill_hours_accumulated` für die Winter-Pfad-Konsistenz (Invariante D5) <!-- Spec-Audit 2026-07-02 D5 --> |

@@ -33,6 +33,7 @@ from app.api.v1.plant_instances.tenant_router import router as tenant_plants_rou
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
 from app.api.v1.print.tenant_router import router as tenant_print_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
+from app.api.v1.season.tenant_router import router as tenant_season_router
 from app.api.v1.sites.tenant_router import router as tenant_sites_router
 from app.api.v1.slots.tenant_router import router as tenant_slots_router
 from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_router
@@ -73,6 +74,7 @@ tenant_scoped_router.include_router(tenant_calendar_router)
 tenant_scoped_router.include_router(tenant_care_reminders_router)
 tenant_scoped_router.include_router(tenant_dashboard_router)
 tenant_scoped_router.include_router(tenant_overwintering_profiles_router)
+tenant_scoped_router.include_router(tenant_season_router)
 tenant_scoped_router.include_router(tenant_starter_kits_router)
 tenant_scoped_router.include_router(tenant_onboarding_router)
 tenant_scoped_router.include_router(tenant_favorites_router)

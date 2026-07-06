@@ -49,6 +49,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import TodayIcon from '@mui/icons-material/Today';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PageTitle from '@/components/layout/PageTitle';
+import SpringReturnAssistant from '@/pages/pflege/components/SpringReturnAssistant';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
 import PrintButton from '@/components/common/PrintButton';
@@ -1075,6 +1076,10 @@ export default function TaskQueuePage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3, mt: -1 }}>
         {t('pages.tasks.queueIntro')}
       </Typography>
+
+      {/* REQ-047: spring return assistant — self-gates to the pre_spring season
+          phase. Hosted here because the /pflege route redirects to this page. */}
+      <SpringReturnAssistant />
 
       {/* Bulk action bar */}
       {bulkMode && (

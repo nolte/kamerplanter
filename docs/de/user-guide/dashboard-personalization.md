@@ -120,7 +120,7 @@ Kamerplanter bietet aktuell 17 Widgets in vier Kategorien an. Welche Widgets fü
 
 | Widget | Beschreibung |
 |--------|-------------|
-| Winterschutz | Winterhärte-Ampel deiner Pflanzen. |
+| Winterschutz | Winterhärte-Ampel deiner Pflanzen, ergänzt um den [Saison-Zustand](season-automation.md) deiner Freiland-/Gewächshaus-Standorte (Live-Wetter, Klima-Schätzung oder Kalender) mit Frost-Countdown. |
 | Pflanzenschutz-Warnungen | Aktuelle Schädlings- und Krankheitswarnungen. |
 | Nächste Termine | Deine nächsten Kalendereinträge. |
 | Phasen-Zeitleiste | Wachstumsphasen deiner Pflanzen im Zeitverlauf. |

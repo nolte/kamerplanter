@@ -4739,9 +4739,31 @@ export interface OverwinteringProfile {
   tuber_status: TuberStatus | null;
   notes: string | null;
   auto_generated: boolean;
+  // REQ-047 §2.3 — auto-materialisation metadata.
+  user_overridden: boolean;
+  derived_path: OverwinteringPath | null;
+  dormancy_care_active: boolean;
+  materialized_at: string | null;
+  source_template_key: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
+
+/**
+ * REQ-047 §2.3 — winter path derived from the hardiness traffic light
+ * (invariant D5): `A` = in-situ dormancy with protection, `B` = relocated to a
+ * winter quarter / tuber storage.
+ */
+export type OverwinteringPath = 'A' | 'B';
+
+/**
+ * REQ-047 §4.3 — partial override of an auto-materialised overwintering profile.
+ * Any field the user sets flips `user_overridden` to `true` on the backend, so
+ * the automation only fills remaining gaps afterwards.
+ */
+export type OverwinteringOverride = Partial<
+  Omit<OverwinteringProfileCreate, 'plant_key' | 'planting_run_key'>
+>;
 
 export interface OverwinteringProfileCreate {
   plant_key?: string | null;
@@ -4799,6 +4821,51 @@ export interface WinterHardinessOverview {
   red: number;
   total: number;
   red_plants: WinterHardinessOverviewEntry[];
+}
+
+// ── REQ-047 Season & overwintering automation ─────────────────────────────
+
+/**
+ * REQ-047 §2.2 — season state machine of an outdoor/greenhouse site.
+ * Directed cycle: growing → pre_winter → winter_dormancy → pre_spring → growing.
+ */
+export type SeasonPhase =
+  | 'growing'
+  | 'pre_winter'
+  | 'winter_dormancy'
+  | 'pre_spring';
+
+/**
+ * REQ-047 §1 — which cascade tier produced the current season state
+ * (best-source-wins: live weather → climatological → calendar). Surfaced so the
+ * dashboard can show whether a warning rests on real data or an estimate.
+ */
+export type SeasonTriggerTier = 'live' | 'climatological' | 'calendar';
+
+/**
+ * REQ-047 §2.1 — the per-site season state (mirrors `SeasonStateResponse`).
+ */
+export interface SeasonState {
+  site_key: string;
+  season_state_id: string;
+  phase: SeasonPhase;
+  trigger_tier: SeasonTriggerTier;
+  /** i18n key for the natural-language trigger reason, e.g. `pages.season.trigger.frostForecast`. */
+  trigger_reason_i18n_key: string;
+  season_year: number | null;
+  entered_phase_at: string | null;
+  last_min_temp_c: number | null;
+  /** ISO date of the next forecast frost (live tier only). */
+  forecast_first_frost_date: string | null;
+  /** Climatological frost termini (tier 2/3), format `MM-DD`. */
+  estimated_first_frost_md: string | null;
+  estimated_last_frost_md: string | null;
+  evaluated_at: string | null;
+}
+
+/** REQ-047 §4.4 — aggregated season states across all outdoor sites of a tenant. */
+export interface SeasonOverview {
+  states: SeasonState[];
 }
 
 // ── REQ-046 Weather sources ───────────────────────────────────────────────

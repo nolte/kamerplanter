@@ -1,9 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from app.common.enums import (
     ApplicationMethod,
     ConfirmAction,
     ReminderType,
+    SeasonPhase,
     TaskCategory,
     TaskPriority,
     TaskStatus,
@@ -28,6 +29,29 @@ from app.domain.models.overwintering_profile_template import OverwinteringProfil
 from app.domain.models.species import Species
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
+
+#: Which winter/spring reminder types a SeasonState transition into a given phase
+#: owns (REQ-047 §3.2). Used to create them the moment the site enters the phase.
+_SEASON_PHASE_REMINDERS: dict[SeasonPhase, tuple[ReminderType, ...]] = {
+    SeasonPhase.PRE_WINTER: (ReminderType.WINTER_PROTECTION, ReminderType.TUBER_DIG),
+    SeasonPhase.PRE_SPRING: (ReminderType.SPRING_UNCOVER,),
+}
+
+
+def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
+    """Human-readable task instruction for a care-reminder type (shared, REQ-022)."""
+    return {
+        ReminderType.FERTILIZING: f"Fertilize {plant_label} according to care profile.",
+        ReminderType.REPOTTING: f"Check if {plant_label} needs repotting.",
+        ReminderType.PEST_CHECK: f"Inspect {plant_label} for pests and diseases.",
+        ReminderType.LOCATION_CHECK: f"Check if {plant_label} needs a location change.",
+        ReminderType.HUMIDITY_CHECK: f"Check humidity around {plant_label}.",
+        ReminderType.WINTER_PROTECTION: f"Apply winter protection for {plant_label}.",
+        ReminderType.SPRING_UNCOVER: f"Uncover / reactivate {plant_label} for spring.",
+        ReminderType.TUBER_DIG: f"Dig up and store the tubers/bulbs of {plant_label}.",
+        ReminderType.STORAGE_CHECK: f"Check the stored tubers/bulbs of {plant_label}.",
+        ReminderType.DEADHEADING: f"Deadhead spent blooms on {plant_label}.",
+    }.get(reminder_type, f"Care reminder: {reminder_type.value} for {plant_label}.")
 
 
 def _template_to_profile(
@@ -451,6 +475,94 @@ class CareReminderService:
             cultivar = self._species_repo.get_cultivar_by_key(cultivar_key)
             cache[cultivar_key] = [t.value for t in cultivar.traits] if cultivar else []
         return cache[cultivar_key]
+
+    def resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
+        """Public accessor for the per-instance/shared-template overwintering profile.
+
+        Encapsulates the N:1 template fallback so collaborators (e.g. the season
+        state service) no longer reach into the private resolver (C3).
+        """
+        return self._resolve_overwintering_profile(plant_key)
+
+    def ensure_seasonal_winter_tasks(self, plant_key: str, season_phase: SeasonPhase) -> list[Task]:
+        """REQ-047 §3.2 — create the winter/spring tasks a SeasonState transition owns.
+
+        Primary trigger for ``winter_protection`` / ``tuber_dig`` (on ``pre_winter``)
+        and ``spring_uncover`` (on ``pre_spring``): the season phase drives them, not
+        the calendar month. Idempotent — an equivalent active/recent task is never
+        duplicated. The month-based path in the engine stays the fallback for sites
+        without a SeasonState. Returns the tasks that were created.
+        """
+        if self._task_repo is None or self._plant_repo is None:
+            return []
+        reminder_types = _SEASON_PHASE_REMINDERS.get(season_phase, ())
+        if not reminder_types:
+            return []
+
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None or plant.removed_on is not None:
+            return []
+
+        profile = self._repo.get_profile_by_plant_key(plant_key) or self.get_or_create_profile(plant_key)
+        overwintering_profile = self._resolve_overwintering_profile(plant_key)
+        species = self._resolve_species(plant.species_key, {})
+        frost_sensitivity = species.frost_sensitivity if species else None
+        cultivar_traits = self._resolve_cultivar_traits(plant.cultivar_key, {})
+
+        created: list[Task] = []
+        for reminder_type in reminder_types:
+            if not self._engine.should_generate_reminder(
+                profile,
+                reminder_type,
+                overwintering_profile=overwintering_profile,
+                frost_sensitivity=frost_sensitivity,
+                cultivar_traits=cultivar_traits,
+                season_phase=season_phase,
+            ):
+                continue
+            task = self._ensure_care_task(plant, reminder_type)
+            if task is not None:
+                created.append(task)
+        return created
+
+    def _ensure_care_task(self, plant, reminder_type: ReminderType) -> Task | None:  # noqa: ANN001 — PlantInstance
+        """Create one care-reminder Task idempotently (shared dedup convention).
+
+        Skips when an equivalent task is already PENDING/IN_PROGRESS or was
+        completed today, matching the daily ``generate_due_care_reminders`` producer.
+        """
+        if self._task_repo is None:
+            return None
+        plant_key = plant.key or ""
+        name_suffix = f"— {reminder_type.value}"
+        today_str = date.today().isoformat()
+        existing = self._task_repo.find_by_field("entity_key", plant_key)
+        already_exists = any(
+            t.get("category") == TaskCategory.CARE_REMINDER.value
+            and t.get("name", "").endswith(name_suffix)
+            and (
+                t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                or (t.get("status") == TaskStatus.COMPLETED.value and str(t.get("completed_at", ""))[:10] >= today_str)
+            )
+            for t in existing
+        )
+        if already_exists:
+            return None
+
+        plant_label = plant.plant_name or plant.instance_id or plant_key
+        today = date.today()
+        task = Task(
+            name=f"{plant_label} {name_suffix}",
+            instruction=care_reminder_instruction(reminder_type, plant_label),
+            category=TaskCategory.CARE_REMINDER,
+            entity_key=plant_key,
+            entity_type="plant_instance",
+            tenant_key=plant.tenant_key,
+            due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
+            status=TaskStatus.PENDING,
+            priority=TaskPriority.MEDIUM,
+        )
+        return self._task_repo.create_task(task)
 
     def _resolve_overwintering_profile(self, plant_key: str) -> OverwinteringProfile | None:
         """Load the plant's overwintering profile (one lookup per subject, B1).
