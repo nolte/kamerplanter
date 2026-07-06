@@ -3,7 +3,6 @@ import type {
   OverwinteringOverride,
   OverwinteringProfile,
   SeasonOverview,
-  SeasonState,
 } from '../types';
 
 /**
@@ -15,14 +14,6 @@ import type {
 /** Aggregated season states across all outdoor/greenhouse sites of the tenant. */
 export async function getSeasonOverview(): Promise<SeasonOverview> {
   const { data } = await client.get<SeasonOverview>('/season/overview');
-  return data;
-}
-
-/** Current season state (and trigger source) of a single site. */
-export async function getSiteSeasonState(siteKey: string): Promise<SeasonState> {
-  const { data } = await client.get<SeasonState>(
-    `/sites/${siteKey}/season-state`,
-  );
   return data;
 }
 

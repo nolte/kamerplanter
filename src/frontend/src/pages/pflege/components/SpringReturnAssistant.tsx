@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -107,6 +107,61 @@ export default function SpringReturnAssistant() {
     return map;
   }, [plantingRuns]);
 
+  // REQ-047 §4.2 / REQ-024 — the spring checklist must be restricted to plants
+  // whose *site* has actually reached `pre_spring`. The component-level gate
+  // ("at least one site in pre_spring") is not enough on multi-site tenants
+  // (community gardens): a plant still wintering at a `winter_dormancy` site
+  // must never appear in the "ready for spring" list, or the user hardens it off
+  // too early.
+  const preSpringSiteKeys = useMemo(
+    () => new Set(preSpringSites.map((s) => s.site_key)),
+    [preSpringSites],
+  );
+
+  // Overwintering profiles carry no site_key, so the site is resolved via the
+  // linked plant/run. Plant instances expose `site_key` directly (precise);
+  // planting runs expose only `location_key`, which is mapped to a site using
+  // the location→site pairs the loaded plant instances provide (best-effort
+  // approximation — there is no locations slice in the store).
+  const siteKeyByPlantKey = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const p of plantInstances) map.set(p.key, p.site_key);
+    return map;
+  }, [plantInstances]);
+
+  const siteKeyByLocationKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of plantInstances) {
+      if (p.location_key && p.site_key) map.set(p.location_key, p.site_key);
+    }
+    return map;
+  }, [plantInstances]);
+
+  const runLocationByKey = useMemo(() => {
+    const map = new Map<string, string | null>();
+    for (const r of plantingRuns) map.set(r.key, r.location_key);
+    return map;
+  }, [plantingRuns]);
+
+  // Resolve a profile to its site. Returns null when the site cannot be
+  // determined (unknown plant/run, or a run whose location is not covered by the
+  // loaded plant instances) — such profiles are excluded from the list below,
+  // which errs on the safe side (never advises moving a plant out too early) at
+  // the cost of possibly hiding a run whose site is unresolvable in the client.
+  const siteKeyForProfile = useCallback(
+    (p: OverwinteringProfile): string | null => {
+      if (p.plant_key) return siteKeyByPlantKey.get(p.plant_key) ?? null;
+      if (p.planting_run_key) {
+        const locationKey = runLocationByKey.get(p.planting_run_key);
+        return locationKey
+          ? (siteKeyByLocationKey.get(locationKey) ?? null)
+          : null;
+      }
+      return null;
+    },
+    [siteKeyByPlantKey, siteKeyByLocationKey, runLocationByKey],
+  );
+
   const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
 
   // Earliest upcoming forecast frost across the pre-spring sites (live tier).
@@ -124,12 +179,14 @@ export default function SpringReturnAssistant() {
     const groups = new Map<SpringAction, OverwinteringProfile[]>();
     for (const p of profiles) {
       if (!p.spring_action) continue;
+      const siteKey = siteKeyForProfile(p);
+      if (!siteKey || !preSpringSiteKeys.has(siteKey)) continue;
       const existing = groups.get(p.spring_action) ?? [];
       existing.push(p);
       groups.set(p.spring_action, existing);
     }
     return [...groups.entries()];
-  }, [profiles]);
+  }, [profiles, siteKeyForProfile, preSpringSiteKeys]);
 
   if (!isPreSpring) return null;
 

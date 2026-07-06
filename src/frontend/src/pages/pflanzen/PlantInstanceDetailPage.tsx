@@ -2027,7 +2027,10 @@ export default function PlantInstanceDetailPage() {
               optional per-field override / reset-to-automatic affordances. */}
           {key && (
             <Box sx={{ mt: 3 }}>
-              <OverwinteringSection plantKey={key} />
+              {/* key={key}: remount on plant change so a slow in-flight profile
+                  read for the previous plant can never render here (belt-and-
+                  suspenders alongside the slice-level stale-response guard). */}
+              <OverwinteringSection key={key} plantKey={key} />
             </Box>
           )}
         </Box>

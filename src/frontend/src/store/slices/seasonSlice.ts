@@ -20,32 +20,32 @@ export interface SeasonSliceState {
   overview: SeasonState[];
   overviewLoading: boolean;
   overviewError: string | null;
-  /** Optional per-site state keyed by site_key. */
-  siteStates: Record<string, SeasonState>;
   /** Overwintering profile of the plant instance currently in view. */
   currentProfile: OverwinteringProfile | null;
   profileLoading: boolean;
   profileError: string | null;
+  /**
+   * Plant key of the most recently requested profile read. Used to discard
+   * stale in-flight responses when the user navigates plant A → B before A's
+   * request resolves — otherwise A's profile would leak onto B's detail page
+   * (the slice is shared across all `OverwinteringSection` mounts).
+   */
+  requestedPlantKey: string | null;
 }
 
 const initialState: SeasonSliceState = {
   overview: [],
   overviewLoading: false,
   overviewError: null,
-  siteStates: {},
   currentProfile: null,
   profileLoading: false,
   profileError: null,
+  requestedPlantKey: null,
 };
 
 export const fetchSeasonOverview = createAsyncThunk(
   'season/fetchOverview',
   async () => (await api.getSeasonOverview()).states,
-);
-
-export const fetchSeasonState = createAsyncThunk(
-  'season/fetchState',
-  async (siteKey: string) => api.getSiteSeasonState(siteKey),
 );
 
 export const fetchOverwintering = createAsyncThunk(
@@ -82,6 +82,9 @@ const seasonSlice = createSlice({
     clearCurrentProfile(state) {
       state.currentProfile = null;
       state.profileError = null;
+      // Drop the pending request marker so a late response arriving after the
+      // section unmounted can no longer write into the shared slice.
+      state.requestedPlantKey = null;
     },
   },
   extraReducers: (builder) => {
@@ -95,32 +98,41 @@ const seasonSlice = createSlice({
         state.overviewLoading = false;
         state.overview = action.payload;
       })
-      .addCase(fetchSeasonOverview.rejected, (state, action) => {
+      .addCase(fetchSeasonOverview.rejected, (state) => {
         state.overviewLoading = false;
-        state.overviewError = action.error.message ?? 'errors.loadFailed';
-      })
-      // Single site
-      .addCase(fetchSeasonState.fulfilled, (state, action) => {
-        state.siteStates[action.payload.site_key] = action.payload;
+        state.overviewError = 'errors.loadFailed';
       })
       // Profile read
-      .addCase(fetchOverwintering.pending, (state) => {
+      .addCase(fetchOverwintering.pending, (state, action) => {
         state.profileLoading = true;
         state.profileError = null;
+        state.requestedPlantKey = action.meta.arg;
+        // Never keep a previous plant's profile visible while the new one loads:
+        // the loading skeleton must win (its guard is `!currentProfile`).
+        state.currentProfile = null;
       })
       .addCase(fetchOverwintering.fulfilled, (state, action) => {
+        // Discard responses for a plant the user already navigated away from.
+        if (action.meta.arg !== state.requestedPlantKey) return;
         state.profileLoading = false;
         state.currentProfile = action.payload;
       })
       .addCase(fetchOverwintering.rejected, (state, action) => {
+        if (action.meta.arg !== state.requestedPlantKey) return;
         state.profileLoading = false;
-        state.profileError = action.error.message ?? 'errors.loadFailed';
+        // Surface a localised key (FE-L5), never the raw backend/technical
+        // message — ErrorDisplay resolves `errors.*` keys to the active locale.
+        state.profileError = 'errors.loadFailed';
       })
-      // Profile mutations — both replace the current profile
+      // Profile mutations — both replace the current profile, but only if the
+      // user is still viewing the same plant (guards a slow PATCH/POST that
+      // resolves after navigation).
       .addCase(overrideOverwintering.fulfilled, (state, action) => {
+        if (action.meta.arg.plantKey !== state.requestedPlantKey) return;
         state.currentProfile = action.payload;
       })
       .addCase(resetOverwintering.fulfilled, (state, action) => {
+        if (action.meta.arg !== state.requestedPlantKey) return;
         state.currentProfile = action.payload;
       });
   },

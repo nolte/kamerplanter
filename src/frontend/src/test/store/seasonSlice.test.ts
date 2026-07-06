@@ -3,7 +3,6 @@ import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
   clearCurrentProfile,
   fetchSeasonOverview,
-  fetchSeasonState,
   fetchOverwintering,
   overrideOverwintering,
   resetOverwintering,
@@ -51,7 +50,7 @@ describe('seasonSlice reducers', () => {
     expect(state.overview).toEqual([]);
     expect(state.overviewLoading).toBe(false);
     expect(state.currentProfile).toBeNull();
-    expect(state.siteStates).toEqual({});
+    expect(state.requestedPlantKey).toBeNull();
   });
 
   it('fetchSeasonOverview transitions pending → fulfilled', () => {
@@ -65,53 +64,129 @@ describe('seasonSlice reducers', () => {
     expect(done.overview).toEqual([state1]);
   });
 
-  it('fetchSeasonOverview.rejected records the error', () => {
+  it('fetchSeasonOverview.rejected records a localised error key', () => {
     const state = reducer(undefined, {
       type: fetchSeasonOverview.rejected.type,
-      error: { message: 'nope' },
+      error: { message: 'raw backend nope' },
     });
-    expect(state.overviewError).toBe('nope');
+    expect(state.overviewError).toBe('errors.loadFailed');
   });
 
-  it('fetchSeasonState.fulfilled keys the state by site_key', () => {
-    const state = reducer(undefined, {
-      type: fetchSeasonState.fulfilled.type,
-      payload: state1,
-    });
-    expect(state.siteStates['site-1']).toEqual(state1);
+  it('fetchOverwintering pending → fulfilled stores the current profile', () => {
+    const pending = reducer(undefined, fetchOverwintering.pending('req-1', 'plant-1'));
+    expect(pending.profileLoading).toBe(true);
+    expect(pending.requestedPlantKey).toBe('plant-1');
+    const done = reducer(
+      pending,
+      fetchOverwintering.fulfilled(profile, 'req-1', 'plant-1'),
+    );
+    expect(done.currentProfile).toEqual(profile);
+    expect(done.profileLoading).toBe(false);
   });
 
-  it('fetchOverwintering.fulfilled stores the current profile', () => {
-    const state = reducer(undefined, {
-      type: fetchOverwintering.fulfilled.type,
-      payload: profile,
-    });
-    expect(state.currentProfile).toEqual(profile);
-    expect(state.profileLoading).toBe(false);
+  it('pending clears the previous plant profile so the loader guard wins (F1)', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('reqA', 'plant-A'));
+    state = reducer(state, fetchOverwintering.fulfilled(profile, 'reqA', 'plant-A'));
+    expect(state.currentProfile).not.toBeNull();
+    // Navigating to another plant must immediately drop A's profile — otherwise
+    // the `!currentProfile` skeleton guard never fires and A stays on screen.
+    state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
+    expect(state.currentProfile).toBeNull();
+    expect(state.profileLoading).toBe(true);
+    expect(state.requestedPlantKey).toBe('plant-B');
+  });
+
+  it('discards a stale profile response after navigating to another plant (F1)', () => {
+    // Request for plant A starts, then the user navigates to plant B: A's
+    // section unmounts (clearCurrentProfile) and B's mounts and requests.
+    let state = reducer(undefined, fetchOverwintering.pending('reqA', 'plant-A'));
+    state = reducer(state, clearCurrentProfile());
+    state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
+
+    // A's slow response finally arrives — it must NOT leak onto B's page.
+    const profileA = { ...profile, key: 'ow-A', plant_key: 'plant-A' };
+    state = reducer(
+      state,
+      fetchOverwintering.fulfilled(profileA, 'reqA', 'plant-A'),
+    );
+    expect(state.currentProfile).toBeNull();
+    expect(state.requestedPlantKey).toBe('plant-B');
+
+    // B's own response applies normally.
+    const profileB = { ...profile, key: 'ow-B', plant_key: 'plant-B' };
+    state = reducer(
+      state,
+      fetchOverwintering.fulfilled(profileB, 'reqB', 'plant-B'),
+    );
+    expect(state.currentProfile).toEqual(profileB);
+  });
+
+  it('fetchOverwintering.rejected stores a localised key, not the raw message', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('req-1', 'plant-1'));
+    state = reducer(
+      state,
+      fetchOverwintering.rejected(new Error('raw backend boom'), 'req-1', 'plant-1'),
+    );
+    expect(state.profileError).toBe('errors.loadFailed');
+  });
+
+  it('discards a stale rejection after navigating away (F1)', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('reqA', 'plant-A'));
+    state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
+    // A's late failure must not raise an error banner on B's page.
+    state = reducer(
+      state,
+      fetchOverwintering.rejected(new Error('boom'), 'reqA', 'plant-A'),
+    );
+    expect(state.profileError).toBeNull();
+    expect(state.profileLoading).toBe(true);
   });
 
   it('override and reset replace the current profile', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('req-1', 'plant-1'));
+    state = reducer(state, fetchOverwintering.fulfilled(profile, 'req-1', 'plant-1'));
+
     const overridden = { ...profile, user_overridden: true };
-    const afterOverride = reducer(undefined, {
-      type: overrideOverwintering.fulfilled.type,
-      payload: overridden,
-    });
+    const afterOverride = reducer(
+      state,
+      overrideOverwintering.fulfilled(overridden, 'req-2', {
+        plantKey: 'plant-1',
+        patch: { winter_watering: 'minimal' },
+      }),
+    );
     expect(afterOverride.currentProfile?.user_overridden).toBe(true);
 
-    const afterReset = reducer(afterOverride, {
-      type: resetOverwintering.fulfilled.type,
-      payload: profile,
-    });
+    const afterReset = reducer(
+      afterOverride,
+      resetOverwintering.fulfilled(profile, 'req-3', 'plant-1'),
+    );
     expect(afterReset.currentProfile?.user_overridden).toBe(false);
   });
 
-  it('clearCurrentProfile empties the profile', () => {
-    const seeded = reducer(undefined, {
-      type: fetchOverwintering.fulfilled.type,
-      payload: profile,
-    });
-    const cleared = reducer(seeded, clearCurrentProfile());
+  it('ignores an override that resolves after navigating to another plant (F1)', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('reqA', 'plant-A'));
+    state = reducer(state, fetchOverwintering.fulfilled(profile, 'reqA', 'plant-A'));
+    state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
+
+    const overridden = { ...profile, key: 'ow-A', user_overridden: true };
+    state = reducer(
+      state,
+      overrideOverwintering.fulfilled(overridden, 'reqX', {
+        plantKey: 'plant-A',
+        patch: { winter_watering: 'minimal' },
+      }),
+    );
+    // B is the active plant now — A's mutation must not overwrite the slice.
+    expect(state.currentProfile).toBeNull();
+    expect(state.requestedPlantKey).toBe('plant-B');
+  });
+
+  it('clearCurrentProfile empties the profile and the request marker', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('req-1', 'plant-1'));
+    state = reducer(state, fetchOverwintering.fulfilled(profile, 'req-1', 'plant-1'));
+    const cleared = reducer(state, clearCurrentProfile());
     expect(cleared.currentProfile).toBeNull();
+    expect(cleared.requestedPlantKey).toBeNull();
   });
 });
 
@@ -132,8 +207,12 @@ describe('seasonSlice thunks', () => {
 
   it('overrideOverwintering forwards the patch and stores the result', async () => {
     const overridden = { ...profile, user_overridden: true };
+    mocked.getPlantOverwintering.mockResolvedValue(profile as never);
     mocked.overridePlantOverwintering.mockResolvedValue(overridden as never);
     const store = makeStore();
+    // The section always reads the profile first — that read sets the "current
+    // plant" the override guard checks against.
+    await store.dispatch(fetchOverwintering('plant-1'));
     await store.dispatch(
       overrideOverwintering({ plantKey: 'plant-1', patch: { winter_watering: 'minimal' } }),
     );
@@ -144,8 +223,10 @@ describe('seasonSlice thunks', () => {
   });
 
   it('resetOverwintering calls the reset endpoint', async () => {
+    mocked.getPlantOverwintering.mockResolvedValue(profile as never);
     mocked.resetPlantOverwintering.mockResolvedValue(profile as never);
     const store = makeStore();
+    await store.dispatch(fetchOverwintering('plant-1'));
     await store.dispatch(resetOverwintering('plant-1'));
     expect(mocked.resetPlantOverwintering).toHaveBeenCalledWith('plant-1');
     expect(store.getState().season.currentProfile).toEqual(profile);

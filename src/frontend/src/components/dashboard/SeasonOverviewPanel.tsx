@@ -46,18 +46,27 @@ const triggerIcon: Record<SeasonTriggerTier, SvgIconComponent> = {
   calendar: CalendarMonthIcon,
 };
 
-/** Days from today (calendar days) until an ISO date, or null if unparseable. */
-function daysUntil(isoDate: string): number | null {
-  const target = new Date(isoDate);
+/**
+ * Days from today (calendar days) until an ISO date, or null if unparseable.
+ * Exported for unit testing (F3 regression — timezone-safe calendar math).
+ */
+export function daysUntil(isoDate: string): number | null {
+  // Parse the calendar Y/M/D from the string directly instead of via
+  // `new Date(isoDate)` — the latter reads `YYYY-MM-DD` as UTC midnight, so in
+  // negative UTC offsets (America/*) the local calendar day is one earlier than
+  // the intended date and the frost countdown lands a day too early. Building a
+  // local Date from the parsed parts keeps `target` and `today` on the same
+  // (local) calendar basis, mirroring `formatMonthDay` below.
+  const [year, month, day] = isoDate
+    .split('T')[0]
+    .split('-')
+    .map((n) => Number.parseInt(n, 10));
+  if (!year || !month || !day) return null;
+  const target = new Date(year, month - 1, day);
   if (Number.isNaN(target.getTime())) return null;
   const today = new Date();
   const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const t1 = new Date(
-    target.getFullYear(),
-    target.getMonth(),
-    target.getDate(),
-  );
-  return Math.round((t1.getTime() - t0.getTime()) / 86_400_000);
+  return Math.round((target.getTime() - t0.getTime()) / 86_400_000);
 }
 
 /**
