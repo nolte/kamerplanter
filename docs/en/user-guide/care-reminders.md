@@ -121,10 +121,10 @@ Effective interval = base interval × winter factor
 
 ## Overwintering Management
 
-!!! warning "Not yet implemented"
-    A winter hardiness traffic light (colour rating based on frost sensitivity and climate zone), frost-forecast-driven reminders, and a tuber-cycle tab will be available in a future version. Five related reminder types (deadheading, tuber digging, storage check, spring uncovering, winter protection) already exist as a data model, but do not yet generate reminders — the evaluation logic is missing.
+For outdoor and greenhouse plants, Kamerplanter automatically creates an overwintering plan as soon as your site detects that winter is approaching — including a winter-hardiness traffic light, a protection measure, and a dedicated care plan during winter dormancy. You don't need to create a profile for this.
 
-    For frost-tender outdoor plants you currently need to plan digging and storage dates yourself in the calendar or as a custom [task](tasks.md).
+- [Season Automation](season-automation.md) explains how Kamerplanter detects when winter begins and ends.
+- [Overwintering](overwintering.md) shows you the automatically created plan per plant and how to adjust it if needed.
 
 ---
 

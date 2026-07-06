@@ -121,6 +121,8 @@ plugins:
             Umgebungssteuerung: Actuator Control
             Mandanten & Gaerten: Tenants & Gardens
             Pflegeerinnerungen: Care Reminders
+            Saison-Automatik: Season Automation
+            Überwinterung: Overwintering
             Module & Funktionen: Modules & Features
             Vermehrung: Propagation
             Datenschutz (DSGVO): Privacy (GDPR)
@@ -301,6 +303,8 @@ nav:
       - Umgebungssteuerung: de/user-guide/actuator-control.md
       - Mandanten & Gaerten: de/user-guide/tenants.md
       - Pflegeerinnerungen: de/user-guide/care-reminders.md
+      - Saison-Automatik: de/user-guide/season-automation.md
+      - Überwinterung: de/user-guide/overwintering.md
       - Benachrichtigungen: de/user-guide/notifications.md
       - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md

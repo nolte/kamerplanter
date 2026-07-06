@@ -121,10 +121,10 @@ Effektives Intervall = Basis-Intervall × Winter-Faktor
 
 ## Überwinterungsmanagement
 
-!!! warning "Noch nicht implementiert"
-    Eine Winterhärte-Ampel (farbige Einstufung nach Frostempfindlichkeit und Klimazone), Frostprognose-gesteuerte Erinnerungen und ein Knollen-Zyklus-Tab werden in einer zukünftigen Version verfügbar sein. Fünf zugehörige Erinnerungstypen (Entblättern, Knollen ausgraben, Lagerkontrolle, Frühjahrs-Auspacken, Winterschutz) sind bereits als Datenmodell angelegt, erzeugen aber noch keine Erinnerungen — es fehlt die Auswertungslogik.
+Für Freiland- und Gewächshaus-Pflanzen erstellt Kamerplanter automatisch einen Überwinterungsplan, sobald dein Standort erkennt, dass der Winter naht — inklusive Winterhärte-Ampel, Schutzmaßnahme und einem eigenen Pflegeplan während der Winterruhe. Du musst dafür kein Profil anlegen. <!-- REQ-047 -->
 
-    Für frostempfindliche Freilandpflanzen musst du Ausgrabe- und Einlagerungstermine aktuell selbst im Kalender oder als eigene [Aufgabe](tasks.md) planen.
+- [Saison-Automatik](season-automation.md) erklärt, wie Kamerplanter erkennt, wann der Winter beginnt und endet.
+- [Überwinterung](overwintering.md) zeigt dir den automatisch erstellten Plan je Pflanze und wie du ihn bei Bedarf anpasst.
 
 ---
 
