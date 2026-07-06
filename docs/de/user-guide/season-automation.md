@@ -1,19 +1,19 @@
 # Saison-Automatik: Wann kommt der Winter?
 
-Für alle deine Freiland- und Gewächshaus-Standorte erkennt Kamerplanter selbstständig, wann sich der Winter ankündigt, wann die Winterruhe beginnt und wann es Zeit ist, deine Pflanzen im Frühling wieder zurückzuholen. Du musst dafür nichts einstellen — das System nutzt automatisch die beste verfügbare Datenquelle für deinen Standort. <!-- REQ-047 -->
+Für alle deine Freiland-, Gewächshaus- und Balkon-Standorte erkennt Kamerplanter selbstständig, wann sich der Winter ankündigt, wann die Winterruhe beginnt und wann es Zeit ist, deine Pflanzen im Frühling wieder zurückzuholen. Du musst dafür nichts einstellen — das System nutzt automatisch die beste verfügbare Datenquelle für deinen Standort. <!-- REQ-047 -->
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens ein Standort vom Typ **Außenbereich** (Freiland) oder **Gewächshaus** — für reine Innenraum-Standorte (Growzelt, Zimmer, Balkon) gibt es keine Saison-Automatik; dort gilt weiterhin die einfache, hemisphären-basierte Winter-Gießanpassung aus den [Pflegeerinnerungen](care-reminders.md#saisonale-anpassung).
+- Mindestens ein Standort vom Typ **Außenbereich** (Freiland), **Gewächshaus** oder **Balkon** — für reine Innenraum-Standorte (Innenbereich, Fensterbrett, Growzelt) gibt es keine Saison-Automatik; dort gilt weiterhin die einfache, hemisphären-basierte Winter-Gießanpassung aus den [Pflegeerinnerungen](care-reminders.md#saisonale-anpassung).
 - Keine weitere Einrichtung nötig — die Auswertung läuft täglich automatisch im Hintergrund.
 
 ---
 
 ## Die vier Jahreszeiten-Stufen
 
-Jeder Freiland- oder Gewächshaus-Standort durchläuft pro Winter genau einen Zyklus aus vier Zuständen:
+Jeder Freiland-, Gewächshaus- oder Balkon-Standort durchläuft pro Winter genau einen Zyklus aus vier Zuständen:
 
 <!-- diagram-source: user-described — the four-phase season state machine (REQ-047 §2.2), one cycle per winter -->
 ```mermaid

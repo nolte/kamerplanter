@@ -4757,6 +4757,27 @@ export interface OverwinteringProfile {
 export type OverwinteringPath = 'A' | 'B';
 
 /**
+ * REQ-047 §4.3 — winter-hardiness status of a plant instance (always HTTP 200,
+ * mirrors the backend `PlantOverwinteringStatus`). Additive companion to the
+ * profile read so the detail page can tell three states apart:
+ *  - `has_profile=true` — a profile is materialised.
+ *  - `has_profile=false` + `will_materialize=true` — no profile yet, but the
+ *    ampel is yellow/red so one is auto-created at the autumn season transition.
+ *  - `has_profile=false` + `hardiness_light='green'` — genuinely winter-hardy.
+ * `hardiness_light=null` means the context is unknown (show a neutral text).
+ * `site_overwinterable=false` means the plant sits on an indoor/protected site
+ * (not in `OVERWINTERING_SITE_TYPES`): it is never materialised, so
+ * `will_materialize` stays `false` regardless of the ampel and the UI explains
+ * that no outdoor overwintering is due.
+ */
+export interface PlantOverwinteringStatus {
+  has_profile: boolean;
+  hardiness_light: WinterHardinessLight | null;
+  will_materialize: boolean;
+  site_overwinterable: boolean;
+}
+
+/**
  * REQ-047 §4.3 — partial override of an auto-materialised overwintering profile.
  * Any field the user sets flips `user_overridden` to `true` on the backend, so
  * the automation only fills remaining gaps afterwards.

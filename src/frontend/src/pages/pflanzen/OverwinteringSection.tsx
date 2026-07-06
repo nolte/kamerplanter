@@ -8,6 +8,7 @@ import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import Divider from '@mui/material/Divider';
+import Skeleton from '@mui/material/Skeleton';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -19,6 +20,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   clearCurrentProfile,
   fetchOverwintering,
+  fetchOverwinteringStatus,
   resetOverwintering,
 } from '@/store/slices/seasonSlice';
 import { useNotification } from '@/hooks/useNotification';
@@ -55,9 +57,14 @@ export default function OverwinteringSection({ plantKey }: Props) {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const { currentProfile, profileLoading, profileError } = useAppSelector(
-    (s) => s.season,
-  );
+  const {
+    currentProfile,
+    profileLoading,
+    profileError,
+    currentStatus,
+    statusLoading,
+    requestedPlantKey,
+  } = useAppSelector((s) => s.season);
   const [editOpen, setEditOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -68,6 +75,31 @@ export default function OverwinteringSection({ plantKey }: Props) {
       dispatch(clearCurrentProfile());
     };
   }, [dispatch, plantKey]);
+
+  // Empty state only: once the profile read resolved to "no profile" (and it was
+  // not an error), find out *why* — genuinely winter-hardy (ampel green) vs. a
+  // profile that is only materialised at the autumn season transition (yellow/
+  // red). Without this the section would wrongly claim every profile-less plant
+  // is winter-hardy (REQ-047 §4.3). The dependency set fires this exactly once
+  // per plant: `plantKey` / the profile-read outcome only settle a single time.
+  //
+  // `requestedPlantKey === plantKey` guards against firing this on the very
+  // render that *also* kicks off `fetchOverwintering` above: on mount (or right
+  // after navigating from another plant) `profileLoading`/`profileError`/
+  // `currentProfile` still hold their pre-fetch values from the *previous*
+  // render, which happen to look exactly like "no profile" — without this guard
+  // a superfluous status request would fire for every plant, including ones
+  // that do have a profile.
+  useEffect(() => {
+    if (
+      requestedPlantKey === plantKey &&
+      !profileLoading &&
+      !profileError &&
+      !currentProfile
+    ) {
+      dispatch(fetchOverwinteringStatus(plantKey));
+    }
+  }, [dispatch, plantKey, profileLoading, profileError, currentProfile, requestedPlantKey]);
 
   const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
   const monthName = (m: number | null) =>
@@ -141,8 +173,24 @@ export default function OverwinteringSection({ plantKey }: Props) {
     );
   }
 
-  // No profile: winter-hardy plant or not yet materialised. Explain, don't alarm.
+  // No profile: several distinct reasons that must not be conflated (REQ-047
+  // §4.3/§3.4). Resolution order once the status has loaded:
+  //  1. `site_overwinterable === false` — the plant sits on an indoor/protected
+  //     site that is never materialised, so no outdoor overwintering is due.
+  //  2. else `hardiness_light === 'green'` — genuinely winter-hardy, nothing to do.
+  //  3. else — a protection plan is auto-created at the autumn season transition.
+  // While the status is still resolving we show a skeleton rather than risk the
+  // wrong message; an unknown status (rejected read) falls back to the (safe)
+  // pending hint — never a false "winter-hardy" and never a false "indoor".
   if (!currentProfile) {
+    // No status yet (null) ⇒ still resolving. A rejected read stores an explicit
+    // "unknown" status object, so a failure surfaces the (safe) pending hint
+    // rather than sticking on the skeleton forever.
+    const statusPending = statusLoading || currentStatus === null;
+    // Only an explicit `false` counts as "indoor"; an unknown status (no field)
+    // must not trip the indoor hint — hence the strict comparison.
+    const isIndoorSite = currentStatus?.site_overwinterable === false;
+    const isWinterHardy = currentStatus?.hardiness_light === 'green';
     return (
       <Card data-testid="overwintering-section-empty">
         <CardContent>
@@ -152,9 +200,41 @@ export default function OverwinteringSection({ plantKey }: Props) {
               {t('pages.season.override.title')}
             </Typography>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            {t('pages.season.override.emptyHint')}
-          </Typography>
+          {statusPending ? (
+            // Rendered inside a `body2` Typography so the Skeleton inherits its
+            // font-size/line-height and matches the final text's footprint —
+            // otherwise it defaults to `body1` sizing and the layout jumps
+            // (height change) the instant the real hint text swaps in.
+            <Typography variant="body2" component="div">
+              <Skeleton
+                variant="text"
+                width="80%"
+                aria-busy="true"
+                aria-label={t('common.loading')}
+                data-testid="overwintering-section-status-loading"
+              />
+            </Typography>
+          ) : isIndoorSite ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="overwintering-section-indoor"
+            >
+              {t('pages.season.override.indoorHint')}
+            </Typography>
+          ) : isWinterHardy ? (
+            <Typography variant="body2" color="text.secondary">
+              {t('pages.season.override.emptyHint')}
+            </Typography>
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              data-testid="overwintering-section-pending"
+            >
+              {t('pages.season.override.pendingHint')}
+            </Typography>
+          )}
         </CardContent>
       </Card>
     );

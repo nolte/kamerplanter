@@ -179,6 +179,8 @@ def get_plant_instance_service() -> PlantInstanceService:
         planting_run_repo=get_planting_run_repo(),
         photo_cleanup=_cascade_plant_photo_cleanup,
         propagation_service=get_propagation_service(),
+        overwintering_materializer=get_overwintering_materializer(),
+        overwintering_service=get_overwintering_profile_service(),
     )
 
 

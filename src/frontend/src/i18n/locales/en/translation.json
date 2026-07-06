@@ -1122,6 +1122,8 @@
         "overriddenBadge": "Adjusted",
         "autoHint": "This overwintering plan was derived automatically from the species profile and your site's hardiness. You don't need to create anything – but you can adjust individual values.",
         "emptyHint": "This plant needs no winter protection – it is considered hardy at your site. No overwintering plan is created automatically.",
+        "pendingHint": "This plant needs winter protection (e.g. covering or mulching). The overwintering plan is created automatically at the start of autumn or when the cold sets in – you don't need to do anything now.",
+        "indoorHint": "This plant is at an indoor or sheltered site – outdoor overwintering is not required here. No overwintering plan is created automatically.",
         "adjust": "Adjust",
         "resetButton": "Reset to automatic",
         "dialogTitle": "Adjust overwintering",

@@ -59,11 +59,11 @@ Fülle folgende Felder aus:
 
 | Typ | Beschreibung |
 |-----|-------------|
-| Außenbereich | Freiland — schaltet Wetterquellen und Frostschutz frei |
-| Gewächshaus | Glashaus oder Folientunnel — schaltet Wetterquellen und Frostschutz frei |
+| Außenbereich | Freiland — schaltet Wetterquellen und die [Überwinterungsautomatik](overwintering.md) frei |
+| Gewächshaus | Glashaus oder Folientunnel — schaltet Wetterquellen und die [Überwinterungsautomatik](overwintering.md) frei |
 | Innenbereich | Zimmer oder Wohnbereich ohne direkten Außenklimabezug |
 | Fensterbrett | Fensterplatz mit indirektem Außenklimabezug |
-| Balkon | Balkon |
+| Balkon | Balkon — schaltet die [Überwinterungsautomatik](overwintering.md) frei; Wetterquellen sind nur für Außenbereich und Gewächshaus verfügbar |
 | Growzelt | Abgeschlossenes Growzelt mit kontrolliertem Klima |
 
 !!! info "Warum USDA-Zonen und nicht Köppen-Klimaklassifikation?"

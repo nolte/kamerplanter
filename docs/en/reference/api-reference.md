@@ -454,7 +454,7 @@ The authoritative ancestry relationship is additionally stored as a `descended_f
 
 ## Season & Overwintering Automation
 
-These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction from the daily evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
+These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction as soon as a plant is assigned to an outdoor, greenhouse, or balcony site (`OVERWINTERING_SITE_TYPES`) — on plant creation, on a site change, and additionally as a safety net from the daily season evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
 
 All endpoints are under the tenant-scoped path `/api/v1/t/{tenant_slug}/` and require a valid JWT token.
 
@@ -492,7 +492,7 @@ If no season state exists yet for the site, the endpoint evaluates it lazily and
 | HTTP Status | Meaning |
 |-------------|---------|
 | `404` | Site not found or does not belong to the tenant |
-| `409` | Site is of type `indoor` — pure indoor sites run no season state |
+| `409` | Site is not of type `outdoor`, `greenhouse`, or `balcony` — only these frost-exposed site types run a season state |
 
 ### Season Overview Across All Sites
 
@@ -500,7 +500,7 @@ If no season state exists yet for the site, the endpoint evaluates it lazily and
 GET /api/v1/t/{tenant_slug}/season/overview
 ```
 
-Returns `{"states": [ ... ]}` with one `SeasonStateResponse` object (see above) per outdoor/greenhouse site of the tenant. Feeds the "Winter Protection" dashboard widget (see [Personalizing the Dashboard](../user-guide/dashboard-personalization.md)).
+Returns `{"states": [ ... ]}` with one `SeasonStateResponse` object (see above) per outdoor, greenhouse, or balcony site of the tenant. Feeds the "Winter Protection" dashboard widget (see [Personalizing the Dashboard](../user-guide/dashboard-personalization.md)).
 
 ### Read a Plant's Overwintering Profile
 
@@ -510,7 +510,35 @@ GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering
 
 **Response (200):** the `OverwinteringProfile` object, including `auto_generated`, `user_overridden`, `derived_path` (`A` = in-situ, `B` = relocated) and `materialized_at`.
 
-**Error Codes:** `404` if the plant has no (materialised) profile — e.g. because it is winter-hardy or has not yet transitioned into "winter approaching".
+**Error Codes:** `404` if the plant has no (materialised) profile — e.g. because it is winter-hardy, is not at a frost-exposed site, or has not yet transitioned into "winter approaching".
+
+### Read a Plant's Overwintering Status
+
+```
+GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/status
+```
+
+Additive, read-only companion to `GET .../overwintering`: always returns `200`, even without a profile at all — useful for the plant detail page to distinguish "winter-hardy", "protection needed, plan pending", and "site not frost-exposed" without abusing the profile endpoint's 404 case for that.
+
+**Response (200):** `PlantOverwinteringStatus` object:
+
+```json
+{
+  "has_profile": false,
+  "hardiness_light": "yellow",
+  "will_materialize": true,
+  "site_overwinterable": true
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `has_profile` | Whether an overwintering profile is already materialised. |
+| `hardiness_light` | Winter-hardiness rating (`green`, `yellow`, `red`), or `null` if it cannot be determined (e.g. missing species or site assignment). |
+| `will_materialize` | Whether a profile is (still) auto-created — `true` only when `site_overwinterable` is true and the rating is not `green`. |
+| `site_overwinterable` | Whether the site type is frost-exposed at all (`outdoor`, `greenhouse`, `balcony`). `false` for indoor, windowsill, grow-tent, or an unresolvable site. |
+
+**Error Codes:** none — the endpoint always responds with `200`, even for a foreign or unresolvable plant (protects against a cross-tenant existence oracle via the 404 difference).
 
 ### Override an Overwintering Profile
 

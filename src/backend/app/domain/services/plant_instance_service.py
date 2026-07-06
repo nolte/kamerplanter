@@ -1,9 +1,17 @@
+from __future__ import annotations
+
 from collections.abc import Callable
 from datetime import UTC, date, datetime
+from typing import TYPE_CHECKING
 
 import structlog
 
-from app.common.enums import TerminationCause, TerminationType, TransitionTrigger
+from app.common.enums import (
+    OVERWINTERING_SITE_TYPES,
+    TerminationCause,
+    TerminationType,
+    TransitionTrigger,
+)
 from app.common.exceptions import ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
@@ -30,6 +38,10 @@ from app.domain.models.survival_stats import (
 )
 from app.domain.services.propagation_service import PropagationService
 
+if TYPE_CHECKING:
+    from app.domain.services.overwintering_materializer import OverwinteringMaterializer
+    from app.domain.services.overwintering_profile_service import OverwinteringProfileService
+
 logger = structlog.get_logger()
 
 
@@ -47,6 +59,8 @@ class PlantInstanceService:
         planting_run_repo: IPlantingRunRepository | None = None,
         photo_cleanup: Callable[[PlantInstance], None] | None = None,
         propagation_service: PropagationService | None = None,
+        overwintering_materializer: OverwinteringMaterializer | None = None,
+        overwintering_service: OverwinteringProfileService | None = None,
     ) -> None:
         self._repo = plant_repo
         self._site_repo = site_repo
@@ -57,6 +71,13 @@ class PlantInstanceService:
         self._task_repo = task_repo
         self._species_repo = species_repo
         self._run_repo = planting_run_repo
+        # REQ-047 §3.4 — eager overwintering automation. Both are optional so the
+        # service stays usable in overwintering-less contexts (tests / internal
+        # callers): the materialiser derives the winter profile when a plant lands
+        # on an outdoor/greenhouse site, the profile service removes a purely
+        # auto-generated profile when it is moved back indoors.
+        self._overwintering_materializer = overwintering_materializer
+        self._overwintering_service = overwintering_service
         # REQ-003 D10 / REQ-017 — clonal-continuation collaborators. The engine
         # is pure (the terminal decision); the PropagationEvent persistence is
         # optional so the service stays usable in propagation-less contexts.
@@ -112,6 +133,12 @@ class PlantInstanceService:
             if slot:
                 slot.currently_occupied = True
                 self._site_repo.update_slot(plant.slot_key, slot)
+
+        # REQ-047 §3.4 — eager overwintering materialisation. A plant created on an
+        # outdoor/greenhouse site derives its winter profile immediately, instead of
+        # waiting for the lazy growing→pre_winter season transition. Best-effort: a
+        # failure here must never fail plant creation.
+        self._sync_overwintering_for_site(created)
 
         return created
 
@@ -348,8 +375,65 @@ class PlantInstanceService:
         return False
 
     def update_plant(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
-        self.get_plant(key)
-        return self._repo.update(key, plant)
+        # Read the persisted state *before* the write so a genuine site change can be
+        # detected (REQ-047 §3.4): the caller has already mutated ``plant`` in memory,
+        # so the DB copy still carries the old site_key.
+        existing = self.get_plant(key)
+        old_site_key = existing.site_key
+        updated = self._repo.update(key, plant)
+        self._sync_overwintering_on_move(updated, old_site_key)
+        return updated
+
+    # ── REQ-047 §3.4 overwintering-profile sync ──────────────────────────
+
+    def _sync_overwintering_for_site(self, plant: PlantInstance) -> None:
+        """Materialise the winter profile for a plant on an outdoor/greenhouse site.
+
+        No-op when the materialiser is unwired, the plant has no site, the site is
+        indoor, or the site cannot be resolved. The materialiser itself enforces the
+        winter-hardiness (green→no profile), idempotency and ``user_overridden``
+        guards; the outdoor/greenhouse guard is applied *here*, in the caller, so an
+        indoor plant with a yellow/red ampel never gets a profile. Best-effort: an
+        overwintering failure must never surface as a failed plant write.
+        """
+        if self._overwintering_materializer is None or not plant.site_key:
+            return
+        try:
+            site = self._site_repo.get_site_by_key(plant.site_key)
+            if site is None or site.type not in OVERWINTERING_SITE_TYPES:
+                return
+            # Fail-safe tenant guard: never derive a profile against a site owned by
+            # another tenant (defence in depth alongside the router's isolation).
+            if plant.tenant_key and site.tenant_key != plant.tenant_key:
+                return
+            self._overwintering_materializer.materialize(plant, site)
+        except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
+            logger.warning("overwintering_materialize_failed", plant_key=plant.key, error=str(exc))
+
+    def _sync_overwintering_on_move(self, plant: PlantInstance, old_site_key: str | None) -> None:
+        """Keep the winter profile in sync when a plant changes site (REQ-047 §3.4).
+
+        Only a genuine site change is acted on — a pure field update (same site_key)
+        neither materialises nor removes anything. Moving onto an outdoor/greenhouse
+        site materialises the profile; moving onto any other site (indoor et al.) or
+        losing the site removes a *purely auto-generated* profile — a manually
+        overridden one is always left untouched. Best-effort throughout.
+        """
+        new_site_key = plant.site_key
+        if new_site_key == old_site_key:
+            return  # no real move — reject reminders churn on unrelated field edits
+        try:
+            new_site = self._site_repo.get_site_by_key(new_site_key) if new_site_key else None
+            if new_site is not None and new_site.type in OVERWINTERING_SITE_TYPES:
+                if plant.tenant_key and new_site.tenant_key != plant.tenant_key:
+                    return
+                if self._overwintering_materializer is not None:
+                    self._overwintering_materializer.materialize(plant, new_site)
+            elif self._overwintering_service is not None and plant.key:
+                # Moved indoors / lost its site: drop an auto-generated profile only.
+                self._overwintering_service.remove_auto_profile_for_plant(plant.key, plant.tenant_key)
+        except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
+            logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=str(exc))
 
     def remove_plant(
         self,
