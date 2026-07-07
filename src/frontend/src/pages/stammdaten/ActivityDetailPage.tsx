@@ -176,8 +176,10 @@ export default function ActivityDetailPage() {
     } catch (err) {
       handleError(err);
     } finally {
+      // Only clear the pending state here; keep the dialog open on error so the
+      // user can retry (consistent with the other detail pages). On success the
+      // navigate() above unmounts the page, so no explicit close is needed.
       setDeleting(false);
-      setDeleteOpen(false);
     }
   };
 

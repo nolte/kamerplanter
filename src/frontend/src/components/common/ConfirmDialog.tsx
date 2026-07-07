@@ -67,9 +67,11 @@ export default function ConfirmDialog({
           // MUI's native `loading` prop disables the button, renders an
           // accessible CircularProgress (labelled by the button's own text via
           // aria-labelledby) and keeps the label in the DOM (UI-NFR-002,
-          // UI-NFR-008 R-016/R-017 double-submit-schutz + Ladezustand).
+          // UI-NFR-008 R-016/R-017 double-submit protection + loading state).
+          // Default (centered) loading position overlays the spinner on the
+          // label, avoiding the width jump a "start" position causes without a
+          // reserved startIcon.
           loading={loading}
-          loadingPosition="start"
           aria-busy={loading}
           data-testid="confirm-dialog-confirm"
         >

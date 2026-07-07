@@ -474,6 +474,8 @@ export default function CalendarPage() {
       notification.success(t('common.saved'));
       setDeleteFeedKey(null);
       setDeleteFeedName('');
+    } catch {
+      notification.error(t('common.retry'));
     } finally {
       setDeletingFeed(false);
     }
