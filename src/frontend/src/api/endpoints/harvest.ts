@@ -136,6 +136,28 @@ export async function completeHarvest(
   return data;
 }
 
+export interface RunHarvestCompleteResult {
+  run_key: string;
+  completed_count: number;
+  completed_keys: string[];
+}
+
+/**
+ * Explicitly finish a whole planting run's harvest ("Ernte abschließen"):
+ * every still-active instance of the run transitions to its terminal
+ * `harvested` state via the phase engine (REQ-007/REQ-013).
+ */
+export async function completeHarvestForRun(
+  runKey: string,
+  onDate?: string,
+): Promise<RunHarvestCompleteResult> {
+  const { data } = await client.post<RunHarvestCompleteResult>(
+    `${BASE}/runs/${runKey}/complete`,
+    onDate ? { on_date: onDate } : {},
+  );
+  return data;
+}
+
 export async function updateBatch(
   key: string,
   payload: HarvestBatchUpdate,

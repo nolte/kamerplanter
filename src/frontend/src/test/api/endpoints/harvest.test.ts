@@ -117,6 +117,25 @@ describe('harvest endpoints — batches', () => {
       on_date: '2026-06-01',
     });
   });
+
+  it('completeHarvestForRun posts to the run complete endpoint with empty body', async () => {
+    client.post.mockResolvedValue({
+      data: { run_key: 'run1', completed_count: 3, completed_keys: ['a', 'b', 'c'] },
+    });
+    const result = await harvest.completeHarvestForRun('run1');
+    expect(client.post).toHaveBeenCalledWith('/harvest/runs/run1/complete', {});
+    expect(result.completed_count).toBe(3);
+  });
+
+  it('completeHarvestForRun passes an explicit on_date when given', async () => {
+    client.post.mockResolvedValue({
+      data: { run_key: 'run1', completed_count: 0, completed_keys: [] },
+    });
+    await harvest.completeHarvestForRun('run1', '2026-06-01');
+    expect(client.post).toHaveBeenCalledWith('/harvest/runs/run1/complete', {
+      on_date: '2026-06-01',
+    });
+  });
 });
 
 describe('harvest endpoints — quality, yield, stats', () => {
