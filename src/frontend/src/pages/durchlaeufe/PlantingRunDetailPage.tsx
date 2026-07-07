@@ -572,7 +572,9 @@ export default function PlantingRunDetailPage() {
                 color="warning"
                 startIcon={<AgricultureIcon />}
                 onClick={() => setCompleteHarvestOpen(true)}
+                disabled={completingHarvest}
                 data-testid="complete-harvest-button"
+                sx={{ minHeight: 48 }}
               >
                 {t('pages.plantingRuns.completeHarvest')}
               </Button>

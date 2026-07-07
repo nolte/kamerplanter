@@ -107,10 +107,10 @@ After confirming, the plant moves to its terminal "harvested" state: its phase h
 
 Completing the harvest is different from **Remove Plant** on the plant detail page: "Complete Harvest" is the recommended path for an actually finished harvest and additionally records the harvest reason in the plant's history. "Remove Plant" remains available for all other cases (e.g. a plant that was not harvested but died or was given away).
 
-!!! info "API only: completing an entire planting run at once"
-    If the plant belongs to a [Planting Run](planting-runs.md), you can also complete every still-active plant of the whole run in a single call. There is currently **no button in the UI** for this — the feature is only reachable via the technical API. Until a UI exists, complete plants of a run individually through their respective harvest batch.
+!!! tip "Completing an entire planting run at once"
+    If the plant belongs to a [Planting Run](planting-runs.md), you don't have to complete each plant individually: on the run's detail page, **Complete harvest** completes every still-active plant of the whole run in a single step. See [Completing a run's harvest](planting-runs.md#ernte-abschliessen) for details.
 
-<!-- Source: src/frontend/src/pages/ernte/HarvestBatchDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest / complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py -->
+<!-- Source: src/frontend/src/pages/ernte/HarvestBatchDetailPage.tsx, src/frontend/src/pages/durchlaeufe/PlantingRunDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest / complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py -->
 
 ---
 
