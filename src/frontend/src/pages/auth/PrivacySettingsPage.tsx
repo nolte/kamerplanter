@@ -27,7 +27,6 @@ import PageTitle from '@/components/layout/PageTitle';
 import client from '@/api/client';
 import { parseApiError } from '@/api/errors';
 import { listProviders } from '@/api/endpoints/auth';
-import type { AuthProviderInfo } from '@/api/types';
 
 interface ConsentItem {
   purpose: string;
@@ -90,13 +89,20 @@ export default function PrivacySettingsPage() {
   const [erasureMessage, setErasureMessage] = useState('');
   const [erasureError, setErasureError] = useState('');
   const [erasurePassword, setErasurePassword] = useState('');
-  const [providers, setProviders] = useState<AuthProviderInfo[]>([]);
+  // Tri-state: ``null`` = provider list not yet known (load pending or failed),
+  // ``true``/``false`` = the account has / has not a local-password provider.
+  const [hasLocalPassword, setHasLocalPassword] = useState<boolean | null>(null);
 
   // Local-password accounts must re-authenticate with their current password
   // before an erasure request is accepted (REQ-025, backend authorises via the
-  // ``password`` field). Federated / password-less accounts have no local
-  // provider and keep the no-password flow.
-  const hasLocalProvider = providers.some((p) => p.provider === 'local');
+  // ``password`` field). We **fail closed**: require the password unless we
+  // positively know the account is federated / password-less. Otherwise a
+  // failed or still-pending provider load would hide the password field for a
+  // local account, the backend would reject the request with 401, and the user
+  // would have no field to supply the password — an unrecoverable dead end
+  // (issue #394). Sending a password the backend ignores for a federated
+  // account is harmless (``password_hash is None`` skips the check).
+  const requiresPassword = hasLocalPassword !== false;
 
   // ── Restrict tab state ────────────────────────────────────────────
   const [restrictions, setRestrictions] = useState<RestrictionItem[]>([]);
@@ -123,9 +129,11 @@ export default function PrivacySettingsPage() {
   useEffect(() => {
     // Determine the account's login providers once so the erasure dialog knows
     // whether a current-password confirmation is required. A failed load leaves
-    // ``providers`` empty (no local provider assumed → no-password flow), which
-    // matches the loader pattern used in AccountSettingsPage.
-    listProviders().then(setProviders).catch(() => {});
+    // ``hasLocalPassword`` at ``null`` (unknown → fail closed, see
+    // ``requiresPassword`` above), so the password field is still shown.
+    listProviders()
+      .then((list) => setHasLocalPassword(list.some((p) => p.provider === 'local')))
+      .catch(() => setHasLocalPassword(null));
   }, []);
 
   useEffect(() => {
@@ -174,7 +182,7 @@ export default function PrivacySettingsPage() {
     // Local-password accounts must supply their current password; the backend
     // rejects the request (401) otherwise. Guard client-side to avoid a
     // guaranteed round-trip failure and to keep the confirm button meaningful.
-    if (hasLocalProvider && !erasurePassword.trim()) {
+    if (requiresPassword && !erasurePassword.trim()) {
       setErasureError(t('pages.privacy.erasurePasswordRequired'));
       return;
     }
@@ -182,7 +190,7 @@ export default function PrivacySettingsPage() {
     setErasureError('');
     setErasureMessage('');
     try {
-      const payload = hasLocalProvider ? { password: erasurePassword } : {};
+      const payload = requiresPassword ? { password: erasurePassword } : {};
       await client.post('/privacy/erasure', payload);
       setErasureMessage(t('pages.privacy.erasureRequested'));
       resetErasureDialogState();
@@ -493,7 +501,7 @@ export default function PrivacySettingsPage() {
               action; federated accounts (no password field) instead autofocus
               the Cancel button below to keep the safe default for a
               destructive action. */}
-          {hasLocalProvider && (
+          {requiresPassword && (
             <TextField
               type="password"
               label={t('pages.privacy.erasureDialogPasswordLabel')}
@@ -526,7 +534,7 @@ export default function PrivacySettingsPage() {
           <Button
             onClick={closeErasureDialog}
             disabled={erasurePending}
-            autoFocus={!hasLocalProvider}
+            autoFocus={!requiresPassword}
             data-testid="privacy-erasure-cancel-btn"
           >
             {t('common.cancel')}
@@ -535,7 +543,7 @@ export default function PrivacySettingsPage() {
             onClick={handleRequestErasure}
             color="error"
             variant="contained"
-            disabled={erasurePending || (hasLocalProvider && !erasurePassword.trim())}
+            disabled={erasurePending || (requiresPassword && !erasurePassword.trim())}
             startIcon={erasurePending ? <CircularProgress size={16} color="inherit" /> : undefined}
             data-testid="privacy-erasure-confirm-btn"
           >
