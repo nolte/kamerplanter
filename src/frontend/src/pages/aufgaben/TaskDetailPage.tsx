@@ -148,6 +148,7 @@ export default function TaskDetailPage() {
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [photoRefs, setPhotoRefs] = useState<string[]>([]);
 
   // Comments state
@@ -367,6 +368,7 @@ export default function TaskDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await taskApi.deleteTask(key);
       notification.success(t('pages.tasks.taskDeleted'));
@@ -374,6 +376,7 @@ export default function TaskDetailPage() {
     } catch (err) {
       handleError(err);
     } finally {
+      setDeleting(false);
       setDeleteOpen(false);
     }
   };
@@ -1305,6 +1308,7 @@ export default function TaskDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

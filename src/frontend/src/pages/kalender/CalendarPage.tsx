@@ -196,6 +196,7 @@ export default function CalendarPage() {
   const [newFeedName, setNewFeedName] = useState('');
   const [deleteFeedKey, setDeleteFeedKey] = useState<string | null>(null);
   const [deleteFeedName, setDeleteFeedName] = useState('');
+  const [deletingFeed, setDeletingFeed] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   // Plant tree filter state
@@ -467,10 +468,15 @@ export default function CalendarPage() {
 
   const handleDeleteFeed = useCallback(async () => {
     if (!deleteFeedKey) return;
-    await dispatch(deleteCalendarFeed(deleteFeedKey)).unwrap();
-    notification.success(t('common.saved'));
-    setDeleteFeedKey(null);
-    setDeleteFeedName('');
+    setDeletingFeed(true);
+    try {
+      await dispatch(deleteCalendarFeed(deleteFeedKey)).unwrap();
+      notification.success(t('common.saved'));
+      setDeleteFeedKey(null);
+      setDeleteFeedName('');
+    } finally {
+      setDeletingFeed(false);
+    }
   }, [dispatch, deleteFeedKey, notification, t]);
 
   const handleRegenerateToken = useCallback(
@@ -1501,6 +1507,7 @@ export default function CalendarPage() {
           setDeleteFeedName('');
         }}
         destructive
+        loading={deletingFeed}
       />
     </Box>
   );

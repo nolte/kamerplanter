@@ -59,6 +59,7 @@ export default function PhaseDefinitionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [reloadCounter, setReloadCounter] = useState(0);
   const reload = useCallback(() => setReloadCounter((c) => c + 1), []);
@@ -111,12 +112,15 @@ export default function PhaseDefinitionDetailPage() {
 
   const handleDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await phaseSequenceApi.deletePhaseDefinition(key);
       notification.success(t('pages.phaseSequences.definitionDeleted'));
       navigate('/phasen/definitionen');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -447,6 +451,7 @@ export default function PhaseDefinitionDetailPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

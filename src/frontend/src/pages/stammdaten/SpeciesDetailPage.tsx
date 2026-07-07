@@ -64,6 +64,7 @@ export default function SpeciesDetailPage() {
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [createPlantOpen, setCreatePlantOpen] = useState(false);
   const { isFieldVisible } = useExpertiseLevel();
   // U-4: Companion-planting & crop-rotation are expert-only capabilities
@@ -179,14 +180,17 @@ export default function SpeciesDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await api.deleteSpecies(key);
       notification.success(t('common.delete'));
       navigate('/stammdaten/species');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
     }
-    setDeleteOpen(false);
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -341,6 +345,7 @@ export default function SpeciesDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
 
       {key && (

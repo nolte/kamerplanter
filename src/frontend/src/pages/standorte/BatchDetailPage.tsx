@@ -42,6 +42,7 @@ export default function BatchDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const {
     control,
@@ -90,12 +91,15 @@ export default function BatchDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await api.deleteBatch(key);
       notification.success(t('common.delete'));
       navigate(-1);
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
     setDeleteOpen(false);
   };
@@ -154,6 +158,7 @@ export default function BatchDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </>
   );

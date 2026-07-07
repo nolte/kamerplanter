@@ -53,6 +53,7 @@ export function useNutrientPlanData() {
   const [tab, setTab] = useTabUrl(['phases', 'validation', 'dosage', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const planOrigin = resolveOrigin(plan);
   const {
@@ -223,12 +224,15 @@ export function useNutrientPlanData() {
 
   const onDelete = useCallback(async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await planApi.deleteNutrientPlan(key);
       notification.success(t('common.delete'));
       navigate('/duengung/plans');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   }, [key, notification, t, navigate, handleError]);
 
@@ -240,14 +244,14 @@ export function useNutrientPlanData() {
       saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate, planOriginTooltip,
       isFavorite, toggleFavorite, control, handleSubmit, onSave, resetForm,
       editScheduleMode, editScheduleEnabled, editWeekdaySchedule, handleEditWeekdayToggle,
-      deleteOpen, setDeleteOpen, onDelete, load,
+      deleteOpen, setDeleteOpen, onDelete, deleting, load,
     }),
     [
       key, plan, entries, fertilizers, validation, validating, loading, error, tab, setTab,
       saving, isDirty, planOrigin, isReadOnly, isDeletionProtected, canCopyAsTemplate, planOriginTooltip,
       isFavorite, toggleFavorite, control, handleSubmit, onSave, resetForm,
       editScheduleMode, editScheduleEnabled, editWeekdaySchedule, handleEditWeekdayToggle,
-      deleteOpen, onDelete, load,
+      deleteOpen, onDelete, deleting, load,
     ],
   );
 }

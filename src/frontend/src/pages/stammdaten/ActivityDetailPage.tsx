@@ -70,6 +70,7 @@ export default function ActivityDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const {
     control,
@@ -167,12 +168,16 @@ export default function ActivityDetailPage() {
 
   const handleDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await api.deleteActivity(key);
       notification.success(t('common.deleted'));
       navigate('/stammdaten/activities');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -449,6 +454,7 @@ export default function ActivityDetailPage() {
         message={t('pages.activities.deleteConfirm', { name: displayName })}
         onConfirm={handleDelete}
         onCancel={() => setDeleteOpen(false)}
+        loading={deleting}
       />
     </Box>
   );

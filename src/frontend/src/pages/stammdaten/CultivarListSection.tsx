@@ -31,6 +31,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Cultivar | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const tableState = useTableLocalState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   const load = async () => {
@@ -50,14 +51,17 @@ export default function CultivarListSection({ speciesKey }: Props) {
 
   const onDelete = async () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     try {
       await api.deleteCultivar(speciesKey, deleteTarget.key);
       notification.success(t('common.delete'));
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
-    setDeleteTarget(null);
   };
 
   const columns: Column<Cultivar>[] = [
@@ -147,6 +151,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
         onConfirm={onDelete}
         onCancel={() => setDeleteTarget(null)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

@@ -66,7 +66,9 @@ export default function SubstrateDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [deleteBatchTarget, setDeleteBatchTarget] = useState<Batch | null>(null);
+  const [deletingBatch, setDeletingBatch] = useState(false);
   const [batchCreateOpen, setBatchCreateOpen] = useState(false);
   const [reusability, setReusability] = useState<Record<string, ReusabilityResponse>>({});
   const [allSubstrates, setAllSubstrates] = useState<Substrate[]>([]);
@@ -143,24 +145,30 @@ export default function SubstrateDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await api.deleteSubstrate(key);
       notification.success(t('common.delete'));
       navigate('/standorte/substrates');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
     setDeleteOpen(false);
   };
 
   const onDeleteBatch = async () => {
     if (!deleteBatchTarget) return;
+    setDeletingBatch(true);
     try {
       await api.deleteBatch(deleteBatchTarget.key);
       notification.success(t('common.delete'));
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingBatch(false);
     }
     setDeleteBatchTarget(null);
   };
@@ -403,6 +411,7 @@ export default function SubstrateDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
 
       <ConfirmDialog
@@ -412,6 +421,7 @@ export default function SubstrateDetailPage() {
         onConfirm={onDeleteBatch}
         onCancel={() => setDeleteBatchTarget(null)}
         destructive
+        loading={deletingBatch}
       />
     </Box>
   );

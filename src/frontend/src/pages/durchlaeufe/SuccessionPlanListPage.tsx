@@ -69,6 +69,7 @@ export default function SuccessionPlanListPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editPlan, setEditPlan] = useState<SuccessionPlan | null>(null);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState<string | null>(null);
   const [generatedResult, setGeneratedResult] = useState<GenerateRunsResponse | null>(null);
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
@@ -131,6 +132,7 @@ export default function SuccessionPlanListPage() {
 
   const handleDelete = async () => {
     if (!deleteKey) return;
+    setDeleting(true);
     try {
       await successionApi.deleteSuccessionPlan(deleteKey);
       notification.success(t('pages.successionPlans.planDeleted'));
@@ -138,6 +140,8 @@ export default function SuccessionPlanListPage() {
       reload();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -356,6 +360,7 @@ export default function SuccessionPlanListPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteKey(null)}
         destructive
+        loading={deleting}
       />
 
       <Dialog

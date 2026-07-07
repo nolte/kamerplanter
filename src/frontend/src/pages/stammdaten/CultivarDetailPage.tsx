@@ -83,6 +83,7 @@ export default function CultivarDetailPage() {
   const [saving, setSaving] = useState(false);
   const [savingOverrides, setSavingOverrides] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const cultivarOrigin = resolveOrigin(cultivar);
   const { isReadOnly, isDeletionProtected, tooltipText: originTooltipText } = useOriginProtection({
@@ -236,14 +237,17 @@ export default function CultivarDetailPage() {
 
   const onDelete = async () => {
     if (!speciesKey || !cultivarKey) return;
+    setDeleting(true);
     try {
       await api.deleteCultivar(speciesKey, cultivarKey);
       notification.success(t('common.delete'));
       navigate(`/stammdaten/species/${speciesKey}`);
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
     }
-    setDeleteOpen(false);
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -510,6 +514,7 @@ export default function CultivarDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );
