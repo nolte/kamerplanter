@@ -279,6 +279,26 @@ describe('ActivityPlanTab — assigned tasks view', () => {
     expect(await screen.findByText(i18n.t('pages.activityPlan.noPhase'))).toBeInTheDocument();
   });
 
+  it('renders English display names and instructions when the locale is en', async () => {
+    i18n.changeLanguage('en');
+    taskApi.listTasks.mockResolvedValue([
+      task({
+        key: 't-en',
+        status: 'completed',
+        name: 'Topping',
+        instruction: 'Cut the top',
+        category: 'unknown_category',
+        stress_level: 'unknown_stress',
+      }),
+    ]);
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    // English name is shown (not the German name_de) and the component renders
+    // its category/stress chips using the '?? default' colour fallback.
+    expect(await screen.findByText('Topping')).toBeInTheDocument();
+    expect(screen.getByText('Cut the top')).toBeInTheDocument();
+  });
+
   it('marks overdue open tasks (error completion colour path)', async () => {
     taskApi.listTasks.mockResolvedValue([
       task({
