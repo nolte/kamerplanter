@@ -67,6 +67,24 @@ describe('ConfirmDialog', () => {
     buttons.forEach((btn) => expect(btn).toBeDisabled());
   });
 
+  it('shows a spinner on the confirm button when loading', () => {
+    renderDialog({ loading: true });
+    // MUI CircularProgress renders with role="progressbar".
+    expect(screen.getByRole('progressbar')).toBeTruthy();
+  });
+
+  it('does not show a spinner when not loading', () => {
+    renderDialog();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
+  it('does not close on backdrop/Escape while loading', async () => {
+    const user = userEvent.setup();
+    const { onCancel } = renderDialog({ loading: true });
+    await user.keyboard('{Escape}');
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
   it('is not visible when closed', () => {
     renderDialog({ open: false });
     expect(screen.queryByText('Delete Item')).toBeNull();

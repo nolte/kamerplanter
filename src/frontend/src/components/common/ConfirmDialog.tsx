@@ -6,6 +6,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
@@ -34,7 +35,20 @@ export default function ConfirmDialog({
   const { t } = useTranslation();
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onCancel} maxWidth="sm" fullWidth role="alertdialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description" data-testid="confirm-dialog">
+    <Dialog
+      fullScreen={fullScreen}
+      open={open}
+      // While the confirmed action is in flight, ignore backdrop/Escape close
+      // attempts so the dialog cannot be dismissed mid-request (UI-NFR-004 R-020
+      // / UI-NFR-008 double-submit protection extends to the whole interaction).
+      onClose={loading ? undefined : onCancel}
+      maxWidth="sm"
+      fullWidth
+      role="alertdialog"
+      aria-labelledby="confirm-dialog-title"
+      aria-describedby="confirm-dialog-description"
+      data-testid="confirm-dialog"
+    >
       <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
       <DialogContent>
         <DialogContentText id="confirm-dialog-description" sx={{ whiteSpace: 'pre-line' }}>
@@ -50,6 +64,7 @@ export default function ConfirmDialog({
           color={destructive ? 'error' : 'primary'}
           variant="contained"
           disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}
           data-testid="confirm-dialog-confirm"
         >
           {confirmLabel ?? t(destructive ? 'common.delete' : 'common.confirm')}
