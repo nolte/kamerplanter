@@ -78,6 +78,7 @@ export default function WateringLogDetailPage() {
   const [tab, setTab] = useTabUrl(['details', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [runoffResult, setRunoffResult] = useState<RunoffResponse | null>(null);
 
   const {
@@ -138,12 +139,15 @@ export default function WateringLogDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await wateringLogApi.deleteWateringLog(key);
       notification.success(t('common.delete'));
       navigate('/giessprotokoll');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -595,6 +599,7 @@ export default function WateringLogDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

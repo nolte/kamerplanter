@@ -108,8 +108,11 @@ export default function PlantingRunDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useTabUrl(TAB_SLUGS);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [createPlantsOpen, setCreatePlantsOpen] = useState(false);
+  const [creatingPlants, setCreatingPlants] = useState(false);
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false);
+  const [batchRemoving, setBatchRemoving] = useState(false);
   const [endRunOpen, setEndRunOpen] = useState(false);
   const [endRunStatus, setEndRunStatus] = useState<'completed' | 'cancelled'>('cancelled');
   const [completeHarvestOpen, setCompleteHarvestOpen] = useState(false);
@@ -132,6 +135,7 @@ export default function PlantingRunDetailPage() {
   const [confirmChannelId, setConfirmChannelId] = useState<string | undefined>(undefined);
   const [quickConfirming, setQuickConfirming] = useState<string | null>(null);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
+  const [removingPlan, setRemovingPlan] = useState(false);
 
   // Volume suggestion from first plant in run
   const firstPlantKey = plants.length > 0 ? plants[0].key : undefined;
@@ -309,18 +313,22 @@ export default function PlantingRunDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await runApi.deletePlantingRun(key);
       notification.success(t('common.delete'));
       navigate('/durchlaeufe/planting-runs');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
     setDeleteOpen(false);
   };
 
   const onCreatePlants = async () => {
     if (!key) return;
+    setCreatingPlants(true);
     try {
       const result = await runApi.batchCreatePlants(key);
       notification.success(
@@ -329,12 +337,15 @@ export default function PlantingRunDetailPage() {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setCreatingPlants(false);
     }
     setCreatePlantsOpen(false);
   };
 
   const onBatchRemove = async () => {
     if (!key) return;
+    setBatchRemoving(true);
     try {
       const result = await runApi.batchRemove(key);
       notification.success(
@@ -343,6 +354,8 @@ export default function PlantingRunDetailPage() {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setBatchRemoving(false);
     }
     setBatchRemoveOpen(false);
   };
@@ -410,6 +423,7 @@ export default function PlantingRunDetailPage() {
 
   const onRemovePlan = async () => {
     if (!key) return;
+    setRemovingPlan(true);
     try {
       await runApi.removeRunNutrientPlan(key);
       notification.success(t('pages.wateringSchedule.removePlan'));
@@ -418,6 +432,8 @@ export default function PlantingRunDetailPage() {
       loadWateringData();
     } catch (err) {
       handleError(err);
+    } finally {
+      setRemovingPlan(false);
     }
     setRemovePlanOpen(false);
   };
@@ -801,6 +817,7 @@ export default function PlantingRunDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
 
       <ConfirmDialog
@@ -811,6 +828,7 @@ export default function PlantingRunDetailPage() {
         })}
         onConfirm={onCreatePlants}
         onCancel={() => setCreatePlantsOpen(false)}
+        loading={creatingPlants}
       />
 
       <ConfirmDialog
@@ -820,6 +838,7 @@ export default function PlantingRunDetailPage() {
         onConfirm={onBatchRemove}
         onCancel={() => setBatchRemoveOpen(false)}
         destructive
+        loading={batchRemoving}
       />
 
       <Dialog fullScreen={fullScreen} open={endRunOpen}
@@ -883,6 +902,7 @@ export default function PlantingRunDetailPage() {
         onConfirm={onRemovePlan}
         onCancel={() => setRemovePlanOpen(false)}
         destructive
+        loading={removingPlan}
       />
 
       {key && run && (run.status === 'active' || run.status === 'harvesting') && (

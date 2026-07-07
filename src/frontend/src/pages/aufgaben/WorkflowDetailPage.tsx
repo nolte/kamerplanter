@@ -111,6 +111,9 @@ export default function WorkflowDetailPage() {
   const [tab, setTab] = useTabUrl(['details', 'templates', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [deletingPhase, setDeletingPhase] = useState(false);
   // UI-NFR-018: workflow templates carry only is_system; treat as origin='system' when set.
   const { isReadOnly, isDeletionProtected, canCopyAsTemplate } = useOriginProtection({
     isSystem: workflow?.is_system,
@@ -261,17 +264,21 @@ export default function WorkflowDetailPage() {
 
   const onDeleteWorkflow = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await taskApi.deleteWorkflow(key);
       notification.success(t('pages.tasks.workflowDeleted'));
       navigate('/aufgaben/workflows');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
   const onDeleteTemplate = async () => {
     if (!deleteTemplateKey) return;
+    setDeletingTemplate(true);
     try {
       await taskApi.deleteTaskTemplate(deleteTemplateKey);
       notification.success(t('pages.tasks.taskTemplateDeleted'));
@@ -279,6 +286,8 @@ export default function WorkflowDetailPage() {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingTemplate(false);
     }
   };
 
@@ -399,6 +408,7 @@ export default function WorkflowDetailPage() {
 
   const handleDeletePhase = useCallback(async () => {
     if (!deletePhaseKey) return;
+    setDeletingPhase(true);
     try {
       await taskApi.deleteWorkflowPhase(deletePhaseKey);
       notification.success(t('pages.tasks.phaseDeleted'));
@@ -406,6 +416,8 @@ export default function WorkflowDetailPage() {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingPhase(false);
     }
   }, [deletePhaseKey, load, handleError, notification, t]);
 
@@ -1364,6 +1376,7 @@ export default function WorkflowDetailPage() {
         onConfirm={onDeleteWorkflow}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
 
       <ConfirmDialog
@@ -1373,6 +1386,7 @@ export default function WorkflowDetailPage() {
         onConfirm={onDeleteTemplate}
         onCancel={() => setDeleteTemplateKey(null)}
         destructive
+        loading={deletingTemplate}
       />
 
       {/* Phase Dialog */}
@@ -1392,6 +1406,7 @@ export default function WorkflowDetailPage() {
         onConfirm={handleDeletePhase}
         onCancel={() => setDeletePhaseKey(null)}
         destructive
+        loading={deletingPhase}
       />
     </Box>
   );

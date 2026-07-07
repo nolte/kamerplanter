@@ -175,6 +175,7 @@ export default function PhaseSequenceListPage() {
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadSequences = useCallback(async () => {
     try {
@@ -198,6 +199,7 @@ export default function PhaseSequenceListPage() {
 
   const handleDelete = async () => {
     if (!deleteKey) return;
+    setDeleting(true);
     try {
       await phaseSequenceApi.deletePhaseSequence(deleteKey);
       notification.success(t('pages.phaseSequences.sequenceDeleted'));
@@ -205,6 +207,8 @@ export default function PhaseSequenceListPage() {
       loadSequences();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -396,6 +400,7 @@ export default function PhaseSequenceListPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteKey(null)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

@@ -91,6 +91,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editPhase, setEditPhase] = useState<GrowthPhase | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PhaseRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [selectedPhase, setSelectedPhase] = useState<PhaseRow | null>(null);
   const tableState = useTableLocalState({ defaultSort: { column: 'order', direction: 'asc' } });
 
@@ -120,12 +121,15 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
 
   const onDelete = async () => {
     if (!deleteTarget?.growthPhase) return;
+    setDeleting(true);
     try {
       await phasesApi.deleteGrowthPhase(deleteTarget.growthPhase.key);
       notification.success(t('common.delete'));
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
     setDeleteTarget(null);
   };
@@ -287,6 +291,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
             onConfirm={onDelete}
             onCancel={() => setDeleteTarget(null)}
             destructive
+            loading={deleting}
           />
         </>
       )}

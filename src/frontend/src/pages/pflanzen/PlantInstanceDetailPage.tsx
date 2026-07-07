@@ -157,6 +157,7 @@ export default function PlantInstanceDetailPage() {
   const [assignedPlan, setAssignedPlan] = useState<NutrientPlan | null>(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
+  const [removingPlan, setRemovingPlan] = useState(false);
 
   // Gantt chart state
   const [planEntries, setPlanEntries] = useState<NutrientPlanPhaseEntry[]>([]);
@@ -550,6 +551,7 @@ export default function PlantInstanceDetailPage() {
 
   const onRemovePlan = async () => {
     if (!key) return;
+    setRemovingPlan(true);
     try {
       await planApi.removePlantPlan(key);
       notification.success(t('pages.nutrientPlans.removePlan'));
@@ -557,6 +559,8 @@ export default function PlantInstanceDetailPage() {
       setRemovePlanOpen(false);
     } catch (err) {
       handleError(err);
+    } finally {
+      setRemovingPlan(false);
     }
   };
 
@@ -2475,6 +2479,7 @@ export default function PlantInstanceDetailPage() {
         onConfirm={onRemovePlan}
         onCancel={() => setRemovePlanOpen(false)}
         destructive
+        loading={removingPlan}
       />
 
       {/* Assign Plan Dialog */}

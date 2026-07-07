@@ -196,6 +196,7 @@ export default function PhaseSequenceDetailPage() {
     undefined,
   );
   const [deleteEntryKey, setDeleteEntryKey] = useState<string | null>(null);
+  const [deletingEntry, setDeletingEntry] = useState(false);
   const [reordering, setReordering] = useState(false);
   // UI-NFR-018: PhaseSequence carries only is_system; treat true as origin='system'.
   const { isReadOnly } = useOriginProtection({ isSystem: sequence?.is_system });
@@ -252,6 +253,7 @@ export default function PhaseSequenceDetailPage() {
 
   const handleDeleteEntry = async () => {
     if (!deleteEntryKey || !key) return;
+    setDeletingEntry(true);
     try {
       await phaseSequenceApi.deleteSequenceEntry(key, deleteEntryKey);
       notification.success(t('pages.phaseSequences.sequenceUpdated'));
@@ -259,6 +261,8 @@ export default function PhaseSequenceDetailPage() {
       loadSequence();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingEntry(false);
     }
   };
 
@@ -632,6 +636,7 @@ export default function PhaseSequenceDetailPage() {
         onConfirm={handleDeleteEntry}
         onCancel={() => setDeleteEntryKey(null)}
         destructive
+        loading={deletingEntry}
       />
     </Box>
   );

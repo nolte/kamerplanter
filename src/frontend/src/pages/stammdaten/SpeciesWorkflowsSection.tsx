@@ -47,6 +47,7 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
@@ -123,6 +124,7 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
 
   const handleDelete = useCallback(async () => {
     if (!deleteKey) return;
+    setDeleting(true);
     try {
       await taskApi.deleteWorkflow(deleteKey);
       notification.success(t('pages.tasks.workflowDeleted'));
@@ -130,6 +132,8 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   }, [deleteKey, load, notification, handleError, t]);
 
@@ -305,6 +309,7 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
         onConfirm={handleDelete}
         onCancel={() => setDeleteKey(null)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

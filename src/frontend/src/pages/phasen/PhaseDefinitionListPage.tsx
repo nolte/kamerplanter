@@ -43,6 +43,7 @@ export default function PhaseDefinitionListPage() {
     undefined,
   );
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadDefinitions = useCallback(async () => {
     try {
@@ -64,6 +65,7 @@ export default function PhaseDefinitionListPage() {
 
   const handleDelete = async () => {
     if (!deleteKey) return;
+    setDeleting(true);
     try {
       await phaseSequenceApi.deletePhaseDefinition(deleteKey);
       notification.success(t('pages.phaseSequences.definitionDeleted'));
@@ -71,6 +73,8 @@ export default function PhaseDefinitionListPage() {
       loadDefinitions();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -280,6 +284,7 @@ export default function PhaseDefinitionListPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteKey(null)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

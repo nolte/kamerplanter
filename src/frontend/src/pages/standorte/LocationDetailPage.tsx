@@ -87,6 +87,8 @@ export default function LocationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletingSensor, setDeletingSensor] = useState(false);
   const [slotCreateOpen, setSlotCreateOpen] = useState(false);
   const [wateringEvents, setWateringEvents] = useState<WateringEvent[]>([]);
   const [wateringStats, setWateringStats] = useState<WateringStats | null>(null);
@@ -287,14 +289,33 @@ export default function LocationDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await api.deleteLocation(key);
       notification.success(t('common.delete'));
       navigate(-1);
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
     setDeleteOpen(false);
+  };
+
+  const handleDeleteSensor = async () => {
+    if (deleteSensorKey) {
+      setDeletingSensor(true);
+      try {
+        await tankApi.deleteSensor(deleteSensorKey);
+        notification.success(t('pages.sensors.deleted'));
+        load();
+      } catch (err) {
+        handleError(err);
+      } finally {
+        setDeletingSensor(false);
+      }
+    }
+    setDeleteSensorKey(null);
   };
 
   const slotColumns: Column<Slot>[] = [
@@ -785,20 +806,10 @@ export default function LocationDetailPage() {
         open={!!deleteSensorKey}
         title={t('common.delete')}
         message={t('common.deleteConfirm', { name: sensors.find((s) => s.key === deleteSensorKey)?.name })}
-        onConfirm={async () => {
-          if (deleteSensorKey) {
-            try {
-              await tankApi.deleteSensor(deleteSensorKey);
-              notification.success(t('pages.sensors.deleted'));
-              load();
-            } catch (err) {
-              handleError(err);
-            }
-          }
-          setDeleteSensorKey(null);
-        }}
+        onConfirm={handleDeleteSensor}
         onCancel={() => setDeleteSensorKey(null)}
         destructive
+        loading={deletingSensor}
       />
 
       {key && (
@@ -828,6 +839,7 @@ export default function LocationDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

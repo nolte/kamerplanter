@@ -69,6 +69,7 @@ export default function FeedingEventDetailPage() {
   const [tab, setTab] = useTabUrl(['details', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [runoffResult, setRunoffResult] = useState<RunoffResponse | null>(null);
 
   const {
@@ -127,12 +128,15 @@ export default function FeedingEventDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await feedingApi.deleteFeedingEvent(key);
       notification.success(t('common.delete'));
       navigate('/duengung/feeding-events');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -500,6 +504,7 @@ export default function FeedingEventDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

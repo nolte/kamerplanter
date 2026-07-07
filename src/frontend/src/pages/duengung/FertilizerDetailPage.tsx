@@ -219,6 +219,7 @@ export default function FertilizerDetailPage() {
   const [tab, setTab] = useTabUrl(['details', 'stock', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [stockDialogOpen, setStockDialogOpen] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
   const { isFavorite, toggleFavorite } = useLocalFavorites('kamerplanter-fertilizer-favorites');
@@ -376,12 +377,15 @@ export default function FertilizerDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await fertApi.deleteFertilizer(key);
       notification.success(t('common.delete'));
       navigate('/duengung/fertilizers');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -1311,6 +1315,7 @@ export default function FertilizerDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

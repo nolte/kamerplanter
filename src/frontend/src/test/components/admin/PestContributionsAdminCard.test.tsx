@@ -146,6 +146,94 @@ describe('PestContributionsAdminCard', () => {
     );
   });
 
+  it('shows a fallback alert when the pest list fails to load', async () => {
+    vi.mocked(listPests).mockRejectedValue(new Error('boom'));
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    expect(await screen.findByTestId('pest-contributions-pests-unavailable')).toBeInTheDocument();
+    // The pest selector is hidden while the list is unavailable.
+    expect(screen.queryByTestId('pest-contributions-pest-select')).not.toBeInTheDocument();
+  });
+
+  it('shows a fallback alert when contributions fail to load', async () => {
+    vi.mocked(listPestContributions).mockRejectedValue(new Error('boom'));
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    await selectPest();
+    expect(await screen.findByTestId('pest-contributions-unavailable')).toBeInTheDocument();
+  });
+
+  it('clears the contribution list when the pest selection is cleared', async () => {
+    vi.mocked(listPestContributions).mockResolvedValue(list([contribution({ id: 'c1' })]));
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    await selectPest();
+    expect(await screen.findByTestId('pest-contribution-row')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByLabelText('Clear'));
+    await waitFor(() =>
+      expect(screen.queryByTestId('pest-contribution-row')).not.toBeInTheDocument(),
+    );
+  });
+
+  it('closes the demote dialog without calling the API when cancelled', async () => {
+    vi.mocked(listPestContributions).mockResolvedValue(list([contribution({ id: 'c1', status: 'promoted' })]));
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    await selectPest();
+    await userEvent.click(await screen.findByTestId('pest-contribution-promote'));
+    expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId('confirm-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
+    expect(setPestContributionPromotion).not.toHaveBeenCalled();
+  });
+
+  it('only updates the promoted contribution and leaves the others untouched', async () => {
+    vi.mocked(listPestContributions).mockResolvedValue(
+      list([
+        contribution({ id: 'c1', status: 'private', caption: 'first' }),
+        contribution({ id: 'c2', status: 'private', caption: 'second' }),
+      ]),
+    );
+    vi.mocked(setPestContributionPromotion).mockResolvedValue({
+      id: 'c2',
+      pest_key: 'p1',
+      status: 'promoted',
+      is_active: true,
+      promoted_at: '2026-06-21T12:00:00Z',
+      promoted_by: 'admin',
+    });
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    await selectPest();
+    const rows = await screen.findAllByTestId('pest-contribution-row');
+    await userEvent.click(within(rows[1]).getByTestId('pest-contribution-promote'));
+
+    await waitFor(() => expect(setPestContributionPromotion).toHaveBeenCalledWith('p1', 'c2', true));
+    await waitFor(() => {
+      const updated = screen.getAllByTestId('pest-contribution-row');
+      expect(updated[0]).toHaveAttribute('data-status', 'private');
+      expect(updated[1]).toHaveAttribute('data-status', 'promoted');
+    });
+  });
+
+  it('renders contributions without caption and thumbnail using fallbacks', async () => {
+    vi.mocked(listPests).mockResolvedValue([
+      pest({ common_name_de: null, common_name: 'Spider mite fallback' }),
+    ]);
+    vi.mocked(listPestContributions).mockResolvedValue(
+      list([contribution({ id: 'c1', caption: null, thumbnail_uri: null })]),
+    );
+    renderWithProviders(<PestContributionsAdminCard />);
+
+    const input = await screen.findByLabelText('Schädling auswählen');
+    await userEvent.click(input);
+    await userEvent.click(await screen.findByText('Spider mite fallback'));
+
+    expect(await screen.findByTestId('pest-contribution-row')).toBeInTheDocument();
+  });
+
   it('requires confirmation before demoting a promoted contribution', async () => {
     vi.mocked(listPestContributions).mockResolvedValue(list([contribution({ id: 'c1', status: 'promoted' })]));
     vi.mocked(setPestContributionPromotion).mockResolvedValue({

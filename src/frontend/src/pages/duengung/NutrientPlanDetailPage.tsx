@@ -197,6 +197,7 @@ export default function NutrientPlanDetailPage() {
         onConfirm={c.onDelete}
         onCancel={() => c.setDeleteOpen(false)}
         destructive
+        loading={c.deleting}
       />
 
       <ConfirmDialog
@@ -208,6 +209,7 @@ export default function NutrientPlanDetailPage() {
         onConfirm={c.onDeleteEntry}
         onCancel={c.cancelDeleteEntry}
         destructive
+        loading={c.deletingEntryPending}
       />
 
       <ConfirmDialog
@@ -219,6 +221,7 @@ export default function NutrientPlanDetailPage() {
         onConfirm={c.onDeleteChannel}
         onCancel={c.cancelDeleteChannel}
         destructive
+        loading={c.deletingChannel}
       />
 
       <ConfirmDialog
@@ -230,6 +233,7 @@ export default function NutrientPlanDetailPage() {
         onConfirm={c.onConfirmRemoveFertilizerFromAll}
         onCancel={c.cancelRemoveFertAll}
         destructive
+        loading={c.removingFertAll}
       />
 
       {key && (

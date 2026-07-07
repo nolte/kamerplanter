@@ -41,6 +41,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
   const [editingEntry, setEditingEntry] = useState<NutrientPlanPhaseEntry | null>(null);
   const [deleteEntryOpen, setDeleteEntryOpen] = useState(false);
   const [deletingEntry, setDeletingEntry] = useState<NutrientPlanPhaseEntry | null>(null);
+  const [deletingEntryPending, setDeletingEntryPending] = useState(false);
 
   // DeliveryChannel dialog state
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
@@ -59,10 +60,12 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
   const [deleteChannelOpen, setDeleteChannelOpen] = useState(false);
   const [deletingChannelEntryKey, setDeletingChannelEntryKey] = useState<string>('');
   const [deletingChannelId, setDeletingChannelId] = useState<string>('');
+  const [deletingChannel, setDeletingChannel] = useState(false);
 
   // Remove fertilizer from all entries/channels confirm
   const [removeFertAllOpen, setRemoveFertAllOpen] = useState(false);
   const [removeFertAllPayload, setRemoveFertAllPayload] = useState<FertilizerRemoveAllPayload | null>(null);
+  const [removingFertAll, setRemovingFertAll] = useState(false);
 
   // Watering log dialog state
   const [wateringLogOpen, setWateringLogOpen] = useState(false);
@@ -73,6 +76,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
 
   const onDeleteEntry = useCallback(async () => {
     if (!key || !deletingEntry) return;
+    setDeletingEntryPending(true);
     try {
       await planApi.deletePhaseEntry(key, deletingEntry.key);
       notification.success(t('common.delete'));
@@ -81,6 +85,8 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
       load(true);
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingEntryPending(false);
     }
   }, [key, deletingEntry, notification, t, load, handleError]);
 
@@ -108,6 +114,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
 
   const onConfirmRemoveFertilizerFromAll = useCallback(async () => {
     if (!removeFertAllPayload) return;
+    setRemovingFertAll(true);
     try {
       await Promise.all(
         removeFertAllPayload.targets.map((tgt) =>
@@ -121,6 +128,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
     } finally {
       setRemoveFertAllOpen(false);
       setRemoveFertAllPayload(null);
+      setRemovingFertAll(false);
     }
   }, [removeFertAllPayload, notification, t, load, handleError]);
 
@@ -164,6 +172,7 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
 
   const onDeleteChannel = useCallback(async () => {
     if (!key || !deletingChannelEntryKey || !deletingChannelId) return;
+    setDeletingChannel(true);
     try {
       const entry = entries.find((e) => e.key === deletingChannelEntryKey);
       if (!entry) return;
@@ -180,6 +189,8 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
       load(true);
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingChannel(false);
     }
   }, [key, deletingChannelEntryKey, deletingChannelId, entries, notification, t, load, handleError]);
 
@@ -383,10 +394,10 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
       onAddChannelFertilizer, onEditChannelFertilizer, onRemoveChannelFertilizer, onRemoveFertilizerFromGantt,
       handleEntriesChange, onLogWatering,
       entryDialogOpen, editingEntry, closeEntryDialog, onEntrySaved,
-      deleteEntryOpen, deletingEntry, onDeleteEntry, cancelDeleteEntry,
+      deleteEntryOpen, deletingEntry, deletingEntryPending, onDeleteEntry, cancelDeleteEntry,
       channelDialogOpen, editingChannel, channelDialogExistingIds, onSaveChannel, closeChannelDialog,
-      deleteChannelOpen, deletingChannelId, onDeleteChannel, cancelDeleteChannel,
-      removeFertAllOpen, removeFertAllPayload, onConfirmRemoveFertilizerFromAll, cancelRemoveFertAll,
+      deleteChannelOpen, deletingChannelId, deletingChannel, onDeleteChannel, cancelDeleteChannel,
+      removeFertAllOpen, removeFertAllPayload, removingFertAll, onConfirmRemoveFertilizerFromAll, cancelRemoveFertAll,
       fertDialogOpen, editingFertDosage, fertDialogExistingKeys, onSaveChannelFertilizer, closeFertDialog,
       wateringLogOpen, wateringLogChannel, onWateringLogged, closeWateringLog,
     }),
@@ -396,10 +407,10 @@ export function useNutrientPlanActions({ key, plan, entries, fertilizers, load }
       onAddChannelFertilizer, onEditChannelFertilizer, onRemoveChannelFertilizer, onRemoveFertilizerFromGantt,
       handleEntriesChange, onLogWatering,
       entryDialogOpen, editingEntry, closeEntryDialog, onEntrySaved,
-      deleteEntryOpen, deletingEntry, onDeleteEntry, cancelDeleteEntry,
+      deleteEntryOpen, deletingEntry, deletingEntryPending, onDeleteEntry, cancelDeleteEntry,
       channelDialogOpen, editingChannel, channelDialogExistingIds, onSaveChannel, closeChannelDialog,
-      deleteChannelOpen, deletingChannelId, onDeleteChannel, cancelDeleteChannel,
-      removeFertAllOpen, removeFertAllPayload, onConfirmRemoveFertilizerFromAll, cancelRemoveFertAll,
+      deleteChannelOpen, deletingChannelId, deletingChannel, onDeleteChannel, cancelDeleteChannel,
+      removeFertAllOpen, removeFertAllPayload, removingFertAll, onConfirmRemoveFertilizerFromAll, cancelRemoveFertAll,
       fertDialogOpen, editingFertDosage, fertDialogExistingKeys, onSaveChannelFertilizer, closeFertDialog,
       wateringLogOpen, wateringLogChannel, onWateringLogged, closeWateringLog,
     ],

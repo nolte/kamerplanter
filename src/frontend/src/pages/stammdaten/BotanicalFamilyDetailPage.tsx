@@ -92,6 +92,7 @@ export default function BotanicalFamilyDetailPage() {
   const { current, loading, error } = useAppSelector((s) => s.botanicalFamilies);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [familySpecies, setFamilySpecies] = useState<Species[]>([]);
 
   const {
@@ -182,14 +183,17 @@ export default function BotanicalFamilyDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await api.deleteBotanicalFamily(key);
       notification.success(t('common.delete'));
       navigate('/stammdaten/botanical-families');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
+      setDeleteOpen(false);
     }
-    setDeleteOpen(false);
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -500,6 +504,7 @@ export default function BotanicalFamilyDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

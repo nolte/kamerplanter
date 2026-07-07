@@ -275,6 +275,7 @@ export default function WorkflowTemplateListPage() {
   const [instantiateKey, setInstantiateKey] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteKey, setDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [duplicateKey, setDuplicateKey] = useState<string | null>(null);
   const [duplicateName, setDuplicateName] = useState('');
   const [duplicating, setDuplicating] = useState(false);
@@ -299,6 +300,7 @@ export default function WorkflowTemplateListPage() {
 
   const handleDelete = async () => {
     if (!deleteKey) return;
+    setDeleting(true);
     try {
       await taskApi.deleteWorkflow(deleteKey);
       notification.success(t('pages.tasks.workflowDeleted'));
@@ -306,6 +308,8 @@ export default function WorkflowTemplateListPage() {
       dispatch(fetchWorkflows({}));
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -449,6 +453,7 @@ export default function WorkflowTemplateListPage() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteKey(null)}
         destructive
+        loading={deleting}
       />
 
       {/* Duplicate Workflow Dialog */}

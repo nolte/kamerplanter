@@ -49,6 +49,7 @@ export default function OverwinteringListPage() {
   const [deleteTarget, setDeleteTarget] = useState<OverwinteringProfile | null>(
     null,
   );
+  const [deleting, setDeleting] = useState(false);
   const tableState = useTableUrlState({
     defaultSort: { column: 'hardinessRating', direction: 'asc' },
   });
@@ -101,6 +102,7 @@ export default function OverwinteringListPage() {
 
   const onDelete = async () => {
     if (!deleteTarget) return;
+    setDeleting(true);
     try {
       await api.deleteOverwinteringProfile(deleteTarget.key);
       notification.success(t('common.delete'));
@@ -108,6 +110,7 @@ export default function OverwinteringListPage() {
     } catch (err) {
       handleError(err);
     } finally {
+      setDeleting(false);
       setDeleteTarget(null);
     }
   };
@@ -304,6 +307,7 @@ export default function OverwinteringListPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteTarget(null)}
         destructive
+        loading={deleting}
       />
     </Box>
   );

@@ -173,6 +173,9 @@ export default function TankDetailPage() {
   const [tab, setTab] = useTabUrl(['details', 'states', 'maintenance', 'schedules', 'fills', 'edit']);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletingSchedule, setDeletingSchedule] = useState(false);
+  const [deletingSensor, setDeletingSensor] = useState(false);
   const [stateDialogOpen, setStateDialogOpen] = useState(false);
   const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
   const [fillDialogOpen, setFillDialogOpen] = useState(false);
@@ -331,17 +334,21 @@ export default function TankDetailPage() {
 
   const onDelete = async () => {
     if (!key) return;
+    setDeleting(true);
     try {
       await tankApi.deleteTank(key);
       notification.success(t('pages.tanks.deleted'));
       navigate('/standorte/tanks');
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
   const onDeleteSchedule = async () => {
     if (!key || !deleteScheduleKey) return;
+    setDeletingSchedule(true);
     try {
       await tankApi.deleteSchedule(key, deleteScheduleKey);
       notification.success(t('pages.tanks.scheduleDeleted'));
@@ -349,6 +356,8 @@ export default function TankDetailPage() {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingSchedule(false);
     }
   };
 
@@ -360,6 +369,7 @@ export default function TankDetailPage() {
 
   const onDeleteSensor = async () => {
     if (!deleteSensorKey) return;
+    setDeletingSensor(true);
     try {
       await tankApi.deleteSensor(deleteSensorKey);
       notification.success(t('pages.tanks.sensorDeleted'));
@@ -367,6 +377,8 @@ export default function TankDetailPage() {
       load();
     } catch (err) {
       handleError(err);
+    } finally {
+      setDeletingSensor(false);
     }
   };
 
@@ -1362,6 +1374,7 @@ export default function TankDetailPage() {
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive
+        loading={deleting}
       />
       <MaintenanceScheduleDialog
         open={scheduleDialogOpen}
@@ -1386,6 +1399,7 @@ export default function TankDetailPage() {
         onConfirm={onDeleteSchedule}
         onCancel={() => setDeleteScheduleKey(null)}
         destructive
+        loading={deletingSchedule}
       />
       <SensorCreateDialog
         open={sensorDialogOpen}
@@ -1401,6 +1415,7 @@ export default function TankDetailPage() {
         onConfirm={onDeleteSensor}
         onCancel={() => setDeleteSensorKey(null)}
         destructive
+        loading={deletingSensor}
       />
     </Box>
   );
