@@ -34,9 +34,9 @@ certifi==2026.6.17
     #   httpcore
     #   httpx
     #   requests
-cffi==2.0.0
+cffi==2.1.0
     # via cryptography
-charset-normalizer==3.4.7
+charset-normalizer==3.4.8
     # via requests
 click==8.4.2
     # via
@@ -185,7 +185,7 @@ urllib3==2.7.0
     # via
     #   python-arango
     #   requests
-uvicorn==0.50.0
+uvicorn==0.50.2
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
