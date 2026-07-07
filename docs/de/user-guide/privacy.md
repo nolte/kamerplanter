@@ -188,9 +188,13 @@ Du hast das Recht auf Löschung deiner Daten.
 
 1. Zu **Datenschutz** > Tab **Konto löschen** navigieren
 2. Auf **Konto löschen** klicken
-3. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
+3. Bei Konten mit **lokalem Passwort-Login** im Bestätigungsdialog das **aktuelle Passwort** eingeben (zur Autorisierung der Löschung). Bei Konten, die ausschließlich über einen externen Anbieter (Google, GitHub, Apple …) angemeldet sind, entfällt dieser Schritt.
+4. Im Bestätigungsdialog auf **Ja, Konto löschen** klicken
 
-Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` startet die Löschung, `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
+!!! info "Passwortbestätigung"
+    Für Konten mit lokalem Passwort ist die Eingabe des aktuellen Passworts verpflichtend. Ist das Passwort falsch, bleibt der Dialog geöffnet und zeigt einen Fehlerhinweis — das Konto wird dann **nicht** gelöscht.
+
+Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` startet die Löschung (bei lokalen Konten mit dem Feld `password`), `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 
 Was dann passiert:
 

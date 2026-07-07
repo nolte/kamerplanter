@@ -219,6 +219,10 @@ export const handlers = [
   http.get('/api/v1/auth/oauth/providers', () => {
     return HttpResponse.json([]);
   }),
+  // Linked login providers for the current user — default: none linked
+  http.get('/api/v1/users/me/providers', () => {
+    return HttpResponse.json([]);
+  }),
 
   // User preferences (tenant-scoped + fallback)
   http.get('/api/v1/t/:tenant/user-preferences', () => {
