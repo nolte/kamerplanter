@@ -188,9 +188,13 @@ You have the right to erasure of your data.
 
 1. Navigate to **Privacy** > the **Delete Account** tab
 2. Click **Delete Account**
-3. In the confirmation dialog, click **Yes, Delete Account**
+3. For accounts with a **local password login**, enter your **current password** in the confirmation dialog (to authorize the deletion). This step is skipped for accounts that sign in exclusively through an external provider (Google, GitHub, Apple …).
+4. In the confirmation dialog, click **Yes, Delete Account**
 
-The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion, `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
+!!! info "Password confirmation"
+    For local-password accounts, entering the current password is mandatory. If the password is wrong, the dialog stays open and shows an error — the account is **not** deleted.
+
+The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` starts the deletion (for local accounts with the `password` field), `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 
 What happens next:
 
