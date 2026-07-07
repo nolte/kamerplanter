@@ -4,7 +4,21 @@ import reducer, {
   clearError,
   fetchPreferences,
   updateUserPreferences,
+  saveModuleVisibility,
+  saveDashboardLayout,
+  migrateLocalModuleVisibility,
+  migrateLocalDashboardLayout,
 } from '@/store/slices/userPreferencesSlice';
+import type { UserPreference, DashboardLayout } from '@/api/types';
+
+const prefWith = (over: Partial<UserPreference> = {}): UserPreference =>
+  ({ experience_level: 'intermediate', ...over }) as UserPreference;
+
+const stateWith = (pref: UserPreference | null) => ({
+  preferences: pref,
+  loading: false,
+  error: null,
+});
 
 function createStore() {
   return configureStore({ reducer: { userPreferences: reducer } });
@@ -89,5 +103,96 @@ describe('userPreferencesSlice', () => {
     const store = createStore();
     await store.dispatch(updateUserPreferences({ updates: { theme: 'dark' } }));
     expect(store.getState().userPreferences.preferences?.theme).toBe('dark');
+  });
+
+  // REQ-042 module visibility
+  describe('saveModuleVisibility.fulfilled', () => {
+    it('replaces the module_visibility override set', () => {
+      const start = stateWith(prefWith({ module_visibility: {} }));
+      const overrides = { pests: 'enabled' as const };
+      const next = reducer(start, {
+        type: saveModuleVisibility.fulfilled.type,
+        payload: overrides,
+      });
+      expect(next.preferences?.module_visibility).toEqual(overrides);
+    });
+
+    it('is a no-op when no preferences are loaded yet', () => {
+      const next = reducer(stateWith(null), {
+        type: saveModuleVisibility.fulfilled.type,
+        payload: { pests: 'enabled' },
+      });
+      expect(next.preferences).toBeNull();
+    });
+  });
+
+  describe('migrateLocalModuleVisibility.fulfilled', () => {
+    it('adopts the migrated server preference', () => {
+      const migrated = prefWith({ module_visibility: { pests: 'disabled' } });
+      const next = reducer(stateWith(null), {
+        type: migrateLocalModuleVisibility.fulfilled.type,
+        payload: migrated,
+      });
+      expect(next.preferences).toEqual(migrated);
+    });
+
+    it('keeps existing preferences when the migration yields null', () => {
+      const existing = prefWith({ theme: 'dark' });
+      const next = reducer(stateWith(existing), {
+        type: migrateLocalModuleVisibility.fulfilled.type,
+        payload: null,
+      });
+      expect(next.preferences).toEqual(existing);
+    });
+  });
+
+  // REQ-045 dashboard layout
+  describe('saveDashboardLayout', () => {
+    const layout = { widgets: [{ id: 'w1' }] } as unknown as DashboardLayout;
+
+    it('optimistically applies the arg layout on pending', () => {
+      const next = reducer(stateWith(prefWith()), {
+        type: saveDashboardLayout.pending.type,
+        meta: { arg: layout },
+      });
+      expect(next.preferences?.dashboard_layout).toEqual(layout);
+    });
+
+    it('reconciles with the server-sanitized layout on fulfilled', () => {
+      const sanitized = { widgets: [] } as unknown as DashboardLayout;
+      const next = reducer(stateWith(prefWith({ dashboard_layout: layout })), {
+        type: saveDashboardLayout.fulfilled.type,
+        payload: sanitized,
+      });
+      expect(next.preferences?.dashboard_layout).toEqual(sanitized);
+    });
+
+    it('pending is a no-op without loaded preferences', () => {
+      const next = reducer(stateWith(null), {
+        type: saveDashboardLayout.pending.type,
+        meta: { arg: layout },
+      });
+      expect(next.preferences).toBeNull();
+    });
+  });
+
+  describe('migrateLocalDashboardLayout.fulfilled', () => {
+    it('adopts the migrated preference when present', () => {
+      const migrated = prefWith({ dashboard_layout: { widgets: [] } as unknown as DashboardLayout });
+      const next = reducer(stateWith(null), {
+        type: migrateLocalDashboardLayout.fulfilled.type,
+        payload: migrated,
+      });
+      expect(next.preferences).toEqual(migrated);
+    });
+
+    it('is a no-op when the migration yields null', () => {
+      const existing = prefWith();
+      const next = reducer(stateWith(existing), {
+        type: migrateLocalDashboardLayout.fulfilled.type,
+        payload: null,
+      });
+      expect(next.preferences).toEqual(existing);
+    });
   });
 });
