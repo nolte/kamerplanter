@@ -212,11 +212,20 @@ Am Ende eines Zyklus (oder wenn du ihn vorzeitig abbrechen willst) beendest du d
 
 Das Beenden des Durchlaufs löscht die Pflanzen nicht aus dem System — sie bleiben abrufbar, gelten aber nicht mehr als aktiv.
 
-### Ernte
+### Ernte abschließen {#ernte-abschliessen}
 
-Für die Ernte gibt es aktuell **keine** Aktion, die auf einen Schlag alle Pflanzen eines Durchlaufs erfasst — eine „Ernte-Batch"-Funktion auf Durchlauf-Ebene existiert nicht. Jede Ernte wird einzeln pro Pflanze über die Seite **Erntechargen** (Menü **Ernte**) dokumentiert: Dort wählst du die zu erntende Pflanze aus und trägst Frischmasse, Erntetyp und Qualität ein. Details dazu im Guide [Ernte](harvest.md).
+Wenn ein Durchlauf abgeerntet ist, schließt du die Ernte für **alle noch aktiven Pflanzen des Durchlaufs in einem Schritt** ab:
 
-<!-- Quelle: src/backend/app/domain/models/harvest.py (HarvestBatch.plant_key — kein run_key) -->
+1. Klicke oben auf der Detailseite auf **Ernte abschließen** (sichtbar, solange der Durchlauf aktiv ist oder sich im Status "Ernte" befindet).
+2. Bestätige im Dialog — die Anzahl der betroffenen Pflanzen wird dir dort angezeigt.
+3. Jede noch aktive Pflanze des Durchlaufs wechselt in ihren Endzustand „geerntet": Ihre Phasen-Historie wird geschlossen, belegte Stellplätze werden freigegeben und die Pflanzen verschwinden aus der aktiven Aufgaben-Warteschlange. Der resultierende Phasenwechsel erscheint anschließend im Tab **Pflanzen** (Spalte „Aktuelle Phase" bzw. „Entfernt am"). Bereits erfasste Erntechargen bleiben vollständig erhalten.
+
+Waren beim Klick keine aktiven Pflanzen mehr übrig (der Durchlauf war schon vollständig geerntet), erhältst du einen entsprechenden Hinweis und es ändert sich nichts. Der Schritt lässt sich **nicht rückgängig** machen.
+
+!!! note "Erntechargen bleiben pro Pflanze"
+    „Ernte abschließen" beendet den Lebenszyklus der Pflanzen, erfasst aber **keine** Erntemengen. Frischmasse, Erntetyp und Qualität dokumentierst du weiterhin einzeln pro Pflanze über die Seite **Erntechargen** (Menü **Ernte**) — eine „Ernte-Batch"-Funktion auf Durchlauf-Ebene für die Mengenerfassung existiert nicht. Details dazu im Guide [Ernte](harvest.md).
+
+<!-- Quelle: src/frontend/src/pages/durchlaeufe/PlantingRunDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py (POST /harvest/runs/{run_key}/complete); src/backend/app/domain/models/harvest.py (HarvestBatch.plant_key — kein run_key) -->
 
 ---
 

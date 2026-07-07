@@ -18,6 +18,7 @@ import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import StopCircleIcon from '@mui/icons-material/StopCircle';
+import AgricultureIcon from '@mui/icons-material/Agriculture';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import EditIcon from '@mui/icons-material/Edit';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
@@ -56,6 +57,7 @@ import * as planApi from '@/api/endpoints/nutrient-plans';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import * as siteApi from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
+import * as harvestApi from '@/api/endpoints/harvest';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
   NutrientPlanPhaseEntry,
@@ -110,6 +112,8 @@ export default function PlantingRunDetailPage() {
   const [batchRemoveOpen, setBatchRemoveOpen] = useState(false);
   const [endRunOpen, setEndRunOpen] = useState(false);
   const [endRunStatus, setEndRunStatus] = useState<'completed' | 'cancelled'>('cancelled');
+  const [completeHarvestOpen, setCompleteHarvestOpen] = useState(false);
+  const [completingHarvest, setCompletingHarvest] = useState(false);
   const [batchTransitionOpen, setBatchTransitionOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
@@ -363,6 +367,29 @@ export default function PlantingRunDetailPage() {
     setEndRunOpen(false);
   };
 
+  const onCompleteHarvest = async () => {
+    if (!key) return;
+    try {
+      setCompletingHarvest(true);
+      const result = await harvestApi.completeHarvestForRun(key);
+      if (result.completed_count > 0) {
+        notification.success(
+          t('pages.plantingRuns.completeHarvestSuccess', {
+            count: result.completed_count,
+          }),
+        );
+      } else {
+        notification.info(t('pages.plantingRuns.completeHarvestNoneActive'));
+      }
+      setCompleteHarvestOpen(false);
+      load();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setCompletingHarvest(false);
+    }
+  };
+
   const onDetach = async (plantKey: string) => {
     if (!key) return;
     try {
@@ -539,6 +566,17 @@ export default function PlantingRunDetailPage() {
                 data-testid="batch-transition-button"
               >
                 {t('pages.plantingRuns.batchTransition')}
+              </Button>
+              <Button
+                variant="outlined"
+                color="warning"
+                startIcon={<AgricultureIcon />}
+                onClick={() => setCompleteHarvestOpen(true)}
+                disabled={completingHarvest}
+                data-testid="complete-harvest-button"
+                sx={{ minHeight: 48 }}
+              >
+                {t('pages.plantingRuns.completeHarvest')}
               </Button>
               <Button
                 variant="contained"
@@ -824,6 +862,19 @@ export default function PlantingRunDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={completeHarvestOpen}
+        title={t('pages.plantingRuns.completeHarvestTitle')}
+        message={`${t('pages.plantingRuns.completeHarvestDesc')}\n\n${t('pages.plantingRuns.completeHarvestConfirm', {
+          count: plants.filter((p) => !p.removed_on && !p.detached_at).length,
+        })}`}
+        confirmLabel={t('pages.plantingRuns.completeHarvestConfirmButton')}
+        onConfirm={onCompleteHarvest}
+        onCancel={() => setCompleteHarvestOpen(false)}
+        destructive
+        loading={completingHarvest}
+      />
 
       <ConfirmDialog
         open={removePlanOpen}

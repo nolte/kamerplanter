@@ -37,7 +37,9 @@ export default function ConfirmDialog({
     <Dialog fullScreen={fullScreen} open={open} onClose={onCancel} maxWidth="sm" fullWidth role="alertdialog" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-description" data-testid="confirm-dialog">
       <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirm-dialog-description">{message}</DialogContentText>
+        <DialogContentText id="confirm-dialog-description" sx={{ whiteSpace: 'pre-line' }}>
+          {message}
+        </DialogContentText>
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} autoFocus disabled={loading} data-testid="confirm-dialog-cancel">

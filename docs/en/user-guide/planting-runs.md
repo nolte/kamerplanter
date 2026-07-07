@@ -212,11 +212,20 @@ At the end of a cycle (or if you want to cancel it early), you end the entire ru
 
 Ending the run does not delete the plants from the system — they remain accessible but are no longer considered active.
 
-### Harvest
+### Completing the Harvest {#ernte-abschliessen}
 
-There is currently **no** action that records a harvest for all plants of a run in one step — a run-level "harvest batch" feature does not exist. Every harvest is documented individually per plant via the **Harvest Batches** page (menu **Harvest**): there you select the plant to harvest and enter fresh weight, harvest type, and quality. See the [Harvest](harvest.md) guide for details.
+Once a run has been harvested, you complete the harvest for **all still-active plants of the run in a single step**:
 
-<!-- Source: src/backend/app/domain/models/harvest.py (HarvestBatch.plant_key — no run_key) -->
+1. Click **Complete harvest** at the top of the detail page (visible as long as the run is active or in "Harvesting" status).
+2. Confirm in the dialog — it shows how many plants are affected.
+3. Every still-active plant of the run moves to its terminal "harvested" state: its phase history is closed, occupied slots are freed, and the plants disappear from the active task queue. The resulting phase transition then shows up in the **Plants** tab ("Current phase" / "Removed on" columns). Existing harvest batches are fully retained.
+
+If no active plants remained when you clicked (the run was already fully harvested), you get a notice and nothing changes. The step **cannot be undone**.
+
+!!! note "Harvest batches stay per plant"
+    "Complete harvest" ends the plants' lifecycle but records **no** harvest quantities. Fresh weight, harvest type, and quality are still documented individually per plant via the **Harvest Batches** page (menu **Harvest**) — a run-level "harvest batch" feature for quantity recording does not exist. See the [Harvest](harvest.md) guide for details.
+
+<!-- Source: src/frontend/src/pages/durchlaeufe/PlantingRunDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py (POST /harvest/runs/{run_key}/complete); src/backend/app/domain/models/harvest.py (HarvestBatch.plant_key — no run_key) -->
 
 ---
 

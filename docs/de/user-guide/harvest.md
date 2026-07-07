@@ -107,10 +107,10 @@ Nach der Bestätigung wechselt die Pflanze in ihren Endzustand „geerntet": Ihr
 
 Dieser Abschluss ist etwas anderes als **Pflanze entfernen** auf der Pflanzendetailseite: „Ernte abschließen" ist der empfohlene Weg für eine tatsächlich abgeschlossene Ernte und setzt zusätzlich den Erntegrund in der Historie der Pflanze. „Pflanze entfernen" bleibt für alle anderen Fälle verfügbar (z.B. eine Pflanze, die nicht geerntet wurde, sondern eingegangen ist oder abgegeben wurde).
 
-!!! info "Nur über API: Ganzen Pflanzdurchlauf auf einmal abschließen"
-    Gehört die Pflanze zu einem [Pflanzdurchlauf](planting-runs.md), lassen sich auch alle noch aktiven Pflanzen des gesamten Durchlaufs in einem Aufruf abschließen. Dafür gibt es aktuell **keine Schaltfläche in der Oberfläche** — die Funktion ist ausschließlich über die technische API erreichbar. Solange keine Oberfläche dafür existiert, schließt du Pflanzen eines Durchlaufs einzeln über ihre jeweilige Erntecharge ab.
+!!! tip "Ganzen Pflanzdurchlauf auf einmal abschließen"
+    Gehört die Pflanze zu einem [Pflanzdurchlauf](planting-runs.md), musst du nicht jede Pflanze einzeln abschließen: Auf der Detailseite des Durchlaufs schließt du mit **Ernte abschließen** alle noch aktiven Pflanzen des gesamten Durchlaufs in einem Schritt ab. Details dazu unter [Ernte eines Durchlaufs abschließen](planting-runs.md#ernte-abschliessen).
 
-<!-- Quelle: src/frontend/src/pages/ernte/HarvestBatchDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest / complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py -->
+<!-- Quelle: src/frontend/src/pages/ernte/HarvestBatchDetailPage.tsx, src/frontend/src/pages/durchlaeufe/PlantingRunDetailPage.tsx, src/backend/app/domain/services/harvest_service.py (complete_harvest / complete_harvest_for_run), src/backend/app/api/v1/harvest/tenant_router.py -->
 
 ---
 
