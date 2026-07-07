@@ -64,6 +64,11 @@ describe('PhaseHistoryTable', () => {
   it('renders history rows with duration and reason', async () => {
     mockGet.mockResolvedValue([makeHistory()]);
     renderWithProviders(<PhaseHistoryTable plantKey="p1" />);
+    // NOTE: the component renders raw enum values (phase_name / transition_reason)
+    // untranslated — a known i18n gap vs. the sibling PhaseGanttChart/Kami views,
+    // which resolve `enums.phaseName.*`. These assertions mirror that current
+    // behaviour; when the component is fixed to translate, update them to the
+    // localized labels ("Vegetativ" / the translated reason).
     expect(await screen.findByText('vegetative')).toBeInTheDocument();
     expect(screen.getByText('14d')).toBeInTheDocument();
     expect(screen.getByText('manual')).toBeInTheDocument();

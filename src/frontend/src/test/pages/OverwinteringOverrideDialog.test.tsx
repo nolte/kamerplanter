@@ -178,10 +178,16 @@ describe('OverwinteringOverrideDialog', () => {
     ).toBeNull();
   });
 
-  it('keeps the dialog open and reports an error when the save fails', async () => {
-    // The override runs through a Redux thunk whose rejection is serialised, so
-    // the structured ApiError is flattened; handleError surfaces the generic
-    // error and the dialog stays open (no success, no onClose).
+  it('keeps the dialog open and reports the generic error when the save fails (KNOWN BUG: 422 field errors lost)', async () => {
+    // KNOWN BUG — this asserts current (wrong) behaviour, not desired behaviour.
+    // The override runs through a Redux thunk whose rejection RTK serialises to a
+    // SerializedError, so `isApiError()` in useApiError fails and the structured
+    // 422 field error ("Notiz ungültig" on `notes`) is lost; handleError falls
+    // back to the generic `errors.unknown`. The sibling OverwinteringProfileDialog
+    // calls the API directly and maps field errors correctly.
+    // WHEN THE THUNK BUG IS FIXED: this test will break on the errors.unknown
+    // assertion below — that break is expected. Update it to assert the field
+    // error surfaces, e.g. `await screen.findByText('Notiz ungültig')`.
     server.use(
       http.patch(PATCH_URL, () =>
         HttpResponse.json(
