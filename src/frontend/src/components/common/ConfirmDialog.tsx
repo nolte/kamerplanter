@@ -6,7 +6,8 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
-import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
+import { visuallyHidden } from '@mui/utils';
 import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
@@ -63,13 +64,24 @@ export default function ConfirmDialog({
           onClick={onConfirm}
           color={destructive ? 'error' : 'primary'}
           variant="contained"
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}
+          // MUI's native `loading` prop disables the button, renders an
+          // accessible CircularProgress (labelled by the button's own text via
+          // aria-labelledby) and keeps the label in the DOM (UI-NFR-002,
+          // UI-NFR-008 R-016/R-017 double-submit-schutz + Ladezustand).
+          loading={loading}
+          loadingPosition="start"
+          aria-busy={loading}
           data-testid="confirm-dialog-confirm"
         >
           {confirmLabel ?? t(destructive ? 'common.delete' : 'common.confirm')}
         </Button>
       </DialogActions>
+      {/* UI-NFR-002 R-011: politely announce the pending state for screen-reader
+          users even if focus was moved away when the confirm button became
+          disabled (native `disabled` blurs the element). */}
+      <Box aria-live="polite" sx={visuallyHidden} data-testid="confirm-dialog-live-region">
+        {loading ? t('common.processing') : ''}
+      </Box>
     </Dialog>
   );
 }
