@@ -112,12 +112,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Register notification channels
     from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 
-    ha_client = get_ha_client()
-    if ha_client is not None:
-        from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
+    # Home Assistant is optional — a missing, unreachable or unresolvable HA_URL
+    # must never break startup (graceful degradation, REQ-018). Any failure here
+    # just skips the HA notification channel.
+    try:
+        ha_client = get_ha_client()
+        if ha_client is not None:
+            from app.data_access.external.ha_notification_channel import HomeAssistantNotificationChannel
 
-        NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
-        logger.info("notification_channel_registered", channel="home_assistant")
+            NotificationChannelRegistry.register(HomeAssistantNotificationChannel(ha_client))
+            logger.info("notification_channel_registered", channel="home_assistant")
+    except Exception:
+        logger.warning("notification_channel_registration_failed", channel="home_assistant", exc_info=True)
 
     from app.data_access.external.apprise_notification_channel import AppriseNotificationChannel
 
