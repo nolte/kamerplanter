@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams, Link as RouterLink } from 'react-router-d
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Chip from '@mui/material/Chip';
+import Chip, { type ChipProps } from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
@@ -17,6 +18,10 @@ import Link from '@mui/material/Link';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import YardIcon from '@mui/icons-material/Yard';
+import SettingsIcon from '@mui/icons-material/Settings';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import PersonIcon from '@mui/icons-material/Person';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
@@ -26,7 +31,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpeciesList } from '@/store/slices/speciesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
-import type { Species, GrowthHabit } from '@/api/types';
+import type { Species, GrowthHabit, DataOrigin } from '@/api/types';
 import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { fetchIdentificationStatus } from '@/store/slices/identificationSlice';
 import PlantIdentificationDialog, {
@@ -49,6 +54,60 @@ type ToggleFilter =
   | 'supportNeeded';
 
 const ALL_GROWTH_HABITS: GrowthHabit[] = ['herb', 'shrub', 'tree', 'vine', 'groundcover'];
+
+/**
+ * UI-NFR-018 R-016/R-017: provenance filter options. Ordered so the URL param and
+ * chip row are deterministic. `tenant` is a first-class option even though
+ * `OriginChip` renders nothing for tenant rows (R8) — the filter must still be
+ * able to isolate user-owned data.
+ */
+const ALL_ORIGINS: DataOrigin[] = ['system', 'enrichment', 'import', 'tenant'];
+
+/** Reuses the `OriginChip` colour mapping (R5); `tenant` has no chip there, so we
+ *  give the selectable option a distinct `success` accent for "own/custom" data. */
+const ORIGIN_CHIP_COLORS: Record<DataOrigin, ChipProps['color']> = {
+  system: 'info',
+  enrichment: 'secondary',
+  import: 'default',
+  tenant: 'success',
+};
+
+/** Reuses the exact leading icons `OriginChip` renders per origin (R5/R-019), so the
+ *  filter chip and the table's origin column visually map to the same category at a
+ *  glance. `tenant` has no `OriginChip` icon (it renders `null` there), so we pair it
+ *  with the "own data" icon used elsewhere for personal/tenant scope (see
+ *  `TenantSwitcher`). */
+const ORIGIN_ICONS: Record<DataOrigin, typeof SettingsIcon> = {
+  system: SettingsIcon,
+  enrichment: AutoAwesomeIcon,
+  import: FileUploadIcon,
+  tenant: PersonIcon,
+};
+
+/** Explanatory tooltip per origin option (UI-NFR-011 Fachbegriff-Tooltips): "System" /
+ *  "Angereichert" / "Importiert" are not self-explanatory to newcomers, so each filter
+ *  chip carries the same explanation as the `OriginChip` shown in the table column. */
+const ORIGIN_TOOLTIP_KEYS: Record<DataOrigin, string> = {
+  system: 'common.origin.tooltipSystem',
+  enrichment: 'common.origin.tooltipEnrichment',
+  import: 'common.origin.tooltipImport',
+  tenant: 'common.origin.tooltipTenant',
+};
+
+/** URL query key holding the active origin selection as a comma-separated list. */
+const ORIGIN_PARAM = 'origin';
+
+/** Parses the comma-separated `origin` query param into a validated set. */
+function parseOriginParam(raw: string | null): Set<DataOrigin> {
+  const selected = new Set<DataOrigin>();
+  if (!raw) return selected;
+  for (const part of raw.split(',')) {
+    if ((ALL_ORIGINS as string[]).includes(part)) {
+      selected.add(part as DataOrigin);
+    }
+  }
+  return selected;
+}
 
 function matchesToggleFilter(
   species: Species,
@@ -89,6 +148,12 @@ export default function SpeciesListPage() {
   });
   const [searchParams, setSearchParams] = useSearchParams();
   const familyFilter = searchParams.get('family') ?? '';
+  // R6/UI-NFR-010 R-016/R-017: origin selection lives in the URL query string and is
+  // restored on load, mirroring the family filter's `searchParams` handling.
+  const originFilter = useMemo(
+    () => parseOriginParam(searchParams.get(ORIGIN_PARAM)),
+    [searchParams],
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Set<ToggleFilter>>(new Set());
@@ -132,7 +197,33 @@ export default function SpeciesListPage() {
     });
   }, []);
 
-  const filterCount = activeFilters.size + (growthHabitFilter ? 1 : 0) + (familyFilter ? 1 : 0);
+  // R2/R3: multi-select toggle. The selection is persisted to the URL param so the
+  // active origins survive reload and are shareable (R6). Empty selection removes
+  // the param entirely (default "Alle").
+  const toggleOriginFilter = useCallback(
+    (origin: DataOrigin) => {
+      setSearchParams((prev) => {
+        const next = parseOriginParam(prev.get(ORIGIN_PARAM));
+        if (next.has(origin)) {
+          next.delete(origin);
+        } else {
+          next.add(origin);
+        }
+        // Serialise in canonical `ALL_ORIGINS` order for a deterministic round-trip.
+        const serialised = ALL_ORIGINS.filter((o) => next.has(o)).join(',');
+        if (serialised) {
+          prev.set(ORIGIN_PARAM, serialised);
+        } else {
+          prev.delete(ORIGIN_PARAM);
+        }
+        return prev;
+      });
+    },
+    [setSearchParams],
+  );
+
+  const filterCount =
+    activeFilters.size + (growthHabitFilter ? 1 : 0) + (familyFilter ? 1 : 0) + originFilter.size;
   const hasActiveFilters = filterCount > 0;
 
   const clearAllFilters = useCallback(() => {
@@ -140,6 +231,7 @@ export default function SpeciesListPage() {
     setGrowthHabitFilter('');
     setSearchParams((prev) => {
       prev.delete('family');
+      prev.delete(ORIGIN_PARAM);
       return prev;
     });
   }, [setSearchParams]);
@@ -149,6 +241,13 @@ export default function SpeciesListPage() {
 
     if (familyFilter) {
       result = result.filter((s) => s.family_key === familyFilter);
+    }
+
+    // R2/R4: origin filter is OR-combined within the selected origins and
+    // AND-composed with every other active filter. A missing `origin` renders as an
+    // empty chip like `tenant`, so it is treated as own/custom data for isolation (R8).
+    if (originFilter.size > 0) {
+      result = result.filter((s) => originFilter.has(resolveOrigin(s) ?? 'tenant'));
     }
 
     for (const filter of activeFilters) {
@@ -170,7 +269,7 @@ export default function SpeciesListPage() {
     }
 
     return result;
-  }, [items, activeFilters, growthHabitFilter, familyFilter, favorites, isFavorite]);
+  }, [items, activeFilters, growthHabitFilter, familyFilter, originFilter, favorites, isFavorite]);
 
   // Auto-open filter panel when filters are active
   useEffect(() => {
@@ -416,6 +515,44 @@ export default function SpeciesListPage() {
               </MenuItem>
             ))}
           </TextField>
+
+          {/* Vertical separator marks the start of a distinct filter dimension (provenance)
+              after the toggle chips + growth-habit select. Hidden on narrow viewports where
+              chips wrap onto their own line anyway, so it never sits awkwardly mid-wrap. */}
+          <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', sm: 'block' } }} />
+
+          {/* R1/R5/R8: multi-select provenance filter reusing OriginChip labels/colours/icons.
+              `tenant` ("Eigene"/"Custom") is a selectable option even though OriginChip
+              renders nothing for tenant rows. Each chip carries the same explanatory tooltip
+              as the table's origin column (UI-NFR-011) so "System"/"Angereichert"/"Importiert"
+              are understandable without prior domain knowledge. */}
+          <Box
+            sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}
+            role="group"
+            aria-label={t('common.origin.filterLabel')}
+            data-testid="species-origin-filter"
+          >
+            <Typography variant="body2" color="text.secondary" component="span">
+              {t('common.origin.filterLabel')}:
+            </Typography>
+            {ALL_ORIGINS.map((origin) => {
+              const selected = originFilter.has(origin);
+              const Icon = ORIGIN_ICONS[origin];
+              return (
+                <Tooltip key={origin} title={t(ORIGIN_TOOLTIP_KEYS[origin])} arrow>
+                  <Chip
+                    label={t(`common.origin.${origin}`)}
+                    icon={<Icon fontSize="small" />}
+                    variant={selected ? 'filled' : 'outlined'}
+                    color={selected ? ORIGIN_CHIP_COLORS[origin] : 'default'}
+                    onClick={() => toggleOriginFilter(origin)}
+                    aria-pressed={selected}
+                    data-testid={`origin-filter-chip-${origin}`}
+                  />
+                </Tooltip>
+              );
+            })}
+          </Box>
         </Box>
       </Collapse>
 
@@ -430,6 +567,8 @@ export default function SpeciesListPage() {
         emptyIllustration={kamiMasterdata}
         tableState={tableState}
         ariaLabel={t('pages.species.title')}
+        hasActiveColumnFilters={hasActiveFilters}
+        onResetColumnFilters={clearAllFilters}
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
