@@ -23,8 +23,11 @@ from app.domain.models.notification import (
 
 logger = structlog.get_logger()
 
-# Notification types that bypass quiet hours
-_QUIET_HOURS_BYPASS_TYPES: frozenset[str] = frozenset({"sensor.alert", "weather.frost"})
+# Notification types that bypass quiet hours. ``frost_forecast_warning`` is the
+# proactive early-warning (Issue #409, F4): high-urgency, so it is delivered
+# immediately rather than held until the quiet-hours flush, consistent with the
+# reactive ``weather.frost``.
+_QUIET_HOURS_BYPASS_TYPES: frozenset[str] = frozenset({"sensor.alert", "weather.frost", "frost_forecast_warning"})
 
 # Dedup key TTL in seconds (24 hours)
 _DEDUP_TTL_SECONDS: int = 86400

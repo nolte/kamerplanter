@@ -153,11 +153,8 @@ class SensorService:
         self,
         location_key: str,
         threshold_celsius: float | None = None,
-        site_key: str | None = None,
-        *,
-        tenant_key: str,
     ) -> dict:
-        """Compute the frost-warning state for a location — NO persistence.
+        """Compute the reactive frost-warning state for a location — NO persistence.
 
         Backs the Home Assistant ``binary_sensor.kp_{location}_frost_warning``
         entity. The reactive ``frost_warning`` is derived from the location's most
@@ -165,13 +162,10 @@ class SensorService:
         the configured threshold; when no reading is available it is ``None``
         (Home Assistant reports ``unknown``) rather than a fabricated ``False``.
 
-        Issue #392 adds the *additive* proactive forecast fields
-        (``forecast_frost_warning`` etc.) derived from the persisted daily
-        forecasts for the location's site (``site_key`` / ``tenant_key`` supplied
-        by the router). The forecast path degrades gracefully: no forecast repo,
-        ``weather_enabled`` off, no ``site_key``, no site coordinates, or no
-        usable in-horizon record all leave the forecast fields ``None`` and the
-        reactive field untouched — never a 500.
+        The proactive forecast early-warning is NOT read here (Issue #409, F1): a
+        site with N locations would otherwise trigger N identical site-level
+        forecast reads on the HA poll hot path. Home Assistant reads the frost
+        forecast once per site via ``GET /sites/{site_key}/weather-forecast``.
         """
         threshold = threshold_celsius if threshold_celsius is not None else settings.frost_warning_threshold_celsius
 
@@ -187,8 +181,6 @@ class SensorService:
         else:
             source = "ha_live"
 
-        forecast = self._forecast_frost_summary(site_key, tenant_key)
-
         return {
             "location_key": location_key,
             "frost_warning": frost_warning,
@@ -196,10 +188,6 @@ class SensorService:
             "threshold_celsius": threshold,
             "source": source,
             "entity_id": entity_id,
-            "forecast_frost_warning": forecast["predicted"],
-            "forecast_min_temperature": forecast["min_temp"],
-            "forecast_expected_date": forecast["expected_date"],
-            "forecast_source": forecast["source"],
         }
 
     def get_site_weather_forecast(self, site_key: str, tenant_key: str) -> dict:
@@ -263,27 +251,6 @@ class SensorService:
             "source": record.source,
             "data_kind": record.data_kind,
         }
-
-    def _forecast_frost_summary(self, site_key: str | None, tenant_key: str) -> dict:
-        """Compute the proactive frost summary for a site, never raising.
-
-        Returns the ``evaluate_forecast_frost_warning`` mapping, or the all-``None``
-        "unknown" mapping when no usable forecast source is available (R5).
-        """
-        unknown: dict = {"predicted": None, "min_temp": None, "expected_date": None, "source": None}
-        try:
-            forecasts = self._load_site_forecasts(site_key, tenant_key)
-            if forecasts is None:
-                return unknown
-            return evaluate_forecast_frost_warning(
-                forecasts,
-                settings.frost_forecast_threshold_celsius,
-                settings.frost_forecast_horizon_days,
-                datetime.now(UTC).date(),
-            )
-        except Exception as exc:
-            logger.warning("forecast_frost_warning_failed", site_key=site_key, error=str(exc))
-            return unknown
 
     def _load_site_forecasts(self, site_key: str | None, tenant_key: str) -> list[WeatherForecast] | None:
         """Load the persisted daily forecasts for a site, or ``None`` when the

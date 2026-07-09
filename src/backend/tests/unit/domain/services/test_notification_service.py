@@ -1,6 +1,6 @@
 """Unit tests for NotificationService (REQ-030)."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -513,3 +513,94 @@ class TestSendEmailDigest:
         result = await service.send_email_digest("user_1", "a@x", since)
 
         assert result == {"status": "failed", "count": 2}
+
+
+class TestSendFrostForecastNotifications:
+    """Issue #409 — per-recipient top-up (F3) and delivered-only counting (F5)."""
+
+    _DATE = date(2026, 7, 9)
+
+    def _delivered(self) -> dict:
+        return {"status": "delivered", "channels_sent": ["home_assistant"], "channels_failed": []}
+
+    async def _send(self, service, user_keys):
+        return await service.send_frost_forecast_notifications(
+            "t1",
+            user_keys,
+            site_key="site1",
+            site_name="Balcony",
+            expected_date=self._DATE,
+            min_temp=-2.0,
+            source="open-meteo",
+        )
+
+    @pytest.mark.asyncio
+    async def test_first_run_notifies_all(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+        mock_engine.notify.return_value = self._delivered()
+
+        result = await self._send(service, ["u1", "u2"])
+
+        assert result == {"status": "complete", "users_notified": 2}
+        assert mock_engine.notify.await_count == 2
+        group_key = f"frost-forecast:site1:{self._DATE.isoformat()}"
+        mock_notification_repo.find_notified_user_keys.assert_called_once_with(group_key, "t1")
+
+    @pytest.mark.asyncio
+    async def test_counts_only_delivered_sends(self, service, mock_engine, mock_notification_repo):
+        # F5: only genuinely delivered results increment users_notified.
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+        mock_engine.notify.side_effect = [
+            {"status": "delivered", "channels_sent": ["home_assistant"]},
+            {"status": "queued_quiet_hours"},
+            {"status": "no_channels"},
+            {"status": "failed", "channels_sent": []},
+            {"status": "deduplicated"},
+        ]
+
+        result = await self._send(service, ["u1", "u2", "u3", "u4", "u5"])
+
+        assert result == {"status": "complete", "users_notified": 1}
+        assert mock_engine.notify.await_count == 5
+
+    @pytest.mark.asyncio
+    async def test_top_up_only_new_member(self, service, mock_engine, mock_notification_repo):
+        # F3: u1 was already notified on an earlier run; only u2 is topped up.
+        mock_notification_repo.find_notified_user_keys.return_value = {"u1"}
+        mock_engine.notify.return_value = self._delivered()
+
+        result = await self._send(service, ["u1", "u2"])
+
+        assert result == {"status": "complete", "users_notified": 1}
+        assert mock_engine.notify.await_count == 1
+        # The single send targeted the new member u2, not the already-notified u1.
+        sent_user_key = mock_engine.notify.await_args.args[0]
+        assert sent_user_key == "u2"
+
+    @pytest.mark.asyncio
+    async def test_all_already_notified_is_deduplicated(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.find_notified_user_keys.return_value = {"u1", "u2"}
+
+        result = await self._send(service, ["u1", "u2"])
+
+        assert result == {"status": "deduplicated", "users_notified": 0}
+        mock_engine.notify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_no_recipients_and_nothing_prior_is_empty(self, service, mock_engine, mock_notification_repo):
+        mock_notification_repo.find_notified_user_keys.return_value = set()
+
+        result = await self._send(service, [])
+
+        assert result == {"status": "empty", "users_notified": 0}
+        mock_engine.notify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_no_new_recipients_with_prior_is_deduplicated(self, service, mock_engine, mock_notification_repo):
+        # No new members supplied, but the event was already announced → dedup, not empty.
+        mock_notification_repo.find_notified_user_keys.return_value = {"u1"}
+
+        result = await self._send(service, [])
+
+        assert result == {"status": "deduplicated", "users_notified": 0}
+        mock_engine.notify.assert_not_awaited()

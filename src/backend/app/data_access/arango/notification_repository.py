@@ -161,24 +161,46 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return [self._to_notification(doc) for doc in cursor]
 
-    def find_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
-        """Return the tenant's notifications carrying ``group_key`` (any user).
+    def exists_by_group_key(self, group_key: str, tenant_key: str) -> bool:
+        """Return whether the tenant has any notification carrying ``group_key``.
 
-        Backs cross-run idempotency for producers that must emit a group at most
-        once (e.g. one frost forecast warning per ``(site_key, forecast_date)``).
-        A non-empty result means the group was already notified — the producer
-        then skips re-notifying.
+        Existence-only primitive: ``LIMIT 1 RETURN 1`` stops at the first match and
+        maps no documents. Backs cross-run idempotency for producers that must emit
+        a group at most once (e.g. one frost forecast warning per
+        ``(site_key, forecast_date)``). Index-backed (Issue #409, F2) by the
+        ``(group_key, tenant_key)`` persistent index.
         """
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.group_key == @group_key AND doc.tenant_key == @tenant_key "
-            f"RETURN doc"
+            f"LIMIT 1 "
+            f"RETURN 1"
         )
         cursor = self._db.aql.execute(
             query,
             bind_vars={"group_key": group_key, "tenant_key": tenant_key},
         )
-        return [self._to_notification(doc) for doc in cursor]
+        return next(cursor, None) is not None
+
+    def find_notified_user_keys(self, group_key: str, tenant_key: str) -> set[str]:
+        """Return the ``user_key`` set already notified for ``(group_key, tenant_key)``.
+
+        Projected, index-backed read (``RETURN DISTINCT doc.user_key``) — full
+        documents are never materialised. Backs the per-recipient top-up (Issue
+        #409, F3): a later run sends only to members NOT already in this set. Rows
+        without a ``user_key`` are ignored so they never poison the set.
+        """
+        query = (
+            f"FOR doc IN {NOTIFICATIONS} "
+            f"FILTER doc.group_key == @group_key AND doc.tenant_key == @tenant_key "
+            f"AND doc.user_key != null "
+            f"RETURN DISTINCT doc.user_key"
+        )
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"group_key": group_key, "tenant_key": tenant_key},
+        )
+        return {user_key for user_key in cursor if user_key}
 
     def count_unread(self, user_key: str, tenant_key: str | None = None) -> int:
         """Count unread notifications for a user."""

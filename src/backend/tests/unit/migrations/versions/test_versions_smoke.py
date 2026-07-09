@@ -25,6 +25,17 @@ class _NoopCollection:
     def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
         raise AssertionError("no document should be written on an empty database")
 
+    def indexes(self):
+        # Models a bootstrapped-but-empty database: ``ensure_collections`` already
+        # created every persistent index, so a structural index migration
+        # (v0009 notifications.group_key) finds its target present and is a no-op.
+        return [
+            {"type": "persistent", "fields": ["group_key", "tenant_key"], "unique": False},
+        ]
+
+    def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
+        raise AssertionError("no index should be created when the bootstrap index already exists")
+
 
 class _NoopDb:
     """An empty database: scans return nothing, so every migration is a no-op."""

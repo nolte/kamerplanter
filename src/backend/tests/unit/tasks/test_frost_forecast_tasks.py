@@ -3,7 +3,7 @@
 Mocks ``app.common.dependencies`` (imported lazily inside the task body) and
 uses the real pure engine (``evaluate_forecast_frost_warning``) plus a real
 ``NotificationService`` whose channel engine is stubbed — so the R9 dedup logic
-(``group_key`` + ``find_by_group_key``) is exercised end-to-end without touching
+(``group_key`` + ``find_notified_user_keys`` top-up) is exercised end-to-end without touching
 Redis, channels or the database. Mirrors ``test_weather_tasks.py``.
 """
 
@@ -109,7 +109,7 @@ class TestEvaluateForecastFrostWarnings:
         ]
 
         notification_repo = MagicMock()
-        notification_repo.find_by_group_key.return_value = []  # nothing sent yet
+        notification_repo.find_notified_user_keys.return_value = set()  # nothing sent yet
         service = _make_service(notification_repo)
         deps.get_notification_service.return_value = service
 
@@ -135,8 +135,8 @@ class TestEvaluateForecastFrostWarnings:
         ]
 
         notification_repo = MagicMock()
-        # First run: no prior notification; second run: one already exists.
-        notification_repo.find_by_group_key.side_effect = [[], [MagicMock()]]
+        # First run: nobody notified yet; second run: u1 already in the set.
+        notification_repo.find_notified_user_keys.side_effect = [set(), {"u1"}]
         service = _make_service(notification_repo)
         deps.get_notification_service.return_value = service
 
@@ -160,7 +160,7 @@ class TestEvaluateForecastFrostWarnings:
         ]
 
         notification_repo = MagicMock()
-        notification_repo.find_by_group_key.return_value = []  # distinct keys, never seen before
+        notification_repo.find_notified_user_keys.return_value = set()  # distinct keys, never seen before
         service = _make_service(notification_repo)
         deps.get_notification_service.return_value = service
 
@@ -192,7 +192,7 @@ class TestEvaluateForecastFrostWarnings:
         ]
 
         notification_repo = MagicMock()
-        notification_repo.find_by_group_key.return_value = []
+        notification_repo.find_notified_user_keys.return_value = set()
         service = _make_service(notification_repo)
         deps.get_notification_service.return_value = service
 
@@ -200,7 +200,7 @@ class TestEvaluateForecastFrostWarnings:
 
         assert result["notified"] == 0
         service._engine.notify.assert_not_awaited()
-        notification_repo.find_by_group_key.assert_not_called()
+        notification_repo.find_notified_user_keys.assert_not_called()
 
     def test_empty_forecast_emits_nothing(self, task_module, monkeypatch):
         module, deps = task_module

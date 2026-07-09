@@ -255,6 +255,66 @@ class TestCountUnread:
         assert repo.count_unread("u1") == 0
 
 
+class TestExistsByGroupKey:
+    def test_returns_true_when_a_row_exists(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([1])
+
+        assert repo.exists_by_group_key("frost-forecast:s1:2026-07-09", "t1") is True
+        call = mock_db.aql.execute.call_args
+        query = call.args[0]
+        assert "LIMIT 1" in query
+        assert "RETURN 1" in query
+        assert "doc.group_key == @group_key" in query
+        assert "doc.tenant_key == @tenant_key" in query
+        assert call.kwargs["bind_vars"] == {
+            "group_key": "frost-forecast:s1:2026-07-09",
+            "tenant_key": "t1",
+        }
+
+    def test_returns_false_when_absent(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.exists_by_group_key("g1", "t1") is False
+
+    def test_is_tenant_scoped(self, repo, mock_db):
+        # A foreign tenant sees no match — the tenant_key is bound into the filter.
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.exists_by_group_key("g1", "other-tenant") is False
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
+
+
+class TestFindNotifiedUserKeys:
+    def test_returns_distinct_user_key_set(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter(["u1", "u2"])
+
+        result = repo.find_notified_user_keys("g1", "t1")
+
+        assert result == {"u1", "u2"}
+        call = mock_db.aql.execute.call_args
+        query = call.args[0]
+        assert "RETURN DISTINCT doc.user_key" in query
+        assert "doc.group_key == @group_key" in query
+        assert "doc.tenant_key == @tenant_key" in query
+        assert call.kwargs["bind_vars"] == {"group_key": "g1", "tenant_key": "t1"}
+
+    def test_empty_result_is_empty_set(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.find_notified_user_keys("g1", "t1") == set()
+
+    def test_drops_falsy_user_keys(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter(["u1", None, "", "u2"])
+
+        assert repo.find_notified_user_keys("g1", "t1") == {"u1", "u2"}
+
+    def test_is_tenant_scoped(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.find_notified_user_keys("g1", "other-tenant")
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
+
+
 class TestCreateEdges:
     def test_creates_task_and_plant_edges(self, repo, mock_db):
         coll = mock_db.collection.return_value
