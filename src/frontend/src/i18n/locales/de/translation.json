@@ -297,6 +297,7 @@
       "tooltipSystem": "Vom System bereitgestellt. Kann nicht bearbeitet oder gelöscht werden.",
       "tooltipEnrichment": "Automatisch über externe Quellen angereichert. Kann nicht direkt bearbeitet werden.",
       "tooltipImport": "Über CSV-Import hinzugefügt. Kann bearbeitet und gelöscht werden.",
+      "tooltipTenant": "Selbst angelegt oder bearbeitet. Volle Bearbeitungs- und Löschrechte.",
       "filterLabel": "Herkunft",
       "copyAsTemplate": "Als Vorlage kopieren",
       "copyAsTemplateUnavailable": "Das Kopieren als Vorlage steht in Kürze zur Verfügung.",

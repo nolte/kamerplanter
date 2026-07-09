@@ -297,6 +297,7 @@
       "tooltipSystem": "Provided by the system. Cannot be edited or deleted.",
       "tooltipEnrichment": "Automatically enriched from external sources. Cannot be edited directly.",
       "tooltipImport": "Added via CSV import. Can be edited and deleted.",
+      "tooltipTenant": "Created or edited by you. Full edit and delete rights.",
       "filterLabel": "Origin",
       "copyAsTemplate": "Copy as template",
       "copyAsTemplateUnavailable": "Copying as a template is coming soon.",
