@@ -80,13 +80,13 @@ iniconfig==2.3.0
     # via pytest
 kombu==5.6.2
     # via celery
-librt==0.12.0
+librt==0.13.0
     # via mypy
 limits==5.8.0
     # via slowapi
 markdownify==1.2.3
     # via kamerplanter-backend (pyproject.toml)
-mypy==2.1.0
+mypy==2.2.0
     # via kamerplanter-backend (pyproject.toml)
 mypy-extensions==1.1.0
     # via
@@ -193,7 +193,7 @@ urllib3==2.7.0
     # via
     #   python-arango
     #   requests
-uvicorn==0.50.2
+uvicorn==0.51.0
     # via kamerplanter-backend (pyproject.toml)
 uvloop==0.22.1
     # via uvicorn
