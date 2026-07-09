@@ -2,6 +2,14 @@ from celery import Celery
 from celery.schedules import crontab
 
 from app.config.settings import settings
+from app.data_access.external.registration import register_external_adapters
+
+# The Celery worker/beat boot via ``celery -A app.tasks`` and never import
+# ``app.main``, so without this call the adapter registries would be empty in the
+# worker process — the REQ-046 weather fetch (and any other registry-resolving
+# task) would fail with ``*_source_unknown`` and write nothing. Register at
+# module import time so every task has the adapters available.
+register_external_adapters()
 
 celery_app = Celery(
     "kamerplanter",

@@ -7,6 +7,9 @@ imported by a worker is never registered, so ``.delay()`` enqueues a message
 no worker can execute.
 """
 
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import app.tasks as tasks_pkg
@@ -48,3 +51,36 @@ def test_redispatch_stale_exports_beat_entry_present():
     """The hourly re-dispatch safety net must be on the beat schedule."""
     entry = celery_app.conf.beat_schedule["retention-redispatch-stale-exports-hourly"]
     assert entry["task"] == "retention.redispatch_stale_pending_exports"
+
+
+def test_worker_entrypoint_registers_weather_adapters():
+    """Guard: booting the worker via ``app.tasks`` must populate the adapter registry.
+
+    The Celery worker/beat boot with ``celery -A app.tasks`` and never import
+    ``app.main``. The weather adapters register only as an import side effect of
+    ``@WeatherAdapterRegistry.register``; if that import never runs in the worker
+    process the REQ-046 fetch fails with ``weather_source_unknown`` and writes
+    nothing. Run in a *fresh* subprocess so it mirrors a real worker boot and is
+    immune to modules the test session already imported.
+    """
+    code = textwrap.dedent(
+        """
+        import app.tasks  # noqa: F401  worker entry point (NOT app.main)
+        from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
+
+        names = set(WeatherAdapterRegistry.all())
+        required = {"open-meteo", "dwd", "openweathermap", "ha_weather"}
+        missing = required - names
+        assert not missing, f"weather adapters unregistered in worker process: {sorted(missing)}"
+        print("REGISTRY_OK")
+        """
+    )
+    backend_root = Path(__file__).resolve().parents[3]
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=backend_root,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"stdout={result.stdout!r}\nstderr={result.stderr!r}"
+    assert "REGISTRY_OK" in result.stdout
