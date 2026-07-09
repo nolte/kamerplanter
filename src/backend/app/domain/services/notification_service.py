@@ -165,11 +165,15 @@ class NotificationService:
     ) -> dict:
         """Emit a proactive frost early-warning to a tenant's users (Issue #392).
 
-        Idempotent per ``(site_key, expected frost date)`` via ``group_key``: if a
-        frost notification for this site and date already exists for the tenant,
-        no new notification is sent (repeated forecast fetches do not re-notify).
-        A new or earlier frost date yields a new ``group_key`` and therefore a new
-        notification. User notification preferences are honoured by the underlying
+        Idempotent per ``(site_key, expected frost date)`` via ``group_key``. Rather
+        than a group-wide once-only guard, recipients are tracked per event
+        (Issue #409, F3): the set of members already announced for this
+        ``(group_key, tenant_key)`` is derived from persisted notification rows and
+        only *newly-eligible* members are topped up on later runs — so a member who
+        joins after the first daily run but before the frost date still receives the
+        already-announced warning, and prior recipients are never re-notified. A new
+        or earlier frost date yields a new ``group_key`` and therefore a fresh
+        announcement. User notification preferences are honoured by the underlying
         ``send_notification`` path.
 
         Args:
@@ -183,21 +187,27 @@ class NotificationService:
 
         Returns:
             ``{"status": "deduplicated"|"empty"|"complete", "users_notified": int}``.
+            ``users_notified`` counts only genuinely delivered sends (Issue #409, F5).
         """
         group_key = f"frost-forecast:{site_key}:{expected_date.isoformat()}"
 
-        # R9 — cross-run idempotency: a persisted notification for this
-        # (site_key, forecast_date) means the frost event was already announced.
-        if self._notification_repo.find_by_group_key(group_key, tenant_key):
-            logger.info(
-                "frost_forecast_notification_deduplicated",
-                tenant_key=tenant_key,
-                site_key=site_key,
-                group_key=group_key,
-            )
-            return {"status": "deduplicated", "users_notified": 0}
+        # F3 (Issue #409) — per-recipient top-up: the members already announced for
+        # this (site_key, forecast_date) event are derived from persisted rows via
+        # the index-backed projected read, so only newly-eligible members are sent
+        # to (mid-event joiners included) without re-notifying prior recipients.
+        already_notified = self._notification_repo.find_notified_user_keys(group_key, tenant_key)
+        pending = [user_key for user_key in user_keys if user_key not in already_notified]
 
-        if not user_keys:
+        if not pending:
+            if already_notified:
+                logger.info(
+                    "frost_forecast_notification_deduplicated",
+                    tenant_key=tenant_key,
+                    site_key=site_key,
+                    group_key=group_key,
+                    already_notified=len(already_notified),
+                )
+                return {"status": "deduplicated", "users_notified": 0}
             return {"status": "empty", "users_notified": 0}
 
         temp_text = f"{min_temp} °C" if min_temp is not None else "unknown"
@@ -211,8 +221,8 @@ class NotificationService:
         }
 
         users_notified = 0
-        for user_key in user_keys:
-            await self.send_notification(
+        for user_key in pending:
+            result = await self.send_notification(
                 user_key=user_key,
                 tenant_key=tenant_key,
                 notification_type="frost_forecast_warning",
@@ -222,13 +232,17 @@ class NotificationService:
                 data=data,
                 group_key=group_key,
             )
-            users_notified += 1
+            # F5 (Issue #409) — only a genuine delivery counts as reach; deduplicated,
+            # queued_quiet_hours, no_channels and failed sends must not inflate the metric.
+            if result.get("status") == "delivered":
+                users_notified += 1
 
         logger.info(
             "frost_forecast_notifications_sent",
             tenant_key=tenant_key,
             site_key=site_key,
             expected_date=expected_date.isoformat(),
+            recipients=len(pending),
             users_notified=users_notified,
         )
         return {"status": "complete", "users_notified": users_notified}

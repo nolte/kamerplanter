@@ -1457,6 +1457,10 @@ def ensure_collections(db: StandardDatabase) -> None:
     notifications_col.add_persistent_index(fields=["user_key", "tenant_key"], unique=False)
     notifications_col.add_persistent_index(fields=["notification_type"], unique=False)
     notifications_col.add_persistent_index(fields=["created_at"], unique=False)
+    # Issue #409 (F2) — backs the frost-forecast dedup / per-recipient top-up reads
+    # (``exists_by_group_key`` / ``find_notified_user_keys``), tenant-scoped by the
+    # (group_key, tenant_key) filter. Non-unique: many users share one group_key.
+    notifications_col.add_persistent_index(fields=["group_key", "tenant_key"], unique=False)
 
     notification_prefs_col = db.collection(NOTIFICATION_PREFERENCES)
     notification_prefs_col.add_persistent_index(fields=["user_key"], unique=True)

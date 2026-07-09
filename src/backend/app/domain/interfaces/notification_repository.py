@@ -49,11 +49,23 @@ class INotificationRepository(ABC):
     ) -> list[Notification]: ...
 
     @abstractmethod
-    def find_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
-        """Return the tenant's notifications carrying ``group_key`` (any user).
+    def exists_by_group_key(self, group_key: str, tenant_key: str) -> bool:
+        """Return whether the tenant has any notification carrying ``group_key``.
 
-        Backs cross-run idempotency for producers that must emit a group at most
-        once (e.g. one frost forecast warning per ``(site_key, forecast_date)``).
+        Existence-only primitive (no document materialisation) backing cross-run
+        idempotency for producers that must emit a group at most once. Index-backed
+        (Issue #409, F2) by the ``(group_key, tenant_key)`` persistent index.
+        """
+        ...
+
+    @abstractmethod
+    def find_notified_user_keys(self, group_key: str, tenant_key: str) -> set[str]:
+        """Return the ``user_key`` set already notified for ``(group_key, tenant_key)``.
+
+        Projected read (``RETURN DISTINCT doc.user_key``) — never materialises full
+        documents. Backs the per-recipient top-up (Issue #409, F3): a later run
+        sends only to members NOT already in this set, so mid-event joiners receive
+        the already-announced warning without duplicating it for prior recipients.
         """
         ...
 

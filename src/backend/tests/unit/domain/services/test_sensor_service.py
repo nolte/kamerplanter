@@ -206,7 +206,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", tenant_key="")
+        result = service.get_location_frost_warning("loc1")
         assert result["frost_warning"] is True
         assert result["temperature_celsius"] == 1.0
         assert result["threshold_celsius"] == 3.0
@@ -222,7 +222,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", tenant_key="")
+        result = service.get_location_frost_warning("loc1")
         assert result["frost_warning"] is False
         assert result["source"] == "ha_live"
 
@@ -236,7 +236,7 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.hum",
             "unit": "%",
         }
-        result = service.get_location_frost_warning("loc1", tenant_key="")
+        result = service.get_location_frost_warning("loc1")
         assert result["frost_warning"] is None
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
@@ -252,14 +252,14 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", tenant_key="")
+        result = service.get_location_frost_warning("loc1")
         assert result["frost_warning"] is None
         assert result["temperature_celsius"] is None
         assert result["source"] == "no_temperature"
 
     def test_unknown_when_ha_unavailable(self, service_no_ha, mock_repo):
         mock_repo.find_by_location.return_value = [self._temp_sensor()]
-        result = service_no_ha.get_location_frost_warning("loc1", tenant_key="")
+        result = service_no_ha.get_location_frost_warning("loc1")
         assert result["frost_warning"] is None
         assert result["source"] == "unavailable"
 
@@ -271,12 +271,13 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0, tenant_key="")
+        result = service.get_location_frost_warning("loc1", threshold_celsius=0.0)
         assert result["frost_warning"] is False
         assert result["threshold_celsius"] == 0.0
 
-    def test_forecast_fields_none_without_weather_repo(self, service, mock_repo, mock_ha_client):
-        # No weather_forecast_repo injected → forecast fields None, reactive intact.
+    def test_no_forecast_fields_on_per_location_response(self, service, mock_repo, mock_ha_client):
+        # Issue #409 (F1): the per-location hot path carries only the reactive
+        # state; the proactive forecast fields moved to the per-site endpoint.
         mock_repo.find_by_location.return_value = [self._temp_sensor()]
         mock_ha_client.get_state.return_value = {
             "value": 1.0,
@@ -284,12 +285,12 @@ class TestGetLocationFrostWarning:
             "entity_id": "sensor.loc_temp",
             "unit": "°C",
         }
-        result = service.get_location_frost_warning("loc1", site_key="site-1", tenant_key="t-1")
+        result = service.get_location_frost_warning("loc1")
         assert result["frost_warning"] is True  # reactive unchanged
-        assert result["forecast_frost_warning"] is None
-        assert result["forecast_min_temperature"] is None
-        assert result["forecast_expected_date"] is None
-        assert result["forecast_source"] is None
+        assert "forecast_frost_warning" not in result
+        assert "forecast_min_temperature" not in result
+        assert "forecast_expected_date" not in result
+        assert "forecast_source" not in result
 
 
 TENANT_KEY = "t-1"
@@ -338,130 +339,6 @@ def _weather_enabled(monkeypatch):
     monkeypatch.setattr(settings, "weather_enabled", True)
     monkeypatch.setattr(settings, "frost_forecast_threshold_celsius", 2.0)
     monkeypatch.setattr(settings, "frost_forecast_horizon_days", 2)
-
-
-class TestLocationFrostWarningForecast:
-    def _temp_sensor(self) -> Sensor:
-        return Sensor(
-            name="Air Temp",
-            metric_type="temperature_celsius",
-            ha_entity_id="sensor.loc_temp",
-            location_key="loc1",
-        )
-
-    def _wire_reactive(self, mock_repo, mock_ha_client, temp=10.0):
-        mock_repo.find_by_location.return_value = [self._temp_sensor()]
-        mock_ha_client.get_state.return_value = {
-            "value": temp,
-            "last_changed": "2026-07-05T02:00:00Z",
-            "entity_id": "sensor.loc_temp",
-            "unit": "°C",
-        }
-
-    def test_forecast_frost_in_horizon_sets_fields(
-        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo
-    ):
-        self._wire_reactive(mock_repo, mock_ha_client, temp=10.0)
-        mock_forecast_repo.find_by_site.return_value = [_forecast(0, 8.0), _forecast(1, -1.5)]
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        # Reactive path unchanged (10 °C above threshold).
-        assert result["frost_warning"] is False
-        # Proactive path detects the in-horizon frost.
-        assert result["forecast_frost_warning"] is True
-        assert result["forecast_min_temperature"] == -1.5
-        assert result["forecast_expected_date"] == datetime.now(UTC).date() + timedelta(days=1)
-        assert result["forecast_source"] == "open-meteo"
-
-    def test_tenant_isolation_find_by_site_called_with_tenant(
-        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo
-    ):
-        self._wire_reactive(mock_repo, mock_ha_client)
-        mock_forecast_repo.find_by_site.return_value = []
-        forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        mock_forecast_repo.find_by_site.assert_called_once_with(SITE_KEY, TENANT_KEY)
-
-    def test_weather_disabled_yields_none(
-        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, monkeypatch
-    ):
-        monkeypatch.setattr(settings, "weather_enabled", False)
-        self._wire_reactive(mock_repo, mock_ha_client)
-        mock_forecast_repo.find_by_site.return_value = [_forecast(1, -5.0)]
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        assert result["forecast_frost_warning"] is None
-        mock_forecast_repo.find_by_site.assert_not_called()
-
-    def test_no_gps_yields_none(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, mock_site_repo):
-        mock_site_repo.get_site_by_key.return_value = _site(gps=None)
-        self._wire_reactive(mock_repo, mock_ha_client)
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        assert result["forecast_frost_warning"] is None
-        mock_forecast_repo.find_by_site.assert_not_called()
-
-    def test_foreign_tenant_site_yields_none(
-        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, mock_site_repo
-    ):
-        mock_site_repo.get_site_by_key.return_value = _site(tenant_key="other-tenant")
-        self._wire_reactive(mock_repo, mock_ha_client)
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        assert result["forecast_frost_warning"] is None
-        mock_forecast_repo.find_by_site.assert_not_called()
-
-    def test_no_site_key_yields_none(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo):
-        self._wire_reactive(mock_repo, mock_ha_client)
-        result = forecast_service.get_location_frost_warning("loc1", tenant_key=TENANT_KEY)
-        assert result["forecast_frost_warning"] is None
-        mock_forecast_repo.find_by_site.assert_not_called()
-
-    def test_empty_tenant_key_does_not_leak_owned_site(
-        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, mock_site_repo
-    ):
-        # Fail-closed: an empty tenant_key must NOT read forecasts of a site that
-        # belongs to a real tenant (the former ``tenant_key and ...`` short-circuit
-        # bypassed the guard for an empty tenant_key).
-        mock_site_repo.get_site_by_key.return_value = _site(tenant_key=TENANT_KEY)
-        self._wire_reactive(mock_repo, mock_ha_client)
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key="")
-        assert result["forecast_frost_warning"] is None
-        mock_forecast_repo.find_by_site.assert_not_called()
-
-    def test_empty_tenant_key_matches_light_mode_site(
-        self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo, mock_site_repo
-    ):
-        # Light mode: an empty tenant_key legitimately matches a site whose own
-        # tenant_key is likewise empty, so the forecast read still proceeds.
-        mock_site_repo.get_site_by_key.return_value = _site(tenant_key="")
-        self._wire_reactive(mock_repo, mock_ha_client)
-        mock_forecast_repo.find_by_site.return_value = [_forecast(1, -2.0)]
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key="")
-        assert result["forecast_frost_warning"] is True
-        mock_forecast_repo.find_by_site.assert_called_once_with(SITE_KEY, "")
-
-    def test_uses_utc_today_for_horizon(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo):
-        # The read path must anchor its horizon on the UTC calendar day (matching
-        # the notification task) rather than server-local time.
-        self._wire_reactive(mock_repo, mock_ha_client)
-        utc_today = datetime.now(UTC).date()
-        mock_forecast_repo.find_by_site.return_value = [
-            WeatherForecast(
-                site_key=SITE_KEY,
-                forecast_date=utc_today,
-                temp_min_c=-1.0,
-                temp_max_c=5.0,
-                source="open-meteo",
-                fetched_at=datetime(2026, 7, 5, 6, 0, 0),
-            )
-        ]
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        assert result["forecast_frost_warning"] is True
-        assert result["forecast_expected_date"] == utc_today
-
-    def test_repo_exception_never_raises(self, forecast_service, mock_repo, mock_ha_client, mock_forecast_repo):
-        # A forecast-repo failure must degrade to None, never bubble to a 500.
-        self._wire_reactive(mock_repo, mock_ha_client, temp=1.0)
-        mock_forecast_repo.find_by_site.side_effect = RuntimeError("db down")
-        result = forecast_service.get_location_frost_warning("loc1", site_key=SITE_KEY, tenant_key=TENANT_KEY)
-        assert result["frost_warning"] is True  # reactive intact
-        assert result["forecast_frost_warning"] is None
 
 
 class TestGetSiteWeatherForecast:

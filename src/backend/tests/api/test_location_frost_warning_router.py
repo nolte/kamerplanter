@@ -63,7 +63,9 @@ def test_frost_warning_true():
     assert body["frost_warning"] is True
     assert body["threshold_celsius"] == 3.0
     assert body["source"] == "ha_live"
-    sensor_service.get_location_frost_warning.assert_called_once_with("loc-1", site_key="site-1", tenant_key=TENANT_KEY)
+    # Issue #409 (F1): the per-location hot path no longer reads the site forecast,
+    # so no site_key/tenant_key is threaded into the reactive call.
+    sensor_service.get_location_frost_warning.assert_called_once_with("loc-1")
 
 
 def test_frost_warning_unknown_when_no_temperature():
@@ -83,14 +85,11 @@ def test_frost_warning_unknown_when_no_temperature():
     body = resp.json()
     assert body["frost_warning"] is None
     assert body["source"] == "no_temperature"
-    # Additive forecast fields default to null when the service omits them.
-    assert body["forecast_frost_warning"] is None
-    assert body["forecast_expected_date"] is None
 
 
-def test_additive_forecast_fields_flow_through():
-    # Issue #392: the additive proactive fields are carried on the same response;
-    # the reactive ``frost_warning`` keeps its meaning (HA compatibility).
+def test_no_forecast_fields_on_response():
+    # Issue #409 (F1): the per-location response is purely reactive; the proactive
+    # forecast fields moved to GET /sites/{site_key}/weather-forecast.
     site_service = _site_service_owning("loc-3")
     sensor_service = MagicMock()
     sensor_service.get_location_frost_warning.return_value = {
@@ -100,19 +99,14 @@ def test_additive_forecast_fields_flow_through():
         "threshold_celsius": 3.0,
         "source": "ha_live",
         "entity_id": "sensor.loc_temp",
-        "forecast_frost_warning": True,
-        "forecast_min_temperature": -1.5,
-        "forecast_expected_date": "2026-07-07",
-        "forecast_source": "open-meteo",
     }
     client = TestClient(_build_app(site_service, sensor_service))
     resp = client.get("/api/v1/t/test-slug/locations/loc-3/frost-warning")
     assert resp.status_code == 200
     body = resp.json()
-    # Reactive field unchanged.
     assert body["frost_warning"] is False
-    # Proactive fields surfaced additively.
-    assert body["forecast_frost_warning"] is True
-    assert body["forecast_min_temperature"] == -1.5
-    assert body["forecast_expected_date"] == "2026-07-07"
-    assert body["forecast_source"] == "open-meteo"
+    # The forecast_* fields are gone from the schema entirely.
+    assert "forecast_frost_warning" not in body
+    assert "forecast_min_temperature" not in body
+    assert "forecast_expected_date" not in body
+    assert "forecast_source" not in body
