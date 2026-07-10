@@ -72,9 +72,14 @@ class ReferenceContributionResponse(BaseModel):
 
     Issue #447 — the DINOv2 few-shot reference-image opt-in. Only the embedding
     is indexed; the original image is never persisted (REQ-029-A §4.4).
+
+    SEC-001: the contribution is accepted into a **quarantine** — ``accepted``
+    means it was stored for review, ``pending_review`` that it does not yet
+    affect the active recognition index and awaits platform-admin activation.
     """
 
-    indexed: bool
+    accepted: bool
+    pending_review: bool = True
     species_key: str
     dim: int | None = None
 

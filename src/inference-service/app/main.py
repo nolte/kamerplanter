@@ -291,6 +291,9 @@ async def upsert_reference(
     license: str | None = Form(default=None),
     attribution: str | None = Form(default=None),
     source_url: str | None = Form(default=None),
+    is_active: bool = Form(default=True),
+    contributed_by: str | None = Form(default=None),
+    tenant_key: str | None = Form(default=None),
     image: UploadFile | None = File(default=None),
     embedding: str | None = Form(default=None),
 ) -> ReferenceResponse:
@@ -300,6 +303,11 @@ async def upsert_reference(
     ``embedding`` (JSON array of floats, e.g. produced by /embed/batch). Only
     the vector + provenance are persisted; no original image is stored
     (REQ-029-A 4.4).
+
+    ``is_active=False`` writes the row quarantined (SEC-001, issue #447): it is
+    excluded from ``/match`` until a platform admin activates it. ``contributed_by``
+    / ``tenant_key`` record the provenance of an interactive user contribution so
+    it can be attributed and GDPR-erased (SEC-005).
     """
     repo = _require_repo()
 
@@ -334,6 +342,9 @@ async def upsert_reference(
         license=license,
         attribution=attribution,
         source_url=source_url,
+        is_active=is_active,
+        contributed_by=contributed_by,
+        tenant_key=tenant_key,
     )
     return ReferenceResponse(
         status="ok",

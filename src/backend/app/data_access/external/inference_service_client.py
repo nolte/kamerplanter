@@ -183,14 +183,25 @@ class InferenceServiceClient:
         license: str | None = None,  # noqa: A002 — matches the API field name
         attribution: str | None = None,
         source_url: str | None = None,
+        is_active: bool = True,
+        contributed_by: str | None = None,
+        tenant_key: str | None = None,
         image_data: bytes | None = None,
         embedding: list[float] | None = None,
     ) -> dict[str, Any]:
-        """Persist a reference embedding + provenance (no original image stored)."""
+        """Persist a reference embedding + provenance (no original image stored).
+
+        ``is_active=False`` quarantines the row (SEC-001): it stays out of
+        ``/match`` until a platform admin activates it. ``contributed_by`` /
+        ``tenant_key`` record an interactive user contribution's provenance so it
+        can be attributed and GDPR-erased (SEC-005).
+        """
         data: dict[str, Any] = {
             "species_key": species_key,
             "scientific_name": scientific_name,
             "source": source,
+            # Booleans must be sent as their lowercase string form for multipart.
+            "is_active": str(is_active).lower(),
         }
         if organ:
             data["organ"] = organ
@@ -202,6 +213,10 @@ class InferenceServiceClient:
             data["attribution"] = attribution
         if source_url:
             data["source_url"] = source_url
+        if contributed_by:
+            data["contributed_by"] = contributed_by
+        if tenant_key:
+            data["tenant_key"] = tenant_key
         if embedding is not None:
             import json
 

@@ -139,6 +139,29 @@ def test_reference_from_image(client, fake_repo):
     assert len(row["embedding"]) == 384
 
 
+def test_reference_user_contribution_quarantined_with_provenance(client, fake_repo):
+    # SEC-001/005 (issue #447) — an interactive user contribution is written
+    # inactive and carries contributor/tenant provenance.
+    vector = [0.0] * 384
+    vector[0] = 1.0
+    data = {
+        "species_key": "species_monstera_deliciosa",
+        "scientific_name": "Monstera deliciosa",
+        "source": "user_contributed",
+        "source_record_id": "sha256:deadbeef",
+        "embedding": json.dumps(vector),
+        "is_active": "false",
+        "contributed_by": "user_anna",
+        "tenant_key": "tenant_anna",
+    }
+    resp = client.post("/reference", data=data)
+    assert resp.status_code == 200
+    row = fake_repo.rows[0]
+    assert row["is_active"] is False
+    assert row["contributed_by"] == "user_anna"
+    assert row["tenant_key"] == "tenant_anna"
+
+
 def test_reference_from_precomputed_embedding(client, fake_repo):
     vector = [0.0] * 384
     vector[0] = 1.0

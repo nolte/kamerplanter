@@ -1,29 +1,37 @@
 """API tests for the REQ-029 recognition routers (status + tenant-scoped)."""
 
+import io
 from unittest.mock import MagicMock
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from PIL import Image
 
+from app.api.v1.recognition import tenant_router as tenant_recognition_module
 from app.api.v1.recognition.router import router as recognition_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_identification_service, get_reference_image_service
 from app.common.enums import TenantRole
-from app.common.exceptions import ConsentRequiredError, KamerplanterError
+from app.common.exceptions import (
+    ConsentRequiredError,
+    KamerplanterError,
+    NotFoundError,
+    RateLimitError,
+)
 from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 
 TENANT_SLUG = "anna"
 
 
-def _tenant_ctx() -> TenantContext:
+def _tenant_ctx(role: TenantRole = TenantRole.ADMIN) -> TenantContext:
     return TenantContext(
         tenant_key="tenant_anna",
         tenant_slug=TENANT_SLUG,
         user_key="user_anna",
-        role=TenantRole.ADMIN,
+        role=role,
     )
 
 
@@ -34,13 +42,13 @@ def _app_error_handler(request: Request, exc: KamerplanterError) -> JSONResponse
     )
 
 
-def _build_app(service, reference_service=None):
+def _build_app(service, reference_service=None, role: TenantRole = TenantRole.ADMIN):
     app = FastAPI()
     app.include_router(recognition_router, prefix="/api/v1")
     app.include_router(tenant_recognition_router, prefix="/api/v1/t/{tenant_slug}")
     app.add_exception_handler(KamerplanterError, _app_error_handler)
     app.dependency_overrides[get_identification_service] = lambda: service
-    app.dependency_overrides[get_current_tenant] = _tenant_ctx
+    app.dependency_overrides[get_current_tenant] = lambda: _tenant_ctx(role)
     if reference_service is not None:
         app.dependency_overrides[get_reference_image_service] = lambda: reference_service
     return app
@@ -48,6 +56,13 @@ def _build_app(service, reference_service=None):
 
 def _jpeg_upload():
     return {"image": ("plant.jpg", b"\xff\xd8\xff\xe0fake-jpeg-bytes", "image/jpeg")}
+
+
+def _real_jpeg_upload():
+    """A genuinely decodable small JPEG (passes the SEC-004 decode/bomb guard)."""
+    buf = io.BytesIO()
+    Image.new("RGB", (240, 240), (0, 120, 0)).save(buf, format="JPEG")
+    return {"image": ("plant.jpg", buf.getvalue(), "image/jpeg")}
 
 
 def test_status_is_public():
@@ -208,23 +223,148 @@ def test_contribute_reference_success(monkeypatch):
     monkeypatch.setattr(settings, "inference_service_enabled", True)
     reference_service = MagicMock()
     reference_service.contribute_user_reference.return_value = {
-        "status": "ok",
+        "accepted": True,
+        "pending_review": True,
         "species_key": "species_monstera",
         "dim": 768,
-        "model": "dinov2",
+        "source_record_id": "sha256:abc",
     }
     client = TestClient(_build_app(MagicMock(), reference_service))
 
     resp = client.post(
         f"/api/v1/t/{TENANT_SLUG}/identification/reference",
-        files=_jpeg_upload(),
-        data={"species_key": "species_monstera", "scientific_name": "Monstera deliciosa"},
+        files=_real_jpeg_upload(),
+        # A client-supplied scientific_name is present but must be ignored (SEC-003).
+        data={"species_key": "species_monstera", "scientific_name": "Attacker spoofus"},
     )
     assert resp.status_code == 202
     body = resp.json()
-    assert body == {"indexed": True, "species_key": "species_monstera", "dim": 768}
+    assert body == {
+        "accepted": True,
+        "pending_review": True,
+        "species_key": "species_monstera",
+        "dim": 768,
+    }
 
-    args, _ = reference_service.contribute_user_reference.call_args
+    # SEC-003 — the endpoint no longer forwards a client scientific_name; the
+    # service derives it from the resolved species record. It passes the
+    # contributor + tenant provenance (SEC-005) instead.
+    args, kwargs = reference_service.contribute_user_reference.call_args
     assert args[0] == "species_monstera"
-    assert args[1] == "Monstera deliciosa"
-    assert isinstance(args[2], bytes)
+    assert isinstance(args[1], bytes)
+    assert kwargs["user_key"] == "user_anna"
+    assert kwargs["tenant_key"] == "tenant_anna"
+    assert "scientific_name" not in kwargs
+
+
+def test_contribute_reference_viewer_forbidden(monkeypatch):
+    """SEC-001 — a viewer must not be able to write to the global index."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    client = TestClient(_build_app(MagicMock(), reference_service, role=TenantRole.VIEWER))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),
+        data={"species_key": "species_monstera"},
+    )
+    assert resp.status_code == 403
+    reference_service.contribute_user_reference.assert_not_called()
+
+
+def test_contribute_reference_grower_allowed(monkeypatch):
+    """SEC-001 — a grower (not just admin) may contribute."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    reference_service.contribute_user_reference.return_value = {
+        "accepted": True,
+        "pending_review": True,
+        "species_key": "species_monstera",
+        "dim": 384,
+    }
+    client = TestClient(_build_app(MagicMock(), reference_service, role=TenantRole.GROWER))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),
+        data={"species_key": "species_monstera"},
+    )
+    assert resp.status_code == 202
+    reference_service.contribute_user_reference.assert_called_once()
+
+
+def test_contribute_reference_unknown_species_returns_404(monkeypatch):
+    """SEC-003 — an unknown species is a 404 (surfaced from the service)."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    reference_service.contribute_user_reference.side_effect = NotFoundError("Species", "species_ghost")
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),
+        data={"species_key": "species_ghost"},
+    )
+    assert resp.status_code == 404
+
+
+def test_contribute_reference_rate_limited_returns_429(monkeypatch):
+    """SEC-002 — the per-user contribution quota surfaces as 429."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    reference_service.contribute_user_reference.side_effect = RateLimitError("contribute")
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),
+        data={"species_key": "species_monstera"},
+    )
+    assert resp.status_code == 429
+
+
+def test_contribute_reference_undecodable_image_returns_422(monkeypatch):
+    """SEC-004/006 — JPEG magic but corrupt bytes are a 422, never a 500."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_jpeg_upload(),  # valid magic bytes, undecodable body
+        data={"species_key": "species_monstera"},
+    )
+    assert resp.status_code == 422
+    reference_service.contribute_user_reference.assert_not_called()
+
+
+def test_contribute_reference_oversize_returns_413(monkeypatch):
+    """SEC-004 — an upload over the size cap is a 413 before any embedding."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    monkeypatch.setattr(settings, "identification_max_image_size_mb", 0)
+    reference_service = MagicMock()
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),
+        data={"species_key": "species_monstera"},
+    )
+    assert resp.status_code == 413
+    reference_service.contribute_user_reference.assert_not_called()
+
+
+def test_contribute_reference_pixel_bomb_returns_413(monkeypatch):
+    """SEC-004 — a decodable image whose pixel count exceeds the cap is a 413."""
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    monkeypatch.setattr(tenant_recognition_module, "_MAX_IMAGE_PIXELS", 100)
+    reference_service = MagicMock()
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_real_jpeg_upload(),  # 240x240 = 57600 px > 100 px cap
+        data={"species_key": "species_monstera"},
+    )
+    assert resp.status_code == 413
+    reference_service.contribute_user_reference.assert_not_called()

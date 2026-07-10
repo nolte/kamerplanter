@@ -6,6 +6,7 @@ passed as a bind parameter cast to ::vector.
 """
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import structlog
 from psycopg_pool import ConnectionPool
@@ -46,17 +47,34 @@ class SpeciesEmbeddingRepository:
         license: str | None = None,
         attribution: str | None = None,
         source_url: str | None = None,
+        is_active: bool = True,
+        contributed_by: str | None = None,
+        tenant_key: str | None = None,
     ) -> None:
-        """Insert or update one reference embedding (keyed by species/source/record)."""
+        """Insert or update one reference embedding (keyed by species/source/record).
+
+        ``is_active`` controls whether the row participates in ``/match``: the
+        license-clean acquisition pipeline indexes active rows (default), while
+        interactive user contributions (SEC-001, issue #447) are written
+        quarantined (``is_active=False``) and only enter recognition after a
+        platform admin activates them. ``contributed_by`` / ``tenant_key`` carry
+        the provenance needed for GDPR erasure (SEC-005). On a repeat upsert of
+        the same (species, source, record) the curation flag and the original
+        provenance are **preserved** — a re-submission never silently
+        re-activates a row an admin has already deselected/rejected.
+        """
         embedding_str = _to_vector_literal(embedding)
+        contributed_at = datetime.now(tz=UTC) if contributed_by is not None else None
 
         with self._pool.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO species_embeddings
                     (species_key, scientific_name, organ, embedding, model,
-                     source, source_record_id, license, attribution, source_url)
-                VALUES (%s, %s, %s, %s::vector, %s, %s, %s, %s, %s, %s)
+                     source, source_record_id, license, attribution, source_url,
+                     is_active, contributed_by, tenant_key, contributed_at)
+                VALUES (%s, %s, %s, %s::vector, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s)
                 ON CONFLICT (species_key, source, source_record_id) DO UPDATE SET
                     scientific_name = EXCLUDED.scientific_name,
                     organ           = EXCLUDED.organ,
@@ -78,6 +96,10 @@ class SpeciesEmbeddingRepository:
                     license,
                     attribution,
                     source_url,
+                    is_active,
+                    contributed_by,
+                    tenant_key,
+                    contributed_at,
                 ),
             )
 
