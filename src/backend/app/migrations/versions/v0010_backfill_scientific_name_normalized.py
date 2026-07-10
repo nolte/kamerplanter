@@ -17,14 +17,21 @@ REQ-048 Stufe 1 (Issue #436). Two jobs, both idempotent:
      plants first (so active-plant references are never orphaned, risk R-C),
      then the metadata-richer row, then the lexicographically smallest ``_key``.
    * **Every** reference to a loser is moved onto the survivor before the loser
-     is deleted — no reference is left dangling (SEC-001). The complete set of
-     species-referencing collections/fields and species-incident edges is kept in
-     ONE place (``_SPECIES_KEY_SCALAR_REFS`` / ``_SPECIES_KEY_LIST_REFS`` /
-     ``_SPECIES_DERIVED_DOCS`` / ``_SPECIES_RELATION_EDGES`` /
-     ``_SPECIES_SINGLETON_CHILD_EDGES`` / ``_ALL_SPECIES_INCIDENT_EDGES``), so a
-     future new ``species_key`` field is a single-line addition — and a
-     pre-flight guard (:meth:`_assert_no_dangling`) aborts the merge (rather than
-     orphaning) if any unlisted reference to the loser survives the repoint.
+     is deleted — no reference is left dangling (SEC-001, SEC-101). The complete
+     set of species-referencing collections/fields and species-incident edges is
+     kept in ONE place (``_SPECIES_KEY_SCALAR_REFS`` / ``_SPECIES_KEY_LIST_REFS`` /
+     ``_SPECIES_KEY_NESTED_ARRAY_REFS`` / ``_SPECIES_DERIVED_DOCS`` /
+     ``_SPECIES_RELATION_EDGES`` / ``_SPECIES_SINGLETON_CHILD_EDGES`` /
+     ``_ALL_SPECIES_INCIDENT_EDGES``), so a future new ``species_key`` field is a
+     single-line addition — and a pre-flight guard (:meth:`_assert_no_dangling`)
+     aborts the merge (rather than orphaning) if any reference to the loser within
+     the mapped collections survives the repoint.
+   * Species keys nested inside an array of embedded documents are repointed too:
+     ``identification_requests.results[].matched_species_key`` records each stored
+     candidate's local-master-data match (REQ-029); rewriting the loser key in
+     place stops a historical identification request from later resolving a
+     deleted species (SEC-101), which would otherwise surface a 404 on the
+     "create plant from selection" path.
    * Scalar and list ``species_key`` fields (active grow runs, tasks, retention-
      bound harvest indicators, succession/overwintering/onboarding/starter-kit
      data, cultivars, plants …) are repointed loser→survivor. ``reference_image_
@@ -115,6 +122,15 @@ _SPECIES_KEY_SCALAR_REFS: tuple[tuple[str, str], ...] = (
 _SPECIES_KEY_LIST_REFS: tuple[tuple[str, str], ...] = (
     (col.ONBOARDING_STATES, "favorite_species_keys"),
     (col.STARTER_KITS, "species_keys"),
+)
+
+#: ``(collection, array_field, nested_field)`` triples holding a species key nested
+#: inside an array of embedded documents. ``identification_requests.results[]``
+#: stores each candidate's local-master-data match (``matched_species_key``, REQ-
+#: 029); the loser key is rewritten to the survivor in place so a historical
+#: identification request never resolves a deleted species (SEC-101).
+_SPECIES_KEY_NESTED_ARRAY_REFS: tuple[tuple[str, str, str], ...] = (
+    (col.IDENTIFICATION_REQUESTS, "results", "matched_species_key"),
 )
 
 #: Derived, species-keyed singleton documents that carry a *unique* index and a
@@ -262,6 +278,19 @@ class BackfillScientificNameNormalizedMigration(Migration):
             n = sum(1 for d in db.collection(collection).all() if loser_key in (d.get(field) or []))
             if n:
                 counts[collection] = counts.get(collection, 0) + n
+        for collection, array_field, nested_field in _SPECIES_KEY_NESTED_ARRAY_REFS:
+            if not db.has_collection(collection):
+                continue
+            n = sum(
+                1
+                for d in db.collection(collection).all()
+                if any(
+                    isinstance(item, dict) and item.get(nested_field) == loser_key
+                    for item in (d.get(array_field) or [])
+                )
+            )
+            if n:
+                counts[collection] = counts.get(collection, 0) + n
         for edge in _ALL_SPECIES_INCIDENT_EDGES:
             if not db.has_collection(edge):
                 continue
@@ -302,6 +331,24 @@ class BackfillScientificNameNormalizedMigration(Migration):
                         new_values.append(replaced)
                 handle.update({"_key": doc["_key"], field: new_values})
                 moves[collection] = moves.get(collection, 0) + 1
+
+    def _repoint_nested_array_refs(
+        self, db: StandardDatabase, loser_key: str, survivor_key: str, moves: dict[str, int]
+    ) -> None:
+        for collection, array_field, nested_field in _SPECIES_KEY_NESTED_ARRAY_REFS:
+            if not db.has_collection(collection):
+                continue
+            handle = db.collection(collection)
+            for doc in list(handle.all()):
+                items = doc.get(array_field) or []
+                touched = False
+                for item in items:
+                    if isinstance(item, dict) and item.get(nested_field) == loser_key:
+                        item[nested_field] = survivor_key
+                        touched = True
+                if touched:
+                    handle.update({"_key": doc["_key"], array_field: items})
+                    moves[collection] = moves.get(collection, 0) + 1
 
     def _delete_derived_docs(self, db: StandardDatabase, loser_key: str, moves: dict[str, int]) -> None:
         for collection, field in _SPECIES_DERIVED_DOCS:
@@ -391,11 +438,15 @@ class BackfillScientificNameNormalizedMigration(Migration):
                     handle.delete(e["_key"])
 
     def _assert_no_dangling(self, db: StandardDatabase, loser_key: str) -> None:
-        """Fail loudly if any reference to the loser survived the repoint (SEC-001).
+        """Fail loudly if a mapped reference to the loser survived the repoint.
 
-        Guards against a future ``species_key`` field being added without updating
-        the reference map above: rather than silently orphan it, the migration
-        aborts before deleting the loser so the gap is caught in review/CI.
+        Re-runs :meth:`_count_references` over every mapped collection (scalar,
+        list, nested-array, derived and species-incident edges, SEC-001/SEC-101):
+        if a repoint step left one behind, the migration aborts before deleting
+        the loser rather than orphaning it. This catches an added ``species_key``
+        field whose repoint was wired but whose count/repoint has a bug — it does
+        *not* see a reference in a collection missing from the reference map, so
+        every new species-referencing collection must be added to that map.
         """
         remaining = self._count_references(db, loser_key)
         if remaining:
@@ -424,9 +475,10 @@ class BackfillScientificNameNormalizedMigration(Migration):
             loser_key = loser["_key"]
             loser_id = f"{col.SPECIES}/{loser_key}"
 
-            # 1. Move every document-level reference (SEC-001).
+            # 1. Move every document-level reference (SEC-001, SEC-101).
             self._repoint_scalar_refs(db, loser_key, survivor_key, moves)
             self._repoint_list_refs(db, loser_key, survivor_key, moves)
+            self._repoint_nested_array_refs(db, loser_key, survivor_key, moves)
             self._delete_derived_docs(db, loser_key, moves)
 
             # 2. Move every species-incident edge (SEC-002) — no blind deletion.

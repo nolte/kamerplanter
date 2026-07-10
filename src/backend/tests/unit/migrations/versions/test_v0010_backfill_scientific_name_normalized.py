@@ -205,6 +205,39 @@ def _rich_loser_db() -> _FakeDb:
     )
 
 
+def _identification_ref_db() -> _FakeDb:
+    """Loser is referenced only from a nested ``results[].matched_species_key`` (SEC-101)."""
+    return _FakeDb(
+        {
+            col.SPECIES: {
+                "sp_keep": {
+                    "_key": "sp_keep",
+                    "scientific_name": "Fragaria × ananassa",
+                    "scientific_name_normalized": "",
+                },
+                "sp_drop": {
+                    "_key": "sp_drop",
+                    "scientific_name": "Fragaria x ananassa",
+                    "scientific_name_normalized": "",
+                },
+            },
+            col.PLANT_INSTANCES: {
+                "pi_live": {"_key": "pi_live", "species_key": "sp_keep", "removed_on": None},
+            },
+            col.IDENTIFICATION_REQUESTS: {
+                "ir_1": {
+                    "_key": "ir_1",
+                    "tenant_key": "t1",
+                    "results": [
+                        {"rank": 1, "scientific_name": "Fragaria x ananassa", "matched_species_key": "sp_drop"},
+                        {"rank": 2, "scientific_name": "Solanum lycopersicum", "matched_species_key": None},
+                    ],
+                },
+            },
+        }
+    )
+
+
 def _lifecycle_collision_db() -> _FakeDb:
     """Both survivor and loser own a lifecycle → the loser's child is deleted."""
     return _FakeDb(
@@ -370,6 +403,34 @@ class TestSec001NoDanglingReferences:
                 assert "sp_drop" not in (doc.get("species_keys") or [])
                 assert doc.get("_from") != loser_id
                 assert doc.get("_to") != loser_id
+
+
+class TestSec101NestedIdentificationRef:
+    def test_nested_matched_species_key_repointed_to_survivor(self):
+        db = _identification_ref_db()
+        migration.up(db)
+
+        assert "sp_drop" not in db.cols[col.SPECIES]
+        results = db.cols[col.IDENTIFICATION_REQUESTS]["ir_1"]["results"]
+        # The loser key in the stored candidate now resolves the survivor …
+        assert results[0]["matched_species_key"] == "sp_keep"
+        # … while an unmatched candidate stays untouched.
+        assert results[1]["matched_species_key"] is None
+
+    def test_no_nested_reference_left_pointing_at_deleted_loser(self):
+        db = _identification_ref_db()
+        migration.up(db)
+        for req in db.cols[col.IDENTIFICATION_REQUESTS].values():
+            for candidate in req.get("results", []):
+                assert candidate.get("matched_species_key") != "sp_drop"
+
+    def test_dry_run_counts_nested_reference_as_planned_move(self):
+        db = _identification_ref_db()
+        report = migration.up(db, dry_run=True)
+        assert report.details["planned_reference_moves"][col.IDENTIFICATION_REQUESTS] == 1
+        # Nothing written in dry-run: the loser and its nested reference survive.
+        assert "sp_drop" in db.cols[col.SPECIES]
+        assert db.cols[col.IDENTIFICATION_REQUESTS]["ir_1"]["results"][0]["matched_species_key"] == "sp_drop"
 
 
 class TestSec002SingletonChildCollision:
