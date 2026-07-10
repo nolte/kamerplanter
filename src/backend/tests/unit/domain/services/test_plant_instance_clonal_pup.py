@@ -14,6 +14,8 @@ transition never spawns; an intermediate reproductive phase never spawns.
 from datetime import date
 from unittest.mock import MagicMock
 
+from freezegun import freeze_time
+
 from app.common.enums import CycleType, FloweringStrategy, TransitionTrigger
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.plant_instance import PlantInstance
@@ -98,6 +100,7 @@ class TestClonalPupSpawn:
     def _handle(self, phase: str = "flowering", *, mother_key: str = "mother-1", trigger: TransitionTrigger = AUTO):
         return self._service().handle_monocarpic_terminal_transition(mother_key, phase, trigger=trigger)
 
+    @freeze_time("2026-07-11")
     def test_pup_spawned_at_pup_establishment_with_inherited_attrs(self) -> None:
         pup = self._handle()
 
