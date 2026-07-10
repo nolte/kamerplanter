@@ -30,7 +30,7 @@ src/inference-service/
   scripts/
     export_dinov2_onnx.py   ONNX-Export (nicht im CI/Build des Service ausgefuehrt)
   tests/               pytest (Preprocessing-Determinismus, Confidence, /match, Health)
-  Dockerfile / Dockerfile.dev / requirements.txt / pyproject.toml
+  Dockerfile (multi-target: dev + prod) / requirements.txt / pyproject.toml
 ```
 
 ## Preprocessing-Contract (VERBINDLICH)

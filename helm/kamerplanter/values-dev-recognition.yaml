@@ -34,13 +34,11 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # Non-root dev: the dev target chowns /app to 1000 (hot-reload + sync).
       securityContext:
-        # Dev runs as root for hot-reload (SEC-M-004); override the restricted
-        # runAsNonRoot: true that leaks in from base values.yaml so kubelet does
-        # not reject runAsUser: 0.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         image:

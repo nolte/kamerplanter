@@ -32,6 +32,8 @@ jobs:
       knowledge: ${{ steps.filter.outputs.knowledge }}
       embedding-service: ${{ steps.filter.outputs.embedding-service }}
       inference-service: ${{ steps.filter.outputs.inference-service }}
+      reranker-service: ${{ steps.filter.outputs.reranker-service }}
+      knowledge-service: ${{ steps.filter.outputs.knowledge-service }}
       helm: ${{ steps.filter.outputs.helm }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -52,6 +54,10 @@ jobs:
               - 'docker/embedding-service/**'
             inference-service:
               - 'src/inference-service/**'
+            reranker-service:
+              - 'docker/reranker-service/**'
+            knowledge-service:
+              - 'src/knowledge-service/**'
             helm:
               - 'helm/**'
 
@@ -307,6 +313,91 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-reranker-service:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.outputs.reranker-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/kamerplanter-reranker-service
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/reranker-service
+          file: docker/reranker-service/Dockerfile
+          target: bge-reranker-v2-m3
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-knowledge-service:
+    needs: changes
+    if: |
+      always() &&
+      (needs.changes.outputs.knowledge-service == 'true' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/kamerplanter-knowledge-service
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      - name: Build and push
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: src/knowledge-service
+          file: src/knowledge-service/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   publish-helm-charts:
     needs: changes
     if: |
@@ -367,7 +458,7 @@ jobs:
         run: gh release upload "${{ github.ref_name }}" ${{ matrix.chart }}-*.tgz --clobber
 
   update-release-assets:
-    needs: [build-backend, build-frontend, build-vectordb, build-knowledge, build-embedding-service, build-inference-service, publish-helm-charts]
+    needs: [build-backend, build-frontend, build-vectordb, build-knowledge, build-embedding-service, build-inference-service, build-reranker-service, build-knowledge-service, publish-helm-charts]
     if: >-
       always() &&
       startsWith(github.ref, 'refs/tags/v') &&
@@ -406,6 +497,8 @@ jobs:
           - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-knowledge:${VERSION_NUM}\`
           - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-embedding-service:${VERSION_NUM}\`
           - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-inference-service:${VERSION_NUM}\`
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-reranker-service:${VERSION_NUM}\`
+          - \`ghcr.io/${{ github.repository_owner }}/kamerplanter-knowledge-service:${VERSION_NUM}\`
 
           ### Helm Chart
           - \`oci://ghcr.io/${{ github.repository_owner }}/charts/kamerplanter:${VERSION_NUM}\`

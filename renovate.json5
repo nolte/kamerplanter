@@ -8,6 +8,12 @@
   mode: 'full',
   separateMajorMinor: true,
   separateMinorPatch: false,
+  // Pin every Docker base image (Dockerfile FROM) to an immutable @sha256
+  // digest and keep it fresh via PRs — build reproducibility & supply-chain
+  // hardening. Renovate rewrites `image:tag` → `image:tag@sha256:…`.
+  docker: {
+    pinDigests: true,
+  },
   packageRules: [
     {
       groupName: 'github-actions',

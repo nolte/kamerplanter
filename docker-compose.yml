@@ -107,7 +107,8 @@ services:
   reranker-service:
     build:
       context: ./docker/reranker-service
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: bge-reranker-v2-m3
     profiles: ["vectordb"]
     ports:
       - "8081:8081"
@@ -224,11 +225,11 @@ services:
     environment:
       KAMERPLANTER_MODE: light
     ports:
-      - "8080:80"
+      - "8080:8080"
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
       interval: 10s
       timeout: 5s
       retries: 5

@@ -21,7 +21,8 @@ build:
     - image: kamerplanter-backend
       context: src/backend
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: Dockerfile
+        target: dev
       sync:
         manual:
           - src: "app/**/*.py"
@@ -29,7 +30,8 @@ build:
     - image: kamerplanter-frontend
       context: src/frontend
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: Dockerfile
+        target: dev
       sync:
         manual:
           - src: "src/**/*.ts"
@@ -136,19 +138,24 @@ build:
     - image: kamerplanter-knowledge-service
       context: src/knowledge-service
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: Dockerfile
+        target: dev
       sync:
         manual:
           - src: "app/**/*.py"
             dest: /app
+    # embedding/reranker have no dev-specific logic: dev builds the same prod
+    # model target it deploys (root is applied via values-dev-ki runAsUser:0).
     - image: kamerplanter-embedding-service
       context: docker/embedding-service
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: Dockerfile
+        target: e5-large
     - image: kamerplanter-reranker-service
       context: docker/reranker-service
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: Dockerfile
+        target: bge-reranker-v2-m3
 
 deploy:
   statusCheckDeadlineSeconds: 1800
@@ -213,7 +220,8 @@ build:
     - image: kamerplanter-inference-service
       context: src/inference-service
       docker:
-        dockerfile: Dockerfile.dev
+        dockerfile: Dockerfile
+        target: dev
       sync:
         manual:
           - src: "app/**/*.py"

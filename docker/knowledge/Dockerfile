@@ -8,6 +8,11 @@ LABEL org.opencontainers.image.title="kamerplanter-knowledge" \
 
 COPY spec/knowledge/rag/ /knowledge/
 
+# Run as the non-root numeric "nobody" user. The copied knowledge files are
+# world-readable; writing to the mounted /target emptyDir needs a matching
+# fsGroup (or a runAsUser override) in the deployment.
+USER 65534
+
 # Init container entrypoint: copy knowledge files to shared volume.
 # Mount an emptyDir at /target — all knowledge YAMLs are copied there.
 ENTRYPOINT ["sh", "-c", "cp -r /knowledge/* /target/ && echo 'knowledge files copied'"]

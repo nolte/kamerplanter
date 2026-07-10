@@ -1,0 +1,5 @@
+# The vectordb build installs pgvector via RUN and COPYs nothing from the
+# context; exclude everything but the Dockerfile to keep the context minimal.
+*.md
+Dockerfile*
+.dockerignore

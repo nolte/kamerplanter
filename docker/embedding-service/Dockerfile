@@ -78,23 +78,33 @@ COPY requirements.txt .
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 COPY main.py .
+# Create the non-root numeric user; each final target COPYs its model with
+# --chown=1000 and switches to USER 1000 as its last instruction.
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
+    && chown -R 1000:1000 /app
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8080)))"
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
 
 # ── Final images (one per model, select via --target) ────────────────
 
 FROM runtime AS e5-small
 ENV EMBEDDING_MODEL=multilingual-e5-small
-COPY --from=dl-e5-small /model/ /app/models/onnx/multilingual-e5-small/
+COPY --from=dl-e5-small --chown=1000:1000 /model/ /app/models/onnx/multilingual-e5-small/
+USER 1000
 
 FROM runtime AS e5-base
 ENV EMBEDDING_MODEL=multilingual-e5-base
-COPY --from=dl-e5-base /model/ /app/models/onnx/multilingual-e5-base/
+COPY --from=dl-e5-base --chown=1000:1000 /model/ /app/models/onnx/multilingual-e5-base/
+USER 1000
 
 FROM runtime AS e5-large
 ENV EMBEDDING_MODEL=multilingual-e5-large
-COPY --from=dl-e5-large /model/ /app/models/onnx/multilingual-e5-large/
+COPY --from=dl-e5-large --chown=1000:1000 /model/ /app/models/onnx/multilingual-e5-large/
+USER 1000
 
 FROM runtime AS minilm
 ENV EMBEDDING_MODEL=paraphrase-multilingual-MiniLM-L12-v2
-COPY --from=dl-minilm /model/ /app/models/onnx/paraphrase-multilingual-MiniLM-L12-v2/
+COPY --from=dl-minilm --chown=1000:1000 /model/ /app/models/onnx/paraphrase-multilingual-MiniLM-L12-v2/
+USER 1000
