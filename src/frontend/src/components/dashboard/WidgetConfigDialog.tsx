@@ -19,7 +19,6 @@ interface ConfigField {
 /** Per-widget config field definitions (only for widgets with hasConfig). */
 const CONFIG_SCHEMA: Partial<Record<WidgetKey, ConfigField[]>> = {
   weather_forecast: [{ name: 'location', type: 'text' }],
-  sensor_live: [{ name: 'location', type: 'text' }],
   harvest_forecast: [{ name: 'timeframe_days', type: 'number' }],
 };
 

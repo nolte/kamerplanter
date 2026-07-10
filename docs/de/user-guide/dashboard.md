@@ -19,6 +19,33 @@ Das Dashboard öffnet sich automatisch nach dem Anmelden. Du erreichst es jederz
 
 ---
 
+## Panels als Navigationsziele nutzen {#panels-als-navigationsziele-nutzen}
+
+Die meisten Panels sind mehr als eine reine Übersicht: Klicke oder tippe außerhalb des [Bearbeiten-Modus](dashboard-personalization.md) auf ein Panel, um direkt zur passenden Detail- oder Listenansicht zu wechseln. Ein kleiner Pfeil (Chevron) am rechten Rand zeigt dir, welche Panels navigierbar sind.
+
+<!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts (Feld navigateTo) -->
+
+| Panel | Führt dich zu |
+|-------|----------------|
+| Aufgaben heute · Pflegeerinnerungen | [Aufgaben](tasks.md) |
+| Aktive Pflanzen · Pflanzenübersicht | [Pflanzenverwaltung](plant-management.md) |
+| Tankstatus | [Tankmanagement](tanks.md) |
+| Winterschutz | [Überwinterung](overwintering.md) |
+| Pflanzenschutz-Warnungen | [Pflanzenschutz](pest-management.md) |
+| Ernteprognose | [Erntemanagement](harvest.md) |
+| Nächste Termine | [Kalender](calendar.md) |
+| Phasen-Zeitleiste | [Phasensteuerung](growth-phases.md) |
+| Einrichtungsfortschritt | [Onboarding-Wizard](onboarding.md) |
+
+Zwei Panels bilden bewusst eine Ausnahme: **Schnellzugriff** ist selbst schon eine Kachelübersicht mit eigenen Sprungzielen, und **Wettervorhersage** bleibt eine reine Info-Anzeige ohne eigenes Sprungziel.
+
+!!! tip "Im Bearbeiten-Modus deaktiviert"
+    Solange du dein Dashboard im [Bearbeiten-Modus](dashboard-personalization.md) anpasst, sind alle Panels vorübergehend nicht anklickbar — so verschiebst, änderst und konfigurierst du sie ungestört.
+
+Ein Panel verlinkt dich nur dorthin, wo du auch tatsächlich hinnavigieren darfst: Ist das zum Panel gehörende [Modul ausgeblendet](module-visibility.md), erscheint das zugehörige Widget ohnehin nicht auf deinem Dashboard. Auf dem Smartphone ist das gesamte Panel dein Tippziel (mindestens 48×48 Pixel groß); am Desktop erreichst du jedes navigierbare Panel auch per Tastatur (Tab-Taste) und öffnest es mit Enter.
+
+---
+
 ## Übersicht der Dashboard-Bereiche
 
 ### Aktive Pflanzen und Wachstumsphase
@@ -106,7 +133,7 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
 
 **Experte:**
 - Vollständige Kennzahlen-Ansicht
-- VPD-Anzeige mit Zielbereich
+- Zusätzliche Panels: Tankstatus, Phasen-Zeitleiste, Pflanzenübersicht
 - Ertragstrends und Vergleiche
 
 !!! tip "Alle Felder anzeigen"
@@ -125,11 +152,15 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
 ??? question "Warum erscheinen manche Pflanzen nicht im Dashboard?"
     Das Dashboard zeigt nur **aktive** Pflanzen (nicht abgeschlossene, nicht entfernte). Pflanzen in einem abgeschlossenen Pflanzdurchlauf erscheinen nicht mehr. Falls eine aktive Pflanze nicht erscheint, prüfe, ob sie im richtigen Mandanten ist.
 
+??? question "Warum lässt sich ein Panel nicht anklicken?"
+    Entweder befindet sich dein Dashboard gerade im [Bearbeiten-Modus](dashboard-personalization.md) — dort sind alle Panels vorübergehend inaktiv, damit du sie ungestört verschieben oder in der Größe ändern kannst — oder das Panel gehört zu den zwei bewussten Ausnahmen ohne eigenes Sprungziel: **Schnellzugriff** und **Wettervorhersage**.
+
 ---
 
 ## Siehe auch
 
 - [Dashboard personalisieren](dashboard-personalization.md) — Widgets auswählen, anordnen und konfigurieren
+- [Module & Funktionen](module-visibility.md) — steuert, welche Panels (und damit Sprungziele) überhaupt sichtbar sind
 - [Aufgaben](tasks.md)
 - [Kalender](calendar.md)
 - [Tankmanagement](tanks.md)

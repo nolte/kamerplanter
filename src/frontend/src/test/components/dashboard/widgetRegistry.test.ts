@@ -10,7 +10,7 @@ describe('widgetRegistry', () => {
 
   it('resolves generic-shell widget keys to a component', () => {
     expect(getWidgetComponent('tasks_today')).not.toBeNull();
-    expect(getWidgetComponent('vpd_gauge')).not.toBeNull();
+    expect(getWidgetComponent('care_reminders')).not.toBeNull();
   });
 
   it('returns null for an unknown widget key', () => {

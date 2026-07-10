@@ -93,7 +93,9 @@ Klicke auf **„Speichern"**, um deine Änderungen zu übernehmen, oder auf **�
 
 ## Widget-Katalog
 
-Kamerplanter bietet aktuell 17 Widgets in vier Kategorien an. Welche Widgets für dich sichtbar sind, hängt von deiner Erfahrungsstufe, den eingeblendeten [Modulen](module-visibility.md) und deinem Betriebsmodus ([Light- oder Full-Modus](light-mode.md)) ab.
+Kamerplanter bietet aktuell 15 Widgets in vier Kategorien an. Welche Widgets für dich sichtbar sind, hängt von deiner Erfahrungsstufe, den eingeblendeten [Modulen](module-visibility.md) und deinem Betriebsmodus ([Light- oder Full-Modus](light-mode.md)) ab.
+
+Viele Widget-Panels sind zugleich Sprungziele: Außerhalb des Bearbeiten-Modus öffnet ein Klick auf das Panel direkt die passende Ansicht — siehe [Panels als Navigationsziele nutzen](dashboard.md#panels-als-navigationsziele-nutzen).
 
 <!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts, src/frontend/src/i18n/locales/de/translation.json (dashboard.widgets.*), src/frontend/src/components/dashboard/widgets/WeatherForecastWidget.tsx -->
 
@@ -130,12 +132,10 @@ Kamerplanter bietet aktuell 17 Widgets in vier Kategorien an. Welche Widgets fü
 
 | Widget | Beschreibung |
 |--------|-------------|
-| Sensor-Livewerte | Aktuelle Messwerte deiner Sensoren (mit Standort-Konfiguration). |
 | Tankstatus | Füllstände deiner Nährlösungstanks. |
-| VPD-Anzeige | Aktuelles Dampfdruckdefizit (VPD). |
 
 !!! example "Beispiel: Widget mit eigener Konfiguration"
-    Das Widget **Sensor-Livewerte** bietet einen Konfigurationsdialog, in dem du einen Standort einträgst. Klicke dazu im Einstellungen-Tab (oder im Bearbeiten-Modus-Menü) auf das Zahnrad-Symbol neben dem Widget.
+    Das Widget **Ernteprognose** bietet einen Konfigurationsdialog, in dem du den Vorhersage-Zeitraum in Tagen einstellst. Klicke dazu im Einstellungen-Tab (oder im Bearbeiten-Modus-Menü) auf das Zahnrad-Symbol neben dem Widget.
 
 ---
 
@@ -145,7 +145,7 @@ Ohne eigene Anpassung zeigt dein Dashboard eine sinnvolle Grundauswahl, die von 
 
 - **Einsteiger:** Schnellzugriff, Aufgaben heute, Pflegeerinnerungen, Aktive Pflanzen, Tipp des Tages, Winterschutz, Wettervorhersage, Einrichtungsfortschritt
 - **Mittelstufe:** alle Einsteiger-Widgets, zusätzlich Pflanzenschutz-Warnungen, Ernteprognose, Nächste Termine, Community-Aktivität
-- **Experte:** alle Mittelstufe-Widgets, zusätzlich Sensor-Livewerte, Tankstatus, Phasen-Zeitleiste, VPD-Anzeige, Pflanzenübersicht
+- **Experte:** alle Mittelstufe-Widgets, zusätzlich Tankstatus, Phasen-Zeitleiste, Pflanzenübersicht
 
 ### Auf Standard zurücksetzen
 
@@ -173,7 +173,7 @@ Im [Light-Modus](light-mode.md) — ohne Registrierung — wird dein Layout stat
 ## Barrierefreiheit
 
 - Alle Aktionen (Widget an-/abwählen, Anordnen, Größe ändern, Konfigurieren) sind vollständig mit der Tastatur bedienbar — sowohl im Einstellungen-Tab als auch über das Menü-Symbol im Bearbeiten-Modus.
-- Änderungen an der Reihenfolge oder Größe werden für Screenreader angesagt (z.B. „Sensor-Livewerte nach oben verschoben").
+- Änderungen an der Reihenfolge oder Größe werden für Screenreader angesagt (z.B. „Tankstatus nach oben verschoben").
 - Die Reihenfolge, in der Screenreader und Tastaturnavigation die Widgets vorlesen bzw. anspringen, folgt immer der sichtbaren Anordnung auf dem Bildschirm — auf jeder Bildschirmgröße.
 - Bevorzugst du reduzierte Bewegungseffekte (Systemeinstellung „Bewegung reduzieren"), verzichtet der Bearbeiten-Modus auf Animationen beim Verschieben.
 

@@ -45,7 +45,7 @@ describe('useDashboardLayout', () => {
     // Expert layout should include expert-only widgets
     const widgetKeys = result.current.layout.widgets.map((w) => w.widget_key);
     expect(widgetKeys).toContain('phase_timeline');
-    expect(widgetKeys).toContain('vpd_gauge');
+    expect(widgetKeys).toContain('ipm_alerts');
   });
 
   it('should mark widget as not-renderable when module is hidden (REQ-042)', () => {

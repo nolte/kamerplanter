@@ -83,10 +83,8 @@ WIDGET_CATALOG: tuple[WidgetMeta, ...] = (
         _sz(8, 8),
         light_gated=True,
     ),
-    WidgetMeta("sensor_live", "monitoring", ExperienceLevel.EXPERT, _sz(4, 4), _sz(2, 3), _sz(8, 8), "sensors"),
     WidgetMeta("tank_status", "monitoring", ExperienceLevel.EXPERT, _sz(4, 4), _sz(2, 3), _sz(8, 8), "tanks"),
     WidgetMeta("phase_timeline", "cultivation", ExperienceLevel.EXPERT, _sz(8, 4), _sz(3, 3), _sz(12, 8), "plants"),
-    WidgetMeta("vpd_gauge", "monitoring", ExperienceLevel.EXPERT, _sz(3, 4), _sz(2, 3), _sz(6, 8), "sensors"),
     WidgetMeta("plant_grid", "cultivation", ExperienceLevel.EXPERT, _sz(8, 5), _sz(4, 3), _sz(12, 10), "plants"),
 )
 

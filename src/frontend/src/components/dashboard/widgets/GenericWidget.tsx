@@ -18,9 +18,7 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import GroupsIcon from '@mui/icons-material/Groups';
-import SensorsIcon from '@mui/icons-material/Sensors';
 import TimelineIcon from '@mui/icons-material/Timeline';
-import ThermostatIcon from '@mui/icons-material/Thermostat';
 import GridViewIcon from '@mui/icons-material/GridView';
 import WidgetsIcon from '@mui/icons-material/Widgets';
 import type { SvgIconComponent } from '@mui/icons-material';
@@ -36,7 +34,6 @@ import type { WidgetComponentProps } from '@/components/dashboard/widgetRegistry
  * `glossary.<term>` entry — see `i18n/locales/{de,en}/translation.json`.
  */
 const WIDGET_GLOSSARY_TERM: Partial<Record<string, string>> = {
-  vpd_gauge: 'vpd',
   ipm_alerts: 'ipm',
 };
 
@@ -55,9 +52,7 @@ const WIDGET_ICON: Partial<Record<string, SvgIconComponent>> = {
   harvest_forecast: AgricultureIcon,
   daily_tip: TipsAndUpdatesIcon,
   community_activity: GroupsIcon,
-  sensor_live: SensorsIcon,
   phase_timeline: TimelineIcon,
-  vpd_gauge: ThermostatIcon,
   plant_grid: GridViewIcon,
 };
 

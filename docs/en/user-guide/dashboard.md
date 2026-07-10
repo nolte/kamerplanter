@@ -19,6 +19,33 @@ The dashboard opens automatically after logging in. You can reach it at any time
 
 ---
 
+## Using Panels as Navigation Shortcuts {#using-panels-as-navigation-shortcuts}
+
+Most panels are more than a read-only overview: click or tap a panel outside of [edit mode](dashboard-personalization.md) to jump straight to the matching detail or list view. A small arrow (chevron) on the right edge shows you which panels are navigable.
+
+<!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts (field navigateTo) -->
+
+| Panel | Takes you to |
+|-------|----------------|
+| Tasks today · Care reminders | [Tasks](tasks.md) |
+| Active plants · Plant grid | [Plant Management](plant-management.md) |
+| Tank status | [Tank Management](tanks.md) |
+| Winter protection | [Overwintering](overwintering.md) |
+| Plant-protection alerts | [Pest Management](pest-management.md) |
+| Harvest forecast | [Harvest Management](harvest.md) |
+| Next events | [Calendar](calendar.md) |
+| Phase timeline | [Phase Control](growth-phases.md) |
+| Setup progress | [Onboarding Wizard](onboarding.md) |
+
+Two panels are a deliberate exception: **Quick actions** is itself already a tile overview with its own destinations, and **Weather forecast** remains a pure information display without its own destination.
+
+!!! tip "Disabled in edit mode"
+    While you're adjusting your dashboard in [edit mode](dashboard-personalization.md), all panels are temporarily not clickable — so you can move, resize, and configure them undisturbed.
+
+A panel only links you to places you're actually allowed to navigate to: if the [module](module-visibility.md) belonging to a panel is hidden, the associated widget doesn't appear on your dashboard in the first place. On smartphones, the entire panel is your tap target (at least 48x48 pixels); on desktop you can also reach every navigable panel by keyboard (Tab key) and open it with Enter.
+
+---
+
 ## Dashboard Sections at a Glance
 
 ### Active Plants and Growth Phase
@@ -106,7 +133,7 @@ The dashboard adapts to your experience level (configurable under **Account → 
 
 **Expert:**
 - Full metrics view
-- VPD display with target range
+- Additional panels: Tank status, Phase timeline, Plant grid
 - Yield trends and comparisons
 
 !!! tip "Show all fields"
@@ -125,11 +152,15 @@ The dashboard adapts to your experience level (configurable under **Account → 
 ??? question "Why do some plants not appear on the dashboard?"
     The dashboard shows only **active** plants (not completed, not removed). Plants in a completed planting run no longer appear. If an active plant is missing, check that it is in the correct tenant.
 
+??? question "Why can't I click a panel?"
+    Either your dashboard is currently in [edit mode](dashboard-personalization.md) — where all panels are temporarily inactive so you can move or resize them undisturbed — or the panel is one of the two deliberate exceptions without their own destination: **Quick actions** and **Weather forecast**.
+
 ---
 
 ## See Also
 
 - [Personalizing Your Dashboard](dashboard-personalization.md) — choose, arrange, and configure widgets
+- [Modules & Features](module-visibility.md) — controls which panels (and thus destinations) are visible at all
 - [Tasks](tasks.md)
 - [Calendar](calendar.md)
 - [Tank Management](tanks.md)
