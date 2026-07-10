@@ -91,7 +91,11 @@ def _slice_summary_for(widget_key: str, summary: Any) -> Any | None:
     counts = summary.counts
     match widget_key:
         case "tasks_today":
-            return {"open_tasks_today": counts.open_tasks_today, "upcoming_tasks": summary.upcoming_tasks}
+            return {
+                "open_tasks_today": counts.open_tasks_today,
+                "overdue_tasks": counts.overdue_tasks,
+                "upcoming_tasks": summary.upcoming_tasks,
+            }
         case "active_plants_summary":
             return {"plants_total": counts.plants_total, "plants_active": counts.plants_active}
         case "tank_status":

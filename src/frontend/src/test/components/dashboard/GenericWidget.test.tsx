@@ -35,6 +35,19 @@ describe('GenericWidget', () => {
     expect(within(group).getByText('7')).toBeInTheDocument();
   });
 
+  it('renders both the due-today and overdue tiles for tasks_today (Issue #438)', () => {
+    payloadMock.useWidgetPayload.mockReturnValue({
+      payload: { open_tasks_today: 0, overdue_tasks: 12, upcoming_tasks: [] },
+      loading: false,
+    });
+    render('tasks_today');
+    // Two distinct, honest counts surfaced side by side.
+    const dueToday = screen.getByRole('group', { name: /: 0$/ });
+    expect(within(dueToday).getByText('0')).toBeInTheDocument();
+    const overdue = screen.getByRole('group', { name: /: 12$/ });
+    expect(within(overdue).getByText('12')).toBeInTheDocument();
+  });
+
   it('renders an event list for a populated upcoming_tasks slice', () => {
     payloadMock.useWidgetPayload.mockReturnValue({
       payload: { upcoming_tasks: [{ _key: 't1', name: 'Gießen', category: 'watering', due_date: '2026-07-10' }] },
