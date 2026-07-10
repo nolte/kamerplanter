@@ -83,6 +83,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-backend
           tags: |
@@ -91,6 +93,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-backend
+            org.opencontainers.image.description=Kamerplanter backend API for plant lifecycle management
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -100,6 +107,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -125,6 +133,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-frontend
           tags: |
@@ -133,6 +143,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-frontend
+            org.opencontainers.image.description=Kamerplanter web frontend
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -142,6 +157,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -167,6 +183,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-vectordb
           tags: |
@@ -175,6 +193,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-vectordb
+            org.opencontainers.image.description=Kamerplanter vector database for RAG knowledge retrieval
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -184,6 +207,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -209,6 +233,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-knowledge
           tags: |
@@ -217,6 +243,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-knowledge
+            org.opencontainers.image.description=Kamerplanter RAG knowledge-base image
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -226,6 +257,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -251,6 +283,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-embedding-service
           tags: |
@@ -259,6 +293,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-embedding-service
+            org.opencontainers.image.description=Kamerplanter embedding service
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -268,6 +307,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -293,6 +333,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-inference-service
           tags: |
@@ -301,6 +343,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-inference-service
+            org.opencontainers.image.description=Kamerplanter inference service
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -310,6 +357,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -335,6 +383,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-reranker-service
           tags: |
@@ -343,6 +393,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-reranker-service
+            org.opencontainers.image.description=Kamerplanter reranker service (BGE reranker v2 m3)
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -353,6 +408,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -378,6 +434,8 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.IMAGE_PREFIX }}/kamerplanter-knowledge-service
           tags: |
@@ -386,6 +444,11 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+          annotations: |
+            org.opencontainers.image.title=kamerplanter-knowledge-service
+            org.opencontainers.image.description=Kamerplanter knowledge service
+            org.opencontainers.image.source=https://github.com/nolte/kamerplanter
+            org.opencontainers.image.vendor=Kamerplanter
 
       - name: Build and push
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -395,6 +458,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
