@@ -5310,7 +5310,8 @@
         "label": "Aufgaben heute",
         "description": "Heute fällige und überfällige Aufgaben.",
         "metrics": {
-          "open_tasks_today": "Heute fällig"
+          "open_tasks_today": "Heute fällig",
+          "overdue_tasks": "Überfällig"
         }
       },
       "care_reminders": {

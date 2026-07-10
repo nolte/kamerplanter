@@ -5309,7 +5309,8 @@
         "label": "Tasks today",
         "description": "Tasks due and overdue today.",
         "metrics": {
-          "open_tasks_today": "Due today"
+          "open_tasks_today": "Due today",
+          "overdue_tasks": "Overdue"
         }
       },
       "care_reminders": {
