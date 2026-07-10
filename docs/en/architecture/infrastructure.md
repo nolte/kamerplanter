@@ -160,7 +160,7 @@ skaffold debug
 ```
 
 Skaffold handles:
-1. Building Docker images locally (`Dockerfile.dev`)
+1. Building Docker images locally (each service's `Dockerfile` `dev` target — the same file that produces the production image)
 2. Loading images into the Kind cluster (no push to a registry needed)
 3. Deploying the Helm chart (`helm/kamerplanter/values-dev.yaml`)
 4. File sync: Changed `.py`, `.ts`, and `.tsx` files are copied directly into running containers — no full rebuild needed

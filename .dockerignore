@@ -1,0 +1,45 @@
+# Repo-root .dockerignore — only consulted by builds whose context is the repo
+# root. Currently that is docker/knowledge/Dockerfile (COPYs spec/knowledge/rag/),
+# so keep spec/ and exclude everything not needed at build time / sensitive.
+
+# Version control & CI
+.git
+.github
+.gitignore
+.gitattributes
+
+# Secrets & local env (never ship into a layer)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Python caches / virtualenvs / build artifacts
+**/__pycache__
+**/*.pyc
+**/.venv
+**/venv
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+**/dist
+**/build
+
+# Node
+**/node_modules
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+
+# Tooling & scratch not needed for image builds
+.claude
+.audits
+.resume
+test-reports

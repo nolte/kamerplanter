@@ -124,7 +124,7 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -157,7 +157,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend:80
+      E2E_BASE_URL: http://frontend:8080
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -174,7 +174,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend:80
+      - --base-url=http://frontend:8080
       - --app-mode=light
 
   # ── E2E Core CRUD Tests (species, cultivar, sites) ─────
@@ -183,7 +183,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend:80
+      E2E_BASE_URL: http://frontend:8080
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -200,7 +200,7 @@ services:
       - core_crud
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend:80
+      - --base-url=http://frontend:8080
       - --app-mode=light
 
   # ── E2E Smoke Tests (fast ~2min) ────────────────────────
@@ -209,7 +209,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend:80
+      E2E_BASE_URL: http://frontend:8080
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -226,7 +226,7 @@ services:
       - smoke
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend:80
+      - --base-url=http://frontend:8080
       - --app-mode=light
 
   # ═══════════════════════════════════════════════════════════════
@@ -307,7 +307,7 @@ services:
       backend-full:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:80/"]
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -319,7 +319,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend-full:80
+      E2E_BASE_URL: http://frontend-full:8080
       KAMERPLANTER_MODE: full
     depends_on:
       frontend-full:
@@ -337,7 +337,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend-full:80
+      - --base-url=http://frontend-full:8080
       - --app-mode=full
 
   # ═══════════════════════════════════════════════════════════════
@@ -362,7 +362,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend:80
+      E2E_BASE_URL: http://frontend:8080
       E2E_DEVICE: mobile
       KAMERPLANTER_MODE: light
     depends_on:
@@ -381,7 +381,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend:80
+      - --base-url=http://frontend:8080
       - --app-mode=light
       - --device=mobile
 
@@ -391,7 +391,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend:80
+      E2E_BASE_URL: http://frontend:8080
       E2E_DEVICE: tablet
       KAMERPLANTER_MODE: light
     depends_on:
@@ -410,7 +410,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend:80
+      - --base-url=http://frontend:8080
       - --app-mode=light
       - --device=tablet
 
@@ -420,7 +420,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend-full:80
+      E2E_BASE_URL: http://frontend-full:8080
       E2E_DEVICE: mobile
       KAMERPLANTER_MODE: full
     depends_on:
@@ -439,7 +439,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend-full:80
+      - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=mobile
 
@@ -449,7 +449,7 @@ services:
       context: ./tests/e2e
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
-      E2E_BASE_URL: http://frontend-full:80
+      E2E_BASE_URL: http://frontend-full:8080
       E2E_DEVICE: tablet
       KAMERPLANTER_MODE: full
     depends_on:
@@ -468,6 +468,6 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
-      - --base-url=http://frontend-full:80
+      - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=tablet

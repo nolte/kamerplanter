@@ -1,15 +1,39 @@
-# Stage 1: Build
-FROM node:24-alpine AS build
+# Multi-target image — dev (Vite HMR server) and prod (static nginx) share one
+# node base that installs deps once. No separate Dockerfile.dev.
+#   prod (default, built by CI):   docker build .
+#   dev  (built by skaffold):      docker build --target dev .
+
+# ── Shared node base: install dependencies once ──
+FROM node:24-alpine AS base
 WORKDIR /app
-
 COPY package.json package-lock.json ./
-RUN npm ci --prefer-offline 2>/dev/null || npm install
+RUN npm ci
 
+# ── Development target: Vite dev server with HMR (skaffold dev syncs src/**) ──
+FROM base AS dev
+LABEL org.opencontainers.image.title="kamerplanter-frontend-dev" \
+      org.opencontainers.image.description="Kamerplanter frontend UI (development with Vite HMR)" \
+      org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
+      org.opencontainers.image.vendor="Kamerplanter" \
+      org.opencontainers.image.licenses="MIT"
+COPY . .
+EXPOSE 5173
+COPY docker-entrypoint.dev.sh /docker-entrypoint.dev.sh
+RUN chmod +x /docker-entrypoint.dev.sh
+# Own /app (incl. node_modules for Vite's cache) as UID 1000 so the non-root
+# dev pod (values-dev runAsUser:1000) can run the Vite HMR server + file-sync.
+RUN chown -R 1000:1000 /app
+ENTRYPOINT ["/docker-entrypoint.dev.sh"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# ── Build stage: compile static assets for production ──
+FROM base AS build
 COPY . .
 RUN npm run build
 
-# Stage 2: Serve with nginx
-FROM nginx:1.31-alpine
+# ── Production target (default; last stage): non-root nginx-unprivileged ──
+# Runs as UID 101, listens on 8080 — no root, no privileged port.
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.description="Kamerplanter frontend UI for plant lifecycle management" \
@@ -17,11 +41,18 @@ LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
 
+# Lay down assets as root, then hand ownership to UID 101 so the runtime-config
+# and backend-proxy entrypoint scripts can write to the html root and conf.d
+# when running non-root (Compose path). In the K8s path these paths are mounted
+# read-only / emptyDir and the scripts are suppressed, so the chown is harmless.
+USER root
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx-security-headers.inc /etc/nginx/conf.d/nginx-security-headers.inc
 COPY docker-entrypoint.d/ /docker-entrypoint.d/
+RUN chown -R 101:101 /usr/share/nginx/html /etc/nginx/conf.d
+USER 101
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

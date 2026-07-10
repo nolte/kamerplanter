@@ -13,4 +13,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Run as a non-root numeric user. A mounted report/screenshot volume needs
+# a matching fsGroup:1000 in the deployment to stay writable.
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
+    && chown -R 1000:1000 /app
+USER 1000
+
 ENTRYPOINT ["pytest", "--tb=short", "--generate-protocol"]

@@ -47,15 +47,23 @@ COPY requirements.txt .
 # hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 COPY main.py .
+# Create the non-root numeric user; each final target COPYs its model with
+# --chown=1000 and switches to USER 1000 as its last instruction.
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
+    && chown -R 1000:1000 /app
 EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD python -c "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8081)))"
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8081"]
 
 # ── Final images (one per model, select via --target) ────────────────
 
 FROM runtime AS bge-reranker-v2-m3
 ENV RERANKER_MODEL=bge-reranker-v2-m3
-COPY --from=dl-bge-reranker-v2-m3 /model/ /app/models/onnx/bge-reranker-v2-m3/
+COPY --from=dl-bge-reranker-v2-m3 --chown=1000:1000 /model/ /app/models/onnx/bge-reranker-v2-m3/
+USER 1000
 
 FROM runtime AS ms-marco-minilm
 ENV RERANKER_MODEL=ms-marco-MiniLM-L-12-v2
-COPY --from=dl-ms-marco-minilm /model/ /app/models/onnx/ms-marco-MiniLM-L-12-v2/
+COPY --from=dl-ms-marco-minilm --chown=1000:1000 /model/ /app/models/onnx/ms-marco-MiniLM-L-12-v2/
+USER 1000

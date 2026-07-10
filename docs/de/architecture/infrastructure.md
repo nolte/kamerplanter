@@ -160,7 +160,7 @@ skaffold debug
 ```
 
 Skaffold übernimmt:
-1. Docker-Images lokal bauen (`Dockerfile.dev`)
+1. Docker-Images lokal bauen (`dev`-Target des jeweiligen `Dockerfile` — dieselbe Datei, die auch das Produktions-Image erzeugt)
 2. Images in den Kind-Cluster laden (kein Push zu einer Registry nötig)
 3. Helm-Chart deployen (`helm/kamerplanter/values-dev.yaml`)
 4. Datei-Sync: Geänderte `.py`-, `.ts`- und `.tsx`-Dateien werden direkt in die laufenden Container kopiert — kein komplettes Rebuild nötig

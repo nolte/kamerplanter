@@ -32,9 +32,14 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # Non-root dev: the dev target chowns /app to 1000; fsGroup:1000 makes the
+      # /target knowledge emptyDir writable for the init container + main (both
+      # run as 1000 here, overriding the busybox image's USER 65534).
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
     initContainers:
       knowledge:
         image:
@@ -107,9 +112,12 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # No hot-reload/sync and no writable /app needed — the image already ships
+      # USER 1000 and reads only the 1000-owned model files. No reason for root.
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         image:
@@ -155,9 +163,12 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # No hot-reload/sync and no writable /app needed — the image already ships
+      # USER 1000 and reads only the 1000-owned model files. No reason for root.
       securityContext:
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         image:

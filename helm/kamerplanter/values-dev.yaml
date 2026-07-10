@@ -13,13 +13,13 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # Non-root dev: the dev target chowns /app to 1000 (hot-reload + skaffold
+      # sync); fsGroup:1000 keeps the attachments PVC writable.
       securityContext:
-        # Dev runs as root for hot-reload (SEC-M-004); override the restricted
-        # runAsNonRoot: true that leaks in from base values.yaml so kubelet does
-        # not reject runAsUser: 0.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         securityContext:
@@ -106,11 +106,12 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # Non-root dev: the dev target chowns /app (incl. node_modules) to 1000 so
+      # the Vite HMR server + skaffold sync run as the non-root node user.
       securityContext:
-        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         securityContext:
@@ -179,11 +180,13 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # Non-root dev (shares the backend image); fsGroup:1000 keeps the shared
+      # attachments PVC writable for thumbnails / erasure.
       securityContext:
-        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         securityContext:
@@ -239,11 +242,12 @@ controllers:
     replicas: 1
     strategy: Recreate
     pod:
+      # Non-root dev (shares the backend image); schedule goes to the Memory
+      # emptyDir at /tmp/celery-beat (tmpfs, writable for uid 1000, no fsGroup).
       securityContext:
-        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
-        runAsNonRoot: false
-        runAsUser: 0
-        runAsGroup: 0
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
     containers:
       main:
         securityContext:
@@ -274,7 +278,7 @@ controllers:
             custom: true
             spec:
               exec:
-                command: ["sh", "-c", "test -f /tmp/celerybeat-schedule"]
+                command: ["sh", "-c", "test -f /tmp/celery-beat/celerybeat-schedule"]
               initialDelaySeconds: 60
               periodSeconds: 60
               timeoutSeconds: 5

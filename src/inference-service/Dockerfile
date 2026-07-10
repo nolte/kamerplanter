@@ -1,11 +1,10 @@
 # Inference Service -- ONNX Runtime only, no PyTorch in the runtime image.
 #
-# Multi-stage: an "export" stage produces the DINOv2 ONNX artifact (torch is
-# only needed there, never at runtime). The runtime stage is a slim Python
-# image with onnxruntime that copies in the exported model + app code.
-#
-# Build:
-#   docker build -t kamerplanter-inference-service .
+# Multi-target: a shared "model-export" stage produces the DINOv2 ONNX artifact
+# (torch only there). A shared "base" runtime carries onnxruntime + model + app.
+# dev and prod both build on base — one Dockerfile, no separate Dockerfile.dev.
+#   prod (default, built by CI):   docker build .
+#   dev  (built by skaffold):      docker build --target dev .
 #
 # LICENCE: the DINOv2 base backbone is Apache-2.0 (re-verify before release,
 # REQ-029-A 2.3 / 5). Never ship PlantCLEF fine-tuned weights (CC-BY-NC).
@@ -25,8 +24,8 @@ RUN pip install --no-cache-dir --root-user-action=ignore \
 COPY scripts/export_dinov2_onnx.py ./export_dinov2_onnx.py
 RUN python export_dinov2_onnx.py --arch dinov2_vits14 --input-size 224 --output /model
 
-# -- Runtime stage -----------------------------------------------------------
-FROM python:3.14-slim AS runtime
+# -- Shared runtime base (onnxruntime + exported model + app code) -----------
+FROM python:3.14-slim AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-inference-service" \
       org.opencontainers.image.description="DINOv2 embedding + pgvector species matching for Kamerplanter" \
@@ -44,5 +43,21 @@ COPY app/ ./app/
 
 ENV MODEL_PATH=/app/models/dinov2
 
+# -- Development target: hot-reload (skaffold dev syncs app/**/*.py) ----------
+FROM base AS dev
+RUN pip install --no-cache-dir --root-user-action=ignore watchfiles
+# Own /app as UID 1000 for the non-root dev pod (hot-reload + skaffold sync).
+RUN chown -R 1000:1000 /app
 EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# -- Production target (default; last stage) ---------------------------------
+FROM base AS prod
+# Run as a non-root numeric user.
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
+    && chown -R 1000:1000 /app
+USER 1000
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
+    CMD python -c "import socket,sys; s=socket.socket(); s.settimeout(3); sys.exit(s.connect_ex(('127.0.0.1',8000)))"
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

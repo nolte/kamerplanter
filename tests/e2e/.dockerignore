@@ -1,0 +1,14 @@
+# The e2e image COPYs the whole context (test suite is the payload); exclude
+# only caches, transient artifacts and local env.
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.venv
+.env
+.env.local
+screenshots
+reports
+test-reports
+protocol

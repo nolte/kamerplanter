@@ -21,3 +21,9 @@ RUN apt-get update && \
     apt-get purge -y build-essential postgresql-server-dev-${PG_MAJOR} git && \
     apt-get autoremove -y && \
     rm -rf /tmp/pgvector /var/lib/apt/lists/*
+
+# Run as the non-root postgres user (UID 999). The Kubernetes deployment sets
+# runAsUser/runAsGroup/fsGroup:999 and PGDATA to a subdir; in Compose a fresh
+# named volume inherits the image's 999-owned /var/lib/postgresql/data. A raw
+# host bind mount would need a host-side chown to 999:999.
+USER 999
