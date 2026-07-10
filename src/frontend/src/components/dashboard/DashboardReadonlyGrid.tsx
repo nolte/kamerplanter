@@ -6,10 +6,9 @@ import WidgetFrame from '@/components/dashboard/WidgetFrame';
 import {
   GRID_COLS_BY_BREAKPOINT,
   dashboardWidgetCatalog,
-  placementsForBreakpoint,
   type WidgetKey,
 } from '@/config/dashboardWidgetCatalog';
-import { sortByReadingOrder, packByReadingOrder } from '@/lib/dashboardLayoutOps';
+import { sortByReadingOrder, deriveBreakpointPlacements } from '@/lib/dashboardLayoutOps';
 import type { DashboardLayout, DashboardWidgetInstance } from '@/api/types';
 
 const MIN_ROW_HEIGHT = 44; // px — floor per implicit grid row; content may grow past it
@@ -44,10 +43,8 @@ export default function DashboardReadonlyGrid({
     // A breakpoint without its own placements is derived from lg, whose x/w
     // assume 12 columns. Re-pack into the active breakpoint's column count so a
     // widget at lg-x=8 doesn't overflow the 8-column tablet grid (the read-only
-    // grid has no react-grid-layout re-compaction).
-    const hasOwn = Boolean(layout.placements[breakpoint]?.length);
-    const raw = placementsForBreakpoint(layout, breakpoint);
-    const placements = hasOwn ? raw : packByReadingOrder(raw, cols);
+    // grid has no react-grid-layout re-compaction). Shared with the edit grid.
+    const placements = deriveBreakpointPlacements(layout, breakpoint, cols);
     const byId = new Map<string, DashboardWidgetInstance>(layout.widgets.map((w) => [w.instance_id, w]));
     return sortByReadingOrder(placements)
       .map((p) => ({ placement: p, widget: byId.get(p.instance_id) }))

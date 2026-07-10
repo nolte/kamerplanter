@@ -56,6 +56,28 @@ describe('WidgetFrame', () => {
     expect(screen.getByTestId('widget-menu-tasks_today')).toBeInTheDocument();
   });
 
+  it('gives the menu button an accessible name and haspopup (P3 affordance)', () => {
+    renderWithProviders(<WidgetFrame {...makeProps()} />);
+    const button = screen.getByTestId('widget-menu-tasks_today');
+    // aria-label / data-testid must survive the visibility restyle.
+    expect(button).toHaveAttribute('aria-label');
+    expect(button.getAttribute('aria-label')).toBeTruthy();
+    expect(button).toHaveAttribute('aria-haspopup', 'menu');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button.tagName).toBe('BUTTON');
+  });
+
+  it('opens the menu via keyboard (Enter) — keyboard parity preserved', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<WidgetFrame {...makeProps()} />);
+    const button = screen.getByTestId('widget-menu-tasks_today');
+    button.focus();
+    expect(button).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('widget-remove-tasks_today')).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('fires onMoveUp and closes the menu', async () => {
     const user = userEvent.setup();
     const props = makeProps();

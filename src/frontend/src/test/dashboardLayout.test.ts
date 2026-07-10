@@ -12,6 +12,8 @@ import {
   sortByReadingOrder,
   copyPlacementsToAllBreakpoints,
   packByReadingOrder,
+  deriveBreakpointPlacements,
+  rowsForContentHeight,
 } from '@/lib/dashboardLayoutOps';
 import type { DashboardLayout } from '@/api/types';
 
@@ -123,6 +125,65 @@ describe('dashboardLayoutOps', () => {
     const all = copyPlacementsToAllBreakpoints(base, 'lg');
     expect(all.placements.md).toBeDefined();
     expect(all.placements.sm).toBeDefined();
+  });
+
+  it('deriveBreakpointPlacements re-packs a derived md/sm equal to packByReadingOrder(lg, cols)', () => {
+    // lg-only layout whose x=8,w=4 widget would overflow the 8-column md grid.
+    const layout: DashboardLayout = {
+      schema_version: 2,
+      widgets: [
+        { instance_id: 'a', widget_key: 'phase_timeline', config: {} },
+        { instance_id: 'b', widget_key: 'weather_forecast', config: {} },
+      ],
+      placements: {
+        lg: [
+          { instance_id: 'a', x: 0, y: 0, w: 8, h: 4 },
+          { instance_id: 'b', x: 8, y: 0, w: 4, h: 3 },
+        ],
+      },
+    };
+    const derivedMd = deriveBreakpointPlacements(layout, 'md', 8);
+    const derivedSm = deriveBreakpointPlacements(layout, 'sm', 4);
+    // Exactly the read-order re-pack of the (lg-derived) placements.
+    expect(derivedMd).toEqual(packByReadingOrder(placementsForBreakpoint(layout, 'md'), 8));
+    expect(derivedSm).toEqual(packByReadingOrder(placementsForBreakpoint(layout, 'sm'), 4));
+    // No placement leaks a 12-column x-coordinate into the narrower grid.
+    for (const p of derivedMd) expect(p.x + p.w).toBeLessThanOrEqual(8);
+    for (const p of derivedSm) expect(p.x + p.w).toBeLessThanOrEqual(4);
+    // Reading order (a before b) is preserved.
+    expect(sortByReadingOrder(derivedMd).map((p) => p.instance_id)).toEqual(['a', 'b']);
+  });
+
+  it('deriveBreakpointPlacements uses a breakpoint that owns placements verbatim', () => {
+    const layout: DashboardLayout = {
+      schema_version: 2,
+      widgets: [{ instance_id: 'a', widget_key: 'tasks_today', config: {} }],
+      placements: {
+        lg: [{ instance_id: 'a', x: 0, y: 0, w: 8, h: 4 }],
+        md: [{ instance_id: 'a', x: 2, y: 1, w: 4, h: 4 }],
+      },
+    };
+    // md owns a placement → returned as-is, NOT re-packed to x=0.
+    expect(deriveBreakpointPlacements(layout, 'md', 8)).toEqual([{ instance_id: 'a', x: 2, y: 1, w: 4, h: 4 }]);
+  });
+
+  it('rowsForContentHeight covers content and is a fixed point on exact box heights', () => {
+    const ROW = 44;
+    const MARGIN = 16;
+    const boxHeight = (h: number) => h * ROW + (h - 1) * MARGIN;
+    // Empty / non-finite content floors to a single row.
+    expect(rowsForContentHeight(0, ROW, MARGIN)).toBe(1);
+    expect(rowsForContentHeight(Number.NaN, ROW, MARGIN)).toBe(1);
+    // Any content is fully covered by the derived number of rows (no overlap).
+    for (const content of [1, 44, 120, 224, 279, 400, 501]) {
+      const rows = rowsForContentHeight(content, ROW, MARGIN);
+      expect(boxHeight(rows)).toBeGreaterThanOrEqual(content);
+    }
+    // Feeding back an exact box height yields the same row count → stable, no
+    // oscillation once a tile already covers its content.
+    for (let h = 1; h <= 10; h += 1) {
+      expect(rowsForContentHeight(boxHeight(h), ROW, MARGIN)).toBe(h);
+    }
   });
 
   it('packByReadingOrder re-flows 12-col placements into a narrower grid (no overflow)', () => {
