@@ -207,6 +207,12 @@
       matchPackageNames: [
         'typescript',
       ],
+      // Hold TypeScript below 7.0 until typescript-eslint ships a release
+      // supporting the native TS 7 compiler. Its peer range is currently
+      // "typescript >=4.8.4 <6.1.0", so TS 7 fails `npm ci` (ERESOLVE) and
+      // crashes eslint. tsc/vitest already pass under TS 7 (see PR #425).
+      // Remove this cap once typescript-eslint declares TS 7 support.
+      allowedVersions: '<7.0.0',
     },
     {
       groupName: 'frontend minor/patch',
