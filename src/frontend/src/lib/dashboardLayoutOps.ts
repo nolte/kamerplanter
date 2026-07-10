@@ -42,6 +42,37 @@ export function packByReadingOrder(placements: WidgetPlacement[], cols: number):
   return packed;
 }
 
+/**
+ * Resolve the placements to render for a breakpoint. A breakpoint that owns
+ * placements is used verbatim; a breakpoint derived from ``lg`` is re-packed
+ * into its own column count (the ``lg`` coordinates assume 12 columns and would
+ * otherwise overflow / scatter into a narrower md/sm grid). Shared by both the
+ * read-only CSS grid and the react-grid-layout edit grid so the two never drift.
+ */
+export function deriveBreakpointPlacements(
+  layout: DashboardLayout,
+  breakpoint: Breakpoint,
+  cols: number,
+): WidgetPlacement[] {
+  const hasOwn = Boolean(layout.placements[breakpoint]?.length);
+  const raw = placementsForBreakpoint(layout, breakpoint);
+  return hasOwn ? raw : packByReadingOrder(raw, cols);
+}
+
+/**
+ * Minimum number of grid rows whose fixed-height box covers ``contentPx`` px of
+ * content, given react-grid-layout's geometry: a tile of ``h`` rows is
+ * ``h * rowHeight + (h - 1) * marginY`` px tall. Solving that for the smallest
+ * integer ``h`` with ``itemHeight(h) >= contentPx`` yields
+ * ``ceil((contentPx + marginY) / (rowHeight + marginY))``. Used to clamp a
+ * tile's ``h`` up so tall content never overflows into the tile below.
+ */
+export function rowsForContentHeight(contentPx: number, rowHeightPx: number, marginYPx: number): number {
+  if (!Number.isFinite(contentPx) || contentPx <= 0) return 1;
+  const rows = Math.ceil((contentPx + marginYPx) / (rowHeightPx + marginYPx));
+  return Math.max(1, rows);
+}
+
 function withPlacements(layout: DashboardLayout, breakpoint: Breakpoint, placements: WidgetPlacement[]): DashboardLayout {
   return { ...layout, placements: { ...layout.placements, [breakpoint]: placements } };
 }
