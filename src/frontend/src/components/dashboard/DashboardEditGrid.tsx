@@ -12,14 +12,15 @@ import WidgetFrame from '@/components/dashboard/WidgetFrame';
 import {
   GRID_COLS_BY_BREAKPOINT,
   dashboardWidgetCatalog,
-  placementsForBreakpoint,
   type WidgetKey,
 } from '@/config/dashboardWidgetCatalog';
-import { sortByReadingOrder } from '@/lib/dashboardLayoutOps';
+import { deriveBreakpointPlacements, sortByReadingOrder } from '@/lib/dashboardLayoutOps';
+import { useContentRowFloors } from '@/hooks/useContentRowFloors';
 import type { DashboardLayout, DashboardWidgetInstance, WidgetPlacement } from '@/api/types';
 
 const ResponsiveGrid = WidthProvider(GridLayout);
 const ROW_HEIGHT = 44;
+const GRID_MARGIN = 16;
 
 /**
  * REQ-045 §3.8 — the drag-and-drop / resize surface. Lazy-loaded (this module
@@ -28,6 +29,19 @@ const ROW_HEIGHT = 44;
  * focusable (draggableCancel + tabIndex handling); keyboard parity lives in the
  * WidgetFrame kebab menu (UI-NFR-002 U-001). Motion is disabled under
  * prefers-reduced-motion (O-003).
+ *
+ * Two layout concerns are handled here that the read-only grid gets "for free"
+ * from CSS:
+ *
+ *  - **Content coverage (no overlap).** react-grid-layout boxes each tile to a
+ *    fixed `h × ROW_HEIGHT` geometry, so content taller than the box overflows
+ *    into the tile below. We measure each tile's real content height
+ *    (`useContentRowFloors`) and clamp its rendered `h` up to the number of rows
+ *    that covers it — keeping the fixed-row geometry DnD/resize needs.
+ *  - **md/sm re-pack.** A breakpoint without its own placements is derived from
+ *    the 12-column `lg` layout; its `x/w` are re-packed into the active column
+ *    count (`deriveBreakpointPlacements`) instead of leaving scattered gaps and
+ *    overflows. `compactType="vertical"` then keeps rows gap-free.
  */
 export default function DashboardEditGrid({
   layout,
@@ -54,34 +68,56 @@ export default function DashboardEditGrid({
   const cols = GRID_COLS_BY_BREAKPOINT[breakpoint];
   const draggable = breakpoint !== 'sm'; // Mobile: no DnD (UI-NFR-001)
 
-  const placements = placementsForBreakpoint(layout, breakpoint);
-  const byId = new Map<string, DashboardWidgetInstance>(layout.widgets.map((w) => [w.instance_id, w]));
+  const { floors, getContentRef } = useContentRowFloors(ROW_HEIGHT, GRID_MARGIN);
+
+  // Own placements win; a breakpoint derived from lg is re-packed into `cols`
+  // (P2) so md/sm never inherit 12-column x-coordinates.
+  const placements = useMemo(
+    () => deriveBreakpointPlacements(layout, breakpoint, cols),
+    [layout, breakpoint, cols],
+  );
+
+  const byId = useMemo(
+    () => new Map<string, DashboardWidgetInstance>(layout.widgets.map((w) => [w.instance_id, w])),
+    [layout.widgets],
+  );
 
   const gridLayout: Layout = useMemo(
     () =>
       placements.map((p) => {
         const widget = byId.get(p.instance_id);
         const def = widget ? dashboardWidgetCatalog[widget.widget_key as WidgetKey] : undefined;
+        const minH = def?.minSize.h ?? 2;
+        // Clamp `h` up to whatever covers the measured content (P1). Content
+        // coverage overrides maxSize.h — a tile must never clip/overlap — so the
+        // resize ceiling is widened to the effective height when needed.
+        const contentFloor = floors[p.instance_id] ?? 0;
+        const h = Math.max(p.h, minH, contentFloor);
         return {
           i: p.instance_id,
           x: p.x,
           y: p.y,
           w: Math.min(p.w, cols),
-          h: p.h,
+          h,
           minW: def?.minSize.w ?? 2,
-          minH: def?.minSize.h ?? 2,
+          minH,
           maxW: Math.min(def?.maxSize.w ?? cols, cols),
-          maxH: def?.maxSize.h ?? 12,
+          maxH: Math.max(def?.maxSize.h ?? 12, h),
         };
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [layout, breakpoint, cols],
+    [placements, byId, cols, floors],
   );
 
   // DOM order follows reading order (y, x) for screenreaders (UI-NFR-002 U-002).
-  const orderedInstances = sortByReadingOrder(placements)
-    .map((p) => byId.get(p.instance_id))
-    .filter((w): w is DashboardWidgetInstance => Boolean(w));
+  // Derived from the same (packed) placements the grid renders, so DOM and
+  // visual order stay in sync across breakpoints.
+  const orderedInstances = useMemo(
+    () =>
+      sortByReadingOrder(placements)
+        .map((p) => byId.get(p.instance_id))
+        .filter((w): w is DashboardWidgetInstance => Boolean(w)),
+    [placements, byId],
+  );
 
   const handleChange = (next: Layout) => {
     onChange(next.map((l) => ({ instance_id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
@@ -110,6 +146,7 @@ export default function DashboardEditGrid({
         layout={gridLayout}
         cols={cols}
         rowHeight={ROW_HEIGHT}
+        compactType="vertical"
         isDraggable={draggable}
         isResizable={draggable}
         draggableHandle=".widget-drag-handle"
@@ -117,11 +154,12 @@ export default function DashboardEditGrid({
         useCSSTransforms={!prefersReducedMotion}
         onDragStop={handleChange}
         onResizeStop={handleChange}
-        margin={[16, 16]}
+        margin={[GRID_MARGIN, GRID_MARGIN]}
       >
         {orderedInstances.map((widget) => (
           <div key={widget.instance_id}>
             <Box
+              ref={getContentRef(widget.instance_id)}
               className="widget-drag-handle"
               sx={{ cursor: draggable ? 'move' : 'default', height: '100%' }}
               tabIndex={-1}

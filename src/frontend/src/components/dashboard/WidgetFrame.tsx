@@ -80,10 +80,42 @@ export default function WidgetFrame({
             aria-haspopup="menu"
             aria-expanded={open}
             onClick={(e: MouseEvent<HTMLElement>) => setAnchor(e.currentTarget)}
-            sx={{ minWidth: 48, minHeight: 48, bgcolor: 'background.paper', boxShadow: 1 }}
+            // A default IconButton (icon at rgba .54, no background) was nearly
+            // invisible on a white widget card and read as part of the title. The
+            // ≥48px touch target (mobile-first, U-006) lives on this outer button;
+            // the opaque paper backdrop is painted on a smaller inner circle (see
+            // `.widget-menu-affordance` below) so the *visible* footprint stays
+            // well clear of a centred card title on narrow (minSize w=2) widgets
+            // with long labels (e.g. "Pflanzenschutz-Warnungen") — same
+            // hit-area-larger-than-visual technique already used for the grid
+            // resize handles. Theme tokens keep contrast correct in light and
+            // dark; `text.primary` on `background.paper` clears WCAG AA.
+            sx={{
+              width: 48,
+              height: 48,
+              p: 0,
+              color: 'text.primary',
+              '&:hover .widget-menu-affordance': { bgcolor: 'action.hover', boxShadow: 4 },
+            }}
             data-testid={`widget-menu-${instance.widget_key}`}
           >
-            <MoreVertIcon />
+            <Box
+              className="widget-menu-affordance"
+              sx={{
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: 'background.paper',
+                border: 1,
+                borderColor: 'divider',
+                boxShadow: 2,
+              }}
+            >
+              <MoreVertIcon fontSize="small" />
+            </Box>
           </IconButton>
           <Menu anchorEl={anchor} open={open} onClose={close}>
             <MenuItem onClick={run(onMoveUp)} disabled={isFirst} data-testid={`widget-move-up-${instance.widget_key}`}>
