@@ -14,6 +14,10 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        # Dev runs as root for hot-reload (SEC-M-004); override the restricted
+        # runAsNonRoot: true that leaks in from base values.yaml so kubelet does
+        # not reject runAsUser: 0.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
     containers:
@@ -103,6 +107,8 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
     containers:
@@ -145,6 +151,8 @@ controllers:
   arangodb:
     pod:
       securityContext:
+        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 0
@@ -172,6 +180,8 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
     containers:
@@ -230,6 +240,8 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
     containers:
@@ -283,6 +295,10 @@ controllers:
     replicas: 1
     pod:
       securityContext:
+        # See backend: override base runAsNonRoot: true for dev root/hot-reload.
+        # Not strictly required today (base values.yaml sets no runAsNonRoot for
+        # timescaledb) but future-proofs against a later base hardening.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
         fsGroup: 0
