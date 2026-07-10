@@ -1275,6 +1275,19 @@
       "overviewChipsLabel": "Steckbrief",
       "edible": "Essbar",
       "ornamental": "Zierpflanze",
+      "toxicity": {
+        "title": "Giftig",
+        "ariaLabel": "Warnung: Diese Pflanze ist giftig",
+        "description": "Diese Pflanze ist giftig (Toxizität = gesundheitsschädlich bei Verzehr oder Kontakt). Bewahre sie außerhalb der Reichweite der genannten Gruppen auf.",
+        "severityLabel": "Schweregrad",
+        "partsLabel": "Giftige Pflanzenteile",
+        "compoundsLabel": "Giftstoffe",
+        "affected": {
+          "children": "Kinder",
+          "cats": "Katzen",
+          "dogs": "Hunde"
+        }
+      },
       "sectionTaxonomyDesc": "Wissenschaftliche Bezeichnung, Trivialnamen, Gattung und botanische Familie dieser Art.",
       "create": "Art erstellen",
       "scientificName": "Wissenschaftlicher Name",
@@ -4610,6 +4623,12 @@
       "insect": "Insektenbestäubung",
       "wind": "Windbestäubung",
       "self": "Selbstbestäubung"
+    },
+    "toxicitySeverity": {
+      "none": "Ungiftig",
+      "mild": "Leicht giftig",
+      "moderate": "Mäßig giftig",
+      "severe": "Stark giftig"
     },
     "waterRetention": {
       "low": "Niedrig",

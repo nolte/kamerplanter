@@ -1275,6 +1275,19 @@
       "overviewChipsLabel": "Profile",
       "edible": "Edible",
       "ornamental": "Ornamental",
+      "toxicity": {
+        "title": "Toxic",
+        "ariaLabel": "Warning: this plant is toxic",
+        "description": "This plant is toxic (toxicity = harmful to health if ingested or touched). Keep it out of reach of the groups listed below.",
+        "severityLabel": "Severity",
+        "partsLabel": "Toxic plant parts",
+        "compoundsLabel": "Toxic compounds",
+        "affected": {
+          "children": "Children",
+          "cats": "Cats",
+          "dogs": "Dogs"
+        }
+      },
       "sectionTaxonomyDesc": "Scientific name, common names, genus and botanical family of this species.",
       "create": "Create Species",
       "scientificName": "Scientific Name",
@@ -4609,6 +4622,12 @@
       "insect": "Insect Pollination",
       "wind": "Wind Pollination",
       "self": "Self Pollination"
+    },
+    "toxicitySeverity": {
+      "none": "Non-toxic",
+      "mild": "Mildly toxic",
+      "moderate": "Moderately toxic",
+      "severe": "Severely toxic"
     },
     "waterRetention": {
       "low": "Low",
