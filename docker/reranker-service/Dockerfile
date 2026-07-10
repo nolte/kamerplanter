@@ -10,7 +10,7 @@
 
 # ── Shared base for downloads ────────────────────────────────────────
 FROM python:3.14-slim AS dl-base
-# hadolint ignore=DL3013
+# hadolint ignore=DL3013,SC2102
 RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub optimum[onnxruntime] sentencepiece
 
 # ── Download stages (cached independently) ───────────────────────────

@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 # ── Development target: hot-reload (skaffold dev syncs app/**/*.py) ──
 FROM base AS dev
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir --root-user-action=ignore watchfiles
 COPY app/ ./app/
 # Own /app as UID 1000 for the non-root dev pod (hot-reload + skaffold sync).

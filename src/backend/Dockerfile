@@ -34,8 +34,8 @@ COPY pyproject.toml .
 # Runs as root by design; values-dev.yaml sets runAsUser:0 for the writable
 # rootfs the hot-reload/__pycache__ needs.
 FROM base AS dev
-RUN pip install --no-cache-dir debugpy
-RUN pip install --no-cache-dir -e ".[dev]"
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir debugpy && pip install --no-cache-dir -e ".[dev]"
 COPY . .
 # Own /app as UID 1000 so the non-root dev pod (values-dev runAsUser:1000) can
 # hot-reload (__pycache__) and receive skaffold file-sync writes.

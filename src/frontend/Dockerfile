@@ -19,10 +19,10 @@ LABEL org.opencontainers.image.title="kamerplanter-frontend-dev" \
 COPY . .
 EXPOSE 5173
 COPY docker-entrypoint.dev.sh /docker-entrypoint.dev.sh
-RUN chmod +x /docker-entrypoint.dev.sh
-# Own /app (incl. node_modules for Vite's cache) as UID 1000 so the non-root
-# dev pod (values-dev runAsUser:1000) can run the Vite HMR server + file-sync.
-RUN chown -R 1000:1000 /app
+# Make the entrypoint executable and own /app (incl. node_modules for Vite's
+# cache) as UID 1000 so the non-root dev pod (values-dev runAsUser:1000) can run
+# the Vite HMR server + file-sync.
+RUN chmod +x /docker-entrypoint.dev.sh && chown -R 1000:1000 /app
 ENTRYPOINT ["/docker-entrypoint.dev.sh"]
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 

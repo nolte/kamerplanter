@@ -45,9 +45,10 @@ ENV MODEL_PATH=/app/models/dinov2
 
 # -- Development target: hot-reload (skaffold dev syncs app/**/*.py) ----------
 FROM base AS dev
-RUN pip install --no-cache-dir --root-user-action=ignore watchfiles
 # Own /app as UID 1000 for the non-root dev pod (hot-reload + skaffold sync).
-RUN chown -R 1000:1000 /app
+# hadolint ignore=DL3013
+RUN pip install --no-cache-dir --root-user-action=ignore watchfiles \
+ && chown -R 1000:1000 /app
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
