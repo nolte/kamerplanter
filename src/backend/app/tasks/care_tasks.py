@@ -150,15 +150,14 @@ def generate_due_care_reminders() -> dict:
             name_suffix = f"\u2014 {rt.value}"
             existing = task_repo.find_by_field("entity_key", plant_key)
             today_str = today.isoformat()
+            # The repository wraps documents into Pydantic ``Task`` models, so the
+            # dedup filter must use attribute access, not ``dict.get`` (regression #456).
             already_exists = any(
-                t.get("category") == TaskCategory.CARE_REMINDER.value
-                and t.get("name", "").endswith(name_suffix)
+                t.category == TaskCategory.CARE_REMINDER.value
+                and (t.name or "").endswith(name_suffix)
                 and (
-                    t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                    or (
-                        t.get("status") == TaskStatus.COMPLETED.value
-                        and str(t.get("completed_at", ""))[:10] >= today_str
-                    )
+                    t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                    or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
                 )
                 for t in existing
             )

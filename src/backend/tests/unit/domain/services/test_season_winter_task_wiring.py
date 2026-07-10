@@ -26,6 +26,7 @@ from app.domain.models.care_reminder import CareProfile
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Species
+from app.domain.models.task import Task
 from app.domain.services.care_reminder_service import CareReminderService
 
 
@@ -130,12 +131,17 @@ class TestEnsureSeasonalWinterTasks:
     def test_idempotent_when_pending_task_exists(self) -> None:
         """With a SeasonState transition already having produced the task, a second
         run must not create a duplicate (no double firing)."""
+        # The repository wraps documents into Pydantic ``Task`` models, so the dedup
+        # filter must use attribute access, not ``dict.get`` (regression #456).
         existing = [
-            {
-                "category": TaskCategory.CARE_REMINDER.value,
-                "name": "Dahlia — winter_protection",
-                "status": TaskStatus.PENDING.value,
-            }
+            Task(
+                name="Dahlia — winter_protection",
+                instruction="Protect Dahlia for winter.",
+                category=TaskCategory.CARE_REMINDER,
+                entity_key="plant-1",
+                entity_type="plant_instance",
+                status=TaskStatus.PENDING,
+            )
         ]
         service, task_repo = _build_service(owp=_owp(), existing_tasks=existing)
 
