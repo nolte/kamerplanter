@@ -101,6 +101,17 @@ export default function OverwinteringListPage() {
     [],
   );
 
+  // UI-NFR-011: label the jump action by concrete subject type ("Zur Pflanze
+  // springen" / "Zum Pflanzdurchlauf springen") instead of a generic "go to
+  // subject" text, so the tooltip/aria-label give real navigation context.
+  const subjectActionLabel = useCallback(
+    (p: OverwinteringProfile): string =>
+      p.plant_key
+        ? t('pages.overwintering.goToPlant')
+        : t('pages.overwintering.goToRun'),
+    [t],
+  );
+
   /** Renders a 1–12 month number as a localised month name (e.g. "Oktober"). */
   const monthLabel = useCallback(
     (month: number) =>
@@ -208,7 +219,7 @@ export default function OverwinteringListPage() {
         return (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {target && (
-              <Tooltip title={t('pages.overwintering.goToSubject')}>
+              <Tooltip title={subjectActionLabel(r)}>
                 <IconButton
                   size="small"
                   color="primary"
@@ -217,7 +228,7 @@ export default function OverwinteringListPage() {
                     navigate(target);
                   }}
                   data-testid={`goto-${r.key}`}
-                  aria-label={t('pages.overwintering.goToSubject')}
+                  aria-label={subjectActionLabel(r)}
                 >
                   <LaunchIcon fontSize="small" />
                 </IconButton>
@@ -274,9 +285,11 @@ export default function OverwinteringListPage() {
           { label: t('pages.overwintering.winterActionMonth'), value: monthLabel(r.winter_action_month) },
         ]}
         trailing={
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
+          // UI-NFR-001 R-011/R-012: explicit 48x48 touch targets with an 8px
+          // gap on mobile so the jump and delete actions cannot be mis-tapped.
+          <Box sx={{ display: 'flex', gap: 1 }}>
             {subjectTarget(r) && (
-              <Tooltip title={t('pages.overwintering.goToSubject')}>
+              <Tooltip title={subjectActionLabel(r)}>
                 <IconButton
                   size="medium"
                   color="primary"
@@ -286,7 +299,8 @@ export default function OverwinteringListPage() {
                     if (target) navigate(target);
                   }}
                   data-testid={`goto-mobile-${r.key}`}
-                  aria-label={t('pages.overwintering.goToSubject')}
+                  aria-label={subjectActionLabel(r)}
+                  sx={{ minWidth: 48, minHeight: 48 }}
                 >
                   <LaunchIcon fontSize="small" />
                 </IconButton>
@@ -302,6 +316,7 @@ export default function OverwinteringListPage() {
                 }}
                 data-testid={`delete-mobile-${r.key}`}
                 aria-label={t('common.delete')}
+                sx={{ minWidth: 48, minHeight: 48 }}
               >
                 <DeleteIcon fontSize="small" />
               </IconButton>
@@ -310,7 +325,7 @@ export default function OverwinteringListPage() {
         }
       />
     ),
-    [subjectLabel, subjectTarget, hardinessTooltip, monthLabel, navigate, t],
+    [subjectLabel, subjectTarget, subjectActionLabel, hardinessTooltip, monthLabel, navigate, t],
   );
 
   return (
