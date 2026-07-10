@@ -5,7 +5,6 @@ import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { Toxicity } from '@/api/types';
 
 interface Props {
@@ -47,12 +46,14 @@ export default function ToxicityBadge({ toxicity }: Props) {
 
   // Severe toxicity gets the highest-contrast error palette; anything else uses
   // the amber warning palette. Both meet WCAG contrast on light/dark themes.
+  // No `icon` override: MUI picks a severity-specific default (a filled error
+  // glyph for `error`, a warning triangle for `warning`) so `severe` is also
+  // visually distinct from `mild`/`moderate`, not just differently coloured.
   const muiSeverity = severity === 'severe' ? 'error' : 'warning';
 
   return (
     <Alert
       severity={muiSeverity}
-      icon={<WarningAmberIcon />}
       role="alert"
       aria-label={t('pages.species.toxicity.ariaLabel')}
       sx={{ mb: 2 }}
