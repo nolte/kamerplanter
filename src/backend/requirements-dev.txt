@@ -157,7 +157,7 @@ requests==2.34.2
     #   requests-toolbelt
 requests-toolbelt==1.0.0
     # via python-arango
-ruff==0.15.20
+ruff==0.15.21
     # via kamerplanter-backend (pyproject.toml)
 six==1.17.0
     # via
@@ -185,7 +185,7 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.2
+tzdata==2026.3
     # via kombu
 tzlocal==5.4.4
     # via celery
@@ -206,7 +206,7 @@ watchfiles==1.2.0
     # via uvicorn
 wcwidth==0.8.2
     # via prompt-toolkit
-websockets==16.0
+websockets==16.1
     # via uvicorn
 wrapt==2.2.2
     # via deprecated
