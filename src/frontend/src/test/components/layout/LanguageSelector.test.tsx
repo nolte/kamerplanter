@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
 
@@ -8,6 +8,11 @@ import { renderWithProviders } from '../../helpers';
 
 describe('LanguageSelector', () => {
   afterEach(async () => {
+    // Unmount before resetting the language: the file's afterEach runs before
+    // testing-library's auto-cleanup (LIFO), so an i18n reset here would
+    // otherwise re-render every still-mounted useTranslation() consumer
+    // outside act(). Unmounting first makes the reset touch nothing.
+    cleanup();
     // Restore the DE default so other suites are unaffected.
     await i18n.changeLanguage('de');
   });

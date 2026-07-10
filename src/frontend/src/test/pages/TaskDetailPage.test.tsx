@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
@@ -175,6 +175,11 @@ describe('TaskDetailPage — rendering & views', () => {
     spy = {};
   });
   afterEach(() => {
+    // Unmount before resetting the language: the file's afterEach runs before
+    // testing-library's auto-cleanup (LIFO), so an i18n reset here would
+    // otherwise re-render every still-mounted useTranslation() consumer
+    // outside act(). Unmounting first makes the reset touch nothing.
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -273,6 +278,7 @@ describe('TaskDetailPage — status actions', () => {
     spy = {};
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -337,6 +343,7 @@ describe('TaskDetailPage — checklist', () => {
     spy = {};
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -375,6 +382,7 @@ describe('TaskDetailPage — complete & edit tabs', () => {
     spy = {};
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -420,6 +428,7 @@ describe('TaskDetailPage — comments & history tabs', () => {
     spy = {};
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -491,6 +500,7 @@ describe('TaskDetailPage — delete flow', () => {
     spy = {};
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 

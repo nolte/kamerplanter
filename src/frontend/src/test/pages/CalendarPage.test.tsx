@@ -1,4 +1,4 @@
-import { screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { cleanup, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
@@ -164,6 +164,11 @@ describe('CalendarPage — month view & events', () => {
     i18n.changeLanguage('de');
   });
   afterEach(() => {
+    // Unmount before resetting the language: the file's afterEach runs before
+    // testing-library's auto-cleanup (LIFO), so an i18n reset here would
+    // otherwise re-render every still-mounted useTranslation() consumer
+    // outside act(). Unmounting first makes the reset touch nothing.
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -290,6 +295,7 @@ describe('CalendarPage — day popover interactions', () => {
     i18n.changeLanguage('de');
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -402,6 +408,7 @@ describe('CalendarPage — view modes', () => {
     i18n.changeLanguage('de');
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -453,6 +460,7 @@ describe('CalendarPage — iCal feeds', () => {
     i18n.changeLanguage('de');
   });
   afterEach(() => {
+    cleanup();
     i18n.changeLanguage('en');
   });
 

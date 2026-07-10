@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse, delay } from 'msw';
@@ -233,6 +233,11 @@ describe('LocationDetailPage', () => {
     i18n.changeLanguage('de');
   });
   afterEach(() => {
+    // Unmount before resetting the language: the file's afterEach runs before
+    // testing-library's auto-cleanup (LIFO), so an i18n reset here would
+    // otherwise re-render every still-mounted useTranslation() consumer
+    // outside act(). Unmounting first makes the reset touch nothing.
+    cleanup();
     vi.unstubAllGlobals();
     i18n.changeLanguage('en');
   });

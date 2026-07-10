@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import i18n from 'i18next';
@@ -75,6 +75,11 @@ describe('ActivityDetailPage', () => {
   });
 
   afterEach(() => {
+    // Unmount the tree before switching the language back. i18n.changeLanguage()
+    // synchronously re-renders every mounted useTranslation() consumer; doing that
+    // while the page is still mounted would fire those updates outside act(). Cleaning
+    // up first means the language reset touches nothing that is still rendered.
+    cleanup();
     i18n.changeLanguage('en');
   });
 
@@ -185,6 +190,11 @@ describe('ActivityDetailPage — delete flow', () => {
   });
 
   afterEach(() => {
+    // Unmount the tree before switching the language back. i18n.changeLanguage()
+    // synchronously re-renders every mounted useTranslation() consumer; doing that
+    // while the page is still mounted would fire those updates outside act(). Cleaning
+    // up first means the language reset touches nothing that is still rendered.
+    cleanup();
     i18n.changeLanguage('en');
   });
 
