@@ -38,10 +38,8 @@ export const widgetRegistry: Record<WidgetKey, WidgetComponent> = {
   harvest_forecast: GenericWidget,
   next_calendar_events: GenericWidget,
   community_activity: GenericWidget,
-  sensor_live: GenericWidget,
   tank_status: GenericWidget,
   phase_timeline: GenericWidget,
-  vpd_gauge: GenericWidget,
   plant_grid: GenericWidget,
 };
 

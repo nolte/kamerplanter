@@ -5291,6 +5291,9 @@
       "none": "Nothing scheduled in the next 7 days.",
       "untitled": "Untitled task"
     },
+    "nav": {
+      "openWidget": "Open {{widget}}"
+    },
     "widgets": {
       "comingSoon": "In preparation",
       "quick_actions": {
@@ -5360,10 +5363,6 @@
         "label": "Community activity",
         "description": "Activity from your community gardens."
       },
-      "sensor_live": {
-        "label": "Sensor live values",
-        "description": "Current readings from your sensors."
-      },
       "tank_status": {
         "label": "Tank status",
         "description": "Fill levels of your nutrient tanks.",
@@ -5374,10 +5373,6 @@
       "phase_timeline": {
         "label": "Phase timeline",
         "description": "Growth phases of your plants over time."
-      },
-      "vpd_gauge": {
-        "label": "VPD gauge",
-        "description": "Current vapour pressure deficit (VPD)."
       },
       "plant_grid": {
         "label": "Plant grid",
