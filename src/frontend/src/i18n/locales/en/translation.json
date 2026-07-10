@@ -1854,6 +1854,17 @@
       "title": "Plant Instances",
       "intro": "All registered plants with their current location, growth phase, and run assignment. Click any row to open the detail view.",
       "create": "Create Plant",
+      "identificationPhoto": {
+        "sectionTitle": "Identification Photo",
+        "previewAlt": "Photo captured during identification",
+        "saveToGallery": "Reuse photo as gallery image",
+        "saveToGalleryHelper": "The photo you captured during identification is added as the first image of this plant's gallery, so you don't have to take a second one.",
+        "useAsReference": "Use as recognition reference",
+        "useAsReferenceHint": "The photo is processed locally and improves automatic plant recognition for this species. It never leaves your instance.",
+        "useAsReferenceHelper": "Only available with self-hosted recognition active. The photo is added to this species' recognition base without permanently storing the original image.",
+        "uploadFailed": "The plant was created, but the photo could not be added to the gallery.",
+        "referenceFailed": "The plant was created, but the photo could not be saved as a recognition reference."
+      },
       "editIntro": "Edit the associations of this plant. Instance ID and species cannot be changed.",
       "info": "Info",
       "instanceId": "Instance ID",

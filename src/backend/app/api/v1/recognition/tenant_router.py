@@ -11,15 +11,18 @@ from fastapi import APIRouter, Depends, Form, Query, UploadFile
 from app.api.v1.recognition.schemas import (
     HistoryEntryResponse,
     IdentifyResponse,
+    ReferenceContributionResponse,
     SelectResultResponse,
     SuggestionResponse,
 )
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_identification_service
-from app.common.exceptions import UnsupportedMediaTypeError
+from app.common.dependencies import get_identification_service, get_reference_image_service
+from app.common.exceptions import AdapterNotAvailableError, UnsupportedMediaTypeError
+from app.config.settings import settings
 from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.identification_service import IdentificationService
+from app.domain.services.reference_image_service import ReferenceImageService
 
 router = APIRouter(prefix="/identification", tags=["identification"])
 
@@ -62,6 +65,43 @@ async def identify_plant(
         user_key=ctx.user_key,
     )
     return IdentifyResponse(**result)
+
+
+@router.post("/reference", response_model=ReferenceContributionResponse, status_code=202)
+async def contribute_reference(
+    image: UploadFile,
+    species_key: str = Form(..., description="Resolved species key to attach the reference to"),
+    scientific_name: str = Form(..., description="Scientific name of the resolved species"),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: ReferenceImageService = Depends(get_reference_image_service),
+) -> ReferenceContributionResponse:
+    """Reuse an identification photo as a DINOv2 few-shot recognition reference.
+
+    Issue #447 — opt-in step of the "reuse identification photo" flow. Only
+    available when the self-hosted DINOv2 adapter is configured
+    (``inference_service_enabled``); the external Pl@ntNet path has no local
+    reference index, so the frontend hides the toggle there. The photo is
+    embedded locally and indexed in pgvector (``source="user_contribution"``);
+    the original image is never persisted (REQ-029-A §4.4). No third-party
+    egress happens on this path (self-hosted embedding).
+    """
+    if not settings.inference_service_enabled:
+        raise AdapterNotAvailableError(
+            "local_embedding",
+            "the self-hosted DINOv2 inference-service is not enabled",
+        )
+
+    content_type = (image.content_type or "").lower().strip()
+    if content_type not in _ALLOWED_CONTENT_TYPES:
+        raise UnsupportedMediaTypeError(content_type, sorted(_ALLOWED_CONTENT_TYPES))
+
+    image_data = await image.read()
+    result = service.contribute_user_reference(species_key, scientific_name, image_data)
+    return ReferenceContributionResponse(
+        indexed=True,
+        species_key=species_key,
+        dim=result.get("dim"),
+    )
 
 
 @router.post("/{request_key}/select", response_model=SelectResultResponse)

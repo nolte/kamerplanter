@@ -237,6 +237,7 @@ describe('PlantIdentificationDialog', () => {
       expect(onSpeciesResolved).toHaveBeenCalledWith({
         speciesKey: 'species_monstera',
         scientificName: 'Monstera deliciosa',
+        photo: expect.any(File),
       }),
     );
   });
@@ -386,6 +387,7 @@ describe('PlantIdentificationDialog', () => {
       expect(onSpeciesResolved).toHaveBeenCalledWith({
         speciesKey: 'species_new',
         scientificName: 'Monstera adansonii',
+        photo: expect.any(File),
       }),
     );
   });
@@ -509,6 +511,7 @@ describe('PlantIdentificationDialog', () => {
         expect(onSpeciesResolved).toHaveBeenCalledWith({
           speciesKey: 'species_monstera',
           scientificName: 'Monstera deliciosa',
+          photo: expect.any(File),
         }),
       );
     });

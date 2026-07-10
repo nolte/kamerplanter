@@ -8,10 +8,26 @@ import PlantInstanceCreateDialog, {
 } from '@/pages/pflanzen/PlantInstanceCreateDialog';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+import { contributeReferenceImage } from '@/api/endpoints/identification';
+
+// The undici multipart parser in the test env cannot re-read a File field from
+// `request.formData()`, so we spy on the reference endpoint directly to assert
+// the arguments instead of round-tripping the multipart body through MSW.
+vi.mock('@/api/endpoints/identification', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api/endpoints/identification')>();
+  return {
+    ...actual,
+    contributeReferenceImage: vi
+      .fn()
+      .mockResolvedValue({ indexed: true, species_key: 'sp-1', dim: 768 }),
+  };
+});
+const contributeReferenceMock = vi.mocked(contributeReferenceImage);
 
 describe('PlantInstanceCreateDialog', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
+    contributeReferenceMock.mockClear();
   });
 
   it('renders the create dialog with the create title when open', async () => {
@@ -166,6 +182,169 @@ describe('PlantInstanceCreateDialog', () => {
     // The location field reacts to the selected site without throwing
     await waitFor(() => {
       expect(screen.getByTestId('form-field-slot_key')).toBeTruthy();
+    });
+  });
+
+  // ── Identification photo carry-over (issue #447) ─────────────────────
+  describe('identification photo carry-over', () => {
+    function makePhoto(): File {
+      return new File([new Uint8Array([1, 2, 3])], 'capture.jpg', { type: 'image/jpeg' });
+    }
+
+    it('hides the photo section when no identification photo is provided', async () => {
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await screen.findByTestId('plant-instance-create-dialog');
+      expect(screen.queryByTestId('identification-photo-section')).toBeNull();
+    });
+
+    it('shows the gallery toggle (default on) and hides the reference toggle without DINOv2', async () => {
+      renderWithProviders(
+        <PlantInstanceCreateDialog
+          open
+          onClose={() => {}}
+          onCreated={() => {}}
+          initialSpeciesKey="sp-1"
+          identificationPhoto={makePhoto()}
+        />,
+      );
+      expect(await screen.findByTestId('identification-photo-section')).toBeTruthy();
+      const galleryToggle = within(screen.getByTestId('toggle-save-gallery-photo')).getByRole(
+        'switch',
+      );
+      expect(galleryToggle).toBeChecked();
+      // Reference toggle only exists in DINOv2 mode.
+      expect(screen.queryByTestId('toggle-use-as-reference')).toBeNull();
+    });
+
+    it('shows the reference toggle (default off) when DINOv2 mode is available', async () => {
+      renderWithProviders(
+        <PlantInstanceCreateDialog
+          open
+          onClose={() => {}}
+          onCreated={() => {}}
+          initialSpeciesKey="sp-1"
+          identificationPhoto={makePhoto()}
+          allowReferenceContribution
+        />,
+      );
+      const referenceToggle = within(
+        await screen.findByTestId('toggle-use-as-reference'),
+      ).getByRole('switch');
+      expect(referenceToggle).not.toBeChecked();
+    });
+
+    it('uploads the photo to the new plant gallery when the toggle stays on', async () => {
+      const uploadUrls: string[] = [];
+      server.use(
+        http.post('/api/v1/t/:tenant/plant-instances/:key/photos', ({ params }) => {
+          uploadUrls.push(String(params.key));
+          return HttpResponse.json(
+            { attachment_id: 'att-1', uri: '/x', thumbnail_uris: null, is_cover: true, mime_type: 'image/jpeg', byte_size: 3, caption: null, taken_on: null, quality_assessment: null, created_at: null },
+            { status: 201 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      renderWithProviders(
+        <PlantInstanceCreateDialog
+          open
+          onClose={() => {}}
+          onCreated={onCreated}
+          initialSpeciesKey="sp-1"
+          identificationPhoto={makePhoto()}
+        />,
+      );
+
+      await screen.findByTestId('identification-photo-section');
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      expect(uploadUrls).toEqual(['plant-new']);
+    });
+
+    it('skips the gallery upload when the toggle is turned off', async () => {
+      let uploadCalled = false;
+      server.use(
+        http.post('/api/v1/t/:tenant/plant-instances/:key/photos', () => {
+          uploadCalled = true;
+          return HttpResponse.json({}, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      renderWithProviders(
+        <PlantInstanceCreateDialog
+          open
+          onClose={() => {}}
+          onCreated={onCreated}
+          initialSpeciesKey="sp-1"
+          identificationPhoto={makePhoto()}
+        />,
+      );
+
+      await screen.findByTestId('identification-photo-section');
+      await user.click(within(screen.getByTestId('toggle-save-gallery-photo')).getByRole('switch'));
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      expect(uploadCalled).toBe(false);
+    });
+
+    it('contributes the photo as a reference only when the DINOv2 toggle is enabled', async () => {
+      server.use(
+        http.post('/api/v1/t/:tenant/plant-instances/:key/photos', () =>
+          HttpResponse.json({}, { status: 201 }),
+        ),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      const photo = makePhoto();
+      renderWithProviders(
+        <PlantInstanceCreateDialog
+          open
+          onClose={() => {}}
+          onCreated={onCreated}
+          initialSpeciesKey="sp-1"
+          identificationPhoto={photo}
+          allowReferenceContribution
+        />,
+      );
+
+      await screen.findByTestId('identification-photo-section');
+      await user.click(within(screen.getByTestId('toggle-use-as-reference')).getByRole('switch'));
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      expect(contributeReferenceMock).toHaveBeenCalledWith('sp-1', 'Solanum lycopersicum', photo);
+    });
+
+    it('does not contribute a reference when the DINOv2 toggle stays off', async () => {
+      server.use(
+        http.post('/api/v1/t/:tenant/plant-instances/:key/photos', () =>
+          HttpResponse.json({}, { status: 201 }),
+        ),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      renderWithProviders(
+        <PlantInstanceCreateDialog
+          open
+          onClose={() => {}}
+          onCreated={onCreated}
+          initialSpeciesKey="sp-1"
+          identificationPhoto={makePhoto()}
+          allowReferenceContribution
+        />,
+      );
+
+      await screen.findByTestId('identification-photo-section');
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      expect(contributeReferenceMock).not.toHaveBeenCalled();
     });
   });
 });

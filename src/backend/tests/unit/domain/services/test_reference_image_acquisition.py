@@ -252,3 +252,24 @@ def test_wikimedia_runs_without_gbif_taxon():
     assert result.accepted == 6
     assert result.usable_for_recognition is True
     wikimedia.list_media.assert_called_once()
+
+
+# ── issue #447 — reuse an identification photo as a reference ────────────
+
+
+def test_contribute_user_reference_embeds_and_upserts():
+    service, inference, _, _ = _make_service(_candidates(0, 0, 0))
+
+    result = service.contribute_user_reference("species_monstera", "Monstera deliciosa", _image())
+
+    inference.embed.assert_called_once()
+    inference.upsert_reference.assert_called_once()
+    _, kwargs = inference.upsert_reference.call_args
+    assert kwargs["species_key"] == "species_monstera"
+    assert kwargs["scientific_name"] == "Monstera deliciosa"
+    # User contributions are tagged so admin curation can exclude them later.
+    assert kwargs["source"] == "user_contribution"
+    # Only the embedding is indexed — no original image is forwarded/persisted.
+    assert kwargs["embedding"] == [0.1] * 384
+    assert "image_data" not in kwargs
+    assert result == {"status": "ok"}

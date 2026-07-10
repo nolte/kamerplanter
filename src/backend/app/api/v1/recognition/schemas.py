@@ -67,6 +67,18 @@ class SelectResultResponse(BaseModel):
     species_in_database: bool
 
 
+class ReferenceContributionResponse(BaseModel):
+    """Result of contributing an identification photo as a species reference.
+
+    Issue #447 — the DINOv2 few-shot reference-image opt-in. Only the embedding
+    is indexed; the original image is never persisted (REQ-029-A §4.4).
+    """
+
+    indexed: bool
+    species_key: str
+    dim: int | None = None
+
+
 class HistoryEntryResponse(BaseModel):
     """A single entry in the identification history."""
 

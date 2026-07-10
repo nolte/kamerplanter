@@ -1854,6 +1854,17 @@
       "title": "Pflanzeninstanzen",
       "intro": "Hier sehen Sie alle angelegten Pflanzen mit aktuellem Standort, Wachstumsphase und Durchlauf-Zuordnung. Klicken Sie auf eine Zeile, um die Detailansicht zu öffnen.",
       "create": "Pflanze erstellen",
+      "identificationPhoto": {
+        "sectionTitle": "Erkennungsfoto",
+        "previewAlt": "Bei der Erkennung aufgenommenes Foto",
+        "saveToGallery": "Foto als Galeriebild übernehmen",
+        "saveToGalleryHelper": "Das bei der Bestimmung aufgenommene Foto wird als erstes Bild in die Galerie dieser Pflanze übernommen. So müssen Sie kein zweites Foto aufnehmen.",
+        "useAsReference": "Als Referenzbild für die Erkennung nutzen",
+        "useAsReferenceHint": "Das Foto wird lokal verarbeitet und verbessert die automatische Pflanzenerkennung für diese Art. Es verlässt Ihre Instanz nicht.",
+        "useAsReferenceHelper": "Nur bei aktiver selbst-gehosteter Erkennung verfügbar. Das Foto wird in die Erkennungsbasis dieser Art aufgenommen – ohne das Originalbild dauerhaft zu speichern.",
+        "uploadFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht in die Galerie übernommen werden.",
+        "referenceFailed": "Die Pflanze wurde erstellt, das Foto konnte aber nicht als Referenzbild gespeichert werden."
+      },
       "editIntro": "Bearbeiten Sie die Zuordnungen dieser Pflanze. Instanz-ID und Art können nicht geändert werden.",
       "info": "Info",
       "instanceId": "Instanz-ID",

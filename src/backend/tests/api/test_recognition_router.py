@@ -9,9 +9,10 @@ from fastapi.testclient import TestClient
 from app.api.v1.recognition.router import router as recognition_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_identification_service
+from app.common.dependencies import get_identification_service, get_reference_image_service
 from app.common.enums import TenantRole
 from app.common.exceptions import ConsentRequiredError, KamerplanterError
+from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 
 TENANT_SLUG = "anna"
@@ -33,13 +34,15 @@ def _app_error_handler(request: Request, exc: KamerplanterError) -> JSONResponse
     )
 
 
-def _build_app(service):
+def _build_app(service, reference_service=None):
     app = FastAPI()
     app.include_router(recognition_router, prefix="/api/v1")
     app.include_router(tenant_recognition_router, prefix="/api/v1/t/{tenant_slug}")
     app.add_exception_handler(KamerplanterError, _app_error_handler)
     app.dependency_overrides[get_identification_service] = lambda: service
     app.dependency_overrides[get_current_tenant] = _tenant_ctx
+    if reference_service is not None:
+        app.dependency_overrides[get_reference_image_service] = lambda: reference_service
     return app
 
 
@@ -166,3 +169,62 @@ def test_select_result():
     assert resp.status_code == 200
     assert resp.json()["matched_species_key"] == "species_monstera"
     service.select_result.assert_called_once_with("ident_1", 1, tenant_key="tenant_anna")
+
+
+# ── issue #447 — reuse identification photo as a DINOv2 reference ─────────
+
+
+def test_contribute_reference_returns_409_when_dinov2_disabled(monkeypatch):
+    """The reference opt-in is only available with the self-hosted adapter on."""
+    monkeypatch.setattr(settings, "inference_service_enabled", False)
+    reference_service = MagicMock()
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_jpeg_upload(),
+        data={"species_key": "species_monstera", "scientific_name": "Monstera deliciosa"},
+    )
+    assert resp.status_code == 409
+    assert resp.json()["error_code"] == "ADAPTER_NOT_AVAILABLE"
+    reference_service.contribute_user_reference.assert_not_called()
+
+
+def test_contribute_reference_rejects_non_image(monkeypatch):
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files={"image": ("doc.txt", b"hello", "text/plain")},
+        data={"species_key": "species_monstera", "scientific_name": "Monstera deliciosa"},
+    )
+    assert resp.status_code == 415
+    reference_service.contribute_user_reference.assert_not_called()
+
+
+def test_contribute_reference_success(monkeypatch):
+    monkeypatch.setattr(settings, "inference_service_enabled", True)
+    reference_service = MagicMock()
+    reference_service.contribute_user_reference.return_value = {
+        "status": "ok",
+        "species_key": "species_monstera",
+        "dim": 768,
+        "model": "dinov2",
+    }
+    client = TestClient(_build_app(MagicMock(), reference_service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/reference",
+        files=_jpeg_upload(),
+        data={"species_key": "species_monstera", "scientific_name": "Monstera deliciosa"},
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body == {"indexed": True, "species_key": "species_monstera", "dim": 768}
+
+    args, _ = reference_service.contribute_user_reference.call_args
+    assert args[0] == "species_monstera"
+    assert args[1] == "Monstera deliciosa"
+    assert isinstance(args[2], bytes)

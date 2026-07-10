@@ -171,6 +171,42 @@ class ReferenceImageService:
             result.representative_attribution = candidate.attribution
             result.representative_license = candidate.license.value
 
+    def contribute_user_reference(
+        self,
+        species_key: str,
+        scientific_name: str,
+        image_data: bytes,
+    ) -> dict:
+        """Index a user-provided photo as a few-shot recognition reference.
+
+        Invoked from the identification flow (REQ-029-A / issue #447) when the
+        user opts to reuse their identification photo as a reference for the
+        resolved species. The photo is EXIF-stripped and embedded locally via
+        the self-hosted inference-service; only the embedding + provenance are
+        upserted into pgvector — the original image is never persisted
+        (REQ-029-A §4.4). The reference is tagged ``source="user_contribution"``
+        so admin curation can later exclude it (see the admin reference-image
+        curation view). The image must already have passed the identification
+        pipeline, so no third-party egress happens here.
+
+        Raises:
+            httpx.HTTPError: the inference-service call failed.
+        """
+        clean = strip_exif(image_data)
+        embedding = self._inference.embed(clean)
+        response = self._inference.upsert_reference(
+            species_key=species_key,
+            scientific_name=scientific_name,
+            source="user_contribution",
+            embedding=embedding,
+        )
+        logger.info(
+            "reference_user_contribution_indexed",
+            species_key=species_key,
+            dim=response.get("dim"),
+        )
+        return response
+
     def _passes_quality(self, image_data: bytes) -> bool:
         """Reject images below the minimum resolution or with extreme aspect."""
         try:
