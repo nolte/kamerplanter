@@ -452,11 +452,25 @@ export default function PlantInstanceCreateDialog({
                           placement="top"
                           arrow
                         >
-                          <InfoOutlinedIcon
-                            sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }}
-                            aria-label={t('pages.plantInstances.identificationPhoto.useAsReferenceHint')}
+                          {/* Boxed trigger (not the bare 16px icon) so the tap target reaches
+                              the WCAG 2.5.8 / UI-NFR-001 R-011 minimum — mirrors the shared
+                              HelpTooltip's iconOnly trigger for consistency. */}
+                          <Box
+                            component="span"
                             tabIndex={0}
-                          />
+                            aria-label={t('pages.plantInstances.identificationPhoto.useAsReferenceHint')}
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: 24,
+                              minHeight: 24,
+                              p: '4px',
+                              cursor: 'help',
+                            }}
+                          >
+                            <InfoOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                          </Box>
                         </Tooltip>
                       </Box>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
