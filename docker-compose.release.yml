@@ -16,7 +16,7 @@ version: "3.8"
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12
+    image: arangodb:3.12@sha256:bf5eabc0fb3a16a13d0d4de00cddfbf2209e3d25630e5331832efb206519ff8f
     environment:
       ARANGO_ROOT_PASSWORD: ${ARANGO_ROOT_PASSWORD}
     ports:
@@ -32,7 +32,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine
+    image: valkey/valkey:9-alpine@sha256:a35428eba9043cc0b79dbe54100f0c92784f2de00ad09b01182bfb1c5c83d1bd
     volumes:
       - valkey_data:/data
     healthcheck:
@@ -84,7 +84,7 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.28.2-pg16
+    image: timescale/timescaledb:2.28.2-pg16@sha256:ba149561ad4ddff5940d6eb0a0df60aefd1355cee1a450928f271267038fc888
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: ${TIMESCALEDB_DATABASE:-kamerplanter_sensors}
