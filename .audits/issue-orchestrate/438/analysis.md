@@ -5,8 +5,9 @@ issue: 438
 classification: bug
 secondary-classes: []
 route: direct
-status: approved
+status: completed
 created: 2026-07-10
+pr: https://github.com/nolte/kamerplanter/pull/448
 ---
 
 # Issue Orchestration — Pre-analysis
