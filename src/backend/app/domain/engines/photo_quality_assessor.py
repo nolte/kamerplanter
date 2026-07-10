@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.interfaces.plant_identification_adapter import IdentificationResult
 from app.domain.models.attachment import QualityAssessment, QualityRating, QualitySuggestion
 
@@ -52,8 +53,14 @@ class PhotoQualityAssessor:
 
     @staticmethod
     def _normalize(name: str) -> str:
-        """Case/space-insensitive scientific-name key for comparison."""
-        return " ".join(name.lower().split())
+        """Canonical scientific-name key for comparison (REQ-048 Stufe 1).
+
+        Delegates to the shared :func:`normalize_scientific_name` utility so the
+        soll/ist comparison here uses exactly the same hybrid-marker/casing/
+        whitespace rules as the identify→create dedup path — no second, drifting
+        implementation lives in this engine.
+        """
+        return normalize_scientific_name(name)
 
     def assess(
         self,

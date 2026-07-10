@@ -1,4 +1,3 @@
-from app.common.exceptions import DuplicateError
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.interfaces.graph_repository import IGraphRepository
@@ -19,10 +18,15 @@ class SpeciesService:
         return species
 
     def create_species(self, species: Species) -> Species:
-        existing = self._repo.get_by_scientific_name(species.scientific_name)
-        if existing is not None:
-            raise DuplicateError("Species", "scientific_name", species.scientific_name)
-        return self._repo.create(species)
+        # Idempotent create (REQ-048 Stufe 1 / R5): when a species with the same
+        # canonical dedup key already exists — even if it only differs by the
+        # hybrid marker (× vs x), casing or whitespace — return that existing
+        # record instead of raising or inserting a duplicate. This is the
+        # operator-confirmed resolution: the identify→create path must never
+        # accumulate normalization duplicates. The dedup is an atomic UPSERT on
+        # scientific_name_normalized (SEC-003), so the check-then-insert window is
+        # closed server-side.
+        return self._repo.upsert_by_normalized_scientific_name(species)
 
     def update_species(self, key: SpeciesKey, species: Species) -> Species:
         existing = self.get_species(key)

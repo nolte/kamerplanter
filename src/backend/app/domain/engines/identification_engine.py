@@ -177,7 +177,11 @@ class IdentificationEngine:
 
             matched = None
             if suggestion.scientific_name:
-                matched = self._species_repo.get_by_scientific_name(suggestion.scientific_name)
+                # Match on the canonical dedup key (REQ-048 Stufe 1) so a hybrid-
+                # marker/casing/whitespace variant of an existing species
+                # (Fragaria × ananassa vs Fragaria x ananassa) resolves to it and
+                # reports species_in_database=True instead of looking un-catalogued.
+                matched = self._species_repo.get_by_normalized_scientific_name(suggestion.scientific_name)
 
             candidates.append(
                 IdentificationCandidate(
