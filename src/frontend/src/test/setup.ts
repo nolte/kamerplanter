@@ -1,10 +1,18 @@
 import '@testing-library/jest-dom/vitest';
 import 'vitest-axe/extend-expect';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { server } from './mocks/server';
 import { setActiveTenantSlug } from '@/api/client';
 import '@/i18n';
+
+// Raise Testing-Library's async-utility timeout above the 1000ms default. Under
+// full-suite parallelism the workers contend for CPU, so an async `findBy*` /
+// `waitFor` that resolves comfortably in an isolated run can miss the 1s window
+// and produce a wandering, load-dependent failure that never reproduces in
+// isolation. A larger ceiling only extends the *maximum* wait on the failure
+// path; passing assertions still resolve as soon as the element appears.
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom does not implement the Object-URL APIs that AuthImage (and any blob-based
 // rendering) relies on. Provide deterministic stubs so components can create and

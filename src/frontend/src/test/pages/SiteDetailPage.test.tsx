@@ -1,0 +1,346 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { http, HttpResponse, delay } from 'msw';
+import i18n from 'i18next';
+import SiteDetailPage from '@/pages/standorte/SiteDetailPage';
+import { renderWithProviders } from '../helpers';
+import { server } from '../mocks/server';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (orig) => {
+  const actual = await orig<typeof import('react-router-dom')>();
+  return { ...actual, useParams: () => ({ key: 'site-1' }), useNavigate: () => mockNavigate };
+});
+
+const sensor = {
+  key: 'sensor-1',
+  name: 'Temp Sensor',
+  metric_type: 'temperature',
+  ha_entity_id: 'sensor.temp',
+  is_active: true,
+  parent_type: 'site',
+  parent_key: 'site-1',
+  created_at: '2024-01-01T00:00:00Z',
+  updated_at: null,
+};
+
+function errorEnvelope(status: number) {
+  return HttpResponse.json(
+    {
+      error_id: 'e1',
+      error_code: 'INTERNAL_ERROR',
+      message: 'boom',
+      details: [],
+      timestamp: '',
+      path: '',
+      method: '',
+    },
+    { status },
+  );
+}
+
+// site-1 is seeded in the shared handlers (mockSites, type greenhouse, no GPS).
+function useSiteSensors(sensors: unknown[] = []) {
+  server.use(
+    http.get('/api/v1/t/:tenant/sites/:key/sensors', () => HttpResponse.json(sensors)),
+  );
+}
+
+// Override the seeded site fetch (used by the redux fetchSite thunk).
+function useSite(overrides: Record<string, unknown> = {}) {
+  server.use(
+    http.get('/api/v1/t/:tenant/sites/:key', () =>
+      HttpResponse.json({
+        key: 'site-1',
+        name: 'Main Greenhouse',
+        type: 'greenhouse',
+        gps_coordinates: null,
+        climate_zone: '8b',
+        total_area_m2: 50,
+        timezone: 'UTC',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: null,
+        ...overrides,
+      }),
+    ),
+  );
+}
+
+function useDeleteResponse(status: number) {
+  server.use(
+    http.delete('/api/v1/t/:tenant/sites/:key', () =>
+      status < 400 ? new HttpResponse(null, { status }) : errorEnvelope(status),
+    ),
+  );
+}
+
+describe('SiteDetailPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    i18n.changeLanguage('de');
+  });
+  afterEach(() => {
+    i18n.changeLanguage('en');
+  });
+
+  it('renders the site detail page from the loaded site', async () => {
+    useSiteSensors();
+    renderWithProviders(<SiteDetailPage />);
+
+    expect(await screen.findByTestId('site-detail-page')).toBeTruthy();
+    expect(screen.getAllByText('Main Greenhouse').length).toBeGreaterThan(0);
+    // greenhouse without GPS => weather source hint about the missing coordinates.
+    expect(await screen.findByTestId('weather-source-gps-hint')).toBeTruthy();
+  });
+
+  it('shows the loading skeleton while the site is being fetched', async () => {
+    useSite();
+    server.use(
+      http.get('/api/v1/t/:tenant/sites/:key', async () => {
+        await delay(40);
+        return HttpResponse.json({
+          key: 'site-1',
+          name: 'Main Greenhouse',
+          type: 'greenhouse',
+          gps_coordinates: null,
+          climate_zone: '8b',
+          total_area_m2: 50,
+          timezone: 'UTC',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: null,
+        });
+      }),
+    );
+    useSiteSensors();
+    renderWithProviders(<SiteDetailPage />);
+
+    // Skeleton first, then the page.
+    expect(screen.queryByTestId('site-detail-page')).toBeNull();
+    expect(await screen.findByTestId('site-detail-page')).toBeTruthy();
+  });
+
+  it('renders the error state when the site fetch fails', async () => {
+    server.use(http.get('/api/v1/t/:tenant/sites/:key', () => errorEnvelope(500)));
+    renderWithProviders(<SiteDetailPage />);
+
+    expect(await screen.findByTestId('error-display')).toBeTruthy();
+    expect(screen.queryByTestId('site-detail-page')).toBeNull();
+  });
+
+  it('shows the weather type hint for a non-outdoor site', async () => {
+    useSite({ type: 'indoor' });
+    useSiteSensors();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    expect(await screen.findByTestId('site-weather-type-hint')).toBeTruthy();
+  });
+
+  it('renders the weather source section for an outdoor site with GPS', async () => {
+    useSite({ type: 'outdoor', gps_coordinates: [52.5, 13.4] });
+    useSiteSensors();
+    server.use(
+      http.get('/api/v1/t/:tenant/sites/:key/weather-sources', () => HttpResponse.json([])),
+    );
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    // The GPS hint must NOT appear when coordinates are present.
+    await waitFor(() =>
+      expect(screen.queryByTestId('weather-source-gps-hint')).toBeNull(),
+    );
+  });
+
+  it('saves the edited site and notifies success', async () => {
+    useSite();
+    useSiteSensors();
+    let putBody: Record<string, unknown> | null = null;
+    server.use(
+      http.put('/api/v1/t/:tenant/sites/:key', async ({ request }) => {
+        putBody = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ key: 'site-1', ...putBody });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(putBody).not.toBeNull());
+    expect(putBody!.name).toBe('Main Greenhouse');
+    expect(putBody!.type).toBe('greenhouse');
+  });
+
+  it('surfaces an API error when saving the site fails', async () => {
+    useSite();
+    useSiteSensors();
+    server.use(http.put('/api/v1/t/:tenant/sites/:key', () => errorEnvelope(500)));
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    expect(await screen.findByText(i18n.t('errors.server'))).toBeTruthy();
+  });
+
+  it('navigates back when cancelling the form', async () => {
+    useSiteSensors();
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByTestId('form-cancel-button'));
+    expect(mockNavigate).toHaveBeenCalledWith(-1);
+  });
+
+  it('renders the sensor table and opens the create dialog', async () => {
+    useSiteSensors([sensor]);
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    expect(await screen.findByText('Temp Sensor')).toBeTruthy();
+
+    await user.click(screen.getByTestId('add-sensor-button'));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+
+  it('opens the sensor edit dialog from the row action', async () => {
+    useSiteSensors([sensor]);
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    const sensorRow = (await screen.findByText('Temp Sensor')).closest('tr')!;
+    await user.click(within(sensorRow).getByTestId('EditIcon').closest('button')!);
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+  });
+
+  it('renders the sensor list as mobile cards on a small screen', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    useSiteSensors([sensor]);
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    expect(await screen.findAllByText('Temp Sensor')).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  it('deletes a sensor through its confirm dialog', async () => {
+    useSiteSensors([sensor]);
+    let deleteCalled = false;
+    server.use(
+      http.delete('/api/v1/t/:tenant/tanks/sensors/:key', () => {
+        deleteCalled = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    const sensorRow = (await screen.findByText('Temp Sensor')).closest('tr')!;
+    await user.click(within(sensorRow).getByTestId('DeleteIcon').closest('button')!);
+
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+    await waitFor(() => expect(deleteCalled).toBe(true));
+  });
+
+  it('surfaces an error when sensor deletion fails', async () => {
+    useSiteSensors([sensor]);
+    server.use(
+      http.delete('/api/v1/t/:tenant/tanks/sensors/:key', () => errorEnvelope(500)),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    const sensorRow = (await screen.findByText('Temp Sensor')).closest('tr')!;
+    await user.click(within(sensorRow).getByTestId('DeleteIcon').closest('button')!);
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+
+    expect(await screen.findByText(i18n.t('errors.server'))).toBeTruthy();
+  });
+
+  it('deletes the site through the confirm dialog and navigates to the list', async () => {
+    useSiteSensors();
+    useDeleteResponse(204);
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/standorte/sites'),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId('confirm-dialog')).toBeNull(),
+    );
+  });
+
+  it('shows the pending state on the delete dialog while deleting', async () => {
+    useSiteSensors();
+    server.use(
+      http.delete('/api/v1/t/:tenant/sites/:key', async () => {
+        await delay(60);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('confirm-dialog-confirm')).toBeDisabled(),
+    );
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/standorte/sites'),
+    );
+  });
+
+  it('surfaces an error and does not navigate when deletion fails', async () => {
+    useSiteSensors();
+    useDeleteResponse(500);
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+
+    expect(await screen.findByText(i18n.t('errors.server'))).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalledWith('/standorte/sites');
+  });
+
+  it('cancels the delete confirmation without deleting', async () => {
+    useSiteSensors();
+    const user = userEvent.setup();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
+    await user.click(await screen.findByTestId('confirm-dialog-cancel'));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('confirm-dialog')).toBeNull(),
+    );
+    expect(mockNavigate).not.toHaveBeenCalledWith('/standorte/sites');
+  });
+});
