@@ -90,6 +90,8 @@ To return to the automatically derived values, click **Reset to automatic** in t
 
 Under **Plants > Overwintering** you'll find a table with the overwintering plans of all your plants — handy if you want an overview before the first frost. Automatically created plans are marked with the **"Auto"** badge. The **Create profile** button also lets you manually create a plan here for a plant that doesn't (yet) have an automatic one — for example, to set your own values before the transition to "winter approaching" happens.
 
+Each row shows a jump icon next to the delete icon, labeled **"Go to plant"** or **"Go to planting run"**, which takes you directly to the associated plant instance or planting run — handy when you want to look up further details from here.
+
 ---
 
 ## Frequently Asked Questions

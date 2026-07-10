@@ -1159,6 +1159,8 @@
       "empty": "No overwintering profiles yet.",
       "formIntro": "Define how this plant is overwintered. Only hardiness, protection measure and month are required.",
       "subject": "Plant / run",
+      "goToPlant": "Go to plant",
+      "goToRun": "Go to planting run",
       "plant": "Plant",
       "plantHelp": "The plant this profile applies to.",
       "plantRequired": "Please select a plant.",
