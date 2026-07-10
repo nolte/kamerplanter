@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, type MouseEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Tooltip from '@mui/material/Tooltip';
@@ -99,10 +99,20 @@ export default function HelpTooltip({
   // WCAG 2.5.8 (Target Size Minimum) / UI-NFR-002: minWidth/minHeight guarantee at least
   // 24×24 px; the 18px icon plus 4px padding on each side actually renders at ~26×26 px,
   // comfortably above the floor even where the icon is used at its smallest size.
+  // Stop the click from bubbling: a header title carrying this trigger (e.g.
+  // GenericWidget's `ipm_alerts` glossary icon) can itself sit inside an
+  // ancestor navigation link (issue #439 panel-level CardActionArea). Without
+  // this, tapping the tiny help icon would both toggle the tooltip *and* fire
+  // the ancestor link's navigation — on touch devices the click reaches the
+  // ancestor well before any touch-hold tooltip delay, so the help affordance
+  // would silently stop working the moment it is nested inside a link.
+  const stopBubble = (e: MouseEvent<HTMLElement>) => e.stopPropagation();
+
   const trigger = iconOnly ? (
     <Box
       component="span"
       tabIndex={0}
+      onClick={stopBubble}
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -120,6 +130,7 @@ export default function HelpTooltip({
     <Box
       component="span"
       tabIndex={0}
+      onClick={stopBubble}
       sx={{
         display: 'inline-flex',
         alignItems: 'center',

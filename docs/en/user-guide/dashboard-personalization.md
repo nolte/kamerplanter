@@ -93,7 +93,9 @@ Click **"Save"** to apply your changes, or **"Cancel"** to discard them and retu
 
 ## Widget Catalog
 
-Kamerplanter currently offers 17 widgets across four categories. Which widgets are visible to you depends on your experience level, your enabled [modules](module-visibility.md), and your operating mode ([Light or Full mode](light-mode.md)).
+Kamerplanter currently offers 15 widgets across four categories. Which widgets are visible to you depends on your experience level, your enabled [modules](module-visibility.md), and your operating mode ([Light or Full mode](light-mode.md)).
+
+Many widget panels are also destinations: outside of edit mode, clicking a panel takes you straight to the matching view — see [Using Panels as Navigation Shortcuts](dashboard.md#using-panels-as-navigation-shortcuts).
 
 <!-- Quelle: src/frontend/src/config/dashboardWidgetCatalog.ts, src/frontend/src/i18n/locales/en/translation.json (dashboard.widgets.*), src/frontend/src/components/dashboard/widgets/WeatherForecastWidget.tsx -->
 
@@ -130,12 +132,10 @@ Kamerplanter currently offers 17 widgets across four categories. Which widgets a
 
 | Widget | Description |
 |--------|-------------|
-| Sensor live values | Current readings from your sensors (with location configuration). |
 | Tank status | Fill levels of your nutrient tanks. |
-| VPD gauge | Current vapour pressure deficit (VPD). |
 
 !!! example "Example: a widget with its own configuration"
-    The **Sensor live values** widget offers a configuration dialog where you enter a location. Click the gear icon next to the widget in the settings tab (or in the edit-mode menu) to open it.
+    The **Harvest forecast** widget offers a configuration dialog where you set the forecast timeframe in days. Click the gear icon next to the widget in the settings tab (or in the edit-mode menu) to open it.
 
 ---
 
@@ -145,7 +145,7 @@ Without a personal adjustment, your dashboard shows a sensible base selection th
 
 - **Beginner:** Quick actions, Tasks today, Care reminders, Active plants, Tip of the day, Winter protection, Weather forecast, Setup progress
 - **Intermediate:** all Beginner widgets, plus Plant-protection alerts, Harvest forecast, Next events, Community activity
-- **Expert:** all Intermediate widgets, plus Sensor live values, Tank status, Phase timeline, VPD gauge, Plant grid
+- **Expert:** all Intermediate widgets, plus Tank status, Phase timeline, Plant grid
 
 ### Restoring the default
 
@@ -173,7 +173,7 @@ In [Light Mode](light-mode.md) — without registration — your layout is inste
 ## Accessibility
 
 - All actions (adding/removing widgets, reordering, resizing, configuring) are fully keyboard-operable — both in the settings tab and via the menu icon in edit mode.
-- Changes to order or size are announced for screen readers (e.g. "Sensor live values moved up").
+- Changes to order or size are announced for screen readers (e.g. "Tank status moved up").
 - The order in which screen readers and keyboard navigation read or jump between widgets always follows the visible arrangement on screen — on every screen size.
 - If you prefer reduced motion (system setting "Reduce motion"), edit mode skips animations when moving widgets.
 

@@ -25,10 +25,8 @@ export type WidgetKey =
   | 'harvest_forecast'
   | 'next_calendar_events'
   | 'community_activity'
-  | 'sensor_live'
   | 'tank_status'
   | 'phase_timeline'
-  | 'vpd_gauge'
   | 'plant_grid';
 
 export interface WidgetSize {
@@ -53,6 +51,12 @@ export interface DashboardWidgetDefinition {
   requiredModule: ModuleKey | null;
   /** true → offers a per-widget config dialog */
   hasConfig: boolean;
+  /**
+   * Panel-level navigation target (issue #439). When set, the whole widget panel
+   * becomes a link to this route in read-only mode (gated by module visibility,
+   * REQ-042). null/undefined → the panel is non-interactive (read-only overview).
+   */
+  navigateTo?: string;
 }
 
 /** Grid columns per breakpoint (UI-NFR-001): Desktop / Tablet / Mobile. */
@@ -69,6 +73,7 @@ function def(
   maxSize: WidgetSize,
   requiredModule: ModuleKey | null,
   hasConfig = false,
+  navigateTo?: string,
 ): DashboardWidgetDefinition {
   return {
     key,
@@ -81,6 +86,7 @@ function def(
     maxSize,
     requiredModule,
     hasConfig,
+    navigateTo,
   };
 }
 
@@ -94,28 +100,26 @@ export const dashboardWidgetCatalog: Record<WidgetKey, DashboardWidgetDefinition
   // read-only grid. h=4 matches maxSize.h, i.e. the widget can no longer be
   // grown further but starts at a height that actually fits its content.
   quick_actions: def('quick_actions', 'essentials', 'beginner', s(12, 4), s(4, 2), s(12, 4), null),
-  tasks_today: def('tasks_today', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'tasks'),
-  care_reminders: def('care_reminders', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'care'),
-  active_plants_summary: def('active_plants_summary', 'essentials', 'beginner', s(4, 3), s(2, 2), s(8, 6), 'plants'),
-  onboarding_progress: def('onboarding_progress', 'essentials', 'beginner', s(4, 3), s(2, 2), s(12, 4), null),
+  tasks_today: def('tasks_today', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'tasks', false, '/aufgaben/queue'),
+  care_reminders: def('care_reminders', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'care', false, '/aufgaben/queue'),
+  active_plants_summary: def('active_plants_summary', 'essentials', 'beginner', s(4, 3), s(2, 2), s(8, 6), 'plants', false, '/pflanzen/plant-instances'),
+  onboarding_progress: def('onboarding_progress', 'essentials', 'beginner', s(4, 3), s(2, 2), s(12, 4), null, false, '/onboarding'),
 
   // ── Insights ──
   daily_tip: def('daily_tip', 'insights', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'ai'),
   weather_forecast: def('weather_forecast', 'insights', 'beginner', s(4, 3), s(2, 2), s(8, 6), null, true),
-  harvest_forecast: def('harvest_forecast', 'insights', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'harvest', true),
+  harvest_forecast: def('harvest_forecast', 'insights', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'harvest', true, '/ernte/batches'),
   community_activity: def('community_activity', 'insights', 'intermediate', s(4, 4), s(2, 3), s(8, 8), null),
 
   // ── Cultivation ──
-  winter_protection: def('winter_protection', 'cultivation', 'beginner', s(6, 4), s(3, 3), s(12, 8), 'care'),
-  ipm_alerts: def('ipm_alerts', 'cultivation', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'ipm'),
-  next_calendar_events: def('next_calendar_events', 'cultivation', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'calendar'),
-  phase_timeline: def('phase_timeline', 'cultivation', 'expert', s(8, 4), s(3, 3), s(12, 8), 'plants'),
-  plant_grid: def('plant_grid', 'cultivation', 'expert', s(8, 5), s(4, 3), s(12, 10), 'plants'),
+  winter_protection: def('winter_protection', 'cultivation', 'beginner', s(6, 4), s(3, 3), s(12, 8), 'care', false, '/ueberwinterung/profile'),
+  ipm_alerts: def('ipm_alerts', 'cultivation', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'ipm', false, '/pflanzenschutz/pests'),
+  next_calendar_events: def('next_calendar_events', 'cultivation', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'calendar', false, '/kalender'),
+  phase_timeline: def('phase_timeline', 'cultivation', 'expert', s(8, 4), s(3, 3), s(12, 8), 'plants', false, '/phasen/ablaeufe'),
+  plant_grid: def('plant_grid', 'cultivation', 'expert', s(8, 5), s(4, 3), s(12, 10), 'plants', false, '/pflanzen/plant-instances'),
 
   // ── Monitoring ──
-  sensor_live: def('sensor_live', 'monitoring', 'expert', s(4, 4), s(2, 3), s(8, 8), 'sensors', true),
-  tank_status: def('tank_status', 'monitoring', 'expert', s(4, 4), s(2, 3), s(8, 8), 'tanks'),
-  vpd_gauge: def('vpd_gauge', 'monitoring', 'expert', s(3, 4), s(2, 3), s(6, 8), 'sensors'),
+  tank_status: def('tank_status', 'monitoring', 'expert', s(4, 4), s(2, 3), s(8, 8), 'tanks', false, '/standorte/tanks'),
 };
 
 /** Ordered list of categories for grouping in the settings tab. */
@@ -144,10 +148,8 @@ const INTERMEDIATE_WIDGETS: WidgetKey[] = [
 ];
 const EXPERT_WIDGETS: WidgetKey[] = [
   ...INTERMEDIATE_WIDGETS,
-  'sensor_live',
   'tank_status',
   'phase_timeline',
-  'vpd_gauge',
   'plant_grid',
 ];
 

@@ -72,9 +72,9 @@ describe('GenericWidget', () => {
 
   it('shows a glossary tooltip for jargon-titled widgets', () => {
     payloadMock.useWidgetPayload.mockReturnValue({ payload: null, loading: false });
-    render('vpd_gauge');
-    // vpd_gauge maps to the 'vpd' glossary term -> HelpTooltip renders its icon.
-    expect(screen.getByTestId('help-tooltip-icon-vpd')).toBeInTheDocument();
+    render('ipm_alerts');
+    // ipm_alerts maps to the 'ipm' glossary term -> HelpTooltip renders its icon.
+    expect(screen.getByTestId('help-tooltip-icon-ipm')).toBeInTheDocument();
   });
 
   it('renders no glossary tooltip for widgets without a jargon term', () => {

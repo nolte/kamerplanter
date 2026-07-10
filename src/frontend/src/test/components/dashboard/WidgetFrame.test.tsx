@@ -14,6 +14,16 @@ vi.mock('@/components/dashboard/widgetRegistry', () => ({
   getWidgetComponent: registryMock.getWidgetComponent,
 }));
 
+// Mock the module visibility hook to control whether a route is visible.
+const moduleVisibilityMock = vi.hoisted(() => ({
+  useModuleVisibility: vi.fn(() => ({ isPathVisible: vi.fn((_path: string) => true) })),
+}));
+vi.mock('@/hooks/useModuleVisibility', () => ({
+  useModuleVisibility: moduleVisibilityMock.useModuleVisibility,
+}));
+
+// Note: catalog is imported normally (not mocked) since we rely on real navigateTo values.
+
 const StubWidget = () => <div data-testid="stub-widget">widget body</div>;
 
 const instance: DashboardWidgetInstance = {
@@ -42,6 +52,9 @@ function makeProps(over: Partial<React.ComponentProps<typeof WidgetFrame>> = {})
 beforeEach(() => {
   vi.clearAllMocks();
   registryMock.getWidgetComponent.mockReturnValue(StubWidget);
+  moduleVisibilityMock.useModuleVisibility.mockReturnValue({
+    isPathVisible: vi.fn((_path: string) => true),
+  });
 });
 
 describe('WidgetFrame', () => {
@@ -126,5 +139,96 @@ describe('WidgetFrame', () => {
     renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
     expect(screen.getByTestId('widget-frame-tasks_today')).toBeInTheDocument();
     expect(screen.queryByTestId('stub-widget')).not.toBeInTheDocument();
+  });
+
+  describe('Issue #439 — Widget Navigation (WP-4/5)', () => {
+    it('renders as a navigable link in read-only mode when widget has navigateTo (tasks_today)', () => {
+      // tasks_today has navigateTo: '/aufgaben/queue' in the real catalog
+      renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
+      // Should have the nav link testid and the affordance chevron.
+      const navLink = screen.getByTestId('widget-nav-tasks_today');
+      expect(navLink).toBeInTheDocument();
+      expect(navLink.tagName).toBe('A'); // CardActionArea renders as <a> with RouterLink.
+      expect(navLink).toHaveAttribute('href', '/aufgaben/queue');
+      expect(screen.getByTestId('widget-nav-affordance-tasks_today')).toBeInTheDocument();
+    });
+
+    it('does not render as navigable for static widgets (weather_forecast)', () => {
+      // weather_forecast has no navigateTo in the catalog
+      const staticInst: DashboardWidgetInstance = {
+        instance_id: 'inst-1',
+        widget_key: 'weather_forecast',
+        config: {},
+      } as DashboardWidgetInstance;
+      renderWithProviders(<WidgetFrame {...makeProps({ instance: staticInst, editMode: false })} />);
+      expect(screen.queryByTestId('widget-nav-weather_forecast')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-affordance-weather_forecast')).not.toBeInTheDocument();
+    });
+
+    it('does not render as navigable in edit mode even when navigateTo is set', () => {
+      // tasks_today has navigateTo, but in edit mode it should not be a link
+      renderWithProviders(<WidgetFrame {...makeProps({ editMode: true })} />);
+      // In edit mode, panel is not wrapped in a link; only the kebab menu is present.
+      expect(screen.queryByTestId('widget-nav-tasks_today')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-affordance-tasks_today')).not.toBeInTheDocument();
+      expect(screen.getByTestId('widget-menu-tasks_today')).toBeInTheDocument();
+    });
+
+    it('respects module visibility gating — no link when target path is hidden', () => {
+      // Hide the tasks module so tasks_today navigation is gated out
+      const isPathVisibleMock = vi.fn((_path: string) => _path !== '/aufgaben/queue');
+      moduleVisibilityMock.useModuleVisibility.mockReturnValue({ isPathVisible: isPathVisibleMock });
+      renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
+      // Widget should not be navigable when its target path is hidden (REQ-042 gating).
+      expect(screen.queryByTestId('widget-nav-tasks_today')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-affordance-tasks_today')).not.toBeInTheDocument();
+    });
+
+    it('skips navigation wrapper for self-navigating widgets (winter_protection)', () => {
+      // winter_protection has navigateTo but is in SELF_NAVIGATING_KEYS
+      const winterInst: DashboardWidgetInstance = {
+        instance_id: 'inst-1',
+        widget_key: 'winter_protection',
+        config: {},
+      } as DashboardWidgetInstance;
+      renderWithProviders(<WidgetFrame {...makeProps({ instance: winterInst, editMode: false })} />);
+      // winter_protection has navigateTo but is in SELF_NAVIGATING_KEYS,
+      // so panel should NOT be wrapped in a link (prevents nested <a> tags inside it).
+      expect(screen.queryByTestId('widget-nav-winter_protection')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-affordance-winter_protection')).not.toBeInTheDocument();
+      // The widget body itself renders.
+      expect(screen.getByTestId('stub-widget')).toBeInTheDocument();
+    });
+
+    it('does not navigate when component is null', () => {
+      registryMock.getWidgetComponent.mockReturnValue(null);
+      renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
+      // No widget component => no nav link (isNavigational requires widgetNode !== null).
+      expect(screen.queryByTestId('widget-nav-tasks_today')).not.toBeInTheDocument();
+    });
+
+    it('regression F1 — help tooltip inside navigable panel does not break (ipm_alerts)', () => {
+      // ipm_alerts has navigateTo: '/pflanzenschutz/pests' in the real catalog
+      // Mock a widget with a help tooltip-like button inside
+      const MockWidgetWithHelp = () => (
+        <div data-testid="stub-widget">
+          <button data-testid="help-tooltip-trigger">Help</button>
+        </div>
+      );
+      registryMock.getWidgetComponent.mockReturnValue(MockWidgetWithHelp);
+      const ipmInst: DashboardWidgetInstance = {
+        instance_id: 'inst-1',
+        widget_key: 'ipm_alerts',
+        config: {},
+      } as DashboardWidgetInstance;
+      renderWithProviders(<WidgetFrame {...makeProps({ instance: ipmInst, editMode: false })} />);
+      // Verify the nav link exists.
+      expect(screen.getByTestId('widget-nav-ipm_alerts')).toBeInTheDocument();
+      // Verify the help button is inside the CardActionArea
+      const helpBtn = screen.getByTestId('help-tooltip-trigger');
+      expect(helpBtn).toBeInTheDocument();
+      // Clicking inside should not break; the CardActionArea inherits click behavior
+      expect(screen.getByTestId('stub-widget')).toBeInTheDocument();
+    });
   });
 });

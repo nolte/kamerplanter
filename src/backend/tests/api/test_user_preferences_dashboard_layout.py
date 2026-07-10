@@ -87,14 +87,14 @@ def test_default_dashboard_layout_is_null():
 
 def test_patch_dashboard_layout_round_trips():
     client = _build_client()
-    patch = client.patch(_BASE, json={"dashboard_layout": _layout("tasks_today", "sensor_live")})
+    patch = client.patch(_BASE, json={"dashboard_layout": _layout("tasks_today", "tank_status")})
     assert patch.status_code == 200
     body = patch.json()["dashboard_layout"]
-    assert [w["widget_key"] for w in body["widgets"]] == ["tasks_today", "sensor_live"]
+    assert [w["widget_key"] for w in body["widgets"]] == ["tasks_today", "tank_status"]
     assert len(body["placements"]["lg"]) == 2
 
     get = client.get(_BASE)
-    assert [w["widget_key"] for w in get.json()["dashboard_layout"]["widgets"]] == ["tasks_today", "sensor_live"]
+    assert [w["widget_key"] for w in get.json()["dashboard_layout"]["widgets"]] == ["tasks_today", "tank_status"]
 
 
 def test_reset_layout_with_explicit_null(  # Szenario 2
@@ -121,10 +121,10 @@ def test_unset_layout_is_left_untouched():
 def test_unknown_widget_key_is_dropped_tolerantly(  # Szenario 5
 ):
     client = _build_client()
-    resp = client.patch(_BASE, json={"dashboard_layout": _layout("tasks_today", "experimental_x", "sensor_live")})
+    resp = client.patch(_BASE, json={"dashboard_layout": _layout("tasks_today", "experimental_x", "tank_status")})
     assert resp.status_code == 200  # not 422 for the whole layout
     keys = [w["widget_key"] for w in resp.json()["dashboard_layout"]["widgets"]]
-    assert keys == ["tasks_today", "sensor_live"]
+    assert keys == ["tasks_today", "tank_status"]
     # Orphaned placement of the dropped widget is pruned too.
     assert len(resp.json()["dashboard_layout"]["placements"]["lg"]) == 2
 

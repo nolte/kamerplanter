@@ -13,10 +13,8 @@
     "harvest_forecast",
     "next_calendar_events",
     "community_activity",
-    "sensor_live",
     "tank_status",
     "phase_timeline",
-    "vpd_gauge",
     "plant_grid"
   ]
 }

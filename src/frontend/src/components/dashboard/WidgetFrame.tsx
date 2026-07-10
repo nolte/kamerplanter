@@ -1,6 +1,8 @@
 import { Suspense, useState, createElement, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import CardActionArea from '@mui/material/CardActionArea';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -8,6 +10,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Skeleton from '@mui/material/Skeleton';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AddIcon from '@mui/icons-material/Add';
@@ -16,7 +19,18 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { getWidgetComponent } from '@/components/dashboard/widgetRegistry';
+import { dashboardWidgetCatalog, type DashboardWidgetDefinition } from '@/config/dashboardWidgetCatalog';
+import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import type { DashboardWidgetInstance } from '@/api/types';
+
+/**
+ * Widgets that render their own inner navigation (links/buttons). Wrapping them
+ * in a panel-level anchor (issue #439) would nest interactive content inside an
+ * ``<a>`` — invalid HTML that trips React hydration and screen readers. Their
+ * existing inner controls already carry the same navigation intent, so the
+ * panel-level wrapper is intentionally skipped for these keys.
+ */
+const SELF_NAVIGATING_KEYS: ReadonlySet<string> = new Set(['winter_protection']);
 
 interface WidgetFrameProps {
   instance: DashboardWidgetInstance;
@@ -52,6 +66,7 @@ export default function WidgetFrame({
   onConfigure,
 }: WidgetFrameProps) {
   const { t } = useTranslation();
+  const { isPathVisible } = useModuleVisibility();
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const open = Boolean(anchor);
   const Component = getWidgetComponent(instance.widget_key);
@@ -69,6 +84,67 @@ export default function WidgetFrame({
         config: instance.config,
       })
     : null;
+
+  // Issue #439 — a mapped, module-visible widget panel becomes a link to its
+  // detail/list view in read-only mode. Edit mode keeps the panel inert so the
+  // kebab menu and drag/resize interactions are never hijacked by navigation.
+  const def: DashboardWidgetDefinition | undefined = (
+    dashboardWidgetCatalog as Record<string, DashboardWidgetDefinition>
+  )[instance.widget_key];
+  const navigateTo = def?.navigateTo;
+  const isNavigational =
+    !editMode &&
+    widgetNode !== null &&
+    !SELF_NAVIGATING_KEYS.has(instance.widget_key) &&
+    Boolean(navigateTo) &&
+    isPathVisible(navigateTo as string);
+
+  // Wrap only the widget body (inside the ErrorBoundary/Suspense) so the error
+  // fallback's retry button is never nested inside the navigation anchor.
+  const body =
+    isNavigational && navigateTo ? (
+      <CardActionArea
+        component={RouterLink}
+        to={navigateTo}
+        aria-label={t('dashboard.nav.openWidget', {
+          widget: t(`dashboard.widgets.${instance.widget_key}.label`),
+        })}
+        sx={{
+          display: 'block',
+          height: '100%',
+          borderRadius: 1,
+          // ButtonBase unconditionally resets the native outline (see MUI
+          // source); its own focusHighlight is a subtle ~12% tint that is easy
+          // to miss on a large, content-heavy panel. Match the explicit
+          // focus-visible ring already established for clickable rows in
+          // DataTable (WCAG 2.4.7) instead of relying on the tint alone.
+          '&.Mui-focusVisible': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: -2,
+          },
+        }}
+        data-testid={`widget-nav-${instance.widget_key}`}
+      >
+        {widgetNode}
+        {/* Decorative "this panel opens a page" affordance. Hover/focus tint
+            alone is not a persistent cue on touch devices (no :hover state),
+            which is the primary usage environment (Mobile-First) — so a small,
+            always-visible chevron distinguishes a navigable panel from a
+            static one (e.g. weather_forecast, quick_actions) even before the
+            first tap. Purely decorative: aria-hidden + pointer-events none so
+            it never intercepts the tap and never duplicates the accessible
+            name already carried by the CardActionArea. */}
+        <ChevronRightIcon
+          aria-hidden="true"
+          fontSize="small"
+          sx={{ position: 'absolute', top: 8, right: 8, color: 'text.disabled', pointerEvents: 'none' }}
+          data-testid={`widget-nav-affordance-${instance.widget_key}`}
+        />
+      </CardActionArea>
+    ) : (
+      widgetNode
+    );
 
   return (
     <Box sx={{ position: 'relative', height: '100%' }} data-testid={`widget-frame-${instance.widget_key}`}>
@@ -167,7 +243,7 @@ export default function WidgetFrame({
         testId={`widget-error-${instance.widget_key}`}
       >
         <Suspense fallback={<Skeleton variant="rounded" height="100%" sx={{ minHeight: 120 }} />}>
-          {widgetNode}
+          {body}
         </Suspense>
       </ErrorBoundary>
     </Box>

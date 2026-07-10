@@ -5292,6 +5292,9 @@
       "none": "In den nächsten 7 Tagen steht nichts an.",
       "untitled": "Unbenannte Aufgabe"
     },
+    "nav": {
+      "openWidget": "{{widget}} öffnen"
+    },
     "widgets": {
       "comingSoon": "In Vorbereitung",
       "quick_actions": {
@@ -5361,10 +5364,6 @@
         "label": "Community-Aktivität",
         "description": "Aktivitäten aus deinen Gemeinschaftsgärten."
       },
-      "sensor_live": {
-        "label": "Sensor-Livewerte",
-        "description": "Aktuelle Messwerte deiner Sensoren."
-      },
       "tank_status": {
         "label": "Tankstatus",
         "description": "Füllstände deiner Nährlösungstanks.",
@@ -5375,10 +5374,6 @@
       "phase_timeline": {
         "label": "Phasen-Zeitleiste",
         "description": "Wachstumsphasen deiner Pflanzen im Zeitverlauf."
-      },
-      "vpd_gauge": {
-        "label": "VPD-Anzeige",
-        "description": "Aktuelles Dampfdruckdefizit (VPD)."
       },
       "plant_grid": {
         "label": "Pflanzenübersicht",
