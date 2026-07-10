@@ -35,6 +35,10 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        # Dev runs as root for hot-reload (SEC-M-004); override the restricted
+        # runAsNonRoot: true that leaks in from base values.yaml so kubelet does
+        # not reject runAsUser: 0.
+        runAsNonRoot: false
         runAsUser: 0
         runAsGroup: 0
     containers:
