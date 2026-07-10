@@ -47,6 +47,25 @@ Field labels in the UI are shown in German (or English, depending on your langua
 !!! note "Not all fields are available in the create dialog"
     The **New Species** dialog only covers the required fields from step 3 plus growth habit and root type. The remaining fields in this table are set afterwards on the species detail page.
 
+### Toxicity Warning on the Species Detail Page
+
+For species with toxicity data on file, the **species detail page** shows a warning above the tabs, listing the affected groups, the severity, and the toxic plant parts and compounds — a safety notice for the humans and pets in your household.
+
+!!! warning "Always visible — regardless of expertise level"
+    The toxicity warning appears at **every expertise level**, including Beginner mode, and cannot be hidden. Unlike most advanced fields, it is deliberately not gated behind the usual expertise-level visibility logic, because it protects children and pets. <!-- REQ-001 / REQ-021 -->
+
+Where the data is available, the warning shows:
+
+- **Affected groups** — children, cats, and/or dogs, shown as coloured chips
+- **Severity** — Mildly toxic, Moderately toxic, or Severely toxic. Severely toxic species are additionally highlighted with a higher-contrast red warning colour instead of the usual amber/yellow, so they stand out at a glance.
+- **Toxic plant parts** — e.g. leaves, seeds, root
+- **Toxic compounds** — the named toxic substances, where documented
+
+If a species is verifiably non-toxic, or no toxicity data is recorded for it, no warning appears — so there is no false alarm for harmless species.
+
+!!! note "Two distinct toxicity fields"
+    The warning is based on the structured `toxicity` field (scale: non-toxic/mildly/moderately/severely toxic, with affected groups, plant parts, and compounds). This is **not the same** as the `toxicity_severity` field listed in the field table above (scale: low/moderate/high, focused only on cats/dogs). Both fields are maintained independently and are not automatically converted into each other.
+
 ### Propagation Methods (propagation_methods)
 
 The **Propagation Methods** field is a multi-select that records how a species is typically propagated. It is visible in **Intermediate mode** and above. <!-- REQ-021 -->

@@ -47,6 +47,25 @@ Die Feldnamen in der Oberfläche sind deutsch beschriftet; in Klammern findest d
 !!! note "Nicht alle Felder stehen im Anlage-Dialog zur Verfügung"
     Der Dialog **Neue Art** deckt nur die in Schritt 3 genannten Pflichtfelder sowie Wuchsform und Wurzeltyp ab. Die übrigen Felder dieser Tabelle pflegst du anschließend auf der Detailseite der Art.
 
+### Toxizitäts-Warnung auf der Artdetailseite
+
+Für Arten mit hinterlegten Toxizitätsdaten zeigt die **Detailseite der Art** oberhalb der Tabs eine Warnung mit den betroffenen Gruppen, dem Schweregrad sowie den giftigen Pflanzenteilen und Giftstoffen — als Sicherheitshinweis für Menschen und Haustiere im Haushalt.
+
+!!! warning "Immer sichtbar — unabhängig von der Erfahrungsstufe"
+    Die Toxizitäts-Warnung erscheint auf **jeder Erfahrungsstufe**, auch im Einsteiger-Modus, und ist nicht ausblendbar. Anders als die meisten fortgeschrittenen Felder wird sie bewusst nicht hinter der sonst üblichen Sichtbarkeitslogik nach Erfahrungsstufe versteckt, weil sie dem Schutz von Kindern und Haustieren dient. <!-- REQ-001 / REQ-021 -->
+
+Die Warnung zeigt, sofern für die Art hinterlegt:
+
+- **Betroffene Gruppen** — Kinder, Katzen und/oder Hunde, als farbige Chips
+- **Schweregrad** — Leicht giftig, Mäßig giftig oder Stark giftig. Stark giftige Arten werden zusätzlich mit einer höher-kontrastigen roten Warnfarbe statt der sonst üblichen gelb-amberfarbenen Warnung hervorgehoben, damit sie auf einen Blick erkennbar sind.
+- **Giftige Pflanzenteile** — z.B. Blätter, Samen, Wurzel
+- **Giftstoffe** — die namentlich bekannten toxischen Verbindungen, sofern dokumentiert
+
+Ist eine Art nachweislich ungiftig oder liegen für sie keine Toxizitätsdaten vor, erscheint keine Warnung — es gibt also keinen Fehlalarm für unbedenkliche Arten.
+
+!!! note "Zwei unterschiedliche Toxizitätsfelder"
+    Die Warnung basiert auf dem strukturierten Feld `toxicity` (Skala: ungiftig/leicht/mäßig/stark giftig, mit Gruppen, Pflanzenteilen und Giftstoffen). Das ist **nicht dasselbe** wie das oben in der Feldtabelle genannte Feld `toxicity_severity` (Skala: niedrig/mäßig/hoch, nur mit Fokus auf Katzen/Hunde). Beide Felder werden unabhängig voneinander gepflegt und nicht automatisch ineinander umgerechnet.
+
 ### Vermehrungsarten (propagation_methods)
 
 Das Feld **Vermehrungsarten** ist eine Mehrfachauswahl und dokumentiert, wie eine Art üblicherweise vermehrt wird. Es wird im **Fortgeschrittenen-Modus** angezeigt. <!-- REQ-021 -->
