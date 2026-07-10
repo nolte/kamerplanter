@@ -69,9 +69,12 @@ controllers:
       # as root:root and the uid-1000 process can't write — storage health_check
       # fails and readiness stays 503 (NFR-013).
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
@@ -172,8 +175,11 @@ controllers:
       unavailable: 0
     pod:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 101
         runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
     initContainers:
       init-runtime-config:
         image:
@@ -245,9 +251,12 @@ controllers:
     replicas: 1
     pod:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999
         fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
@@ -308,8 +317,11 @@ controllers:
       unavailable: 0
     pod:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
@@ -373,8 +385,11 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
@@ -432,9 +447,12 @@ controllers:
     replicas: 1
     pod:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 999
         runAsGroup: 999
         fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
@@ -508,8 +526,11 @@ controllers:
     strategy: Recreate
     pod:
       securityContext:
+        runAsNonRoot: true
         runAsUser: 1000
         runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
     containers:
       main:
         image:
