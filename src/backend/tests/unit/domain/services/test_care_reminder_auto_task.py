@@ -1,6 +1,6 @@
 """Tests for CareReminderService.ensure_next_watering_task."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -54,6 +54,27 @@ def _profile(auto_create: bool = True, plant_key: str = "plant-1") -> CareProfil
     )
 
 
+def _watering_task(
+    status: TaskStatus,
+    completed_at: datetime | None = None,
+    name: str = "plant-1 — watering",
+) -> Task:
+    """Build a persisted-style watering care-reminder Task as the repository returns it.
+
+    The repository wraps ArangoDB documents into Pydantic ``Task`` models, so the
+    dedup logic must operate on attribute access, not ``dict.get`` (regression #456).
+    """
+    return Task(
+        name=name,
+        instruction="Water plant-1 (every 7 days).",
+        category=TaskCategory.CARE_REMINDER,
+        entity_key="plant-1",
+        entity_type="plant_instance",
+        status=status,
+        completed_at=completed_at,
+    )
+
+
 def test_creates_task_when_no_pending_exists(
     service: CareReminderService,
     mock_task_repo: MagicMock,
@@ -94,19 +115,91 @@ def test_skips_when_pending_task_exists(
     service: CareReminderService,
     mock_task_repo: MagicMock,
 ) -> None:
+    """Regression #456: the repository returns ``Task`` models, not dicts.
+
+    Completing a care-reminder watering task calls ``ensure_next_watering_task``,
+    which previously treated the wrapped models as dicts (``t.get(...)``) and raised
+    ``AttributeError: 'Task' object has no attribute 'get'`` (HTTP 500 on /complete).
+    """
     profile = _profile()
     mock_task_repo.find_by_field.return_value = [
-        {
-            "category": "care_reminder",
-            "name": "plant-1 \u2014 watering",
-            "status": "pending",
-        },
+        _watering_task(TaskStatus.PENDING),
     ]
 
     result = service.ensure_next_watering_task(profile)
 
     assert result is None
     mock_task_repo.create_task.assert_not_called()
+
+
+def test_skips_when_task_completed_today_exists(
+    service: CareReminderService,
+    mock_task_repo: MagicMock,
+) -> None:
+    """A watering task completed today counts as recent and blocks re-materialization."""
+    profile = _profile()
+    # Build from ``date.today()`` so the ``str(completed_at)[:10] >= today_str``
+    # comparison inside the service is stable regardless of the UTC/local offset.
+    completed_today = datetime.combine(date.today(), time(12, 0), tzinfo=UTC)
+    mock_task_repo.find_by_field.return_value = [
+        _watering_task(TaskStatus.COMPLETED, completed_at=completed_today),
+    ]
+
+    result = service.ensure_next_watering_task(profile)
+
+    assert result is None
+    mock_task_repo.create_task.assert_not_called()
+
+
+def test_creates_task_when_prior_task_completed_yesterday(
+    service: CareReminderService,
+    mock_task_repo: MagicMock,
+    mock_care_repo: MagicMock,
+) -> None:
+    """A watering task completed before today no longer blocks the next materialization."""
+    profile = _profile()
+    completed_yesterday = datetime.combine(date.today() - timedelta(days=1), time(12, 0), tzinfo=UTC)
+    mock_task_repo.find_by_field.return_value = [
+        _watering_task(TaskStatus.COMPLETED, completed_at=completed_yesterday),
+    ]
+    mock_care_repo.get_last_confirmation.return_value = CareConfirmation(
+        plant_key="plant-1",
+        care_profile_key="cp-1",
+        reminder_type=ReminderType.WATERING,
+        action=ConfirmAction.CONFIRMED,
+        confirmed_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    mock_task_repo.create_task.return_value = _watering_task(TaskStatus.PENDING)
+
+    result = service.ensure_next_watering_task(profile)
+
+    assert result is not None
+    mock_task_repo.create_task.assert_called_once()
+
+
+def test_ignores_unnamed_task_without_error(
+    service: CareReminderService,
+    mock_task_repo: MagicMock,
+    mock_care_repo: MagicMock,
+) -> None:
+    """A task whose name is None must not raise when the dedup filter inspects it."""
+    profile = _profile()
+    unnamed = _watering_task(TaskStatus.PENDING)
+    unnamed.name = "irrigation log"  # different suffix, no watering match
+    mock_task_repo.find_by_field.return_value = [unnamed]
+    mock_care_repo.get_last_confirmation.return_value = CareConfirmation(
+        plant_key="plant-1",
+        care_profile_key="cp-1",
+        reminder_type=ReminderType.WATERING,
+        action=ConfirmAction.CONFIRMED,
+        confirmed_at=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    mock_task_repo.create_task.return_value = _watering_task(TaskStatus.PENDING)
+
+    result = service.ensure_next_watering_task(profile)
+
+    assert result is not None
+    mock_task_repo.create_task.assert_called_once()
 
 
 def test_creates_task_regardless_of_auto_create_flag(

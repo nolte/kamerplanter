@@ -273,11 +273,11 @@ class CareReminderService:
         existing = self._task_repo.find_by_field("entity_key", plant_key)
         for t in existing:
             if (
-                t.get("category") == TaskCategory.CARE_REMINDER.value
-                and t.get("name", "").endswith(name_suffix)
-                and t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                t.category == TaskCategory.CARE_REMINDER.value
+                and (t.name or "").endswith(name_suffix)
+                and t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
             ):
-                task_key = t.get("_key", "")
+                task_key = t.key or ""
                 task = self._task_repo.get_task_by_key(task_key)
                 if task is not None:
                     task.status = TaskStatus.COMPLETED.value
@@ -538,11 +538,11 @@ class CareReminderService:
         today_str = date.today().isoformat()
         existing = self._task_repo.find_by_field("entity_key", plant_key)
         already_exists = any(
-            t.get("category") == TaskCategory.CARE_REMINDER.value
-            and t.get("name", "").endswith(name_suffix)
+            t.category == TaskCategory.CARE_REMINDER.value
+            and (t.name or "").endswith(name_suffix)
             and (
-                t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                or (t.get("status") == TaskStatus.COMPLETED.value and str(t.get("completed_at", ""))[:10] >= today_str)
+                t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
             )
             for t in existing
         )
@@ -647,11 +647,11 @@ class CareReminderService:
 
         today_str = date.today().isoformat()
         has_active_or_recent = any(
-            t.get("category") == TaskCategory.CARE_REMINDER.value
-            and t.get("name", "").endswith(name_suffix)
+            t.category == TaskCategory.CARE_REMINDER.value
+            and (t.name or "").endswith(name_suffix)
             and (
-                t.get("status") in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                or (t.get("status") == TaskStatus.COMPLETED.value and str(t.get("completed_at", ""))[:10] >= today_str)
+                t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+                or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
             )
             for t in existing
         )
