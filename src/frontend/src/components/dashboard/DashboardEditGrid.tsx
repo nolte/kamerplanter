@@ -157,11 +157,30 @@ export default function DashboardEditGrid({
         margin={[GRID_MARGIN, GRID_MARGIN]}
       >
         {orderedInstances.map((widget) => (
-          <div key={widget.instance_id}>
+          // `overflow: hidden` on the grid item is the hard no-overlap guarantee.
+          // react-grid-layout already keeps the tile *boxes* from overlapping
+          // (collision resolution), so the only way one widget can visually cover
+          // another is content overflowing its fixed `h × ROW_HEIGHT` box. Clipping
+          // at the tile edge makes that impossible regardless of whether the
+          // content-height measurement below has caught up yet. When the
+          // measurement has grown `h` to fit (the normal case) nothing is clipped;
+          // this only bites during the first paint / a mis-measure, and then it
+          // clips rather than overlaps.
+          <div key={widget.instance_id} style={{ overflow: 'hidden' }}>
             <Box
               ref={getContentRef(widget.instance_id)}
               className="widget-drag-handle"
-              sx={{ cursor: draggable ? 'move' : 'default', height: '100%' }}
+              // `minHeight` (not `height`) `100%` is load-bearing for the
+              // content-coverage measurement above. A widget card that locks
+              // itself to `height:100%` and clips (MUI `Card`'s default
+              // `overflow:hidden`) makes this box's `scrollHeight` blind to any
+              // content taller than the fixed `h × ROW_HEIGHT` tile — it reports
+              // the box height, so `useContentRowFloors` never grows the tile and
+              // the content clips / overflows onto the tile below. With
+              // `minHeight:100%` the box still fills a tile taller than its
+              // content, but grows to (and reports) the true content height when
+              // the content is taller, so the floor clamp can cover it.
+              sx={{ cursor: draggable ? 'move' : 'default', minHeight: '100%' }}
               tabIndex={-1}
             >
               <WidgetFrame instance={widget} editMode {...widgetProps(widget)} />
