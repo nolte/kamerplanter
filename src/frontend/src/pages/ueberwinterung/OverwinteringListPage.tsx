@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -9,6 +10,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LaunchIcon from '@mui/icons-material/Launch';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -37,6 +39,7 @@ const hardinessColor: Record<HardinessRating, ChipProps['color']> = {
 
 export default function OverwinteringListPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -81,6 +84,21 @@ export default function OverwinteringListPage() {
       return '—';
     },
     [plantNames],
+  );
+
+  // Resolve the detail route the profile's subject links to. Plant profiles jump
+  // to the plant-instance detail page, run profiles to the planting-run detail
+  // page. Returns null when the profile is bound to neither (subject "—"), in
+  // which case the jump action is hidden.
+  const subjectTarget = useCallback(
+    (p: OverwinteringProfile): string | null => {
+      if (p.plant_key) return `/pflanzen/plant-instances/${p.plant_key}`;
+      if (p.planting_run_key) {
+        return `/durchlaeufe/planting-runs/${p.planting_run_key}`;
+      }
+      return null;
+    },
+    [],
   );
 
   /** Renders a 1–12 month number as a localised month name (e.g. "Oktober"). */
@@ -182,25 +200,46 @@ export default function OverwinteringListPage() {
     {
       id: 'actions',
       label: t('common.actions'),
-      width: 64,
+      width: 112,
       sortable: false,
       searchable: false,
-      render: (r) => (
-        <Tooltip title={t('common.delete')}>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteTarget(r);
-            }}
-            data-testid={`delete-${r.key}`}
-            aria-label={t('common.delete')}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      ),
+      render: (r) => {
+        const target = subjectTarget(r);
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {target && (
+              <Tooltip title={t('pages.overwintering.goToSubject')}>
+                <IconButton
+                  size="small"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(target);
+                  }}
+                  data-testid={`goto-${r.key}`}
+                  aria-label={t('pages.overwintering.goToSubject')}
+                >
+                  <LaunchIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t('common.delete')}>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(r);
+                }}
+                data-testid={`delete-${r.key}`}
+                aria-label={t('common.delete')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        );
+      },
     },
   ];
 
@@ -235,24 +274,43 @@ export default function OverwinteringListPage() {
           { label: t('pages.overwintering.winterActionMonth'), value: monthLabel(r.winter_action_month) },
         ]}
         trailing={
-          <Tooltip title={t('common.delete')}>
-            <IconButton
-              size="medium"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget(r);
-              }}
-              data-testid={`delete-mobile-${r.key}`}
-              aria-label={t('common.delete')}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {subjectTarget(r) && (
+              <Tooltip title={t('pages.overwintering.goToSubject')}>
+                <IconButton
+                  size="medium"
+                  color="primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const target = subjectTarget(r);
+                    if (target) navigate(target);
+                  }}
+                  data-testid={`goto-mobile-${r.key}`}
+                  aria-label={t('pages.overwintering.goToSubject')}
+                >
+                  <LaunchIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t('common.delete')}>
+              <IconButton
+                size="medium"
+                color="error"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget(r);
+                }}
+                data-testid={`delete-mobile-${r.key}`}
+                aria-label={t('common.delete')}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         }
       />
     ),
-    [subjectLabel, hardinessTooltip, monthLabel, t],
+    [subjectLabel, subjectTarget, hardinessTooltip, monthLabel, navigate, t],
   );
 
   return (
