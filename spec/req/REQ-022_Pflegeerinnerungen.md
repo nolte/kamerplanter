@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.7 (Überwinterung: Auto-Materialisierung + SeasonState-Trigger + Dormancy-Care-Modus, REQ-047)
+Version: 2.8 (Ampel-Implementierung → REQ-039 §3 `evaluate_winter_hardiness`; Winter-Pfad-Vertiefung → REQ-047 §§3.7–3.10)
 ```
 
 ## Versionshistorie
@@ -17,6 +17,7 @@ Version: 2.7 (Überwinterung: Auto-Materialisierung + SeasonState-Trigger + Dorm
 | ≤ 2.5 | — | Historie bis einschließlich 2.5 nicht tabellarisch geführt; Stand 2.5: Run-Owned CareProfile mit Detach-Snapshot (W-010) |
 | 2.6 | 2026-07-02 | Konsistenz-Invariante D5 (Spec-Audit D5): zwei sich gegenseitig ausschließende Winter-Pfade (winterhart in-situ → `dormancy`-Phase REQ-003 vs. frostempfindlich verlagert → `OverwinteringProfile.winter_action`); Ableitung aus `frost_sensitivity` (REQ-001) + Winterhärtezone (REQ-039); REQ-039 in Abhängigkeiten ergänzt |
 | 2.7 | 2026-07-05 | Konzeptionelle Überarbeitung der Überwinterung (→ **REQ-047**): (1) Das `OverwinteringProfile` wird **automatisch aus dem Species-Template + Standort-Ampel materialisiert** — der Nutzer legt **kein** Profil mehr an, kann aber übersteuern (`user_overridden`). (2) Die Winter-/Frühlings-Erinnerungen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`) werden **nicht mehr an festen Monaten**, sondern durch **Saison-Zustandsübergänge** (SeasonState-Engine, REQ-047) ausgelöst; `winter_action_month`/`spring_action_month` bleiben als Kalender-Fallback. (3) Neuer **Dormancy-Care-Modus** im CareProfile (reduziertes Gießen nach `winter_watering`, kein Dünger, Fäulnis-/Feuchte-/Klima-Kontrolle im Winterquartier). (4) Zwei neue Erinnerungstypen `dormancy_health_check`, `quarter_climate_check`. Auslöser-Datenquelle: Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender (Hemisphäre). |
+| 2.8 | 2026-07-11 | Additive Cluster-Angleichung zur Überwinterungs-Vertiefung (REQ-047 v1.1): Klarstellung, dass die **maßgebliche** Winterhärte-Ampel `evaluate_winter_hardiness()` in REQ-039 §3 ist (die inline-String-Darstellung im §"Winterhärte-Ampel" ist illustrativ); Querverweis auf die vertieften Winter-Pfad-Prozesse in **REQ-047 §§3.7–3.10** (Winterquartier-Typen, Ein-/Ausräumen, Fäulnis-/Feuchte-/Schädlingskontrolle, gestaffelte Abhärtung, Arten-Sonderfälle, Automatik-Robustheit). Keine Modell-/Feld-Änderung; art-spezifische Werte bleiben SSOT in Steckbrief §4.3. |
 
 ## 1. Business Case
 
@@ -151,7 +152,7 @@ Ergänzende Presets für Freilandpflanzen, die nicht unter die Zimmerpflanzen-Pr
 
 **12 Erinnerungstypen:**
 
-> **Auslöser-Wechsel (REQ-047):** Die saisonalen Winter-/Frühlings-Typen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`, `dormancy_health_check`, `quarter_climate_check`) werden **nicht mehr an festen Monaten** ausgelöst, sondern durch **Saison-Zustandsübergänge** der SeasonState-Engine (REQ-047). Diese speist aus der besten verfügbaren Quelle — Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender/Hemisphäre. Die unten genannten Monats-Defaults (`winter_action_month`, `spring_action_month`) bleiben ausschließlich als **Kalender-Fallback** gültig, wenn weder Livedaten noch Klimanormale für den Standort vorliegen.
+> **Auslöser-Wechsel (REQ-047):** Die saisonalen Winter-/Frühlings-Typen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`, `dormancy_health_check`, `quarter_climate_check`) werden **nicht mehr an festen Monaten** ausgelöst, sondern durch **Saison-Zustandsübergänge** der SeasonState-Engine (REQ-047). Diese speist aus der besten verfügbaren Quelle — Live-Wetter/Sensorik (REQ-005/046) → klimatologische Stufe (Ist-Stand: Standort-Durchschnittsfrostdaten + Zonen-Frosttermine, REQ-002/015-A/039; Ausbaupfad Klimanormale REQ-041) → Kalender/Hemisphäre. Die unten genannten Monats-Defaults (`winter_action_month`, `spring_action_month`) bleiben ausschließlich als **Kalender-Fallback** gültig, wenn weder Livedaten noch Klimanormale für den Standort vorliegen.
 
 | Typ | Schlüssel | Auslöser | Priorität |
 |-----|-----------|----------|-----------|
@@ -166,7 +167,7 @@ Ergänzende Presets für Freilandpflanzen, die nicht unter die Zimmerpflanzen-Pr
 | Knollen ausgraben | `tuber_dig` | **SeasonState → `pre_winter`** (REQ-047, vor erstem Frost); Fallback: `winter_action_month` | `critical` (Knollen erfrieren!) |
 | Knollen-Kontrolle | `storage_check` | Intervall während `winter_dormancy` (Default: 30 Tage) | `medium` |
 | Ruhe-/Winterquartier-Kontrolle | `dormancy_health_check` | Intervall (`dormancy_check_interval_days`) während `winter_dormancy` — Fäulnis, Schimmel, Feuchte, Schädlinge (REQ-047) | `medium` |
-| Winterquartier-Klima-Warnung | `quarter_climate_check` | Nur bei Winterquartier-Livedaten: Ist-Temp verletzt `winter_quarter_temp_min/max` (REQ-047) | `high` (Pflanze erfriert/treibt vorzeitig) |
+| Winterquartier-Klima-Warnung | `quarter_climate_check` | Ist-Stand: periodisch, sobald das Winterquartier Livedaten liefert; *Ausbaustufe (noch nicht implementiert):* erst bei Verletzung von `winter_quarter_temp_min/max` (REQ-047 §3.7.3) | `high` (Pflanze erfriert/treibt vorzeitig) |
 
 **Dünge-Guard:**
 Dünge-Erinnerungen werden nur generiert, wenn **beide** Bedingungen erfüllt sind:
@@ -236,7 +237,7 @@ Care-Reminder-Tasks werden **direkt** vom `CareReminderEngine` erstellt — sie 
 - **`:CareConfirmation`** — Immutables Event-Log für Bestätigungen und Snoozes
   - Collection: `care_confirmations`
   - Properties:
-    - `reminder_type: Literal['watering', 'fertilizing', 'repotting', 'pest_check', 'location_check', 'humidity_check', 'deadheading']`
+    - `reminder_type: ReminderType` (kanonisches Literal, s. §3 — umfasst auch die saisonalen Winter-/Frühlings-Typen `winter_protection`/`spring_uncover`/`tuber_dig`/`storage_check`/`dormancy_health_check`/`quarter_climate_check`, damit auch Winter-Erinnerungen bestätigt/gesnoozed/übersprungen werden können)
     - `action: Literal['confirmed', 'snoozed', 'skipped']`
     - `confirmed_at: datetime`
     - `snooze_days: Optional[int]` (Default: 2, nur bei `action='snoozed'`)
@@ -518,9 +519,11 @@ Das System berechnet pro PlantInstance eine Winterhärte-Ampel basierend auf:
 3. `OverwinteringProfile.hardiness_zone_min`
 
 **Ampel-Logik:**
-- **Winterhart (grün):** `frost_sensitivity == 'hardy'` UND `species.hardiness_zone_min <= site.climate_zone` — Kein Handlungsbedarf. **Keine Winterschutz-Erinnerungen generieren.**
+- **Winterhart (grün):** `frost_sensitivity == 'hardy'` UND `species.hardiness_zone_min < site.climate_zone` (Standortzone strikt wärmer; Gleichheit → gelb, s. REQ-039 §3) — Kein Handlungsbedarf. **Keine Winterschutz-Erinnerungen generieren.**
 - **Schutz nötig (gelb):** `frost_sensitivity == 'half_hardy'` ODER Hardiness-Zone knapp (Differenz <= 1 Zone) — Mulch/Vlies/Anhäufeln empfohlen
 - **Muss rein (rot):** `frost_sensitivity == 'tender'` ODER Hardiness-Zone deutlich zu niedrig (Differenz > 1) — Winterquartier oder Ausgraben
+
+> **Maßgebliche Implementierung (REQ-039):** Die obige String-Vergleichs-Darstellung ist illustrativ. Die **verbindliche, zonen-numerische** Ampel-Berechnung ist `evaluate_winter_hardiness()` in REQ-039 §3 (vergleicht `zone_number(species_min_zone)` gegen `zone_number(site.hardiness_zone)`). `CareReminderEngine` und der `OverwinteringMaterializer` (REQ-047) rufen diese Funktion auf. Die **vertieften Winter-Pfad-Prozesse** — Winterquartier-Typen, Ein-/Ausräumen, Fäulniskontrolle, gestaffelte Abhärtung, Arten-Sonderfälle und Automatik-Robustheit — sind in **REQ-047 §§3.7–3.10** spezifiziert; die art-spezifischen Werte bleiben SSOT in den Steckbriefen §4.3.
 
 <!-- Spec-Audit 2026-07-02 D5 -->
 > **Pfad-Bindung (Invariante D5):** Das Ampel-Ergebnis bestimmt verbindlich den Winter-Pfad gemäß
@@ -533,6 +536,8 @@ Das System berechnet pro PlantInstance eine Winterhärte-Ampel basierend auf:
 <!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 **Winterschutz-Guard für frostharte Pflanzen:**
 Die `CareReminderEngine` MUSS vor der Generierung von Winterschutz-Erinnerungen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`) prüfen, ob `Species.frost_sensitivity == 'hardy'`. Ist dies der Fall, werden **keine** Winterschutz-Erinnerungen generiert. Dies verhindert irreführende Erinnerungen für frostharte Pflanzen wie Stiefmütterchen (Viola), Hornveilchen, Primeln oder Schneeglöckchen.
+
+> **Maßgebliches Prädikat (Konsistenz mit REQ-047):** Der `frost_sensitivity == 'hardy'`-Kurzschluss ist eine grobe Abkürzung; **maßgeblich** ist das Ampel-Ergebnis (`evaluate_winter_hardiness`, REQ-039 §3). Der `OverwinteringMaterializer` (REQ-047 §3.4) materialisiert nur bei Ampel ≠ grün; die Erinnerungs-Unterdrückung folgt demselben Ampel-Ergebnis. So entsteht am Grenzfall (`hardy`, aber `delta == 0` → gelb) kein „verwaistes" Profil ohne zugehörige Erinnerung.
 
 **FAMILY_CARE_MAP-Erweiterung für Zierpflanzen:**
 Die Backend-Implementation (`care_reminder_engine.py`) MUSS um folgende Einträge erweitert werden:
@@ -1595,7 +1600,7 @@ interface CareDashboardEntry {
 }
 
 type WateringMethod = 'soak' | 'drench_and_drain' | 'top_water' | 'bottom_water';
-type ReminderType = 'watering' | 'fertilizing' | 'repotting' | 'pest_check' | 'location_check' | 'humidity_check';
+type ReminderType = 'watering' | 'fertilizing' | 'repotting' | 'pest_check' | 'location_check' | 'humidity_check' | 'deadheading' | 'winter_protection' | 'spring_uncover' | 'tuber_dig' | 'storage_check' | 'dormancy_health_check' | 'quarter_climate_check';
 
 interface CareProfile {
   careStyle: CareStyleType;

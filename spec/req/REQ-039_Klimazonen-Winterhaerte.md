@@ -7,7 +7,7 @@ Kategorie: Standorte & Pflege
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB (Geo-Index), Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.2
+Version: 1.3
 Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-003 (Phasensteuerung/Dormanz), REQ-022 (Überwinterung/Winterhärte-Ampel), REQ-005 (Frostwarnung), REQ-015-A (Aussaatkalender), REQ-047 (Saison-/Überwinterungs-Automatik — Konsument von Ampel + Frostterminen)
 ```
 
@@ -18,6 +18,7 @@ Abhängigkeit: REQ-001 (Stammdaten), REQ-002 (Standort), REQ-003 (Phasensteuerun
 | 1.0 | 2026-06-19 | Initialer Entwurf — Integration von frostline (awesome-agriculture) + DACH-Adaption |
 | 1.1 | 2026-06-20 | Lizenz-Schärfung: USDA/PHZM-Daten proprietär/US-only (nicht eingecheckt), DWD (GeoNutzV) + Open-Meteo (CC-BY-4.0) als kanonische DACH-Datenbasis |
 | 1.2 | 2026-07-02 | Spec-Audit D5: REQ-003 (Phasensteuerung/Dormanz) als Abhängigkeit aufgenommen; Notiz, dass die Winterhärte-/Klimazonen-Daten den Dormanz-Eintritt (REQ-003 `dormancy`) bzw. die Überwinterungs-Entscheidung (REQ-022 `OverwinteringProfile`, Invariante D5) speisen |
+| 1.3 | 2026-07-11 | Konsistenz-Angleichung (Überwinterungs-Cluster, REQ-047 v1.1): Ampel-Grenzfall bei Zonengleichheit vereindeutigt — `green` erfordert `delta > 0` (Standortzone strikt wärmer), Gleichheit (`delta == 0`) ergibt `yellow`, konsistent mit dem implementierten Code (`delta <= 0 → yellow`). Docstring, Akzeptanzkriterium und REQ-022-Illustration angeglichen. |
 
 ## 1. Business Case
 
@@ -187,10 +188,11 @@ def evaluate_winter_hardiness(
 ) -> Literal["green", "yellow", "red"]:
     """Vereinheitlicht die Winterhärte-Ampel (REQ-022).
 
-    Konsistent mit REQ-022 §"Winterhärte-Ampel":
-    - green  (winterhart): hardy UND species_zone <= site_zone
-    - yellow (Schutz nötig): half_hardy ODER Zonendifferenz <= 1
-    - red    (muss rein): tender ODER Zonendifferenz > 1
+    Konsistent mit REQ-022 §"Winterhärte-Ampel" (delta = site_zone − species_zone):
+    - green  (winterhart): hardy UND delta > 0 (Standortzone strikt wärmer als nötig)
+    - yellow (Schutz nötig): half_hardy ODER -1 <= delta <= 0 (Standort exakt an der
+             Grenze oder eine Zone zu kalt — an der Grenze ist Schutz ratsam)
+    - red    (muss rein): tender ODER delta < -1 (mehr als eine Zone zu kalt)
     """
     delta = _zone_delta(species_min_zone, site_zone)  # site - species
     if frost_sensitivity == "tender" or (delta is not None and delta < -1):
@@ -327,7 +329,7 @@ Daraus leitet Kamerplanter die Zonen selbst ab; eine fertige freie DACH-Winterh�
 - [ ] `POST .../sites/{site_key}/resolve-hardiness-zone` leitet für einen DACH-Standort mit GPS die Zone aus Open-Meteo-Klimanormalen ab, persistiert `hardiness_zone`, `mean_annual_minimum_c`, `source='derived_gps'` und legt die `located_in_zone`-Kante an.
 - [ ] Für einen US-ZIP-Standort wird (bei aktiviertem `FrostlineUsAdapter`) `source='frostline_us'` gesetzt; für Nicht-US-Eingaben fällt der Resolver sauber auf den Klimanormal-Pfad zurück.
 - [ ] Ein manuell gesetztes `hardiness_zone` (`source='manual'`) wird vom periodischen `refresh_site_hardiness_zones`-Task **nicht** überschrieben.
-- [ ] `evaluate_winter_hardiness` liefert für (Art mind. Zone 8a, Standort 7a, `tender`) `red`; für (`hardy`, Standort-Zone ≥ Art-Zone) `green`; für Differenz ≤ 1 Zone `yellow` — konsistent mit REQ-022.
+- [ ] `evaluate_winter_hardiness` liefert für (Art mind. Zone 8a, Standort 7a, `tender`) `red`; für (`hardy`, Standort-Zone **>** Art-Zone) `green`; bei Zonengleichheit (Standort == Art-Untergrenze) `yellow` (an der exakten Grenze ist Schutz ratsam); eine Zone zu kalt → `yellow`, mehr als eine Zone zu kalt → `red` — konsistent mit REQ-022 und dem implementierten Code (`delta <= 0 → yellow`).
 - [ ] Die Winterhärte-Ampel in REQ-022 nutzt den `hardiness-check`-Endpunkt; für `hardy`-Arten werden weiterhin **keine** Winterschutz-Erinnerungen generiert.
 - [ ] `GET .../plants/{plant_key}/hardiness-check` gibt Ampel-Status plus erklärende Zonendifferenz zurück.
 - [ ] Die Frosttermin-Defaults (REQ-015-A) werden aus den Zonen-Richtwerten vorbefüllt, solange weder manuelle Werte noch Wetter-API-Daten vorliegen.
