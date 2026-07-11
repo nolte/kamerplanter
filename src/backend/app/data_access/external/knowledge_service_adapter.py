@@ -141,11 +141,11 @@ class HttpKnowledgeServiceAdapter(IKnowledgeService):
                     if response.status_code < 500:
                         self._breaker.record_success()
                         return response
-                    last_exc = httpx.HTTPStatusError(
-                        f"{response.status_code} from knowledge service",
-                        request=response.request,
-                        response=response,
-                    )
+                    # SEC-004: never wrap the ``httpx`` request/response into the
+                    # exception chain — it still carries the ``Authorization:
+                    # Bearer`` header and would leak the token into error tracking.
+                    # A scrubbed marker keeps the cause header- and body-free.
+                    last_exc = KnowledgeServiceUnavailableError(f"Knowledge Service returned {response.status_code}.")
                 self._breaker.record_failure()
                 if attempt < self._max_retries:
                     await asyncio.sleep(0.2 * (attempt + 1))
@@ -154,6 +154,20 @@ class HttpKnowledgeServiceAdapter(IKnowledgeService):
                 await client.aclose()
 
         raise KnowledgeServiceUnavailableError("Knowledge Service request failed after retries.") from last_exc
+
+    @staticmethod
+    def _raise_on_client_error(response: httpx.Response) -> None:
+        """Translate a ``4xx`` into a token-free unavailable error (SEC-004).
+
+        ``httpx.Response.raise_for_status`` raises an ``HTTPStatusError`` whose
+        ``request`` still carries the ``Authorization: Bearer`` header — that
+        header would leak into any error tracker or log that serialises the
+        exception. We degrade to :class:`KnowledgeServiceUnavailableError`
+        carrying only the status code (no headers, no request, no body), so the
+        service layer runs its deterministic fallback instead of a 5xx.
+        """
+        if response.status_code >= 400:
+            raise KnowledgeServiceUnavailableError(f"Knowledge Service returned {response.status_code}.")
 
     async def search(
         self,
@@ -166,7 +180,7 @@ class HttpKnowledgeServiceAdapter(IKnowledgeService):
         if doc_language:
             params["doc_language"] = doc_language
         response = await self._request("GET", "/search", params=params)
-        response.raise_for_status()
+        self._raise_on_client_error(response)
         data = response.json()
         return [KnowledgeChunk(**chunk) for chunk in data.get("results", [])]
 
@@ -189,7 +203,7 @@ class HttpKnowledgeServiceAdapter(IKnowledgeService):
             if ks_context:
                 payload["context"] = ks_context
         response = await self._request("POST", "/ask", json=payload)
-        response.raise_for_status()
+        self._raise_on_client_error(response)
         data = response.json()
         return AskResult(
             answer=data["answer"],

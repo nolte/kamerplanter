@@ -25,7 +25,7 @@ from app.api.v1.ki_assistent.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_ai_assistant_service
-from app.domain.models.ai_assistant import AiResponse, AiTipCard
+from app.domain.models.ai_assistant import AiResponse, AiTenantSettings, AiTipCard
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_assistant_service import AiAssistantService
 
@@ -83,10 +83,17 @@ def get_tips(
     context_key: str = Query(...),
     language: str = Query("de"),
     ctx: TenantContext = Depends(get_current_tenant),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipListResponse:
     """Context tip cards (cache-first). Consent ``ai_tenant_data_access``."""
-    tips = service.get_tips(ctx, context_type=context_type, context_key=context_key, language=language)
+    tips = service.get_tips(
+        ctx,
+        context_type=context_type,
+        context_key=context_key,
+        language=language,
+        allow_cloud=ai_settings.ai_allow_cloud_providers,
+    )
     return TipListResponse(tips=[_tip_schema(t) for t in tips])
 
 
@@ -96,10 +103,18 @@ def refresh_tips(
     context_key: str = Query(...),
     language: str = Query("de"),
     ctx: TenantContext = Depends(get_current_tenant),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipListResponse:
     """Force-regenerate tips for a context. Consent ``ai_tenant_data_access``."""
-    tips = service.get_tips(ctx, context_type=context_type, context_key=context_key, language=language, force=True)
+    tips = service.get_tips(
+        ctx,
+        context_type=context_type,
+        context_key=context_key,
+        language=language,
+        force=True,
+        allow_cloud=ai_settings.ai_allow_cloud_providers,
+    )
     return TipListResponse(tips=[_tip_schema(t) for t in tips])
 
 
@@ -128,10 +143,11 @@ def acted_on_tip(
 def get_daily_tip(
     language: str = Query("de"),
     ctx: TenantContext = Depends(get_current_tenant),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> TipCardSchema | None:
     """A single personalised daily tip. Consent ``ai_tenant_data_access``."""
-    tip = service.get_daily_tip(ctx, language=language)
+    tip = service.get_daily_tip(ctx, language=language, allow_cloud=ai_settings.ai_allow_cloud_providers)
     return _tip_schema(tip) if tip else None
 
 
@@ -150,6 +166,7 @@ def dismiss_daily_tip(
 def explain(
     body: ExplainRequest,
     ctx: TenantContext = Depends(get_current_tenant),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> AiResponseSchema:
     """ "Why?" answer for a concrete recommendation. Consent ``ai_tenant_data_access``."""
@@ -159,6 +176,7 @@ def explain(
         subject_key=body.subject_key,
         question_template_id=body.question_template_id,
         language=body.language or "de",
+        allow_cloud=ai_settings.ai_allow_cloud_providers,
     )
     return _response_schema(response)
 
@@ -211,6 +229,7 @@ async def send_message(
     conversation_key: str,
     body: ChatMessageRequest,
     ctx: TenantContext = Depends(get_current_tenant),
+    ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> StreamingResponse:
     """Send a chat message; the answer streams back as SSE (§5.4)."""
@@ -219,6 +238,7 @@ async def send_message(
         conversation_key=conversation_key,
         message=body.message,
         language=body.language or "de",
+        allow_cloud=ai_settings.ai_allow_cloud_providers,
     )
     return StreamingResponse(
         generator,

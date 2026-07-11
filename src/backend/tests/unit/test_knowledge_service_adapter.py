@@ -117,17 +117,42 @@ async def test_success_resets_failure_history() -> None:
     assert breaker.is_open() is False
 
 
-async def test_4xx_does_not_count_against_breaker() -> None:
+async def test_4xx_degrades_without_leaking_token(caplog) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(422, json={"detail": "bad"})
 
     breaker = _CircuitBreaker(threshold=3, window_s=60.0, cooldown_s=60.0)
     adapter = _adapter(handler, breaker=breaker)
 
-    # A 4xx is a caller error: the request is returned and raise_for_status
-    # surfaces it, but the breaker must stay closed (not a service outage).
-    with pytest.raises(httpx.HTTPStatusError):
+    # SEC-004: a 4xx must degrade to the token-free unavailable error, NOT to an
+    # ``httpx.HTTPStatusError`` whose request still carries the bearer token.
+    with pytest.raises(KnowledgeServiceUnavailableError) as excinfo:
         await adapter.ask("bad question")
+
+    # The breaker stays closed (a caller error is not a service outage) …
+    assert breaker.is_open() is False
+    # … and neither the exception nor its cause chain leaks the bearer token.
+    chain: list[BaseException] = []
+    exc: BaseException | None = excinfo.value
+    while exc is not None:
+        chain.append(exc)
+        exc = exc.__cause__ or exc.__context__
+    rendered = " ".join(str(e) for e in chain)
+    assert "secret-token" not in rendered
+    assert "Authorization" not in rendered
+    assert "422" in str(excinfo.value)
+    assert "secret-token" not in caplog.text
+
+
+async def test_4xx_on_search_degrades_to_unavailable() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"detail": "bad query"})
+
+    breaker = _CircuitBreaker(threshold=3, window_s=60.0, cooldown_s=60.0)
+    adapter = _adapter(handler, breaker=breaker)
+
+    with pytest.raises(KnowledgeServiceUnavailableError):
+        await adapter.search("bad")
     assert breaker.is_open() is False
 
 

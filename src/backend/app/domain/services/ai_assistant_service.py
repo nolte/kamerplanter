@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.exceptions import AiDisabledError
 from app.data_access.arango.ai_repository import (
     ArangoAiConversationRepository,
     ArangoAiProviderRepository,
@@ -23,7 +24,7 @@ from app.data_access.arango.ai_repository import (
 from app.data_access.external.knowledge_service_adapter import KnowledgeServiceUnavailableError
 from app.domain.engines.ai_explain_engine import ExplainEngine
 from app.domain.engines.ai_tip_engine import TipEngine
-from app.domain.guards.consent_guard import AI_TENANT_DATA_ACCESS, ConsentGuard
+from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, AI_TENANT_DATA_ACCESS, ConsentGuard
 from app.domain.interfaces.knowledge_service import (
     ConfidenceLevel,
     IKnowledgeService,
@@ -78,17 +79,54 @@ class AiAssistantService:
 
     # ── Provider helpers ───────────────────────────────────────────────
 
-    def _provider_flags(self, tenant_key: str, provider_key: str | None) -> tuple[str, str, bool]:
-        """Resolve ``(provider_key, provider_type, uses_cloud)`` for a tenant.
+    def _resolve_provider(
+        self,
+        ctx: TenantContext,
+        provider_key: str | None,
+        *,
+        allow_cloud: bool,
+    ) -> tuple[str, str, bool]:
+        """Resolve ``(provider_key, provider_type, uses_cloud)`` and enforce the
+        cloud gate BEFORE any LLM call (SEC-001).
+
+        Two independent controls run here:
+
+        * **Tenant flag** — when ``ai_allow_cloud_providers`` is off, a cloud
+          default is downgraded fail-closed to a local Ollama provider. If the
+          tenant has no local provider at all the KI feature is unavailable
+          (:class:`AiDisabledError`), never silently a cloud call.
+        * **User consent** — when a cloud provider is actually used the caller
+          must hold the ``ai_cloud_processing`` consent, otherwise a 403
+          (:class:`~app.common.exceptions.ConsentRequiredError`) is raised.
 
         Defaults to a local Ollama profile when no provider is configured, so a
         fresh tenant never accidentally counts as cloud processing.
         """
-        provider = self._providers.get_default(tenant_key, provider_key)
+        provider = self._providers.get_default(ctx.tenant_key, provider_key)
         if provider is None:
             return ("", "ollama", False)
-        uses_cloud = provider.provider_type != "ollama"
+
+        uses_cloud = provider.provider_type != "ollama" or provider.requires_consent
+        if uses_cloud and not allow_cloud:
+            # Tenant admin has not enabled cloud processing → fail closed to a
+            # local provider instead of leaking tenant data to a cloud LLM.
+            local = self._local_provider(ctx.tenant_key)
+            if local is None:
+                raise AiDisabledError()
+            provider = local
+            uses_cloud = False
+
+        if uses_cloud:
+            self._consent.require_consent(ctx.user_key, AI_CLOUD_PROCESSING)
+
         return (provider.key or "", provider.provider_type, uses_cloud)
+
+    def _local_provider(self, tenant_key: str):
+        """Return the first local Ollama provider for a tenant, or ``None``."""
+        for provider in self._providers.list_for_tenant(tenant_key):
+            if provider.provider_type == "ollama" and not provider.requires_consent:
+                return provider
+        return None
 
     # ── Tips ───────────────────────────────────────────────────────────
 
@@ -100,11 +138,14 @@ class AiAssistantService:
         context_key: str,
         language: str = "de",
         force: bool = False,
+        allow_cloud: bool = False,
     ) -> list[AiTipCard]:
         """Return tip cards for a plant/run context (cache-first, §4.4).
 
         Requires ``ai_tenant_data_access``. On a Knowledge-Service outage returns
         rule-based fallback tips (HTTP 200) and audits ``knowledge_service_error``.
+        ``allow_cloud`` mirrors the tenant ``ai_allow_cloud_providers`` flag and
+        gates cloud provider use (SEC-001).
         """
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
 
@@ -117,7 +158,7 @@ class AiAssistantService:
 
         question_context = self._resolve_context(ctx.tenant_key, context_type, context_key)
         question = self._tips.build_question(question_context, language)
-        provider_key, provider_type, uses_cloud = self._provider_flags(ctx.tenant_key, None)
+        provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
         started = time.monotonic()
 
         try:
@@ -182,7 +223,7 @@ class AiAssistantService:
         )
         return [persisted]
 
-    def get_daily_tip(self, ctx: TenantContext, *, language: str = "de") -> AiTipCard | None:
+    def get_daily_tip(self, ctx: TenantContext, *, language: str = "de", allow_cloud: bool = False) -> AiTipCard | None:
         """Return a single daily tip for the dashboard (cache until midnight)."""
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
         today = datetime.now(UTC).date().isoformat()
@@ -192,7 +233,7 @@ class AiAssistantService:
 
         question_context = self._resolve_context(ctx.tenant_key, "daily", today)
         question = self._tips.build_question(question_context, language)
-        provider_key, provider_type, uses_cloud = self._provider_flags(ctx.tenant_key, None)
+        provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
         started = time.monotonic()
         try:
             result = self._run_ask(question, question_context, language)
@@ -281,6 +322,7 @@ class AiAssistantService:
         question_template_id: str,
         slots: dict | None = None,
         language: str = "de",
+        allow_cloud: bool = False,
     ) -> AiResponse:
         """Generate a "why?" answer for a concrete recommendation (§4.5)."""
         self._consent.require_consent(ctx.user_key, AI_TENANT_DATA_ACCESS)
@@ -300,7 +342,7 @@ class AiAssistantService:
             )
 
         question_context = self._resolve_context(ctx.tenant_key, subject_type, subject_key)
-        provider_key, provider_type, uses_cloud = self._provider_flags(ctx.tenant_key, None)
+        provider_key, provider_type, uses_cloud = self._resolve_provider(ctx, None, allow_cloud=allow_cloud)
         started = time.monotonic()
         try:
             result = self._run_ask(question, question_context, language)
@@ -428,7 +470,10 @@ class AiAssistantService:
 
     def get_conversation(self, ctx: TenantContext, key: str) -> AiConversation | None:
         conv = self._conversations.get_by_key(key)
-        if conv is None or conv.tenant_key != ctx.tenant_key:
+        # SEC-002: a conversation is private to its owner. Scoping on tenant_key
+        # alone lets any tenant member read/inject into a peer's chat (IDOR);
+        # enforce ownership too, mirroring ``list_for_user`` semantics.
+        if conv is None or conv.tenant_key != ctx.tenant_key or conv.user_key != ctx.user_key:
             return None
         return conv
 
@@ -453,9 +498,10 @@ class AiAssistantService:
         return self._conversations.create(conv)
 
     def delete_conversation(self, ctx: TenantContext, key: str) -> bool:
-        """DSGVO Art. 17 — hard-delete a tenant-owned conversation (§7.5)."""
+        """DSGVO Art. 17 — hard-delete a caller-owned conversation (§7.5)."""
         conv = self._conversations.get_by_key(key)
-        if conv is None or conv.tenant_key != ctx.tenant_key:
+        # SEC-002: only the owner may delete — tenant scoping alone is an IDOR.
+        if conv is None or conv.tenant_key != ctx.tenant_key or conv.user_key != ctx.user_key:
             return False
         return self._conversations.delete(key)
 
@@ -466,6 +512,7 @@ class AiAssistantService:
         conversation_key: str,
         message: str,
         language: str = "de",
+        allow_cloud: bool = False,
     ) -> AsyncIterator[str]:
         """Yield the assistant answer token-wise as SSE ``data:`` frames (§5.4).
 
@@ -480,7 +527,9 @@ class AiAssistantService:
             return
 
         question_context = self._resolve_context(ctx.tenant_key, conv.context_type, conv.context_key or "")
-        provider_key, provider_type, uses_cloud = self._provider_flags(ctx.tenant_key, conv.provider_key or None)
+        provider_key, provider_type, uses_cloud = self._resolve_provider(
+            ctx, conv.provider_key or None, allow_cloud=allow_cloud
+        )
         started = time.monotonic()
         try:
             result = await self._ks.ask(
