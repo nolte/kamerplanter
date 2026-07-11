@@ -198,6 +198,43 @@ class SiteWeatherForecastResponse(BaseModel):
     forecast_source: str | None = None
 
 
+# ── Climate normals (REQ-041 — "Klima am Standort") ────────────────────────
+
+
+class ClimateNormalResponse(BaseModel):
+    """One long-term climate-normal record for a site (one per source).
+
+    Carries the twelve monthly averages plus the annual aggregates and the
+    attribution string of the producing source (CC-BY visibility, REQ-041 licence
+    gate). Empty ``monthly_*`` lists mean the source did not report that series.
+    """
+
+    source: str
+    attribution: str
+    period_start_year: int | None = None
+    period_end_year: int | None = None
+    monthly_temp_min_c: list[float] = Field(default_factory=list)
+    monthly_temp_max_c: list[float] = Field(default_factory=list)
+    monthly_temp_avg_c: list[float] = Field(default_factory=list)
+    monthly_precip_mm: list[float] = Field(default_factory=list)
+    monthly_solar_mj_m2: list[float] = Field(default_factory=list)
+    coldest_month_min_c: float | None = None
+    annual_temp_avg_c: float | None = None
+    annual_precip_mm: float | None = None
+    fetched_at: datetime
+
+
+class SiteClimateResponse(BaseModel):
+    """Per-site climate-normal payload for the "Klima am Standort" section.
+
+    Graceful: an empty ``normals`` list means no source has populated climate
+    normals for the site yet (fetch beat pending) — never a ``500``.
+    """
+
+    site_key: str
+    normals: list[ClimateNormalResponse] = Field(default_factory=list)
+
+
 # ── HA entity pickers ─────────────────────────────────────────────────────
 
 
