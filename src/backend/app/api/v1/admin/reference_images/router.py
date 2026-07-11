@@ -78,20 +78,28 @@ def list_curation_images(
         raise NotFoundError("Species", species_key)
 
     client = InferenceServiceClient(settings.inference_service_url)
-    rows = client.list_references(species_key, limit=200)
+    # ``include_contributions`` surfaces quarantined user contributions (issue
+    # #447) which carry no ``source_url`` — otherwise they would be invisible
+    # here and could never be activated/rejected out of the quarantine.
+    rows = client.list_references(species_key, limit=200, include_contributions=True)
     images = [
         CurationImage(
             id=r["id"],
-            source_url=r.get("source_url", ""),
+            source_url=r.get("source_url") or None,
             license=r.get("license"),
             attribution=r.get("attribution"),
             organ=r.get("organ"),
             source=r.get("source"),
             is_active=r.get("is_active", True),
             exclusion_reason=r.get("exclusion_reason"),
+            contributed_by=r.get("contributed_by"),
+            tenant_key=r.get("tenant_key"),
+            contributed_at=r.get("contributed_at"),
         )
         for r in rows
-        if r.get("source_url") and r.get("id") is not None
+        # Keep displayable acquisition rows AND quarantined user contributions;
+        # still drop provenance-less manual embeddings that can't be curated.
+        if r.get("id") is not None and (r.get("source_url") or r.get("source") == "user_contributed")
     ]
     active_count = sum(1 for img in images if img.is_active)
     return CurationImageList(

@@ -36,11 +36,26 @@ vi.mock('@/components/identification/PlantIdentificationDialog', () => ({
   },
 }));
 const createDialogProps = vi.hoisted(() => ({
-  current: null as { open: boolean; onCreated?: (key: string) => void } | null,
+  current: null as {
+    open: boolean;
+    onCreated?: (key: string) => void;
+    identificationPhoto?: File;
+    allowReferenceContribution?: boolean;
+  } | null,
 }));
 vi.mock('@/pages/pflanzen/PlantInstanceCreateDialog', () => ({
-  default: ({ open, onCreated }: { open: boolean; onCreated?: (key: string) => void }) => {
-    createDialogProps.current = { open, onCreated };
+  default: ({
+    open,
+    onCreated,
+    identificationPhoto,
+    allowReferenceContribution,
+  }: {
+    open: boolean;
+    onCreated?: (key: string) => void;
+    identificationPhoto?: File;
+    allowReferenceContribution?: boolean;
+  }) => {
+    createDialogProps.current = { open, onCreated, identificationPhoto, allowReferenceContribution };
     return open ? <div data-testid="mock-create-dialog-open" /> : null;
   },
 }));
@@ -215,6 +230,44 @@ describe('PlantIdentificationPage', () => {
     await waitFor(() => expect(dialogProps.current?.onManualSearch).toBeDefined());
     dialogProps.current!.onManualSearch!();
     expect(navigateSpy).toHaveBeenCalledWith('/stammdaten/species');
+  });
+
+  it('threads the identification photo through to the create dialog', async () => {
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onSpeciesResolved).toBeDefined());
+    const photo = new File([new Uint8Array([1])], 'capture.jpg', { type: 'image/jpeg' });
+    dialogProps.current!.onSpeciesResolved!({
+      speciesKey: 'species_monstera',
+      scientificName: 'Monstera deliciosa',
+      photo,
+    });
+    await waitFor(() => expect(createDialogProps.current?.open).toBe(true));
+    expect(createDialogProps.current?.identificationPhoto).toBe(photo);
+    // Pl@ntNet is the active adapter here → no DINOv2 reference toggle.
+    expect(createDialogProps.current?.allowReferenceContribution).toBe(false);
+  });
+
+  it('enables the reference contribution when the DINOv2 adapter is active', async () => {
+    server.use(
+      http.get('/api/v1/recognition/status', () =>
+        HttpResponse.json({ ...AVAILABLE, active_adapter: 'local_embedding' }),
+      ),
+    );
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onSpeciesResolved).toBeDefined());
+    dialogProps.current!.onSpeciesResolved!({
+      speciesKey: 'species_monstera',
+      scientificName: 'Monstera deliciosa',
+      photo: new File([new Uint8Array([1])], 'capture.jpg', { type: 'image/jpeg' }),
+    });
+    await waitFor(() => expect(createDialogProps.current?.open).toBe(true));
+    expect(createDialogProps.current?.allowReferenceContribution).toBe(true);
   });
 
   it('navigates to the new plant after creation and refreshes history', async () => {

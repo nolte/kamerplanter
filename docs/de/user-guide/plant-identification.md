@@ -130,6 +130,18 @@ Falls die erkannte Art dem System unbekannt ist, siehst du den Hinweis „Diese 
 
 ---
 
+## Foto der neuen Pflanze zuordnen
+
+Im Formular zum Anlegen der Pflanze — egal ob über **Diese Pflanze anlegen** oder **Art hinzufügen und Pflanze anlegen** — erscheint der Abschnitt **Erkennungsfoto** mit einer Vorschau deines soeben aufgenommenen Bilds und zwei Schaltern:
+
+- **Foto als Galeriebild übernehmen** (standardmäßig **an**): Das Foto wird direkt nach dem Anlegen als erstes Bild in die [Fotogalerie](plant-photos.md) der neuen Pflanze übernommen. Möchtest du das nicht, schalte den Regler einfach aus, bevor du auf **Anlegen** klickst.
+- **Als Referenzbild für die Erkennung nutzen** (standardmäßig **aus**): Dieser Schalter erscheint nur, wenn deine Instanz die [Self-Hosted-Erkennung mit DINOv2](#self-hosted-erkennung-mit-dinov2) verwendet. Aktivierst du ihn, wird dein Foto zusätzlich der Erkennungsbasis der bestätigten Art hinzugefügt — es hilft also künftigen Foto-Identifikationen dieser Art, auch für andere Nutzer deiner Instanz. <!-- Issue #447 -->
+
+!!! note "Dein Beitrag wird erst nach Prüfung wirksam"
+    Ein beigetragenes Foto verändert die Erkennung **nicht sofort**. Es landet zunächst in einer Prüf-Warteschlange (Quarantäne) und wird erst aktiv, nachdem ein Platform-Admin es geprüft und freigegeben hat — ähnlich wie bei der [Referenzbild-Kuratierung](reference-image-curation.md). Der Beitrag erfordert dieselbe Mindestrolle wie das Anlegen von Pflanzen ([Gärtner](tenants.md#rollen-und-berechtigungen) oder Admin) und unterliegt einem täglichen Beitragslimit pro Nutzer, um Missbrauch des Referenz-Index vorzubeugen. Das Originalfoto selbst wird dabei nicht dauerhaft gespeichert — nur ein daraus berechneter Merkmalsvektor.
+
+---
+
 ## Identifikations-Verlauf
 
 Du kannst alle deine bisherigen Foto-Identifikationen einsehen:

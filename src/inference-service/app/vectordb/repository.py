@@ -6,6 +6,7 @@ passed as a bind parameter cast to ::vector.
 """
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import structlog
 from psycopg_pool import ConnectionPool
@@ -46,17 +47,34 @@ class SpeciesEmbeddingRepository:
         license: str | None = None,
         attribution: str | None = None,
         source_url: str | None = None,
+        is_active: bool = True,
+        contributed_by: str | None = None,
+        tenant_key: str | None = None,
     ) -> None:
-        """Insert or update one reference embedding (keyed by species/source/record)."""
+        """Insert or update one reference embedding (keyed by species/source/record).
+
+        ``is_active`` controls whether the row participates in ``/match``: the
+        license-clean acquisition pipeline indexes active rows (default), while
+        interactive user contributions (SEC-001, issue #447) are written
+        quarantined (``is_active=False``) and only enter recognition after a
+        platform admin activates them. ``contributed_by`` / ``tenant_key`` carry
+        the provenance needed for GDPR erasure (SEC-005). On a repeat upsert of
+        the same (species, source, record) the curation flag and the original
+        provenance are **preserved** — a re-submission never silently
+        re-activates a row an admin has already deselected/rejected.
+        """
         embedding_str = _to_vector_literal(embedding)
+        contributed_at = datetime.now(tz=UTC) if contributed_by is not None else None
 
         with self._pool.connection() as conn:
             conn.execute(
                 """
                 INSERT INTO species_embeddings
                     (species_key, scientific_name, organ, embedding, model,
-                     source, source_record_id, license, attribution, source_url)
-                VALUES (%s, %s, %s, %s::vector, %s, %s, %s, %s, %s, %s)
+                     source, source_record_id, license, attribution, source_url,
+                     is_active, contributed_by, tenant_key, contributed_at)
+                VALUES (%s, %s, %s, %s::vector, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s)
                 ON CONFLICT (species_key, source, source_record_id) DO UPDATE SET
                     scientific_name = EXCLUDED.scientific_name,
                     organ           = EXCLUDED.organ,
@@ -78,6 +96,10 @@ class SpeciesEmbeddingRepository:
                     license,
                     attribution,
                     source_url,
+                    is_active,
+                    contributed_by,
+                    tenant_key,
+                    contributed_at,
                 ),
             )
 
@@ -140,24 +162,43 @@ class SpeciesEmbeddingRepository:
         limit: int = 50,
         *,
         active_only: bool = False,
+        include_contributions: bool = False,
     ) -> list[dict]:
         """Return the stored reference image provenance for a species.
 
-        Only rows that actually carry a ``source_url`` are returned (manually
-        upserted embeddings without provenance are not displayable). Used by the
-        UI gallery; embeddings themselves are never returned. ``id`` and the
-        curation flags (``is_active``, ``exclusion_reason``) are returned so the
-        admin gallery can drive per-image deselection.
+        By default only rows that actually carry a ``source_url`` are returned
+        (manually upserted embeddings without provenance are not displayable) --
+        this is the public gallery source. Used by the UI gallery; embeddings
+        themselves are never returned. ``id`` and the curation flags
+        (``is_active``, ``exclusion_reason``) are returned so the admin gallery
+        can drive per-image deselection.
 
         When ``active_only`` is set, excluded images are omitted entirely -- used
         for the public gallery so end users never see deselected images.
+
+        When ``include_contributions`` is set (admin curation view only),
+        interactive user contributions (``source='user_contributed'``) are ALSO
+        returned even though they have no ``source_url`` -- the original image is
+        never persisted (REQ-029-A §4.4), so the row is the only handle a
+        platform admin has to activate/reject the quarantined contribution
+        (SEC-001, issue #447). Their provenance (``contributed_by`` /
+        ``tenant_key`` / ``contributed_at``) is included so the admin can curate
+        with attribution.
         """
         active_filter = "AND is_active = TRUE" if active_only else ""
+        # The public gallery only shows displayable (source_url-bearing) rows;
+        # the admin curation view additionally surfaces quarantined user
+        # contributions, which never carry a source_url by design.
+        if include_contributions:
+            displayable_filter = "(source_url IS NOT NULL AND source_url <> '' OR source = 'user_contributed')"
+        else:
+            displayable_filter = "(source_url IS NOT NULL AND source_url <> '')"
         sql = f"""
             SELECT id, source_url, license, attribution, organ, source,
-                   source_record_id, is_active, exclusion_reason
+                   source_record_id, is_active, exclusion_reason,
+                   contributed_by, tenant_key, contributed_at
             FROM species_embeddings
-            WHERE species_key = %s AND source_url IS NOT NULL AND source_url <> ''
+            WHERE species_key = %s AND {displayable_filter}
                   {active_filter}
             ORDER BY indexed_at DESC
             LIMIT %s
@@ -175,6 +216,9 @@ class SpeciesEmbeddingRepository:
                 "source_record_id": row[6],
                 "is_active": row[7],
                 "exclusion_reason": row[8],
+                "contributed_by": row[9],
+                "tenant_key": row[10],
+                "contributed_at": row[11].isoformat() if row[11] is not None else None,
             }
             for row in rows
         ]

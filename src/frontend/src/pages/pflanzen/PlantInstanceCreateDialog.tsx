@@ -7,6 +7,12 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import Tooltip from '@mui/material/Tooltip';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,6 +28,8 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
+import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
+import { contributeReferenceImage } from '@/api/endpoints/identification';
 import * as phaseApi from '@/api/endpoints/phases';
 import * as substrateApi from '@/api/endpoints/substrates';
 import * as sitesApi from '@/api/endpoints/sites';
@@ -59,9 +67,29 @@ interface Props {
   onCreated: (key: string) => void;
   initialSpeciesKey?: string;
   duplicateFrom?: PlantInstanceDuplicateData;
+  /**
+   * Photo captured during plant identification (issue #447). When present, the
+   * dialog offers to reuse it: as the new instance's gallery cover (default on)
+   * and — in DINOv2 mode — as a few-shot recognition reference (default off).
+   */
+  identificationPhoto?: File;
+  /**
+   * Whether the self-hosted DINOv2 recognition path is active. Gates the
+   * "use as recognition reference" toggle; the external Pl@ntNet path has no
+   * local reference index, so the toggle is hidden when this is false.
+   */
+  allowReferenceContribution?: boolean;
 }
 
-export default function PlantInstanceCreateDialog({ open, onClose, onCreated, initialSpeciesKey, duplicateFrom }: Props) {
+export default function PlantInstanceCreateDialog({
+  open,
+  onClose,
+  onCreated,
+  initialSpeciesKey,
+  duplicateFrom,
+  identificationPhoto,
+  allowReferenceContribution = false,
+}: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
@@ -75,6 +103,36 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
+
+  // ── Identification photo carry-over (issue #447) ─────────────────────
+  const [saveAsGalleryPhoto, setSaveAsGalleryPhoto] = useState(true);
+  const [useAsReference, setUseAsReference] = useState(false);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+
+  // Build (and revoke) a preview URL for the carried-over photo. The File is
+  // owned by the caller; we only manage the object URL created here. This is a
+  // genuine external-system sync (Object-URL lifecycle), so the setState is
+  // intentional.
+  useEffect(() => {
+    if (!identificationPhoto) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPhotoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(identificationPhoto);
+    setPhotoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [identificationPhoto]);
+
+  // Reset the toggles to their defaults each time the dialog (re)opens, mirroring
+  // the form reset above.
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSaveAsGalleryPhoto(true);
+      setUseAsReference(false);
+    }
+  }, [open]);
 
   const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -247,6 +305,31 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
         substrate_type_override: typeOverride,
       });
       notification.success(t('common.create'));
+
+      // Carry the identification photo over (issue #447). Both actions are
+      // best-effort: the plant is already created, so a failed photo upload or
+      // reference indexing must not surface as a create failure — we warn
+      // instead and still complete the flow.
+      if (identificationPhoto && saveAsGalleryPhoto) {
+        try {
+          await uploadPlantPhoto(result.key, identificationPhoto);
+        } catch {
+          notification.warning(t('pages.plantInstances.identificationPhoto.uploadFailed'));
+        }
+      }
+      if (identificationPhoto && allowReferenceContribution && useAsReference) {
+        try {
+          const species = speciesList.find((s) => s.key === data.species_key);
+          await contributeReferenceImage(
+            data.species_key,
+            species?.scientific_name ?? '',
+            identificationPhoto,
+          );
+        } catch {
+          notification.warning(t('pages.plantInstances.identificationPhoto.referenceFailed'));
+        }
+      }
+
       reset();
       onCreated(result.key);
     } catch (err) {
@@ -290,6 +373,115 @@ export default function PlantInstanceCreateDialog({ open, onClose, onCreated, in
               helperText={t('pages.plantInstances.plantNameHelper')}
             />
           </FormRow>
+
+          {/* Identification photo carry-over (issue #447). Only shown when the
+              plant was reached via the "identify by photo" flow. */}
+          {identificationPhoto && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('pages.plantInstances.identificationPhoto.sectionTitle')}
+              </Typography>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                sx={{ alignItems: { xs: 'stretch', sm: 'flex-start' } }}
+                data-testid="identification-photo-section"
+              >
+                {photoPreviewUrl && (
+                  <Box
+                    component="img"
+                    src={photoPreviewUrl}
+                    alt={t('pages.plantInstances.identificationPhoto.previewAlt')}
+                    sx={{
+                      width: { xs: '100%', sm: 96 },
+                      height: { xs: 160, sm: 96 },
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      bgcolor: 'action.hover',
+                      flexShrink: 0,
+                    }}
+                    data-testid="identification-photo-preview"
+                  />
+                )}
+                <Box sx={{ flexGrow: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={saveAsGalleryPhoto}
+                        onChange={(e) => setSaveAsGalleryPhoto(e.target.checked)}
+                        slotProps={{
+                          input: {
+                            'aria-label': t('pages.plantInstances.identificationPhoto.saveToGallery'),
+                          },
+                        }}
+                        data-testid="toggle-save-gallery-photo"
+                      />
+                    }
+                    label={t('pages.plantInstances.identificationPhoto.saveToGallery')}
+                    sx={{ minHeight: 48, ml: 0 }}
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    {t('pages.plantInstances.identificationPhoto.saveToGalleryHelper')}
+                  </Typography>
+
+                  {/* DINOv2-only: reuse as a few-shot recognition reference. */}
+                  {allowReferenceContribution && (
+                    <>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={useAsReference}
+                              onChange={(e) => setUseAsReference(e.target.checked)}
+                              slotProps={{
+                                input: {
+                                  'aria-label': t(
+                                    'pages.plantInstances.identificationPhoto.useAsReference',
+                                  ),
+                                },
+                              }}
+                              data-testid="toggle-use-as-reference"
+                            />
+                          }
+                          label={t('pages.plantInstances.identificationPhoto.useAsReference')}
+                          sx={{ minHeight: 48, ml: 0 }}
+                        />
+                        <Tooltip
+                          title={t('pages.plantInstances.identificationPhoto.useAsReferenceHint')}
+                          placement="top"
+                          arrow
+                        >
+                          {/* Boxed trigger (not the bare 16px icon) so the tap target reaches
+                              the WCAG 2.5.8 / UI-NFR-001 R-011 minimum — mirrors the shared
+                              HelpTooltip's iconOnly trigger for consistency. */}
+                          <Box
+                            component="span"
+                            tabIndex={0}
+                            aria-label={t('pages.plantInstances.identificationPhoto.useAsReferenceHint')}
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              minWidth: 24,
+                              minHeight: 24,
+                              p: '4px',
+                              cursor: 'help',
+                            }}
+                          >
+                            <InfoOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                          </Box>
+                        </Tooltip>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {t('pages.plantInstances.identificationPhoto.useAsReferenceHelper')}
+                      </Typography>
+                    </>
+                  )}
+                </Box>
+              </Stack>
+            </>
+          )}
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>

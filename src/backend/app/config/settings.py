@@ -294,6 +294,11 @@ class Settings(BaseSettings):
     # REQ-034 §4.3 (SR-005a) — per-tenant cap on open ``pending_review``
     # user-contributed DINOv2 reference embeddings (index-poisoning guard).
     reference_contribution_pending_limit: int = 100
+    # SEC-002 (issue #447) — per-user daily cap on interactive reference
+    # contributions (``POST /identification/reference``). Guards the global
+    # reference index against a single account poisoning/flooding it. ``0``
+    # disables the limit. Local (self-hosted) path → fails open on a Redis outage.
+    reference_contribution_rate_limit_per_user_day: int = 20
     # NFR-013 §5.2 — global MIME whitelist (CSV string). Per-category overrides
     # are read from ``storage_allowed_mime_types_<category>`` (empty = default).
     storage_allowed_mime_types: str = (

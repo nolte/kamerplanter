@@ -256,6 +256,7 @@ Diese Variablen konfigurieren die optionale Pflanzenerkennung per Foto. Wenn kei
 | `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | Nein | Mindest-Übereinstimmung (0–1) für die Anzeige eines Vorschlags. Ergebnisse darunter werden gefiltert. |
 | `IDENTIFICATION_MAX_IMAGE_SIZE_MB` | `10` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 400 abgelehnt. |
 | `IDENTIFICATION_RATE_LIMIT_PER_USER_DAY` | `0` | Nein | Maximale Anfragen pro Nutzer pro Tag. `0` verwendet das Adapter-Standard-Limit (500 bei Pl@ntNet). |
+| `REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY` | `20` | Nein | Maximale Anzahl Referenzbild-Beiträge (`POST /identification/reference`) pro Nutzer pro Tag — schützt den Erkennungsindex vor Missbrauch/Flutung durch ein einzelnes Konto. `0` deaktiviert das Limit. Nur relevant, wenn die selbst-gehostete DINOv2-Erkennung aktiv ist (siehe [Self-Hosted-Erkennung mit DINOv2](../user-guide/plant-identification.md#self-hosted-erkennung-mit-dinov2)). <!-- Issue #447 --> |
 
 !!! warning "Pl@ntNet nur für nicht-kommerzielle Nutzung"
     Der Pl@ntNet Free-Tier ist für nicht-kommerzielle Nutzung zugelassen. Für kommerzielle Instanzen die Nutzungsbedingungen unter [my.plantnet.org](https://my.plantnet.org) prüfen.
