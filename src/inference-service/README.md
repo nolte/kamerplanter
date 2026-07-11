@@ -84,9 +84,43 @@ Alle Endpunkte sind intern; Port **8000**.
 | GET | `/health` | -- | `{ status, model_loaded, vectordb }` (Liveness, immer 200) |
 | GET | `/ready` | -- | `{ status: "ok" }` oder **503** wenn Modell/DB nicht bereit |
 | GET | `/modelinfo` | -- | `{ model, dim, input_size, license: "Apache-2.0", checksum }` |
+| POST | `/classify/disease` | multipart `image`, query `k` (1-20, default 5), `phenotype` (bool) | `{ classifications: [{label, category, scientific_name, probability, highlight}], model_meta, phenotype, disclaimer }` |
+| GET | `/disease/status` | -- | `{ ready, enabled, class_count, phenotype_available, model, detail }` |
+| GET | `/disease/ready` | -- | `{ status: "ok" }` oder **503** wenn deaktiviert / Modell nicht geladen |
 
 `/reference` persistiert **nur** den Embedding-Vektor + Provenienz/Lizenz --
 **kein** Originalbild (REQ-029-A 4.4 / AE-5).
+
+### REQ-038 — Krankheitsklassifikator + Phänotyp
+
+`/classify/disease` ist ein **eigenständiger, supervised ONNX-Klassifikator**
+(Softmax-Kopf über einen festen Satz Krankheits-/Mangel-Klassen) und klar
+abgegrenzt von REQ-044 (Schädlings-Few-Shot gegen einen Prototyp-Index) und
+REQ-029 (Arten-Embedding-Matching). Er lädt ein separates `model.onnx` +
+`labels.json` aus `DISEASE_MODEL_PATH` (Volume/Init-Container, **nie** ins Image
+gebacken) und ist **opt-in** (`DISEASE_CLASSIFIER_ENABLED`). Solange deaktiviert
+oder ohne Artefakt meldet `/disease/status` „nicht verfügbar" und der übrige
+Service läuft unverändert weiter.
+
+- **Provenienz:** trainiert auf **PlantDoc (CC BY 4.0)** + kuratierte Eigendaten;
+  **PlantVillage wird bewusst nicht** verwendet und nie in der Modellkarte
+  (`diseasemodelinfo.json`) gelistet.
+- **Phänotyp (`phenotype=true`):** optionale **PlantCV (MPL-2.0)**-Pipeline —
+  reine Messung (Blattfläche, Grünindex, Verfärbungs-/Nekrose-Anteil, Solidity,
+  Farbton), keine Diagnose. PlantCV ist ein optionales Extra (`pip install .[cv]`);
+  fehlt es, wird der Phänotyp-Block einfach weggelassen.
+- **Disclaimer:** jede Antwort trägt einen nicht-leeren Disclaimer — eine
+  CV-Diagnose ist immer nur ein Verdacht, nie eine akzeptierte Diagnose.
+
+`labels.json` ist eine index-geordnete Liste von Klassen, z. B.:
+
+```json
+{ "classes": [
+  { "label": "tomato_early_blight", "category": "disease", "scientific_name": "Alternaria solani" },
+  { "label": "nitrogen_deficiency", "category": "deficiency" },
+  { "label": "healthy", "category": "healthy" }
+] }
+```
 
 ## Konfiguration (Env-Vars, fuer WS-6 Helm/Skaffold)
 
@@ -105,6 +139,13 @@ Alle Endpunkte sind intern; Port **8000**.
 | `VECTORDB_POOL_MAX_SIZE` | `5` | Pool max |
 | `CONFIDENCE_AUTO_ACCEPT` | `0.85` | Cosine-Schwelle "direkt vorschlagen" (REQ-029-A 3.5) |
 | `CONFIDENCE_SHOW_RESULTS` | `0.10` | Cosine-Schwelle "in Liste zeigen" |
+| `DISEASE_CLASSIFIER_ENABLED` | `false` | REQ-038 Krankheitsklassifikator aktivieren (opt-in) |
+| `DISEASE_MODEL_PATH` | `/app/models/disease` | Verzeichnis mit `model.onnx` + `labels.json` + `diseasemodelinfo.json` |
+| `DISEASE_MODEL_NAME` | `plantdoc_disease_v1` | Modellbezeichner (in Responses) |
+| `DISEASE_INPUT_SIZE` | `224` | Quadratische Eingabegroesse |
+| `DISEASE_SHOW_RESULTS` | `0.10` | Softmax-Untergrenze, unter der eine Klasse verworfen wird |
+| `DISEASE_HIGHLIGHT` | `0.75` | Softmax-Schwelle, ab der eine Klasse als `highlight` markiert wird |
+| `PHENOTYPE_ENABLED` | `true` | PlantCV-Phänotyp-Pipeline nutzen (falls installiert) |
 
 **Port:** 8000 (FastAPI/uvicorn). Probes: `/health` (Liveness), `/ready`
 (Readiness, 503 bis Modell geladen + DB erreichbar).
