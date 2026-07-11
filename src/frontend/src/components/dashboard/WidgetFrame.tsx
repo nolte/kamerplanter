@@ -29,8 +29,19 @@ import type { DashboardWidgetInstance } from '@/api/types';
  * ``<a>`` — invalid HTML that trips React hydration and screen readers. Their
  * existing inner controls already carry the same navigation intent, so the
  * panel-level wrapper is intentionally skipped for these keys.
+ *
+ * ``winter_protection`` renders a rich self-navigating body. The entity-list
+ * widgets (issue #461) render deep-linkable rows/tiles to a *single* entity plus
+ * their own header "open list" affordance — so they, too, must not sit inside a
+ * panel ``<a>`` (that would nest a row ``<a>`` in a panel ``<a>``). Both groups
+ * therefore opt out of the panel wrapper here.
  */
-const SELF_NAVIGATING_KEYS: ReadonlySet<string> = new Set(['winter_protection']);
+const SELF_NAVIGATING_KEYS: ReadonlySet<string> = new Set([
+  'winter_protection',
+  'tasks_today',
+  'next_calendar_events',
+  'plant_grid',
+]);
 
 interface WidgetFrameProps {
   instance: DashboardWidgetInstance;
@@ -82,6 +93,9 @@ export default function WidgetFrame({
         instanceId: instance.instance_id,
         widgetKey: instance.widget_key,
         config: instance.config,
+        // Entity-list widgets (#461) render row/tile deep links; they must stay
+        // inert in edit mode so drag/resize and the kebab menu are never hijacked.
+        editMode,
       })
     : null;
 
