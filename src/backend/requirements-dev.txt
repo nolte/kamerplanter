@@ -60,6 +60,8 @@ email-validator==2.3.0
     # via pydantic
 fastapi==0.139.0
     # via kamerplanter-backend (pyproject.toml)
+freezegun==1.5.5
+    # via kamerplanter-backend (pyproject.toml)
 h11==0.16.0
     # via
     #   httpcore
@@ -138,7 +140,9 @@ pytest-cov==7.1.0
 python-arango==8.3.3
     # via kamerplanter-backend (pyproject.toml)
 python-dateutil==2.9.0.post0
-    # via celery
+    # via
+    #   celery
+    #   freezegun
 python-dotenv==1.2.2
     # via
     #   pydantic-settings
