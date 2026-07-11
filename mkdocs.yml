@@ -112,6 +112,7 @@ plugins:
             Pflanzenschutz (IPM): Pest Management (IPM)
             Pflanzdurchläufe: Planting Runs
             Tankmanagement: Tank Management
+            Aquaponik: Aquaponics
             Kalender: Calendar
             Dashboard: Dashboard
             Dashboard personalisieren: Personalizing Your Dashboard
@@ -295,6 +296,7 @@ nav:
       - Pflanzenprobleme lösen: de/user-guide/plant-health-troubleshooting.md
       - Pflanzdurchläufe: de/user-guide/planting-runs.md
       - Tankmanagement: de/user-guide/tanks.md
+      - Aquaponik: de/user-guide/aquaponics.md
       - Kalender: de/user-guide/calendar.md
       - Dashboard: de/user-guide/dashboard.md
       - Dashboard personalisieren: de/user-guide/dashboard-personalization.md

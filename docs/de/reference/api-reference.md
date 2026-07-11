@@ -694,6 +694,38 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 
 ---
 
+## Aquaponik <!-- REQ-026 -->
+
+Aquaponik führt Fisch-Pflanzen-Kreislaufsysteme ein: Fischbestand, Wassertests mit automatisch berechnetem freiem Ammoniak, Biofilter-Cycling-Erkennung, Fütterung und Nährstoff-Supplementierung. Das Frontend deckt bislang nur einen Teil der API ab (Systeme anlegen/auflisten, Wassertest erfassen, Einfahrfortschritt und Wasserqualität lesen) — siehe [Aquaponik — Benutzerhandbuch: Für technische Nutzer / Self-Hoster](../user-guide/aquaponics.md#fur-technische-nutzer-self-hoster) für die vollständige, noch UI-lose Restfläche der API.
+
+**Mandantenspezifisch** unter `/api/v1/t/{tenant_slug}/aquaponics/` (28 Endpunkte, schreibende Aufrufe erfordern mindestens die Rolle **grower**, Systeme löschen erfordert **admin**):
+
+| Ressourcengruppe | Endpunkte (Auswahl) |
+|-------------------|---------------------|
+| Systeme | `GET`/`POST /systems`, `GET`/`PATCH`/`DELETE /systems/{key}`, `POST /systems/{key}/cycling-status` |
+| Fischbestand | `GET`/`POST /systems/{key}/fish-stocks`, `PATCH`/`DELETE /systems/{key}/fish-stocks/{stock_key}`, `POST .../mortality`, `GET .../biomass-history`, `GET .../mortality-rate` |
+| Wassertests & Stickstoffkreislauf | `GET`/`POST /systems/{key}/water-tests`, `GET /systems/{key}/water-quality-status`, `GET /systems/{key}/nitrogen-cycle-chart`, `GET /systems/{key}/cycling-progress` |
+| Fütterung | `GET`/`POST /systems/{key}/feeding-events`, `GET /systems/{key}/feeding-recommendation`, `GET /systems/{key}/fcr-analysis` |
+| Supplementierung & Defizite | `GET`/`POST /systems/{key}/supplementation`, `GET /systems/{key}/deficiency-check` |
+| Sicherheit & Gesundheit | `GET /systems/{key}/safety-status`, `GET /systems/{key}/alerts`, `GET /systems/{key}/fish-health` |
+
+**Global** (nicht mandantenspezifisch, keine Schreibrechte nötig) unter `/api/v1/fish-species/`:
+
+| Endpunkt | Beschreibung |
+|----------|-------------|
+| `GET /fish-species` | Alle 8 Seed-Fischarten mit Temperaturzonen und artspezifischen Grenzwerten |
+| `GET /fish-species/by-temperature-zone/{zone}` | Fischarten gefiltert nach Temperaturzone (`coldwater`, `temperate`, `warmwater`) |
+| `GET /fish-species/{species_key}` | Einzelne Fischart |
+| `GET /fish-species/{species_key}/compatible-plants` | Fisch-Pflanzen-Kompatibilität via Graph-Kanten (Temperatur- und Nährstoff-Match) |
+
+### Siehe auch
+
+- [Aquaponik — Benutzerhandbuch](../user-guide/aquaponics.md)
+- [Tankmanagement — Benutzerhandbuch](../user-guide/tanks.md)
+- [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
 ## Nacherntebehandlung (Post-Harvest)
 
 Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/post-harvest/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte akzeptieren jede aktive Mitgliedschaft; schreibende Endpunkte erfordern mindestens die Rolle **grower**; das Löschen einer Charge ist **admin**-only. <!-- REQ-008 -->

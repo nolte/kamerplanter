@@ -1169,6 +1169,114 @@ class PestDetectionTrigger(StrEnum):
     MANUAL = "manual"
 
 
+# ── REQ-026 Aquaponics ──────────────────────────────────────────────────
+
+
+class AquaponicSystemType(StrEnum):
+    """REQ-026 §3 — coupled fish/plant loop configuration."""
+
+    MEDIA_BED = "media_bed"  # clay-pebble grow bed (integrated biofilter)
+    DWC = "dwc"  # deep water culture
+    NFT = "nft"  # nutrient film technique
+    HYBRID = "hybrid"  # media bed combined with DWC/NFT
+    WICKING_BED = "wicking_bed"  # wicking irrigation from reservoir
+
+
+class CyclingStatus(StrEnum):
+    """REQ-026 §3 — biofilter nitrification maturity state."""
+
+    NEW = "new"  # freshly filled, no bacteria
+    CYCLING = "cycling"  # colonisation in progress, ammonia/nitrite spikes
+    CYCLED = "cycled"  # stable nitrification
+    DORMANT = "dormant"  # winter dormancy below 10 C
+
+
+class TemperatureZone(StrEnum):
+    """REQ-026 §3 — fish/plant temperature compatibility band."""
+
+    COLDWATER = "coldwater"  # 8-18 C
+    TEMPERATE = "temperate"  # 18-24 C
+    WARMWATER = "warmwater"  # 24-30 C
+
+
+class BiofilterType(StrEnum):
+    """REQ-026 §3 — nitrification filter media type."""
+
+    MEDIA_BED_INTEGRATED = "media_bed_integrated"  # clay pebbles as biofilter
+    MBBR = "mbbr"  # moving bed biofilm reactor (K1)
+    TRICKLE = "trickle"  # trickle filter (lava, bioballs)
+    FLUIDIZED_BED = "fluidized_bed"  # fluidized sand bed
+
+
+class ClarifierType(StrEnum):
+    """REQ-026 §3 — solids separation device type."""
+
+    SWIRL = "swirl"
+    SETTLING = "settling"
+    DRUM = "drum"
+    SCREEN = "screen"
+
+
+class FishFeedType(StrEnum):
+    """REQ-026 §3 — physical form of the fish feed used in a feeding event."""
+
+    PELLET = "pellet"
+    FLAKE = "flake"
+    LIVE = "live"
+    FROZEN = "frozen"
+    PASTE = "paste"
+
+
+class FishFeedingResponse(StrEnum):
+    """REQ-026 §3 — observed feeding behaviour (refused is a health warning)."""
+
+    EAGER = "eager"
+    NORMAL = "normal"
+    REDUCED = "reduced"
+    REFUSED = "refused"
+
+
+class FishFeedCategory(StrEnum):
+    """REQ-026 §3 — trophic category of a fish species (drives protein default)."""
+
+    CARNIVORE = "carnivore"
+    OMNIVORE = "omnivore"
+    HERBIVORE = "herbivore"
+
+
+class AquaponicSupplementType(StrEnum):
+    """REQ-026 §3 — fish-safe nutrient supplements allowed in aquaponics."""
+
+    FE_DTPA = "fe_dtpa"  # iron chelate, stable up to pH 7.5
+    FE_EDDHA = "fe_eddha"  # iron chelate, stable up to pH 9.0
+    KOH = "koh"  # potassium hydroxide (K + pH up)
+    K2CO3 = "k2co3"  # potassium carbonate (K + pH up)
+    CA_OH_2 = "ca_oh_2"  # calcium hydroxide (Ca + pH up)
+    MGSO4 = "mgso4"  # epsom salt (Mg, pH neutral)
+    MNSO4 = "mnso4"  # manganese sulfate
+    H3BO3 = "h3bo3"  # boric acid (narrow toxicity window)
+    ZNSO4 = "znso4"  # zinc sulfate (narrow toxicity window)
+
+
+class WaterTestSource(StrEnum):
+    """REQ-026 §2 — provenance of a water-test measurement."""
+
+    MANUAL = "manual"
+    SENSOR = "sensor"
+    TEST_KIT = "test_kit"
+
+
+class TankRole(StrEnum):
+    """REQ-026 §2 — role a tank plays inside an aquaponic system."""
+
+    FISH_TANK = "fish_tank"
+    BIOFILTER = "biofilter"
+    SUMP = "sump"
+    CLARIFIER = "clarifier"
+    MINERALIZATION = "mineralization"
+    GROWBED_RESERVOIR = "growbed_reservoir"
+
+
 class PestDetectionNextStep(StrEnum):
     """REQ-044 §5.1 — suggested follow-up. Never an automatic treatment (§0)."""
 

@@ -30,6 +30,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Plant Photo Gallery](plant-photos.md) | Capture a plant's growth over time in photos |
 | [Planting Runs](planting-runs.md) | Group management for plants |
 | [Tank Management](tanks.md) | Water tanks and fill events |
+| [Aquaponics](aquaponics.md) | Fish-plant closed-loop systems, nitrogen cycle, and biofilter cycling |
 | [Calendar](calendar.md) | Calendar view and sowing calendar |
 | [Dashboard](dashboard.md) | Overview and key metrics |
 | [Onboarding Wizard](onboarding.md) | Guided initial setup with starter kits and favourites |
