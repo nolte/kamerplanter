@@ -361,6 +361,7 @@
     "treatments": "Treatments",
     "ernte": "Harvest",
     "harvestBatches": "Harvest Batches",
+    "postHarvest": "Post-Harvest",
     "aufgaben": "Tasks",
     "taskQueue": "Task Queue",
     "workflows": "Workflows",
@@ -937,6 +938,7 @@
       "tabSecurity": "Security",
       "tabSessions": "Sessions",
       "tabExperience": "Experience",
+      "tabKiosk": "Kiosk mode",
       "tabModules": "Modules & Features",
       "tabPlatform": "Platform Mode",
       "tabAdmin": "Administration",
@@ -1134,6 +1136,40 @@
           "yellow": "Needs protection",
           "red": "Move indoors"
         }
+      }
+    },
+    "kiosk": {
+      "badge": "Kiosk",
+      "home": "Home",
+      "exit": "Exit kiosk",
+      "startTitle": "What would you like to do?",
+      "actions": {
+        "scanPlant": "Scan plant",
+        "logWatering": "Log watering",
+        "startRound": "Start round",
+        "reportProblem": "Report problem"
+      },
+      "status": {
+        "title": "Current status",
+        "openTasks_one": "{{count}} open task",
+        "openTasks_other": "{{count}} open tasks",
+        "warnings_one": "{{count}} warning",
+        "warnings_other": "{{count}} warnings"
+      },
+      "timeout": {
+        "title": "Still there?",
+        "countdown": "Returning to the start page in {{seconds}} seconds",
+        "continue": "Keep working"
+      },
+      "settings": {
+        "title": "Kiosk mode",
+        "description": "Kiosk mode optimizes the interface for greenhouse use – large buttons for gloves and dirty hands, high-contrast display and a simplified start page with the most important actions.",
+        "toggle": "Enable kiosk mode",
+        "open": "Open kiosk start page",
+        "highContrastTitle": "High-contrast display",
+        "highContrastDescription": "Pure black-and-white display with very high contrast – usable independently of kiosk mode, for example in direct sunlight on the balcony.",
+        "highContrastToggle": "Use high-contrast design",
+        "highContrastKioskHint": "In kiosk mode the high-contrast display is enabled by default."
       }
     },
     "season": {
@@ -1643,6 +1679,25 @@
       "toFamilyHelper": "Family that can be planted after the source family",
       "noSuccessors": "No successor families defined yet.",
       "selectFamilyHint": "Please select a family to view crop rotation recommendations."
+    },
+    "siteDetail": {
+      "climate": {
+        "title": "Climate at this site",
+        "description": "Long-term monthly climate normals for this site — a reference for sowing, irrigation and overwintering. These are historical, model-derived averages (reanalysis), not a forecast.",
+        "period": "Reference period: {{period}}",
+        "emptyTitle": "No climate normals yet",
+        "empty": "No climate normals are available for this site yet. They are fetched monthly in the background for sites with GPS coordinates and will appear here afterwards.",
+        "loadError": "The climate normals could not be loaded right now.",
+        "chartAria": "Line chart of the average and minimum monthly temperature plus a bar chart of monthly precipitation. All values are also listed in the table below.",
+        "month": "Month",
+        "tempAvg": "Avg. temperature",
+        "tempMin": "Min. temperature",
+        "precip": "Precipitation",
+        "solar": "Solar radiation",
+        "tableLabel": "Monthly climate normals",
+        "annual": "Annual mean: {{temp}} °C, annual precipitation: {{precip}} mm.",
+        "sourceLabel": "Data source"
+      }
     },
     "sites": {
       "title": "Sites",
@@ -3440,6 +3495,52 @@
       "karenzDays": "Safety interval: {{days}} days",
       "karenzSafeDate": "Safe from: {{date}}"
     },
+    "postHarvest": {
+      "title": "Post-Harvest",
+      "listIntro": "Post-harvest processing guides a harvest batch through the drying, curing and storage stages up to release. Click a batch to track progress and advance its stage.",
+      "startDrying": "Start drying",
+      "startDryingIntro": "Take a harvest batch into post-harvest processing. The batch starts in the drying stage; the start weight defaults to the harvest wet weight when omitted.",
+      "startDryingSuccess": "Drying started – the batch is now in post-harvest processing.",
+      "detailTitle": "Post-harvest batch",
+      "harvestBatch": "Harvest batch",
+      "harvestBatchHelper": "Select the harvest batch to dry.",
+      "noHarvestBatches": "No harvest batches available. Record a harvest first.",
+      "stage": "Stage",
+      "speciesType": "Produce type",
+      "speciesTypeHelper": "Coarse class (flower, herb, root …) – drives the drying-duration estimate.",
+      "dryingMethod": "Drying method",
+      "dryingMethodHelper": "Hang drying is gentlest, the dehydrator fastest.",
+      "startWeightG": "Start weight (g)",
+      "startWeightHelper": "Optional. Defaults to the harvest batch wet weight.",
+      "targetMoisturePercent": "Target moisture (%)",
+      "targetMoistureHelper": "Typical target: ~10% residual moisture (range 5–15%).",
+      "notes": "Notes",
+      "drynessProgress": "Drying progress",
+      "recordWeight": "Record weight",
+      "recordWeightIntro": "Record the current weight to update the drying progress. At 95% progress the batch is ready for curing.",
+      "currentWeightG": "Current weight (g)",
+      "record": "Record",
+      "progressRecorded": "Drying progress updated.",
+      "advanceTo": "Advance to: {{stage}}",
+      "advanceSuccess": "Batch advanced to the next stage.",
+      "notReadyForCuring": "Not ready for curing yet: drying progress must reach 95%. Record more weight measurements.",
+      "openMoldAlerts": "{{count}} open mold alert(s) for this batch.",
+      "moldAlertTitle": "Mold alert",
+      "moldAlertGuidanceCritical": "Critical: check the batch for visible mold immediately, increase airflow and lower humidity. Remove and, if needed, discard affected areas.",
+      "moldAlertGuidanceWarning": "Watch the batch closely, ensure adequate airflow and lower the humidity at the storage location where possible.",
+      "stageDescription": {
+        "drying": "The batch is drying until the target moisture is reached. Record the weight regularly to track progress.",
+        "curing": "In airtight containers the batch cures further: residual moisture evens out and aroma and potency develop. Briefly open the containers daily at first (burping).",
+        "stored": "The batch is in storage. Monitor storage conditions and act promptly on mold warnings.",
+        "released": "Post-harvest processing is complete — the batch has been released."
+      },
+      "nextActionLabel": "Next step:",
+      "waterActivityLabel": "Water activity (a_w)",
+      "daysRemaining": "About {{count}} day left until fully dry.",
+      "daysRemaining_other": "About {{count}} days left until fully dry.",
+      "emptyTitle": "No batches in post-harvest yet",
+      "emptyDescription": "Start drying a harvest batch to track the post-harvest process."
+    },
     "harvest": {
       "title": "Harvest Batches",
       "listIntro": "Harvest batches document the harvesting process from wet weight to quality assessment and yield analysis. Click a batch for details.",
@@ -4956,6 +5057,36 @@
       "high": "High",
       "critical": "Critical"
     },
+    "postHarvestStage": {
+      "drying": "Drying",
+      "curing": "Curing",
+      "stored": "Stored",
+      "released": "Released"
+    },
+    "postHarvestNextAction": {
+      "ensure_airflow": "Ensure adequate airflow",
+      "monitor_climate": "Keep an eye on temperature and humidity",
+      "run_snap_test": "Run the snap test: a stem should snap, not bend",
+      "ready_for_curing": "Ready for curing",
+      "over_dried": "Over-dried — start curing promptly"
+    },
+    "dryingMethod": {
+      "hang_dry": "Hang dry",
+      "rack_dry": "Rack dry",
+      "dehydrator": "Dehydrator",
+      "air_cure": "Air cure"
+    },
+    "postHarvestSpeciesType": {
+      "flower": "Flower",
+      "herb": "Herb",
+      "root": "Root/tuber",
+      "fruit": "Fruit",
+      "mushroom": "Mushroom"
+    },
+    "moldAlertSeverity": {
+      "warning": "Warning",
+      "critical": "Critical"
+    },
     "harvestType": {
       "partial": "Partial",
       "final": "Final",
@@ -5367,6 +5498,19 @@
       "long": "Before fish can be stocked at full density, the biofilter needs to build up a bacteria culture that converts ammonia to nitrite and then to nitrate. This process takes 4–8 weeks. The filter counts as cycled after 7 consecutive days with TAN below 0.25 mg/L and nitrite below 0.1 mg/L.",
       "beginnerTip": "Stock only a few hardy fish during cycling, or cycle fishless with pure ammonia. Check water values closely during this phase.",
       "typicalRange": "4–8 weeks"
+    },
+    "curing": {
+      "short": "Curing after drying — lets aroma and potency mature",
+      "long": "During curing the dried harvest sits airtight (usually in jars). Residual moisture equalizes between stem and flower, chlorophyll keeps breaking down, and aroma and potency continue to develop. Jars are opened briefly each day at first so excess moisture can escape ('burping').",
+      "beginnerTip": "Impatience hurts the result: curing a few days longer beats opening the batch too early.",
+      "typicalRange": "2–4 weeks"
+    },
+    "water_activity": {
+      "short": "Water activity (a_w) — free water mold can use",
+      "long": "Water activity measures how much of the water in the batch is actually available to microorganisms (scale 0–1) — unlike raw moisture content in percent. Above a_w 0.65 the mold risk rises sharply, even if the batch already feels dry.",
+      "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
+      "unit": "a_w (0–1)",
+      "typicalRange": "0.55–0.65 (safe for storage)"
     }
   },
   "dashboard": {
@@ -5440,8 +5584,15 @@
       "none": "Nothing scheduled in the next 7 days.",
       "untitled": "Untitled task"
     },
+    "plantGrid": {
+      "unnamed": "Unnamed plant",
+      "empty": "No active plants yet."
+    },
     "nav": {
-      "openWidget": "Open {{widget}}"
+      "openWidget": "Open {{widget}}",
+      "openListNamed": "Open {{widget}} list",
+      "openTask": "Open task: {{task}}",
+      "openPlant": "Open plant: {{plant}}"
     },
     "widgets": {
       "comingSoon": "In preparation",

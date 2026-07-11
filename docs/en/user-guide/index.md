@@ -19,6 +19,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Weather Sources](weather-sources.md) | Choose and prioritize a public weather service or Home Assistant per location |
 | [Tasks](tasks.md) | Task planning and workflow templates |
 | [Harvest](harvest.md) | Harvest management and quality scoring |
+| [Post-Harvest](post-harvest.md) | Track drying, curing, and storage of your harvest batches |
 | [Pest Management (IPM)](pest-management.md) | Integrated pest management |
 | [Plant Health Troubleshooting](plant-health-troubleshooting.md) | Identify symptoms and find the right next step |
 | [Pest Detection by Photo](pest-detection.md) | Upload a photo and get an automatic assessment |

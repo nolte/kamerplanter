@@ -317,6 +317,64 @@ GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
 
 ---
 
+## Standort-Klimanormalen (NASA POWER) <!-- REQ-041 -->
+
+Liefert die langjährigen monatlichen Klima-Normalwerte eines Standorts für den Abschnitt „Klima am Standort" der Standort-Detailseite. Der Endpunkt liegt unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordert ein gültiges JWT-Token; jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen. Standort-Besitz wird serverseitig geprüft (404 unbekannt / 403 fremd). Der Endpunkt ist **graceful**: Liegen für einen berechtigten Standort noch keine Klimanormalen vor (Hintergrund-Abholung noch nicht gelaufen), liefert er eine leere `normals`-Liste statt eines Fehlers.
+
+### Klima-Normalwerte eines Standorts abrufen
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
+```
+
+**Response (200):** `SiteClimateResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "normals": [
+    {
+      "source": "nasa-power",
+      "attribution": "Klima- und Strahlungsdaten: NASA POWER (power.larc.nasa.gov)",
+      "period_start_year": 1991,
+      "period_end_year": 2020,
+      "monthly_temp_min_c": [-3.1, -2.6, 0.4, 3.8, 8.2, 11.4, 13.1, 12.8, 9.6, 5.7, 1.3, -1.9],
+      "monthly_temp_max_c": [2.4, 3.9, 8.1, 13.2, 18.0, 21.3, 23.6, 23.2, 18.9, 13.1, 7.0, 3.2],
+      "monthly_temp_avg_c": [-0.4, 0.6, 4.2, 8.5, 13.1, 16.4, 18.4, 18.0, 14.2, 9.4, 4.1, 0.6],
+      "monthly_precip_mm": [42.0, 33.0, 40.0, 37.0, 55.0, 68.0, 62.0, 58.0, 45.0, 39.0, 48.0, 47.0],
+      "monthly_solar_mj_m2": [4.1, 7.2, 11.5, 16.3, 19.8, 21.0, 20.4, 17.6, 12.5, 7.4, 4.0, 3.1],
+      "coldest_month_min_c": -3.1,
+      "annual_temp_avg_c": 8.9,
+      "annual_precip_mm": 574.0,
+      "fetched_at": "2026-07-01T03:12:00Z"
+    }
+  ]
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `normals` | Liste | Ein Eintrag je liefernder Quelle; aktuell nur `nasa-power`. Leer, solange die monatliche Hintergrund-Abholung für diesen Standort noch nicht gelaufen ist. |
+| `source` | string | Herkunfts-Kennung des Eintrags (`nasa-power`) |
+| `attribution` | string | Lizenz-/Herkunftshinweis der Quelle (CC-BY-Pflichtangabe), zur direkten Anzeige neben den Daten bestimmt |
+| `period_start_year` / `period_end_year` | number \| null | Bezugszeitraum der Normalperiode (z. B. `1991`–`2020`) |
+| `monthly_temp_min_c` / `monthly_temp_max_c` / `monthly_temp_avg_c` | Liste[12] | Monatliche Tiefst-, Höchst- und Durchschnittstemperatur, Index 0 = Januar |
+| `monthly_precip_mm` | Liste[12] | Monatlicher Niederschlag in mm |
+| `monthly_solar_mj_m2` | Liste[12] | Monatliche Solarstrahlung in MJ/m² |
+| `coldest_month_min_c` | number \| null | Tiefstwert des kältesten Monats — Eingabe für die geplante Winterhärtezonen-Ableitung |
+| `annual_temp_avg_c` / `annual_precip_mm` | number \| null | Jahresmittel bzw. Jahressumme |
+| `fetched_at` | datetime | Zeitpunkt der letzten Abholung von der Quelle |
+
+!!! info "Nur über API: Klimanormalen manuell auslösen"
+    Es gibt keinen dedizierten Endpunkt, um die Abholung für einen einzelnen Standort manuell anzustoßen. Die Befüllung läuft ausschließlich über den monatlichen Celery-Task `app.tasks.climate_tasks.fetch_climate_normals` (Betreiber-Konfiguration, siehe [Umgebungsvariablen — Klimanormalen](environment-variables.md#klimanormalen-nasa-power)). <!-- REQ-041 -->
+
+### Siehe auch
+
+- [Klima am Standort — Benutzerhandbuch](../user-guide/weather-sources.md#klima-am-standort)
+- [Umgebungsvariablen — Klimanormalen (NASA POWER)](environment-variables.md#klimanormalen-nasa-power)
+
+---
+
 ## Pflanzinstanzen: Entfernen mit Abschlussart & Überlebens-Statistik
 
 Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/plant-instances/` und erfordern ein gültiges JWT-Token. <!-- REQ-003 E5/G1 -->
@@ -664,4 +722,54 @@ Aquaponik führt Fisch-Pflanzen-Kreislaufsysteme ein: Fischbestand, Wassertests 
 
 - [Aquaponik — Benutzerhandbuch](../user-guide/aquaponics.md)
 - [Tankmanagement — Benutzerhandbuch](../user-guide/tanks.md)
+- [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Nacherntebehandlung (Post-Harvest)
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/post-harvest/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte akzeptieren jede aktive Mitgliedschaft; schreibende Endpunkte erfordern mindestens die Rolle **grower**; das Löschen einer Charge ist **admin**-only. <!-- REQ-008 -->
+
+| Methode & Pfad | Beschreibung | Mindestrolle |
+|-----------------|-------------|--------------|
+| `GET /post-harvest` | Chargen des Mandanten auflisten (optional gefiltert nach `harvest_batch`) | jede Mitgliedschaft |
+| `POST /post-harvest/start-drying` | Erntecharge in die Nacherntebehandlung übernehmen (Stufe „Trocknung") | grower |
+| `GET /post-harvest/{key}` | Chargendetails inkl. letzter Trocknungsmessung und Anzahl offener Schimmel-Warnungen | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/advance` | Charge in die nächste Stufe überführen (vorwärts, ein Schritt) | grower |
+| `POST /post-harvest/{key}/drying-progress` | Gewichtsmessung erfassen (optional zusätzlich Wasseraktivität, CO₂, Knacktest-Ergebnis) | grower |
+| `GET /post-harvest/{key}/drying-progress` | Alle Trocknungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/observations` | Umgebungsmessung erfassen (löst ggf. automatisch eine Schimmel-Warnung aus) | grower |
+| `GET /post-harvest/{key}/observations` | Alle Umgebungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `GET /post-harvest/{key}/mold-alerts` | Schimmel-Warnungen der Charge auflisten | jede Mitgliedschaft |
+| `DELETE /post-harvest/{key}` | Charge löschen | admin |
+
+**Stufen-Zustandsmaschine:** `drying → curing → stored → released` — ausschließlich vorwärts, ein Schritt je Aufruf. Der Übergang `drying → curing` erfordert zusätzlich `dryness_progress_percent >= 95`.
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb der geforderten Mindestrolle |
+| `404` | Charge nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Ungültiger Stufenwechsel (Rückschritt, Sprung oder Trocknungsfortschritt < 95 % bei `drying → curing`), oder `current_weight_g` größer als das Startgewicht der Charge |
+
+### Beispiel — Trocknung starten
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/post-harvest/start-drying" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harvest_batch_key": "harvest_batches/42",
+    "species_type": "flower",
+    "drying_method": "hang_dry",
+    "target_moisture_percent": 10
+  }'
+```
+
+### Siehe auch
+
+- [Nacherntebehandlung — Benutzerhandbuch](../user-guide/post-harvest.md)
+- [Ernte — Benutzerhandbuch](../user-guide/harvest.md)
 - [Fehlerbehandlung](../api/error-handling.md)

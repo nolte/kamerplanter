@@ -1,6 +1,7 @@
 import { Route, Navigate, createBrowserRouter, createRoutesFromElements } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import MainLayout from '@/layouts/MainLayout';
+import KioskLayout from '@/layouts/KioskLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ProtectedRoute from '@/auth/ProtectedRoute';
 import PublicOnlyRoute from '@/auth/PublicOnlyRoute';
@@ -11,12 +12,8 @@ import { isLightMode } from '@/config/mode';
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage'));
 const EmailVerificationPage = lazy(() => import('@/pages/auth/EmailVerificationPage'));
-const PasswordResetRequestPage = lazy(
-  () => import('@/pages/auth/PasswordResetRequestPage'),
-);
-const PasswordResetConfirmPage = lazy(
-  () => import('@/pages/auth/PasswordResetConfirmPage'),
-);
+const PasswordResetRequestPage = lazy(() => import('@/pages/auth/PasswordResetRequestPage'));
+const PasswordResetConfirmPage = lazy(() => import('@/pages/auth/PasswordResetConfirmPage'));
 const AccountSettingsPage = lazy(() => import('@/pages/auth/AccountSettingsPage'));
 const PrivacySettingsPage = lazy(() => import('@/pages/auth/PrivacySettingsPage'));
 const OAuthCallbackPage = lazy(() => import('@/pages/auth/OAuthCallbackPage'));
@@ -27,9 +24,7 @@ const TenantSettingsPage = lazy(() => import('@/pages/tenants/TenantSettingsPage
 const InvitationAcceptPage = lazy(() => import('@/pages/tenants/InvitationAcceptPage'));
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
-const BotanicalFamilyListPage = lazy(
-  () => import('@/pages/stammdaten/BotanicalFamilyListPage'),
-);
+const BotanicalFamilyListPage = lazy(() => import('@/pages/stammdaten/BotanicalFamilyListPage'));
 const BotanicalFamilyDetailPage = lazy(
   () => import('@/pages/stammdaten/BotanicalFamilyDetailPage'),
 );
@@ -38,9 +33,7 @@ const SpeciesDetailPage = lazy(() => import('@/pages/stammdaten/SpeciesDetailPag
 const CultivarDetailPage = lazy(() => import('@/pages/stammdaten/CultivarDetailPage'));
 const ActivityListPage = lazy(() => import('@/pages/stammdaten/ActivityListPage'));
 const ActivityDetailPage = lazy(() => import('@/pages/stammdaten/ActivityDetailPage'));
-const CompanionPlantingPage = lazy(
-  () => import('@/pages/stammdaten/CompanionPlantingPage'),
-);
+const CompanionPlantingPage = lazy(() => import('@/pages/stammdaten/CompanionPlantingPage'));
 const CropRotationPage = lazy(() => import('@/pages/stammdaten/CropRotationPage'));
 // REQ-012 Import
 const ImportPage = lazy(() => import('@/pages/stammdaten/ImportPage'));
@@ -51,34 +44,20 @@ const SubstrateListPage = lazy(() => import('@/pages/standorte/SubstrateListPage
 const SubstrateDetailPage = lazy(() => import('@/pages/standorte/SubstrateDetailPage'));
 const BatchDetailPage = lazy(() => import('@/pages/standorte/BatchDetailPage'));
 const SlotDetailPage = lazy(() => import('@/pages/standorte/SlotDetailPage'));
-const PlantInstanceListPage = lazy(
-  () => import('@/pages/pflanzen/PlantInstanceListPage'),
-);
-const PlantInstanceDetailPage = lazy(
-  () => import('@/pages/pflanzen/PlantInstanceDetailPage'),
-);
+const PlantInstanceListPage = lazy(() => import('@/pages/pflanzen/PlantInstanceListPage'));
+const PlantInstanceDetailPage = lazy(() => import('@/pages/pflanzen/PlantInstanceDetailPage'));
 const CalculationsPage = lazy(() => import('@/pages/pflanzen/CalculationsPage'));
 // REQ-029 / REQ-029-A KI-Pflanzenerkennung
 const PlantIdentificationPage = lazy(
   () => import('@/pages/ki-recognition/PlantIdentificationPage'),
 );
 // REQ-044 Schädlingserkennung (global, plant-agnostic)
-const PestIdentificationPage = lazy(
-  () => import('@/pages/ki-recognition/PestIdentificationPage'),
-);
-const PlantingRunListPage = lazy(
-  () => import('@/pages/durchlaeufe/PlantingRunListPage'),
-);
-const PlantingRunDetailPage = lazy(
-  () => import('@/pages/durchlaeufe/PlantingRunDetailPage'),
-);
-const SuccessionPlanListPage = lazy(
-  () => import('@/pages/durchlaeufe/SuccessionPlanListPage'),
-);
+const PestIdentificationPage = lazy(() => import('@/pages/ki-recognition/PestIdentificationPage'));
+const PlantingRunListPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunListPage'));
+const PlantingRunDetailPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunDetailPage'));
+const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/SuccessionPlanListPage'));
 // REQ-022 Überwinterung
-const OverwinteringListPage = lazy(
-  () => import('@/pages/ueberwinterung/OverwinteringListPage'),
-);
+const OverwinteringListPage = lazy(() => import('@/pages/ueberwinterung/OverwinteringListPage'));
 // REQ-026 Aquaponik
 const AquaponikPage = lazy(() => import('@/pages/aquaponik/AquaponikPage'));
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
@@ -87,65 +66,35 @@ const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPag
 const FertilizerDetailPage = lazy(() => import('@/pages/duengung/FertilizerDetailPage'));
 const NutrientPlanListPage = lazy(() => import('@/pages/duengung/NutrientPlanListPage'));
 const NutrientPlanDetailPage = lazy(() => import('@/pages/duengung/NutrientPlanDetailPage'));
-const NutrientCalculationsPage = lazy(
-  () => import('@/pages/duengung/NutrientCalculationsPage'),
-);
-const FeedingEventListPage = lazy(
-  () => import('@/pages/duengung/FeedingEventListPage'),
-);
-const FeedingEventDetailPage = lazy(
-  () => import('@/pages/duengung/FeedingEventDetailPage'),
-);
-const WateringEventListPage = lazy(
-  () => import('@/pages/standorte/WateringEventListPage'),
-);
+const NutrientCalculationsPage = lazy(() => import('@/pages/duengung/NutrientCalculationsPage'));
+const FeedingEventListPage = lazy(() => import('@/pages/duengung/FeedingEventListPage'));
+const FeedingEventDetailPage = lazy(() => import('@/pages/duengung/FeedingEventDetailPage'));
+const WateringEventListPage = lazy(() => import('@/pages/standorte/WateringEventListPage'));
 // Unified watering log (replaces WateringEvent + FeedingEvent)
-const WateringLogListPage = lazy(
-  () => import('@/pages/giessprotokoll/WateringLogListPage'),
-);
-const WateringLogDetailPage = lazy(
-  () => import('@/pages/giessprotokoll/WateringLogDetailPage'),
-);
+const WateringLogListPage = lazy(() => import('@/pages/giessprotokoll/WateringLogListPage'));
+const WateringLogDetailPage = lazy(() => import('@/pages/giessprotokoll/WateringLogDetailPage'));
 // REQ-010 IPM
 const PestListPage = lazy(() => import('@/pages/pflanzenschutz/PestListPage'));
 const PestDetailPage = lazy(() => import('@/pages/pflanzenschutz/PestDetailPage'));
 const DiseaseListPage = lazy(() => import('@/pages/pflanzenschutz/DiseaseListPage'));
-const TreatmentListPage = lazy(
-  () => import('@/pages/pflanzenschutz/TreatmentListPage'),
-);
-const TreatmentDetailPage = lazy(
-  () => import('@/pages/pflanzenschutz/TreatmentDetailPage'),
-);
+const TreatmentListPage = lazy(() => import('@/pages/pflanzenschutz/TreatmentListPage'));
+const TreatmentDetailPage = lazy(() => import('@/pages/pflanzenschutz/TreatmentDetailPage'));
 // REQ-007 Harvest
-const HarvestBatchListPage = lazy(
-  () => import('@/pages/ernte/HarvestBatchListPage'),
-);
-const HarvestBatchDetailPage = lazy(
-  () => import('@/pages/ernte/HarvestBatchDetailPage'),
-);
+const HarvestBatchListPage = lazy(() => import('@/pages/ernte/HarvestBatchListPage'));
+const HarvestBatchDetailPage = lazy(() => import('@/pages/ernte/HarvestBatchDetailPage'));
+// REQ-008 Post-Harvest
+const PostHarvestPage = lazy(() => import('@/pages/post-harvest/PostHarvestPage'));
 // REQ-006 Tasks
 const TaskQueuePage = lazy(() => import('@/pages/aufgaben/TaskQueuePage'));
 const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
-const WorkflowDetailPage = lazy(
-  () => import('@/pages/aufgaben/WorkflowDetailPage'),
-);
-const WorkflowTemplateListPage = lazy(
-  () => import('@/pages/aufgaben/WorkflowTemplateListPage'),
-);
+const WorkflowDetailPage = lazy(() => import('@/pages/aufgaben/WorkflowDetailPage'));
+const WorkflowTemplateListPage = lazy(() => import('@/pages/aufgaben/WorkflowTemplateListPage'));
 
 // REQ-003 Phase Definitions & Sequences
-const PhaseDefinitionListPage = lazy(
-  () => import('@/pages/phasen/PhaseDefinitionListPage'),
-);
-const PhaseDefinitionDetailPage = lazy(
-  () => import('@/pages/phasen/PhaseDefinitionDetailPage'),
-);
-const PhaseSequenceListPage = lazy(
-  () => import('@/pages/phasen/PhaseSequenceListPage'),
-);
-const PhaseSequenceDetailPage = lazy(
-  () => import('@/pages/phasen/PhaseSequenceDetailPage'),
-);
+const PhaseDefinitionListPage = lazy(() => import('@/pages/phasen/PhaseDefinitionListPage'));
+const PhaseDefinitionDetailPage = lazy(() => import('@/pages/phasen/PhaseDefinitionDetailPage'));
+const PhaseSequenceListPage = lazy(() => import('@/pages/phasen/PhaseSequenceListPage'));
+const PhaseSequenceDetailPage = lazy(() => import('@/pages/phasen/PhaseSequenceDetailPage'));
 
 // REQ-015 Kalender
 const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
@@ -155,6 +104,9 @@ const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'
 // Admin
 const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage'));
 const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
+
+// UI-NFR-019 Kiosk mode
+const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
 
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
@@ -221,6 +173,18 @@ export const router = createBrowserRouter(
 
       {/* Protected routes (require authentication) */}
       <Route element={<ProtectedRoute />}>
+        {/* UI-NFR-019 Kiosk mode — dedicated shell (no sidebar/breadcrumb) */}
+        <Route path="kiosk" element={<KioskLayout />}>
+          <Route
+            index
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <KioskStartPage />
+              </Suspense>
+            }
+          />
+        </Route>
+
         <Route element={<MainLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route
@@ -699,6 +663,16 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <HarvestBatchDetailPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-008 Nacherntebehandlung */}
+          <Route
+            path="ernte/nachernte"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <PostHarvestPage />
               </Suspense>
             }
           />

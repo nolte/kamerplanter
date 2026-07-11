@@ -95,6 +95,7 @@ import type {
 import { parseApiError } from '@/api/errors';
 import { isLightMode, isFullMode, KAMERPLANTER_MODE } from '@/config/mode';
 import NotificationSettingsTab from './NotificationSettingsTab';
+import KioskSettingsTab from './KioskSettingsTab';
 import ModulesSettingsTab from './ModulesSettingsTab';
 import DashboardSettingsTab from './DashboardSettingsTab';
 import HaPublishSettingsTab from './HaPublishSettingsTab';
@@ -175,6 +176,7 @@ export default function AccountSettingsPage() {
         { key: 'profile', label: t('pages.auth.tabProfile') },
         { key: 'notifications', label: t('pages.auth.tabNotifications') },
         { key: 'experience', label: t('pages.auth.tabExperience') },
+        { key: 'kiosk', label: t('pages.auth.tabKiosk') },
         { key: 'modules', label: t('pages.auth.tabModules') },
         { key: 'dashboard', label: t('pages.auth.tabDashboard') },
         { key: 'ha', label: t('pages.auth.tabIntegrations') },
@@ -187,6 +189,7 @@ export default function AccountSettingsPage() {
       { key: 'profile', label: t('pages.auth.tabProfile') },
       { key: 'notifications', label: t('pages.auth.tabNotifications') },
       { key: 'experience', label: t('pages.auth.tabExperience') },
+      { key: 'kiosk', label: t('pages.auth.tabKiosk') },
       { key: 'modules', label: t('pages.auth.tabModules') },
       { key: 'security', label: t('pages.auth.tabSecurity') },
       { key: 'sessions', label: t('pages.auth.tabSessions') },
@@ -967,6 +970,9 @@ export default function AccountSettingsPage() {
           </Card>
         </Box>
       )}
+
+      {/* ── Kiosk Tab (UI-NFR-019) ── */}
+      {activeTab === 'kiosk' && <KioskSettingsTab />}
 
       {/* ── Notifications Tab ── */}
       {activeTab === 'notifications' && <NotificationSettingsTab />}

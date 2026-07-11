@@ -1,7 +1,7 @@
 # Nachernte: Trocknung, Curing & Lagerung
 
 !!! info "Teilweise implementiert"
-    Die **Ernte-Erfassung** (HarvestBatch, Qualitätsbewertung, Ertrags-Metriken) ist vollständig implementiert. Die **Trocknungs- und Curing-Phasen** (Zustandsmaschine, Umgebungs-Monitoring während Trocknung) sind spezifiziert aber noch nicht als separate Phasen im Code abgebildet.
+    Die **Ernte-Erfassung** (HarvestBatch, Qualitätsbewertung, Ertrags-Metriken) sowie die **Nacherntebehandlung** mit eigener Stufen-Zustandsmaschine (Trocknung → Aushärtung → Lagerung → Freigabe), gewichtsbasiertem Trocknungsfortschritt und automatischen Schimmel-Warnungen sind implementiert — siehe [Nacherntebehandlung](../user-guide/post-harvest.md). Die auf dieser Seite zusätzlich beschriebenen produktspezifischen Detailprotokolle (z. B. strukturierte Burping-Zeitpläne, Sauerkraut-/Kimchi-Fermentationsphasen, Lagerort-Inventar) bleiben fachliches Hintergrundwissen ohne eigene Oberfläche.
 
 Die Nachernte-Phase beginnt mit dem Schnitt und endet, wenn dein Produkt gelagert oder
 verarbeitet wird. Kamerplanter begleitet diesen Prozess mit Protokoll-Vorlagen,
@@ -34,14 +34,15 @@ Qualität, Aroma und Haltbarkeit.
 
 ## Ernte-Workflow in Kamerplanter
 
-<!-- diagram-source: user-described — post-harvest state machine from harvest through drying, curing, and storage -->
+<!-- diagram-source: src/backend/app/domain/engines/post_harvest_stage_engine.py -->
 ```mermaid
 stateDiagram-v2
-    [*] --> Harvest: PHI elapsed
-    Harvest --> Drying: Harvest confirmed
-    Drying --> Curing: Target moisture reached
-    Curing --> Storage: Curing protocol complete
-    Storage --> [*]: Consumption or sale
+    [*] --> Ernte: Karenzzeit eingehalten
+    Ernte --> Trocknung: Trocknung starten
+    Trocknung --> Aushärtung: ab 95 % Trocknungsfortschritt
+    Aushärtung --> Lagerung
+    Lagerung --> Freigabe
+    Freigabe --> [*]
 ```
 
 1. Navigiere zu **Erntechargen** (`/ernte/batches`) und klicke auf **Erntecharge
@@ -50,14 +51,17 @@ stateDiagram-v2
 3. Erstelle die **Erntecharge** (HarvestBatch) mit Nassgewicht, Erntedatum und
    Erntetyp. Die Qualitätsbewertung trägst du danach separat im Tab
    **Qualität** ein.
+4. Navigiere zu **Nacherntebehandlung** (`/ernte/nachernte`) und klicke auf
+   **Trocknung starten**, um die Erntecharge in die eigene Stufen-Zustandsmaschine
+   (Trocknung → Aushärtung → Lagerung → Freigabe) zu übernehmen.
+5. Erfasse während der Trocknung regelmäßig das **Gewicht** — Kamerplanter berechnet
+   daraus Fortschritt, Handlungsempfehlung und geschätzte Resttage und löst bei
+   Bedarf automatisch eine Schimmel-Warnung aus.
 
-!!! warning "Noch nicht implementiert"
-    Die folgenden Schritte sind spezifiziert, aber noch nicht gebaut:
+Details zu diesem Workflow: [Nacherntebehandlung](../user-guide/post-harvest.md)
 
-    4. Ein eigenes **Nachernte-Protokoll** mit wählbarem Protokoll-Typ (Trocknung/Curing/Lagerung als Zustandsmaschine) anlegen.
-    5. Regelmäßige **Messungen** (Gewicht, Temperatur, Luftfeuchte) strukturiert je Protokollschritt erfassen.
-
-    Aktuell steht dir dafür ausschließlich das Feld **Tatsächliches Trockengewicht (g)** im Bearbeiten-Tab der Erntecharge zur Verfügung — siehe [Erntemanagement](../user-guide/harvest.md#trocknung-dokumentieren).
+!!! info "Nur über API: strukturierte Umgebungsmessungen"
+    Regelmäßige, strukturierte **Umgebungsmessungen** (Temperatur, Luftfeuchte, Wasseraktivität, CO₂, visueller und geruchlicher Zustand) je Stufenschritt lassen sich aktuell nur über die API erfassen — es gibt dafür noch kein Formular in der Oberfläche. Bereits ausgelöste Schimmel-Warnungen erscheinen aber unabhängig davon in der Chargen-Detailansicht.
 
 ---
 
@@ -207,8 +211,8 @@ Nach der Ernte und am Ende des Curingprozesses erfasse eine Qualitätsbewertung
 - **Mängel**: frei eintragbare Schlagworte (z.B. `mold`, `pests`, `hermaphrodite`) — bekannte Schlagworte fließen mit einem definierten Punktabzug in die Bewertung ein
 - **Gesamt-Score** (0–100) und **Note** (A+/A/B/C/D): werden automatisch aus den drei Bewertungen und den Mängeln berechnet — siehe Notenschwellen in [Erntemanagement](../user-guide/harvest.md#qualitätsbewertung)
 
-!!! note "Teilweise verfügbar"
-    Ein tägliches Gewichts-Tracking mit Trocknungsfortschritts- oder Wasseraktivitäts-Anzeige (a_w) während der Trocknung existiert noch nicht. Du kannst lediglich das **tatsächliche Trockengewicht** einmalig am Ende eintragen. Nutze bis dahin die faustregelbasierte Orientierung: Cannabis verliert typischerweise 75–80 % seines Frischgewichts beim Trocknen; Ziel-Wasseraktivität für die Lagerung liegt bei 0,55–0,65 (Schimmelrisiko ab a_w > 0,65).
+!!! tip "Laufendes Gewichts-Tracking während der Trocknung"
+    Für laufendes Gewichts-Tracking mit automatischem Trocknungsfortschritt, Handlungsempfehlung und geschätzten Resttagen nutzt du die [Nacherntebehandlung](../user-guide/post-harvest.md) — dort erfasst du das Gewicht regelmäßig, statt nur das tatsächliche Trockengewicht einmalig am Ende einzutragen. Als Faustregel gilt: Cannabis verliert typischerweise 75–80 % seines Frischgewichts beim Trocknen; Ziel-Wasseraktivität für die Lagerung liegt bei 0,55–0,65 (Schimmelrisiko ab a_w > 0,65).
 
 ---
 
@@ -230,13 +234,16 @@ Nach der Ernte und am Ende des Curingprozesses erfasse eine Qualitätsbewertung
     ohne deutlichen Qualitätsverlust. Danach nehmen THC und Terpene messbar ab.
 
 ??? question "Muss ich alle Messwerte manuell in Kamerplanter eintippen?"
-    Nein. Wenn du verknüpfte Sensoren (z.B. über Home Assistant) eingerichtet hast,
-    werden Temperatur und Luftfeuchte automatisch importiert. Du musst nur
-    Gewicht und visuelle Beurteilung manuell erfassen.
+    Das Gewicht erfasst du während der Trocknung manuell über die
+    [Nacherntebehandlung](../user-guide/post-harvest.md). Temperatur, Luftfeuchte,
+    Wasseraktivität und CO₂ lassen sich zusätzlich über die API mitschicken — eine
+    automatische Übernahme aus verknüpften Sensoren (z. B. Home Assistant) ist für
+    die Nachernte-Phase noch nicht angebunden.
 
 ## Siehe auch
 
 - [Ernte](../user-guide/harvest.md) <!-- REQ-007 -->
+- [Nacherntebehandlung](../user-guide/post-harvest.md) <!-- REQ-008 -->
 - [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 - [Sensorik](../user-guide/sensors.md)
 - [VPD-Optimierung](vpd-optimization.md)

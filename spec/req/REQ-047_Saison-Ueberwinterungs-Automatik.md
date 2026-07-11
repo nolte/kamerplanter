@@ -6,8 +6,8 @@ Titel: Automatische Saison- & Überwinterungs-Steuerung — Winter-/Frühlings-E
 Kategorie: Pflege & Erinnerungen / Automatisierung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19, TypeScript 5.9, MUI 7, Redux Toolkit
-Status: Entwurf
-Version: 1.0
+Status: Umgesetzt (Kern PR #406/#410; Vertiefungen §§3.7–3.10 teils als Ausbaustufe „noch nicht implementiert" markiert)
+Version: 1.1
 Abhängigkeit: REQ-022 (Pflegeerinnerungen/OverwinteringProfile/CareProfile — erweitert), REQ-039 (Winterhärte-Ampel + Frost-Defaults), REQ-005 (Wetter-/Frost-Livedaten), REQ-046 (Wetterquellen-Auflösung), REQ-041 (Klimanormale als Saison-Fallback), REQ-002 (Standort — Innen/Außen, GPS, Hemisphäre), REQ-001 (frost_sensitivity), REQ-003 (dormancy-Phase, Invariante D5), REQ-006 (Task-Erzeugung), REQ-013 (Run/Dual-Support), REQ-024 (Mandanten-Scoping)
 ```
 
@@ -16,6 +16,7 @@ Abhängigkeit: REQ-022 (Pflegeerinnerungen/OverwinteringProfile/CareProfile — 
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 1.0 | 2026-07-05 | Initialer Entwurf. Konzeptionelle Überarbeitung des Überwinterungs-Managements: Der Nutzer legt **keine** Überwinterungsprofile mehr an. Führt die **SeasonState-Engine** ein — eine pro Outdoor-Standort berechnete Saison-Zustandsmaschine, die den Übergang in die Winterruhe (Schutz/Einräumen) und die Rückholung (Ausräumen/Abhärten) automatisch triggert. Trigger-Kaskade: Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender/Hemisphäre-Fallback. Verlagert die in REQ-022 datumsbasierten Winter-/Frühlings-Erinnerungen auf zustandsbasierte Auslösung, materialisiert das `OverwinteringProfile` automatisch aus dem Species-Template (REQ-022) + Standort-Ampel (REQ-039) und schaltet einen **Dormancy-Care-Modus** (Winterruhe-Pflegeplan) im CareProfile ein. |
+| 1.1 | 2026-07-11 | **Angleichung an den implementierten Stand (PR #406/#410) + fachliche Vertiefung.** Status Entwurf→Umgesetzt. *Angeglichen:* `season_year: Optional[int]`; klimatologische Stufe 2 speist real aus den Standort-Durchschnittsfrostdaten (REQ-002/015-A), der kälteste Monat aus hemisphären-basierten Monatsmengen — REQ-041-Klimanormale als künftiger Ausbaupfad markiert; zusätzliche Saison-Fenster-Guards, Zusatz-Endpunkt `overwintering/status` (#410) und Config `SEASON_LIVE_FORECAST_WINDOW_DAYS` dokumentiert; synchrone Implementierung vermerkt; `quarter_climate_check` als periodische Kontrolle beschrieben (Ist/Soll-Temperaturvergleich als Ausbaustufe markiert). *Vertieft (neue §§3.7–3.10):* Winterquartier/Pfad B, Frühjahrs-Rückholung/Abhärtung, Arten-Sonderfälle, Automatik-Robustheit — je mit neuen Akzeptanzkriterien (AC-21 ff.). Fachliche Werte verweisen auf die Steckbriefe §4.3 (SSOT), statt sie zu duplizieren. |
 
 ## 1. Business Case
 
@@ -41,7 +42,7 @@ Das bisherige Überwinterungs-Management (REQ-022) hat zwei Schwächen, die dies
 | Stufe | Datenquelle | Wann aktiv | Charakter |
 |-------|-------------|-----------|-----------|
 | 1 — Live | `:WeatherForecast` (Frost-/Min-Temp-Vorhersage, REQ-005/046) und/oder Außen-Sensorik (REQ-005) | Standort hat aufgelöste Wetterquelle oder Außentemperatur-Sensor | Reagiert tagesaktuell auf die reale Wetterlage |
-| 2 — Klimatologisch | `:ClimateNormal` (`monthly_temp_min_c`, `coldest_month_min_c`, REQ-041) + `HardinessZone.typical_first/last_frost_md` (REQ-039) | Standort hat GPS, aber keine Livedaten | Standortgenaue, aber statische Saison-Schätzung |
+| 2 — Klimatologisch | Standort-Durchschnittsfrostdaten (`first/last_frost_date_avg`, `eisheilige_date`, REQ-002/015-A) + `HardinessZone.typical_first/last_frost_md` (REQ-039). *Ausbaupfad (noch nicht implementiert):* `:ClimateNormal.monthly_temp_min_c` / `coldest_month_min_c` (REQ-041) — Modell vorhanden, von der Season-Engine noch nicht konsumiert. | Standort hat GPS bzw. Frost-Richtwerte, aber keine Livedaten | Standortgenaue, aber statische Saison-Schätzung |
 | 3 — Kalender | `Site.hemisphere` + Preset-Monate (REQ-022) | weder Livedaten noch Klimanormale | Grober Hemisphären-Fallback (heutiges Verhalten) |
 
 Die Engine ist ausdrücklich so gebaut, dass sie **auf jeder Stufe** einen brauchbaren Zustand liefert (Graceful Degradation) und sich automatisch hochstuft, sobald eine bessere Quelle verfügbar wird.
@@ -69,7 +70,7 @@ Die Engine ist ausdrücklich so gebaut, dass sie **auf jeder Stufe** einen brauc
     - `trigger_tier: Literal['live', 'climatological', 'calendar']` (welche Kaskadenstufe den aktuellen Zustand bestimmt hat — für UI-Transparenz)
     - `trigger_reason_i18n_key: str` (natürlichsprachliche Begründung, z. B. `pages.season.trigger.frostForecast`)
     - `entered_phase_at: datetime` (Zeitpunkt des letzten Zustandsübergangs)
-    - `season_year: int` (Bezugsjahr der laufenden Überwinterungssaison — der Winter 2026/27 wird als `2026` geführt; verhindert Rücksprünge innerhalb derselben Saison, s. Hysterese)
+    - `season_year: Optional[int]` (Bezugsjahr der laufenden Überwinterungssaison — der Winter 2026/27 wird als `2026` geführt; verhindert Rücksprünge innerhalb derselben Saison, s. Hysterese. `None` während `growing` außerhalb einer laufenden Saison; gesetzt beim Übergang `growing → pre_winter`, freigegeben bei `pre_spring → growing`)
     - `last_min_temp_c: Optional[float]` (zuletzt bewertete Nacht-/Tagesminimumtemperatur — aus Forecast oder Sensor)
     - `consecutive_signal_days: int = 0` (Zähler für den Hysterese-Schwellwert, s. §3.3)
     - `forecast_first_frost_date: Optional[date]` (aus Live-Forecast abgeleitetes nächstes Frostdatum, wenn vorhanden)
@@ -125,9 +126,9 @@ Das instanzbezogene Profil bleibt bestehen, wird aber **automatisch materialisie
 | Typ | Schlüssel | Auslöser | Priorität |
 |-----|-----------|----------|-----------|
 | Ruhe-/Winterquartier-Kontrolle | `dormancy_health_check` | Intervall (`dormancy_check_interval_days`) während `winter_dormancy` — prüft Fäulnis, Schimmel, Feuchte, Schädlinge | `medium` |
-| Winterquartier-Klima-Warnung | `quarter_climate_check` | Nur bei Livedaten des Winterquartiers (Sensor/HA): Ist-Temperatur verletzt `winter_quarter_temp_min/max` | `high` (Pflanze erfriert/treibt vorzeitig) |
+| Winterquartier-Klima-Warnung | `quarter_climate_check` | Ist-Stand: periodisch, sobald das Winterquartier Livedaten (Sensor/HA) liefert. *Ausbaustufe (noch nicht implementiert, §3.7.3 / AC-22):* Auslösung erst bei Verletzung von `winter_quarter_temp_min/max` | `high` (Pflanze erfriert/treibt vorzeitig) |
 
-Die bestehenden Winter-Erinnerungstypen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`, `location_check`) bleiben unverändert — geändert wird **nur ihr Auslöser** (SeasonState-Übergang statt fester Monat, §3.4).
+Die bestehenden Winter-Erinnerungstypen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`) bleiben unverändert — geändert wird **nur ihr Auslöser** (SeasonState-Übergang statt fester Monat, §3.4). (`location_check` ist ein generischer, saisonunabhängiger Erinnerungstyp aus REQ-022 und gehört **nicht** zu dieser Winter-Gruppe.)
 
 ### 2.6 Edges
 
@@ -201,8 +202,9 @@ class SeasonSignalResolver:
       1. LIVE  — :WeatherForecast (Frost-/Min-Temp-Vorhersage, REQ-005/046)
                  und/oder Außentemperatur-Sensor (REQ-005). Bevorzugt, weil
                  tagesaktuell und standortnah.
-      2. CLIMATOLOGICAL — :ClimateNormal.monthly_temp_min_c / coldest_month_min_c
-                 (REQ-041) + HardinessZone.typical_first/last_frost_md (REQ-039).
+      2. CLIMATOLOGICAL — Standort-Durchschnittsfrostdaten (first/last_frost_date_avg,
+                 eisheilige_date, REQ-002/015-A) + HardinessZone.typical_first/last_frost_md
+                 (REQ-039). Ausbaupfad (noch nicht implementiert): :ClimateNormal (REQ-041).
       3. CALENDAR — Site.hemisphere + Preset-Monate (REQ-022) als grober Fallback.
     """
 
@@ -223,9 +225,12 @@ class SeasonSignalResolver:
         ...
 
     async def _try_climatological(self, site, on_date) -> Optional[SeasonSignal]:
-        """Nutzt :ClimateNormal (REQ-041) + HardinessZone-Frosttermine (REQ-039).
-        Gibt None zurück, wenn kein ClimateNormal/keine Zone für die GPS-Position
-        vorliegt. min_temp_c = monthly_temp_min_c[on_date.month - 1]."""
+        """Ist-Stand: nutzt die Standort-Durchschnittsfrostdaten
+        (first/last_frost_date_avg, eisheilige_date, REQ-002/015-A) +
+        HardinessZone-Frosttermine (REQ-039). Gibt None zurück, wenn dem Standort
+        diese Frost-Richtwerte fehlen.
+        Ausbaupfad (noch nicht implementiert): Ableitung von min_temp_c aus
+        :ClimateNormal.monthly_temp_min_c[on_date.month - 1] (REQ-041)."""
         ...
 
     def _calendar_fallback(self, site, on_date) -> SeasonSignal:
@@ -234,6 +239,11 @@ class SeasonSignalResolver:
         die Übergänge laufen rein monatsbasiert."""
         ...
 ```
+
+> **Hinweis (Ist-Stand):** Die Implementierung ist **synchron** (python-arango, kein
+> async-I/O); die `async`-Signaturen in dieser Skizze sind illustrativ. Der Resolver ist
+> deterministisch bis auf die injizierten Repositories und ohne HTTP-Zugriff im Kernpfad
+> testbar.
 
 ### 3.2 Konfigurierbare Schwellwerte
 
@@ -263,6 +273,11 @@ class SeasonStateEngine:
       Signaltage in dieselbe Richtung (consecutive_signal_days), damit ein
       einzelner Ausreißer-Tag keinen Umschalt-Flip auslöst. Auf der Kalender-Stufe
       (min_temp_c is None) entscheidet stattdessen das Monatsfenster sofort.
+    - Zusätzliche Saison-Fenster-Guards (Ist-Stand): ein growing → pre_winter-Übergang
+      wird nur innerhalb der Herbst-/Winter-Monatsmenge (_PRE_WINTER_SEASON_MONTHS)
+      zugelassen; ein winter_dormancy → pre_spring-Übergang frühestens
+      _SPRING_RELEASE_WINDOW_DAYS = 182 Tage nach Saisonbeginn. Beides verhindert
+      Fehlübergänge bei sommerlichen Kälte- bzw. spätwinterlichen Wärme-Ausreißern.
     """
 
     def next_phase(self, state: 'SeasonState', signal: SeasonSignal,
@@ -276,7 +291,7 @@ class SeasonStateEngine:
 |-----|------|--------------------------------------|
 | `growing` | `pre_winter` | `min_temp_c ≤ SEASON_PRE_WINTER_TEMP_C` an ≥ N Folgetagen **oder** Live-Forecast enthält Frost innerhalb 7 Tagen |
 | `pre_winter` | `winter_dormancy` | `min_temp_c ≤ SEASON_FROST_TEMP_C` (Frost eingetreten/unmittelbar vorhergesagt) |
-| `winter_dormancy` | `pre_spring` | `min_temp_c` (7-Tage-Mittel) `> SEASON_SPRING_TEMP_C` an ≥ N Folgetagen **und** `on_date` liegt nach dem kältesten Monat (`coldest_month`, REQ-041) |
+| `winter_dormancy` | `pre_spring` | `min_temp_c` (7-Tage-Mittel) `> SEASON_SPRING_TEMP_C` an ≥ N Folgetagen **und** `on_date` liegt nach dem kältesten Monat (Ist-Stand: hemisphären-basierte Monatsmenge `_AFTER_COLDEST_MONTHS`; Ausbaupfad `ClimateNormal.coldest_month_min_c`, REQ-041) |
 | `pre_spring` | `growing` | `on_date ≥ estimated_last_frost_md` **und** keine Frostvorhersage innerhalb 7 Tagen |
 
 **Übergangsregeln (Kalender-Fallback, monatsbasiert — heutiges Verhalten):**
@@ -289,6 +304,16 @@ class SeasonStateEngine:
 | `pre_spring` | `growing` | Nach `estimated_last_frost_md` bzw. Ende des Frühlings-Fallback-Monats |
 
 Der `season_year` wird beim Übergang `growing → pre_winter` gesetzt (bzw. beim ersten Winterlauf) und beim Übergang zurück nach `growing` freigegeben. Solange `season_year` gesetzt ist und `on_date` in dessen Winterhalbjahr liegt, blockiert die Engine Rückwärtsübergänge.
+
+**Saison-Fenster-Guards (Ist-Stand, Werte je Hemisphäre aus `Site.hemisphere`):**
+
+| Guard | Nordhalbkugel | Südhalbkugel | Wirkung |
+|-------|---------------|--------------|---------|
+| `_PRE_WINTER_SEASON_MONTHS` | {8, 9, 10, 11, 12} | {2, 3, 4, 5, 6} | Ein temperaturgetriebener `growing → pre_winter`-Übergang feuert nur in diesen Monaten (bindet den Live-Einstieg an das Herbst-/Winterhalbjahr). |
+| `_AFTER_COLDEST_MONTHS` | {2, 3, 4, 5, 6} | {8, 9, 10, 11, 12} | Der `winter_dormancy → pre_spring`-Übergang setzt voraus, dass `on_date` in einem der Monate nach dem kältesten Monat liegt. |
+| `_SPRING_RELEASE_WINDOW_DAYS` | `182` | `182` | Zusätzliche Schranke für `winter_dormancy → pre_spring`: der Abstand zum durchschnittlichen letzten Frost muss ≤ 182 Tage (halbes Jahr) betragen. |
+
+Für den Übergang `winter_dormancy → pre_spring` gelten die Temperaturbedingung (§3.3-Tabelle oben), der `_AFTER_COLDEST_MONTHS`-Guard **und** die `_SPRING_RELEASE_WINDOW_DAYS`-Schranke **kumulativ** — alle drei müssen erfüllt sein.
 
 ### 3.4 `OverwinteringMaterializer` — Auto-Ableitung des Instanz-Profils
 
@@ -399,13 +424,176 @@ def evaluate_season_states():
 # }
 ```
 
+### 3.7 Vertiefung: Winterquartier & Pfad B (Verlagerung)
+
+Pfad B (`derived_path='B'`, Ampel rot) verlagert die Pflanze aus dem Freiland in ein
+**Winterquartier** (Indoor-Location) oder ein **Knollenlager**. Der Herkunfts-Standort
+(Outdoor-Site) bleibt für die Saison-Übergänge maßgeblich (§1 Geltungsbereich); das
+Quartier stellt nur die Pflegebedingungen der geschützten Ruhe dar. Diese Vertiefung
+präzisiert die Quartier-Typen, den Ein-/Ausräum-Prozess und die Lager-Kontrolle. **Die
+art-spezifischen Werte (Ziel-Temperatur, Licht, Gießregime, Lagermedium, Kontrollintervall)
+sind Single Source of Truth (SSOT) in den Steckbriefen §4.3 Überwinterung** und werden in die
+`overwintering_profiles`-Templates extrahiert (REQ-022); dieses Dokument definiert die
+**Semantik**, nicht die Werte.
+
+#### 3.7.1 Quartier-Typen (aus vorhandenen Feldern klassifiziert)
+
+Die bestehenden Felder `winter_quarter_temp_min/max` und `winter_quarter_light`
+(OverwinteringProfile, REQ-022) spannen einen Quartier-Typ auf. Die Engine leitet daraus
+den passenden Dormancy-Care-Modus (§3.5) und die Kontroll-Erinnerungen ab:
+
+| Quartier-Typ | Klassifikations-Grenzen (grobe Orientierung; art-spezifische Werte bleiben SSOT in §4.3) | Typische Kandidaten | `winter_watering` |
+|--------------|-----------------------------------|---------------------|-------------------|
+| **Kalt-dunkel (Knollenlager)** | ~2–8 °C, `dark`, kein Licht nötig | Dahlien-, Gladiolen-, Canna-Knollen | `none` |
+| **Kalt-hell (Frostschutzhaus)** | ~0–8 °C, `semi_bright`/`bright` | Kübel-Lavendel, Oleander, Feige, Olive | `minimal` |
+| **Temperiert-hell (frostfrei)** | ~8–15 °C, `bright` (`frost_free`) | Zitrus, Pelargonien, Fuchsien, immergrüne Kübelpflanzen | `reduced` |
+| **Warm-hell (Zimmer)** | > 15 °C, `bright` | tropische Kübelpflanzen ohne echte Ruhe | `normal` |
+
+Der Quartier-Typ ist **abgeleitet, kein neues Feld** — er ergibt sich deterministisch aus
+`winter_quarter_temp_min/max` + `winter_quarter_light`. Fehlen diese im Template, greift der
+Ampel-Fallback (rot → `move_indoors`, generisches Temperiert-hell-Default) mit Log-Hinweis.
+
+#### 3.7.2 Ein-/Ausräum-Prozess (zustandsgesteuert)
+
+- **Einräumen (Übergang `pre_winter`):** Für Pfad-B-Pflanzen erzeugt der Task neben
+  `winter_protection`/`tuber_dig` eine **`move_indoors`-Handlungsaufforderung** mit dem
+  Ziel-Quartier (`winter_quarter_key`, falls gesetzt) und den Ziel-Bedingungen aus dem
+  Template. Der physische Umzug ist eine vom Nutzer zu bestätigende Aufgabe (REQ-006),
+  keine Automatik.
+- **Verlagerung folgt der Ampel/Frostgefahr, nicht dem Kalender:** Bei Live-Daten (Stufe 1)
+  wird der Einräum-Hinweis **vor** dem ersten vorhergesagten Frost (< `SEASON_FROST_TEMP_C`)
+  fällig; ohne Live-Daten greift die klimatologische/Kalender-Stufe.
+- **Ausräumen (Übergang `pre_spring`):** siehe §3.8 (abgestimmt auf das Ende der
+  Frostgefahr, mit Abhärtung).
+
+#### 3.7.3 Fäulnis-, Feuchte- & Schädlingskontrolle im Lager
+
+`dormancy_health_check` (REQ-022/047) wird im Dormancy-Modus im Intervall
+`dormancy_check_interval_days` erzeugt. Diese Vertiefung präzisiert **Zweck und Inhalt** der
+Kontrolle je Quartier-Typ (Checklisten-Text i18n, SSOT-Details in §4.3):
+
+- **Knollenlager (kalt-dunkel):** weiche/faulende Stellen herausschneiden, Austrocknung
+  prüfen, Lagermedium (`storage_medium`, z. B. Vermiculit/Perlite/Sägemehl) auf Feuchte
+  prüfen. Bezug: §4.3-Einlagerungs-Protokoll der Art (z. B. Dahlie).
+- **Kalt-/temperiert-hell:** Grauschimmel (*Botrytis*) an abgestorbenem Laub entfernen,
+  Staunässe vermeiden, auf Schild-/Woll-/Spinnmilben-Befall in der warmen Ruhe achten
+  (IPM-Verweis REQ-010), Lüften an frostfreien Tagen.
+
+**Ausbaustufe (noch nicht implementiert):** `quarter_climate_check` wertet heute periodisch die
+Quartier-Livedaten aus (sobald welche vorliegen). Zielbild ist die **ereignisbasierte Auslösung
+bei tatsächlicher Verletzung** von `winter_quarter_temp_min/max` (z. B. Heizungsausfall →
+Quartier fällt unter Mindesttemperatur → sofortige `high`-Warnung; oder Quartier zu warm →
+vorzeitiger Austrieb). Dies erfordert einen Ist/Soll-Vergleich der Quartier-Livedaten gegen
+die Template-Grenzen und ist als Folge-Implementierung markiert (AC-13, AC-22).
+
+### 3.8 Vertiefung: Frühjahrs-Rückholung & Abhärtung
+
+Der Übergang `winter_dormancy → pre_spring` beendet den Dormancy-Modus (§3.5) und startet
+den **Rückhol-Prozess**. Diese Vertiefung präzisiert die gestaffelte Abhärtung, das
+Knollen-Vorziehen und den Spätfrost-Schutz. `spring_action` ∈ {`uncover`, `move_outdoors`,
+`replant`, `prune`, `harden_off`} (REQ-022) bestimmt den Prozess je Pflanze.
+
+#### 3.8.1 Gestaffelte Abhärtung (`harden_off`)
+
+Verlagerte oder im Warmquartier getriebene Pflanzen müssen **schrittweise** an Freiland-Licht,
+-Wind und -Temperatur gewöhnt werden (Sonnenbrand-/Kälteschock-Schutz). Die Engine erzeugt
+bei `spring_action='harden_off'` einen **mehrstufigen Abhärtungsplan** (Richtwerte, art-/
+wetterabhängig verfeinert über §4.3 bzw. Live-Daten):
+
+| Stufe | Fenster | Exposition |
+|-------|---------|------------|
+| 1 | Tag 1–3 | 2–3 h Halbschatten, windgeschützt, tagsüber |
+| 2 | Tag 4–6 | halbtags Halbschatten, abends wieder rein |
+| 3 | Tag 7–10 | ganztags draußen, nachts noch geschützt |
+| 4 | ab Tag 10 | dauerhaft draußen, sofern keine Frostvorhersage |
+
+Der Plan erscheint als Schritt-Checkliste im Rückhol-Assistenten (§4.2). **Live-Kopplung:**
+Liegt in einer Stufe eine Frostvorhersage (< `SEASON_FROST_TEMP_C`) vor, pausiert der Plan
+(„heute nicht rausstellen").
+
+#### 3.8.2 Knollen-Vorziehen & Auspflanzen
+
+Für `tuber_status`-geführte Arten (REQ-022) staffelt der Prozess: `pre_sprouting`
+(Vorziehen im Warmen, z. B. ab März) → `growing` → `move_outdoors`/`replant` **erst nach**
+`estimated_last_frost_md` (bzw. nach den Eisheiligen bei entsprechendem Richtwert). Die
+konkreten Monate/Temperaturen sind SSOT in §4.3 (z. B. Dahlie: März vorziehen, Mai auspflanzen).
+
+#### 3.8.3 Spätfrost-Schutz (Live)
+
+Solange `on_date < estimated_last_frost_md` **oder** eine Frostvorhersage innerhalb 7 Tagen
+vorliegt, unterbleibt der `pre_spring → growing`-Übergang (Übergangsregel §3.3) und der
+Rückhol-Assistent zeigt eine Spätfrost-Warnung mit dem konkreten Frostdatum. Das schützt vor
+verfrühtem endgültigem Ausräumen/Abhäufeln.
+
+### 3.9 Vertiefung: Arten & Sonderfälle
+
+Diese Vertiefung schließt Abdeckungslücken bei Arten-Klassen, die die bisherige gelb/rot-
+Zweiteilung nicht sauber treffen. **Keine art-spezifischen Werte hier** — nur die
+Klassifikations-Semantik; die Werte bleiben SSOT in §4.3.
+
+- **Immergrüne / wintergrüne Arten (Pfad A mit Zusatz):** behalten Laub und verdunsten auch
+  im Winter → zusätzlich **Frosttrocknis-Risiko**. Über den Winterschutz (`fleece`/schattieren
+  an sonnigen Frosttagen) hinaus generiert die Engine an frostfreien Tagen einen
+  Gieß-Kontrollhinweis (`winter_watering='minimal'` statt `none`), auch wenn die Pflanze
+  in-situ (Pfad A) bleibt.
+- **Grenzwertig-winterharte Arten (Ampel-Grenzfall gelb↔rot):** Bei Zonendifferenz genau an
+  der Schwelle (REQ-039 `delta`) hängt der Pfad von der konkreten Standort-Ampel ab. Der
+  materialisierte Pfad (A/B) wird mit `trigger_reason_i18n_key` begründet („Standort 7a, Art
+  grenzwertig → Schutz empfohlen"); ein Nutzer-Override kann bewusst auf den milderen/strengeren
+  Pfad wechseln (Invariante D5 bleibt gewahrt).
+- **Kübel vs. Beet (gleiche Art, anderer Pfad):** Dieselbe Art ist im Beet oft Pfad A
+  (in-situ, `dormancy`), im Kübel Pfad B (Wurzelballen friert im Topf schneller durch). Die
+  Unterscheidung folgt der **Location/Substrat-Situation** der Pflanze (REQ-002/019), nicht
+  nur der Art. §4.3-Steckbriefe führen dazu die „Beet"- und „Kübel"-Varianten (vgl. Lavendel:
+  Beet `none` / Kübel Frostschutzhaus). *Ausbaustufe (noch nicht implementiert):* automatische
+  Pfad-Verschärfung Kübel→B über eine `container`-Kennzeichnung der Pflanzung.
+- **Beheiztes vs. kaltes Gewächshaus (`type='greenhouse'`):** Heute behandelt die Engine
+  `greenhouse` wie `outdoor`. Ein **beheiztes** Gewächshaus verschiebt aber die effektiven
+  Frost-/Winter-Schwellen (die Innentemperatur folgt nicht der Außenluft). *Ausbaustufe (noch
+  nicht implementiert):* ein `greenhouse_heated`-Flag bzw. eine Quartier-Innensensorik (Stufe
+  1 des Quartiers) als maßgebliche Signalquelle statt der Außenprognose. Bis dahin gilt der
+  Außen-/Kalender-Fallback mit Hinweis-Text.
+- **Zwei-/mehrjährige Sonderfälle:** Zweijährige (Blüte im 2. Jahr) und monokarpische Arten
+  brauchen die Überwinterung genau **einmal** vor der Blühsaison; die Saison-Automatik bleibt
+  jahresweise (`season_year`) korrekt, muss aber nach Blüte/Absterben kein neues Profil
+  materialisieren (Konsistenz mit REQ-003 Lebenszyklus / klonaler Fortführung).
+
+### 3.10 Vertiefung: Automatik-Robustheit & Edge Cases
+
+Diese Vertiefung härtet die Zustandsmaschine an den Rändern. Jeder Punkt ist als prüfbares Kriterium in §7
+(AC-25 ff.) gespiegelt.
+
+- **Mehrjahres-Hysterese:** Über `season_year` hinaus muss ein Standort, der eine volle Saison
+  durchlaufen hat, im Folgejahr sauber neu starten (`season_year` freigegeben bei
+  `pre_spring → growing`; neuer Winter setzt neuen `season_year`). Kein „Hängenbleiben" in
+  `pre_spring`, wenn der Frühling ausbleibt bzw. der nächste Herbst beginnt.
+- **Mildwinter / Kahlfrost:** Bleibt echter Frost aus (Mildwinter), darf die Engine trotzdem
+  aus `pre_winter` nicht endlos hin- und herschalten; die Saison-Fenster-Guards (§3.3) und die
+  Hysterese-Tage decken das ab. **Kahlfrost** (Frost ohne Schnee) ist über die Live-Min-Temp
+  bereits erfasst — die Schutz-Erinnerung hängt an der Temperatur, nicht an Schnee.
+- **Quellen-Hochstufung mitten in der Saison:** Wird für einen kalender-/klimageführten
+  Standort mitten im Winter eine Wetterquelle konfiguriert (Stufe 1 wird verfügbar), übernimmt
+  der nächste Lauf die Live-Stufe **ohne** einen bereits erreichten Zustand rückwärts zu
+  brechen (Rückwärts-Verbot innerhalb `season_year`). `trigger_tier` wechselt auf `live`.
+- **Fehlende / veraltete Daten:** Fällt die Live-Quelle aus (`data_freshness` CRITICAL,
+  REQ-005), degradiert der Resolver auf Stufe 2/3 (Graceful Degradation, AC-18) — der Zustand
+  bleibt erhalten, `trigger_tier` spiegelt die real genutzte Stufe. Kein Zustandssprung allein
+  durch Datenausfall.
+- **Override-Konflikte:** Ein `user_overridden`-Profil bleibt von der Auto-Materialisierung
+  unangetastet (AC-11); ein Override, der die Ampel/Invariante D5 verletzt, wird mit 422
+  abgewiesen (AC-10). Setzt der Nutzer das Profil auf Automatik zurück (`reset`), wird beim
+  nächsten `pre_winter`-Lauf neu materialisiert.
+- **Idempotenz-Grenzfälle:** Mehrere Läufe am selben Tag, ein Nachhol-Lauf nach Ausfall oder
+  ein Zeitzonen-/Datumsgrenzen-Fall erzeugen **weder** doppelte Übergänge **noch** doppelte
+  Erinnerungen (AC-16, Duplikat-Prüfung pro `[entity, reminder_type]`, REQ-022).
+
 ## 4. Frontend-Integration
 
 Kein Anlege-Formular mehr. Die Automatik ist standardmäßig sichtbar; der Nutzer bestätigt nur Maßnahmen bzw. übersteuert punktuell. Mobile-First (Feedback), mit beschreibenden Texten und Fachbegriff-Erläuterungen (Feedback).
 
 ### 4.1 Dashboard-Widget „Saison & Überwinterung"
 
-Erweitert das bestehende Winterschutz-Übersicht-Widget (REQ-022) um den Saison-Zustand:
+Erweitert das bestehende Winterschutz-Übersicht-Widget (REQ-022) um den Saison-Zustand (Ist-Stand: realisiert als `SeasonOverviewPanel` **innerhalb** des Dashboard-Widgets `winter_protection`, kein eigener Widget-Registry-Eintrag):
 
 - **Saison-Statuszeile** je Outdoor-Standort: aktueller `SeasonPhase` mit Icon (Blatt/fallendes Blatt/Schneeflocke/Knospe) und der Trigger-Quelle als dezentes Badge — `Live-Wetter` / `Klima-Schätzung` / `Kalender`. Das schafft Transparenz, ob die Warnung auf echten Daten oder einer Schätzung beruht.
 - **Frost-Countdown:** bei Live-Daten „Erster Frost in X Tagen" (aus `forecast_first_frost_date`), sonst „Erster Frost typisch um {{datum}}" (aus `estimated_first_frost_md`).
@@ -430,6 +618,7 @@ Auf der Pflanzeninstanz-Detailseite ein Abschnitt **„Überwinterung"**, der da
 | `GET /api/v1/t/{tenant_slug}/sites/{site_key}/season-state` | Aktuellen Saison-Zustand + Trigger-Quelle lesen |
 | `GET /api/v1/t/{tenant_slug}/season/overview` | Aggregierte Saison-/Ampel-Übersicht über alle Outdoor-Sites (Dashboard-Widget) |
 | `GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering` | Auto-materialisiertes OverwinteringProfile lesen (mit `auto_generated`/`user_overridden`/`derived_path`) |
+| `GET /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/status` | Materialisierungs-Status ohne Profil-Zwang: `has_profile` / `hardiness_light` / `will_materialize` / `site_overwinterable` (4-State-Antwort, auch für Pflanzen ohne Profil; Folge-PR #410) |
 | `PATCH /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering` | Einzelne Felder übersteuern (setzt `user_overridden=True`) |
 | `POST /api/v1/t/{tenant_slug}/plants/{plant_key}/overwintering/reset` | Auf Automatik zurücksetzen + re-materialisieren |
 
@@ -444,6 +633,7 @@ Alle Strings DE (Default/Fallback) + EN. Namespaces: `pages.season.*` (Widget/As
 **Environment:**
 - `SEASON_PRE_WINTER_TEMP_C` (Default `5.0`), `SEASON_FROST_TEMP_C` (Default `2.0`), `SEASON_SPRING_TEMP_C` (Default `10.0`) — Übergangs-Schwellwerte.
 - `SEASON_SIGNAL_THRESHOLD_DAYS` (Default `3`) — Hysterese-Fenster.
+- `SEASON_LIVE_FORECAST_WINDOW_DAYS` (Default `7`) — Vorschau-Fenster für die Live-Frost-/Min-Temp-Auswertung (Stufe 1).
 - `SEASON_STATE_EVAL_ENABLED` (Default `true`) — Kill-Switch für den Celery-Task.
 
 **Deployment:**
@@ -459,7 +649,7 @@ Alle Strings DE (Default/Fallback) + EN. Namespaces: `pages.season.*` (Widget/As
 - **REQ-039 (Winterhärte):** Liefert `evaluate_winter_hardiness` (Ampel → Pfad-Zuordnung, Invariante D5) und die Zonen-Frosttermine (`typical_first/last_frost_md`) als Stufe-2-Eingang. **Harte Abhängigkeit; Rück-Querverweis erforderlich.**
 - **REQ-005 (Hybrid-Sensorik/Wetter):** Liefert das Live-Frost-/Min-Temp-Signal (`:WeatherForecast.temp_min_c`, Frostwarnschwelle < 2 °C) und Außen-Sensorik als Stufe-1-Eingang. **Konsumierende Abhängigkeit; Rück-Querverweis erforderlich.**
 - **REQ-046 (Wetterquellen):** Bestimmt via `WeatherSourceResolver`, ob ein Standort überhaupt Livedaten hat (Stufe-1-Verfügbarkeit). **Konsumierende Abhängigkeit.**
-- **REQ-041 (NASA POWER / Klimanormale):** Liefert `:ClimateNormal.monthly_temp_min_c` / `coldest_month_min_c` als Stufe-2-Eingang (Saison-Fallback ohne Livedaten). **Konsumierende Abhängigkeit; Rück-Querverweis erforderlich.**
+- **REQ-041 (NASA POWER / Klimanormale):** *Ausbaupfad (noch nicht implementiert):* soll `:ClimateNormal.monthly_temp_min_c` / `coldest_month_min_c` als verfeinerten Stufe-2-Eingang liefern. **Ist-Stand:** die Stufe 2 speist aus den Standort-Durchschnittsfrostdaten (REQ-002/015-A) + Zonen-Frostterminen (REQ-039); der kälteste Monat wird über hemisphären-basierte Monatsmengen bestimmt. **Vorgesehene Abhängigkeit.**
 - **REQ-002 (Standort):** Liefert `Site.type` (Geltungsbereich Outdoor/Greenhouse), `hemisphere` (Stufe-3-Fallback), `gps_coordinates`, `hardiness_zone`/`climate_zone`, `tenant_key`. **Harte Abhängigkeit.**
 - **REQ-001 (Stammdaten):** Liefert `Species.frost_sensitivity` und `hardiness_zones` für die Ampel/Materialisierung. **Lesende Abhängigkeit.**
 - **REQ-003 (Phasensteuerung):** Die `dormancy`-GrowthPhase (Pfad A) und die Invariante D5 (Widerspruchsverbot Dormanz vs. Verlagerung) bleiben maßgeblich. **Konsistenz-Abhängigkeit.**
@@ -473,7 +663,7 @@ Alle Strings DE (Default/Fallback) + EN. Namespaces: `pages.season.*` (Widget/As
 - [ ] **AC-1 (Kein Pflicht-Profil):** Ein Nutzer erhält vollständige Winter-Hinweise und einen materialisierten Überwinterungs-Plan pro Pflanze, **ohne** je ein Überwinterungsprofil angelegt zu haben.
 - [ ] **AC-2 (SeasonState je Outdoor-Site):** Für jede Site mit `type ∈ {outdoor, greenhouse}` existiert genau ein `:SeasonState`; reine Indoor-Sites erhalten keinen (Endpoint liefert 409).
 - [ ] **AC-3 (Live-Trigger):** Hat der Standort eine aufgelöste Wetterquelle (REQ-046) mit Frostvorhersage < 2 °C, wechselt der Zustand innerhalb der Hysterese-Schwelle nach `pre_winter`/`winter_dormancy` — unabhängig vom Kalendermonat; `trigger_tier='live'`.
-- [ ] **AC-4 (Klima-Fallback):** Ohne Livedaten, aber mit GPS/`:ClimateNormal`, leitet die Engine die Winter-/Frühlings-Fenster aus `monthly_temp_min_c` + Zonen-Frostterminen ab; `trigger_tier='climatological'`.
+- [ ] **AC-4 (Klima-Fallback):** Ohne Livedaten, aber mit Standort-Durchschnittsfrostdaten (`first/last_frost_date_avg`, `eisheilige_date`, REQ-002/015-A) + Zonen-Frostterminen (REQ-039), leitet die Engine die Winter-/Frühlings-Fenster daraus ab; `trigger_tier='climatological'`. *Ausbaustufe (noch nicht implementiert):* verfeinerte Ableitung aus `:ClimateNormal.monthly_temp_min_c` (REQ-041).
 - [ ] **AC-5 (Kalender-Fallback):** Ohne Livedaten und ohne Klimanormale fällt die Engine auf hemisphären-basierte Preset-Monate zurück (heutiges Verhalten); `trigger_tier='calendar'`.
 - [ ] **AC-6 (Hochstufung):** Wird für einen zuvor kalender-/klimageführten Standort eine Wetterquelle konfiguriert, nutzt der nächste Lauf automatisch die Live-Stufe.
 - [ ] **AC-7 (Hysterese/Oszillationsschutz):** Ein einzelner warmer Tag bringt eine Pflanze nicht von `winter_dormancy` zurück; Rückwärtsübergänge innerhalb desselben `season_year` sind ausgeschlossen; ein Übergang erfordert `SEASON_SIGNAL_THRESHOLD_DAYS` konsistente Signaltage (Live/Klima-Stufe).
@@ -482,7 +672,7 @@ Alle Strings DE (Default/Fallback) + EN. Namespaces: `pages.season.*` (Widget/As
 - [ ] **AC-10 (Pfad-Konsistenz, Invariante D5):** `derived_path` und `winter_action` widersprechen der Ampel nie; ein Override, der die Invariante verletzt, wird mit 422 abgewiesen.
 - [ ] **AC-11 (Override-Schutz):** Ein `user_overridden`-Profil wird von der Auto-Materialisierung **nie** überschrieben; nur fehlende Felder werden additiv ergänzt.
 - [ ] **AC-12 (Dormancy-Care-Modus an):** Beim Eintritt in `winter_dormancy` wird `CareProfile.dormancy_care_mode=True` gesetzt; Gießen folgt `dormancy_watering` (none/minimal/reduced/normal), Düngen ist ausgesetzt.
-- [ ] **AC-13 (Winter-Kontrolle):** Im Dormancy-Modus erscheint `dormancy_health_check` im konfigurierten Intervall; bei Winterquartier mit Livedaten löst eine Temperaturverletzung (`winter_quarter_temp_min/max`) `quarter_climate_check` (Priorität high) aus.
+- [ ] **AC-13 (Winter-Kontrolle):** Im Dormancy-Modus erscheint `dormancy_health_check` im konfigurierten Intervall; hat das Winterquartier Livedaten (Sensor/HA), erscheint zusätzlich periodisch `quarter_climate_check` (Priorität high). *Ausbaustufe (noch nicht implementiert, s. §3.7):* Auslösung erst bei tatsächlicher Verletzung von `winter_quarter_temp_min/max` statt periodisch.
 - [ ] **AC-14 (Rückhol-Assistent):** Beim Übergang `winter_dormancy → pre_spring` wird der Dormancy-Modus beendet und es erscheinen `spring_uncover`/`harden_off`/`pre_sprouting`-Erinnerungen gemäß `spring_action`; bei Live-Spätfrost wird vor dem Rausstellen gewarnt.
 - [ ] **AC-15 (Trigger-Transparenz):** Das Dashboard zeigt je Standort den Saison-Zustand **und** die Trigger-Quelle (Live-Wetter / Klima-Schätzung / Kalender) sichtbar an.
 - [ ] **AC-16 (Idempotenz):** Ein zweiter `evaluate_season_states`-Lauf am selben Tag erzeugt weder doppelte Übergänge noch doppelte Erinnerungen.
@@ -490,3 +680,24 @@ Alle Strings DE (Default/Fallback) + EN. Namespaces: `pages.season.*` (Widget/As
 - [ ] **AC-18 (Graceful Degradation):** Fällt der Wetter-Fetch aus, degradiert der Resolver auf Stufe 2/3 und der Task bleibt lauffähig — keine Winterfunktion bricht.
 - [ ] **AC-19 (Migration):** Bestehende OverwinteringProfiles werden verlustfrei migriert (`user_overridden`/`derived_path` gesetzt); manuell gepflegte Profile behalten Vorrang.
 - [ ] **AC-20 (i18n):** Alle neuen UI-Strings liegen in DE und EN vor; DE ist Default/Fallback.
+
+**Vertiefung Winterquartier & Pfad B (§3.7):**
+
+- [ ] **AC-21 (Quartier-Typ):** Der Quartier-Typ (kalt-dunkel / kalt-hell / temperiert-hell / warm-hell) wird deterministisch aus `winter_quarter_temp_min/max` + `winter_quarter_light` abgeleitet (kein neues Feld); der Dormancy-Care-Gießmodus folgt dem Typ. Keine art-spezifischen Werte im REQ-Text — Quelle ist §4.3 (SSOT).
+- [ ] **AC-22 (Quartier-Klima-Auslösung, Ausbaustufe — noch nicht implementiert):** `quarter_climate_check` löst bei tatsächlicher Verletzung von `winter_quarter_temp_min/max` durch Quartier-Livedaten aus (Heizungsausfall → zu kalt; Überhitzung → vorzeitiger Austrieb), statt periodisch. Bis zur Umsetzung gilt AC-13 (periodisch).
+- [ ] **AC-23 (Einräumen):** Beim Übergang `pre_winter` erhält jede Pfad-B-Pflanze eine `move_indoors`-Aufgabe mit Ziel-Quartier (`winter_quarter_key`, falls gesetzt) und Ziel-Bedingungen aus dem Template; der physische Umzug ist eine nutzerbestätigte Aufgabe (REQ-006), keine Automatik.
+
+**Vertiefung Frühjahr & Abhärtung (§3.8):**
+
+- [ ] **AC-24 (Abhärtung):** Bei `spring_action='harden_off'` erscheint ein mehrstufiger Abhärtungsplan als Schritt-Checkliste (§4.2); eine Frostvorhersage (< `SEASON_FROST_TEMP_C`) pausiert die aktuelle Stufe.
+- [ ] **AC-25 (Spätfrost-Schutz):** Der Übergang `pre_spring → growing` unterbleibt, solange `on_date < estimated_last_frost_md` **oder** eine Frostvorhersage innerhalb 7 Tagen vorliegt; der Rückhol-Assistent warnt mit konkretem Frostdatum vor dem endgültigen Ausräumen.
+
+**Vertiefung Arten & Sonderfälle (§3.9):**
+
+- [ ] **AC-26 (Sonderfälle):** Immergrüne Arten erhalten in-situ (Pfad A) einen `minimal`-Gieß-Kontrollhinweis (Frosttrocknis); bei grenzwertigen Arten wird der Pfad via `trigger_reason_i18n_key` begründet. Der Kübel-vs.-Beet-Pfadunterschied ist dokumentiert; die automatische Kübel→B-Verschärfung und das `greenhouse_heated`-Signal sind als **noch nicht implementiert** markiert.
+
+**Vertiefung Automatik-Robustheit (§3.10):**
+
+- [ ] **AC-27 (Hochstufung/Degradation):** Wird mitten in der Saison eine Wetterquelle verfügbar, übernimmt der nächste Lauf die Live-Stufe (`trigger_tier='live'`), **ohne** einen erreichten Zustand zurückzudrehen; ein Live-Datenausfall degradiert auf Stufe 2/3 ohne Zustandssprung.
+- [ ] **AC-28 (Mehrjahres-Hysterese):** `season_year` wird beim Übergang `pre_spring → growing` freigegeben und für jede Folgesaison sauber neu vergeben; ein Standort bleibt über den Jahreswechsel nicht in `pre_spring` hängen, wenn der Frühling ausbleibt oder der nächste Herbst beginnt.
+- [ ] **AC-29 (Monokarpisch / zweijährig):** Für eine Pflanze, deren Lebenszyklus die Blüh-/Seneszenzphase eines monokarpischen bzw. zweijährigen Zyklus bereits durchlaufen hat (REQ-003), materialisiert der nächste `pre_winter`-Übergang **kein** neues Überwinterungsprofil.

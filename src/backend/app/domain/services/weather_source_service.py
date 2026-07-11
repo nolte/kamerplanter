@@ -54,7 +54,9 @@ if TYPE_CHECKING:
     from app.data_access.arango.weather_source_config_repository import ArangoWeatherSourceConfigRepository
     from app.data_access.external.ha_client import HomeAssistantClient
     from app.domain.engines.encryption_engine import EncryptionEngine
+    from app.domain.interfaces.climate_normal_repository import IClimateNormalRepository
     from app.domain.models.site import Site
+    from app.domain.models.weather import ClimateNormal
     from app.domain.services.weather_settings_service import EffectiveWeatherSettings
     from app.domain.services.weather_source_resolver import WeatherSourceResolver
 
@@ -107,6 +109,7 @@ class WeatherSourceService:
         resolver: WeatherSourceResolver,
         ha_client_factory: Callable[[], HomeAssistantClient | None],
         weather_settings_provider: Callable[[], EffectiveWeatherSettings] | None = None,
+        climate_normal_repo: IClimateNormalRepository | None = None,
     ) -> None:
         self._config_repo = weather_source_config_repo
         self._site_repo = site_repo
@@ -119,6 +122,9 @@ class WeatherSourceService:
         # DB-backed effective provider config; when absent, the enable flags fall
         # back to the raw env kill-switches (``settings.<p>_enabled``).
         self._weather_settings_provider = weather_settings_provider
+        # REQ-041 — optional so existing constructions (tests) stay valid; the
+        # climate-normal read endpoint wires it in via the dependency factory.
+        self._climate_normal_repo = climate_normal_repo
 
     # ── Site ownership ────────────────────────────────────────────────
 
@@ -147,6 +153,19 @@ class WeatherSourceService:
         the ciphertext in ``api_key_ref``; the router masks it in the response."""
         self._load_owned_site(site_key, tenant_key)
         return self._config_repo.get_by_site(site_key, tenant_key)
+
+    def get_climate_normals(self, site_key: str, tenant_key: str) -> list[ClimateNormal]:
+        """REQ-041 — the site's long-term climate normals (one per source).
+
+        Enforces site ownership first (``404`` unknown / ``403`` foreign) so a
+        caller can never read a foreign site's normals, then returns the
+        tenant-scoped records. Returns ``[]`` when the collection has not been
+        populated yet (fetch beat has not run for this site) — never a ``500``.
+        """
+        self._load_owned_site(site_key, tenant_key)
+        if self._climate_normal_repo is None:
+            return []
+        return self._climate_normal_repo.get_by_site(site_key, tenant_key)
 
     # ── Write ─────────────────────────────────────────────────────────
 

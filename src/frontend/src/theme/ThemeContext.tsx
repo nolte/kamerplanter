@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { lightTheme, darkTheme } from './theme';
+import { selectAppTheme } from './theme';
+import { KioskContext } from '@/kiosk/KioskProvider';
 
 type ThemeMode = 'light' | 'dark';
 
@@ -27,6 +28,14 @@ function getInitialMode(): ThemeMode {
 export function ThemeContextProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ThemeMode>(getInitialMode);
 
+  // UI-NFR-019 — the kiosk context is optional so components rendered without a
+  // KioskProvider (e.g. isolated tests) fall back to the standard light/dark
+  // theme. When present, its flags select the high-contrast / touch theme and a
+  // change re-renders this consumer, flipping the theme without a reload (R-004).
+  const kiosk = useContext(KioskContext);
+  const isKiosk = kiosk?.isKiosk ?? false;
+  const highContrast = kiosk?.highContrast ?? false;
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, mode);
@@ -43,7 +52,10 @@ export function ThemeContextProvider({ children }: { children: ReactNode }) {
     [mode],
   );
 
-  const theme = mode === 'light' ? lightTheme : darkTheme;
+  const theme = useMemo(
+    () => selectAppTheme(mode, isKiosk, highContrast),
+    [mode, isKiosk, highContrast],
+  );
 
   return (
     <ThemeContext.Provider value={value}>

@@ -32,6 +32,7 @@ from app.api.v1.pest_detection.tenant_router import router as tenant_pest_detect
 from app.api.v1.plant_instances.photo_router import router as tenant_plant_photos_router
 from app.api.v1.plant_instances.tenant_router import router as tenant_plants_router
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
+from app.api.v1.post_harvest.tenant_router import router as tenant_post_harvest_router
 from app.api.v1.print.tenant_router import router as tenant_print_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
 from app.api.v1.season.tenant_router import router as tenant_season_router
@@ -68,6 +69,7 @@ tenant_scoped_router.include_router(nutrient_calculations_router)
 tenant_scoped_router.include_router(tenant_watering_events_router)
 tenant_scoped_router.include_router(tenant_watering_logs_router)
 tenant_scoped_router.include_router(tenant_harvest_router)
+tenant_scoped_router.include_router(tenant_post_harvest_router)
 tenant_scoped_router.include_router(tenant_tasks_router)
 tenant_scoped_router.include_router(tenant_ipm_router)
 tenant_scoped_router.include_router(tenant_pest_detection_router)

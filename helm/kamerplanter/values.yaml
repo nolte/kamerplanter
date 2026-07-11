@@ -109,6 +109,11 @@ controllers:
           IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT: "0.85"
           IDENTIFICATION_CONFIDENCE_MIN_SHOW: "0.10"
           IDENTIFICATION_MAX_IMAGE_SIZE_MB: "5"
+          # Read timeout (s) for the external /identify call — Pl@ntNet's upload +
+          # ML inference can exceed 30s under load (surfaces as ReadTimeout).
+          IDENTIFICATION_HTTP_TIMEOUT: "60"
+          # Longest edge (px) the image is downscaled to before upload.
+          IDENTIFICATION_MAX_IMAGE_DIMENSION: "1024"
           # NFR-013 Object storage (§4.1). Defaults target the local-fs backend
           # whose root MUST match the backend-uploads PVC mount below. Switch to
           # s3 by setting STORAGE_BACKEND=s3 + the STORAGE_S3_* values and adding
