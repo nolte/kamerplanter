@@ -33,6 +33,8 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   '/pflanzen/calculations': { label: 'nav.calculations', parent: '/dashboard' },
   // REQ-029 KI-Pflanzenerkennung
   '/pflanzen/identifikation': { label: 'nav.plantIdentification', parent: '/dashboard' },
+  // REQ-017 Vermehrung / Lineage
+  '/vermehrung': { label: 'nav.propagation', parent: '/dashboard' },
 
   // REQ-004 Düngung
   '/duengung/fertilizers': { label: 'nav.fertilizers', parent: '/dashboard' },

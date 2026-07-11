@@ -90,18 +90,32 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
 
   const method = useWatch({ control, name: 'method' });
   const isGraft = method === 'graft';
+  const isCutting = method === 'cutting';
 
   // Species options are fetched once per dialog opening — small, global reference
   // data that changes rarely, so a single page is a pragmatic MVP fetch (mirrors
-  // PlantInstanceCreateDialog's pattern).
+  // PlantInstanceCreateDialog's pattern). The async loader is declared *inside*
+  // the effect body (mirroring `useAquaponicSystems`), so `setState` is never
+  // called synchronously at the top level of the effect callback — this keeps
+  // `react-hooks/set-state-in-effect` clean without adding an eslint-disable.
   useEffect(() => {
     if (!open) return;
-    setSpeciesLoading(true);
-    speciesApi
-      .listSpecies(0, 200)
-      .then((r) => setSpeciesList(r.items))
-      .catch(() => setSpeciesList([]))
-      .finally(() => setSpeciesLoading(false));
+    let cancelled = false;
+    const load = async () => {
+      setSpeciesLoading(true);
+      try {
+        const r = await speciesApi.listSpecies(0, 200);
+        if (!cancelled) setSpeciesList(r.items);
+      } catch {
+        if (!cancelled) setSpeciesList([]);
+      } finally {
+        if (!cancelled) setSpeciesLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [open]);
 
   const onSubmit = async (data: FormData) => {
@@ -137,6 +151,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
               {t('pages.propagation.fields.sectionWhat')}
             </Typography>
             <HelpTooltip term="vermehrung" iconOnly />
+            {isCutting && <HelpTooltip term="steckling" iconOnly />}
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             {t('pages.propagation.fields.sectionWhatIntro')}
@@ -146,6 +161,8 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
               name="method"
               control={control}
               label={t('pages.propagation.fields.method')}
+              required
+              autoFocus
               options={methods.map((v) => ({
                 value: v,
                 label: t(`enums.propagationEventMethod.${v}`),
@@ -210,6 +227,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
             control={control}
             label={t('pages.propagation.fields.notes')}
             multiline
+            minRows={2}
           />
           <FormActions onCancel={handleClose} loading={isSubmitting} />
         </form>

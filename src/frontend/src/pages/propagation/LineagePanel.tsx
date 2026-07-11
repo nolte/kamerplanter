@@ -118,6 +118,12 @@ export default function LineagePanel(): ReactElement {
                 helperText={t('pages.propagation.lineage.plantKeyHelper')}
                 value={plantKey}
                 onChange={(e) => setPlantKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && plantKey.trim() && !lineageLoading) {
+                    e.preventDefault();
+                    void handleTrace();
+                  }
+                }}
                 slotProps={{ htmlInput: { 'data-testid': 'lineage-plant-key' } }}
               />
               <Button
@@ -205,6 +211,12 @@ export default function LineagePanel(): ReactElement {
                 label={t('pages.propagation.graft.scionKey')}
                 value={scionKey}
                 onChange={(e) => setScionKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && scionKey.trim() && rootstockKey.trim() && !graftLoading) {
+                    e.preventDefault();
+                    void handleGraftCheck();
+                  }
+                }}
                 slotProps={{ htmlInput: { 'data-testid': 'graft-scion-key' } }}
               />
               <TextField
@@ -213,6 +225,12 @@ export default function LineagePanel(): ReactElement {
                 label={t('pages.propagation.graft.rootstockKey')}
                 value={rootstockKey}
                 onChange={(e) => setRootstockKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && scionKey.trim() && rootstockKey.trim() && !graftLoading) {
+                    e.preventDefault();
+                    void handleGraftCheck();
+                  }
+                }}
                 slotProps={{ htmlInput: { 'data-testid': 'graft-rootstock-key' } }}
               />
               <Button
