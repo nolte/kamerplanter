@@ -97,7 +97,12 @@ task lint:backend       # ruff
 task lint:frontend      # ESLint
 task ha:deploy          # deploy HA integration to pod
 task docs:serve         # MkDocs local preview
+task claude             # Claude Code + nolte portfolio plugins loaded
 ```
+
+`task claude` starts Claude Code with the `nolte-shared` + `nolte-engineering`
+portfolio plugins loaded from a local `claude-shared` checkout (override its path
+with `NOLTE_CLAUDE_SHARED`). See [CLAUDE.md](CLAUDE.md) §"Claude Code plugin adoption".
 
 ## Documentation
 

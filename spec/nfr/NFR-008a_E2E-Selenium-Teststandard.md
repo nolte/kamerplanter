@@ -27,9 +27,9 @@ Betroffene Module: [tests/e2e]
 NFR-008 definiert das *Was* (Teststufen, Protokoll-Format, Screenshot-Checkpoints). NFR-008a definiert das *Wie* — die konkreten Code-Konventionen, die jeder E2E-Test einhalten MUSS.
 
 Dieses Dokument ist die **primaere Referenz** fuer:
-- `.claude/agents/selenium-test-generator.md` — beim Erzeugen neuer Tests
-- `.claude/agents/selenium-test-reviewer.md` — beim Pruefen bestehender Tests
-- `nolte-shared:e2e-result-reviewer` (Plugin-Agent) — beim Reviewen von Testergebnissen
+- `nolte-engineering:e2e-test-generator` (Plugin-Agent) — beim Erzeugen neuer Tests
+- `nolte-engineering:e2e-test-reviewer` (Plugin-Agent) — beim Pruefen bestehender Tests
+- `nolte-engineering:e2e-result-reviewer` (Plugin-Agent) — beim Reviewen von Testergebnissen
 
 ---
 

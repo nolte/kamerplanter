@@ -241,6 +241,48 @@ def _api_helpers(auth_token: str | None = None):
     return _post, _get
 
 
+# All toggleable (non-core) module keys from the frontend module catalog
+# (src/frontend/src/config/moduleCatalog.ts). REQ-042 introduced the ModuleGuard,
+# which hides modules whose defaultLevel exceeds the tenant's experience_level
+# (a fresh light-mode tenant defaults to BEGINNER). Advanced pages (master_data,
+# nutrition, harvest, ipm, tanks, substrates, runs, companion, ...) therefore
+# render a "Dieses Modul ist ausgeblendet" placeholder (data-testid
+# 'module-guard-hint') instead of the page, and every E2E page-object times out
+# waiting for the page marker. Writing an explicit 'enabled' override per module
+# short-circuits the experience-level check (useModuleVisibility.ts) and restores
+# the pre-REQ-042 assumption that all pages are reachable. Core keys
+# (dashboard/plants/locations/settings/onboarding) are validated-away by the
+# backend, so listing them is harmless — we only send the toggleable set.
+_E2E_TOGGLEABLE_MODULES = (
+    "care", "calendar", "watering", "tasks", "nutrition", "tanks", "aquaponics",
+    "substrates", "calculators", "ipm", "harvest", "post_harvest", "runs",
+    "propagation", "master_data", "companion", "sensors", "automation",
+    "smart_home", "ai",
+)
+
+
+def _api_patch(url: str, data: dict, auth_token: str | None = None) -> tuple[int, dict]:
+    """Send a PATCH with optional Bearer auth (light mode needs none)."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    headers = {"Content-Type": "application/json"}
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
+    req = urllib.request.Request(
+        url, data=json.dumps(data).encode(), headers=headers, method="PATCH"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status, json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read())
+        except Exception:
+            return e.code, {}
+
+
 def _register_and_login(api_base: str) -> tuple[str, str]:
     """Register the demo user (idempotent) and login to get a JWT token.
 
@@ -304,6 +346,18 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     SLOT_LOCATION_NAME = "E2E-Gewaechshaus"
 
     try:
+        # ── Enable all toggleable modules server-side (REQ-042, FULL mode) ──
+        # Full mode reads module_visibility from the server user_preferences.
+        # (Light mode ignores the server value and uses the localStorage key
+        # 'kp-module-visibility' seeded in the browser fixture instead.)
+        # Idempotent: PATCH replaces the whole map.
+        mv_status, _ = _api_patch(
+            f"{api}/user-preferences",
+            {"module_visibility": {k: "enabled" for k in _E2E_TOGGLEABLE_MODULES}},
+            result.get("access_token"),
+        )
+        result["module_visibility_status"] = mv_status
+
         list_status, sites = _get(f"{api}/sites")
         existing_site = None
         if list_status == 200 and isinstance(sites, list):
@@ -540,6 +594,23 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
     driver.get(url)
     driver.execute_script(
         "window.localStorage.setItem('kamerplanter-lang', 'de');"
+    )
+
+    # ── Enable all toggleable modules (REQ-042 ModuleGuard) ──────────────
+    # In light mode the frontend treats localStorage key 'kp-module-visibility'
+    # as the source of truth for module overrides and OVERWRITES the server value
+    # on every fetch (userPreferencesSlice.fetchPreferences.fulfilled). A fresh
+    # browser has no overrides, so advanced pages (stammdaten/düngung/harvest/ipm/
+    # tanks/substrates/runs/companion ...) render the "module hidden" placeholder
+    # and every page-object times out. Seed the localStorage override map here so
+    # the next in-test navigation reads it. (Full mode ignores localStorage and
+    # uses the server PATCH done in e2e_seed_data instead — setting this is a
+    # harmless no-op there.)
+    import json as _json
+
+    driver.execute_script(
+        "window.localStorage.setItem('kp-module-visibility', arguments[0]);",
+        _json.dumps({k: "enabled" for k in _E2E_TOGGLEABLE_MODULES}),
     )
 
     # In full mode, log the browser in so non-auth tests can access the app.
