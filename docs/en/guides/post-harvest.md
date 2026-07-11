@@ -1,7 +1,7 @@
 # Post-Harvest: Drying, Curing & Storage
 
 !!! info "Partially implemented"
-    **Harvest recording** (HarvestBatch, quality assessment, yield metrics) is fully implemented. **Drying and curing phases** (state machine, environment monitoring during drying) are specified but not yet modeled as separate phases in the code.
+    **Harvest recording** (HarvestBatch, quality assessment, yield metrics) as well as **post-harvest processing** with its own stage state machine (drying → curing → storage → released), weight-based drying progress, and automatic mold alerts are implemented — see [Post-Harvest](../user-guide/post-harvest.md). The product-specific detail protocols additionally described on this page (e.g. structured burping schedules, sauerkraut/kimchi fermentation phases, storage-location inventory) remain domain background knowledge without a dedicated interface.
 
 The post-harvest phase begins at cutting and ends when your product is stored or
 processed. Kamerplanter accompanies this process with protocol templates, quality
@@ -33,14 +33,15 @@ and shelf life.
 
 ## Harvest Workflow in Kamerplanter
 
-<!-- diagram-source: user-described — post-harvest state machine from harvest through drying, curing, and storage -->
+<!-- diagram-source: src/backend/app/domain/engines/post_harvest_stage_engine.py -->
 ```mermaid
 stateDiagram-v2
     [*] --> Harvest: PHI elapsed
-    Harvest --> Drying: Harvest confirmed
-    Drying --> Curing: Target moisture reached
-    Curing --> Storage: Curing protocol complete
-    Storage --> [*]: Consumption or sale
+    Harvest --> Drying: Start drying
+    Drying --> Curing: at 95% drying progress
+    Curing --> Storage
+    Storage --> Released
+    Released --> [*]
 ```
 
 1. Navigate to **Harvest Batches** (`/ernte/batches`) and click **Create Harvest
@@ -49,14 +50,17 @@ stateDiagram-v2
 3. Create the **harvest batch** (HarvestBatch) with fresh weight, harvest date,
    and harvest type. You record the quality assessment afterwards, separately,
    in the **Quality** tab.
+4. Navigate to **Post-Harvest** (`/ernte/nachernte`) and click **Start drying**
+   to take the harvest batch into its own stage state machine
+   (drying → curing → storage → released).
+5. While drying, record the **weight** regularly — Kamerplanter calculates
+   progress, a recommendation, and estimated days remaining from it, and
+   automatically raises a mold alert when needed.
 
-!!! warning "Not yet implemented"
-    The following steps are specified but not yet built:
+Details on this workflow: [Post-Harvest](../user-guide/post-harvest.md)
 
-    4. Create a dedicated **post-harvest protocol** with a selectable protocol type (drying/curing/storage as a state machine).
-    5. Record regular **measurements** (weight, temperature, humidity) in a structured way per protocol step.
-
-    Currently, only the **Actual Dry Weight (g)** field in the Edit tab of the harvest batch is available for this — see [Harvest Management](../user-guide/harvest.md#documenting-drying).
+!!! info "API only: structured environmental observations"
+    Regular, structured **environmental observations** (temperature, humidity, water activity, CO₂, visual and aroma condition) per stage can currently only be recorded via the API — there's no form for them in the interface yet. Mold alerts that have already been raised still appear in the batch detail view regardless.
 
 ---
 
@@ -204,8 +208,8 @@ After harvest and at the end of the curing process, record a quality assessment
 - **Defects**: freely entered keywords (e.g. `mold`, `pests`, `hermaphrodite`) — recognised keywords feed into the score with a defined penalty
 - **Overall score** (0–100) and **grade** (A+/A/B/C/D): calculated automatically from the three scores and the defects — see the grade thresholds in [Harvest Management](../user-guide/harvest.md#quality-assessment)
 
-!!! note "Partially available"
-    Daily weight tracking with a drying-progress or water-activity (a_w) display during drying does not exist yet. You can only enter the **actual dry weight** once, at the end. Until then, use rule-of-thumb guidance: cannabis typically loses 75–80 % of its fresh weight during drying; target water activity for storage is 0.55–0.65 (mold risk above a_w > 0.65).
+!!! tip "Ongoing weight tracking during drying"
+    For ongoing weight tracking with automatic drying progress, recommendations, and estimated days remaining, use [Post-Harvest](../user-guide/post-harvest.md) — there you record the weight regularly instead of only entering the actual dry weight once, at the end. As a rule of thumb: cannabis typically loses 75–80 % of its fresh weight during drying; target water activity for storage is 0.55–0.65 (mold risk above a_w > 0.65).
 
 ---
 
@@ -227,13 +231,15 @@ After harvest and at the end of the curing process, record a quality assessment
     significant quality loss. After that, THC and terpene levels measurably decline.
 
 ??? question "Do I have to manually enter all measurements in Kamerplanter?"
-    No. If you have linked sensors (e.g., via Home Assistant), temperature and humidity
-    are imported automatically. You only need to record weight and visual assessment
-    manually.
+    You record weight manually during drying via [Post-Harvest](../user-guide/post-harvest.md).
+    Temperature, humidity, water activity, and CO₂ can additionally be submitted via
+    the API — automatic import from linked sensors (e.g. Home Assistant) is not yet
+    wired up for the post-harvest phase.
 
 ## See also
 
 - [Harvest](../user-guide/harvest.md) <!-- REQ-007 -->
+- [Post-Harvest](../user-guide/post-harvest.md) <!-- REQ-008 -->
 - [Pest Management (IPM)](../user-guide/pest-management.md)
 - [Sensors](../user-guide/sensors.md)
 - [VPD Optimization](vpd-optimization.md)

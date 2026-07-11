@@ -148,10 +148,11 @@ The overall score weights appearance (30 %), aroma (25 %), and colour (20 %) and
 
 ## Documenting Drying
 
-!!! note "Partially available"
-    Kamerplanter currently only offers a single field, **Actual Dry Weight (g)**, in the Edit tab of the harvest batch — you enter it manually once drying is complete. A dedicated drying workflow interface with start/target moisture, ongoing weight tracking, and automatic progress or drying-loss calculation is specified as a planned feature but not yet built. <!-- REQ-008 -->
+For the actual drying, curing, and storage workflow — with start/target moisture, ongoing weight tracking, automatic progress and recommendations, and mold alerts — take the harvest batch into the dedicated **Post-Harvest** processing. The **Actual Dry Weight (g)** field in the harvest batch's Edit tab remains available alongside it for a quick, one-off retroactive entry.
 
-For guidance on drying (target values for temperature, humidity, and duration), see the post-harvest guide.
+More: [Post-Harvest](post-harvest.md)
+
+For guidance on drying (target values for temperature, humidity, and duration), also see the post-harvest guide.
 
 More: [Post-Harvest: Drying, Curing & Storage](../guides/post-harvest.md)
 
@@ -219,4 +220,5 @@ Some growers maintain a dark period of 24–48 hours immediately before harvest.
 - [Growth Phases](growth-phases.md)
 - [Fertilization](fertilization.md)
 - [Planting Runs](planting-runs.md)
+- [Post-Harvest](post-harvest.md)
 - [Post-Harvest: Drying, Curing & Storage](../guides/post-harvest.md)

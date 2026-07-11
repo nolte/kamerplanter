@@ -1,1 +1,1 @@
-"""REQ-008 Post-Harvest router package (scaffold)."""
+"""REQ-008 Post-Harvest router package."""

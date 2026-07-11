@@ -48,6 +48,13 @@ HARVEST_BATCHES = "harvest_batches"
 QUALITY_ASSESSMENTS = "quality_assessments"
 YIELD_METRICS = "yield_metrics"
 
+# REQ-008 Post-Harvest
+POST_HARVEST_BATCHES = "post_harvest_batches"
+DRYING_PROGRESS = "drying_progress"
+STORAGE_OBSERVATIONS = "storage_observations"
+MOLD_ALERTS = "mold_alerts"
+BURPING_EVENTS = "burping_events"
+
 # REQ-006 Tasks
 WORKFLOW_TEMPLATES = "workflow_templates"
 WORKFLOW_PHASES = "workflow_phases"
@@ -209,6 +216,11 @@ DOCUMENT_COLLECTIONS = [
     HARVEST_BATCHES,
     QUALITY_ASSESSMENTS,
     YIELD_METRICS,
+    POST_HARVEST_BATCHES,
+    DRYING_PROGRESS,
+    STORAGE_OBSERVATIONS,
+    MOLD_ALERTS,
+    BURPING_EVENTS,
     WORKFLOW_TEMPLATES,
     WORKFLOW_PHASES,
     TASK_TEMPLATES,
@@ -341,6 +353,13 @@ USES_INDICATOR = "uses_indicator"
 HARVESTED_AS = "harvested_as"
 ASSESSED_BY_QUALITY = "assessed_by_quality"
 HAS_YIELD_METRIC = "has_yield_metric"
+
+# REQ-008 Post-Harvest edges
+POST_HARVEST_OF = "post_harvest_of"
+HAS_DRYING_PROGRESS = "has_drying_progress"
+HAS_STORAGE_OBSERVATION = "has_storage_observation"
+TRIGGERED_MOLD_ALERT = "triggered_mold_alert"
+HAS_BURPING_EVENT = "has_burping_event"
 
 # REQ-006 Task edges
 WF_CONTAINS = "wf_contains"
@@ -519,6 +538,11 @@ EDGE_COLLECTIONS = [
     HARVESTED_AS,
     ASSESSED_BY_QUALITY,
     HAS_YIELD_METRIC,
+    POST_HARVEST_OF,
+    HAS_DRYING_PROGRESS,
+    HAS_STORAGE_OBSERVATION,
+    TRIGGERED_MOLD_ALERT,
+    HAS_BURPING_EVENT,
     WF_CONTAINS,
     WF_HAS_PHASE,
     REQUIRES_PHASE,
@@ -910,6 +934,32 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": HAS_YIELD_METRIC,
         "from_vertex_collections": [HARVEST_BATCHES],
         "to_vertex_collections": [YIELD_METRICS],
+    },
+    # REQ-008 Post-Harvest
+    {
+        "edge_collection": POST_HARVEST_OF,
+        "from_vertex_collections": [HARVEST_BATCHES],
+        "to_vertex_collections": [POST_HARVEST_BATCHES],
+    },
+    {
+        "edge_collection": HAS_DRYING_PROGRESS,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [DRYING_PROGRESS],
+    },
+    {
+        "edge_collection": HAS_STORAGE_OBSERVATION,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [STORAGE_OBSERVATIONS],
+    },
+    {
+        "edge_collection": TRIGGERED_MOLD_ALERT,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [MOLD_ALERTS],
+    },
+    {
+        "edge_collection": HAS_BURPING_EVENT,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [BURPING_EVENTS],
     },
     # REQ-006 Tasks
     {
@@ -1369,6 +1419,19 @@ def ensure_collections(db: StandardDatabase) -> None:
     harvest_batches_col = db.collection(HARVEST_BATCHES)
     harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
     harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True)
+
+    # REQ-008 Post-Harvest indexes
+    post_harvest_batches_col = db.collection(POST_HARVEST_BATCHES)
+    post_harvest_batches_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    post_harvest_batches_col.add_persistent_index(fields=["harvest_batch_key"], unique=False)
+    drying_progress_col = db.collection(DRYING_PROGRESS)
+    drying_progress_col.add_persistent_index(fields=["batch_key"], unique=False)
+    storage_observations_col = db.collection(STORAGE_OBSERVATIONS)
+    storage_observations_col.add_persistent_index(fields=["batch_key"], unique=False)
+    mold_alerts_col = db.collection(MOLD_ALERTS)
+    mold_alerts_col.add_persistent_index(fields=["batch_key"], unique=False)
+    burping_events_col = db.collection(BURPING_EVENTS)
+    burping_events_col.add_persistent_index(fields=["batch_key"], unique=False)
 
     # REQ-006 Task indexes
     tasks_col = db.collection(TASKS)

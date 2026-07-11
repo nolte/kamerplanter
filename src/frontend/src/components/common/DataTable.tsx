@@ -49,6 +49,8 @@ interface DataTableProps<T> {
   onRowsPerPageChange?: (rowsPerPage: number) => void;
   onRowClick?: (row: T) => void;
   emptyMessage?: string;
+  /** Optional secondary sentence shown below `emptyMessage` (e.g. how to create the first entry). */
+  emptyDescription?: string;
   emptyActionLabel?: string;
   onEmptyAction?: () => void;
   emptyIllustration?: string;
@@ -101,6 +103,7 @@ export default function DataTable<T>({
   onRowsPerPageChange,
   onRowClick,
   emptyMessage,
+  emptyDescription,
   emptyActionLabel,
   onEmptyAction,
   emptyIllustration,
@@ -246,6 +249,7 @@ export default function DataTable<T>({
     return (
       <EmptyState
         message={emptyMessage}
+        description={emptyDescription}
         actionLabel={emptyActionLabel}
         onAction={onEmptyAction}
         illustration={emptyIllustration}
