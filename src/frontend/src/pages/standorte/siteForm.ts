@@ -21,6 +21,31 @@ export const SITE_TYPE_VALUES: readonly SiteType[] = [
 ] as const;
 
 /**
+ * Single source of truth for the "outdoor / weather-relevant" site types — the
+ * types for which GPS coordinates, weather sources and frost warnings apply
+ * (REQ-002/REQ-046). It mirrors the backend `WEATHER_RELEVANT_SITE_TYPES` (and,
+ * by the same reasoning, `OVERWINTERING_SITE_TYPES`): a frost-exposed outdoor
+ * location is exactly one whose local weather drives plant care.
+ *
+ * `balcony` is included — a balcony is a frost-exposed outdoor spot, so its
+ * plants benefit from weather/frost data just like ground/greenhouse ones.
+ * `indoor` / `windowsill` / `grow_tent` stay excluded (climate-controlled).
+ *
+ * Replaces the scattered `type === 'outdoor' || type === 'greenhouse'` checks
+ * that previously omitted `balcony`, contradicting the frost classification.
+ */
+export const WEATHER_RELEVANT_SITE_TYPES: readonly SiteType[] = [
+  'outdoor',
+  'greenhouse',
+  'balcony',
+] as const;
+
+/** Whether GPS/weather/frost features apply to a given site type. */
+export function isWeatherRelevantSiteType(type: SiteType | undefined | null): boolean {
+  return type != null && WEATHER_RELEVANT_SITE_TYPES.includes(type);
+}
+
+/**
  * A GPS coordinate input: either a number or the empty string (field cleared).
  * Both coordinates empty ⇒ no GPS at all; both filled ⇒ a `[lat, lon]` tuple.
  */

@@ -42,7 +42,7 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import type { Sensor, SiteWaterConfig } from '@/api/types';
-import { buildSiteResolver, gpsToFields, gpsToPayload, siteTypeOptions, type SiteFormData } from './siteForm';
+import { buildSiteResolver, gpsToFields, gpsToPayload, isWeatherRelevantSiteType, siteTypeOptions, type SiteFormData } from './siteForm';
 
 const DEFAULT_VALUES: SiteFormData = {
   name: '',
@@ -83,11 +83,12 @@ export default function SiteDetailPage() {
     resolver,
     defaultValues: DEFAULT_VALUES,
   });
-  // REQ-046 follow-up — the weather/frost section further down this page
-  // only ever unlocks for outdoor/greenhouse sites with GPS coordinates; the
-  // discreet hint below keeps that connection visible while editing.
+  // REQ-046 follow-up — the weather/frost section further down this page only
+  // ever unlocks for weather-relevant sites (outdoor/greenhouse/balcony, see
+  // WEATHER_RELEVANT_SITE_TYPES) with GPS coordinates; the discreet hint below
+  // keeps that connection visible while editing.
   const watchedType = useWatch({ control, name: 'type' });
-  const weatherEnabledForType = watchedType === 'outdoor' || watchedType === 'greenhouse';
+  const weatherEnabledForType = isWeatherRelevantSiteType(watchedType);
 
   const loadSensors = useCallback(async () => {
     if (!key) return;
@@ -239,7 +240,15 @@ export default function SiteDetailPage() {
                   {t('pages.sites.weatherTypeHint', {
                     outdoorLabel: t('enums.siteType.outdoor'),
                     greenhouseLabel: t('enums.siteType.greenhouse'),
+                    balconyLabel: t('enums.siteType.balcony'),
                   })}
+                </Typography>
+              </Alert>
+            )}
+            {watchedType === 'balcony' && (
+              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 2 }} data-testid="site-balcony-weather-hint">
+                <Typography variant="caption">
+                  {t('pages.sites.balconyWeatherHint')}
                 </Typography>
               </Alert>
             )}
@@ -348,7 +357,7 @@ export default function SiteDetailPage() {
 
       {key && <LocationTreeSection siteKey={key} />}
       {key && <SiteRunsSection siteKey={key} />}
-      {key && current && (current.type === 'outdoor' || current.type === 'greenhouse') && (
+      {key && current && isWeatherRelevantSiteType(current.type) && (
         current.gps_coordinates != null ? (
           <>
             <WeatherSourceSection siteKey={key} />

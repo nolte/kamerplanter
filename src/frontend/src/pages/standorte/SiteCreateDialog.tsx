@@ -24,7 +24,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
 import * as api from '@/api/endpoints/sites';
 import type { SiteWaterConfig } from '@/api/types';
-import { buildSiteResolver, gpsToPayload, siteTypeOptions, type SiteFormData } from './siteForm';
+import { buildSiteResolver, gpsToPayload, isWeatherRelevantSiteType, siteTypeOptions, type SiteFormData } from './siteForm';
 
 const DEFAULT_VALUES: SiteFormData = {
   name: '',
@@ -69,11 +69,12 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
     defaultValues: DEFAULT_VALUES,
   });
   // REQ-046 follow-up — the weather/frost section only ever unlocks for
-  // outdoor/greenhouse sites (see WeatherSourceSection in SiteDetailPage).
+  // weather-relevant sites (outdoor/greenhouse/balcony, see
+  // WEATHER_RELEVANT_SITE_TYPES and WeatherSourceSection in SiteDetailPage).
   // Watching the live type keeps the discreet hint below the GPS fields in
   // sync as the user picks a different type, without waiting for submit.
   const watchedType = useWatch({ control, name: 'type' });
-  const weatherEnabledForType = watchedType === 'outdoor' || watchedType === 'greenhouse';
+  const weatherEnabledForType = isWeatherRelevantSiteType(watchedType);
   useEffect(() => {
     if (!open) {
       reset(DEFAULT_VALUES);
@@ -134,7 +135,15 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
                   {t('pages.sites.weatherTypeHint', {
                     outdoorLabel: t('enums.siteType.outdoor'),
                     greenhouseLabel: t('enums.siteType.greenhouse'),
+                    balconyLabel: t('enums.siteType.balcony'),
                   })}
+                </Typography>
+              </Alert>
+            )}
+            {watchedType === 'balcony' && (
+              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 1.5 }} data-testid="site-balcony-weather-hint">
+                <Typography variant="caption">
+                  {t('pages.sites.balconyWeatherHint')}
                 </Typography>
               </Alert>
             )}
