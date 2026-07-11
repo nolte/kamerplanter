@@ -57,9 +57,14 @@ class InvenTreeService:
         repo: ArangoInvenTreeRepository,
         encryption_engine: EncryptionEngine,
         adapter_factory: Any | None = None,
+        redis_client: Any | None = None,
     ) -> None:
         self._repo = repo
         self._encryption = encryption_engine
+        # Shared Valkey/Redis client for the adapter's persistent per-connection
+        # outbound rate-limit window (IT-005). Optional: without it the adapter
+        # degrades to a best-effort per-instance window.
+        self._redis = redis_client
         # Injectable for tests: (connection) -> InvenTreeAdapter. Defaults to the
         # real SSRF-guarded, token-decrypting REST adapter.
         self._adapter_factory = adapter_factory or self._build_adapter
@@ -90,6 +95,10 @@ class InvenTreeService:
             token,
             verify_ssl=connection.verify_ssl,
             allow_private=settings.inventree_allow_private_endpoint,
+            # Stable identifier + shared store keep the outbound rate-limit window
+            # persistent across the per-request adapter rebuild (IT-005).
+            connection_key=connection.key,
+            redis_client=self._redis,
         )
 
     def _load_owned_connection(self, key: str, tenant_key: str) -> InvenTreeConnection:

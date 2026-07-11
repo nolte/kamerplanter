@@ -363,6 +363,26 @@ class TestReferences:
         assert body["cached_stock"] == 12.5
         assert body["auto_deduct"] is True
 
+    def test_link_rejects_unknown_entity_collection(self):
+        client, _ = self._with_connection()
+        # IT-003/SEC: a collection outside the allowlist (fertilizers/tanks/
+        # equipment) is rejected by request validation before touching InvenTree.
+        resp = client.post(
+            _inv("/references/link"),
+            json={"entity_collection": "secrets", "entity_key": "x", "inventree_part_id": 42},
+        )
+        assert resp.status_code == 422
+
+    def test_link_accepts_allowlisted_entity_collections(self):
+        client, _ = self._with_connection()
+        for collection in ("fertilizers", "tanks", "equipment"):
+            resp = client.post(
+                _inv("/references/link"),
+                json={"entity_collection": collection, "entity_key": "e1", "inventree_part_id": 42},
+            )
+            assert resp.status_code == 201, collection
+            assert resp.json()["entity_collection"] == collection
+
     def test_sync_reference_updates_cache(self):
         client, repo = self._with_connection()
         ref_key = client.post(

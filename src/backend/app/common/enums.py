@@ -1338,6 +1338,21 @@ class StockTransactionStatus(StrEnum):
     FAILED = "failed"
 
 
+class LinkableEntityCollection(StrEnum):
+    """REQ-016 §3.2 — collections that may be linked to an InvenTree part.
+
+    Mirrors the ``has_inventree_ref`` graph edge domain
+    (``fertilizers | tanks | equipment → inventree_references``). Constraining the
+    reference-link request to this allowlist (SEC/IT-003) prevents an arbitrary
+    collection name from being pointed at InvenTree; a value outside the allowlist
+    is rejected with HTTP 422.
+    """
+
+    FERTILIZERS = "fertilizers"
+    TANKS = "tanks"
+    EQUIPMENT = "equipment"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

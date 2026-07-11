@@ -145,7 +145,7 @@ def get_inventree_service():
     """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
     from app.domain.services.inventree_service import InvenTreeService
 
-    return InvenTreeService(get_inventree_repo(), get_encryption_engine())
+    return InvenTreeService(get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client())
 
 
 def get_species_repo() -> ArangoSpeciesRepository:

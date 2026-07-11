@@ -45,6 +45,80 @@ def _adapter(url: str = PUBLIC_URL, **kwargs) -> InvenTreeRestAdapter:
     return InvenTreeRestAdapter(url, "secret-token", allow_private=True, **kwargs)
 
 
+class _FakeRedis:
+    """Minimal in-memory sorted-set store shared across adapter instances.
+
+    Implements just the sliding-window surface the adapter uses (pipeline with
+    zremrangebyscore/zadd/zcard/expire + zrem). State lives in ``self.store`` so
+    two adapters constructed with the *same* instance share one window — mirroring
+    a real Valkey/Redis backend.
+    """
+
+    def __init__(self) -> None:
+        self.store: dict[str, dict[str, float]] = {}
+
+    def zremrangebyscore(self, key: str, min_score: float, max_score: float) -> int:
+        zset = self.store.setdefault(key, {})
+        removed = [m for m, s in zset.items() if min_score <= s <= max_score]
+        for member in removed:
+            del zset[member]
+        return len(removed)
+
+    def zadd(self, key: str, mapping: dict[str, float]) -> int:
+        zset = self.store.setdefault(key, {})
+        added = 0
+        for member, score in mapping.items():
+            if member not in zset:
+                added += 1
+            zset[member] = score
+        return added
+
+    def zcard(self, key: str) -> int:
+        return len(self.store.get(key, {}))
+
+    def zrem(self, key: str, *members: str) -> int:
+        zset = self.store.setdefault(key, {})
+        removed = 0
+        for member in members:
+            if member in zset:
+                del zset[member]
+                removed += 1
+        return removed
+
+    def expire(self, key: str, ttl: int) -> bool:  # noqa: ARG002 - TTL is a no-op here
+        return True
+
+    def pipeline(self) -> _FakePipeline:
+        return _FakePipeline(self)
+
+
+class _FakePipeline:
+    """Queues operations and applies them on ``execute`` (like redis-py)."""
+
+    def __init__(self, redis: _FakeRedis) -> None:
+        self._redis = redis
+        self._ops: list[tuple[str, tuple]] = []
+
+    def zremrangebyscore(self, *args) -> _FakePipeline:
+        self._ops.append(("zremrangebyscore", args))
+        return self
+
+    def zadd(self, *args) -> _FakePipeline:
+        self._ops.append(("zadd", args))
+        return self
+
+    def zcard(self, *args) -> _FakePipeline:
+        self._ops.append(("zcard", args))
+        return self
+
+    def expire(self, *args) -> _FakePipeline:
+        self._ops.append(("expire", args))
+        return self
+
+    def execute(self) -> list:
+        return [getattr(self._redis, name)(*args) for name, args in self._ops]
+
+
 def _mock_client(mock_cls, *, get=None, post=None):
     mock_ac = AsyncMock()
     if get is not None:
@@ -112,6 +186,60 @@ class TestRateLimit:
             adapter._guard_rate_limit()
         with pytest.raises(InvenTreeRateLimitError):
             adapter._guard_rate_limit()
+
+
+class TestPersistentRateLimit:
+    """IT-005: the window must live in the shared store, not per-adapter memory."""
+
+    def test_rate_limit_persists_across_adapter_instances(self):
+        redis = _FakeRedis()
+        # Exhaust the window on one adapter instance.
+        first = _adapter(connection_key="conn-1", redis_client=redis)
+        for _ in range(_RATE_LIMIT_MAX_REQUESTS):
+            first._guard_rate_limit()
+        # A brand-new adapter (rebuilt per request) shares the same window and must
+        # stay blocked instead of resetting the counter.
+        second = _adapter(connection_key="conn-1", redis_client=redis)
+        with pytest.raises(InvenTreeRateLimitError):
+            second._guard_rate_limit()
+
+    def test_rate_limit_isolated_per_connection_key(self):
+        redis = _FakeRedis()
+        exhausted = _adapter(connection_key="conn-a", redis_client=redis)
+        for _ in range(_RATE_LIMIT_MAX_REQUESTS):
+            exhausted._guard_rate_limit()
+        # A different connection has its own window and is unaffected.
+        other = _adapter(connection_key="conn-b", redis_client=redis)
+        other._guard_rate_limit()  # must not raise
+
+    def test_falls_back_to_in_memory_when_store_unavailable(self):
+        class _BrokenRedis:
+            def pipeline(self):
+                raise ConnectionError("valkey down")
+
+        adapter = _adapter(connection_key="conn-x", redis_client=_BrokenRedis())
+        # Degrades gracefully to the per-instance window (NFR-007) — still caps.
+        for _ in range(_RATE_LIMIT_MAX_REQUESTS):
+            adapter._guard_rate_limit()
+        with pytest.raises(InvenTreeRateLimitError):
+            adapter._guard_rate_limit()
+
+
+class TestNoRedirectFollow:
+    """IT-003/SEC: the outbound client must never chase a 3xx Location."""
+
+    @pytest.mark.asyncio
+    async def test_client_is_built_without_redirect_following(self):
+        adapter = _adapter()
+        mock_resp = MagicMock(status_code=200)
+        mock_resp.json.return_value = PART_RESPONSE
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("app.data_access.external.inventree_adapter.httpx.AsyncClient") as mock_cls:
+            _mock_client(mock_cls, get=mock_resp)
+            await adapter.get_part(42)
+
+        assert mock_cls.call_args.kwargs["follow_redirects"] is False
 
 
 class TestMockedHttp:

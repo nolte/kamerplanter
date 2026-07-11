@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.common.enums import (
     EquipmentStatus,
     EquipmentType,
+    LinkableEntityCollection,
     StockTransactionStatus,
     StockTransactionType,
 )
@@ -66,7 +67,9 @@ class HealthCheckResponse(BaseModel):
 
 
 class ReferenceLinkRequest(BaseModel):
-    entity_collection: str = Field(min_length=1)
+    # Allowlisted (IT-003/SEC): only collections that own a ``has_inventree_ref``
+    # edge may be linked; anything else is rejected with HTTP 422.
+    entity_collection: LinkableEntityCollection
     entity_key: str = Field(min_length=1)
     inventree_part_id: int = Field(gt=0)
     auto_deduct: bool = False
