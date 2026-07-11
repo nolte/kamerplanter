@@ -118,6 +118,8 @@ export default function PostHarvestPage() {
         loading={loading}
         onRowClick={(r) => setDetailKey(r.key)}
         getRowKey={(r) => r.key}
+        emptyMessage={t('pages.postHarvest.emptyTitle')}
+        emptyDescription={t('pages.postHarvest.emptyDescription')}
         emptyActionLabel={t('pages.postHarvest.startDrying')}
         onEmptyAction={() => setStartOpen(true)}
         tableState={tableState}
@@ -142,7 +144,18 @@ export default function PostHarvestPage() {
             fields={[
               {
                 label: t('pages.postHarvest.drynessProgress'),
-                value: `${r.dryness_progress_percent.toFixed(0)}%`,
+                value: (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 96 }}>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(100, Math.max(0, r.dryness_progress_percent))}
+                      color={r.ready_for_curing ? 'success' : 'info'}
+                      aria-label={t('pages.postHarvest.drynessProgress')}
+                      sx={{ flex: 1 }}
+                    />
+                    <span>{r.dryness_progress_percent.toFixed(0)}%</span>
+                  </Box>
+                ),
               },
             ]}
           />

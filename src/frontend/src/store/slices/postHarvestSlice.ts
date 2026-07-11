@@ -146,7 +146,7 @@ const postHarvestSlice = createSlice({
         state.observations = action.payload;
       })
       .addCase(fetchMoldAlerts.fulfilled, (state, action) => {
-        state.moldAlerts = action.payload;
+        state.moldAlerts = action.payload ?? [];
       });
   },
 });

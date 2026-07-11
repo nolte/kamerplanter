@@ -3417,6 +3417,19 @@
       "advanceSuccess": "Batch advanced to the next stage.",
       "notReadyForCuring": "Not ready for curing yet: drying progress must reach 95%. Record more weight measurements.",
       "openMoldAlerts": "{{count}} open mold alert(s) for this batch.",
+      "moldAlertTitle": "Mold alert",
+      "moldAlertGuidanceCritical": "Critical: check the batch for visible mold immediately, increase airflow and lower humidity. Remove and, if needed, discard affected areas.",
+      "moldAlertGuidanceWarning": "Watch the batch closely, ensure adequate airflow and lower the humidity at the storage location where possible.",
+      "stageDescription": {
+        "drying": "The batch is drying until the target moisture is reached. Record the weight regularly to track progress.",
+        "curing": "In airtight containers the batch cures further: residual moisture evens out and aroma and potency develop. Briefly open the containers daily at first (burping).",
+        "stored": "The batch is in storage. Monitor storage conditions and act promptly on mold warnings.",
+        "released": "Post-harvest processing is complete — the batch has been released."
+      },
+      "nextActionLabel": "Next step:",
+      "waterActivityLabel": "Water activity (a_w)",
+      "daysRemaining": "About {{count}} day left until fully dry.",
+      "daysRemaining_other": "About {{count}} days left until fully dry.",
       "emptyTitle": "No batches in post-harvest yet",
       "emptyDescription": "Start drying a harvest batch to track the post-harvest process."
     },
@@ -4913,6 +4926,13 @@
       "stored": "Stored",
       "released": "Released"
     },
+    "postHarvestNextAction": {
+      "ensure_airflow": "Ensure adequate airflow",
+      "monitor_climate": "Keep an eye on temperature and humidity",
+      "run_snap_test": "Run the snap test: a stem should snap, not bend",
+      "ready_for_curing": "Ready for curing",
+      "over_dried": "Over-dried — start curing promptly"
+    },
     "dryingMethod": {
       "hang_dry": "Hang dry",
       "rack_dry": "Rack dry",
@@ -5307,6 +5327,19 @@
       "short": "Natural enemies of pest organisms",
       "long": "Beneficial organisms (e.g. ladybirds, lacewings, parasitic wasps, predatory mites) feed on or parasitise pests. Their deliberate use is biological pest control and protects people and the environment.",
       "beginnerTip": "Ladybirds against aphids is the best-known example. In greenhouses, beneficials can be purchased and released."
+    },
+    "curing": {
+      "short": "Curing after drying — lets aroma and potency mature",
+      "long": "During curing the dried harvest sits airtight (usually in jars). Residual moisture equalizes between stem and flower, chlorophyll keeps breaking down, and aroma and potency continue to develop. Jars are opened briefly each day at first so excess moisture can escape ('burping').",
+      "beginnerTip": "Impatience hurts the result: curing a few days longer beats opening the batch too early.",
+      "typicalRange": "2–4 weeks"
+    },
+    "water_activity": {
+      "short": "Water activity (a_w) — free water mold can use",
+      "long": "Water activity measures how much of the water in the batch is actually available to microorganisms (scale 0–1) — unlike raw moisture content in percent. Above a_w 0.65 the mold risk rises sharply, even if the batch already feels dry.",
+      "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
+      "unit": "a_w (0–1)",
+      "typicalRange": "0.55–0.65 (safe for storage)"
     }
   },
   "dashboard": {

@@ -3418,6 +3418,19 @@
       "advanceSuccess": "Charge in die nächste Stufe überführt.",
       "notReadyForCuring": "Noch nicht bereit für die Aushärtung: Der Trocknungsfortschritt muss 95 % erreichen. Erfassen Sie weitere Gewichtsmessungen.",
       "openMoldAlerts": "{{count}} offene Schimmel-Warnung(en) für diese Charge.",
+      "moldAlertTitle": "Schimmel-Warnung",
+      "moldAlertGuidanceCritical": "Kritisch: Prüfen Sie die Charge umgehend auf sichtbaren Schimmel, erhöhen Sie die Luftzirkulation und senken Sie die Luftfeuchtigkeit. Befallene Bereiche entfernen und ggf. entsorgen.",
+      "moldAlertGuidanceWarning": "Beobachten Sie die Charge engmaschig, sorgen Sie für ausreichend Luftzirkulation und senken Sie nach Möglichkeit die Luftfeuchtigkeit am Lagerort.",
+      "stageDescription": {
+        "drying": "Die Charge trocknet, bis die Zielfeuchte erreicht ist. Erfassen Sie das Gewicht regelmäßig, um den Fortschritt zu verfolgen.",
+        "curing": "In luftdichten Behältern reift die Charge nach: Restfeuchte verteilt sich gleichmäßig, Aroma und Wirkstoffe entwickeln sich weiter. Behälter anfangs täglich kurz öffnen (Burping).",
+        "stored": "Die Charge ist eingelagert. Beobachten Sie die Lagerbedingungen und reagieren Sie zeitnah auf Schimmel-Warnungen.",
+        "released": "Die Nacherntebehandlung ist abgeschlossen — die Charge ist freigegeben."
+      },
+      "nextActionLabel": "Nächster Schritt:",
+      "waterActivityLabel": "Wasseraktivität (a_w)",
+      "daysRemaining": "Noch ca. {{count}} Tag bis zur vollständigen Trocknung.",
+      "daysRemaining_other": "Noch ca. {{count}} Tage bis zur vollständigen Trocknung.",
       "emptyTitle": "Noch keine Chargen in der Nacherntebehandlung",
       "emptyDescription": "Starten Sie die Trocknung einer Erntecharge, um den Nachernte-Prozess zu verfolgen."
     },
@@ -4919,6 +4932,13 @@
       "stored": "Eingelagert",
       "released": "Freigegeben"
     },
+    "postHarvestNextAction": {
+      "ensure_airflow": "Für ausreichende Luftzirkulation sorgen",
+      "monitor_climate": "Temperatur und Luftfeuchtigkeit im Blick behalten",
+      "run_snap_test": "Knacktest durchführen: Ein Stängel sollte brechen, nicht biegen",
+      "ready_for_curing": "Bereit für die Aushärtung (Curing)",
+      "over_dried": "Zu stark getrocknet — zügig mit der Aushärtung beginnen"
+    },
     "dryingMethod": {
       "hang_dry": "Hängetrocknung",
       "rack_dry": "Gittertrocknung",
@@ -5308,6 +5328,19 @@
       "short": "Natürliche Fressfeinde von Schädlingen",
       "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
       "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
+    },
+    "curing": {
+      "short": "Aushärtung nach der Trocknung — lässt Aroma und Wirkstoffe nachreifen",
+      "long": "Beim Curing lagert die getrocknete Ernte luftdicht (meist in Gläsern). Restfeuchte verteilt sich gleichmäßig zwischen Stängel und Blüte, Chlorophyll baut weiter ab, Aroma und Wirkstoffe reifen nach. Die Behälter werden anfangs täglich kurz geöffnet, damit überschüssige Feuchtigkeit entweicht ('Burping').",
+      "beginnerTip": "Ungeduld verschlechtert das Ergebnis: Lieber ein paar Tage länger aushärten lassen als die Charge zu früh öffnen.",
+      "typicalRange": "2–4 Wochen"
+    },
+    "water_activity": {
+      "short": "Wasseraktivität (a_w) — freies Wasser, das Schimmel nutzen kann",
+      "long": "Die Wasseraktivität misst, wie viel Wasser in der Charge für Mikroorganismen tatsächlich verfügbar ist (Skala 0–1) — anders als der reine Feuchtigkeitsgehalt in Prozent. Ab a_w > 0,65 steigt das Schimmelrisiko deutlich, auch wenn die Charge sich bereits trocken anfühlt.",
+      "beginnerTip": "Ohne Messgerät hilft der Knacktest als Näherung: Bricht der Stängel sauber statt sich zu biegen, ist die Charge meist trocken genug.",
+      "unit": "a_w (0–1)",
+      "typicalRange": "0,55–0,65 (sicher für die Lagerung)"
     }
   },
   "dashboard": {

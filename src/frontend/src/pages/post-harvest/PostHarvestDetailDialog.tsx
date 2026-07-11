@@ -9,16 +9,19 @@ import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
 import Typography from '@mui/material/Typography';
 import LinearProgress from '@mui/material/LinearProgress';
 import TextField from '@mui/material/TextField';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchPostHarvestBatch,
   advancePostHarvestStage,
   recordDryingProgress,
+  fetchMoldAlerts,
   clearCurrentDetail,
 } from '@/store/slices/postHarvestSlice';
 import { useNotification } from '@/hooks/useNotification';
@@ -55,6 +58,7 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
   const notification = useNotification();
   const { handleError } = useApiError();
   const detail = useAppSelector((s) => s.postHarvest.currentDetail);
+  const moldAlerts = useAppSelector((s) => s.postHarvest.moldAlerts);
   const [currentWeight, setCurrentWeight] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -67,6 +71,26 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
   }, [batchKey, dispatch]);
 
   const batch = detail?.batch ?? null;
+  const openMoldAlertCount = detail?.open_mold_alerts ?? 0;
+
+  // Fetch the individual alerts (severity, reason) once we know there is at
+  // least one open one — avoids an extra request for the common case of a
+  // clean batch, while still enriching the banner beyond a bare count.
+  useEffect(() => {
+    if (batch?.key && openMoldAlertCount > 0) {
+      dispatch(fetchMoldAlerts(batch.key));
+    }
+  }, [batch?.key, openMoldAlertCount, dispatch]);
+
+  const openMoldAlerts = useMemo(
+    () => (moldAlerts ?? []).filter((a) => !a.resolved_at),
+    [moldAlerts],
+  );
+  const criticalMoldAlertCount = useMemo(
+    () => openMoldAlerts.filter((a) => a.severity === 'critical').length,
+    [openMoldAlerts],
+  );
+
   const target = batch ? nextStage(batch.stage) : null;
   const isDrying = batch?.stage === 'drying';
   const advanceBlocked = useMemo(
@@ -143,8 +167,22 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
               />
             </Stack>
 
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+            >
+              {t(`pages.postHarvest.stageDescription.${batch.stage}`)}
+              {batch.stage === 'curing' && <HelpTooltip term="curing" iconOnly />}
+            </Typography>
+
             <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Typography
+                id="drying-progress-label"
+                variant="body2"
+                color="text.secondary"
+                gutterBottom
+              >
                 {t('pages.postHarvest.drynessProgress')}:{' '}
                 {batch.dryness_progress_percent.toFixed(1)}%
               </Typography>
@@ -152,13 +190,53 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
                 variant="determinate"
                 value={Math.min(100, Math.max(0, batch.dryness_progress_percent))}
                 color={batch.ready_for_curing ? 'success' : 'info'}
-                aria-label={t('pages.postHarvest.drynessProgress')}
+                aria-labelledby="drying-progress-label"
               />
             </Box>
 
-            {detail && detail.open_mold_alerts > 0 && (
-              <Alert severity="warning" data-testid="mold-alert-banner">
-                {t('pages.postHarvest.openMoldAlerts', { count: detail.open_mold_alerts })}
+            {batch.stage === 'drying' && detail?.latest_drying_progress && (
+              <Stack spacing={0.5}>
+                {detail.latest_drying_progress.next_action === 'over_dried' ? (
+                  <Alert severity="warning" data-testid="over-dried-warning">
+                    {t('enums.postHarvestNextAction.over_dried')}
+                  </Alert>
+                ) : (
+                  <Typography variant="body2">
+                    <strong>{t('pages.postHarvest.nextActionLabel')}</strong>{' '}
+                    {t(`enums.postHarvestNextAction.${detail.latest_drying_progress.next_action}`)}
+                  </Typography>
+                )}
+                {detail.latest_drying_progress.estimated_days_remaining > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t('pages.postHarvest.daysRemaining', {
+                      count: detail.latest_drying_progress.estimated_days_remaining,
+                    })}
+                  </Typography>
+                )}
+                {detail.latest_drying_progress.water_activity != null && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                  >
+                    {t('pages.postHarvest.waterActivityLabel')}:{' '}
+                    {detail.latest_drying_progress.water_activity.toFixed(2)}
+                    <HelpTooltip term="water_activity" iconOnly />
+                  </Typography>
+                )}
+              </Stack>
+            )}
+
+            {openMoldAlertCount > 0 && (
+              <Alert
+                severity={criticalMoldAlertCount > 0 ? 'error' : 'warning'}
+                data-testid="mold-alert-banner"
+              >
+                <AlertTitle>{t('pages.postHarvest.moldAlertTitle')}</AlertTitle>
+                {t('pages.postHarvest.openMoldAlerts', { count: openMoldAlertCount })}{' '}
+                {criticalMoldAlertCount > 0
+                  ? t('pages.postHarvest.moldAlertGuidanceCritical')
+                  : t('pages.postHarvest.moldAlertGuidanceWarning')}
               </Alert>
             )}
 
@@ -181,6 +259,7 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
                       htmlInput: {
                         min: 0,
                         step: 'any',
+                        inputMode: 'decimal',
                         'aria-label': t('pages.postHarvest.currentWeightG'),
                       },
                     }}

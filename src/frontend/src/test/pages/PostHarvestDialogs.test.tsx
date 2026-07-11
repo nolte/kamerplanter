@@ -2,7 +2,9 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type {
+  DryingProgress,
   HarvestBatch,
+  MoldAlert,
   PostHarvestBatch,
   PostHarvestBatchDetail,
 } from '@/api/types';
@@ -135,5 +137,101 @@ describe('PostHarvestDetailDialog', () => {
       <PostHarvestDetailDialog batchKey={null} onClose={vi.fn()} onChanged={vi.fn()} />,
     );
     expect(screen.queryByTestId('advance-stage-button')).not.toBeInTheDocument();
+  });
+
+  it('shows the next drying action and water activity from the latest progress reading', async () => {
+    const progress: DryingProgress = {
+      key: 'dp1',
+      batch_key: 'ph1',
+      start_weight_g: 450,
+      current_weight_g: 300,
+      target_weight_g: 405,
+      weight_loss_percent: 33,
+      dryness_progress_percent: 40,
+      snap_test_ready: false,
+      snap_test_passed: null,
+      over_dried: false,
+      estimated_days_remaining: 3,
+      next_action: 'monitor_climate',
+      water_activity: 0.62,
+      co2_ppm_current: null,
+      recorded_at: null,
+      notes: null,
+    };
+    vi.mocked(postHarvestApi.getBatch).mockResolvedValue({
+      batch: DRYING_BATCH,
+      latest_drying_progress: progress,
+      open_mold_alerts: 0,
+    });
+
+    renderWithProviders(
+      <PostHarvestDetailDialog batchKey="ph1" onClose={vi.fn()} onChanged={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(postHarvestApi.getBatch).toHaveBeenCalledWith('ph1'));
+    expect(
+      await screen.findByText(/Temperatur und Luftfeuchtigkeit im Blick behalten|Keep an eye on temperature and humidity/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/0\.62/)).toBeInTheDocument();
+    expect(screen.queryByTestId('mold-alert-banner')).not.toBeInTheDocument();
+  });
+
+  it('warns when the batch is over-dried', async () => {
+    const progress: DryingProgress = {
+      key: 'dp1',
+      batch_key: 'ph1',
+      start_weight_g: 450,
+      current_weight_g: 60,
+      target_weight_g: 405,
+      weight_loss_percent: 87,
+      dryness_progress_percent: 100,
+      snap_test_ready: true,
+      snap_test_passed: true,
+      over_dried: true,
+      estimated_days_remaining: 0,
+      next_action: 'over_dried',
+      water_activity: null,
+      co2_ppm_current: null,
+      recorded_at: null,
+      notes: null,
+    };
+    vi.mocked(postHarvestApi.getBatch).mockResolvedValue({
+      batch: { ...DRYING_BATCH, dryness_progress_percent: 100, ready_for_curing: true },
+      latest_drying_progress: progress,
+      open_mold_alerts: 0,
+    });
+
+    renderWithProviders(
+      <PostHarvestDetailDialog batchKey="ph1" onClose={vi.fn()} onChanged={vi.fn()} />,
+    );
+
+    expect(await screen.findByTestId('over-dried-warning')).toBeInTheDocument();
+  });
+
+  it('renders a critical mold-alert banner with severity-specific guidance', async () => {
+    vi.mocked(postHarvestApi.getBatch).mockResolvedValue(DETAIL);
+    const alerts: MoldAlert[] = [
+      {
+        key: 'ma1',
+        batch_key: 'ph1',
+        severity: 'critical',
+        trigger_reason: 'a_w 0.72 > 0.65',
+        affected_location: 'Klimaschrank 1',
+        action_taken: null,
+        triggered_at: null,
+        resolved_at: null,
+      },
+    ];
+    vi.mocked(postHarvestApi.getMoldAlerts).mockResolvedValue(alerts);
+
+    renderWithProviders(
+      <PostHarvestDetailDialog batchKey="ph1" onClose={vi.fn()} onChanged={vi.fn()} />,
+    );
+
+    const banner = await screen.findByTestId('mold-alert-banner');
+    expect(banner.className).toMatch(/colorError/);
+    expect(
+      screen.getByText(/sichtbaren Schimmel|visible mold/i),
+    ).toBeInTheDocument();
   });
 });
