@@ -362,6 +362,11 @@ service:
     ports:
       http:
         port: 5173
+        # Dev runs Vite on 5173; without an explicit targetPort the common
+        # library inherits the base (prod nginx) container port 8080, so the
+        # Service routes to a port nothing listens on and the port-forward
+        # returns an empty reply. Pin it to Vite's actual port.
+        targetPort: 5173
   timescaledb:
     controller: timescaledb
     ports:
