@@ -56,6 +56,7 @@ def _build_jobs() -> list[SeedJob]:
     from app.migrations.seed_adventskalender import run_seed_adventskalender
     from app.migrations.seed_data import run_seed
     from app.migrations.seed_fertilizers import run_seed_fertilizers
+    from app.migrations.seed_fish_species import run_seed_fish_species
     from app.migrations.seed_gardol import run_seed_gardol
     from app.migrations.seed_lifecycles_outdoor import run_seed_lifecycles_outdoor
     from app.migrations.seed_location_types import seed_location_types
@@ -78,6 +79,7 @@ def _build_jobs() -> list[SeedJob]:
         SeedJob("plant_info", lambda db: run_seed_plant_info()),
         SeedJob("plant_info_extended", lambda db: run_seed_plant_info_extended()),
         SeedJob("substrates", lambda db: run_seed_substrates()),
+        SeedJob("fish_species", lambda db: run_seed_fish_species()),
         SeedJob("overwintering_profiles", lambda db: run_seed_overwintering_profiles()),
         SeedJob("fertilizers", lambda db: run_seed_fertilizers()),
         SeedJob("plagron", lambda db: run_seed_plagron()),

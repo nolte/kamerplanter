@@ -102,6 +102,14 @@ SENSORS = "sensors"
 WEATHER_FORECASTS = "weather_forecasts"
 WEATHER_SOURCE_CONFIGS = "weather_source_configs"
 
+# REQ-026 Aquaponics
+FISH_SPECIES = "fish_species"
+FISH_STOCKS = "fish_stocks"
+AQUAPONIC_SYSTEMS = "aquaponic_systems"
+WATER_TESTS = "water_tests"
+FISH_FEEDING_EVENTS = "fish_feeding_events"
+SUPPLEMENTATION_EVENTS = "supplementation_events"
+
 # REQ-002 Location Types
 LOCATION_TYPES = "location_types"
 
@@ -259,6 +267,13 @@ DOCUMENT_COLLECTIONS = [
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
+    # REQ-026 Aquaponics
+    FISH_SPECIES,
+    FISH_STOCKS,
+    AQUAPONIC_SYSTEMS,
+    WATER_TESTS,
+    FISH_FEEDING_EVENTS,
+    SUPPLEMENTATION_EVENTS,
 ]
 
 # Edge collections
@@ -394,6 +409,17 @@ LOCATED_AT = "located_at"
 # REQ-046 Weather data sources edges
 HAS_FORECAST = "has_forecast"  # sites → weather_forecasts (all source values)
 HAS_WEATHER_SOURCE_CONFIG = "has_weather_source_config"  # sites → weather_source_configs (1:1)
+
+# REQ-026 Aquaponics edges
+HAS_FISH_STOCK = "has_fish_stock"  # aquaponic_systems → fish_stocks
+STOCK_OF_SPECIES = "stock_of_species"  # fish_stocks → fish_species
+SYSTEM_HAS_TANK = "system_has_tank"  # aquaponic_systems → tanks (edge prop tank_role)
+SYSTEM_HAS_GROWBED = "system_has_growbed"  # aquaponic_systems → slots
+WATER_TEST_FOR = "water_test_for"  # water_tests → aquaponic_systems
+FEEDING_FOR_STOCK = "feeding_for_stock"  # fish_feeding_events → fish_stocks
+SUPPLEMENTATION_FOR = "supplementation_for"  # supplementation_events → aquaponic_systems
+COMPATIBLE_FISH_PLANT = "compatible_fish_plant"  # fish_species → species
+INCOMPATIBLE_FISH_PLANT = "incompatible_fish_plant"  # fish_species → species
 
 # Watering Log edges
 LOG_SLOT = "log_slot"
@@ -570,6 +596,16 @@ EDGE_COLLECTIONS = [
     # REQ-046 Weather data sources
     HAS_FORECAST,
     HAS_WEATHER_SOURCE_CONFIG,
+    # REQ-026 Aquaponics
+    HAS_FISH_STOCK,
+    STOCK_OF_SPECIES,
+    SYSTEM_HAS_TANK,
+    SYSTEM_HAS_GROWBED,
+    WATER_TEST_FOR,
+    FEEDING_FOR_STOCK,
+    SUPPLEMENTATION_FOR,
+    COMPATIBLE_FISH_PLANT,
+    INCOMPATIBLE_FISH_PLANT,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1243,6 +1279,52 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [WEATHER_SOURCE_CONFIGS],
     },
+    # REQ-026 Aquaponics
+    {
+        "edge_collection": HAS_FISH_STOCK,
+        "from_vertex_collections": [AQUAPONIC_SYSTEMS],
+        "to_vertex_collections": [FISH_STOCKS],
+    },
+    {
+        "edge_collection": STOCK_OF_SPECIES,
+        "from_vertex_collections": [FISH_STOCKS],
+        "to_vertex_collections": [FISH_SPECIES],
+    },
+    {
+        "edge_collection": SYSTEM_HAS_TANK,
+        "from_vertex_collections": [AQUAPONIC_SYSTEMS],
+        "to_vertex_collections": [TANKS],
+    },
+    {
+        "edge_collection": SYSTEM_HAS_GROWBED,
+        "from_vertex_collections": [AQUAPONIC_SYSTEMS],
+        "to_vertex_collections": [SLOTS],
+    },
+    {
+        "edge_collection": WATER_TEST_FOR,
+        "from_vertex_collections": [WATER_TESTS],
+        "to_vertex_collections": [AQUAPONIC_SYSTEMS],
+    },
+    {
+        "edge_collection": FEEDING_FOR_STOCK,
+        "from_vertex_collections": [FISH_FEEDING_EVENTS],
+        "to_vertex_collections": [FISH_STOCKS],
+    },
+    {
+        "edge_collection": SUPPLEMENTATION_FOR,
+        "from_vertex_collections": [SUPPLEMENTATION_EVENTS],
+        "to_vertex_collections": [AQUAPONIC_SYSTEMS],
+    },
+    {
+        "edge_collection": COMPATIBLE_FISH_PLANT,
+        "from_vertex_collections": [FISH_SPECIES],
+        "to_vertex_collections": [SPECIES],
+    },
+    {
+        "edge_collection": INCOMPATIBLE_FISH_PLANT,
+        "from_vertex_collections": [FISH_SPECIES],
+        "to_vertex_collections": [SPECIES],
+    },
 ]
 
 
@@ -1547,6 +1629,27 @@ def ensure_collections(db: StandardDatabase) -> None:
     weather_source_configs_col = db.collection(WEATHER_SOURCE_CONFIGS)
     # 1:1 per site within a tenant (REQ-046 §2.1).
     weather_source_configs_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
+
+    # REQ-026 Aquaponics indexes
+    fish_species_col = db.collection(FISH_SPECIES)
+    fish_species_col.add_persistent_index(fields=["scientific_name"], unique=True)
+    fish_species_col.add_persistent_index(fields=["temperature_zone"], unique=False)
+
+    aquaponic_systems_col = db.collection(AQUAPONIC_SYSTEMS)
+    aquaponic_systems_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    fish_stocks_col = db.collection(FISH_STOCKS)
+    fish_stocks_col.add_persistent_index(fields=["tenant_key", "system_key"], unique=False)
+
+    water_tests_col = db.collection(WATER_TESTS)
+    water_tests_col.add_persistent_index(fields=["system_key", "tested_at"], unique=False)
+
+    fish_feeding_events_col = db.collection(FISH_FEEDING_EVENTS)
+    fish_feeding_events_col.add_persistent_index(fields=["system_key", "fed_at"], unique=False)
+    fish_feeding_events_col.add_persistent_index(fields=["stock_key"], unique=False)
+
+    supplementation_events_col = db.collection(SUPPLEMENTATION_EVENTS)
+    supplementation_events_col.add_persistent_index(fields=["system_key", "applied_at"], unique=False)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

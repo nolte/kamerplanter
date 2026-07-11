@@ -86,6 +86,10 @@
       "label": "Tankmanagement",
       "description": "Tanks, Füllstände und Tankwartung."
     },
+    "aquaponics": {
+      "label": "Aquaponik",
+      "description": "Fisch-Pflanzen-Kreislaufsysteme, Stickstoffkreislauf und Wassertests."
+    },
     "substrates": {
       "label": "Substrate",
       "description": "Substratverwaltung und Wiederverwendung."
@@ -342,6 +346,8 @@
     "plantingRuns": "Pflanzdurchläufe",
     "successionPlans": "Staffelanbau",
     "tanks": "Tanks",
+    "aquaponik": "Aquaponik",
+    "aquaponicSystems": "Aquaponik-Systeme",
     "duengung": "Düngung",
     "fertilizers": "Düngemittel",
     "nutrientPlans": "Nährstoffpläne",
@@ -443,6 +449,48 @@
     "harvestBatches": "Erntechargen"
   },
   "pages": {
+    "aquaponik": {
+      "title": "Aquaponik",
+      "intro": "Verwalte deine Fisch-Pflanzen-Kreislaufsysteme: überwache den Stickstoffkreislauf (Ammoniak → Nitrit → Nitrat), verfolge den Biofilter-Einfahrprozess und dokumentiere Wassertests, Fischbestände und Fütterung.",
+      "createSystem": "System anlegen",
+      "systemCreated": "Aquaponik-System wurde angelegt.",
+      "waterTestRecorded": "Wassertest wurde gespeichert.",
+      "emptyTitle": "Noch kein Aquaponik-System angelegt",
+      "emptyDescription": "Lege dein erstes Fisch-Pflanzen-Kreislaufsystem an, um Wasserwerte und Fischbestand zu überwachen.",
+      "recordWaterTest": "Wassertest erfassen",
+      "cyclingProgress": "Biofilter-Einfahrfortschritt",
+      "cyclingHelp": "Der Biofilter muss eingefahren (cycling) werden, bevor Fische in voller Besatzdichte eingesetzt werden. Nitrifikationsbakterien benötigen 4–8 Wochen. Als eingefahren gilt der Filter nach 7 aufeinanderfolgenden Tagen mit TAN unter 0,25 mg/L und Nitrit unter 0,1 mg/L.",
+      "waterQuality": "Wasserqualität",
+      "noWaterData": "Noch keine Wassertests erfasst.",
+      "fishStocks": "Fischbestand",
+      "noStocks": "Noch kein Fischbestand angelegt.",
+      "fields": {
+        "name": "Name",
+        "systemType": "Systemtyp",
+        "totalVolume": "Gesamtwasservolumen",
+        "growArea": "Anbaufläche",
+        "biofilterType": "Biofiltertyp",
+        "biofilterHelp": "DWC/NFT/Hybrid/Wicking-Bed benötigen einen separaten Biofilter. Media-Bed-Systeme nutzen das Substrat als integrierten Biofilter.",
+        "dailyFeedTarget": "Soll-Futtermenge pro Tag",
+        "phTargetMin": "pH-Zielbereich (min)",
+        "phTargetMax": "pH-Zielbereich (max)",
+        "source": "Quelle",
+        "notes": "Notizen"
+      },
+      "params": {
+        "ph": "pH",
+        "temperature": "Temperatur",
+        "ammonia_tan": "Ammoniak (TAN)",
+        "free_ammonia": "Freies Ammoniak",
+        "nitrite": "Nitrit",
+        "nitrate": "Nitrat",
+        "dissolved_oxygen": "Gelöstsauerstoff",
+        "do_saturation": "O₂-Sättigung",
+        "kh": "Karbonathärte",
+        "gh": "Gesamthärte",
+        "iron": "Eisen"
+      }
+    },
     "pests": {
       "title": "Schädlingserkennung",
       "scanButton": "Auf Schädlinge prüfen",
@@ -4281,6 +4329,35 @@
     "biofilm_risk": "Biofilm-Risiko — Lösung seit {{value}} Tagen ohne Sterilisation"
   },
   "enums": {
+    "aquaponicSystemType": {
+      "media_bed": "Media-Bed (Blähton)",
+      "dwc": "Deep Water Culture (DWC)",
+      "nft": "Nutrient Film Technique (NFT)",
+      "hybrid": "Hybrid",
+      "wicking_bed": "Wicking-Bed (Dochtbewässerung)"
+    },
+    "cyclingStatus": {
+      "new": "Neu",
+      "cycling": "Fährt ein",
+      "cycled": "Eingefahren",
+      "dormant": "Winterruhe"
+    },
+    "biofilterType": {
+      "media_bed_integrated": "Integriert (Blähton)",
+      "mbbr": "MBBR (K1-Medien)",
+      "trickle": "Rieselfilter (Lava)",
+      "fluidized_bed": "Wirbelbett (Sand)"
+    },
+    "waterTestSource": {
+      "manual": "Manuell",
+      "sensor": "Sensor",
+      "test_kit": "Test-Kit"
+    },
+    "temperatureZone": {
+      "coldwater": "Kaltwasser",
+      "temperate": "Temperiert",
+      "warmwater": "Warmwasser"
+    },
     "category": "Kategorie",
     "pestCategory": {
       "pest": "Schädling",

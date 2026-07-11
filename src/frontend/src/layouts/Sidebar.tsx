@@ -44,6 +44,7 @@ import ContentCutIcon from '@mui/icons-material/ContentCut';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
+import SetMealIcon from '@mui/icons-material/SetMeal';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
@@ -206,6 +207,17 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.tanks'),
           path: '/standorte/tanks',
           icon: <WaterDropIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.aquaponik'),
+      sectionKey: 'aquaponik',
+      items: [
+        {
+          label: t('nav.aquaponicSystems'),
+          path: '/aquaponik',
+          icon: <SetMealIcon />,
         },
       ],
     },

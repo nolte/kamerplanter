@@ -10,6 +10,7 @@ remain at /api/v1/ without tenant scoping.
 
 from fastapi import APIRouter
 
+from app.api.v1.aquaponik.tenant_router import router as tenant_aquaponics_router
 from app.api.v1.attachments.tenant_router import router as tenant_attachments_router
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
@@ -86,3 +87,5 @@ tenant_scoped_router.include_router(tenant_print_router)
 tenant_scoped_router.include_router(tenant_recognition_router)
 tenant_scoped_router.include_router(tenant_attachments_router)
 tenant_scoped_router.include_router(tenant_weather_router)
+# REQ-026 Aquaponics
+tenant_scoped_router.include_router(tenant_aquaponics_router)

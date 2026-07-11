@@ -86,6 +86,10 @@
       "label": "Tank Management",
       "description": "Tanks, fill levels and tank maintenance."
     },
+    "aquaponics": {
+      "label": "Aquaponics",
+      "description": "Fish/plant recirculating systems, nitrogen cycle and water tests."
+    },
     "substrates": {
       "label": "Substrates",
       "description": "Substrate management and reuse."
@@ -342,6 +346,8 @@
     "plantingRuns": "Planting Runs",
     "successionPlans": "Succession Planting",
     "tanks": "Tanks",
+    "aquaponik": "Aquaponics",
+    "aquaponicSystems": "Aquaponic Systems",
     "duengung": "Fertilization",
     "fertilizers": "Fertilizers",
     "nutrientPlans": "Nutrient Plans",
@@ -443,6 +449,48 @@
     "harvestBatches": "Harvest Batches"
   },
   "pages": {
+    "aquaponik": {
+      "title": "Aquaponics",
+      "intro": "Manage your fish/plant recirculating systems: monitor the nitrogen cycle (ammonia → nitrite → nitrate), track biofilter cycling and log water tests, fish stocks and feeding.",
+      "createSystem": "Create system",
+      "systemCreated": "Aquaponic system created.",
+      "waterTestRecorded": "Water test saved.",
+      "emptyTitle": "No aquaponic system yet",
+      "emptyDescription": "Create your first fish/plant recirculating system to monitor water values and fish stock.",
+      "recordWaterTest": "Record water test",
+      "cyclingProgress": "Biofilter cycling progress",
+      "cyclingHelp": "The biofilter must be cycled before fish can be stocked at full density. Nitrifying bacteria need 4–8 weeks. The filter counts as cycled after 7 consecutive days with TAN below 0.25 mg/L and nitrite below 0.1 mg/L.",
+      "waterQuality": "Water quality",
+      "noWaterData": "No water tests recorded yet.",
+      "fishStocks": "Fish stock",
+      "noStocks": "No fish stock created yet.",
+      "fields": {
+        "name": "Name",
+        "systemType": "System type",
+        "totalVolume": "Total water volume",
+        "growArea": "Grow area",
+        "biofilterType": "Biofilter type",
+        "biofilterHelp": "DWC/NFT/Hybrid/Wicking beds need a separate biofilter. Media-bed systems use the substrate as an integrated biofilter.",
+        "dailyFeedTarget": "Daily feed target",
+        "phTargetMin": "pH target (min)",
+        "phTargetMax": "pH target (max)",
+        "source": "Source",
+        "notes": "Notes"
+      },
+      "params": {
+        "ph": "pH",
+        "temperature": "Temperature",
+        "ammonia_tan": "Ammonia (TAN)",
+        "free_ammonia": "Free ammonia",
+        "nitrite": "Nitrite",
+        "nitrate": "Nitrate",
+        "dissolved_oxygen": "Dissolved oxygen",
+        "do_saturation": "O₂ saturation",
+        "kh": "Carbonate hardness",
+        "gh": "General hardness",
+        "iron": "Iron"
+      }
+    },
     "pests": {
       "title": "Pest detection",
       "scanButton": "Check for pests",
@@ -4280,6 +4328,35 @@
     "biofilm_risk": "Biofilm risk — solution {{value}} days old without sterilization"
   },
   "enums": {
+    "aquaponicSystemType": {
+      "media_bed": "Media bed (clay pebbles)",
+      "dwc": "Deep Water Culture (DWC)",
+      "nft": "Nutrient Film Technique (NFT)",
+      "hybrid": "Hybrid",
+      "wicking_bed": "Wicking bed"
+    },
+    "cyclingStatus": {
+      "new": "New",
+      "cycling": "Cycling",
+      "cycled": "Cycled",
+      "dormant": "Dormant"
+    },
+    "biofilterType": {
+      "media_bed_integrated": "Integrated (clay pebbles)",
+      "mbbr": "MBBR (K1 media)",
+      "trickle": "Trickle filter (lava)",
+      "fluidized_bed": "Fluidized bed (sand)"
+    },
+    "waterTestSource": {
+      "manual": "Manual",
+      "sensor": "Sensor",
+      "test_kit": "Test kit"
+    },
+    "temperatureZone": {
+      "coldwater": "Coldwater",
+      "temperate": "Temperate",
+      "warmwater": "Warmwater"
+    },
     "category": "Category",
     "pestCategory": {
       "pest": "Pest",

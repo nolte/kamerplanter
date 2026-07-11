@@ -118,6 +118,20 @@ def get_db() -> StandardDatabase:
     return get_connection().db
 
 
+def get_aquaponik_repo():
+    """REQ-026 aquaponics repository (systems + fish/water child collections)."""
+    from app.data_access.arango.aquaponik_repository import ArangoAquaponikRepository
+
+    return ArangoAquaponikRepository(get_db())
+
+
+def get_aquaponik_service():
+    """REQ-026 aquaponics service with its domain engines."""
+    from app.domain.services.aquaponik_service import AquaponikService
+
+    return AquaponikService(get_aquaponik_repo())
+
+
 def get_species_repo() -> ArangoSpeciesRepository:
     return ArangoSpeciesRepository(get_db())
 

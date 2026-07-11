@@ -460,3 +460,20 @@ class AdapterNotAvailableError(KamerplanterError):
                 }
             ],
         )
+
+
+class ResourceInUseError(KamerplanterError):
+    """A resource cannot be deleted because a dependent state still exists.
+
+    REQ-026 §4: deleting an aquaponic system with a live fish stock, or a fish
+    stock that still holds fish, is a 409 conflict — the request is well-formed
+    but conflicts with the current state.
+    """
+
+    def __init__(self, entity: str, reason: str) -> None:
+        super().__init__(
+            message=f"{entity} cannot be removed: {reason}",
+            error_code="RESOURCE_IN_USE",
+            status_code=409,
+            details=[{"field": "key", "reason": reason, "code": "RESOURCE_IN_USE"}],
+        )
