@@ -40,9 +40,18 @@ Most panels are more than a read-only overview: click or tap a panel outside of 
 Two panels are a deliberate exception: **Quick actions** is itself already a tile overview with its own destinations, and **Weather forecast** remains a pure information display without its own destination.
 
 !!! tip "Disabled in edit mode"
-    While you're adjusting your dashboard in [edit mode](dashboard-personalization.md), all panels are temporarily not clickable — so you can move, resize, and configure them undisturbed.
+    While you're adjusting your dashboard in [edit mode](dashboard-personalization.md), all panels and their individual entries are temporarily not clickable — so you can move, resize, and configure them undisturbed.
 
-A panel only links you to places you're actually allowed to navigate to: if the [module](module-visibility.md) belonging to a panel is hidden, the associated widget doesn't appear on your dashboard in the first place. On smartphones, the entire panel is your tap target (at least 48x48 pixels); on desktop you can also reach every navigable panel by keyboard (Tab key) and open it with Enter.
+A panel only links you to places you're actually allowed to navigate to: if the [module](module-visibility.md) belonging to a panel is hidden, the associated widget doesn't appear on your dashboard in the first place. On smartphones, the entire panel (or, for widgets with individual entries, each single row or tile) is your tap target (at least 48x48 pixels); on desktop you can also reach every navigable destination by keyboard (Tab key) and open it with Enter.
+
+### Jumping Directly to a Single Entry
+
+Three widgets go one step further than plain panel navigation: they display individual entries and link each one directly to its own detail page.
+
+- **Plant grid** (tile grid): Tap or click a single plant's tile to go directly to that plant's detail page.
+- **Tasks today** and **Next events**: Tap or click a single task row to go directly to that task's detail page. The **Tasks today** widget now also shows the upcoming tasks as a list, in addition to its counts.
+
+For these three widgets, clicking the panel's empty area no longer opens a list — instead, a dedicated arrow icon at the top of the widget header ("open list") still takes you to the matching overview page, while each row or tile takes you straight to the individual entry.
 
 ---
 

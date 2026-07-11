@@ -95,6 +95,27 @@ export function formatNumber(
 }
 
 /**
+ * Format a hyphenated slug (e.g. an entity key like `species_key`
+ * "ocimum-basilicum") as a readable label ("Ocimum Basilicum").
+ *
+ * This is a purely cosmetic slug→label transform (capitalise each
+ * hyphen-separated word), not a localized/looked-up display name — it exists
+ * for call sites that only have the raw key on hand and no catalog lookup
+ * (e.g. the `plant_grid` dashboard widget, #461, whose aggregated payload
+ * carries `species_key` but not a resolved species name). Returns an empty
+ * string for nullish/blank input so callers can `||`-chain it into a further
+ * fallback.
+ */
+export function humanizeSlug(slug: string | null | undefined): string {
+  if (!slug) return '';
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+/**
  * Format a number with a unit suffix.
  * Example DE: "0,2 L" — Example EN: "0.2 L"
  */

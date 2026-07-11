@@ -60,6 +60,7 @@ class DashboardSummary:
     counts: DashboardCounts
     upcoming_tasks: list[dict[str, Any]]
     recent_activities: list[dict[str, Any]]
+    active_plants: list[dict[str, Any]]  # newest alive plants for the plant_grid tiles (#461)
 
 
 class DashboardService:
@@ -119,6 +120,7 @@ class DashboardService:
             counts=counts,
             upcoming_tasks=self._upcoming_tasks(tenant_key, today),
             recent_activities=self._recent_activities(tenant_key, now),
+            active_plants=self._active_plants(tenant_key),
         )
 
     # ── Internal aggregators ─────────────────────────────────────────
@@ -192,6 +194,14 @@ class DashboardService:
             return list(self._task_repo.list_upcoming(tenant_key, today, window_end, limit) or [])
         except Exception:
             logger.exception("dashboard.upcoming_tasks.failed", tenant_key=tenant_key)
+            return []
+
+    def _active_plants(self, tenant_key: str, limit: int = 8) -> list[dict[str, Any]]:
+        self._require_methods(self._plant_repo, "list_active_for_tenant")
+        try:
+            return list(self._plant_repo.list_active_for_tenant(tenant_key, limit) or [])
+        except Exception:
+            logger.exception("dashboard.active_plants.failed", tenant_key=tenant_key)
             return []
 
     def _recent_activities(self, tenant_key: str, now: datetime, limit: int = 5) -> list[dict[str, Any]]:

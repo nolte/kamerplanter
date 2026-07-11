@@ -40,9 +40,18 @@ Die meisten Panels sind mehr als eine reine Übersicht: Klicke oder tippe außer
 Zwei Panels bilden bewusst eine Ausnahme: **Schnellzugriff** ist selbst schon eine Kachelübersicht mit eigenen Sprungzielen, und **Wettervorhersage** bleibt eine reine Info-Anzeige ohne eigenes Sprungziel.
 
 !!! tip "Im Bearbeiten-Modus deaktiviert"
-    Solange du dein Dashboard im [Bearbeiten-Modus](dashboard-personalization.md) anpasst, sind alle Panels vorübergehend nicht anklickbar — so verschiebst, änderst und konfigurierst du sie ungestört.
+    Solange du dein Dashboard im [Bearbeiten-Modus](dashboard-personalization.md) anpasst, sind alle Panels und ihre einzelnen Einträge vorübergehend nicht anklickbar — so verschiebst, änderst und konfigurierst du sie ungestört.
 
-Ein Panel verlinkt dich nur dorthin, wo du auch tatsächlich hinnavigieren darfst: Ist das zum Panel gehörende [Modul ausgeblendet](module-visibility.md), erscheint das zugehörige Widget ohnehin nicht auf deinem Dashboard. Auf dem Smartphone ist das gesamte Panel dein Tippziel (mindestens 48×48 Pixel groß); am Desktop erreichst du jedes navigierbare Panel auch per Tastatur (Tab-Taste) und öffnest es mit Enter.
+Ein Panel verlinkt dich nur dorthin, wo du auch tatsächlich hinnavigieren darfst: Ist das zum Panel gehörende [Modul ausgeblendet](module-visibility.md), erscheint das zugehörige Widget ohnehin nicht auf deinem Dashboard. Auf dem Smartphone ist das gesamte Panel (bzw. bei den Widgets mit Einzeleinträgen jede einzelne Zeile oder Kachel) dein Tippziel (mindestens 48×48 Pixel groß); am Desktop erreichst du jedes navigierbare Ziel auch per Tastatur (Tab-Taste) und öffnest es mit Enter.
+
+### Direkt zu einzelnen Einträgen springen
+
+Drei Widgets gehen noch einen Schritt weiter als die reine Panel-Navigation: Sie zeigen einzelne Einträge an und verlinken jeden davon direkt auf seine eigene Detailseite.
+
+- **Pflanzenübersicht** (Kachelraster): Tippe oder klicke auf die Kachel einer einzelnen Pflanze, um direkt zu deren Pflanzendetailseite zu gelangen.
+- **Aufgaben heute** und **Nächste Termine**: Tippe oder klicke auf eine einzelne Aufgabenzeile, um direkt zu deren Aufgabendetailseite zu gelangen. Der Widget **Aufgaben heute** zeigt dir dabei zusätzlich zu den Zählern jetzt auch die anstehenden Aufgaben als Liste.
+
+Bei diesen drei Widgets öffnet ein Klick auf die freie Fläche des Panels keine Liste mehr — stattdessen führt dich ein eigenes Pfeil-Symbol oben im Widget-Kopf ("Liste öffnen") weiterhin zur zugehörigen Übersichtsseite, während jede Zeile bzw. Kachel dich direkt zum einzelnen Eintrag bringt.
 
 ---
 
