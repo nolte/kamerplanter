@@ -53,12 +53,17 @@ export const highContrastPalette: PaletteOptions = {
     dark: '#062561',
     contrastText: '#ffffff',
   },
+  // R-040 — #b71c1c only reaches 6.57:1 against white, below the required
+  // 7:1 (WCAG AAA). #a41919 clears it with margin (7.69:1) while staying
+  // recognizably red.
   error: {
-    main: '#b71c1c',
+    main: '#a41919',
     contrastText: '#ffffff',
   },
+  // R-040 — #8a5000 only reaches 6.51:1 against white. #7c4800 clears it
+  // with margin (7.54:1) while staying a recognizable amber/brown.
   warning: {
-    main: '#8a5000',
+    main: '#7c4800',
     contrastText: '#ffffff',
   },
   success: {

@@ -28,7 +28,9 @@ export default function KioskAppBar() {
 
   return (
     <AppBar position="static" color="default" data-testid="kiosk-app-bar">
-      <Toolbar sx={{ gap: 2, minHeight: { xs: 72, sm: 80 } }}>
+      {/* R-009 — 24px is the recommended (not just the 16px minimum) gap
+          between kiosk touch targets, here between Home and Exit. */}
+      <Toolbar sx={{ gap: 3, minHeight: { xs: 72, sm: 80 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <LocalFloristIcon aria-hidden="true" sx={{ fontSize: 36 }} />
           <Typography variant="h5" component="span" sx={{ fontWeight: 700 }}>

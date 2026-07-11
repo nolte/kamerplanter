@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import Backdrop from '@mui/material/Backdrop';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Modal from '@mui/material/Modal';
 import Typography from '@mui/material/Typography';
 import TimerIcon from '@mui/icons-material/Timer';
 
@@ -13,8 +14,16 @@ interface KioskTimeoutOverlayProps {
 
 /**
  * UI-NFR-019 §2.6 — full-area timeout warning (R-034). Covers ≥ 50% of the
- * screen, shows a large countdown and a ≥ 72px "Weiter arbeiten" button so it
- * is operable with gloves.
+ * screen (width × height fraction, viewport-relative so it holds on both 7"
+ * and 10" kiosk tablets), shows a large countdown and a ≥ 72px "Weiter
+ * arbeiten" button so it is operable with gloves.
+ *
+ * Rendered as a MUI {@link Modal} (not a bare Backdrop) so focus is trapped
+ * inside the warning and the rest of the app is `aria-hidden` while it is
+ * open — a Tab press can no longer reach controls hidden behind the overlay.
+ * `open` is fully controlled by the parent and no `onClose` is wired, so
+ * neither a backdrop touch nor the Escape key can dismiss it — only the
+ * explicit "Weiter arbeiten" button can (spec: "nicht wegklickbar").
  */
 export default function KioskTimeoutOverlay({
   open,
@@ -24,11 +33,17 @@ export default function KioskTimeoutOverlay({
   const { t } = useTranslation();
 
   return (
-    <Backdrop
+    <Modal
       open={open}
-      sx={{ zIndex: (theme) => theme.zIndex.modal + 1, bgcolor: 'rgba(0, 0, 0, 0.85)' }}
       data-testid="kiosk-timeout-overlay"
+      sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      slots={{ backdrop: Backdrop }}
+      slotProps={{
+        backdrop: { sx: { bgcolor: 'rgba(0, 0, 0, 0.85)' } },
+      }}
     >
+      {/* role/aria-modal/aria-labelledby/aria-describedby all live on the
+          same element that carries the dialog semantics, per WAI-ARIA. */}
       <Box
         role="alertdialog"
         aria-modal="true"
@@ -42,9 +57,11 @@ export default function KioskTimeoutOverlay({
           borderColor: 'text.primary',
           p: { xs: 4, sm: 6 },
           textAlign: 'center',
-          width: { xs: '90vw', sm: '70vw' },
-          maxWidth: 640,
-          minHeight: '50vh',
+          // ≥ 50% of the screen area on any kiosk tablet: 0.92 × 0.58 ≈ 0.53.
+          // No pixel maxWidth cap — capping would shrink the area fraction
+          // below 50% on wider 10" landscape tablets (R-034).
+          width: '92vw',
+          minHeight: '58vh',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -63,12 +80,13 @@ export default function KioskTimeoutOverlay({
           variant="contained"
           size="large"
           onClick={onContinue}
+          autoFocus
           data-testid="kiosk-timeout-continue"
           sx={{ minHeight: 72, minWidth: 240, fontSize: '1.25rem' }}
         >
           {t('pages.kiosk.timeout.continue')}
         </Button>
       </Box>
-    </Backdrop>
+    </Modal>
   );
 }
