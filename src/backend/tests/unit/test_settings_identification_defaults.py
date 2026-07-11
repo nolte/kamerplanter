@@ -46,6 +46,8 @@ def test_identification_fields_defined_exactly_once():
     assert settings.identification_confidence_auto_accept == 0.85
     assert settings.identification_confidence_min_show == 0.10
     assert settings.identification_max_image_size_mb == 5
+    assert settings.identification_http_timeout == 60
+    assert settings.identification_max_image_dimension == 1024
     # Fields that only existed in the (now removed) second block must still exist.
     assert settings.inference_service_enabled is False
     assert settings.plantnet_enabled is True
