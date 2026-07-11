@@ -9,8 +9,11 @@ POWER and upserts one :class:`ClimateNormal` record (idempotent on
 TTL is a cheap no-op that never re-hits the API.
 
 The read/write path is tenant-scoped (the record inherits the site's
-``tenant_key``); one failing site never aborts the whole run (an HTTP 429/5xx or
-timeout just skips that site — it is retried on the next beat).
+``tenant_key``); one failing site never aborts the whole run. *Any* per-site
+error — an HTTP 429/5xx, a timeout, a mapping error, or an upsert failure (e.g. a
+unique-index race between the monthly beat and an on-demand trigger) — is caught,
+recorded and skipped, so sites of other tenants are still processed and the
+failed site is retried on the next beat.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -33,8 +36,6 @@ def fetch_climate_normals(self) -> dict:  # noqa: ANN001 — Celery bound-task s
     """Fetch and upsert NASA POWER climate normals for every eligible site."""
     if not settings.weather_enabled or not settings.nasa_power_climate_enabled:
         return {"status": "skipped", "reason": "climate_normals_disabled"}
-
-    import httpx
 
     from app.common.dependencies import get_climate_normal_repo, get_db, get_site_repo
     from app.data_access.arango import collections as col
@@ -68,32 +69,33 @@ def fetch_climate_normals(self) -> dict:  # noqa: ANN001 — Celery bound-task s
             skipped += 1
             continue
 
-        existing = normal_repo.find_one(site.key, site.tenant_key, adapter.source_name)
-        if existing is not None and _is_fresh(existing.fetched_at, now, ttl):
-            skipped += 1
-            continue
-
-        latitude, longitude = site.gps_coordinates
+        # Per-site isolation across ALL error classes (fetch, mapping, DB upsert):
+        # a single failing site must never abort the cross-tenant run.
         try:
+            existing = normal_repo.find_one(site.key, site.tenant_key, adapter.source_name)
+            if existing is not None and _is_fresh(existing.fetched_at, now, ttl):
+                skipped += 1
+                continue
+
+            latitude, longitude = site.gps_coordinates
             normal = run_async(adapter.fetch_climate_normals(latitude=latitude, longitude=longitude))
-        except (httpx.HTTPError, httpx.TimeoutException) as exc:
-            logger.warning("climate_normals_fetch_failed", site_key=site.key, error=str(exc))
+            if normal is None:
+                skipped += 1
+                continue
+
+            record = normal.model_copy(
+                update={
+                    "site_key": site.key,
+                    "tenant_key": site.tenant_key,
+                    "climate_normal_id": f"{site.key}:{adapter.source_name}",
+                }
+            )
+            normal_repo.upsert(record)
+            written += 1
+        except Exception as exc:  # noqa: BLE001 — per-site isolation: one failure never aborts the run
+            logger.warning("climate_normals_site_failed", site_key=site.key, error=str(exc))
             errors.append({"site_key": site.key, "error": str(exc)})
             continue
-
-        if normal is None:
-            skipped += 1
-            continue
-
-        record = normal.model_copy(
-            update={
-                "site_key": site.key,
-                "tenant_key": site.tenant_key,
-                "climate_normal_id": f"{site.key}:{adapter.source_name}",
-            }
-        )
-        normal_repo.upsert(record)
-        written += 1
 
     logger.info("climate_normals_complete", written=written, skipped=skipped, errors=len(errors))
     return {"status": "ok", "written": written, "skipped": skipped, "errors": len(errors)}

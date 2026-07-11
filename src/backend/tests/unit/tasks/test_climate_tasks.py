@@ -176,3 +176,43 @@ class TestFetchClimateNormals:
         assert result["written"] == 0
         assert result["errors"] == 1
         normal_repo.upsert.assert_not_called()
+
+    def test_upsert_failure_isolated_across_tenants(self, task_module, monkeypatch):
+        """A DB upsert error on one site must not abort processing of other tenants' sites."""
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        monkeypatch.setattr(module.settings, "nasa_power_climate_enabled", True, raising=False)
+        _stub_adapter(monkeypatch, _normal())
+
+        db = MagicMock()
+        db.aql.execute.return_value = iter(
+            [
+                _site_doc(_key="site1", tenant_key="t1"),
+                _site_doc(_key="site2", tenant_key="t2"),
+            ]
+        )
+        deps.get_db.return_value = db
+        site_repo = MagicMock()
+        site_repo._from_doc.side_effect = lambda doc: doc
+        deps.get_site_repo.return_value = site_repo
+
+        normal_repo = MagicMock()
+        normal_repo.find_one.return_value = None  # nothing cached yet
+
+        def _upsert(record):
+            # Simulate a DB failure (e.g. unique-index race) for the first site only.
+            if record.site_key == "site1":
+                raise RuntimeError("unique constraint violated")
+
+        normal_repo.upsert.side_effect = _upsert
+        deps.get_climate_normal_repo.return_value = normal_repo
+
+        result = module.fetch_climate_normals()
+
+        # The failing site is isolated and the second tenant's site is still written.
+        assert result["status"] == "ok"
+        assert result["written"] == 1
+        assert result["errors"] == 1
+        assert normal_repo.upsert.call_count == 2
+        written_keys = [call.args[0].site_key for call in normal_repo.upsert.call_args_list]
+        assert written_keys == ["site1", "site2"]
