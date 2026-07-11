@@ -212,6 +212,23 @@ Zum Vergleich — der bestehende **reaktive** Frost-Schwellwert (aktuell gemesse
 
 ---
 
+## Klimanormalen (NASA POWER) <!-- REQ-041 --> {#klimanormalen-nasa-power}
+
+Diese Variablen steuern die monatliche Hintergrund-Abholung der langjährigen Klima-Normalwerte (Abschnitt „Klima am Standort") über die keyless NASA-POWER-Reanalyse-Schnittstelle. Für die Abholung müssen sowohl `WEATHER_ENABLED` als auch `NASA_POWER_CLIMATE_ENABLED` aktiv sein.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `NASA_POWER_CLIMATE_ENABLED` | `true` | Nein | Eigener Kill-Switch für den monatlichen Klimanormalen-Task, unabhängig vom allgemeinen `WEATHER_ENABLED` — beide müssen aktiv sein, damit der Task läuft. |
+| `NASA_POWER_BASE_URL` | `https://power.larc.nasa.gov/api/temporal` | Nein | Basis-URL der NASA-POWER-API. Nur für Self-Hoster mit abweichender Netzwerk-/Proxy-Konfiguration relevant. |
+| `NASA_POWER_CLIMATE_TTL_DAYS` | `180` | Nein | Klimanormalen ändern sich kaum; ein bereits abgeholter Datensatz wird erst nach Ablauf dieser TTL erneut abgeholt — hält den monatlichen Task idempotent und schont die NASA-POWER-API. |
+| `NASA_POWER_DATA_LATENCY_DAYS` | `7` | Nein | Betrifft die separate Tageswerte-Abholung (nicht die Klimanormalen): Anzahl Tage, die NASA POWER für die Qualitätskontrolle seiner jüngsten Tageswerte benötigt. |
+| `NASA_POWER_DAILY_DAYS_BACK` | `14` | Nein | Betrifft ebenfalls nur die Tageswerte-Abholung: Größe des Rückblick-Fensters in Tagen. |
+
+!!! note "Betrifft nur Freiland- und Gewächshaus-Standorte mit GPS-Koordinaten"
+    Klimanormalen werden ausschließlich für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit hinterlegten GPS-Koordinaten materialisiert — für Innenraum-Standorte sind sie ohne Nutzen und werden nicht abgeholt. NASA POWER ist keyless nutzbar; die Daten unterliegen der CC-BY-4.0-Lizenz (Attribution wird automatisch mit ausgeliefert, siehe [Klima am Standort](../user-guide/weather-sources.md#klima-am-standort)). <!-- REQ-041 -->
+
+---
+
 ## Rate Limiting
 
 | Variable | Standard | Pflicht | Beschreibung |
