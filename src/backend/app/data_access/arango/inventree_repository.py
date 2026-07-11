@@ -15,6 +15,8 @@ from typing import Any
 
 from arango.database import StandardDatabase
 
+from app.common.enums import LinkableEntityCollection
+from app.common.exceptions import NotFoundError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.inventree import (
@@ -23,6 +25,11 @@ from app.domain.models.inventree import (
     InvenTreeReference,
     StockTransaction,
 )
+
+#: Allowlisted collections that may receive a ``has_inventree_ref`` edge. Mirrors
+#: :class:`~app.common.enums.LinkableEntityCollection` and is re-checked here as a
+#: defense-in-depth guard before dialing ``self._db.collection(<name>)``.
+_LINKABLE_COLLECTIONS = frozenset(c.value for c in LinkableEntityCollection)
 
 
 class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
@@ -102,6 +109,34 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
                 ("entity_key", "==", entity_key),
             ],
         )
+
+    def verify_linkable_entity(self, entity_collection: str, entity_key: str, tenant_key: str) -> None:
+        """Ensure the to-be-linked entity exists and is visible to ``tenant_key``.
+
+        The reference-link request already allowlists ``entity_collection`` to
+        ``fertilizers | tanks | equipment``
+        (:class:`~app.common.enums.LinkableEntityCollection`); this guards the
+        *value* side. An entity that does not exist, or that belongs to another
+        tenant, must never receive a ``has_inventree_ref`` edge — otherwise a
+        GROWER could point an edge at a foreign or dangling key (graph pollution
+        / latent cross-tenant leak, SEC-B4 / IT-003).
+
+        Globally-seeded catalog rows (empty ``tenant_key``, e.g. the shared
+        fertilizer catalog) stay linkable, mirroring the hybrid-catalog read
+        visibility. On any violation we fail closed with
+        :class:`NotFoundError` (→ HTTP 404) rather than a 403, so the existence
+        of a foreign key is never disclosed.
+        """
+        self._require_tenant_key(tenant_key, "verify_linkable_entity")
+        if entity_collection not in _LINKABLE_COLLECTIONS:
+            # Defense-in-depth: never dial an off-allowlist collection handle.
+            raise NotFoundError(entity_collection, entity_key)
+        doc = self._db.collection(entity_collection).get(entity_key)
+        if doc is None:
+            raise NotFoundError(entity_collection, entity_key)
+        doc_tenant = doc.get("tenant_key", "") or ""
+        if doc_tenant not in ("", tenant_key):
+            raise NotFoundError(entity_collection, entity_key)
 
     def upsert_reference(self, reference: InvenTreeReference) -> InvenTreeReference:
         existing = self.find_reference_by_entity(

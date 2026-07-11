@@ -85,11 +85,25 @@ class FakeRepo:
         self.references: dict[str, InvenTreeReference] = {}
         self.transactions: dict[str, StockTransaction] = {}
         self.equipment: dict[str, Equipment] = {}
+        #: ``"collection/key" -> tenant_key`` for the linkable-entity guard. Empty
+        #: → permissive (test shortcut); once populated it enforces existence +
+        #: tenant visibility like the real repository.
+        self.entities: dict[str, str] = {}
         self._seq = 0
 
     def _next(self, prefix: str) -> str:
         self._seq += 1
         return f"{prefix}{self._seq}"
+
+    def register_entity(self, entity_collection, entity_key, tenant_key):
+        self.entities[f"{entity_collection}/{entity_key}"] = tenant_key
+
+    def verify_linkable_entity(self, entity_collection, entity_key, tenant_key):
+        if not self.entities:
+            return
+        doc_tenant = self.entities.get(f"{entity_collection}/{entity_key}")
+        if doc_tenant is None or doc_tenant not in ("", tenant_key):
+            raise NotFoundError(entity_collection, entity_key)
 
     # connections
     def list_connections(self, tenant_key):
@@ -382,6 +396,39 @@ class TestReferences:
             )
             assert resp.status_code == 201, collection
             assert resp.json()["entity_collection"] == collection
+
+    def test_link_own_entity_succeeds(self):
+        # SEC-B4 / IT-003: a valid, tenant-owned entity_key links (201).
+        client, repo = self._with_connection()
+        repo.register_entity("fertilizers", "fert_1", TENANT_KEY)
+        resp = client.post(
+            _inv("/references/link"),
+            json={"entity_collection": "fertilizers", "entity_key": "fert_1", "inventree_part_id": 42},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["entity_key"] == "fert_1"
+
+    def test_link_foreign_tenant_entity_returns_404(self):
+        # SEC-B4 / IT-003: a foreign tenant's entity_key must not be linkable and
+        # its existence must not leak (404, not 403).
+        client, repo = self._with_connection()
+        repo.register_entity("fertilizers", "fert_foreign", OTHER_TENANT)
+        resp = client.post(
+            _inv("/references/link"),
+            json={"entity_collection": "fertilizers", "entity_key": "fert_foreign", "inventree_part_id": 42},
+        )
+        assert resp.status_code == 404
+        assert repo.references == {}
+
+    def test_link_nonexistent_entity_returns_404(self):
+        client, repo = self._with_connection()
+        repo.register_entity("fertilizers", "exists", TENANT_KEY)  # flip guard to enforce
+        resp = client.post(
+            _inv("/references/link"),
+            json={"entity_collection": "fertilizers", "entity_key": "ghost", "inventree_part_id": 42},
+        )
+        assert resp.status_code == 404
+        assert repo.references == {}
 
     def test_sync_reference_updates_cache(self):
         client, repo = self._with_connection()

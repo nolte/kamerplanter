@@ -44,11 +44,17 @@ def _active_connections():
 
 
 def _run_per_connection(operation: str) -> dict:
-    from app.common.dependencies import get_encryption_engine, get_inventree_repo
+    from app.common.dependencies import _get_redis_client, get_encryption_engine, get_inventree_repo
     from app.domain.services.inventree_service import InvenTreeService
 
     repo = get_inventree_repo()
-    service = InvenTreeService(repo, get_encryption_engine())
+    # Inject the shared Valkey/Redis client (same factory as the HTTP path in
+    # ``dependencies.get_inventree_service``) so the adapter's persistent
+    # per-connection outbound rate-limit window (IT-005) also applies on the
+    # Celery path. Without it the service degrades to a best-effort in-memory
+    # window that resets on every task run — leaving the 60/min cap ineffective
+    # for the scheduler-driven sync/push.
+    service = InvenTreeService(repo, get_encryption_engine(), redis_client=_get_redis_client())
 
     totals = {"connections": 0, "ok": 0, "errors": 0}
     for tenant_key, connection in _active_connections():

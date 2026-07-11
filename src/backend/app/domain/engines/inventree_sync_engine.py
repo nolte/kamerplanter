@@ -128,9 +128,16 @@ class InvenTreeSyncEngine:
         auto_deduct: bool = False,
         deduct_unit: str | None = None,
     ):
-        """Verify the part exists, then persist the reference with an initial pull."""
+        """Verify the entity + part exist, then persist the reference with a pull."""
         from app.common.exceptions import NotFoundError
         from app.domain.models.inventree import InvenTreeReference
+
+        # SEC-B4 / IT-003: the request already allowlists ``entity_collection``;
+        # verify the *value* too. The entity must exist and be visible to this
+        # tenant before we create a ``has_inventree_ref`` edge from it — a GROWER
+        # must not be able to point an edge at a foreign or dangling key (graph
+        # pollution / cross-tenant leak). Fails closed with NotFoundError (404).
+        self._repo.verify_linkable_entity(entity_collection, entity_key, self._tenant_key)
 
         part = await self._adapter.get_part(inventree_part_id)
         if part is None:

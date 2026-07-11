@@ -52,11 +52,28 @@ class FakeRepo:
     def __init__(self):
         self.references: dict[str, InvenTreeReference] = {}
         self.transactions: dict[str, StockTransaction] = {}
+        #: ``"collection/key" -> tenant_key`` for the linkable-entity guard. When
+        #: empty the guard is permissive (test shortcut); once any entity is
+        #: registered it enforces existence + tenant visibility like the real
+        #: repository.
+        self.entities: dict[str, str] = {}
         self._seq = 0
 
     def _next(self, prefix: str) -> str:
         self._seq += 1
         return f"{prefix}{self._seq}"
+
+    def register_entity(self, entity_collection, entity_key, tenant_key):
+        self.entities[f"{entity_collection}/{entity_key}"] = tenant_key
+
+    def verify_linkable_entity(self, entity_collection, entity_key, tenant_key):
+        from app.common.exceptions import NotFoundError
+
+        if not self.entities:
+            return
+        doc_tenant = self.entities.get(f"{entity_collection}/{entity_key}")
+        if doc_tenant is None or doc_tenant not in ("", tenant_key):
+            raise NotFoundError(entity_collection, entity_key)
 
     def list_references(self, tenant_key):
         return [r for r in self.references.values() if r.tenant_key == tenant_key]
@@ -230,6 +247,55 @@ class TestPushPending:
         engine = InvenTreeSyncEngine(FakeAdapter(part=None), FakeRepo(), TENANT)
         with pytest.raises(NotFoundError):
             await engine.link_entity("fertilizers", "fert_9", 999)
+
+
+class TestLinkEntityTenantGuard:
+    """SEC-B4 / IT-003 — the entity_key must exist and be tenant-visible."""
+
+    @pytest.mark.asyncio
+    async def test_link_own_entity_succeeds(self):
+        repo = FakeRepo()
+        repo.register_entity("fertilizers", "fert_9", TENANT)
+        adapter = FakeAdapter(part=InvenTreePartData(pk=42, name="CalMag", total_in_stock=500, stock_unit="ml"))
+        engine = InvenTreeSyncEngine(adapter, repo, TENANT)
+
+        ref = await engine.link_entity("fertilizers", "fert_9", 42)
+
+        assert ref.entity_key == "fert_9"
+        assert ref.inventree_part_name == "CalMag"
+
+    @pytest.mark.asyncio
+    async def test_link_global_catalog_entity_succeeds(self):
+        repo = FakeRepo()
+        repo.register_entity("fertilizers", "seeded", "")  # global catalog row
+        adapter = FakeAdapter(part=InvenTreePartData(pk=42, name="BioGrow", total_in_stock=1, stock_unit="ml"))
+        engine = InvenTreeSyncEngine(adapter, repo, TENANT)
+
+        ref = await engine.link_entity("fertilizers", "seeded", 42)
+
+        assert ref.entity_key == "seeded"
+
+    @pytest.mark.asyncio
+    async def test_link_foreign_tenant_entity_raises_not_found(self):
+        from app.common.exceptions import NotFoundError
+
+        repo = FakeRepo()
+        repo.register_entity("fertilizers", "fert_foreign", "tenant_b")
+        engine = InvenTreeSyncEngine(FakeAdapter(part=None), repo, TENANT)
+
+        with pytest.raises(NotFoundError):
+            await engine.link_entity("fertilizers", "fert_foreign", 42)
+
+    @pytest.mark.asyncio
+    async def test_link_nonexistent_entity_raises_not_found(self):
+        from app.common.exceptions import NotFoundError
+
+        repo = FakeRepo()
+        repo.register_entity("fertilizers", "exists", TENANT)  # flip guard to enforce
+        engine = InvenTreeSyncEngine(FakeAdapter(part=None), repo, TENANT)
+
+        with pytest.raises(NotFoundError):
+            await engine.link_entity("fertilizers", "ghost", 42)
 
 
 class TestConsumptionTracker:
