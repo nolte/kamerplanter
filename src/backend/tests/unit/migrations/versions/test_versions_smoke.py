@@ -48,6 +48,12 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "status", "created_at"], "unique": False},
             {"type": "persistent", "fields": ["reference_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "equipment_type", "status"], "unique": False},
+            # v0016 propagation indexes
+            {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

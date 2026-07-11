@@ -146,6 +146,11 @@ export default function Sidebar({ open }: SidebarProps) {
           path: '/ueberwinterung/profile',
           icon: <AcUnitIcon />,
         },
+        {
+          label: t('nav.propagation'),
+          path: '/vermehrung',
+          icon: <AccountTreeIcon />,
+        },
       ],
     },
     {

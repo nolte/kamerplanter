@@ -343,6 +343,7 @@
     "calculations": "Calculations",
     "durchlaeufe": "Planting Runs",
     "overwintering": "Overwintering",
+    "propagation": "Propagation & Lineage",
     "plantingRuns": "Planting Runs",
     "successionPlans": "Succession Planting",
     "tanks": "Tanks",
@@ -514,6 +515,47 @@
     }
   },
   "pages": {
+    "propagation": {
+      "title": "Propagation Management",
+      "intro": "Document propagation actions (cuttings, sowing, clones, grafting, division), track success rates and explore the genetic lineage of your plants.",
+      "createEvent": "Record propagation",
+      "eventCreated": "Propagation event saved.",
+      "emptyTitle": "No propagation events yet",
+      "emptyDescription": "Record your first propagation action to track success rates and lineage.",
+      "tabs": {
+        "events": "Events",
+        "lineage": "Lineage & Grafting"
+      },
+      "fields": {
+        "method": "Method",
+        "status": "Status",
+        "quantity": "Quantity",
+        "survived": "Survived",
+        "successRate": "Success rate",
+        "speciesKey": "Species (key)",
+        "speciesKeyHelper": "Optional species key for success statistics.",
+        "parentKeys": "Source plants (keys)",
+        "childKeys": "Result plants (keys)",
+        "keysHelper": "Comma-separated plant keys.",
+        "notes": "Notes"
+      },
+      "lineage": {
+        "title": "Explore lineage",
+        "plantKey": "Plant key",
+        "trace": "Show lineage",
+        "ancestors": "Ancestors",
+        "descendants": "Descendants",
+        "noAncestors": "No ancestors found — this plant is a root.",
+        "noDescendants": "No descendants found."
+      },
+      "graft": {
+        "title": "Graft compatibility",
+        "intro": "Checks — by taxonomy (genus/family) — whether scion and rootstock are compatible.",
+        "scionKey": "Scion plant (key)",
+        "rootstockKey": "Rootstock plant (key)",
+        "check": "Check compatibility"
+      }
+    },
     "kiAssistent": {
       "title": "AI Assistant",
       "intro": "Ask a knowledge question about plant care — such as \"What is VPD?\" or \"How do I lower the pH?\". The answer comes from the curated knowledge base and is clearly labelled as AI-generated.",
@@ -4553,6 +4595,28 @@
       "stored": "Stored",
       "defective": "Defective",
       "retired": "Retired"
+    },
+    "propagationEventMethod": {
+      "clone": "Clone",
+      "seed": "Sowing",
+      "cutting": "Cutting",
+      "graft": "Graft",
+      "division": "Division",
+      "layering": "Layering",
+      "offset": "Offset",
+      "other": "Other"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In progress",
+      "rooted": "Rooted",
+      "transplanted": "Transplanted",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Compatible",
+      "possibly_compatible": "Possibly compatible",
+      "incompatible": "Incompatible"
     },
     "aquaponicSystemType": {
       "media_bed": "Media bed (clay pebbles)",

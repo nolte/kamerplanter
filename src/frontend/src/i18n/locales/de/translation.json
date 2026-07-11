@@ -343,6 +343,7 @@
     "calculations": "Berechnungen",
     "durchlaeufe": "Durchläufe",
     "overwintering": "Überwinterung",
+    "propagation": "Vermehrung & Abstammung",
     "plantingRuns": "Pflanzdurchläufe",
     "successionPlans": "Staffelanbau",
     "tanks": "Tanks",
@@ -514,6 +515,47 @@
     }
   },
   "pages": {
+    "propagation": {
+      "title": "Vermehrungsmanagement",
+      "intro": "Dokumentiere Vermehrungsaktionen (Stecklinge, Aussaat, Klone, Veredelung, Teilung), verfolge Erfolgsraten und erkunde die genetische Abstammung deiner Pflanzen.",
+      "createEvent": "Vermehrung dokumentieren",
+      "eventCreated": "Vermehrungsevent gespeichert.",
+      "emptyTitle": "Noch keine Vermehrungsevents",
+      "emptyDescription": "Dokumentiere deine erste Vermehrungsaktion, um Erfolgsraten und Abstammung zu verfolgen.",
+      "tabs": {
+        "events": "Ereignisse",
+        "lineage": "Abstammung & Veredelung"
+      },
+      "fields": {
+        "method": "Methode",
+        "status": "Status",
+        "quantity": "Anzahl",
+        "survived": "Überlebt",
+        "successRate": "Erfolgsrate",
+        "speciesKey": "Art (Schlüssel)",
+        "speciesKeyHelper": "Optionaler Art-Schlüssel für die Erfolgsstatistik.",
+        "parentKeys": "Quell-Pflanzen (Schlüssel)",
+        "childKeys": "Ergebnis-Pflanzen (Schlüssel)",
+        "keysHelper": "Kommagetrennte Pflanzen-Schlüssel.",
+        "notes": "Notizen"
+      },
+      "lineage": {
+        "title": "Abstammung erkunden",
+        "plantKey": "Pflanzen-Schlüssel",
+        "trace": "Abstammung anzeigen",
+        "ancestors": "Vorfahren",
+        "descendants": "Nachkommen",
+        "noAncestors": "Keine Vorfahren gefunden — diese Pflanze ist ein Ursprung.",
+        "noDescendants": "Keine Nachkommen gefunden."
+      },
+      "graft": {
+        "title": "Veredelungs-Kompatibilität",
+        "intro": "Prüft anhand der Taxonomie (Gattung/Familie), ob Edelreis und Unterlage kompatibel sind.",
+        "scionKey": "Edelreis-Pflanze (Schlüssel)",
+        "rootstockKey": "Unterlagen-Pflanze (Schlüssel)",
+        "check": "Kompatibilität prüfen"
+      }
+    },
     "kiAssistent": {
       "title": "KI-Assistent",
       "intro": "Stelle eine Wissensfrage zur Pflanzenpflege — etwa „Was ist VPD?“ oder „Wie senke ich den pH-Wert?“. Die Antwort stammt aus der kuratierten Wissensbasis und wird klar als KI-generiert gekennzeichnet.",
@@ -4554,6 +4596,28 @@
       "stored": "Eingelagert",
       "defective": "Defekt",
       "retired": "Ausgemustert"
+    },
+    "propagationEventMethod": {
+      "clone": "Klon",
+      "seed": "Aussaat",
+      "cutting": "Steckling",
+      "graft": "Veredelung",
+      "division": "Teilung",
+      "layering": "Absenker",
+      "offset": "Kindel",
+      "other": "Sonstiges"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In Bearbeitung",
+      "rooted": "Bewurzelt",
+      "transplanted": "Umgetopft",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Kompatibel",
+      "possibly_compatible": "Bedingt kompatibel",
+      "incompatible": "Nicht kompatibel"
     },
     "aquaponicSystemType": {
       "media_bed": "Media-Bed (Blähton)",
