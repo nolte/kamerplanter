@@ -570,6 +570,11 @@ class TestNutrientPlanDetailPage:
         detail = NutrientPlanDetailPage(plan_list.driver, plan_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
+        if detail.is_read_only():
+            pytest.skip(
+                "First nutrient plan is origin-protected (read-only); "
+                "no editable save button in light mode"
+            )
         detail.click_tab_edit()
 
         screenshot("TC-REQ-004-058_plan-edit-save-disabled",
@@ -595,6 +600,11 @@ class TestNutrientPlanDetailPage:
         detail = NutrientPlanDetailPage(plan_list.driver, plan_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
+        if detail.is_read_only():
+            pytest.skip(
+                "First nutrient plan is origin-protected (read-only); "
+                "no editable save button in light mode"
+            )
         detail.click_tab_edit()
 
         detail.fill_author(f"E2E-Author-{uuid.uuid4().hex[:4]}")

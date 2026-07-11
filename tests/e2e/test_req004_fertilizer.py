@@ -659,6 +659,11 @@ class TestFertilizerDetailPage:
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
+        if detail.is_read_only():
+            pytest.skip(
+                "First fertilizer is origin-protected (read-only); "
+                "no editable save button in light mode"
+            )
         detail.click_tab_edit()
 
         screenshot("TC-REQ-004-028_fertilizer-edit-save-disabled",
@@ -685,6 +690,11 @@ class TestFertilizerDetailPage:
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
+        if detail.is_read_only():
+            pytest.skip(
+                "First fertilizer is origin-protected (read-only); "
+                "no editable save button in light mode"
+            )
         detail.click_tab_edit()
 
         # Modify the brand field to trigger isDirty

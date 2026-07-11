@@ -45,6 +45,7 @@ class NutrientPlanDetailPage(BasePage):
 
     # Error state
     ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")
+    READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-readonly-banner']")
     LOADING_SPINNER = (By.CSS_SELECTOR, ".MuiCircularProgress-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -177,6 +178,14 @@ class NutrientPlanDetailPage(BasePage):
         """Return the current value of the author input field."""
         el = self.wait_for_element(self.FORM_AUTHOR)
         return el.get_attribute("value") or ""
+
+    def is_read_only(self) -> bool:
+        """Return True if this plan is origin-protected (read-only).
+
+        Global/system nutrient plans (UI-NFR-018) show a read-only banner and
+        render no editable form actions on the edit tab.
+        """
+        return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
     def is_submit_button_enabled(self) -> bool:
         """Return True if the submit button is enabled (form is dirty)."""
