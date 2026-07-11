@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
 
-from app.common.enums import TaskStatus
+from app.common.enums import TaskCategory, TaskStatus
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -736,6 +736,13 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
     #: has neither been completed nor skipped/failed/dormant.
     _OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
 
+    #: Care reminders are persisted as ``category == "care_reminder"`` tasks and
+    #: already own the dedicated ``care_reminders_due`` tile (REQ-009 §1.4, fed by
+    #: ``ArangoCareReminderRepository.count_due_on``). The generic task surfaces
+    #: therefore EXCLUDE this category so a care reminder due today/overdue is
+    #: counted in exactly one tile instead of being double-counted (#508).
+    _CARE_CATEGORY = TaskCategory.CARE_REMINDER.value
+
     #: Shared orphan guard mirroring ``get_all_tasks``: a plant_instance task
     #: whose plant was soft-removed (``removed_on``) or no longer exists must not
     #: surface — otherwise the dashboard counts drift from the user-facing queue.
@@ -753,13 +760,15 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         ``due_date`` is a datetime persisted as an ISO string; the first ten
         characters are its calendar date, compared against ``today`` so the count
         is timezone-offset agnostic. Orphaned plant tasks are excluded to match
-        the user-facing queue (``get_all_tasks``).
+        the user-facing queue (``get_all_tasks``). Care-reminder tasks are
+        excluded so they are counted only in ``care_reminders_due`` (#508).
         """
         self._require_tenant_key(tenant_key, "count_open_due_on")
         query = f"""
         RETURN LENGTH(
           FOR doc IN @@col
             FILTER doc.tenant_key == @tenant_key
+            FILTER doc.category != @care_category
             FILTER doc.status IN @open_statuses
             FILTER doc.due_date != null
             FILTER LEFT(doc.due_date, 10) == @today
@@ -770,6 +779,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         bind_vars = {
             "@col": self._collection_name,
             "tenant_key": tenant_key,
+            "care_category": self._CARE_CATEGORY,
             "open_statuses": self._OPEN_STATUSES,
             "today": today.isoformat(),
             "plant_col": col.PLANT_INSTANCES,
@@ -778,12 +788,17 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return int(next(cursor, 0) or 0)
 
     def count_overdue(self, tenant_key: str, today: date) -> int:
-        """Count open tasks of ``tenant_key`` whose due date is before ``today``."""
+        """Count open tasks of ``tenant_key`` whose due date is before ``today``.
+
+        Care-reminder tasks are excluded so an overdue care reminder is counted
+        only in ``care_reminders_due`` and never double-counted here (#508).
+        """
         self._require_tenant_key(tenant_key, "count_overdue")
         query = f"""
         RETURN LENGTH(
           FOR doc IN @@col
             FILTER doc.tenant_key == @tenant_key
+            FILTER doc.category != @care_category
             FILTER doc.status IN @open_statuses
             FILTER doc.due_date != null
             FILTER LEFT(doc.due_date, 10) < @today
@@ -794,6 +809,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         bind_vars = {
             "@col": self._collection_name,
             "tenant_key": tenant_key,
+            "care_category": self._CARE_CATEGORY,
             "open_statuses": self._OPEN_STATUSES,
             "today": today.isoformat(),
             "plant_col": col.PLANT_INSTANCES,
@@ -812,11 +828,14 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
 
         Sorted by due date ascending and capped at ``limit``. Returns raw
         document dicts; the dashboard service consumes them directly.
+        Care-reminder tasks are excluded — they surface in the dedicated care
+        section, so the generic upcoming-tasks list stays disjoint (#508).
         """
         self._require_tenant_key(tenant_key, "list_upcoming")
         query = f"""
         FOR doc IN @@col
           FILTER doc.tenant_key == @tenant_key
+          FILTER doc.category != @care_category
           FILTER doc.status IN @open_statuses
           FILTER doc.due_date != null
           FILTER LEFT(doc.due_date, 10) >= @today
@@ -829,6 +848,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         bind_vars = {
             "@col": self._collection_name,
             "tenant_key": tenant_key,
+            "care_category": self._CARE_CATEGORY,
             "open_statuses": self._OPEN_STATUSES,
             "today": today.isoformat(),
             "window_end": window_end.isoformat(),
