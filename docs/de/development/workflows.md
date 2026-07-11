@@ -29,7 +29,7 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
     | Doku schreiben | `mkdocs-documentation` |
     | Doku prüfen | `/nolte-shared:docs-freshness-checker` |
     | PR vorbereiten | `/pre-pr`, `pr-to-develop`, `/nolte-shared:pull-request-create` |
-    | E2E-Tests | `e2e-testcase-extractor` → `selenium-test-generator` |
+    | E2E-Tests | `nolte-engineering:test-case-extractor` → `selenium-test-generator` |
     | E2E-Results | `nolte-shared:e2e-result-reviewer` |
     | HA-Integration | `ha-integration-requirements-engineer` → `ha-integration-developer` |
     | HA deployen | `/deploy-ha` |
@@ -54,7 +54,7 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
 
 ### Szenario 2: E2E-Tests für Feature
 
-1. Testfälle ableiten: `e2e-testcase-extractor`
+1. Testfälle ableiten: `nolte-engineering:test-case-extractor`
 2. Tests generieren: `selenium-test-generator` (NFR-008-konform)
 3. Tests reviewen: `selenium-test-reviewer`
 4. Ergebnisse analysieren: `nolte-shared:e2e-result-reviewer`
