@@ -48,6 +48,7 @@ class WateringService:
         lifecycle_repo=None,
         phase_seq_repo: IPhaseSequenceRepository | None = None,
         sensor_service=None,
+        irrigation_demand_repo=None,
     ) -> None:
         self._repo = repo
         self._engine = engine
@@ -64,6 +65,7 @@ class WateringService:
         self._lifecycle_repo = lifecycle_repo
         self._phase_seq_repo = phase_seq_repo
         self._sensor_service = sensor_service
+        self._irrigation_demand_repo = irrigation_demand_repo
 
     # ── Create ─────────────────────────────────────────────────────────
 
@@ -238,8 +240,10 @@ class WateringService:
 
         * ``et_net_demand_ml`` is the **REQ-037 evapotranspiration seam** — a computed
           net irrigation demand (ml) that, when supplied, replaces the static per-event
-          volume. It defaults to ``None`` and is inert until the REQ-037 follow-up wires
-          a real ET calculator in; the hook is exercised by tests so it does not rot.
+          volume. When it is ``None`` and an irrigation-demand repository is wired, the
+          latest materialised :class:`IrrigationDemand` for the plant's run is resolved
+          and its recommended volume is split across the run's active plants (REQ-037).
+          A capped demand of ``0`` means "rain covered it — irrigate nothing".
         * a live soil-moisture sensor reading for the plant's location (REQ-005) scales
           the recommended volume down when the root zone is already wet.
         """
@@ -327,6 +331,8 @@ class WateringService:
         )
 
         # ── ET override (REQ-037 seam) — beats the static default when supplied ──
+        if et_net_demand_ml is None:
+            et_net_demand_ml = self._latest_irrigation_demand_ml(plant)
         if et_net_demand_ml is not None and et_net_demand_ml >= 0:
             suggestion = self._apply_volume_override(
                 suggestion,
@@ -352,6 +358,38 @@ class WateringService:
         return suggestion
 
     # ── Override helpers (REQ-005/037) ─────────────────────────────────────
+
+    def _latest_irrigation_demand_ml(self, plant) -> float | None:  # noqa: ANN001 — PlantInstance
+        """Per-plant ET net demand (ml) from the latest run-level IrrigationDemand.
+
+        Resolves the plant's most recent planting run, reads the latest materialised
+        :class:`IrrigationDemand` for it and splits the run's recommended volume
+        (litres for the whole growing area) evenly across the run's active plants.
+        Returns ``None`` when no repo/run/demand is available — the caller then keeps
+        the static recommendation. A capped demand of ``0`` returns ``0.0`` (suppress).
+        """
+        if self._irrigation_demand_repo is None or self._run_repo is None:
+            return None
+        tenant_key = getattr(plant, "tenant_key", "") or ""
+        plant_key = plant.key if hasattr(plant, "key") else None
+        if not plant_key:
+            return None
+        try:
+            runs = self._run_repo.get_runs_for_plant(plant_key)
+        except Exception as exc:  # noqa: BLE001 — never fail volume suggestion on lookup error
+            logger.warning("irrigation_demand_run_lookup_failed", plant_key=plant_key, error=str(exc))
+            return None
+        for run in runs:
+            if not run.key:
+                continue
+            demand = self._irrigation_demand_repo.get_latest_for_run(run.key, tenant_key)
+            if demand is None:
+                continue
+            plants = self._run_repo.get_run_plants(run.key, include_detached=False)
+            plant_count = max(1, len([p for p in plants if p.get("_key")]))
+            per_plant_liters = demand.recommended_volume_liters / plant_count
+            return per_plant_liters * 1000.0
+        return None
 
     def _latest_soil_moisture_percent(self, plant_key: PlantInstanceKey) -> float | None:
         """Latest live soil-moisture reading (% VWC) for the plant's location, or None.

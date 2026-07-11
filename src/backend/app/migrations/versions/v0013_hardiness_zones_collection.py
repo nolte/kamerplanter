@@ -1,4 +1,4 @@
-"""v0012 — REQ-039 hardiness zones: ``hardiness_zones`` collection + edge.
+"""v0013 — REQ-039 hardiness zones: ``hardiness_zones`` collection + edge.
 
 Creates the reference document collection ``hardiness_zones`` and the edge
 collection ``located_in_zone`` (sites → hardiness_zones) on *existing* volumes,
@@ -49,7 +49,7 @@ def _has_index(indexes: object, fields: list[str]) -> bool:
 
 
 class HardinessZonesCollectionMigration(Migration):
-    version = "0012"
+    version = "0013"
     name = "hardiness_zones_collection"
     description = "Create the REQ-039 hardiness_zones collection + located_in_zone edge and backfill valid zones."
     reversible = False

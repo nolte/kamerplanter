@@ -48,6 +48,13 @@ HARVEST_BATCHES = "harvest_batches"
 QUALITY_ASSESSMENTS = "quality_assessments"
 YIELD_METRICS = "yield_metrics"
 
+# REQ-008 Post-Harvest
+POST_HARVEST_BATCHES = "post_harvest_batches"
+DRYING_PROGRESS = "drying_progress"
+STORAGE_OBSERVATIONS = "storage_observations"
+MOLD_ALERTS = "mold_alerts"
+BURPING_EVENTS = "burping_events"
+
 # REQ-006 Tasks
 WORKFLOW_TEMPLATES = "workflow_templates"
 WORKFLOW_PHASES = "workflow_phases"
@@ -102,11 +109,22 @@ SENSORS = "sensors"
 WEATHER_FORECASTS = "weather_forecasts"
 WEATHER_SOURCE_CONFIGS = "weather_source_configs"
 
+# REQ-026 Aquaponics
+FISH_SPECIES = "fish_species"
+FISH_STOCKS = "fish_stocks"
+AQUAPONIC_SYSTEMS = "aquaponic_systems"
+WATER_TESTS = "water_tests"
+FISH_FEEDING_EVENTS = "fish_feeding_events"
+SUPPLEMENTATION_EVENTS = "supplementation_events"
+
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
 # REQ-039 — canonical plant hardiness-zone reference catalog (global, 1a…13b)
 HARDINESS_ZONES = "hardiness_zones"
+
+# REQ-037 — materialised daily irrigation demand (ET₀ → ETc → net demand) per site/run
+IRRIGATION_DEMANDS = "irrigation_demands"
 
 # REQ-002 Location Types
 LOCATION_TYPES = "location_types"
@@ -209,6 +227,11 @@ DOCUMENT_COLLECTIONS = [
     HARVEST_BATCHES,
     QUALITY_ASSESSMENTS,
     YIELD_METRICS,
+    POST_HARVEST_BATCHES,
+    DRYING_PROGRESS,
+    STORAGE_OBSERVATIONS,
+    MOLD_ALERTS,
+    BURPING_EVENTS,
     WORKFLOW_TEMPLATES,
     WORKFLOW_PHASES,
     TASK_TEMPLATES,
@@ -265,10 +288,19 @@ DOCUMENT_COLLECTIONS = [
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
+    # REQ-026 Aquaponics
+    FISH_SPECIES,
+    FISH_STOCKS,
+    AQUAPONIC_SYSTEMS,
+    WATER_TESTS,
+    FISH_FEEDING_EVENTS,
+    SUPPLEMENTATION_EVENTS,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
     # REQ-039 hardiness-zone reference catalog
     HARDINESS_ZONES,
+    # REQ-037 irrigation demands
+    IRRIGATION_DEMANDS,
 ]
 
 # Edge collections
@@ -342,6 +374,13 @@ HARVESTED_AS = "harvested_as"
 ASSESSED_BY_QUALITY = "assessed_by_quality"
 HAS_YIELD_METRIC = "has_yield_metric"
 
+# REQ-008 Post-Harvest edges
+POST_HARVEST_OF = "post_harvest_of"
+HAS_DRYING_PROGRESS = "has_drying_progress"
+HAS_STORAGE_OBSERVATION = "has_storage_observation"
+TRIGGERED_MOLD_ALERT = "triggered_mold_alert"
+HAS_BURPING_EVENT = "has_burping_event"
+
 # REQ-006 Task edges
 WF_CONTAINS = "wf_contains"
 WF_HAS_PHASE = "wf_has_phase"
@@ -405,11 +444,26 @@ LOCATED_AT = "located_at"
 HAS_FORECAST = "has_forecast"  # sites → weather_forecasts (all source values)
 HAS_WEATHER_SOURCE_CONFIG = "has_weather_source_config"  # sites → weather_source_configs (1:1)
 
+# REQ-026 Aquaponics edges
+HAS_FISH_STOCK = "has_fish_stock"  # aquaponic_systems → fish_stocks
+STOCK_OF_SPECIES = "stock_of_species"  # fish_stocks → fish_species
+SYSTEM_HAS_TANK = "system_has_tank"  # aquaponic_systems → tanks (edge prop tank_role)
+SYSTEM_HAS_GROWBED = "system_has_growbed"  # aquaponic_systems → slots
+WATER_TEST_FOR = "water_test_for"  # water_tests → aquaponic_systems
+FEEDING_FOR_STOCK = "feeding_for_stock"  # fish_feeding_events → fish_stocks
+SUPPLEMENTATION_FOR = "supplementation_for"  # supplementation_events → aquaponic_systems
+COMPATIBLE_FISH_PLANT = "compatible_fish_plant"  # fish_species → species
+INCOMPATIBLE_FISH_PLANT = "incompatible_fish_plant"  # fish_species → species
+
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
 
 # REQ-039 hardiness-zone assignment edge
 LOCATED_IN_ZONE = "located_in_zone"  # sites → hardiness_zones (1 per site)
+
+# REQ-037 irrigation-demand edges
+HAS_IRRIGATION_DEMAND = "has_irrigation_demand"  # sites → irrigation_demands
+DEMAND_FOR_RUN = "demand_for_run"  # planting_runs → irrigation_demands
 
 # Watering Log edges
 LOG_SLOT = "log_slot"
@@ -518,6 +572,11 @@ EDGE_COLLECTIONS = [
     HARVESTED_AS,
     ASSESSED_BY_QUALITY,
     HAS_YIELD_METRIC,
+    POST_HARVEST_OF,
+    HAS_DRYING_PROGRESS,
+    HAS_STORAGE_OBSERVATION,
+    TRIGGERED_MOLD_ALERT,
+    HAS_BURPING_EVENT,
     WF_CONTAINS,
     WF_HAS_PHASE,
     REQUIRES_PHASE,
@@ -586,10 +645,23 @@ EDGE_COLLECTIONS = [
     # REQ-046 Weather data sources
     HAS_FORECAST,
     HAS_WEATHER_SOURCE_CONFIG,
+    # REQ-026 Aquaponics
+    HAS_FISH_STOCK,
+    STOCK_OF_SPECIES,
+    SYSTEM_HAS_TANK,
+    SYSTEM_HAS_GROWBED,
+    WATER_TEST_FOR,
+    FEEDING_FOR_STOCK,
+    SUPPLEMENTATION_FOR,
+    COMPATIBLE_FISH_PLANT,
+    INCOMPATIBLE_FISH_PLANT,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
     # REQ-039 hardiness-zone assignment
     LOCATED_IN_ZONE,
+    # REQ-037 irrigation demands
+    HAS_IRRIGATION_DEMAND,
+    DEMAND_FOR_RUN,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -908,6 +980,32 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": HAS_YIELD_METRIC,
         "from_vertex_collections": [HARVEST_BATCHES],
         "to_vertex_collections": [YIELD_METRICS],
+    },
+    # REQ-008 Post-Harvest
+    {
+        "edge_collection": POST_HARVEST_OF,
+        "from_vertex_collections": [HARVEST_BATCHES],
+        "to_vertex_collections": [POST_HARVEST_BATCHES],
+    },
+    {
+        "edge_collection": HAS_DRYING_PROGRESS,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [DRYING_PROGRESS],
+    },
+    {
+        "edge_collection": HAS_STORAGE_OBSERVATION,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [STORAGE_OBSERVATIONS],
+    },
+    {
+        "edge_collection": TRIGGERED_MOLD_ALERT,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [MOLD_ALERTS],
+    },
+    {
+        "edge_collection": HAS_BURPING_EVENT,
+        "from_vertex_collections": [POST_HARVEST_BATCHES],
+        "to_vertex_collections": [BURPING_EVENTS],
     },
     # REQ-006 Tasks
     {
@@ -1263,6 +1361,52 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [WEATHER_SOURCE_CONFIGS],
     },
+    # REQ-026 Aquaponics
+    {
+        "edge_collection": HAS_FISH_STOCK,
+        "from_vertex_collections": [AQUAPONIC_SYSTEMS],
+        "to_vertex_collections": [FISH_STOCKS],
+    },
+    {
+        "edge_collection": STOCK_OF_SPECIES,
+        "from_vertex_collections": [FISH_STOCKS],
+        "to_vertex_collections": [FISH_SPECIES],
+    },
+    {
+        "edge_collection": SYSTEM_HAS_TANK,
+        "from_vertex_collections": [AQUAPONIC_SYSTEMS],
+        "to_vertex_collections": [TANKS],
+    },
+    {
+        "edge_collection": SYSTEM_HAS_GROWBED,
+        "from_vertex_collections": [AQUAPONIC_SYSTEMS],
+        "to_vertex_collections": [SLOTS],
+    },
+    {
+        "edge_collection": WATER_TEST_FOR,
+        "from_vertex_collections": [WATER_TESTS],
+        "to_vertex_collections": [AQUAPONIC_SYSTEMS],
+    },
+    {
+        "edge_collection": FEEDING_FOR_STOCK,
+        "from_vertex_collections": [FISH_FEEDING_EVENTS],
+        "to_vertex_collections": [FISH_STOCKS],
+    },
+    {
+        "edge_collection": SUPPLEMENTATION_FOR,
+        "from_vertex_collections": [SUPPLEMENTATION_EVENTS],
+        "to_vertex_collections": [AQUAPONIC_SYSTEMS],
+    },
+    {
+        "edge_collection": COMPATIBLE_FISH_PLANT,
+        "from_vertex_collections": [FISH_SPECIES],
+        "to_vertex_collections": [SPECIES],
+    },
+    {
+        "edge_collection": INCOMPATIBLE_FISH_PLANT,
+        "from_vertex_collections": [FISH_SPECIES],
+        "to_vertex_collections": [SPECIES],
+    },
     # REQ-041 NASA POWER climate normals
     {
         "edge_collection": HAS_CLIMATE_NORMAL,
@@ -1274,6 +1418,17 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": LOCATED_IN_ZONE,
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [HARDINESS_ZONES],
+    },
+    # REQ-037 irrigation demands
+    {
+        "edge_collection": HAS_IRRIGATION_DEMAND,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [IRRIGATION_DEMANDS],
+    },
+    {
+        "edge_collection": DEMAND_FOR_RUN,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [IRRIGATION_DEMANDS],
     },
 ]
 
@@ -1362,6 +1517,19 @@ def ensure_collections(db: StandardDatabase) -> None:
     harvest_batches_col = db.collection(HARVEST_BATCHES)
     harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
     harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True)
+
+    # REQ-008 Post-Harvest indexes
+    post_harvest_batches_col = db.collection(POST_HARVEST_BATCHES)
+    post_harvest_batches_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    post_harvest_batches_col.add_persistent_index(fields=["harvest_batch_key"], unique=False)
+    drying_progress_col = db.collection(DRYING_PROGRESS)
+    drying_progress_col.add_persistent_index(fields=["batch_key"], unique=False)
+    storage_observations_col = db.collection(STORAGE_OBSERVATIONS)
+    storage_observations_col.add_persistent_index(fields=["batch_key"], unique=False)
+    mold_alerts_col = db.collection(MOLD_ALERTS)
+    mold_alerts_col.add_persistent_index(fields=["batch_key"], unique=False)
+    burping_events_col = db.collection(BURPING_EVENTS)
+    burping_events_col.add_persistent_index(fields=["batch_key"], unique=False)
 
     # REQ-006 Task indexes
     tasks_col = db.collection(TASKS)
@@ -1580,6 +1748,27 @@ def ensure_collections(db: StandardDatabase) -> None:
     # 1:1 per site within a tenant (REQ-046 §2.1).
     weather_source_configs_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
 
+    # REQ-026 Aquaponics indexes
+    fish_species_col = db.collection(FISH_SPECIES)
+    fish_species_col.add_persistent_index(fields=["scientific_name"], unique=True)
+    fish_species_col.add_persistent_index(fields=["temperature_zone"], unique=False)
+
+    aquaponic_systems_col = db.collection(AQUAPONIC_SYSTEMS)
+    aquaponic_systems_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    fish_stocks_col = db.collection(FISH_STOCKS)
+    fish_stocks_col.add_persistent_index(fields=["tenant_key", "system_key"], unique=False)
+
+    water_tests_col = db.collection(WATER_TESTS)
+    water_tests_col.add_persistent_index(fields=["system_key", "tested_at"], unique=False)
+
+    fish_feeding_events_col = db.collection(FISH_FEEDING_EVENTS)
+    fish_feeding_events_col.add_persistent_index(fields=["system_key", "fed_at"], unique=False)
+    fish_feeding_events_col.add_persistent_index(fields=["stock_key"], unique=False)
+
+    supplementation_events_col = db.collection(SUPPLEMENTATION_EVENTS)
+    supplementation_events_col.add_persistent_index(fields=["system_key", "applied_at"], unique=False)
+
     # REQ-041 NASA POWER climate normals — one record per (site, source) within a
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.
     climate_normals_col = db.collection(CLIMATE_NORMALS)
@@ -1593,6 +1782,13 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-039 — one hardiness-zone assignment edge per site.
     located_in_zone_col = db.collection(LOCATED_IN_ZONE)
     located_in_zone_col.add_persistent_index(fields=["_from"], unique=False)
+
+    # REQ-037 irrigation demands — one record per (site, run, day) within a tenant;
+    # the upsert keys off it, so uniqueness is enforced at the storage layer.
+    irrigation_demands_col = db.collection(IRRIGATION_DEMANDS)
+    irrigation_demands_col.add_persistent_index(
+        fields=["tenant_key", "site_key", "run_key", "demand_date"], unique=True
+    )
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

@@ -47,6 +47,8 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
 
   // REQ-007 Ernte
   '/ernte/batches': { label: 'nav.harvestBatches', parent: '/dashboard' },
+  // REQ-008 Nacherntebehandlung
+  '/ernte/nachernte': { label: 'nav.postHarvest', parent: '/dashboard' },
 
   // REQ-006 Aufgaben
   '/aufgaben/queue': { label: 'nav.taskQueue', parent: '/dashboard' },

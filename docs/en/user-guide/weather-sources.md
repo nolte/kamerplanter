@@ -108,6 +108,8 @@ The data source is **NASA POWER**, NASA's satellite- and model-based reanalysis 
 
 Below the source list, and below the climate chart, Kamerplanter shows the attribution notices for the services in use: German Weather Service (under the Geodatennutzungsverordnung, GeoNutzV), Open-Meteo (CC BY 4.0 license), OpenWeatherMap under its terms of use, and — for the climate normals in the "Climate at the Site" section — NASA POWER (CC BY 4.0 license).
 
+The irrigation demand calculated from this weather data (evapotranspiration/ET₀, see [Watering Log: Suggested Watering Volume](watering-log.md#suggested-watering-volume)) uses the open-source library **aquacropeto** (BSD-3-Clause license) internally for the FAO-56 calculation — not a weather data source of its own, just the calculation formula. <!-- REQ-037 -->
+
 ---
 
 ## Frequently Asked Questions

@@ -89,6 +89,7 @@ Automatically created care tasks start with priority "Medium"; if a reminder is 
 The most common reason for a "missing" reminder is one of the following:
 
 - **Active watering schedule**: If the plant already has an active automatic watering schedule via a planting run, Kamerplanter suppresses additional manual watering and fertilizing reminders for that plant.
+- **Irrigation demand already covered (rain)**: For outdoor and greenhouse sites with stored GPS coordinates, Kamerplanter calculates the daily irrigation demand from evapotranspiration (**ET₀** for short) minus any rain that has already fallen. If the remaining demand for the day is 0, the watering reminder is skipped — regardless of the otherwise calculated interval. See [Watering Log: Suggested Watering Volume](watering-log.md#suggested-watering-volume) for details on the calculation.
 - **Nutrient plan requirement**: Fertilizing reminders only occur if a nutrient plan is assigned to the plant — regardless of care style.
 - **Dormant phase**: If the plant is in a dormant phase (winter dormancy, senescence, hardening-off, acclimatization, repotting recovery), all reminders except pest check are suppressed.
 - **Active months**: If the current month is outside the care style's active months (e.g. November–February for most houseplants), no fertilizing reminder is generated.
@@ -179,3 +180,5 @@ For all unlisted families the fallback style `tropical` applies, unless a specie
 - [Planting Runs](planting-runs.md)
 - [Growth Phases](growth-phases.md)
 - [Calendar](calendar.md)
+- [Watering Log](watering-log.md) — Suggested watering volume, including the ET₀-based irrigation demand
+- [Weather Sources per Location](weather-sources.md)

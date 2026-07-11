@@ -149,6 +149,75 @@ class TestEtSeam:
         assert result.source == "evapotranspiration_demand"
 
 
+class _RunRepo:
+    def __init__(self, run_key: str | None, plant_count: int = 1) -> None:
+        self._run_key = run_key
+        self._plant_count = plant_count
+
+    def get_runs_for_plant(self, plant_key):  # noqa: ARG002
+        if self._run_key is None:
+            return []
+        return [SimpleNamespace(key=self._run_key)]
+
+    def get_run_plants(self, run_key, include_detached=False):  # noqa: ARG002
+        return [{"_key": f"pl{i}"} for i in range(self._plant_count)]
+
+
+class _DemandRepo:
+    def __init__(self, recommended_volume_liters: float | None) -> None:
+        self._liters = recommended_volume_liters
+
+    def get_latest_for_run(self, run_key, tenant_key):  # noqa: ARG002
+        if self._liters is None:
+            return None
+        return SimpleNamespace(recommended_volume_liters=self._liters)
+
+
+def _service_with_demand(plant, species, *, run_repo=None, demand_repo=None):
+    return WateringService(
+        repo=SimpleNamespace(),
+        engine=WateringEngine(),
+        site_repo=_SiteRepo("loc1"),
+        run_repo=run_repo,
+        volume_engine=WateringVolumeEngine(),
+        plant_repo=_PlantRepo(plant),
+        species_repo=_SpeciesRepo(species),
+        irrigation_demand_repo=demand_repo,
+    )
+
+
+class TestEtDemandAutoLookup:
+    def test_latest_demand_drives_volume_when_not_supplied(self):
+        # 2 L for the whole run, split across 2 plants → 1 L = 1000 ml per plant.
+        plant = _plant(key="p1", tenant_key="t1")
+        svc = _service_with_demand(
+            plant, _species(), run_repo=_RunRepo("run1", plant_count=2), demand_repo=_DemandRepo(2.0)
+        )
+        result = svc.suggest_volume("p1")
+        assert result.volume_ml == 1000
+        assert result.source == "evapotranspiration_demand"
+
+    def test_zero_demand_suppresses_watering(self):
+        plant = _plant(key="p1", tenant_key="t1")
+        svc = _service_with_demand(
+            plant, _species(), run_repo=_RunRepo("run1", plant_count=1), demand_repo=_DemandRepo(0.0)
+        )
+        result = svc.suggest_volume("p1")
+        assert result.volume_ml == 0
+        assert result.source == "evapotranspiration_demand"
+
+    def test_no_demand_record_stays_inert(self):
+        plant = _plant(key="p1", tenant_key="t1")
+        svc = _service_with_demand(plant, _species(), run_repo=_RunRepo("run1"), demand_repo=_DemandRepo(None))
+        result = svc.suggest_volume("p1")
+        assert result.source == "species_watering_guide"
+
+    def test_no_repo_wired_stays_inert(self):
+        plant = _plant(key="p1", tenant_key="t1")
+        result = _service_with_demand(plant, _species()).suggest_volume("p1")
+        assert result.source == "species_watering_guide"
+
+
 class TestFlushRegimeSurfacing:
     def test_flush_phase_marks_water_only(self):
         # phase resolution needs a phase name; use lifecycle repo fallback.

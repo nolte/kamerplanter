@@ -374,6 +374,7 @@ class CareReminderEngine:
         cultivar_traits: list[str] | None = None,
         winter_quarter_has_livedata: bool = False,
         season_phase: SeasonPhase | None = None,
+        irrigation_demand_capped_mm: float | None = None,
     ) -> bool:
         """Check whether a reminder should be generated.
 
@@ -382,9 +383,24 @@ class CareReminderEngine:
         given a phase, they fire on the season transition (``pre_winter`` /
         ``pre_spring``) rather than on a fixed calendar month. ``None`` means the
         site has no SeasonState, so the month-based calendar fallback applies.
+
+        ``irrigation_demand_capped_mm`` is the REQ-037 net irrigation demand (mm)
+        materialised for the plant's outdoor/greenhouse site. When it is exactly
+        ``0`` — rain has already covered the crop's demand — the watering reminder
+        is suppressed. ``None`` (indoor sites, no ET data) leaves the interval-based
+        logic untouched.
         """
         if month is None:
             month = date.today().month
+
+        # REQ-037 ET suppression: an outdoor/greenhouse plant whose net demand is
+        # zero (rain covered it) needs no watering reminder today.
+        if (
+            reminder_type == ReminderType.WATERING
+            and irrigation_demand_capped_mm is not None
+            and irrigation_demand_capped_mm <= 0
+        ):
+            return False
 
         # Winter protection reminders (REQ-022 §3.2 / REQ-047 §3.2) — driven by the
         # OverwinteringProfile. When a SeasonState governs the site the season phase

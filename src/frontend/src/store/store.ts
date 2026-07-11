@@ -16,6 +16,7 @@ import feedingEventsReducer from './slices/feedingEventsSlice';
 import wateringEventsReducer from './slices/wateringEventsSlice';
 import ipmReducer from './slices/ipmSlice';
 import harvestReducer from './slices/harvestSlice';
+import postHarvestReducer from './slices/postHarvestSlice';
 import tasksReducer from './slices/tasksSlice';
 import tenantsReducer from './slices/tenantSlice';
 import careRemindersReducer from './slices/careRemindersSlice';
@@ -50,6 +51,7 @@ export const store = configureStore({
     wateringEvents: wateringEventsReducer,
     ipm: ipmReducer,
     harvest: harvestReducer,
+    postHarvest: postHarvestReducer,
     tasks: tasksReducer,
     careReminders: careRemindersReducer,
     onboarding: onboardingReducer,

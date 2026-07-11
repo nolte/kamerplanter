@@ -242,6 +242,25 @@ Diese Variable steuert die vierteljährliche Hintergrund-Aktualisierung der auto
 
 ---
 
+## Bewässerungsbedarf (ET₀) <!-- REQ-037 --> {#bewaesserungsbedarf-et0}
+
+Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten eines Freiland- oder Gewächshaus-Standorts die Referenz-Evapotranspiration (FAO-56, ET₀) und daraus den Netto-Bewässerungsbedarf je Pflanzdurchlauf berechnet. Der Task benötigt zusätzlich `WEATHER_ENABLED=true` — ohne abgeholte Wetterdaten gibt es nichts zu berechnen. Ergebnis und Verhalten für Endnutzer sind unter [Gießprotokoll: Vorgeschlagene Gießmenge](../user-guide/watering-log.md#vorgeschlagene-giessmenge) und [Pflegeerinnerungen: Warum eine Erinnerung ausbleiben kann](../user-guide/care-reminders.md#warum-eine-erinnerung-ausbleiben-kann) beschrieben.
+
+<!-- Quelle: src/backend/app/config/settings.py (irrigation_demand_enabled, irrigation_root_zone_depth_mm) -->
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `IRRIGATION_DEMAND_ENABLED` | `true` | Nein | Eigener Kill-Switch für den täglichen `compute_irrigation_demand`-Task (06:15 Uhr), unabhängig vom allgemeinen `WEATHER_ENABLED` — beide müssen aktiv sein, damit der Task läuft. |
+| `IRRIGATION_ROOT_ZONE_DEPTH_MM` | `300.0` | Nein | Angenommene effektive Wurzelzonentiefe in Millimeter Boden. Wird verwendet, um die Wasserhaltekapazität eines Substrats (in Prozent) in eine Millimeter-Obergrenze für den Netto-Bewässerungsbedarf umzurechnen — verhindert eine rechnerisch zu hohe Tagesempfehlung bei sehr trockenen Ausgangsbedingungen. |
+
+!!! note "Nur Freiland- und Gewächshaus-Standorte, keine neuen REST-Endpunkte"
+    Der Bewässerungsbedarf wird ausschließlich für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit hinterlegten GPS-Koordinaten berechnet — Innenraum-Standorte bleiben beim intervallbasierten Gießplan (REQ-022). Es gibt keinen eigenen REST-Endpunkt dafür; das Ergebnis fließt über den bestehenden Gießmengen-Vorschlag (`suggest_volume`) und die Pflegeerinnerungs-Engine in die Oberfläche ein.
+
+!!! info "Berechnungsgrundlage: aquacropeto (BSD-3-Clause)"
+    Die FAO-56-Penman-Monteith- und Hargreaves-Formeln für ET₀ werden über die Python-Bibliothek `aquacropeto` (PyPI-Paket `aquacropeto`, BSD-3-Clause-Lizenz) berechnet — keine ShareAlike-/Copyleft-Pflichten für den Kamerplanter-Code. Details siehe `NOTICE.md` im Projekt-Root.
+
+---
+
 ## Rate Limiting
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -604,3 +623,4 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Deployment Kubernetes](../deployment/kubernetes.md)
 - [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
 - [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
+- [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)

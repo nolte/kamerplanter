@@ -29,6 +29,7 @@ from app.data_access.arango.overwintering_profile_template_repository import (
 )
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
+from app.data_access.arango.post_harvest_repository import ArangoPostHarvestRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
@@ -79,6 +80,7 @@ from app.domain.services.overwintering_profile_service import OverwinteringProfi
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
 from app.domain.services.site_service import SiteService
 from app.domain.services.species_service import SpeciesService
@@ -116,6 +118,20 @@ def get_timescale_connection():
 
 def get_db() -> StandardDatabase:
     return get_connection().db
+
+
+def get_aquaponik_repo():
+    """REQ-026 aquaponics repository (systems + fish/water child collections)."""
+    from app.data_access.arango.aquaponik_repository import ArangoAquaponikRepository
+
+    return ArangoAquaponikRepository(get_db())
+
+
+def get_aquaponik_service():
+    """REQ-026 aquaponics service with its domain engines."""
+    from app.domain.services.aquaponik_service import AquaponikService
+
+    return AquaponikService(get_aquaponik_repo())
 
 
 def get_species_repo() -> ArangoSpeciesRepository:
@@ -350,6 +366,7 @@ def get_watering_service() -> WateringService:
         lifecycle_repo=get_lifecycle_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
         sensor_service=get_sensor_service(),
+        irrigation_demand_repo=get_irrigation_demand_repo(),
     )
 
 
@@ -420,6 +437,17 @@ def get_harvest_service() -> HarvestService:
         plant_repo=get_plant_repo(),
         run_repo=get_planting_run_repo(),
         phase_engine=get_phase_transition_engine(),
+    )
+
+
+def get_post_harvest_repo() -> ArangoPostHarvestRepository:
+    return ArangoPostHarvestRepository(get_db())
+
+
+def get_post_harvest_service() -> PostHarvestService:
+    return PostHarvestService(
+        get_post_harvest_repo(),
+        harvest_repo=get_harvest_repo(),
     )
 
 
@@ -804,6 +832,12 @@ def get_hardiness_zone_service():
         site_repo=get_site_repo(),
         climate_normal_repo=get_climate_normal_repo(),
     )
+
+
+def get_irrigation_demand_repo():
+    from app.data_access.arango.irrigation_demand_repository import ArangoIrrigationDemandRepository
+
+    return ArangoIrrigationDemandRepository(get_db())
 
 
 def get_weather_settings_service():

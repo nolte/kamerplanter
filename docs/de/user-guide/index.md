@@ -19,6 +19,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Wetterquellen](weather-sources.md) | Öffentlichen Wetterdienst oder Home Assistant je Standort auswählen und priorisieren |
 | [Aufgaben](tasks.md) | Aufgabenplanung und Workflow-Templates |
 | [Ernte](harvest.md) | Erntemanagement und Qualitätsbewertung |
+| [Nacherntebehandlung](post-harvest.md) | Trocknung, Aushärtung (Curing) und Lagerung deiner Erntechargen verfolgen |
 | [Pflanzenschutz (IPM)](pest-management.md) | Integrierter Pflanzenschutz |
 | [Meiner Pflanze geht es schlecht](plant-health-troubleshooting.md) | Symptome erkennen und passende nächste Schritte finden |
 | [Schädlinge per Foto erkennen](pest-detection.md) | Foto hochladen und automatisch einschätzen lassen |
@@ -29,6 +30,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Pflanzenfoto-Galerie](plant-photos.md) | Wachstumsverlauf einer Pflanze in Fotos festhalten |
 | [Pflanzdurchläufe](planting-runs.md) | Gruppenmanagement für Pflanzen |
 | [Tankmanagement](tanks.md) | Wassertanks und Befüllungen |
+| [Aquaponik](aquaponics.md) | Fisch-Pflanzen-Kreislaufsysteme, Stickstoffkreislauf und Biofilter-Cycling |
 | [Kalender](calendar.md) | Kalenderansicht und Aussaatkalender |
 | [Dashboard](dashboard.md) | Übersicht und Kennzahlen |
 | [Onboarding-Wizard](onboarding.md) | Geführte Ersteinrichtung mit Starter-Kits und Favoriten |
