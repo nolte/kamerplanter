@@ -109,6 +109,9 @@ Viele Widget-Panels sind zugleich Sprungziele: Außerhalb des Bearbeiten-Modus �
 | Aktive Pflanzen | Überblick über deine aktiven Pflanzen. |
 | Einrichtungsfortschritt | Dein Fortschritt bei der Ersteinrichtung (erscheint nur, solange das Onboarding nicht abgeschlossen ist). |
 
+!!! note "Aufgaben heute und Pflegeerinnerungen überschneiden sich nicht"
+    Beide Kacheln zählen dieselben Aufgaben nie doppelt: **Pflegeerinnerungen** zeigt ausschließlich Aufgaben der Kategorie „Pflegeerinnerung", während **Aufgaben heute** alle übrigen fälligen und überfälligen Aufgaben zeigt.
+
 ### Einblicke
 
 | Widget | Beschreibung |
