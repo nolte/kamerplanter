@@ -13,9 +13,14 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LaunchIcon from '@mui/icons-material/Launch';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import {
+  ColumnFilterBar,
+  type ColumnFilterDef,
+} from '@/components/common/ColumnFilterBar';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import MobileCard from '@/components/common/MobileCard';
 import { useTableUrlState } from '@/hooks/useTableState';
+import { useColumnFilters } from '@/hooks/useColumnFilters';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -26,6 +31,7 @@ import type {
   HardinessRating,
   OverwinteringProfile,
   PlantInstance,
+  WinterAction,
 } from '@/api/types';
 import OverwinteringProfileDialog from './OverwinteringProfileDialog';
 
@@ -36,6 +42,40 @@ const hardinessColor: Record<HardinessRating, ChipProps['color']> = {
   frost_free: 'error',
   dig_and_store: 'error',
 };
+
+// Filterable enum domains — kept aligned with `enums.hardinessRating.*` /
+// `enums.winterAction.*` so the facet option labels resolve via i18n.
+const HARDINESS_VALUES: readonly HardinessRating[] = [
+  'hardy',
+  'needs_protection',
+  'frost_free',
+  'dig_and_store',
+];
+const WINTER_ACTION_VALUES: readonly WinterAction[] = [
+  'none',
+  'mulch',
+  'fleece',
+  'earth_up',
+  'move_indoors',
+  'dig_store',
+  'wrap',
+];
+
+// URL query-param names owned by the faceted column filters (comma-separated
+// values). These are disjoint from the `useTableUrlState` params (q, sort, dir,
+// page, pageSize), so search + sort + facets stack on the same URL.
+const FILTER_HARDINESS = 'hardiness';
+const FILTER_WINTER_ACTION = 'winter_action';
+const FILTER_MONTH = 'month';
+const FILTER_ORIGIN = 'origin';
+const FILTER_SUBJECT = 'subject_type';
+const FILTER_IDS = [
+  FILTER_HARDINESS,
+  FILTER_WINTER_ACTION,
+  FILTER_MONTH,
+  FILTER_ORIGIN,
+  FILTER_SUBJECT,
+] as const;
 
 export default function OverwinteringListPage() {
   const { t, i18n } = useTranslation();
@@ -56,6 +96,7 @@ export default function OverwinteringListPage() {
   const tableState = useTableUrlState({
     defaultSort: { column: 'hardinessRating', direction: 'asc' },
   });
+  const columnFilters = useColumnFilters(FILTER_IDS);
 
   const reload = () => {
     dispatch(fetchOverwinteringProfiles({}));
@@ -118,6 +159,104 @@ export default function OverwinteringListPage() {
       new Date(2000, month - 1, 1).toLocaleDateString(i18n.language, { month: 'long' }),
     [i18n.language],
   );
+
+  // Month facet options are derived from the months actually present in the
+  // data (sorted 1→12) rather than a fixed 1–12 list, so the user never sees
+  // month options that would yield zero matches.
+  const monthOptions = useMemo(
+    () =>
+      Array.from(new Set(items.map((p) => p.winter_action_month)))
+        .sort((a, b) => a - b)
+        .map((m) => ({ value: String(m), label: monthLabel(m) })),
+    [items, monthLabel],
+  );
+
+  // Faceted filter definitions for the toolbar (UI-NFR-010). Hardiness and
+  // winter action use the full enum domain; month is data-derived; origin and
+  // subject type are binary facets.
+  const filterDefs: ColumnFilterDef[] = useMemo(
+    () => [
+      {
+        id: FILTER_HARDINESS,
+        label: t('pages.overwintering.hardinessRating'),
+        options: HARDINESS_VALUES.map((v) => ({
+          value: v,
+          label: t(`enums.hardinessRating.${v}`),
+        })),
+      },
+      {
+        id: FILTER_WINTER_ACTION,
+        label: t('pages.overwintering.winterAction'),
+        options: WINTER_ACTION_VALUES.map((v) => ({
+          value: v,
+          label: t(`enums.winterAction.${v}`),
+        })),
+      },
+      {
+        id: FILTER_MONTH,
+        label: t('pages.overwintering.winterActionMonth'),
+        options: monthOptions,
+      },
+      {
+        id: FILTER_ORIGIN,
+        label: t('pages.overwintering.filterOrigin'),
+        options: [
+          { value: 'auto', label: t('pages.overwintering.auto') },
+          { value: 'manual', label: t('pages.overwintering.manual') },
+        ],
+      },
+      {
+        id: FILTER_SUBJECT,
+        label: t('pages.overwintering.filterSubjectType'),
+        options: [
+          { value: 'plant', label: t('pages.overwintering.subjectPlant') },
+          { value: 'run', label: t('pages.overwintering.subjectRun') },
+        ],
+      },
+    ],
+    [t, monthOptions],
+  );
+
+  // Client-side facet filtering: the page loads the full profile list up front,
+  // so the multi-select facets are applied here (AND across facets, OR within a
+  // facet) before the rows are handed to the DataTable, which still owns the
+  // free-text search, sort and pagination — so facets stack on top of search.
+  const filteredProfiles = useMemo(() => {
+    const hardiness = columnFilters.values[FILTER_HARDINESS] ?? [];
+    const actions = columnFilters.values[FILTER_WINTER_ACTION] ?? [];
+    const months = columnFilters.values[FILTER_MONTH] ?? [];
+    const origins = columnFilters.values[FILTER_ORIGIN] ?? [];
+    const subjects = columnFilters.values[FILTER_SUBJECT] ?? [];
+    if (
+      hardiness.length === 0 &&
+      actions.length === 0 &&
+      months.length === 0 &&
+      origins.length === 0 &&
+      subjects.length === 0
+    ) {
+      return items;
+    }
+    return items.filter((p) => {
+      if (hardiness.length > 0 && !hardiness.includes(p.hardiness_rating)) {
+        return false;
+      }
+      if (actions.length > 0 && !actions.includes(p.winter_action)) {
+        return false;
+      }
+      if (months.length > 0 && !months.includes(String(p.winter_action_month))) {
+        return false;
+      }
+      if (origins.length > 0) {
+        const origin = p.auto_generated ? 'auto' : 'manual';
+        if (!origins.includes(origin)) return false;
+      }
+      if (subjects.length > 0) {
+        const subject = p.plant_key ? 'plant' : p.planting_run_key ? 'run' : 'none';
+        if (!subjects.includes(subject)) return false;
+      }
+      return true;
+    });
+  }, [items, columnFilters.values]);
 
   const openCreate = () => {
     setEditProfile(null);
@@ -346,9 +485,10 @@ export default function OverwinteringListPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.overwintering.listIntro')}
       </Typography>
+      <ColumnFilterBar filters={filterDefs} state={columnFilters} />
       <DataTable
         columns={columns}
-        rows={items}
+        rows={filteredProfiles}
         loading={loading}
         onRowClick={openEdit}
         getRowKey={(r) => r.key}
@@ -358,6 +498,8 @@ export default function OverwinteringListPage() {
         tableState={tableState}
         ariaLabel={t('pages.overwintering.title')}
         mobileCardRenderer={renderMobileCard}
+        hasActiveColumnFilters={columnFilters.activeCount > 0}
+        onResetColumnFilters={columnFilters.clearAll}
       />
 
       <OverwinteringProfileDialog
