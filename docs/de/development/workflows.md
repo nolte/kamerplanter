@@ -29,8 +29,8 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
     | Doku schreiben | `mkdocs-documentation` |
     | Doku prüfen | `/nolte-shared:docs-freshness-checker` |
     | PR vorbereiten | `/pre-pr`, `pr-to-develop`, `/nolte-shared:pull-request-create` |
-    | E2E-Tests | `nolte-engineering:test-case-extractor` → `selenium-test-generator` |
-    | E2E-Results | `nolte-shared:e2e-result-reviewer` |
+    | E2E-Tests | `nolte-engineering:test-case-extractor` → `nolte-engineering:e2e-test-generator` |
+    | E2E-Results | `nolte-engineering:e2e-result-reviewer` |
     | HA-Integration | `ha-integration-requirements-engineer` → `ha-integration-developer` |
     | HA deployen | `/deploy-ha` |
     | Knowledge-Base | `/gen-knowledge`, `knowledge-chunk-author` |
@@ -55,9 +55,9 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
 ### Szenario 2: E2E-Tests für Feature
 
 1. Testfälle ableiten: `nolte-engineering:test-case-extractor`
-2. Tests generieren: `selenium-test-generator` (NFR-008-konform)
-3. Tests reviewen: `selenium-test-reviewer`
-4. Ergebnisse analysieren: `nolte-shared:e2e-result-reviewer`
+2. Tests generieren: `nolte-engineering:e2e-test-generator` (NFR-008-konform)
+3. Tests reviewen: `nolte-engineering:e2e-test-reviewer`
+4. Ergebnisse analysieren: `nolte-engineering:e2e-result-reviewer`
 
 ### Szenario 3: Anforderung reviewen
 
@@ -87,7 +87,7 @@ Wann wird welcher Agent oder Skill eingesetzt? Diese Seite ergänzt den automati
 
 | Modell | Einsatz | Beispiel |
 |--------|---------|----------|
-| **opus** | Komplexe Generierung, Architektur-Entscheidungen, umfangreiche Analysen | `fullstack-developer`, `ha-integration-developer`, `casual-houseplant-user-reviewer`, `tech-stack-architect`, `selenium-test-generator` |
+| **opus** | Komplexe Generierung, Architektur-Entscheidungen, umfangreiche Analysen | `fullstack-developer`, `ha-integration-developer`, `casual-houseplant-user-reviewer`, `tech-stack-architect`, `nolte-engineering:e2e-test-generator` |
 | **sonnet** | Standard: Balance Qualität/Geschwindigkeit | Die meisten Agents (Reviews, Code-Fixes, Dokumentation) |
 
 ---
