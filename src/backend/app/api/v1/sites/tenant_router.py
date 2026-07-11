@@ -5,7 +5,7 @@ from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse, SiteHardin
 from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
-from app.common.auth import get_current_tenant
+from app.common.auth import get_current_tenant, require_tenant_role
 from app.common.dependencies import (
     get_hardiness_zone_service,
     get_plant_instance_service,
@@ -13,6 +13,7 @@ from app.common.dependencies import (
     get_site_service,
     get_tank_service,
 )
+from app.common.enums import TenantRole
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.hardiness_zone import HardinessZone
 from app.domain.models.sensor import Sensor
@@ -163,13 +164,16 @@ def get_site_hardiness(
 def resolve_site_hardiness_zone(
     key: str,
     force: bool = False,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: HardinessZoneService = Depends(get_hardiness_zone_service),
 ):
     """Derive the site's hardiness zone from its REQ-041 climate normals.
 
     A manually set zone is preserved unless ``force=true``. Returns 422 when the
     site has no climate normals with a usable minimum temperature yet.
+
+    State-changing (mutates ``Site.hardiness_zone``), so it requires at least the
+    ``grower`` role — a ``viewer`` cannot trigger a zone derivation (SEC-001).
     """
     site = service.resolve_for_site(key, ctx.tenant_key, force=force)
     return _hardiness_response(site, service.catalog_entry(site.hardiness_zone))

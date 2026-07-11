@@ -40,10 +40,14 @@ def refresh_site_hardiness_zones(self) -> dict:  # noqa: ANN001 — Celery bound
     site_repo = get_site_repo()
     db = get_db()
 
+    # A freshly created site defaults to ``hardiness_zone_source == "manual"`` with
+    # ``hardiness_zone == null`` (no override yet), so a plain ``!= 'manual'`` filter
+    # would skip it forever. Include unzoned sites so auto-fill reaches them, while a
+    # *set* manual zone (source == manual AND zone != null) stays untouched (SEC-003).
     cursor = db.aql.execute(
         "FOR s IN @@col FILTER s.type IN @types AND s.gps_coordinates != null "
-        "AND s.hardiness_zone_source != 'manual' RETURN s",
-        bind_vars={"@col": col.SITES, "types": list(_ZONE_SITE_TYPES)},
+        "AND (s.hardiness_zone_source != @manual OR s.hardiness_zone == null) RETURN s",
+        bind_vars={"@col": col.SITES, "types": list(_ZONE_SITE_TYPES), "manual": "manual"},
     )
 
     resolved = 0

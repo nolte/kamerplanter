@@ -72,7 +72,12 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"error_code": exc.error_code, "message": exc.message})
 
 
-def _build(site: Site | None = None, normals: list[ClimateNormal] | None = None, zone_doc=None):
+def _build(
+    site: Site | None = None,
+    normals: list[ClimateNormal] | None = None,
+    zone_doc=None,
+    role: TenantRole = TenantRole.ADMIN,
+):
     site_repo = MagicMock()
     site_repo.get_site_by_key.return_value = site if site is not None else _site()
     site_repo.update_site.side_effect = lambda key, updated: updated
@@ -89,7 +94,7 @@ def _build(site: Site | None = None, normals: list[ClimateNormal] | None = None,
     app.add_exception_handler(KamerplanterError, _error_handler)
     app.dependency_overrides[get_current_user] = lambda: {"user_key": "user_anna"}
     app.dependency_overrides[get_current_tenant] = lambda: TenantContext(
-        tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_anna", role=TenantRole.ADMIN
+        tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_anna", role=role
     )
     app.dependency_overrides[get_hardiness_zone_service] = lambda: service
     return app, service, zone_repo
@@ -130,6 +135,28 @@ class TestSiteResolution:
         assert body["hardiness_zone_source"] == "derived_gps"
         assert body["mean_annual_minimum_c"] == -17.0
         assert body["zone"]["zone"] == "7a"
+
+    def test_resolve_forbidden_for_viewer(self) -> None:
+        # SEC-001: a viewer must not be able to trigger a state-changing zone
+        # derivation (mutates ``Site.hardiness_zone``).
+        app, _service, _repo = _build(role=TenantRole.VIEWER)
+        resp = TestClient(app).post(f"{self._base()}/resolve-hardiness-zone")
+        assert resp.status_code == 403
+
+    def test_resolve_allowed_for_grower(self) -> None:
+        # SEC-001: the ``grower`` role is the minimum that may derive the zone.
+        app, _service, _repo = _build(role=TenantRole.GROWER)
+        resp = TestClient(app).post(f"{self._base()}/resolve-hardiness-zone")
+        assert resp.status_code == 200
+        assert resp.json()["hardiness_zone"] == "7a"
+
+    def test_read_hardiness_allowed_for_viewer(self) -> None:
+        # Reads stay at membership level — a viewer can still read the zone.
+        site = _site(hardiness_zone="7a", hardiness_zone_source="derived_gps")
+        app, _service, _repo = _build(site=site, role=TenantRole.VIEWER)
+        resp = TestClient(app).get(f"{self._base()}/hardiness")
+        assert resp.status_code == 200
+        assert resp.json()["hardiness_zone"] == "7a"
 
     def test_resolve_without_normals_422(self) -> None:
         app, _service, _repo = _build(normals=[])
