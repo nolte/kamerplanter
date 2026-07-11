@@ -12,8 +12,10 @@ from fastapi import APIRouter, Depends
 from app.api.v1.tenant_scoped.weather.schemas import (
     AvailableSourceItem,
     AvailableSourcesResponse,
+    ClimateNormalResponse,
     HaEntityItem,
     HaSensorMappingResponse,
+    SiteClimateResponse,
     SiteWeatherForecastResponse,
     WeatherSourceConfigRequest,
     WeatherSourceConfigResponse,
@@ -27,8 +29,10 @@ from app.api.v1.tenant_scoped.weather.schemas import (
 from app.common.auth import get_current_tenant, require_tenant_role
 from app.common.dependencies import get_sensor_service, get_weather_source_service
 from app.common.enums import TenantRole
+from app.data_access.external.weather_attributions import WEATHER_ATTRIBUTIONS
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.weather import (
+    ClimateNormal,
     WeatherForecast,
     WeatherSourceConfig,
     WeatherSourceEntry,
@@ -165,6 +169,46 @@ def get_site_weather_forecast(
     service.verify_site_owned(site_key, ctx.tenant_key)
     result = sensor_service.get_site_weather_forecast(site_key, ctx.tenant_key)
     return SiteWeatherForecastResponse(**result)
+
+
+def _climate_normal_response(normal: ClimateNormal) -> ClimateNormalResponse:
+    return ClimateNormalResponse(
+        source=normal.source,
+        # REQ-041 licence gate — the CC-BY attribution travels with the payload so
+        # the UI can always render it next to the climate data.
+        attribution=WEATHER_ATTRIBUTIONS.get(normal.source, ""),
+        period_start_year=normal.period_start_year,
+        period_end_year=normal.period_end_year,
+        monthly_temp_min_c=normal.monthly_temp_min_c,
+        monthly_temp_max_c=normal.monthly_temp_max_c,
+        monthly_temp_avg_c=normal.monthly_temp_avg_c,
+        monthly_precip_mm=normal.monthly_precip_mm,
+        monthly_solar_mj_m2=normal.monthly_solar_mj_m2,
+        coldest_month_min_c=normal.coldest_month_min_c,
+        annual_temp_avg_c=normal.annual_temp_avg_c,
+        annual_precip_mm=normal.annual_precip_mm,
+        fetched_at=normal.fetched_at,
+    )
+
+
+@router.get("/sites/{site_key}/climate-normals", response_model=SiteClimateResponse)
+def get_site_climate_normals(
+    site_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: WeatherSourceService = Depends(get_weather_source_service),
+):
+    """REQ-041 — the site's long-term climate normals (NASA POWER) for the
+    "Klima am Standort" section.
+
+    Site ownership is enforced in the service (404 unknown / 403 foreign);
+    graceful for owned sites with no populated normals yet (empty ``normals``).
+    Each record carries its source's CC-BY attribution string.
+    """
+    normals = service.get_climate_normals(site_key, ctx.tenant_key)
+    return SiteClimateResponse(
+        site_key=site_key,
+        normals=[_climate_normal_response(n) for n in normals],
+    )
 
 
 @router.get("/weather-sources/available", response_model=AvailableSourcesResponse)

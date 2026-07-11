@@ -1625,6 +1625,25 @@
       "noSuccessors": "Noch keine Nachfolger-Familien definiert.",
       "selectFamilyHint": "Bitte eine Familie auswählen, um die Fruchtfolge anzuzeigen."
     },
+    "siteDetail": {
+      "climate": {
+        "title": "Klima am Standort",
+        "description": "Langjährige monatliche Klima-Normalwerte für diesen Standort – als Orientierung für Aussaat, Bewässerung und Überwinterung. Es handelt sich um historische, aus Modellen abgeleitete Durchschnittswerte (Reanalyse), nicht um eine Vorhersage.",
+        "period": "Bezugszeitraum: {{period}}",
+        "emptyTitle": "Noch keine Klima-Normalwerte",
+        "empty": "Für diesen Standort liegen noch keine Klima-Normalwerte vor. Sie werden im Hintergrund monatlich für Standorte mit GPS-Koordinaten abgerufen und erscheinen anschließend hier.",
+        "loadError": "Die Klima-Normalwerte konnten gerade nicht geladen werden.",
+        "chartAria": "Liniendiagramm mit Ø- und Tiefst-Temperatur sowie Balkendiagramm mit Niederschlag je Monat. Alle Werte stehen auch in der Tabelle darunter.",
+        "month": "Monat",
+        "tempAvg": "Ø-Temperatur",
+        "tempMin": "Tiefst-Temperatur",
+        "precip": "Niederschlag",
+        "solar": "Solarstrahlung",
+        "tableLabel": "Monatliche Klima-Normalwerte",
+        "annual": "Jahresmittel: {{temp}} °C, Jahresniederschlag: {{precip}} mm.",
+        "sourceLabel": "Datenquelle"
+      }
+    },
     "sites": {
       "title": "Standorte",
       "intro": "Standorte sind Ihre Anbauflächen – Gewächshäuser, Zimmer, Gärten oder Balkone. Jeder Standort enthält Bereiche (Zelte, Beete, Regale), die Sie hier aufklappen und verwalten können.",

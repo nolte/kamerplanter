@@ -32,6 +32,7 @@ import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/com
 import LocationTreeSection from './LocationTreeSection';
 import SiteRunsSection from './SiteRunsSection';
 import WeatherSourceSection from './WeatherSourceSection';
+import SiteClimateSection from './SiteClimateSection';
 import SensorCreateDialog from './SensorCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -349,7 +350,11 @@ export default function SiteDetailPage() {
       {key && <SiteRunsSection siteKey={key} />}
       {key && current && (current.type === 'outdoor' || current.type === 'greenhouse') && (
         current.gps_coordinates != null ? (
-          <WeatherSourceSection siteKey={key} />
+          <>
+            <WeatherSourceSection siteKey={key} />
+            {/* REQ-041 — long-term climate normals (NASA POWER) for the site. */}
+            <SiteClimateSection siteKey={key} />
+          </>
         ) : (
           <Alert severity="info" sx={{ mt: 4 }} data-testid="weather-source-gps-hint">
             {t('pages.weatherSource.gpsRequiredHint')}

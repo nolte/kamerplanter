@@ -19,6 +19,7 @@ celery_app.conf.update(
     include=[
         "app.tasks.auth_tasks",
         "app.tasks.care_tasks",
+        "app.tasks.climate_tasks",
         "app.tasks.dormancy_checks",
         "app.tasks.enrichment_tasks",
         "app.tasks.frost_forecast_tasks",
@@ -160,6 +161,13 @@ if settings.weather_enabled:
         "task": "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
         "schedule": crontab(hour=6, minute=10),
     }
+    # REQ-041 — NASA POWER climate normals, refreshed monthly (1st, 04:00 UTC).
+    # Near-static data guarded by an in-task TTL, so the beat is cheap.
+    if settings.nasa_power_climate_enabled:
+        celery_app.conf.beat_schedule["climate-normals-fetch-monthly"] = {
+            "task": "app.tasks.climate_tasks.fetch_climate_normals",
+            "schedule": crontab(day_of_month=1, hour=4, minute=0),
+        }
 
 # REQ-047 daily season-state evaluation (after the weather fetch; kill-switch)
 if settings.season_state_eval_enabled:

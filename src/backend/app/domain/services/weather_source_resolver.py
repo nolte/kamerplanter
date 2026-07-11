@@ -45,7 +45,10 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
-_KEYLESS_PUBLIC = {"open-meteo", "dwd"}
+# Keyless public adapters built with just (base_url, timeout). ``nasa-power``
+# (REQ-041) joins them so the resolver injects the effective base URL/timeout
+# instead of falling through to the bare zero-arg constructor.
+_KEYLESS_PUBLIC = {"open-meteo", "dwd", "nasa-power"}
 
 
 class WeatherSourceResolver:

@@ -2,6 +2,7 @@ import { tenantClient } from '../client';
 import type {
   AvailableSourcesResponse,
   HaEntityItem,
+  SiteClimateResponse,
   SiteWeatherForecastResponse,
   WeatherSourceConfigRequest,
   WeatherSourceConfigResponse,
@@ -66,6 +67,20 @@ export async function getSiteWeatherForecast(
 ): Promise<SiteWeatherForecastResponse> {
   const { data } = await tenantClient.get<SiteWeatherForecastResponse>(
     `${SITES}/${siteKey}/weather-forecast`,
+  );
+  return data;
+}
+
+/**
+ * REQ-041 — the site's long-term climate normals (NASA POWER) for the
+ * "Klima am Standort" section. Graceful by contract: a site without populated
+ * normals returns an empty `normals` list rather than an error.
+ */
+export async function getSiteClimateNormals(
+  siteKey: string,
+): Promise<SiteClimateResponse> {
+  const { data } = await tenantClient.get<SiteClimateResponse>(
+    `${SITES}/${siteKey}/climate-normals`,
   );
   return data;
 }
