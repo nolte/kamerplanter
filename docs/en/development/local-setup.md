@@ -36,7 +36,7 @@ The repository includes a pre-configured Kind configuration with three nodes (1 
 kind create cluster --config kind-config.yaml --name kamerplanter
 ```
 
-The cluster exposes ports 80, 443, 8000, 3000, and 8529 directly on the host.
+The cluster only publishes the ingress ports 80 and 443 on the host. Access to the backend (8000), frontend (3000), and ArangoDB (8529) goes through Skaffold's `--port-forward` (see table below), so those host ports must be free at startup.
 
 !!! warning "Existing cluster"
     If a cluster named `kamerplanter` already exists, delete it first:
@@ -49,6 +49,29 @@ After creation, verify that `kubectl` points to the new cluster:
 ```bash
 kubectl cluster-info --context kind-kamerplanter
 ```
+
+---
+
+## Creating the Secret
+
+The backend, Celery worker, and the AI services reference the Kubernetes secret `kamerplanter-secrets` via `envFrom` or `secretKeyRef` (defined in `helm/kamerplanter/values.yaml`). The dev overrides do **not** remove this reference, so the secret must exist in the `default` namespace **before** you start Skaffold — otherwise the affected pods stay stuck in `CreateContainerConfigError`. `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` are additionally validated as mandatory values at backend startup (fail-fast).
+
+Create the secret once per freshly created cluster:
+
+```bash
+kubectl create secret generic kamerplanter-secrets -n default \
+  --from-literal=ARANGODB_PASSWORD=your-secure-password \
+  --from-literal=ARANGO_ROOT_PASSWORD=your-secure-password \
+  --from-literal=JWT_SECRET_KEY=dev-only-not-for-production-secret-key-1234 \
+  --from-literal=POSTGRES_PASSWORD=foba123456 \
+  --from-literal=VECTORDB_PASSWORD=foba123456 \
+  --from-literal=FERNET_KEY=$(openssl rand -hex 32) \
+  --from-literal=ERASURE_TOMBSTONE_SALT=$(openssl rand -hex 32) \
+  --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
+```
+
+!!! warning "Local development only"
+    These values are intentionally weak and must never be used in a production environment. For production and GitOps, the [ArgoCD deployment](../deployment/argocd.md) describes secure secret management (Sealed Secrets, External Secrets Operator).
 
 ---
 

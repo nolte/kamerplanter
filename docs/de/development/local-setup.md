@@ -36,7 +36,7 @@ Das Repository enthält eine vorkonfigurierte Kind-Konfiguration mit drei Knoten
 kind create cluster --config kind-config.yaml --name kamerplanter
 ```
 
-Der Cluster öffnet die Ports 80, 443, 8000, 3000 und 8529 direkt auf dem Host-System.
+Der Cluster veröffentlicht auf dem Host-System nur die Ingress-Ports 80 und 443. Der Zugriff auf Backend (8000), Frontend (3000) und ArangoDB (8529) läuft über Skaffolds `--port-forward` (siehe Tabelle unten) — diese Host-Ports müssen beim Start also frei sein.
 
 !!! warning "Bereits vorhandener Cluster"
     Falls ein Cluster mit dem Namen `kamerplanter` existiert, lösche ihn zunächst:
@@ -49,6 +49,29 @@ Nach dem Erstellen prüfst du, ob `kubectl` auf den neuen Cluster zeigt:
 ```bash
 kubectl cluster-info --context kind-kamerplanter
 ```
+
+---
+
+## Secret anlegen
+
+Backend, Celery-Worker und die KI-Dienste referenzieren das Kubernetes-Secret `kamerplanter-secrets` per `envFrom` bzw. `secretKeyRef` (definiert in `helm/kamerplanter/values.yaml`). Die Dev-Overrides heben diese Referenz **nicht** auf, daher muss das Secret im Namespace `default` existieren, **bevor** du Skaffold startest — sonst bleiben die betroffenen Pods in `CreateContainerConfigError` hängen. `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` werden zusätzlich beim Backend-Start als Pflichtwerte geprüft (Fail-Fast).
+
+Lege das Secret einmalig pro frisch erstelltem Cluster an:
+
+```bash
+kubectl create secret generic kamerplanter-secrets -n default \
+  --from-literal=ARANGODB_PASSWORD=dein-sicheres-passwort \
+  --from-literal=ARANGO_ROOT_PASSWORD=dein-sicheres-passwort \
+  --from-literal=JWT_SECRET_KEY=dev-only-not-for-production-secret-key-1234 \
+  --from-literal=POSTGRES_PASSWORD=foba123456 \
+  --from-literal=VECTORDB_PASSWORD=foba123456 \
+  --from-literal=FERNET_KEY=$(openssl rand -hex 32) \
+  --from-literal=ERASURE_TOMBSTONE_SALT=$(openssl rand -hex 32) \
+  --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
+```
+
+!!! warning "Nur für die lokale Entwicklung"
+    Diese Werte sind bewusst schwach und gehören niemals in eine Produktivumgebung. Für Produktion und GitOps beschreibt das [ArgoCD-Deployment](../deployment/argocd.md) die sichere Secret-Verwaltung (Sealed Secrets, External Secrets Operator).
 
 ---
 
