@@ -70,6 +70,9 @@ Click **Add Site** (top right). A form opens.
 !!! tip "Why GPS coordinates matter"
     Only once GPS coordinates are stored can Kamerplanter automatically fetch weather data and calculate frost warnings for Outdoor and Greenhouse sites. If you enter coordinates for a different type (e.g. Indoor) anyway, they remain unused for now — if you later switch the type to Outdoor or Greenhouse, they take effect automatically.
 
+!!! tip "The climate zone can be derived automatically"
+    For Outdoor and Greenhouse sites with GPS coordinates, Kamerplanter already computes this zone automatically in the background from your site's long-term climate data and keeps this field in sync — you don't have to look it up yourself in that case. For details on the computation, manually overriding it, and the current state of the web interface, see [Climate Zones & Hardiness](../guides/climate-zones.md). <!-- REQ-039 -->
+
 !!! note "Experience levels"
     Depending on your experience level (Beginner / Intermediate / Expert, configurable in account settings) you will see more or fewer fields. Name and type are already visible at Beginner level; GPS coordinates, water source configuration, climate zone, and total area are added from Intermediate level upward; the timezone is an Expert-level field.
 

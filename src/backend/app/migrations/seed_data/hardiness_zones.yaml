@@ -1,0 +1,108 @@
+# REQ-039 — Kuratierte, deutschsprachige Inhalte fuer die Winterhaertezonen.
+#
+# LIZENZ: Dies enthaelt AUSSCHLIESSLICH das lizenzfreie USDA-Zonen-*Schema*
+# (Labels 1a-13b) plus selbst verfasste deutsche Beschreibungen, Region-Beispiele
+# und Frost-Richtwerte. Es sind KEINE USDA/PHZM/PRISM-Kartendaten enthalten. Die
+# Temperaturgrenzen jeder Zone werden im Seed-Job algorithmisch aus der
+# Schema-Formel (5 Grad-Fahrenheit-Baender ab -60 Grad-Fahrenheit) berechnet,
+# nicht hier eingecheckt.
+#
+# Nur die DACH-relevanten Zonen (5a-9a) tragen kuratierte Inhalte; alle uebrigen
+# Zonen werden mit einer generischen Beschreibung materialisiert.
+
+zones:
+  - zone: "5a"
+    description_de: >-
+      Sehr kaltes Kontinentalklima. In DACH nur in Hochlagen der Alpen und
+      Mittelgebirge. Nur ausgesprochen frostharte Arten ueberwintern zuverlaessig
+      im Freien.
+    representative_regions_de:
+      - "Alpen-Hochlagen"
+      - "Erzgebirgskamm"
+    typical_last_frost_md: "05-25"
+    typical_first_frost_md: "09-25"
+
+  - zone: "5b"
+    description_de: >-
+      Kaltes Klima der hoeheren Mittelgebirge und Alpentaeler. Empfindliche
+      Kuebelpflanzen muessen frostfrei ueberwintern.
+    representative_regions_de:
+      - "Bayerischer Wald"
+      - "Schwarzwald-Hochlagen"
+    typical_last_frost_md: "05-20"
+    typical_first_frost_md: "10-01"
+
+  - zone: "6a"
+    description_de: >-
+      Kuehl-gemaessigtes Klima weiter Teile der deutschen Mittelgebirge und des
+      Alpenvorlands. Viele winterharte Gehoelze gedeihen; Kuebelpflanzen brauchen
+      Winterschutz.
+    representative_regions_de:
+      - "Bayerisches Alpenvorland"
+      - "Sauerland"
+      - "Schweizer Mittelland (Hoehenlagen)"
+    typical_last_frost_md: "05-15"
+    typical_first_frost_md: "10-05"
+
+  - zone: "6b"
+    description_de: >-
+      Gemaessigtes Klima grosser Teile Sueddeutschlands, Oesterreichs und der
+      Schweiz. Standardzone fuer viele Obst- und Ziergehoelze im Freiland.
+    representative_regions_de:
+      - "Schwaebische Alb (Randlagen)"
+      - "Oesterreichisches Alpenvorland"
+      - "Fraenkische Alb"
+    typical_last_frost_md: "05-12"
+    typical_first_frost_md: "10-10"
+
+  - zone: "7a"
+    description_de: >-
+      Mild-gemaessigtes Klima weiter Tieflandregionen. Guenstige Zone fuer die
+      Freilandkultur der meisten winterharten Stauden und Gehoelze.
+    representative_regions_de:
+      - "Norddeutsches Tiefland"
+      - "Wiener Becken"
+      - "Genferseeregion"
+    typical_last_frost_md: "05-08"
+    typical_first_frost_md: "10-20"
+
+  - zone: "7b"
+    description_de: >-
+      Mildes Klima beguenstigter Fluss- und Weinbaulagen. Auch waermeliebende
+      Arten ueberwintern oft im Freien.
+    representative_regions_de:
+      - "Rheintal"
+      - "Mosel- und Ahrtal"
+      - "Bodenseeraum"
+    typical_last_frost_md: "05-01"
+    typical_first_frost_md: "10-28"
+
+  - zone: "8a"
+    description_de: >-
+      Sehr mildes Klima der waermsten DACH-Regionen. Mediterrane Kuebelpflanzen
+      koennen mit Schutz vielerorts ausgepflanzt bleiben.
+    representative_regions_de:
+      - "Oberrheingraben"
+      - "Koelner Bucht"
+      - "Tessin (geschuetzte Lagen)"
+    typical_last_frost_md: "04-20"
+    typical_first_frost_md: "11-05"
+
+  - zone: "8b"
+    description_de: >-
+      Ausgesprochen mildes, fast wintermildes Klima einzelner Sonderstandorte.
+      Feigen, Palmen und andere Grenzfaelle gedeihen im Freiland.
+    representative_regions_de:
+      - "Insel Mainau"
+      - "Tessin (Seeufer)"
+    typical_last_frost_md: "04-10"
+    typical_first_frost_md: "11-15"
+
+  - zone: "9a"
+    description_de: >-
+      Wintermildes, nahezu frostarmes Klima. In DACH nur kleinstraeumig an
+      absoluten Gunststandorten; typisch fuer atlantisch gepraegte Kuesten.
+    representative_regions_de:
+      - "Nordseeinseln (Gunstlagen)"
+    typical_last_frost_md: "04-01"
+    typical_first_frost_md: "11-25"

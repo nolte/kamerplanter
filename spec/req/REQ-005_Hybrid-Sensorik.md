@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.7 (Klassifizierungs-getriebene Sensor-Retention, ADR-003)
+Version: 2.8 (Klassifizierungs-getriebene Sensor-Retention, ADR-003; REQ-047-Degradations-Klarstellung)
 ```
 
 ### Changelog
@@ -16,6 +16,7 @@ Version: 2.7 (Klassifizierungs-getriebene Sensor-Retention, ADR-003)
 |---------|-------|-----------|
 | 2.7 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** Klassifizierungs-getriebener Drop-Chunks-Job `enforce_classified_sensor_retention` ergänzt — differenzierte Retention pro `Location.data_classification` (REQ-002). Default 5y Stufe 3, Opt-in-Verlängerungen für `greenhouse` (10y) und `outdoor_open` (20y, Stufe 2 = 5y). Forward-only-Klassifizierungs-Wechsel-Semantik. Saison-Aggregat (REQ-003 §2 `sensor_aggregates`) als 4. Datenebene ergänzt. |
 | 2.6 | (vorher) | Smart-Home-Gesamtdeaktivierung über UserPreference. |
+| 2.8 | 2026-07-11 | Konsistenz-Klarstellung (Überwinterungs-Cluster, REQ-047 v1.1): Bei fehlenden Livedaten degradiert REQ-047 auf die klimatologische Stufe (Ist-Stand: Standort-Durchschnittsfrostdaten + Zonen-Frosttermine); ClimateNormal (REQ-041) ist Ausbaupfad. Keine Modell-/Feld-Änderung. |
 
 ## 1. Business Case
 
@@ -124,7 +125,7 @@ Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **
 - **REQ-002 (Sites):** Nur Sites mit `type: 'outdoor'` oder `type: 'greenhouse'` erhalten Wetterdaten. GPS-Koordinaten (`gps_coordinates`) werden für den API-Call verwendet.
 - **REQ-022 (Pflegeerinnerungen):** `CareReminderEngine` prüft vor Gieß-Erinnerung die Wettervorhersage. Bei >5mm Regen in den nächsten 24h wird die Erinnerung unterdrückt oder mit Hinweis "Es regnet — Gießen wahrscheinlich nicht nötig" angezeigt.
 - **REQ-006 (Aufgaben):** Frostwarnung generiert automatisch einen Task "Frostschutz anbringen" mit hoher Priorität.
-- **REQ-047 (Saison-/Überwinterungs-Automatik):** Die `SeasonSignalResolver`-Kaskade konsumiert die `:WeatherForecast`-Frost-/Min-Temp-Vorhersage (`temp_min_c`, Frostschwelle < 2°C) und die Außentemperatur-Sensorik als **Live-Stufe** (Stufe 1) der Saison-Zustandserkennung. Fehlen frische Livedaten (`data_freshness` CRITICAL), degradiert REQ-047 auf Klimanormale (REQ-041) bzw. Kalender-Fallback.
+- **REQ-047 (Saison-/Überwinterungs-Automatik):** Die `SeasonSignalResolver`-Kaskade konsumiert die `:WeatherForecast`-Frost-/Min-Temp-Vorhersage (`temp_min_c`, Frostschwelle < 2°C) und die Außentemperatur-Sensorik als **Live-Stufe** (Stufe 1) der Saison-Zustandserkennung. Fehlen frische Livedaten (`data_freshness` CRITICAL), degradiert REQ-047 auf die klimatologische Stufe (Ist-Stand: Standort-Durchschnittsfrostdaten REQ-002/015-A + Zonen-Frosttermine REQ-039; ClimateNormal REQ-041 als Ausbaupfad) bzw. den Kalender-Fallback.
 - **Dashboard (REQ-009):** Wetter-Widget zeigt 3-Tages-Vorhersage für aktive Outdoor-Sites.
 
 ## 2. ArangoDB-Modellierung

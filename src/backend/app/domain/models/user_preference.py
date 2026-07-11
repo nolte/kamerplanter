@@ -82,6 +82,11 @@ class UserPreference(BaseModel):
     temperature_unit: str = "celsius"
     watering_can_liters: float = 10.0
     smart_home_enabled: bool = False
+    # UI-NFR-019 Kiosk mode — greenhouse operation with gloves/dirty hands.
+    # ``kiosk_enabled`` activates the touch-optimized kiosk shell; ``high_contrast``
+    # is the WCAG-AAA theme (auto-default in kiosk, R-005; standalone-usable, R-045).
+    kiosk_enabled: bool = False
+    high_contrast: bool = False
     module_visibility: dict[str, ModuleVisibilityState] = Field(
         default_factory=dict,
         description=(

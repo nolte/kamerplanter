@@ -68,7 +68,7 @@ snapshot_download('Xenova/paraphrase-multilingual-MiniLM-L12-v2', \
 FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-embedding-service" \
-      org.opencontainers.image.description="ONNX-based multilingual embedding service for Kamerplanter RAG" \
+      org.opencontainers.image.description="ONNX multilingual text-embedding service turning knowledge and queries into vectors for Kamerplanter's RAG pipeline" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"

@@ -28,23 +28,71 @@ class _NoopCollection:
     def indexes(self):
         # Models a bootstrapped-but-empty database: ``ensure_collections`` already
         # created every persistent index, so a structural index migration
-        # (v0009 notifications.group_key) finds its target present and is a no-op.
+        # (v0009 notifications.group_key, v0011 climate_normals, v0012
+        # irrigation_demands, v0013 hardiness_zones, v0014 cv_diagnosis) finds its
+        # target present and is a no-op.
         return [
             {"type": "persistent", "fields": ["group_key", "tenant_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "site_key", "source"], "unique": True},
+            {
+                "type": "persistent",
+                "fields": ["tenant_key", "site_key", "run_key", "demand_date"],
+                "unique": True,
+            },
+            {"type": "persistent", "fields": ["zone"], "unique": True},
+            # v0014 plant_diagnosis_requests history index
+            {"type": "persistent", "fields": ["tenant_key", "user_key", "created_at"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
         raise AssertionError("no index should be created when the bootstrap index already exists")
 
 
+class _NoopGraph:
+    """A bootstrapped graph that already carries every edge definition."""
+
+    def edge_definitions(self):
+        # v0011 checks for the has_climate_normal edge; v0012 for the two
+        # irrigation-demand edges; v0013 for located_in_zone; v0014 checks the four
+        # CV-diagnosis edges — report all present so the structural migrations stay
+        # no-ops on a bootstrapped database.
+        return [
+            {"edge_collection": "has_climate_normal"},
+            {"edge_collection": "has_irrigation_demand"},
+            {"edge_collection": "demand_for_run"},
+            {"edge_collection": "located_in_zone"},
+            {"edge_collection": "cv_diagnosed_for"},
+            {"edge_collection": "cv_diagnosis_found"},
+            {"edge_collection": "cv_attached_to_inspection"},
+            {"edge_collection": "cv_phenotype_of"},
+        ]
+
+    def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
+        raise AssertionError("no edge definition should be created when the bootstrap already added it")
+
+
 class _NoopDb:
-    """An empty database: scans return nothing, so every migration is a no-op."""
+    """An empty database: scans return nothing, so every migration is a no-op.
+
+    Structural migrations (v0009 index, v0011 collection/edge) additionally probe
+    ``has_collection`` / ``has_graph``; the bootstrapped model reports everything as
+    already present so those migrations report ``changed == 0`` too.
+    """
 
     def __init__(self) -> None:
         self.aql = _NoopAql()
 
     def collection(self, name: str) -> _NoopCollection:
         return _NoopCollection()
+
+    def has_collection(self, name: str) -> bool:
+        return True
+
+    def has_graph(self, name: str) -> bool:
+        return True
+
+    def graph(self, name: str) -> _NoopGraph:
+        return _NoopGraph()
 
 
 def _migrations():

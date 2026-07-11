@@ -108,14 +108,17 @@ plugins:
             Wetterquellen: Weather Sources
             Aufgaben: Tasks
             Ernte: Harvest
+            Nacherntebehandlung: Post-Harvest
             Pflanzenschutz (IPM): Pest Management (IPM)
             Pflanzdurchläufe: Planting Runs
             Tankmanagement: Tank Management
+            Aquaponik: Aquaponics
             Kalender: Calendar
             Dashboard: Dashboard
             Dashboard personalisieren: Personalizing Your Dashboard
             Onboarding-Wizard: Onboarding Wizard
             Light-Modus: Light Mode
+            Kiosk-Modus: Kiosk Mode
             KI-Assistent: AI Assistant
             KI-Provider einrichten: AI Provider Setup
             Umgebungssteuerung: Actuator Control
@@ -288,10 +291,12 @@ nav:
       - Wetterquellen: de/user-guide/weather-sources.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
+      - Nacherntebehandlung: de/user-guide/post-harvest.md
       - Pflanzenschutz (IPM): de/user-guide/pest-management.md
       - Pflanzenprobleme lösen: de/user-guide/plant-health-troubleshooting.md
       - Pflanzdurchläufe: de/user-guide/planting-runs.md
       - Tankmanagement: de/user-guide/tanks.md
+      - Aquaponik: de/user-guide/aquaponics.md
       - Kalender: de/user-guide/calendar.md
       - Dashboard: de/user-guide/dashboard.md
       - Dashboard personalisieren: de/user-guide/dashboard-personalization.md
@@ -299,6 +304,7 @@ nav:
       - Konto & Anmeldung: de/user-guide/account.md
       - Module & Funktionen: de/user-guide/module-visibility.md
       - Light-Modus: de/user-guide/light-mode.md
+      - Kiosk-Modus: de/user-guide/kiosk-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
       - Umgebungssteuerung: de/user-guide/actuator-control.md

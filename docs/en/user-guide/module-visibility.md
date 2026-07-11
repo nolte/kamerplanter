@@ -114,6 +114,7 @@ The table below lists all modules you can show or hide, along with the default v
 | Tasks & Workflows | Care & Planning | Beginner |
 | Fertilization & Nutrient Plans | Fertilization & Water | Intermediate |
 | Tank Management | Fertilization & Water | Expert |
+| Aquaponics | Fertilization & Water | Expert |
 | Substrates | Fertilization & Water | Expert |
 | Calculators (VPD/GDD/EC) | Fertilization & Water | Expert |
 | Pest Management (IPM) | Pest Control | Expert |

@@ -57,6 +57,10 @@ class IdentificationEngine:
     def _confidence_min_show(self) -> float:
         return settings.identification_confidence_min_show
 
+    @property
+    def _max_image_dimension(self) -> int:
+        return settings.identification_max_image_dimension
+
     # ── image handling ──────────────────────────────────────────────────
 
     def validate_image(self, image_data: bytes) -> None:
@@ -97,7 +101,7 @@ class IdentificationEngine:
         self.validate_image(image_data)
 
         try:
-            clean_image = strip_exif_and_normalize(image_data)
+            clean_image = strip_exif_and_normalize(image_data, max_dimension=self._max_image_dimension)
         except ValueError as exc:
             raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"]) from exc
 
@@ -163,7 +167,7 @@ class IdentificationEngine:
         """
         self.validate_image(image_data)
         try:
-            clean_image = strip_exif_and_normalize(image_data)
+            clean_image = strip_exif_and_normalize(image_data, max_dimension=self._max_image_dimension)
         except ValueError as exc:
             raise UnsupportedMediaTypeError("unknown", ["image/jpeg", "image/png"]) from exc
         return adapter.identify(clean_image, organ=organ, language=language)

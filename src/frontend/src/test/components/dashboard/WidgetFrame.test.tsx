@@ -142,15 +142,30 @@ describe('WidgetFrame', () => {
   });
 
   describe('Issue #439 — Widget Navigation (WP-4/5)', () => {
-    it('renders as a navigable link in read-only mode when widget has navigateTo (tasks_today)', () => {
-      // tasks_today has navigateTo: '/aufgaben/queue' in the real catalog
-      renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
-      // Should have the nav link testid and the affordance chevron.
-      const navLink = screen.getByTestId('widget-nav-tasks_today');
+    it('renders as a navigable link in read-only mode when widget has navigateTo (care_reminders)', () => {
+      // care_reminders has navigateTo: '/aufgaben/queue' and — unlike the
+      // entity-list widgets (#461) — keeps the whole-panel link.
+      const careInst: DashboardWidgetInstance = {
+        instance_id: 'inst-1',
+        widget_key: 'care_reminders',
+        config: {},
+      } as DashboardWidgetInstance;
+      renderWithProviders(<WidgetFrame {...makeProps({ instance: careInst, editMode: false })} />);
+      const navLink = screen.getByTestId('widget-nav-care_reminders');
       expect(navLink).toBeInTheDocument();
       expect(navLink.tagName).toBe('A'); // CardActionArea renders as <a> with RouterLink.
       expect(navLink).toHaveAttribute('href', '/aufgaben/queue');
-      expect(screen.getByTestId('widget-nav-affordance-tasks_today')).toBeInTheDocument();
+      expect(screen.getByTestId('widget-nav-affordance-care_reminders')).toBeInTheDocument();
+    });
+
+    it('skips the panel-level link for entity-list widgets (#461, tasks_today)', () => {
+      // tasks_today renders its own deep-linkable rows + header "open list" link,
+      // so it must NOT be wrapped in a panel <a> (would nest a row <a>).
+      renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
+      expect(screen.queryByTestId('widget-nav-tasks_today')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-affordance-tasks_today')).not.toBeInTheDocument();
+      // The widget body itself still renders.
+      expect(screen.getByTestId('stub-widget')).toBeInTheDocument();
     });
 
     it('does not render as navigable for static widgets (weather_forecast)', () => {
@@ -174,14 +189,19 @@ describe('WidgetFrame', () => {
       expect(screen.getByTestId('widget-menu-tasks_today')).toBeInTheDocument();
     });
 
-    it('respects module visibility gating — no link when target path is hidden', () => {
-      // Hide the tasks module so tasks_today navigation is gated out
+    it('respects module visibility gating — no link when target path is hidden (care_reminders)', () => {
+      // Hide the tasks module so care_reminders navigation is gated out
+      const careInst: DashboardWidgetInstance = {
+        instance_id: 'inst-1',
+        widget_key: 'care_reminders',
+        config: {},
+      } as DashboardWidgetInstance;
       const isPathVisibleMock = vi.fn((_path: string) => _path !== '/aufgaben/queue');
       moduleVisibilityMock.useModuleVisibility.mockReturnValue({ isPathVisible: isPathVisibleMock });
-      renderWithProviders(<WidgetFrame {...makeProps({ editMode: false })} />);
+      renderWithProviders(<WidgetFrame {...makeProps({ instance: careInst, editMode: false })} />);
       // Widget should not be navigable when its target path is hidden (REQ-042 gating).
-      expect(screen.queryByTestId('widget-nav-tasks_today')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('widget-nav-affordance-tasks_today')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-care_reminders')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('widget-nav-affordance-care_reminders')).not.toBeInTheDocument();
     });
 
     it('skips navigation wrapper for self-navigating widgets (winter_protection)', () => {

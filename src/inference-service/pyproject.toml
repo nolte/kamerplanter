@@ -22,6 +22,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# REQ-038 PlantCV phenotype pipeline (MPL-2.0). Kept OUT of the base image to
+# avoid pulling OpenCV/Matplotlib into every deployment; installed only where the
+# phenotype panel is wanted. The service degrades gracefully when it is absent
+# (PhenotypeEngine.is_available() -> False). PlantCV is used unmodified.
+cv = [
+    "plantcv>=4.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",

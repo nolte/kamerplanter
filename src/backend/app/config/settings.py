@@ -71,10 +71,20 @@ class Settings(BaseSettings):
     # is Phase 2). Phase 2 switches this to "local_embedding" without touching
     # engine/service/API.
     identification_primary_adapter: str = "plantnet"
-    identification_http_timeout: int = 30
+    # HTTP timeout (seconds) for the external identification call, env-configurable
+    # via ``IDENTIFICATION_HTTP_TIMEOUT``. The Pl@ntNet ``/identify`` request
+    # (multipart image upload + server-side ML inference) regularly exceeds the
+    # previous 30s default under load, surfacing as a ReadTimeout in the UI.
+    identification_http_timeout: int = 60
     identification_confidence_auto_accept: float = 0.85
     identification_confidence_min_show: float = 0.10
     identification_max_image_size_mb: int = 5
+    # Longest edge (px) the user image is downscaled to before it is uploaded to
+    # the identification adapter, env-configurable via
+    # ``IDENTIFICATION_MAX_IMAGE_DIMENSION``. Smaller = faster upload and less
+    # third-party bandwidth; Pl@ntNet works well from ~1024px. See
+    # ``image_preprocessor.strip_exif_and_normalize``.
+    identification_max_image_dimension: int = 1024
     # Per-user daily rate limit (REQ-029 §7). SEC-003: a sensible per-user floor so
     # a single account cannot consume the whole shared adapter free-tier quota.
     # ``0`` falls back to the adapter's own free-tier default.
@@ -149,6 +159,22 @@ class Settings(BaseSettings):
     idigbio_base_url: str = "https://search.idigbio.org/v2"
     idigbio_http_timeout: int = 30
 
+    # REQ-038 CV disease diagnosis (ONNX PlantDoc classifier + PlantCV phenotype).
+    # Opt-in (default-privacy): while disabled the self-hosted adapter reports
+    # itself unconfigured and the diagnosis flow degrades gracefully. Reuses the
+    # shared ``inference_service_url`` + ``internal_service_token``.
+    cv_diagnosis_enabled: bool = False
+    # Softmax-probability gates (REQ-038 §4). ``show`` is the drop floor; classes
+    # at/above ``highlight`` are emphasised. Neither implies auto-accept — a CV
+    # diagnosis is always a hypothesis. Backend-side enforcement complements the
+    # inference-service floor so the operator can tighten it without a redeploy.
+    cv_classifier_confidence_show: float = 0.10
+    cv_classifier_confidence_highlight: float = 0.75
+    # PlantCV phenotype panel (measurement only). Requested per call; effective
+    # only when the inference-service has PlantCV installed.
+    cv_phenotype_enabled: bool = True
+    cv_diagnosis_max_image_size_mb: int = 5  # §4.4 multipart upload limit
+
     # REQ-023 Auth
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"
@@ -217,6 +243,36 @@ class Settings(BaseSettings):
     openweathermap_enabled: bool = True
     weather_fetch_timeout_s: int = 20
     weather_max_rps_per_provider: float = 1.0
+
+    # REQ-041 NASA POWER — global, keyless reanalysis source for daily values and
+    # long-term climate normals (power.larc.nasa.gov). CC-BY-4.0 / US-public-domain
+    # (attribution requested; see ``weather_attributions.py`` + NOTICE.md).
+    nasa_power_base_url: str = "https://power.larc.nasa.gov/api/temporal"
+    #: NASA POWER daily values lag real time (quality control); skip the most
+    #: recent ``latency`` days and fetch a ``days_back`` look-back window ending
+    #: there. Both are configurable so a slow-to-publish region can widen them.
+    nasa_power_data_latency_days: int = 7
+    nasa_power_daily_days_back: int = 14
+    #: Climate normals are near-static, so a fetched record is re-pulled only after
+    #: this TTL — keeps the monthly beat idempotent and NASA POWER un-hammered.
+    nasa_power_climate_ttl_days: int = 180
+    #: Kill-switch for the monthly ``fetch_climate_normals`` beat (independent of
+    #: the daily-forecast ``weather_enabled`` switch; both must be on to run).
+    nasa_power_climate_enabled: bool = True
+
+    # REQ-039 — quarterly beat that re-derives ``Site.hardiness_zone`` from the
+    # climate normals for non-manually-set sites. Kill-switch; consumes the
+    # REQ-041 climate normals, so it is only useful when those are being fetched.
+    hardiness_zone_refresh_enabled: bool = True
+
+    # REQ-037 Evapotranspiration / irrigation demand — the daily
+    # ``compute_irrigation_demand`` beat materialises FAO-56 ET₀ → net irrigation
+    # demand for outdoor/greenhouse sites. Gated additionally by ``weather_enabled``
+    # (no forecasts → nothing to compute).
+    irrigation_demand_enabled: bool = True
+    #: Assumed effective root-zone depth (mm of soil) when converting a substrate's
+    #: water-holding-capacity percentage into a millimetre cap on the net demand.
+    irrigation_root_zone_depth_mm: float = 300.0
 
     # REQ-047 Season & overwintering automation — transition thresholds (°C) and
     # the hysteresis window; SEASON_STATE_EVAL_ENABLED is the Celery kill-switch.

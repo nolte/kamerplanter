@@ -236,6 +236,55 @@ Zum Vergleich — der bestehende **reaktive** Frost-Schwellwert (aktuell gemesse
 
 ---
 
+## Klimanormalen (NASA POWER) <!-- REQ-041 --> {#klimanormalen-nasa-power}
+
+Diese Variablen steuern die monatliche Hintergrund-Abholung der langjährigen Klima-Normalwerte (Abschnitt „Klima am Standort") über die keyless NASA-POWER-Reanalyse-Schnittstelle. Für die Abholung müssen sowohl `WEATHER_ENABLED` als auch `NASA_POWER_CLIMATE_ENABLED` aktiv sein.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `NASA_POWER_CLIMATE_ENABLED` | `true` | Nein | Eigener Kill-Switch für den monatlichen Klimanormalen-Task, unabhängig vom allgemeinen `WEATHER_ENABLED` — beide müssen aktiv sein, damit der Task läuft. |
+| `NASA_POWER_BASE_URL` | `https://power.larc.nasa.gov/api/temporal` | Nein | Basis-URL der NASA-POWER-API. Nur für Self-Hoster mit abweichender Netzwerk-/Proxy-Konfiguration relevant. |
+| `NASA_POWER_CLIMATE_TTL_DAYS` | `180` | Nein | Klimanormalen ändern sich kaum; ein bereits abgeholter Datensatz wird erst nach Ablauf dieser TTL erneut abgeholt — hält den monatlichen Task idempotent und schont die NASA-POWER-API. |
+| `NASA_POWER_DATA_LATENCY_DAYS` | `7` | Nein | Betrifft die separate Tageswerte-Abholung (nicht die Klimanormalen): Anzahl Tage, die NASA POWER für die Qualitätskontrolle seiner jüngsten Tageswerte benötigt. |
+| `NASA_POWER_DAILY_DAYS_BACK` | `14` | Nein | Betrifft ebenfalls nur die Tageswerte-Abholung: Größe des Rückblick-Fensters in Tagen. |
+
+!!! note "Betrifft nur Freiland- und Gewächshaus-Standorte mit GPS-Koordinaten"
+    Klimanormalen werden ausschließlich für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit hinterlegten GPS-Koordinaten materialisiert — für Innenraum-Standorte sind sie ohne Nutzen und werden nicht abgeholt. NASA POWER ist keyless nutzbar; die Daten unterliegen der CC-BY-4.0-Lizenz (Attribution wird automatisch mit ausgeliefert, siehe [Klima am Standort](../user-guide/weather-sources.md#klima-am-standort)). <!-- REQ-041 -->
+
+---
+
+## Winterhärtezonen (USDA) <!-- REQ-039 --> {#winterhaertezonen-usda}
+
+Diese Variable steuert die vierteljährliche Hintergrund-Aktualisierung der automatisch aus den Klimanormalen abgeleiteten Winterhärtezone eines Standorts (siehe [Klimazonen & Winterhärte](../guides/climate-zones.md)). Die Ableitung baut auf den Klimanormalen auf — der zugehörige Task läuft daher nur, wenn zusätzlich sowohl `WEATHER_ENABLED` als auch `NASA_POWER_CLIMATE_ENABLED` aktiv sind.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `HARDINESS_ZONE_REFRESH_ENABLED` | `true` | Nein | Eigener Kill-Switch für den vierteljährlichen Winterhärtezonen-Task (1. Januar/April/Juli/Oktober, 05:00 UTC), unabhängig von `NASA_POWER_CLIMATE_ENABLED` — beide müssen aktiv sein, damit der Task läuft. Manuell gesetzte Zonen (`hardiness_zone_source: manual`) werden vom Task nie überschrieben. |
+
+!!! note "Betrifft nur Freiland- und Gewächshaus-Standorte mit GPS-Koordinaten und vorhandenen Klimanormalen"
+    Wie die Klimanormalen selbst wird die Winterhärtezone nur für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit GPS-Koordinaten berechnet — und erst, sobald für diesen Standort bereits mindestens ein Klimanormalen-Datensatz mit verwertbarer Minimaltemperatur vorliegt. Ein sofortiges manuelles Auslösen (unabhängig von diesem Zeitplan) ist über die API möglich, siehe [API-Referenz — Winterhärtezonen](api-reference.md#winterhaertezonen-usda). <!-- REQ-039 -->
+
+---
+
+## Bewässerungsbedarf (ET₀) <!-- REQ-037 --> {#bewaesserungsbedarf-et0}
+
+Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten eines Freiland- oder Gewächshaus-Standorts die Referenz-Evapotranspiration (FAO-56, ET₀) und daraus den Netto-Bewässerungsbedarf je Pflanzdurchlauf berechnet. Der Task benötigt zusätzlich `WEATHER_ENABLED=true` — ohne abgeholte Wetterdaten gibt es nichts zu berechnen. Ergebnis und Verhalten für Endnutzer sind unter [Gießprotokoll: Vorgeschlagene Gießmenge](../user-guide/watering-log.md#vorgeschlagene-giessmenge) und [Pflegeerinnerungen: Warum eine Erinnerung ausbleiben kann](../user-guide/care-reminders.md#warum-eine-erinnerung-ausbleiben-kann) beschrieben.
+
+<!-- Quelle: src/backend/app/config/settings.py (irrigation_demand_enabled, irrigation_root_zone_depth_mm) -->
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `IRRIGATION_DEMAND_ENABLED` | `true` | Nein | Eigener Kill-Switch für den täglichen `compute_irrigation_demand`-Task (06:15 Uhr), unabhängig vom allgemeinen `WEATHER_ENABLED` — beide müssen aktiv sein, damit der Task läuft. |
+| `IRRIGATION_ROOT_ZONE_DEPTH_MM` | `300.0` | Nein | Angenommene effektive Wurzelzonentiefe in Millimeter Boden. Wird verwendet, um die Wasserhaltekapazität eines Substrats (in Prozent) in eine Millimeter-Obergrenze für den Netto-Bewässerungsbedarf umzurechnen — verhindert eine rechnerisch zu hohe Tagesempfehlung bei sehr trockenen Ausgangsbedingungen. |
+
+!!! note "Nur Freiland- und Gewächshaus-Standorte, keine neuen REST-Endpunkte"
+    Der Bewässerungsbedarf wird ausschließlich für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit hinterlegten GPS-Koordinaten berechnet — Innenraum-Standorte bleiben beim intervallbasierten Gießplan (REQ-022). Es gibt keinen eigenen REST-Endpunkt dafür; das Ergebnis fließt über den bestehenden Gießmengen-Vorschlag (`suggest_volume`) und die Pflegeerinnerungs-Engine in die Oberfläche ein.
+
+!!! info "Berechnungsgrundlage: aquacropeto (BSD-3-Clause)"
+    Die FAO-56-Penman-Monteith- und Hargreaves-Formeln für ET₀ werden über die Python-Bibliothek `aquacropeto` (PyPI-Paket `aquacropeto`, BSD-3-Clause-Lizenz) berechnet — keine ShareAlike-/Copyleft-Pflichten für den Kamerplanter-Code. Details siehe `NOTICE.md` im Projekt-Root.
+
+---
+
 ## Rate Limiting
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -325,6 +374,28 @@ Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. D
 
 !!! note "Self-Hosted-First"
     Der lokale Adapter (`local_pest_symptom`) benötigt keinen API-Key und erfordert keine Nutzereinwilligung. Cloud-Erkennung ist opt-in und einwilligungspflichtig (Consent-Zweck `pest_detection_cloud`).
+
+---
+
+## CV-Krankheitsdiagnose (REQ-038) {#cv-krankheitsdiagnose-req-038}
+
+Diese Variablen konfigurieren die optionale, self-hosted Foto-Diagnose für **Krankheiten und Nährstoffmängel** (abgegrenzt von der [Schädlingserkennung](#schaedlingserkennung-req-044) oben). Das Feature ist standardmäßig deaktiviert; ohne `CV_DIAGNOSIS_ENABLED=true` bleibt der API-Endpunkt `/status` auf `available: false`, die App läuft uneingeschränkt weiter.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `CV_DIAGNOSIS_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. |
+| `CV_CLASSIFIER_CONFIDENCE_SHOW` | `0.10` | Nein | Mindest-Konfidenz (0–1) für die Anzeige eines Treffers. Ergebnisse darunter werden verworfen. |
+| `CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT` | `0.75` | Nein | Konfidenz-Schwelle (0–1), ab der ein Treffer visuell hervorgehoben wird. Löst **kein** automatisches Anlegen aus. |
+| `CV_PHENOTYPE_ENABLED` | `true` | Nein | PlantCV-Phänotyp-Kennzahlen (Blattfläche, Grün-Index, Verfärbungsanteil) im Inference-Service ein/aus. |
+| `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` | `5` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 413 abgelehnt. |
+
+Der Klassifikator läuft im bestehenden Inference-Service und nutzt die dort bereits konfigurierte Anbindung (`INFERENCE_SERVICE_URL`, `INTERNAL_SERVICE_TOKEN`) — es sind keine zusätzlichen Verbindungsvariablen nötig.
+
+!!! note "Self-Hosted, kein Cloud-Adapter"
+    Anders als bei der Schädlingserkennung gibt es für die CV-Krankheitsdiagnose (Stand dieser Version) **keinen** Cloud-Adapter — Fotos verlassen die Instanz nie. Die Einwilligung `plant_diagnosis` ist trotzdem erforderlich (Voll-Modus), weil ein Foto verarbeitet wird (siehe [Datenschutz & DSGVO](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)).
+
+!!! info "Lizenzhinweise"
+    Das Modell wird auf dem CC-BY-4.0-lizenzierten PlantDoc-Datensatz fine-getunt; die Phänotyp-Pipeline nutzt PlantCV (MPL-2.0). Vollständige Attributionen: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
 
 ---
 
@@ -603,3 +674,6 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Deployment Kubernetes](../deployment/kubernetes.md)
 - [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
 - [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
+- [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
+- [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
+- [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)

@@ -252,6 +252,9 @@ class Species(BaseModel):
     root_type: RootType = RootType.FIBROUS
     allelopathy_score: float = Field(default=0.0, ge=-1.0, le=1.0)
     base_temp: float = Field(default=10.0, description="Base temperature for GDD calculation (Celsius)")
+    # REQ-037 — species-level default crop coefficient (Kc), the middle tier of the
+    # resolve_kc cascade (below phase-level, above the plant-category default).
+    default_crop_coefficient_kc: float | None = Field(default=None, ge=0.1, le=1.5)
     synonyms: list[str] = Field(default_factory=list)
     taxonomic_authority: str = ""
     taxonomic_status: str = ""

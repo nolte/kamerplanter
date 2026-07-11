@@ -88,11 +88,15 @@ Auf der Detailseite kannst du außerdem über den Button **„Ablauf analysieren
 
 Für Pflanzen mit hinterlegter Wachstumsphase schlägt Kamerplanter automatisch eine Gießmenge vor — sichtbar als Chip auf der Pflanzen-Detailseite und als vorausgefüllter Wert beim Bestätigen einer fälligen Gießaufgabe. In den Vorschlag fließen ein:
 
-- die aktuelle **Wachstumsphase** (siehe [Bewässerungsmenge je Phase](growth-phases.md#bewaesserungsmenge-je-phase)),
+- bei Pflanzdurchläufen an einem Freiland- oder Gewächshaus-Standort mit hinterlegten GPS-Koordinaten der täglich berechnete **Bewässerungsbedarf**: Kamerplanter ermittelt aus den Wetterdaten die Verdunstung (Evapotranspiration, kurz **ET₀** — wie viel Wasser durch Sonne, Wind und Temperatur von Boden und Blättern verdunstet), gewichtet sie mit einem pflanzenartspezifischen Faktor (**Kc**) und zieht den bereits gefallenen Regen wieder ab. Liegt dieser Wert vor, ersetzt er die folgende phasenbasierte Menge,
+- sonst die aktuelle **Wachstumsphase** (siehe [Bewässerungsmenge je Phase](growth-phases.md#bewaesserungsmenge-je-phase)),
 - die **Staunässe-Toleranz** der Pflanzenart als Obergrenze,
-- ein am Standort eingerichteter **Live-Bodenfeuchte-Sensor** (siehe [Sensorik](sensors.md)): Ist der Boden bereits feucht, reduziert Kamerplanter die Menge automatisch und zeigt dazu einen Hinweistext.
+- ein am Standort eingerichteter **Live-Bodenfeuchte-Sensor** (siehe [Sensorik](sensors.md)): Ist der Boden bereits feucht, reduziert Kamerplanter die Menge automatisch — auch wenn sie bereits auf dem Bewässerungsbedarf beruht — und zeigt dazu einen Hinweistext.
 
 Der Vorschlag ist unverbindlich — du kannst beim Erfassen des Gießvorgangs jederzeit ein abweichendes Volumen eintragen.
+
+!!! tip "An Regentagen kann die Vorschlagsmenge auf 0 sinken"
+    Hat es am Standort bereits ausreichend geregnet, kann der berechnete Bewässerungsbedarf für den Tag auf 0 fallen — Kamerplanter schlägt dann kein zusätzliches Gießen vor. Das wirkt sich auch auf die Gieß-Pflegeerinnerung aus, siehe [Pflegeerinnerungen: Warum eine Erinnerung ausbleiben kann](care-reminders.md#warum-eine-erinnerung-ausbleiben-kann).
 
 ---
 
@@ -120,3 +124,4 @@ Der Vorschlag ist unverbindlich — du kannst beim Erfassen des Gießvorgangs je
 - [Tankmanagement](tanks.md) — Bewässerungstanks und Befüllungen
 - [Guides: Nährlösung mischen](../guides/nutrient-mixing.md) — Ablaufanalyse-Schwellenwerte
 - [Wachstumsphasen](growth-phases.md#bewaesserungsmenge-je-phase) — phasenabhängige Gieß- und Düngeregeln
+- [Wetterquellen je Standort](weather-sources.md) — Voraussetzung für den ET₀-basierten Bewässerungsbedarf bei Freiland- und Gewächshaus-Standorten

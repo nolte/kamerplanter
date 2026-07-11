@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, stripHtml } from '@/utils/formatting';
+import { formatDate, humanizeSlug, stripHtml } from '@/utils/formatting';
 
 describe('stripHtml', () => {
   it('removes anchor markup from Wikimedia attributions', () => {
@@ -44,5 +44,21 @@ describe('formatDate', () => {
   it('returns the placeholder for nullish input', () => {
     expect(formatDate(null)).toBe('—');
     expect(formatDate(undefined)).toBe('—');
+  });
+});
+
+describe('humanizeSlug', () => {
+  it('capitalises each hyphen-separated word', () => {
+    expect(humanizeSlug('ocimum-basilicum')).toBe('Ocimum Basilicum');
+  });
+
+  it('leaves a single-word slug capitalised', () => {
+    expect(humanizeSlug('tomate')).toBe('Tomate');
+  });
+
+  it('returns an empty string for nullish/blank input', () => {
+    expect(humanizeSlug(null)).toBe('');
+    expect(humanizeSlug(undefined)).toBe('');
+    expect(humanizeSlug('')).toBe('');
   });
 });

@@ -10,4 +10,6 @@ WEATHER_ATTRIBUTIONS: dict[str, str] = {
     "open-meteo": "Weather data by Open-Meteo.com (CC BY 4.0)",
     "dwd": "Datenbasis: Deutscher Wetterdienst (DWD GeoNutzV)",
     "openweathermap": "Weather data by OpenWeatherMap (OpenWeatherMap terms of use)",
+    # REQ-041 — NASA POWER (CC-BY-4.0 / US public domain; citation requested).
+    "nasa-power": "Klima- und Strahlungsdaten: NASA POWER (power.larc.nasa.gov)",
 }

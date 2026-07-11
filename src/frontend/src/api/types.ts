@@ -2951,6 +2951,150 @@ export interface YieldStats {
   avg_trim_waste_percent: number;
 }
 
+// ── REQ-008 Post-Harvest types ────────────────────────────────────────
+
+export type PostHarvestStage = 'drying' | 'curing' | 'stored' | 'released';
+
+export type DryingMethod = 'hang_dry' | 'rack_dry' | 'dehydrator' | 'air_cure';
+
+export type PostHarvestSpeciesType =
+  | 'flower'
+  | 'herb'
+  | 'root'
+  | 'fruit'
+  | 'mushroom';
+
+export type MoldAlertSeverity = 'warning' | 'critical';
+
+export type StorageVisualCondition =
+  | 'excellent'
+  | 'good'
+  | 'acceptable'
+  | 'concerning'
+  | 'critical';
+
+export type StorageAromaQuality =
+  | 'excellent'
+  | 'good'
+  | 'acceptable'
+  | 'off'
+  | 'moldy';
+
+export type PesticideResidueStatus =
+  | 'untested'
+  | 'clean'
+  | 'within_limits'
+  | 'residue_detected';
+
+export interface PostHarvestBatch {
+  key: string;
+  harvest_batch_key: string;
+  plant_key: string;
+  stage: PostHarvestStage;
+  species_type: PostHarvestSpeciesType;
+  drying_method: DryingMethod;
+  start_weight_g: number | null;
+  current_weight_g: number | null;
+  target_moisture_percent: number;
+  dryness_progress_percent: number;
+  ready_for_curing: boolean;
+  snap_test_passed: boolean | null;
+  water_activity: number | null;
+  storage_location: string | null;
+  pesticide_residue_status: PesticideResidueStatus;
+  started_at: string | null;
+  drying_started_at: string | null;
+  curing_started_at: string | null;
+  stored_at: string | null;
+  released_at: string | null;
+  completed_at: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface StartDryingRequest {
+  harvest_batch_key: string;
+  species_type?: PostHarvestSpeciesType;
+  drying_method?: DryingMethod;
+  start_weight_g?: number | null;
+  target_moisture_percent?: number;
+  notes?: string | null;
+}
+
+export interface DryingProgress {
+  key: string;
+  batch_key: string;
+  start_weight_g: number;
+  current_weight_g: number;
+  target_weight_g: number;
+  weight_loss_percent: number;
+  dryness_progress_percent: number;
+  snap_test_ready: boolean;
+  snap_test_passed: boolean | null;
+  over_dried: boolean;
+  estimated_days_remaining: number;
+  next_action: string;
+  water_activity: number | null;
+  co2_ppm_current: number | null;
+  recorded_at: string | null;
+  notes: string | null;
+}
+
+export interface DryingProgressCreate {
+  current_weight_g: number;
+  water_activity?: number | null;
+  co2_ppm?: number | null;
+  snap_test_passed?: boolean | null;
+  notes?: string | null;
+}
+
+export interface StorageObservation {
+  key: string;
+  batch_key: string;
+  weight_g: number | null;
+  temperature_c: number | null;
+  rh_percent: number | null;
+  water_activity: number | null;
+  co2_ppm: number | null;
+  visual_condition: StorageVisualCondition;
+  aroma_quality: StorageAromaQuality;
+  defects_observed: string[];
+  observer: string;
+  notes: string | null;
+  observed_at: string | null;
+}
+
+export interface StorageObservationCreate {
+  weight_g?: number | null;
+  temperature_c?: number | null;
+  rh_percent?: number | null;
+  water_activity?: number | null;
+  co2_ppm?: number | null;
+  visual_condition?: StorageVisualCondition;
+  aroma_quality?: StorageAromaQuality;
+  defects_observed?: string[];
+  observer?: string;
+  notes?: string | null;
+}
+
+export interface MoldAlert {
+  key: string;
+  batch_key: string;
+  severity: MoldAlertSeverity;
+  trigger_reason: string;
+  affected_location: string;
+  action_taken: string | null;
+  triggered_at: string | null;
+  resolved_at: string | null;
+}
+
+export interface PostHarvestBatchDetail {
+  batch: PostHarvestBatch;
+  latest_drying_progress: DryingProgress | null;
+  open_mold_alerts: number;
+}
+
 // ── REQ-006 Task & Workflow types ─────────────────────────────────────
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'cancelled';
@@ -3791,6 +3935,10 @@ export interface UserPreference {
   theme: string;
   watering_can_liters: number;
   smart_home_enabled: boolean;
+  /** UI-NFR-019 — touch-optimized kiosk shell active. */
+  kiosk_enabled?: boolean;
+  /** UI-NFR-019 — WCAG-AAA high-contrast theme (R-005 kiosk default, R-045 standalone). */
+  high_contrast?: boolean;
   module_visibility?: Record<string, ModuleVisibilityState>;
   /** REQ-045 — personalized dashboard layout; null/absent = experience default. */
   dashboard_layout?: DashboardLayout | null;
@@ -5096,6 +5244,38 @@ export interface SiteWeatherForecastResponse {
   forecast_source?: string | null;
 }
 
+/**
+ * REQ-041 — one long-term climate-normal record for a site (one per source).
+ * `GET /sites/{siteKey}/climate-normals`. The twelve `monthly_*` arrays are
+ * January…December (empty when the source did not report that series). Each
+ * record carries its source's CC-BY `attribution` string for UI visibility.
+ */
+export interface ClimateNormal {
+  source: string;
+  attribution: string;
+  period_start_year?: number | null;
+  period_end_year?: number | null;
+  monthly_temp_min_c: number[];
+  monthly_temp_max_c: number[];
+  monthly_temp_avg_c: number[];
+  monthly_precip_mm: number[];
+  monthly_solar_mj_m2: number[];
+  coldest_month_min_c?: number | null;
+  annual_temp_avg_c?: number | null;
+  annual_precip_mm?: number | null;
+  fetched_at: string;
+}
+
+/**
+ * `GET /sites/{siteKey}/climate-normals` response — the site's climate normals
+ * for the "Klima am Standort" section. Graceful: an empty `normals` list means
+ * no source has populated normals for the site yet (never a 500).
+ */
+export interface SiteClimateResponse {
+  site_key: string;
+  normals: ClimateNormal[];
+}
+
 /** One HA entity offered by the HA entity pickers. */
 export interface HaEntityItem {
   entity_id: string;
@@ -5173,4 +5353,211 @@ export interface AiConversationSummary {
   context_key?: string | null;
   message_count: number;
   updated_at?: string | null;
+}
+
+// ── REQ-026 Aquaponics ──────────────────────────────────────────────────
+
+export type AquaponicSystemType =
+  | 'media_bed'
+  | 'dwc'
+  | 'nft'
+  | 'hybrid'
+  | 'wicking_bed';
+
+export type CyclingStatus = 'new' | 'cycling' | 'cycled' | 'dormant';
+
+export type TemperatureZone = 'coldwater' | 'temperate' | 'warmwater';
+
+export type BiofilterType =
+  | 'media_bed_integrated'
+  | 'mbbr'
+  | 'trickle'
+  | 'fluidized_bed';
+
+export type ClarifierType = 'swirl' | 'settling' | 'drum' | 'screen';
+
+export type FishFeedType = 'pellet' | 'flake' | 'live' | 'frozen' | 'paste';
+
+export type FishFeedingResponse = 'eager' | 'normal' | 'reduced' | 'refused';
+
+export type FishFeedCategory = 'carnivore' | 'omnivore' | 'herbivore';
+
+export type AquaponicSupplementType =
+  | 'fe_dtpa'
+  | 'fe_eddha'
+  | 'koh'
+  | 'k2co3'
+  | 'ca_oh_2'
+  | 'mgso4'
+  | 'mnso4'
+  | 'h3bo3'
+  | 'znso4';
+
+export type WaterTestSource = 'manual' | 'sensor' | 'test_kit';
+
+export type WaterQualitySeverity = 'ok' | 'info' | 'warning' | 'critical';
+
+export interface AquaponicSystem {
+  key: string;
+  name: string;
+  system_type: AquaponicSystemType;
+  total_volume_liters: number;
+  grow_area_m2: number;
+  cycling_status: CyclingStatus;
+  cycling_start_date?: string | null;
+  cycled_since?: string | null;
+  biofilter_type?: BiofilterType | null;
+  biofilter_volume_liters?: number | null;
+  has_clarifier: boolean;
+  clarifier_type?: ClarifierType | null;
+  has_mineralization: boolean;
+  has_vermicompost: boolean;
+  daily_feed_target_g: number;
+  turnover_rate_per_hour?: number | null;
+  outdoor: boolean;
+  backup_power: boolean;
+  ph_target_min: number;
+  ph_target_max: number;
+  notes?: string | null;
+}
+
+export interface AquaponicSystemCreate {
+  name: string;
+  system_type: AquaponicSystemType;
+  total_volume_liters: number;
+  grow_area_m2: number;
+  biofilter_type?: BiofilterType | null;
+  biofilter_volume_liters?: number | null;
+  has_clarifier?: boolean;
+  clarifier_type?: ClarifierType | null;
+  has_mineralization?: boolean;
+  has_vermicompost?: boolean;
+  daily_feed_target_g?: number;
+  outdoor?: boolean;
+  backup_power?: boolean;
+  ph_target_min?: number;
+  ph_target_max?: number;
+  notes?: string | null;
+}
+
+export type AquaponicSystemUpdate = Partial<AquaponicSystemCreate>;
+
+export interface FishStock {
+  key: string;
+  system_key: string;
+  name: string;
+  species_key: string;
+  count: number;
+  initial_count: number;
+  avg_weight_g: number;
+  total_biomass_kg: number;
+  stocking_date: string;
+  mortality_count: number;
+  last_weighed_at?: string | null;
+  notes?: string | null;
+}
+
+export interface FishStockCreate {
+  name: string;
+  species_key: string;
+  count: number;
+  avg_weight_g: number;
+  stocking_date: string;
+  notes?: string | null;
+}
+
+export interface WaterTest {
+  key: string;
+  system_key: string;
+  tested_at?: string | null;
+  ph: number;
+  ammonia_tan_mgl: number;
+  nitrite_mgl: number;
+  nitrate_mgl: number;
+  temperature_c: number;
+  dissolved_oxygen_mgl?: number | null;
+  kh_dh?: number | null;
+  gh_dh?: number | null;
+  iron_ppm?: number | null;
+  potassium_ppm?: number | null;
+  calcium_ppm?: number | null;
+  magnesium_ppm?: number | null;
+  phosphate_ppm?: number | null;
+  free_ammonia_mgl: number;
+  source: WaterTestSource;
+  notes?: string | null;
+}
+
+export interface WaterTestCreate {
+  ph: number;
+  ammonia_tan_mgl: number;
+  nitrite_mgl: number;
+  nitrate_mgl: number;
+  temperature_c: number;
+  dissolved_oxygen_mgl?: number | null;
+  kh_dh?: number | null;
+  gh_dh?: number | null;
+  iron_ppm?: number | null;
+  potassium_ppm?: number | null;
+  calcium_ppm?: number | null;
+  magnesium_ppm?: number | null;
+  phosphate_ppm?: number | null;
+  source?: WaterTestSource;
+  notes?: string | null;
+}
+
+export interface WaterQualityEvaluation {
+  parameter: string;
+  value: number;
+  limit: number;
+  severity: WaterQualitySeverity;
+  message_de: string;
+  message_en: string;
+}
+
+export interface CyclingProgress {
+  status: CyclingStatus;
+  progress_percent: number;
+  stable_days: number;
+  days_required: number;
+  estimated_completion?: string | null;
+  phase_description_de: string;
+  phase_description_en: string;
+}
+
+export interface FeedingRecommendation {
+  recommended_g: number;
+  base_rate_percent: number;
+  temperature_factor: number;
+  cycling_factor: number;
+  species_name: string;
+  biomass_kg: number;
+  water_temp_c: number;
+  notes: string[];
+}
+
+export interface NitrogenCyclePoint {
+  tested_at?: string | null;
+  ammonia_tan_mgl: number;
+  free_ammonia_mgl: number;
+  nitrite_mgl: number;
+  nitrate_mgl: number;
+  ph: number;
+  temperature_c: number;
+}
+
+export interface FishSpecies {
+  key: string;
+  scientific_name: string;
+  common_name_de: string;
+  common_name_en: string;
+  temperature_zone: TemperatureZone;
+  temperature_optimal_min_c: number;
+  temperature_optimal_max_c: number;
+  max_tan_mgl: number;
+  max_nitrite_mgl: number;
+  max_nitrate_mgl: number;
+  feed_type: FishFeedCategory;
+  max_stocking_density_kg_per_1000l: number;
+  notes_de?: string | null;
 }

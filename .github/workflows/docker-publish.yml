@@ -95,7 +95,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-backend
-            org.opencontainers.image.description=Kamerplanter backend API for plant lifecycle management
+            org.opencontainers.image.description=Kamerplanter core REST API and business logic (FastAPI) for plant lifecycle, phases, fertilizing, tasks and multi-tenant data
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -145,7 +145,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-frontend
-            org.opencontainers.image.description=Kamerplanter web frontend
+            org.opencontainers.image.description=Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -195,7 +195,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-vectordb
-            org.opencontainers.image.description=Kamerplanter vector database for RAG knowledge retrieval
+            org.opencontainers.image.description=PostgreSQL with the pgvector extension storing Kamerplanter's embedding vectors for RAG knowledge retrieval
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -245,7 +245,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-knowledge
-            org.opencontainers.image.description=Kamerplanter RAG knowledge-base image
+            org.opencontainers.image.description=Init container that seeds Kamerplanter's RAG knowledge-base YAML files into a shared volume for the vector store
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -295,7 +295,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-embedding-service
-            org.opencontainers.image.description=Kamerplanter embedding service
+            org.opencontainers.image.description=ONNX multilingual text-embedding service turning knowledge and queries into vectors for Kamerplanter's RAG pipeline
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -345,7 +345,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-inference-service
-            org.opencontainers.image.description=Kamerplanter inference service
+            org.opencontainers.image.description=Plant/pest image-recognition service (DINOv2 ONNX embeddings + pgvector matching) for Kamerplanter health assessment
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -395,7 +395,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-reranker-service
-            org.opencontainers.image.description=Kamerplanter reranker service (BGE reranker v2 m3)
+            org.opencontainers.image.description=ONNX cross-encoder reranker (BGE reranker v2 m3) that re-scores RAG retrieval hits for Kamerplanter
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 
@@ -446,7 +446,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
           annotations: |
             org.opencontainers.image.title=kamerplanter-knowledge-service
-            org.opencontainers.image.description=Kamerplanter knowledge service
+            org.opencontainers.image.description=Standalone RAG/LLM service answering plant-domain questions over Kamerplanter's knowledge base
             org.opencontainers.image.source=https://github.com/nolte/kamerplanter
             org.opencontainers.image.vendor=Kamerplanter
 

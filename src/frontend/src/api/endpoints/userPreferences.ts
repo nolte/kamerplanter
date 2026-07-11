@@ -10,6 +10,9 @@ export interface UserPreferenceUpdate {
   onboarding_completed?: boolean;
   watering_can_liters?: number;
   smart_home_enabled?: boolean;
+  /** UI-NFR-019 — kiosk shell + high-contrast theme flags. */
+  kiosk_enabled?: boolean;
+  high_contrast?: boolean;
   module_visibility?: Record<string, ModuleVisibilityState>;
   /** REQ-045 — explicit null resets to the experience-level default. */
   dashboard_layout?: DashboardLayout | null;

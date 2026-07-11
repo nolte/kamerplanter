@@ -110,8 +110,9 @@ def auto_generate_overwintering_profile(
     # Resolve the site climate zone (tenant-checked).
     if body.site_key and site_zone is None:
         site = site_repo.get_by_key(body.site_key)
-        if site is not None and site.tenant_key == ctx.tenant_key and site.climate_zone:
-            site_zone = site.climate_zone
+        if site is not None and site.tenant_key == ctx.tenant_key:
+            # REQ-039: structured hardiness zone wins over legacy free-text.
+            site_zone = getattr(site, "hardiness_zone", None) or site.climate_zone or None
 
     created = service.auto_generate_profile(
         ctx.tenant_key,

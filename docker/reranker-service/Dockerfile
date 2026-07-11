@@ -37,7 +37,7 @@ model.save_pretrained('/model')" && \
 FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
-      org.opencontainers.image.description="ONNX-based cross-encoder reranker for Kamerplanter RAG" \
+      org.opencontainers.image.description="ONNX cross-encoder reranker (BGE reranker v2 m3) that re-scores RAG retrieval hits for Kamerplanter" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"

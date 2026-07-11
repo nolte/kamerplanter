@@ -23,3 +23,5 @@
 *[HNSW]: Hierarchical Navigable Small World — effizienter Vektorindex-Algorithmus
 *[DINOv2]: Self-DIstillation with NO labels v2 — Bilderkennungs-Backbone von Meta (Apache-2.0)
 *[GBIF]: Global Biodiversity Information Facility — Globale Biodiversitätsdatenbank
+*[TAN]: Total Ammonia Nitrogen — Gesamt-Ammonium-Stickstoff (Aquaponik)
+*[FCR]: Feed Conversion Ratio — Futterverwertungsverhältnis (Aquaponik)

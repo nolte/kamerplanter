@@ -17,7 +17,9 @@ from app.api.v1.cultivars.router import router as cultivars_router
 from app.api.v1.dashboard.router import router as dashboard_router
 from app.api.v1.enrichment.router import router as enrichment_router
 from app.api.v1.family_relationships.router import router as family_relationships_router
+from app.api.v1.fish_species.router import router as fish_species_router
 from app.api.v1.growth_phases.router import router as phases_router
+from app.api.v1.hardiness_zones.router import router as hardiness_zones_router
 from app.api.v1.health.router import router as health_router
 from app.api.v1.imports.router import router as imports_router
 from app.api.v1.ipm.pest_images_router import router as pest_images_router
@@ -98,6 +100,7 @@ if settings.kamerplanter_mode == "full":
 api_router.include_router(users_router)
 api_router.include_router(health_router)
 api_router.include_router(families_router)
+api_router.include_router(hardiness_zones_router)
 api_router.include_router(calculations_router)
 api_router.include_router(companion_router)
 api_router.include_router(rotation_router)
@@ -111,6 +114,8 @@ api_router.include_router(species_router)
 api_router.include_router(substrates_router)
 api_router.include_router(enrichment_router)
 api_router.include_router(family_relationships_router)
+# REQ-026 Aquaponics — global fish-species catalog (not tenant-scoped)
+api_router.include_router(fish_species_router)
 api_router.include_router(ipm_router)
 # REQ-010 — global, read-only content endpoint for *promoted* pest images
 # (cross-tenant pixels). Authenticated-only, no tenant prefix; promotion is the

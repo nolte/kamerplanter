@@ -93,9 +93,22 @@ Bei jedem Wert zeigt dir Kamerplanter, wie dieser zustande gekommen ist:
 
 ---
 
+## Klima am Standort
+
+Direkt unterhalb der Wetterquellen zeigt Kamerplanter bei Freiland- und Gewächshaus-Standorten mit hinterlegten GPS-Koordinaten zusätzlich den Abschnitt **Klima am Standort** – zwölf langjährige Monatsmittelwerte (**Klimanormalen**) für Durchschnitts- und Tiefsttemperatur, Niederschlag und Solarstrahlung, dargestellt als Diagramm und als Tabelle. <!-- REQ-041 -->
+
+!!! tip "Was sind Klimanormalen?"
+    Eine Klimanormale ist weder ein aktueller Messwert noch eine Vorhersage, sondern ein langjähriger Durchschnitt – also z. B. „im Januar liegt die Durchschnittstemperatur an diesem Ort normalerweise bei -1 °C". Solche Werte helfen bei Entscheidungen, die über den aktuellen Tag hinausgehen: Wann wird an diesem Standort üblicherweise ausgesät? Wie viel Regen fällt im Schnitt in einem trockenen Sommermonat? Übersteht eine Pflanze den Winter an diesem Standort typischerweise im Freien? Klimanormalen sind damit eine **Reanalyse** – siehe die Erklärung dieser Herkunfts-Kennzeichnung oben unter [Herkunft der Wetterdaten erkennen](#herkunft-der-wetterdaten-erkennen).
+
+Datenquelle ist der satelliten- und modellgestützte Reanalyse-Dienst **NASA POWER** der NASA-Erdbeobachtung – wie die anderen öffentlichen Wetterdienste ohne Anmeldung und ohne API-Schlüssel nutzbar. Kamerplanter ruft die Klimanormalen für jeden berechtigten Standort automatisch einmal monatlich im Hintergrund ab; unmittelbar nach dem Anlegen eines Standorts mit GPS-Koordinaten kann es daher einen Moment dauern, bis der Abschnitt erstmals Werte zeigt. Solange keine Daten vorliegen, erscheint an dieser Stelle ein entsprechender Hinweis anstelle von Diagramm und Tabelle.
+
+---
+
 ## Attribution der Wetterdaten
 
-Kamerplanter zeigt unterhalb der Quellenliste die Herkunftsnachweise der genutzten Dienste an: Deutscher Wetterdienst (nach der Geodatennutzungsverordnung, GeoNutzV), Open-Meteo (Lizenz CC BY 4.0) sowie OpenWeatherMap gemäß dessen Nutzungsbedingungen.
+Kamerplanter zeigt unterhalb der Quellenliste bzw. unterhalb des Klima-Diagramms die Herkunftsnachweise der genutzten Dienste an: Deutscher Wetterdienst (nach der Geodatennutzungsverordnung, GeoNutzV), Open-Meteo (Lizenz CC BY 4.0), OpenWeatherMap gemäß dessen Nutzungsbedingungen sowie – für die Klimanormalen im Abschnitt „Klima am Standort" – NASA POWER (Lizenz CC BY 4.0).
+
+Der aus diesen Wetterdaten berechnete Bewässerungsbedarf (Verdunstung/ET₀, siehe [Gießprotokoll: Vorgeschlagene Gießmenge](watering-log.md#vorgeschlagene-giessmenge)) nutzt intern die quelloffene Bibliothek **aquacropeto** (BSD-3-Clause-Lizenz) für die FAO-56-Berechnung – keine eigene Wetterdaten-Quelle, sondern nur die Rechenformel. <!-- REQ-037 -->
 
 ---
 
@@ -115,6 +128,12 @@ Kamerplanter zeigt unterhalb der Quellenliste die Herkunftsnachweise der genutzt
 
 ??? question "Kann ich denselben Wetterdienst zweimal hinzufügen?"
     Nein, jeder Anbieter lässt sich nur einmal je Standort hinzufügen. Möchtest du zwei unterschiedliche Perspektiven vergleichen, kombiniere stattdessen zum Beispiel einen öffentlichen Dienst mit deiner Home-Assistant-Quelle.
+
+??? question "Warum zeigt „Klima am Standort" noch keine Werte?"
+    Die Klimanormalen werden automatisch im Hintergrund abgeholt, sobald ein Freiland- oder Gewächshaus-Standort GPS-Koordinaten hat – das kann nach dem Anlegen oder Ergänzen der Koordinaten etwas dauern, da die monatliche Hintergrund-Abholung nicht sofort nach dem Speichern läuft. Prüfe zunächst, ob Koordinaten hinterlegt sind; sind sie es, ist einfach noch kein Durchlauf erfolgt.
+
+??? question "Muss ich den Abschnitt „Klima am Standort" selbst einrichten?"
+    Nein. Er erscheint automatisch für jeden Freiland- oder Gewächshaus-Standort mit hinterlegten GPS-Koordinaten – eine eigene Quelle wie bei der Wettervorhersage musst du dafür nicht anlegen.
 
 ---
 

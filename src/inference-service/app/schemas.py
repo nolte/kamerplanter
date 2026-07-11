@@ -205,3 +205,63 @@ class PestSetActiveResponse(BaseModel):
     label: str
     id: int
     is_active: bool
+
+
+# -- REQ-038 disease classifier + phenotype -------------------------------
+
+
+class DiseaseClassificationItem(BaseModel):
+    """One scored disease/deficiency class."""
+
+    label: str
+    category: str = Field(description="disease | deficiency | pest | healthy")
+    scientific_name: str | None = None
+    probability: float = Field(description="Softmax probability in [0, 1]")
+    highlight: bool = Field(description="True when probability >= disease_highlight")
+
+
+class DiseaseModelMeta(BaseModel):
+    """Model card / provenance. PlantVillage is deliberately never listed."""
+
+    model_name: str
+    training_base: str | None = None
+    fine_tuned_on: list[str] = Field(default_factory=list)
+    onnx_checksum: str | None = None
+    model_version: str | None = None
+    class_count: int = 0
+
+
+class PhenotypeMetricsItem(BaseModel):
+    """Objective PlantCV phenotype measurements (measurement, not diagnosis)."""
+
+    leaf_area_px: int
+    green_index: float
+    discolored_area_ratio: float
+    necrotic_area_ratio: float
+    solidity: float
+    hue_circular_mean_deg: float
+    plantcv_version: str
+
+
+class DiseaseClassifyResponse(BaseModel):
+    """Result of a /classify/disease request.
+
+    ``disclaimer`` is ALWAYS non-empty (REQ-038): a CV diagnosis is only a
+    hypothesis, never an accepted verdict.
+    """
+
+    classifications: list[DiseaseClassificationItem]
+    model_meta: DiseaseModelMeta
+    phenotype: PhenotypeMetricsItem | None = None
+    disclaimer: str
+
+
+class DiseaseStatusResponse(BaseModel):
+    """Disease classifier availability."""
+
+    ready: bool
+    enabled: bool
+    class_count: int
+    phenotype_available: bool
+    model: str
+    detail: str | None = None

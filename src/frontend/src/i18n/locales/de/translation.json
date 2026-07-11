@@ -86,6 +86,10 @@
       "label": "Tankmanagement",
       "description": "Tanks, Füllstände und Tankwartung."
     },
+    "aquaponics": {
+      "label": "Aquaponik",
+      "description": "Fisch-Pflanzen-Kreislaufsysteme, Stickstoffkreislauf und Wassertests."
+    },
     "substrates": {
       "label": "Substrate",
       "description": "Substratverwaltung und Wiederverwendung."
@@ -342,6 +346,8 @@
     "plantingRuns": "Pflanzdurchläufe",
     "successionPlans": "Staffelanbau",
     "tanks": "Tanks",
+    "aquaponik": "Aquaponik",
+    "aquaponicSystems": "Aquaponik-Systeme",
     "duengung": "Düngung",
     "fertilizers": "Düngemittel",
     "nutrientPlans": "Nährstoffpläne",
@@ -355,6 +361,7 @@
     "treatments": "Behandlungen",
     "ernte": "Ernte",
     "harvestBatches": "Erntechargen",
+    "postHarvest": "Nacherntebehandlung",
     "aufgaben": "Aufgaben",
     "taskQueue": "Aufgabenwarteschlange",
     "workflows": "Workflows",
@@ -514,6 +521,54 @@
       "questionHelp": "Reine Wissensfragen ohne Bezug zu deinen konkreten Pflanzen. Mit Strg/Cmd + Enter absenden.",
       "ask": "Frage stellen",
       "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut."
+    },
+    "aquaponik": {
+      "title": "Aquaponik",
+      "intro": "Verwalte deine Fisch-Pflanzen-Kreislaufsysteme: überwache den Stickstoffkreislauf (Ammoniak → Nitrit → Nitrat), verfolge den Biofilter-Einfahrprozess und dokumentiere Wassertests, Fischbestände und Fütterung.",
+      "createSystem": "System anlegen",
+      "systemCreated": "Aquaponik-System wurde angelegt.",
+      "waterTestRecorded": "Wassertest wurde gespeichert.",
+      "emptyTitle": "Noch kein Aquaponik-System angelegt",
+      "emptyDescription": "Lege dein erstes Fisch-Pflanzen-Kreislaufsystem an, um Wasserwerte und Fischbestand zu überwachen.",
+      "recordWaterTest": "Wassertest erfassen",
+      "cyclingProgress": "Biofilter-Einfahrfortschritt",
+      "waterQuality": "Wasserqualität",
+      "noWaterData": "Noch keine Wassertests erfasst.",
+      "fishStocks": "Fischbestand",
+      "noStocks": "Noch kein Fischbestand angelegt.",
+      "sectionBasics": "Grunddaten",
+      "sectionOperations": "Biofilter & Betrieb",
+      "sectionOperationsIntro": "Legt fest, wie das System den Stickstoffkreislauf verarbeitet und in welchem pH-Bereich es betrieben werden soll.",
+      "sectionNitrogenCycle": "Stickstoffkreislauf",
+      "sectionNitrogenCycleIntro": "Diese Werte entscheiden über die Sicherheit deiner Fische — Ammoniak und Nitrit sind giftig und sollten nach dem Einfahren bei 0 liegen.",
+      "sectionOtherWaterValues": "Weitere Wasserwerte",
+      "sectionMetadata": "Sonstiges",
+      "fields": {
+        "name": "Name",
+        "systemType": "Systemtyp",
+        "totalVolume": "Gesamtwasservolumen",
+        "growArea": "Anbaufläche",
+        "biofilterType": "Biofiltertyp",
+        "biofilterHelp": "DWC/NFT/Hybrid/Wicking-Bed benötigen einen separaten Biofilter. Media-Bed-Systeme nutzen das Substrat als integrierten Biofilter.",
+        "dailyFeedTarget": "Soll-Futtermenge pro Tag",
+        "phTargetMin": "pH-Zielbereich (min)",
+        "phTargetMax": "pH-Zielbereich (max)",
+        "source": "Quelle",
+        "notes": "Notizen"
+      },
+      "params": {
+        "ph": "pH",
+        "temperature": "Temperatur",
+        "ammonia_tan": "Ammoniak (TAN)",
+        "free_ammonia": "Freies Ammoniak",
+        "nitrite": "Nitrit",
+        "nitrate": "Nitrat",
+        "dissolved_oxygen": "Gelöstsauerstoff",
+        "do_saturation": "O₂-Sättigung",
+        "kh": "Karbonathärte",
+        "gh": "Gesamthärte",
+        "iron": "Eisen"
+      }
     },
     "pests": {
       "title": "Schädlingserkennung",
@@ -956,6 +1011,7 @@
       "tabSessions": "Sitzungen",
       "tabApiKeys": "API-Schlüssel",
       "tabExperience": "Erfahrungsstufe",
+      "tabKiosk": "Kiosk-Modus",
       "tabModules": "Module & Funktionen",
       "tabPlatform": "Plattform-Modus",
       "tabAdmin": "Administration",
@@ -1152,6 +1208,40 @@
           "yellow": "Schutz nötig",
           "red": "Einräumen"
         }
+      }
+    },
+    "kiosk": {
+      "badge": "Kiosk",
+      "home": "Start",
+      "exit": "Kiosk verlassen",
+      "startTitle": "Was möchtest du tun?",
+      "actions": {
+        "scanPlant": "Pflanze scannen",
+        "logWatering": "Bewässerung erfassen",
+        "startRound": "Rundgang starten",
+        "reportProblem": "Problem melden"
+      },
+      "status": {
+        "title": "Aktueller Status",
+        "openTasks_one": "{{count}} offene Aufgabe",
+        "openTasks_other": "{{count}} offene Aufgaben",
+        "warnings_one": "{{count}} Warnung",
+        "warnings_other": "{{count}} Warnungen"
+      },
+      "timeout": {
+        "title": "Noch aktiv?",
+        "countdown": "Rückkehr zum Start in {{seconds}} Sekunden",
+        "continue": "Weiter arbeiten"
+      },
+      "settings": {
+        "title": "Kiosk-Modus",
+        "description": "Der Kiosk-Modus optimiert die Oberfläche für die Bedienung im Gewächshaus – große Schaltflächen für Handschuhe und verschmutzte Hände, kontrastreiche Darstellung und eine vereinfachte Startseite mit den wichtigsten Aktionen.",
+        "toggle": "Kiosk-Modus aktivieren",
+        "open": "Kiosk-Startseite öffnen",
+        "highContrastTitle": "Kontrastreiche Darstellung",
+        "highContrastDescription": "Reine Schwarz-Weiß-Darstellung mit besonders hohem Kontrast – auch unabhängig vom Kiosk-Modus nutzbar, etwa bei direkter Sonneneinstrahlung auf dem Balkon.",
+        "highContrastToggle": "Kontrastreiches Design verwenden",
+        "highContrastKioskHint": "Im Kiosk-Modus ist die kontrastreiche Darstellung standardmäßig aktiv."
       }
     },
     "season": {
@@ -1661,6 +1751,25 @@
       "toFamilyHelper": "Familie, die nach der Ausgangsfamilie angebaut werden kann",
       "noSuccessors": "Noch keine Nachfolger-Familien definiert.",
       "selectFamilyHint": "Bitte eine Familie auswählen, um die Fruchtfolge anzuzeigen."
+    },
+    "siteDetail": {
+      "climate": {
+        "title": "Klima am Standort",
+        "description": "Langjährige monatliche Klima-Normalwerte für diesen Standort – als Orientierung für Aussaat, Bewässerung und Überwinterung. Es handelt sich um historische, aus Modellen abgeleitete Durchschnittswerte (Reanalyse), nicht um eine Vorhersage.",
+        "period": "Bezugszeitraum: {{period}}",
+        "emptyTitle": "Noch keine Klima-Normalwerte",
+        "empty": "Für diesen Standort liegen noch keine Klima-Normalwerte vor. Sie werden im Hintergrund monatlich für Standorte mit GPS-Koordinaten abgerufen und erscheinen anschließend hier.",
+        "loadError": "Die Klima-Normalwerte konnten gerade nicht geladen werden.",
+        "chartAria": "Liniendiagramm mit Ø- und Tiefst-Temperatur sowie Balkendiagramm mit Niederschlag je Monat. Alle Werte stehen auch in der Tabelle darunter.",
+        "month": "Monat",
+        "tempAvg": "Ø-Temperatur",
+        "tempMin": "Tiefst-Temperatur",
+        "precip": "Niederschlag",
+        "solar": "Solarstrahlung",
+        "tableLabel": "Monatliche Klima-Normalwerte",
+        "annual": "Jahresmittel: {{temp}} °C, Jahresniederschlag: {{precip}} mm.",
+        "sourceLabel": "Datenquelle"
+      }
     },
     "sites": {
       "title": "Standorte",
@@ -3459,6 +3568,52 @@
       "karenzDays": "Karenzzeit: {{days}} Tage",
       "karenzSafeDate": "Sicher ab: {{date}}"
     },
+    "postHarvest": {
+      "title": "Nacherntebehandlung",
+      "listIntro": "Die Nacherntebehandlung begleitet eine Erntecharge durch die Stufen Trocknung, Aushärtung (Curing) und Lagerung bis zur Freigabe. Klicken Sie auf eine Charge, um Fortschritt und Stufenwechsel zu verwalten.",
+      "startDrying": "Trocknung starten",
+      "startDryingIntro": "Übernehmen Sie eine Erntecharge in die Nacherntebehandlung. Die Charge startet in der Stufe „Trocknung“; das Startgewicht wird bei Bedarf aus dem Nassgewicht der Ernte übernommen.",
+      "startDryingSuccess": "Trocknung gestartet – die Charge befindet sich jetzt in der Nacherntebehandlung.",
+      "detailTitle": "Charge der Nacherntebehandlung",
+      "harvestBatch": "Erntecharge",
+      "harvestBatchHelper": "Wählen Sie die Erntecharge, die getrocknet werden soll.",
+      "noHarvestBatches": "Keine Erntechargen verfügbar. Erfassen Sie zuerst eine Ernte.",
+      "stage": "Stufe",
+      "speciesType": "Produktart",
+      "speciesTypeHelper": "Grobe Einordnung (Blüte, Kraut, Wurzel …) – steuert die Trocknungsdauer-Schätzung.",
+      "dryingMethod": "Trocknungsmethode",
+      "dryingMethodHelper": "Hängetrocknung ist am schonendsten, das Dörrgerät am schnellsten.",
+      "startWeightG": "Startgewicht (g)",
+      "startWeightHelper": "Optional. Standard: Nassgewicht der Erntecharge.",
+      "targetMoisturePercent": "Ziel-Restfeuchte (%)",
+      "targetMoistureHelper": "Übliches Ziel: ~10 % Restfeuchte (Bereich 5–15 %).",
+      "notes": "Notizen",
+      "drynessProgress": "Trocknungsfortschritt",
+      "recordWeight": "Gewicht erfassen",
+      "recordWeightIntro": "Erfassen Sie das aktuelle Gewicht, um den Trocknungsfortschritt zu aktualisieren. Ab 95 % Fortschritt ist die Charge bereit für die Aushärtung.",
+      "currentWeightG": "Aktuelles Gewicht (g)",
+      "record": "Erfassen",
+      "progressRecorded": "Trocknungsfortschritt aktualisiert.",
+      "advanceTo": "Weiter zu: {{stage}}",
+      "advanceSuccess": "Charge in die nächste Stufe überführt.",
+      "notReadyForCuring": "Noch nicht bereit für die Aushärtung: Der Trocknungsfortschritt muss 95 % erreichen. Erfassen Sie weitere Gewichtsmessungen.",
+      "openMoldAlerts": "{{count}} offene Schimmel-Warnung(en) für diese Charge.",
+      "moldAlertTitle": "Schimmel-Warnung",
+      "moldAlertGuidanceCritical": "Kritisch: Prüfen Sie die Charge umgehend auf sichtbaren Schimmel, erhöhen Sie die Luftzirkulation und senken Sie die Luftfeuchtigkeit. Befallene Bereiche entfernen und ggf. entsorgen.",
+      "moldAlertGuidanceWarning": "Beobachten Sie die Charge engmaschig, sorgen Sie für ausreichend Luftzirkulation und senken Sie nach Möglichkeit die Luftfeuchtigkeit am Lagerort.",
+      "stageDescription": {
+        "drying": "Die Charge trocknet, bis die Zielfeuchte erreicht ist. Erfassen Sie das Gewicht regelmäßig, um den Fortschritt zu verfolgen.",
+        "curing": "In luftdichten Behältern reift die Charge nach: Restfeuchte verteilt sich gleichmäßig, Aroma und Wirkstoffe entwickeln sich weiter. Behälter anfangs täglich kurz öffnen (Burping).",
+        "stored": "Die Charge ist eingelagert. Beobachten Sie die Lagerbedingungen und reagieren Sie zeitnah auf Schimmel-Warnungen.",
+        "released": "Die Nacherntebehandlung ist abgeschlossen — die Charge ist freigegeben."
+      },
+      "nextActionLabel": "Nächster Schritt:",
+      "waterActivityLabel": "Wasseraktivität (a_w)",
+      "daysRemaining": "Noch ca. {{count}} Tag bis zur vollständigen Trocknung.",
+      "daysRemaining_other": "Noch ca. {{count}} Tage bis zur vollständigen Trocknung.",
+      "emptyTitle": "Noch keine Chargen in der Nacherntebehandlung",
+      "emptyDescription": "Starten Sie die Trocknung einer Erntecharge, um den Nachernte-Prozess zu verfolgen."
+    },
     "harvest": {
       "title": "Erntechargen",
       "listIntro": "Erntechargen dokumentieren den Ernteprozess vom Nassgewicht bis zur Qualitätsbewertung und Ertragsanalyse. Klicken Sie auf eine Charge für Details.",
@@ -4353,6 +4508,35 @@
     "biofilm_risk": "Biofilm-Risiko — Lösung seit {{value}} Tagen ohne Sterilisation"
   },
   "enums": {
+    "aquaponicSystemType": {
+      "media_bed": "Media-Bed (Blähton)",
+      "dwc": "Deep Water Culture (DWC)",
+      "nft": "Nutrient Film Technique (NFT)",
+      "hybrid": "Hybrid",
+      "wicking_bed": "Wicking-Bed (Dochtbewässerung)"
+    },
+    "cyclingStatus": {
+      "new": "Neu",
+      "cycling": "Fährt ein",
+      "cycled": "Eingefahren",
+      "dormant": "Winterruhe"
+    },
+    "biofilterType": {
+      "media_bed_integrated": "Integriert (Blähton)",
+      "mbbr": "MBBR (K1-Medien)",
+      "trickle": "Rieselfilter (Lava)",
+      "fluidized_bed": "Wirbelbett (Sand)"
+    },
+    "waterTestSource": {
+      "manual": "Manuell",
+      "sensor": "Sensor",
+      "test_kit": "Test-Kit"
+    },
+    "temperatureZone": {
+      "coldwater": "Kaltwasser",
+      "temperate": "Temperiert",
+      "warmwater": "Warmwasser"
+    },
     "category": "Kategorie",
     "pestCategory": {
       "pest": "Schädling",
@@ -4951,6 +5135,36 @@
       "final": "Endernte",
       "continuous": "Fortlaufend"
     },
+    "postHarvestStage": {
+      "drying": "Trocknung",
+      "curing": "Aushärtung (Curing)",
+      "stored": "Eingelagert",
+      "released": "Freigegeben"
+    },
+    "postHarvestNextAction": {
+      "ensure_airflow": "Für ausreichende Luftzirkulation sorgen",
+      "monitor_climate": "Temperatur und Luftfeuchtigkeit im Blick behalten",
+      "run_snap_test": "Knacktest durchführen: Ein Stängel sollte brechen, nicht biegen",
+      "ready_for_curing": "Bereit für die Aushärtung (Curing)",
+      "over_dried": "Zu stark getrocknet — zügig mit der Aushärtung beginnen"
+    },
+    "dryingMethod": {
+      "hang_dry": "Hängetrocknung",
+      "rack_dry": "Gittertrocknung",
+      "dehydrator": "Dörrgerät",
+      "air_cure": "Lufttrocknung"
+    },
+    "postHarvestSpeciesType": {
+      "flower": "Blüte",
+      "herb": "Kraut",
+      "root": "Wurzel/Knolle",
+      "fruit": "Frucht",
+      "mushroom": "Pilz"
+    },
+    "moldAlertSeverity": {
+      "warning": "Warnung",
+      "critical": "Kritisch"
+    },
     "qualityGrade": {
       "a_plus": "A+",
       "a": "A",
@@ -5323,6 +5537,53 @@
       "short": "Natürliche Fressfeinde von Schädlingen",
       "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
       "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
+    },
+    "ammonia_tan": {
+      "short": "Ammoniak/Ammonium (TAN) — giftiger Fischabfall, muss niedrig bleiben",
+      "long": "TAN (Total Ammonia Nitrogen) ist die Summe aus giftigem, freiem Ammoniak (NH₃) und ungiftigem Ammonium (NH₄⁺). Fische scheiden es über die Kiemen aus, die Biofilterbakterien wandeln es zu Nitrit um. Hohe TAN-Werte sind lebensgefährlich für Fische — besonders bei hohem pH und hoher Temperatur, weil dann mehr davon als giftiges freies Ammoniak vorliegt.",
+      "beginnerTip": "Besonders in den ersten Wochen (Cycling-Phase) und nach starker Fütterung regelmäßig testen. Bei erhöhten Werten sofort teilweise Wasser wechseln und weniger füttern.",
+      "unit": "mg/L",
+      "typicalRange": "0–0,5 mg/L (0 nach dem Einfahren)"
+    },
+    "nitrite": {
+      "short": "Nitrit (NO₂⁻) — giftiges Zwischenprodukt des Stickstoffkreislaufs",
+      "long": "Nitrit entsteht, wenn Biofilterbakterien Ammoniak abbauen. Es ist für Fische giftig, weil es die Sauerstoffaufnahme im Blut blockiert. Eine zweite Bakteriengruppe wandelt Nitrit weiter zu ungiftigerem Nitrat um — bis diese Gruppe aktiv ist, treten während des Einfahrens typische Nitrit-Spitzen auf.",
+      "beginnerTip": "Eine Nitrit-Spitze in Woche 3–5 des Cyclings ist normal. Bei erhöhten Werten Fütterung reduzieren und teilweisen Wasserwechsel durchführen.",
+      "unit": "mg/L",
+      "typicalRange": "0–0,1 mg/L (0 nach dem Einfahren)"
+    },
+    "nitrate": {
+      "short": "Nitrat (NO₃⁻) — Endprodukt des Stickstoffkreislaufs, Pflanzendünger",
+      "long": "Nitrat ist das ungiftige Endprodukt des Stickstoffkreislaufs und für die Pflanzen im System der wichtigste Stickstoff-Nährstoff. Steigende Nitratwerte bei gleichzeitig niedrigem Ammoniak und Nitrit zeigen, dass der Biofilter zuverlässig arbeitet.",
+      "beginnerTip": "Steigt Nitrat kontinuierlich, ohne dass Ammoniak oder Nitrit auffällig sind, ist das ein gutes Zeichen — der Kreislauf funktioniert.",
+      "unit": "mg/L",
+      "typicalRange": "5–150 mg/L (systemabhängig)"
+    },
+    "dissolved_oxygen": {
+      "short": "Gelöstsauerstoff — Sauerstoffgehalt im Wasser, den Fische atmen",
+      "long": "Fische und die nitrifizierenden Biofilterbakterien benötigen gelösten Sauerstoff im Wasser. Warmes Wasser hält weniger Sauerstoff als kaltes, deshalb ist Belüftung besonders bei hoher Temperatur und hoher Fischdichte wichtig.",
+      "beginnerTip": "Faustregel: Über 5 mg/L ist meist unbedenklich. Ein sichtbar sprudelnder Luftausströmer sorgt in der Regel für ausreichend Sauerstoff.",
+      "unit": "mg/L",
+      "typicalRange": "5–9 mg/L"
+    },
+    "biofilter_cycling": {
+      "short": "Einfahren des Biofilters — Aufbau der nützlichen Bakterienkultur",
+      "long": "Bevor Fische in voller Besatzdichte einziehen können, muss sich im Biofilter eine Bakterienkultur aufbauen, die Ammoniak zu Nitrit und weiter zu Nitrat umwandelt. Dieser Prozess dauert 4–8 Wochen. Als eingefahren gilt der Filter nach 7 aufeinanderfolgenden Tagen mit TAN unter 0,25 mg/L und Nitrit unter 0,1 mg/L.",
+      "beginnerTip": "Während des Einfahrens nur wenige, robuste Fische einsetzen oder fischlos mit reinem Ammoniak starten. Wasserwerte in dieser Phase engmaschig kontrollieren.",
+      "typicalRange": "4–8 Wochen"
+    },
+    "curing": {
+      "short": "Aushärtung nach der Trocknung — lässt Aroma und Wirkstoffe nachreifen",
+      "long": "Beim Curing lagert die getrocknete Ernte luftdicht (meist in Gläsern). Restfeuchte verteilt sich gleichmäßig zwischen Stängel und Blüte, Chlorophyll baut weiter ab, Aroma und Wirkstoffe reifen nach. Die Behälter werden anfangs täglich kurz geöffnet, damit überschüssige Feuchtigkeit entweicht ('Burping').",
+      "beginnerTip": "Ungeduld verschlechtert das Ergebnis: Lieber ein paar Tage länger aushärten lassen als die Charge zu früh öffnen.",
+      "typicalRange": "2–4 Wochen"
+    },
+    "water_activity": {
+      "short": "Wasseraktivität (a_w) — freies Wasser, das Schimmel nutzen kann",
+      "long": "Die Wasseraktivität misst, wie viel Wasser in der Charge für Mikroorganismen tatsächlich verfügbar ist (Skala 0–1) — anders als der reine Feuchtigkeitsgehalt in Prozent. Ab a_w > 0,65 steigt das Schimmelrisiko deutlich, auch wenn die Charge sich bereits trocken anfühlt.",
+      "beginnerTip": "Ohne Messgerät hilft der Knacktest als Näherung: Bricht der Stängel sauber statt sich zu biegen, ist die Charge meist trocken genug.",
+      "unit": "a_w (0–1)",
+      "typicalRange": "0,55–0,65 (sicher für die Lagerung)"
     }
   },
   "dashboard": {
@@ -5396,8 +5657,15 @@
       "none": "In den nächsten 7 Tagen steht nichts an.",
       "untitled": "Unbenannte Aufgabe"
     },
+    "plantGrid": {
+      "unnamed": "Unbenannte Pflanze",
+      "empty": "Noch keine aktiven Pflanzen."
+    },
     "nav": {
-      "openWidget": "{{widget}} öffnen"
+      "openWidget": "{{widget}} öffnen",
+      "openListNamed": "{{widget}}-Liste öffnen",
+      "openTask": "Aufgabe öffnen: {{task}}",
+      "openPlant": "Pflanze öffnen: {{plant}}"
     },
     "widgets": {
       "comingSoon": "In Vorbereitung",

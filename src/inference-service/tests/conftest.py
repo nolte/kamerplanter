@@ -204,6 +204,63 @@ class FakePestRepo:
         return len(self.rows)
 
 
+class FakeDiseaseClassifier:
+    """Deterministic stand-in for the ONNX DiseaseClassifier (REQ-038)."""
+
+    def __init__(self, ready: bool = True) -> None:
+        self._ready = ready
+        self.load_error: str | None = None
+        # Preloaded (label, category, scientific_name, probability) tuples.
+        self.results: list = []
+        self.class_count = 3
+
+    def is_ready(self) -> bool:
+        return self._ready
+
+    def classify(self, image_bytes: bytes, *, k: int = 5):
+        from app.disease_classifier import DiseaseClassification
+
+        return [
+            DiseaseClassification(label=label, category=category, scientific_name=sci, probability=prob)
+            for (label, category, sci, prob) in self.results[:k]
+        ]
+
+
+class FakePhenotypeEngine:
+    """Stand-in for PhenotypeEngine -- no PlantCV needed (REQ-038)."""
+
+    def __init__(self, available: bool = True) -> None:
+        self._available = available
+
+    def is_available(self) -> bool:
+        return self._available
+
+    def measure(self, image_bytes: bytes):
+        from app.phenotype_engine import PhenotypeMetrics, PhenotypeUnavailableError
+
+        if not self._available:
+            raise PhenotypeUnavailableError("unavailable")
+        return PhenotypeMetrics(
+            leaf_area_px=1234,
+            green_index=0.62,
+            discolored_area_ratio=0.08,
+            necrotic_area_ratio=0.02,
+            solidity=0.71,
+            hue_circular_mean_deg=110.5,
+            plantcv_version="4.0-fake",
+        )
+
+
+@pytest.fixture
+def fake_disease_classifier() -> FakeDiseaseClassifier:
+    return FakeDiseaseClassifier()
+
+
+@pytest.fixture
+def fake_phenotype_engine() -> FakePhenotypeEngine:
+    return FakePhenotypeEngine()
+
+
 @pytest.fixture
 def fake_embedder() -> FakeEmbedder:
     return FakeEmbedder()
@@ -239,6 +296,15 @@ def _patch_singletons(monkeypatch, fake_embedder, fake_repo, fake_pest_repo) -> 
     monkeypatch.setattr(main, "_pest_repo", fake_pest_repo)
     monkeypatch.setattr(main, "_vec_conn", _FakeConn())
     monkeypatch.setattr(main, "_model_checksum", "test-checksum")
+    # REQ-038: phenotype available by default; disease classifier disabled by
+    # default (None) so the /disease/status "disabled" path is the baseline. The
+    # ``disease_client`` fixture enables it explicitly.
+    monkeypatch.setattr(main, "_phenotype_engine", FakePhenotypeEngine())
+    monkeypatch.setattr(
+        main,
+        "_disease_model_meta",
+        {"model_name": "plantdoc_disease_v1", "fine_tuned_on": ["PlantDoc"]},
+    )
     # Configure the shared service token so the app-level auth dependency has a
     # secret to compare against.
     monkeypatch.setattr(main.settings, "internal_service_token", TEST_SERVICE_TOKEN)
@@ -260,6 +326,15 @@ def client(fake_embedder, fake_repo, fake_pest_repo, monkeypatch):
 
     _patch_singletons(monkeypatch, fake_embedder, fake_repo, fake_pest_repo)
     return TestClient(main.app, headers={"Authorization": f"Bearer {TEST_SERVICE_TOKEN}"})
+
+
+@pytest.fixture
+def disease_client(client, fake_disease_classifier, monkeypatch):
+    """Authenticated TestClient with the REQ-038 disease classifier enabled."""
+    from app import main
+
+    monkeypatch.setattr(main, "_disease_classifier", fake_disease_classifier)
+    return client
 
 
 @pytest.fixture

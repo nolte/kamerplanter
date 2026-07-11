@@ -121,6 +121,7 @@ No optional consent is needed for the core functions of the system. However, som
 | **External master data enrichment** (GBIF, Perenual) | Optional | Yes |
 | **Photo identification** (Pl@ntNet) | Optional | Yes |
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
+| **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
 | **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
 | **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
 | **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
@@ -178,6 +179,18 @@ Only master values are transmitted: scientific plant name, current phase, substr
 ### AI Processing via Cloud Provider (ai_cloud_processing)
 
 Required in addition to the previous consent when your instance uses an external cloud provider (e.g. Anthropic, OpenAI) instead of a locally run model (Ollama) for the AI Assistant — this is decided by the platform operator. Cloud providers may involve a third-country data transfer. Local providers do not need this consent.
+
+### AI Disease Diagnosis (plant_diagnosis) {#ai-disease-diagnosis-plant_diagnosis}
+
+!!! note "Not yet available in the interface"
+    The CV-based **disease and deficiency diagnosis** is implemented as a backend feature but is not yet reachable via a button in the interface (internal reference: REQ-038). The following describes how consent behaves once the feature is enabled.
+
+Analyses your leaf photo to produce a suspected-cause list for **diseases and nutrient deficiencies** — distinct from [Pest Detection](pest-detection.md). Unlike plant identification and cloud-based pest detection, this analysis runs **exclusively self-hosted** on your own Kamerplanter infrastructure: there is no cloud adapter, and your photo never leaves the instance. Consent is still requested because a photo of yours is processed. As with pest detection, the photo is stripped of EXIF metadata before processing and is **never stored permanently** — only a SHA-256 fingerprint is retained for traceability. Every result is explicitly only a hypothesis; a treatment is never triggered automatically.
+
+!!! note "Consent behaviour per deployment mode"
+    **Full mode:** The server-side consent check is mandatory — without a granted consent, the backend rejects a diagnosis request.
+
+    **Light mode:** The consent subsystem is not available in [Light mode](light-mode.md); the server-side check is skipped there (as with plant identification).
 
 ---
 

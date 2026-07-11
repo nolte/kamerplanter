@@ -93,9 +93,22 @@ For every value, Kamerplanter shows you how it came about:
 
 ---
 
+## Climate at the Site
+
+Directly below the weather sources, Kamerplanter also shows the **Climate at the Site** section for outdoor and greenhouse sites with stored GPS coordinates — twelve long-term monthly averages (**climate normals**) for average and minimum temperature, precipitation, and solar radiation, shown as a chart and as a table. <!-- REQ-041 -->
+
+!!! tip "What are climate normals?"
+    A climate normal is neither a current reading nor a forecast — it's a long-term average, e.g. "in January, the average temperature at this location is usually around -1 °C." Values like these help with decisions that go beyond the current day: when do you usually sow at this site? How much rain typically falls in a dry summer month? Does a plant typically survive winter outdoors at this site? Climate normals are therefore a **reanalysis** — see the explanation of this provenance label above under [Understanding Weather Data Provenance](#understanding-weather-data-provenance).
+
+The data source is **NASA POWER**, NASA's satellite- and model-based reanalysis service — usable without sign-up or an API key, just like the other public weather services. Kamerplanter automatically fetches the climate normals for every eligible site once a month in the background; right after adding a site with GPS coordinates, it can therefore take a moment before the section shows values for the first time. As long as no data is available yet, this section shows a corresponding hint instead of the chart and table.
+
+---
+
 ## Attribution of Weather Data
 
-Below the source list, Kamerplanter shows the attribution notices for the services in use: German Weather Service (under the Geodatennutzungsverordnung, GeoNutzV), Open-Meteo (CC BY 4.0 license), and OpenWeatherMap under its terms of use.
+Below the source list, and below the climate chart, Kamerplanter shows the attribution notices for the services in use: German Weather Service (under the Geodatennutzungsverordnung, GeoNutzV), Open-Meteo (CC BY 4.0 license), OpenWeatherMap under its terms of use, and — for the climate normals in the "Climate at the Site" section — NASA POWER (CC BY 4.0 license).
+
+The irrigation demand calculated from this weather data (evapotranspiration/ET₀, see [Watering Log: Suggested Watering Volume](watering-log.md#suggested-watering-volume)) uses the open-source library **aquacropeto** (BSD-3-Clause license) internally for the FAO-56 calculation — not a weather data source of its own, just the calculation formula. <!-- REQ-037 -->
 
 ---
 
@@ -115,6 +128,12 @@ Below the source list, Kamerplanter shows the attribution notices for the servic
 
 ??? question "Can I add the same weather service twice?"
     No, each provider can only be added once per site. If you want to compare two different perspectives, combine a public service with your Home Assistant source instead.
+
+??? question "Why doesn't 'Climate at the Site' show any values yet?"
+    The climate normals are fetched automatically in the background once an outdoor or greenhouse site has GPS coordinates — this can take a little while after adding or updating the coordinates, since the monthly background fetch doesn't run immediately after saving. First check whether coordinates are stored; if they are, a fetch simply hasn't run yet.
+
+??? question "Do I need to set up 'Climate at the Site' myself?"
+    No. It appears automatically for every outdoor or greenhouse site with stored GPS coordinates — unlike the weather forecast, you don't need to add a separate source for it.
 
 ---
 

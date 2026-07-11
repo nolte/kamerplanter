@@ -1,0 +1,12 @@
+{
+  "_comment": "UI-NFR-003 R-013/R-014/R-015/R-028 gzip budgets. Values are set just above the measured baseline (2026-07-11) so the gate starts green but fails on regression. Measured initial JS = 471.8 KB gzip (dominated by the eagerly-loaded i18n translation bundle, ~160 KB gzip). The R-013 aspirational target is 300 KB gzip; reaching it requires lazy-loading translations (tracked separately) — this gate locks the current baseline against silent growth in the meantime.",
+  "initialJsGzipKb": 490,
+  "initialCssGzipKb": 50,
+  "cssSeverity": "error",
+  "routeChunks": {
+    "dashboard": {
+      "source": "src/pages/DashboardPage.tsx",
+      "gzipKb": 12
+    }
+  }
+}

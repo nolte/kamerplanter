@@ -7,7 +7,7 @@ Kategorie: Monitoring
 Fokus: Backend
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, REST-API (NASA POWER)
 Status: Entwurf
-Version: 1.0
+Version: 1.1
 Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter), REQ-002 (Standort), REQ-037 (Evapotranspiration — Strahlungsinput), REQ-039 (Klimazonen — Klimanormale), REQ-047 (Saison-/Überwinterungs-Automatik — Klimanormale als Saison-Fallback)
 ```
 
@@ -16,6 +16,7 @@ Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter), REQ-002 (Standort), REQ-037 (Ev
 | Version | Datum | Änderung |
 |---------|-------|----------|
 | 1.0 | 2026-06-19 | Initialer Entwurf — Integration NASA POWER (inspiriert von `agroclimatology`, awesome-agriculture) |
+| 1.1 | 2026-07-11 | Konsistenz-Klarstellung (Überwinterungs-Cluster, REQ-047 v1.1): Die REQ-047-Konsumption von `monthly_temp_min_c`/`coldest_month_min_c` als Saison-Stufe-2 ist **Ausbaupfad, noch nicht implementiert** — der Ist-Stand der Season-Engine speist aus Standort-Durchschnittsfrostdaten (REQ-002/015-A) + Zonen-Frostterminen (REQ-039). Keine Modell-/Feld-Änderung. |
 
 ## 1. Business Case
 
@@ -91,7 +92,7 @@ NASA-POWER-Tagesdaten werden in die **bestehende** Collection `weather_forecasts
 
 ### 2.2 Neue Collection `:ClimateNormal` (Klimanormale)
 
-Langjährige Monatsmittel werden in einer **neuen** Doc-Collection `climate_normals` abgelegt. Sie werden selten aktualisiert (POWER-Climatology ändert sich nur mit neuen Daten-Releases) und dienen REQ-039 (Klimazonen) sowie REQ-022/REQ-047 (Überwinterung/Aussaatfenster). **REQ-047** nutzt `monthly_temp_min_c` und `coldest_month_min_c` als **Stufe-2-Signal** (klimatologischer Saison-Fallback) der SeasonState-Engine, wenn ein Standort keine Live-Wetterdaten hat.
+Langjährige Monatsmittel werden in einer **neuen** Doc-Collection `climate_normals` abgelegt. Sie werden selten aktualisiert (POWER-Climatology ändert sich nur mit neuen Daten-Releases) und dienen REQ-039 (Klimazonen) sowie REQ-022/REQ-047 (Überwinterung/Aussaatfenster). **REQ-047** soll `monthly_temp_min_c` und `coldest_month_min_c` als verfeinertes **Stufe-2-Signal** (klimatologischer Saison-Fallback) der SeasonState-Engine nutzen, wenn ein Standort keine Live-Wetterdaten hat. *Ist-Stand (REQ-047 v1.1):* die SeasonState-Engine speist Stufe 2 aus den Standort-Durchschnittsfrostdaten (REQ-002/015-A) + Zonen-Frostterminen (REQ-039); die ClimateNormal-Konsumption ist als Ausbaupfad vorgesehen, aber noch nicht implementiert.
 
 - **`:ClimateNormal`** — Langjähriges klimatisches Mittel pro Standort
   - Collection: `climate_normals`
@@ -107,7 +108,7 @@ Langjährige Monatsmittel werden in einer **neuen** Doc-Collection `climate_norm
     - `monthly_solar_mj_m2: list[float]` (12 Werte; `ALLSKY_SFC_SW_DWN`, Tagesmittel je Monat)
     - `annual_temp_avg_c: float`
     - `annual_precip_mm: float`
-    - `coldest_month_min_c: float` (Eingang für Hardiness-Zonen-Ableitung, REQ-039; Saison-Fallback-Signal für REQ-047 SeasonState — markiert den kältesten Monat für die `winter_dormancy→pre_spring`-Bedingung)
+    - `coldest_month_min_c: float` (Eingang für Hardiness-Zonen-Ableitung, REQ-039; vorgesehenes Saison-Fallback-Signal für REQ-047 SeasonState — kältester Monat für die `winter_dormancy→pre_spring`-Bedingung; Ist-Stand: von der Season-Engine noch nicht konsumiert, s. REQ-047 v1.1)
     - `fetched_at: datetime`
 
 ### 2.3 Edges

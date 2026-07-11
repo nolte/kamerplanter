@@ -35,6 +35,7 @@ def register_external_adapters() -> None:
     import app.data_access.external.kindwise_pest_adapter  # noqa: F401  REQ-044 cloud adapter (opt-in)
     import app.data_access.external.local_embedding_adapter  # noqa: F401  identification adapter (priority 1)
     import app.data_access.external.local_pest_adapters  # noqa: F401  REQ-044 self-hosted adapters
+    import app.data_access.external.nasa_power_weather_adapter  # noqa: F401  REQ-041 weather/climate adapter
     import app.data_access.external.open_meteo_weather_adapter  # noqa: F401  REQ-046 weather adapter
     import app.data_access.external.openweathermap_weather_adapter  # noqa: F401  REQ-046 weather adapter
     import app.data_access.external.perenual_adapter  # noqa: F401  enrichment adapter

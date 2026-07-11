@@ -49,6 +49,9 @@ class IIpmRepository(ABC):
     def get_disease_or_raise(self, key: DiseaseKey) -> Disease: ...
 
     @abstractmethod
+    def get_disease_by_scientific_name(self, scientific_name: str) -> Disease | None: ...
+
+    @abstractmethod
     def create_disease(self, disease: Disease) -> Disease: ...
 
     @abstractmethod

@@ -19,6 +19,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Weather Sources](weather-sources.md) | Choose and prioritize a public weather service or Home Assistant per location |
 | [Tasks](tasks.md) | Task planning and workflow templates |
 | [Harvest](harvest.md) | Harvest management and quality scoring |
+| [Post-Harvest](post-harvest.md) | Track drying, curing, and storage of your harvest batches |
 | [Pest Management (IPM)](pest-management.md) | Integrated pest management |
 | [Plant Health Troubleshooting](plant-health-troubleshooting.md) | Identify symptoms and find the right next step |
 | [Pest Detection by Photo](pest-detection.md) | Upload a photo and get an automatic assessment |
@@ -29,6 +30,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Plant Photo Gallery](plant-photos.md) | Capture a plant's growth over time in photos |
 | [Planting Runs](planting-runs.md) | Group management for plants |
 | [Tank Management](tanks.md) | Water tanks and fill events |
+| [Aquaponics](aquaponics.md) | Fish-plant closed-loop systems, nitrogen cycle, and biofilter cycling |
 | [Calendar](calendar.md) | Calendar view and sowing calendar |
 | [Dashboard](dashboard.md) | Overview and key metrics |
 | [Onboarding Wizard](onboarding.md) | Guided initial setup with starter kits and favourites |

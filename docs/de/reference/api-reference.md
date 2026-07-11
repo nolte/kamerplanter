@@ -317,6 +317,168 @@ GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
 
 ---
 
+## Standort-Klimanormalen (NASA POWER) <!-- REQ-041 -->
+
+Liefert die langjährigen monatlichen Klima-Normalwerte eines Standorts für den Abschnitt „Klima am Standort" der Standort-Detailseite. Der Endpunkt liegt unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordert ein gültiges JWT-Token; jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen. Standort-Besitz wird serverseitig geprüft (404 unbekannt / 403 fremd). Der Endpunkt ist **graceful**: Liegen für einen berechtigten Standort noch keine Klimanormalen vor (Hintergrund-Abholung noch nicht gelaufen), liefert er eine leere `normals`-Liste statt eines Fehlers.
+
+### Klima-Normalwerte eines Standorts abrufen
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
+```
+
+**Response (200):** `SiteClimateResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "normals": [
+    {
+      "source": "nasa-power",
+      "attribution": "Klima- und Strahlungsdaten: NASA POWER (power.larc.nasa.gov)",
+      "period_start_year": 1991,
+      "period_end_year": 2020,
+      "monthly_temp_min_c": [-3.1, -2.6, 0.4, 3.8, 8.2, 11.4, 13.1, 12.8, 9.6, 5.7, 1.3, -1.9],
+      "monthly_temp_max_c": [2.4, 3.9, 8.1, 13.2, 18.0, 21.3, 23.6, 23.2, 18.9, 13.1, 7.0, 3.2],
+      "monthly_temp_avg_c": [-0.4, 0.6, 4.2, 8.5, 13.1, 16.4, 18.4, 18.0, 14.2, 9.4, 4.1, 0.6],
+      "monthly_precip_mm": [42.0, 33.0, 40.0, 37.0, 55.0, 68.0, 62.0, 58.0, 45.0, 39.0, 48.0, 47.0],
+      "monthly_solar_mj_m2": [4.1, 7.2, 11.5, 16.3, 19.8, 21.0, 20.4, 17.6, 12.5, 7.4, 4.0, 3.1],
+      "coldest_month_min_c": -3.1,
+      "annual_temp_avg_c": 8.9,
+      "annual_precip_mm": 574.0,
+      "fetched_at": "2026-07-01T03:12:00Z"
+    }
+  ]
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `normals` | Liste | Ein Eintrag je liefernder Quelle; aktuell nur `nasa-power`. Leer, solange die monatliche Hintergrund-Abholung für diesen Standort noch nicht gelaufen ist. |
+| `source` | string | Herkunfts-Kennung des Eintrags (`nasa-power`) |
+| `attribution` | string | Lizenz-/Herkunftshinweis der Quelle (CC-BY-Pflichtangabe), zur direkten Anzeige neben den Daten bestimmt |
+| `period_start_year` / `period_end_year` | number \| null | Bezugszeitraum der Normalperiode (z. B. `1991`–`2020`) |
+| `monthly_temp_min_c` / `monthly_temp_max_c` / `monthly_temp_avg_c` | Liste[12] | Monatliche Tiefst-, Höchst- und Durchschnittstemperatur, Index 0 = Januar |
+| `monthly_precip_mm` | Liste[12] | Monatlicher Niederschlag in mm |
+| `monthly_solar_mj_m2` | Liste[12] | Monatliche Solarstrahlung in MJ/m² |
+| `coldest_month_min_c` | number \| null | Tiefstwert des kältesten Monats — Eingabe für die [automatische Winterhärtezonen-Ableitung](#winterhaertezonen-usda) |
+| `annual_temp_avg_c` / `annual_precip_mm` | number \| null | Jahresmittel bzw. Jahressumme |
+| `fetched_at` | datetime | Zeitpunkt der letzten Abholung von der Quelle |
+
+!!! info "Nur über API: Klimanormalen manuell auslösen"
+    Es gibt keinen dedizierten Endpunkt, um die Abholung für einen einzelnen Standort manuell anzustoßen. Die Befüllung läuft ausschließlich über den monatlichen Celery-Task `app.tasks.climate_tasks.fetch_climate_normals` (Betreiber-Konfiguration, siehe [Umgebungsvariablen — Klimanormalen](environment-variables.md#klimanormalen-nasa-power)). <!-- REQ-041 -->
+
+### Siehe auch
+
+- [Klima am Standort — Benutzerhandbuch](../user-guide/weather-sources.md#klima-am-standort)
+- [Umgebungsvariablen — Klimanormalen (NASA POWER)](environment-variables.md#klimanormalen-nasa-power)
+
+---
+
+## Winterhärtezonen (USDA) <!-- REQ-039 --> {#winterhaertezonen-usda}
+
+Automatische Ableitung der USDA-Winterhärtezone eines Standorts aus seinen [Klimanormalen](#standort-klimanormalen-nasa-power) (kälteste Monats-Tiefsttemperatur), nach dem lizenzfreien USDA-Zonenschema (26 Halbzonen `1a`–`13b`, keine proprietären USDA-/PHZM-/PRISM-Kartendaten). Ersetzt für den Ampel-Vergleich das freie Textfeld `Site.climate_zone`, das aus Kompatibilitätsgründen weiterhin mitgepflegt und automatisch synchron gehalten wird. Speist die [Winterhärte-Ampel](../user-guide/overwintering.md) mehrjähriger Pflanzen. <!-- REQ-039 -->
+
+Der globale Katalog ist Referenzdaten (wie botanische Familien) und liegt ohne Mandanten-Präfix unter `/api/v1/hardiness-zones`; die Ableitung und der Lesezugriff pro Standort sind mandantenscoped unter `/api/v1/t/{tenant_slug}/sites/{site_key}/`. Alle Endpunkte erfordern ein gültiges JWT-Token.
+
+### Globalen Zonen-Katalog auflisten
+
+```
+GET /api/v1/hardiness-zones
+```
+
+**Response (200):** Liste von `HardinessZoneResponse`, sortiert von der kältesten zur wärmsten Zone.
+
+```json
+[
+  {
+    "zone": "7a",
+    "zone_number": 7,
+    "subzone": "a",
+    "temp_min_c": -17.7,
+    "temp_max_c": -15.0,
+    "temp_min_f": 0.0,
+    "temp_max_f": 5.0,
+    "description_de": "Mild-gemäßigtes Klima weiter Tieflandregionen. Günstige Zone für die Freilandkultur der meisten winterharten Stauden und Gehölze.",
+    "representative_regions_de": ["Norddeutsches Tiefland", "Wiener Becken", "Genferseeregion"],
+    "typical_last_frost_md": "05-08",
+    "typical_first_frost_md": "10-20"
+  }
+]
+```
+
+Nur die DACH-relevanten Zonen `5a`–`9a` tragen kuratierte deutsche Beschreibungen und Regionsbeispiele; alle übrigen Zonen des weltweiten Spektrums `1a`–`13b` besitzen eine generische Beschreibung ohne `representative_regions_de`.
+
+### Einzelne Zone abrufen
+
+```
+GET /api/v1/hardiness-zones/{zone}
+```
+
+**Pfad-Parameter:** `zone` — Zonen-Label im Format `<Zahl><a|b>`, z. B. `7a`.
+
+**Fehlercodes:** `404`, wenn `zone` kein gültiges Label im Katalog ist.
+
+### Winterhärtezone eines Standorts lesen
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/hardiness
+```
+
+Jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen. Standort-Besitz wird serverseitig geprüft (404 bei unbekanntem/fremdem Standort).
+
+**Response (200):** `SiteHardinessResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "hardiness_zone": "7a",
+  "hardiness_zone_source": "derived_gps",
+  "hardiness_zone_resolved_at": "2026-07-01T05:00:00Z",
+  "mean_annual_minimum_c": -17.2,
+  "last_frost_date_avg": "2026-05-08",
+  "first_frost_date_avg": "2026-10-20",
+  "zone": { "zone": "7a", "...": "vollständiger Katalog-Eintrag wie oben" }
+}
+```
+
+`hardiness_zone_source` ∈ `manual` (nie automatisch überschrieben), `derived_gps` (aus Klimanormalen abgeleitet). Die Werte `derived_postal` und `frostline_us` sind für künftige, bislang nicht umgesetzte Ableitungswege reserviert.
+
+### Winterhärtezone eines Standorts (neu) ableiten
+
+```
+POST /api/v1/t/{tenant_slug}/sites/{site_key}/resolve-hardiness-zone
+```
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `force` | boolean | `false` | Bei `true` wird auch eine bereits **manuell** gesetzte Zone verworfen und neu aus den Klimanormalen abgeleitet. |
+
+Ohne `force=true` bleibt eine manuell gesetzte Zone (`hardiness_zone_source: manual`) unangetastet — der Endpunkt liefert dann unverändert die vorhandene Zone zurück. Befüllt zusätzlich, sofern noch nicht gesetzt, die Frost-Richtwerte des Standorts (`last_frost_date_avg`, `first_frost_date_avg`) aus dem Katalog-Eintrag der ermittelten Zone. Ein regulärer `PUT`-Aufruf auf den Standort mit gesetztem `hardiness_zone`-Feld im Request-Body markiert die Zone stattdessen direkt als `manual`.
+
+**Response (200):** `SiteHardinessResponse` (siehe oben).
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `404` | Standort nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Für den Standort liegen noch keine Klimanormalen mit verwertbarer Minimaltemperatur vor (`VALIDATION_ERROR`) — zuerst müssen die [Klimanormalen](#standort-klimanormalen-nasa-power) für diesen Standort vorliegen |
+
+!!! info "Nur über API: Winterhärtezonen-Bedienung"
+    Weder ein Button zum sofortigen Auslösen noch die Anzeige der ermittelten Zone samt Herkunft sind bislang im Standort-Formular der Weboberfläche verankert. Unabhängig davon läuft die automatische Ableitung bereits vollautomatisch im Hintergrund über einen vierteljährlichen Celery-Task (siehe [Umgebungsvariablen — Winterhärtezonen](environment-variables.md#winterhaertezonen-usda)); der hier dokumentierte Endpunkt dient dem sofortigen manuellen Neuberechnen. <!-- REQ-039 -->
+
+### Siehe auch
+
+- [Klimazonen & Winterhärte — Benutzerhandbuch](../guides/climate-zones.md)
+- [Überwinterung — Benutzerhandbuch](../user-guide/overwintering.md)
+- [Standort-Klimanormalen (NASA POWER)](#standort-klimanormalen-nasa-power)
+- [Umgebungsvariablen — Winterhärtezonen](environment-variables.md#winterhaertezonen-usda)
+
+---
+
 ## Pflanzinstanzen: Entfernen mit Abschlussart & Überlebens-Statistik
 
 Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/plant-instances/` und erfordern ein gültiges JWT-Token. <!-- REQ-003 E5/G1 -->
@@ -742,4 +904,269 @@ Erfordert Platform-Admin-Rechte. Nur im Vollmodus gemountet (`KAMERPLANTER_MODE=
 - [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md)
 - [Datenschutz & DSGVO — Benutzerhandbuch](../user-guide/privacy.md)
 - [Umgebungsvariablen — KI-Assistent](environment-variables.md#ki-assistent)
+- [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## CV-Krankheitsdiagnose <!-- REQ-038 -->
+
+Bildbasierte **Zustandsdiagnose** (Krankheit, Nährstoffmangel, ergänzend Schädling) aus einem Blattfoto — abgegrenzt von der Artbestimmung ([Pflanzenerkennung](#pflanzenerkennung-referenzbild-beitrag-self-hosted-erkennung)) und von der spezialisierten [Schädlingserkennung](../user-guide/pest-detection.md): Diese Diagnose beantwortet „was fehlt der Pflanze?", nicht „welche Art/welcher Schädling ist das?". Die Erkennung läuft self-hosted im Inference-Service; das hochgeladene Foto wird serverseitig von EXIF-Metadaten bereinigt und **nicht dauerhaft gespeichert** — nur ein SHA-256-Fingerabdruck bleibt erhalten (`image_deleted_at` ist bei jeder Antwort gesetzt).
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/cv-diagnosis/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte (`/status`, `/history`) benötigen keine besondere Mandanten-Rolle; schreibende Endpunkte (`/diagnose`, `/diagnose/{request_key}/confirm`) erfordern mindestens die Rolle **grower**.
+
+!!! danger "Immer nur eine Hypothese — nie automatisch behandelt"
+    Jede Antwort enthält ein nie-leeres Feld `disclaimer`. Eine CV-Diagnose erzeugt **niemals** automatisch eine Behandlung und umgeht **kein** Karenz-Gate (siehe [Pflanzenschutz (IPM)](../user-guide/pest-management.md)) — `POST .../confirm` legt höchstens eine IPM-Inspektions-**Vorlage** an, die du selbst prüfst und bestätigst.
+
+### Verfügbarkeit prüfen
+
+```
+GET /api/v1/t/{tenant_slug}/cv-diagnosis/status
+```
+
+**Response (200):** `CvDiagnosisStatusResponse`
+
+```json
+{
+  "available": false,
+  "feature_enabled": false,
+  "adapter_key": "local_cv_diagnosis",
+  "phenotype_available": false,
+  "class_count": 0
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `available` | boolean | Ob die Funktion nutzbar ist (`feature_enabled` **und** ein geladenes Klassifikator-Modell). Steuert, ob eine künftige Foto-Diagnose-Schaltfläche im Frontend eingeblendet wird. |
+| `feature_enabled` | boolean | Betreiber-Schalter (`CV_DIAGNOSIS_ENABLED`), unabhängig davon, ob bereits ein Modell geladen ist. |
+| `adapter_key` | string | Kennung des aktiven Adapters. Aktuell nur `local_cv_diagnosis` (self-hosted, keine Bilddaten verlassen die Instanz). |
+| `phenotype_available` | boolean | Ob die PlantCV-Phänotyp-Pipeline im Inference-Service verfügbar ist. |
+| `class_count` | integer | Anzahl der vom geladenen Klassifikator unterstützten Krankheits-/Mangel-/Schädlingsklassen. |
+
+### Foto-Diagnose durchführen
+
+```
+POST /api/v1/t/{tenant_slug}/cv-diagnosis/diagnose
+```
+
+Erfordert mindestens die Mandanten-Rolle **grower** — die Rolle **viewer** erhält `403`. Die Einwilligung `plant_diagnosis` ist im **Voll-Modus** Pflicht und wird serverseitig geprüft (`403 CONSENT_REQUIRED` ohne erteilte Einwilligung); im [Light-Modus](../user-guide/light-mode.md) entfällt die serverseitige Prüfung, da dort kein Consent-Subsystem existiert (siehe [Datenschutz & DSGVO](../user-guide/privacy.md)).
+
+**Request-Body:** `multipart/form-data`
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `image` | file | Ja | JPEG- oder PNG-Bild, maximal `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` (Standard 5 MB) |
+| `plant_key` | string | Nein | Pflanzinstanz, der die Diagnose zugeordnet wird |
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `phenotype` | boolean | `false` | Zusätzlich PlantCV-Phänotyp-Kennzahlen berechnen (Blattfläche, Grün-Index, Anteil verfärbter/nekrotischer Fläche) — nur wirksam, wenn `phenotype_available == true` |
+
+**Response (200):** `CvDiagnosisResponse`
+
+```json
+{
+  "key": "plant_diagnosis_requests/abc123",
+  "plant_instance_key": "plant_instances/101",
+  "inspection_key": null,
+  "classifications": [
+    {
+      "label": "septoria_leaf_spot",
+      "category": "disease",
+      "scientific_name": null,
+      "probability": 0.74,
+      "highlight": false,
+      "matched_disease_key": "diseases/septoria",
+      "matched_pest_key": null,
+      "matched_symptom_slug": null
+    }
+  ],
+  "phenotype": null,
+  "model_meta": {
+    "model_name": "kamerplanter-leaf-disease-v1",
+    "training_base": "imagenet-dinov2-backbone",
+    "fine_tuned_on": ["plantdoc-ccby4"],
+    "onnx_checksum": "sha256:...",
+    "model_version": "20260601",
+    "class_count": 17
+  },
+  "adapter_key": "local_cv_diagnosis",
+  "is_confident": false,
+  "disclaimer": "Nur eine Einschätzung der Bilderkennung — keine gesicherte Diagnose. Bitte den Verdacht fachlich prüfen, bevor du behandelst; bei Unsicherheit einen zweiten Blick einholen.",
+  "confirmed_labels": [],
+  "image_hash": "sha256:9f86d0...",
+  "image_deleted_at": "2026-07-11T14:30:02Z",
+  "created_at": "2026-07-11T14:30:00Z"
+}
+```
+
+| Feld | Bedeutung |
+|------|----------|
+| `classifications[].category` | `disease`, `deficiency`, `pest` oder `healthy` (keine Auffälligkeit erkannt) |
+| `classifications[].probability` | Konfidenz 0.0–1.0. Treffer unterhalb der Anzeige-Schwelle (`CV_CLASSIFIER_CONFIDENCE_SHOW`) werden verworfen und erscheinen nicht in der Liste. |
+| `classifications[].highlight` | `true` ab der Hervorhebungs-Schwelle (`CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT`) — reine UI-Betonung, **kein** Auto-Accept |
+| `classifications[].matched_disease_key` / `matched_pest_key` | Gegen die IPM-Stammdaten ([Pflanzenschutz](../user-guide/pest-management.md)) gematchter Schlüssel, nur bei `category` `disease` bzw. `pest` |
+| `classifications[].matched_symptom_slug` | Nur bei `category == "deficiency"` gesetzt — REQ-010 kennt (noch) keine eigene Mangel-Stammdaten-Collection, das Matching läuft stattdessen über Symptom-Slugs |
+| `is_confident` | `true`, wenn mindestens ein aktionabler Treffer (`disease`/`deficiency`/`pest`) hervorgehoben ist. Bedeutet **nicht** „bestätigt" — nur eine UI-Einstufung |
+| `model_meta` | Modellkarte/Provenienz: `fine_tuned_on` listet die Trainingsquelle (`plantdoc-ccby4` — CC-BY-4.0; **PlantVillage wird nicht verwendet**, siehe [Lizenzhinweise](#lizenzhinweise-req-038)) |
+| `image_hash` / `image_deleted_at` | Beleg, dass **kein** Originalbild gespeichert wird — nur der Fingerabdruck bleibt erhalten |
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb **grower**, oder Einwilligung `plant_diagnosis` fehlt (Voll-Modus) |
+| `413` | Bild überschreitet `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` bzw. die interne Pixel-Bombe-Grenze |
+| `415` | `Content-Type` ist weder `image/jpeg` noch `image/png` |
+| `422` | Bild lässt sich nicht dekodieren (beschädigt oder kein gültiges Bildformat) |
+| `503` | Der self-hosted Klassifikator ist nicht aktiviert oder nicht erreichbar (`CV_DIAGNOSIS_ENABLED=false` oder kein geladenes Modell) |
+
+### Diagnose zu einer IPM-Inspektionsvorlage bestätigen
+
+```
+POST /api/v1/t/{tenant_slug}/cv-diagnosis/diagnose/{request_key}/confirm
+```
+
+Erfordert mindestens die Mandanten-Rolle **grower**. Legt aus den bestätigten Klassen eine [IPM-Inspektion](../user-guide/pest-management.md) als **Vorschlag** an — **niemals** automatisch eine Behandlung; das Karenz-Gate bleibt in jedem Fall aktiv.
+
+**Request-Body:**
+
+```json
+{
+  "plant_key": "plant_instances/101",
+  "confirmed_labels": ["septoria_leaf_spot"]
+}
+```
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `plant_key` | string | Ja | Pflanzinstanz, der die angelegte Inspektion zugeordnet wird |
+| `confirmed_labels` | Liste[string] | Nein | Zu bestätigende Klassen-Labels; ohne Angabe werden die hervorgehobenen (`highlight == true`) Klassen übernommen |
+
+**Response (201):** `ConfirmDiagnosisResponse`
+
+```json
+{
+  "inspection_key": "inspections/42",
+  "detected_disease_keys": ["diseases/septoria"],
+  "detected_pest_keys": [],
+  "confirmed_labels": ["septoria_leaf_spot"]
+}
+```
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb **grower** |
+| `404` | `request_key` unbekannt oder gehört nicht zum Mandanten (Cross-Tenant-Zugriff schlägt ohne Unterscheidung fehl — kein Existence-Oracle) |
+
+### Diagnose-Historie abrufen
+
+```
+GET /api/v1/t/{tenant_slug}/cv-diagnosis/history
+```
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `limit` | integer | `20` | Maximale Anzahl Einträge (1–100) |
+
+**Response (200):** Liste von `CvDiagnosisResponse` (siehe oben), sortiert nach Erstellungsdatum absteigend, beschränkt auf die eigenen Diagnosen des angemeldeten Nutzers im aktuellen Mandanten.
+
+### Lizenzhinweise {#lizenzhinweise-req-038}
+
+Der Klassifikator ist auf dem **PlantDoc**-Datensatz (CC-BY-4.0, Attribution) plus eigenen kuratierten Realdaten fine-getunt; die Phänotyp-Pipeline nutzt **PlantCV** (MPL-2.0, unverändert als Bibliothek). **PlantVillage wird nicht verwendet** (Lizenz ungeklärt). Vollständige Attributionstexte: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
+
+### Siehe auch
+
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](../user-guide/plant-health-troubleshooting.md)
+- [Schädlingserkennung per Foto](../user-guide/pest-detection.md)
+- [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
+- [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
+- [Umgebungsvariablen — CV-Krankheitsdiagnose](environment-variables.md#cv-krankheitsdiagnose-req-038)
+
+---
+
+## Aquaponik <!-- REQ-026 -->
+
+Aquaponik führt Fisch-Pflanzen-Kreislaufsysteme ein: Fischbestand, Wassertests mit automatisch berechnetem freiem Ammoniak, Biofilter-Cycling-Erkennung, Fütterung und Nährstoff-Supplementierung. Das Frontend deckt bislang nur einen Teil der API ab (Systeme anlegen/auflisten, Wassertest erfassen, Einfahrfortschritt und Wasserqualität lesen) — siehe [Aquaponik — Benutzerhandbuch: Für technische Nutzer / Self-Hoster](../user-guide/aquaponics.md#fur-technische-nutzer-self-hoster) für die vollständige, noch UI-lose Restfläche der API.
+
+**Mandantenspezifisch** unter `/api/v1/t/{tenant_slug}/aquaponics/` (28 Endpunkte, schreibende Aufrufe erfordern mindestens die Rolle **grower**, Systeme löschen erfordert **admin**):
+
+| Ressourcengruppe | Endpunkte (Auswahl) |
+|-------------------|---------------------|
+| Systeme | `GET`/`POST /systems`, `GET`/`PATCH`/`DELETE /systems/{key}`, `POST /systems/{key}/cycling-status` |
+| Fischbestand | `GET`/`POST /systems/{key}/fish-stocks`, `PATCH`/`DELETE /systems/{key}/fish-stocks/{stock_key}`, `POST .../mortality`, `GET .../biomass-history`, `GET .../mortality-rate` |
+| Wassertests & Stickstoffkreislauf | `GET`/`POST /systems/{key}/water-tests`, `GET /systems/{key}/water-quality-status`, `GET /systems/{key}/nitrogen-cycle-chart`, `GET /systems/{key}/cycling-progress` |
+| Fütterung | `GET`/`POST /systems/{key}/feeding-events`, `GET /systems/{key}/feeding-recommendation`, `GET /systems/{key}/fcr-analysis` |
+| Supplementierung & Defizite | `GET`/`POST /systems/{key}/supplementation`, `GET /systems/{key}/deficiency-check` |
+| Sicherheit & Gesundheit | `GET /systems/{key}/safety-status`, `GET /systems/{key}/alerts`, `GET /systems/{key}/fish-health` |
+
+**Global** (nicht mandantenspezifisch, keine Schreibrechte nötig) unter `/api/v1/fish-species/`:
+
+| Endpunkt | Beschreibung |
+|----------|-------------|
+| `GET /fish-species` | Alle 8 Seed-Fischarten mit Temperaturzonen und artspezifischen Grenzwerten |
+| `GET /fish-species/by-temperature-zone/{zone}` | Fischarten gefiltert nach Temperaturzone (`coldwater`, `temperate`, `warmwater`) |
+| `GET /fish-species/{species_key}` | Einzelne Fischart |
+| `GET /fish-species/{species_key}/compatible-plants` | Fisch-Pflanzen-Kompatibilität via Graph-Kanten (Temperatur- und Nährstoff-Match) |
+
+### Siehe auch
+
+- [Aquaponik — Benutzerhandbuch](../user-guide/aquaponics.md)
+- [Tankmanagement — Benutzerhandbuch](../user-guide/tanks.md)
+- [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Nacherntebehandlung (Post-Harvest)
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/post-harvest/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte akzeptieren jede aktive Mitgliedschaft; schreibende Endpunkte erfordern mindestens die Rolle **grower**; das Löschen einer Charge ist **admin**-only. <!-- REQ-008 -->
+
+| Methode & Pfad | Beschreibung | Mindestrolle |
+|-----------------|-------------|--------------|
+| `GET /post-harvest` | Chargen des Mandanten auflisten (optional gefiltert nach `harvest_batch`) | jede Mitgliedschaft |
+| `POST /post-harvest/start-drying` | Erntecharge in die Nacherntebehandlung übernehmen (Stufe „Trocknung") | grower |
+| `GET /post-harvest/{key}` | Chargendetails inkl. letzter Trocknungsmessung und Anzahl offener Schimmel-Warnungen | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/advance` | Charge in die nächste Stufe überführen (vorwärts, ein Schritt) | grower |
+| `POST /post-harvest/{key}/drying-progress` | Gewichtsmessung erfassen (optional zusätzlich Wasseraktivität, CO₂, Knacktest-Ergebnis) | grower |
+| `GET /post-harvest/{key}/drying-progress` | Alle Trocknungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/observations` | Umgebungsmessung erfassen (löst ggf. automatisch eine Schimmel-Warnung aus) | grower |
+| `GET /post-harvest/{key}/observations` | Alle Umgebungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `GET /post-harvest/{key}/mold-alerts` | Schimmel-Warnungen der Charge auflisten | jede Mitgliedschaft |
+| `DELETE /post-harvest/{key}` | Charge löschen | admin |
+
+**Stufen-Zustandsmaschine:** `drying → curing → stored → released` — ausschließlich vorwärts, ein Schritt je Aufruf. Der Übergang `drying → curing` erfordert zusätzlich `dryness_progress_percent >= 95`.
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb der geforderten Mindestrolle |
+| `404` | Charge nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Ungültiger Stufenwechsel (Rückschritt, Sprung oder Trocknungsfortschritt < 95 % bei `drying → curing`), oder `current_weight_g` größer als das Startgewicht der Charge |
+
+### Beispiel — Trocknung starten
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/post-harvest/start-drying" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harvest_batch_key": "harvest_batches/42",
+    "species_type": "flower",
+    "drying_method": "hang_dry",
+    "target_moisture_percent": 10
+  }'
+```
+
+### Siehe auch
+
+- [Nacherntebehandlung — Benutzerhandbuch](../user-guide/post-harvest.md)
+- [Ernte — Benutzerhandbuch](../user-guide/harvest.md)
 - [Fehlerbehandlung](../api/error-handling.md)

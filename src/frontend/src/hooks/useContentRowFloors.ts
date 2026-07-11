@@ -31,6 +31,12 @@ export function useContentRowFloors(rowHeightPx: number, marginYPx: number) {
 
   const applyMeasurement = useCallback(
     (id: string, contentPx: number) => {
+      // A non-positive measurement means the content has not laid out yet (the
+      // synchronous first read, a not-yet-rendered lazy widget, jsdom). Treat it
+      // as "not measured" rather than a 1-row floor, so the caller keeps its
+      // stored-size fallback instead of collapsing the tile to `minH` and then
+      // growing it once real content paints (a visible flash).
+      if (!Number.isFinite(contentPx) || contentPx <= 0) return;
       const rows = rowsForContentHeight(contentPx, rowHeightPx, marginYPx);
       if (floorsRef.current[id] === rows) return;
       floorsRef.current = { ...floorsRef.current, [id]: rows };

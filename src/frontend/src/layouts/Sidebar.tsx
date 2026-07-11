@@ -34,6 +34,7 @@ import PestControlIcon from '@mui/icons-material/PestControl';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
 import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TimelineIcon from '@mui/icons-material/Timeline';
@@ -45,6 +46,7 @@ import ContentCutIcon from '@mui/icons-material/ContentCut';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
+import SetMealIcon from '@mui/icons-material/SetMeal';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
@@ -216,6 +218,17 @@ export default function Sidebar({ open }: SidebarProps) {
       ],
     },
     {
+      header: t('nav.aquaponik'),
+      sectionKey: 'aquaponik',
+      items: [
+        {
+          label: t('nav.aquaponicSystems'),
+          path: '/aquaponik',
+          icon: <SetMealIcon />,
+        },
+      ],
+    },
+    {
       header: t('nav.duengung'),
       sectionKey: 'duengung',
       items: [
@@ -270,6 +283,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.harvestBatches'),
           path: '/ernte/batches',
           icon: <AgricultureIcon />,
+        },
+        {
+          label: t('nav.postHarvest'),
+          path: '/ernte/nachernte',
+          icon: <Inventory2Icon />,
         },
       ],
     },

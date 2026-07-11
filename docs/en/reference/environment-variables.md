@@ -236,6 +236,55 @@ For comparison — the existing **reactive** frost threshold (current measured t
 
 ---
 
+## Climate Normals (NASA POWER) <!-- REQ-041 --> {#climate-normals-nasa-power}
+
+These variables control the monthly background fetch of long-term climate normals (the "Climate at the Site" section) via the keyless NASA POWER reanalysis interface. Both `WEATHER_ENABLED` and `NASA_POWER_CLIMATE_ENABLED` must be active for the fetch to run.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `NASA_POWER_CLIMATE_ENABLED` | `true` | No | Dedicated kill switch for the monthly climate-normals task, independent of the general `WEATHER_ENABLED` — both must be active for the task to run. |
+| `NASA_POWER_BASE_URL` | `https://power.larc.nasa.gov/api/temporal` | No | Base URL of the NASA POWER API. Only relevant for self-hosters with a different network/proxy setup. |
+| `NASA_POWER_CLIMATE_TTL_DAYS` | `180` | No | Climate normals barely change; an already-fetched record is only re-fetched after this TTL expires — keeps the monthly task idempotent and spares the NASA POWER API. |
+| `NASA_POWER_DATA_LATENCY_DAYS` | `7` | No | Affects the separate daily-values fetch (not the climate normals): number of days NASA POWER needs for quality control of its most recent daily values. |
+| `NASA_POWER_DAILY_DAYS_BACK` | `14` | No | Also affects only the daily-values fetch: size of the look-back window in days. |
+
+!!! note "Only affects outdoor and greenhouse sites with GPS coordinates"
+    Climate normals are materialised only for sites of type **Outdoor** or **Greenhouse** with stored GPS coordinates — they're of no use for indoor sites and are not fetched for them. NASA POWER is usable without an API key; the data is licensed under CC BY 4.0 (attribution is delivered automatically alongside the data, see [Climate at the Site](../user-guide/weather-sources.md#climate-at-the-site)). <!-- REQ-041 -->
+
+---
+
+## Hardiness Zones (USDA) <!-- REQ-039 --> {#hardiness-zones-usda}
+
+This variable controls the quarterly background refresh of a site's hardiness zone, automatically derived from its climate normals (see [Climate Zones & Hardiness](../guides/climate-zones.md)). The derivation builds on the climate normals — the associated task therefore only runs when both `WEATHER_ENABLED` and `NASA_POWER_CLIMATE_ENABLED` are also active.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `HARDINESS_ZONE_REFRESH_ENABLED` | `true` | No | Dedicated kill switch for the quarterly hardiness-zone task (Jan 1 / Apr 1 / Jul 1 / Oct 1, 05:00 UTC), independent of `NASA_POWER_CLIMATE_ENABLED` — both must be active for the task to run. Manually set zones (`hardiness_zone_source: manual`) are never overwritten by the task. |
+
+!!! note "Only affects outdoor and greenhouse sites with GPS coordinates and existing climate normals"
+    Like the climate normals themselves, the hardiness zone is only computed for sites of type **Outdoor** or **Greenhouse** with GPS coordinates — and only once at least one climate-normal record with a usable minimum temperature already exists for that site. Triggering it immediately and manually (independent of this schedule) is possible via the API — see [API Reference — Hardiness Zones](api-reference.md#hardiness-zones-usda). <!-- REQ-039 -->
+
+---
+
+## Irrigation Demand (ET₀) <!-- REQ-037 --> {#irrigation-demand-et0}
+
+These variables control the daily background task that derives the FAO-56 reference evapotranspiration (ET₀) from an outdoor or greenhouse site's weather data and, from it, the net irrigation demand per planting run. The task additionally requires `WEATHER_ENABLED=true` — without fetched weather data there is nothing to compute. The resulting behaviour for end users is described in [Watering Log: Suggested Watering Volume](../user-guide/watering-log.md#suggested-watering-volume) and [Care Reminders: Why a Reminder Might Not Appear](../user-guide/care-reminders.md#why-a-reminder-might-not-appear).
+
+<!-- Source: src/backend/app/config/settings.py (irrigation_demand_enabled, irrigation_root_zone_depth_mm) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `IRRIGATION_DEMAND_ENABLED` | `true` | No | Dedicated kill switch for the daily `compute_irrigation_demand` task (06:15), independent of the general `WEATHER_ENABLED` — both must be active for the task to run. |
+| `IRRIGATION_ROOT_ZONE_DEPTH_MM` | `300.0` | No | Assumed effective root-zone depth in millimetres of soil. Used to convert a substrate's water-holding capacity (in percent) into a millimetre cap on the net irrigation demand — prevents an overly high daily recommendation under very dry starting conditions. |
+
+!!! note "Outdoor and greenhouse sites only, no new REST endpoints"
+    Irrigation demand is calculated only for sites of type **Outdoor** or **Greenhouse** with stored GPS coordinates — indoor sites stay on the interval-based watering schedule (REQ-022). There is no dedicated REST endpoint for it; the result flows into the UI through the existing watering-volume suggestion (`suggest_volume`) and the care-reminder engine.
+
+!!! info "Calculation basis: aquacropeto (BSD-3-Clause)"
+    The FAO-56 Penman-Monteith and Hargreaves formulas for ET₀ are computed via the Python library `aquacropeto` (PyPI package `aquacropeto`, BSD-3-Clause licence) — no ShareAlike/copyleft obligations for the Kamerplanter codebase. See `NOTICE.md` in the project root for details.
+
+---
+
 ## Rate Limiting
 
 | Variable | Default | Required | Description |
@@ -325,6 +374,28 @@ These variables configure the optional image-based pest detection feature. The f
 
 !!! note "Self-hosted first"
     The local adapter (`local_pest_symptom`) requires no API key and no user consent. Cloud detection is opt-in and requires consent (consent purpose `pest_detection_cloud`).
+
+---
+
+## CV Disease Diagnosis (REQ-038) {#cv-disease-diagnosis-req-038}
+
+These variables configure the optional, self-hosted photo diagnosis for **diseases and nutrient deficiencies** (distinct from [Pest Detection](#pest-detection-req-044) above). The feature is disabled by default; without `CV_DIAGNOSIS_ENABLED=true` the `/status` API endpoint stays at `available: false` and the app keeps working without restriction.
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `CV_DIAGNOSIS_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. |
+| `CV_CLASSIFIER_CONFIDENCE_SHOW` | `0.10` | No | Minimum confidence (0–1) for a hit to be shown. Results below this floor are dropped. |
+| `CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT` | `0.75` | No | Confidence threshold (0–1) above which a hit is visually highlighted. Never triggers an automatic creation. |
+| `CV_PHENOTYPE_ENABLED` | `true` | No | PlantCV phenotype metrics (leaf area, green index, discoloration ratio) in the inference service on/off. |
+| `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` | `5` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 413. |
+
+The classifier runs in the existing inference service and reuses its already-configured connection (`INFERENCE_SERVICE_URL`, `INTERNAL_SERVICE_TOKEN`) — no additional connection variables are needed.
+
+!!! note "Self-hosted, no cloud adapter"
+    Unlike pest detection, CV disease diagnosis (as of this version) has **no** cloud adapter — photos never leave the instance. Consent `plant_diagnosis` is still required (Full mode) because a photo is processed (see [Privacy & GDPR](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)).
+
+!!! info "License notices"
+    The model is fine-tuned on the CC-BY-4.0-licensed PlantDoc dataset; the phenotype pipeline uses PlantCV (MPL-2.0). Full attributions: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
 
 ---
 
@@ -603,3 +674,6 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [Kubernetes Deployment](../deployment/kubernetes.md)
 - [Weather Sources per Location — User Guide](../user-guide/weather-sources.md)
 - [Notifications: Frost Early-Warning — User Guide](../user-guide/notifications.md#frost-early-warning)
+- [API Reference: CV Disease Diagnosis](api-reference.md#cv-disease-diagnosis)
+- [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
+- [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)

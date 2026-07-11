@@ -33,5 +33,15 @@ export default tseslint.config(
       },
     },
   },
+  {
+    // Node-side build/CI tooling (e.g. the bundle-budget gate) runs outside the
+    // browser and legitimately uses Node globals like `process` and `console`.
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
   prettier,
 );

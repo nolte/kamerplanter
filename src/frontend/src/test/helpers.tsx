@@ -23,6 +23,7 @@ import seasonReducer from '@/store/slices/seasonSlice';
 import dashboardReducer from '@/store/slices/dashboardSlice';
 import plantingRunsReducer from '@/store/slices/plantingRunsSlice';
 import tasksReducer from '@/store/slices/tasksSlice';
+import postHarvestReducer from '@/store/slices/postHarvestSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -43,6 +44,7 @@ const rootReducer = combineReducers({
   dashboard: dashboardReducer,
   plantingRuns: plantingRunsReducer,
   tasks: tasksReducer,
+  postHarvest: postHarvestReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need

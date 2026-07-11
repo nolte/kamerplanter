@@ -124,6 +124,25 @@ class ConsentEngine:
             required=False,
         ),
         ConsentPurpose(
+            key="plant_diagnosis",
+            label_de="KI-Krankheitsdiagnose (Bilderkennung)",
+            label_en="AI disease diagnosis (image recognition)",
+            description_de=(
+                "Analyse hochgeladener Pflanzenfotos durch die self-hosted Bilderkennung zur "
+                "Krankheits- und Mangel-Diagnose (REQ-038). Das Foto wird vor der Verarbeitung von "
+                "EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert. Das Ergebnis ist immer nur "
+                "ein Verdacht — keine gesicherte Diagnose."
+            ),
+            description_en=(
+                "Analysing uploaded plant photos with the self-hosted image recognition for disease "
+                "and deficiency diagnosis (REQ-038). The photo is stripped of EXIF metadata before "
+                "processing and is not persisted. The result is always a hypothesis — never a "
+                "confirmed diagnosis."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
             key="reference_contribution",
             label_de="Foto-Beitrag zur Pflanzenerkennung",
             label_en="Photo contribution to plant recognition",

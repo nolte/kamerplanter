@@ -60,6 +60,21 @@ describe('DataTable', () => {
     expect(screen.getByText(/Keine Daten|No data/i)).toBeTruthy();
   });
 
+  it('renders a custom empty message and description when provided', () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[]}
+        loading={false}
+        getRowKey={(r: TestRow) => r.id}
+        emptyMessage="Nothing here yet"
+        emptyDescription="Create your first entry to get started."
+      />,
+    );
+    expect(screen.getByText('Nothing here yet')).toBeTruthy();
+    expect(screen.getByText('Create your first entry to get started.')).toBeTruthy();
+  });
+
   it('renders rows', () => {
     render(
       <DataTable

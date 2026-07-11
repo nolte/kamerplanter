@@ -121,6 +121,7 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Externe Stammdatenanreicherung** (GBIF, Perenual) | Optional | Ja |
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
+| **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
 | **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
 | **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
 | **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
@@ -178,6 +179,18 @@ Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese E
 ### KI-Verarbeitung über Cloud-Provider (ai_cloud_processing)
 
 Zusätzlich zur vorherigen Einwilligung erforderlich, wenn deine Instanz einen externen Cloud-Provider (z. B. Anthropic, OpenAI) statt eines lokal betriebenen Modells (Ollama) für den KI-Assistenten einsetzt — das legt der Plattformbetreiber fest. Cloud-Provider können eine Drittland-Datenübermittlung bedeuten. Lokale Provider benötigen diese Einwilligung nicht.
+
+### KI-Krankheitsdiagnose (plant_diagnosis) {#ki-krankheitsdiagnose-plant_diagnosis}
+
+!!! note "Noch nicht in der Oberfläche verfügbar"
+    Die CV-gestützte **Krankheits- und Mangeldiagnose** ist als Backend-Funktion umgesetzt, aber noch nicht über eine Schaltfläche in der Oberfläche erreichbar (interne Referenz: REQ-038). Die folgenden Angaben beschreiben, wie die Einwilligung wirkt, sobald die Funktion freigeschaltet ist.
+
+Analysiert dein Blattfoto, um eine Verdachtsliste zu **Krankheiten und Nährstoffmängeln** zu erstellen — in Abgrenzung zur [Schädlingserkennung](pest-detection.md). Anders als bei der Pflanzenidentifikation und der Cloud-Schädlingserkennung läuft diese Analyse **ausschließlich self-hosted** in der eigenen Kamerplanter-Infrastruktur: Es gibt keinen Cloud-Adapter, dein Foto verlässt die Instanz zu keinem Zeitpunkt. Die Einwilligung wird trotzdem eingeholt, weil ein Foto von dir verarbeitet wird. Wie bei der Schädlingserkennung wird das Foto vor der Verarbeitung von EXIF-Metadaten bereinigt und **nicht dauerhaft gespeichert** — nur ein SHA-256-Fingerabdruck bleibt zur Nachvollziehbarkeit erhalten. Jedes Ergebnis ist ausdrücklich nur eine Hypothese; eine Behandlung wird nie automatisch ausgelöst.
+
+!!! note "Einwilligungs-Verhalten je Modus"
+    **Full-Modus:** Die serverseitige Einwilligungsprüfung ist Pflicht — ohne erteilte Einwilligung lehnt das Backend eine Diagnose-Anfrage ab.
+
+    **Light-Modus:** Das Consent-Subsystem steht im [Light-Modus](light-mode.md) nicht zur Verfügung; die serverseitige Prüfung entfällt dort (wie bei der Pflanzenidentifikation).
 
 ---
 

@@ -68,6 +68,13 @@ Wenn du unsicher bist, ob es sich um einen Schädling handelt: Mach ein Foto und
 
 ---
 
+## Geplante Erweiterung: Foto-Diagnose für Krankheiten und Mängel
+
+!!! warning "Noch nicht implementiert"
+    Eine ergänzende automatische Foto-Diagnose speziell für **Krankheiten und Nährstoffmängel** (in Abgrenzung zur bereits verfügbaren [Schädlingserkennung](pest-detection.md), die auf Schädlinge und Schadbilder spezialisiert ist) ist geplant, aber noch nicht in der Oberfläche verfügbar (interne Referenz: REQ-038). Sie wird aus einem Blattfoto eine Verdachtsliste mit den Kategorien „Krankheit", „Nährstoffmangel" und „Schädling" liefern, zusätzliche Bild-Kennzahlen (z. B. Blattfläche, Anteil verfärbter Fläche) berechnen und — wie die Schädlingserkennung — immer nur eine unbestätigte Hypothese anzeigen, die du selbst bestätigen musst. Eine Behandlung wird nie automatisch ausgelöst.
+
+---
+
 ## Häufige Fragen
 
 ??? question "Ich sehe kein Tier, aber die Blätter sehen befallen aus — was jetzt?"
@@ -80,7 +87,7 @@ Wenn du unsicher bist, ob es sich um einen Schädling handelt: Mach ein Foto und
     Ein Blick ins [Gießprotokoll](watering-log.md) zeigt dir, wann und mit welcher Menge zuletzt gegossen wurde und ob EC- oder pH-Werte erfasst wurden. Weicht ein Wert deutlich von den Zielbereichen in der [Dünge-Logik](fertilization.md) ab, ist das ein starkes Indiz.
 
 ??? question "Kann Kamerplanter automatisch erkennen, dass es meiner Pflanze schlecht geht?"
-    Kamerplanter wertet aktuell keine allgemeinen Krankheitssymptome automatisch aus. Automatisch ausgewertet werden Fotos, die du gezielt über die [Schädlingserkennung](pest-detection.md) einreichst. Für alles andere ist diese Seite als Nachschlagehilfe gedacht.
+    Kamerplanter wertet automatisch Fotos aus, die du gezielt über die [Schädlingserkennung](pest-detection.md) einreichst. Eine ergänzende automatische Diagnose speziell für Krankheiten und Nährstoffmängel ist geplant, aber noch nicht in der Oberfläche verfügbar (siehe oben). Für alles andere ist diese Seite als Nachschlagehilfe gedacht.
 
 ---
 

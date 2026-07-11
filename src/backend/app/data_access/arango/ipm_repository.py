@@ -65,6 +65,9 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     def get_disease_or_raise(self, key: DiseaseKey) -> Disease:
         return self._diseases.get_or_raise(key)
 
+    def get_disease_by_scientific_name(self, scientific_name: str) -> Disease | None:
+        return self._diseases.find_one_by_field("scientific_name", scientific_name)
+
     def create_disease(self, disease: Disease) -> Disease:
         return self._diseases.create(disease)
 

@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 from app.common.enums import SiteType
+from app.domain.models.site import HardinessZoneSource
 
 # ── Water config schemas ──────────────────────────────────────────────
 
@@ -48,6 +49,9 @@ class SiteCreate(BaseModel):
     total_area_m2: float = Field(default=0.0, ge=0)
     timezone: str = "UTC"
     water_config: SiteWaterConfigSchema | None = None
+    # REQ-039 — optional manual hardiness zone (kept as source="manual", never
+    # overwritten by the automatic refresh). Omit it to let the resolver derive it.
+    hardiness_zone: str | None = None
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
@@ -63,6 +67,11 @@ class SiteResponse(BaseModel):
     timezone: str = "UTC"
     water_config: SiteWaterConfigSchema | None = None
     water_config_warnings: list[WaterSourceWarningSchema] = []
+    # REQ-039 hardiness zone (structured, provenance-tracked)
+    hardiness_zone: str | None = None
+    hardiness_zone_source: HardinessZoneSource = "manual"
+    hardiness_zone_resolved_at: datetime | None = None
+    mean_annual_minimum_c: float | None = None
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
