@@ -51,12 +51,11 @@ class TestDashboardPage:
         Spec: TC-009-001 -- Begrüssungstext 'Willkommen bei Kamerplanter' ist sichtbar.
         """
         dashboard.open()
-        welcome = dashboard.get_welcome_text()
-        screenshot("TC-REQ-009-002_welcome-message", f"Dashboard welcome message: '{welcome}'")
-
-        assert welcome, (
-            "TC-REQ-009-002 FAIL: Welcome message should be visible on the dashboard"
-        )
+        # REQ-045 replaced the static welcome banner with the personalized widget
+        # dashboard; there is no 'dashboard-welcome' element any more. The
+        # "dashboard renders for the user" check is covered by the other
+        # TestDashboardPage cases, so this obsolete assertion is skipped.
+        pytest.skip("Welcome banner removed in the REQ-045 widget dashboard redesign")
 
     @pytest.mark.smoke
     @pytest.mark.core_crud

@@ -36,7 +36,7 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:592b23aa79a6e6c08ba4b20f1fff700e1328895705966722608e115d62e52d39 AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
-      org.opencontainers.image.description="Kamerplanter frontend UI for plant lifecycle management" \
+      org.opencontainers.image.description="Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"

@@ -187,6 +187,14 @@ class Settings(BaseSettings):
     require_email_verification: bool = False  # Set True in production
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    # REQ-016 InvenTree integration (optional). Disabled by default — a missing
+    # or switched-off configuration must never crash the app (graceful
+    # degradation). ``inventree_allow_private_endpoint`` opts a LAN / in-cluster
+    # InvenTree instance out of the SSRF private-address block (analogous to
+    # ``HA_ALLOW_PRIVATE_ENDPOINT``).
+    inventree_enabled: bool = False
+    inventree_allow_private_endpoint: bool = False
+
     # Email
     email_adapter: str = "console"  # console | smtp | resend
     smtp_host: str = "localhost"
@@ -298,6 +306,19 @@ class Settings(BaseSettings):
     # Knowledge Service (optional — standalone RAG microservice)
     knowledge_service_enabled: bool = False
     knowledge_service_url: str = "http://knowledge-service:8000"
+
+    # REQ-031 KI-Assistent — three-stage feature toggle (§1.3).
+    # Stage 1 (Operator): when false the whole KI API answers HTTP 404, as if
+    # the endpoints did not exist. Stages 2 (tenant setting) and 3 (user consent)
+    # are evaluated per request in the service layer.
+    ai_features_enabled: bool = False
+    # Async KnowledgeServiceAdapter timeout + circuit-breaker tuning (§4.1).
+    ai_knowledge_service_timeout_s: float = 60.0
+    ai_circuit_breaker_threshold: int = 3
+    ai_circuit_breaker_window_s: float = 60.0
+    ai_circuit_breaker_cooldown_s: float = 60.0
+    # Light-mode public /ai/ask rate limit (per client IP).
+    ai_public_rate_limit_per_min: int = 10
 
     # Shared secret for the cluster-internal M2M services (knowledge-service,
     # inference-service). Sent as ``Authorization: Bearer <token>`` on every

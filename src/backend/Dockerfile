@@ -5,7 +5,7 @@
 FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-backend" \
-      org.opencontainers.image.description="Kamerplanter backend API for plant lifecycle management" \
+      org.opencontainers.image.description="Kamerplanter core REST API and business logic (FastAPI) for plant lifecycle, phases, fertilizing, tasks and multi-tenant data" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"

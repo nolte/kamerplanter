@@ -146,6 +146,30 @@ Diese Variablen konfigurieren den optionalen Cross-Encoder-Re-Ranker des Knowled
 
 ---
 
+## KI-Assistent <!-- REQ-031 --> {#ki-assistent}
+
+Diese Variablen gehören zum **Kamerplanter-Backend** und steuern den dreistufigen Freischalt-Mechanismus sowie die Anbindung an den Knowledge Service (siehe [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md)). Die Provider-Auswahl (Ollama/Anthropic/OpenAI-kompatibel) ist eine separate Konfiguration **am Knowledge Service selbst** — siehe [KI-Provider einrichten](../user-guide/ai-providers.md).
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `AI_FEATURES_ENABLED` | `false` | Nein | Stufe 1 des dreistufigen Freischalt-Mechanismus. `false` lässt sämtliche `/ai/*`-Endpunkte mit HTTP 404 antworten — die KI-API existiert dann faktisch nicht. |
+| `KNOWLEDGE_SERVICE_ENABLED` | `false` | Nein | Aktiviert die Anbindung an den Knowledge Service (wird sowohl vom älteren `/api/v1/knowledge/*`-Pfad als auch intern vom KI-Assistenten benötigt). |
+| `KNOWLEDGE_SERVICE_URL` | `http://knowledge-service:8000` | Nein | Basis-URL des Knowledge-Service-Microservice. |
+| `AI_KNOWLEDGE_SERVICE_TIMEOUT_S` | `60` | Nein | HTTP-Timeout des `KnowledgeServiceAdapter` gegen den Knowledge Service (Sekunden). |
+| `AI_CIRCUIT_BREAKER_THRESHOLD` | `3` | Nein | Anzahl aufeinanderfolgender Fehler, ab der der Adapter den Knowledge Service als nicht erreichbar markiert. |
+| `AI_CIRCUIT_BREAKER_WINDOW_S` | `60` | Nein | Zeitfenster (Sekunden), in dem die Fehler für `AI_CIRCUIT_BREAKER_THRESHOLD` gezählt werden. |
+| `AI_CIRCUIT_BREAKER_COOLDOWN_S` | `60` | Nein | Wartezeit (Sekunden), bevor der Adapter nach dem Auslösen des Circuit Breakers erneut Anfragen an den Knowledge Service zulässt. |
+| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | Nein | IP-Ratenbegrenzung für den anonymen, Light-Modus-fähigen Endpunkt `POST /api/v1/public/ai/ask` (Anfragen pro Minute). |
+| `INTERNAL_SERVICE_TOKEN` | — | Bedingt | Gemeinsames Geheimnis für cluster-interne M2M-Aufrufe (u. a. an den Knowledge Service). Pflicht, sobald `KNOWLEDGE_SERVICE_ENABLED=true` gesetzt ist — ohne Token verweigert der Startup-Gate den Start (AP-4). |
+
+!!! warning "Instanzweite Freischaltung reicht allein nicht aus"
+    `AI_FEATURES_ENABLED=true` schaltet die KI-API nur instanzweit frei (Stufe 1). Damit ein konkreter Mandant (Garten) KI-Funktionen tatsächlich nutzen kann, muss zusätzlich `tenant.settings.ai_features_enabled` für diesen Mandanten gesetzt sein (Stufe 2) — dafür existiert aktuell weder eine Oberfläche noch ein eigener API-Endpunkt, siehe [KI-Assistent — Für technische Nutzer / Self-Hoster](../user-guide/ai-assistant.md#fuer-technische-nutzer-self-hoster).
+
+!!! info "Provider-Konfiguration liegt am Knowledge Service, nicht am Backend"
+    `LLM_PROVIDER`, `LLM_API_URL`, `LLM_API_KEY` und `LLM_MODEL` sind Umgebungsvariablen des eigenständigen Knowledge-Service-Deployments (`src/knowledge-service/`), nicht dieses Backends. Details: [KI-Provider einrichten](../user-guide/ai-providers.md).
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -191,6 +215,19 @@ Sind beide Variablen gesetzt, aktiviert das Backend zusätzlich den Home-Assista
 
 !!! warning "Apprise-Kanal erfordert zusätzliches Python-Paket"
     Der `apprise`-Benachrichtigungskanal ist unabhängig von den Home-Assistant-Variablen immer aktiv, benötigt aber das optionale Python-Paket `apprise` im Backend-Image (`pip install apprise`) — dafür gibt es keine eigene Umgebungsvariable. Details siehe [Benachrichtigungen — Apprise](../user-guide/notifications.md#apprise).
+
+---
+
+## InvenTree-Integration (REQ-016)
+
+Diese Variablen aktivieren die optionale Anbindung an [InvenTree](https://github.com/inventree/inventree). Ohne `INVENTREE_ENABLED=true` liefern alle InvenTree-Endpunkte den Fehler „Funktion deaktiviert" (HTTP 409), ohne die App zu blockieren.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `INVENTREE_ENABLED` | `false` | Nein | Kill-Switch für die gesamte InvenTree-Integration. |
+| `INVENTREE_ALLOW_PRIVATE_ENDPOINT` | `false` | Nein | Erlaubt eine InvenTree-Instanz mit privater/LAN-Adresse (analog zu `HA_ALLOW_PRIVATE_ENDPOINT`). Ohne diese Freigabe blockiert der SSRF-Schutz Verbindungen zu internen Adressen. |
+
+Verbindung (inkl. API-Token) und Verknüpfungen richtest du anschließend über die REST-API ein — Details siehe [Betriebsmittel & Inventar (InvenTree) — Für technische Nutzer / Self-Hoster](../user-guide/inventree.md#fuer-technische-nutzer-self-hoster).
 
 ---
 
@@ -504,6 +541,11 @@ RERANKER_URL=
 RERANKER_INITIAL_K=20
 RERANKER_TOP_K=5
 
+# KI-Assistent (instanzweit deaktiviert, solange nicht explizit aktiviert)
+AI_FEATURES_ENABLED=false
+KNOWLEDGE_SERVICE_ENABLED=false
+KNOWLEDGE_SERVICE_URL=http://knowledge-service:8000
+
 # Foto-Identifikation (leer = Feature deaktiviert)
 # PLANTNET_API_KEY=
 # IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
@@ -648,3 +690,4 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
 - [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)
+- [Betriebsmittel & Inventar (InvenTree) — Benutzerhandbuch](../user-guide/inventree.md)

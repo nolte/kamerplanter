@@ -1,6 +1,6 @@
 # Wetterquellen je Standort
 
-Für jeden Freiland- oder Gewächshaus-Standort legst du fest, woher Kamerplanter seine Wetterdaten bezieht: von einem öffentlichen Wetterdienst oder aus deiner eigenen Home-Assistant-Installation. Du kannst mehrere Quellen hinterlegen und priorisieren, sodass bei Ausfall der bevorzugten Quelle automatisch eine andere einspringt. <!-- REQ-046 -->
+Für jeden Freiland-, Gewächshaus- oder Balkon-Standort legst du fest, woher Kamerplanter seine Wetterdaten bezieht: von einem öffentlichen Wetterdienst oder aus deiner eigenen Home-Assistant-Installation. Du kannst mehrere Quellen hinterlegen und priorisieren, sodass bei Ausfall der bevorzugten Quelle automatisch eine andere einspringt. <!-- REQ-046 -->
 
 !!! tip "Vorhersage und Frost-Frühwarnung im Dashboard"
     Sobald du hier mindestens eine Quelle eingerichtet hast, zeigt das Dashboard-Widget „Wettervorhersage" die abgeholte Tagesvorhersage direkt an (Minimal-/Maximaltemperatur je Tag, inklusive [Herkunfts-Kennzeichnung](#herkunft-der-wetterdaten-erkennen)) — und warnt dich proaktiv vor, wenn im Vorhersage-Zeitraum eine Frostnacht erwartet wird. Details dazu unter [Dashboard: Wettervorhersage und Frost-Frühwarnung](dashboard.md#wettervorhersage-und-frost-fruehwarnung) und [Benachrichtigungen: Frost-Frühwarnung](notifications.md#frost-fruehwarnung). <!-- REQ-046 -->
@@ -9,7 +9,7 @@ Für jeden Freiland- oder Gewächshaus-Standort legst du fest, woher Kamerplante
 
 ## Voraussetzungen
 
-- Ein Standort vom **Typ** **Außenbereich** oder **Gewächshaus** — den Typ legst du direkt im Standort-Formular fest (siehe [Standorte & Substrate](locations-substrates.md#grunddaten-ausfüllen)). Bei den übrigen Typen (Innenbereich, Fensterbrett, Balkon, Growzelt) erscheint der Abschnitt „Wetterquelle" nicht, da du dort ohnehin über [Sensoren](sensors.md) oder Home Assistant misst.
+- Ein Standort vom **Typ** **Außenbereich**, **Gewächshaus** oder **Balkon** — den Typ legst du direkt im Standort-Formular fest (siehe [Standorte & Substrate](locations-substrates.md#grunddaten-ausfüllen)). Ein Balkon gilt als frostgefährdeter Außenstandort und erhält deshalb dieselben Wetter- und Frostfunktionen wie Außenbereich und Gewächshaus. Bei den übrigen Typen (Innenbereich, Fensterbrett, Growzelt) erscheint der Abschnitt „Wetterquelle" nicht, da du dort ohnehin über [Sensoren](sensors.md) oder Home Assistant misst.
 - **GPS-Koordinaten** (Breiten- und Längengrad) für diesen Standort — ebenfalls direkt im Standort-Formular editierbar. Fehlen sie, zeigt Kamerplanter stattdessen einen Hinweis, dass zuerst die Koordinaten ergänzt werden müssen.
 - Deine Rolle im Mandanten ist **Gärtner** oder **Admin** (siehe [Mandanten & Gärten](tenants.md#rollen-und-berechtigungen)) — als **Beobachter** kannst du die Konfiguration nur ansehen, nicht ändern.
 - Für die Home-Assistant-Option zusätzlich: ein hinterlegtes Home-Assistant-Zugangstoken (siehe [Home Assistant Integration](../guides/home-assistant-integration.md#tokens-einrichten)).
@@ -20,7 +20,7 @@ Für jeden Freiland- oder Gewächshaus-Standort legst du fest, woher Kamerplante
 
 ### Schritt 1: Zum Standort navigieren
 
-Öffne unter **Standorte** deinen Freiland- oder Gewächshaus-Standort. Am Ende der Detailseite findest du den Abschnitt **Wetterquelle**.
+Öffne unter **Standorte** deinen Freiland-, Gewächshaus- oder Balkon-Standort. Am Ende der Detailseite findest du den Abschnitt **Wetterquelle**.
 
 ### Schritt 2: Quelle hinzufügen öffnen
 
@@ -95,7 +95,7 @@ Bei jedem Wert zeigt dir Kamerplanter, wie dieser zustande gekommen ist:
 
 ## Klima am Standort
 
-Direkt unterhalb der Wetterquellen zeigt Kamerplanter bei Freiland- und Gewächshaus-Standorten mit hinterlegten GPS-Koordinaten zusätzlich den Abschnitt **Klima am Standort** – zwölf langjährige Monatsmittelwerte (**Klimanormalen**) für Durchschnitts- und Tiefsttemperatur, Niederschlag und Solarstrahlung, dargestellt als Diagramm und als Tabelle. <!-- REQ-041 -->
+Direkt unterhalb der Wetterquellen zeigt Kamerplanter bei Freiland-, Gewächshaus- und Balkon-Standorten mit hinterlegten GPS-Koordinaten zusätzlich den Abschnitt **Klima am Standort** – zwölf langjährige Monatsmittelwerte (**Klimanormalen**) für Durchschnitts- und Tiefsttemperatur, Niederschlag und Solarstrahlung, dargestellt als Diagramm und als Tabelle. <!-- REQ-041 -->
 
 !!! tip "Was sind Klimanormalen?"
     Eine Klimanormale ist weder ein aktueller Messwert noch eine Vorhersage, sondern ein langjähriger Durchschnitt – also z. B. „im Januar liegt die Durchschnittstemperatur an diesem Ort normalerweise bei -1 °C". Solche Werte helfen bei Entscheidungen, die über den aktuellen Tag hinausgehen: Wann wird an diesem Standort üblicherweise ausgesät? Wie viel Regen fällt im Schnitt in einem trockenen Sommermonat? Übersteht eine Pflanze den Winter an diesem Standort typischerweise im Freien? Klimanormalen sind damit eine **Reanalyse** – siehe die Erklärung dieser Herkunfts-Kennzeichnung oben unter [Herkunft der Wetterdaten erkennen](#herkunft-der-wetterdaten-erkennen).
@@ -124,16 +124,16 @@ Der aus diesen Wetterdaten berechnete Bewässerungsbedarf (Verdunstung/ET₀, si
     Dann bleiben für diesen Zeitraum keine neuen Wetterdaten für den Standort verfügbar. Prüfe in diesem Fall über **Quelle testen**, welche Quelle den Fehler verursacht, und aktiviere bei Bedarf eine zusätzliche Rückfallquelle.
 
 ??? question "Wo sehe ich die eigentliche Wettervorhersage für meinen Standort?"
-    Im Dashboard-Widget „Wettervorhersage" (siehe [Dashboard](dashboard.md#wettervorhersage-und-frost-fruehwarnung)) — es zeigt die Tagesvorhersage (Minimal-/Maximaltemperatur, Herkunfts-Kennzeichnung) deines ersten Freiland- oder Gewächshaus-Standorts mit hinterlegten GPS-Koordinaten sowie eine Frost-Frühwarnung, sobald im Vorhersage-Zeitraum eine Frostnacht erwartet wird. Über **Quelle testen** bekommst du zusätzlich direkt bei der Einrichtung eine Vorschau der nächsten drei Tage.
+    Im Dashboard-Widget „Wettervorhersage" (siehe [Dashboard](dashboard.md#wettervorhersage-und-frost-fruehwarnung)) — es zeigt die Tagesvorhersage (Minimal-/Maximaltemperatur, Herkunfts-Kennzeichnung) deines ersten Freiland-, Gewächshaus- oder Balkon-Standorts mit hinterlegten GPS-Koordinaten sowie eine Frost-Frühwarnung, sobald im Vorhersage-Zeitraum eine Frostnacht erwartet wird. Über **Quelle testen** bekommst du zusätzlich direkt bei der Einrichtung eine Vorschau der nächsten drei Tage.
 
 ??? question "Kann ich denselben Wetterdienst zweimal hinzufügen?"
     Nein, jeder Anbieter lässt sich nur einmal je Standort hinzufügen. Möchtest du zwei unterschiedliche Perspektiven vergleichen, kombiniere stattdessen zum Beispiel einen öffentlichen Dienst mit deiner Home-Assistant-Quelle.
 
 ??? question "Warum zeigt „Klima am Standort" noch keine Werte?"
-    Die Klimanormalen werden automatisch im Hintergrund abgeholt, sobald ein Freiland- oder Gewächshaus-Standort GPS-Koordinaten hat – das kann nach dem Anlegen oder Ergänzen der Koordinaten etwas dauern, da die monatliche Hintergrund-Abholung nicht sofort nach dem Speichern läuft. Prüfe zunächst, ob Koordinaten hinterlegt sind; sind sie es, ist einfach noch kein Durchlauf erfolgt.
+    Die Klimanormalen werden automatisch im Hintergrund abgeholt, sobald ein Freiland-, Gewächshaus- oder Balkon-Standort GPS-Koordinaten hat – das kann nach dem Anlegen oder Ergänzen der Koordinaten etwas dauern, da die monatliche Hintergrund-Abholung nicht sofort nach dem Speichern läuft. Prüfe zunächst, ob Koordinaten hinterlegt sind; sind sie es, ist einfach noch kein Durchlauf erfolgt.
 
 ??? question "Muss ich den Abschnitt „Klima am Standort" selbst einrichten?"
-    Nein. Er erscheint automatisch für jeden Freiland- oder Gewächshaus-Standort mit hinterlegten GPS-Koordinaten – eine eigene Quelle wie bei der Wettervorhersage musst du dafür nicht anlegen.
+    Nein. Er erscheint automatisch für jeden Freiland-, Gewächshaus- oder Balkon-Standort mit hinterlegten GPS-Koordinaten – eine eigene Quelle wie bei der Wettervorhersage musst du dafür nicht anlegen.
 
 ---
 

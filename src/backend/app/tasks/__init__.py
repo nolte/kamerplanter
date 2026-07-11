@@ -17,6 +17,7 @@ celery_app = Celery(
 )
 celery_app.conf.update(
     include=[
+        "app.tasks.ai_tasks",
         "app.tasks.auth_tasks",
         "app.tasks.care_tasks",
         "app.tasks.climate_tasks",
@@ -24,6 +25,7 @@ celery_app.conf.update(
         "app.tasks.enrichment_tasks",
         "app.tasks.frost_forecast_tasks",
         "app.tasks.hardiness_tasks",
+        "app.tasks.inventree_tasks",
         "app.tasks.irrigation_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.pest_dataset_tasks",
@@ -56,6 +58,19 @@ celery_app.conf.update(
             "task": "app.tasks.enrichment_tasks.sync_all_sources_task",
             "schedule": 604800,
             "kwargs": {"full_sync": True},
+        },
+        # REQ-031 KI-Assistent retention (§4.6)
+        "ai-cleanup-conversations-daily": {
+            "task": "ai.cleanup_expired_conversations",
+            "schedule": crontab(hour=2, minute=30),
+        },
+        "ai-cleanup-audit-log-daily": {
+            "task": "ai.cleanup_expired_audit_log",
+            "schedule": crontab(hour=2, minute=35),
+        },
+        "ai-knowledge-service-ingest-weekly": {
+            "task": "ai.knowledge_service_ingest",
+            "schedule": crontab(hour=3, minute=0, day_of_week=0),
         },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {
@@ -143,6 +158,19 @@ celery_app.conf.update(
         },
     },
 )
+
+# REQ-016 InvenTree bidirectional sync (conditional kill-switch). READ hourly,
+# WRITE every 5 min. Both tasks self-skip when the flag is off, so scheduling is
+# only a small optimisation.
+if settings.inventree_enabled:
+    celery_app.conf.beat_schedule["inventree-stock-sync-hourly"] = {
+        "task": "inventree.sync_stock_levels",
+        "schedule": 3600,
+    }
+    celery_app.conf.beat_schedule["inventree-push-pending-5min"] = {
+        "task": "inventree.push_pending_transactions",
+        "schedule": 300,
+    }
 
 # TimescaleDB sensor ingestion (conditional)
 if settings.timescaledb_enabled:

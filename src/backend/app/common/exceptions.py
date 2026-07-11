@@ -437,6 +437,29 @@ class FeatureNotConfiguredError(KamerplanterError):
         )
 
 
+class AiDisabledError(KamerplanterError):
+    """REQ-031 §1.3 stage 2 — KI features are disabled for this tenant.
+
+    Distinct from the operator-level stage-1 toggle (``AI_FEATURES_ENABLED``),
+    which returns a plain 404 at the router boundary. Body carries the stable
+    ``ai.disabled_for_tenant`` marker the frontend keys its hint off.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="ai.disabled_for_tenant",
+            error_code="AI_DISABLED_FOR_TENANT",
+            status_code=403,
+            details=[
+                {
+                    "field": "ai",
+                    "reason": "ai.disabled_for_tenant",
+                    "code": "AI_DISABLED_FOR_TENANT",
+                }
+            ],
+        )
+
+
 class AdapterNotAvailableError(KamerplanterError):
     """REQ-034 §4a.3 — the requested recognition adapter cannot be used here.
 
@@ -476,4 +499,22 @@ class ResourceInUseError(KamerplanterError):
             error_code="RESOURCE_IN_USE",
             status_code=409,
             details=[{"field": "key", "reason": reason, "code": "RESOURCE_IN_USE"}],
+        )
+
+
+class FeatureDisabledError(KamerplanterError):
+    """An optional feature is switched off or not configured.
+
+    REQ-016: the InvenTree integration is optional. When it is disabled (no
+    active connection / kill-switch off) an operation that *requires* a live
+    connection returns a well-formed 409 conflict instead of crashing (500) —
+    the request is valid but conflicts with the current, un-configured state.
+    """
+
+    def __init__(self, feature: str, reason: str) -> None:
+        super().__init__(
+            message=f"{feature} is not available: {reason}",
+            error_code="FEATURE_DISABLED",
+            status_code=409,
+            details=[{"field": "feature", "reason": reason, "code": "FEATURE_DISABLED"}],
         )

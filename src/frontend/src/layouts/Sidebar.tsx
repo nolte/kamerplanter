@@ -28,6 +28,7 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import HistoryIcon from '@mui/icons-material/History';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import PestControlIcon from '@mui/icons-material/PestControl';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
@@ -115,6 +116,11 @@ export default function Sidebar({ open }: SidebarProps) {
       label: t('nav.wateringLog'),
       path: '/giessprotokoll',
       icon: <HistoryIcon />,
+    },
+    {
+      label: t('nav.kiAssistent'),
+      path: '/ki-assistent',
+      icon: <AutoAwesomeIcon />,
     },
     {
       header: t('nav.pflanzen'),
@@ -219,6 +225,17 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.aquaponicSystems'),
           path: '/aquaponik',
           icon: <SetMealIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.inventar'),
+      sectionKey: 'inventree',
+      items: [
+        {
+          label: t('nav.equipment'),
+          path: '/inventree',
+          icon: <Inventory2Icon />,
         },
       ],
     },

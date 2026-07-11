@@ -53,6 +53,8 @@ const PlantIdentificationPage = lazy(
 );
 // REQ-044 Schädlingserkennung (global, plant-agnostic)
 const PestIdentificationPage = lazy(() => import('@/pages/ki-recognition/PestIdentificationPage'));
+// REQ-031 KI-Assistent & Wissensvermittlung
+const KIAssistentPage = lazy(() => import('@/pages/ki-assistent/KIAssistentPage'));
 const PlantingRunListPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunListPage'));
 const PlantingRunDetailPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunDetailPage'));
 const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/SuccessionPlanListPage'));
@@ -60,6 +62,8 @@ const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/Succession
 const OverwinteringListPage = lazy(() => import('@/pages/ueberwinterung/OverwinteringListPage'));
 // REQ-026 Aquaponik
 const AquaponikPage = lazy(() => import('@/pages/aquaponik/AquaponikPage'));
+// REQ-016 InvenTree integration (Equipment + inventory sync)
+const InventreePage = lazy(() => import('@/pages/inventree/InventreePage'));
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
 const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
 const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
@@ -466,6 +470,16 @@ export const router = createBrowserRouter(
             }
           />
 
+          {/* REQ-016 InvenTree integration (Equipment + inventory) */}
+          <Route
+            path="inventree"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <InventreePage />
+              </Suspense>
+            }
+          />
+
           {/* REQ-014 Tanks */}
           <Route
             path="standorte/tanks"
@@ -515,6 +529,15 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <PlantIdentificationPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-031 KI-Assistent & Wissensvermittlung */}
+          <Route
+            path="ki-assistent"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <KIAssistentPage />
               </Suspense>
             }
           />

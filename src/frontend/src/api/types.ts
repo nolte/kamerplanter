@@ -5285,6 +5285,76 @@ export interface HaEntityItem {
   device_class?: string | null;
 }
 
+// ── REQ-031 KI-Assistent ────────────────────────────────────────────
+
+/** ADR-002 confidence marker for how well a species maps onto the KB. */
+export type AiConfidence = 'high' | 'medium' | 'low' | 'none';
+
+/** A cited knowledge chunk attached to a KI answer (Quellenpflicht). */
+export interface AiSourceRef {
+  source_key: string;
+  source_type: string;
+  title: string;
+  score: number;
+  language: string;
+}
+
+/** The common KI answer envelope rendered by `<AIResponse>` (§5.5). */
+export interface AiResponse {
+  answer_text: string;
+  sources: AiSourceRef[];
+  language: string;
+  language_mismatch_warning: boolean;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  confidence: AiConfidence;
+  fallback_species?: string | null;
+  cultivar_hint?: string | null;
+  model_name: string;
+  provider_type: string;
+  kb_version?: string | null;
+  generated_at?: string | null;
+}
+
+/** A single tip card. */
+export interface AiTipCard {
+  key?: string | null;
+  context_type: string;
+  context_key: string;
+  tip_type: string;
+  priority: string;
+  title: string;
+  body: string;
+  action_url?: string | null;
+  sources: AiSourceRef[];
+  language: string;
+  language_mismatch_warning: boolean;
+  uses_tenant_data: boolean;
+  confidence: AiConfidence;
+  model_name: string;
+  generated_at?: string | null;
+}
+
+export interface AiTipListResponse {
+  tips: AiTipCard[];
+}
+
+export interface AiExplainRequest {
+  subject_type: 'task' | 'reminder' | 'phase_transition' | 'feeding_event';
+  subject_key: string;
+  question_template_id: string;
+  language?: 'de' | 'en';
+}
+
+export interface AiConversationSummary {
+  key?: string | null;
+  title?: string | null;
+  context_type: string;
+  context_key?: string | null;
+  message_count: number;
+  updated_at?: string | null;
+}
+
 // ── REQ-026 Aquaponics ──────────────────────────────────────────────────
 
 export type AquaponicSystemType =
@@ -5490,4 +5560,107 @@ export interface FishSpecies {
   feed_type: FishFeedCategory;
   max_stocking_density_kg_per_1000l: number;
   notes_de?: string | null;
+}
+
+// ── REQ-016 InvenTree integration (optional) ────────────────────────────
+
+export type EquipmentType =
+  | 'tool'
+  | 'consumable'
+  | 'sensor'
+  | 'lighting'
+  | 'pump'
+  | 'filter'
+  | 'container'
+  | 'cleaning_agent'
+  | 'other';
+
+export type EquipmentStatus =
+  | 'active'
+  | 'maintenance'
+  | 'stored'
+  | 'defective'
+  | 'retired';
+
+export type StockTransactionType = 'remove' | 'add' | 'count';
+
+export type StockTransactionStatus = 'pending' | 'synced' | 'failed';
+
+export interface Equipment {
+  key: string;
+  name: string;
+  equipment_type: EquipmentType;
+  status: EquipmentStatus;
+  brand?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  purchase_date?: string | null;
+  warranty_until?: string | null;
+  location_key?: string | null;
+  inventree_part_id?: number | null;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface EquipmentCreate {
+  name: string;
+  equipment_type: EquipmentType;
+  status?: EquipmentStatus;
+  brand?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  location_key?: string | null;
+  inventree_part_id?: number | null;
+  notes?: string | null;
+}
+
+export type EquipmentUpdate = Partial<EquipmentCreate>;
+
+export interface InvenTreeConnection {
+  key: string;
+  name: string;
+  base_url: string;
+  is_active: boolean;
+  verify_ssl: boolean;
+  api_token_set: boolean;
+  sync_interval_minutes: number;
+  push_interval_minutes: number;
+  last_health_check_at?: string | null;
+  last_health_check_ok?: boolean | null;
+  last_stock_sync_at?: string | null;
+  last_push_at?: string | null;
+}
+
+export interface InvenTreeConnectionCreate {
+  name: string;
+  base_url: string;
+  api_token: string;
+  is_active?: boolean;
+  verify_ssl?: boolean;
+}
+
+export interface InvenTreeReference {
+  key: string;
+  entity_collection: string;
+  entity_key: string;
+  inventree_part_id: number;
+  inventree_part_name?: string | null;
+  cached_stock?: number | null;
+  cached_stock_unit?: string | null;
+  auto_deduct: boolean;
+}
+
+export interface StockTransaction {
+  key: string;
+  reference_key: string;
+  inventree_part_id: number;
+  transaction_type: StockTransactionType;
+  quantity: number;
+  unit: string;
+  reason: string;
+  status: StockTransactionStatus;
+  retry_count: number;
+  synced_at?: string | null;
+  created_at?: string | null;
 }

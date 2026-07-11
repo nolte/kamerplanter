@@ -279,6 +279,20 @@ class SiteType(StrEnum):
 OVERWINTERING_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
 
 
+#: REQ-002/REQ-046 — single source of truth for the "outdoor / weather-relevant"
+#: site types, i.e. the types for which GPS coordinates, weather sources and
+#: frost warnings make sense. It deliberately mirrors ``OVERWINTERING_SITE_TYPES``:
+#: a site exposed to outdoor winter frost is, by the same token, a site whose
+#: local weather (temperature, precipitation, frost) drives its plant care.
+#: BALCONY is included — a balcony is a frost-exposed outdoor location, so its
+#: plants benefit from GPS-based weather data and frost warnings just like
+#: ground/greenhouse ones. Previously the frontend only unlocked GPS/weather for
+#: OUTDOOR/GREENHOUSE, contradicting the frost classification above; keeping this
+#: set aligned with ``OVERWINTERING_SITE_TYPES`` structurally prevents that drift.
+#: INDOOR / WINDOWSILL / GROW_TENT stay excluded (climate-controlled, no weather).
+WEATHER_RELEVANT_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
+
+
 class LightType(StrEnum):
     NATURAL = "natural"
     LED = "led"
@@ -1296,6 +1310,61 @@ class PestDetectionNextStep(StrEnum):
 
     IPM_INSPECTION = "ipm_inspection"
     NONE = "none"
+
+
+class EquipmentType(StrEnum):
+    """REQ-016 §3.1 — type of an operating resource (equipment)."""
+
+    TOOL = "tool"
+    CONSUMABLE = "consumable"
+    SENSOR = "sensor"
+    LIGHTING = "lighting"
+    PUMP = "pump"
+    FILTER = "filter"
+    CONTAINER = "container"
+    CLEANING_AGENT = "cleaning_agent"
+    OTHER = "other"
+
+
+class EquipmentStatus(StrEnum):
+    """REQ-016 §3.1 — lifecycle status of an equipment item."""
+
+    ACTIVE = "active"
+    MAINTENANCE = "maintenance"
+    STORED = "stored"
+    DEFECTIVE = "defective"
+    RETIRED = "retired"
+
+
+class StockTransactionType(StrEnum):
+    """REQ-016 §3.1 — kind of an InvenTree stock adjustment."""
+
+    REMOVE = "remove"
+    ADD = "add"
+    COUNT = "count"
+
+
+class StockTransactionStatus(StrEnum):
+    """REQ-016 §3.1 — sync status of a stock transaction."""
+
+    PENDING = "pending"
+    SYNCED = "synced"
+    FAILED = "failed"
+
+
+class LinkableEntityCollection(StrEnum):
+    """REQ-016 §3.2 — collections that may be linked to an InvenTree part.
+
+    Mirrors the ``has_inventree_ref`` graph edge domain
+    (``fertilizers | tanks | equipment → inventree_references``). Constraining the
+    reference-link request to this allowlist (SEC/IT-003) prevents an arbitrary
+    collection name from being pointed at InvenTree; a value outside the allowlist
+    is rejected with HTTP 422.
+    """
+
+    FERTILIZERS = "fertilizers"
+    TANKS = "tanks"
+    EQUIPMENT = "equipment"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {

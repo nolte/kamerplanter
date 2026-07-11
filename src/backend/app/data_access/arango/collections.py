@@ -117,6 +117,12 @@ WATER_TESTS = "water_tests"
 FISH_FEEDING_EVENTS = "fish_feeding_events"
 SUPPLEMENTATION_EVENTS = "supplementation_events"
 
+# REQ-016 InvenTree integration (optional)
+INVENTREE_CONNECTIONS = "inventree_connections"
+INVENTREE_REFERENCES = "inventree_references"
+STOCK_TRANSACTIONS = "stock_transactions"
+EQUIPMENT = "equipment"
+
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
@@ -189,6 +195,13 @@ PLANT_DIAGNOSIS_REQUESTS = "plant_diagnosis_requests"
 # seed cross / graft / division). D10 persists the monocarpic-mother→pup clone
 # event; the full propagation API/router remains a REQ-017 follow-up.
 PROPAGATION_EVENTS = "propagation_events"
+
+# REQ-031 KI-Assistent (AI assistant) — tenant/user KI data; vectors live in the
+# Knowledge-Service microservice, never in the backend (§3.3).
+AI_PROVIDER_CONFIGS = "ai_provider_configs"
+AI_CONVERSATIONS = "ai_conversations"
+AI_TIP_CACHE = "ai_tip_cache"
+AI_AUDIT_LOG = "ai_audit_log"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -294,6 +307,11 @@ DOCUMENT_COLLECTIONS = [
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
+    # REQ-031 KI-Assistent
+    AI_PROVIDER_CONFIGS,
+    AI_CONVERSATIONS,
+    AI_TIP_CACHE,
+    AI_AUDIT_LOG,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -301,6 +319,11 @@ DOCUMENT_COLLECTIONS = [
     WATER_TESTS,
     FISH_FEEDING_EVENTS,
     SUPPLEMENTATION_EVENTS,
+    # REQ-016 InvenTree integration
+    INVENTREE_CONNECTIONS,
+    INVENTREE_REFERENCES,
+    STOCK_TRANSACTIONS,
+    EQUIPMENT,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
     # REQ-039 hardiness-zone reference catalog
@@ -461,6 +484,11 @@ SUPPLEMENTATION_FOR = "supplementation_for"  # supplementation_events → aquapo
 COMPATIBLE_FISH_PLANT = "compatible_fish_plant"  # fish_species → species
 INCOMPATIBLE_FISH_PLANT = "incompatible_fish_plant"  # fish_species → species
 
+# REQ-016 InvenTree integration edges
+HAS_INVENTREE_REF = "has_inventree_ref"  # fertilizers | tanks | equipment → inventree_references
+HAS_STOCK_TRANSACTION = "has_stock_transaction"  # inventree_references → stock_transactions
+EQUIPMENT_AT = "equipment_at"  # equipment → locations
+
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
 
@@ -514,6 +542,12 @@ CREATED_BY_WIZARD = "created_by_wizard"
 PEST_DETECTION_OF = "pest_detection_of"  # pest_detections → plant_instances/planting_runs
 PEST_DETECTION_FLAGGED = "pest_detection_flagged"  # pest_detections → pests
 PEST_DETECTION_SUGGESTED_INSPECTION = "pest_detection_suggested_inspection"  # → inspections
+
+# REQ-031 KI-Assistent edges (§3.2)
+AI_TIP_REFERENCES_PLANT = "ai_tip_references_plant"  # ai_tip_cache → plant_instances
+AI_TIP_REFERENCES_RUN = "ai_tip_references_run"  # ai_tip_cache → planting_runs
+AI_CONVERSATION_ABOUT = "ai_conversation_about"  # ai_conversations → plant_instances/planting_runs
+AI_AUDIT_ABOUT = "ai_audit_about"  # ai_audit_log → plant_instances/planting_runs
 
 # REQ-038 CV disease diagnosis edges
 CV_DIAGNOSED_FOR = "cv_diagnosed_for"  # plant_diagnosis_requests → plant_instances/planting_runs
@@ -662,6 +696,11 @@ EDGE_COLLECTIONS = [
     # REQ-046 Weather data sources
     HAS_FORECAST,
     HAS_WEATHER_SOURCE_CONFIG,
+    # REQ-031 KI-Assistent
+    AI_TIP_REFERENCES_PLANT,
+    AI_TIP_REFERENCES_RUN,
+    AI_CONVERSATION_ABOUT,
+    AI_AUDIT_ABOUT,
     # REQ-026 Aquaponics
     HAS_FISH_STOCK,
     STOCK_OF_SPECIES,
@@ -672,6 +711,10 @@ EDGE_COLLECTIONS = [
     SUPPLEMENTATION_FOR,
     COMPATIBLE_FISH_PLANT,
     INCOMPATIBLE_FISH_PLANT,
+    # REQ-016 InvenTree integration
+    HAS_INVENTREE_REF,
+    HAS_STOCK_TRANSACTION,
+    EQUIPMENT_AT,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
     # REQ-039 hardiness-zone assignment
@@ -1445,6 +1488,22 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [FISH_SPECIES],
         "to_vertex_collections": [SPECIES],
     },
+    # REQ-016 InvenTree integration
+    {
+        "edge_collection": HAS_INVENTREE_REF,
+        "from_vertex_collections": [FERTILIZERS, TANKS, EQUIPMENT],
+        "to_vertex_collections": [INVENTREE_REFERENCES],
+    },
+    {
+        "edge_collection": HAS_STOCK_TRANSACTION,
+        "from_vertex_collections": [INVENTREE_REFERENCES],
+        "to_vertex_collections": [STOCK_TRANSACTIONS],
+    },
+    {
+        "edge_collection": EQUIPMENT_AT,
+        "from_vertex_collections": [EQUIPMENT],
+        "to_vertex_collections": [LOCATIONS],
+    },
     # REQ-041 NASA POWER climate normals
     {
         "edge_collection": HAS_CLIMATE_NORMAL,
@@ -1791,6 +1850,22 @@ def ensure_collections(db: StandardDatabase) -> None:
     # 1:1 per site within a tenant (REQ-046 §2.1).
     weather_source_configs_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
 
+    # REQ-031 KI-Assistent indexes (§3.1)
+    ai_provider_configs_col = db.collection(AI_PROVIDER_CONFIGS)
+    ai_provider_configs_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    ai_conversations_col = db.collection(AI_CONVERSATIONS)
+    ai_conversations_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
+    ai_conversations_col.add_persistent_index(fields=["expires_at"], unique=False)
+
+    ai_tip_cache_col = db.collection(AI_TIP_CACHE)
+    ai_tip_cache_col.add_persistent_index(fields=["tenant_key", "context_type", "context_key"], unique=False)
+    ai_tip_cache_col.add_persistent_index(fields=["valid_until"], unique=False)
+
+    ai_audit_log_col = db.collection(AI_AUDIT_LOG)
+    ai_audit_log_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
+    ai_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
     # REQ-026 Aquaponics indexes
     fish_species_col = db.collection(FISH_SPECIES)
     fish_species_col.add_persistent_index(fields=["scientific_name"], unique=True)
@@ -1811,6 +1886,22 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     supplementation_events_col = db.collection(SUPPLEMENTATION_EVENTS)
     supplementation_events_col.add_persistent_index(fields=["system_key", "applied_at"], unique=False)
+
+    # REQ-016 InvenTree integration indexes (all tenant-scoped)
+    inventree_connections_col = db.collection(INVENTREE_CONNECTIONS)
+    inventree_connections_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    inventree_references_col = db.collection(INVENTREE_REFERENCES)
+    inventree_references_col.add_persistent_index(
+        fields=["tenant_key", "entity_collection", "entity_key"], unique=False
+    )
+
+    stock_transactions_col = db.collection(STOCK_TRANSACTIONS)
+    stock_transactions_col.add_persistent_index(fields=["tenant_key", "status", "created_at"], unique=False)
+    stock_transactions_col.add_persistent_index(fields=["reference_key"], unique=False)
+
+    equipment_col = db.collection(EQUIPMENT)
+    equipment_col.add_persistent_index(fields=["tenant_key", "equipment_type", "status"], unique=False)
 
     # REQ-041 NASA POWER climate normals — one record per (site, source) within a
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.

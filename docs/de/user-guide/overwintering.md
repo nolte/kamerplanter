@@ -92,6 +92,18 @@ Unter **Pflanzen > Überwinterung** findest du eine Tabelle mit den Überwinteru
 
 Jede Zeile zeigt neben dem Löschen-Symbol ein Sprung-Icon **„Zur Pflanze springen"** bzw. **„Zum Pflanzdurchlauf springen"**, mit dem du direkt zur zugehörigen Pflanzeninstanz oder zum Pflanzdurchlauf wechselst — praktisch, wenn du von hier aus weitere Details nachschlagen willst.
 
+### Pläne filtern
+
+Über der Tabelle stehen dir zusätzlich zur Volltextsuche und Sortierung mehrere kombinierbare Filter zur Verfügung: <!-- REQ-047 -->
+
+- **Winterhärte**: Winterhart / Schutz nötig / Frostfreies Quartier / Ausgraben & einlagern <!-- REQ-022 -->
+- **Schutzmaßnahme**: z. B. Mulchen, Vlies, Anhäufeln, Ins Quartier holen, Ausgraben & lagern, Umwickeln
+- **Monat der Maßnahme**: zeigt nur die Monate an, die tatsächlich in deinen Plänen vorkommen
+- **Herkunft**: Auto (automatisch aus dem Steckbrief erzeugt) oder Manuell (von dir angepasst oder selbst angelegt)
+- **Zuordnung**: Pflanze, Pflanzdurchlauf oder Ohne Zuordnung
+
+Alle aktiven Filter wirken gemeinsam (ein Plan muss jeden gewählten Filter erfüllen) und zusätzlich zu Suche und Sortierung. Du kannst jeden Filter einzeln über sein Auswahlfeld oder alle auf einmal über **„Filter zurücksetzen"** wieder entfernen. Deine Filterauswahl steht in der URL — du kannst die gefilterte Ansicht also als Lesezeichen speichern oder mit anderen teilen. Auf schmalen Bildschirmen sind die Filter platzsparend hinter einem Symbol mit Zähler-Badge eingeklappt. Dieses Filterleisten-Muster verwendet Kamerplanter auch an anderer Stelle, zum Beispiel in der [Schädlingsliste](pest-management.md).
+
 ---
 
 ## Häufige Fragen

@@ -348,6 +348,8 @@
     "tanks": "Tanks",
     "aquaponik": "Aquaponics",
     "aquaponicSystems": "Aquaponic Systems",
+    "inventar": "Inventory",
+    "equipment": "Equipment",
     "duengung": "Fertilization",
     "fertilizers": "Fertilizers",
     "nutrientPlans": "Nutrient Plans",
@@ -375,6 +377,7 @@
     "import": "Import",
     "calendar": "Calendar",
     "wateringLog": "Watering Log",
+    "kiAssistent": "AI Assistant",
     "phasen": "Phases",
     "detail": "Details",
     "beginnerHint": "Unlock more features in the settings"
@@ -449,7 +452,105 @@
     "harvestBatch": "Harvest Batch",
     "harvestBatches": "Harvest Batches"
   },
+  "ai": {
+    "badge": {
+      "label": "AI-generated",
+      "tooltipUnknown": "AI-generated answer"
+    },
+    "tenantData": {
+      "label": "Uses your plant data",
+      "tooltip": "This answer was generated from your plant's master values (species, phase, substrate, EC/pH). No names or free-text notes are transmitted.",
+      "link": "Open privacy settings"
+    },
+    "cloud": {
+      "label": "Cloud processing",
+      "tooltip": "This request is processed via a cloud provider ({{provider}}) — possibly a third-country data transfer."
+    },
+    "confidence": {
+      "lowLabel": "General information",
+      "lowTooltip": "This answer is based on general data for {{species}}, not on your specific cultivar \"{{cultivar}}\". Tenant-owned cultivars have no dedicated knowledge base.",
+      "genericSpecies": "the plant genus",
+      "yourCultivar": "your cultivar"
+    },
+    "languageMismatch": "Answer in German — the English knowledge base is still being built.",
+    "sources": {
+      "title": "Sources ({{count}})",
+      "score": "relevance {{score}}"
+    },
+    "disclaimer": "AI answers may be incorrect. Please check the sources for critical decisions.",
+    "dailyTip": {
+      "heading": "Tip of the day",
+      "dismiss": "Dismiss tip of the day"
+    },
+    "tips": {
+      "heading": "AI care tips",
+      "refresh": "Refresh",
+      "learnMore": "Learn more"
+    },
+    "why": {
+      "tooltip": "Why?",
+      "title": "Why this recommendation?",
+      "thinking": "AI is thinking …",
+      "error": "The explanation could not be loaded. Please try again.",
+      "follow": "Follow this recommendation",
+      "retry": "Try again"
+    },
+    "chat": {
+      "title": "AI chat",
+      "empty": "Ask a question about your plants — the assistant knows their current phase and readings.",
+      "placeholder": "Your question …",
+      "inputLabel": "Message",
+      "send": "Send",
+      "cancel": "Cancel answer",
+      "aborted": "Answer cancelled.",
+      "thinking": "AI is thinking …",
+      "error": "The answer could not be loaded.",
+      "retry": "Try again"
+    },
+    "errors": {
+      "disabled": "The AI features are currently disabled for this garden. An administrator can enable them in the tenant settings.",
+      "consentRequired": "This AI feature requires your consent to use your plant data. You can grant it in the privacy settings.",
+      "consentRequiredLink": "Go to privacy settings"
+    }
+  },
   "pages": {
+    "kiAssistent": {
+      "title": "AI Assistant",
+      "intro": "Ask a knowledge question about plant care — such as \"What is VPD?\" or \"How do I lower the pH?\". The answer comes from the curated knowledge base and is clearly labelled as AI-generated.",
+      "openChat": "Open chat",
+      "questionLabel": "Your question",
+      "questionPlaceholder": "e.g. What is VPD and why does it matter?",
+      "questionHelp": "Pure knowledge questions unrelated to your specific plants. Submit with Ctrl/Cmd + Enter.",
+      "ask": "Ask",
+      "error": "The answer could not be loaded. Please try again later."
+    },
+    "inventree": {
+      "title": "Equipment & inventory",
+      "intro": "Manage your operating resources (pumps, sensors, tools, cleaning agents) and optionally link them to your InvenTree inventory system for stock tracking.",
+      "createEquipment": "Add equipment",
+      "editEquipment": "Edit equipment",
+      "equipmentSaved": "Equipment saved.",
+      "equipmentDeleted": "Equipment deleted.",
+      "deleteTitle": "Delete equipment",
+      "deleteConfirm": "Do you really want to delete \"{{name}}\"? This action cannot be undone.",
+      "connectionActive": "InvenTree connection \"{{name}}\" is active. Stock levels are synced automatically.",
+      "noConnection": "No InvenTree connection configured. Equipment can still be managed independently.",
+      "emptyTitle": "No equipment yet",
+      "emptyDescription": "Add your first equipment item to manage pumps, sensors and consumables.",
+      "sectionInventree": "InvenTree link (optional)",
+      "sectionInventreeHelper": "Link this equipment item to an InvenTree part so stock and consumption are synced automatically. Without a link you can still manage the equipment normally.",
+      "fields": {
+        "name": "Name",
+        "equipmentType": "Type",
+        "status": "Status",
+        "brand": "Brand",
+        "model": "Model",
+        "serialNumber": "Serial number",
+        "inventreePartId": "InvenTree part ID",
+        "inventreePartHelp": "Optional link to an InvenTree part for stock tracking.",
+        "notes": "Notes"
+      }
+    },
     "aquaponik": {
       "title": "Aquaponics",
       "intro": "Manage your fish/plant recirculating systems: monitor the nitrogen cycle (ammonia → nitrite → nitrate), track biofilter cycling and log water tests, fish stocks and feeding.",
@@ -1299,7 +1400,13 @@
       "notes": "Notes",
       "autoGenerated": "Automatic",
       "autoGeneratedHelp": "Automatically generated from the plant species defaults.",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manual",
+      "filterOrigin": "Origin",
+      "filterSubjectType": "Assignment",
+      "subjectPlant": "Plant",
+      "subjectRun": "Planting run",
+      "subjectNone": "Unassigned"
     },
     "botanicalFamilies": {
       "title": "Botanical Families",
@@ -1712,7 +1819,7 @@
       "name": "Name",
       "nameHelper": "e.g. 'Grow Tent 1', 'Greenhouse', 'Garden North', 'Balcony'",
       "type": "Type",
-      "typeHelper": "Determines which features are available — e.g. weather and frost protection only apply to outdoor and greenhouse sites.",
+      "typeHelper": "Determines which features are available — e.g. weather and frost protection only apply to outdoor, greenhouse and balcony sites.",
       "climateZone": "Climate Zone",
       "climateZoneHelper": "e.g. '8b' (USDA) or 'temperate' — helps with plant recommendations",
       "totalArea": "Total Area (m²)",
@@ -1724,7 +1831,8 @@
       "gpsBothRequired": "Please provide latitude and longitude together, or leave both empty.",
       "gpsLatRange": "Latitude must be between -90 and 90.",
       "gpsLonRange": "Longitude must be between -180 and 180.",
-      "weatherTypeHint": "Weather and frost features are only available for the \"{{outdoorLabel}}\" and \"{{greenhouseLabel}}\" site types. For other types, the GPS coordinates remain unused.",
+      "weatherTypeHint": "Weather and frost features are only available for the \"{{outdoorLabel}}\", \"{{greenhouseLabel}}\" and \"{{balconyLabel}}\" site types. For other types, the GPS coordinates remain unused.",
+      "balconyWeatherHint": "A balcony counts as a frost-exposed outdoor location: once GPS coordinates are stored, weather data and frost warnings become available for this site — just like for outdoor and greenhouse sites.",
       "editIntro": "Edit the basic data of this site. Name and climate zone help organize locations.",
       "sectionBasicData": "Basic Data",
       "sectionBasicDataDesc": "Name, climate zone, area, and timezone of the site.",
@@ -4435,6 +4543,24 @@
     "biofilm_risk": "Biofilm risk — solution {{value}} days old without sterilization"
   },
   "enums": {
+    "equipmentType": {
+      "tool": "Tool",
+      "consumable": "Consumable",
+      "sensor": "Sensor / meter",
+      "lighting": "Lighting",
+      "pump": "Pump",
+      "filter": "Filter",
+      "container": "Container",
+      "cleaning_agent": "Cleaning agent",
+      "other": "Other"
+    },
+    "equipmentStatus": {
+      "active": "Active",
+      "maintenance": "In maintenance",
+      "stored": "Stored",
+      "defective": "Defective",
+      "retired": "Retired"
+    },
     "aquaponicSystemType": {
       "media_bed": "Media bed (clay pebbles)",
       "dwc": "Deep Water Culture (DWC)",
@@ -5511,6 +5637,12 @@
       "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
       "unit": "a_w (0–1)",
       "typicalRange": "0.55–0.65 (safe for storage)"
+    },
+    "inventree": {
+      "short": "External inventory management system for your real-world stock",
+      "long": "InvenTree is a separate, external inventory management system. A \"part\" there is a single article (e.g. a spare pump). Link an equipment item to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand.",
+      "beginnerTip": "The link is optional: you can still create and manage equipment normally without an InvenTree connection.",
+      "category": "allgemein"
     }
   },
   "dashboard": {

@@ -146,6 +146,30 @@ These variables configure the optional cross-encoder re-ranker of the Knowledge 
 
 ---
 
+## AI Assistant <!-- REQ-031 --> {#ki-assistent}
+
+These variables belong to the **Kamerplanter backend** and control the three-stage toggle mechanism as well as the connection to the Knowledge Service (see [AI Assistant — User Guide](../user-guide/ai-assistant.md)). Provider selection (Ollama/Anthropic/OpenAI-compatible) is a separate configuration **on the Knowledge Service itself** — see [AI Provider Setup](../user-guide/ai-providers.md).
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `AI_FEATURES_ENABLED` | `false` | No | Stage 1 of the three-stage toggle. `false` makes every `/ai/*` endpoint respond with HTTP 404 — the AI API then effectively doesn't exist. |
+| `KNOWLEDGE_SERVICE_ENABLED` | `false` | No | Enables the connection to the Knowledge Service (needed by both the older `/api/v1/knowledge/*` path and internally by the AI Assistant). |
+| `KNOWLEDGE_SERVICE_URL` | `http://knowledge-service:8000` | No | Base URL of the Knowledge Service microservice. |
+| `AI_KNOWLEDGE_SERVICE_TIMEOUT_S` | `60` | No | HTTP timeout of the `KnowledgeServiceAdapter` against the Knowledge Service (seconds). |
+| `AI_CIRCUIT_BREAKER_THRESHOLD` | `3` | No | Number of consecutive failures after which the adapter marks the Knowledge Service unreachable. |
+| `AI_CIRCUIT_BREAKER_WINDOW_S` | `60` | No | Time window (seconds) over which failures are counted for `AI_CIRCUIT_BREAKER_THRESHOLD`. |
+| `AI_CIRCUIT_BREAKER_COOLDOWN_S` | `60` | No | Wait time (seconds) before the adapter allows requests to the Knowledge Service again after the circuit breaker trips. |
+| `AI_PUBLIC_RATE_LIMIT_PER_MIN` | `10` | No | IP rate limit for the anonymous, Light-Mode-capable endpoint `POST /api/v1/public/ai/ask` (requests per minute). |
+| `INTERNAL_SERVICE_TOKEN` | — | Conditional | Shared secret for cluster-internal M2M calls (including to the Knowledge Service). Required once `KNOWLEDGE_SERVICE_ENABLED=true` is set — without a token, the startup gate refuses to boot (AP-4). |
+
+!!! warning "Instance-wide activation alone isn't enough"
+    `AI_FEATURES_ENABLED=true` only unlocks the AI API instance-wide (stage 1). For a specific tenant (garden) to actually use AI features, `tenant.settings.ai_features_enabled` must additionally be set for that tenant (stage 2) — there is currently neither a UI nor a dedicated API endpoint for this, see [AI Assistant — For Technical Users / Self-Hosters](../user-guide/ai-assistant.md#for-technical-users-self-hosters).
+
+!!! info "Provider configuration lives on the Knowledge Service, not the backend"
+    `LLM_PROVIDER`, `LLM_API_URL`, `LLM_API_KEY`, and `LLM_MODEL` are environment variables of the standalone Knowledge Service deployment (`src/knowledge-service/`), not this backend. Details: [AI Provider Setup](../user-guide/ai-providers.md).
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Default | Required | Description |
@@ -191,6 +215,19 @@ When both variables are set, the backend also enables the Home Assistant channel
 
 !!! warning "Apprise channel requires an additional Python package"
     The `apprise` notification channel is always active regardless of the Home Assistant variables, but requires the optional `apprise` Python package in the backend image (`pip install apprise`) — there is no dedicated environment variable for it. See [Notifications — Apprise](../user-guide/notifications.md#apprise) for details.
+
+---
+
+## InvenTree Integration (REQ-016)
+
+These variables enable the optional integration with [InvenTree](https://github.com/inventree/inventree). Without `INVENTREE_ENABLED=true`, every InvenTree endpoint returns a "feature disabled" error (HTTP 409) without blocking the app.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `INVENTREE_ENABLED` | `false` | No | Kill switch for the entire InvenTree integration. |
+| `INVENTREE_ALLOW_PRIVATE_ENDPOINT` | `false` | No | Allows an InvenTree instance with a private/LAN address (analogous to `HA_ALLOW_PRIVATE_ENDPOINT`). Without this opt-in, SSRF protection blocks connections to internal addresses. |
+
+You then set up the connection (including the API token) and links via the REST API — see [Equipment & Inventory (InvenTree) — For Technical Users / Self-Hosters](../user-guide/inventree.md#for-technical-users-self-hosters) for details.
 
 ---
 
@@ -504,6 +541,11 @@ RERANKER_URL=
 RERANKER_INITIAL_K=20
 RERANKER_TOP_K=5
 
+# AI Assistant (disabled instance-wide unless explicitly enabled)
+AI_FEATURES_ENABLED=false
+KNOWLEDGE_SERVICE_ENABLED=false
+KNOWLEDGE_SERVICE_URL=http://knowledge-service:8000
+
 # Photo identification (empty = feature disabled)
 # PLANTNET_API_KEY=
 # IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
@@ -648,3 +690,4 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [API Reference: CV Disease Diagnosis](api-reference.md#cv-disease-diagnosis)
 - [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
 - [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)
+- [Equipment & Inventory (InvenTree) — User Guide](../user-guide/inventree.md)

@@ -4,7 +4,7 @@
 FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-knowledge-service" \
-      org.opencontainers.image.description="RAG-based plant knowledge assistant for Kamerplanter" \
+      org.opencontainers.image.description="Standalone RAG/LLM service answering plant-domain questions over Kamerplanter's knowledge base" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"

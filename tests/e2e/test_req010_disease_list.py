@@ -266,9 +266,13 @@ class TestDiseaseCreateDialog:
             pytest.skip("Disease creation failed — dialog did not close after submit")
 
         disease_list.open()  # Refresh list
+        # A freshly-created row can be hidden by pagination (NFR-008a §7.2):
+        # search for it before asserting so the check is precise.
+        disease_list.search(sci_name)
+        disease_list.wait_for_loading_complete()
         names = disease_list.get_first_column_texts()
         assert any(sci_name in n for n in names), (
-            f"TC-REQ-010-021 FAIL: Expected '{sci_name}' in disease list, got {names}"
+            f"TC-REQ-010-021 FAIL: Expected '{sci_name}' in disease list after search, got {names}"
         )
 
     @pytest.mark.core_crud

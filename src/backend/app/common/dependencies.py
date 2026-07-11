@@ -134,6 +134,20 @@ def get_aquaponik_service():
     return AquaponikService(get_aquaponik_repo())
 
 
+def get_inventree_repo():
+    """REQ-016 InvenTree integration repository (connections/refs/txns/equipment)."""
+    from app.data_access.arango.inventree_repository import ArangoInvenTreeRepository
+
+    return ArangoInvenTreeRepository(get_db())
+
+
+def get_inventree_service():
+    """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
+    from app.domain.services.inventree_service import InvenTreeService
+
+    return InvenTreeService(get_inventree_repo(), get_encryption_engine(), redis_client=_get_redis_client())
+
+
 def get_species_repo() -> ArangoSpeciesRepository:
     return ArangoSpeciesRepository(get_db())
 
@@ -1249,6 +1263,83 @@ def get_knowledge_client():
     from app.data_access.external.knowledge_service_client import KnowledgeServiceClient
 
     return KnowledgeServiceClient(base_url=settings.knowledge_service_url)
+
+
+# ── REQ-031 KI-Assistent dependencies ────────────────────────────
+
+
+def get_knowledge_service_adapter():
+    """Async ``IKnowledgeService`` adapter (circuit-breaker, REQ-031 §4.1)."""
+    from app.data_access.external.knowledge_service_adapter import HttpKnowledgeServiceAdapter
+
+    return HttpKnowledgeServiceAdapter(base_url=settings.knowledge_service_url)
+
+
+def get_ai_tip_cache_repo():
+    from app.data_access.arango.ai_repository import ArangoAiTipCacheRepository
+
+    return ArangoAiTipCacheRepository(get_db())
+
+
+def get_ai_conversation_repo():
+    from app.data_access.arango.ai_repository import ArangoAiConversationRepository
+
+    return ArangoAiConversationRepository(get_db())
+
+
+def get_ai_provider_repo():
+    from app.data_access.arango.ai_repository import ArangoAiProviderRepository
+
+    return ArangoAiProviderRepository(get_db())
+
+
+def get_ai_audit_repo():
+    from app.data_access.arango.ai_repository import ArangoAiAuditRepository
+
+    return ArangoAiAuditRepository(get_db())
+
+
+def get_ai_audit_logger():
+    from app.domain.services.ai_audit_logger import AiAuditLogger
+
+    return AiAuditLogger(get_ai_audit_repo())
+
+
+def get_ai_consent_guard():
+    from app.domain.guards.consent_guard import ConsentGuard
+
+    return ConsentGuard(get_consent_repo())
+
+
+def get_ai_context_builder():
+    """AiContextBuilder wired with parent/family resolvers (ADR-002)."""
+    from app.domain.services.ai_context_builder import AiContextBuilder
+
+    species_repo = get_species_repo()
+    family_repo = get_family_repo()
+
+    def _resolve_parent(parent_key: str):
+        return species_repo.get_by_key(parent_key)
+
+    def _resolve_family(family_key: str):
+        family = family_repo.get_by_key(family_key)
+        return getattr(family, "name", None) if family else None
+
+    return AiContextBuilder(parent_resolver=_resolve_parent, family_resolver=_resolve_family)
+
+
+def get_ai_assistant_service():
+    """REQ-031 §4.3 — the KI orchestration service."""
+    from app.domain.services.ai_assistant_service import AiAssistantService
+
+    return AiAssistantService(
+        knowledge_adapter=get_knowledge_service_adapter(),
+        consent_guard=get_ai_consent_guard(),
+        audit_logger=get_ai_audit_logger(),
+        tip_cache_repo=get_ai_tip_cache_repo(),
+        conversation_repo=get_ai_conversation_repo(),
+        provider_repo=get_ai_provider_repo(),
+    )
 
 
 def get_dashboard_service():

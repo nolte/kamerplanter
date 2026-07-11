@@ -798,6 +798,116 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 
 ---
 
+## AI Assistant <!-- REQ-031 --> {#ki-assistent}
+
+!!! note "Partially available"
+    The endpoints documented here are implemented and active. Of the full specification scope (including background tip-card generation, a tenant-settings endpoint, and provider management via API), only the endpoints listed below have been implemented so far — see the notes in each section.
+
+Every endpoint responds with `404 Not Found` when the platform operator has disabled AI features instance-wide (`AI_FEATURES_ENABLED=false`) — the AI API then effectively doesn't exist. Details on the three-stage toggle: [AI Assistant — User Guide](../user-guide/ai-assistant.md#how-the-ai-assistant-is-structured-three-stage-toggle).
+
+### Public knowledge question (Light Mode capable)
+
+No login required, IP rate-limited (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, default 10/minute). **No** tenant or user context is passed to the knowledge base.
+
+```
+POST /api/v1/public/ai/ask
+```
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|--------------|
+| `question` | string | Yes | 3–2000 characters |
+| `language` | `de` \| `en` | No | Default: `de` |
+
+**Response (200):** `AiResponseSchema`
+
+```json
+{
+  "answer_text": "VPD (vapor pressure deficit) describes the difference ...",
+  "sources": [
+    { "source_key": "vpd-basics", "source_type": "guide", "title": "VPD basics", "score": 0.87, "language": "de" }
+  ],
+  "language": "de",
+  "language_mismatch_warning": false,
+  "uses_tenant_data": false,
+  "uses_cloud_provider": false,
+  "confidence": "high",
+  "fallback_species": null,
+  "cultivar_hint": null,
+  "model_name": "gemma3:12b",
+  "provider_type": "ollama",
+  "kb_version": "ks-1.4.2-idx-20260420",
+  "generated_at": "2026-07-11T10:15:00Z"
+}
+```
+
+`confidence` is one of `high` | `medium` | `low` | `none` (ADR-002 — drops when the question references a tenant-owned species/cultivar that isn't in the knowledge base).
+
+```
+GET /api/v1/public/ai/health
+```
+
+**Response (200):** `{ "healthy": true }`
+
+### Tenant-scoped endpoints
+
+The following endpoints live under `/api/v1/t/{tenant_slug}/ai/` and require a valid JWT token plus an active tenant membership. Role-based restrictions (viewer/grower/admin) are **not yet** implemented in this version — every active member may call every endpoint.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/ai/tips?context_type=&context_key=&language=` | Tip cards for a context (cache-first) |
+| `POST` | `/ai/tips/refresh?context_type=&context_key=&language=` | Force-regenerate tip cards (cache miss) |
+| `POST` | `/ai/tips/{tip_key}/dismiss` | Dismiss a tip |
+| `POST` | `/ai/tips/{tip_key}/acted-on` | Mark a tip as acted on |
+| `GET` | `/ai/daily-tip?language=` | A single tip of the day (may be `null`) |
+| `POST` | `/ai/daily-tip/dismiss` | Dismiss today's daily tip |
+| `POST` | `/ai/explain` | "Why?" explanation for a concrete item |
+| `GET` | `/ai/conversations` | List conversations |
+| `POST` | `/ai/conversations` | Start a new conversation |
+| `POST` | `/ai/conversations/{conversation_key}/messages` | Send a message — answer streams back as SSE |
+| `DELETE` | `/ai/conversations/{conversation_key}` | Delete a conversation immediately (GDPR Art. 17) |
+| `GET` | `/ai/providers` | List available providers (read-only) |
+
+!!! info "API only / operator configuration: enabling for a tenant"
+    Every one of these endpoints additionally requires `tenant.settings.ai_features_enabled=true` — there is currently neither a UI nor a dedicated `GET`/`PUT` endpoint for this; the field can only be set directly on the tenant document. Without this, every tenant-scoped endpoint responds with `403` and `{ "detail": "ai.disabled_for_tenant" }` (error code `AI_DISABLED_FOR_TENANT`).
+
+`POST /ai/explain` expects the following request body:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `subject_type` | `task` \| `reminder` \| `phase_transition` \| `feeding_event` | Type of the item to explain |
+| `subject_key` | string | Key of the item |
+| `question_template_id` | string | ID of the curated question template |
+| `language` | `de` \| `en` | Optional, default: `de` |
+
+`POST /ai/conversations/{conversation_key}/messages` returns the answer as `text/event-stream` (SSE) with the event types `token` (a single answer token), `done` (the final `AiResponseSchema` as JSON), and `error`.
+
+**Error Codes (all tenant-scoped endpoints):**
+
+| HTTP Status | Error Code | Meaning |
+|-------------|-----------|---------|
+| `404` | — | AI features disabled instance-wide (stage 1) |
+| `403` | `AI_DISABLED_FOR_TENANT` | AI features disabled for this tenant (stage 2) |
+| `403` | `CONSENT_REQUIRED` | Required consent missing (stage 3, `consent_purpose` in the body: `ai_tenant_data_access` or `ai_cloud_processing`) |
+
+### Global endpoints (platform admin)
+
+```
+GET /api/v1/ai/knowledge-service/health
+```
+
+Requires platform admin rights. Only mounted in full mode (`KAMERPLANTER_MODE=full`). Returns `{ "healthy": true|false }`.
+
+### See Also
+
+- [AI Assistant — User Guide](../user-guide/ai-assistant.md)
+- [Privacy & GDPR — User Guide](../user-guide/privacy.md)
+- [Environment Variables — AI Assistant](environment-variables.md#ki-assistent)
+- [Error Handling](../api/error-handling.md)
+
+---
+
 ## CV Disease Diagnosis <!-- REQ-038 -->
 
 Photo-based **condition diagnosis** (disease, nutrient deficiency, and — as a secondary category — pest) from a leaf photo, distinct from species identification ([Plant Identification](#plant-identification-reference-image-contribution-self-hosted-recognition)) and from the dedicated [Pest Detection](../user-guide/pest-detection.md): this diagnosis answers "what is wrong with the plant?", not "which species/pest is this?". Recognition runs self-hosted in the inference service; the uploaded photo is stripped of EXIF metadata server-side and is **never persisted** — only a SHA-256 fingerprint is kept (`image_deleted_at` is set on every response).
