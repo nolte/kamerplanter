@@ -28,7 +28,7 @@ def generate_due_care_reminders() -> dict:
         get_task_repo,
     )
     from app.common.enums import ReminderType, TaskCategory, TaskPriority, TaskStatus
-    from app.domain.models.task import Task
+    from app.domain.services.care_reminder_service import build_care_reminder_task
 
     care_service = get_care_reminder_service()
     task_repo = get_task_repo()
@@ -169,29 +169,14 @@ def generate_due_care_reminders() -> dict:
             plant_label = plant.plant_name or plant.instance_id or plant_key
             plant_tenant_key = plant.tenant_key
 
-            rt_instructions = {
-                ReminderType.FERTILIZING: f"Fertilize {plant_label} according to care profile.",
-                ReminderType.REPOTTING: f"Check if {plant_label} needs repotting.",
-                ReminderType.PEST_CHECK: f"Inspect {plant_label} for pests and diseases.",
-                ReminderType.LOCATION_CHECK: f"Check if {plant_label} needs a location change.",
-                ReminderType.HUMIDITY_CHECK: f"Check humidity around {plant_label}.",
-                # REQ-022 §3.2 overwintering reminders (B1).
-                ReminderType.WINTER_PROTECTION: f"Apply winter protection for {plant_label}.",
-                ReminderType.SPRING_UNCOVER: f"Uncover / reactivate {plant_label} for spring.",
-                ReminderType.TUBER_DIG: f"Dig up and store the tubers/bulbs of {plant_label}.",
-                ReminderType.STORAGE_CHECK: f"Check the stored tubers/bulbs of {plant_label}.",
-                ReminderType.DEADHEADING: f"Deadhead spent blooms on {plant_label}.",
-            }
-
-            task = Task(
-                name=f"{plant_label} \u2014 {rt.value}",
-                instruction=rt_instructions.get(rt, f"Care reminder: {rt.value} for {plant_label}."),
-                category=TaskCategory.CARE_REMINDER,
-                entity_key=plant_key,
-                entity_type="plant_instance",
+            # Shared factory + instruction source (P4): identical task shape and
+            # wording as the service path, so the two can never drift.
+            task = build_care_reminder_task(
+                plant_key=plant_key,
+                plant_label=plant_label,
                 tenant_key=plant_tenant_key,
+                reminder_type=rt,
                 due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
-                status=TaskStatus.PENDING,
                 priority=TaskPriority.MEDIUM if urgency == "due_today" else TaskPriority.HIGH,
             )
             task_repo.create(task)
