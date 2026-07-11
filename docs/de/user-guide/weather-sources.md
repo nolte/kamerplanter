@@ -108,6 +108,8 @@ Datenquelle ist der satelliten- und modellgestützte Reanalyse-Dienst **NASA POW
 
 Kamerplanter zeigt unterhalb der Quellenliste bzw. unterhalb des Klima-Diagramms die Herkunftsnachweise der genutzten Dienste an: Deutscher Wetterdienst (nach der Geodatennutzungsverordnung, GeoNutzV), Open-Meteo (Lizenz CC BY 4.0), OpenWeatherMap gemäß dessen Nutzungsbedingungen sowie – für die Klimanormalen im Abschnitt „Klima am Standort" – NASA POWER (Lizenz CC BY 4.0).
 
+Der aus diesen Wetterdaten berechnete Bewässerungsbedarf (Verdunstung/ET₀, siehe [Gießprotokoll: Vorgeschlagene Gießmenge](watering-log.md#vorgeschlagene-giessmenge)) nutzt intern die quelloffene Bibliothek **aquacropeto** (BSD-3-Clause-Lizenz) für die FAO-56-Berechnung – keine eigene Wetterdaten-Quelle, sondern nur die Rechenformel. <!-- REQ-037 -->
+
 ---
 
 ## Häufige Fragen

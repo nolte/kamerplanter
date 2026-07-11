@@ -370,6 +370,7 @@ class CareReminderService:
                     overwintering_profile=overwintering_profile,
                     frost_sensitivity=frost_sensitivity,
                     cultivar_traits=cultivar_traits,
+                    irrigation_demand_capped_mm=plant.get("irrigation_demand_capped_mm"),
                 ):
                     continue
 

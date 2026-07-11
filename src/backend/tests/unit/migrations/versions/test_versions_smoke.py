@@ -33,6 +33,11 @@ class _NoopCollection:
         return [
             {"type": "persistent", "fields": ["group_key", "tenant_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "site_key", "source"], "unique": True},
+            {
+                "type": "persistent",
+                "fields": ["tenant_key", "site_key", "run_key", "demand_date"],
+                "unique": True,
+            },
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -43,9 +48,14 @@ class _NoopGraph:
     """A bootstrapped graph that already carries every edge definition."""
 
     def edge_definitions(self):
-        # v0011 checks for the has_climate_normal edge; report it present so the
-        # structural migration stays a no-op on a bootstrapped database.
-        return [{"edge_collection": "has_climate_normal"}]
+        # v0011 checks for the has_climate_normal edge; v0012 for the two
+        # irrigation-demand edges — report all present so the structural migrations
+        # stay a no-op on a bootstrapped database.
+        return [
+            {"edge_collection": "has_climate_normal"},
+            {"edge_collection": "has_irrigation_demand"},
+            {"edge_collection": "demand_for_run"},
+        ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
         raise AssertionError("no edge definition should be created when the bootstrap already added it")
