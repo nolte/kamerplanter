@@ -883,6 +883,7 @@
       "tabSecurity": "Security",
       "tabSessions": "Sessions",
       "tabExperience": "Experience",
+      "tabKiosk": "Kiosk mode",
       "tabModules": "Modules & Features",
       "tabPlatform": "Platform Mode",
       "tabAdmin": "Administration",
@@ -1080,6 +1081,40 @@
           "yellow": "Needs protection",
           "red": "Move indoors"
         }
+      }
+    },
+    "kiosk": {
+      "badge": "Kiosk",
+      "home": "Home",
+      "exit": "Exit kiosk",
+      "startTitle": "What would you like to do?",
+      "actions": {
+        "scanPlant": "Scan plant",
+        "logWatering": "Log watering",
+        "startRound": "Start round",
+        "reportProblem": "Report problem"
+      },
+      "status": {
+        "title": "Current status",
+        "openTasks_one": "{{count}} open task",
+        "openTasks_other": "{{count}} open tasks",
+        "warnings_one": "{{count}} warning",
+        "warnings_other": "{{count}} warnings"
+      },
+      "timeout": {
+        "title": "Still there?",
+        "countdown": "Returning to the start page in {{seconds}} seconds",
+        "continue": "Keep working"
+      },
+      "settings": {
+        "title": "Kiosk mode",
+        "description": "Kiosk mode optimizes the interface for greenhouse use – large buttons for gloves and dirty hands, high-contrast display and a simplified start page with the most important actions.",
+        "toggle": "Enable kiosk mode",
+        "open": "Open kiosk start page",
+        "highContrastTitle": "High-contrast display",
+        "highContrastDescription": "Pure black-and-white display with very high contrast – usable independently of kiosk mode, for example in direct sunlight on the balcony.",
+        "highContrastToggle": "Use high-contrast design",
+        "highContrastKioskHint": "In kiosk mode the high-contrast display is enabled by default."
       }
     },
     "season": {
@@ -5342,8 +5377,15 @@
       "none": "Nothing scheduled in the next 7 days.",
       "untitled": "Untitled task"
     },
+    "plantGrid": {
+      "unnamed": "Unnamed plant",
+      "empty": "No active plants yet."
+    },
     "nav": {
-      "openWidget": "Open {{widget}}"
+      "openWidget": "Open {{widget}}",
+      "openListNamed": "Open {{widget}} list",
+      "openTask": "Open task: {{task}}",
+      "openPlant": "Open plant: {{plant}}"
     },
     "widgets": {
       "comingSoon": "In preparation",

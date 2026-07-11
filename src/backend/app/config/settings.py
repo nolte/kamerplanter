@@ -71,10 +71,20 @@ class Settings(BaseSettings):
     # is Phase 2). Phase 2 switches this to "local_embedding" without touching
     # engine/service/API.
     identification_primary_adapter: str = "plantnet"
-    identification_http_timeout: int = 30
+    # HTTP timeout (seconds) for the external identification call, env-configurable
+    # via ``IDENTIFICATION_HTTP_TIMEOUT``. The Pl@ntNet ``/identify`` request
+    # (multipart image upload + server-side ML inference) regularly exceeds the
+    # previous 30s default under load, surfacing as a ReadTimeout in the UI.
+    identification_http_timeout: int = 60
     identification_confidence_auto_accept: float = 0.85
     identification_confidence_min_show: float = 0.10
     identification_max_image_size_mb: int = 5
+    # Longest edge (px) the user image is downscaled to before it is uploaded to
+    # the identification adapter, env-configurable via
+    # ``IDENTIFICATION_MAX_IMAGE_DIMENSION``. Smaller = faster upload and less
+    # third-party bandwidth; Pl@ntNet works well from ~1024px. See
+    # ``image_preprocessor.strip_exif_and_normalize``.
+    identification_max_image_dimension: int = 1024
     # Per-user daily rate limit (REQ-029 §7). SEC-003: a sensible per-user floor so
     # a single account cannot consume the whole shared adapter free-tier quota.
     # ``0`` falls back to the adapter's own free-tier default.

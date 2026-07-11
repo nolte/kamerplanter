@@ -245,3 +245,26 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         bind_vars = {"@col": self._collection_name, "tenant_key": tenant_key}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return int(next(cursor, 0) or 0)
+
+    def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
+        """Return the newest *alive* plant instances of ``tenant_key`` (REQ-009).
+
+        Feeds the ``plant_grid`` dashboard widget's clickable tiles (#461): a short,
+        newest-first list of active plants, each carrying its ``_key`` for a deep
+        link to the plant detail view. "Alive" mirrors ``count_active_for_tenant``
+        (``removed_on == null``). The collection is bound via ``@@col`` (never
+        interpolated) and every row is filtered on ``p.tenant_key == @tenant_key``;
+        the empty-tenant sentinel is rejected up-front so the list can never span
+        tenants (SEC-B4). ``@limit`` is a bound integer, never interpolated.
+        """
+        self._require_tenant_key(tenant_key, "list_active_for_tenant")
+        query = """
+        FOR p IN @@col
+          FILTER p.tenant_key == @tenant_key AND p.removed_on == null
+          SORT p.planted_on DESC, p._key ASC
+          LIMIT @limit
+          RETURN { _key: p._key, plant_name: p.plant_name, species_key: p.species_key }
+        """
+        bind_vars = {"@col": self._collection_name, "tenant_key": tenant_key, "limit": int(limit)}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return list(cursor)

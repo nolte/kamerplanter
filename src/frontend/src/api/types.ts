@@ -3791,6 +3791,10 @@ export interface UserPreference {
   theme: string;
   watering_can_liters: number;
   smart_home_enabled: boolean;
+  /** UI-NFR-019 — touch-optimized kiosk shell active. */
+  kiosk_enabled?: boolean;
+  /** UI-NFR-019 — WCAG-AAA high-contrast theme (R-005 kiosk default, R-045 standalone). */
+  high_contrast?: boolean;
   module_visibility?: Record<string, ModuleVisibilityState>;
   /** REQ-045 — personalized dashboard layout; null/absent = experience default. */
   dashboard_layout?: DashboardLayout | null;

@@ -884,6 +884,7 @@
       "tabSessions": "Sitzungen",
       "tabApiKeys": "API-Schlüssel",
       "tabExperience": "Erfahrungsstufe",
+      "tabKiosk": "Kiosk-Modus",
       "tabModules": "Module & Funktionen",
       "tabPlatform": "Plattform-Modus",
       "tabAdmin": "Administration",
@@ -1080,6 +1081,40 @@
           "yellow": "Schutz nötig",
           "red": "Einräumen"
         }
+      }
+    },
+    "kiosk": {
+      "badge": "Kiosk",
+      "home": "Start",
+      "exit": "Kiosk verlassen",
+      "startTitle": "Was möchtest du tun?",
+      "actions": {
+        "scanPlant": "Pflanze scannen",
+        "logWatering": "Bewässerung erfassen",
+        "startRound": "Rundgang starten",
+        "reportProblem": "Problem melden"
+      },
+      "status": {
+        "title": "Aktueller Status",
+        "openTasks_one": "{{count}} offene Aufgabe",
+        "openTasks_other": "{{count}} offene Aufgaben",
+        "warnings_one": "{{count}} Warnung",
+        "warnings_other": "{{count}} Warnungen"
+      },
+      "timeout": {
+        "title": "Noch aktiv?",
+        "countdown": "Rückkehr zum Start in {{seconds}} Sekunden",
+        "continue": "Weiter arbeiten"
+      },
+      "settings": {
+        "title": "Kiosk-Modus",
+        "description": "Der Kiosk-Modus optimiert die Oberfläche für die Bedienung im Gewächshaus – große Schaltflächen für Handschuhe und verschmutzte Hände, kontrastreiche Darstellung und eine vereinfachte Startseite mit den wichtigsten Aktionen.",
+        "toggle": "Kiosk-Modus aktivieren",
+        "open": "Kiosk-Startseite öffnen",
+        "highContrastTitle": "Kontrastreiche Darstellung",
+        "highContrastDescription": "Reine Schwarz-Weiß-Darstellung mit besonders hohem Kontrast – auch unabhängig vom Kiosk-Modus nutzbar, etwa bei direkter Sonneneinstrahlung auf dem Balkon.",
+        "highContrastToggle": "Kontrastreiches Design verwenden",
+        "highContrastKioskHint": "Im Kiosk-Modus ist die kontrastreiche Darstellung standardmäßig aktiv."
       }
     },
     "season": {
@@ -5343,8 +5378,15 @@
       "none": "In den nächsten 7 Tagen steht nichts an.",
       "untitled": "Unbenannte Aufgabe"
     },
+    "plantGrid": {
+      "unnamed": "Unbenannte Pflanze",
+      "empty": "Noch keine aktiven Pflanzen."
+    },
     "nav": {
-      "openWidget": "{{widget}} öffnen"
+      "openWidget": "{{widget}} öffnen",
+      "openListNamed": "{{widget}}-Liste öffnen",
+      "openTask": "Aufgabe öffnen: {{task}}",
+      "openPlant": "Pflanze öffnen: {{plant}}"
     },
     "widgets": {
       "comingSoon": "In Vorbereitung",
