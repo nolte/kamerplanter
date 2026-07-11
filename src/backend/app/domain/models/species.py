@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.common.enums import (
     ClimactericClass,
@@ -24,6 +24,7 @@ from app.common.enums import (
     WateringMethod,
     WoodStage,
 )
+from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.botanical_family import PhRange
 
 # ── Environmental-physiology literals (REQ-001 v4.2) ─────────────────
@@ -231,6 +232,17 @@ class SeedProfile(BaseModel):
 class Species(BaseModel):
     key: str | None = Field(default=None, alias="_key")
     scientific_name: str
+    # ── Deduplication key (REQ-048 Stufe 1) ──
+    # Canonical, casefold/hybrid-marker/whitespace-normalized form of
+    # scientific_name. Always server-derived from scientific_name (see the
+    # ``_derive_scientific_name_normalized`` validator below) — never accepted
+    # from a request body and NEVER displayed. Backs the fast indexed equality
+    # lookup that both dedup paths (identify + create) use.
+    scientific_name_normalized: str = Field(
+        default="",
+        description="Internal canonical dedup key derived from scientific_name (REQ-048). "
+        "Server-managed, never displayed; the human-facing scientific_name is left untouched.",
+    )
     common_names: list[str] = Field(default_factory=list)
     family_key: str | None = None
     genus: str = ""
@@ -416,6 +428,19 @@ class Species(BaseModel):
         if len(parts) < 2:
             raise ValueError("Scientific name must follow binomial nomenclature (e.g., 'Genus species')")
         return v.strip()
+
+    @model_validator(mode="after")
+    def _derive_scientific_name_normalized(self) -> Self:
+        """Always derive the dedup key from the (stripped) scientific_name.
+
+        Runs after ``validate_binomial`` so ``scientific_name`` is already
+        trimmed. The key is recomputed on every create *and* update — and any
+        client-supplied ``scientific_name_normalized`` is deliberately ignored —
+        so it can never drift from ``scientific_name`` and is never influenced by
+        request input (REQ-048 R2/R3).
+        """
+        self.scientific_name_normalized = normalize_scientific_name(self.scientific_name)
+        return self
 
     @field_validator("hardiness_zones")
     @classmethod

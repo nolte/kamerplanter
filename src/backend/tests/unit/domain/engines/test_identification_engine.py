@@ -6,6 +6,7 @@ import pytest
 from PIL import Image
 
 from app.common.exceptions import NotFoundError, UnsupportedMediaTypeError, ValidationError
+from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.engines.identification_engine import IdentificationEngine
 from app.domain.interfaces.plant_identification_adapter import (
     HealthAssessment,
@@ -45,11 +46,26 @@ class _StubAdapter(PlantIdentificationAdapter):
 
 
 class _FakeSpeciesRepo:
+    """Duck-typed species repo that matches on the canonical dedup key.
+
+    Mirrors ``ArangoSpeciesRepository``: the strict lookup keys on the exact
+    ``scientific_name`` while the normalized lookup collapses hybrid-marker/
+    casing/whitespace variants, so ``Fragaria × ananassa`` resolves to a stored
+    ``Fragaria x ananassa`` (REQ-048 Stufe 1).
+    """
+
     def __init__(self, known: dict[str, Species] | None = None) -> None:
         self._known = known or {}
 
     def get_by_scientific_name(self, name: str) -> Species | None:
         return self._known.get(name)
+
+    def get_by_normalized_scientific_name(self, name: str) -> Species | None:
+        target = normalize_scientific_name(name)
+        for species in self._known.values():
+            if normalize_scientific_name(species.scientific_name) == target:
+                return species
+        return None
 
 
 class _FakeIdentRepo:
@@ -166,6 +182,34 @@ def test_identify_unmatched_species_marks_not_in_database():
     out = _engine().identify(_StubAdapter(result), _real_jpeg(), tenant_key="t", user_key="u")
     assert out["suggestions"][0]["matched_species_key"] is None
     assert out["suggestions"][0]["species_in_database"] is False
+
+
+def test_identify_hybrid_marker_variant_matches_existing_species():
+    """REQ-048 R4 — a ×-spelled suggestion resolves to an existing x-spelled row.
+
+    The stored species uses the ASCII hybrid marker; the recognition service
+    returns the U+00D7 multiplication sign. Normalized matching must map the two
+    onto one another so the candidate is flagged as already in the database and
+    no duplicate is ever created.
+    """
+    species = Species(_key="species_fragaria", scientific_name="Fragaria x ananassa")
+    species_repo = _FakeSpeciesRepo({"Fragaria x ananassa": species})
+    result = IdentificationResult(
+        suggestions=[
+            IdentificationSuggestion(
+                rank=1,
+                scientific_name="Fragaria × ananassa",  # U+00D7, spaced
+                confidence=0.91,
+                external_id="plantnet:2",
+            )
+        ],
+        is_plant=True,
+    )
+    out = _engine(species_repo).identify(_StubAdapter(result), _real_jpeg(), tenant_key="t", user_key="u")
+
+    top = out["suggestions"][0]
+    assert top["matched_species_key"] == "species_fragaria"
+    assert top["species_in_database"] is True
 
 
 def test_identify_not_a_plant():

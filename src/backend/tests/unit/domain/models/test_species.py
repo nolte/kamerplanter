@@ -46,6 +46,33 @@ class TestSpeciesValidation:
             Species(scientific_name="Genus species", hardiness_zones=["invalid"])
 
 
+class TestScientificNameNormalized:
+    """REQ-048 Stufe 1 — the derived, server-managed dedup key on Species."""
+
+    def test_derived_on_create(self):
+        s = Species(scientific_name="Fragaria × ananassa")
+        assert s.scientific_name_normalized == "fragaria x ananassa"
+        # The human-facing spelling is preserved untouched (R3).
+        assert s.scientific_name == "Fragaria × ananassa"
+
+    def test_hybrid_marker_variants_share_one_key(self):
+        ascii_variant = Species(scientific_name="Fragaria x ananassa")
+        sign_variant = Species(scientific_name="Fragaria × ananassa")
+        assert ascii_variant.scientific_name_normalized == sign_variant.scientific_name_normalized
+
+    def test_client_supplied_normalized_is_ignored(self):
+        # A request body value for the internal key must never win — it is always
+        # re-derived from scientific_name.
+        s = Species(scientific_name="Solanum lycopersicum", scientific_name_normalized="tampered")
+        assert s.scientific_name_normalized == "solanum lycopersicum"
+
+    def test_recomputed_from_stored_doc(self):
+        # Reading a legacy doc back re-derives the key (self-healing on update).
+        raw = {"scientific_name": "SOLANUM  Lycopersicum", "scientific_name_normalized": ""}
+        s = Species.model_validate(raw)
+        assert s.scientific_name_normalized == "solanum lycopersicum"
+
+
 class TestSuitabilityEnum:
     def test_enum_values(self):
         assert Suitability.YES == "yes"

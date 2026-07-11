@@ -6,6 +6,7 @@ from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.query_builder import AQLBuilder
+from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
 
@@ -22,6 +23,48 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
 
     def get_by_scientific_name(self, name: str) -> Species | None:
         return self.find_one_by_field("scientific_name", name)
+
+    def get_by_normalized_scientific_name(self, name: str) -> Species | None:
+        """Look up a species by the canonical dedup key (REQ-048 Stufe 1).
+
+        The incoming ``name`` is run through the same
+        :func:`normalize_scientific_name` utility that fills
+        ``scientific_name_normalized`` on write, so a hybrid-marker/casing/
+        whitespace variant (``Fragaria × ananassa``) resolves to the stored
+        record (``Fragaria x ananassa``). This stays a fast indexed equality
+        lookup — the persistent index on ``scientific_name_normalized``
+        (``ensure_collections``) backs it, so it never degrades to a scan.
+        """
+        return self.find_one_by_field("scientific_name_normalized", normalize_scientific_name(name))
+
+    def upsert_by_normalized_scientific_name(self, species: Species) -> Species:
+        """Insert ``species`` or return the existing row with the same dedup key.
+
+        A single atomic AQL ``UPSERT`` on ``scientific_name_normalized`` collapses
+        the check-then-insert into one server round-trip (REQ-048 R5, SEC-003):
+        on a match the existing document is returned unchanged (``UPDATE {}``),
+        otherwise the new species is inserted. Behaviour is identical to the prior
+        lookup-then-create, but the window between check and insert is closed
+        server-side. NB: a *fully* TOCTOU-race-free guarantee against two
+        simultaneous inserts of the same normalized key additionally needs the
+        index to be unique — deferred to a follow-up migration because the index
+        cannot become unique until v0010 has de-duplicated every volume.
+        """
+        doc = self._to_doc(species)
+        now = self._now()
+        doc["created_at"] = now
+        doc["updated_at"] = now
+        query = f"""
+        UPSERT {{ scientific_name_normalized: @norm }}
+        INSERT @doc
+        UPDATE {{}} IN {col.SPECIES}
+        RETURN NEW
+        """
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"norm": species.scientific_name_normalized, "doc": doc},
+        )
+        return Species(**self._from_doc(next(cursor)))
 
     def set_representative_image(
         self,

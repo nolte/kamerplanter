@@ -377,6 +377,19 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 🧬 REQ-048: Spezies-Identitätsauflösung & Deduplizierung
+**Fokus:** Kanonische `scientific_name`-Normalisierung + User-in-the-Loop-Disambiguierung + gemerkte Entscheidungen entlang des Foto-Identifikations-Pfades · **Präzisiert:** REQ-029 §1.2 · **Erweitert:** REQ-001, REQ-011, REQ-024 · Quelle: Issue #436
+- **Vierstufiges Reifegrad-Modell (Ausbaustufen):** Stufe 1 kanonische Normalisierung (`×`↔`x`, casefold, Whitespace) + persistenter `scientific_name_normalized`-Key + idempotentes `create_species` + Backfill-Migration (behebt Duplikat `Fragaria × / x ananassa`) → Stufe 2 Disambiguierungs-Dialog bei nicht-exaktem Match (Kandidaten-Ranking via String-Distanz) → Stufe 3 tenant-lokaler Merk-Store (Re-Apply, „keep new") → Stufe 4 Fuzzy-Taxonomie (Zukunft, out of scope).
+- **Auto-Accept-Grenze:** Exakt-nach-Normalisierung ist der einzige „100 % sichere" Pfad; alles andere ist Gegenstand der interaktiven Disambiguierung.
+- **Datenqualität:** eliminiert normalisierungsbedingte Duplikat-Spezies („Datenleichen"); Original-Anzeigename bleibt unverändert.
+
+**Highlights:**
+- Stufe 1 wird direkt umgesetzt (Bugfix); Stufe 2–3 sind geplant (formale Pipeline).
+- Cross-Tenant-Isolation (SEC-001) für Merk-Store und Kandidatenliste verpflichtend.
+- Backfill über das versionierte Migrations-Framework (NFR-016).
+
+---
+
 ## Technologie-Stack
 
 ### Backend

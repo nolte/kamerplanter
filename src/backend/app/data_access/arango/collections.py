@@ -1259,6 +1259,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     # Create indexes
     species_col = db.collection(SPECIES)
     species_col.add_persistent_index(fields=["scientific_name"], unique=True)
+    # Canonical dedup key (REQ-048 Stufe 1) — non-unique so bootstrap never fails
+    # on volumes that still carry un-reconciled normalization duplicates; the
+    # dedup itself is enforced in the service/engine layer. add_persistent_index
+    # is idempotent by field-set, so this also brings existing volumes to shape.
+    species_col.add_persistent_index(fields=["scientific_name_normalized"], unique=False)
 
     families_col = db.collection(BOTANICAL_FAMILIES)
     families_col.add_persistent_index(fields=["name"], unique=True)
