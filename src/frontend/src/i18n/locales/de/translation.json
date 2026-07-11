@@ -1405,7 +1405,8 @@
       "filterOrigin": "Herkunft",
       "filterSubjectType": "Zuordnung",
       "subjectPlant": "Pflanze",
-      "subjectRun": "Pflanzdurchlauf"
+      "subjectRun": "Pflanzdurchlauf",
+      "subjectNone": "Ohne Zuordnung"
     },
     "botanicalFamilies": {
       "title": "Botanische Familien",

@@ -211,6 +211,12 @@ export default function OverwinteringListPage() {
         options: [
           { value: 'plant', label: t('pages.overwintering.subjectPlant') },
           { value: 'run', label: t('pages.overwintering.subjectRun') },
+          // Profiles with neither a plant nor a run (rendered as "—" in the
+          // table, see `subjectLabel`) are a legitimate, if rare, data state
+          // (e.g. after the linked plant/run was removed). Without this
+          // option, selecting any other subject-type value would silently
+          // and permanently hide them until every facet is cleared.
+          { value: 'none', label: t('pages.overwintering.subjectNone') },
         ],
       },
     ],

@@ -438,6 +438,21 @@ describe('OverwinteringListPage — faceted filters', () => {
     expect(screen.queryByTestId('hardiness-chip-ow-3')).toBeNull();
   });
 
+  it('filters by subject type "unassigned" to surface profiles with neither a plant nor a run', async () => {
+    useProfiles(allProfiles);
+    const user = userEvent.setup();
+    renderWithProviders(<OverwinteringListPage />);
+
+    await waitFor(() => expect(screen.getByTestId('hardiness-chip-ow-1')).toBeTruthy());
+
+    await pickOption(user, 'subject_type', i18n.t('pages.overwintering.subjectNone'));
+
+    // Only the unlinked profile (ow-3) remains; plant (ow-1) and run (ow-2) drop.
+    await waitFor(() => expect(screen.queryByTestId('hardiness-chip-ow-1')).toBeNull());
+    expect(screen.queryByTestId('hardiness-chip-ow-2')).toBeNull();
+    expect(screen.getByTestId('hardiness-chip-ow-3')).toBeTruthy();
+  });
+
   it('combines multiple facets with AND', async () => {
     useProfiles(allProfiles);
     const user = userEvent.setup();
