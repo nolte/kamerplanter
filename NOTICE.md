@@ -25,3 +25,14 @@ used, its attribution is shown in the UI and applies here:
 
 Home Assistant, when configured as a weather source, reads only the user's own
 Home Assistant instance and introduces no third-party data attribution.
+
+## Evapotranspiration library (REQ-037)
+
+- **aquacrop-eto** (`aquacropeto` on PyPI) — used to compute FAO-56 Penman-Monteith
+  and Hargreaves reference evapotranspiration (ET₀). Licensed under the
+  **BSD-3-Clause** licence; copyright © 2015 Mark Richards (a maintained fork of
+  PyETo). A permissive, MIT-compatible licence — no ShareAlike/copyleft
+  obligations on the Kamerplanter codebase. The FAO-56 equations themselves
+  (Allen et al., 1998, *Crop evapotranspiration — Guidelines for computing crop
+  water requirements*, FAO Irrigation and Drainage Paper 56) are the published
+  scientific reference.

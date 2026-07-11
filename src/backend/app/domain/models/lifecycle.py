@@ -26,6 +26,11 @@ class GrowthPhase(BaseModel):
     is_recurring: bool = False
     stress_tolerance: StressTolerance = StressTolerance.MEDIUM
     watering_interval_days: int | None = Field(default=None, ge=1, le=90)
+    # ── REQ-037 crop coefficient (Kc) — phase-level, most specific tier of the
+    # resolve_kc cascade. Kc scales ET₀ into crop ETc; it varies strongly across
+    # the initial/mid/late season stages, so it is best maintained per phase.
+    crop_coefficient_kc: float | None = Field(default=None, ge=0.1, le=1.5)
+    kc_source: str = ""
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
