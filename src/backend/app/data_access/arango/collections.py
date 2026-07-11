@@ -159,6 +159,11 @@ BENEFICIALS = "beneficials"  # WP-8 — Nützlings-Stammdaten
 # REQ-010 User-contributed pest reference images (tenant-private gallery)
 PEST_IMAGE_CONTRIBUTIONS = "pest_image_contributions"
 
+# REQ-038 CV disease diagnosis — one document per diagnosis request. Only the
+# classifications / phenotype metrics / provenance are kept; the original image
+# is never persisted (``image_deleted_at`` set, §4.4).
+PLANT_DIAGNOSIS_REQUESTS = "plant_diagnosis_requests"
+
 # REQ-017 Propagation / lineage — one document per propagation event (clone /
 # seed cross / graft / division). D10 persists the monocarpic-mother→pup clone
 # event; the full propagation API/router remains a REQ-017 follow-up.
@@ -252,6 +257,7 @@ DOCUMENT_COLLECTIONS = [
     ERASURE_REQUESTS,
     EMAIL_CHANGE_REQUESTS,
     IDENTIFICATION_REQUESTS,
+    PLANT_DIAGNOSIS_REQUESTS,
     DIAGNOSIS_REQUESTS,
     REFERENCE_IMAGE_JOBS,
     ATTACHMENTS,
@@ -447,6 +453,12 @@ PEST_DETECTION_OF = "pest_detection_of"  # pest_detections → plant_instances/p
 PEST_DETECTION_FLAGGED = "pest_detection_flagged"  # pest_detections → pests
 PEST_DETECTION_SUGGESTED_INSPECTION = "pest_detection_suggested_inspection"  # → inspections
 
+# REQ-038 CV disease diagnosis edges
+CV_DIAGNOSED_FOR = "cv_diagnosed_for"  # plant_diagnosis_requests → plant_instances/planting_runs
+CV_DIAGNOSIS_FOUND = "cv_diagnosis_found"  # plant_diagnosis_requests → diseases/pests
+CV_ATTACHED_TO_INSPECTION = "cv_attached_to_inspection"  # → inspections
+CV_PHENOTYPE_OF = "cv_phenotype_of"  # plant_diagnosis_requests → harvest_observations
+
 EDGE_COLLECTIONS = [
     BELONGS_TO_FAMILY,
     HAS_CULTIVAR,
@@ -575,6 +587,11 @@ EDGE_COLLECTIONS = [
     PEST_DETECTION_OF,
     PEST_DETECTION_FLAGGED,
     PEST_DETECTION_SUGGESTED_INSPECTION,
+    # REQ-038 CV disease diagnosis
+    CV_DIAGNOSED_FOR,
+    CV_DIAGNOSIS_FOUND,
+    CV_ATTACHED_TO_INSPECTION,
+    CV_PHENOTYPE_OF,
     # REQ-046 Weather data sources
     HAS_FORECAST,
     HAS_WEATHER_SOURCE_CONFIG,
@@ -1242,6 +1259,27 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [PEST_DETECTIONS],
         "to_vertex_collections": [INSPECTIONS],
     },
+    # REQ-038 CV disease diagnosis edges
+    {
+        "edge_collection": CV_DIAGNOSED_FOR,
+        "from_vertex_collections": [PLANT_DIAGNOSIS_REQUESTS],
+        "to_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS],
+    },
+    {
+        "edge_collection": CV_DIAGNOSIS_FOUND,
+        "from_vertex_collections": [PLANT_DIAGNOSIS_REQUESTS],
+        "to_vertex_collections": [DISEASES, PESTS],
+    },
+    {
+        "edge_collection": CV_ATTACHED_TO_INSPECTION,
+        "from_vertex_collections": [PLANT_DIAGNOSIS_REQUESTS],
+        "to_vertex_collections": [INSPECTIONS],
+    },
+    {
+        "edge_collection": CV_PHENOTYPE_OF,
+        "from_vertex_collections": [PLANT_DIAGNOSIS_REQUESTS],
+        "to_vertex_collections": [HARVEST_OBSERVATIONS],
+    },
     # REQ-046 Weather data sources
     {
         "edge_collection": HAS_FORECAST,
@@ -1541,6 +1579,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     beneficials_col = db.collection(BENEFICIALS)
     beneficials_col.add_persistent_index(fields=["slug"], unique=True)
     beneficials_col.add_persistent_index(fields=["scientific_name"], unique=True)
+
+    # REQ-038 CV disease diagnosis index — the history query filters by
+    # (tenant_key, user_key) and sorts by created_at.
+    plant_diagnosis_requests_col = db.collection(PLANT_DIAGNOSIS_REQUESTS)
+    plant_diagnosis_requests_col.add_persistent_index(fields=["tenant_key", "user_key", "created_at"], unique=False)
 
     # REQ-010 user-contributed pest reference image indexes — the gallery query
     # always filters by (tenant_key, pest_key); DSGVO lookup filters by tenant.

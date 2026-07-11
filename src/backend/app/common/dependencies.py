@@ -1107,6 +1107,45 @@ def get_pest_detection_service():
     )
 
 
+# ── REQ-038 CV disease diagnosis dependencies ───────────────────
+
+
+def get_plant_diagnosis_repo():
+    from app.data_access.arango.plant_diagnosis_repository import (
+        ArangoPlantDiagnosisRepository,
+    )
+
+    return ArangoPlantDiagnosisRepository(get_db())
+
+
+def get_cv_diagnosis_service():
+    from app.domain.engines.consent_engine import ConsentEngine
+    from app.domain.engines.cv_diagnosis_engine import CvDiagnosisEngine
+    from app.domain.services.cv_diagnosis_service import CvDiagnosisService
+    from app.domain.services.ipm_diagnosis_matcher import IpmDiagnosisMatcher
+
+    matcher = IpmDiagnosisMatcher(get_ipm_repo())
+    engine = CvDiagnosisEngine(
+        matcher,
+        confidence_show=settings.cv_classifier_confidence_show,
+        confidence_highlight=settings.cv_classifier_confidence_highlight,
+    )
+    return CvDiagnosisService(
+        adapter=_get_cv_diagnosis_adapter(),
+        engine=engine,
+        repo=get_plant_diagnosis_repo(),
+        ipm_service=get_ipm_service(),
+        consent_repo=get_consent_repo(),
+        consent_engine=ConsentEngine(),
+    )
+
+
+def _get_cv_diagnosis_adapter():
+    from app.data_access.external.local_cv_diagnosis_adapter import LocalCvDiagnosisAdapter
+
+    return LocalCvDiagnosisAdapter()
+
+
 def get_retention_service():
     from app.domain.services.retention_service import RetentionService
 
