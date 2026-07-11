@@ -47,6 +47,7 @@ class FertilizerDetailPage(BasePage):
 
     # Error / not-found states
     ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")
+    READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='fertilizer-readonly-banner']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -168,6 +169,15 @@ class FertilizerDetailPage(BasePage):
         """Return the current value of the brand field."""
         el = self.wait_for_element(self.FORM_BRAND)
         return el.get_attribute("value") or ""
+
+    def is_read_only(self) -> bool:
+        """Return True if this fertilizer is origin-protected (read-only).
+
+        Global/system catalog entries (UI-NFR-018) show a read-only banner and
+        render no editable form actions on the edit tab, so the save-button
+        tests have no button to assert against.
+        """
+        return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
     def is_submit_button_enabled(self) -> bool:
         """Return True if the submit (save) button is enabled."""

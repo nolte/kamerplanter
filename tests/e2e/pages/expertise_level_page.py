@@ -159,6 +159,20 @@ class ExpertiseLevelPage(BasePage):
         elements = self.driver.find_elements(*locator)
         return len(elements) > 0 and elements[0].is_displayed()
 
+    def clear_module_overrides(self) -> None:
+        """Drop the E2E per-module visibility override (REQ-042 / REQ-021).
+
+        The browser fixture seeds ``kp-module-visibility`` in localStorage with
+        every module ``enabled`` so module-guarded pages are reachable. That
+        override short-circuits the experience-level check, so nav-tiering tests
+        (which assert that advanced items are *hidden* at lower levels) must
+        remove it first. The next full navigation re-reads localStorage, so the
+        sidebar then reflects pure experience-level tiering.
+        """
+        self.driver.execute_script(
+            "window.localStorage.removeItem('kp-module-visibility');"
+        )
+
     def count_sidebar_nav_items(self) -> int:
         """Count visible sidebar navigation items (ListItemButton elements)."""
         items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
