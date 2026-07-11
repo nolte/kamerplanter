@@ -15,10 +15,16 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFi
 from app.auth import check_insecure_config, require_service_token
 from app.confidence import cosine_to_confidence
 from app.config import settings
+from app.disease_classifier import DiseaseClassifier, DiseaseModelNotReadyError
 from app.embedder import Embedder, ModelNotReadyError
+from app.phenotype_engine import PhenotypeEngine, PhenotypeUnavailableError
 from app.schemas import (
     BatchEmbedResponse,
     DeleteReferenceResponse,
+    DiseaseClassificationItem,
+    DiseaseClassifyResponse,
+    DiseaseModelMeta,
+    DiseaseStatusResponse,
     EmbedResponse,
     HealthResponse,
     MatchResponse,
@@ -34,6 +40,7 @@ from app.schemas import (
     PestSetActiveRequest,
     PestSetActiveResponse,
     PestStatusResponse,
+    PhenotypeMetricsItem,
     ReferenceImageItem,
     ReferenceListResponse,
     ReferenceResponse,
@@ -50,11 +57,22 @@ logger = structlog.get_logger(__name__)
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
+# REQ-038 -- a CV diagnosis is ALWAYS a hypothesis, never an accepted verdict. An
+# automated test asserts this string is non-empty and present on every response.
+DEFAULT_DISEASE_DISCLAIMER = (
+    "Nur eine Einschätzung der Bilderkennung — keine gesicherte Diagnose. "
+    "Bitte den Verdacht fachlich prüfen, bevor du behandelst; bei Unsicherheit "
+    "einen zweiten Blick einholen."
+)
+
 _embedder: Embedder | None = None
 _repo: SpeciesEmbeddingRepository | None = None
 _pest_repo: PestEmbeddingRepository | None = None
 _vec_conn: VectorDbConnection | None = None
 _model_checksum: str | None = None
+_disease_classifier: DiseaseClassifier | None = None
+_phenotype_engine: PhenotypeEngine | None = None
+_disease_model_meta: dict | None = None
 
 
 def _load_model_checksum() -> str | None:
@@ -67,6 +85,34 @@ def _load_model_checksum() -> str | None:
         return data.get("checksum") or data.get("sha256")
     except (json.JSONDecodeError, OSError):  # fmt: skip
         return None
+
+
+def _load_disease_model_meta() -> dict:
+    """Read the REQ-038 model card from ``diseasemodelinfo.json`` (never bakes in defaults).
+
+    PlantVillage is deliberately excluded from the provenance card; the loader
+    surfaces whatever the mounted artifact declares. Missing file => empty card.
+    """
+    info_path = Path(settings.disease_model_path) / "diseasemodelinfo.json"
+    if not info_path.exists():
+        return {}
+    try:
+        return json.loads(info_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _build_disease_model_meta(class_count: int) -> DiseaseModelMeta:
+    """Compose the response model card from the sidecar + live class count."""
+    meta = _disease_model_meta or {}
+    return DiseaseModelMeta(
+        model_name=meta.get("model_name", settings.disease_model_name),
+        training_base=meta.get("training_base"),
+        fine_tuned_on=meta.get("fine_tuned_on", []),
+        onnx_checksum=meta.get("onnx_checksum") or meta.get("checksum") or meta.get("sha256"),
+        model_version=meta.get("model_version"),
+        class_count=class_count,
+    )
 
 
 @asynccontextmanager
@@ -110,6 +156,20 @@ async def lifespan(app: FastAPI):
     )
     _embedder.start_load()  # non-blocking; readiness reported via /ready
     _model_checksum = _load_model_checksum()
+
+    # REQ-038 -- optional disease classifier + phenotype pipeline. Both degrade
+    # gracefully: the classifier only starts loading when explicitly enabled, and
+    # the phenotype engine probes PlantCV lazily. Neither blocks startup.
+    global _disease_classifier, _phenotype_engine, _disease_model_meta
+    _phenotype_engine = PhenotypeEngine(enabled=settings.phenotype_enabled)
+    if settings.disease_classifier_enabled:
+        _disease_classifier = DiseaseClassifier(
+            model_path=settings.disease_model_path,
+            input_size=settings.disease_input_size,
+        )
+        _disease_classifier.start_load()  # non-blocking
+        _disease_model_meta = _load_disease_model_meta()
+        logger.info("disease_classifier_enabled", model=settings.disease_model_name)
 
     logger.info("inference_service_starting", model=settings.model_name)
 
@@ -584,3 +644,99 @@ def delete_pest_reference(label: str) -> DeleteReferenceResponse:
     pest_repo = _require_pest_repo()
     deleted = pest_repo.delete_by_label(label)
     return DeleteReferenceResponse(status="ok", species_key=label, deleted=deleted)
+
+
+# -- REQ-038 disease classifier + PlantCV phenotype ------------------------
+
+
+def _require_disease_classifier() -> DiseaseClassifier:
+    """Return the disease classifier or 503 when disabled / not loaded.
+
+    Kept a hard 503 (not a silent empty result) so the backend can distinguish
+    "feature off" from "no disease found" and surface the right message.
+    """
+    if _disease_classifier is None:
+        raise HTTPException(status_code=503, detail="Disease classifier is disabled.")
+    if not _disease_classifier.is_ready():
+        detail = "disease model not loaded"
+        if _disease_classifier.load_error:
+            detail = f"disease model unavailable: {_disease_classifier.load_error}"
+        raise HTTPException(status_code=503, detail=detail)
+    return _disease_classifier
+
+
+@app.get("/disease/ready")
+def disease_ready() -> dict:
+    """Readiness for disease classification -- 503 until the model is loaded."""
+    _require_disease_classifier()
+    return {"status": "ok"}
+
+
+@app.get("/disease/status", response_model=DiseaseStatusResponse)
+def disease_status() -> DiseaseStatusResponse:
+    """Report classifier availability without failing (admin/status card source)."""
+    enabled = _disease_classifier is not None
+    ready = enabled and _disease_classifier.is_ready()
+    class_count = _disease_classifier.class_count if ready else 0
+    detail = None
+    if enabled and not ready and _disease_classifier.load_error:
+        detail = _disease_classifier.load_error
+    phenotype_available = _phenotype_engine is not None and _phenotype_engine.is_available()
+    return DiseaseStatusResponse(
+        ready=ready,
+        enabled=enabled,
+        class_count=class_count,
+        phenotype_available=phenotype_available,
+        model=settings.disease_model_name,
+        detail=detail,
+    )
+
+
+@app.post("/classify/disease", response_model=DiseaseClassifyResponse)
+async def classify_disease(
+    image: UploadFile = File(...),
+    k: int = Query(default=5, ge=1, le=20),
+    phenotype: bool = Query(default=False),
+) -> DiseaseClassifyResponse:
+    """Classify one image against the disease/deficiency head.
+
+    Returns the top-k classes above the configured softmax floor, an optional
+    PlantCV phenotype block, the model card and an always-present disclaimer. No
+    image is persisted here -- the backend owns request storage and EXIF-strip.
+    """
+    classifier = _require_disease_classifier()
+    data = await _read_upload(image)
+    try:
+        results = classifier.classify(data, k=k)
+    except DiseaseModelNotReadyError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    classifications = [
+        DiseaseClassificationItem(
+            label=r.label,
+            category=r.category,
+            scientific_name=r.scientific_name,
+            probability=r.probability,
+            highlight=r.probability >= settings.disease_highlight,
+        )
+        for r in results
+        if r.probability >= settings.disease_show_results
+    ]
+
+    phenotype_item: PhenotypeMetricsItem | None = None
+    if phenotype and _phenotype_engine is not None and _phenotype_engine.is_available():
+        try:
+            metrics = _phenotype_engine.measure(data)
+            phenotype_item = PhenotypeMetricsItem(**metrics.as_dict())
+        except PhenotypeUnavailableError:
+            phenotype_item = None
+        except Exception as exc:  # noqa: BLE001 -- phenotype is best-effort, never fatal
+            logger.warning("phenotype_measurement_failed", reason=str(exc))
+            phenotype_item = None
+
+    return DiseaseClassifyResponse(
+        classifications=classifications,
+        model_meta=_build_disease_model_meta(classifier.class_count),
+        phenotype=phenotype_item,
+        disclaimer=DEFAULT_DISEASE_DISCLAIMER,
+    )

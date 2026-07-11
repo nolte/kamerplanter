@@ -42,6 +42,7 @@ from app.api.v1.starter_kits.tenant_router import router as tenant_starter_kits_
 from app.api.v1.succession_plans.tenant_router import router as tenant_succession_plans_router
 from app.api.v1.tanks.tenant_router import router as tenant_tanks_router
 from app.api.v1.tasks.tenant_router import router as tenant_tasks_router
+from app.api.v1.tenant_scoped.cv_diagnosis.tenant_router import router as tenant_cv_diagnosis_router
 from app.api.v1.tenant_scoped.weather.tenant_router import router as tenant_weather_router
 from app.api.v1.user_preferences.tenant_router import router as tenant_user_preferences_router
 from app.api.v1.watering_events.tenant_router import router as tenant_watering_events_router
@@ -89,5 +90,6 @@ tenant_scoped_router.include_router(tenant_print_router)
 tenant_scoped_router.include_router(tenant_recognition_router)
 tenant_scoped_router.include_router(tenant_attachments_router)
 tenant_scoped_router.include_router(tenant_weather_router)
+tenant_scoped_router.include_router(tenant_cv_diagnosis_router)
 # REQ-026 Aquaponics
 tenant_scoped_router.include_router(tenant_aquaponics_router)

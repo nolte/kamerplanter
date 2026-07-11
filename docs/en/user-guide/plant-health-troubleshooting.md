@@ -68,6 +68,13 @@ If you're unsure whether it's a pest: take a photo and use [pest detection](pest
 
 ---
 
+## Planned Extension: Photo Diagnosis for Diseases and Deficiencies
+
+!!! warning "Not yet implemented"
+    A complementary automatic photo diagnosis specifically for **diseases and nutrient deficiencies** (distinct from the already-available [pest detection](pest-detection.md), which specializes in pests and damage patterns) is planned but not yet available in the interface (internal reference: REQ-038). It will produce a suspected-cause list from a leaf photo with the categories "disease", "nutrient deficiency", and "pest", compute additional image metrics (e.g. leaf area, discolored area ratio) and — like pest detection — always show only an unconfirmed hypothesis that you confirm yourself. A treatment is never triggered automatically.
+
+---
+
 ## Frequently Asked Questions
 
 ??? question "I don't see an insect, but the leaves look infested — what now?"
@@ -80,7 +87,7 @@ If you're unsure whether it's a pest: take a photo and use [pest detection](pest
     A look at your [watering log](watering-log.md) shows you when and how much was last watered, and whether EC or pH values were recorded. If a value deviates noticeably from the target ranges in [fertilization](fertilization.md), that's a strong indicator.
 
 ??? question "Can Kamerplanter automatically detect that my plant isn't doing well?"
-    Kamerplanter does not currently evaluate general disease symptoms automatically. What is evaluated automatically are photos you specifically submit via [pest detection](pest-detection.md). For everything else, this page is meant as a reference guide.
+    Kamerplanter automatically evaluates photos you specifically submit via [pest detection](pest-detection.md). A complementary automatic diagnosis specifically for diseases and nutrient deficiencies is planned but not yet available in the interface (see above). For everything else, this page is meant as a reference guide.
 
 ---
 

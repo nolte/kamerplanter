@@ -798,6 +798,189 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 
 ---
 
+## CV-Krankheitsdiagnose <!-- REQ-038 -->
+
+Bildbasierte **Zustandsdiagnose** (Krankheit, Nährstoffmangel, ergänzend Schädling) aus einem Blattfoto — abgegrenzt von der Artbestimmung ([Pflanzenerkennung](#pflanzenerkennung-referenzbild-beitrag-self-hosted-erkennung)) und von der spezialisierten [Schädlingserkennung](../user-guide/pest-detection.md): Diese Diagnose beantwortet „was fehlt der Pflanze?", nicht „welche Art/welcher Schädling ist das?". Die Erkennung läuft self-hosted im Inference-Service; das hochgeladene Foto wird serverseitig von EXIF-Metadaten bereinigt und **nicht dauerhaft gespeichert** — nur ein SHA-256-Fingerabdruck bleibt erhalten (`image_deleted_at` ist bei jeder Antwort gesetzt).
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/cv-diagnosis/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte (`/status`, `/history`) benötigen keine besondere Mandanten-Rolle; schreibende Endpunkte (`/diagnose`, `/diagnose/{request_key}/confirm`) erfordern mindestens die Rolle **grower**.
+
+!!! danger "Immer nur eine Hypothese — nie automatisch behandelt"
+    Jede Antwort enthält ein nie-leeres Feld `disclaimer`. Eine CV-Diagnose erzeugt **niemals** automatisch eine Behandlung und umgeht **kein** Karenz-Gate (siehe [Pflanzenschutz (IPM)](../user-guide/pest-management.md)) — `POST .../confirm` legt höchstens eine IPM-Inspektions-**Vorlage** an, die du selbst prüfst und bestätigst.
+
+### Verfügbarkeit prüfen
+
+```
+GET /api/v1/t/{tenant_slug}/cv-diagnosis/status
+```
+
+**Response (200):** `CvDiagnosisStatusResponse`
+
+```json
+{
+  "available": false,
+  "feature_enabled": false,
+  "adapter_key": "local_cv_diagnosis",
+  "phenotype_available": false,
+  "class_count": 0
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `available` | boolean | Ob die Funktion nutzbar ist (`feature_enabled` **und** ein geladenes Klassifikator-Modell). Steuert, ob eine künftige Foto-Diagnose-Schaltfläche im Frontend eingeblendet wird. |
+| `feature_enabled` | boolean | Betreiber-Schalter (`CV_DIAGNOSIS_ENABLED`), unabhängig davon, ob bereits ein Modell geladen ist. |
+| `adapter_key` | string | Kennung des aktiven Adapters. Aktuell nur `local_cv_diagnosis` (self-hosted, keine Bilddaten verlassen die Instanz). |
+| `phenotype_available` | boolean | Ob die PlantCV-Phänotyp-Pipeline im Inference-Service verfügbar ist. |
+| `class_count` | integer | Anzahl der vom geladenen Klassifikator unterstützten Krankheits-/Mangel-/Schädlingsklassen. |
+
+### Foto-Diagnose durchführen
+
+```
+POST /api/v1/t/{tenant_slug}/cv-diagnosis/diagnose
+```
+
+Erfordert mindestens die Mandanten-Rolle **grower** — die Rolle **viewer** erhält `403`. Die Einwilligung `plant_diagnosis` ist im **Voll-Modus** Pflicht und wird serverseitig geprüft (`403 CONSENT_REQUIRED` ohne erteilte Einwilligung); im [Light-Modus](../user-guide/light-mode.md) entfällt die serverseitige Prüfung, da dort kein Consent-Subsystem existiert (siehe [Datenschutz & DSGVO](../user-guide/privacy.md)).
+
+**Request-Body:** `multipart/form-data`
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `image` | file | Ja | JPEG- oder PNG-Bild, maximal `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` (Standard 5 MB) |
+| `plant_key` | string | Nein | Pflanzinstanz, der die Diagnose zugeordnet wird |
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `phenotype` | boolean | `false` | Zusätzlich PlantCV-Phänotyp-Kennzahlen berechnen (Blattfläche, Grün-Index, Anteil verfärbter/nekrotischer Fläche) — nur wirksam, wenn `phenotype_available == true` |
+
+**Response (200):** `CvDiagnosisResponse`
+
+```json
+{
+  "key": "plant_diagnosis_requests/abc123",
+  "plant_instance_key": "plant_instances/101",
+  "inspection_key": null,
+  "classifications": [
+    {
+      "label": "septoria_leaf_spot",
+      "category": "disease",
+      "scientific_name": null,
+      "probability": 0.74,
+      "highlight": false,
+      "matched_disease_key": "diseases/septoria",
+      "matched_pest_key": null,
+      "matched_symptom_slug": null
+    }
+  ],
+  "phenotype": null,
+  "model_meta": {
+    "model_name": "kamerplanter-leaf-disease-v1",
+    "training_base": "imagenet-dinov2-backbone",
+    "fine_tuned_on": ["plantdoc-ccby4"],
+    "onnx_checksum": "sha256:...",
+    "model_version": "20260601",
+    "class_count": 17
+  },
+  "adapter_key": "local_cv_diagnosis",
+  "is_confident": false,
+  "disclaimer": "Nur eine Einschätzung der Bilderkennung — keine gesicherte Diagnose. Bitte den Verdacht fachlich prüfen, bevor du behandelst; bei Unsicherheit einen zweiten Blick einholen.",
+  "confirmed_labels": [],
+  "image_hash": "sha256:9f86d0...",
+  "image_deleted_at": "2026-07-11T14:30:02Z",
+  "created_at": "2026-07-11T14:30:00Z"
+}
+```
+
+| Feld | Bedeutung |
+|------|----------|
+| `classifications[].category` | `disease`, `deficiency`, `pest` oder `healthy` (keine Auffälligkeit erkannt) |
+| `classifications[].probability` | Konfidenz 0.0–1.0. Treffer unterhalb der Anzeige-Schwelle (`CV_CLASSIFIER_CONFIDENCE_SHOW`) werden verworfen und erscheinen nicht in der Liste. |
+| `classifications[].highlight` | `true` ab der Hervorhebungs-Schwelle (`CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT`) — reine UI-Betonung, **kein** Auto-Accept |
+| `classifications[].matched_disease_key` / `matched_pest_key` | Gegen die IPM-Stammdaten ([Pflanzenschutz](../user-guide/pest-management.md)) gematchter Schlüssel, nur bei `category` `disease` bzw. `pest` |
+| `classifications[].matched_symptom_slug` | Nur bei `category == "deficiency"` gesetzt — REQ-010 kennt (noch) keine eigene Mangel-Stammdaten-Collection, das Matching läuft stattdessen über Symptom-Slugs |
+| `is_confident` | `true`, wenn mindestens ein aktionabler Treffer (`disease`/`deficiency`/`pest`) hervorgehoben ist. Bedeutet **nicht** „bestätigt" — nur eine UI-Einstufung |
+| `model_meta` | Modellkarte/Provenienz: `fine_tuned_on` listet die Trainingsquelle (`plantdoc-ccby4` — CC-BY-4.0; **PlantVillage wird nicht verwendet**, siehe [Lizenzhinweise](#lizenzhinweise-req-038)) |
+| `image_hash` / `image_deleted_at` | Beleg, dass **kein** Originalbild gespeichert wird — nur der Fingerabdruck bleibt erhalten |
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb **grower**, oder Einwilligung `plant_diagnosis` fehlt (Voll-Modus) |
+| `413` | Bild überschreitet `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` bzw. die interne Pixel-Bombe-Grenze |
+| `415` | `Content-Type` ist weder `image/jpeg` noch `image/png` |
+| `422` | Bild lässt sich nicht dekodieren (beschädigt oder kein gültiges Bildformat) |
+| `503` | Der self-hosted Klassifikator ist nicht aktiviert oder nicht erreichbar (`CV_DIAGNOSIS_ENABLED=false` oder kein geladenes Modell) |
+
+### Diagnose zu einer IPM-Inspektionsvorlage bestätigen
+
+```
+POST /api/v1/t/{tenant_slug}/cv-diagnosis/diagnose/{request_key}/confirm
+```
+
+Erfordert mindestens die Mandanten-Rolle **grower**. Legt aus den bestätigten Klassen eine [IPM-Inspektion](../user-guide/pest-management.md) als **Vorschlag** an — **niemals** automatisch eine Behandlung; das Karenz-Gate bleibt in jedem Fall aktiv.
+
+**Request-Body:**
+
+```json
+{
+  "plant_key": "plant_instances/101",
+  "confirmed_labels": ["septoria_leaf_spot"]
+}
+```
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `plant_key` | string | Ja | Pflanzinstanz, der die angelegte Inspektion zugeordnet wird |
+| `confirmed_labels` | Liste[string] | Nein | Zu bestätigende Klassen-Labels; ohne Angabe werden die hervorgehobenen (`highlight == true`) Klassen übernommen |
+
+**Response (201):** `ConfirmDiagnosisResponse`
+
+```json
+{
+  "inspection_key": "inspections/42",
+  "detected_disease_keys": ["diseases/septoria"],
+  "detected_pest_keys": [],
+  "confirmed_labels": ["septoria_leaf_spot"]
+}
+```
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb **grower** |
+| `404` | `request_key` unbekannt oder gehört nicht zum Mandanten (Cross-Tenant-Zugriff schlägt ohne Unterscheidung fehl — kein Existence-Oracle) |
+
+### Diagnose-Historie abrufen
+
+```
+GET /api/v1/t/{tenant_slug}/cv-diagnosis/history
+```
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `limit` | integer | `20` | Maximale Anzahl Einträge (1–100) |
+
+**Response (200):** Liste von `CvDiagnosisResponse` (siehe oben), sortiert nach Erstellungsdatum absteigend, beschränkt auf die eigenen Diagnosen des angemeldeten Nutzers im aktuellen Mandanten.
+
+### Lizenzhinweise {#lizenzhinweise-req-038}
+
+Der Klassifikator ist auf dem **PlantDoc**-Datensatz (CC-BY-4.0, Attribution) plus eigenen kuratierten Realdaten fine-getunt; die Phänotyp-Pipeline nutzt **PlantCV** (MPL-2.0, unverändert als Bibliothek). **PlantVillage wird nicht verwendet** (Lizenz ungeklärt). Vollständige Attributionstexte: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
+
+### Siehe auch
+
+- [Meiner Pflanze geht es schlecht — Symptom-Diagnose](../user-guide/plant-health-troubleshooting.md)
+- [Schädlingserkennung per Foto](../user-guide/pest-detection.md)
+- [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
+- [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
+- [Umgebungsvariablen — CV-Krankheitsdiagnose](environment-variables.md#cv-krankheitsdiagnose-req-038)
+
+---
+
 ## Aquaponik <!-- REQ-026 -->
 
 Aquaponik führt Fisch-Pflanzen-Kreislaufsysteme ein: Fischbestand, Wassertests mit automatisch berechnetem freiem Ammoniak, Biofilter-Cycling-Erkennung, Fütterung und Nährstoff-Supplementierung. Das Frontend deckt bislang nur einen Teil der API ab (Systeme anlegen/auflisten, Wassertest erfassen, Einfahrfortschritt und Wasserqualität lesen) — siehe [Aquaponik — Benutzerhandbuch: Für technische Nutzer / Self-Hoster](../user-guide/aquaponics.md#fur-technische-nutzer-self-hoster) für die vollständige, noch UI-lose Restfläche der API.

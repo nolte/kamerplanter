@@ -29,8 +29,8 @@ class _NoopCollection:
         # Models a bootstrapped-but-empty database: ``ensure_collections`` already
         # created every persistent index, so a structural index migration
         # (v0009 notifications.group_key, v0011 climate_normals, v0012
-        # irrigation_demands, v0013 hardiness_zones) finds its target present and
-        # is a no-op.
+        # irrigation_demands, v0013 hardiness_zones, v0014 cv_diagnosis) finds its
+        # target present and is a no-op.
         return [
             {"type": "persistent", "fields": ["group_key", "tenant_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "site_key", "source"], "unique": True},
@@ -40,6 +40,8 @@ class _NoopCollection:
                 "unique": True,
             },
             {"type": "persistent", "fields": ["zone"], "unique": True},
+            # v0014 plant_diagnosis_requests history index
+            {"type": "persistent", "fields": ["tenant_key", "user_key", "created_at"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -51,13 +53,18 @@ class _NoopGraph:
 
     def edge_definitions(self):
         # v0011 checks for the has_climate_normal edge; v0012 for the two
-        # irrigation-demand edges; v0013 for located_in_zone — report all present so
-        # the structural migrations stay a no-op on a bootstrapped database.
+        # irrigation-demand edges; v0013 for located_in_zone; v0014 checks the four
+        # CV-diagnosis edges — report all present so the structural migrations stay
+        # no-ops on a bootstrapped database.
         return [
             {"edge_collection": "has_climate_normal"},
             {"edge_collection": "has_irrigation_demand"},
             {"edge_collection": "demand_for_run"},
             {"edge_collection": "located_in_zone"},
+            {"edge_collection": "cv_diagnosed_for"},
+            {"edge_collection": "cv_diagnosis_found"},
+            {"edge_collection": "cv_attached_to_inspection"},
+            {"edge_collection": "cv_phenotype_of"},
         ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

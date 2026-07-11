@@ -1142,6 +1142,20 @@ class PestFindingCategory(StrEnum):
     UNKNOWN = "unknown"
 
 
+class DiagnosisCategory(StrEnum):
+    """REQ-038 — what kind of condition a CV disease-diagnosis class represents.
+
+    ``DEFICIENCY`` has no REQ-010 stammdaten collection yet, so a deficiency
+    finding keeps ``matched_disease_key``/``matched_pest_key`` null and is matched
+    via REQ-036 symptom slugs instead. ``HEALTHY`` is the negative class.
+    """
+
+    DISEASE = "disease"
+    DEFICIENCY = "deficiency"
+    PEST = "pest"
+    HEALTHY = "healthy"
+
+
 class PestFindingMode(StrEnum):
     """REQ-044 — detection mode a finding originates from.
 

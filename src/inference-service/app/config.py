@@ -43,6 +43,26 @@ class Settings(BaseSettings):
     # gate, ABSTAIN_CONFIDENCE). Day-1 default; final calibration is WP-5.
     pest_show_results: float = 0.20
 
+    # REQ-038 disease classifier (dedicated ONNX head, PlantDoc CC-BY-4.0 base) --
+    # a separate model from the DINOv2 embedder. Opt-in: while disabled or while
+    # the model artifact is absent the /classify/disease endpoint reports itself
+    # as unavailable and the whole feature degrades gracefully (the rest of the
+    # service keeps working). The artifact is mounted at runtime, never baked in.
+    disease_classifier_enabled: bool = False
+    disease_model_path: str = "/app/models/disease"
+    disease_model_name: str = "plantdoc_disease_v1"
+    disease_input_size: int = 224
+    # Softmax-probability floor below which a class is dropped from the response
+    # (REQ-038 CONFIDENCE_SHOW). Classes at/above ``disease_highlight`` are flagged
+    # ``highlight`` for the UI. Neither implies auto-accept -- diagnosis is always
+    # a hypothesis (§ disclaimer).
+    disease_show_results: float = 0.10
+    disease_highlight: float = 0.75
+
+    # REQ-038 PlantCV phenotype pipeline (MPL-2.0, lazy import). Measurement only,
+    # never diagnosis. Disabled automatically when PlantCV is not installed.
+    phenotype_enabled: bool = True
+
     model_config = {"env_prefix": "", "case_sensitive": False, "protected_namespaces": ()}
 
 

@@ -353,6 +353,28 @@ These variables configure the optional image-based pest detection feature. The f
 
 ---
 
+## CV Disease Diagnosis (REQ-038) {#cv-disease-diagnosis-req-038}
+
+These variables configure the optional, self-hosted photo diagnosis for **diseases and nutrient deficiencies** (distinct from [Pest Detection](#pest-detection-req-044) above). The feature is disabled by default; without `CV_DIAGNOSIS_ENABLED=true` the `/status` API endpoint stays at `available: false` and the app keeps working without restriction.
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `CV_DIAGNOSIS_ENABLED` | `false` | No | Master switch. Set to `true` to enable the feature. |
+| `CV_CLASSIFIER_CONFIDENCE_SHOW` | `0.10` | No | Minimum confidence (0–1) for a hit to be shown. Results below this floor are dropped. |
+| `CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT` | `0.75` | No | Confidence threshold (0–1) above which a hit is visually highlighted. Never triggers an automatic creation. |
+| `CV_PHENOTYPE_ENABLED` | `true` | No | PlantCV phenotype metrics (leaf area, green index, discoloration ratio) in the inference service on/off. |
+| `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` | `5` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 413. |
+
+The classifier runs in the existing inference service and reuses its already-configured connection (`INFERENCE_SERVICE_URL`, `INTERNAL_SERVICE_TOKEN`) — no additional connection variables are needed.
+
+!!! note "Self-hosted, no cloud adapter"
+    Unlike pest detection, CV disease diagnosis (as of this version) has **no** cloud adapter — photos never leave the instance. Consent `plant_diagnosis` is still required (Full mode) because a photo is processed (see [Privacy & GDPR](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)).
+
+!!! info "License notices"
+    The model is fine-tuned on the CC-BY-4.0-licensed PlantDoc dataset; the phenotype pipeline uses PlantCV (MPL-2.0). Full attributions: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
+
+---
+
 ## Browser Push / PWA (VAPID)
 
 These variables enable the browser push notification channel (`channel_key: "pwa"`). When all three variables are empty, the channel is disabled — the application remains fully functional and users see "Not configured" in their notification settings.
@@ -623,4 +645,6 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [Kubernetes Deployment](../deployment/kubernetes.md)
 - [Weather Sources per Location — User Guide](../user-guide/weather-sources.md)
 - [Notifications: Frost Early-Warning — User Guide](../user-guide/notifications.md#frost-early-warning)
+- [API Reference: CV Disease Diagnosis](api-reference.md#cv-disease-diagnosis)
+- [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
 - [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)
