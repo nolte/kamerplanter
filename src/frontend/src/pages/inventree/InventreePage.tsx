@@ -16,9 +16,11 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable from '@/components/common/DataTable';
 import type { Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useEquipment } from '@/hooks/useEquipment';
+import { useTableUrlState } from '@/hooks/useTableState';
 import * as api from '@/api/endpoints/inventree';
 import type { Equipment, EquipmentStatus } from '@/api/types';
 import EquipmentDialog from './EquipmentDialog';
@@ -36,6 +38,7 @@ export default function InventreePage() {
   const notification = useNotification();
   const { handleError } = useApiError();
   const { equipment, connections, loading, reload } = useEquipment();
+  const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Equipment | null>(null);
@@ -93,6 +96,7 @@ export default function InventreePage() {
         id: 'equipment_type',
         label: t('pages.inventree.fields.equipmentType'),
         render: (row) => t(`enums.equipmentType.${row.equipment_type}`),
+        searchable: true,
         sortable: true,
       },
       {
@@ -105,6 +109,9 @@ export default function InventreePage() {
             color={statusColor[row.status]}
           />
         ),
+        searchable: true,
+        searchValue: (row) => t(`enums.equipmentStatus.${row.status}`),
+        sortable: true,
       },
       {
         id: 'inventree',
@@ -117,12 +124,17 @@ export default function InventreePage() {
               —
             </Typography>
           ),
+        searchable: true,
+        searchValue: (row) => (row.inventree_part_id != null ? String(row.inventree_part_id) : ''),
+        sortable: true,
         hideBelowBreakpoint: 'md',
       },
       {
         id: 'actions',
         label: t('common.actions'),
         align: 'right',
+        searchable: false,
+        sortable: false,
         render: (row) => (
           <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
             <Tooltip title={t('common.edit')}>
@@ -179,11 +191,17 @@ export default function InventreePage() {
           sx={{ mb: 3 }}
           data-testid="inventree-connection-status"
         >
-          {t('pages.inventree.connectionActive', { name: activeConnection.name })}
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <span>{t('pages.inventree.connectionActive', { name: activeConnection.name })}</span>
+            <HelpTooltip term="inventree" iconOnly />
+          </Stack>
         </Alert>
       ) : (
         <Alert severity="info" sx={{ mb: 3 }} data-testid="inventree-connection-status">
-          {t('pages.inventree.noConnection')}
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <span>{t('pages.inventree.noConnection')}</span>
+            <HelpTooltip term="inventree" iconOnly />
+          </Stack>
         </Alert>
       )}
 
@@ -193,6 +211,7 @@ export default function InventreePage() {
         loading={loading}
         getRowKey={(row) => row.key}
         ariaLabel={t('pages.inventree.title')}
+        tableState={tableState}
         emptyMessage={t('pages.inventree.emptyTitle')}
         emptyDescription={t('pages.inventree.emptyDescription')}
         emptyActionLabel={t('pages.inventree.createEquipment')}

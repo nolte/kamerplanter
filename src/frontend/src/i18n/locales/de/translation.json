@@ -537,6 +537,8 @@
       "noConnection": "Keine InvenTree-Verbindung konfiguriert. Betriebsmittel können trotzdem eigenständig verwaltet werden.",
       "emptyTitle": "Noch kein Betriebsmittel angelegt",
       "emptyDescription": "Lege dein erstes Betriebsmittel an, um Pumpen, Sensoren und Verbrauchsmaterialien zu verwalten.",
+      "sectionInventree": "InvenTree-Verknüpfung (optional)",
+      "sectionInventreeHelper": "Verknüpfe dieses Betriebsmittel mit einem InvenTree-Part, damit Bestand und Verbrauch automatisch synchronisiert werden. Ohne Verknüpfung kannst du das Betriebsmittel trotzdem ganz normal verwalten.",
       "fields": {
         "name": "Bezeichnung",
         "equipmentType": "Typ",
@@ -5629,6 +5631,12 @@
       "beginnerTip": "Ohne Messgerät hilft der Knacktest als Näherung: Bricht der Stängel sauber statt sich zu biegen, ist die Charge meist trocken genug.",
       "unit": "a_w (0–1)",
       "typicalRange": "0,55–0,65 (sicher für die Lagerung)"
+    },
+    "inventree": {
+      "short": "Externes Lagerverwaltungssystem für deine realen Bestände",
+      "long": "InvenTree ist eine externe, eigenständige Inventarverwaltung. Ein „Part“ ist dort ein einzelner Artikel (z. B. eine Ersatzpumpe). Verknüpfst du ein Betriebsmittel mit einer Part-ID, gleicht Kamerplanter Bestand und Verbrauch automatisch mit InvenTree ab (Stock-Sync) — Mengen musst du dann nicht mehr manuell nachpflegen.",
+      "beginnerTip": "Die Verknüpfung ist optional: Auch ohne InvenTree-Verbindung kannst du Betriebsmittel ganz normal anlegen und verwalten.",
+      "category": "allgemein"
     }
   },
   "dashboard": {

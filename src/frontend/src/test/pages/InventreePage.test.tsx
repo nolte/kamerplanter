@@ -80,6 +80,24 @@ describe('InventreePage', () => {
     expect(screen.getByText('#1247')).toBeInTheDocument();
   });
 
+  it('filters rows via the table search field (searches translated status too)', async () => {
+    const user = userEvent.setup();
+    mockEquipment([
+      EQUIPMENT,
+      { key: 'eq2', name: 'Umwälzpumpe', equipment_type: 'pump', status: 'maintenance' },
+    ]);
+    renderWithProviders(<InventreePage />);
+    await waitFor(() => expect(screen.getByText('Umwälzpumpe')).toBeInTheDocument());
+
+    const searchInput = within(screen.getByTestId('table-search-input')).getByRole('textbox');
+    await user.type(searchInput, 'Wartung');
+
+    await waitFor(() => {
+      expect(screen.getByText('Umwälzpumpe')).toBeInTheDocument();
+      expect(screen.queryByText('Bluelab pH Pen')).not.toBeInTheDocument();
+    });
+  });
+
   it('creates equipment through the dialog', async () => {
     const user = userEvent.setup();
     const created = vi.fn();

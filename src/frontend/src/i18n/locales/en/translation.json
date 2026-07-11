@@ -537,6 +537,8 @@
       "noConnection": "No InvenTree connection configured. Equipment can still be managed independently.",
       "emptyTitle": "No equipment yet",
       "emptyDescription": "Add your first equipment item to manage pumps, sensors and consumables.",
+      "sectionInventree": "InvenTree link (optional)",
+      "sectionInventreeHelper": "Link this equipment item to an InvenTree part so stock and consumption are synced automatically. Without a link you can still manage the equipment normally.",
       "fields": {
         "name": "Name",
         "equipmentType": "Type",
@@ -5628,6 +5630,12 @@
       "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
       "unit": "a_w (0–1)",
       "typicalRange": "0.55–0.65 (safe for storage)"
+    },
+    "inventree": {
+      "short": "External inventory management system for your real-world stock",
+      "long": "InvenTree is a separate, external inventory management system. A \"part\" there is a single article (e.g. a spare pump). Link an equipment item to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand.",
+      "beginnerTip": "The link is optional: you can still create and manage equipment normally without an InvenTree connection.",
+      "category": "allgemein"
     }
   },
   "dashboard": {

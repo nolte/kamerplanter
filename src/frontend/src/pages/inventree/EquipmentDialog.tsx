@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useForm } from 'react-hook-form';
@@ -14,6 +15,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/inventree';
@@ -188,21 +190,30 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
               label={t('pages.inventree.fields.model')}
             />
           </FormRow>
-          <FormRow>
-            <FormTextField
-              name="serial_number"
-              control={control}
-              label={t('pages.inventree.fields.serialNumber')}
-            />
-            <FormNumberField
-              name="inventree_part_id"
-              control={control}
-              label={t('pages.inventree.fields.inventreePartId')}
-              helperText={t('pages.inventree.fields.inventreePartHelp')}
-              step={1}
-              min={1}
-            />
-          </FormRow>
+          <FormTextField
+            name="serial_number"
+            control={control}
+            label={t('pages.inventree.fields.serialNumber')}
+          />
+
+          <HelpTooltip term="inventree">
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 2 }}>
+              {t('pages.inventree.sectionInventree')}
+            </Typography>
+          </HelpTooltip>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {t('pages.inventree.sectionInventreeHelper')}
+          </Typography>
+          <FormNumberField
+            name="inventree_part_id"
+            control={control}
+            label={t('pages.inventree.fields.inventreePartId')}
+            helperText={t('pages.inventree.fields.inventreePartHelp')}
+            step={1}
+            min={1}
+            inputMode="numeric"
+          />
+
           <FormTextField
             name="notes"
             control={control}
