@@ -200,9 +200,10 @@ class PflegeDashboardPage(BasePage):
         Returns 'error' for overdue, 'warning' for today, 'info' for thisWeek,
         or 'default' if the section cannot be determined.
         """
-        # Walk up to find the parent section
+        # Walk up to find the parent section. The section wrapper is a
+        # <Box component="section"> (not a <div>), so match any element type.
         parent_section = card.find_element(
-            By.XPATH, "ancestor::div[@data-testid][starts-with(@data-testid, 'task-section-')]"
+            By.XPATH, "ancestor::*[@data-testid][starts-with(@data-testid, 'task-section-')]"
         )
         testid = parent_section.get_attribute("data-testid") or ""
         if "overdue" in testid:

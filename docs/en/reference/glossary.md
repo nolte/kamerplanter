@@ -87,6 +87,12 @@ A three-tier approach to plant protection: prevention before monitoring (regular
 
 → [Pest Management (IPM)](../user-guide/pest-management.md)
 
+### InvenTree
+
+A separate, open-source inventory management system that you can optionally run alongside Kamerplanter and link to your fertilizers, tanks and equipment. A "part" there is a single article (e.g. a spare pump). Link a Kamerplanter entity to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand. The link is purely optional; without it, Kamerplanter keeps working without any limitation.
+
+→ [Equipment & Inventory (InvenTree)](../user-guide/inventree.md)
+
 ### Nutrient Film Technique (NFT)
 
 A hydroponic system in which a thin film of nutrient solution flows over the roots and then returns to a recirculation tank — unlike systems such as DWC, where the roots sit permanently in the nutrient solution.

@@ -72,6 +72,41 @@ claude                                     # a top-level, --resume-able session
 The `guard-nested-worktree` pre-commit hook enforces this by rejecting any
 commit made from a worktree under `.claude/worktrees/`.
 
+## Claude Code plugin adoption
+
+kamerplanter is migrating its generic delivery / software-engineering
+capabilities to the shared **`nolte-shared`** + **`nolte-engineering`** portfolio
+plugins, keeping only its **domain-specialised** assets (plant-profile /
+"Steckbrief" capture, agrobiology, horticulture/lifecycle, Home-Assistant
+integration, RAG/knowledge) under `.claude/`. Generic capabilities (test-case
+extraction, E2E generation, quality gate, PR flow, spec/roadmap tooling, …) come
+from the plugins, not from local copies.
+
+**Launch Claude Code with the plugins loaded:**
+
+```bash
+task claude                 # → claude --plugin-dir <claude-shared> --plugin-dir <…>/plugins/nolte-engineering
+task claude -- --resume     # extra args are forwarded
+```
+
+The plugins are consumed from a **local checkout of `nolte/claude-shared`** via
+`--plugin-dir` (a runtime launch flag — it does **not** appear in
+`.claude/settings.json` / `enabledPlugins`). The target resolves the checkout at
+`~/repos/github/claude-shared`; override with the `NOLTE_CLAUDE_SHARED`
+environment variable if yours lives elsewhere. `nolte-media` is intentionally
+**not** loaded (kamerplanter's image-domain `gemini-graphic-prompt-generator`
+stays local for now).
+
+**Rules for this adoption:**
+
+- **No copies (DRY):** never copy a plugin-owned skill/agent into `.claude/`.
+  Adoption is by plugin consumption; retiring a local asset means *removing* it,
+  not re-vendoring it.
+- **Verify before remove:** delete a local asset only after its plugin pendant is
+  confirmed present at runtime **and** behaviour parity is checked on a real input.
+- **Domain assets stay local.** Only genuine plant/HA/agrobiology/RAG assets have
+  no portfolio pendant; leave them untouched.
+
 ## Requirements Overview
 
 | REQ | Title | Category |

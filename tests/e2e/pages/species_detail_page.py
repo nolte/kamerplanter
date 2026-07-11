@@ -14,6 +14,7 @@ class SpeciesDetailPage(BasePage):
 
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
+    READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='species-readonly-banner']")
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
@@ -134,6 +135,15 @@ class SpeciesDetailPage(BasePage):
 
     def has_delete_button(self) -> bool:
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
+
+    def is_read_only(self) -> bool:
+        """Return True if this species is origin-protected (read-only).
+
+        Global/system species (UI-NFR-018) show a read-only banner, render no
+        editable form actions on the edit tab, and — being deletion-protected —
+        no delete button.
+        """
+        return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
     # ── Cultivar tab (tab 1) ──────────────────────────────────────────
 

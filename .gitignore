@@ -24,6 +24,8 @@ build/
 test-reports/e2e/
 test-reports/rag-eval/
 coverage/
+.coverage
+.coverage.*
 
 # Helm
 *.tgz

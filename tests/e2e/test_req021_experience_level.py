@@ -271,6 +271,9 @@ class TestExperienceLevelPersistence:
 
         Spec: TC-021-011 -- Nach erneutem Login ist zuletzt gewaehlte Erfahrungsstufe aktiv.
         """
+        # Nav visibility below asserts experience-level tiering, so drop the E2E
+        # module override that would otherwise reveal every nav item.
+        expertise_page.clear_module_overrides()
         _set_experience_level(expertise_page, "intermediate")
 
         # Reload the page to simulate a new session
@@ -315,6 +318,9 @@ class TestNavigationTiering:
 
         Spec: TC-021-013 -- Anfaenger-Navigation zeigt genau die Kernmenuepunkte.
         """
+        # Nav tiering is driven by experience level; drop the E2E module override
+        # (which force-enables every module) so the sidebar reflects the level.
+        expertise_page.clear_module_overrides()
         _set_experience_level(expertise_page, "beginner")
 
         expertise_page.navigate("/dashboard")
@@ -368,6 +374,9 @@ class TestNavigationTiering:
 
         Spec: TC-021-014 -- Fortgeschritten-Navigation enthaelt zusaetzliche Abschnitte.
         """
+        # See test_beginner_navigation_minimal: nav tiering must observe the
+        # experience level, not the E2E force-enable-all-modules override.
+        expertise_page.clear_module_overrides()
         _set_experience_level(expertise_page, "intermediate")
 
         expertise_page.navigate("/dashboard")

@@ -218,6 +218,19 @@ When both variables are set, the backend also enables the Home Assistant channel
 
 ---
 
+## InvenTree Integration (REQ-016)
+
+These variables enable the optional integration with [InvenTree](https://github.com/inventree/inventree). Without `INVENTREE_ENABLED=true`, every InvenTree endpoint returns a "feature disabled" error (HTTP 409) without blocking the app.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `INVENTREE_ENABLED` | `false` | No | Kill switch for the entire InvenTree integration. |
+| `INVENTREE_ALLOW_PRIVATE_ENDPOINT` | `false` | No | Allows an InvenTree instance with a private/LAN address (analogous to `HA_ALLOW_PRIVATE_ENDPOINT`). Without this opt-in, SSRF protection blocks connections to internal addresses. |
+
+You then set up the connection (including the API token) and links via the REST API — see [Equipment & Inventory (InvenTree) — For Technical Users / Self-Hosters](../user-guide/inventree.md#for-technical-users-self-hosters) for details.
+
+---
+
 ## Weather Forecast & Frost Early-Warning <!-- REQ-046 / Issue #392 --> {#weather-forecast-frost-early-warning}
 
 These variables control the weather forecast fetching and the proactive frost early-warning built on top of it. Without `WEATHER_ENABLED=true`, both features stay fully disabled — sites without a configured weather source are likewise unaffected.
@@ -677,3 +690,4 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [API Reference: CV Disease Diagnosis](api-reference.md#cv-disease-diagnosis)
 - [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
 - [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)
+- [Equipment & Inventory (InvenTree) — User Guide](../user-guide/inventree.md)

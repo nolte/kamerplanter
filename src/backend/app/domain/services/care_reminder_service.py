@@ -39,7 +39,13 @@ _SEASON_PHASE_REMINDERS: dict[SeasonPhase, tuple[ReminderType, ...]] = {
 
 
 def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
-    """Human-readable task instruction for a care-reminder type (shared, REQ-022)."""
+    """Human-readable task instruction for a care-reminder type (shared, REQ-022).
+
+    Single source of the per-reminder-type instruction text (P4). Consumed by both
+    the service path (:meth:`CareReminderService._ensure_care_task`) and the daily
+    Celery producer (``generate_due_care_reminders``) via
+    :func:`build_care_reminder_task`, so the two paths can never drift on wording.
+    """
     return {
         ReminderType.FERTILIZING: f"Fertilize {plant_label} according to care profile.",
         ReminderType.REPOTTING: f"Check if {plant_label} needs repotting.",
@@ -52,6 +58,41 @@ def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> 
         ReminderType.STORAGE_CHECK: f"Check the stored tubers/bulbs of {plant_label}.",
         ReminderType.DEADHEADING: f"Deadhead spent blooms on {plant_label}.",
     }.get(reminder_type, f"Care reminder: {reminder_type.value} for {plant_label}.")
+
+
+def build_care_reminder_task(
+    *,
+    plant_key: str,
+    plant_label: str,
+    tenant_key: str,
+    reminder_type: ReminderType,
+    due_date: datetime,
+    instruction: str | None = None,
+    priority: TaskPriority = TaskPriority.MEDIUM,
+) -> Task:
+    """Build the care-reminder ``Task`` shared by the service and Celery paths (P4).
+
+    Single construction point so the dashboard-confirmation path, the seasonal
+    winter path (:meth:`CareReminderService._ensure_care_task`), the auto-watering
+    path (:meth:`CareReminderService.ensure_next_watering_task`) and the daily
+    ``generate_due_care_reminders`` producer can never drift on task shape.
+
+    ``instruction`` defaults to the shared per-type text from
+    :func:`care_reminder_instruction`; the watering path passes its
+    interval-specific instruction explicitly. ``priority`` defaults to
+    ``MEDIUM``; the daily producer raises it to ``HIGH`` for overdue reminders.
+    """
+    return Task(
+        name=f"{plant_label} — {reminder_type.value}",
+        instruction=(instruction if instruction is not None else care_reminder_instruction(reminder_type, plant_label)),
+        category=TaskCategory.CARE_REMINDER,
+        entity_key=plant_key,
+        entity_type="plant_instance",
+        tenant_key=tenant_key,
+        due_date=due_date,
+        status=TaskStatus.PENDING,
+        priority=priority,
+    )
 
 
 def _template_to_profile(
@@ -552,16 +593,12 @@ class CareReminderService:
 
         plant_label = plant.plant_name or plant.instance_id or plant_key
         today = date.today()
-        task = Task(
-            name=f"{plant_label} {name_suffix}",
-            instruction=care_reminder_instruction(reminder_type, plant_label),
-            category=TaskCategory.CARE_REMINDER,
-            entity_key=plant_key,
-            entity_type="plant_instance",
+        task = build_care_reminder_task(
+            plant_key=plant_key,
+            plant_label=plant_label,
             tenant_key=plant.tenant_key,
+            reminder_type=reminder_type,
             due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
-            status=TaskStatus.PENDING,
-            priority=TaskPriority.MEDIUM,
         )
         return self._task_repo.create_task(task)
 
@@ -689,16 +726,13 @@ class CareReminderService:
 
         interval = self._engine._get_interval_days(profile, ReminderType.WATERING, hemisphere)
 
-        task = Task(
-            name=f"{plant_label} \u2014 {rt_value}",
-            instruction=f"Water {plant_label} (every {interval} days).",
-            category=TaskCategory.CARE_REMINDER,
-            entity_key=plant_key,
-            entity_type="plant_instance",
+        task = build_care_reminder_task(
+            plant_key=plant_key,
+            plant_label=plant_label,
             tenant_key=plant_tenant_key,
+            reminder_type=ReminderType.WATERING,
             due_date=due_dt,
-            status=TaskStatus.PENDING,
-            priority=TaskPriority.MEDIUM,
+            instruction=f"Water {plant_label} (every {interval} days).",
         )
         return self._task_repo.create_task(task)
 

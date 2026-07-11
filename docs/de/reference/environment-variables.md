@@ -218,6 +218,19 @@ Sind beide Variablen gesetzt, aktiviert das Backend zusätzlich den Home-Assista
 
 ---
 
+## InvenTree-Integration (REQ-016)
+
+Diese Variablen aktivieren die optionale Anbindung an [InvenTree](https://github.com/inventree/inventree). Ohne `INVENTREE_ENABLED=true` liefern alle InvenTree-Endpunkte den Fehler „Funktion deaktiviert" (HTTP 409), ohne die App zu blockieren.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `INVENTREE_ENABLED` | `false` | Nein | Kill-Switch für die gesamte InvenTree-Integration. |
+| `INVENTREE_ALLOW_PRIVATE_ENDPOINT` | `false` | Nein | Erlaubt eine InvenTree-Instanz mit privater/LAN-Adresse (analog zu `HA_ALLOW_PRIVATE_ENDPOINT`). Ohne diese Freigabe blockiert der SSRF-Schutz Verbindungen zu internen Adressen. |
+
+Verbindung (inkl. API-Token) und Verknüpfungen richtest du anschließend über die REST-API ein — Details siehe [Betriebsmittel & Inventar (InvenTree) — Für technische Nutzer / Self-Hoster](../user-guide/inventree.md#fuer-technische-nutzer-self-hoster).
+
+---
+
 ## Wettervorhersage & Frost-Frühwarnung <!-- REQ-046 / Issue #392 --> {#wettervorhersage-frost-fruehwarnung}
 
 Diese Variablen steuern die Wettervorhersage-Abholung und die darauf aufbauende proaktive Frost-Frühwarnung. Ohne `WEATHER_ENABLED=true` bleiben beide Funktionen vollständig deaktiviert — Standorte ohne konfigurierte Wetterquelle sind davon unabhängig ebenfalls nicht betroffen.
@@ -677,3 +690,4 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
 - [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)
+- [Betriebsmittel & Inventar (InvenTree) — Benutzerhandbuch](../user-guide/inventree.md)

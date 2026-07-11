@@ -500,3 +500,21 @@ class ResourceInUseError(KamerplanterError):
             status_code=409,
             details=[{"field": "key", "reason": reason, "code": "RESOURCE_IN_USE"}],
         )
+
+
+class FeatureDisabledError(KamerplanterError):
+    """An optional feature is switched off or not configured.
+
+    REQ-016: the InvenTree integration is optional. When it is disabled (no
+    active connection / kill-switch off) an operation that *requires* a live
+    connection returns a well-formed 409 conflict instead of crashing (500) —
+    the request is valid but conflicts with the current, un-configured state.
+    """
+
+    def __init__(self, feature: str, reason: str) -> None:
+        super().__init__(
+            message=f"{feature} is not available: {reason}",
+            error_code="FEATURE_DISABLED",
+            status_code=409,
+            details=[{"field": "feature", "reason": reason, "code": "FEATURE_DISABLED"}],
+        )

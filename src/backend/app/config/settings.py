@@ -187,6 +187,14 @@ class Settings(BaseSettings):
     require_email_verification: bool = False  # Set True in production
     cookie_secure: bool = True  # Set False for HTTP-only E2E environments
 
+    # REQ-016 InvenTree integration (optional). Disabled by default — a missing
+    # or switched-off configuration must never crash the app (graceful
+    # degradation). ``inventree_allow_private_endpoint`` opts a LAN / in-cluster
+    # InvenTree instance out of the SSRF private-address block (analogous to
+    # ``HA_ALLOW_PRIVATE_ENDPOINT``).
+    inventree_enabled: bool = False
+    inventree_allow_private_endpoint: bool = False
+
     # Email
     email_adapter: str = "console"  # console | smtp | resend
     smtp_host: str = "localhost"

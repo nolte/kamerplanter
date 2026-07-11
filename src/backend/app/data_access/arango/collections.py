@@ -117,6 +117,12 @@ WATER_TESTS = "water_tests"
 FISH_FEEDING_EVENTS = "fish_feeding_events"
 SUPPLEMENTATION_EVENTS = "supplementation_events"
 
+# REQ-016 InvenTree integration (optional)
+INVENTREE_CONNECTIONS = "inventree_connections"
+INVENTREE_REFERENCES = "inventree_references"
+STOCK_TRANSACTIONS = "stock_transactions"
+EQUIPMENT = "equipment"
+
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
@@ -313,6 +319,11 @@ DOCUMENT_COLLECTIONS = [
     WATER_TESTS,
     FISH_FEEDING_EVENTS,
     SUPPLEMENTATION_EVENTS,
+    # REQ-016 InvenTree integration
+    INVENTREE_CONNECTIONS,
+    INVENTREE_REFERENCES,
+    STOCK_TRANSACTIONS,
+    EQUIPMENT,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
     # REQ-039 hardiness-zone reference catalog
@@ -472,6 +483,11 @@ FEEDING_FOR_STOCK = "feeding_for_stock"  # fish_feeding_events → fish_stocks
 SUPPLEMENTATION_FOR = "supplementation_for"  # supplementation_events → aquaponic_systems
 COMPATIBLE_FISH_PLANT = "compatible_fish_plant"  # fish_species → species
 INCOMPATIBLE_FISH_PLANT = "incompatible_fish_plant"  # fish_species → species
+
+# REQ-016 InvenTree integration edges
+HAS_INVENTREE_REF = "has_inventree_ref"  # fertilizers | tanks | equipment → inventree_references
+HAS_STOCK_TRANSACTION = "has_stock_transaction"  # inventree_references → stock_transactions
+EQUIPMENT_AT = "equipment_at"  # equipment → locations
 
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
@@ -695,6 +711,10 @@ EDGE_COLLECTIONS = [
     SUPPLEMENTATION_FOR,
     COMPATIBLE_FISH_PLANT,
     INCOMPATIBLE_FISH_PLANT,
+    # REQ-016 InvenTree integration
+    HAS_INVENTREE_REF,
+    HAS_STOCK_TRANSACTION,
+    EQUIPMENT_AT,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
     # REQ-039 hardiness-zone assignment
@@ -1468,6 +1488,22 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [FISH_SPECIES],
         "to_vertex_collections": [SPECIES],
     },
+    # REQ-016 InvenTree integration
+    {
+        "edge_collection": HAS_INVENTREE_REF,
+        "from_vertex_collections": [FERTILIZERS, TANKS, EQUIPMENT],
+        "to_vertex_collections": [INVENTREE_REFERENCES],
+    },
+    {
+        "edge_collection": HAS_STOCK_TRANSACTION,
+        "from_vertex_collections": [INVENTREE_REFERENCES],
+        "to_vertex_collections": [STOCK_TRANSACTIONS],
+    },
+    {
+        "edge_collection": EQUIPMENT_AT,
+        "from_vertex_collections": [EQUIPMENT],
+        "to_vertex_collections": [LOCATIONS],
+    },
     # REQ-041 NASA POWER climate normals
     {
         "edge_collection": HAS_CLIMATE_NORMAL,
@@ -1850,6 +1886,22 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     supplementation_events_col = db.collection(SUPPLEMENTATION_EVENTS)
     supplementation_events_col.add_persistent_index(fields=["system_key", "applied_at"], unique=False)
+
+    # REQ-016 InvenTree integration indexes (all tenant-scoped)
+    inventree_connections_col = db.collection(INVENTREE_CONNECTIONS)
+    inventree_connections_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    inventree_references_col = db.collection(INVENTREE_REFERENCES)
+    inventree_references_col.add_persistent_index(
+        fields=["tenant_key", "entity_collection", "entity_key"], unique=False
+    )
+
+    stock_transactions_col = db.collection(STOCK_TRANSACTIONS)
+    stock_transactions_col.add_persistent_index(fields=["tenant_key", "status", "created_at"], unique=False)
+    stock_transactions_col.add_persistent_index(fields=["reference_key"], unique=False)
+
+    equipment_col = db.collection(EQUIPMENT)
+    equipment_col.add_persistent_index(fields=["tenant_key", "equipment_type", "status"], unique=False)
 
     # REQ-041 NASA POWER climate normals — one record per (site, source) within a
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.

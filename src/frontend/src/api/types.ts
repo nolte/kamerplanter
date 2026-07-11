@@ -5561,3 +5561,106 @@ export interface FishSpecies {
   max_stocking_density_kg_per_1000l: number;
   notes_de?: string | null;
 }
+
+// ── REQ-016 InvenTree integration (optional) ────────────────────────────
+
+export type EquipmentType =
+  | 'tool'
+  | 'consumable'
+  | 'sensor'
+  | 'lighting'
+  | 'pump'
+  | 'filter'
+  | 'container'
+  | 'cleaning_agent'
+  | 'other';
+
+export type EquipmentStatus =
+  | 'active'
+  | 'maintenance'
+  | 'stored'
+  | 'defective'
+  | 'retired';
+
+export type StockTransactionType = 'remove' | 'add' | 'count';
+
+export type StockTransactionStatus = 'pending' | 'synced' | 'failed';
+
+export interface Equipment {
+  key: string;
+  name: string;
+  equipment_type: EquipmentType;
+  status: EquipmentStatus;
+  brand?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  purchase_date?: string | null;
+  warranty_until?: string | null;
+  location_key?: string | null;
+  inventree_part_id?: number | null;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface EquipmentCreate {
+  name: string;
+  equipment_type: EquipmentType;
+  status?: EquipmentStatus;
+  brand?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  location_key?: string | null;
+  inventree_part_id?: number | null;
+  notes?: string | null;
+}
+
+export type EquipmentUpdate = Partial<EquipmentCreate>;
+
+export interface InvenTreeConnection {
+  key: string;
+  name: string;
+  base_url: string;
+  is_active: boolean;
+  verify_ssl: boolean;
+  api_token_set: boolean;
+  sync_interval_minutes: number;
+  push_interval_minutes: number;
+  last_health_check_at?: string | null;
+  last_health_check_ok?: boolean | null;
+  last_stock_sync_at?: string | null;
+  last_push_at?: string | null;
+}
+
+export interface InvenTreeConnectionCreate {
+  name: string;
+  base_url: string;
+  api_token: string;
+  is_active?: boolean;
+  verify_ssl?: boolean;
+}
+
+export interface InvenTreeReference {
+  key: string;
+  entity_collection: string;
+  entity_key: string;
+  inventree_part_id: number;
+  inventree_part_name?: string | null;
+  cached_stock?: number | null;
+  cached_stock_unit?: string | null;
+  auto_deduct: boolean;
+}
+
+export interface StockTransaction {
+  key: string;
+  reference_key: string;
+  inventree_part_id: number;
+  transaction_type: StockTransactionType;
+  quantity: number;
+  unit: string;
+  reason: string;
+  status: StockTransactionStatus;
+  retry_count: number;
+  synced_at?: string | null;
+  created_at?: string | null;
+}

@@ -1,1 +1,1 @@
-"""REQ-016 InvenTree router package (scaffold)."""
+"""REQ-016 InvenTree integration API package."""
