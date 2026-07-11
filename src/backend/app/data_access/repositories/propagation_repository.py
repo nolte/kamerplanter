@@ -257,13 +257,17 @@ class PropagationRepository:
 
         Traverses ``descended_from`` outbound from the plant. ``uniqueVertices:
         'path'`` plus the ``max_depth`` cap guarantee termination even if the data
-        contains a cycle (Zyklus-Schutz). Only vertices of ``tenant_key`` are
-        followed. Each returned list excludes the starting plant and holds the
-        ancestor keys ordered from nearest to furthest.
+        contains a cycle (Zyklus-Schutz). The ``PRUNE v.tenant_key != @tenant_key``
+        stops the traversal at the first foreign-tenant vertex so a cross-tenant
+        ``descended_from`` edge is never followed (SEC-B4 tenant isolation), and the
+        matching ``FILTER`` drops any such boundary vertex from the result. Each
+        returned list excludes the starting plant and holds the ancestor keys
+        ordered from nearest to furthest.
         """
         query = """
         FOR v, e, p IN 1..@max_depth OUTBOUND @start GRAPH 'kamerplanter_graph'
           OPTIONS {edgeCollections: [@edge], uniqueVertices: "path", bfs: false}
+          PRUNE v.tenant_key != @tenant_key
           FILTER v.tenant_key == @tenant_key
           RETURN p.vertices[* FILTER CURRENT._key != @plant_key]._key
         """
@@ -283,13 +287,29 @@ class PropagationRepository:
                 maximal.append(path)
         return maximal
 
+    #: Non-sensitive vertex projection for lineage traversals — only the fields the
+    #: :class:`PlantInstance` model and the ``LineageNode`` response actually need,
+    #: so a traversal can never leak the full foreign plant document (SEC-B4 §2,
+    #: defense-in-depth alongside the tenant PRUNE/FILTER).
+    _LINEAGE_VERTEX_PROJECTION = (
+        "{ _key: v._key, tenant_key: v.tenant_key, instance_id: v.instance_id, "
+        "species_key: v.species_key, plant_name: v.plant_name, planted_on: v.planted_on }"
+    )
+
     def list_ancestors(self, plant_key: str, tenant_key: str, max_depth: int) -> list[PlantInstance]:
-        """Flat, de-duplicated ancestor list (nearest first)."""
-        query = """
+        """Flat, de-duplicated ancestor list (nearest first).
+
+        ``PRUNE v.tenant_key != @tenant_key`` keeps the traversal from ever crossing
+        a tenant boundary via a ``descended_from`` edge, the matching ``FILTER`` drops
+        the boundary vertex, and the projection returns only non-sensitive fields
+        (SEC-B4 tenant isolation).
+        """
+        query = f"""
         FOR v IN 1..@max_depth OUTBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge], uniqueVertices: "global", bfs: true}
+          OPTIONS {{edgeCollections: [@edge], uniqueVertices: "global", bfs: true}}
+          PRUNE v.tenant_key != @tenant_key
           FILTER v.tenant_key == @tenant_key
-          RETURN v
+          RETURN {self._LINEAGE_VERTEX_PROJECTION}
         """
         bind_vars = {
             "start": f"{col.PLANT_INSTANCES}/{plant_key}",
@@ -301,12 +321,19 @@ class PropagationRepository:
         return [PlantInstance(**self._events._from_doc(doc)) for doc in cursor]
 
     def list_descendants(self, plant_key: str, tenant_key: str, max_depth: int) -> list[PlantInstance]:
-        """Flat, de-duplicated descendant list (clone tree, nearest first)."""
-        query = """
+        """Flat, de-duplicated descendant list (clone tree, nearest first).
+
+        ``PRUNE v.tenant_key != @tenant_key`` keeps the traversal from ever crossing
+        a tenant boundary via a ``descended_from`` edge, the matching ``FILTER`` drops
+        the boundary vertex, and the projection returns only non-sensitive fields
+        (SEC-B4 tenant isolation).
+        """
+        query = f"""
         FOR v IN 1..@max_depth INBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge], uniqueVertices: "global", bfs: true}
+          OPTIONS {{edgeCollections: [@edge], uniqueVertices: "global", bfs: true}}
+          PRUNE v.tenant_key != @tenant_key
           FILTER v.tenant_key == @tenant_key
-          RETURN v
+          RETURN {self._LINEAGE_VERTEX_PROJECTION}
         """
         bind_vars = {
             "start": f"{col.PLANT_INSTANCES}/{plant_key}",

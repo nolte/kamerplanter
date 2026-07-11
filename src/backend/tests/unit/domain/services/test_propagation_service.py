@@ -192,6 +192,36 @@ def test_finalize_batch_foreign_run_is_404() -> None:
         service.finalize_batch("batch-1", "tenant-a", "foreign-run")
 
 
+def test_finalize_batch_run_without_tenant_key_is_rejected_fail_closed() -> None:
+    # SEC-B4 (b): a run object that lacks a tenant_key must be rejected, never
+    # silently defaulted to the caller's tenant (fail-closed).
+    from types import SimpleNamespace
+
+    repo = _prop_repo()
+    repo.get_batch.return_value = PropagationBatch(key="batch-1", tenant_key="tenant-a", name="B", method="cutting")
+    planting_run_repo = MagicMock()
+    planting_run_repo.get_by_key.return_value = SimpleNamespace(key="run-1")  # no tenant_key attribute
+    service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
+
+    with pytest.raises(NotFoundError):
+        service.finalize_batch("batch-1", "tenant-a", "run-1")
+    repo.update_batch.assert_not_called()
+
+
+def test_finalize_batch_run_with_none_tenant_key_is_rejected() -> None:
+    from types import SimpleNamespace
+
+    repo = _prop_repo()
+    repo.get_batch.return_value = PropagationBatch(key="batch-1", tenant_key="tenant-a", name="B", method="cutting")
+    planting_run_repo = MagicMock()
+    planting_run_repo.get_by_key.return_value = SimpleNamespace(key="run-1", tenant_key=None)
+    service = PropagationService(propagation_repo=repo, planting_run_repo=planting_run_repo)
+
+    with pytest.raises(NotFoundError):
+        service.finalize_batch("batch-1", "tenant-a", "run-1")
+    repo.update_batch.assert_not_called()
+
+
 def test_finalize_already_completed_is_422() -> None:
     repo = _prop_repo()
     repo.get_batch.return_value = PropagationBatch(

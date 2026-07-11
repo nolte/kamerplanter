@@ -73,3 +73,50 @@ def test_get_event_rejects_foreign_tenant() -> None:
     repo = PropagationRepository(db)
 
     assert repo.get_event("evt-1", "tenant-a") is None
+
+
+# ── SEC-B4 (a): tenant-pruned, projection-hardened graph traversals ───────────
+
+
+def _executed_query(db: MagicMock) -> str:
+    """The AQL text passed to the last ``aql.execute`` call."""
+    args, kwargs = db.aql.execute.call_args
+    return args[0] if args else kwargs["query"]
+
+
+def _executed_bind_vars(db: MagicMock) -> dict:
+    _args, kwargs = db.aql.execute.call_args
+    return kwargs["bind_vars"]
+
+
+def test_trace_ancestor_paths_query_is_tenant_pruned() -> None:
+    repo = _repo_with_aql([])
+    repo.trace_ancestor_paths("pup", "tenant-a", max_depth=10)
+
+    query = _executed_query(repo._db)
+    assert "PRUNE v.tenant_key != @tenant_key" in query
+    assert "FILTER v.tenant_key == @tenant_key" in query
+    assert _executed_bind_vars(repo._db)["tenant_key"] == "tenant-a"
+
+
+def test_list_ancestors_query_prunes_and_projects_non_sensitive_fields() -> None:
+    repo = _repo_with_aql([])
+    repo.list_ancestors("pup", "tenant-a", max_depth=10)
+
+    query = _executed_query(repo._db)
+    assert "PRUNE v.tenant_key != @tenant_key" in query
+    # Projection hardening: never return the full foreign document.
+    assert "RETURN v\n" not in query
+    assert "_key: v._key" in query
+    assert _executed_bind_vars(repo._db)["tenant_key"] == "tenant-a"
+
+
+def test_list_descendants_query_prunes_and_projects_non_sensitive_fields() -> None:
+    repo = _repo_with_aql([])
+    repo.list_descendants("mother", "tenant-a", max_depth=10)
+
+    query = _executed_query(repo._db)
+    assert "PRUNE v.tenant_key != @tenant_key" in query
+    assert "RETURN v\n" not in query
+    assert "_key: v._key" in query
+    assert _executed_bind_vars(repo._db)["tenant_key"] == "tenant-a"

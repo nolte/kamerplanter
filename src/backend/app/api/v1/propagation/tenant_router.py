@@ -2,8 +2,9 @@
 
 Mounted under ``/t/{tenant_slug}`` by the tenant-scoped parent router, so the
 paths declared here are already tenant-scoped. Reads use ``get_current_tenant``;
-state-changing writes require at least the ``grower`` role and protocol deletion
-the ``admin`` role (``require_tenant_role``). All persistence and lineage logic
+state-changing writes require at least the ``grower`` role, while protocol and
+phenotype-note deletion require the ``admin`` role (``require_tenant_role``). All
+persistence and lineage logic
 live in :class:`PropagationService` / :class:`LineageEngine`. Cross-tenant or
 unknown resources surface as 404 (no existence oracle).
 """
@@ -417,7 +418,9 @@ def list_phenotypes(
 def delete_phenotype(
     plant_key: str,
     note_key: str,
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    # Phenotype notes are destructive, tenant-shared breeding records: deletion is
+    # admin-only, mirroring protocol deletion (SEC-B4 least-privilege).
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: PropagationService = Depends(get_propagation_service),
 ):
     service.delete_phenotype(plant_key, note_key, ctx.tenant_key)

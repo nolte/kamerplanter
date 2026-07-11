@@ -229,7 +229,11 @@ class PropagationService:
             raise ValidationError("Batch is already finalized.")
         if self._planting_run_repo is not None:
             run = self._planting_run_repo.get_by_key(target_planting_run_key)
-            if run is None or getattr(run, "tenant_key", tenant_key) != tenant_key:
+            # Fail-closed tenant scope (SEC-B4): a run whose tenant_key is missing must
+            # be rejected, never silently defaulted to the caller's tenant. Only an
+            # explicit, matching tenant_key lets the finalize proceed.
+            run_tenant_key = getattr(run, "tenant_key", None)
+            if run is None or run_tenant_key is None or run_tenant_key != tenant_key:
                 raise NotFoundError("PlantingRun", target_planting_run_key)
         events = self._require_prop().list_events_for_batch(key, tenant_key)
         total_survived = sum(e.survived_count or 0 for e in events)
