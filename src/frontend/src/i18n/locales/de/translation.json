@@ -5359,8 +5359,15 @@
       "none": "In den nächsten 7 Tagen steht nichts an.",
       "untitled": "Unbenannte Aufgabe"
     },
+    "plantGrid": {
+      "unnamed": "Unbenannte Pflanze",
+      "empty": "Noch keine aktiven Pflanzen."
+    },
     "nav": {
-      "openWidget": "{{widget}} öffnen"
+      "openWidget": "{{widget}} öffnen",
+      "openListNamed": "{{widget}}-Liste öffnen",
+      "openTask": "Aufgabe öffnen: {{task}}",
+      "openPlant": "Pflanze öffnen: {{plant}}"
     },
     "widgets": {
       "comingSoon": "In Vorbereitung",

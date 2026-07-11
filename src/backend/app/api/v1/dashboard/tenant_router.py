@@ -104,6 +104,8 @@ def _slice_summary_for(widget_key: str, summary: Any) -> Any | None:
             return {"care_reminders_due": counts.care_reminders_due}
         case "next_calendar_events":
             return {"upcoming_tasks": summary.upcoming_tasks}
+        case "plant_grid":
+            return {"plants": summary.active_plants}
         case _:
             return None
 

@@ -5358,8 +5358,15 @@
       "none": "Nothing scheduled in the next 7 days.",
       "untitled": "Untitled task"
     },
+    "plantGrid": {
+      "unnamed": "Unnamed plant",
+      "empty": "No active plants yet."
+    },
     "nav": {
-      "openWidget": "Open {{widget}}"
+      "openWidget": "Open {{widget}}",
+      "openListNamed": "Open {{widget}} list",
+      "openTask": "Open task: {{task}}",
+      "openPlant": "Open plant: {{plant}}"
     },
     "widgets": {
       "comingSoon": "In preparation",
