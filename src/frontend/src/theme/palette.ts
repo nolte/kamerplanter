@@ -29,6 +29,57 @@ export const lightPalette: PaletteOptions = {
   },
 };
 
+/**
+ * UI-NFR-019 §2.7 — high-contrast palette for kiosk & outdoor use. Pure
+ * black-on-white surfaces (R-041), all text ≥ 7:1 against white (WCAG AAA,
+ * R-040). Action colors keep a distinct hue but stay dark enough that their
+ * white contrast text also clears 7:1 (used on filled buttons/chips).
+ */
+export const highContrastPalette: PaletteOptions = {
+  mode: 'light',
+  common: {
+    black: '#000000',
+    white: '#ffffff',
+  },
+  primary: {
+    main: '#000000',
+    light: '#000000',
+    dark: '#000000',
+    contrastText: '#ffffff',
+  },
+  secondary: {
+    main: '#0b3d91',
+    light: '#0b3d91',
+    dark: '#062561',
+    contrastText: '#ffffff',
+  },
+  error: {
+    main: '#b71c1c',
+    contrastText: '#ffffff',
+  },
+  warning: {
+    main: '#8a5000',
+    contrastText: '#ffffff',
+  },
+  success: {
+    main: '#1b5e20',
+    contrastText: '#ffffff',
+  },
+  info: {
+    main: '#0b3d91',
+    contrastText: '#ffffff',
+  },
+  background: {
+    default: '#ffffff',
+    paper: '#ffffff',
+  },
+  text: {
+    primary: '#000000',
+    secondary: '#000000',
+  },
+  divider: '#000000',
+};
+
 export const darkPalette: PaletteOptions = {
   mode: 'dark',
   primary: {

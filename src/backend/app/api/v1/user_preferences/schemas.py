@@ -13,6 +13,9 @@ class UserPreferenceResponse(BaseModel):
     theme: str
     watering_can_liters: float
     smart_home_enabled: bool
+    # UI-NFR-019 Kiosk mode.
+    kiosk_enabled: bool = False
+    high_contrast: bool = False
     module_visibility: dict[str, ModuleVisibilityState] = Field(default_factory=dict)
     dashboard_layout: DashboardLayout | None = None
 
@@ -24,6 +27,9 @@ class UserPreferenceUpdate(BaseModel):
     theme: str | None = None
     watering_can_liters: float | None = None
     smart_home_enabled: bool | None = None
+    # UI-NFR-019 Kiosk mode.
+    kiosk_enabled: bool | None = None
+    high_contrast: bool | None = None
     module_visibility: dict[str, ModuleVisibilityState] | None = None
     # REQ-045 — explicit null resets to the experience-level default; a field
     # left unset leaves the stored layout untouched. The router therefore dumps

@@ -48,6 +48,8 @@ export const updateUserPreferences = createAsyncThunk(
       onboarding_completed?: boolean;
       watering_can_liters?: number;
       smart_home_enabled?: boolean;
+      kiosk_enabled?: boolean;
+      high_contrast?: boolean;
       module_visibility?: Record<string, ModuleVisibilityState>;
     };
   }) => {
