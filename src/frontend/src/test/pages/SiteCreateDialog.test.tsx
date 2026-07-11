@@ -184,6 +184,76 @@ describe('SiteCreateDialog', () => {
     expect(captured!.gps_coordinates).toBeNull();
   });
 
+  it('treats balcony as weather-relevant when selected: swaps the disabled hint for the balcony hint', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={() => {}} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    await screen.findByTestId('site-create-dialog');
+    // Default type is indoor => the disabled hint is visible, no balcony hint.
+    expect(screen.getByTestId('site-weather-type-hint')).toBeTruthy();
+    expect(screen.queryByTestId('site-balcony-weather-hint')).toBeNull();
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Balkon' }));
+
+    // Balcony is weather-relevant => disabled hint gone, positive hint shown.
+    await waitFor(() =>
+      expect(screen.queryByTestId('site-weather-type-hint')).toBeNull(),
+    );
+    expect(screen.getByTestId('site-balcony-weather-hint')).toBeTruthy();
+  });
+
+  it('persists GPS coordinates for a balcony site', async () => {
+    let captured: Record<string, unknown> | null = null;
+    const capture = async ({ request }: { request: Request }) => {
+      captured = (await request.json()) as Record<string, unknown>;
+      return HttpResponse.json({ key: 'site-new', ...captured }, { status: 201 });
+    };
+    server.use(
+      http.post('/api/v1/sites', capture),
+      http.post('/api/v1/t/:tenant/sites', capture),
+    );
+
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={onCreated} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    const nameField = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
+    await user.type(nameField, 'South Balcony');
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Balkon' }));
+
+    await user.type(within(screen.getByTestId('form-field-gps_lat')).getByRole('spinbutton'), '48.1');
+    await user.type(within(screen.getByTestId('form-field-gps_lon')).getByRole('spinbutton'), '11.6');
+
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledOnce();
+    });
+    expect(captured!.type).toBe('balcony');
+    expect(captured!.gps_coordinates).toEqual([48.1, 11.6]);
+  });
+
+  it('keeps the disabled hint for a windowsill (indoor) type', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SiteCreateDialog open onClose={() => {}} onCreated={() => {}} />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    await screen.findByTestId('site-create-dialog');
+    await user.click(screen.getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Fensterbrett' }));
+
+    expect(screen.getByTestId('site-weather-type-hint')).toBeTruthy();
+    expect(screen.queryByTestId('site-balcony-weather-hint')).toBeNull();
+  });
+
   it('blocks submission when a coordinate is out of range', async () => {
     const user = userEvent.setup();
     const onCreated = vi.fn();
