@@ -159,6 +159,16 @@ controllers:
         fsGroup: 0
     containers:
       main:
+        # Dev override: pin the root password inline so it deterministically
+        # matches the hard-coded ARANGODB_PASSWORD: rootpassword on
+        # backend/celery-worker/celery-beat above. The base values.yaml wires
+        # ARANGO_ROOT_PASSWORD via envFrom kamerplanter-secrets, but that Secret
+        # value is operator-supplied and would otherwise drift from the app
+        # connection string, causing a startup-time HTTP 401 against ArangoDB.
+        # This inline env wins over envFrom, so the Secret's ARANGO_ROOT_PASSWORD
+        # value is irrelevant in dev.
+        env:
+          ARANGO_ROOT_PASSWORD: rootpassword
         resources:
           requests:
             cpu: 100m

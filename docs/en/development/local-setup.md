@@ -70,6 +70,9 @@ kubectl create secret generic kamerplanter-secrets -n default \
   --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
 ```
 
+!!! note "ArangoDB password in dev"
+    The Secret values `ARANGODB_PASSWORD` and `ARANGO_ROOT_PASSWORD` are **arbitrary** for local development: `helm/kamerplanter/values-dev.yaml` pins both ArangoDB (`ARANGO_ROOT_PASSWORD`) and the backend/Celery connection (`ARANGODB_PASSWORD`) to `rootpassword`. These inline values take precedence over the Secret (`env` beats `envFrom`). The remaining keys (`FERNET_KEY`, `ERASURE_TOMBSTONE_SALT`, `POSTGRES_PASSWORD`, …) are genuinely read from the Secret.
+
 !!! warning "Local development only"
     These values are intentionally weak and must never be used in a production environment. For production and GitOps, the [ArgoCD deployment](../deployment/argocd.md) describes secure secret management (Sealed Secrets, External Secrets Operator).
 
