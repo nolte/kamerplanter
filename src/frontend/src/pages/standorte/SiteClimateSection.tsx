@@ -118,7 +118,10 @@ export default function SiteClimateSection({ siteKey }: Props) {
         )}
 
         {!loading && !error && !normal && (
-          <EmptyState message={t('pages.siteDetail.climate.empty')} />
+          <EmptyState
+            message={t('pages.siteDetail.climate.emptyTitle')}
+            description={t('pages.siteDetail.climate.empty')}
+          />
         )}
 
         {!loading && !error && normal && (
@@ -132,7 +135,12 @@ export default function SiteClimateSection({ siteKey }: Props) {
               )}
             </Box>
 
-            <Box sx={{ width: '100%', height: 260 }}>
+            <Box
+              role="img"
+              aria-label={t('pages.siteDetail.climate.chartAria')}
+              data-testid="climate-chart"
+              sx={{ width: '100%', height: { xs: 220, md: 260 } }}
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
