@@ -478,6 +478,10 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="table" />}>
                 <InventreePage />
+              </Suspense>
+            }
+          />
+
           {/* REQ-017 Vermehrung / Lineage */}
           <Route
             path="vermehrung"

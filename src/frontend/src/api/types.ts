@@ -5663,6 +5663,8 @@ export interface StockTransaction {
   retry_count: number;
   synced_at?: string | null;
   created_at?: string | null;
+}
+
 // ── REQ-017 Propagation / lineage ────────────────────────────────────────────
 
 /** Event-level propagation method (REQ-017), distinct from the species-level
