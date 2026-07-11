@@ -29,6 +29,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Pflanzenfoto-Galerie](plant-photos.md) | Wachstumsverlauf einer Pflanze in Fotos festhalten |
 | [Pflanzdurchläufe](planting-runs.md) | Gruppenmanagement für Pflanzen |
 | [Tankmanagement](tanks.md) | Wassertanks und Befüllungen |
+| [Aquaponik](aquaponics.md) | Fisch-Pflanzen-Kreislaufsysteme, Stickstoffkreislauf und Biofilter-Cycling |
 | [Kalender](calendar.md) | Kalenderansicht und Aussaatkalender |
 | [Dashboard](dashboard.md) | Übersicht und Kennzahlen |
 | [Onboarding-Wizard](onboarding.md) | Geführte Ersteinrichtung mit Starter-Kits und Favoriten |
