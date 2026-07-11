@@ -42,6 +42,8 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["zone"], "unique": True},
             # v0014 plant_diagnosis_requests history index
             {"type": "persistent", "fields": ["tenant_key", "user_key", "created_at"], "unique": False},
+            # v0015 actuators (tenant_key, name) lookup index
+            {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -65,6 +67,16 @@ class _NoopGraph:
             {"edge_collection": "cv_diagnosis_found"},
             {"edge_collection": "cv_attached_to_inspection"},
             {"edge_collection": "cv_phenotype_of"},
+            # v0015 actuator edges
+            {"edge_collection": "has_actuator"},
+            {"edge_collection": "actuator_controls_location"},
+            {"edge_collection": "actuator_has_schedule"},
+            {"edge_collection": "actuator_has_rule"},
+            {"edge_collection": "actuator_has_override"},
+            {"edge_collection": "actuator_event"},
+            {"edge_collection": "phase_profile"},
+            {"edge_collection": "location_profile"},
+            {"edge_collection": "rule_monitors"},
         ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
