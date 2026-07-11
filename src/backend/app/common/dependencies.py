@@ -350,6 +350,7 @@ def get_watering_service() -> WateringService:
         lifecycle_repo=get_lifecycle_repo(),
         phase_seq_repo=get_phase_sequence_repo(),
         sensor_service=get_sensor_service(),
+        irrigation_demand_repo=get_irrigation_demand_repo(),
     )
 
 
@@ -788,6 +789,12 @@ def get_climate_normal_repo():
     from app.data_access.arango.climate_normal_repository import ArangoClimateNormalRepository
 
     return ArangoClimateNormalRepository(get_db())
+
+
+def get_irrigation_demand_repo():
+    from app.data_access.arango.irrigation_demand_repository import ArangoIrrigationDemandRepository
+
+    return ArangoIrrigationDemandRepository(get_db())
 
 
 def get_weather_settings_service():

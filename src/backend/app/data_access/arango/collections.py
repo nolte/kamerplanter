@@ -105,6 +105,9 @@ WEATHER_SOURCE_CONFIGS = "weather_source_configs"
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
+# REQ-037 — materialised daily irrigation demand (ET₀ → ETc → net demand) per site/run
+IRRIGATION_DEMANDS = "irrigation_demands"
+
 # REQ-002 Location Types
 LOCATION_TYPES = "location_types"
 
@@ -264,6 +267,8 @@ DOCUMENT_COLLECTIONS = [
     WEATHER_SOURCE_CONFIGS,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
+    # REQ-037 irrigation demands
+    IRRIGATION_DEMANDS,
 ]
 
 # Edge collections
@@ -402,6 +407,10 @@ HAS_WEATHER_SOURCE_CONFIG = "has_weather_source_config"  # sites → weather_sou
 
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
+
+# REQ-037 irrigation-demand edges
+HAS_IRRIGATION_DEMAND = "has_irrigation_demand"  # sites → irrigation_demands
+DEMAND_FOR_RUN = "demand_for_run"  # planting_runs → irrigation_demands
 
 # Watering Log edges
 LOG_SLOT = "log_slot"
@@ -580,6 +589,9 @@ EDGE_COLLECTIONS = [
     HAS_WEATHER_SOURCE_CONFIG,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
+    # REQ-037 irrigation demands
+    HAS_IRRIGATION_DEMAND,
+    DEMAND_FOR_RUN,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1259,6 +1271,17 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [CLIMATE_NORMALS],
     },
+    # REQ-037 irrigation demands
+    {
+        "edge_collection": HAS_IRRIGATION_DEMAND,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [IRRIGATION_DEMANDS],
+    },
+    {
+        "edge_collection": DEMAND_FOR_RUN,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [IRRIGATION_DEMANDS],
+    },
 ]
 
 
@@ -1568,6 +1591,13 @@ def ensure_collections(db: StandardDatabase) -> None:
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.
     climate_normals_col = db.collection(CLIMATE_NORMALS)
     climate_normals_col.add_persistent_index(fields=["tenant_key", "site_key", "source"], unique=True)
+
+    # REQ-037 irrigation demands — one record per (site, run, day) within a tenant;
+    # the upsert keys off it, so uniqueness is enforced at the storage layer.
+    irrigation_demands_col = db.collection(IRRIGATION_DEMANDS)
+    irrigation_demands_col.add_persistent_index(
+        fields=["tenant_key", "site_key", "run_key", "demand_date"], unique=True
+    )
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
