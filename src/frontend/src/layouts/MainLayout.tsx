@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -13,10 +13,12 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
+import Chip from '@mui/material/Chip';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import HomeIcon from '@mui/icons-material/Home';
 import Sidebar from './Sidebar';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
@@ -28,6 +30,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
 import { isLightMode } from '@/config/mode';
+import { KioskContext } from '@/kiosk/KioskProvider';
 
 function isPrivateNetwork(): boolean {
   const { hostname } = window.location;
@@ -44,6 +47,14 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
   const user = useAppSelector((s) => s.auth.user);
+  // UI-NFR-019 R-003/R-018 — a kiosk quick-action tile (e.g. "Bewässerung
+  // erfassen") navigates out of the /kiosk shell into a regular MainLayout
+  // page. isKiosk stays true (the touch/high-contrast theme keeps applying),
+  // so the permanent "Kiosk" badge and a Home button back to the kiosk start
+  // page must keep showing here too — optional read so tests/pages rendered
+  // without a KioskProvider still work (mirrors ThemeContext's pattern).
+  const kiosk = useContext(KioskContext);
+  const isKiosk = kiosk?.isKiosk ?? false;
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [lightModeWarningDismissed, setLightModeWarningDismissed] = useState(
@@ -124,6 +135,27 @@ export default function MainLayout() {
           >
             <MenuIcon />
           </IconButton>
+          {/* UI-NFR-019 R-003, R-018 — kiosk badge + Home stay visible on every
+              page reached from a kiosk quick-action tile, not just on /kiosk. */}
+          {isKiosk && (
+            <>
+              <Chip
+                label={t('pages.kiosk.badge')}
+                color="primary"
+                sx={{ fontWeight: 700, fontSize: '1rem', height: 40, px: 1, ml: 1 }}
+                data-testid="kiosk-badge"
+              />
+              <IconButton
+                color="inherit"
+                onClick={() => navigate('/kiosk')}
+                sx={{ ml: 1 }}
+                aria-label={t('pages.kiosk.home')}
+                data-testid="kiosk-home-button"
+              >
+                <HomeIcon />
+              </IconButton>
+            </>
+          )}
           <Box sx={{ flexGrow: 1 }} />
           {!isLightMode && <TenantSwitcher />}
           <LanguageSelector />
