@@ -139,3 +139,14 @@ if settings.knowledge_service_enabled:
     from app.api.v1.knowledge.router import router as knowledge_router
 
     api_router.include_router(knowledge_router)
+
+# ── REQ-031 KI-Assistent — public (light-mode) + global (platform-admin) ──
+# Always mounted; the operator flag (AI_FEATURES_ENABLED) is enforced in-router
+# and returns 404 when off, so the endpoints appear non-existent (§1.3 stage 1).
+# The tenant-scoped /ai/* routes live under the tenant_scoped_router.
+from app.api.v1.ki_assistent.global_router import router as ai_global_router  # noqa: E402
+from app.api.v1.ki_assistent.public_router import router as ai_public_router  # noqa: E402
+
+api_router.include_router(ai_public_router)
+if settings.kamerplanter_mode == "full":
+    api_router.include_router(ai_global_router)

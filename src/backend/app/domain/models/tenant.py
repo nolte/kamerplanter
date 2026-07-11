@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -15,6 +16,10 @@ class Tenant(BaseModel):
     is_active: bool = True
     is_platform: bool = False
     max_members: int = Field(default=1, ge=1)
+    #: Free-form settings sub-object (REQ-024). REQ-031 §3.1 stores the KI toggle
+    #: block here (``ai_features_enabled``, ``ai_default_provider_key``,
+    #: ``ai_allow_cloud_providers``, ``ai_daily_tip_enabled``).
+    settings: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

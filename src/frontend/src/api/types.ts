@@ -5104,3 +5104,73 @@ export interface HaEntityItem {
   unit_of_measurement?: string | null;
   device_class?: string | null;
 }
+
+// ── REQ-031 KI-Assistent ────────────────────────────────────────────
+
+/** ADR-002 confidence marker for how well a species maps onto the KB. */
+export type AiConfidence = 'high' | 'medium' | 'low' | 'none';
+
+/** A cited knowledge chunk attached to a KI answer (Quellenpflicht). */
+export interface AiSourceRef {
+  source_key: string;
+  source_type: string;
+  title: string;
+  score: number;
+  language: string;
+}
+
+/** The common KI answer envelope rendered by `<AIResponse>` (§5.5). */
+export interface AiResponse {
+  answer_text: string;
+  sources: AiSourceRef[];
+  language: string;
+  language_mismatch_warning: boolean;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  confidence: AiConfidence;
+  fallback_species?: string | null;
+  cultivar_hint?: string | null;
+  model_name: string;
+  provider_type: string;
+  kb_version?: string | null;
+  generated_at?: string | null;
+}
+
+/** A single tip card. */
+export interface AiTipCard {
+  key?: string | null;
+  context_type: string;
+  context_key: string;
+  tip_type: string;
+  priority: string;
+  title: string;
+  body: string;
+  action_url?: string | null;
+  sources: AiSourceRef[];
+  language: string;
+  language_mismatch_warning: boolean;
+  uses_tenant_data: boolean;
+  confidence: AiConfidence;
+  model_name: string;
+  generated_at?: string | null;
+}
+
+export interface AiTipListResponse {
+  tips: AiTipCard[];
+}
+
+export interface AiExplainRequest {
+  subject_type: 'task' | 'reminder' | 'phase_transition' | 'feeding_event';
+  subject_key: string;
+  question_template_id: string;
+  language?: 'de' | 'en';
+}
+
+export interface AiConversationSummary {
+  key?: string | null;
+  title?: string | null;
+  context_type: string;
+  context_key?: string | null;
+  message_count: number;
+  updated_at?: string | null;
+}

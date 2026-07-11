@@ -20,6 +20,7 @@ from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_ro
 from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_router
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
+from app.api.v1.ki_assistent.tenant_router import router as tenant_ai_router
 from app.api.v1.locations.tenant_router import router as tenant_locations_router
 from app.api.v1.notifications.tenant_router import router as tenant_notifications_router
 from app.api.v1.nutrient_calculations.router import router as nutrient_calculations_router
@@ -75,6 +76,8 @@ tenant_scoped_router.include_router(tenant_care_reminders_router)
 tenant_scoped_router.include_router(tenant_dashboard_router)
 tenant_scoped_router.include_router(tenant_overwintering_profiles_router)
 tenant_scoped_router.include_router(tenant_season_router)
+# REQ-031 KI-Assistent — /t/{slug}/ai/* (three-stage toggle enforced in-router)
+tenant_scoped_router.include_router(tenant_ai_router)
 tenant_scoped_router.include_router(tenant_starter_kits_router)
 tenant_scoped_router.include_router(tenant_onboarding_router)
 tenant_scoped_router.include_router(tenant_favorites_router)

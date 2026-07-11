@@ -437,6 +437,29 @@ class FeatureNotConfiguredError(KamerplanterError):
         )
 
 
+class AiDisabledError(KamerplanterError):
+    """REQ-031 §1.3 stage 2 — KI features are disabled for this tenant.
+
+    Distinct from the operator-level stage-1 toggle (``AI_FEATURES_ENABLED``),
+    which returns a plain 404 at the router boundary. Body carries the stable
+    ``ai.disabled_for_tenant`` marker the frontend keys its hint off.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="ai.disabled_for_tenant",
+            error_code="AI_DISABLED_FOR_TENANT",
+            status_code=403,
+            details=[
+                {
+                    "field": "ai",
+                    "reason": "ai.disabled_for_tenant",
+                    "code": "AI_DISABLED_FOR_TENANT",
+                }
+            ],
+        )
+
+
 class AdapterNotAvailableError(KamerplanterError):
     """REQ-034 §4a.3 — the requested recognition adapter cannot be used here.
 

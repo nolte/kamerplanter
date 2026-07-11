@@ -243,6 +243,19 @@ class Settings(BaseSettings):
     knowledge_service_enabled: bool = False
     knowledge_service_url: str = "http://knowledge-service:8000"
 
+    # REQ-031 KI-Assistent — three-stage feature toggle (§1.3).
+    # Stage 1 (Operator): when false the whole KI API answers HTTP 404, as if
+    # the endpoints did not exist. Stages 2 (tenant setting) and 3 (user consent)
+    # are evaluated per request in the service layer.
+    ai_features_enabled: bool = False
+    # Async KnowledgeServiceAdapter timeout + circuit-breaker tuning (§4.1).
+    ai_knowledge_service_timeout_s: float = 60.0
+    ai_circuit_breaker_threshold: int = 3
+    ai_circuit_breaker_window_s: float = 60.0
+    ai_circuit_breaker_cooldown_s: float = 60.0
+    # Light-mode public /ai/ask rate limit (per client IP).
+    ai_public_rate_limit_per_min: int = 10
+
     # Shared secret for the cluster-internal M2M services (knowledge-service,
     # inference-service). Sent as ``Authorization: Bearer <token>`` on every
     # call. Must match the token those services expect (same key in
