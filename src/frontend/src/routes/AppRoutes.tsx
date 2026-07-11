@@ -121,6 +121,10 @@ const HarvestBatchListPage = lazy(
 const HarvestBatchDetailPage = lazy(
   () => import('@/pages/ernte/HarvestBatchDetailPage'),
 );
+// REQ-008 Post-Harvest
+const PostHarvestPage = lazy(
+  () => import('@/pages/post-harvest/PostHarvestPage'),
+);
 // REQ-006 Tasks
 const TaskQueuePage = lazy(() => import('@/pages/aufgaben/TaskQueuePage'));
 const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
@@ -687,6 +691,16 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <HarvestBatchDetailPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-008 Nacherntebehandlung */}
+          <Route
+            path="ernte/nachernte"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <PostHarvestPage />
               </Suspense>
             }
           />

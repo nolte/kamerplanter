@@ -355,6 +355,7 @@
     "treatments": "Treatments",
     "ernte": "Harvest",
     "harvestBatches": "Harvest Batches",
+    "postHarvest": "Post-Harvest",
     "aufgaben": "Tasks",
     "taskQueue": "Task Queue",
     "workflows": "Workflows",
@@ -3386,6 +3387,39 @@
       "karenzDays": "Safety interval: {{days}} days",
       "karenzSafeDate": "Safe from: {{date}}"
     },
+    "postHarvest": {
+      "title": "Post-Harvest",
+      "listIntro": "Post-harvest processing guides a harvest batch through the drying, curing and storage stages up to release. Click a batch to track progress and advance its stage.",
+      "startDrying": "Start drying",
+      "startDryingIntro": "Take a harvest batch into post-harvest processing. The batch starts in the drying stage; the start weight defaults to the harvest wet weight when omitted.",
+      "startDryingSuccess": "Drying started – the batch is now in post-harvest processing.",
+      "detailTitle": "Post-harvest batch",
+      "harvestBatch": "Harvest batch",
+      "harvestBatchHelper": "Select the harvest batch to dry.",
+      "noHarvestBatches": "No harvest batches available. Record a harvest first.",
+      "stage": "Stage",
+      "speciesType": "Produce type",
+      "speciesTypeHelper": "Coarse class (flower, herb, root …) – drives the drying-duration estimate.",
+      "dryingMethod": "Drying method",
+      "dryingMethodHelper": "Hang drying is gentlest, the dehydrator fastest.",
+      "startWeightG": "Start weight (g)",
+      "startWeightHelper": "Optional. Defaults to the harvest batch wet weight.",
+      "targetMoisturePercent": "Target moisture (%)",
+      "targetMoistureHelper": "Typical target: ~10% residual moisture (range 5–15%).",
+      "notes": "Notes",
+      "drynessProgress": "Drying progress",
+      "recordWeight": "Record weight",
+      "recordWeightIntro": "Record the current weight to update the drying progress. At 95% progress the batch is ready for curing.",
+      "currentWeightG": "Current weight (g)",
+      "record": "Record",
+      "progressRecorded": "Drying progress updated.",
+      "advanceTo": "Advance to: {{stage}}",
+      "advanceSuccess": "Batch advanced to the next stage.",
+      "notReadyForCuring": "Not ready for curing yet: drying progress must reach 95%. Record more weight measurements.",
+      "openMoldAlerts": "{{count}} open mold alert(s) for this batch.",
+      "emptyTitle": "No batches in post-harvest yet",
+      "emptyDescription": "Start drying a harvest batch to track the post-harvest process."
+    },
     "harvest": {
       "title": "Harvest Batches",
       "listIntro": "Harvest batches document the harvesting process from wet weight to quality assessment and yield analysis. Click a batch for details.",
@@ -4871,6 +4905,29 @@
       "low": "Low",
       "medium": "Medium",
       "high": "High",
+      "critical": "Critical"
+    },
+    "postHarvestStage": {
+      "drying": "Drying",
+      "curing": "Curing",
+      "stored": "Stored",
+      "released": "Released"
+    },
+    "dryingMethod": {
+      "hang_dry": "Hang dry",
+      "rack_dry": "Rack dry",
+      "dehydrator": "Dehydrator",
+      "air_cure": "Air cure"
+    },
+    "postHarvestSpeciesType": {
+      "flower": "Flower",
+      "herb": "Herb",
+      "root": "Root/tuber",
+      "fruit": "Fruit",
+      "mushroom": "Mushroom"
+    },
+    "moldAlertSeverity": {
+      "warning": "Warning",
       "critical": "Critical"
     },
     "harvestType": {

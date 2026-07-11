@@ -2951,6 +2951,150 @@ export interface YieldStats {
   avg_trim_waste_percent: number;
 }
 
+// ── REQ-008 Post-Harvest types ────────────────────────────────────────
+
+export type PostHarvestStage = 'drying' | 'curing' | 'stored' | 'released';
+
+export type DryingMethod = 'hang_dry' | 'rack_dry' | 'dehydrator' | 'air_cure';
+
+export type PostHarvestSpeciesType =
+  | 'flower'
+  | 'herb'
+  | 'root'
+  | 'fruit'
+  | 'mushroom';
+
+export type MoldAlertSeverity = 'warning' | 'critical';
+
+export type StorageVisualCondition =
+  | 'excellent'
+  | 'good'
+  | 'acceptable'
+  | 'concerning'
+  | 'critical';
+
+export type StorageAromaQuality =
+  | 'excellent'
+  | 'good'
+  | 'acceptable'
+  | 'off'
+  | 'moldy';
+
+export type PesticideResidueStatus =
+  | 'untested'
+  | 'clean'
+  | 'within_limits'
+  | 'residue_detected';
+
+export interface PostHarvestBatch {
+  key: string;
+  harvest_batch_key: string;
+  plant_key: string;
+  stage: PostHarvestStage;
+  species_type: PostHarvestSpeciesType;
+  drying_method: DryingMethod;
+  start_weight_g: number | null;
+  current_weight_g: number | null;
+  target_moisture_percent: number;
+  dryness_progress_percent: number;
+  ready_for_curing: boolean;
+  snap_test_passed: boolean | null;
+  water_activity: number | null;
+  storage_location: string | null;
+  pesticide_residue_status: PesticideResidueStatus;
+  started_at: string | null;
+  drying_started_at: string | null;
+  curing_started_at: string | null;
+  stored_at: string | null;
+  released_at: string | null;
+  completed_at: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface StartDryingRequest {
+  harvest_batch_key: string;
+  species_type?: PostHarvestSpeciesType;
+  drying_method?: DryingMethod;
+  start_weight_g?: number | null;
+  target_moisture_percent?: number;
+  notes?: string | null;
+}
+
+export interface DryingProgress {
+  key: string;
+  batch_key: string;
+  start_weight_g: number;
+  current_weight_g: number;
+  target_weight_g: number;
+  weight_loss_percent: number;
+  dryness_progress_percent: number;
+  snap_test_ready: boolean;
+  snap_test_passed: boolean | null;
+  over_dried: boolean;
+  estimated_days_remaining: number;
+  next_action: string;
+  water_activity: number | null;
+  co2_ppm_current: number | null;
+  recorded_at: string | null;
+  notes: string | null;
+}
+
+export interface DryingProgressCreate {
+  current_weight_g: number;
+  water_activity?: number | null;
+  co2_ppm?: number | null;
+  snap_test_passed?: boolean | null;
+  notes?: string | null;
+}
+
+export interface StorageObservation {
+  key: string;
+  batch_key: string;
+  weight_g: number | null;
+  temperature_c: number | null;
+  rh_percent: number | null;
+  water_activity: number | null;
+  co2_ppm: number | null;
+  visual_condition: StorageVisualCondition;
+  aroma_quality: StorageAromaQuality;
+  defects_observed: string[];
+  observer: string;
+  notes: string | null;
+  observed_at: string | null;
+}
+
+export interface StorageObservationCreate {
+  weight_g?: number | null;
+  temperature_c?: number | null;
+  rh_percent?: number | null;
+  water_activity?: number | null;
+  co2_ppm?: number | null;
+  visual_condition?: StorageVisualCondition;
+  aroma_quality?: StorageAromaQuality;
+  defects_observed?: string[];
+  observer?: string;
+  notes?: string | null;
+}
+
+export interface MoldAlert {
+  key: string;
+  batch_key: string;
+  severity: MoldAlertSeverity;
+  trigger_reason: string;
+  affected_location: string;
+  action_taken: string | null;
+  triggered_at: string | null;
+  resolved_at: string | null;
+}
+
+export interface PostHarvestBatchDetail {
+  batch: PostHarvestBatch;
+  latest_drying_progress: DryingProgress | null;
+  open_mold_alerts: number;
+}
+
 // ── REQ-006 Task & Workflow types ─────────────────────────────────────
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'cancelled';

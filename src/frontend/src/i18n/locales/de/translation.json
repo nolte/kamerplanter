@@ -355,6 +355,7 @@
     "treatments": "Behandlungen",
     "ernte": "Ernte",
     "harvestBatches": "Erntechargen",
+    "postHarvest": "Nacherntebehandlung",
     "aufgaben": "Aufgaben",
     "taskQueue": "Aufgabenwarteschlange",
     "workflows": "Workflows",
@@ -3387,6 +3388,39 @@
       "karenzDays": "Karenzzeit: {{days}} Tage",
       "karenzSafeDate": "Sicher ab: {{date}}"
     },
+    "postHarvest": {
+      "title": "Nacherntebehandlung",
+      "listIntro": "Die Nacherntebehandlung begleitet eine Erntecharge durch die Stufen Trocknung, Aushärtung (Curing) und Lagerung bis zur Freigabe. Klicken Sie auf eine Charge, um Fortschritt und Stufenwechsel zu verwalten.",
+      "startDrying": "Trocknung starten",
+      "startDryingIntro": "Übernehmen Sie eine Erntecharge in die Nacherntebehandlung. Die Charge startet in der Stufe „Trocknung“; das Startgewicht wird bei Bedarf aus dem Nassgewicht der Ernte übernommen.",
+      "startDryingSuccess": "Trocknung gestartet – die Charge befindet sich jetzt in der Nacherntebehandlung.",
+      "detailTitle": "Charge der Nacherntebehandlung",
+      "harvestBatch": "Erntecharge",
+      "harvestBatchHelper": "Wählen Sie die Erntecharge, die getrocknet werden soll.",
+      "noHarvestBatches": "Keine Erntechargen verfügbar. Erfassen Sie zuerst eine Ernte.",
+      "stage": "Stufe",
+      "speciesType": "Produktart",
+      "speciesTypeHelper": "Grobe Einordnung (Blüte, Kraut, Wurzel …) – steuert die Trocknungsdauer-Schätzung.",
+      "dryingMethod": "Trocknungsmethode",
+      "dryingMethodHelper": "Hängetrocknung ist am schonendsten, das Dörrgerät am schnellsten.",
+      "startWeightG": "Startgewicht (g)",
+      "startWeightHelper": "Optional. Standard: Nassgewicht der Erntecharge.",
+      "targetMoisturePercent": "Ziel-Restfeuchte (%)",
+      "targetMoistureHelper": "Übliches Ziel: ~10 % Restfeuchte (Bereich 5–15 %).",
+      "notes": "Notizen",
+      "drynessProgress": "Trocknungsfortschritt",
+      "recordWeight": "Gewicht erfassen",
+      "recordWeightIntro": "Erfassen Sie das aktuelle Gewicht, um den Trocknungsfortschritt zu aktualisieren. Ab 95 % Fortschritt ist die Charge bereit für die Aushärtung.",
+      "currentWeightG": "Aktuelles Gewicht (g)",
+      "record": "Erfassen",
+      "progressRecorded": "Trocknungsfortschritt aktualisiert.",
+      "advanceTo": "Weiter zu: {{stage}}",
+      "advanceSuccess": "Charge in die nächste Stufe überführt.",
+      "notReadyForCuring": "Noch nicht bereit für die Aushärtung: Der Trocknungsfortschritt muss 95 % erreichen. Erfassen Sie weitere Gewichtsmessungen.",
+      "openMoldAlerts": "{{count}} offene Schimmel-Warnung(en) für diese Charge.",
+      "emptyTitle": "Noch keine Chargen in der Nacherntebehandlung",
+      "emptyDescription": "Starten Sie die Trocknung einer Erntecharge, um den Nachernte-Prozess zu verfolgen."
+    },
     "harvest": {
       "title": "Erntechargen",
       "listIntro": "Erntechargen dokumentieren den Ernteprozess vom Nassgewicht bis zur Qualitätsbewertung und Ertragsanalyse. Klicken Sie auf eine Charge für Details.",
@@ -4878,6 +4912,29 @@
       "partial": "Teilernte",
       "final": "Endernte",
       "continuous": "Fortlaufend"
+    },
+    "postHarvestStage": {
+      "drying": "Trocknung",
+      "curing": "Aushärtung (Curing)",
+      "stored": "Eingelagert",
+      "released": "Freigegeben"
+    },
+    "dryingMethod": {
+      "hang_dry": "Hängetrocknung",
+      "rack_dry": "Gittertrocknung",
+      "dehydrator": "Dörrgerät",
+      "air_cure": "Lufttrocknung"
+    },
+    "postHarvestSpeciesType": {
+      "flower": "Blüte",
+      "herb": "Kraut",
+      "root": "Wurzel/Knolle",
+      "fruit": "Frucht",
+      "mushroom": "Pilz"
+    },
+    "moldAlertSeverity": {
+      "warning": "Warnung",
+      "critical": "Kritisch"
     },
     "qualityGrade": {
       "a_plus": "A+",

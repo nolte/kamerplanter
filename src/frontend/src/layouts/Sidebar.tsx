@@ -33,6 +33,7 @@ import PestControlIcon from '@mui/icons-material/PestControl';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
 import MedicationIcon from '@mui/icons-material/Medication';
 import AgricultureIcon from '@mui/icons-material/Agriculture';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TimelineIcon from '@mui/icons-material/Timeline';
@@ -264,6 +265,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.harvestBatches'),
           path: '/ernte/batches',
           icon: <AgricultureIcon />,
+        },
+        {
+          label: t('nav.postHarvest'),
+          path: '/ernte/nachernte',
+          icon: <Inventory2Icon />,
         },
       ],
     },
