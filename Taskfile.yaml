@@ -336,6 +336,33 @@ tasks:
         docker compose -f docker-compose.e2e.yml \
           run --rm --service-ports --publish 8080:80 frontend
 
+  # ── Claude Code (portfolio plugin adoption) ─────────────────
+  # kamerplanter consumes the nolte-shared + nolte-engineering portfolio plugins
+  # from a local checkout of claude-shared via --plugin-dir (mirrors
+  # claude-shared's own `task plugin:reload`). See CLAUDE.md §"Claude Code
+  # plugin adoption". Only domain-specialised assets (plant/HA/agrobiology/RAG)
+  # stay in .claude/; generic delivery capabilities come from the plugins.
+
+  claude:
+    desc: |
+      Start Claude Code with the nolte-shared + nolte-engineering portfolio
+      plugins loaded from the local claude-shared checkout. Override the checkout
+      location with NOLTE_CLAUDE_SHARED (default ~/repos/github/claude-shared).
+      Forwards extra args, e.g.: task claude -- --resume
+    silent: true
+    cmds:
+      - |
+        CLAUDE_SHARED="${NOLTE_CLAUDE_SHARED:-$HOME/repos/github/claude-shared}"
+        if [ ! -d "$CLAUDE_SHARED/plugins/nolte-engineering" ]; then
+          echo "✗ claude-shared checkout not found at: $CLAUDE_SHARED" >&2
+          echo "  Clone nolte/claude-shared there, or set NOLTE_CLAUDE_SHARED to its path." >&2
+          exit 1
+        fi
+        exec claude \
+          --plugin-dir "$CLAUDE_SHARED" \
+          --plugin-dir "$CLAUDE_SHARED/plugins/nolte-engineering" \
+          {{.CLI_ARGS}}
+
   # ── Crash recovery & parallel working copies (merged from Taskfile.yml) ──
 
   resume:
