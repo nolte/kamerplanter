@@ -32,6 +32,7 @@ import SpeciesOverview from './SpeciesOverviewSection';
 import LifecycleConfigSection from '@/pages/pflanzen/LifecycleConfigSection';
 import SpeciesWorkflowsSection from './SpeciesWorkflowsSection';
 import SpeciesEditTab from './species-detail/SpeciesEditTab';
+import ToxicityBadge from './species-detail/ToxicityBadge';
 import SpeciesCompanionTab from './species-detail/SpeciesCompanionTab';
 import SpeciesCropRotationTab from './species-detail/SpeciesCropRotationTab';
 import {
@@ -240,6 +241,12 @@ export default function SpeciesDetailPage() {
           {originTooltipText}
         </Alert>
       )}
+
+      {/* REQ-021 safety exception: the toxicity warning is rendered here — above
+          the tab strip and OUTSIDE any expertise-level / module-visibility gate —
+          so it is always visible (incl. for `beginner`) on every tab. It protects
+          humans and pets and must never be hidden behind an experience level. */}
+      <ToxicityBadge toxicity={current?.toxicity} />
 
       <Tabs
         value={tab}

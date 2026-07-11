@@ -1159,6 +1159,8 @@
       "empty": "Noch keine Überwinterungsprofile vorhanden.",
       "formIntro": "Legen Sie fest, wie diese Pflanze überwintert wird. Nur die Winterhärte, die Schutzmaßnahme und der Monat sind Pflichtfelder.",
       "subject": "Pflanze / Durchlauf",
+      "goToPlant": "Zur Pflanze springen",
+      "goToRun": "Zum Pflanzdurchlauf springen",
       "plant": "Pflanze",
       "plantHelp": "Die Pflanze, für die dieses Profil gilt.",
       "plantRequired": "Bitte wählen Sie eine Pflanze aus.",
@@ -1273,6 +1275,19 @@
       "overviewChipsLabel": "Steckbrief",
       "edible": "Essbar",
       "ornamental": "Zierpflanze",
+      "toxicity": {
+        "title": "Giftig",
+        "ariaLabel": "Warnung: Diese Pflanze ist giftig",
+        "description": "Diese Pflanze ist giftig (Toxizität = gesundheitsschädlich bei Verzehr oder Kontakt). Bewahre sie außerhalb der Reichweite der genannten Gruppen auf.",
+        "severityLabel": "Schweregrad",
+        "partsLabel": "Giftige Pflanzenteile",
+        "compoundsLabel": "Giftstoffe",
+        "affected": {
+          "children": "Kinder",
+          "cats": "Katzen",
+          "dogs": "Hunde"
+        }
+      },
       "sectionTaxonomyDesc": "Wissenschaftliche Bezeichnung, Trivialnamen, Gattung und botanische Familie dieser Art.",
       "create": "Art erstellen",
       "scientificName": "Wissenschaftlicher Name",
@@ -4619,6 +4634,12 @@
       "insect": "Insektenbestäubung",
       "wind": "Windbestäubung",
       "self": "Selbstbestäubung"
+    },
+    "toxicitySeverity": {
+      "none": "Ungiftig",
+      "mild": "Leicht giftig",
+      "moderate": "Mäßig giftig",
+      "severe": "Stark giftig"
     },
     "waterRetention": {
       "low": "Niedrig",

@@ -218,37 +218,86 @@ class TestFindLastCompletedDate:
         assert result is None
 
     def test_returns_date_of_latest_completed_task(self, _mock_dependencies):
-        from datetime import date
+        from datetime import UTC, date, datetime
 
         from app.common.enums import TaskCategory, TaskStatus
+        from app.domain.models.task import Task
         from app.tasks.watering_tasks import _find_last_completed_date
 
         task_repo = MagicMock()
+        # Regression #456: the repository returns Pydantic ``Task`` models, not dicts.
         task_repo.find_by_field.return_value = [
-            {
-                "category": TaskCategory.FEEDING.value,
-                "name": "watering:run_1:2026-06-10",
-                "status": TaskStatus.COMPLETED.value,
-                "completed_at": "2026-06-10T08:00:00+00:00",
-            },
+            Task(
+                name="watering:run_1:2026-06-10",
+                instruction="Scheduled watering for run run_1",
+                category=TaskCategory.FEEDING,
+                planting_run_key="run_1",
+                status=TaskStatus.COMPLETED,
+                completed_at=datetime(2026, 6, 10, 8, 0, tzinfo=UTC),
+            ),
         ]
 
         result = _find_last_completed_date(task_repo, "run_1", "watering:run_1:")
 
         assert result == date(2026, 6, 10)
 
-    def test_ignores_non_matching_prefix(self, _mock_dependencies):
+    def test_returns_latest_of_multiple_and_tolerates_missing_completed_at(self, _mock_dependencies):
+        """Sorting must pick the most recent date and not raise on tasks lacking completed_at."""
+        from datetime import UTC, date, datetime
+
         from app.common.enums import TaskCategory, TaskStatus
+        from app.domain.models.task import Task
         from app.tasks.watering_tasks import _find_last_completed_date
 
         task_repo = MagicMock()
         task_repo.find_by_field.return_value = [
-            {
-                "category": TaskCategory.FEEDING.value,
-                "name": "watering:run_1:ch_a:2026-06-10",
-                "status": TaskStatus.COMPLETED.value,
-                "completed_at": "2026-06-10T08:00:00+00:00",
-            },
+            Task(
+                name="watering:run_1:pending",
+                instruction="Scheduled watering for run run_1",
+                category=TaskCategory.FEEDING,
+                planting_run_key="run_1",
+                status=TaskStatus.PENDING,
+                completed_at=None,
+            ),
+            Task(
+                name="watering:run_1:2026-06-08",
+                instruction="Scheduled watering for run run_1",
+                category=TaskCategory.FEEDING,
+                planting_run_key="run_1",
+                status=TaskStatus.COMPLETED,
+                completed_at=datetime(2026, 6, 8, 8, 0, tzinfo=UTC),
+            ),
+            Task(
+                name="watering:run_1:2026-06-12",
+                instruction="Scheduled watering for run run_1",
+                category=TaskCategory.FEEDING,
+                planting_run_key="run_1",
+                status=TaskStatus.COMPLETED,
+                completed_at=datetime(2026, 6, 12, 8, 0, tzinfo=UTC),
+            ),
+        ]
+
+        result = _find_last_completed_date(task_repo, "run_1", "watering:run_1:")
+
+        assert result == date(2026, 6, 12)
+
+    def test_ignores_non_matching_prefix(self, _mock_dependencies):
+        from datetime import UTC, datetime
+
+        from app.common.enums import TaskCategory, TaskStatus
+        from app.domain.models.task import Task
+        from app.tasks.watering_tasks import _find_last_completed_date
+
+        task_repo = MagicMock()
+        task_repo.find_by_field.return_value = [
+            Task(
+                name="watering:run_1:ch_a:2026-06-10",
+                instruction="Scheduled watering for run run_1",
+                category=TaskCategory.FEEDING,
+                planting_run_key="run_1",
+                status=TaskStatus.COMPLETED,
+                completed_at=datetime(2026, 6, 10, 8, 0, tzinfo=UTC),
+            ),
         ]
 
         result = _find_last_completed_date(task_repo, "run_1", "watering:run_1:ch_b:")

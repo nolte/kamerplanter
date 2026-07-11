@@ -301,6 +301,7 @@ class TestGenerateDueCareReminders:
 
     def test_idempotent_skip_when_pending_task_exists(self, _mock_dependencies):
         from app.common.enums import ReminderType, TaskCategory, TaskStatus
+        from app.domain.models.task import Task
 
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
 
@@ -312,12 +313,16 @@ class TestGenerateDueCareReminders:
         service._engine.calculate_urgency.return_value = "due_today"
 
         task_repo = MagicMock()
+        # Regression #456: the repository returns Pydantic ``Task`` models, not dicts.
         task_repo.find_by_field.return_value = [
-            {
-                "category": TaskCategory.CARE_REMINDER.value,
-                "name": "Monstera — fertilizing",
-                "status": TaskStatus.PENDING.value,
-            }
+            Task(
+                name="Monstera — fertilizing",
+                instruction="Fertilize Monstera according to care profile.",
+                category=TaskCategory.CARE_REMINDER,
+                entity_key="plant_1",
+                entity_type="plant_instance",
+                status=TaskStatus.PENDING,
+            )
         ]
         _mock_dependencies.get_task_repo.return_value = task_repo
 
