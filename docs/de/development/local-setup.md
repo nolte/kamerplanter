@@ -65,10 +65,13 @@ kubectl create secret generic kamerplanter-secrets -n default \
   --from-literal=JWT_SECRET_KEY=dev-only-not-for-production-secret-key-1234 \
   --from-literal=POSTGRES_PASSWORD=foba123456 \
   --from-literal=VECTORDB_PASSWORD=foba123456 \
-  --from-literal=FERNET_KEY=$(openssl rand -hex 32) \
+  --from-literal=FERNET_KEY=$(python3 -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())") \
   --from-literal=ERASURE_TOMBSTONE_SALT=$(openssl rand -hex 32) \
   --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
 ```
+
+!!! note "FERNET_KEY-Format"
+    `FERNET_KEY` muss ein gültiger Fernet-Schlüssel sein: **32 Bytes, url-safe base64-kodiert** (44 Zeichen) — genau das, was `cryptography.fernet.Fernet.generate_key()` erzeugt. Ein `openssl rand -hex 32` (64 Hex-Zeichen) ist **kein** gültiger Fernet-Schlüssel: Das Backend startet zwar, aber jeder verschlüsselnde Endpunkt scheitert später mit `ValueError: Fernet key must be 32 url-safe base64-encoded bytes`. Nur `FERNET_KEY` braucht dieses Format; `ERASURE_TOMBSTONE_SALT` und `INTERNAL_SERVICE_TOKEN` sind beliebige Zufallswerte.
 
 !!! note "ArangoDB-Passwort"
     `ARANGODB_PASSWORD` und `ARANGO_ROOT_PASSWORD` müssen **denselben Wert** haben: ArangoDB initialisiert sein Root-Passwort aus `ARANGO_ROOT_PASSWORD`, während Backend und Celery sich mit `ARANGODB_PASSWORD` verbinden. Beide kommen ausschließlich aus diesem Secret — `values-dev.yaml` setzt sie **nicht** mehr inline. Weichen die Werte voneinander ab, scheitert der Backend-Start mit HTTP 401.
