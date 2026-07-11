@@ -172,7 +172,7 @@ Diese Regeln sind in den Specs detailliert beschrieben. Hier die Kurzfassung als
 
 ### Selenium E2E-Tests
 
-> **Hinweis:** Selenium E2E-Tests werden vom `selenium-test-generator`/`selenium-test-reviewer` Agent bereitgestellt — NICHT vom Fullstack-Entwickler erstellen.
+> **Hinweis:** Selenium E2E-Tests werden von den `nolte-engineering:e2e-test-generator`/`nolte-engineering:e2e-test-reviewer` Plugin-Agenten bereitgestellt — NICHT vom Fullstack-Entwickler erstellen.
 
 ---
 
