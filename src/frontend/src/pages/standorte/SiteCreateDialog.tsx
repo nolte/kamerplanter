@@ -130,7 +130,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
               <FormNumberField name="gps_lon" control={control} label={t('pages.sites.gpsLon')} min={-180} max={180} />
             </FormRow>
             {!weatherEnabledForType && (
-              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 1.5 }} data-testid="site-weather-type-hint">
+              <Alert severity="info" variant="outlined" icon={false} role="status" sx={{ py: 0.5, mb: 1.5 }} data-testid="site-weather-type-hint">
                 <Typography variant="caption">
                   {t('pages.sites.weatherTypeHint', {
                     outdoorLabel: t('enums.siteType.outdoor'),
@@ -141,7 +141,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
               </Alert>
             )}
             {watchedType === 'balcony' && (
-              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 1.5 }} data-testid="site-balcony-weather-hint">
+              <Alert severity="info" variant="outlined" icon={false} role="status" sx={{ py: 0.5, mb: 1.5 }} data-testid="site-balcony-weather-hint">
                 <Typography variant="caption">
                   {t('pages.sites.balconyWeatherHint')}
                 </Typography>

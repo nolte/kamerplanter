@@ -235,7 +235,7 @@ export default function SiteDetailPage() {
               <FormNumberField name="gps_lon" control={control} label={t('pages.sites.gpsLon')} min={-180} max={180} />
             </FormRow>
             {!weatherEnabledForType && (
-              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 2 }} data-testid="site-weather-type-hint">
+              <Alert severity="info" variant="outlined" icon={false} role="status" sx={{ py: 0.5, mb: 2 }} data-testid="site-weather-type-hint">
                 <Typography variant="caption">
                   {t('pages.sites.weatherTypeHint', {
                     outdoorLabel: t('enums.siteType.outdoor'),
@@ -246,7 +246,7 @@ export default function SiteDetailPage() {
               </Alert>
             )}
             {watchedType === 'balcony' && (
-              <Alert severity="info" variant="outlined" icon={false} sx={{ py: 0.5, mb: 2 }} data-testid="site-balcony-weather-hint">
+              <Alert severity="info" variant="outlined" icon={false} role="status" sx={{ py: 0.5, mb: 2 }} data-testid="site-balcony-weather-hint">
                 <Typography variant="caption">
                   {t('pages.sites.balconyWeatherHint')}
                 </Typography>
@@ -365,7 +365,7 @@ export default function SiteDetailPage() {
             <SiteClimateSection siteKey={key} />
           </>
         ) : (
-          <Alert severity="info" sx={{ mt: 4 }} data-testid="weather-source-gps-hint">
+          <Alert severity="info" role="status" sx={{ mt: 4 }} data-testid="weather-source-gps-hint">
             {t('pages.weatherSource.gpsRequiredHint')}
           </Alert>
         )
