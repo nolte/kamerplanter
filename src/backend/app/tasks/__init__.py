@@ -17,6 +17,7 @@ celery_app = Celery(
 )
 celery_app.conf.update(
     include=[
+        "app.tasks.actuator_tasks",
         "app.tasks.ai_tasks",
         "app.tasks.auth_tasks",
         "app.tasks.care_tasks",
@@ -199,6 +200,21 @@ if settings.weather_enabled:
             "task": "app.tasks.irrigation_tasks.compute_irrigation_demand",
             "schedule": crontab(hour=6, minute=15),
         }
+
+# REQ-018 environment-control loop (opt-in kill-switch)
+if settings.actuator_control_loop_enabled:
+    celery_app.conf.beat_schedule["actuator-evaluate-control-rules-30s"] = {
+        "task": "app.tasks.actuator_tasks.evaluate_control_rules",
+        "schedule": 30,
+    }
+    celery_app.conf.beat_schedule["actuator-expire-overrides-hourly"] = {
+        "task": "app.tasks.actuator_tasks.expire_manual_overrides",
+        "schedule": 3600,
+    }
+    celery_app.conf.beat_schedule["actuator-sync-states-5min"] = {
+        "task": "app.tasks.actuator_tasks.sync_actuator_states",
+        "schedule": 300,
+    }
 
 # REQ-047 daily season-state evaluation (after the weather fetch; kill-switch)
 if settings.season_state_eval_enabled:
