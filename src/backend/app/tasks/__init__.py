@@ -23,6 +23,7 @@ celery_app.conf.update(
         "app.tasks.dormancy_checks",
         "app.tasks.enrichment_tasks",
         "app.tasks.frost_forecast_tasks",
+        "app.tasks.hardiness_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.pest_dataset_tasks",
         "app.tasks.pest_image_tasks",
@@ -168,6 +169,13 @@ if settings.weather_enabled:
             "task": "app.tasks.climate_tasks.fetch_climate_normals",
             "schedule": crontab(day_of_month=1, hour=4, minute=0),
         }
+        # REQ-039 — re-derive hardiness zones from the refreshed climate normals,
+        # quarterly (1st of Jan/Apr/Jul/Oct, 05:00 UTC — after the monthly fetch).
+        if settings.hardiness_zone_refresh_enabled:
+            celery_app.conf.beat_schedule["hardiness-zones-refresh-quarterly"] = {
+                "task": "app.tasks.hardiness_tasks.refresh_site_hardiness_zones",
+                "schedule": crontab(day_of_month=1, month_of_year="1,4,7,10", hour=5, minute=0),
+            }
 
 # REQ-047 daily season-state evaluation (after the weather fetch; kill-switch)
 if settings.season_state_eval_enabled:

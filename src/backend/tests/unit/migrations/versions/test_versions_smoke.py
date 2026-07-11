@@ -28,11 +28,12 @@ class _NoopCollection:
     def indexes(self):
         # Models a bootstrapped-but-empty database: ``ensure_collections`` already
         # created every persistent index, so a structural index migration
-        # (v0009 notifications.group_key, v0011 climate_normals) finds its target
-        # present and is a no-op.
+        # (v0009 notifications.group_key, v0011 climate_normals, v0012
+        # hardiness_zones) finds its target present and is a no-op.
         return [
             {"type": "persistent", "fields": ["group_key", "tenant_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "site_key", "source"], "unique": True},
+            {"type": "persistent", "fields": ["zone"], "unique": True},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -43,9 +44,9 @@ class _NoopGraph:
     """A bootstrapped graph that already carries every edge definition."""
 
     def edge_definitions(self):
-        # v0011 checks for the has_climate_normal edge; report it present so the
-        # structural migration stays a no-op on a bootstrapped database.
-        return [{"edge_collection": "has_climate_normal"}]
+        # v0011 checks for has_climate_normal, v0012 for located_in_zone; report
+        # both present so the structural migrations stay no-ops on a bootstrapped db.
+        return [{"edge_collection": "has_climate_normal"}, {"edge_collection": "located_in_zone"}]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
         raise AssertionError("no edge definition should be created when the bootstrap already added it")

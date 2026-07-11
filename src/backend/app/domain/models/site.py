@@ -1,9 +1,17 @@
 import re
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import IrrigationSystem, LightType, Orientation, SiteType
+
+#: How ``Site.hardiness_zone`` was determined (REQ-039). ``manual`` is never
+#: overwritten by the automatic refresh; ``derived_*`` values are recomputed.
+HardinessZoneSource = Literal["manual", "derived_gps", "derived_postal", "frostline_us"]
+
+#: ``<number><a|b>`` USDA half-zone label.
+_HARDINESS_ZONE_PATTERN = re.compile(r"^\d{1,2}[ab]$")
 
 
 class TapWaterProfile(BaseModel):
@@ -95,10 +103,22 @@ class Site(BaseModel):
     name: str
     type: SiteType = SiteType.INDOOR
     gps_coordinates: tuple[float, float] | None = None
+    #: Legacy free-text climate zone (REQ-002). REQ-039 introduces the structured
+    #: ``hardiness_zone`` below; both are kept in sync so legacy consumers keep
+    #: reading ``climate_zone`` while the winter-hardiness ampel prefers the
+    #: derived zone.
     climate_zone: str = ""
     total_area_m2: float = Field(default=0.0, ge=0)
     timezone: str = "UTC"
     water_config: SiteWaterConfig | None = None
+    # ── Hardiness zone (REQ-039, additive — defaults keep legacy sites valid) ──
+    #: Structured USDA half-zone label (e.g. ``"7a"``), or ``None`` when unknown.
+    hardiness_zone: str | None = None
+    hardiness_zone_source: HardinessZoneSource = "manual"
+    hardiness_zone_resolved_at: datetime | None = None
+    #: Mean annual minimum temperature (°C) the zone was derived from (REQ-041
+    #: climate normals); ``None`` for a manually set or not-yet-resolved zone.
+    mean_annual_minimum_c: float | None = None
     # ── Frost dates (REQ-015 §3.8) ──
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
@@ -121,4 +141,11 @@ class Site(BaseModel):
                 raise ValueError("Latitude must be between -90 and 90")
             if not (-180 <= lon <= 180):
                 raise ValueError("Longitude must be between -180 and 180")
+        return v
+
+    @field_validator("hardiness_zone")
+    @classmethod
+    def validate_hardiness_zone(cls, v: str | None) -> str | None:
+        if v is not None and not _HARDINESS_ZONE_PATTERN.match(v):
+            raise ValueError("Hardiness zone must match '<number><a|b>' (e.g. '7a')")
         return v

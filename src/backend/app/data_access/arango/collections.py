@@ -105,6 +105,9 @@ WEATHER_SOURCE_CONFIGS = "weather_source_configs"
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
+# REQ-039 — canonical plant hardiness-zone reference catalog (global, 1a…13b)
+HARDINESS_ZONES = "hardiness_zones"
+
 # REQ-002 Location Types
 LOCATION_TYPES = "location_types"
 
@@ -264,6 +267,8 @@ DOCUMENT_COLLECTIONS = [
     WEATHER_SOURCE_CONFIGS,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
+    # REQ-039 hardiness-zone reference catalog
+    HARDINESS_ZONES,
 ]
 
 # Edge collections
@@ -402,6 +407,9 @@ HAS_WEATHER_SOURCE_CONFIG = "has_weather_source_config"  # sites → weather_sou
 
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
+
+# REQ-039 hardiness-zone assignment edge
+LOCATED_IN_ZONE = "located_in_zone"  # sites → hardiness_zones (1 per site)
 
 # Watering Log edges
 LOG_SLOT = "log_slot"
@@ -580,6 +588,8 @@ EDGE_COLLECTIONS = [
     HAS_WEATHER_SOURCE_CONFIG,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
+    # REQ-039 hardiness-zone assignment
+    LOCATED_IN_ZONE,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1259,6 +1269,12 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [CLIMATE_NORMALS],
     },
+    # REQ-039 hardiness-zone assignment
+    {
+        "edge_collection": LOCATED_IN_ZONE,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [HARDINESS_ZONES],
+    },
 ]
 
 
@@ -1568,6 +1584,15 @@ def ensure_collections(db: StandardDatabase) -> None:
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.
     climate_normals_col = db.collection(CLIMATE_NORMALS)
     climate_normals_col.add_persistent_index(fields=["tenant_key", "site_key", "source"], unique=True)
+
+    # REQ-039 hardiness zones — the label is also the ``_key``; the unique zone
+    # index guards lookups and keeps the seed idempotent.
+    hardiness_zones_col = db.collection(HARDINESS_ZONES)
+    hardiness_zones_col.add_persistent_index(fields=["zone"], unique=True)
+
+    # REQ-039 — one hardiness-zone assignment edge per site.
+    located_in_zone_col = db.collection(LOCATED_IN_ZONE)
+    located_in_zone_col.add_persistent_index(fields=["_from"], unique=False)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

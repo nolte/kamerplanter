@@ -18,6 +18,7 @@ from app.api.v1.dashboard.router import router as dashboard_router
 from app.api.v1.enrichment.router import router as enrichment_router
 from app.api.v1.family_relationships.router import router as family_relationships_router
 from app.api.v1.growth_phases.router import router as phases_router
+from app.api.v1.hardiness_zones.router import router as hardiness_zones_router
 from app.api.v1.health.router import router as health_router
 from app.api.v1.imports.router import router as imports_router
 from app.api.v1.ipm.pest_images_router import router as pest_images_router
@@ -98,6 +99,7 @@ if settings.kamerplanter_mode == "full":
 api_router.include_router(users_router)
 api_router.include_router(health_router)
 api_router.include_router(families_router)
+api_router.include_router(hardiness_zones_router)
 api_router.include_router(calculations_router)
 api_router.include_router(companion_router)
 api_router.include_router(rotation_router)
