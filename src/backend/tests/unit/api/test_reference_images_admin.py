@@ -99,6 +99,41 @@ def test_list_curation_images_includes_excluded(monkeypatch):
     assert client.list_references.call_args.kwargs.get("active_only", False) is False
 
 
+def test_list_curation_images_surfaces_quarantined_contribution(monkeypatch):
+    # SEC-001 (issue #447) — a user contribution has no source_url but MUST be
+    # surfaced in the admin curation view (with provenance) so it can be
+    # activated/rejected out of quarantine.
+    _patch_species_exists(monkeypatch)
+    client = MagicMock()
+    client.list_references.return_value = [
+        {"id": 1, "source_url": "http://x/1.jpg", "is_active": True, "source": "gbif"},
+        {
+            "id": 2,
+            "source_url": None,
+            "is_active": False,
+            "source": "user_contributed",
+            "contributed_by": "user_anna",
+            "tenant_key": "tenant_anna",
+            "contributed_at": "2026-07-11T10:00:00+00:00",
+        },
+        {"id": 3, "source_url": None, "source": "manual"},  # provenance-less → dropped
+    ]
+    monkeypatch.setattr(mod, "InferenceServiceClient", lambda _url: client)
+
+    result = mod.list_curation_images("species_a", _user=None)
+
+    # The admin view must request the quarantined contributions explicitly.
+    assert client.list_references.call_args.kwargs.get("include_contributions") is True
+    by_id = {img.id: img for img in result.images}
+    assert set(by_id) == {1, 2}  # the provenance-less manual embedding is dropped
+    contribution = by_id[2]
+    assert contribution.source == "user_contributed"
+    assert contribution.source_url is None
+    assert contribution.is_active is False
+    assert contribution.contributed_by == "user_anna"
+    assert contribution.tenant_key == "tenant_anna"
+
+
 def test_list_curation_images_404_when_species_unknown(monkeypatch):
     _patch_species_exists(monkeypatch, exists=False)
     monkeypatch.setattr(mod, "InferenceServiceClient", lambda _url: MagicMock())

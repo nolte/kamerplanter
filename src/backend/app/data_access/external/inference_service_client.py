@@ -101,12 +101,16 @@ class InferenceServiceClient:
         *,
         limit: int = 50,
         active_only: bool = False,
+        include_contributions: bool = False,
     ) -> list[dict[str, Any]]:
         """List stored reference image provenance for a species (gallery source).
 
         With ``active_only`` the deselected images are omitted (public gallery);
         without it every image is returned with its ``is_active`` flag so the
-        admin curation view can offer re-inclusion.
+        admin curation view can offer re-inclusion. With ``include_contributions``
+        (admin curation only) the quarantined user contributions (issue #447),
+        which carry no ``source_url``, are also surfaced with their provenance so
+        they can be activated/rejected.
 
         Returns ``[]`` (never raises) when the service is unreachable or has no
         index yet, so the UI degrades to "no images" instead of erroring.
@@ -114,7 +118,11 @@ class InferenceServiceClient:
         try:
             response = httpx.get(
                 f"{self._base_url}/reference/{species_key}",
-                params={"limit": limit, "active_only": active_only},
+                params={
+                    "limit": limit,
+                    "active_only": active_only,
+                    "include_contributions": include_contributions,
+                },
                 headers=self._auth_headers(),
                 timeout=_MATCH_TIMEOUT_SECONDS,
             )

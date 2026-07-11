@@ -56,10 +56,16 @@ class DeleteReferenceResponse(BaseModel):
 
 
 class ReferenceImageItem(BaseModel):
-    """Provenance of one stored reference image (no embedding)."""
+    """Provenance of one stored reference image (no embedding).
+
+    ``source_url`` is optional: interactive user contributions
+    (``source='user_contributed'``) never carry one because the original image
+    is never persisted (REQ-029-A §4.4). For those rows the curation-relevant
+    provenance is the contributor / tenant / timestamp instead (issue #447).
+    """
 
     id: int | None = None
-    source_url: str
+    source_url: str | None = None
     license: str | None = None
     attribution: str | None = None
     organ: str | None = None
@@ -67,6 +73,9 @@ class ReferenceImageItem(BaseModel):
     source_record_id: str | None = None
     is_active: bool = True
     exclusion_reason: str | None = None
+    contributed_by: str | None = None
+    tenant_key: str | None = None
+    contributed_at: str | None = None
 
 
 class ReferenceListResponse(BaseModel):

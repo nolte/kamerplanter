@@ -359,6 +359,7 @@ def list_references(
     species_key: str,
     limit: int = Query(50, ge=1, le=200),
     active_only: bool = Query(False),
+    include_contributions: bool = Query(False),
 ) -> ReferenceListResponse:
     """List stored reference image provenance for a species (gallery source).
 
@@ -366,9 +367,20 @@ def list_references(
     embeddings. With ``active_only`` the deselected images are omitted (public
     gallery); without it all images are returned with their ``is_active`` flag
     so the admin curation view can offer re-inclusion.
+
+    With ``include_contributions`` (admin curation only) the quarantined user
+    contributions (``source='user_contributed'``, no ``source_url``) are also
+    surfaced with their provenance so a platform admin can activate/reject them
+    (issue #447) — otherwise they would be invisible and could never leave the
+    quarantine.
     """
     repo = _require_repo()
-    rows = repo.list_by_species(species_key, limit=limit, active_only=active_only)
+    rows = repo.list_by_species(
+        species_key,
+        limit=limit,
+        active_only=active_only,
+        include_contributions=include_contributions,
+    )
     images = [ReferenceImageItem(**row) for row in rows]
     return ReferenceListResponse(species_key=species_key, count=len(images), images=images)
 

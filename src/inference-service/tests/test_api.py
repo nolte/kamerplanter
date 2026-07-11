@@ -162,6 +162,53 @@ def test_reference_user_contribution_quarantined_with_provenance(client, fake_re
     assert row["tenant_key"] == "tenant_anna"
 
 
+def test_user_contribution_curation_lifecycle(client, fake_repo):
+    # SEC-001 (issue #447) — a quarantined user contribution has NO source_url
+    # (original image never persisted) yet must still be curatable end to end:
+    # invisible to the public gallery, visible to admin curation, activatable,
+    # and match-eligible only after activation.
+    fake_repo.rows = [
+        {
+            "id": 1,
+            "species_key": "species_a",
+            "scientific_name": "Aloe vera",
+            "source": "user_contributed",
+            "source_url": None,
+            "is_active": False,
+            "contributed_by": "user_anna",
+            "tenant_key": "tenant_anna",
+            "contributed_at": "2026-07-11T10:00:00+00:00",
+        }
+    ]
+
+    # Default (public gallery) — the contribution is NOT surfaced.
+    public = client.get("/reference/species_a").json()
+    assert public["count"] == 0
+
+    # Admin curation — surfaced with provenance, still inactive.
+    curation = client.get("/reference/species_a?include_contributions=true").json()
+    assert curation["count"] == 1
+    item = curation["images"][0]
+    assert item["source"] == "user_contributed"
+    assert item["source_url"] is None
+    assert item["is_active"] is False
+    assert item["contributed_by"] == "user_anna"
+    assert item["tenant_key"] == "tenant_anna"
+
+    # Quarantine invariant — not match-eligible while inactive.
+    assert "species_a" not in fake_repo.active_species_keys()
+
+    # Admin activates it.
+    resp = client.patch("/reference/species_a/1", json={"is_active": True})
+    assert resp.status_code == 200
+    assert resp.json()["is_active"] is True
+
+    # Now active in curation AND match-eligible (no source_url required by /match).
+    curation_after = client.get("/reference/species_a?include_contributions=true").json()
+    assert curation_after["images"][0]["is_active"] is True
+    assert "species_a" in fake_repo.active_species_keys()
+
+
 def test_reference_from_precomputed_embedding(client, fake_repo):
     vector = [0.0] * 384
     vector[0] = 1.0
