@@ -33,11 +33,14 @@ const GRID_MARGIN = 16;
  * Two layout concerns are handled here that the read-only grid gets "for free"
  * from CSS:
  *
- *  - **Content coverage (no overlap).** react-grid-layout boxes each tile to a
- *    fixed `h × ROW_HEIGHT` geometry, so content taller than the box overflows
- *    into the tile below. We measure each tile's real content height
- *    (`useContentRowFloors`) and clamp its rendered `h` up to the number of rows
- *    that covers it — keeping the fixed-row geometry DnD/resize needs.
+ *  - **Content coverage + equal rows (no overlap, no ragged bottoms).**
+ *    react-grid-layout boxes each tile to a fixed `h × ROW_HEIGHT` geometry, so
+ *    content taller than the box overflows into the tile below and mixed-height
+ *    content in a row leaves ragged bottoms. We measure each tile's real content
+ *    height (`useContentRowFloors`), drive its `h` from that, and then equalise
+ *    every tile in a row (same `y`) to the row's tallest content — the CSS
+ *    `align-items: stretch` the read-only grid gets for free — while keeping the
+ *    fixed-row geometry DnD/resize needs.
  *  - **md/sm re-pack.** A breakpoint without its own placements is derived from
  *    the 12-column `lg` layout; its `x/w` are re-packed into the active column
  *    count (`deriveBreakpointPlacements`) instead of leaving scattered gaps and
@@ -82,31 +85,51 @@ export default function DashboardEditGrid({
     [layout.widgets],
   );
 
-  const gridLayout: Layout = useMemo(
-    () =>
-      placements.map((p) => {
-        const widget = byId.get(p.instance_id);
-        const def = widget ? dashboardWidgetCatalog[widget.widget_key as WidgetKey] : undefined;
-        const minH = def?.minSize.h ?? 2;
-        // Clamp `h` up to whatever covers the measured content (P1). Content
-        // coverage overrides maxSize.h — a tile must never clip/overlap — so the
-        // resize ceiling is widened to the effective height when needed.
-        const contentFloor = floors[p.instance_id] ?? 0;
-        const h = Math.max(p.h, minH, contentFloor);
-        return {
-          i: p.instance_id,
-          x: p.x,
-          y: p.y,
-          w: Math.min(p.w, cols),
-          h,
-          minW: def?.minSize.w ?? 2,
-          minH,
-          maxW: Math.min(def?.maxSize.w ?? cols, cols),
-          maxH: Math.max(def?.maxSize.h ?? 12, h),
-        };
-      }),
-    [placements, byId, cols, floors],
-  );
+  const gridLayout: Layout = useMemo(() => {
+    // 1. Per-tile *content* height (rows). react-grid-layout boxes each tile to a
+    //    fixed `h × ROW_HEIGHT`, so a stored `h` larger than the content left dead
+    //    space ("bloated") and one smaller clipped/overlapped. `contentFloor` is a
+    //    natural measurement (the height:auto drag-handle below), so it shrinks as
+    //    well as grows; never below the catalog `minH`. Before the first
+    //    measurement lands, fall back to the stored `h` (avoids a paint flash).
+    const items = placements.map((p) => {
+      const widget = byId.get(p.instance_id);
+      const def = widget ? dashboardWidgetCatalog[widget.widget_key as WidgetKey] : undefined;
+      const minH = def?.minSize.h ?? 2;
+      const contentFloor = floors[p.instance_id] ?? 0;
+      const ownH = contentFloor > 0 ? Math.max(minH, contentFloor) : Math.max(minH, p.h);
+      return { p, def, ownH };
+    });
+
+    // 2. Equalise every tile in a visual row (same start-`y`) to the row's tallest
+    //    content. Unlike the read-only CSS grid (`align-items: stretch` gives a row
+    //    a shared height for free), react-grid-layout renders each tile at its own
+    //    `h` — so mixed-height content in one row produced ragged bottoms and a
+    //    zig-zag next row. Rows share `y` because both derived placements
+    //    (`packByReadingOrder`) and persisted drag results are vertically
+    //    compacted, so grouping by `y` matches the rendered rows. `compactType`
+    //    then keeps the equalised rows gap-free; the tallest tile fills exactly and
+    //    the row below always starts on one line.
+    const rowMaxH = new Map<number, number>();
+    for (const it of items) {
+      rowMaxH.set(it.p.y, Math.max(rowMaxH.get(it.p.y) ?? 0, it.ownH));
+    }
+
+    return items.map(({ p, def, ownH }) => {
+      const h = rowMaxH.get(p.y) ?? ownH;
+      return {
+        i: p.instance_id,
+        x: p.x,
+        y: p.y,
+        w: Math.min(p.w, cols),
+        h,
+        minW: def?.minSize.w ?? 2,
+        minH: 1, // height is content-driven; don't let RGL inflate the tile
+        maxW: Math.min(def?.maxSize.w ?? cols, cols),
+        maxH: Math.max(def?.maxSize.h ?? 12, h),
+      };
+    });
+  }, [placements, byId, cols, floors]);
 
   // DOM order follows reading order (y, x) for screenreaders (UI-NFR-002 U-002).
   // Derived from the same (packed) placements the grid renders, so DOM and
@@ -120,7 +143,13 @@ export default function DashboardEditGrid({
   );
 
   const handleChange = (next: Layout) => {
-    onChange(next.map((l) => ({ instance_id: l.i, x: l.x, y: l.y, w: l.w, h: l.h })));
+    // Persist the *stored* `h`, not the rendered one. The rendered `h` is
+    // content-driven and row-equalised (see gridLayout above), so writing it back
+    // would let a short tile inherit a tall neighbour's height and creep upward on
+    // every drag. Vertical resize is disabled (`resizeHandles={['e']}`), so the
+    // user never changes `h` directly — the stored value is always the intent.
+    const storedH = new Map(placements.map((p) => [p.instance_id, p.h]));
+    onChange(next.map((l) => ({ instance_id: l.i, x: l.x, y: l.y, w: l.w, h: storedH.get(l.i) ?? l.h })));
   };
 
   return (
@@ -149,6 +178,9 @@ export default function DashboardEditGrid({
         compactType="vertical"
         isDraggable={draggable}
         isResizable={draggable}
+        // Height follows content (see gridLayout above), so only the east edge
+        // resizes width/columns — a vertical resize would just snap back.
+        resizeHandles={['e']}
         draggableHandle=".widget-drag-handle"
         transformScale={1}
         useCSSTransforms={!prefersReducedMotion}
@@ -170,17 +202,16 @@ export default function DashboardEditGrid({
             <Box
               ref={getContentRef(widget.instance_id)}
               className="widget-drag-handle"
-              // `minHeight` (not `height`) `100%` is load-bearing for the
-              // content-coverage measurement above. A widget card that locks
-              // itself to `height:100%` and clips (MUI `Card`'s default
-              // `overflow:hidden`) makes this box's `scrollHeight` blind to any
-              // content taller than the fixed `h × ROW_HEIGHT` tile — it reports
-              // the box height, so `useContentRowFloors` never grows the tile and
-              // the content clips / overflows onto the tile below. With
-              // `minHeight:100%` the box still fills a tile taller than its
-              // content, but grows to (and reports) the true content height when
-              // the content is taller, so the floor clamp can cover it.
-              sx={{ cursor: draggable ? 'move' : 'default', minHeight: '100%' }}
+              // `height: 'auto'` (natural height) is load-bearing for the
+              // content measurement above. A widget card that locks itself to
+              // `height:100%` and clips (MUI `Card`'s default `overflow:hidden`)
+              // resolves its percentage height against this auto-height box down
+              // to its own content, so `scrollHeight` reports the *natural*
+              // content height — independent of the current tile box. That lets
+              // `useContentRowFloors` size the tile down to its content as well
+              // as up (a `minHeight:100%` box instead fills to the tile and can
+              // only ever grow, which left short tiles bloated with dead space).
+              sx={{ cursor: draggable ? 'move' : 'default', height: 'auto' }}
               tabIndex={-1}
             >
               <WidgetFrame instance={widget} editMode {...widgetProps(widget)} />
