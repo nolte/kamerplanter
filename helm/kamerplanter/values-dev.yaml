@@ -74,6 +74,12 @@ controllers:
           PEST_DETECTION_SYMPTOM_ENABLED: "true"
           PEST_DETECTION_DEMO_ENABLED: "true"
           PEST_DETECTION_PRIMARY_ADAPTER: "demo_pest"
+          # REQ-046/039/041/047 weather integration master switch (default off in
+          # base settings). Turning it on activates the keyless public providers
+          # (open-meteo default + DWD/brightsky), daily forecasts, NASA-POWER
+          # climate normals, hardiness-zone derivation and season-state evaluation.
+          # OpenWeatherMap additionally needs a per-location API key (REQ-046).
+          WEATHER_ENABLED: "true"
         probes:
           liveness:
             enabled: true
@@ -220,6 +226,10 @@ controllers:
           # REQ-029-A — reference-image acquisition calls the inference-service
           # (/embed, /reference) to build the DINOv2 pgvector index.
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+          # REQ-046 weather integration — the celery-worker runs the weather
+          # fetch, daily-forecast, climate-normal, hardiness and season tasks,
+          # all gated by this switch.
+          WEATHER_ENABLED: "true"
         probes:
           liveness:
             enabled: true
@@ -281,6 +291,10 @@ controllers:
           TIMESCALEDB_DATABASE: kamerplanter_sensors
           TIMESCALEDB_USERNAME: postgres
           TIMESCALEDB_PASSWORD: devpassword
+          # REQ-046 weather integration — celery-beat schedules the daily
+          # forecast, monthly climate-normal, hardiness and season beats,
+          # all gated by this switch.
+          WEATHER_ENABLED: "true"
         probes:
           liveness:
             enabled: true
