@@ -286,6 +286,7 @@ nav:
       - Stammdaten-Import: de/user-guide/import.md
       - Standorte & Substrate: de/user-guide/locations-substrates.md
       - Wachstumsphasen: de/user-guide/growth-phases.md
+      - Vermehrung: de/user-guide/propagation.md
       - Dünge-Logik: de/user-guide/fertilization.md
       - Gießprotokoll: de/user-guide/watering-log.md
       - Sensorik: de/user-guide/sensors.md
@@ -315,7 +316,6 @@ nav:
       - Saison-Automatik: de/user-guide/season-automation.md
       - Überwinterung: de/user-guide/overwintering.md
       - Benachrichtigungen: de/user-guide/notifications.md
-      - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
       - Schädlinge per Foto erkennen: de/user-guide/pest-detection.md
