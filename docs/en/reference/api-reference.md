@@ -691,3 +691,187 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 - [Curating Reference Images — User Guide](../user-guide/reference-image-curation.md)
 - [Environment Variables — Photo Identification](environment-variables.md#photo-identification-req-029)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## CV Disease Diagnosis <!-- REQ-038 -->
+
+Photo-based **condition diagnosis** (disease, nutrient deficiency, and — as a secondary category — pest) from a leaf photo, distinct from species identification ([Plant Identification](#plant-identification-reference-image-contribution-self-hosted-recognition)) and from the dedicated [Pest Detection](../user-guide/pest-detection.md): this diagnosis answers "what is wrong with the plant?", not "which species/pest is this?". Recognition runs self-hosted in the inference service; the uploaded photo is stripped of EXIF metadata server-side and is **never persisted** — only a SHA-256 fingerprint is kept (`image_deleted_at` is set on every response).
+
+All endpoints live under the tenant-scoped path `/api/v1/t/{tenant_slug}/cv-diagnosis/` and require a valid JWT token. Read endpoints (`/status`, `/history`) need no special tenant role; write endpoints (`/diagnose`, `/diagnose/{request_key}/confirm`) require at least the **grower** role.
+
+!!! danger "Always a hypothesis — never an automatic treatment"
+    Every response carries a never-empty `disclaimer` field. A CV diagnosis **never** automatically triggers a treatment and does **not** bypass any pre-harvest interval gate (see [Integrated Pest Management (IPM)](../user-guide/pest-management.md)) — `POST .../confirm` creates at most an IPM inspection **suggestion** that you review and confirm yourself.
+
+### Check Availability
+
+```
+GET /api/v1/t/{tenant_slug}/cv-diagnosis/status
+```
+
+**Response (200):** `CvDiagnosisStatusResponse`
+
+```json
+{
+  "available": false,
+  "feature_enabled": false,
+  "adapter_key": "local_cv_diagnosis",
+  "phenotype_available": false,
+  "class_count": 0
+}
+```
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `available` | boolean | Whether the feature can be used (`feature_enabled` **and** a loaded classifier model). Drives whether a future photo-diagnosis button is shown in the frontend. |
+| `feature_enabled` | boolean | Operator switch (`CV_DIAGNOSIS_ENABLED`), independent of whether a model is already loaded. |
+| `adapter_key` | string | Identifier of the active adapter. Currently only `local_cv_diagnosis` (self-hosted, no image data leaves the instance). |
+| `phenotype_available` | boolean | Whether the PlantCV phenotype pipeline is available in the inference service. |
+| `class_count` | integer | Number of disease/deficiency/pest classes supported by the loaded classifier. |
+
+### Run a Photo Diagnosis
+
+```
+POST /api/v1/t/{tenant_slug}/cv-diagnosis/diagnose
+```
+
+Requires at least the tenant role **grower** — the **viewer** role receives `403`. Consent `plant_diagnosis` is required in **Full mode** and is enforced server-side (`403 CONSENT_REQUIRED` without a granted consent); in [Light mode](../user-guide/light-mode.md) the server-side check is skipped, since no consent subsystem exists there (see [Privacy & GDPR](../user-guide/privacy.md)).
+
+**Request Body:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|--------------|
+| `image` | file | Yes | JPEG or PNG image, maximum `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` (default 5 MB) |
+| `plant_key` | string | No | Plant instance the diagnosis is attached to |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `phenotype` | boolean | `false` | Also compute PlantCV phenotype metrics (leaf area, green index, discolored/necrotic area ratio) — only effective when `phenotype_available == true` |
+
+**Response (200):** `CvDiagnosisResponse`
+
+```json
+{
+  "key": "plant_diagnosis_requests/abc123",
+  "plant_instance_key": "plant_instances/101",
+  "inspection_key": null,
+  "classifications": [
+    {
+      "label": "septoria_leaf_spot",
+      "category": "disease",
+      "scientific_name": null,
+      "probability": 0.74,
+      "highlight": false,
+      "matched_disease_key": "diseases/septoria",
+      "matched_pest_key": null,
+      "matched_symptom_slug": null
+    }
+  ],
+  "phenotype": null,
+  "model_meta": {
+    "model_name": "kamerplanter-leaf-disease-v1",
+    "training_base": "imagenet-dinov2-backbone",
+    "fine_tuned_on": ["plantdoc-ccby4"],
+    "onnx_checksum": "sha256:...",
+    "model_version": "20260601",
+    "class_count": 17
+  },
+  "adapter_key": "local_cv_diagnosis",
+  "is_confident": false,
+  "disclaimer": "Only a hypothesis of the image recognition — not a confirmed diagnosis. Please verify professionally before treating; get a second opinion if unsure.",
+  "confirmed_labels": [],
+  "image_hash": "sha256:9f86d0...",
+  "image_deleted_at": "2026-07-11T14:30:02Z",
+  "created_at": "2026-07-11T14:30:00Z"
+}
+```
+
+| Field | Meaning |
+|------|----------|
+| `classifications[].category` | `disease`, `deficiency`, `pest`, or `healthy` (no abnormality detected) |
+| `classifications[].probability` | Confidence 0.0–1.0. Hits below the display floor (`CV_CLASSIFIER_CONFIDENCE_SHOW`) are dropped and never appear in the list. |
+| `classifications[].highlight` | `true` at or above the highlight threshold (`CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT`) — a UI emphasis hint only, **never** an auto-accept |
+| `classifications[].matched_disease_key` / `matched_pest_key` | Key matched against the IPM stammdaten ([Integrated Pest Management](../user-guide/pest-management.md)), only set for `category` `disease` or `pest` |
+| `classifications[].matched_symptom_slug` | Only set for `category == "deficiency"` — REQ-010 has no dedicated deficiency stammdaten collection (yet), so matching runs via symptom slugs instead |
+| `is_confident` | `true` when at least one actionable hit (`disease`/`deficiency`/`pest`) is highlighted. Does **not** mean "confirmed" — it's a UI classification only |
+| `model_meta` | Model card / provenance: `fine_tuned_on` lists the training source (`plantdoc-ccby4` — CC BY 4.0; **PlantVillage is not used**, see [License Notices](#license-notices-req-038)) |
+| `image_hash` / `image_deleted_at` | Evidence that **no** original image is stored — only the fingerprint is retained |
+
+**Error Codes:**
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `403` | Active tenant role below **grower**, or consent `plant_diagnosis` missing (Full mode) |
+| `413` | Image exceeds `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` or the internal decompression-bomb pixel limit |
+| `415` | `Content-Type` is neither `image/jpeg` nor `image/png` |
+| `422` | Image cannot be decoded (corrupt or not a valid image format) |
+| `503` | The self-hosted classifier is not enabled or not reachable (`CV_DIAGNOSIS_ENABLED=false` or no loaded model) |
+
+### Confirm a Diagnosis into an IPM Inspection Suggestion
+
+```
+POST /api/v1/t/{tenant_slug}/cv-diagnosis/diagnose/{request_key}/confirm
+```
+
+Requires at least the tenant role **grower**. Creates an [IPM inspection](../user-guide/pest-management.md) as a **suggestion** from the confirmed classes — **never** an automatic treatment; the pre-harvest interval gate always stays active.
+
+**Request Body:**
+
+```json
+{
+  "plant_key": "plant_instances/101",
+  "confirmed_labels": ["septoria_leaf_spot"]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|--------------|
+| `plant_key` | string | Yes | Plant instance the created inspection is attached to |
+| `confirmed_labels` | list[string] | No | Class labels to confirm; defaults to the highlighted (`highlight == true`) classes when omitted |
+
+**Response (201):** `ConfirmDiagnosisResponse`
+
+```json
+{
+  "inspection_key": "inspections/42",
+  "detected_disease_keys": ["diseases/septoria"],
+  "detected_pest_keys": [],
+  "confirmed_labels": ["septoria_leaf_spot"]
+}
+```
+
+**Error Codes:**
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `403` | Active tenant role below **grower** |
+| `404` | `request_key` unknown or does not belong to the tenant (cross-tenant access fails indistinguishably — no existence oracle) |
+
+### Retrieve Diagnosis History
+
+```
+GET /api/v1/t/{tenant_slug}/cv-diagnosis/history
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | `20` | Maximum number of entries (1–100) |
+
+**Response (200):** List of `CvDiagnosisResponse` (see above), sorted by creation date descending, scoped to the signed-in user's own diagnoses within the current tenant.
+
+### License Notices {#license-notices-req-038}
+
+The classifier is fine-tuned on the **PlantDoc** dataset (CC BY 4.0, attribution required) plus curated own-data field images; the phenotype pipeline uses **PlantCV** (MPL-2.0, used unmodified as a library). **PlantVillage is not used** (license unclear). Full attribution text: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
+
+### See Also
+
+- [My Plant Looks Sick — Symptom Diagnosis](../user-guide/plant-health-troubleshooting.md)
+- [Pest Detection by Photo](../user-guide/pest-detection.md)
+- [Integrated Pest Management (IPM)](../user-guide/pest-management.md)
+- [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
+- [Environment Variables — CV Disease Diagnosis](environment-variables.md#cv-disease-diagnosis-req-038)
+- [Error Handling](../api/error-handling.md)

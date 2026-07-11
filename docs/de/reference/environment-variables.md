@@ -321,6 +321,28 @@ Diese Variablen konfigurieren die optionale bildbasierte Schädlingserkennung. D
 
 ---
 
+## CV-Krankheitsdiagnose (REQ-038) {#cv-krankheitsdiagnose-req-038}
+
+Diese Variablen konfigurieren die optionale, self-hosted Foto-Diagnose für **Krankheiten und Nährstoffmängel** (abgegrenzt von der [Schädlingserkennung](#schaedlingserkennung-req-044) oben). Das Feature ist standardmäßig deaktiviert; ohne `CV_DIAGNOSIS_ENABLED=true` bleibt der API-Endpunkt `/status` auf `available: false`, die App läuft uneingeschränkt weiter.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `CV_DIAGNOSIS_ENABLED` | `false` | Nein | Gesamtschalter. Auf `true` setzen, um die Funktion zu aktivieren. |
+| `CV_CLASSIFIER_CONFIDENCE_SHOW` | `0.10` | Nein | Mindest-Konfidenz (0–1) für die Anzeige eines Treffers. Ergebnisse darunter werden verworfen. |
+| `CV_CLASSIFIER_CONFIDENCE_HIGHLIGHT` | `0.75` | Nein | Konfidenz-Schwelle (0–1), ab der ein Treffer visuell hervorgehoben wird. Löst **kein** automatisches Anlegen aus. |
+| `CV_PHENOTYPE_ENABLED` | `true` | Nein | PlantCV-Phänotyp-Kennzahlen (Blattfläche, Grün-Index, Verfärbungsanteil) im Inference-Service ein/aus. |
+| `CV_DIAGNOSIS_MAX_IMAGE_SIZE_MB` | `5` | Nein | Maximale Bildgröße in Megabyte. Größere Bilder werden mit HTTP 413 abgelehnt. |
+
+Der Klassifikator läuft im bestehenden Inference-Service und nutzt die dort bereits konfigurierte Anbindung (`INFERENCE_SERVICE_URL`, `INTERNAL_SERVICE_TOKEN`) — es sind keine zusätzlichen Verbindungsvariablen nötig.
+
+!!! note "Self-Hosted, kein Cloud-Adapter"
+    Anders als bei der Schädlingserkennung gibt es für die CV-Krankheitsdiagnose (Stand dieser Version) **keinen** Cloud-Adapter — Fotos verlassen die Instanz nie. Die Einwilligung `plant_diagnosis` ist trotzdem erforderlich (Voll-Modus), weil ein Foto verarbeitet wird (siehe [Datenschutz & DSGVO](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)).
+
+!!! info "Lizenzhinweise"
+    Das Modell wird auf dem CC-BY-4.0-lizenzierten PlantDoc-Datensatz fine-getunt; die Phänotyp-Pipeline nutzt PlantCV (MPL-2.0). Vollständige Attributionen: [`NOTICE.md`](https://github.com/nolte/kamerplanter/blob/main/NOTICE.md#cv-disease-diagnosis-req-038).
+
+---
+
 ## Browser Push / PWA (VAPID)
 
 Diese Variablen aktivieren den Browser-Push-Benachrichtigungskanal (`channel_key: "pwa"`). Sind alle drei Variablen leer, ist der Kanal deaktiviert — die Anwendung bleibt vollständig funktionsfähig, Nutzer sehen dann die Meldung "Nicht konfiguriert" in den Benachrichtigungseinstellungen.
@@ -591,3 +613,5 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Deployment Kubernetes](../deployment/kubernetes.md)
 - [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
 - [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
+- [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
+- [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
