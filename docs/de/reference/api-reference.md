@@ -691,3 +691,53 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 - [Referenzbilder kuratieren — Benutzerhandbuch](../user-guide/reference-image-curation.md)
 - [Umgebungsvariablen — Foto-Identifikation](environment-variables.md#foto-identifikation-req-029)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Nacherntebehandlung (Post-Harvest)
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/post-harvest/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte akzeptieren jede aktive Mitgliedschaft; schreibende Endpunkte erfordern mindestens die Rolle **grower**; das Löschen einer Charge ist **admin**-only. <!-- REQ-008 -->
+
+| Methode & Pfad | Beschreibung | Mindestrolle |
+|-----------------|-------------|--------------|
+| `GET /post-harvest` | Chargen des Mandanten auflisten (optional gefiltert nach `harvest_batch`) | jede Mitgliedschaft |
+| `POST /post-harvest/start-drying` | Erntecharge in die Nacherntebehandlung übernehmen (Stufe „Trocknung") | grower |
+| `GET /post-harvest/{key}` | Chargendetails inkl. letzter Trocknungsmessung und Anzahl offener Schimmel-Warnungen | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/advance` | Charge in die nächste Stufe überführen (vorwärts, ein Schritt) | grower |
+| `POST /post-harvest/{key}/drying-progress` | Gewichtsmessung erfassen (optional zusätzlich Wasseraktivität, CO₂, Knacktest-Ergebnis) | grower |
+| `GET /post-harvest/{key}/drying-progress` | Alle Trocknungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/observations` | Umgebungsmessung erfassen (löst ggf. automatisch eine Schimmel-Warnung aus) | grower |
+| `GET /post-harvest/{key}/observations` | Alle Umgebungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `GET /post-harvest/{key}/mold-alerts` | Schimmel-Warnungen der Charge auflisten | jede Mitgliedschaft |
+| `DELETE /post-harvest/{key}` | Charge löschen | admin |
+
+**Stufen-Zustandsmaschine:** `drying → curing → stored → released` — ausschließlich vorwärts, ein Schritt je Aufruf. Der Übergang `drying → curing` erfordert zusätzlich `dryness_progress_percent >= 95`.
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb der geforderten Mindestrolle |
+| `404` | Charge nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Ungültiger Stufenwechsel (Rückschritt, Sprung oder Trocknungsfortschritt < 95 % bei `drying → curing`), oder `current_weight_g` größer als das Startgewicht der Charge |
+
+### Beispiel — Trocknung starten
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/post-harvest/start-drying" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harvest_batch_key": "harvest_batches/42",
+    "species_type": "flower",
+    "drying_method": "hang_dry",
+    "target_moisture_percent": 10
+  }'
+```
+
+### Siehe auch
+
+- [Nacherntebehandlung — Benutzerhandbuch](../user-guide/post-harvest.md)
+- [Ernte — Benutzerhandbuch](../user-guide/harvest.md)
+- [Fehlerbehandlung](../api/error-handling.md)

@@ -108,6 +108,7 @@ plugins:
             Wetterquellen: Weather Sources
             Aufgaben: Tasks
             Ernte: Harvest
+            Nacherntebehandlung: Post-Harvest
             Pflanzenschutz (IPM): Pest Management (IPM)
             Pflanzdurchläufe: Planting Runs
             Tankmanagement: Tank Management
@@ -289,6 +290,7 @@ nav:
       - Wetterquellen: de/user-guide/weather-sources.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
+      - Nacherntebehandlung: de/user-guide/post-harvest.md
       - Pflanzenschutz (IPM): de/user-guide/pest-management.md
       - Pflanzenprobleme lösen: de/user-guide/plant-health-troubleshooting.md
       - Pflanzdurchläufe: de/user-guide/planting-runs.md

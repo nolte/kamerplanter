@@ -646,6 +646,78 @@ class RipenessStage(StrEnum):
     OVERRIPE = "overripe"
 
 
+# ── REQ-008 Post-Harvest ──
+
+
+class PostHarvestStage(StrEnum):
+    """REQ-008 §5 (U-006) — per-batch post-harvest state machine.
+
+    Forward-only lifecycle: a batch dries, then cures, is put into storage and
+    finally released for consumption/sale. Backward transitions are rejected by
+    the stage engine (a batch cannot become wetter again).
+    """
+
+    DRYING = "drying"
+    CURING = "curing"
+    STORED = "stored"
+    RELEASED = "released"
+
+
+class DryingMethod(StrEnum):
+    """REQ-008 §3 — how a batch is being dried (drives duration estimates)."""
+
+    HANG_DRY = "hang_dry"
+    RACK_DRY = "rack_dry"
+    DEHYDRATOR = "dehydrator"
+    AIR_CURE = "air_cure"
+
+
+class PostHarvestSpeciesType(StrEnum):
+    """REQ-008 §3 — coarse produce class steering drying/curing behaviour."""
+
+    FLOWER = "flower"
+    HERB = "herb"
+    ROOT = "root"
+    FRUIT = "fruit"
+    MUSHROOM = "mushroom"
+
+
+class MoldAlertSeverity(StrEnum):
+    """REQ-008 §2 — severity of an automatically raised mold warning."""
+
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
+class StorageVisualCondition(StrEnum):
+    """REQ-008 §2 — visual grading of a stored/curing batch."""
+
+    EXCELLENT = "excellent"
+    GOOD = "good"
+    ACCEPTABLE = "acceptable"
+    CONCERNING = "concerning"
+    CRITICAL = "critical"
+
+
+class StorageAromaQuality(StrEnum):
+    """REQ-008 §2 — aroma grading; ``moldy``/``off`` signal spoilage."""
+
+    EXCELLENT = "excellent"
+    GOOD = "good"
+    ACCEPTABLE = "acceptable"
+    OFF = "off"
+    MOLDY = "moldy"
+
+
+class PesticideResidueStatus(StrEnum):
+    """REQ-008 §5 / REQ-010 — residue clearance state carried on a batch."""
+
+    UNTESTED = "untested"
+    CLEAN = "clean"
+    WITHIN_LIMITS = "within_limits"
+    RESIDUE_DETECTED = "residue_detected"
+
+
 # ── REQ-006 Tasks ──
 
 

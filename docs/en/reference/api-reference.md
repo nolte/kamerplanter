@@ -691,3 +691,53 @@ Requires a valid JWT token and at least the tenant role **grower**. Only availab
 - [Curating Reference Images — User Guide](../user-guide/reference-image-curation.md)
 - [Environment Variables — Photo Identification](environment-variables.md#photo-identification-req-029)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## Post-Harvest
+
+All endpoints live under the tenant-scoped path `/api/v1/t/{tenant_slug}/post-harvest/` and require a valid JWT token. Read endpoints accept any active membership; write endpoints require at least the **grower** role; deleting a batch is **admin**-only. <!-- REQ-008 -->
+
+| Method & Path | Description | Minimum role |
+|---------------|-------------|--------------|
+| `GET /post-harvest` | List the tenant's batches (optionally filtered by `harvest_batch`) | any membership |
+| `POST /post-harvest/start-drying` | Take a harvest batch into post-harvest processing (stage "drying") | grower |
+| `GET /post-harvest/{key}` | Batch details incl. the latest drying measurement and open mold-alert count | any membership |
+| `POST /post-harvest/{key}/advance` | Advance the batch to the next stage (forward, one step) | grower |
+| `POST /post-harvest/{key}/drying-progress` | Record a weight measurement (optionally also water activity, CO₂, snap-test result) | grower |
+| `GET /post-harvest/{key}/drying-progress` | List all drying measurements of the batch | any membership |
+| `POST /post-harvest/{key}/observations` | Record an environmental observation (may auto-raise a mold alert) | grower |
+| `GET /post-harvest/{key}/observations` | List all environmental observations of the batch | any membership |
+| `GET /post-harvest/{key}/mold-alerts` | List the batch's mold alerts | any membership |
+| `DELETE /post-harvest/{key}` | Delete a batch | admin |
+
+**Stage state machine:** `drying → curing → stored → released` — forward only, one step per call. The `drying → curing` transition additionally requires `dryness_progress_percent >= 95`.
+
+**Error codes:**
+
+| HTTP status | Meaning |
+|-------------|---------|
+| `403` | Active tenant role below the required minimum role |
+| `404` | Batch not found or does not belong to the tenant |
+| `422` | Invalid stage transition (backward, skip, or drying progress < 95% on `drying → curing`), or `current_weight_g` exceeds the batch's start weight |
+
+### Example — Start drying
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/post-harvest/start-drying" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harvest_batch_key": "harvest_batches/42",
+    "species_type": "flower",
+    "drying_method": "hang_dry",
+    "target_moisture_percent": 10
+  }'
+```
+
+### See Also
+
+- [Post-Harvest — User Guide](../user-guide/post-harvest.md)
+- [Harvest — User Guide](../user-guide/harvest.md)
+- [Error Handling](../api/error-handling.md)
