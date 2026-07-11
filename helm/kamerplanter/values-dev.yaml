@@ -226,6 +226,13 @@ controllers:
           # REQ-029-A — reference-image acquisition calls the inference-service
           # (/embed, /reference) to build the DINOv2 pgvector index.
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+          # AP-4 (INF-S1/S2): the celery-worker calls the recognition/knowledge
+          # services (e.g. reference-image acquisition -> /embed) and must send the
+          # SAME shared M2M token they expect. The backend sets this inline too;
+          # without it the worker falls back to the envFrom kamerplanter-secrets
+          # value, which drifts from the services' inline dev-internal-service-token
+          # and yields 401 Unauthorized.
+          INTERNAL_SERVICE_TOKEN: dev-internal-service-token
           # REQ-046 weather integration — the celery-worker runs the weather
           # fetch, daily-forecast, climate-normal, hardiness and season tasks,
           # all gated by this switch.
