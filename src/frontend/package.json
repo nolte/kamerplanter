@@ -13,7 +13,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "bundle:check": "node scripts/check-bundle-budget.mjs",
+    "lhci": "lhci autorun"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -42,6 +44,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
+    "@lhci/cli": "^0.15.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -57,6 +60,7 @@
     "jsdom": "^29.0.1",
     "msw": "^2.12.14",
     "prettier": "^3.8.1",
+    "rollup-plugin-visualizer": "^6.0.11",
     "typescript": "~6.0.0",
     "typescript-eslint": "^8.57.2",
     "vite": "^8.0.3",

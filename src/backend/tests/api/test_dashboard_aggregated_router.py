@@ -29,9 +29,10 @@ def _ctx() -> TenantContext:
 class _FakeDashboardService:
     """Returns a fixed summary so the slice mapping is exercised in isolation."""
 
-    def __init__(self, *, open_today: int, overdue: int) -> None:
+    def __init__(self, *, open_today: int, overdue: int, active_plants: list[dict] | None = None) -> None:
         self._open_today = open_today
         self._overdue = overdue
+        self._active_plants = active_plants or []
 
     def get_summary(self, tenant_key: str) -> DashboardSummary:
         counts = DashboardCounts(
@@ -48,6 +49,7 @@ class _FakeDashboardService:
             counts=counts,
             upcoming_tasks=[],
             recent_activities=[],
+            active_plants=self._active_plants,
         )
 
 
@@ -82,3 +84,17 @@ def test_tasks_today_slice_keeps_open_and_overdue_distinct():
     slice_payload = resp.json()["widgets"]["tasks_today"]
     assert slice_payload["open_tasks_today"] == 4
     assert slice_payload["overdue_tasks"] == 7
+
+
+def test_plant_grid_slice_returns_active_plants_with_keys():
+    """Issue #461: the ``plant_grid`` slice must expose active plants with ``_key``
+    so the frontend can deep-link each tile to the plant detail view."""
+    plants = [
+        {"_key": "p-1", "plant_name": "Basil", "species_key": "ocimum-basilicum"},
+        {"_key": "p-2", "plant_name": None, "species_key": "solanum-lycopersicum"},
+    ]
+    service = _FakeDashboardService(open_today=0, overdue=0, active_plants=plants)
+    resp = _client(service).get(f"{_AGGREGATED}?widgets=plant_grid")
+    assert resp.status_code == 200
+    slice_payload = resp.json()["widgets"]["plant_grid"]
+    assert [p["_key"] for p in slice_payload["plants"]] == ["p-1", "p-2"]

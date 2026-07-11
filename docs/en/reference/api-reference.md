@@ -317,6 +317,64 @@ GET /api/v1/t/{tenant_slug}/locations/{key}/frost-warning
 
 ---
 
+## Site Climate Normals (NASA POWER) <!-- REQ-041 -->
+
+Returns a site's long-term monthly climate normals for the "Climate at the Site" section of the site detail page. The endpoint lives under the tenant-specific path `/api/v1/t/{tenant_slug}/` and requires a valid JWT token; any active tenant member (including the **Viewer** role) may read. Site ownership is verified server-side (404 unknown / 403 foreign). The endpoint is **graceful**: if no climate normals exist yet for an owned site (background fetch not yet run), it returns an empty `normals` list instead of an error.
+
+### Retrieve a Site's Climate Normals
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
+```
+
+**Response (200):** `SiteClimateResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "normals": [
+    {
+      "source": "nasa-power",
+      "attribution": "Klima- und Strahlungsdaten: NASA POWER (power.larc.nasa.gov)",
+      "period_start_year": 1991,
+      "period_end_year": 2020,
+      "monthly_temp_min_c": [-3.1, -2.6, 0.4, 3.8, 8.2, 11.4, 13.1, 12.8, 9.6, 5.7, 1.3, -1.9],
+      "monthly_temp_max_c": [2.4, 3.9, 8.1, 13.2, 18.0, 21.3, 23.6, 23.2, 18.9, 13.1, 7.0, 3.2],
+      "monthly_temp_avg_c": [-0.4, 0.6, 4.2, 8.5, 13.1, 16.4, 18.4, 18.0, 14.2, 9.4, 4.1, 0.6],
+      "monthly_precip_mm": [42.0, 33.0, 40.0, 37.0, 55.0, 68.0, 62.0, 58.0, 45.0, 39.0, 48.0, 47.0],
+      "monthly_solar_mj_m2": [4.1, 7.2, 11.5, 16.3, 19.8, 21.0, 20.4, 17.6, 12.5, 7.4, 4.0, 3.1],
+      "coldest_month_min_c": -3.1,
+      "annual_temp_avg_c": 8.9,
+      "annual_precip_mm": 574.0,
+      "fetched_at": "2026-07-01T03:12:00Z"
+    }
+  ]
+}
+```
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `normals` | list | One entry per contributing source; currently only `nasa-power`. Empty as long as the monthly background fetch hasn't run yet for this site. |
+| `source` | string | Provenance identifier of the entry (`nasa-power`) |
+| `attribution` | string | The source's license/attribution notice (mandatory CC-BY notice), meant for display directly next to the data |
+| `period_start_year` / `period_end_year` | number \| null | Reference period of the climate normal (e.g. `1991`–`2020`) |
+| `monthly_temp_min_c` / `monthly_temp_max_c` / `monthly_temp_avg_c` | list[12] | Monthly minimum, maximum, and average temperature, index 0 = January |
+| `monthly_precip_mm` | list[12] | Monthly precipitation in mm |
+| `monthly_solar_mj_m2` | list[12] | Monthly solar radiation in MJ/m² |
+| `coldest_month_min_c` | number \| null | Minimum of the coldest month — an input for the planned hardiness-zone derivation |
+| `annual_temp_avg_c` / `annual_precip_mm` | number \| null | Annual average / annual total |
+| `fetched_at` | datetime | Time this record was last fetched from the source |
+
+!!! info "API only: triggering climate normals manually"
+    There is no dedicated endpoint to manually trigger the fetch for a single site. Population runs exclusively via the monthly Celery task `app.tasks.climate_tasks.fetch_climate_normals` (operator configuration, see [Environment Variables — Climate Normals](environment-variables.md#climate-normals-nasa-power)). <!-- REQ-041 -->
+
+### See Also
+
+- [Climate at the Site — User Guide](../user-guide/weather-sources.md#climate-at-the-site)
+- [Environment Variables — Climate Normals (NASA POWER)](environment-variables.md#climate-normals-nasa-power)
+
+---
+
 ## Plant Instances: Removal with Ending Type & Survival Statistics
 
 All endpoints are located under the tenant-scoped path `/api/v1/t/{tenant_slug}/plant-instances/` and require a valid JWT token. <!-- REQ-003 E5/G1 -->

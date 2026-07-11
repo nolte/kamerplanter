@@ -15,7 +15,7 @@ REQ-011 external adapters (``GBIFAdapter``, ``PerenualAdapter``).
 import time
 
 import structlog
-from httpx import Client, HTTPStatusError, RequestError
+from httpx import Client, HTTPStatusError, RequestError, Timeout
 
 from app.common.exceptions import ExternalSourceError, RateLimitError
 from app.config.settings import settings
@@ -44,7 +44,15 @@ class PlantNetAdapter(PlantIdentificationAdapter):
 
     def __init__(self) -> None:
         self._base_url = settings.plantnet_base_url
-        self._timeout = settings.identification_http_timeout
+        # ``identification_http_timeout`` (env IDENTIFICATION_HTTP_TIMEOUT) governs
+        # how long we wait for the *response*: the ``/identify`` call is dominated
+        # by server-side ML inference, so the read timeout must be generous. The
+        # connect timeout stays short (capped at 10s) so a genuine network/DNS
+        # failure fails fast instead of hanging for the full read budget.
+        self._timeout = Timeout(
+            float(settings.identification_http_timeout),
+            connect=min(10.0, float(settings.identification_http_timeout)),
+        )
 
     def _resolve_api_key(self) -> str:
         """Resolve the effective Pl@ntNet key at call time (DB overrides env).

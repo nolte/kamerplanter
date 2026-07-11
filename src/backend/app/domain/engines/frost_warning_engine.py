@@ -119,8 +119,16 @@ def evaluate_forecast_frost_warning(
     unknown: dict = {"predicted": None, "min_temp": None, "expected_date": None, "source": None}
 
     horizon_end = today + timedelta(days=horizon_days - 1)
+    # REQ-041 — reanalysis records (NASA POWER) describe the *past* and must never
+    # raise a proactive early-warning; only genuine forecasts do. They are past-
+    # dated and so already fall outside the horizon, but the explicit guard keeps
+    # a same-day reanalysis record from ever triggering a warning.
     usable = [
-        record for record in forecasts if record.temp_min_c is not None and today <= record.forecast_date <= horizon_end
+        record
+        for record in forecasts
+        if record.temp_min_c is not None
+        and record.data_kind != "reanalysis"
+        and today <= record.forecast_date <= horizon_end
     ]
     if not usable:
         return unknown

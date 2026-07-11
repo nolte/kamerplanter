@@ -3935,6 +3935,10 @@ export interface UserPreference {
   theme: string;
   watering_can_liters: number;
   smart_home_enabled: boolean;
+  /** UI-NFR-019 — touch-optimized kiosk shell active. */
+  kiosk_enabled?: boolean;
+  /** UI-NFR-019 — WCAG-AAA high-contrast theme (R-005 kiosk default, R-045 standalone). */
+  high_contrast?: boolean;
   module_visibility?: Record<string, ModuleVisibilityState>;
   /** REQ-045 — personalized dashboard layout; null/absent = experience default. */
   dashboard_layout?: DashboardLayout | null;
@@ -5238,6 +5242,38 @@ export interface SiteWeatherForecastResponse {
   forecast_min_temperature?: number | null;
   forecast_expected_date?: string | null;
   forecast_source?: string | null;
+}
+
+/**
+ * REQ-041 — one long-term climate-normal record for a site (one per source).
+ * `GET /sites/{siteKey}/climate-normals`. The twelve `monthly_*` arrays are
+ * January…December (empty when the source did not report that series). Each
+ * record carries its source's CC-BY `attribution` string for UI visibility.
+ */
+export interface ClimateNormal {
+  source: string;
+  attribution: string;
+  period_start_year?: number | null;
+  period_end_year?: number | null;
+  monthly_temp_min_c: number[];
+  monthly_temp_max_c: number[];
+  monthly_temp_avg_c: number[];
+  monthly_precip_mm: number[];
+  monthly_solar_mj_m2: number[];
+  coldest_month_min_c?: number | null;
+  annual_temp_avg_c?: number | null;
+  annual_precip_mm?: number | null;
+  fetched_at: string;
+}
+
+/**
+ * `GET /sites/{siteKey}/climate-normals` response — the site's climate normals
+ * for the "Klima am Standort" section. Graceful: an empty `normals` list means
+ * no source has populated normals for the site yet (never a 500).
+ */
+export interface SiteClimateResponse {
+  site_key: string;
+  normals: ClimateNormal[];
 }
 
 /** One HA entity offered by the HA entity pickers. */

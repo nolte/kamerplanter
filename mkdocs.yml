@@ -117,6 +117,7 @@ plugins:
             Dashboard personalisieren: Personalizing Your Dashboard
             Onboarding-Wizard: Onboarding Wizard
             Light-Modus: Light Mode
+            Kiosk-Modus: Kiosk Mode
             KI-Assistent: AI Assistant
             KI-Provider einrichten: AI Provider Setup
             Umgebungssteuerung: Actuator Control
@@ -301,6 +302,7 @@ nav:
       - Konto & Anmeldung: de/user-guide/account.md
       - Module & Funktionen: de/user-guide/module-visibility.md
       - Light-Modus: de/user-guide/light-mode.md
+      - Kiosk-Modus: de/user-guide/kiosk-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
       - Umgebungssteuerung: de/user-guide/actuator-control.md

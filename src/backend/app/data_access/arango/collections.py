@@ -109,6 +109,9 @@ SENSORS = "sensors"
 WEATHER_FORECASTS = "weather_forecasts"
 WEATHER_SOURCE_CONFIGS = "weather_source_configs"
 
+# REQ-041 NASA POWER — long-term monthly climate normals per site
+CLIMATE_NORMALS = "climate_normals"
+
 # REQ-002 Location Types
 LOCATION_TYPES = "location_types"
 
@@ -271,6 +274,8 @@ DOCUMENT_COLLECTIONS = [
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
+    # REQ-041 NASA POWER climate normals
+    CLIMATE_NORMALS,
 ]
 
 # Edge collections
@@ -413,6 +418,9 @@ LOCATED_AT = "located_at"
 # REQ-046 Weather data sources edges
 HAS_FORECAST = "has_forecast"  # sites → weather_forecasts (all source values)
 HAS_WEATHER_SOURCE_CONFIG = "has_weather_source_config"  # sites → weather_source_configs (1:1)
+
+# REQ-041 NASA POWER climate-normal edge
+HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
 
 # Watering Log edges
 LOG_SLOT = "log_slot"
@@ -594,6 +602,8 @@ EDGE_COLLECTIONS = [
     # REQ-046 Weather data sources
     HAS_FORECAST,
     HAS_WEATHER_SOURCE_CONFIG,
+    # REQ-041 NASA POWER climate normals
+    HAS_CLIMATE_NORMAL,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1293,6 +1303,12 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [WEATHER_SOURCE_CONFIGS],
     },
+    # REQ-041 NASA POWER climate normals
+    {
+        "edge_collection": HAS_CLIMATE_NORMAL,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [CLIMATE_NORMALS],
+    },
 ]
 
 
@@ -1610,6 +1626,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     weather_source_configs_col = db.collection(WEATHER_SOURCE_CONFIGS)
     # 1:1 per site within a tenant (REQ-046 §2.1).
     weather_source_configs_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
+
+    # REQ-041 NASA POWER climate normals — one record per (site, source) within a
+    # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.
+    climate_normals_col = db.collection(CLIMATE_NORMALS)
+    climate_normals_col.add_persistent_index(fields=["tenant_key", "site_key", "source"], unique=True)
 
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):

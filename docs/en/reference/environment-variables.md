@@ -212,6 +212,23 @@ For comparison — the existing **reactive** frost threshold (current measured t
 
 ---
 
+## Climate Normals (NASA POWER) <!-- REQ-041 --> {#climate-normals-nasa-power}
+
+These variables control the monthly background fetch of long-term climate normals (the "Climate at the Site" section) via the keyless NASA POWER reanalysis interface. Both `WEATHER_ENABLED` and `NASA_POWER_CLIMATE_ENABLED` must be active for the fetch to run.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `NASA_POWER_CLIMATE_ENABLED` | `true` | No | Dedicated kill switch for the monthly climate-normals task, independent of the general `WEATHER_ENABLED` — both must be active for the task to run. |
+| `NASA_POWER_BASE_URL` | `https://power.larc.nasa.gov/api/temporal` | No | Base URL of the NASA POWER API. Only relevant for self-hosters with a different network/proxy setup. |
+| `NASA_POWER_CLIMATE_TTL_DAYS` | `180` | No | Climate normals barely change; an already-fetched record is only re-fetched after this TTL expires — keeps the monthly task idempotent and spares the NASA POWER API. |
+| `NASA_POWER_DATA_LATENCY_DAYS` | `7` | No | Affects the separate daily-values fetch (not the climate normals): number of days NASA POWER needs for quality control of its most recent daily values. |
+| `NASA_POWER_DAILY_DAYS_BACK` | `14` | No | Also affects only the daily-values fetch: size of the look-back window in days. |
+
+!!! note "Only affects outdoor and greenhouse sites with GPS coordinates"
+    Climate normals are materialised only for sites of type **Outdoor** or **Greenhouse** with stored GPS coordinates — they're of no use for indoor sites and are not fetched for them. NASA POWER is usable without an API key; the data is licensed under CC BY 4.0 (attribution is delivered automatically alongside the data, see [Climate at the Site](../user-guide/weather-sources.md#climate-at-the-site)). <!-- REQ-041 -->
+
+---
+
 ## Rate Limiting
 
 | Variable | Default | Required | Description |

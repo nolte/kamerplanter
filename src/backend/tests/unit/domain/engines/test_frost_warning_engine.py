@@ -152,6 +152,35 @@ class TestEvaluateForecastFrostWarning:
         assert DEFAULT_FROST_FORECAST_THRESHOLD_CELSIUS == 2.0
         assert DEFAULT_FROST_FORECAST_HORIZON_DAYS == 2
 
+    def test_reanalysis_record_never_triggers_warning(self):
+        # REQ-041 — a NASA POWER reanalysis record (data_kind="reanalysis") on an
+        # in-horizon date with a hard frost must NOT raise a proactive warning; it
+        # describes the past, not the future.
+        reanalysis = WeatherForecast(
+            site_key="site-1",
+            forecast_date=TODAY,
+            temp_min_c=-8.0,
+            source="nasa-power",
+            fetched_at=_FETCHED_AT,
+            data_kind="reanalysis",
+        )
+        result = self._run([reanalysis])
+        assert result["predicted"] is None
+
+    def test_reanalysis_ignored_but_real_forecast_still_wins(self):
+        reanalysis = WeatherForecast(
+            site_key="site-1",
+            forecast_date=TODAY,
+            temp_min_c=-8.0,
+            source="nasa-power",
+            fetched_at=_FETCHED_AT,
+            data_kind="reanalysis",
+        )
+        result = self._run([reanalysis, _forecast(1, -2.0)])
+        assert result["predicted"] is True
+        assert result["expected_date"] == TODAY + timedelta(days=1)
+        assert result["source"] == "open-meteo"
+
 
 class TestPickAirTemperature:
     def test_prefers_canonical_temperature_celsius(self):

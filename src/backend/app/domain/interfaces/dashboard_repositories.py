@@ -27,7 +27,7 @@ from typing import Any, Protocol, runtime_checkable
 
 @runtime_checkable
 class PlantDashboardRepository(Protocol):
-    """Plant-instance counts for the "active plants" tile."""
+    """Plant-instance counts + list for the "active plants" / "plant grid" tiles."""
 
     def count_for_tenant(self, tenant_key: str) -> int:
         """Total plant instances owned by ``tenant_key``."""
@@ -35,6 +35,10 @@ class PlantDashboardRepository(Protocol):
 
     def count_active_for_tenant(self, tenant_key: str) -> int:
         """Alive plant instances (``removed_on == null``) owned by ``tenant_key``."""
+        ...
+
+    def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
+        """Newest alive plant instances (``_key`` + label fields) for the plant grid."""
         ...
 
 
