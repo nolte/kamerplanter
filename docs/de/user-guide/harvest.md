@@ -148,10 +148,11 @@ Der Gesamt-Score gewichtet Erscheinung (30 %), Aroma (25 %) und Farbe (20 %) und
 
 ## Trocknung dokumentieren
 
-!!! note "Teilweise verfügbar"
-    Kamerplanter bietet aktuell nur ein einzelnes Feld **Tatsächliches Trockengewicht (g)** im Bearbeiten-Tab der Erntecharge — du trägst es nach Abschluss der Trocknung manuell ein. Eine eigene Trocknungs-Workflow-Oberfläche mit Start-/Zielfeuchte, laufender Gewichtserfassung und automatischer Fortschritts- oder Trocknungsverlust-Berechnung ist als geplantes Feature spezifiziert, aber noch nicht gebaut. <!-- REQ-008 -->
+Für den eigentlichen Trocknungs-, Aushärtungs- und Lagerungs-Workflow — mit Start-/Zielfeuchte, laufender Gewichtserfassung, automatischer Fortschritts- und Handlungsempfehlung sowie Schimmel-Warnungen — übernimmst du die Erntecharge in die eigene **Nacherntebehandlung**. Das Feld **Tatsächliches Trockengewicht (g)** im Bearbeiten-Tab der Erntecharge bleibt daneben für eine einmalige, formlose Nacherfassung verfügbar.
 
-Fachliche Anleitung zur Trocknung (Zielwerte für Temperatur, Luftfeuchte und Dauer) findest du im Nachernte-Guide.
+Mehr dazu: [Nacherntebehandlung](post-harvest.md)
+
+Fachliche Anleitung zur Trocknung (Zielwerte für Temperatur, Luftfeuchte und Dauer) findest du zusätzlich im Nachernte-Guide.
 
 Mehr dazu: [Nachernte: Trocknung, Curing & Lagerung](../guides/post-harvest.md)
 
@@ -219,4 +220,5 @@ Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte
 - [Wachstumsphasen](growth-phases.md)
 - [Dünge-Logik](fertilization.md)
 - [Pflanzdurchläufe](planting-runs.md)
+- [Nacherntebehandlung](post-harvest.md)
 - [Nachernte: Trocknung, Curing & Lagerung](../guides/post-harvest.md)
