@@ -70,6 +70,9 @@ kubectl create secret generic kamerplanter-secrets -n default \
   --from-literal=INTERNAL_SERVICE_TOKEN=$(openssl rand -hex 32)
 ```
 
+!!! note "ArangoDB password"
+    `ARANGODB_PASSWORD` and `ARANGO_ROOT_PASSWORD` must hold the **same value**: ArangoDB initialises its root password from `ARANGO_ROOT_PASSWORD`, while the backend and Celery connect using `ARANGODB_PASSWORD`. Both come solely from this Secret — `values-dev.yaml` no longer sets them inline. If the values differ, the backend crashes at startup with HTTP 401.
+
 !!! warning "Local development only"
     These values are intentionally weak and must never be used in a production environment. For production and GitOps, the [ArgoCD deployment](../deployment/argocd.md) describes secure secret management (Sealed Secrets, External Secrets Operator).
 
