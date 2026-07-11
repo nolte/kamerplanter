@@ -361,7 +361,7 @@ GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
 | `monthly_temp_min_c` / `monthly_temp_max_c` / `monthly_temp_avg_c` | list[12] | Monthly minimum, maximum, and average temperature, index 0 = January |
 | `monthly_precip_mm` | list[12] | Monthly precipitation in mm |
 | `monthly_solar_mj_m2` | list[12] | Monthly solar radiation in MJ/m² |
-| `coldest_month_min_c` | number \| null | Minimum of the coldest month — an input for the planned hardiness-zone derivation |
+| `coldest_month_min_c` | number \| null | Minimum of the coldest month — an input for the [automatic hardiness-zone derivation](#hardiness-zones-usda) |
 | `annual_temp_avg_c` / `annual_precip_mm` | number \| null | Annual average / annual total |
 | `fetched_at` | datetime | Time this record was last fetched from the source |
 
@@ -372,6 +372,110 @@ GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
 
 - [Climate at the Site — User Guide](../user-guide/weather-sources.md#climate-at-the-site)
 - [Environment Variables — Climate Normals (NASA POWER)](environment-variables.md#climate-normals-nasa-power)
+
+---
+
+## Hardiness Zones (USDA) <!-- REQ-039 --> {#hardiness-zones-usda}
+
+Automatic derivation of a site's USDA hardiness zone from its [climate normals](#site-climate-normals-nasa-power) (coldest monthly mean minimum temperature), following the license-free USDA zone schema (26 half-zones `1a`–`13b`, no proprietary USDA/PHZM/PRISM map data). Replaces the free-text `Site.climate_zone` field for the traffic-light comparison, which is kept for compatibility and automatically synced. Feeds the [hardiness traffic light](../user-guide/overwintering.md) for perennial plants. <!-- REQ-039 -->
+
+The global catalog is reference data (like botanical families) and lives without a tenant prefix under `/api/v1/hardiness-zones`; per-site derivation and read access are tenant-scoped under `/api/v1/t/{tenant_slug}/sites/{site_key}/`. All endpoints require a valid JWT token.
+
+### Listing the Global Zone Catalog
+
+```
+GET /api/v1/hardiness-zones
+```
+
+**Response (200):** A list of `HardinessZoneResponse`, coldest zone first.
+
+```json
+[
+  {
+    "zone": "7a",
+    "zone_number": 7,
+    "subzone": "a",
+    "temp_min_c": -17.7,
+    "temp_max_c": -15.0,
+    "temp_min_f": 0.0,
+    "temp_max_f": 5.0,
+    "description_de": "Mild-gemäßigtes Klima weiter Tieflandregionen. Günstige Zone für die Freilandkultur der meisten winterharten Stauden und Gehölze.",
+    "representative_regions_de": ["Norddeutsches Tiefland", "Wiener Becken", "Genferseeregion"],
+    "typical_last_frost_md": "05-08",
+    "typical_first_frost_md": "10-20"
+  }
+]
+```
+
+Only the DACH-relevant zones `5a`–`9a` carry curated German descriptions and example regions; all other zones across the worldwide `1a`–`13b` spectrum have a generic description with no `representative_regions_de`.
+
+### Retrieving a Single Zone
+
+```
+GET /api/v1/hardiness-zones/{zone}
+```
+
+**Path parameter:** `zone` — the zone label in `<number><a|b>` format, e.g. `7a`.
+
+**Error codes:** `404` when `zone` isn't a valid label in the catalog.
+
+### Reading a Site's Hardiness Zone
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/hardiness
+```
+
+Any active tenant member (including the **Viewer** role) may read. Site ownership is verified server-side (404 for an unknown/foreign site).
+
+**Response (200):** `SiteHardinessResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "hardiness_zone": "7a",
+  "hardiness_zone_source": "derived_gps",
+  "hardiness_zone_resolved_at": "2026-07-01T05:00:00Z",
+  "mean_annual_minimum_c": -17.2,
+  "last_frost_date_avg": "2026-05-08",
+  "first_frost_date_avg": "2026-10-20",
+  "zone": { "zone": "7a", "...": "full catalog entry, as above" }
+}
+```
+
+`hardiness_zone_source` ∈ `manual` (never overwritten automatically), `derived_gps` (derived from climate normals). The values `derived_postal` and `frostline_us` are reserved for future, not-yet-implemented derivation paths.
+
+### Re-Deriving a Site's Hardiness Zone
+
+```
+POST /api/v1/t/{tenant_slug}/sites/{site_key}/resolve-hardiness-zone
+```
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `force` | boolean | `false` | When `true`, discards an already **manually** set zone as well and re-derives it from the climate normals. |
+
+Without `force=true`, a manually set zone (`hardiness_zone_source: manual`) is left untouched — the endpoint then returns the existing zone unchanged. It also pre-fills the site's frost reference dates (`last_frost_date_avg`, `first_frost_date_avg`) from the derived zone's catalog entry, when not already set. A regular `PUT` call on the site with `hardiness_zone` set in the request body instead marks the zone directly as `manual`.
+
+**Response (200):** `SiteHardinessResponse` (see above).
+
+**Error codes:**
+
+| HTTP status | Meaning |
+|-------------|---------|
+| `404` | Site not found or doesn't belong to the tenant |
+| `422` | No climate normals with a usable minimum temperature exist yet for the site (`VALIDATION_ERROR`) — [climate normals](#site-climate-normals-nasa-power) must be fetched for the site first |
+
+!!! info "API only: hardiness-zone operation"
+    Neither a button to trigger an immediate re-derivation nor a display of the derived zone with its provenance are wired into the site form of the web interface yet. Independent of that, the automatic derivation already runs fully automatically in the background via a quarterly Celery task (see [Environment Variables — Hardiness Zones](environment-variables.md#hardiness-zones-usda)); the endpoint documented here is for triggering an immediate manual re-derivation. <!-- REQ-039 -->
+
+### See Also
+
+- [Climate Zones & Hardiness — User Guide](../guides/climate-zones.md)
+- [Overwintering — User Guide](../user-guide/overwintering.md)
+- [Site Climate Normals (NASA POWER)](#site-climate-normals-nasa-power)
+- [Environment Variables — Hardiness Zones](environment-variables.md#hardiness-zones-usda)
 
 ---
 

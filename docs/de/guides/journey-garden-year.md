@@ -91,12 +91,12 @@ Im Herbst stellt sich für mehrjährige und frostempfindliche Pflanzen die Frage
 
 ---
 
-## Schritt 6: Ausblick — Klimazonen und Winterhärte
+## Schritt 6: Klimazonen und Winterhärte
 
-Langfristig soll Kamerplanter aus deinen GPS-Koordinaten oder deiner Postleitzahl automatisch ableiten, in welcher Winterhärtezone dein Standort liegt, und daraus eine Winterhärte-Ampel für deine mehrjährigen Pflanzen speisen.
+Kamerplanter leitet aus den GPS-Koordinaten deines Standorts automatisch ab, in welcher USDA-Winterhärtezone er liegt, und speist daraus die Winterhärte-Ampel deiner mehrjährigen Pflanzen (siehe [Überwinterung](../user-guide/overwintering.md)).
 
-!!! info "Geplantes Feature"
-    Dieses Feature ist spezifiziert, aber noch nicht umgesetzt. Details zum geplanten Verhalten findest du unter [Klimazonen & Winterhärte](climate-zones.md). Bis dahin ist die Klimazone am Standort ein frei editierbares Textfeld ohne automatische Ableitung.
+!!! info "Nur über API / Betreiber-Konfiguration"
+    Die Berechnung selbst läuft bereits vollautomatisch im Hintergrund. Im Standort-Formular der Oberfläche siehst du davon aktuell aber nur das Ergebnis im bestehenden Freitextfeld „Klimazone" — ein eigener Button zum sofortigen Neu-Ermitteln und eine Herkunfts-Anzeige fehlen dort noch. Details zur Berechnung, zum manuellen Übersteuern und zum aktuellen Stand der Weboberfläche findest du unter [Klimazonen & Winterhärte](climate-zones.md). <!-- REQ-039 -->
 
 ---
 
