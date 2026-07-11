@@ -62,6 +62,9 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // REQ-013 Durchläufe
   '/durchlaeufe/planting-runs': { label: 'nav.plantingRuns', parent: '/dashboard' },
 
+  // REQ-016 InvenTree integration (Equipment)
+  '/inventree': { label: 'nav.equipment', parent: '/dashboard' },
+
   // Watering Log (unified)
   '/giessprotokoll': { label: 'nav.wateringLog', parent: '/dashboard' },
 

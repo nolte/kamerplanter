@@ -229,6 +229,17 @@ export default function Sidebar({ open }: SidebarProps) {
       ],
     },
     {
+      header: t('nav.inventar'),
+      sectionKey: 'inventree',
+      items: [
+        {
+          label: t('nav.equipment'),
+          path: '/inventree',
+          icon: <Inventory2Icon />,
+        },
+      ],
+    },
+    {
       header: t('nav.duengung'),
       sectionKey: 'duengung',
       items: [

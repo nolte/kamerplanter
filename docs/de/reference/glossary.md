@@ -85,6 +85,12 @@ Dreistufiger Pflanzenschutz-Ansatz (englisch *Integrated Pest Management*): Prä
 
 → [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 
+### InvenTree
+
+Eigenständige, quelloffene Inventarverwaltung, die du optional zusätzlich zu Kamerplanter betreiben und mit deinen Düngern, Tanks und Betriebsmitteln verknüpfen kannst. Ein „Part“ ist dort ein einzelner Artikel (z. B. eine Ersatzpumpe). Verknüpfst du eine Kamerplanter-Entität mit einer Part-ID, gleicht Kamerplanter Bestand und Verbrauch automatisch mit InvenTree ab (Stock-Sync) — Mengen musst du dann nicht mehr manuell nachpflegen. Die Verknüpfung ist rein optional; ohne sie funktioniert Kamerplanter uneingeschränkt weiter.
+
+→ [Betriebsmittel & Inventar (InvenTree)](../user-guide/inventree.md)
+
 ### Karenzzeit (Pre-Harvest Interval, PHI)
 
 Gesetzlich vorgeschriebene Wartezeit zwischen der letzten Anwendung eines Pflanzenschutzmittels und der Ernte. Sie schützt Verbraucher vor Rückständen im Erntegut. Kamerplanter sperrt die Ernte einer Pflanze automatisch, solange ihre Karenzzeit noch läuft.

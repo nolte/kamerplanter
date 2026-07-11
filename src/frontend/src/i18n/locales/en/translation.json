@@ -348,6 +348,8 @@
     "tanks": "Tanks",
     "aquaponik": "Aquaponics",
     "aquaponicSystems": "Aquaponic Systems",
+    "inventar": "Inventory",
+    "equipment": "Equipment",
     "duengung": "Fertilization",
     "fertilizers": "Fertilizers",
     "nutrientPlans": "Nutrient Plans",
@@ -521,6 +523,33 @@
       "questionHelp": "Pure knowledge questions unrelated to your specific plants. Submit with Ctrl/Cmd + Enter.",
       "ask": "Ask",
       "error": "The answer could not be loaded. Please try again later."
+    },
+    "inventree": {
+      "title": "Equipment & inventory",
+      "intro": "Manage your operating resources (pumps, sensors, tools, cleaning agents) and optionally link them to your InvenTree inventory system for stock tracking.",
+      "createEquipment": "Add equipment",
+      "editEquipment": "Edit equipment",
+      "equipmentSaved": "Equipment saved.",
+      "equipmentDeleted": "Equipment deleted.",
+      "deleteTitle": "Delete equipment",
+      "deleteConfirm": "Do you really want to delete \"{{name}}\"? This action cannot be undone.",
+      "connectionActive": "InvenTree connection \"{{name}}\" is active. Stock levels are synced automatically.",
+      "noConnection": "No InvenTree connection configured. Equipment can still be managed independently.",
+      "emptyTitle": "No equipment yet",
+      "emptyDescription": "Add your first equipment item to manage pumps, sensors and consumables.",
+      "sectionInventree": "InvenTree link (optional)",
+      "sectionInventreeHelper": "Link this equipment item to an InvenTree part so stock and consumption are synced automatically. Without a link you can still manage the equipment normally.",
+      "fields": {
+        "name": "Name",
+        "equipmentType": "Type",
+        "status": "Status",
+        "brand": "Brand",
+        "model": "Model",
+        "serialNumber": "Serial number",
+        "inventreePartId": "InvenTree part ID",
+        "inventreePartHelp": "Optional link to an InvenTree part for stock tracking.",
+        "notes": "Notes"
+      }
     },
     "aquaponik": {
       "title": "Aquaponics",
@@ -4507,6 +4536,24 @@
     "biofilm_risk": "Biofilm risk — solution {{value}} days old without sterilization"
   },
   "enums": {
+    "equipmentType": {
+      "tool": "Tool",
+      "consumable": "Consumable",
+      "sensor": "Sensor / meter",
+      "lighting": "Lighting",
+      "pump": "Pump",
+      "filter": "Filter",
+      "container": "Container",
+      "cleaning_agent": "Cleaning agent",
+      "other": "Other"
+    },
+    "equipmentStatus": {
+      "active": "Active",
+      "maintenance": "In maintenance",
+      "stored": "Stored",
+      "defective": "Defective",
+      "retired": "Retired"
+    },
     "aquaponicSystemType": {
       "media_bed": "Media bed (clay pebbles)",
       "dwc": "Deep Water Culture (DWC)",
@@ -5583,6 +5630,12 @@
       "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
       "unit": "a_w (0–1)",
       "typicalRange": "0.55–0.65 (safe for storage)"
+    },
+    "inventree": {
+      "short": "External inventory management system for your real-world stock",
+      "long": "InvenTree is a separate, external inventory management system. A \"part\" there is a single article (e.g. a spare pump). Link an equipment item to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand.",
+      "beginnerTip": "The link is optional: you can still create and manage equipment normally without an InvenTree connection.",
+      "category": "allgemein"
     }
   },
   "dashboard": {
