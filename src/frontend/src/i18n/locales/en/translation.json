@@ -348,6 +348,8 @@
     "tanks": "Tanks",
     "aquaponik": "Aquaponics",
     "aquaponicSystems": "Aquaponic Systems",
+    "umgebungssteuerung": "Environment Control",
+    "environmentControl": "Actuators & Control",
     "duengung": "Fertilization",
     "fertilizers": "Fertilizers",
     "nutrientPlans": "Nutrient Plans",
@@ -521,6 +523,36 @@
       "questionHelp": "Pure knowledge questions unrelated to your specific plants. Submit with Ctrl/Cmd + Enter.",
       "ask": "Ask",
       "error": "The answer could not be loaded. Please try again later."
+    },
+    "environmentControl": {
+      "title": "Environment Control",
+      "intro": "Control your actuators (light, exhaust, heater, humidifier, CO₂, irrigation) manually or automatically. When Home Assistant is unreachable the system creates manual tasks instead.",
+      "createActuator": "Add actuator",
+      "actuatorCreated": "Actuator created.",
+      "commandSent": "Command sent.",
+      "emergencyStop": "Emergency stop",
+      "emergencyConfirm": "All powered devices will be switched off (fire scenario). Continue?",
+      "emergencyDone": "Emergency stop executed: {{count}} actuator(s) switched off.",
+      "summary": "{{total}} actuator(s), {{online}} online.",
+      "online": "Online",
+      "offline": "Offline",
+      "stateLabel": "State: {{state}}",
+      "turnOn": "Turn on",
+      "turnOff": "Turn off",
+      "emptyTitle": "No actuator yet",
+      "emptyDescription": "Add your first actuator to control light, climate and irrigation.",
+      "fields": {
+        "site": "Site",
+        "location": "Location",
+        "name": "Name",
+        "actuatorType": "Actuator type",
+        "protocol": "Protocol",
+        "haEntityId": "Home Assistant entity ID",
+        "haEntityHelp": "e.g. light.growzelt_1 or switch.exhaust",
+        "mqttTopic": "MQTT command topic",
+        "powerWatts": "Power draw",
+        "notes": "Notes"
+      }
     },
     "aquaponik": {
       "title": "Aquaponics",
@@ -4507,6 +4539,32 @@
     "biofilm_risk": "Biofilm risk — solution {{value}} days old without sterilization"
   },
   "enums": {
+    "actuatorType": {
+      "light": "Light",
+      "exhaust_fan": "Exhaust fan",
+      "circulation_fan": "Circulation fan",
+      "heater": "Heater",
+      "cooler": "Cooler",
+      "humidifier": "Humidifier",
+      "dehumidifier": "Dehumidifier",
+      "co2_doser": "CO₂ doser",
+      "irrigation_valve": "Irrigation valve",
+      "pump": "Pump",
+      "dosing_pump": "Dosing pump",
+      "chiller": "Chiller",
+      "air_pump": "Air pump",
+      "uv_sterilizer": "UV sterilizer",
+      "shade_screen": "Shade screen",
+      "roof_vent": "Roof vent",
+      "energy_screen": "Energy screen",
+      "fogger": "Fogger",
+      "generic_switch": "Generic switch"
+    },
+    "actuatorProtocol": {
+      "home_assistant": "Home Assistant",
+      "mqtt": "MQTT",
+      "manual": "Manual"
+    },
     "aquaponicSystemType": {
       "media_bed": "Media bed (clay pebbles)",
       "dwc": "Deep Water Culture (DWC)",

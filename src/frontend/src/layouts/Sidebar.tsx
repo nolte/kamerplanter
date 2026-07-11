@@ -40,6 +40,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SettingsIcon from '@mui/icons-material/Settings';
+import TuneIcon from '@mui/icons-material/Tune';
 
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ContentCutIcon from '@mui/icons-material/ContentCut';
@@ -225,6 +226,17 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.aquaponicSystems'),
           path: '/aquaponik',
           icon: <SetMealIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.umgebungssteuerung'),
+      sectionKey: 'umgebungssteuerung',
+      items: [
+        {
+          label: t('nav.environmentControl'),
+          path: '/umgebungssteuerung',
+          icon: <TuneIcon />,
         },
       ],
     },

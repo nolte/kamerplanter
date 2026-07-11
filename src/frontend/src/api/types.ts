@@ -5561,3 +5561,114 @@ export interface FishSpecies {
   max_stocking_density_kg_per_1000l: number;
   notes_de?: string | null;
 }
+
+// ── REQ-018 Environment control / actuators ──────────────────────────────
+
+export type ActuatorType =
+  | 'light'
+  | 'exhaust_fan'
+  | 'circulation_fan'
+  | 'heater'
+  | 'cooler'
+  | 'humidifier'
+  | 'dehumidifier'
+  | 'co2_doser'
+  | 'irrigation_valve'
+  | 'pump'
+  | 'dosing_pump'
+  | 'chiller'
+  | 'air_pump'
+  | 'uv_sterilizer'
+  | 'shade_screen'
+  | 'roof_vent'
+  | 'energy_screen'
+  | 'fogger'
+  | 'generic_switch';
+
+export type ActuatorCapability =
+  | 'on_off'
+  | 'dimmable'
+  | 'speed_control'
+  | 'temperature_setpoint'
+  | 'timer'
+  | 'spectrum_control'
+  | 'volume_dosing';
+
+export type ActuatorProtocol = 'home_assistant' | 'mqtt' | 'manual';
+
+export type ControlEventSource =
+  | 'schedule'
+  | 'rule'
+  | 'phase_change'
+  | 'manual'
+  | 'safety'
+  | 'fallback_task';
+
+export type EmergencyStopScenario = 'water_leak' | 'co2_leak' | 'fire_alarm';
+
+export interface Actuator {
+  key: string;
+  tenant_key: string;
+  location_key: string;
+  name: string;
+  actuator_type: ActuatorType;
+  protocol: ActuatorProtocol;
+  ha_entity_id: string | null;
+  mqtt_command_topic: string | null;
+  mqtt_state_topic: string | null;
+  capabilities: ActuatorCapability[];
+  min_value: number | null;
+  max_value: number | null;
+  unit: string | null;
+  current_state: string | null;
+  current_value: number | null;
+  last_state_change: string | null;
+  is_online: boolean;
+  last_seen: string | null;
+  power_watts: number | null;
+  fail_safe_state: string | null;
+  fail_safe_value: number | null;
+  conflict_group: string | null;
+  installed_on: string | null;
+  notes: string | null;
+}
+
+export interface ActuatorCreate {
+  name: string;
+  actuator_type: ActuatorType;
+  protocol: ActuatorProtocol;
+  ha_entity_id?: string | null;
+  mqtt_command_topic?: string | null;
+  power_watts?: number | null;
+  notes?: string | null;
+}
+
+export interface ControlEvent {
+  key: string;
+  actuator_key: string;
+  location_key: string;
+  timestamp: string | null;
+  event_source: ControlEventSource;
+  command: string;
+  value: number | null;
+  previous_state: string | null;
+  new_state: string;
+  success: boolean;
+  error_message: string | null;
+  sensor_reading_at_trigger: number | null;
+}
+
+export interface ActuatorState {
+  actuator_key: string;
+  current_state: string | null;
+  current_value: number | null;
+  is_online: boolean;
+  last_state_change: string | null;
+  has_override: boolean;
+}
+
+export interface EmergencyStopResult {
+  scenario: string;
+  stopped: string[];
+  forced_on: string[];
+}
