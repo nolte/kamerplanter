@@ -159,8 +159,13 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
             )
         return created
 
-    def list_stocks(self, system_key: str) -> list[FishStock]:
-        return self._stocks.find_by_field("system_key", system_key, sort="name")
+    def list_stocks(self, system_key: str, tenant_key: str) -> list[FishStock]:
+        return self._stocks.find_by_field(
+            "system_key",
+            system_key,
+            sort="name",
+            extra_filters=[("tenant_key", "==", tenant_key)],
+        )
 
     def get_stock(self, key: str) -> FishStock | None:
         return self._stocks.get_by_key(key)
@@ -190,9 +195,15 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
             )
         return created
 
-    def list_water_tests(self, system_key: str, offset: int = 0, limit: int = 50) -> list[WaterTest]:
+    def list_water_tests(self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50) -> list[WaterTest]:
         return self._water_tests.find_by_field(
-            "system_key", system_key, sort="tested_at", sort_direction="DESC", offset=offset, limit=limit
+            "system_key",
+            system_key,
+            sort="tested_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            extra_filters=[("tenant_key", "==", tenant_key)],
         )
 
     def get_latest_water_test(self, system_key: str) -> WaterTest | None:
@@ -213,9 +224,17 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
             )
         return created
 
-    def list_feedings(self, system_key: str, offset: int = 0, limit: int = 50) -> list[FishFeedingEvent]:
+    def list_feedings(
+        self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[FishFeedingEvent]:
         return self._feedings.find_by_field(
-            "system_key", system_key, sort="fed_at", sort_direction="DESC", offset=offset, limit=limit
+            "system_key",
+            system_key,
+            sort="fed_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            extra_filters=[("tenant_key", "==", tenant_key)],
         )
 
     # ── SupplementationEvent (immutable) ────────────────────────────────
@@ -230,7 +249,15 @@ class ArangoAquaponikRepository(BaseArangoRepository[AquaponicSystem]):
             )
         return created
 
-    def list_supplementations(self, system_key: str, offset: int = 0, limit: int = 50) -> list[SupplementationEvent]:
+    def list_supplementations(
+        self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50
+    ) -> list[SupplementationEvent]:
         return self._supplements.find_by_field(
-            "system_key", system_key, sort="applied_at", sort_direction="DESC", offset=offset, limit=limit
+            "system_key",
+            system_key,
+            sort="applied_at",
+            sort_direction="DESC",
+            offset=offset,
+            limit=limit,
+            extra_filters=[("tenant_key", "==", tenant_key)],
         )

@@ -63,7 +63,7 @@ def list_systems(
 @router.post("/systems", response_model=AquaponicSystemResponse, status_code=201)
 def create_system(
     body: AquaponicSystemCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     system = AquaponicSystem(**body.model_dump(), tenant_key=ctx.tenant_key)
@@ -85,7 +85,7 @@ def get_system(
 def update_system(
     system_key: str,
     body: AquaponicSystemUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     updated = service.update_system(system_key, ctx.tenant_key, body.model_dump(exclude_none=True))
@@ -105,7 +105,7 @@ def delete_system(
 def set_cycling_status(
     system_key: str,
     body: CyclingStatusUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     updated = service.set_cycling_status(system_key, ctx.tenant_key, body.cycling_status)
@@ -119,7 +119,7 @@ def set_cycling_status(
 def create_stock(
     system_key: str,
     body: FishStockCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     stock = FishStock(**body.model_dump(), initial_count=body.count)
@@ -142,7 +142,7 @@ def update_stock(
     system_key: str,
     stock_key: str,
     body: FishStockUpdate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     updated = service.update_stock(system_key, stock_key, ctx.tenant_key, body.model_dump(exclude_none=True))
@@ -153,7 +153,7 @@ def update_stock(
 def delete_stock(
     system_key: str,
     stock_key: str,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     service.delete_stock(system_key, stock_key, ctx.tenant_key)
@@ -164,7 +164,7 @@ def record_mortality(
     system_key: str,
     stock_key: str,
     body: MortalityCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     updated = service.record_mortality(system_key, stock_key, ctx.tenant_key, body.deaths)
@@ -198,7 +198,7 @@ def get_mortality_rate(
 def record_water_test(
     system_key: str,
     body: WaterTestCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     water_test = WaterTest(**body.model_dump())
@@ -261,7 +261,7 @@ def record_feeding(
     system_key: str,
     stock_key: str,
     body: FishFeedingEventCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     feeding = FishFeedingEvent(**body.model_dump())
@@ -310,7 +310,7 @@ def get_fcr_analysis(
 def record_supplementation(
     system_key: str,
     body: SupplementationEventCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: AquaponikService = Depends(get_aquaponik_service),
 ):
     event = SupplementationEvent(**body.model_dump())

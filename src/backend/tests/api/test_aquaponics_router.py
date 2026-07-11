@@ -124,8 +124,8 @@ class FakeAquaponikRepo:
         return True
 
     # stocks
-    def list_stocks(self, system_key):
-        return [s for s in self.stocks.values() if s.system_key == system_key]
+    def list_stocks(self, system_key, tenant_key):
+        return [s for s in self.stocks.values() if s.system_key == system_key and s.tenant_key == tenant_key]
 
     def create_stock(self, stock):
         key = self._next("stock")
@@ -155,13 +155,14 @@ class FakeAquaponikRepo:
         self.water_tests[key] = stored
         return stored
 
-    def list_water_tests(self, system_key, offset=0, limit=50):
-        items = [w for w in self.water_tests.values() if w.system_key == system_key]
+    def list_water_tests(self, system_key, tenant_key, offset=0, limit=50):
+        items = [w for w in self.water_tests.values() if w.system_key == system_key and w.tenant_key == tenant_key]
         items.sort(key=lambda w: w.tested_at or datetime.min.replace(tzinfo=UTC), reverse=True)
         return items[offset : offset + limit]
 
     def get_latest_water_test(self, system_key):
-        items = self.list_water_tests(system_key, 0, 1)
+        items = [w for w in self.water_tests.values() if w.system_key == system_key]
+        items.sort(key=lambda w: w.tested_at or datetime.min.replace(tzinfo=UTC), reverse=True)
         return items[0] if items else None
 
     # feedings
@@ -171,8 +172,8 @@ class FakeAquaponikRepo:
         self.feedings[key] = stored
         return stored
 
-    def list_feedings(self, system_key, offset=0, limit=50):
-        items = [f for f in self.feedings.values() if f.system_key == system_key]
+    def list_feedings(self, system_key, tenant_key, offset=0, limit=50):
+        items = [f for f in self.feedings.values() if f.system_key == system_key and f.tenant_key == tenant_key]
         return items[offset : offset + limit]
 
     # supplements
@@ -182,8 +183,8 @@ class FakeAquaponikRepo:
         self.supplements[key] = stored
         return stored
 
-    def list_supplementations(self, system_key, offset=0, limit=50):
-        items = [s for s in self.supplements.values() if s.system_key == system_key]
+    def list_supplementations(self, system_key, tenant_key, offset=0, limit=50):
+        items = [s for s in self.supplements.values() if s.system_key == system_key and s.tenant_key == tenant_key]
         return items[offset : offset + limit]
 
 
@@ -495,6 +496,188 @@ class TestFeedingSupplementHealth:
         assert alerts.status_code == 200
         assert all(a["severity"] in ("critical", "warning") for a in alerts.json())
         assert client.get(_base(f"/systems/{sys_key}/fish-health")).status_code == 200
+
+
+def _ctx_with_role(role: TenantRole):
+    def _dep() -> TenantContext:
+        return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_1", role=role)
+
+    return _dep
+
+
+def _build_with_role(role: TenantRole) -> tuple[TestClient, FakeAquaponikRepo]:
+    """Build a client whose tenant context carries the given ``role``."""
+    repo = FakeAquaponikRepo()
+    service = AquaponikService(repo)  # type: ignore[arg-type]
+
+    app = FastAPI()
+    app.include_router(aquaponics_router, prefix="/api/v1/t/{tenant_slug}")
+    app.add_exception_handler(KamerplanterError, _error_handler)
+    app.dependency_overrides[get_current_tenant] = _ctx_with_role(role)
+    app.dependency_overrides[get_current_user] = _user
+    app.dependency_overrides[get_aquaponik_service] = lambda: service
+    return TestClient(app), repo
+
+
+def _seed_system_and_stock(repo: FakeAquaponikRepo, tenant_key: str = TENANT_KEY) -> None:
+    """Inject a ready-made system + stock so role checks are exercised on
+    existing resources (the role gate runs before any service logic)."""
+    repo.systems["sys1"] = AquaponicSystem(
+        _key="sys1",
+        tenant_key=tenant_key,
+        name="Seed",
+        system_type="dwc",
+        total_volume_liters=640,
+        grow_area_m2=4.0,
+        biofilter_type="mbbr",
+        biofilter_volume_liters=40,
+        daily_feed_target_g=67.5,
+    )
+    repo.stocks["st1"] = FishStock(
+        _key="st1",
+        tenant_key=tenant_key,
+        system_key="sys1",
+        name="Tilapia",
+        species_key="tilapia_nile",
+        count=10,
+        initial_count=10,
+        avg_weight_g=150,
+        stocking_date="2026-03-01",
+    )
+
+
+# The full set of mutating endpoints that REQ-024 restricts to grower/admin.
+_WRITE_ENDPOINTS = [
+    ("post", "/systems", _SYSTEM_BODY),
+    ("patch", "/systems/sys1", {"daily_feed_target_g": 80}),
+    ("post", "/systems/sys1/cycling-status", {"cycling_status": "cycled"}),
+    (
+        "post",
+        "/systems/sys1/fish-stocks",
+        {
+            "name": "Tilapia",
+            "species_key": "tilapia_nile",
+            "count": 15,
+            "avg_weight_g": 150,
+            "stocking_date": "2026-03-01",
+        },
+    ),
+    ("patch", "/systems/sys1/fish-stocks/st1", {"avg_weight_g": 160}),
+    ("delete", "/systems/sys1/fish-stocks/st1", None),
+    ("post", "/systems/sys1/fish-stocks/st1/mortality", {"deaths": 1}),
+    (
+        "post",
+        "/systems/sys1/water-tests",
+        {"ph": 7.0, "ammonia_tan_mgl": 1.0, "nitrite_mgl": 0.05, "nitrate_mgl": 40, "temperature_c": 25},
+    ),
+    ("post", "/systems/sys1/fish-stocks/st1/feeding-events", {"amount_g": 60, "water_temp_c": 28}),
+    (
+        "post",
+        "/systems/sys1/supplementation-events",
+        {"supplement_type": "fe_dtpa", "amount_ml": 5, "target_parameter": "iron"},
+    ),
+]
+
+
+class TestWriteRoleEnforcement:
+    """SEC-001 — REQ-024 restricts every aquaponics write to grower/admin."""
+
+    def test_viewer_forbidden_on_every_write(self):
+        client, repo = _build_with_role(TenantRole.VIEWER)
+        _seed_system_and_stock(repo)
+        for method, path, payload in _WRITE_ENDPOINTS:
+            request = getattr(client, method)
+            resp = request(_base(path), json=payload) if payload is not None else request(_base(path))
+            assert resp.status_code == 403, f"{method.upper()} {path} should be forbidden for viewer: {resp.text}"
+            assert resp.json()["error_code"] == "FORBIDDEN"
+
+    def test_grower_allowed_on_every_write(self):
+        client, repo = _build_with_role(TenantRole.GROWER)
+        _seed_system_and_stock(repo)
+        for method, path, payload in _WRITE_ENDPOINTS:
+            request = getattr(client, method)
+            resp = request(_base(path), json=payload) if payload is not None else request(_base(path))
+            assert resp.status_code != 403, f"{method.upper()} {path} should be allowed for grower: {resp.text}"
+
+    def test_read_allowed_for_viewer(self):
+        client, repo = _build_with_role(TenantRole.VIEWER)
+        _seed_system_and_stock(repo)
+        assert client.get(_base("/systems")).status_code == 200
+        assert client.get(_base("/systems/sys1/fish-stocks")).status_code == 200
+
+
+class TestChildListTenantFilter:
+    """SEC-002 — child-list queries additionally filter on ``tenant_key`` so a
+    document carrying a foreign tenant_key is never returned (defense in depth)."""
+
+    def test_foreign_tenant_stock_not_listed(self):
+        client, repo = _build()
+        sys_key = client.post(_base("/systems"), json=_SYSTEM_BODY).json()["key"]
+        # A stock with the correct system but a foreign tenant_key must be hidden.
+        repo.stocks["foreign_stock"] = FishStock(
+            _key="foreign_stock",
+            tenant_key=OTHER_TENANT,
+            system_key=sys_key,
+            name="Foreign",
+            species_key="tilapia_nile",
+            count=5,
+            initial_count=5,
+            avg_weight_g=100,
+            stocking_date="2026-03-01",
+        )
+        resp = client.get(_base(f"/systems/{sys_key}/fish-stocks"))
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_foreign_tenant_water_test_not_listed(self):
+        client, repo = _build()
+        sys_key = client.post(_base("/systems"), json=_SYSTEM_BODY).json()["key"]
+        repo.water_tests["foreign_wt"] = WaterTest(
+            _key="foreign_wt",
+            tenant_key=OTHER_TENANT,
+            system_key=sys_key,
+            ph=7.0,
+            ammonia_tan_mgl=1.0,
+            nitrite_mgl=0.05,
+            nitrate_mgl=40,
+            temperature_c=25,
+            tested_at=datetime(2026, 3, 1, tzinfo=UTC),
+        )
+        resp = client.get(_base(f"/systems/{sys_key}/water-tests"))
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_foreign_tenant_feeding_not_listed(self):
+        client, repo = _build()
+        sys_key = client.post(_base("/systems"), json=_SYSTEM_BODY).json()["key"]
+        repo.feedings["foreign_feed"] = FishFeedingEvent(
+            _key="foreign_feed",
+            tenant_key=OTHER_TENANT,
+            system_key=sys_key,
+            stock_key="whatever",
+            amount_g=60,
+            water_temp_c=28,
+            fed_at=datetime(2026, 3, 1, tzinfo=UTC),
+        )
+        resp = client.get(_base(f"/systems/{sys_key}/feeding-events"))
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_foreign_tenant_supplementation_not_listed(self):
+        client, repo = _build()
+        sys_key = client.post(_base("/systems"), json=_SYSTEM_BODY).json()["key"]
+        repo.supplements["foreign_supp"] = SupplementationEvent(
+            _key="foreign_supp",
+            tenant_key=OTHER_TENANT,
+            system_key=sys_key,
+            supplement_type="fe_dtpa",
+            amount_ml=5,
+            target_parameter="iron",
+            applied_at=datetime(2026, 3, 1, tzinfo=UTC),
+        )
+        resp = client.get(_base(f"/systems/{sys_key}/supplementation-events"))
+        assert resp.status_code == 200
+        assert resp.json() == []
 
 
 class TestFishSpeciesRouter:

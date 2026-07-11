@@ -109,7 +109,7 @@ class AquaponikService:
 
     def delete_system(self, key: str, tenant_key: str) -> None:
         self.get_system(key, tenant_key)
-        stocks = self._repo.list_stocks(key)
+        stocks = self._repo.list_stocks(key, tenant_key)
         if any(stock.count > 0 for stock in stocks):
             raise ResourceInUseError(
                 "AquaponicSystem", "system still holds a live fish stock (document mortality/harvest first)"
@@ -136,7 +136,7 @@ class AquaponikService:
 
     def list_stocks(self, system_key: str, tenant_key: str) -> list[FishStock]:
         self.get_system(system_key, tenant_key)
-        return self._repo.list_stocks(system_key)
+        return self._repo.list_stocks(system_key, tenant_key)
 
     def get_stock(self, system_key: str, stock_key: str, tenant_key: str) -> FishStock:
         self.get_system(system_key, tenant_key)
@@ -215,19 +215,19 @@ class AquaponikService:
 
     def list_water_tests(self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50) -> list[WaterTest]:
         self.get_system(system_key, tenant_key)
-        return self._repo.list_water_tests(system_key, offset, limit)
+        return self._repo.list_water_tests(system_key, tenant_key, offset, limit)
 
     def get_water_quality_status(self, system_key: str, tenant_key: str) -> list[WaterQualityEvaluation]:
         self.get_system(system_key, tenant_key)
         latest = self._repo.get_latest_water_test(system_key)
         if latest is None:
             return []
-        species = self._primary_species(system_key)
+        species = self._primary_species(system_key, tenant_key)
         return self._nitrogen.evaluate_water_quality(latest, species)
 
     def get_nitrogen_cycle_chart(self, system_key: str, tenant_key: str, limit: int = 60) -> list[dict[str, Any]]:
         self.get_system(system_key, tenant_key)
-        tests = self._repo.list_water_tests(system_key, offset=0, limit=limit)
+        tests = self._repo.list_water_tests(system_key, tenant_key, offset=0, limit=limit)
         return [
             {
                 "tested_at": t.tested_at,
@@ -243,7 +243,7 @@ class AquaponikService:
 
     def get_cycling_progress(self, system_key: str, tenant_key: str) -> CyclingProgress:
         self.get_system(system_key, tenant_key)
-        tests = self._repo.list_water_tests(system_key, offset=0, limit=30)
+        tests = self._repo.list_water_tests(system_key, tenant_key, offset=0, limit=30)
         return self._nitrogen.detect_cycling_phase(tests)
 
     # ── Feeding ─────────────────────────────────────────────────────────
@@ -261,11 +261,11 @@ class AquaponikService:
         self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50
     ) -> list[FishFeedingEvent]:
         self.get_system(system_key, tenant_key)
-        return self._repo.list_feedings(system_key, offset, limit)
+        return self._repo.list_feedings(system_key, tenant_key, offset, limit)
 
     def get_feeding_recommendation(self, system_key: str, tenant_key: str) -> FeedingRecommendation:
         system = self.get_system(system_key, tenant_key)
-        stocks = self._repo.list_stocks(system_key)
+        stocks = self._repo.list_stocks(system_key, tenant_key)
         if not stocks:
             raise ValidationError("Kein Fischbestand — keine Fütterungsempfehlung möglich.")
         species = self._repo.get_species_or_raise(stocks[0].species_key)
@@ -276,8 +276,8 @@ class AquaponikService:
 
     def get_fcr_analysis(self, system_key: str, tenant_key: str) -> dict[str, Any]:
         self.get_system(system_key, tenant_key)
-        stocks = self._repo.list_stocks(system_key)
-        feedings = self._repo.list_feedings(system_key, offset=0, limit=500)
+        stocks = self._repo.list_stocks(system_key, tenant_key)
+        feedings = self._repo.list_feedings(system_key, tenant_key, offset=0, limit=500)
         total_feed_g = sum(f.amount_g for f in feedings)
         biomass_gain_kg = sum(
             max(0.0, (s.count * s.avg_weight_g - s.initial_count * s.avg_weight_g)) / 1000 for s in stocks
@@ -304,7 +304,7 @@ class AquaponikService:
         self, system_key: str, tenant_key: str, offset: int = 0, limit: int = 50
     ) -> list[SupplementationEvent]:
         self.get_system(system_key, tenant_key)
-        return self._repo.list_supplementations(system_key, offset, limit)
+        return self._repo.list_supplementations(system_key, tenant_key, offset, limit)
 
     def get_deficiency_check(self, system_key: str, tenant_key: str) -> DeficiencyReport:
         system = self.get_system(system_key, tenant_key)
@@ -318,8 +318,8 @@ class AquaponikService:
     def get_safety_status(self, system_key: str, tenant_key: str) -> dict[str, Any]:
         system = self.get_system(system_key, tenant_key)
         latest = self._repo.get_latest_water_test(system_key)
-        species = self._primary_species(system_key)
-        stocks = self._repo.list_stocks(system_key)
+        species = self._primary_species(system_key, tenant_key)
+        stocks = self._repo.list_stocks(system_key, tenant_key)
 
         water_quality: list[WaterQualityEvaluation] = []
         if latest is not None:
@@ -351,12 +351,12 @@ class AquaponikService:
 
     def get_fish_health(self, system_key: str, tenant_key: str) -> list[HealthAlert]:
         self.get_system(system_key, tenant_key)
-        stocks = self._repo.list_stocks(system_key)
+        stocks = self._repo.list_stocks(system_key, tenant_key)
         if not stocks:
             return []
-        feedings = self._repo.list_feedings(system_key, offset=0, limit=20)
-        tests = self._repo.list_water_tests(system_key, offset=0, limit=5)
-        species = self._primary_species(system_key)
+        feedings = self._repo.list_feedings(system_key, tenant_key, offset=0, limit=20)
+        tests = self._repo.list_water_tests(system_key, tenant_key, offset=0, limit=5)
+        species = self._primary_species(system_key, tenant_key)
         alerts: list[HealthAlert] = []
         for stock in stocks:
             stock_feedings = [f for f in feedings if f.stock_key == stock.key]
@@ -365,8 +365,8 @@ class AquaponikService:
 
     # ── Helpers ─────────────────────────────────────────────────────────
 
-    def _primary_species(self, system_key: str) -> FishSpecies | None:
-        stocks = self._repo.list_stocks(system_key)
+    def _primary_species(self, system_key: str, tenant_key: str) -> FishSpecies | None:
+        stocks = self._repo.list_stocks(system_key, tenant_key)
         if not stocks:
             return None
         return self._repo.get_species(stocks[0].species_key)
