@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 from PIL import Image
 
+from app.common.exceptions import NotFoundError, RateLimitError, ValidationError
 from app.domain.models.reference_image import MediaCandidate, ReferenceLicense
 from app.domain.services.reference_image_license import is_acceptable, normalize_license
 from app.domain.services.reference_image_service import ReferenceImageService
@@ -252,3 +253,137 @@ def test_wikimedia_runs_without_gbif_taxon():
     assert result.accepted == 6
     assert result.usable_for_recognition is True
     wikimedia.list_media.assert_called_once()
+
+
+# ── issue #447 — reuse an identification photo as a reference ────────────
+
+
+def _make_contribution_service(*, dim: int = 384):
+    """Build a ReferenceImageService wired for the interactive contribution path.
+
+    Uses the REAL IdentificationEngine (only its pure ``compute_image_hash`` is
+    exercised) so dedup is verified against genuine SHA-256 hashing, and a fake
+    inference client that mimics the pgvector UNIQUE (species, source, record)
+    dedup so "same photo twice → one row" is directly observable.
+    """
+    from app.domain.engines.identification_engine import IdentificationEngine
+
+    inference = MagicMock()
+    inference.embed.return_value = [0.1] * dim
+    stored: dict[tuple, dict] = {}
+
+    def _fake_upsert(**kwargs):
+        key = (kwargs["species_key"], kwargs["source"], kwargs.get("source_record_id"))
+        stored[key] = kwargs
+        return {"status": "ok", "dim": dim}
+
+    inference.upsert_reference.side_effect = _fake_upsert
+
+    species_repo = MagicMock()
+    species_repo.get_or_raise.return_value = SimpleNamespace(
+        key="species_monstera", scientific_name="Monstera deliciosa"
+    )
+
+    rate_limiter = MagicMock()
+    engine = IdentificationEngine(species_repo=MagicMock(), identification_repo=MagicMock())
+
+    service = ReferenceImageService(
+        MagicMock(),
+        MagicMock(),
+        inference,
+        MagicMock(),
+        species_repo=species_repo,
+        rate_limiter=rate_limiter,
+        identification_engine=engine,
+    )
+    return service, inference, species_repo, rate_limiter, stored
+
+
+def test_contribute_user_reference_quarantines_with_provenance():
+    service, inference, species_repo, _, _ = _make_contribution_service()
+
+    result = service.contribute_user_reference(
+        "species_monstera", _image(), user_key="user_anna", tenant_key="tenant_anna"
+    )
+
+    inference.embed.assert_called_once()
+    inference.upsert_reference.assert_called_once()
+    _, kwargs = inference.upsert_reference.call_args
+    assert kwargs["species_key"] == "species_monstera"
+    # SEC-003 — the scientific name comes from the resolved record, not the caller.
+    species_repo.get_or_raise.assert_called_once_with("species_monstera")
+    assert kwargs["scientific_name"] == "Monstera deliciosa"
+    # SEC-001 — written quarantined under the erasure-compatible source tag.
+    assert kwargs["source"] == "user_contributed"
+    assert kwargs["is_active"] is False
+    # SEC-005 — contributor + tenant provenance is stored.
+    assert kwargs["contributed_by"] == "user_anna"
+    assert kwargs["tenant_key"] == "tenant_anna"
+    # SEC-002 — the dedup key is the SHA-256 of the normalised image.
+    assert kwargs["source_record_id"].startswith("sha256:")
+    # Only the embedding is indexed — no original image is forwarded/persisted.
+    assert kwargs["embedding"] == [0.1] * 384
+    assert "image_data" not in kwargs
+    assert result["accepted"] is True
+    assert result["pending_review"] is True
+
+
+def test_contribute_user_reference_unknown_species_raises_before_embedding():
+    service, inference, species_repo, _, _ = _make_contribution_service()
+    species_repo.get_or_raise.side_effect = NotFoundError("Species", "species_ghost")
+
+    with pytest.raises(NotFoundError):
+        service.contribute_user_reference("species_ghost", _image(), user_key="user_anna", tenant_key="tenant_anna")
+
+    # SEC-003 — no embedding / no upsert happens for an unknown species.
+    inference.embed.assert_not_called()
+    inference.upsert_reference.assert_not_called()
+
+
+def test_contribute_user_reference_ignores_client_scientific_name():
+    service, inference, _, _, _ = _make_contribution_service()
+
+    # No scientific_name is accepted anymore — the signature derives it. This
+    # documents the SEC-003 contract at the service boundary.
+    service.contribute_user_reference("species_monstera", _image(), user_key="user_anna", tenant_key="tenant_anna")
+    _, kwargs = inference.upsert_reference.call_args
+    assert kwargs["scientific_name"] == "Monstera deliciosa"
+
+
+def test_contribute_user_reference_dedupes_identical_image():
+    service, inference, _, _, stored = _make_contribution_service()
+    image = _image()
+
+    service.contribute_user_reference("species_monstera", image, user_key="u", tenant_key="t")
+    service.contribute_user_reference("species_monstera", image, user_key="u", tenant_key="t")
+
+    # SEC-002 — both upserts carry the SAME source_record_id (image hash), so the
+    # pgvector UNIQUE (species, source, record) collapses them onto ONE row.
+    first = inference.upsert_reference.call_args_list[0].kwargs["source_record_id"]
+    second = inference.upsert_reference.call_args_list[1].kwargs["source_record_id"]
+    assert first == second
+    assert len(stored) == 1
+
+
+def test_contribute_user_reference_enforces_rate_limit():
+    service, inference, _, rate_limiter, _ = _make_contribution_service()
+    rate_limiter.check_and_increment.side_effect = RateLimitError("contribute")
+
+    with pytest.raises(RateLimitError):
+        service.contribute_user_reference("species_monstera", _image(), user_key="user_anna", tenant_key="tenant_anna")
+
+    # SEC-002 — a throttled request never reaches the embedding/index.
+    inference.embed.assert_not_called()
+    inference.upsert_reference.assert_not_called()
+
+
+def test_contribute_user_reference_undecodable_image_raises_validation():
+    service, inference, _, _, _ = _make_contribution_service()
+
+    with pytest.raises(ValidationError):
+        service.contribute_user_reference(
+            "species_monstera", b"not-an-image", user_key="user_anna", tenant_key="tenant_anna"
+        )
+
+    # SEC-006 — a corrupt image is a validation error, not an unhandled 500.
+    inference.upsert_reference.assert_not_called()

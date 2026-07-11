@@ -140,21 +140,23 @@ def generate_watering_tasks() -> dict:
 
 def _find_last_completed_date(task_repo, run_key: str, task_prefix: str):
     """Find the most recent completed watering date for a run/channel prefix."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     from app.common.enums import TaskCategory, TaskStatus
 
+    # The repository wraps ArangoDB documents into Pydantic ``Task`` models, so the
+    # dedup/history logic must use attribute access, not ``dict.get`` (regression #456).
+    epoch = datetime.min.replace(tzinfo=UTC)
     recent_tasks = task_repo.find_by_field("planting_run_key", run_key)
-    for t in sorted(recent_tasks, key=lambda x: x.get("completed_at", ""), reverse=True):
+    for t in sorted(recent_tasks, key=lambda x: x.completed_at or epoch, reverse=True):
         if (
-            t.get("category") == TaskCategory.FEEDING.value
-            and t.get("name", "").startswith(task_prefix)
-            and t.get("status") == TaskStatus.COMPLETED.value
-            and t.get("completed_at")
+            t.category == TaskCategory.FEEDING.value
+            and (t.name or "").startswith(task_prefix)
+            and t.status == TaskStatus.COMPLETED.value
+            and t.completed_at
         ):
             try:
-                completed = datetime.fromisoformat(t["completed_at"])
-                return completed.date()
+                return t.completed_at.date()
             except (ValueError, TypeError):  # fmt: skip
                 pass
             break

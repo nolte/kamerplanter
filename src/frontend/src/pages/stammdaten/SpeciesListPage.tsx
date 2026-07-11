@@ -38,6 +38,7 @@ import PlantIdentificationDialog, {
   type IdentifiedSpecies,
 } from '@/components/identification/PlantIdentificationDialog';
 import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
+import { LOCAL_EMBEDDING_ADAPTER_KEY } from '@/api/endpoints/identification';
 import SpeciesCreateDialog from './SpeciesCreateDialog';
 import SpeciesThumbnail from './SpeciesThumbnail';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
@@ -165,6 +166,11 @@ export default function SpeciesListPage() {
   const [resolvedSpecies, setResolvedSpecies] = useState<IdentifiedSpecies | null>(null);
   const identificationAvailable = useAppSelector(
     (s) => s.identification.status?.available ?? false,
+  );
+  // DINOv2 self-hosted mode gates the "use photo as recognition reference"
+  // opt-in in the create-plant step (issue #447).
+  const referenceModeAvailable = useAppSelector(
+    (s) => s.identification.status?.active_adapter === LOCAL_EMBEDDING_ADAPTER_KEY,
   );
 
   const plantInstances = useAppSelector((s) => s.plantInstances.items);
@@ -627,6 +633,8 @@ export default function SpeciesListPage() {
           navigate(`/pflanzen/plant-instances/${key}`);
         }}
         initialSpeciesKey={resolvedSpecies?.speciesKey}
+        identificationPhoto={resolvedSpecies?.photo}
+        allowReferenceContribution={referenceModeAvailable}
       />
     </Box>
   );

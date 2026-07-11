@@ -1224,14 +1224,25 @@ def get_pest_dataset_acquisition_service(source_keys: list[str] | None = None):
 
 
 def get_reference_image_service():
-    """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index)."""
+    """REQ-029-A §4 — reference-image acquisition pipeline (DINOv2 index).
+
+    Also serves the interactive user-contribution path (issue #447), which needs
+    the per-user rate limiter and the identification engine (image hashing) — the
+    acquisition pipeline itself does not use those.
+    """
     from app.data_access.external.gbif_adapter import GBIFAdapter
     from app.data_access.external.gbif_media_client import GBIFMediaClient
     from app.data_access.external.inference_service_client import InferenceServiceClient
     from app.data_access.external.wikimedia_media_client import WikimediaCommonsMediaClient
+    from app.domain.engines.identification_engine import IdentificationEngine
+    from app.domain.services.identification_rate_limiter import IdentificationRateLimiter
     from app.domain.services.reference_image_service import ReferenceImageService
 
     wikimedia = WikimediaCommonsMediaClient() if settings.reference_image_use_wikimedia else None
+    identification_engine = IdentificationEngine(
+        species_repo=get_species_repo(),
+        identification_repo=get_identification_repo(),
+    )
     return ReferenceImageService(
         gbif_adapter=GBIFAdapter(),
         media_client=GBIFMediaClient(),
@@ -1239,6 +1250,8 @@ def get_reference_image_service():
         reference_repo=get_reference_image_repo(),
         wikimedia_client=wikimedia,
         species_repo=get_species_repo(),
+        rate_limiter=IdentificationRateLimiter(_get_redis_client()),
+        identification_engine=identification_engine,
     )
 
 

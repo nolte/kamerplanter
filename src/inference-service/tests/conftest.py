@@ -82,7 +82,28 @@ class FakeRepo:
     def match(self, query_vector, k=5, model=None):
         return self.matches[:k]
 
-    def list_by_species(self, species_key: str, limit: int = 50, *, active_only: bool = False) -> list[dict]:
+    def active_species_keys(self) -> set[str]:
+        """Species with at least one active embedding.
+
+        Mirrors the real ``/match`` SQL invariant (``WHERE is_active = TRUE``,
+        with NO ``source_url`` dependency), so an activated user contribution —
+        which never carries a source_url — is match-eligible.
+        """
+        return {r["species_key"] for r in self.rows if r.get("is_active", True)}
+
+    def list_by_species(
+        self,
+        species_key: str,
+        limit: int = 50,
+        *,
+        active_only: bool = False,
+        include_contributions: bool = False,
+    ) -> list[dict]:
+        def _displayable(r: dict) -> bool:
+            if r.get("source_url"):
+                return True
+            return include_contributions and r.get("source") == "user_contributed"
+
         return [
             {
                 "id": r.get("id"),
@@ -94,11 +115,12 @@ class FakeRepo:
                 "source_record_id": r.get("source_record_id"),
                 "is_active": r.get("is_active", True),
                 "exclusion_reason": r.get("exclusion_reason"),
+                "contributed_by": r.get("contributed_by"),
+                "tenant_key": r.get("tenant_key"),
+                "contributed_at": r.get("contributed_at"),
             }
             for r in self.rows
-            if r.get("species_key") == species_key
-            and r.get("source_url")
-            and (not active_only or r.get("is_active", True))
+            if r.get("species_key") == species_key and _displayable(r) and (not active_only or r.get("is_active", True))
         ][:limit]
 
     def set_active(self, species_key: str, embedding_id: int, *, is_active: bool, reason=None) -> bool:

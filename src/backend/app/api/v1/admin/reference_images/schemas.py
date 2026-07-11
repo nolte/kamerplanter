@@ -45,16 +45,26 @@ class CoverageReport(BaseModel):
 
 
 class CurationImage(BaseModel):
-    """One reference image in the admin curation view (incl. deselected ones)."""
+    """One reference image in the admin curation view (incl. deselected ones).
+
+    ``source_url`` is ``None`` for interactive user contributions (issue #447):
+    their original image is never persisted, so the row is surfaced purely for
+    curation. Their provenance (``contributed_by`` / ``tenant_key`` /
+    ``contributed_at``) lets the admin curate quarantined contributions with
+    attribution before activating or rejecting them.
+    """
 
     id: int
-    source_url: str
+    source_url: str | None = None
     license: str | None = None
     attribution: str | None = None
     organ: str | None = None
     source: str | None = None
     is_active: bool = True
     exclusion_reason: str | None = None
+    contributed_by: str | None = None
+    tenant_key: str | None = None
+    contributed_at: str | None = None
 
 
 class CurationImageList(BaseModel):

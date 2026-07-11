@@ -90,6 +90,8 @@ Möchtest du zu den automatisch abgeleiteten Werten zurückkehren, klicke im Abs
 
 Unter **Pflanzen > Überwinterung** findest du eine Tabelle mit den Überwinterungsplänen all deiner Pflanzen — praktisch, wenn du dir vor dem ersten Frost einen Gesamtüberblick verschaffen willst. Automatisch erstellte Pläne sind mit dem Badge **„Auto"** gekennzeichnet. Über die Schaltfläche **Profil erstellen** kannst du hier zusätzlich manuell einen Plan für eine Pflanze anlegen, die (noch) keinen automatischen Plan hat — zum Beispiel, um schon vor dem Übergang in „Winter kündigt sich an" eigene Werte zu hinterlegen.
 
+Jede Zeile zeigt neben dem Löschen-Symbol ein Sprung-Icon **„Zur Pflanze springen"** bzw. **„Zum Pflanzdurchlauf springen"**, mit dem du direkt zur zugehörigen Pflanzeninstanz oder zum Pflanzdurchlauf wechselst — praktisch, wenn du von hier aus weitere Details nachschlagen willst.
+
 ---
 
 ## Häufige Fragen

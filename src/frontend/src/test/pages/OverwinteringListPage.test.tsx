@@ -3,9 +3,16 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
-import OverwinteringListPage from '@/pages/ueberwinterung/OverwinteringListPage';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (orig) => {
+  const actual = await orig<typeof import('react-router-dom')>();
+  return { ...actual, useNavigate: () => mockNavigate };
+});
+
+import OverwinteringListPage from '@/pages/ueberwinterung/OverwinteringListPage';
 
 const listUrls = [
   '/api/v1/overwintering-profiles',
@@ -94,6 +101,7 @@ const unlinkedProfile = {
 describe('OverwinteringListPage', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
+    mockNavigate.mockClear();
   });
 
   afterEach(() => {
@@ -223,6 +231,68 @@ describe('OverwinteringListPage', () => {
 
     await waitFor(() =>
       expect(screen.queryByTestId('confirm-dialog')).toBeNull(),
+    );
+  });
+
+  it('jumps to the plant-instance detail page for a plant-bound profile', async () => {
+    useProfiles([profile]);
+    const user = userEvent.setup();
+    renderWithProviders(<OverwinteringListPage />);
+
+    const jump = await screen.findByTestId('goto-ow-1');
+    await user.click(jump);
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/pflanzen/plant-instances/plant-1',
+    );
+  });
+
+  it('jumps to the planting-run detail page for a run-bound profile', async () => {
+    useProfiles([runProfile]);
+    const user = userEvent.setup();
+    renderWithProviders(<OverwinteringListPage />);
+
+    const jump = await screen.findByTestId('goto-ow-2');
+    await user.click(jump);
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/durchlaeufe/planting-runs/run-77',
+    );
+  });
+
+  it('does not open the edit dialog when the jump icon is clicked', async () => {
+    useProfiles([profile]);
+    const user = userEvent.setup();
+    renderWithProviders(<OverwinteringListPage />);
+
+    await user.click(await screen.findByTestId('goto-ow-1'));
+
+    // stopPropagation must prevent the row-click edit dialog from opening.
+    expect(screen.queryByTestId('overwintering-dialog')).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the jump icon for a profile with neither plant nor run', async () => {
+    useProfiles([unlinkedProfile]);
+    renderWithProviders(<OverwinteringListPage />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('hardiness-chip-ow-3')).toBeTruthy();
+    });
+    expect(screen.queryByTestId('goto-ow-3')).toBeNull();
+  });
+
+  it('jumps via the mobile card action for a run-bound profile', async () => {
+    enableMobileViewport();
+    useProfiles([runProfile]);
+    const user = userEvent.setup();
+    renderWithProviders(<OverwinteringListPage />);
+
+    const jump = await screen.findByTestId('goto-mobile-ow-2');
+    await user.click(jump);
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/durchlaeufe/planting-runs/run-77',
     );
   });
 

@@ -67,6 +67,23 @@ class SelectResultResponse(BaseModel):
     species_in_database: bool
 
 
+class ReferenceContributionResponse(BaseModel):
+    """Result of contributing an identification photo as a species reference.
+
+    Issue #447 — the DINOv2 few-shot reference-image opt-in. Only the embedding
+    is indexed; the original image is never persisted (REQ-029-A §4.4).
+
+    SEC-001: the contribution is accepted into a **quarantine** — ``accepted``
+    means it was stored for review, ``pending_review`` that it does not yet
+    affect the active recognition index and awaits platform-admin activation.
+    """
+
+    accepted: bool
+    pending_review: bool = True
+    species_key: str
+    dim: int | None = None
+
+
 class HistoryEntryResponse(BaseModel):
     """A single entry in the identification history."""
 

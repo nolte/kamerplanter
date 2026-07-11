@@ -19,6 +19,7 @@ import io
 import structlog
 from PIL import Image, UnidentifiedImageError
 
+from app.common.exceptions import ValidationError
 from app.config.settings import settings
 from app.domain.models.reference_image import (
     AcquisitionResult,
@@ -42,6 +43,8 @@ class ReferenceImageService:
         reference_repo,
         wikimedia_client=None,
         species_repo=None,
+        rate_limiter=None,
+        identification_engine=None,
     ) -> None:
         self._gbif = gbif_adapter
         self._media = media_client
@@ -49,6 +52,10 @@ class ReferenceImageService:
         self._repo = reference_repo
         self._wikimedia = wikimedia_client
         self._species_repo = species_repo
+        # Only used by the interactive contribution path (issue #447); the
+        # license-clean acquisition pipeline (WS-4) does not need them.
+        self._rate_limiter = rate_limiter
+        self._identification_engine = identification_engine
 
     def acquire_for_species(
         self,
@@ -170,6 +177,98 @@ class ReferenceImageService:
             result.representative_url = candidate.url
             result.representative_attribution = candidate.attribution
             result.representative_license = candidate.license.value
+
+    def contribute_user_reference(
+        self,
+        species_key: str,
+        image_data: bytes,
+        *,
+        user_key: str,
+        tenant_key: str,
+    ) -> dict:
+        """Index a user-provided photo as a **quarantined** recognition reference.
+
+        Invoked from the identification flow (REQ-029-A / issue #447) when the
+        user opts to reuse their identification photo as a reference for the
+        resolved species. Hardened per the SEC-001/002/003/005/006 review:
+
+        * SEC-003 — ``species_key`` is resolved against the master data and the
+          authoritative ``scientific_name`` is taken from that record; any
+          client-supplied name is ignored. An unknown species raises 404 before
+          any embedding is computed.
+        * SEC-002 — the per-user daily contribution quota is enforced (Redis),
+          and the SHA-256 of the normalised image is used as the dedup key
+          (``source_record_id``) so re-submitting the same photo collapses onto
+          one index row instead of poisoning the index with duplicates.
+        * SEC-001 — the reference is written **quarantined** (``is_active=False``,
+          ``source="user_contributed"``): it does NOT enter the active global
+          recognition index until a platform admin activates it via the existing
+          reference-image curation view. A viewer can never reach this path (the
+          router enforces the grower role).
+        * SEC-005 — the contributor (``user_key``) and ``tenant_key`` are stored
+          as provenance so the contribution can be attributed and GDPR-erased.
+
+        The photo is EXIF-stripped and embedded locally via the self-hosted
+        inference-service; only the embedding + provenance are upserted into
+        pgvector — the original image is never persisted (REQ-029-A §4.4) and no
+        third-party egress happens here.
+
+        Raises:
+            NotFoundError: the species does not exist (404).
+            ValidationError: the image cannot be decoded (422, SEC-006).
+            RateLimitError: the per-user daily quota is exhausted (429).
+            httpx.HTTPError: the inference-service call failed.
+        """
+        # SEC-003 — resolve the species server-side; derive the scientific name
+        # from the record and discard any client-supplied value.
+        species = self._species_repo.get_or_raise(species_key)
+        scientific_name = species.scientific_name
+
+        # SEC-002 — per-user daily quota. Local, self-hosted path → fail open on
+        # a Redis outage (no third-party cost, NFR-007) but still capped normally.
+        limit = settings.reference_contribution_rate_limit_per_user_day
+        if self._rate_limiter is not None and limit > 0:
+            self._rate_limiter.check_and_increment(key=f"contribute:{user_key}", limit=limit)
+
+        # SEC-006 — a corrupt/undecodable image is a 422, never a 500.
+        try:
+            clean = strip_exif(image_data)
+        except ValueError as exc:
+            raise ValidationError(
+                "The uploaded image could not be decoded.",
+                details=[{"field": "image", "reason": "Undecodable image.", "code": "INVALID_IMAGE"}],
+            ) from exc
+
+        # SEC-002 — SHA-256 of the normalised image is the dedup key. The index'
+        # UNIQUE (species_key, source, source_record_id) makes a repeat upsert of
+        # the same photo idempotent (one row), never a new poisoning entry.
+        image_hash = self._identification_engine.compute_image_hash(clean)
+
+        embedding = self._inference.embed(clean)
+        response = self._inference.upsert_reference(
+            species_key=species_key,
+            scientific_name=scientific_name,
+            source="user_contributed",
+            source_record_id=image_hash,
+            embedding=embedding,
+            is_active=False,
+            contributed_by=user_key,
+            tenant_key=tenant_key,
+        )
+        logger.info(
+            "reference_user_contribution_quarantined",
+            species_key=species_key,
+            tenant_key=tenant_key,
+            contributed_by=user_key,
+            dim=response.get("dim"),
+        )
+        return {
+            "accepted": True,
+            "pending_review": True,
+            "species_key": species_key,
+            "dim": response.get("dim"),
+            "source_record_id": image_hash,
+        }
 
     def _passes_quality(self, image_data: bytes) -> bool:
         """Reject images below the minimum resolution or with extreme aspect."""

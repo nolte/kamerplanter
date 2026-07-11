@@ -20,6 +20,7 @@ import PlantIdentificationDialog, {
   type IdentifiedSpecies,
 } from '@/components/identification/PlantIdentificationDialog';
 import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
+import { LOCAL_EMBEDDING_ADAPTER_KEY } from '@/api/endpoints/identification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchIdentificationHistory,
@@ -56,6 +57,10 @@ export default function PlantIdentificationPage() {
   }, [dispatch]);
 
   const available = status?.available ?? false;
+  // DINOv2 self-hosted mode is active when the resolved primary/active adapter
+  // is the local-embedding path — only then can a photo be reused as a
+  // few-shot recognition reference (issue #447).
+  const referenceModeAvailable = status?.active_adapter === LOCAL_EMBEDDING_ADAPTER_KEY;
 
   const handleSpeciesResolved = useCallback((result: IdentifiedSpecies) => {
     // Hand the identified/created species to the plant-creation flow.
@@ -189,6 +194,8 @@ export default function PlantIdentificationPage() {
         onClose={() => setResolvedSpecies(null)}
         onCreated={handlePlantCreated}
         initialSpeciesKey={resolvedSpecies?.speciesKey}
+        identificationPhoto={resolvedSpecies?.photo}
+        allowReferenceContribution={referenceModeAvailable}
       />
     </Box>
   );

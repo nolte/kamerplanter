@@ -1159,6 +1159,8 @@
       "empty": "No overwintering profiles yet.",
       "formIntro": "Define how this plant is overwintered. Only hardiness, protection measure and month are required.",
       "subject": "Plant / run",
+      "goToPlant": "Go to plant",
+      "goToRun": "Go to planting run",
       "plant": "Plant",
       "plantHelp": "The plant this profile applies to.",
       "plantRequired": "Please select a plant.",
@@ -1273,6 +1275,19 @@
       "overviewChipsLabel": "Profile",
       "edible": "Edible",
       "ornamental": "Ornamental",
+      "toxicity": {
+        "title": "Toxic",
+        "ariaLabel": "Warning: this plant is toxic",
+        "description": "This plant is toxic (toxicity = harmful to health if ingested or touched). Keep it out of reach of the groups listed below.",
+        "severityLabel": "Severity",
+        "partsLabel": "Toxic plant parts",
+        "compoundsLabel": "Toxic compounds",
+        "affected": {
+          "children": "Children",
+          "cats": "Cats",
+          "dogs": "Dogs"
+        }
+      },
       "sectionTaxonomyDesc": "Scientific name, common names, genus and botanical family of this species.",
       "create": "Create Species",
       "scientificName": "Scientific Name",
@@ -1854,6 +1869,17 @@
       "title": "Plant Instances",
       "intro": "All registered plants with their current location, growth phase, and run assignment. Click any row to open the detail view.",
       "create": "Create Plant",
+      "identificationPhoto": {
+        "sectionTitle": "Identification Photo",
+        "previewAlt": "Photo captured during identification",
+        "saveToGallery": "Reuse photo as gallery image",
+        "saveToGalleryHelper": "The photo you captured during identification is added as the first image of this plant's gallery, so you don't have to take a second one.",
+        "useAsReference": "Use as recognition reference",
+        "useAsReferenceHint": "The photo is processed locally and improves automatic plant recognition for this species. It never leaves your instance.",
+        "useAsReferenceHelper": "Only available with self-hosted recognition active. The photo is added to this species' recognition base without permanently storing the original image.",
+        "uploadFailed": "The plant was created, but the photo could not be added to the gallery.",
+        "referenceFailed": "The plant was created, but the photo could not be saved as a recognition reference."
+      },
       "editIntro": "Edit the associations of this plant. Instance ID and species cannot be changed.",
       "info": "Info",
       "instanceId": "Instance ID",
@@ -4607,6 +4633,12 @@
       "insect": "Insect Pollination",
       "wind": "Wind Pollination",
       "self": "Self Pollination"
+    },
+    "toxicitySeverity": {
+      "none": "Non-toxic",
+      "mild": "Mildly toxic",
+      "moderate": "Moderately toxic",
+      "severe": "Severely toxic"
     },
     "waterRetention": {
       "low": "Low",

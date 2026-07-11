@@ -72,6 +72,13 @@ export interface IdentifiedSpecies {
   /** Existing or newly created species key to attach the plant to. */
   speciesKey: string;
   scientificName: string;
+  /**
+   * The photo the user captured/uploaded for identification (issue #447).
+   * Handed back so the downstream "create plant" step can reuse it as the
+   * gallery cover and, in DINOv2 mode, as a few-shot recognition reference.
+   * `undefined` when the flow was completed without a retained capture.
+   */
+  photo?: File;
 }
 
 interface PlantIdentificationDialogProps {
@@ -266,14 +273,21 @@ export default function PlantIdentificationDialog({
         notification.success(t('pages.plantIdentification.speciesCreated'));
       }
 
-      onSpeciesResolved?.({ speciesKey, scientificName: selection.scientific_name });
+      // Hand the captured photo back so the create-plant step can reuse it as
+      // the gallery cover / few-shot reference (issue #447). We pass the File
+      // itself; only the preview object-URL is revoked on cleanup, not the File.
+      onSpeciesResolved?.({
+        speciesKey,
+        scientificName: selection.scientific_name,
+        photo: preview?.file,
+      });
       onClose();
     } catch (err) {
       handleError(err);
     } finally {
       setResolving(false);
     }
-  }, [result, selectedRank, dispatch, notification, t, onSpeciesResolved, onClose, handleError]);
+  }, [result, selectedRank, preview, dispatch, notification, t, onSpeciesResolved, onClose, handleError]);
 
   const selectedSuggestion = result?.suggestions.find((s) => s.rank === selectedRank);
   const busy = identifying || selecting || resolving;

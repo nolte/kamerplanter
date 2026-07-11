@@ -291,6 +291,9 @@ async def upsert_reference(
     license: str | None = Form(default=None),
     attribution: str | None = Form(default=None),
     source_url: str | None = Form(default=None),
+    is_active: bool = Form(default=True),
+    contributed_by: str | None = Form(default=None),
+    tenant_key: str | None = Form(default=None),
     image: UploadFile | None = File(default=None),
     embedding: str | None = Form(default=None),
 ) -> ReferenceResponse:
@@ -300,6 +303,11 @@ async def upsert_reference(
     ``embedding`` (JSON array of floats, e.g. produced by /embed/batch). Only
     the vector + provenance are persisted; no original image is stored
     (REQ-029-A 4.4).
+
+    ``is_active=False`` writes the row quarantined (SEC-001, issue #447): it is
+    excluded from ``/match`` until a platform admin activates it. ``contributed_by``
+    / ``tenant_key`` record the provenance of an interactive user contribution so
+    it can be attributed and GDPR-erased (SEC-005).
     """
     repo = _require_repo()
 
@@ -334,6 +342,9 @@ async def upsert_reference(
         license=license,
         attribution=attribution,
         source_url=source_url,
+        is_active=is_active,
+        contributed_by=contributed_by,
+        tenant_key=tenant_key,
     )
     return ReferenceResponse(
         status="ok",
@@ -348,6 +359,7 @@ def list_references(
     species_key: str,
     limit: int = Query(50, ge=1, le=200),
     active_only: bool = Query(False),
+    include_contributions: bool = Query(False),
 ) -> ReferenceListResponse:
     """List stored reference image provenance for a species (gallery source).
 
@@ -355,9 +367,20 @@ def list_references(
     embeddings. With ``active_only`` the deselected images are omitted (public
     gallery); without it all images are returned with their ``is_active`` flag
     so the admin curation view can offer re-inclusion.
+
+    With ``include_contributions`` (admin curation only) the quarantined user
+    contributions (``source='user_contributed'``, no ``source_url``) are also
+    surfaced with their provenance so a platform admin can activate/reject them
+    (issue #447) — otherwise they would be invisible and could never leave the
+    quarantine.
     """
     repo = _require_repo()
-    rows = repo.list_by_species(species_key, limit=limit, active_only=active_only)
+    rows = repo.list_by_species(
+        species_key,
+        limit=limit,
+        active_only=active_only,
+        include_contributions=include_contributions,
+    )
     images = [ReferenceImageItem(**row) for row in rows]
     return ReferenceListResponse(species_key=species_key, count=len(images), images=images)
 

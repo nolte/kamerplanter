@@ -265,6 +265,29 @@ export interface PropagationConfig {
   notes?: string | null;
 }
 
+/**
+ * Canonical toxicity severity (REQ-001 — `Toxicity.severity`).
+ *
+ * Distinct from the flat legacy `Species.toxicity_severity` passthrough
+ * (low/moderate/high), which uses a different scale and is intentionally not
+ * mapped onto this enum.
+ */
+export type ToxicitySeverity = 'none' | 'mild' | 'moderate' | 'severe';
+
+/**
+ * Structured toxicity profile of a species (REQ-001 — pet/child safety).
+ * Rendered level-independently by the detail page so the warning is never
+ * hidden behind an expertise-level gate.
+ */
+export interface Toxicity {
+  is_toxic_cats: boolean;
+  is_toxic_dogs: boolean;
+  is_toxic_children: boolean;
+  toxic_parts: string[];
+  toxic_compounds: string[];
+  severity: ToxicitySeverity | null;
+}
+
 export interface Species {
   key: string;
   origin?: DataOrigin;
@@ -295,6 +318,7 @@ export interface Species {
   harvest_pattern: HarvestPattern | null;
   harvested_part: HarvestedPart | null;
   climacteric: ClimactericClass | null;
+  toxicity?: Toxicity | null;
   propagation_configs: PropagationConfig[];
   allows_harvest: boolean;
   growing_periods: GrowingPeriod[];

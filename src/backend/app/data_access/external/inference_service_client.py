@@ -101,12 +101,16 @@ class InferenceServiceClient:
         *,
         limit: int = 50,
         active_only: bool = False,
+        include_contributions: bool = False,
     ) -> list[dict[str, Any]]:
         """List stored reference image provenance for a species (gallery source).
 
         With ``active_only`` the deselected images are omitted (public gallery);
         without it every image is returned with its ``is_active`` flag so the
-        admin curation view can offer re-inclusion.
+        admin curation view can offer re-inclusion. With ``include_contributions``
+        (admin curation only) the quarantined user contributions (issue #447),
+        which carry no ``source_url``, are also surfaced with their provenance so
+        they can be activated/rejected.
 
         Returns ``[]`` (never raises) when the service is unreachable or has no
         index yet, so the UI degrades to "no images" instead of erroring.
@@ -114,7 +118,11 @@ class InferenceServiceClient:
         try:
             response = httpx.get(
                 f"{self._base_url}/reference/{species_key}",
-                params={"limit": limit, "active_only": active_only},
+                params={
+                    "limit": limit,
+                    "active_only": active_only,
+                    "include_contributions": include_contributions,
+                },
                 headers=self._auth_headers(),
                 timeout=_MATCH_TIMEOUT_SECONDS,
             )
@@ -183,14 +191,25 @@ class InferenceServiceClient:
         license: str | None = None,  # noqa: A002 — matches the API field name
         attribution: str | None = None,
         source_url: str | None = None,
+        is_active: bool = True,
+        contributed_by: str | None = None,
+        tenant_key: str | None = None,
         image_data: bytes | None = None,
         embedding: list[float] | None = None,
     ) -> dict[str, Any]:
-        """Persist a reference embedding + provenance (no original image stored)."""
+        """Persist a reference embedding + provenance (no original image stored).
+
+        ``is_active=False`` quarantines the row (SEC-001): it stays out of
+        ``/match`` until a platform admin activates it. ``contributed_by`` /
+        ``tenant_key`` record an interactive user contribution's provenance so it
+        can be attributed and GDPR-erased (SEC-005).
+        """
         data: dict[str, Any] = {
             "species_key": species_key,
             "scientific_name": scientific_name,
             "source": source,
+            # Booleans must be sent as their lowercase string form for multipart.
+            "is_active": str(is_active).lower(),
         }
         if organ:
             data["organ"] = organ
@@ -202,6 +221,10 @@ class InferenceServiceClient:
             data["attribution"] = attribution
         if source_url:
             data["source_url"] = source_url
+        if contributed_by:
+            data["contributed_by"] = contributed_by
+        if tenant_key:
+            data["tenant_key"] = tenant_key
         if embedding is not None:
             import json
 

@@ -57,6 +57,41 @@ export async function selectIdentificationResult(
   return data;
 }
 
+/** Adapter key of the self-hosted DINOv2 identification path (REQ-029-A). */
+export const LOCAL_EMBEDDING_ADAPTER_KEY = 'local_embedding';
+
+/** Result of contributing an identification photo as a species reference. */
+export interface ReferenceContributionResult {
+  indexed: boolean;
+  species_key: string;
+  dim: number | null;
+}
+
+/**
+ * POST /t/{slug}/identification/reference — reuse an identification photo as a
+ * DINOv2 few-shot reference for the resolved species (issue #447).
+ *
+ * Only meaningful when the self-hosted DINOv2 adapter is active; the backend
+ * returns 409 ADAPTER_NOT_AVAILABLE otherwise. The photo is embedded locally
+ * and indexed in pgvector; the original image is never persisted.
+ */
+export async function contributeReferenceImage(
+  speciesKey: string,
+  scientificName: string,
+  image: File,
+): Promise<ReferenceContributionResult> {
+  const formData = new FormData();
+  formData.append('image', image);
+  formData.append('species_key', speciesKey);
+  formData.append('scientific_name', scientificName);
+  const { data } = await tenantClient.post<ReferenceContributionResult>(
+    `${BASE}/reference`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
 /** GET /t/{slug}/identification/history?limit=N. */
 export async function listIdentificationHistory(
   limit = 20,
