@@ -28,7 +28,7 @@ RUN python export_dinov2_onnx.py --arch dinov2_vits14 --input-size 224 --output 
 FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-inference-service" \
-      org.opencontainers.image.description="DINOv2 embedding + pgvector species matching for Kamerplanter" \
+      org.opencontainers.image.description="Plant/pest image-recognition service (DINOv2 ONNX embeddings + pgvector matching) for Kamerplanter health assessment" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
