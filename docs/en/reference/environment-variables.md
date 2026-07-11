@@ -229,6 +229,19 @@ These variables control the monthly background fetch of long-term climate normal
 
 ---
 
+## Hardiness Zones (USDA) <!-- REQ-039 --> {#hardiness-zones-usda}
+
+This variable controls the quarterly background refresh of a site's hardiness zone, automatically derived from its climate normals (see [Climate Zones & Hardiness](../guides/climate-zones.md)). The derivation builds on the climate normals — the associated task therefore only runs when both `WEATHER_ENABLED` and `NASA_POWER_CLIMATE_ENABLED` are also active.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `HARDINESS_ZONE_REFRESH_ENABLED` | `true` | No | Dedicated kill switch for the quarterly hardiness-zone task (Jan 1 / Apr 1 / Jul 1 / Oct 1, 05:00 UTC), independent of `NASA_POWER_CLIMATE_ENABLED` — both must be active for the task to run. Manually set zones (`hardiness_zone_source: manual`) are never overwritten by the task. |
+
+!!! note "Only affects outdoor and greenhouse sites with GPS coordinates and existing climate normals"
+    Like the climate normals themselves, the hardiness zone is only computed for sites of type **Outdoor** or **Greenhouse** with GPS coordinates — and only once at least one climate-normal record with a usable minimum temperature already exists for that site. Triggering it immediately and manually (independent of this schedule) is possible via the API — see [API Reference — Hardiness Zones](api-reference.md#hardiness-zones-usda). <!-- REQ-039 -->
+
+---
+
 ## Irrigation Demand (ET₀) <!-- REQ-037 --> {#irrigation-demand-et0}
 
 These variables control the daily background task that derives the FAO-56 reference evapotranspiration (ET₀) from an outdoor or greenhouse site's weather data and, from it, the net irrigation demand per planting run. The task additionally requires `WEATHER_ENABLED=true` — without fetched weather data there is nothing to compute. The resulting behaviour for end users is described in [Watering Log: Suggested Watering Volume](../user-guide/watering-log.md#suggested-watering-volume) and [Care Reminders: Why a Reminder Might Not Appear](../user-guide/care-reminders.md#why-a-reminder-might-not-appear).

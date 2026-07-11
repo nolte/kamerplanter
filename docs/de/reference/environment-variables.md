@@ -229,6 +229,19 @@ Diese Variablen steuern die monatliche Hintergrund-Abholung der langjährigen Kl
 
 ---
 
+## Winterhärtezonen (USDA) <!-- REQ-039 --> {#winterhaertezonen-usda}
+
+Diese Variable steuert die vierteljährliche Hintergrund-Aktualisierung der automatisch aus den Klimanormalen abgeleiteten Winterhärtezone eines Standorts (siehe [Klimazonen & Winterhärte](../guides/climate-zones.md)). Die Ableitung baut auf den Klimanormalen auf — der zugehörige Task läuft daher nur, wenn zusätzlich sowohl `WEATHER_ENABLED` als auch `NASA_POWER_CLIMATE_ENABLED` aktiv sind.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `HARDINESS_ZONE_REFRESH_ENABLED` | `true` | Nein | Eigener Kill-Switch für den vierteljährlichen Winterhärtezonen-Task (1. Januar/April/Juli/Oktober, 05:00 UTC), unabhängig von `NASA_POWER_CLIMATE_ENABLED` — beide müssen aktiv sein, damit der Task läuft. Manuell gesetzte Zonen (`hardiness_zone_source: manual`) werden vom Task nie überschrieben. |
+
+!!! note "Betrifft nur Freiland- und Gewächshaus-Standorte mit GPS-Koordinaten und vorhandenen Klimanormalen"
+    Wie die Klimanormalen selbst wird die Winterhärtezone nur für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit GPS-Koordinaten berechnet — und erst, sobald für diesen Standort bereits mindestens ein Klimanormalen-Datensatz mit verwertbarer Minimaltemperatur vorliegt. Ein sofortiges manuelles Auslösen (unabhängig von diesem Zeitplan) ist über die API möglich, siehe [API-Referenz — Winterhärtezonen](api-reference.md#winterhaertezonen-usda). <!-- REQ-039 -->
+
+---
+
 ## Bewässerungsbedarf (ET₀) <!-- REQ-037 --> {#bewaesserungsbedarf-et0}
 
 Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten eines Freiland- oder Gewächshaus-Standorts die Referenz-Evapotranspiration (FAO-56, ET₀) und daraus den Netto-Bewässerungsbedarf je Pflanzdurchlauf berechnet. Der Task benötigt zusätzlich `WEATHER_ENABLED=true` — ohne abgeholte Wetterdaten gibt es nichts zu berechnen. Ergebnis und Verhalten für Endnutzer sind unter [Gießprotokoll: Vorgeschlagene Gießmenge](../user-guide/watering-log.md#vorgeschlagene-giessmenge) und [Pflegeerinnerungen: Warum eine Erinnerung ausbleiben kann](../user-guide/care-reminders.md#warum-eine-erinnerung-ausbleiben-kann) beschrieben.

@@ -120,6 +120,9 @@ SUPPLEMENTATION_EVENTS = "supplementation_events"
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
+# REQ-039 — canonical plant hardiness-zone reference catalog (global, 1a…13b)
+HARDINESS_ZONES = "hardiness_zones"
+
 # REQ-037 — materialised daily irrigation demand (ET₀ → ETc → net demand) per site/run
 IRRIGATION_DEMANDS = "irrigation_demands"
 
@@ -294,6 +297,8 @@ DOCUMENT_COLLECTIONS = [
     SUPPLEMENTATION_EVENTS,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
+    # REQ-039 hardiness-zone reference catalog
+    HARDINESS_ZONES,
     # REQ-037 irrigation demands
     IRRIGATION_DEMANDS,
 ]
@@ -452,6 +457,9 @@ INCOMPATIBLE_FISH_PLANT = "incompatible_fish_plant"  # fish_species → species
 
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
+
+# REQ-039 hardiness-zone assignment edge
+LOCATED_IN_ZONE = "located_in_zone"  # sites → hardiness_zones (1 per site)
 
 # REQ-037 irrigation-demand edges
 HAS_IRRIGATION_DEMAND = "has_irrigation_demand"  # sites → irrigation_demands
@@ -649,6 +657,8 @@ EDGE_COLLECTIONS = [
     INCOMPATIBLE_FISH_PLANT,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
+    # REQ-039 hardiness-zone assignment
+    LOCATED_IN_ZONE,
     # REQ-037 irrigation demands
     HAS_IRRIGATION_DEMAND,
     DEMAND_FOR_RUN,
@@ -1403,6 +1413,12 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [SITES],
         "to_vertex_collections": [CLIMATE_NORMALS],
     },
+    # REQ-039 hardiness-zone assignment
+    {
+        "edge_collection": LOCATED_IN_ZONE,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [HARDINESS_ZONES],
+    },
     # REQ-037 irrigation demands
     {
         "edge_collection": HAS_IRRIGATION_DEMAND,
@@ -1757,6 +1773,15 @@ def ensure_collections(db: StandardDatabase) -> None:
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.
     climate_normals_col = db.collection(CLIMATE_NORMALS)
     climate_normals_col.add_persistent_index(fields=["tenant_key", "site_key", "source"], unique=True)
+
+    # REQ-039 hardiness zones — the label is also the ``_key``; the unique zone
+    # index guards lookups and keeps the seed idempotent.
+    hardiness_zones_col = db.collection(HARDINESS_ZONES)
+    hardiness_zones_col.add_persistent_index(fields=["zone"], unique=True)
+
+    # REQ-039 — one hardiness-zone assignment edge per site.
+    located_in_zone_col = db.collection(LOCATED_IN_ZONE)
+    located_in_zone_col.add_persistent_index(fields=["_from"], unique=False)
 
     # REQ-037 irrigation demands — one record per (site, run, day) within a tenant;
     # the upsert keys off it, so uniqueness is enforced at the storage layer.

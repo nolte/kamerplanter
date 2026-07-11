@@ -1,15 +1,25 @@
 from fastapi import APIRouter, Depends
 
 from app.api.mapping import to_response
+from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse, SiteHardinessResponse
 from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
-from app.common.auth import get_current_tenant
-from app.common.dependencies import get_plant_instance_service, get_sensor_service, get_site_service, get_tank_service
+from app.common.auth import get_current_tenant, require_tenant_role
+from app.common.dependencies import (
+    get_hardiness_zone_service,
+    get_plant_instance_service,
+    get_sensor_service,
+    get_site_service,
+    get_tank_service,
+)
+from app.common.enums import TenantRole
 from app.common.pagination import PaginationParams, get_pagination
+from app.domain.models.hardiness_zone import HardinessZone
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.hardiness_zone_service import HardinessZoneService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
@@ -26,6 +36,19 @@ def _site_response(site: Site, service: SiteService) -> SiteResponse:
         water_config_warnings=[
             WaterSourceWarningSchema(code=w.code, message=w.message, severity=w.severity) for w in warnings
         ],
+    )
+
+
+def _hardiness_response(site: Site, zone_doc: HardinessZone | None) -> SiteHardinessResponse:
+    return SiteHardinessResponse(
+        site_key=site.key or "",
+        hardiness_zone=site.hardiness_zone,
+        hardiness_zone_source=site.hardiness_zone_source,
+        hardiness_zone_resolved_at=site.hardiness_zone_resolved_at,
+        mean_annual_minimum_c=site.mean_annual_minimum_c,
+        last_frost_date_avg=site.last_frost_date_avg,
+        first_frost_date_avg=site.first_frost_date_avg,
+        zone=to_response(zone_doc, HardinessZoneResponse) if zone_doc is not None else None,
     )
 
 
@@ -99,8 +122,19 @@ def update_site(
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
-    service.get_site(key, tenant_key=ctx.tenant_key)
+    existing = service.get_site(key, tenant_key=ctx.tenant_key)
     site = Site(**body.model_dump(), tenant_key=ctx.tenant_key)
+    # REQ-039: ``SiteCreate`` carries no hardiness provenance fields. When the
+    # caller does not set a manual zone, preserve the existing resolution so a
+    # routine site edit never clobbers a derived zone / flips its source to
+    # ``manual``; when a manual zone IS supplied, mark it as such.
+    if body.hardiness_zone is None:
+        site.hardiness_zone = existing.hardiness_zone
+        site.hardiness_zone_source = existing.hardiness_zone_source
+        site.hardiness_zone_resolved_at = existing.hardiness_zone_resolved_at
+        site.mean_annual_minimum_c = existing.mean_annual_minimum_c
+    else:
+        site.hardiness_zone_source = "manual"
     updated = service.update_site(key, site)
     return _site_response(updated, service)
 
@@ -113,6 +147,36 @@ def delete_site(
 ):
     service.get_site(key, tenant_key=ctx.tenant_key)
     service.delete_site(key)
+
+
+@router.get("/{key}/hardiness", response_model=SiteHardinessResponse)
+def get_site_hardiness(
+    key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: HardinessZoneService = Depends(get_hardiness_zone_service),
+):
+    """Return the site's resolved hardiness zone and the matching catalog entry."""
+    site, zone_doc = service.get_site_hardiness(key, ctx.tenant_key)
+    return _hardiness_response(site, zone_doc)
+
+
+@router.post("/{key}/resolve-hardiness-zone", response_model=SiteHardinessResponse)
+def resolve_site_hardiness_zone(
+    key: str,
+    force: bool = False,
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
+    service: HardinessZoneService = Depends(get_hardiness_zone_service),
+):
+    """Derive the site's hardiness zone from its REQ-041 climate normals.
+
+    A manually set zone is preserved unless ``force=true``. Returns 422 when the
+    site has no climate normals with a usable minimum temperature yet.
+
+    State-changing (mutates ``Site.hardiness_zone``), so it requires at least the
+    ``grower`` role — a ``viewer`` cannot trigger a zone derivation (SEC-001).
+    """
+    site = service.resolve_for_site(key, ctx.tenant_key, force=force)
+    return _hardiness_response(site, service.catalog_entry(site.hardiness_zone))
 
 
 @router.get("/{key}/location-tree", response_model=list[LocationTreeNode])

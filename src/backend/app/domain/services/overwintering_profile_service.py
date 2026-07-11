@@ -258,7 +258,9 @@ class OverwinteringProfileService:
         if species is None:
             return None, site_overwinterable
         species_zone = species.hardiness_zones[0] if species.hardiness_zones else None
-        site_zone = site.climate_zone or None
+        # REQ-039: prefer the structured, auto-derived hardiness zone; fall back to
+        # the legacy free-text ``climate_zone`` for sites not yet resolved.
+        site_zone = getattr(site, "hardiness_zone", None) or site.climate_zone or None
         light = evaluate_winter_hardiness(species.frost_sensitivity, species_zone, site_zone)
         return light, site_overwinterable
 
@@ -403,8 +405,9 @@ class OverwinteringProfileService:
         if not plant.site_key or self._site_repo is None:
             return None
         site = self._site_repo.get_site_by_key(plant.site_key)
-        if site is not None and site.tenant_key == tenant_key and site.climate_zone:
-            return site.climate_zone
+        if site is not None and site.tenant_key == tenant_key:
+            # REQ-039: structured hardiness zone wins over legacy free-text.
+            return getattr(site, "hardiness_zone", None) or site.climate_zone or None
         return None
 
     # ── Auto-generation ─────────────────────────────────────────────────

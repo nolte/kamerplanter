@@ -91,12 +91,12 @@ In autumn, the question arises for perennial and frost-tender plants: do they st
 
 ---
 
-## Step 6: Outlook — Climate Zones and Hardiness
+## Step 6: Climate Zones and Hardiness
 
-In the longer term, Kamerplanter is planned to automatically derive your location's hardiness zone from your GPS coordinates or postal code, and feed that into a hardiness traffic light for your perennial plants.
+Kamerplanter automatically derives which USDA hardiness zone your site is in from its GPS coordinates, and feeds that into the hardiness traffic light for your perennial plants (see [Overwintering](../user-guide/overwintering.md)).
 
-!!! info "Planned feature"
-    This feature is specified but not yet implemented. Details on the planned behavior are in [Climate Zones & Hardiness](climate-zones.md). Until then, the climate zone on a location is a freely editable text field with no automatic derivation.
+!!! info "API only / operator configuration"
+    The computation itself already runs fully automatically in the background. In the site form of the interface, however, you currently only see the result reflected in the existing free-text "Climate zone" field — a dedicated button to trigger an immediate re-derivation and a provenance display don't exist there yet. For details on the computation, manually overriding it, and the current state of the web interface, see [Climate Zones & Hardiness](climate-zones.md). <!-- REQ-039 -->
 
 ---
 

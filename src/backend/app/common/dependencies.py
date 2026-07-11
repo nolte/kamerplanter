@@ -818,6 +818,22 @@ def get_climate_normal_repo():
     return ArangoClimateNormalRepository(get_db())
 
 
+def get_hardiness_zone_repo():
+    from app.data_access.arango.hardiness_zone_repository import ArangoHardinessZoneRepository
+
+    return ArangoHardinessZoneRepository(get_db())
+
+
+def get_hardiness_zone_service():
+    from app.domain.services.hardiness_zone_service import HardinessZoneService
+
+    return HardinessZoneService(
+        zone_repo=get_hardiness_zone_repo(),
+        site_repo=get_site_repo(),
+        climate_normal_repo=get_climate_normal_repo(),
+    )
+
+
 def get_irrigation_demand_repo():
     from app.data_access.arango.irrigation_demand_repository import ArangoIrrigationDemandRepository
 
