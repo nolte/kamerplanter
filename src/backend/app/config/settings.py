@@ -159,6 +159,22 @@ class Settings(BaseSettings):
     idigbio_base_url: str = "https://search.idigbio.org/v2"
     idigbio_http_timeout: int = 30
 
+    # REQ-038 CV disease diagnosis (ONNX PlantDoc classifier + PlantCV phenotype).
+    # Opt-in (default-privacy): while disabled the self-hosted adapter reports
+    # itself unconfigured and the diagnosis flow degrades gracefully. Reuses the
+    # shared ``inference_service_url`` + ``internal_service_token``.
+    cv_diagnosis_enabled: bool = False
+    # Softmax-probability gates (REQ-038 §4). ``show`` is the drop floor; classes
+    # at/above ``highlight`` are emphasised. Neither implies auto-accept — a CV
+    # diagnosis is always a hypothesis. Backend-side enforcement complements the
+    # inference-service floor so the operator can tighten it without a redeploy.
+    cv_classifier_confidence_show: float = 0.10
+    cv_classifier_confidence_highlight: float = 0.75
+    # PlantCV phenotype panel (measurement only). Requested per call; effective
+    # only when the inference-service has PlantCV installed.
+    cv_phenotype_enabled: bool = True
+    cv_diagnosis_max_image_size_mb: int = 5  # §4.4 multipart upload limit
+
     # REQ-023 Auth
     jwt_secret_key: str = "change-me-in-production-use-openssl-rand-hex-32"
     jwt_algorithm: str = "HS256"

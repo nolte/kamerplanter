@@ -129,3 +129,11 @@ class TestConsentEngine:
         engine = ConsentEngine()
         keys = {p.key for p in engine.get_all_purposes()}
         assert {"core_functionality", "error_tracking", "hibp_check", "external_enrichment"} <= keys
+
+    def test_plant_diagnosis_purpose_registered(self):
+        engine = ConsentEngine()
+        purpose = engine.find_purpose("plant_diagnosis")
+        assert purpose is not None
+        assert purpose.required is False
+        # optional purpose: blocked without consent, allowed once granted
+        assert engine.is_processing_allowed("plant_diagnosis", consent=None) is False
