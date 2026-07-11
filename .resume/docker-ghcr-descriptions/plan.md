@@ -110,4 +110,4 @@ Still to confirm **during** the work (verify, don't assume):
 - [x] Step 2 — update 8 `annotations` descriptions in `docker-publish.yml`
 - [x] Step 3 — update 8 in-file `LABEL` descriptions in the prod Dockerfiles
 - [x] Step 4 — validate (YAML parses OK; all 8 annotation==label synced; diff = description lines only, no plumbing)
-- [ ] Step 5 — open PR to `develop` (`pull-request-create`)
+- [x] Step 5 — open PR to `develop` (`pull-request-create`) → PR #486 (draft): https://github.com/nolte/kamerplanter/pull/486
