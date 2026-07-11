@@ -162,8 +162,9 @@ describe('GenericWidget — entity deep links (#461)', () => {
     expect(tile.tagName).toBe('A');
     expect(tile).toHaveAttribute('href', '/pflanzen/plant-instances/p1');
     expect(tile.parentElement?.closest('a')).toBeNull();
-    // A plant without a name falls back to its species key label.
-    expect(screen.getByTestId('widget-plant_grid-tile-p2')).toHaveTextContent('solanum-lycopersicum');
+    // A plant without a name falls back to a humanized species-key label
+    // (#461 usability follow-up) rather than the raw slug.
+    expect(screen.getByTestId('widget-plant_grid-tile-p2')).toHaveTextContent('Solanum Lycopersicum');
   });
 
   it('renders the empty state when plant_grid has no active plants', () => {

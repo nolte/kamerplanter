@@ -33,7 +33,7 @@ import { useWidgetPayload } from '@/components/dashboard/DashboardDataContext';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { dashboardWidgetCatalog, type WidgetKey } from '@/config/dashboardWidgetCatalog';
-import { formatDate } from '@/utils/formatting';
+import { formatDate, humanizeSlug } from '@/utils/formatting';
 import type { WidgetComponentProps } from '@/components/dashboard/widgetRegistry';
 
 /**
@@ -185,7 +185,8 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
                 to={listPath}
                 size="small"
                 aria-label={t('dashboard.nav.openListNamed', { widget: widgetLabel })}
-                sx={{ width: 44, height: 44, color: 'text.secondary', flexShrink: 0 }}
+                // ≥48×48px touch target (UI-NFR-001 R-011, MUSS, Mobile-First).
+                sx={{ width: 48, height: 48, color: 'text.secondary', flexShrink: 0 }}
                 data-testid={`widget-${widgetKey}-open-list`}
               >
                 <ChevronRightIcon fontSize="small" />
@@ -229,7 +230,11 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
               data-testid={`widget-${widgetKey}-tiles`}
             >
               {plants.map((p, i) => {
-                const tileLabel = p.plant_name || p.species_key || t('dashboard.plantGrid.unnamed');
+                // A plant without a user-given name falls back to a humanized
+                // species-key slug ("ocimum-basilicum" → "Ocimum Basilicum")
+                // rather than the raw key — the dashboard aggregate has no
+                // species-catalog lookup to resolve a real display name.
+                const tileLabel = p.plant_name || humanizeSlug(p.species_key) || t('dashboard.plantGrid.unnamed');
                 const tileLinkable = plantTilesLinkable && Boolean(p._key);
                 const tileSx = {
                   display: 'flex',
