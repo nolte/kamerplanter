@@ -196,4 +196,8 @@ Erste unerledigte Box = Wiedereinstiegspunkt der nächsten Session.
         Kongruenz „treffen", fehl. Subjekt §3.10, „stellt…dar"), 8 warn, Präpositions-/Idiomatik-
         Fixes alle angewandt. Versionen/Historie: REQ-047 v1.1 (Status qualifiziert), REQ-022 v2.8,
         REQ-039 v1.3, REQ-041 v1.1, REQ-005 v2.8.
-- [ ] PR nach `develop` via `pull-request-create` (docs-Scope) erstellt.
+- [x] PR nach `develop` via `pull-request-create` (docs-Scope) erstellt.
+      → 2026-07-11: Rebase auf origin/develop (2 Commits, konfliktfrei), Push, Draft-PR
+        **#476** (https://github.com/nolte/kamerplanter/pull/476). Tracking-Issue **#477**
+        (Verifikation Ist-Implementierung gegen vertiefte Anforderungen + not-yet-implemented
+        Ausbaustufen AC-4/22/26/29) erstellt und am PR verlinkt. ABGESCHLOSSEN.
