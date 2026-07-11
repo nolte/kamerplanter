@@ -92,6 +92,18 @@ Under **Plants > Overwintering** you'll find a table with the overwintering plan
 
 Each row shows a jump icon next to the delete icon, labeled **"Go to plant"** or **"Go to planting run"**, which takes you directly to the associated plant instance or planting run — handy when you want to look up further details from here.
 
+### Filtering Plans
+
+Above the table, in addition to full-text search and sorting, several combinable filters are available: <!-- REQ-047 -->
+
+- **Hardiness**: Winter hardy / Needs protection / Frost-free quarters / Dig up & store <!-- REQ-022 -->
+- **Protection measure**: e.g. Mulch, Fleece, Earth up, Move indoors, Dig up & store, Wrap
+- **Action month**: shows only the months that actually occur in your plans
+- **Origin**: Auto (auto-derived from the species profile) or Manual (adjusted or created by you)
+- **Assignment**: Plant, Planting run, or Unassigned
+
+All active filters apply together (a plan must match every selected filter) and stack on top of search and sorting. You can remove a filter individually via its selector, or all at once via **"Reset filters"**. Your filter selection lives in the URL, so you can bookmark or share the filtered view. On narrow screens, the filters are collapsed behind an icon with a count badge to save space. Kamerplanter uses this same filter-bar pattern elsewhere too, for example in the [pest list](pest-management.md).
+
 ---
 
 ## Frequently Asked Questions
