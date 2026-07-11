@@ -1,7 +1,7 @@
 FROM postgres:18-bookworm@sha256:d9c83446333daec3f0588cc709adb80c26090b7f9f0f7ec8d43c243385d79818
 
 LABEL org.opencontainers.image.title="kamerplanter-vectordb" \
-      org.opencontainers.image.description="PostgreSQL with pgvector extension for Kamerplanter RAG embeddings" \
+      org.opencontainers.image.description="PostgreSQL with the pgvector extension storing Kamerplanter's embedding vectors for RAG knowledge retrieval" \
       org.opencontainers.image.source="https://github.com/nolte/kamerplanter" \
       org.opencontainers.image.vendor="Kamerplanter" \
       org.opencontainers.image.licenses="MIT"
