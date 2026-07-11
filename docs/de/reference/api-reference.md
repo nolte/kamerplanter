@@ -633,3 +633,113 @@ Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**.
 - [Referenzbilder kuratieren — Benutzerhandbuch](../user-guide/reference-image-curation.md)
 - [Umgebungsvariablen — Foto-Identifikation](environment-variables.md#foto-identifikation-req-029)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## KI-Assistent <!-- REQ-031 --> {#ki-assistent}
+
+!!! note "Teilweise verfügbar"
+    Die hier dokumentierten Endpunkte sind implementiert und aktiv. Vom vollständigen Spezifikations-Umfang (u. a. Tipp-Karten-Erzeugung im Hintergrund, Tenant-Settings-Endpunkt, Provider-Verwaltung per API) sind bislang nur die unten aufgeführten Endpunkte umgesetzt — siehe die Hinweise je Abschnitt.
+
+Alle Endpunkte antworten mit `404 Not Found`, wenn der Plattformbetreiber KI-Funktionen instanzweit deaktiviert hat (`AI_FEATURES_ENABLED=false`) — die KI-API existiert dann faktisch nicht. Details zur dreistufigen Freischaltung: [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md#so-ist-der-ki-assistent-aufgebaut-drei-stufen-freischaltung).
+
+### Öffentliche Wissensfrage (Light-Modus-fähig)
+
+Kein Login nötig, IP-ratenbegrenzt (`AI_PUBLIC_RATE_LIMIT_PER_MIN`, Standard 10/Minute). Es wird **kein** Mandanten- oder Nutzerkontext an die Wissensbasis übergeben.
+
+```
+POST /api/v1/public/ai/ask
+```
+
+**Request-Body:**
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `question` | string | Ja | 3–2000 Zeichen |
+| `language` | `de` \| `en` | Nein | Standard: `de` |
+
+**Response (200):** `AiResponseSchema`
+
+```json
+{
+  "answer_text": "VPD (Dampfdruckdefizit) beschreibt den Unterschied ...",
+  "sources": [
+    { "source_key": "vpd-basics", "source_type": "guide", "title": "VPD-Grundlagen", "score": 0.87, "language": "de" }
+  ],
+  "language": "de",
+  "language_mismatch_warning": false,
+  "uses_tenant_data": false,
+  "uses_cloud_provider": false,
+  "confidence": "high",
+  "fallback_species": null,
+  "cultivar_hint": null,
+  "model_name": "gemma3:12b",
+  "provider_type": "ollama",
+  "kb_version": "ks-1.4.2-idx-20260420",
+  "generated_at": "2026-07-11T10:15:00Z"
+}
+```
+
+`confidence` ist einer von `high` | `medium` | `low` | `none` (ADR-002 — sinkt, wenn die Frage auf eine mandanteneigene Art/Sorte referenziert, die nicht in der Wissensbasis vorhanden ist).
+
+```
+GET /api/v1/public/ai/health
+```
+
+**Response (200):** `{ "healthy": true }`
+
+### Mandantenbezogene Endpunkte
+
+Alle folgenden Endpunkte liegen unter `/api/v1/t/{tenant_slug}/ai/` und erfordern ein gültiges JWT-Token sowie eine aktive Mandanten-Mitgliedschaft. Eine rollenspezifische Einschränkung (Beobachter/Grower/Admin) ist in dieser Version noch **nicht** implementiert — jedes aktive Mitglied darf alle Endpunkte aufrufen.
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| `GET` | `/ai/tips?context_type=&context_key=&language=` | Tipp-Karten für einen Kontext (cache-first) |
+| `POST` | `/ai/tips/refresh?context_type=&context_key=&language=` | Tipp-Karten neu erzeugen (erzwingt Cache-Miss) |
+| `POST` | `/ai/tips/{tip_key}/dismiss` | Tipp wegklicken |
+| `POST` | `/ai/tips/{tip_key}/acted-on` | Tipp als umgesetzt markieren |
+| `GET` | `/ai/daily-tip?language=` | Ein einzelner Tagestipp (kann `null` sein) |
+| `POST` | `/ai/daily-tip/dismiss` | Heutigen Tagestipp wegklicken |
+| `POST` | `/ai/explain` | „Warum?"-Erklärung für ein konkretes Element |
+| `GET` | `/ai/conversations` | Konversationen auflisten |
+| `POST` | `/ai/conversations` | Neue Konversation anlegen |
+| `POST` | `/ai/conversations/{conversation_key}/messages` | Nachricht senden — Antwort als SSE-Stream |
+| `DELETE` | `/ai/conversations/{conversation_key}` | Konversation sofort löschen (DSGVO Art. 17) |
+| `GET` | `/ai/providers` | Verfügbare Provider auflisten (nur lesend) |
+
+!!! info "Nur über API / Betreiber-Konfiguration: Tenant-Freischaltung"
+    Jeder dieser Endpunkte erfordert zusätzlich `tenant.settings.ai_features_enabled=true` — dafür gibt es aktuell weder eine Oberfläche noch einen eigenen `GET`/`PUT`-Endpunkt; das Feld lässt sich nur direkt am Mandanten-Dokument setzen. Ohne diese Freischaltung antworten alle mandantenbezogenen Endpunkte mit `403` und `{ "detail": "ai.disabled_for_tenant" }` (Fehlercode `AI_DISABLED_FOR_TENANT`).
+
+`POST /ai/explain` erwartet folgenden Request-Body:
+
+| Feld | Typ | Beschreibung |
+|------|-----|-------------|
+| `subject_type` | `task` \| `reminder` \| `phase_transition` \| `feeding_event` | Art des zu erklärenden Elements |
+| `subject_key` | string | Schlüssel des Elements |
+| `question_template_id` | string | ID der kuratierten Frage-Vorlage |
+| `language` | `de` \| `en` | Optional, Standard: `de` |
+
+`POST /ai/conversations/{conversation_key}/messages` liefert die Antwort als `text/event-stream` (SSE) mit den Event-Typen `token` (einzelnes Antwort-Token), `done` (finale `AiResponseSchema` als JSON) und `error`.
+
+**Fehlercodes (alle mandantenbezogenen Endpunkte):**
+
+| HTTP-Status | Fehlercode | Bedeutung |
+|-------------|-----------|----------|
+| `404` | — | KI-Funktionen instanzweit deaktiviert (Stufe 1) |
+| `403` | `AI_DISABLED_FOR_TENANT` | KI-Funktionen für diesen Mandanten deaktiviert (Stufe 2) |
+| `403` | `CONSENT_REQUIRED` | Erforderliche Einwilligung fehlt (Stufe 3, `consent_purpose` im Body: `ai_tenant_data_access` oder `ai_cloud_processing`) |
+
+### Globale Endpunkte (Platform-Admin)
+
+```
+GET /api/v1/ai/knowledge-service/health
+```
+
+Erfordert Platform-Admin-Rechte. Nur im Vollmodus gemountet (`KAMERPLANTER_MODE=full`). Liefert `{ "healthy": true|false }`.
+
+### Siehe auch
+
+- [KI-Assistent — Benutzerhandbuch](../user-guide/ai-assistant.md)
+- [Datenschutz & DSGVO — Benutzerhandbuch](../user-guide/privacy.md)
+- [Umgebungsvariablen — KI-Assistent](environment-variables.md#ki-assistent)
+- [Fehlerbehandlung](../api/error-handling.md)

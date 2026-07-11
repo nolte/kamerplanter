@@ -122,6 +122,8 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **Foto-Beitrag zur Pflanzenerkennung** (eigene Referenzfotos) | Optional | Ja |
+| **KI-Zugriff auf deine Pflanzendaten** (`ai_tenant_data_access`) | Optional | Ja |
+| **KI-Verarbeitung über Cloud-Provider** (`ai_cloud_processing`) | Optional | Ja |
 
 ### Einwilligung widerrufen
 
@@ -163,6 +165,19 @@ Vor der Übertragung an Pl@ntNet werden alle EXIF-Metadaten entfernt (GPS-Koordi
 ### Cloud-basierte Schädlingserkennung (pest_detection_cloud)
 
 Die [Schädlingserkennung per Foto](pest-detection.md) sendet dein Bild — je nach Betreiber-Konfiguration — entweder an eine self-hosted Erkennung (keine Einwilligung nötig) oder an den Cloud-Dienst Kindwise plant.health. Diese Einwilligung ist nur erforderlich, wenn der Cloud-Adapter aktiv ist. Wie bei der Pflanzenidentifikation wird das Foto vor dem Versand von EXIF-Metadaten bereinigt und nicht dauerhaft gespeichert.
+
+### KI-Zugriff auf deine Pflanzendaten (ai_tenant_data_access)
+
+Der [KI-Assistent](ai-assistant.md) beantwortet reine Wissensfragen ohne diese Einwilligung. Sobald eine Antwort deinen konkreten Pflanzenkontext nutzen soll — beim Chat, bei künftigen Tipp-Karten, dem Tipp des Tages und den „Warum?"-Erklärungen — ist diese Einwilligung erforderlich.
+
+Übermittelt werden ausschließlich Stammwerte: wissenschaftlicher Pflanzenname, aktuelle Phase, Substrat, EC-/pH-Messwerte sowie aggregierte Kennzahlen (z. B. „3 überfällige Aufgaben"). Dein Name, deine E-Mail-Adresse und Freitext aus deinem Pflanztagebuch werden **nie** übermittelt.
+
+!!! note "Widerruf"
+    Nach einem Widerruf werden Tipp-Karten ausgeblendet, „Warum?"-Buttons unsichtbar und der Chat verweigert neue Nachrichten. Bereits geführte Chat-Verläufe bleiben sichtbar.
+
+### KI-Verarbeitung über Cloud-Provider (ai_cloud_processing)
+
+Zusätzlich zur vorherigen Einwilligung erforderlich, wenn deine Instanz einen externen Cloud-Provider (z. B. Anthropic, OpenAI) statt eines lokal betriebenen Modells (Ollama) für den KI-Assistenten einsetzt — das legt der Plattformbetreiber fest. Cloud-Provider können eine Drittland-Datenübermittlung bedeuten. Lokale Provider benötigen diese Einwilligung nicht.
 
 ---
 
@@ -276,6 +291,9 @@ Kamerplanter speichert verschiedene Datenkategorien mit unterschiedlichen Aufbew
 | Ernte-/Behandlungsdaten | Gesetzliche Mindestfrist | CanG / PflSchG |
 | Einwilligungs-Log | 3 Jahre nach Widerruf | Nachweispflicht |
 | Löschungs-Audit-Log | 1 Jahr | Nachweispflicht |
+| KI-Chatverläufe | 90 Tage | Speicherbegrenzung — täglicher Cleanup |
+| KI-Tipp-Karten (Cache) | 7 Tage | Speicherbegrenzung |
+| KI-Aufruf-Protokoll (gehasht, kein Klartext) | 30 Tage | Speicherbegrenzung — täglicher Cleanup |
 
 <!-- NFR-011 -->
 
@@ -331,3 +349,4 @@ Bestimmte Sensor-Daten können Rückschlüsse auf Anwesenheitsmuster erlauben (C
 
 - [Konto & Anmeldung](account.md)
 - [Mandanten & Gärten](tenants.md)
+- [KI-Assistent](ai-assistant.md)
