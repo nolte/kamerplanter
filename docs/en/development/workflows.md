@@ -29,7 +29,7 @@ When do you use which agent or skill? This page complements the automatically ge
     | Write docs | `mkdocs-documentation` |
     | Check docs | `/nolte-shared:docs-freshness-checker` |
     | Prepare PR | `/pre-pr`, `pr-to-develop`, `/nolte-shared:pull-request-create` |
-    | E2E tests | `e2e-testcase-extractor` → `selenium-test-generator` |
+    | E2E tests | `nolte-engineering:test-case-extractor` → `selenium-test-generator` |
     | E2E results | `nolte-shared:e2e-result-reviewer` |
     | HA integration | `ha-integration-requirements-engineer` → `ha-integration-developer` |
     | Deploy HA | `/deploy-ha` |
@@ -54,7 +54,7 @@ When do you use which agent or skill? This page complements the automatically ge
 
 ### Scenario 2: E2E tests for a feature
 
-1. Derive test cases: `e2e-testcase-extractor`
+1. Derive test cases: `nolte-engineering:test-case-extractor`
 2. Generate tests: `selenium-test-generator` (NFR-008 compliant)
 3. Review tests: `selenium-test-reviewer`
 4. Analyze results: `nolte-shared:e2e-result-reviewer`
