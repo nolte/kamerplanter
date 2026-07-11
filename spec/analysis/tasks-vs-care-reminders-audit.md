@@ -274,7 +274,9 @@ change beyond a one-line REQ-009 clarification of what the two count tiles mean.
 
 ## Suggested follow-up issues
 
-1. `fix(dashboard): exclude care reminders from generic task counts (REQ-009 clarify)` — P1
-2. `refactor(care): single tenant-aware care-task dedup helper` — P2 (note: closes a latent cross-tenant dedup gap)
-3. `refactor(care): reuse Task recurrence engine for fixed-interval reminders` — P3
-4. `chore(care): DRY care-reminder Task builder + instruction strings` — P4
+Filed 2026-07-11:
+
+1. [#508](https://github.com/nolte/kamerplanter/issues/508) `fix(dashboard): exclude care reminders from generic task counts (REQ-009)` — P1
+2. [#509](https://github.com/nolte/kamerplanter/issues/509) `refactor(care): single tenant-aware care-task dedup helper` — P2 (closes a latent cross-tenant dedup gap)
+3. [#510](https://github.com/nolte/kamerplanter/issues/510) `refactor(care): reuse Task recurrence engine for fixed-interval reminders` — P3
+4. [#511](https://github.com/nolte/kamerplanter/issues/511) `chore(care): DRY care-reminder Task builder + instruction strings` — P4
