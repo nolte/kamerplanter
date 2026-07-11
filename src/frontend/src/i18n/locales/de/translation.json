@@ -375,6 +375,7 @@
     "import": "Import",
     "calendar": "Kalender",
     "wateringLog": "Gießprotokoll",
+    "kiAssistent": "KI-Assistent",
     "phasen": "Phasen",
     "detail": "Details",
     "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
@@ -449,7 +450,78 @@
     "harvestBatch": "Erntecharge",
     "harvestBatches": "Erntechargen"
   },
+  "ai": {
+    "badge": {
+      "label": "KI-generiert",
+      "tooltipUnknown": "KI-generierte Antwort"
+    },
+    "tenantData": {
+      "label": "Nutzt deine Pflanzendaten",
+      "tooltip": "Diese Antwort wurde auf Basis der Stammwerte deiner Pflanze erzeugt (Art, Phase, Substrat, EC/pH). Es werden keine Namen oder Freitext-Notizen übermittelt.",
+      "link": "Datenschutz-Einstellungen öffnen"
+    },
+    "cloud": {
+      "label": "Cloud-Verarbeitung",
+      "tooltip": "Diese Anfrage wird über einen Cloud-Provider ({{provider}}) verarbeitet — möglicherweise eine Drittland-Datenübermittlung."
+    },
+    "confidence": {
+      "lowLabel": "Allgemeine Information",
+      "lowTooltip": "Diese Antwort basiert auf allgemeiner Datenlage zu {{species}}, nicht auf deiner spezifischen Sorte „{{cultivar}}“. Tenant-eigene Sorten haben keine eigene Wissensbasis.",
+      "genericSpecies": "der Pflanzengattung",
+      "yourCultivar": "deiner Sorte"
+    },
+    "languageMismatch": "Antwort auf Deutsch — die englische Wissensbasis ist noch im Aufbau.",
+    "sources": {
+      "title": "Quellen ({{count}})",
+      "score": "Relevanz {{score}}"
+    },
+    "disclaimer": "KI-Antworten können fehlerhaft sein. Bei kritischen Entscheidungen bitte die Quellen prüfen.",
+    "dailyTip": {
+      "heading": "Tipp des Tages",
+      "dismiss": "Tipp des Tages schließen"
+    },
+    "tips": {
+      "heading": "KI-Pflegehinweise",
+      "refresh": "Aktualisieren",
+      "learnMore": "Mehr erfahren"
+    },
+    "why": {
+      "tooltip": "Warum?",
+      "title": "Warum diese Empfehlung?",
+      "thinking": "KI denkt nach …",
+      "error": "Die Erklärung konnte nicht geladen werden. Bitte versuche es erneut.",
+      "follow": "Dieser Empfehlung folgen",
+      "retry": "Erneut versuchen"
+    },
+    "chat": {
+      "title": "KI-Chat",
+      "empty": "Stelle eine Frage zu deinen Pflanzen — der Assistent kennt deren aktuelle Phase und Messwerte.",
+      "placeholder": "Deine Frage …",
+      "inputLabel": "Nachricht",
+      "send": "Senden",
+      "cancel": "Antwort abbrechen",
+      "aborted": "Antwort abgebrochen.",
+      "thinking": "KI denkt nach …",
+      "error": "Die Antwort konnte nicht geladen werden.",
+      "retry": "Erneut versuchen"
+    },
+    "errors": {
+      "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
+      "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
+      "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
+    }
+  },
   "pages": {
+    "kiAssistent": {
+      "title": "KI-Assistent",
+      "intro": "Stelle eine Wissensfrage zur Pflanzenpflege — etwa „Was ist VPD?“ oder „Wie senke ich den pH-Wert?“. Die Antwort stammt aus der kuratierten Wissensbasis und wird klar als KI-generiert gekennzeichnet.",
+      "openChat": "Chat öffnen",
+      "questionLabel": "Deine Frage",
+      "questionPlaceholder": "z. B. Was ist VPD und warum ist es wichtig?",
+      "questionHelp": "Reine Wissensfragen ohne Bezug zu deinen konkreten Pflanzen. Mit Strg/Cmd + Enter absenden.",
+      "ask": "Frage stellen",
+      "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut."
+    },
     "aquaponik": {
       "title": "Aquaponik",
       "intro": "Verwalte deine Fisch-Pflanzen-Kreislaufsysteme: überwache den Stickstoffkreislauf (Ammoniak → Nitrit → Nitrat), verfolge den Biofilter-Einfahrprozess und dokumentiere Wassertests, Fischbestände und Fütterung.",

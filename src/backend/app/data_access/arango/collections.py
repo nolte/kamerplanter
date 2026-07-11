@@ -190,6 +190,13 @@ PLANT_DIAGNOSIS_REQUESTS = "plant_diagnosis_requests"
 # event; the full propagation API/router remains a REQ-017 follow-up.
 PROPAGATION_EVENTS = "propagation_events"
 
+# REQ-031 KI-Assistent (AI assistant) — tenant/user KI data; vectors live in the
+# Knowledge-Service microservice, never in the backend (§3.3).
+AI_PROVIDER_CONFIGS = "ai_provider_configs"
+AI_CONVERSATIONS = "ai_conversations"
+AI_TIP_CACHE = "ai_tip_cache"
+AI_AUDIT_LOG = "ai_audit_log"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -294,6 +301,11 @@ DOCUMENT_COLLECTIONS = [
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
+    # REQ-031 KI-Assistent
+    AI_PROVIDER_CONFIGS,
+    AI_CONVERSATIONS,
+    AI_TIP_CACHE,
+    AI_AUDIT_LOG,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -515,6 +527,12 @@ PEST_DETECTION_OF = "pest_detection_of"  # pest_detections → plant_instances/p
 PEST_DETECTION_FLAGGED = "pest_detection_flagged"  # pest_detections → pests
 PEST_DETECTION_SUGGESTED_INSPECTION = "pest_detection_suggested_inspection"  # → inspections
 
+# REQ-031 KI-Assistent edges (§3.2)
+AI_TIP_REFERENCES_PLANT = "ai_tip_references_plant"  # ai_tip_cache → plant_instances
+AI_TIP_REFERENCES_RUN = "ai_tip_references_run"  # ai_tip_cache → planting_runs
+AI_CONVERSATION_ABOUT = "ai_conversation_about"  # ai_conversations → plant_instances/planting_runs
+AI_AUDIT_ABOUT = "ai_audit_about"  # ai_audit_log → plant_instances/planting_runs
+
 # REQ-038 CV disease diagnosis edges
 CV_DIAGNOSED_FOR = "cv_diagnosed_for"  # plant_diagnosis_requests → plant_instances/planting_runs
 CV_DIAGNOSIS_FOUND = "cv_diagnosis_found"  # plant_diagnosis_requests → diseases/pests
@@ -662,6 +680,11 @@ EDGE_COLLECTIONS = [
     # REQ-046 Weather data sources
     HAS_FORECAST,
     HAS_WEATHER_SOURCE_CONFIG,
+    # REQ-031 KI-Assistent
+    AI_TIP_REFERENCES_PLANT,
+    AI_TIP_REFERENCES_RUN,
+    AI_CONVERSATION_ABOUT,
+    AI_AUDIT_ABOUT,
     # REQ-026 Aquaponics
     HAS_FISH_STOCK,
     STOCK_OF_SPECIES,
@@ -1790,6 +1813,22 @@ def ensure_collections(db: StandardDatabase) -> None:
     weather_source_configs_col = db.collection(WEATHER_SOURCE_CONFIGS)
     # 1:1 per site within a tenant (REQ-046 §2.1).
     weather_source_configs_col.add_persistent_index(fields=["tenant_key", "site_key"], unique=True)
+
+    # REQ-031 KI-Assistent indexes (§3.1)
+    ai_provider_configs_col = db.collection(AI_PROVIDER_CONFIGS)
+    ai_provider_configs_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    ai_conversations_col = db.collection(AI_CONVERSATIONS)
+    ai_conversations_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
+    ai_conversations_col.add_persistent_index(fields=["expires_at"], unique=False)
+
+    ai_tip_cache_col = db.collection(AI_TIP_CACHE)
+    ai_tip_cache_col.add_persistent_index(fields=["tenant_key", "context_type", "context_key"], unique=False)
+    ai_tip_cache_col.add_persistent_index(fields=["valid_until"], unique=False)
+
+    ai_audit_log_col = db.collection(AI_AUDIT_LOG)
+    ai_audit_log_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
+    ai_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
 
     # REQ-026 Aquaponics indexes
     fish_species_col = db.collection(FISH_SPECIES)

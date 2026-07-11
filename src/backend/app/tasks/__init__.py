@@ -17,6 +17,7 @@ celery_app = Celery(
 )
 celery_app.conf.update(
     include=[
+        "app.tasks.ai_tasks",
         "app.tasks.auth_tasks",
         "app.tasks.care_tasks",
         "app.tasks.climate_tasks",
@@ -56,6 +57,19 @@ celery_app.conf.update(
             "task": "app.tasks.enrichment_tasks.sync_all_sources_task",
             "schedule": 604800,
             "kwargs": {"full_sync": True},
+        },
+        # REQ-031 KI-Assistent retention (§4.6)
+        "ai-cleanup-conversations-daily": {
+            "task": "ai.cleanup_expired_conversations",
+            "schedule": crontab(hour=2, minute=30),
+        },
+        "ai-cleanup-audit-log-daily": {
+            "task": "ai.cleanup_expired_audit_log",
+            "schedule": crontab(hour=2, minute=35),
+        },
+        "ai-knowledge-service-ingest-weekly": {
+            "task": "ai.knowledge_service_ingest",
+            "schedule": crontab(hour=3, minute=0, day_of_week=0),
         },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {

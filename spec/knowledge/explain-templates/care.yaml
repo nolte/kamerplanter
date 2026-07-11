@@ -1,0 +1,53 @@
+# REQ-031 §4.5 — curated "why?" question templates for the ExplainEngine.
+# Each entry turns a concrete recommendation into a compact, deterministic
+# question for the Knowledge Service. Slots ({{...}}) are filled from the
+# backend context before the /ask call. Templates are versioned with the code.
+- id: care_reminder_watering
+  applies_to: care.watering
+  question_de: |
+    Warum sollte ich {{plant_display}} jetzt giessen?
+    Pflanze: {{species}} in Phase {{phase}}, Substrat {{substrate}}.
+  question_en: |
+    Why should I water {{plant_display}} now?
+    Plant: {{species}} in phase {{phase}}, substrate {{substrate}}.
+  expected_length_words_max: 80
+
+- id: care_reminder_fertilizing
+  applies_to: care.fertilizing
+  question_de: |
+    Warum sollte ich {{plant_display}} jetzt duengen?
+    Pflanze: {{species}} in Phase {{phase}}, EC {{ec}}, pH {{ph}}.
+  question_en: |
+    Why should I fertilise {{plant_display}} now?
+    Plant: {{species}} in phase {{phase}}, EC {{ec}}, pH {{ph}}.
+  expected_length_words_max: 80
+
+- id: task_explain
+  applies_to: task.generic
+  question_de: |
+    Warum empfiehlt das System die Aufgabe "{{task_title}}" fuer {{plant_display}}?
+    Pflanze: {{species}} in Phase {{phase}}.
+  question_en: |
+    Why does the system recommend the task "{{task_title}}" for {{plant_display}}?
+    Plant: {{species}} in phase {{phase}}.
+  expected_length_words_max: 80
+
+- id: phase_transition_explain
+  applies_to: phase.transition
+  question_de: |
+    Warum ist {{plant_display}} bereit fuer den Wechsel in die Phase {{target_phase}}?
+    Aktuelle Phase: {{phase}}, Art: {{species}}.
+  question_en: |
+    Why is {{plant_display}} ready to transition to phase {{target_phase}}?
+    Current phase: {{phase}}, species: {{species}}.
+  expected_length_words_max: 80
+
+- id: feeding_event_explain
+  applies_to: feeding.event
+  question_de: |
+    Warum wird fuer {{plant_display}} diese Naehrloesung empfohlen?
+    Art: {{species}}, Phase {{phase}}, Ziel-EC {{ec}}, Ziel-pH {{ph}}.
+  question_en: |
+    Why is this nutrient solution recommended for {{plant_display}}?
+    Species: {{species}}, phase {{phase}}, target EC {{ec}}, target pH {{ph}}.
+  expected_length_words_max: 80

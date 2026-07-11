@@ -53,6 +53,8 @@ const PlantIdentificationPage = lazy(
 );
 // REQ-044 Schädlingserkennung (global, plant-agnostic)
 const PestIdentificationPage = lazy(() => import('@/pages/ki-recognition/PestIdentificationPage'));
+// REQ-031 KI-Assistent & Wissensvermittlung
+const KIAssistentPage = lazy(() => import('@/pages/ki-assistent/KIAssistentPage'));
 const PlantingRunListPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunListPage'));
 const PlantingRunDetailPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunDetailPage'));
 const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/SuccessionPlanListPage'));
@@ -515,6 +517,15 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <PlantIdentificationPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-031 KI-Assistent & Wissensvermittlung */}
+          <Route
+            path="ki-assistent"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <KIAssistentPage />
               </Suspense>
             }
           />

@@ -375,6 +375,7 @@
     "import": "Import",
     "calendar": "Calendar",
     "wateringLog": "Watering Log",
+    "kiAssistent": "AI Assistant",
     "phasen": "Phases",
     "detail": "Details",
     "beginnerHint": "Unlock more features in the settings"
@@ -449,7 +450,78 @@
     "harvestBatch": "Harvest Batch",
     "harvestBatches": "Harvest Batches"
   },
+  "ai": {
+    "badge": {
+      "label": "AI-generated",
+      "tooltipUnknown": "AI-generated answer"
+    },
+    "tenantData": {
+      "label": "Uses your plant data",
+      "tooltip": "This answer was generated from your plant's master values (species, phase, substrate, EC/pH). No names or free-text notes are transmitted.",
+      "link": "Open privacy settings"
+    },
+    "cloud": {
+      "label": "Cloud processing",
+      "tooltip": "This request is processed via a cloud provider ({{provider}}) — possibly a third-country data transfer."
+    },
+    "confidence": {
+      "lowLabel": "General information",
+      "lowTooltip": "This answer is based on general data for {{species}}, not on your specific cultivar \"{{cultivar}}\". Tenant-owned cultivars have no dedicated knowledge base.",
+      "genericSpecies": "the plant genus",
+      "yourCultivar": "your cultivar"
+    },
+    "languageMismatch": "Answer in German — the English knowledge base is still being built.",
+    "sources": {
+      "title": "Sources ({{count}})",
+      "score": "relevance {{score}}"
+    },
+    "disclaimer": "AI answers may be incorrect. Please check the sources for critical decisions.",
+    "dailyTip": {
+      "heading": "Tip of the day",
+      "dismiss": "Dismiss tip of the day"
+    },
+    "tips": {
+      "heading": "AI care tips",
+      "refresh": "Refresh",
+      "learnMore": "Learn more"
+    },
+    "why": {
+      "tooltip": "Why?",
+      "title": "Why this recommendation?",
+      "thinking": "AI is thinking …",
+      "error": "The explanation could not be loaded. Please try again.",
+      "follow": "Follow this recommendation",
+      "retry": "Try again"
+    },
+    "chat": {
+      "title": "AI chat",
+      "empty": "Ask a question about your plants — the assistant knows their current phase and readings.",
+      "placeholder": "Your question …",
+      "inputLabel": "Message",
+      "send": "Send",
+      "cancel": "Cancel answer",
+      "aborted": "Answer cancelled.",
+      "thinking": "AI is thinking …",
+      "error": "The answer could not be loaded.",
+      "retry": "Try again"
+    },
+    "errors": {
+      "disabled": "The AI features are currently disabled for this garden. An administrator can enable them in the tenant settings.",
+      "consentRequired": "This AI feature requires your consent to use your plant data. You can grant it in the privacy settings.",
+      "consentRequiredLink": "Go to privacy settings"
+    }
+  },
   "pages": {
+    "kiAssistent": {
+      "title": "AI Assistant",
+      "intro": "Ask a knowledge question about plant care — such as \"What is VPD?\" or \"How do I lower the pH?\". The answer comes from the curated knowledge base and is clearly labelled as AI-generated.",
+      "openChat": "Open chat",
+      "questionLabel": "Your question",
+      "questionPlaceholder": "e.g. What is VPD and why does it matter?",
+      "questionHelp": "Pure knowledge questions unrelated to your specific plants. Submit with Ctrl/Cmd + Enter.",
+      "ask": "Ask",
+      "error": "The answer could not be loaded. Please try again later."
+    },
     "aquaponik": {
       "title": "Aquaponics",
       "intro": "Manage your fish/plant recirculating systems: monitor the nitrogen cycle (ammonia → nitrite → nitrate), track biofilter cycling and log water tests, fish stocks and feeding.",

@@ -123,6 +123,8 @@ No optional consent is needed for the core functions of the system. However, som
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
 | **Photo contribution to plant recognition** (own reference photos) | Optional | Yes |
+| **AI access to your plant data** (`ai_tenant_data_access`) | Optional | Yes |
+| **AI processing via cloud provider** (`ai_cloud_processing`) | Optional | Yes |
 
 ### Revoking Consent
 
@@ -164,6 +166,19 @@ All EXIF metadata is removed before transmission to Pl@ntNet (GPS coordinates, c
 ### Cloud-Based Pest Detection (pest_detection_cloud)
 
 [Pest detection by photo](pest-detection.md) sends your image — depending on the operator's configuration — either to a self-hosted recognizer (no consent required) or to the Kindwise plant.health cloud service. This consent is only required when the cloud adapter is active. As with plant identification, the photo is stripped of EXIF metadata before sending and is not stored permanently.
+
+### AI Access to Your Plant Data (ai_tenant_data_access)
+
+The [AI Assistant](ai-assistant.md) answers plain knowledge questions without this consent. As soon as an answer is meant to use your specific plant context — for chat, future tip cards, the tip of the day, and "why?" explanations — this consent is required.
+
+Only master values are transmitted: scientific plant name, current phase, substrate, EC/pH readings, and aggregated counters (e.g. "3 overdue tasks"). Your name, e-mail address, and free-text notes from your plant diary are **never** transmitted.
+
+!!! note "Revocation"
+    After revoking, tip cards are hidden, "why?" buttons become invisible, and chat refuses new messages. Existing chat history remains visible.
+
+### AI Processing via Cloud Provider (ai_cloud_processing)
+
+Required in addition to the previous consent when your instance uses an external cloud provider (e.g. Anthropic, OpenAI) instead of a locally run model (Ollama) for the AI Assistant — this is decided by the platform operator. Cloud providers may involve a third-country data transfer. Local providers do not need this consent.
 
 ### AI Disease Diagnosis (plant_diagnosis) {#ai-disease-diagnosis-plant_diagnosis}
 
@@ -289,6 +304,9 @@ Kamerplanter stores different data categories with different retention periods:
 | Harvest/treatment data | Legal minimum period | CanG / PflSchG |
 | Consent log | 3 years after revocation | Accountability |
 | Erasure audit log | 1 year | Accountability |
+| AI chat conversations | 90 days | Storage limitation — daily cleanup |
+| AI tip cards (cache) | 7 days | Storage limitation |
+| AI call log (hashed, no plain text) | 30 days | Storage limitation — daily cleanup |
 
 <!-- NFR-011 -->
 
@@ -344,3 +362,4 @@ Certain sensor data can allow inferences about presence patterns (CO₂ concentr
 
 - [Account & Sign-In](account.md)
 - [Tenants & Gardens](tenants.md)
+- [AI Assistant](ai-assistant.md)

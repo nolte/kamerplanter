@@ -82,6 +82,48 @@ class ConsentEngine:
             required=False,
         ),
         ConsentPurpose(
+            key="ai_tenant_data_access",
+            label_de="KI-Zugriff auf deine Pflanzendaten",
+            label_en="AI access to your plant data",
+            description_de=(
+                "Erlaubt dem KI-Assistenten, Stammwerte deiner Pflanzen (Art, Phase, Substrat, "
+                "EC/pH-Messwerte) als Kontext an die Wissensbasis zu senden, um personalisierte "
+                "Tipps, Tipp-des-Tages, „Warum?“-Erklaerungen und Chat-Antworten zu erzeugen. "
+                "Es werden keine Namen, E-Mail-Adressen oder Freitext-Notizen uebermittelt (NFR-007). "
+                "Jederzeit widerrufbar."
+            ),
+            description_en=(
+                "Allows the AI assistant to send master values of your plants (species, phase, "
+                "substrate, EC/pH readings) as context to the knowledge base to generate "
+                "personalised tips, the tip of the day, “why?” explanations and chat answers. "
+                "No names, e-mail addresses or free-text notes are transmitted (NFR-007). "
+                "Revocable at any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
+            key="ai_cloud_processing",
+            label_de="KI-Verarbeitung ueber Cloud-Provider",
+            label_en="AI processing via cloud provider",
+            description_de=(
+                "Erlaubt die Verarbeitung deiner KI-Anfragen ueber einen externen Cloud-Provider "
+                "(z. B. Anthropic, OpenAI) statt lokal (Ollama). Cloud-Provider koennen eine "
+                "Drittland-Datenuebermittlung bedeuten. Nur erforderlich, wenn ein Cloud-Provider "
+                "aktiv gewaehlt wird — der lokale Standard-Provider benoetigt diese Einwilligung "
+                "nicht. Jederzeit widerrufbar."
+            ),
+            description_en=(
+                "Allows your AI requests to be processed by an external cloud provider "
+                "(e.g. Anthropic, OpenAI) instead of locally (Ollama). Cloud providers may involve "
+                "a third-country data transfer. Only required when a cloud provider is actively "
+                "selected — the local default provider needs no such consent. Revocable at "
+                "any time."
+            ),
+            legal_basis="Art. 6(1)(a) GDPR — consent",
+            required=False,
+        ),
+        ConsentPurpose(
             key="plant_diagnosis",
             label_de="KI-Krankheitsdiagnose (Bilderkennung)",
             label_en="AI disease diagnosis (image recognition)",
