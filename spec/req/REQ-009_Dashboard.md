@@ -147,6 +147,8 @@ REQ-009 v2.0 wurde vor mehreren jüngeren Specs erstellt (REQ-021 Erfahrungsstuf
 | KI-Daily-Tip | „TipCardsPanel" als Widget (§5) | **Konkretisiert:** `daily_tip`-Widget (REQ-031 §6.3 + ADR-002 confidence-Badge) | — | REQ-031 v2.1 spezifiziert Komponente und Verhalten |
 | CareReminder-Anzeige | implizit unter „Task Queue" | **Separates `care_reminders`-Widget** (REQ-022) | — | REQ-022 ist eigene Spec; Verzahnung explizit |
 
+**Disjunkte Kachel-Zählung (Issue #508):** Die generischen Task-Kacheln `open_tasks_today` / `overdue_tasks` / `upcoming_tasks` schließen Aufgaben mit `category == "care_reminder"` aus, damit sie und die `care_reminders_due`-Kachel überschneidungsfrei bleiben und keine Aufgabe doppelt gezählt wird.
+
 ### 1.5 Polling-Intervalle pro Widget-Typ (v1)
 
 | Widget-Kategorie | Polling-Intervall | Cache-Strategie | Begründung |

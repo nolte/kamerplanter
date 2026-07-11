@@ -109,6 +109,9 @@ Many widget panels are also destinations: outside of edit mode, clicking a panel
 | Active plants | Overview of your active plants. |
 | Setup progress | Your progress through initial setup (only shown while onboarding is incomplete). |
 
+!!! note "Tasks today and Care reminders never overlap"
+    Both tiles never double-count the same task: **Care reminders** shows only tasks in the "care reminder" category, while **Tasks today** shows all other due and overdue tasks.
+
 ### Insights
 
 | Widget | Description |
