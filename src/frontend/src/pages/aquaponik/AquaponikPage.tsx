@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -13,25 +14,20 @@ import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
 import Divider from '@mui/material/Divider';
 import Stack from '@mui/material/Stack';
-import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import ScienceIcon from '@mui/icons-material/Science';
 import SetMealIcon from '@mui/icons-material/SetMeal';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
-import { useApiError } from '@/hooks/useApiError';
-import * as api from '@/api/endpoints/aquaponik';
-import type {
-  AquaponicSystem,
-  CyclingProgress,
-  CyclingStatus,
-  FishStock,
-  WaterQualityEvaluation,
-  WaterQualitySeverity,
-} from '@/api/types';
+import { useAquaponicSystems } from '@/hooks/useAquaponicSystems';
+import type { CyclingStatus, WaterQualitySeverity } from '@/api/types';
 import AquaponicSystemDialog from './AquaponicSystemDialog';
 import WaterTestDialog from './WaterTestDialog';
 
@@ -49,68 +45,31 @@ const severityColor: Record<WaterQualitySeverity, ChipProps['color']> = {
   critical: 'error',
 };
 
-interface SystemDetail {
-  cycling: CyclingProgress | null;
-  waterQuality: WaterQualityEvaluation[];
-  stocks: FishStock[];
-}
+// UI-NFR-002 R-018: severity is never conveyed by color alone — every chip
+// also carries a distinct icon so colorblind users can tell states apart.
+const severityIcon: Record<WaterQualitySeverity, ReactElement> = {
+  ok: <CheckCircleOutlineIcon />,
+  info: <InfoOutlinedIcon />,
+  warning: <WarningAmberIcon />,
+  critical: <ErrorOutlineIcon />,
+};
 
 export default function AquaponikPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
-  const { handleError } = useApiError();
+  const {
+    systems,
+    loading,
+    selectedKey,
+    selectSystem,
+    detail,
+    detailLoading,
+    reloadSystems,
+    reloadDetail,
+  } = useAquaponicSystems();
 
-  const [systems, setSystems] = useState<AquaponicSystem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [detail, setDetail] = useState<SystemDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [systemDialogOpen, setSystemDialogOpen] = useState(false);
   const [waterTestDialogOpen, setWaterTestDialogOpen] = useState(false);
-
-  const loadSystems = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.listSystems();
-      setSystems(data);
-      if (data.length > 0) {
-        setSelectedKey((prev) => prev ?? data[0].key);
-      }
-    } catch (error) {
-      handleError(error);
-    } finally {
-      setLoading(false);
-    }
-  }, [handleError]);
-
-  const loadDetail = useCallback(
-    async (key: string) => {
-      setDetailLoading(true);
-      try {
-        const [cycling, waterQuality, stocks] = await Promise.all([
-          api.getCyclingProgress(key),
-          api.getWaterQualityStatus(key),
-          api.listStocks(key),
-        ]);
-        setDetail({ cycling, waterQuality, stocks });
-      } catch (error) {
-        handleError(error);
-      } finally {
-        setDetailLoading(false);
-      }
-    },
-    [handleError],
-  );
-
-  useEffect(() => {
-    void loadSystems();
-  }, [loadSystems]);
-
-  useEffect(() => {
-    if (selectedKey) {
-      void loadDetail(selectedKey);
-    }
-  }, [selectedKey, loadDetail]);
 
   const selectedSystem = useMemo(
     () => systems.find((s) => s.key === selectedKey) ?? null,
@@ -120,16 +79,19 @@ export default function AquaponikPage() {
   const handleSystemCreated = useCallback(() => {
     setSystemDialogOpen(false);
     notification.success(t('pages.aquaponik.systemCreated'));
-    void loadSystems();
-  }, [notification, t, loadSystems]);
+    reloadSystems();
+  }, [notification, t, reloadSystems]);
 
   const handleWaterTestRecorded = useCallback(() => {
     setWaterTestDialogOpen(false);
     notification.success(t('pages.aquaponik.waterTestRecorded'));
-    if (selectedKey) {
-      void loadDetail(selectedKey);
-    }
-  }, [notification, t, selectedKey, loadDetail]);
+    reloadDetail();
+  }, [notification, t, reloadDetail]);
+
+  // Backend messages/descriptions come bilingually (`_de`/`_en`); pick the
+  // one matching the active UI language instead of hard-coding German
+  // (UI-NFR-007 — same convention as SubstrateDetailPage, CalendarPage etc.).
+  const isEnglish = i18n.language?.startsWith('en') ?? false;
 
   const criticalAlerts = useMemo(
     () => detail?.waterQuality.filter((e) => e.severity === 'critical') ?? [],
@@ -175,7 +137,7 @@ export default function AquaponikPage() {
                   variant={system.key === selectedKey ? 'elevation' : 'outlined'}
                   data-testid={`system-card-${system.key}`}
                 >
-                  <CardActionArea onClick={() => setSelectedKey(system.key)}>
+                  <CardActionArea onClick={() => selectSystem(system.key)}>
                     <CardContent>
                       <Box
                         sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 1 }}
@@ -234,34 +196,37 @@ export default function AquaponikPage() {
                     <>
                       {criticalAlerts.length > 0 && (
                         <Alert severity="error" sx={{ mb: 2 }} data-testid="critical-alert">
-                          {criticalAlerts.map((a) => a.message_de).join(' ')}
+                          {criticalAlerts.length === 1 ? (
+                            isEnglish ? criticalAlerts[0].message_en : criticalAlerts[0].message_de
+                          ) : (
+                            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                              {criticalAlerts.map((a, idx) => (
+                                <li key={`${a.parameter}-${idx}`}>
+                                  {isEnglish ? a.message_en : a.message_de}
+                                </li>
+                              ))}
+                            </Box>
+                          )}
                         </Alert>
                       )}
 
                       {detail?.cycling && (
                         <Box sx={{ mb: 3 }}>
-                          <Box
-                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}
-                          >
+                          <HelpTooltip term="biofilter_cycling" placement="right">
                             <Typography variant="subtitle2">
                               {t('pages.aquaponik.cyclingProgress')}
                             </Typography>
-                            <Tooltip title={t('pages.aquaponik.cyclingHelp')}>
-                              <InfoOutlinedIcon
-                                fontSize="small"
-                                color="action"
-                                aria-label={t('pages.aquaponik.cyclingHelp')}
-                              />
-                            </Tooltip>
-                          </Box>
+                          </HelpTooltip>
                           <LinearProgress
                             variant="determinate"
                             value={detail.cycling.progress_percent}
-                            sx={{ height: 8, borderRadius: 1, mb: 0.5 }}
+                            sx={{ height: 8, borderRadius: 1, mb: 0.5, mt: 0.5 }}
                           />
                           <Typography variant="body2" color="text.secondary">
                             {detail.cycling.progress_percent}% ·{' '}
-                            {detail.cycling.phase_description_de}
+                            {isEnglish
+                              ? detail.cycling.phase_description_en
+                              : detail.cycling.phase_description_de}
                           </Typography>
                         </Box>
                       )}
@@ -284,6 +249,7 @@ export default function AquaponikPage() {
                           {detail?.waterQuality.map((e, idx) => (
                             <Chip
                               key={`${e.parameter}-${idx}`}
+                              icon={severityIcon[e.severity]}
                               label={`${t(`pages.aquaponik.params.${e.parameter}`, e.parameter)}: ${e.value}`}
                               color={severityColor[e.severity]}
                               size="small"

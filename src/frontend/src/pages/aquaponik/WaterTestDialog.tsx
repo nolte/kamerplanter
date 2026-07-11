@@ -4,6 +4,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,9 +16,15 @@ import FormTextField from '@/components/form/FormTextField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/aquaponik';
 import type { WaterTestSource } from '@/api/types';
+
+// UI-NFR-008 R-042/R-046: fields with fachbegriffe (Ammoniak/TAN, Nitrit,
+// Nitrat, pH, Karbonathärte, Gelöstsauerstoff) get a HelpTooltip next to
+// them; this keeps the field and its info icon visually as one unit.
+const fieldWithHelpSx = { display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 } as const;
 
 const sources: WaterTestSource[] = ['manual', 'sensor', 'test_kit'];
 
@@ -91,22 +100,58 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+            {t('pages.aquaponik.sectionNitrogenCycle')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('pages.aquaponik.sectionNitrogenCycleIntro')}
+          </Typography>
           <FormRow>
-            <FormNumberField name="ph" control={control} label={t('pages.aquaponik.params.ph')} step="any" min={0} max={14} required autoFocus />
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField name="ammonia_tan_mgl" control={control} label={t('pages.aquaponik.params.ammonia_tan')} step="any" min={0} suffix="mg/L" required autoFocus />
+              <HelpTooltip term="ammonia_tan" iconOnly />
+            </Box>
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField name="nitrite_mgl" control={control} label={t('pages.aquaponik.params.nitrite')} step="any" min={0} suffix="mg/L" required />
+              <HelpTooltip term="nitrite" iconOnly />
+            </Box>
+          </FormRow>
+          <FormRow>
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField name="nitrate_mgl" control={control} label={t('pages.aquaponik.params.nitrate')} step="any" min={0} suffix="mg/L" required />
+              <HelpTooltip term="nitrate" iconOnly />
+            </Box>
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField name="ph" control={control} label={t('pages.aquaponik.params.ph')} step="any" min={0} max={14} required />
+              <HelpTooltip term="ph" iconOnly />
+            </Box>
+          </FormRow>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+            {t('pages.aquaponik.sectionOtherWaterValues')}
+          </Typography>
+          <FormRow>
             <FormNumberField name="temperature_c" control={control} label={t('pages.aquaponik.params.temperature')} step="any" suffix="°C" required />
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField name="dissolved_oxygen_mgl" control={control} label={t('pages.aquaponik.params.dissolved_oxygen')} step="any" min={0} suffix="mg/L" />
+              <HelpTooltip term="dissolved_oxygen" iconOnly />
+            </Box>
           </FormRow>
           <FormRow>
-            <FormNumberField name="ammonia_tan_mgl" control={control} label={t('pages.aquaponik.params.ammonia_tan')} step="any" min={0} suffix="mg/L" required />
-            <FormNumberField name="nitrite_mgl" control={control} label={t('pages.aquaponik.params.nitrite')} step="any" min={0} suffix="mg/L" required />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="nitrate_mgl" control={control} label={t('pages.aquaponik.params.nitrate')} step="any" min={0} suffix="mg/L" required />
-            <FormNumberField name="dissolved_oxygen_mgl" control={control} label={t('pages.aquaponik.params.dissolved_oxygen')} step="any" min={0} suffix="mg/L" />
-          </FormRow>
-          <FormRow>
-            <FormNumberField name="kh_dh" control={control} label={t('pages.aquaponik.params.kh')} step="any" min={0} suffix="°dH" />
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField name="kh_dh" control={control} label={t('pages.aquaponik.params.kh')} step="any" min={0} suffix="°dH" />
+              <HelpTooltip term="alkalinity" iconOnly />
+            </Box>
             <FormNumberField name="iron_ppm" control={control} label={t('pages.aquaponik.params.iron')} step="any" min={0} suffix="ppm" />
           </FormRow>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+            {t('pages.aquaponik.sectionMetadata')}
+          </Typography>
           <FormSelectField
             name="source"
             control={control}

@@ -459,11 +459,17 @@
       "emptyDescription": "Lege dein erstes Fisch-Pflanzen-Kreislaufsystem an, um Wasserwerte und Fischbestand zu überwachen.",
       "recordWaterTest": "Wassertest erfassen",
       "cyclingProgress": "Biofilter-Einfahrfortschritt",
-      "cyclingHelp": "Der Biofilter muss eingefahren (cycling) werden, bevor Fische in voller Besatzdichte eingesetzt werden. Nitrifikationsbakterien benötigen 4–8 Wochen. Als eingefahren gilt der Filter nach 7 aufeinanderfolgenden Tagen mit TAN unter 0,25 mg/L und Nitrit unter 0,1 mg/L.",
       "waterQuality": "Wasserqualität",
       "noWaterData": "Noch keine Wassertests erfasst.",
       "fishStocks": "Fischbestand",
       "noStocks": "Noch kein Fischbestand angelegt.",
+      "sectionBasics": "Grunddaten",
+      "sectionOperations": "Biofilter & Betrieb",
+      "sectionOperationsIntro": "Legt fest, wie das System den Stickstoffkreislauf verarbeitet und in welchem pH-Bereich es betrieben werden soll.",
+      "sectionNitrogenCycle": "Stickstoffkreislauf",
+      "sectionNitrogenCycleIntro": "Diese Werte entscheiden über die Sicherheit deiner Fische — Ammoniak und Nitrit sind giftig und sollten nach dem Einfahren bei 0 liegen.",
+      "sectionOtherWaterValues": "Weitere Wasserwerte",
+      "sectionMetadata": "Sonstiges",
       "fields": {
         "name": "Name",
         "systemType": "Systemtyp",
@@ -5328,6 +5334,40 @@
       "short": "Natürliche Fressfeinde von Schädlingen",
       "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
       "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
+    },
+    "ammonia_tan": {
+      "short": "Ammoniak/Ammonium (TAN) — giftiger Fischabfall, muss niedrig bleiben",
+      "long": "TAN (Total Ammonia Nitrogen) ist die Summe aus giftigem, freiem Ammoniak (NH₃) und ungiftigem Ammonium (NH₄⁺). Fische scheiden es über die Kiemen aus, die Biofilterbakterien wandeln es zu Nitrit um. Hohe TAN-Werte sind lebensgefährlich für Fische — besonders bei hohem pH und hoher Temperatur, weil dann mehr davon als giftiges freies Ammoniak vorliegt.",
+      "beginnerTip": "Besonders in den ersten Wochen (Cycling-Phase) und nach starker Fütterung regelmäßig testen. Bei erhöhten Werten sofort teilweise Wasser wechseln und weniger füttern.",
+      "unit": "mg/L",
+      "typicalRange": "0–0,5 mg/L (0 nach dem Einfahren)"
+    },
+    "nitrite": {
+      "short": "Nitrit (NO₂⁻) — giftiges Zwischenprodukt des Stickstoffkreislaufs",
+      "long": "Nitrit entsteht, wenn Biofilterbakterien Ammoniak abbauen. Es ist für Fische giftig, weil es die Sauerstoffaufnahme im Blut blockiert. Eine zweite Bakteriengruppe wandelt Nitrit weiter zu ungiftigerem Nitrat um — bis diese Gruppe aktiv ist, treten während des Einfahrens typische Nitrit-Spitzen auf.",
+      "beginnerTip": "Eine Nitrit-Spitze in Woche 3–5 des Cyclings ist normal. Bei erhöhten Werten Fütterung reduzieren und teilweisen Wasserwechsel durchführen.",
+      "unit": "mg/L",
+      "typicalRange": "0–0,1 mg/L (0 nach dem Einfahren)"
+    },
+    "nitrate": {
+      "short": "Nitrat (NO₃⁻) — Endprodukt des Stickstoffkreislaufs, Pflanzendünger",
+      "long": "Nitrat ist das ungiftige Endprodukt des Stickstoffkreislaufs und für die Pflanzen im System der wichtigste Stickstoff-Nährstoff. Steigende Nitratwerte bei gleichzeitig niedrigem Ammoniak und Nitrit zeigen, dass der Biofilter zuverlässig arbeitet.",
+      "beginnerTip": "Steigt Nitrat kontinuierlich, ohne dass Ammoniak oder Nitrit auffällig sind, ist das ein gutes Zeichen — der Kreislauf funktioniert.",
+      "unit": "mg/L",
+      "typicalRange": "5–150 mg/L (systemabhängig)"
+    },
+    "dissolved_oxygen": {
+      "short": "Gelöstsauerstoff — Sauerstoffgehalt im Wasser, den Fische atmen",
+      "long": "Fische und die nitrifizierenden Biofilterbakterien benötigen gelösten Sauerstoff im Wasser. Warmes Wasser hält weniger Sauerstoff als kaltes, deshalb ist Belüftung besonders bei hoher Temperatur und hoher Fischdichte wichtig.",
+      "beginnerTip": "Faustregel: Über 5 mg/L ist meist unbedenklich. Ein sichtbar sprudelnder Luftausströmer sorgt in der Regel für ausreichend Sauerstoff.",
+      "unit": "mg/L",
+      "typicalRange": "5–9 mg/L"
+    },
+    "biofilter_cycling": {
+      "short": "Einfahren des Biofilters — Aufbau der nützlichen Bakterienkultur",
+      "long": "Bevor Fische in voller Besatzdichte einziehen können, muss sich im Biofilter eine Bakterienkultur aufbauen, die Ammoniak zu Nitrit und weiter zu Nitrat umwandelt. Dieser Prozess dauert 4–8 Wochen. Als eingefahren gilt der Filter nach 7 aufeinanderfolgenden Tagen mit TAN unter 0,25 mg/L und Nitrit unter 0,1 mg/L.",
+      "beginnerTip": "Während des Einfahrens nur wenige, robuste Fische einsetzen oder fischlos mit reinem Ammoniak starten. Wasserwerte in dieser Phase engmaschig kontrollieren.",
+      "typicalRange": "4–8 Wochen"
     }
   },
   "dashboard": {

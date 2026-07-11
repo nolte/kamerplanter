@@ -4,6 +4,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -13,10 +16,13 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/aquaponik';
 import type { AquaponicSystemType, BiofilterType } from '@/api/types';
+
+const fieldWithHelpSx = { display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 } as const;
 
 const systemTypes: AquaponicSystemType[] = [
   'media_bed',
@@ -124,6 +130,9 @@ export default function AquaponicSystemDialog({ open, onClose, onCreated }: Prop
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+            {t('pages.aquaponik.sectionBasics')}
+          </Typography>
           <FormTextField name="name" control={control} label={t('pages.aquaponik.fields.name')} required autoFocus />
           <FormSelectField
             name="system_type"
@@ -155,6 +164,15 @@ export default function AquaponicSystemDialog({ open, onClose, onCreated }: Prop
               required
             />
           </FormRow>
+
+          <Divider sx={{ my: 2 }} />
+
+          <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+            {t('pages.aquaponik.sectionOperations')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('pages.aquaponik.sectionOperationsIntro')}
+          </Typography>
           <FormSelectField
             name="biofilter_type"
             control={control}
@@ -174,14 +192,17 @@ export default function AquaponicSystemDialog({ open, onClose, onCreated }: Prop
             suffix="g"
           />
           <FormRow>
-            <FormNumberField
-              name="ph_target_min"
-              control={control}
-              label={t('pages.aquaponik.fields.phTargetMin')}
-              step="any"
-              min={5}
-              max={9}
-            />
+            <Box sx={fieldWithHelpSx}>
+              <FormNumberField
+                name="ph_target_min"
+                control={control}
+                label={t('pages.aquaponik.fields.phTargetMin')}
+                step="any"
+                min={5}
+                max={9}
+              />
+              <HelpTooltip term="ph" iconOnly />
+            </Box>
             <FormNumberField
               name="ph_target_max"
               control={control}
