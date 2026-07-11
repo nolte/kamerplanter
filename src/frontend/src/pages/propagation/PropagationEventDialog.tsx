@@ -1,21 +1,29 @@
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormTextField from '@/components/form/FormTextField';
+import FormChipInput from '@/components/form/FormChipInput';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/propagation';
-import type { PropagationEventMethod } from '@/api/types';
+import * as speciesApi from '@/api/endpoints/species';
+import type { PropagationEventMethod, Species } from '@/api/types';
 
 const methods: PropagationEventMethod[] = [
   'seed',
@@ -27,18 +35,6 @@ const methods: PropagationEventMethod[] = [
   'offset',
   'other',
 ];
-
-/** Comma-separated plant keys → trimmed, de-duplicated list. */
-function parseKeys(raw: string): string[] {
-  return Array.from(
-    new Set(
-      raw
-        .split(',')
-        .map((k) => k.trim())
-        .filter(Boolean),
-    ),
-  );
-}
 
 const schema = z.object({
   method: z.enum([
@@ -52,8 +48,8 @@ const schema = z.object({
     'other',
   ]),
   quantity: z.number().int().min(1).max(1000),
-  parent_plant_keys: z.string(),
-  child_plant_keys: z.string(),
+  parent_plant_keys: z.array(z.string()),
+  child_plant_keys: z.array(z.string()),
   species_key: z.string(),
   notes: z.string().nullable(),
 });
@@ -72,11 +68,14 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { handleError } = useApiError();
 
+  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [speciesLoading, setSpeciesLoading] = useState(false);
+
   const defaults: FormData = {
     method: 'cutting',
     quantity: 1,
-    parent_plant_keys: '',
-    child_plant_keys: '',
+    parent_plant_keys: [],
+    child_plant_keys: [],
     species_key: '',
     notes: null,
   };
@@ -89,13 +88,29 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
     formState: { isDirty, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
 
+  const method = useWatch({ control, name: 'method' });
+  const isGraft = method === 'graft';
+
+  // Species options are fetched once per dialog opening — small, global reference
+  // data that changes rarely, so a single page is a pragmatic MVP fetch (mirrors
+  // PlantInstanceCreateDialog's pattern).
+  useEffect(() => {
+    if (!open) return;
+    setSpeciesLoading(true);
+    speciesApi
+      .listSpecies(0, 200)
+      .then((r) => setSpeciesList(r.items))
+      .catch(() => setSpeciesList([]))
+      .finally(() => setSpeciesLoading(false));
+  }, [open]);
+
   const onSubmit = async (data: FormData) => {
     try {
       await api.createPropagationEvent({
         method: data.method,
         quantity: data.quantity,
-        parent_plant_keys: parseKeys(data.parent_plant_keys),
-        child_plant_keys: parseKeys(data.child_plant_keys),
+        parent_plant_keys: data.parent_plant_keys,
+        child_plant_keys: data.child_plant_keys,
         species_key: data.species_key.trim() || null,
         notes: data.notes,
       });
@@ -117,6 +132,15 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <Typography variant="subtitle2">
+              {t('pages.propagation.fields.sectionWhat')}
+            </Typography>
+            <HelpTooltip term="vermehrung" iconOnly />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('pages.propagation.fields.sectionWhatIntro')}
+          </Typography>
           <FormRow>
             <FormSelectField
               name="method"
@@ -137,22 +161,48 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
               required
             />
           </FormRow>
-          <FormTextField
+          <SpeciesAutocompleteField
             name="species_key"
             control={control}
             label={t('pages.propagation.fields.speciesKey')}
-            helperText={t('pages.propagation.fields.speciesKeyHelper')}
+            species={speciesList}
+            disabled={speciesLoading}
+            helperText={
+              speciesLoading
+                ? t('pages.propagation.fields.speciesLoading')
+                : t('pages.propagation.fields.speciesKeyHelper')
+            }
           />
-          <FormTextField
+
+          <Divider sx={{ my: 2 }} />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+            <Typography variant="subtitle2">
+              {t('pages.propagation.fields.sectionPlants')}
+            </Typography>
+            {isGraft && <HelpTooltip term="veredelung" iconOnly />}
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('pages.propagation.fields.sectionPlantsIntro')}
+          </Typography>
+          <FormChipInput
             name="parent_plant_keys"
             control={control}
-            label={t('pages.propagation.fields.parentKeys')}
+            label={
+              isGraft
+                ? t('pages.propagation.fields.parentKeysGraft')
+                : t('pages.propagation.fields.parentKeys')
+            }
             helperText={t('pages.propagation.fields.keysHelper')}
           />
-          <FormTextField
+          <FormChipInput
             name="child_plant_keys"
             control={control}
-            label={t('pages.propagation.fields.childKeys')}
+            label={
+              isGraft
+                ? t('pages.propagation.fields.childKeysGraft')
+                : t('pages.propagation.fields.childKeys')
+            }
             helperText={t('pages.propagation.fields.keysHelper')}
           />
           <FormTextField

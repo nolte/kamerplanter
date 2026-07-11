@@ -13,9 +13,12 @@ import PageTitle from '@/components/layout/PageTitle';
 import DataTable from '@/components/common/DataTable';
 import type { Column } from '@/components/common/DataTable';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import MobileCard from '@/components/common/MobileCard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { usePropagationEvents } from '@/hooks/usePropagationEvents';
 import type { PropagationEvent, PropagationEventStatus } from '@/api/types';
+import { formatDate } from '@/utils/formatting';
 import PropagationEventDialog from './PropagationEventDialog';
 import LineagePanel from './LineagePanel';
 
@@ -46,11 +49,18 @@ export default function PropagationPage(): ReactElement {
       {
         id: 'method',
         label: t('pages.propagation.fields.method'),
-        render: (row) => t(`enums.propagationEventMethod.${row.method}`),
+        searchValue: (row) => t(`enums.propagationEventMethod.${row.method}`),
+        render: (row) => (
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+            <span>{t(`enums.propagationEventMethod.${row.method}`)}</span>
+            <HelpTooltip term="vermehrung" iconOnly />
+          </Box>
+        ),
       },
       {
         id: 'status',
         label: t('pages.propagation.fields.status'),
+        searchValue: (row) => t(`enums.propagationEventStatus.${row.status}`),
         render: (row) => (
           <Chip
             size="small"
@@ -79,6 +89,12 @@ export default function PropagationPage(): ReactElement {
         render: (row) =>
           row.success_rate == null ? '—' : `${Math.round(row.success_rate * 100)} %`,
       },
+      {
+        id: 'happenedAt',
+        label: t('pages.propagation.fields.happenedAt'),
+        hideBelowBreakpoint: 'md',
+        render: (row) => formatDate(row.happened_at),
+      },
     ],
     [t],
   );
@@ -93,6 +109,7 @@ export default function PropagationPage(): ReactElement {
             startIcon={<AddIcon />}
             onClick={() => setDialogOpen(true)}
             data-testid="create-event-button"
+            sx={{ minHeight: 48 }}
           >
             {t('pages.propagation.createEvent')}
           </Button>
@@ -126,6 +143,36 @@ export default function PropagationPage(): ReactElement {
             emptyDescription={t('pages.propagation.emptyDescription')}
             emptyActionLabel={t('pages.propagation.createEvent')}
             onEmptyAction={() => setDialogOpen(true)}
+            mobileCardRenderer={(row) => (
+              <MobileCard
+                title={t(`enums.propagationEventMethod.${row.method}`)}
+                subtitle={formatDate(row.happened_at)}
+                chips={
+                  <Chip
+                    size="small"
+                    label={t(`enums.propagationEventStatus.${row.status}`)}
+                    color={statusColor[row.status]}
+                  />
+                }
+                fields={[
+                  { label: t('pages.propagation.fields.quantity'), value: row.quantity },
+                  {
+                    label: t('pages.propagation.fields.survived'),
+                    value:
+                      row.survived_count == null
+                        ? '—'
+                        : `${row.survived_count} / ${row.quantity}`,
+                  },
+                  {
+                    label: t('pages.propagation.fields.successRate'),
+                    value:
+                      row.success_rate == null
+                        ? '—'
+                        : `${Math.round(row.success_rate * 100)} %`,
+                  },
+                ]}
+              />
+            )}
           />
         ))}
 

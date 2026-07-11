@@ -8,6 +8,7 @@ import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
@@ -15,6 +16,9 @@ import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/propagation';
 import type {
@@ -25,6 +29,12 @@ import type {
 } from '@/api/types';
 
 const levelColor: Record<GraftCompatibilityLevel, ChipProps['color']> = {
+  compatible: 'success',
+  possibly_compatible: 'warning',
+  incompatible: 'error',
+};
+
+const alertSeverity: Record<GraftCompatibilityLevel, 'success' | 'warning' | 'error'> = {
   compatible: 'success',
   possibly_compatible: 'warning',
   incompatible: 'error',
@@ -86,17 +96,26 @@ export default function LineagePanel(): ReactElement {
       <Grid size={{ xs: 12, md: 6 }}>
         <Card variant="outlined">
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <AccountTreeIcon fontSize="small" color="action" />
               <Typography variant="h6" component="h2">
                 {t('pages.propagation.lineage.title')}
               </Typography>
+              <HelpTooltip term="abstammung" iconOnly />
             </Box>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pages.propagation.lineage.intro')}
+            </Typography>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1}
+              sx={{ mb: 0.5, alignItems: { xs: 'stretch', sm: 'flex-start' } }}
+            >
               <TextField
                 fullWidth
                 size="small"
                 label={t('pages.propagation.lineage.plantKey')}
+                helperText={t('pages.propagation.lineage.plantKeyHelper')}
                 value={plantKey}
                 onChange={(e) => setPlantKey(e.target.value)}
                 slotProps={{ htmlInput: { 'data-testid': 'lineage-plant-key' } }}
@@ -105,14 +124,22 @@ export default function LineagePanel(): ReactElement {
                 variant="contained"
                 onClick={handleTrace}
                 disabled={!plantKey.trim() || lineageLoading}
+                startIcon={lineageLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
                 data-testid="trace-button"
+                sx={{ minHeight: 48, flexShrink: 0 }}
               >
                 {t('pages.propagation.lineage.trace')}
               </Button>
             </Stack>
 
+            {!lineage && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                {t('pages.propagation.lineage.hint')}
+              </Typography>
+            )}
+
             {lineage && (
-              <Box data-testid="lineage-result">
+              <Box data-testid="lineage-result" sx={{ mt: 2 }}>
                 <Typography variant="subtitle2">
                   {t('pages.propagation.lineage.ancestors')}
                 </Typography>
@@ -161,16 +188,17 @@ export default function LineagePanel(): ReactElement {
       <Grid size={{ xs: 12, md: 6 }}>
         <Card variant="outlined">
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
               <CompareArrowsIcon fontSize="small" color="action" />
               <Typography variant="h6" component="h2">
                 {t('pages.propagation.graft.title')}
               </Typography>
+              <HelpTooltip term="veredelung" iconOnly />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.propagation.graft.intro')}
             </Typography>
-            <Stack spacing={1} sx={{ mb: 2 }}>
+            <Stack spacing={1.5} sx={{ mb: 0.5 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -191,22 +219,73 @@ export default function LineagePanel(): ReactElement {
                 variant="contained"
                 onClick={handleGraftCheck}
                 disabled={!scionKey.trim() || !rootstockKey.trim() || graftLoading}
+                startIcon={graftLoading ? <CircularProgress size={16} color="inherit" /> : undefined}
                 data-testid="graft-check-button"
+                sx={{ minHeight: 48, alignSelf: 'flex-start' }}
               >
                 {t('pages.propagation.graft.check')}
               </Button>
             </Stack>
 
+            {!graft && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                {t('pages.propagation.graft.hint')}
+              </Typography>
+            )}
+
             {graft && (
-              <Box data-testid="graft-result">
+              <Box data-testid="graft-result" sx={{ mt: 2 }}>
                 <Chip
                   label={t(`enums.graftCompatibilityLevel.${graft.level}`)}
                   color={levelColor[graft.level]}
                   sx={{ mb: 1 }}
                 />
-                <Alert severity={graft.compatible ? 'success' : 'warning'}>
+                <Alert severity={alertSeverity[graft.level]} sx={{ mb: 1.5 }}>
                   {graft.message}
                 </Alert>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {t('pages.propagation.graft.speciesLine', {
+                    scion: graft.scion_species_key,
+                    rootstock: graft.rootstock_species_key,
+                  })}
+                </Typography>
+                <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    icon={
+                      graft.same_genus ? (
+                        <CheckCircleIcon />
+                      ) : (
+                        <HighlightOffIcon />
+                      )
+                    }
+                    color={graft.same_genus ? 'success' : 'default'}
+                    label={
+                      graft.same_genus
+                        ? t('pages.propagation.graft.sameGenus')
+                        : t('pages.propagation.graft.differentGenus')
+                    }
+                  />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    icon={
+                      graft.same_family ? (
+                        <CheckCircleIcon />
+                      ) : (
+                        <HighlightOffIcon />
+                      )
+                    }
+                    color={graft.same_family ? 'success' : 'default'}
+                    label={
+                      graft.same_family
+                        ? t('pages.propagation.graft.sameFamily')
+                        : t('pages.propagation.graft.differentFamily')
+                    }
+                  />
+                  <HelpTooltip term="gattung_familie" iconOnly />
+                </Stack>
               </Box>
             )}
           </CardContent>

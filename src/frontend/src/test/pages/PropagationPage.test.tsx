@@ -78,19 +78,21 @@ describe('PropagationPage', () => {
     const speciesInput = within(dialog)
       .getByTestId('form-field-species_key')
       .querySelector('input') as HTMLInputElement;
-    await user.type(speciesInput, 'ocimum_basilicum');
-    await user.type(
-      within(dialog)
-        .getByTestId('form-field-parent_plant_keys')
-        .querySelector('input') as HTMLInputElement,
-      'mother-1, mother-1',
-    );
+    await user.type(speciesInput, 'Tomato');
+    await user.click(await screen.findByRole('option', { name: /Tomato/ }));
+
+    const parentInput = within(dialog)
+      .getByTestId('form-field-parent_plant_keys')
+      .querySelector('input') as HTMLInputElement;
+    await user.type(parentInput, 'mother-1{Enter}');
+    await user.type(parentInput, 'mother-1{Enter}'); // de-duplicated by FormChipInput
+
     await user.click(within(dialog).getByTestId('form-submit-button'));
 
     await waitFor(() => expect(created).toHaveBeenCalled());
     expect(created.mock.calls[0][0]).toMatchObject({
       method: 'cutting',
-      species_key: 'ocimum_basilicum',
+      species_key: 'sp-1',
       parent_plant_keys: ['mother-1'], // de-duplicated
     });
   });
@@ -216,7 +218,11 @@ describe('PropagationPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('graft-result')).toBeInTheDocument(),
     );
-    expect(screen.getByText('Kompatibel')).toBeInTheDocument();
-    expect(screen.getByText(/Gleiche Gattung/)).toBeInTheDocument();
+    const result = within(screen.getByTestId('graft-result'));
+    expect(result.getByText('Kompatibel')).toBeInTheDocument();
+    expect(result.getByText(/Gleiche Gattung \(Solanum\)/)).toBeInTheDocument();
+    // same-genus / same-family indicator chips (UI-NFR-011 taxonomy tooltip)
+    expect(result.getByText('Gleiche Gattung')).toBeInTheDocument();
+    expect(result.getByText('Gleiche Familie')).toBeInTheDocument();
   });
 });
