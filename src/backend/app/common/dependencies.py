@@ -784,6 +784,12 @@ def get_weather_source_config_repo():
     return ArangoWeatherSourceConfigRepository(get_db())
 
 
+def get_climate_normal_repo():
+    from app.data_access.arango.climate_normal_repository import ArangoClimateNormalRepository
+
+    return ArangoClimateNormalRepository(get_db())
+
+
 def get_weather_settings_service():
     from app.domain.services.weather_settings_service import WeatherSettingsService
 
@@ -814,6 +820,7 @@ def get_weather_source_service():
         resolver=resolver,
         ha_client_factory=get_ha_client,
         weather_settings_provider=_effective_weather_settings,
+        climate_normal_repo=get_climate_normal_repo(),
     )
 
 

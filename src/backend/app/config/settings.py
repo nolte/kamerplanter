@@ -218,6 +218,22 @@ class Settings(BaseSettings):
     weather_fetch_timeout_s: int = 20
     weather_max_rps_per_provider: float = 1.0
 
+    # REQ-041 NASA POWER — global, keyless reanalysis source for daily values and
+    # long-term climate normals (power.larc.nasa.gov). CC-BY-4.0 / US-public-domain
+    # (attribution requested; see ``weather_attributions.py`` + NOTICE.md).
+    nasa_power_base_url: str = "https://power.larc.nasa.gov/api/temporal"
+    #: NASA POWER daily values lag real time (quality control); skip the most
+    #: recent ``latency`` days and fetch a ``days_back`` look-back window ending
+    #: there. Both are configurable so a slow-to-publish region can widen them.
+    nasa_power_data_latency_days: int = 7
+    nasa_power_daily_days_back: int = 14
+    #: Climate normals are near-static, so a fetched record is re-pulled only after
+    #: this TTL — keeps the monthly beat idempotent and NASA POWER un-hammered.
+    nasa_power_climate_ttl_days: int = 180
+    #: Kill-switch for the monthly ``fetch_climate_normals`` beat (independent of
+    #: the daily-forecast ``weather_enabled`` switch; both must be on to run).
+    nasa_power_climate_enabled: bool = True
+
     # REQ-047 Season & overwintering automation — transition thresholds (°C) and
     # the hysteresis window; SEASON_STATE_EVAL_ENABLED is the Celery kill-switch.
     season_pre_winter_temp_c: float = 5.0

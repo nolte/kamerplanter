@@ -62,12 +62,18 @@ class WeatherForecast(BaseModel):
 
 
 class ClimateNormal(BaseModel):
-    """Minimal foundation model; REQ-041 (NASA POWER) owns and extends the full
-    :class:`ClimateNormal` schema.
+    """Long-term monthly climate normals for a site (REQ-041 §2.2).
 
-    Only the fields required by the REQ-046 adapter contract
-    (``fetch_climate_normals``) are defined here so downstream requirements can
-    grow the schema without a second, competing model.
+    REQ-046 introduced the minimal foundation (``monthly_temp_min_c`` /
+    ``monthly_temp_max_c`` / ``coldest_month_min_c``) so the adapter contract
+    (``fetch_climate_normals``) could compile; REQ-041 (NASA POWER) owns the full
+    schema and extends it here **additively** — every REQ-041 field carries a
+    default so existing REQ-046 records stay valid and no migration backfill is
+    required.
+
+    All ``monthly_*`` lists hold twelve values (January … December) once a source
+    has populated them; the coarse foundation lists may be empty for a record that
+    predates a fully-populating adapter.
     """
 
     key: str | None = Field(default=None, alias="_key")
@@ -78,6 +84,19 @@ class ClimateNormal(BaseModel):
     monthly_temp_min_c: list[float] = Field(default_factory=list)
     monthly_temp_max_c: list[float] = Field(default_factory=list)
     coldest_month_min_c: float | None = None
+    # ── REQ-041 additive full schema (defaults keep REQ-046 records valid) ──
+    #: Stable business id (``<site_key>:<source>``) so a record is addressable
+    #: independent of the ArangoDB ``_key``.
+    climate_normal_id: str = ""
+    #: The reanalysis reference period the normals were averaged over (e.g.
+    #: 2001–2020 for NASA POWER), or ``None`` when the source does not report it.
+    period_start_year: int | None = None
+    period_end_year: int | None = None
+    monthly_temp_avg_c: list[float] = Field(default_factory=list)
+    monthly_precip_mm: list[float] = Field(default_factory=list)
+    monthly_solar_mj_m2: list[float] = Field(default_factory=list)
+    annual_temp_avg_c: float | None = None
+    annual_precip_mm: float | None = None
 
     model_config = {"populate_by_name": True}
 

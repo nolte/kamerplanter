@@ -1590,6 +1590,23 @@
       "noSuccessors": "No successor families defined yet.",
       "selectFamilyHint": "Please select a family to view crop rotation recommendations."
     },
+    "siteDetail": {
+      "climate": {
+        "title": "Climate at this site",
+        "description": "Long-term monthly climate normals for this site — a reference for sowing, irrigation and overwintering. These are historical, model-derived averages (reanalysis), not a forecast.",
+        "period": "Reference period: {{period}}",
+        "empty": "No climate normals are available for this site yet. They are fetched monthly in the background for sites with GPS coordinates and will appear here afterwards.",
+        "loadError": "The climate normals could not be loaded right now.",
+        "month": "Month",
+        "tempAvg": "Avg. temperature",
+        "tempMin": "Min. temperature",
+        "precip": "Precipitation",
+        "solar": "Solar radiation",
+        "tableLabel": "Monthly climate normals",
+        "annual": "Annual mean: {{temp}} °C, annual precipitation: {{precip}} mm.",
+        "sourceLabel": "Data source"
+      }
+    },
     "sites": {
       "title": "Sites",
       "intro": "Sites are your growing areas – greenhouses, rooms, gardens, or balconies. Each site contains locations (tents, beds, shelves) that you can expand and manage here.",
