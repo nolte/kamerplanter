@@ -154,6 +154,16 @@ class PostHarvestService:
         batch = self.get_batch(key, tenant_key)
         start_weight = batch.start_weight_g or current_weight_g
 
+        # A current weight above the starting weight is invalid input (the batch
+        # can only lose water while drying). Reject it as 422 here — mirroring the
+        # ``advance_stage`` guard — instead of letting the calculator raise a bare
+        # ValueError that would surface as an opaque 500 (NFR-006, SEC-002).
+        if current_weight_g > start_weight:
+            raise ValidationError(
+                "current_weight_g cannot exceed the batch start weight "
+                f"({start_weight} g): a drying batch only loses weight."
+            )
+
         report = drying_calculator.calculate_dryness_progress(
             start_weight,
             current_weight_g,

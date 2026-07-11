@@ -298,6 +298,14 @@ class TestDryingProgressRollup:
         assert refreshed.dryness_progress_percent > 0
         assert refreshed.snap_test_passed is True
 
+    def test_current_weight_above_start_weight_is_validation_error(self):
+        # SEC-002: a weight above the start weight is invalid input → 422
+        # (ValidationError), not a bare calculator ValueError surfacing as 500.
+        service, _ = _service()
+        batch = service.start_drying(TENANT, "hb_1")  # start weight 450 g
+        with pytest.raises(ValidationError):
+            service.record_drying_progress(batch.key, TENANT, 600.0)
+
 
 class TestObservationsAndMoldAlerts:
     def test_high_rh_observation_raises_mold_alert(self):

@@ -1,8 +1,11 @@
 """REQ-008 Post-Harvest tenant-scoped router.
 
 Mounted under ``/t/{tenant_slug}`` — every endpoint requires authentication and
-tenant membership (REQ-023/024). All post-harvest data is tenant-scoped; the
-service enforces ownership on each batch, so no query can cross tenants.
+tenant membership (REQ-023/024). Reads accept any membership
+(``get_current_tenant``); writes require at least the ``grower`` role
+(``require_tenant_role`` — REQ-024 viewer is read-only), and the destructive
+delete stays admin-only. All post-harvest data is tenant-scoped; the service
+enforces ownership on each batch, so no query can cross tenants.
 """
 
 from fastapi import APIRouter, Depends, Query
@@ -84,7 +87,7 @@ def list_batches(
 @router.post("/start-drying", response_model=PostHarvestBatchResponse, status_code=201)
 def start_drying(
     body: StartDryingRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     """Take a HarvestBatch into post-harvest tracking at stage ``drying``."""
@@ -120,7 +123,7 @@ def get_batch(
 def advance_stage(
     key: str,
     body: AdvanceStageRequest,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     """Advance a batch to the next stage (forward-only; 422 on invalid step)."""
@@ -133,7 +136,7 @@ def advance_stage(
 def record_drying_progress(
     key: str,
     body: DryingProgressCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     created = service.record_drying_progress(
@@ -161,7 +164,7 @@ def list_drying_progress(
 def record_observation(
     key: str,
     body: ObservationCreate,
-    ctx: TenantContext = Depends(get_current_tenant),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
     observation = StorageObservation(
