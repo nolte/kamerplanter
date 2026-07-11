@@ -450,7 +450,8 @@
     },
     "tenantData": {
       "label": "Nutzt deine Pflanzendaten",
-      "tooltip": "Diese Antwort wurde auf Basis der Stammwerte deiner Pflanze erzeugt (Art, Phase, Substrat, EC/pH). Es werden keine Namen oder Freitext-Notizen übermittelt."
+      "tooltip": "Diese Antwort wurde auf Basis der Stammwerte deiner Pflanze erzeugt (Art, Phase, Substrat, EC/pH). Es werden keine Namen oder Freitext-Notizen übermittelt.",
+      "link": "Datenschutz-Einstellungen öffnen"
     },
     "cloud": {
       "label": "Cloud-Verarbeitung",
@@ -482,7 +483,8 @@
       "title": "Warum diese Empfehlung?",
       "thinking": "KI denkt nach …",
       "error": "Die Erklärung konnte nicht geladen werden. Bitte versuche es erneut.",
-      "follow": "Dieser Empfehlung folgen"
+      "follow": "Dieser Empfehlung folgen",
+      "retry": "Erneut versuchen"
     },
     "chat": {
       "title": "KI-Chat",
@@ -490,8 +492,16 @@
       "placeholder": "Deine Frage …",
       "inputLabel": "Nachricht",
       "send": "Senden",
+      "cancel": "Antwort abbrechen",
+      "aborted": "Antwort abgebrochen.",
       "thinking": "KI denkt nach …",
-      "error": "Die Antwort konnte nicht geladen werden."
+      "error": "Die Antwort konnte nicht geladen werden.",
+      "retry": "Erneut versuchen"
+    },
+    "errors": {
+      "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
+      "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
+      "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
     }
   },
   "pages": {

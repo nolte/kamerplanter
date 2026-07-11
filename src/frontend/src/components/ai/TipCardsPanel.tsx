@@ -92,6 +92,7 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
           startIcon={<RefreshIcon />}
           onClick={() => void load(true)}
           disabled={loading}
+          sx={{ minHeight: 48 }}
           data-testid="tip-cards-refresh"
         >
           {t('ai.tips.refresh')}

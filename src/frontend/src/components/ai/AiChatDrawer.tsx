@@ -3,14 +3,23 @@ import { useTranslation } from 'react-i18next';
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import SendIcon from '@mui/icons-material/Send';
+import StopIcon from '@mui/icons-material/Stop';
 import AIResponse from './AIResponse';
+import { resolveAiErrorMessage } from './aiErrorMessage';
 import { aiApi } from '@/api';
 import type { AiConversationSummary, AiResponse as AiResponseData } from '@/api/types';
+
+// UI-NFR-001 R-011: 48x48 touch target on mobile/tablet for the send/cancel
+// icon button; R-013 allows the desktop reduction to a compact 32px.
+const TOUCH_TARGET_SX = { minWidth: { xs: 48, sm: 32 }, minHeight: { xs: 48, sm: 32 } } as const;
 
 export interface AiChatDrawerProps {
   open: boolean;
@@ -31,6 +40,10 @@ interface ChatBubble {
  *
  * Startet lazy eine Konversation, streamt Antworten Token-fuer-Token und rendert
  * Assistant-Bubbles durch die `<AIResponse>`-Huelle. Online-only (UI-NFR-012).
+ * Ein Fehlschlag beim Konversationsaufbau (KI deaktiviert / Consent fehlt)
+ * wird als Alert mit Retry-Aktion angezeigt statt das Eingabefeld stumm
+ * dauerhaft zu deaktivieren. Waehrend des Streamings ersetzt ein
+ * Abbrechen-Button den Senden-Button.
  */
 export default function AiChatDrawer({
   open,
@@ -40,6 +53,8 @@ export default function AiChatDrawer({
 }: AiChatDrawerProps) {
   const { t, i18n } = useTranslation();
   const [conversation, setConversation] = useState<AiConversationSummary | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [initPending, setInitPending] = useState(false);
   const [bubbles, setBubbles] = useState<ChatBubble[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -47,19 +62,39 @@ export default function AiChatDrawer({
 
   const language = i18n.language.startsWith('en') ? 'en' : 'de';
 
+  // Bumped by the "retry" button in the init-error state so the conversation
+  // can be (re-)created without closing and reopening the drawer.
+  const [initRetryToken, setInitRetryToken] = useState(0);
+  const retryInit = useCallback(() => setInitRetryToken((n) => n + 1), []);
+
   useEffect(() => {
     if (!open || conversation) return;
     let active = true;
+    setInitPending(true);
+    setInitError(null);
     aiApi
       .createConversation(contextType, contextKey, language)
       .then((created) => {
         if (active) setConversation(created);
       })
-      .catch(() => undefined);
+      .catch((err) => {
+        // A silently-swallowed failure here would leave the input disabled
+        // forever with no explanation (dead end) — surface it instead, with a
+        // retry action, distinguishing "KI disabled"/"consent missing" from a
+        // generic failure.
+        if (active) setInitError(resolveAiErrorMessage(err, t, t('ai.chat.error')));
+      })
+      .finally(() => {
+        if (active) setInitPending(false);
+      });
     return () => {
       active = false;
     };
-  }, [open, conversation, contextType, contextKey, language]);
+    // contextType/contextKey/language are stable inputs to this drawer
+    // instance; re-run only on open, a successful reset (`conversation`
+    // cleared) or an explicit retry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, conversation, initRetryToken]);
 
   useEffect(
     () => () => {
@@ -109,12 +144,20 @@ export default function AiChatDrawer({
         language,
         controller.signal,
       );
-    } catch {
+    } catch (err) {
+      // A user-triggered abort (Stop button / drawer unmount) is not a
+      // failure — only replace the placeholder with an error message when no
+      // tokens arrived yet; a partially streamed answer is kept as-is either
+      // way (REQ-031 §6.5 does not require discarding a partial answer).
+      const aborted = err instanceof DOMException && err.name === 'AbortError';
       setBubbles((prev) => {
         const next = [...prev];
         const last = next[next.length - 1];
         if (last && last.role === 'assistant' && last.text === '') {
-          next[next.length - 1] = { ...last, text: t('ai.chat.error') };
+          next[next.length - 1] = {
+            ...last,
+            text: aborted ? t('ai.chat.aborted') : resolveAiErrorMessage(err, t, t('ai.chat.error')),
+          };
         }
         return next;
       });
@@ -122,6 +165,10 @@ export default function AiChatDrawer({
       setStreaming(false);
     }
   }, [input, conversation, streaming, language, t]);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} data-testid="ai-chat-drawer">
@@ -134,8 +181,36 @@ export default function AiChatDrawer({
           {t('ai.chat.title')}
         </Typography>
 
-        <Stack spacing={1.5} sx={{ flex: 1, overflowY: 'auto', mb: 2 }}>
-          {bubbles.length === 0 && (
+        {initError && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            data-testid="ai-chat-init-error"
+            action={
+              <Button color="inherit" size="small" onClick={retryInit} data-testid="ai-chat-init-retry">
+                {t('ai.chat.retry')}
+              </Button>
+            }
+          >
+            {initError}
+          </Alert>
+        )}
+
+        <Stack
+          spacing={1.5}
+          sx={{ flex: 1, overflowY: 'auto', mb: 2 }}
+          aria-live="polite"
+          aria-atomic="false"
+        >
+          {initPending && (
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }} data-testid="ai-chat-init-loading">
+              <CircularProgress size={16} />
+              <Typography variant="body2" color="text.secondary">
+                {t('ai.chat.thinking')}
+              </Typography>
+            </Stack>
+          )}
+          {bubbles.length === 0 && !initPending && !initError && (
             <Typography variant="body2" color="text.secondary">
               {t('ai.chat.empty')}
             </Typography>
@@ -192,15 +267,28 @@ export default function AiChatDrawer({
             disabled={streaming || !conversation}
             data-testid="ai-chat-input"
           />
-          <IconButton
-            color="primary"
-            onClick={() => void handleSend()}
-            disabled={streaming || !input.trim() || !conversation}
-            aria-label={t('ai.chat.send')}
-            data-testid="ai-chat-send"
-          >
-            <SendIcon />
-          </IconButton>
+          {streaming ? (
+            <IconButton
+              color="error"
+              onClick={handleCancel}
+              aria-label={t('ai.chat.cancel')}
+              data-testid="ai-chat-cancel"
+              sx={TOUCH_TARGET_SX}
+            >
+              <StopIcon />
+            </IconButton>
+          ) : (
+            <IconButton
+              color="primary"
+              onClick={() => void handleSend()}
+              disabled={!input.trim() || !conversation}
+              aria-label={t('ai.chat.send')}
+              data-testid="ai-chat-send"
+              sx={TOUCH_TARGET_SX}
+            >
+              <SendIcon />
+            </IconButton>
+          )}
         </Stack>
       </Box>
     </Drawer>

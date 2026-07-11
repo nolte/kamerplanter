@@ -11,6 +11,7 @@ import ChatIcon from '@mui/icons-material/Chat';
 import PageTitle from '@/components/layout/PageTitle';
 import AIResponse from '@/components/ai/AIResponse';
 import AiChatDrawer from '@/components/ai/AiChatDrawer';
+import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
 import { aiApi } from '@/api';
 import { isLightMode } from '@/config/mode';
 import type { AiResponse as AiResponseData } from '@/api/types';
@@ -27,7 +28,7 @@ export default function KIAssistentPage() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<AiResponseData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
 
   const language = i18n.language.startsWith('en') ? 'en' : 'de';
@@ -36,17 +37,17 @@ export default function KIAssistentPage() {
     const trimmed = question.trim();
     if (trimmed.length < 3 || loading) return;
     setLoading(true);
-    setError(false);
+    setError(null);
     setAnswer(null);
     try {
       const result = await aiApi.publicAsk(trimmed, language);
       setAnswer(result);
-    } catch {
-      setError(true);
+    } catch (err) {
+      setError(resolveAiErrorMessage(err, t, t('pages.kiAssistent.error')));
     } finally {
       setLoading(false);
     }
-  }, [question, loading, language]);
+  }, [question, loading, language, t]);
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }} data-testid="ki-assistent-page">
@@ -58,6 +59,7 @@ export default function KIAssistentPage() {
               variant="outlined"
               startIcon={<ChatIcon />}
               onClick={() => setChatOpen(true)}
+              sx={{ minHeight: 48 }}
               data-testid="open-chat-button"
             >
               {t('pages.kiAssistent.openChat')}
@@ -95,6 +97,7 @@ export default function KIAssistentPage() {
               variant="contained"
               onClick={() => void handleAsk()}
               disabled={loading || question.trim().length < 3}
+              sx={{ minHeight: 48 }}
               data-testid="ki-ask-button"
             >
               {t('pages.kiAssistent.ask')}
@@ -111,8 +114,8 @@ export default function KIAssistentPage() {
           )}
 
           {error && (
-            <Typography variant="body2" color="error" data-testid="ki-ask-error">
-              {t('pages.kiAssistent.error')}
+            <Typography variant="body2" color="error" role="alert" data-testid="ki-ask-error">
+              {error}
             </Typography>
           )}
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import AIResponse from './AIResponse';
+import { resolveAiErrorMessage } from './aiErrorMessage';
 import { aiApi } from '@/api';
 import type { AiExplainRequest, AiResponse as AiResponseData } from '@/api/types';
 
@@ -28,13 +29,20 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
   const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<AiResponseData | null>(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Bumped by the retry button to re-run the load effect below without
+  // requiring the drawer to be closed and reopened first (avoids a dead end
+  // when the KI feature is disabled/un-consented at the moment the drawer
+  // first opens but gets enabled while it stays open).
+  const [retryToken, setRetryToken] = useState(0);
+
+  const retry = useCallback(() => setRetryToken((n) => n + 1), []);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
     setLoading(true);
-    setError(false);
+    setError(null);
     setAnswer(null);
     const run = async () => {
       try {
@@ -43,8 +51,8 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
           language: i18n.language.startsWith('en') ? 'en' : 'de',
         });
         if (active) setAnswer(result);
-      } catch {
-        if (active) setError(true);
+      } catch (err) {
+        if (active) setError(resolveAiErrorMessage(err, t, t('ai.why.error')));
       } finally {
         if (active) setLoading(false);
       }
@@ -53,9 +61,10 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
     return () => {
       active = false;
     };
-    // request identity is stable per open; re-run only when the drawer opens.
+    // request identity is stable per open; re-run only when the drawer opens
+    // or the retry button bumps `retryToken`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, retryToken]);
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} data-testid="why-drawer">
@@ -74,9 +83,20 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
         )}
 
         {error && (
-          <Typography variant="body2" color="error" sx={{ py: 2 }} data-testid="why-error">
-            {t('ai.why.error')}
-          </Typography>
+          <Stack spacing={1} sx={{ py: 2 }} role="alert">
+            <Typography variant="body2" color="error" data-testid="why-error">
+              {error}
+            </Typography>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={retry}
+              sx={{ alignSelf: 'flex-start', minHeight: 48 }}
+              data-testid="why-retry"
+            >
+              {t('ai.why.retry')}
+            </Button>
+          </Stack>
         )}
 
         {answer && (
@@ -97,11 +117,13 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
 
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
           {onFollow && answer && (
-            <Button variant="contained" onClick={onFollow}>
+            <Button variant="contained" onClick={onFollow} sx={{ minHeight: 48 }}>
               {t('ai.why.follow')}
             </Button>
           )}
-          <Button onClick={onClose}>{t('common.close')}</Button>
+          <Button onClick={onClose} sx={{ minHeight: 48 }}>
+            {t('common.close')}
+          </Button>
         </Stack>
       </Box>
     </Drawer>

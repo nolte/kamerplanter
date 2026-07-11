@@ -6,6 +6,11 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutlined';
 import WhyDrawer from './WhyDrawer';
 import type { AiExplainRequest } from '@/api/types';
 
+// UI-NFR-001 R-011: 48x48 touch target on mobile/tablet, MUI's small
+// IconButton default hit area (~30px) falls short there. R-013 allows the
+// desktop reduction back to a compact 32px once mouse input dominates.
+const TOUCH_TARGET_SX = { minWidth: { xs: 48, sm: 32 }, minHeight: { xs: 48, sm: 32 } } as const;
+
 export interface WhyButtonProps {
   /** The explain request describing the recommendation to justify. */
   request: AiExplainRequest;
@@ -35,6 +40,7 @@ export default function WhyButton({ request, onFollow, 'data-testid': dataTestId
           onClick={() => setOpen(true)}
           aria-label={t('ai.why.tooltip')}
           data-testid={dataTestId ?? 'why-button'}
+          sx={TOUCH_TARGET_SX}
         >
           <HelpOutlineIcon fontSize="small" />
         </IconButton>

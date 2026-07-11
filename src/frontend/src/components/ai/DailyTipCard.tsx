@@ -12,6 +12,9 @@ import type { AiTipCard } from '@/api/types';
 
 const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
 
+// UI-NFR-001 R-011: 48x48 touch target on mobile/tablet.
+const TOUCH_TARGET_SX = { minWidth: { xs: 48, sm: 32 }, minHeight: { xs: 48, sm: 32 } } as const;
+
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -81,7 +84,7 @@ export default function DailyTipCard() {
           size="small"
           onClick={handleDismiss}
           aria-label={t('ai.dailyTip.dismiss')}
-          sx={{ position: 'absolute', top: 8, right: 8 }}
+          sx={{ position: 'absolute', top: 8, right: 8, ...TOUCH_TARGET_SX }}
           data-testid="daily-tip-dismiss"
         >
           <CloseIcon fontSize="small" />

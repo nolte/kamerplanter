@@ -450,7 +450,8 @@
     },
     "tenantData": {
       "label": "Uses your plant data",
-      "tooltip": "This answer was generated from your plant's master values (species, phase, substrate, EC/pH). No names or free-text notes are transmitted."
+      "tooltip": "This answer was generated from your plant's master values (species, phase, substrate, EC/pH). No names or free-text notes are transmitted.",
+      "link": "Open privacy settings"
     },
     "cloud": {
       "label": "Cloud processing",
@@ -482,7 +483,8 @@
       "title": "Why this recommendation?",
       "thinking": "AI is thinking …",
       "error": "The explanation could not be loaded. Please try again.",
-      "follow": "Follow this recommendation"
+      "follow": "Follow this recommendation",
+      "retry": "Try again"
     },
     "chat": {
       "title": "AI chat",
@@ -490,8 +492,16 @@
       "placeholder": "Your question …",
       "inputLabel": "Message",
       "send": "Send",
+      "cancel": "Cancel answer",
+      "aborted": "Answer cancelled.",
       "thinking": "AI is thinking …",
-      "error": "The answer could not be loaded."
+      "error": "The answer could not be loaded.",
+      "retry": "Try again"
+    },
+    "errors": {
+      "disabled": "The AI features are currently disabled for this garden. An administrator can enable them in the tenant settings.",
+      "consentRequired": "This AI feature requires your consent to use your plant data. You can grant it in the privacy settings.",
+      "consentRequiredLink": "Go to privacy settings"
     }
   },
   "pages": {

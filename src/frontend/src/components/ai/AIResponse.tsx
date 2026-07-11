@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Chip from '@mui/material/Chip';
@@ -45,10 +46,11 @@ export interface AIResponseProps {
  * REQ-031 §6.1 — Pflicht-Huelle fuer ALLE KI-generierten Inhalte.
  *
  * Rendert das sichtbare KI-Labeling (Badge + Modell-Tooltip), den
- * Tenant-Daten-Indikator, den Cloud-Provider-Indikator, das Confidence-Badge
- * (ADR-002), den aufklappbaren Quellen-Footer (erfahrungsstufen-abhaengig
- * vor-/zugeklappt) und den Disclaimer. KI-Inhalte ohne diese Huelle werden im
- * Code-Review abgelehnt.
+ * Tenant-Daten-Indikator (klickbar, verlinkt auf `/privacy` — §6.1), den
+ * Cloud-Provider-Indikator, das Confidence-Badge (ADR-002), den
+ * aufklappbaren Quellen-Footer (erfahrungsstufen-abhaengig vor-/zugeklappt)
+ * und den Disclaimer. KI-Inhalte ohne diese Huelle werden im Code-Review
+ * abgelehnt.
  */
 export default function AIResponse({
   children,
@@ -65,6 +67,7 @@ export default function AIResponse({
 }: AIResponseProps) {
   const { t } = useTranslation();
   const { level } = useExpertiseLevel();
+  const navigate = useNavigate();
 
   // Expert-Nutzer sehen die Quellen per Default ausgeklappt (REQ-021 §6.1).
   const sourcesDefaultExpanded = useMemo(() => level === 'expert', [level]);
@@ -90,13 +93,15 @@ export default function AIResponse({
         </Tooltip>
 
         {usesTenantData && (
-          <Tooltip title={t('ai.tenantData.tooltip')}>
+          <Tooltip title={`${t('ai.tenantData.tooltip')} ${t('ai.tenantData.link')}`}>
             <Chip
               size="small"
               color="info"
               variant="outlined"
+              clickable
               icon={<PersonOutlineIcon />}
               label={t('ai.tenantData.label')}
+              onClick={() => navigate('/privacy')}
               data-testid="ai-tenant-data-indicator"
             />
           </Tooltip>
