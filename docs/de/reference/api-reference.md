@@ -571,3 +571,65 @@ Setzt `user_overridden` auf `false` zurück und materialisiert das Profil erneut
 - [Überwinterung — Benutzerhandbuch](../user-guide/overwintering.md)
 - [Umgebungsvariablen — Saison- & Überwinterungs-Automatik](environment-variables.md#saison-uberwinterungs-automatik)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Pflanzenerkennung: Referenzbild-Beitrag (Self-Hosted-Erkennung)
+
+Beim Anlegen einer Pflanze aus einer Foto-Identifikation heraus kann ein Nutzer das Identifikationsfoto optional als Trainingsreferenz für die selbst-gehostete DINOv2-Erkennung beitragen (siehe [Foto der neuen Pflanze zuordnen — Benutzerhandbuch](../user-guide/plant-identification.md#foto-der-neuen-pflanze-zuordnen)). <!-- Issue #447 -->
+
+```
+POST /api/v1/t/{tenant_slug}/identification/reference
+```
+
+Erfordert ein gültiges JWT-Token und mindestens die Mandanten-Rolle **grower**. Nur verfügbar, wenn die selbst-gehostete DINOv2-Erkennung aktiv ist (`INFERENCE_SERVICE_ENABLED=true`) — der externe Pl@ntNet-Pfad besitzt keinen lokalen Referenz-Index.
+
+**Request-Body:** `multipart/form-data`
+
+| Feld | Typ | Pflicht | Beschreibung |
+|------|-----|---------|-------------|
+| `image` | file | Ja | JPEG- oder PNG-Bild, maximal `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
+| `species_key` | string | Ja | Aufgelöster Art-Schlüssel, dem das Referenzbild zugeordnet wird |
+
+!!! note "Kein `scientific_name`-Feld"
+    Der Endpunkt erwartet **kein** Formularfeld `scientific_name`. Der wissenschaftliche Name wird serverseitig aus dem `species_key`-Datensatz abgeleitet; ein trotzdem mitgesendeter Wert wird ignoriert.
+
+**Response (202 Accepted):** `ReferenceContributionResponse`
+
+```json
+{
+  "accepted": true,
+  "pending_review": true,
+  "species_key": "species/123",
+  "dim": 768
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `accepted` | boolean | Ob der Beitrag angenommen und indexiert wurde |
+| `pending_review` | boolean | `true`, solange der Beitrag **quarantiert** ist (`is_active=false`) und noch nicht in die aktive Erkennung anderer Nutzer einfließt. Wird erst nach Freigabe durch einen Platform-Admin `false`. |
+| `species_key` | string | Der Art-Schlüssel, dem das Referenzbild zugeordnet wurde |
+| `dim` | integer \| null | Dimensionalität des berechneten Embedding-Vektors |
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb **grower** (z. B. **viewer**) |
+| `404` | `species_key` verweist auf keine bekannte Art |
+| `409` | Selbst-gehostete Erkennung ist nicht aktiviert (`INFERENCE_SERVICE_ENABLED=false`) |
+| `413` | Bild überschreitet `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
+| `415` | `Content-Type` ist weder `image/jpeg` noch `image/png` |
+| `422` | Bild lässt sich nicht dekodieren (beschädigt oder kein gültiges Bildformat) |
+| `429` | Tages-Kontingent für Beiträge (`REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY`) ausgeschöpft |
+
+!!! note "Sicherheitsmodell (Quarantäne, Provenienz, Dedup)"
+    Jeder Beitrag wird mit `source="user_contributed"`, `is_active=false` sowie beitragendem Nutzer und Mandant als Provenienz gespeichert — er beeinflusst die Erkennung anderer Mandanten daher nicht, bevor ein Platform-Admin ihn geprüft hat. Ein erneuter Beitrag desselben Fotos (SHA-256-Hash des normalisierten Bilds) aktualisiert den bestehenden Eintrag statt einen weiteren anzulegen. Das Originalbild selbst wird nie persistiert — nur das Embedding.
+
+### Siehe auch
+
+- [Pflanze per Foto identifizieren — Benutzerhandbuch: Foto der neuen Pflanze zuordnen](../user-guide/plant-identification.md#foto-der-neuen-pflanze-zuordnen)
+- [Referenzbilder kuratieren — Benutzerhandbuch](../user-guide/reference-image-curation.md)
+- [Umgebungsvariablen — Foto-Identifikation](environment-variables.md#foto-identifikation-req-029)
+- [Fehlerbehandlung](../api/error-handling.md)

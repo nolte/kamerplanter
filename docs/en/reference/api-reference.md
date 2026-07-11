@@ -571,3 +571,65 @@ Resets `user_overridden` to `false` and re-materialises the profile fully from t
 - [Overwintering — User Guide](../user-guide/overwintering.md)
 - [Environment Variables — Season & Overwintering Automation](environment-variables.md#season-overwintering-automation)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## Plant Identification: Reference Image Contribution (Self-Hosted Recognition)
+
+When creating a plant from a photo identification, a user can optionally contribute the identification photo as a training reference for the self-hosted DINOv2 recognition (see [Assigning the Photo to the New Plant — User Guide](../user-guide/plant-identification.md#assigning-the-photo-to-the-new-plant)). <!-- Issue #447 -->
+
+```
+POST /api/v1/t/{tenant_slug}/identification/reference
+```
+
+Requires a valid JWT token and at least the tenant role **grower**. Only available when self-hosted DINOv2 recognition is active (`INFERENCE_SERVICE_ENABLED=true`) — the external Pl@ntNet path has no local reference index.
+
+**Request Body:** `multipart/form-data`
+
+| Field | Type | Required | Description |
+|-------|------|----------|--------------|
+| `image` | file | Yes | JPEG or PNG image, maximum `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
+| `species_key` | string | Yes | Resolved species key the reference image is attached to |
+
+!!! note "No `scientific_name` field"
+    The endpoint does **not** expect a `scientific_name` form field. The scientific name is derived server-side from the `species_key` record; any value sent alongside it is ignored.
+
+**Response (202 Accepted):** `ReferenceContributionResponse`
+
+```json
+{
+  "accepted": true,
+  "pending_review": true,
+  "species_key": "species/123",
+  "dim": 768
+}
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `accepted` | boolean | Whether the contribution was accepted and indexed |
+| `pending_review` | boolean | `true` while the contribution is **quarantined** (`is_active=false`) and does not yet affect other users' active recognition. Becomes `false` only after a platform admin approves it. |
+| `species_key` | string | The species key the reference image was attached to |
+| `dim` | integer \| null | Dimensionality of the computed embedding vector |
+
+**Error Codes:**
+
+| HTTP Status | Meaning |
+|-------------|---------|
+| `403` | Active tenant role below **grower** (e.g. **viewer**) |
+| `404` | `species_key` does not reference a known species |
+| `409` | Self-hosted recognition is not enabled (`INFERENCE_SERVICE_ENABLED=false`) |
+| `413` | Image exceeds `IDENTIFICATION_MAX_IMAGE_SIZE_MB` |
+| `415` | `Content-Type` is neither `image/jpeg` nor `image/png` |
+| `422` | Image cannot be decoded (corrupt or not a valid image format) |
+| `429` | Daily contribution quota (`REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY`) exhausted |
+
+!!! note "Security model (quarantine, provenance, dedup)"
+    Every contribution is stored with `source="user_contributed"`, `is_active=false`, and the contributing user and tenant as provenance — it therefore does not affect other tenants' recognition until a platform admin has reviewed it. Re-submitting the same photo (SHA-256 hash of the normalized image) updates the existing row instead of creating another one. The original image itself is never persisted — only the embedding.
+
+### See Also
+
+- [Identify a Plant by Photo — User Guide: Assigning the Photo to the New Plant](../user-guide/plant-identification.md#assigning-the-photo-to-the-new-plant)
+- [Curating Reference Images — User Guide](../user-guide/reference-image-curation.md)
+- [Environment Variables — Photo Identification](environment-variables.md#photo-identification-req-029)
+- [Error Handling](../api/error-handling.md)

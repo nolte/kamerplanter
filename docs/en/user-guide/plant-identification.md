@@ -130,6 +130,18 @@ If the recognised species is unknown to the system, you see the notice "This spe
 
 ---
 
+## Assigning the Photo to the New Plant
+
+The plant-creation form — whether reached via **Add this plant** or **Add species and plant** — shows an **Identification Photo** section with a preview of the photo you just took and two switches:
+
+- **Reuse photo as gallery image** (**on** by default): The photo is added as the first image in the new plant's [photo gallery](plant-photos.md) right after creation. If you don't want this, just turn the switch off before clicking **Save**.
+- **Use as recognition reference** (**off** by default): This switch only appears if your instance uses [self-hosted recognition with DINOv2](#self-hosted-recognition-with-dinov2). Turning it on additionally adds your photo to the recognition base of the confirmed species — helping future photo identifications of that species, including for other users of your instance. <!-- Issue #447 -->
+
+!!! note "Your contribution only takes effect after review"
+    A contributed photo does **not** immediately change the recognition results. It first enters a review queue (quarantine) and only becomes active once a platform admin has reviewed and approved it — similar to [reference image curation](reference-image-curation.md). Contributing requires the same minimum role as creating plants ([Grower](tenants.md#roles-and-permissions) or Admin) and is subject to a daily per-user contribution limit to prevent abuse of the reference index. The original photo itself is never stored permanently — only a feature vector computed from it.
+
+---
+
 ## Identification History
 
 You can view all your previous photo identifications:
