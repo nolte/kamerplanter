@@ -169,8 +169,15 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
               m: 0,
             }}
           >
-            <HeaderIcon color="primary" fontSize="small" aria-hidden="true" />
-            {widgetLabel}
+            <HeaderIcon color="primary" fontSize="small" aria-hidden="true" sx={{ flexShrink: 0 }} />
+            {/* `minWidth: 0` + `overflowWrap: 'break-word'` let a long, hyphen-less
+                German compound label (e.g. "Pflegeerinnerungen") wrap mid-word
+                instead of overflowing the card, where MUI Card's `overflow: hidden`
+                would clip it right under the edit-mode kebab menu (WidgetFrame,
+                top-right corner). */}
+            <Box component="span" sx={{ minWidth: 0, overflowWrap: 'break-word' }}>
+              {widgetLabel}
+            </Box>
             {glossaryTerm && <HelpTooltip term={glossaryTerm} iconOnly />}
           </Typography>
           {/* Panel-level "open list" affordance (#461). The whole-panel link
