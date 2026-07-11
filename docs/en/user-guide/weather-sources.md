@@ -1,6 +1,6 @@
 # Weather Sources per Location
 
-For every outdoor or greenhouse site, you decide where Kamerplanter gets its weather data from: a public weather service or your own Home Assistant installation. You can add several sources and prioritize them, so that if your preferred source becomes unavailable, another one automatically takes over. <!-- REQ-046 -->
+For every outdoor, greenhouse, or balcony site, you decide where Kamerplanter gets its weather data from: a public weather service or your own Home Assistant installation. You can add several sources and prioritize them, so that if your preferred source becomes unavailable, another one automatically takes over. <!-- REQ-046 -->
 
 !!! tip "Forecast and Frost Early-Warning on the Dashboard"
     Once you've set up at least one source here, the "Weather forecast" dashboard widget shows the fetched daily forecast directly (minimum/maximum temperature per day, including the [provenance label](#understanding-weather-data-provenance)) — and proactively warns you when a frost night is expected within the forecast window. See [Dashboard: Weather Forecast and Frost Early-Warning](dashboard.md#weather-forecast-and-frost-early-warning) and [Notifications: Frost Early-Warning](notifications.md#frost-early-warning) for details. <!-- REQ-046 -->
@@ -9,7 +9,7 @@ For every outdoor or greenhouse site, you decide where Kamerplanter gets its wea
 
 ## Prerequisites
 
-- A site with the **type** **Outdoor** or **Greenhouse** — you set the type directly in the site form (see [Locations & Substrates](locations-substrates.md#filling-in-basic-data)). For the other types (Indoor, Windowsill, Balcony, Grow Tent) the "Weather Source" section doesn't appear, since you already measure there via [sensors](sensors.md) or Home Assistant.
+- A site with the **type** **Outdoor**, **Greenhouse**, or **Balcony** — you set the type directly in the site form (see [Locations & Substrates](locations-substrates.md#filling-in-basic-data)). A balcony counts as a frost-exposed outdoor location and therefore gets the same weather and frost features as Outdoor and Greenhouse. For the other types (Indoor, Windowsill, Grow Tent) the "Weather Source" section doesn't appear, since you already measure there via [sensors](sensors.md) or Home Assistant.
 - **GPS coordinates** (latitude and longitude) for this site — also editable directly in the site form. Without stored coordinates, Kamerplanter shows a hint that you first need to add the coordinates.
 - Your role in the tenant is **Grower** or **Admin** (see [Tenants & Gardens](tenants.md#roles-and-permissions)) — as a **Viewer** you can only see the configuration, not change it.
 - For the Home Assistant option, additionally: a stored Home Assistant access token (see [Home Assistant Integration](../guides/home-assistant-integration.md#setting-up-tokens)).
@@ -20,7 +20,7 @@ For every outdoor or greenhouse site, you decide where Kamerplanter gets its wea
 
 ### Step 1: Navigate to the Site
 
-Under **Locations**, open your outdoor or greenhouse site. At the end of the detail page you'll find the **Weather Source** section.
+Under **Locations**, open your outdoor, greenhouse, or balcony site. At the end of the detail page you'll find the **Weather Source** section.
 
 ### Step 2: Open "Add Source"
 
@@ -95,7 +95,7 @@ For every value, Kamerplanter shows you how it came about:
 
 ## Climate at the Site
 
-Directly below the weather sources, Kamerplanter also shows the **Climate at the Site** section for outdoor and greenhouse sites with stored GPS coordinates — twelve long-term monthly averages (**climate normals**) for average and minimum temperature, precipitation, and solar radiation, shown as a chart and as a table. <!-- REQ-041 -->
+Directly below the weather sources, Kamerplanter also shows the **Climate at the Site** section for outdoor, greenhouse, and balcony sites with stored GPS coordinates — twelve long-term monthly averages (**climate normals**) for average and minimum temperature, precipitation, and solar radiation, shown as a chart and as a table. <!-- REQ-041 -->
 
 !!! tip "What are climate normals?"
     A climate normal is neither a current reading nor a forecast — it's a long-term average, e.g. "in January, the average temperature at this location is usually around -1 °C." Values like these help with decisions that go beyond the current day: when do you usually sow at this site? How much rain typically falls in a dry summer month? Does a plant typically survive winter outdoors at this site? Climate normals are therefore a **reanalysis** — see the explanation of this provenance label above under [Understanding Weather Data Provenance](#understanding-weather-data-provenance).
@@ -124,16 +124,16 @@ The irrigation demand calculated from this weather data (evapotranspiration/ET�
     Then no new weather data is available for the site for that period. In that case, use **Test Source** to check which source is causing the error, and add an additional fallback source if needed.
 
 ??? question "Where do I see the actual weather forecast for my site?"
-    In the "Weather forecast" dashboard widget (see [Dashboard](dashboard.md#weather-forecast-and-frost-early-warning)) — it shows the daily forecast (minimum/maximum temperature, provenance label) for your first outdoor or greenhouse site with stored GPS coordinates, plus a frost early-warning whenever a frost night is expected within the forecast window. **Test Source** additionally gives you a preview of the next three days right on the setup page.
+    In the "Weather forecast" dashboard widget (see [Dashboard](dashboard.md#weather-forecast-and-frost-early-warning)) — it shows the daily forecast (minimum/maximum temperature, provenance label) for your first outdoor, greenhouse, or balcony site with stored GPS coordinates, plus a frost early-warning whenever a frost night is expected within the forecast window. **Test Source** additionally gives you a preview of the next three days right on the setup page.
 
 ??? question "Can I add the same weather service twice?"
     No, each provider can only be added once per site. If you want to compare two different perspectives, combine a public service with your Home Assistant source instead.
 
 ??? question "Why doesn't 'Climate at the Site' show any values yet?"
-    The climate normals are fetched automatically in the background once an outdoor or greenhouse site has GPS coordinates — this can take a little while after adding or updating the coordinates, since the monthly background fetch doesn't run immediately after saving. First check whether coordinates are stored; if they are, a fetch simply hasn't run yet.
+    The climate normals are fetched automatically in the background once an outdoor, greenhouse, or balcony site has GPS coordinates — this can take a little while after adding or updating the coordinates, since the monthly background fetch doesn't run immediately after saving. First check whether coordinates are stored; if they are, a fetch simply hasn't run yet.
 
 ??? question "Do I need to set up 'Climate at the Site' myself?"
-    No. It appears automatically for every outdoor or greenhouse site with stored GPS coordinates — unlike the weather forecast, you don't need to add a separate source for it.
+    No. It appears automatically for every outdoor, greenhouse, or balcony site with stored GPS coordinates — unlike the weather forecast, you don't need to add a separate source for it.
 
 ---
 
