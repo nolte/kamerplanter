@@ -12,6 +12,12 @@ export interface WidgetComponentProps {
   instanceId: string;
   widgetKey: string;
   config?: Record<string, unknown>;
+  /**
+   * True while the dashboard is in personalization/edit mode (#461). Widgets that
+   * render entity deep links (rows/tiles) must render them inert in edit mode so
+   * drag/resize and the kebab menu are never hijacked by navigation.
+   */
+  editMode?: boolean;
 }
 
 type WidgetComponent = LazyExoticComponent<ComponentType<WidgetComponentProps>>;

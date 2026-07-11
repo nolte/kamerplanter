@@ -165,6 +165,39 @@ class TestDashboardSummary:
         assert result.counts.plants_active == 9
         assert result.counts.plants_active > 0
 
+    def test_active_plants_list_surfaced_for_plant_grid(self):
+        # Issue #461: the summary exposes a newest-first list of active plants
+        # (with their _key) so the plant_grid widget can deep-link each tile.
+        rows = [{"_key": "p-1", "plant_name": "Basil", "species_key": "ocimum-basilicum"}]
+        plant_repo = MagicMock()
+        plant_repo.count_for_tenant.return_value = 1
+        plant_repo.count_active_for_tenant.return_value = 1
+        plant_repo.list_active_for_tenant.return_value = rows
+        task_repo = MagicMock()
+        task_repo.count_open_due_on.return_value = 0
+        task_repo.count_overdue.return_value = 0
+        task_repo.list_upcoming.return_value = []
+
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+        result = svc.get_summary("t-1")
+
+        assert result.active_plants == rows
+
+    def test_active_plants_section_degrades_to_empty_on_error(self):
+        plant_repo = MagicMock()
+        plant_repo.count_for_tenant.return_value = 1
+        plant_repo.count_active_for_tenant.return_value = 1
+        plant_repo.list_active_for_tenant.side_effect = RuntimeError("db down")
+        task_repo = MagicMock()
+        task_repo.count_open_due_on.return_value = 0
+        task_repo.count_overdue.return_value = 0
+        task_repo.list_upcoming.return_value = []
+
+        svc = _service(plant_repo=plant_repo, task_repo=task_repo, tank_repo=None, care_repo=None, activity_repo=None)
+        result = svc.get_summary("t-1")
+
+        assert result.active_plants == []  # one broken section never breaks the summary
+
     def test_swallows_repo_exceptions_per_section(self):
         plant_repo = MagicMock()
         plant_repo.count_for_tenant.side_effect = RuntimeError("db down")

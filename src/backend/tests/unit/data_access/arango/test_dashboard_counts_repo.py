@@ -81,6 +81,29 @@ def test_count_active_for_tenant_filters_removed_on_null() -> None:
     assert db.aql.bind_vars["tenant_key"] == "tenant-A"
 
 
+def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
+    rows = [{"_key": "p-1", "plant_name": "Basil", "species_key": "ocimum-basilicum"}]
+    db = _CapturingDb(rows)
+    repo = ArangoPlantInstanceRepository(db)  # type: ignore[arg-type]
+
+    result = repo.list_active_for_tenant("tenant-A", 8)
+
+    assert result == rows
+    q = db.aql.query or ""
+    assert "@@col" in q
+    assert "p.tenant_key == @tenant_key" in q
+    assert "p.removed_on == null" in q  # only alive plants
+    assert "SORT p.planted_on DESC" in q  # newest first
+    assert "LIMIT @limit" in q
+    # Only _key + label fields leave the query (no full document / cross-field leak).
+    assert "RETURN { _key: p._key, plant_name: p.plant_name, species_key: p.species_key }" in q
+    bv = db.aql.bind_vars or {}
+    assert bv["@col"] == "plant_instances"
+    assert bv["tenant_key"] == "tenant-A"
+    assert bv["limit"] == 8
+    assert "tenant-A" not in q  # never interpolated
+
+
 def test_plant_counts_reject_empty_tenant_key() -> None:
     db = _CapturingDb([0])
     repo = ArangoPlantInstanceRepository(db)  # type: ignore[arg-type]
@@ -89,6 +112,8 @@ def test_plant_counts_reject_empty_tenant_key() -> None:
         repo.count_for_tenant("")
     with pytest.raises(ValueError, match="tenant"):
         repo.count_active_for_tenant("")
+    with pytest.raises(ValueError, match="tenant"):
+        repo.list_active_for_tenant("", 8)
     # Guard fires before any query runs.
     assert db.aql.query is None
 
