@@ -361,7 +361,7 @@ GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
 | `monthly_temp_min_c` / `monthly_temp_max_c` / `monthly_temp_avg_c` | Liste[12] | Monatliche Tiefst-, Höchst- und Durchschnittstemperatur, Index 0 = Januar |
 | `monthly_precip_mm` | Liste[12] | Monatlicher Niederschlag in mm |
 | `monthly_solar_mj_m2` | Liste[12] | Monatliche Solarstrahlung in MJ/m² |
-| `coldest_month_min_c` | number \| null | Tiefstwert des kältesten Monats — Eingabe für die geplante Winterhärtezonen-Ableitung |
+| `coldest_month_min_c` | number \| null | Tiefstwert des kältesten Monats — Eingabe für die [automatische Winterhärtezonen-Ableitung](#winterhaertezonen-usda) |
 | `annual_temp_avg_c` / `annual_precip_mm` | number \| null | Jahresmittel bzw. Jahressumme |
 | `fetched_at` | datetime | Zeitpunkt der letzten Abholung von der Quelle |
 
@@ -372,6 +372,110 @@ GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
 
 - [Klima am Standort — Benutzerhandbuch](../user-guide/weather-sources.md#klima-am-standort)
 - [Umgebungsvariablen — Klimanormalen (NASA POWER)](environment-variables.md#klimanormalen-nasa-power)
+
+---
+
+## Winterhärtezonen (USDA) <!-- REQ-039 --> {#winterhaertezonen-usda}
+
+Automatische Ableitung der USDA-Winterhärtezone eines Standorts aus seinen [Klimanormalen](#standort-klimanormalen-nasa-power) (kälteste Monats-Tiefsttemperatur), nach dem lizenzfreien USDA-Zonenschema (26 Halbzonen `1a`–`13b`, keine proprietären USDA-/PHZM-/PRISM-Kartendaten). Ersetzt für den Ampel-Vergleich das freie Textfeld `Site.climate_zone`, das aus Kompatibilitätsgründen weiterhin mitgepflegt und automatisch synchron gehalten wird. Speist die [Winterhärte-Ampel](../user-guide/overwintering.md) mehrjähriger Pflanzen. <!-- REQ-039 -->
+
+Der globale Katalog ist Referenzdaten (wie botanische Familien) und liegt ohne Mandanten-Präfix unter `/api/v1/hardiness-zones`; die Ableitung und der Lesezugriff pro Standort sind mandantenscoped unter `/api/v1/t/{tenant_slug}/sites/{site_key}/`. Alle Endpunkte erfordern ein gültiges JWT-Token.
+
+### Globalen Zonen-Katalog auflisten
+
+```
+GET /api/v1/hardiness-zones
+```
+
+**Response (200):** Liste von `HardinessZoneResponse`, sortiert von der kältesten zur wärmsten Zone.
+
+```json
+[
+  {
+    "zone": "7a",
+    "zone_number": 7,
+    "subzone": "a",
+    "temp_min_c": -17.7,
+    "temp_max_c": -15.0,
+    "temp_min_f": 0.0,
+    "temp_max_f": 5.0,
+    "description_de": "Mild-gemäßigtes Klima weiter Tieflandregionen. Günstige Zone für die Freilandkultur der meisten winterharten Stauden und Gehölze.",
+    "representative_regions_de": ["Norddeutsches Tiefland", "Wiener Becken", "Genferseeregion"],
+    "typical_last_frost_md": "05-08",
+    "typical_first_frost_md": "10-20"
+  }
+]
+```
+
+Nur die DACH-relevanten Zonen `5a`–`9a` tragen kuratierte deutsche Beschreibungen und Regionsbeispiele; alle übrigen Zonen des weltweiten Spektrums `1a`–`13b` besitzen eine generische Beschreibung ohne `representative_regions_de`.
+
+### Einzelne Zone abrufen
+
+```
+GET /api/v1/hardiness-zones/{zone}
+```
+
+**Pfad-Parameter:** `zone` — Zonen-Label im Format `<Zahl><a|b>`, z. B. `7a`.
+
+**Fehlercodes:** `404`, wenn `zone` kein gültiges Label im Katalog ist.
+
+### Winterhärtezone eines Standorts lesen
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/hardiness
+```
+
+Jedes aktive Mandanten-Mitglied (auch die Rolle **Beobachter**) darf lesen. Standort-Besitz wird serverseitig geprüft (404 bei unbekanntem/fremdem Standort).
+
+**Response (200):** `SiteHardinessResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "hardiness_zone": "7a",
+  "hardiness_zone_source": "derived_gps",
+  "hardiness_zone_resolved_at": "2026-07-01T05:00:00Z",
+  "mean_annual_minimum_c": -17.2,
+  "last_frost_date_avg": "2026-05-08",
+  "first_frost_date_avg": "2026-10-20",
+  "zone": { "zone": "7a", "...": "vollständiger Katalog-Eintrag wie oben" }
+}
+```
+
+`hardiness_zone_source` ∈ `manual` (nie automatisch überschrieben), `derived_gps` (aus Klimanormalen abgeleitet). Die Werte `derived_postal` und `frostline_us` sind für künftige, bislang nicht umgesetzte Ableitungswege reserviert.
+
+### Winterhärtezone eines Standorts (neu) ableiten
+
+```
+POST /api/v1/t/{tenant_slug}/sites/{site_key}/resolve-hardiness-zone
+```
+
+**Query-Parameter:**
+
+| Parameter | Typ | Standard | Beschreibung |
+|-----------|-----|---------|-------------|
+| `force` | boolean | `false` | Bei `true` wird auch eine bereits **manuell** gesetzte Zone verworfen und neu aus den Klimanormalen abgeleitet. |
+
+Ohne `force=true` bleibt eine manuell gesetzte Zone (`hardiness_zone_source: manual`) unangetastet — der Endpunkt liefert dann unverändert die vorhandene Zone zurück. Befüllt zusätzlich, sofern noch nicht gesetzt, die Frost-Richtwerte des Standorts (`last_frost_date_avg`, `first_frost_date_avg`) aus dem Katalog-Eintrag der ermittelten Zone. Ein regulärer `PUT`-Aufruf auf den Standort mit gesetztem `hardiness_zone`-Feld im Request-Body markiert die Zone stattdessen direkt als `manual`.
+
+**Response (200):** `SiteHardinessResponse` (siehe oben).
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `404` | Standort nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Für den Standort liegen noch keine Klimanormalen mit verwertbarer Minimaltemperatur vor (`VALIDATION_ERROR`) — zuerst müssen die [Klimanormalen](#standort-klimanormalen-nasa-power) für diesen Standort vorliegen |
+
+!!! info "Nur über API: Winterhärtezonen-Bedienung"
+    Weder ein Button zum sofortigen Auslösen noch die Anzeige der ermittelten Zone samt Herkunft sind bislang im Standort-Formular der Weboberfläche verankert. Unabhängig davon läuft die automatische Ableitung bereits vollautomatisch im Hintergrund über einen vierteljährlichen Celery-Task (siehe [Umgebungsvariablen — Winterhärtezonen](environment-variables.md#winterhaertezonen-usda)); der hier dokumentierte Endpunkt dient dem sofortigen manuellen Neuberechnen. <!-- REQ-039 -->
+
+### Siehe auch
+
+- [Klimazonen & Winterhärte — Benutzerhandbuch](../guides/climate-zones.md)
+- [Überwinterung — Benutzerhandbuch](../user-guide/overwintering.md)
+- [Standort-Klimanormalen (NASA POWER)](#standort-klimanormalen-nasa-power)
+- [Umgebungsvariablen — Winterhärtezonen](environment-variables.md#winterhaertezonen-usda)
 
 ---
 
@@ -874,4 +978,85 @@ Der Klassifikator ist auf dem **PlantDoc**-Datensatz (CC-BY-4.0, Attribution) pl
 - [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
 - [Umgebungsvariablen — CV-Krankheitsdiagnose](environment-variables.md#cv-krankheitsdiagnose-req-038)
+
+---
+
+## Aquaponik <!-- REQ-026 -->
+
+Aquaponik führt Fisch-Pflanzen-Kreislaufsysteme ein: Fischbestand, Wassertests mit automatisch berechnetem freiem Ammoniak, Biofilter-Cycling-Erkennung, Fütterung und Nährstoff-Supplementierung. Das Frontend deckt bislang nur einen Teil der API ab (Systeme anlegen/auflisten, Wassertest erfassen, Einfahrfortschritt und Wasserqualität lesen) — siehe [Aquaponik — Benutzerhandbuch: Für technische Nutzer / Self-Hoster](../user-guide/aquaponics.md#fur-technische-nutzer-self-hoster) für die vollständige, noch UI-lose Restfläche der API.
+
+**Mandantenspezifisch** unter `/api/v1/t/{tenant_slug}/aquaponics/` (28 Endpunkte, schreibende Aufrufe erfordern mindestens die Rolle **grower**, Systeme löschen erfordert **admin**):
+
+| Ressourcengruppe | Endpunkte (Auswahl) |
+|-------------------|---------------------|
+| Systeme | `GET`/`POST /systems`, `GET`/`PATCH`/`DELETE /systems/{key}`, `POST /systems/{key}/cycling-status` |
+| Fischbestand | `GET`/`POST /systems/{key}/fish-stocks`, `PATCH`/`DELETE /systems/{key}/fish-stocks/{stock_key}`, `POST .../mortality`, `GET .../biomass-history`, `GET .../mortality-rate` |
+| Wassertests & Stickstoffkreislauf | `GET`/`POST /systems/{key}/water-tests`, `GET /systems/{key}/water-quality-status`, `GET /systems/{key}/nitrogen-cycle-chart`, `GET /systems/{key}/cycling-progress` |
+| Fütterung | `GET`/`POST /systems/{key}/feeding-events`, `GET /systems/{key}/feeding-recommendation`, `GET /systems/{key}/fcr-analysis` |
+| Supplementierung & Defizite | `GET`/`POST /systems/{key}/supplementation`, `GET /systems/{key}/deficiency-check` |
+| Sicherheit & Gesundheit | `GET /systems/{key}/safety-status`, `GET /systems/{key}/alerts`, `GET /systems/{key}/fish-health` |
+
+**Global** (nicht mandantenspezifisch, keine Schreibrechte nötig) unter `/api/v1/fish-species/`:
+
+| Endpunkt | Beschreibung |
+|----------|-------------|
+| `GET /fish-species` | Alle 8 Seed-Fischarten mit Temperaturzonen und artspezifischen Grenzwerten |
+| `GET /fish-species/by-temperature-zone/{zone}` | Fischarten gefiltert nach Temperaturzone (`coldwater`, `temperate`, `warmwater`) |
+| `GET /fish-species/{species_key}` | Einzelne Fischart |
+| `GET /fish-species/{species_key}/compatible-plants` | Fisch-Pflanzen-Kompatibilität via Graph-Kanten (Temperatur- und Nährstoff-Match) |
+
+### Siehe auch
+
+- [Aquaponik — Benutzerhandbuch](../user-guide/aquaponics.md)
+- [Tankmanagement — Benutzerhandbuch](../user-guide/tanks.md)
+- [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Nacherntebehandlung (Post-Harvest)
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/post-harvest/` und erfordern ein gültiges JWT-Token. Lesende Endpunkte akzeptieren jede aktive Mitgliedschaft; schreibende Endpunkte erfordern mindestens die Rolle **grower**; das Löschen einer Charge ist **admin**-only. <!-- REQ-008 -->
+
+| Methode & Pfad | Beschreibung | Mindestrolle |
+|-----------------|-------------|--------------|
+| `GET /post-harvest` | Chargen des Mandanten auflisten (optional gefiltert nach `harvest_batch`) | jede Mitgliedschaft |
+| `POST /post-harvest/start-drying` | Erntecharge in die Nacherntebehandlung übernehmen (Stufe „Trocknung") | grower |
+| `GET /post-harvest/{key}` | Chargendetails inkl. letzter Trocknungsmessung und Anzahl offener Schimmel-Warnungen | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/advance` | Charge in die nächste Stufe überführen (vorwärts, ein Schritt) | grower |
+| `POST /post-harvest/{key}/drying-progress` | Gewichtsmessung erfassen (optional zusätzlich Wasseraktivität, CO₂, Knacktest-Ergebnis) | grower |
+| `GET /post-harvest/{key}/drying-progress` | Alle Trocknungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `POST /post-harvest/{key}/observations` | Umgebungsmessung erfassen (löst ggf. automatisch eine Schimmel-Warnung aus) | grower |
+| `GET /post-harvest/{key}/observations` | Alle Umgebungsmessungen der Charge auflisten | jede Mitgliedschaft |
+| `GET /post-harvest/{key}/mold-alerts` | Schimmel-Warnungen der Charge auflisten | jede Mitgliedschaft |
+| `DELETE /post-harvest/{key}` | Charge löschen | admin |
+
+**Stufen-Zustandsmaschine:** `drying → curing → stored → released` — ausschließlich vorwärts, ein Schritt je Aufruf. Der Übergang `drying → curing` erfordert zusätzlich `dryness_progress_percent >= 95`.
+
+**Fehlercodes:**
+
+| HTTP-Status | Bedeutung |
+|-------------|----------|
+| `403` | Aktive Mandanten-Rolle unterhalb der geforderten Mindestrolle |
+| `404` | Charge nicht gefunden oder gehört nicht zum Mandanten |
+| `422` | Ungültiger Stufenwechsel (Rückschritt, Sprung oder Trocknungsfortschritt < 95 % bei `drying → curing`), oder `current_weight_g` größer als das Startgewicht der Charge |
+
+### Beispiel — Trocknung starten
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/post-harvest/start-drying" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harvest_batch_key": "harvest_batches/42",
+    "species_type": "flower",
+    "drying_method": "hang_dry",
+    "target_moisture_percent": 10
+  }'
+```
+
+### Siehe auch
+
+- [Nacherntebehandlung — Benutzerhandbuch](../user-guide/post-harvest.md)
+- [Ernte — Benutzerhandbuch](../user-guide/harvest.md)
 - [Fehlerbehandlung](../api/error-handling.md)

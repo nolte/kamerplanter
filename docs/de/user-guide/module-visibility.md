@@ -114,6 +114,7 @@ Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit 
 | Aufgaben & Workflows | Pflege & Planung | Einsteiger |
 | Düngung & Nährstoffpläne | Düngung & Wasser | Mittelstufe |
 | Tankmanagement | Düngung & Wasser | Experte |
+| Aquaponik | Düngung & Wasser | Experte |
 | Substrate | Düngung & Wasser | Experte |
 | Kalkulatoren (VPD/GDD/EC) | Düngung & Wasser | Experte |
 | Pflanzenschutz (IPM) | Pflanzenschutz | Experte |

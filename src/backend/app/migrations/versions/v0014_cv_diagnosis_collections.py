@@ -1,4 +1,4 @@
-"""v0012 — REQ-038 CV disease diagnosis: collection + 4 edges.
+"""v0014 — REQ-038 CV disease diagnosis: collection + 4 edges.
 
 Creates the document collection ``plant_diagnosis_requests`` and the four edge
 collections (``cv_diagnosed_for``, ``cv_diagnosis_found``,
@@ -67,7 +67,7 @@ def _has_index(indexes: object, fields: list[str]) -> bool:
 
 
 class CvDiagnosisCollectionsMigration(Migration):
-    version = "0012"
+    version = "0014"
     name = "cv_diagnosis_collections"
     description = "Create the REQ-038 plant_diagnosis_requests collection + 4 CV-diagnosis edges on existing volumes."
     reversible = False

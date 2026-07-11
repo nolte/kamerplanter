@@ -229,6 +229,38 @@ These variables control the monthly background fetch of long-term climate normal
 
 ---
 
+## Hardiness Zones (USDA) <!-- REQ-039 --> {#hardiness-zones-usda}
+
+This variable controls the quarterly background refresh of a site's hardiness zone, automatically derived from its climate normals (see [Climate Zones & Hardiness](../guides/climate-zones.md)). The derivation builds on the climate normals — the associated task therefore only runs when both `WEATHER_ENABLED` and `NASA_POWER_CLIMATE_ENABLED` are also active.
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `HARDINESS_ZONE_REFRESH_ENABLED` | `true` | No | Dedicated kill switch for the quarterly hardiness-zone task (Jan 1 / Apr 1 / Jul 1 / Oct 1, 05:00 UTC), independent of `NASA_POWER_CLIMATE_ENABLED` — both must be active for the task to run. Manually set zones (`hardiness_zone_source: manual`) are never overwritten by the task. |
+
+!!! note "Only affects outdoor and greenhouse sites with GPS coordinates and existing climate normals"
+    Like the climate normals themselves, the hardiness zone is only computed for sites of type **Outdoor** or **Greenhouse** with GPS coordinates — and only once at least one climate-normal record with a usable minimum temperature already exists for that site. Triggering it immediately and manually (independent of this schedule) is possible via the API — see [API Reference — Hardiness Zones](api-reference.md#hardiness-zones-usda). <!-- REQ-039 -->
+
+---
+
+## Irrigation Demand (ET₀) <!-- REQ-037 --> {#irrigation-demand-et0}
+
+These variables control the daily background task that derives the FAO-56 reference evapotranspiration (ET₀) from an outdoor or greenhouse site's weather data and, from it, the net irrigation demand per planting run. The task additionally requires `WEATHER_ENABLED=true` — without fetched weather data there is nothing to compute. The resulting behaviour for end users is described in [Watering Log: Suggested Watering Volume](../user-guide/watering-log.md#suggested-watering-volume) and [Care Reminders: Why a Reminder Might Not Appear](../user-guide/care-reminders.md#why-a-reminder-might-not-appear).
+
+<!-- Source: src/backend/app/config/settings.py (irrigation_demand_enabled, irrigation_root_zone_depth_mm) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `IRRIGATION_DEMAND_ENABLED` | `true` | No | Dedicated kill switch for the daily `compute_irrigation_demand` task (06:15), independent of the general `WEATHER_ENABLED` — both must be active for the task to run. |
+| `IRRIGATION_ROOT_ZONE_DEPTH_MM` | `300.0` | No | Assumed effective root-zone depth in millimetres of soil. Used to convert a substrate's water-holding capacity (in percent) into a millimetre cap on the net irrigation demand — prevents an overly high daily recommendation under very dry starting conditions. |
+
+!!! note "Outdoor and greenhouse sites only, no new REST endpoints"
+    Irrigation demand is calculated only for sites of type **Outdoor** or **Greenhouse** with stored GPS coordinates — indoor sites stay on the interval-based watering schedule (REQ-022). There is no dedicated REST endpoint for it; the result flows into the UI through the existing watering-volume suggestion (`suggest_volume`) and the care-reminder engine.
+
+!!! info "Calculation basis: aquacropeto (BSD-3-Clause)"
+    The FAO-56 Penman-Monteith and Hargreaves formulas for ET₀ are computed via the Python library `aquacropeto` (PyPI package `aquacropeto`, BSD-3-Clause licence) — no ShareAlike/copyleft obligations for the Kamerplanter codebase. See `NOTICE.md` in the project root for details.
+
+---
+
 ## Rate Limiting
 
 | Variable | Default | Required | Description |
@@ -615,3 +647,4 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [Notifications: Frost Early-Warning — User Guide](../user-guide/notifications.md#frost-early-warning)
 - [API Reference: CV Disease Diagnosis](api-reference.md#cv-disease-diagnosis)
 - [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
+- [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)

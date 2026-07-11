@@ -229,6 +229,38 @@ Diese Variablen steuern die monatliche Hintergrund-Abholung der langjährigen Kl
 
 ---
 
+## Winterhärtezonen (USDA) <!-- REQ-039 --> {#winterhaertezonen-usda}
+
+Diese Variable steuert die vierteljährliche Hintergrund-Aktualisierung der automatisch aus den Klimanormalen abgeleiteten Winterhärtezone eines Standorts (siehe [Klimazonen & Winterhärte](../guides/climate-zones.md)). Die Ableitung baut auf den Klimanormalen auf — der zugehörige Task läuft daher nur, wenn zusätzlich sowohl `WEATHER_ENABLED` als auch `NASA_POWER_CLIMATE_ENABLED` aktiv sind.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `HARDINESS_ZONE_REFRESH_ENABLED` | `true` | Nein | Eigener Kill-Switch für den vierteljährlichen Winterhärtezonen-Task (1. Januar/April/Juli/Oktober, 05:00 UTC), unabhängig von `NASA_POWER_CLIMATE_ENABLED` — beide müssen aktiv sein, damit der Task läuft. Manuell gesetzte Zonen (`hardiness_zone_source: manual`) werden vom Task nie überschrieben. |
+
+!!! note "Betrifft nur Freiland- und Gewächshaus-Standorte mit GPS-Koordinaten und vorhandenen Klimanormalen"
+    Wie die Klimanormalen selbst wird die Winterhärtezone nur für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit GPS-Koordinaten berechnet — und erst, sobald für diesen Standort bereits mindestens ein Klimanormalen-Datensatz mit verwertbarer Minimaltemperatur vorliegt. Ein sofortiges manuelles Auslösen (unabhängig von diesem Zeitplan) ist über die API möglich, siehe [API-Referenz — Winterhärtezonen](api-reference.md#winterhaertezonen-usda). <!-- REQ-039 -->
+
+---
+
+## Bewässerungsbedarf (ET₀) <!-- REQ-037 --> {#bewaesserungsbedarf-et0}
+
+Diese Variablen steuern den täglichen Hintergrund-Task, der aus den Wetterdaten eines Freiland- oder Gewächshaus-Standorts die Referenz-Evapotranspiration (FAO-56, ET₀) und daraus den Netto-Bewässerungsbedarf je Pflanzdurchlauf berechnet. Der Task benötigt zusätzlich `WEATHER_ENABLED=true` — ohne abgeholte Wetterdaten gibt es nichts zu berechnen. Ergebnis und Verhalten für Endnutzer sind unter [Gießprotokoll: Vorgeschlagene Gießmenge](../user-guide/watering-log.md#vorgeschlagene-giessmenge) und [Pflegeerinnerungen: Warum eine Erinnerung ausbleiben kann](../user-guide/care-reminders.md#warum-eine-erinnerung-ausbleiben-kann) beschrieben.
+
+<!-- Quelle: src/backend/app/config/settings.py (irrigation_demand_enabled, irrigation_root_zone_depth_mm) -->
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `IRRIGATION_DEMAND_ENABLED` | `true` | Nein | Eigener Kill-Switch für den täglichen `compute_irrigation_demand`-Task (06:15 Uhr), unabhängig vom allgemeinen `WEATHER_ENABLED` — beide müssen aktiv sein, damit der Task läuft. |
+| `IRRIGATION_ROOT_ZONE_DEPTH_MM` | `300.0` | Nein | Angenommene effektive Wurzelzonentiefe in Millimeter Boden. Wird verwendet, um die Wasserhaltekapazität eines Substrats (in Prozent) in eine Millimeter-Obergrenze für den Netto-Bewässerungsbedarf umzurechnen — verhindert eine rechnerisch zu hohe Tagesempfehlung bei sehr trockenen Ausgangsbedingungen. |
+
+!!! note "Nur Freiland- und Gewächshaus-Standorte, keine neuen REST-Endpunkte"
+    Der Bewässerungsbedarf wird ausschließlich für Standorte vom Typ **Außenbereich** oder **Gewächshaus** mit hinterlegten GPS-Koordinaten berechnet — Innenraum-Standorte bleiben beim intervallbasierten Gießplan (REQ-022). Es gibt keinen eigenen REST-Endpunkt dafür; das Ergebnis fließt über den bestehenden Gießmengen-Vorschlag (`suggest_volume`) und die Pflegeerinnerungs-Engine in die Oberfläche ein.
+
+!!! info "Berechnungsgrundlage: aquacropeto (BSD-3-Clause)"
+    Die FAO-56-Penman-Monteith- und Hargreaves-Formeln für ET₀ werden über die Python-Bibliothek `aquacropeto` (PyPI-Paket `aquacropeto`, BSD-3-Clause-Lizenz) berechnet — keine ShareAlike-/Copyleft-Pflichten für den Kamerplanter-Code. Details siehe `NOTICE.md` im Projekt-Root.
+
+---
+
 ## Rate Limiting
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -615,3 +647,4 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
 - [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
+- [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)

@@ -361,7 +361,7 @@ GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
 | `monthly_temp_min_c` / `monthly_temp_max_c` / `monthly_temp_avg_c` | list[12] | Monthly minimum, maximum, and average temperature, index 0 = January |
 | `monthly_precip_mm` | list[12] | Monthly precipitation in mm |
 | `monthly_solar_mj_m2` | list[12] | Monthly solar radiation in MJ/m² |
-| `coldest_month_min_c` | number \| null | Minimum of the coldest month — an input for the planned hardiness-zone derivation |
+| `coldest_month_min_c` | number \| null | Minimum of the coldest month — an input for the [automatic hardiness-zone derivation](#hardiness-zones-usda) |
 | `annual_temp_avg_c` / `annual_precip_mm` | number \| null | Annual average / annual total |
 | `fetched_at` | datetime | Time this record was last fetched from the source |
 
@@ -372,6 +372,110 @@ GET /api/v1/t/{tenant_slug}/sites/{site_key}/climate-normals
 
 - [Climate at the Site — User Guide](../user-guide/weather-sources.md#climate-at-the-site)
 - [Environment Variables — Climate Normals (NASA POWER)](environment-variables.md#climate-normals-nasa-power)
+
+---
+
+## Hardiness Zones (USDA) <!-- REQ-039 --> {#hardiness-zones-usda}
+
+Automatic derivation of a site's USDA hardiness zone from its [climate normals](#site-climate-normals-nasa-power) (coldest monthly mean minimum temperature), following the license-free USDA zone schema (26 half-zones `1a`–`13b`, no proprietary USDA/PHZM/PRISM map data). Replaces the free-text `Site.climate_zone` field for the traffic-light comparison, which is kept for compatibility and automatically synced. Feeds the [hardiness traffic light](../user-guide/overwintering.md) for perennial plants. <!-- REQ-039 -->
+
+The global catalog is reference data (like botanical families) and lives without a tenant prefix under `/api/v1/hardiness-zones`; per-site derivation and read access are tenant-scoped under `/api/v1/t/{tenant_slug}/sites/{site_key}/`. All endpoints require a valid JWT token.
+
+### Listing the Global Zone Catalog
+
+```
+GET /api/v1/hardiness-zones
+```
+
+**Response (200):** A list of `HardinessZoneResponse`, coldest zone first.
+
+```json
+[
+  {
+    "zone": "7a",
+    "zone_number": 7,
+    "subzone": "a",
+    "temp_min_c": -17.7,
+    "temp_max_c": -15.0,
+    "temp_min_f": 0.0,
+    "temp_max_f": 5.0,
+    "description_de": "Mild-gemäßigtes Klima weiter Tieflandregionen. Günstige Zone für die Freilandkultur der meisten winterharten Stauden und Gehölze.",
+    "representative_regions_de": ["Norddeutsches Tiefland", "Wiener Becken", "Genferseeregion"],
+    "typical_last_frost_md": "05-08",
+    "typical_first_frost_md": "10-20"
+  }
+]
+```
+
+Only the DACH-relevant zones `5a`–`9a` carry curated German descriptions and example regions; all other zones across the worldwide `1a`–`13b` spectrum have a generic description with no `representative_regions_de`.
+
+### Retrieving a Single Zone
+
+```
+GET /api/v1/hardiness-zones/{zone}
+```
+
+**Path parameter:** `zone` — the zone label in `<number><a|b>` format, e.g. `7a`.
+
+**Error codes:** `404` when `zone` isn't a valid label in the catalog.
+
+### Reading a Site's Hardiness Zone
+
+```
+GET /api/v1/t/{tenant_slug}/sites/{site_key}/hardiness
+```
+
+Any active tenant member (including the **Viewer** role) may read. Site ownership is verified server-side (404 for an unknown/foreign site).
+
+**Response (200):** `SiteHardinessResponse`
+
+```json
+{
+  "site_key": "sites/42",
+  "hardiness_zone": "7a",
+  "hardiness_zone_source": "derived_gps",
+  "hardiness_zone_resolved_at": "2026-07-01T05:00:00Z",
+  "mean_annual_minimum_c": -17.2,
+  "last_frost_date_avg": "2026-05-08",
+  "first_frost_date_avg": "2026-10-20",
+  "zone": { "zone": "7a", "...": "full catalog entry, as above" }
+}
+```
+
+`hardiness_zone_source` ∈ `manual` (never overwritten automatically), `derived_gps` (derived from climate normals). The values `derived_postal` and `frostline_us` are reserved for future, not-yet-implemented derivation paths.
+
+### Re-Deriving a Site's Hardiness Zone
+
+```
+POST /api/v1/t/{tenant_slug}/sites/{site_key}/resolve-hardiness-zone
+```
+
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `force` | boolean | `false` | When `true`, discards an already **manually** set zone as well and re-derives it from the climate normals. |
+
+Without `force=true`, a manually set zone (`hardiness_zone_source: manual`) is left untouched — the endpoint then returns the existing zone unchanged. It also pre-fills the site's frost reference dates (`last_frost_date_avg`, `first_frost_date_avg`) from the derived zone's catalog entry, when not already set. A regular `PUT` call on the site with `hardiness_zone` set in the request body instead marks the zone directly as `manual`.
+
+**Response (200):** `SiteHardinessResponse` (see above).
+
+**Error codes:**
+
+| HTTP status | Meaning |
+|-------------|---------|
+| `404` | Site not found or doesn't belong to the tenant |
+| `422` | No climate normals with a usable minimum temperature exist yet for the site (`VALIDATION_ERROR`) — [climate normals](#site-climate-normals-nasa-power) must be fetched for the site first |
+
+!!! info "API only: hardiness-zone operation"
+    Neither a button to trigger an immediate re-derivation nor a display of the derived zone with its provenance are wired into the site form of the web interface yet. Independent of that, the automatic derivation already runs fully automatically in the background via a quarterly Celery task (see [Environment Variables — Hardiness Zones](environment-variables.md#hardiness-zones-usda)); the endpoint documented here is for triggering an immediate manual re-derivation. <!-- REQ-039 -->
+
+### See Also
+
+- [Climate Zones & Hardiness — User Guide](../guides/climate-zones.md)
+- [Overwintering — User Guide](../user-guide/overwintering.md)
+- [Site Climate Normals (NASA POWER)](#site-climate-normals-nasa-power)
+- [Environment Variables — Hardiness Zones](environment-variables.md#hardiness-zones-usda)
 
 ---
 
@@ -874,4 +978,85 @@ The classifier is fine-tuned on the **PlantDoc** dataset (CC BY 4.0, attribution
 - [Integrated Pest Management (IPM)](../user-guide/pest-management.md)
 - [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
 - [Environment Variables — CV Disease Diagnosis](environment-variables.md#cv-disease-diagnosis-req-038)
+
+---
+
+## Aquaponics <!-- REQ-026 -->
+
+Aquaponics introduces fish-plant closed-loop systems: fish stock, water tests with automatically calculated free ammonia, biofilter cycling detection, feeding, and nutrient supplementation. The frontend currently covers only part of the API (creating/listing systems, recording a water test, reading cycling progress and water quality) — see [Aquaponics — User Guide: For Technical Users / Self-Hosters](../user-guide/aquaponics.md#for-technical-users-self-hosters) for the full, still UI-less remainder of the API.
+
+**Tenant-scoped** under `/api/v1/t/{tenant_slug}/aquaponics/` (28 endpoints, write calls require at least the **grower** role, deleting a system requires **admin**):
+
+| Resource Group | Endpoints (Selection) |
+|-----------------|------------------------|
+| Systems | `GET`/`POST /systems`, `GET`/`PATCH`/`DELETE /systems/{key}`, `POST /systems/{key}/cycling-status` |
+| Fish stock | `GET`/`POST /systems/{key}/fish-stocks`, `PATCH`/`DELETE /systems/{key}/fish-stocks/{stock_key}`, `POST .../mortality`, `GET .../biomass-history`, `GET .../mortality-rate` |
+| Water tests & nitrogen cycle | `GET`/`POST /systems/{key}/water-tests`, `GET /systems/{key}/water-quality-status`, `GET /systems/{key}/nitrogen-cycle-chart`, `GET /systems/{key}/cycling-progress` |
+| Feeding | `GET`/`POST /systems/{key}/feeding-events`, `GET /systems/{key}/feeding-recommendation`, `GET /systems/{key}/fcr-analysis` |
+| Supplementation & deficiencies | `GET`/`POST /systems/{key}/supplementation`, `GET /systems/{key}/deficiency-check` |
+| Safety & health | `GET /systems/{key}/safety-status`, `GET /systems/{key}/alerts`, `GET /systems/{key}/fish-health` |
+
+**Global** (not tenant-scoped, no write access needed) under `/api/v1/fish-species/`:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /fish-species` | All 8 seed fish species with temperature zones and species-specific limits |
+| `GET /fish-species/by-temperature-zone/{zone}` | Fish species filtered by temperature zone (`coldwater`, `temperate`, `warmwater`) |
+| `GET /fish-species/{species_key}` | A single fish species |
+| `GET /fish-species/{species_key}/compatible-plants` | Fish-plant compatibility via graph edges (temperature and nutrient match) |
+
+### See Also
+
+- [Aquaponics — User Guide](../user-guide/aquaponics.md)
+- [Tank Management — User Guide](../user-guide/tanks.md)
+- [Error Handling](../api/error-handling.md)
+
+---
+
+## Post-Harvest
+
+All endpoints live under the tenant-scoped path `/api/v1/t/{tenant_slug}/post-harvest/` and require a valid JWT token. Read endpoints accept any active membership; write endpoints require at least the **grower** role; deleting a batch is **admin**-only. <!-- REQ-008 -->
+
+| Method & Path | Description | Minimum role |
+|---------------|-------------|--------------|
+| `GET /post-harvest` | List the tenant's batches (optionally filtered by `harvest_batch`) | any membership |
+| `POST /post-harvest/start-drying` | Take a harvest batch into post-harvest processing (stage "drying") | grower |
+| `GET /post-harvest/{key}` | Batch details incl. the latest drying measurement and open mold-alert count | any membership |
+| `POST /post-harvest/{key}/advance` | Advance the batch to the next stage (forward, one step) | grower |
+| `POST /post-harvest/{key}/drying-progress` | Record a weight measurement (optionally also water activity, CO₂, snap-test result) | grower |
+| `GET /post-harvest/{key}/drying-progress` | List all drying measurements of the batch | any membership |
+| `POST /post-harvest/{key}/observations` | Record an environmental observation (may auto-raise a mold alert) | grower |
+| `GET /post-harvest/{key}/observations` | List all environmental observations of the batch | any membership |
+| `GET /post-harvest/{key}/mold-alerts` | List the batch's mold alerts | any membership |
+| `DELETE /post-harvest/{key}` | Delete a batch | admin |
+
+**Stage state machine:** `drying → curing → stored → released` — forward only, one step per call. The `drying → curing` transition additionally requires `dryness_progress_percent >= 95`.
+
+**Error codes:**
+
+| HTTP status | Meaning |
+|-------------|---------|
+| `403` | Active tenant role below the required minimum role |
+| `404` | Batch not found or does not belong to the tenant |
+| `422` | Invalid stage transition (backward, skip, or drying progress < 95% on `drying → curing`), or `current_weight_g` exceeds the batch's start weight |
+
+### Example — Start drying
+
+```bash
+curl -X POST \
+  "https://api.example.com/api/v1/t/mein-garten/post-harvest/start-drying" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "harvest_batch_key": "harvest_batches/42",
+    "species_type": "flower",
+    "drying_method": "hang_dry",
+    "target_moisture_percent": 10
+  }'
+```
+
+### See Also
+
+- [Post-Harvest — User Guide](../user-guide/post-harvest.md)
+- [Harvest — User Guide](../user-guide/harvest.md)
 - [Error Handling](../api/error-handling.md)

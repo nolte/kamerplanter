@@ -260,6 +260,20 @@ class Settings(BaseSettings):
     #: the daily-forecast ``weather_enabled`` switch; both must be on to run).
     nasa_power_climate_enabled: bool = True
 
+    # REQ-039 — quarterly beat that re-derives ``Site.hardiness_zone`` from the
+    # climate normals for non-manually-set sites. Kill-switch; consumes the
+    # REQ-041 climate normals, so it is only useful when those are being fetched.
+    hardiness_zone_refresh_enabled: bool = True
+
+    # REQ-037 Evapotranspiration / irrigation demand — the daily
+    # ``compute_irrigation_demand`` beat materialises FAO-56 ET₀ → net irrigation
+    # demand for outdoor/greenhouse sites. Gated additionally by ``weather_enabled``
+    # (no forecasts → nothing to compute).
+    irrigation_demand_enabled: bool = True
+    #: Assumed effective root-zone depth (mm of soil) when converting a substrate's
+    #: water-holding-capacity percentage into a millimetre cap on the net demand.
+    irrigation_root_zone_depth_mm: float = 300.0
+
     # REQ-047 Season & overwintering automation — transition thresholds (°C) and
     # the hysteresis window; SEASON_STATE_EVAL_ENABLED is the Celery kill-switch.
     season_pre_winter_temp_c: float = 5.0

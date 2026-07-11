@@ -24,6 +24,7 @@ export type ModuleKey =
   | 'tasks'
   | 'nutrition'
   | 'tanks'
+  | 'aquaponics'
   | 'substrates'
   | 'calculators'
   | 'ipm'
@@ -101,6 +102,7 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
     '/duengung/feeding-events',
   ]),
   tanks: def('tanks', 'nutrition_water', 'expert', false, ['/standorte/tanks']),
+  aquaponics: def('aquaponics', 'nutrition_water', 'expert', false, ['/aquaponik']),
   substrates: def('substrates', 'nutrition_water', 'expert', false, [
     '/standorte/substrates',
   ]),

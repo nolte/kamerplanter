@@ -208,40 +208,70 @@ export default function WidgetFrame({
             </Box>
           </IconButton>
           <Menu anchorEl={anchor} open={open} onClose={close}>
-            <MenuItem onClick={run(onMoveUp)} disabled={isFirst} data-testid={`widget-move-up-${instance.widget_key}`}>
+            {/* MUI's non-dense MenuItem resets `minHeight: 48` back to `auto` at
+                the `sm` breakpoint (>=600px) — i.e. on every viewport wider than a
+                phone, which is exactly where this edit-mode menu is used most
+                (tablet drag/resize). Without an explicit floor the rendered row
+                shrinks to ~36px, under the 48px touch target this same file
+                already enforces for the trigger button and the resize handle
+                (UI-NFR-001 R-011 MUSS, REQ-045 §3.8 U-006). */}
+            <MenuItem
+              onClick={run(onMoveUp)}
+              disabled={isFirst}
+              sx={{ minHeight: 48 }}
+              data-testid={`widget-move-up-${instance.widget_key}`}
+            >
               <ListItemIcon>
                 <ArrowUpwardIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>{t('dashboard.edit.moveUp')}</ListItemText>
             </MenuItem>
-            <MenuItem onClick={run(onMoveDown)} disabled={isLast} data-testid={`widget-move-down-${instance.widget_key}`}>
+            <MenuItem
+              onClick={run(onMoveDown)}
+              disabled={isLast}
+              sx={{ minHeight: 48 }}
+              data-testid={`widget-move-down-${instance.widget_key}`}
+            >
               <ListItemIcon>
                 <ArrowDownwardIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>{t('dashboard.edit.moveDown')}</ListItemText>
             </MenuItem>
-            <MenuItem onClick={run(onGrow)}>
+            <MenuItem onClick={run(onGrow)} sx={{ minHeight: 48 }}>
               <ListItemIcon>
                 <AddIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>{t('dashboard.edit.grow')}</ListItemText>
             </MenuItem>
-            <MenuItem onClick={run(onShrink)}>
+            <MenuItem onClick={run(onShrink)} sx={{ minHeight: 48 }}>
               <ListItemIcon>
                 <RemoveIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>{t('dashboard.edit.shrink')}</ListItemText>
             </MenuItem>
             {hasConfig && (
-              <MenuItem onClick={run(onConfigure)} data-testid={`widget-configure-${instance.widget_key}`}>
+              <MenuItem
+                onClick={run(onConfigure)}
+                sx={{ minHeight: 48 }}
+                data-testid={`widget-configure-${instance.widget_key}`}
+              >
                 <ListItemIcon>
                   <SettingsIcon fontSize="small" />
                 </ListItemIcon>
                 <ListItemText>{t('dashboard.edit.configure')}</ListItemText>
               </MenuItem>
             )}
-            <MenuItem onClick={run(onRemove)} data-testid={`widget-remove-${instance.widget_key}`}>
-              <ListItemIcon>
+            {/* Destructive action: red icon/text, matching the `color="error"`
+                convention used for every other delete affordance in the codebase
+                (e.g. detail-page delete buttons, CalendarPage/WorkflowDetailPage
+                delete icon buttons) — the kebab menu was the one place still
+                rendering "Remove" in the neutral default colour. */}
+            <MenuItem
+              onClick={run(onRemove)}
+              sx={{ minHeight: 48, color: 'error.main' }}
+              data-testid={`widget-remove-${instance.widget_key}`}
+            >
+              <ListItemIcon sx={{ color: 'error.main' }}>
                 <DeleteIcon fontSize="small" />
               </ListItemIcon>
               <ListItemText>{t('dashboard.edit.remove')}</ListItemText>

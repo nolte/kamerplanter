@@ -73,7 +73,8 @@ class OverwinteringMaterializer:
             return None
 
         species_zone = species.hardiness_zones[0] if species.hardiness_zones else None
-        site_zone = site.climate_zone or None
+        # REQ-039: prefer the auto-derived hardiness zone over legacy free-text.
+        site_zone = getattr(site, "hardiness_zone", None) or site.climate_zone or None
         light = evaluate_winter_hardiness(species.frost_sensitivity, species_zone, site_zone)
         if light == WinterHardinessLight.GREEN:
             # Winter-protection guard: no profile for a winter-hardy species (AC-9).

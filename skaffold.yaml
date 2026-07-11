@@ -23,23 +23,30 @@ build:
       docker:
         dockerfile: Dockerfile
         target: dev
+      # Infer sync targets from the Dockerfile COPY (context -> /app). Any app
+      # source file syncs into the running container (uvicorn --reload) instead
+      # of triggering an image rebuild. Infer deliberately refuses files a RUN
+      # depends on (pyproject.toml is COPYed then installed), so a dependency
+      # change still rebuilds — only this component, never the whole stack.
       sync:
-        manual:
-          - src: "app/**/*.py"
-            dest: /app
+        infer:
+          - "app/**/*"
     - image: kamerplanter-frontend
       context: src/frontend
       docker:
         dockerfile: Dockerfile
         target: dev
+      # Infer sync targets from the Dockerfile COPY (context -> /app), so every
+      # source/asset edit hot-reloads via Vite instead of rebuilding the image.
+      # Covers .ts/.tsx/.css plus previously-missing files (i18n *.json, svg,
+      # index.html, public/**). Infer refuses files a RUN depends on
+      # (package.json/package-lock.json -> `npm ci`), so a dependency change
+      # still rebuilds this one component.
       sync:
-        manual:
-          - src: "src/**/*.ts"
-            dest: /app
-          - src: "src/**/*.tsx"
-            dest: /app
-          - src: "src/**/*.css"
-            dest: /app
+        infer:
+          - "src/**/*"
+          - "index.html"
+          - "public/**/*"
 
 deploy:
   statusCheckDeadlineSeconds: 1800

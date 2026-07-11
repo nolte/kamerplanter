@@ -72,6 +72,9 @@ Fülle folgende Felder aus:
 !!! tip "Warum GPS-Koordinaten wichtig sind"
     Erst mit hinterlegten GPS-Koordinaten kann Kamerplanter für Außenbereich- und Gewächshaus-Sites automatisch Wetterdaten abrufen und Frostwarnungen berechnen. Trägst du bei einem anderen Typ (z. B. Innenbereich) trotzdem Koordinaten ein, bleiben sie vorerst ungenutzt — schaltest du den Typ später auf Außenbereich oder Gewächshaus um, greifen sie automatisch.
 
+!!! tip "Die Klimazone kann automatisch ermittelt werden"
+    Für Außenbereich- und Gewächshaus-Sites mit GPS-Koordinaten berechnet Kamerplanter diese Zone bereits automatisch im Hintergrund aus den langjährigen Klimadaten deines Standorts und hält dieses Feld damit synchron — du musst sie in diesem Fall nicht selbst nachschlagen. Details zur Berechnung, zum manuellen Übersteuern und zum aktuellen Stand der Weboberfläche unter [Klimazonen & Winterhärte](../guides/climate-zones.md). <!-- REQ-039 -->
+
 !!! note "Erfahrungsstufen"
     Je nach deiner Erfahrungsstufe (Einsteiger / Mittelstufe / Experte, einstellbar in den Kontoeinstellungen) siehst du mehr oder weniger Felder. Name und Typ siehst du bereits als Einsteiger; die GPS-Koordinaten, die Wasserquellen-Konfiguration, die Klimazone und die Gesamtfläche kommen ab der Mittelstufe hinzu; die Zeitzone ist ein Experten-Feld.
 

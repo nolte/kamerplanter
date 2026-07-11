@@ -88,11 +88,15 @@ The detail page also has an **"Analyze Runoff"** button that runs a runoff analy
 
 For plants with a growth phase set, Kamerplanter automatically suggests a watering volume — shown as a chip on the plant detail page and pre-filled when you confirm a due watering task. The suggestion takes into account:
 
-- the current **growth phase** (see [Watering Volume per Phase](growth-phases.md#watering-volume-per-phase)),
+- for planting runs at an outdoor or greenhouse site with stored GPS coordinates, the daily calculated **irrigation demand**: Kamerplanter derives evapotranspiration (**ET₀** for short — how much water evaporates from soil and leaves due to sun, wind and temperature) from the weather data, weights it with a species-specific factor (**Kc**), and subtracts any rain that has already fallen. When this value is available, it replaces the phase-based amount below,
+- otherwise the current **growth phase** (see [Watering Volume per Phase](growth-phases.md#watering-volume-per-phase)),
 - the plant species' **waterlogging tolerance** as an upper bound,
-- a **live soil-moisture sensor** configured at the location (see [Sensors](sensors.md)): if the soil is already wet, Kamerplanter automatically reduces the volume and shows a hint about it.
+- a **live soil-moisture sensor** configured at the location (see [Sensors](sensors.md)): if the soil is already wet, Kamerplanter automatically reduces the volume — even one already based on irrigation demand — and shows a hint about it.
 
 The suggestion is non-binding — you can always enter a different volume when logging the watering.
+
+!!! tip "The suggested amount can drop to 0 on rainy days"
+    If the site has already had enough rain, the calculated irrigation demand for the day can drop to 0 — Kamerplanter then suggests no additional watering. This also affects the watering care reminder, see [Care Reminders: Why a Reminder Might Not Appear](care-reminders.md#why-a-reminder-might-not-appear).
 
 ---
 
@@ -120,3 +124,4 @@ The suggestion is non-binding — you can always enter a different volume when l
 - [Tank Management](tanks.md) — Irrigation tanks and fills
 - [Guides: Mixing Nutrient Solutions](../guides/nutrient-mixing.md) — Runoff analysis thresholds
 - [Growth Phases](growth-phases.md#watering-volume-per-phase) — phase-dependent watering and feeding rules
+- [Weather Sources per Location](weather-sources.md) — prerequisite for the ET₀-based irrigation demand at outdoor and greenhouse sites

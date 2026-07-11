@@ -1,0 +1,311 @@
+# REQ-026 §2 — global fish-species catalog (8 species).
+# Source code is English (NFR-003); values transcribed from
+# spec/req/REQ-026_Aquaponik-Management.md.
+fish_species:
+  - _key: tilapia_nile
+    scientific_name: Oreochromis niloticus
+    common_name_de: Nil-Tilapia
+    common_name_en: Nile Tilapia
+    temperature_zone: warmwater
+    temperature_min_c: 18
+    temperature_max_c: 34
+    temperature_optimal_min_c: 26
+    temperature_optimal_max_c: 30
+    temperature_lethal_low_c: 12
+    temperature_lethal_high_c: 38
+    ph_min: 6.5
+    ph_max: 8.5
+    do_minimum_mgl: 2.0
+    do_optimal_mgl: 5.0
+    do_stress_mgl: 3.0
+    max_tan_mgl: 2.0
+    max_nitrite_mgl: 1.0
+    max_nitrate_mgl: 200
+    fcr_hobby: 1.8
+    fcr_professional: 1.3
+    feed_type: omnivore
+    max_stocking_density_kg_per_1000l: 25
+    max_stocking_density_professional_kg_per_1000l: 80
+    growth_rate_g_per_day: 3.0
+    market_weight_g: 500
+    time_to_market_days: 180
+    schooling: true
+    min_group_size: 5
+    regulatory_notes:
+      - country: DE
+        regulation: Keine Einschränkung
+        requirement: "Hobby: frei, gewerblich: Sachkundenachweis §11 TierSchG"
+        hobby_exempt: true
+    notes_de: >-
+      Robusteste Aquaponik-Fischart. Hohe Toleranz gegenüber
+      Wasserqualitätsschwankungen. Sehr effiziente Futterverwertung.
+    notes_en: >-
+      Most robust aquaponics fish species. High tolerance for water-quality
+      fluctuations and very efficient feed conversion.
+  - _key: trout_rainbow
+    scientific_name: Oncorhynchus mykiss
+    common_name_de: Regenbogenforelle
+    common_name_en: Rainbow Trout
+    temperature_zone: coldwater
+    temperature_min_c: 8
+    temperature_max_c: 18
+    temperature_optimal_min_c: 12
+    temperature_optimal_max_c: 16
+    temperature_lethal_low_c: -0.5
+    temperature_lethal_high_c: 22
+    ph_min: 6.5
+    ph_max: 8.0
+    do_minimum_mgl: 5.0
+    do_optimal_mgl: 8.0
+    do_stress_mgl: 6.0
+    max_tan_mgl: 0.5
+    max_nitrite_mgl: 0.1
+    max_nitrate_mgl: 80
+    fcr_hobby: 1.3
+    fcr_professional: 1.0
+    feed_type: carnivore
+    max_stocking_density_kg_per_1000l: 30
+    max_stocking_density_professional_kg_per_1000l: 60
+    growth_rate_g_per_day: 2.5
+    market_weight_g: 350
+    time_to_market_days: 150
+    schooling: true
+    min_group_size: 5
+    regulatory_notes:
+      - country: DE
+        regulation: TierSchG §11
+        requirement: "Gewerbliche Haltung: Sachkundenachweis erforderlich"
+        hobby_exempt: true
+    notes_de: >-
+      Empfindlich gegen hohe Temperaturen und Nitrit. Benötigt hohe
+      DO-Werte (>7 mg/L optimal). Ideal für Kaltwasser-Kräuter-Systeme.
+    notes_en: >-
+      Sensitive to high temperatures and nitrite. Needs high DO (>7 mg/L
+      optimal). Ideal for coldwater herb systems.
+  - _key: carp_common
+    scientific_name: Cyprinus carpio
+    common_name_de: Karpfen / Koi
+    common_name_en: Common Carp / Koi
+    temperature_zone: temperate
+    temperature_min_c: 4
+    temperature_max_c: 35
+    temperature_optimal_min_c: 20
+    temperature_optimal_max_c: 28
+    temperature_lethal_low_c: 2
+    temperature_lethal_high_c: 38
+    ph_min: 6.5
+    ph_max: 9.0
+    do_minimum_mgl: 2.0
+    do_optimal_mgl: 5.0
+    do_stress_mgl: 4.0
+    max_tan_mgl: 1.0
+    max_nitrite_mgl: 0.5
+    max_nitrate_mgl: 300
+    fcr_hobby: 2.2
+    fcr_professional: 1.5
+    feed_type: omnivore
+    max_stocking_density_kg_per_1000l: 15
+    max_stocking_density_professional_kg_per_1000l: 40
+    growth_rate_g_per_day: 2.0
+    market_weight_g: 1500
+    time_to_market_days: 365
+    schooling: false
+    min_group_size: 1
+    regulatory_notes: []
+    notes_de: >-
+      Eurythermer Fisch mit breitestem Temperaturbereich. Sehr robust.
+      Koi sind reine Zierfische (kein Verzehr).
+    notes_en: >-
+      Eurythermal fish with the widest temperature range. Very robust.
+      Koi are ornamental only (not for consumption).
+  - _key: catfish_european
+    scientific_name: Silurus glanis
+    common_name_de: Europäischer Wels
+    common_name_en: European Catfish / Wels
+    temperature_zone: temperate
+    temperature_min_c: 10
+    temperature_max_c: 28
+    temperature_optimal_min_c: 20
+    temperature_optimal_max_c: 26
+    temperature_lethal_low_c: 4
+    temperature_lethal_high_c: 32
+    ph_min: 6.5
+    ph_max: 8.5
+    do_minimum_mgl: 2.0
+    do_optimal_mgl: 5.0
+    do_stress_mgl: 3.0
+    max_tan_mgl: 2.0
+    max_nitrite_mgl: 0.5
+    max_nitrate_mgl: 200
+    fcr_hobby: 1.6
+    fcr_professional: 1.2
+    feed_type: carnivore
+    max_stocking_density_kg_per_1000l: 20
+    max_stocking_density_professional_kg_per_1000l: 60
+    growth_rate_g_per_day: 4.0
+    market_weight_g: 2000
+    time_to_market_days: 300
+    schooling: false
+    min_group_size: 1
+    regulatory_notes:
+      - country: DE
+        regulation: Heimische Art
+        requirement: >-
+          Keine Einschränkung. Gattung Clarias (inkl. C. gariepinus,
+          C. batrachus) ist auf der Unionsliste invasiver Arten
+          (EU-VO 1143/2014) — Silurus glanis als heimische Alternative.
+        hobby_exempt: true
+    notes_de: >-
+      Heimische Alternative zur Gattung Clarias (EU-VO 1143/2014 verbietet
+      die gesamte Gattung). Effiziente Futterverwertung, robust.
+    notes_en: >-
+      Native alternative to the Clarias genus (EU Reg. 1143/2014 bans the whole
+      genus). Efficient feed conversion, robust.
+  - _key: perch_european
+    scientific_name: Perca fluviatilis
+    common_name_de: Europäischer Flussbarsch
+    common_name_en: European Perch
+    temperature_zone: temperate
+    temperature_min_c: 8
+    temperature_max_c: 28
+    temperature_optimal_min_c: 18
+    temperature_optimal_max_c: 24
+    temperature_lethal_low_c: 4
+    temperature_lethal_high_c: 30
+    ph_min: 6.5
+    ph_max: 8.5
+    do_minimum_mgl: 3.0
+    do_optimal_mgl: 6.0
+    do_stress_mgl: 4.0
+    max_tan_mgl: 0.5
+    max_nitrite_mgl: 0.3
+    max_nitrate_mgl: 150
+    fcr_hobby: 1.6
+    fcr_professional: 1.2
+    feed_type: carnivore
+    max_stocking_density_kg_per_1000l: 15
+    max_stocking_density_professional_kg_per_1000l: 40
+    growth_rate_g_per_day: 1.5
+    market_weight_g: 250
+    time_to_market_days: 240
+    schooling: true
+    min_group_size: 5
+    regulatory_notes: []
+    notes_de: >-
+      Heimische Art, guter Kompromiss-Temperaturbereich. Hochwertiges Futter
+      nötig (carnivore). Empfindlicher als Karpfen.
+    notes_en: >-
+      Native species with a good compromise temperature range. Needs
+      high-quality feed (carnivore). More sensitive than carp.
+  - _key: goldfish
+    scientific_name: Carassius auratus
+    common_name_de: Goldfisch
+    common_name_en: Goldfish
+    temperature_zone: temperate
+    temperature_min_c: 2
+    temperature_max_c: 30
+    temperature_optimal_min_c: 18
+    temperature_optimal_max_c: 22
+    temperature_lethal_low_c: 0
+    temperature_lethal_high_c: 34
+    ph_min: 6.0
+    ph_max: 8.5
+    do_minimum_mgl: 2.0
+    do_optimal_mgl: 5.0
+    do_stress_mgl: 3.0
+    max_tan_mgl: 2.0
+    max_nitrite_mgl: 0.5
+    max_nitrate_mgl: 200
+    fcr_hobby: null
+    fcr_professional: null
+    feed_type: omnivore
+    max_stocking_density_kg_per_1000l: 10
+    max_stocking_density_professional_kg_per_1000l: null
+    growth_rate_g_per_day: 0.3
+    market_weight_g: null
+    time_to_market_days: null
+    schooling: true
+    min_group_size: 3
+    regulatory_notes: []
+    notes_de: >-
+      Idealer Einstiegsfisch für Hobby-Aquaponik. Extrem robust, breiter
+      Temperaturbereich. Reiner Zierfisch, FCR nicht anwendbar.
+    notes_en: >-
+      Ideal beginner fish for hobby aquaponics. Extremely robust, wide
+      temperature range. Ornamental only, FCR not applicable.
+  - _key: zander
+    scientific_name: Sander lucioperca
+    common_name_de: Zander
+    common_name_en: Pike-perch / Zander
+    temperature_zone: temperate
+    temperature_min_c: 8
+    temperature_max_c: 28
+    temperature_optimal_min_c: 18
+    temperature_optimal_max_c: 22
+    temperature_lethal_low_c: 2
+    temperature_lethal_high_c: 30
+    ph_min: 6.5
+    ph_max: 8.5
+    do_minimum_mgl: 4.0
+    do_optimal_mgl: 7.0
+    do_stress_mgl: 5.0
+    max_tan_mgl: 0.5
+    max_nitrite_mgl: 0.3
+    max_nitrate_mgl: 100
+    fcr_hobby: 1.5
+    fcr_professional: 1.1
+    feed_type: carnivore
+    max_stocking_density_kg_per_1000l: 20
+    max_stocking_density_professional_kg_per_1000l: 50
+    growth_rate_g_per_day: 2.0
+    market_weight_g: 800
+    time_to_market_days: 365
+    schooling: false
+    min_group_size: 1
+    regulatory_notes:
+      - country: DE
+        regulation: TierSchG §11
+        requirement: "Gewerbliche Haltung: Sachkundenachweis"
+        hobby_exempt: true
+    notes_de: >-
+      Hoher Marktwert im DACH-Raum. Wird in kommerziellen Aquaponik-Anlagen
+      eingesetzt. Guter Kompromiss-Temperaturbereich für Salat/Kräuter.
+    notes_en: >-
+      High market value in the DACH region. Used in commercial aquaponics.
+      Good compromise temperature range for lettuce/herbs.
+  - _key: char_arctic
+    scientific_name: Salvelinus alpinus
+    common_name_de: Seesaibling
+    common_name_en: Arctic Char
+    temperature_zone: coldwater
+    temperature_min_c: 2
+    temperature_max_c: 18
+    temperature_optimal_min_c: 8
+    temperature_optimal_max_c: 14
+    temperature_lethal_low_c: 0
+    temperature_lethal_high_c: 22
+    ph_min: 6.5
+    ph_max: 8.0
+    do_minimum_mgl: 5.0
+    do_optimal_mgl: 8.0
+    do_stress_mgl: 6.0
+    max_tan_mgl: 0.5
+    max_nitrite_mgl: 0.1
+    max_nitrate_mgl: 80
+    fcr_hobby: 1.3
+    fcr_professional: 1.0
+    feed_type: carnivore
+    max_stocking_density_kg_per_1000l: 25
+    max_stocking_density_professional_kg_per_1000l: 50
+    growth_rate_g_per_day: 1.5
+    market_weight_g: 300
+    time_to_market_days: 240
+    schooling: true
+    min_group_size: 5
+    regulatory_notes: []
+    notes_de: >-
+      Heimische Kaltwasser-Art der Alpenregion. Ähnlich der Forelle, aber
+      etwas toleranter gegen Wasserqualitätsschwankungen.
+    notes_en: >-
+      Native coldwater species of the Alpine region. Similar to trout but
+      somewhat more tolerant of water-quality fluctuations.

@@ -89,6 +89,7 @@ Automatisch erstellte Pflegeaufgaben starten mit der Priorität „Mittel"; ist 
 Die häufigste Ursache für eine „fehlende" Erinnerung ist einer der folgenden Gründe:
 
 - **Aktiver Gießplan**: Hat die Pflanze über einen Pflanzdurchlauf bereits einen aktiven automatischen Gießplan, unterdrückt Kamerplanter zusätzliche manuelle Gieß- und Düngeerinnerungen für diese Pflanze.
+- **Bewässerungsbedarf bereits gedeckt (Regen)**: Bei Freiland- und Gewächshaus-Standorten mit hinterlegten GPS-Koordinaten berechnet Kamerplanter täglich den Bewässerungsbedarf aus der Verdunstung (Evapotranspiration, kurz **ET₀**) abzüglich des bereits gefallenen Regens. Ist der verbleibende Bedarf für den Tag 0, entfällt die Gieß-Erinnerung — unabhängig vom sonst berechneten Intervall. Details zur Berechnung siehe [Gießprotokoll: Vorgeschlagene Gießmenge](watering-log.md#vorgeschlagene-giessmenge).
 - **Nährstoffplan-Voraussetzung**: Düngeerinnerungen entstehen nur, wenn der Pflanze ein Nährstoffplan zugewiesen ist — unabhängig vom Pflegestil.
 - **Ruhephase (Dormanz)**: Befindet sich die Pflanze in einer Ruhephase (Winterruhe, Seneszenz, Abhärtungsphase, Akklimatisierung, Umtopf-Erholung), werden alle Erinnerungen außer der Schädlingskontrolle unterdrückt.
 - **Aktivmonate**: Liegt der aktuelle Monat außerhalb der Aktivmonate des Pflegestils (z.B. November–Februar bei den meisten Zimmerpflanzen), entsteht keine Düngeerinnerung.
@@ -179,3 +180,5 @@ Für alle nicht gelisteten Familien greift der Fallback-Stil `tropical`, sofern 
 - [Pflanzdurchläufe](planting-runs.md)
 - [Wachstumsphasen](growth-phases.md)
 - [Kalender](calendar.md)
+- [Gießprotokoll](watering-log.md) — Vorgeschlagene Gießmenge, inklusive ET₀-basiertem Bewässerungsbedarf
+- [Wetterquellen je Standort](weather-sources.md)

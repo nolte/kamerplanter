@@ -58,6 +58,8 @@ const PlantingRunDetailPage = lazy(() => import('@/pages/durchlaeufe/PlantingRun
 const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/SuccessionPlanListPage'));
 // REQ-022 Überwinterung
 const OverwinteringListPage = lazy(() => import('@/pages/ueberwinterung/OverwinteringListPage'));
+// REQ-026 Aquaponik
+const AquaponikPage = lazy(() => import('@/pages/aquaponik/AquaponikPage'));
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
 const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
 const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
@@ -80,6 +82,8 @@ const TreatmentDetailPage = lazy(() => import('@/pages/pflanzenschutz/TreatmentD
 // REQ-007 Harvest
 const HarvestBatchListPage = lazy(() => import('@/pages/ernte/HarvestBatchListPage'));
 const HarvestBatchDetailPage = lazy(() => import('@/pages/ernte/HarvestBatchDetailPage'));
+// REQ-008 Post-Harvest
+const PostHarvestPage = lazy(() => import('@/pages/post-harvest/PostHarvestPage'));
 // REQ-006 Tasks
 const TaskQueuePage = lazy(() => import('@/pages/aufgaben/TaskQueuePage'));
 const TaskDetailPage = lazy(() => import('@/pages/aufgaben/TaskDetailPage'));
@@ -452,6 +456,16 @@ export const router = createBrowserRouter(
             }
           />
 
+          {/* REQ-026 Aquaponik */}
+          <Route
+            path="aquaponik"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <AquaponikPage />
+              </Suspense>
+            }
+          />
+
           {/* REQ-014 Tanks */}
           <Route
             path="standorte/tanks"
@@ -649,6 +663,16 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="form" />}>
                 <HarvestBatchDetailPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-008 Nacherntebehandlung */}
+          <Route
+            path="ernte/nachernte"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <PostHarvestPage />
               </Suspense>
             }
           />
