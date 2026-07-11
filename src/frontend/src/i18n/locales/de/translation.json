@@ -348,6 +348,8 @@
     "tanks": "Tanks",
     "aquaponik": "Aquaponik",
     "aquaponicSystems": "Aquaponik-Systeme",
+    "inventar": "Inventar",
+    "equipment": "Betriebsmittel",
     "duengung": "Düngung",
     "fertilizers": "Düngemittel",
     "nutrientPlans": "Nährstoffpläne",
@@ -521,6 +523,31 @@
       "questionHelp": "Reine Wissensfragen ohne Bezug zu deinen konkreten Pflanzen. Mit Strg/Cmd + Enter absenden.",
       "ask": "Frage stellen",
       "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut."
+    },
+    "inventree": {
+      "title": "Betriebsmittel & Inventar",
+      "intro": "Verwalte deine Betriebsmittel (Pumpen, Sensoren, Werkzeuge, Reinigungsmittel) und verknüpfe sie optional mit deiner InvenTree-Inventarverwaltung für die Bestandsführung.",
+      "createEquipment": "Betriebsmittel anlegen",
+      "editEquipment": "Betriebsmittel bearbeiten",
+      "equipmentSaved": "Betriebsmittel wurde gespeichert.",
+      "equipmentDeleted": "Betriebsmittel wurde gelöscht.",
+      "deleteTitle": "Betriebsmittel löschen",
+      "deleteConfirm": "Möchtest du „{{name}}“ wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "connectionActive": "InvenTree-Verbindung „{{name}}“ ist aktiv. Bestände werden automatisch synchronisiert.",
+      "noConnection": "Keine InvenTree-Verbindung konfiguriert. Betriebsmittel können trotzdem eigenständig verwaltet werden.",
+      "emptyTitle": "Noch kein Betriebsmittel angelegt",
+      "emptyDescription": "Lege dein erstes Betriebsmittel an, um Pumpen, Sensoren und Verbrauchsmaterialien zu verwalten.",
+      "fields": {
+        "name": "Bezeichnung",
+        "equipmentType": "Typ",
+        "status": "Status",
+        "brand": "Marke",
+        "model": "Modell",
+        "serialNumber": "Seriennummer",
+        "inventreePartId": "InvenTree-Part-ID",
+        "inventreePartHelp": "Optionale Verknüpfung zu einem InvenTree-Part für die Bestandsführung.",
+        "notes": "Notizen"
+      }
     },
     "aquaponik": {
       "title": "Aquaponik",
@@ -4508,6 +4535,24 @@
     "biofilm_risk": "Biofilm-Risiko — Lösung seit {{value}} Tagen ohne Sterilisation"
   },
   "enums": {
+    "equipmentType": {
+      "tool": "Werkzeug",
+      "consumable": "Verbrauchsmaterial",
+      "sensor": "Sensor / Messgerät",
+      "lighting": "Beleuchtung",
+      "pump": "Pumpe",
+      "filter": "Filter",
+      "container": "Behälter",
+      "cleaning_agent": "Reinigungsmittel",
+      "other": "Sonstiges"
+    },
+    "equipmentStatus": {
+      "active": "Aktiv",
+      "maintenance": "In Wartung",
+      "stored": "Eingelagert",
+      "defective": "Defekt",
+      "retired": "Ausgemustert"
+    },
     "aquaponicSystemType": {
       "media_bed": "Media-Bed (Blähton)",
       "dwc": "Deep Water Culture (DWC)",

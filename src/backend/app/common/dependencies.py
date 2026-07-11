@@ -134,6 +134,20 @@ def get_aquaponik_service():
     return AquaponikService(get_aquaponik_repo())
 
 
+def get_inventree_repo():
+    """REQ-016 InvenTree integration repository (connections/refs/txns/equipment)."""
+    from app.data_access.arango.inventree_repository import ArangoInvenTreeRepository
+
+    return ArangoInvenTreeRepository(get_db())
+
+
+def get_inventree_service():
+    """REQ-016 InvenTree integration service (Fernet-encrypted token, SSRF-guarded)."""
+    from app.domain.services.inventree_service import InvenTreeService
+
+    return InvenTreeService(get_inventree_repo(), get_encryption_engine())
+
+
 def get_species_repo() -> ArangoSpeciesRepository:
     return ArangoSpeciesRepository(get_db())
 

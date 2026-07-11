@@ -359,6 +359,98 @@ def validate_ha_url(url: str, *, allow_private: bool = False, field: str = "ha_u
     return url
 
 
+def validate_inventree_url(url: str, *, allow_private: bool = False, field: str = "base_url") -> str:
+    """Validate a tenant/admin-supplied InvenTree base URL against SSRF (REQ-016 IT).
+
+    The InvenTree ``base_url`` is dialed server-side with the API token attached,
+    so an actor who can set it could otherwise point it at ``169.254.169.254`` or
+    internal cluster addresses to leak the token or exfiltrate internal responses.
+    Tailored to InvenTree, which frequently runs on the LAN / in-cluster over
+    plain http:
+
+    * ``http`` **and** ``https`` are accepted — LAN InvenTree
+      (``inventree.local``, ``10.x.x.x``) legitimately speaks http.
+    * Link-local / cloud-metadata / reserved / multicast / unspecified addresses
+      (incl. ``169.254.169.254`` IMDS) are **always** rejected — never opt-in-able.
+    * Private (RFC1918) and loopback addresses are rejected **unless**
+      ``allow_private`` is set (operator opt-in via
+      ``INVENTREE_ALLOW_PRIVATE_ENDPOINT`` for LAN / in-cluster InvenTree).
+
+    Args:
+        url: The InvenTree base URL the server will dial.
+        allow_private: When True, private / loopback addresses are permitted
+            (still never link-local / metadata).
+        field: Field name surfaced in the raised ``ValidationError`` details.
+
+    Returns:
+        The (unchanged) URL when it passes all checks.
+
+    Raises:
+        ValidationError: if the URL is empty/too long, not http(s), malformed,
+            unresolvable, or resolves to a blocked address.
+    """
+    if not url or len(url) > _MAX_ENDPOINT_LENGTH:
+        raise ValidationError(
+            "Invalid InvenTree URL.",
+            details=[{"field": field, "reason": "URL is empty or too long.", "code": "INVALID_URL"}],
+        )
+
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise ValidationError(
+            "InvenTree URL must use http or https.",
+            details=[{"field": field, "reason": "Only http(s) URLs are accepted.", "code": "INVALID_URL_SCHEME"}],
+        )
+
+    host = parts.hostname
+    if not host:
+        raise ValidationError(
+            "InvenTree URL has no host.",
+            details=[{"field": field, "reason": "URL has no host.", "code": "INVALID_URL"}],
+        )
+
+    try:
+        addresses = _resolved_addresses(host)
+    except OSError:
+        raise ValidationError(
+            "InvenTree URL host could not be resolved.",
+            details=[{"field": field, "reason": "Host does not resolve.", "code": "URL_UNRESOLVABLE"}],
+        ) from None
+
+    for address in addresses:
+        # Link-local / metadata / reserved / multicast / unspecified — ALWAYS blocked.
+        if _is_metadata_or_link_local(address):
+            logger.warning("inventree_url_rejected_ssrf", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "InvenTree URL resolves to a blocked address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": "Host resolves to a link-local / metadata address.",
+                        "code": "URL_METADATA_ADDRESS",
+                    }
+                ],
+            )
+        # Private / loopback — blocked unless the operator opted in.
+        if _is_blocked_address(address) and not allow_private:
+            logger.warning("inventree_url_rejected_private", host=host, address=str(address), field=field)
+            raise ValidationError(
+                "InvenTree URL resolves to a private address.",
+                details=[
+                    {
+                        "field": field,
+                        "reason": (
+                            "Host resolves to a private/loopback IP. Set "
+                            "INVENTREE_ALLOW_PRIVATE_ENDPOINT=true to allow LAN / in-cluster InvenTree."
+                        ),
+                        "code": "URL_PRIVATE_ADDRESS",
+                    }
+                ],
+            )
+
+    return url
+
+
 def validate_push_endpoint(endpoint: str) -> str:
     """Validate a user-supplied Web Push endpoint against SSRF.
 

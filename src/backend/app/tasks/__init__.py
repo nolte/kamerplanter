@@ -25,6 +25,7 @@ celery_app.conf.update(
         "app.tasks.enrichment_tasks",
         "app.tasks.frost_forecast_tasks",
         "app.tasks.hardiness_tasks",
+        "app.tasks.inventree_tasks",
         "app.tasks.irrigation_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.pest_dataset_tasks",
@@ -157,6 +158,19 @@ celery_app.conf.update(
         },
     },
 )
+
+# REQ-016 InvenTree bidirectional sync (conditional kill-switch). READ hourly,
+# WRITE every 5 min. Both tasks self-skip when the flag is off, so scheduling is
+# only a small optimisation.
+if settings.inventree_enabled:
+    celery_app.conf.beat_schedule["inventree-stock-sync-hourly"] = {
+        "task": "inventree.sync_stock_levels",
+        "schedule": 3600,
+    }
+    celery_app.conf.beat_schedule["inventree-push-pending-5min"] = {
+        "task": "inventree.push_pending_transactions",
+        "schedule": 300,
+    }
 
 # TimescaleDB sensor ingestion (conditional)
 if settings.timescaledb_enabled:

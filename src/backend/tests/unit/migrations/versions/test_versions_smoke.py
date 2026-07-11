@@ -42,6 +42,12 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["zone"], "unique": True},
             # v0014 plant_diagnosis_requests history index
             {"type": "persistent", "fields": ["tenant_key", "user_key", "created_at"], "unique": False},
+            # v0015 InvenTree collection indexes
+            {"type": "persistent", "fields": ["tenant_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "entity_collection", "entity_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "status", "created_at"], "unique": False},
+            {"type": "persistent", "fields": ["reference_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "equipment_type", "status"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -65,6 +71,10 @@ class _NoopGraph:
             {"edge_collection": "cv_diagnosis_found"},
             {"edge_collection": "cv_attached_to_inspection"},
             {"edge_collection": "cv_phenotype_of"},
+            # v0015 InvenTree integration edges
+            {"edge_collection": "has_inventree_ref"},
+            {"edge_collection": "has_stock_transaction"},
+            {"edge_collection": "equipment_at"},
         ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

@@ -62,6 +62,8 @@ const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/Succession
 const OverwinteringListPage = lazy(() => import('@/pages/ueberwinterung/OverwinteringListPage'));
 // REQ-026 Aquaponik
 const AquaponikPage = lazy(() => import('@/pages/aquaponik/AquaponikPage'));
+// REQ-016 InvenTree integration (Equipment + inventory sync)
+const InventreePage = lazy(() => import('@/pages/inventree/InventreePage'));
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
 const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
 const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
@@ -464,6 +466,16 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <AquaponikPage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-016 InvenTree integration (Equipment + inventory) */}
+          <Route
+            path="inventree"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <InventreePage />
               </Suspense>
             }
           />
