@@ -5719,7 +5719,30 @@
     },
     "plantGrid": {
       "unnamed": "Unbenannte Pflanze",
-      "empty": "Noch keine aktiven Pflanzen."
+      "empty": "Noch keine aktiven Pflanzen.",
+      "noMatches": "Keine Pflanzen entsprechen den Filtern.",
+      "format": {
+        "label": "Kartenformat",
+        "detailed": "Detailliert",
+        "compact": "Kompakt"
+      },
+      "filters": {
+        "phase": "Phase",
+        "location": "Standort",
+        "task": "Aufgaben"
+      },
+      "filterValues": {
+        "noPhase": "Ohne Phase",
+        "noLocation": "Ohne Standort",
+        "hasTask": "Mit offener Aufgabe",
+        "noTask": "Ohne offene Aufgabe"
+      },
+      "card": {
+        "phase": "Phase",
+        "nextDue": "Fällig: {{date}}",
+        "openTask": "Offene Aufgabe",
+        "openTaskAria": "hat eine offene Aufgabe"
+      }
     },
     "nav": {
       "openWidget": "{{widget}} öffnen",

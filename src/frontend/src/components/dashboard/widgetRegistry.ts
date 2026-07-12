@@ -24,6 +24,8 @@ type WidgetComponent = LazyExoticComponent<ComponentType<WidgetComponentProps>>;
 
 const GenericWidget = lazy(() => import('./widgets/GenericWidget')) as WidgetComponent;
 const QuickActionsWidget = lazy(() => import('./widgets/QuickActionsWidget')) as WidgetComponent;
+// DASH-2 (#488) — dedicated rich, filterable plant-instance grid.
+const PlantGridWidget = lazy(() => import('./widgets/PlantGridWidget')) as WidgetComponent;
 // Existing REQ-022 widget — prop-less, extra props are ignored.
 const WinterProtectionWidget = lazy(() => import('./WinterProtectionWidget')) as WidgetComponent;
 // REQ-046 weather widget — prop-less, extra props are ignored.
@@ -46,7 +48,7 @@ export const widgetRegistry: Record<WidgetKey, WidgetComponent> = {
   community_activity: GenericWidget,
   tank_status: GenericWidget,
   phase_timeline: GenericWidget,
-  plant_grid: GenericWidget,
+  plant_grid: PlantGridWidget,
 };
 
 export function getWidgetComponent(widgetKey: string): WidgetComponent | null {

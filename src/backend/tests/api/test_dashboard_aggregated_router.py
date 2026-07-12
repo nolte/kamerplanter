@@ -98,3 +98,33 @@ def test_plant_grid_slice_returns_active_plants_with_keys():
     assert resp.status_code == 200
     slice_payload = resp.json()["widgets"]["plant_grid"]
     assert [p["_key"] for p in slice_payload["plants"]] == ["p-1", "p-2"]
+
+
+def test_plant_grid_slice_passes_through_enriched_card_fields():
+    """#488: the enriched per-card status fields (phase / location / open-task /
+    next-due) reach the ``plant_grid`` slice untouched so the rich grid can render
+    and filter on them."""
+    plants = [
+        {
+            "_key": "p-1",
+            "plant_name": "Basil",
+            "species_key": "ocimum-basilicum",
+            "cultivar_key": "c-1",
+            "cultivar_name": "Genovese",
+            "phase_key": "veg",
+            "phase_name": "Vegetative",
+            "location_key": "loc-1",
+            "location_name": "Balcony",
+            "has_open_task": True,
+            "next_due_date": "2026-05-01T00:00:00+00:00",
+        },
+    ]
+    service = _FakeDashboardService(open_today=0, overdue=0, active_plants=plants)
+    resp = _client(service).get(f"{_AGGREGATED}?widgets=plant_grid")
+    assert resp.status_code == 200
+    card = resp.json()["widgets"]["plant_grid"]["plants"][0]
+    assert card["cultivar_name"] == "Genovese"
+    assert card["phase_name"] == "Vegetative"
+    assert card["location_name"] == "Balcony"
+    assert card["has_open_task"] is True
+    assert card["next_due_date"] == "2026-05-01T00:00:00+00:00"

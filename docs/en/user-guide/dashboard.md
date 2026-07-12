@@ -57,17 +57,20 @@ For these three widgets, clicking the panel's empty area no longer opens a list 
 
 ## Dashboard Sections at a Glance
 
-### Active Plants and Growth Phase
+### Plant Grid
 
-The upper section shows an overview of all active plants with their current growth phase. Plants are color-coded by phase:
+The **Plant grid** widget shows every active plant of yours as its own card: name (or cultivar name, if you haven't given the plant its own name), current growth phase, location and — if available — the next due date. Plants with an open task or care reminder are additionally flagged clearly: a coloured border, a warning icon and the text badge "Open task" show you this even if you can't distinguish colours. <!-- REQ-009 -->
 
-- Light green: Germination / Seedling
-- Green: Vegetative phase
-- Purple: Flowering phase
-- Yellow: Harvest phase
-- Grey: Dormancy (rest phase)
+The filter bar above the cards lets you narrow the overview down — by **phase**, **location**, or whether an **open task** is present. Multiple filters can be combined; an empty result shows you a matching notice.
 
-Click a plant to go directly to the plant detail page.
+The toggle next to it lets you choose the card format:
+
+- **Detailed** — larger cards adding cultivar, location and next due date on top of name and phase
+- **Compact** — more, narrower cards showing only name, phase and the task indicator
+
+Your choice is stored in your browser and persists across reloads.
+
+Click or tap a card to go directly to the plant detail page.
 
 ### Upcoming Tasks
 
