@@ -17,6 +17,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Watering Log](watering-log.md) | Document and review watering events |
 | [Sensors](sensors.md) | Sensor data, Home Assistant integration |
 | [Weather Sources](weather-sources.md) | Choose and prioritize a public weather service or Home Assistant per location |
+| [Calculations](calculations.md) | VPD, GDD, photoperiod, slot-capacity, and sun-position calculators |
 | [Tasks](tasks.md) | Task planning and workflow templates |
 | [Harvest](harvest.md) | Harvest management and quality scoring |
 | [Post-Harvest](post-harvest.md) | Track drying, curing, and storage of your harvest batches |

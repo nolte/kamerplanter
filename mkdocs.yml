@@ -106,6 +106,7 @@ plugins:
             Dünge-Logik: Fertilization Logic
             Sensorik: Sensors
             Wetterquellen: Weather Sources
+            Berechnungen: Calculations
             Aufgaben: Tasks
             Ernte: Harvest
             Nacherntebehandlung: Post-Harvest
@@ -294,6 +295,7 @@ nav:
       - Gießprotokoll: de/user-guide/watering-log.md
       - Sensorik: de/user-guide/sensors.md
       - Wetterquellen: de/user-guide/weather-sources.md
+      - Berechnungen: de/user-guide/calculations.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
       - Nacherntebehandlung: de/user-guide/post-harvest.md
