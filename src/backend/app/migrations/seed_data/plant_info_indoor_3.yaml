@@ -1262,7 +1262,9 @@ new_species:
       - "Zanzibar Gem"
     genus: Zamioculcas
     plant_category: tropical_foliage
-    growth_habit: herb
+    # A4 reclassification (#453 WP-10): CAM succulent with water-storing rhizomes/tubers
+    # (Steckbrief §1: "CAM-Sukkulente", "sukkulente Rhizome/Knollen"), not a plain herb.
+    growth_habit: succulent
     root_type: tuberous
     hardiness_zones:
       - "9b"

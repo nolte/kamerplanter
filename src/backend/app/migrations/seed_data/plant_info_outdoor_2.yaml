@@ -2145,6 +2145,10 @@ new_species:
     plant_category: herb
     growth_habit: herb
     root_type: fibrous
+    # A1 backfill (#453 WP-10): edible herb, daily cut-and-come-again harvest of
+    # leaves/flowers/buds over the season (Steckbrief §Ernte: "Blüten, Knospen, Blätter täglich").
+    harvest_pattern: continuous
+    harvested_part: leaf
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Peru, Kolumbien (Anden)"
     allelopathy_score: 0.2
