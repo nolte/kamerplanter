@@ -24,6 +24,7 @@ from app.domain.engines.actuator_control_engine import (
     HomeAssistantCommandMapper,
     PhaseTransitionHandler,
     clamp_to_bounds,
+    derive_actuator_command,
 )
 from app.domain.models.actuator import (
     Actuator,
@@ -283,3 +284,29 @@ class TestClampToBounds:
 
     def test_only_min_configured(self):
         assert clamp_to_bounds(-5.0, 0.0, None) == 0.0
+
+    def test_nan_is_coerced_to_bound_not_passed_through(self):
+        # SEC-002: NaN defeats < / > comparisons, so it must never survive the clamp.
+        assert clamp_to_bounds(float("nan"), 15.0, 30.0) == 15.0
+        assert clamp_to_bounds(float("nan"), None, 30.0) == 30.0
+
+    def test_nonfinite_on_unbounded_actuator_drops_to_none(self):
+        assert clamp_to_bounds(float("nan"), None, None) is None
+        assert clamp_to_bounds(float("inf"), None, None) is None
+
+
+class TestDeriveActuatorCommand:
+    """SEC-003: single decision function shared by immediate-apply and loop paths."""
+
+    def test_zero_value_means_off(self):
+        assert derive_actuator_command(0, None) == ("turn_off", None, "off")
+
+    def test_positive_value_means_set_value(self):
+        assert derive_actuator_command(75.0, None) == ("set_value", 75.0, "on")
+
+    def test_explicit_off_state(self):
+        assert derive_actuator_command(None, "off") == ("turn_off", None, "off")
+
+    def test_default_is_turn_on(self):
+        assert derive_actuator_command(None, "on") == ("turn_on", None, "on")
+        assert derive_actuator_command(None, None) == ("turn_on", None, "on")

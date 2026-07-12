@@ -19,6 +19,7 @@ Pure domain logic — no I/O, no DB, no HTTP — so it is exhaustively unit-test
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -47,14 +48,49 @@ def clamp_to_bounds(value: float | None, min_value: float | None, max_value: flo
     emergency) can never drive an actuator past its configured safe envelope
     (REQ-018 safety). ``None`` (a pure on/off command with no numeric value) and
     unbounded actuators (``min_value``/``max_value`` unset) are returned unchanged.
+
+    SEC-002: a non-finite value (``NaN``/``+-inf``) would defeat the ``<``/``>``
+    comparisons (both are ``False`` for ``NaN``), so it is never passed through — it
+    is coerced to the nearest configured bound, or (when unbounded) rejected by
+    returning ``None`` so nothing numeric reaches the device. The dispatch chokepoint
+    additionally refuses non-finite input outright (fail-closed).
     """
     if value is None:
+        return None
+    if not math.isfinite(value):
+        # Never let NaN/Infinity slip through the comparison-based clamp.
+        if min_value is not None:
+            return min_value
+        if max_value is not None:
+            return max_value
         return None
     if min_value is not None and value < min_value:
         return min_value
     if max_value is not None and value > max_value:
         return max_value
     return value
+
+
+def derive_actuator_command(
+    override_value: float | None,
+    override_state: str | None,
+) -> tuple[str, float | None, str]:
+    """Derive the ``(command, value, state)`` for a value/state intent.
+
+    Single source of truth shared by the immediate-apply path
+    (:meth:`ActuatorService.set_override`) and the control-loop path
+    (:meth:`ControlEngine._evaluate_override`) so they can never diverge
+    (SEC-003). Precedence: an explicit numeric ``override_value`` wins, and a
+    numeric ``0`` always means *off* (a physical device must not be turned on when
+    the recorded value is ``0``). Otherwise fall back to ``override_state``.
+    """
+    if override_value is not None:
+        if override_value == 0:
+            return (ActionCommand.TURN_OFF.value, None, "off")
+        return (ActionCommand.SET_VALUE.value, override_value, "on")
+    if override_state == "off":
+        return (ActionCommand.TURN_OFF.value, None, "off")
+    return (ActionCommand.TURN_ON.value, None, "on")
 
 
 @dataclass
@@ -131,20 +167,10 @@ class ControlEngine:
             return None
         if now >= override.expires_at:
             return None
-        if override.override_value is not None:
-            state = "off" if override.override_value == 0 else "on"
-            return DesiredState(
-                command=ActionCommand.SET_VALUE.value,
-                value=override.override_value,
-                state=state,
-                source=ControlEventSource.MANUAL,
-                source_key=override.key,
-                priority=PRIORITY_MANUAL_OVERRIDE,
-            )
-        state = override.override_state or "on"
+        command, value, state = derive_actuator_command(override.override_value, override.override_state)
         return DesiredState(
-            command=ActionCommand.TURN_ON.value if state != "off" else ActionCommand.TURN_OFF.value,
-            value=None,
+            command=command,
+            value=value,
             state=state,
             source=ControlEventSource.MANUAL,
             source_key=override.key,

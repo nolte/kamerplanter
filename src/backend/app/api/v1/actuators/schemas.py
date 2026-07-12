@@ -95,12 +95,15 @@ class ActuatorResponse(BaseModel):
 
 class CommandRequest(BaseModel):
     command: str = Field(pattern=r"^(turn_on|turn_off|set_value)$")
-    value: float | None = None
+    # SEC-002: reject non-finite numeric values (NaN/Infinity) at the boundary —
+    # they would otherwise defeat the comparison-based clamp downstream.
+    value: float | None = Field(default=None, allow_inf_nan=False)
 
 
 class OverrideCreate(BaseModel):
     expires_at: datetime
-    override_value: float | None = None
+    # SEC-002: reject non-finite override values (NaN/Infinity) at the boundary.
+    override_value: float | None = Field(default=None, allow_inf_nan=False)
     override_state: str | None = Field(default=None, pattern=r"^(on|off)$")
     reason: str | None = Field(default=None, max_length=500)
 

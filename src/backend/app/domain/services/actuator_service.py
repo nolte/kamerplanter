@@ -17,9 +17,10 @@ preventing cross-tenant leakage (SEC-B4).
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 
@@ -38,6 +39,7 @@ from app.domain.engines.actuator_control_engine import (
     DesiredState,
     HomeAssistantCommandMapper,
     clamp_to_bounds,
+    derive_actuator_command,
 )
 from app.domain.models.actuator import (
     Actuator,
@@ -140,12 +142,35 @@ class ActuatorService:
         triggered_by_schedule_key: str | None = None,
         triggered_by_user: str | None = None,
         sensor_reading: float | None = None,
-    ) -> ControlEvent:
+        on_unsafe_value: Literal["raise", "skip"] = "raise",
+    ) -> ControlEvent | None:
         # SEC (REQ-018): single chokepoint for every command path (direct, rule,
-        # schedule, override, emergency) — clamp the numeric value into the
-        # actuator's configured [min_value, max_value] envelope so nothing can
-        # drive the device past its safe bounds. The clamped value is what gets
-        # sent to hardware, stored as current_value and logged.
+        # schedule, override, emergency). The safety invariant enforced here is:
+        # a numeric value can NEVER reach a physical actuator without a validated,
+        # finite [min_value, max_value] envelope, and is always clamped into it.
+        #   * SEC-002 — a non-finite value (NaN/Infinity) is refused outright; it
+        #     would otherwise defeat the comparison-based clamp.
+        #   * SEC-001 — a numeric value for an actuator with NO configured envelope
+        #     is refused (fail-closed): forwarding an unbounded number to hardware
+        #     (e.g. climate.set_temperature=999) could drive the device out of any
+        #     safe envelope. Command paths raise 422; loop/safety paths skip + log.
+        # Only once both hold is the value clamped into [min_value, max_value]; the
+        # clamped value is what reaches hardware, is stored and is logged.
+        if value is not None:
+            if not math.isfinite(value):
+                return self._refuse_unsafe_value(
+                    actuator, value, on_unsafe_value, reason="Numeric actuator value must be finite (no NaN/Infinity)."
+                )
+            if actuator.min_value is None or actuator.max_value is None:
+                return self._refuse_unsafe_value(
+                    actuator,
+                    value,
+                    on_unsafe_value,
+                    reason=(
+                        "Actuator has no configured [min_value, max_value] envelope; "
+                        "a numeric value cannot be dispatched to hardware safely."
+                    ),
+                )
         value = clamp_to_bounds(value, actuator.min_value, actuator.max_value)
 
         previous_state = actuator.current_state
@@ -210,6 +235,34 @@ class ActuatorService:
             sensor_reading_at_trigger=sensor_reading,
         )
         return self._repo.create_event(event)
+
+    def _refuse_unsafe_value(
+        self,
+        actuator: Actuator,
+        value: float,
+        on_unsafe_value: Literal["raise", "skip"],
+        *,
+        reason: str,
+    ) -> None:
+        """Refuse a numeric value that cannot be dispatched safely (SEC-001/002).
+
+        Command paths ask to ``raise`` (surfaces as HTTP 422); the control loop and
+        emergency-stop ask to ``skip`` — the offending device is left untouched and
+        the refusal is logged, never letting an unbounded/non-finite number reach
+        hardware.
+        """
+        logger.warning(
+            "actuator_unsafe_value_refused",
+            actuator=actuator.key,
+            actuator_type=actuator.actuator_type.value,
+            value=value,
+            min_value=actuator.min_value,
+            max_value=actuator.max_value,
+            reason=reason,
+        )
+        if on_unsafe_value == "raise":
+            raise ValidationError(reason)
+        return None
 
     def _dispatch_home_assistant(
         self, actuator: Actuator, command: str, value: float | None
@@ -281,17 +334,16 @@ class ActuatorService:
         # Only one active override per actuator.
         self._repo.deactivate_overrides_for_actuator(key)
         created = self._repo.create_override(override)
-        # Apply the override immediately.
-        if override.override_state == "off":
-            command = "turn_off"
-        elif override.override_value:
-            command = "set_value"
-        else:
-            command = "turn_on"
+        # Apply the override immediately. SEC-003: derive the command through the
+        # SAME decision function the control loop uses so the immediate-apply and
+        # loop paths can never diverge — in particular ``override_value == 0`` maps
+        # to *off* (turn_off) instead of falling through to turn_on, which would
+        # leave HA on while the recorded state is off.
+        command, value, _state = derive_actuator_command(override.override_value, override.override_state)
         self._dispatch(
             actuator,
             command,
-            override.override_value,
+            value,
             ControlEventSource.MANUAL,
             triggered_by_user=user,
         )
@@ -413,6 +465,8 @@ class ActuatorService:
             return None
         is_rule = decision.source in (ControlEventSource.RULE, ControlEventSource.SAFETY)
         is_schedule = decision.source == ControlEventSource.SCHEDULE
+        # Loop path: never raise on an unsafe numeric value — skip + log so one
+        # misconfigured actuator can't abort the periodic evaluation of the rest.
         return self._dispatch(
             actuator,
             decision.command,
@@ -421,6 +475,7 @@ class ActuatorService:
             triggered_by_rule_key=decision.source_key if is_rule else None,
             triggered_by_schedule_key=decision.source_key if is_schedule else None,
             sensor_reading=decision.sensor_reading,
+            on_unsafe_value="skip",
         )
 
     # ── Events & stats ───────────────────────────────────────────────────
@@ -538,15 +593,54 @@ class ActuatorService:
         actuators = self._repo.list_for_tenant(tenant_key)
         stopped: list[str] = []
         forced_on: list[str] = []
+        failed: list[str] = []
         for actuator in actuators:
             atype = actuator.actuator_type.value
-            if atype in affected_types.get("off", ()):
-                self._dispatch(actuator, "turn_off", None, ControlEventSource.SAFETY, triggered_by_user=user)
-                stopped.append(actuator.key or "")
-            elif atype in affected_types.get("on", ()):
-                self._dispatch(actuator, "set_value", 100.0, ControlEventSource.SAFETY, triggered_by_user=user)
-                forced_on.append(actuator.key or "")
-        return {"scenario": scenario, "stopped": stopped, "forced_on": forced_on}
+            # Per-actuator isolation (bulkhead): one repository/dispatch failure
+            # must never abort stopping the remaining safety-relevant devices.
+            try:
+                if atype in affected_types.get("off", ()):
+                    self._dispatch(
+                        actuator,
+                        "turn_off",
+                        None,
+                        ControlEventSource.SAFETY,
+                        triggered_by_user=user,
+                        on_unsafe_value="skip",
+                    )
+                    stopped.append(actuator.key or "")
+                elif atype in affected_types.get("on", ()):
+                    # Force the device on. Prefer the max numeric level, but only when
+                    # a validated envelope exists; otherwise force plain ON so the
+                    # unbounded-numeric invariant (SEC-001) still holds.
+                    if actuator.min_value is not None and actuator.max_value is not None:
+                        self._dispatch(
+                            actuator,
+                            "set_value",
+                            100.0,
+                            ControlEventSource.SAFETY,
+                            triggered_by_user=user,
+                            on_unsafe_value="skip",
+                        )
+                    else:
+                        self._dispatch(
+                            actuator,
+                            "turn_on",
+                            None,
+                            ControlEventSource.SAFETY,
+                            triggered_by_user=user,
+                            on_unsafe_value="skip",
+                        )
+                    forced_on.append(actuator.key or "")
+            except Exception as exc:  # noqa: BLE001 — isolate one device's failure from the rest
+                logger.warning(
+                    "actuator_emergency_stop_failed",
+                    actuator=actuator.key,
+                    scenario=scenario,
+                    error=str(exc),
+                )
+                failed.append(actuator.key or "")
+        return {"scenario": scenario, "stopped": stopped, "forced_on": forced_on, "failed": failed}
 
 
 # Predefined emergency-stop scenarios (REQ-018 §1).

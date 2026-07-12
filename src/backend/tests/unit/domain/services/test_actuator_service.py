@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import (
     ActionCommand,
@@ -298,7 +299,8 @@ class TestTenantIsolation:
 
 class TestOverride:
     def test_set_override_dispatches_immediately(self, repo):
-        repo.actuators["act1"] = _ha_actuator(state="off")
+        # A numeric override needs a validated envelope (SEC-001); give the light one.
+        repo.actuators["act1"] = _ha_actuator(state="off").model_copy(update={"min_value": 0.0, "max_value": 100.0})
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
         override = ManualOverride(
@@ -384,12 +386,152 @@ class TestValueClamping:
         event = service.send_command("act1", "t1", "set_value", 60.0, user="u1")
         assert event.value == 60.0
 
-    def test_unbounded_actuator_not_clamped(self, repo):
+    def test_unbounded_actuator_numeric_value_is_refused(self, repo):
+        # SEC-001: a numeric value for an actuator with NO configured envelope is
+        # refused (fail-closed) on the command path — it must NOT reach hardware.
         repo.actuators["act1"] = _ha_actuator(state="off")  # no min/max configured
         ha = FakeHaClient()
         service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
-        event = service.send_command("act1", "t1", "set_value", 250.0, user="u1")
-        assert event.value == 250.0
+        with pytest.raises(ValidationError):
+            service.send_command("act1", "t1", "set_value", 250.0, user="u1")
+        assert not ha.calls  # nothing forwarded to Home Assistant
+        assert repo.events == []  # no event logged for a refused command
+
+    def test_on_off_command_on_unbounded_actuator_still_allowed(self, repo):
+        # A pure on/off command carries no numeric value and stays allowed even
+        # without an envelope (only numeric values require [min, max]).
+        repo.actuators["act1"] = _ha_actuator(state="off")
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        event = service.send_command("act1", "t1", "turn_on", None, user="u1")
+        assert event.success is True
+        assert event.value is None
+        assert ha.calls
+
+
+def _heater(key="act1", state="off", min_value=None, max_value=None):
+    return Actuator(
+        _key=key,
+        tenant_key="t1",
+        location_key="loc1",
+        name="Heater",
+        actuator_type=ActuatorType.HEATER,
+        protocol="home_assistant",
+        ha_entity_id="climate.zelt",
+        current_state=state,
+        min_value=min_value,
+        max_value=max_value,
+    )
+
+
+class TestNumericEnvelopeInvariant:
+    """SEC-001: a numeric value can never reach hardware without a validated envelope."""
+
+    def test_heater_without_bounds_does_not_forward_999(self, repo):
+        # A non-dimmable typed actuator (heater) created with default ON_OFF caps has
+        # no [min, max]; set_value=999 must be refused, not forwarded to HA.
+        repo.actuators["act1"] = _heater()  # no bounds
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        with pytest.raises(ValidationError):
+            service.send_command("act1", "t1", "set_value", 999.0, user="u1")
+        assert not ha.calls  # 999 never reached climate.set_temperature
+        assert repo.events == []
+
+    def test_bounded_heater_clamps_999_to_max(self, repo):
+        repo.actuators["act1"] = _heater(min_value=15.0, max_value=30.0)
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        event = service.send_command("act1", "t1", "set_value", 999.0, user="u1")
+        assert event.value == 30.0
+        assert repo.actuators["act1"].current_value == 30.0
+        # HA received the clamped temperature, never 999.
+        assert ha.calls[-1][2].get("temperature") == 30.0
+
+    def test_loop_skips_unbounded_numeric_instead_of_forwarding(self, repo):
+        # Control-loop path: a schedule wanting a numeric level on an unbounded
+        # actuator is skipped + logged (never raises, never forwards the number).
+        repo.actuators["act1"] = _heater(state="off")  # no bounds
+        repo.active_schedules = [
+            ControlSchedule(
+                tenant_key="t1",
+                actuator_key="act1",
+                name="warm window",
+                schedule_type=ScheduleType.DAILY,
+                entries=[ScheduleEntry(time_on="00:00", time_off="23:59", value=999)],
+            )
+        ]
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        result = service.evaluate_actuator(repo.actuators["act1"], {})
+        assert result is None  # skipped
+        assert not ha.calls  # nothing numeric forwarded
+
+
+class TestNonFiniteRejection:
+    """SEC-002: NaN / Infinity can never get through."""
+
+    def test_command_schema_rejects_nan(self):
+        from app.api.v1.actuators.schemas import CommandRequest, OverrideCreate
+
+        with pytest.raises(PydanticValidationError):
+            CommandRequest(command="set_value", value=float("nan"))
+        with pytest.raises(PydanticValidationError):
+            CommandRequest(command="set_value", value=float("inf"))
+        with pytest.raises(PydanticValidationError):
+            OverrideCreate(expires_at=datetime.now(UTC) + timedelta(hours=1), override_value=float("nan"))
+
+    def test_dispatch_guard_refuses_nan_even_if_it_bypasses_schema(self, repo):
+        # Defence in depth: even a bounded actuator must never receive NaN, which
+        # would defeat the comparison-based clamp.
+        repo.actuators["act1"] = _heater(min_value=15.0, max_value=30.0)
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        with pytest.raises(ValidationError):
+            service.send_command("act1", "t1", "set_value", float("nan"), user="u1")
+        assert not ha.calls
+
+    def test_clamp_never_passes_nan(self):
+        import math
+
+        from app.domain.engines.actuator_control_engine import clamp_to_bounds
+
+        # Bounded: NaN coerced to a bound, never passed through.
+        assert clamp_to_bounds(float("nan"), 15.0, 30.0) == 15.0
+        # Unbounded: NaN dropped to None (nothing numeric survives).
+        assert clamp_to_bounds(float("nan"), None, None) is None
+        assert not math.isnan(clamp_to_bounds(float("inf"), 15.0, 30.0))
+
+
+class TestOverrideZeroTurnsOff:
+    """SEC-003: override_value == 0 turns the device OFF, consistent with state."""
+
+    def test_override_value_zero_turns_off(self, repo):
+        repo.actuators["act1"] = _ha_actuator(state="on")
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        now = datetime.now(UTC)
+        override = ManualOverride(
+            tenant_key="t1",
+            actuator_key="act1",
+            started_at=now,
+            expires_at=now + timedelta(hours=1),
+            override_value=0,
+            created_by="u1",
+        )
+        service.set_override("act1", "t1", override, "u1")
+        # HA got a turn_off (not turn_on), and the recorded state agrees.
+        assert ha.calls[-1][1] == "turn_off"
+        assert repo.actuators["act1"].current_state == "off"
+        assert repo.events[-1].command == "turn_off"
+        assert repo.events[-1].new_state == "off"
+
+    def test_immediate_and_loop_paths_agree_on_zero(self, repo):
+        # Both the immediate-apply and the control-loop derive the same command.
+        from app.domain.engines.actuator_control_engine import derive_actuator_command
+
+        assert derive_actuator_command(0, None) == ("turn_off", None, "off")
+        assert derive_actuator_command(0.0, "on") == ("turn_off", None, "off")
 
 
 class TestEmergencyStop:
@@ -414,6 +556,78 @@ class TestEmergencyStop:
         service = _service(repo, ha=FakeHaClient())
         with pytest.raises(ValidationError):
             service.emergency_stop("t1", "nonsense", "u1")
+
+    def test_one_failing_actuator_does_not_abort_the_rest(self, repo):
+        # Per-actuator isolation: a repository failure while stopping one pump must
+        # not prevent the other safety-relevant devices from being stopped.
+        repo.actuators["p1"] = Actuator(
+            _key="p1",
+            tenant_key="t1",
+            location_key="loc1",
+            name="Pump 1",
+            actuator_type=ActuatorType.PUMP,
+            protocol="home_assistant",
+            ha_entity_id="switch.pump1",
+            current_state="on",
+        )
+        repo.actuators["p2"] = Actuator(
+            _key="p2",
+            tenant_key="t1",
+            location_key="loc1",
+            name="Pump 2",
+            actuator_type=ActuatorType.PUMP,
+            protocol="home_assistant",
+            ha_entity_id="switch.pump2",
+            current_state="on",
+        )
+        service = _service(repo, ha=FakeHaClient(), task_repo=FakeTaskRepo())
+
+        # Make dispatching the FIRST pump blow up inside update_actuator.
+        original_update = repo.update_actuator
+
+        def flaky_update(key, actuator):
+            if key == "p1":
+                raise RuntimeError("arango down for p1")
+            return original_update(key, actuator)
+
+        repo.update_actuator = flaky_update  # type: ignore[method-assign]
+        result = service.emergency_stop("t1", "water_leak", "u1")
+        assert "p1" in result["failed"]
+        assert "p2" in result["stopped"]  # the second pump was still stopped
+
+    def test_forced_on_without_bounds_uses_turn_on(self, repo):
+        # SEC-001 under emergency: an exhaust fan with no envelope must still be
+        # forced ON, but as a plain turn_on (no unbounded numeric payload).
+        repo.actuators["f1"] = Actuator(
+            _key="f1",
+            tenant_key="t1",
+            location_key="loc1",
+            name="Exhaust",
+            actuator_type=ActuatorType.EXHAUST_FAN,
+            protocol="home_assistant",
+            ha_entity_id="fan.abluft",
+            current_state="off",
+        )
+        repo.actuators["c1"] = Actuator(
+            _key="c1",
+            tenant_key="t1",
+            location_key="loc1",
+            name="CO2",
+            actuator_type=ActuatorType.CO2_DOSER,
+            protocol="home_assistant",
+            ha_entity_id="switch.co2",
+            current_state="on",
+        )
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        result = service.emergency_stop("t1", "co2_leak", "u1")
+        assert "f1" in result["forced_on"]
+        assert "c1" in result["stopped"]
+        assert repo.actuators["f1"].current_state == "on"
+        # The fan was forced on via turn_on — no numeric payload was forwarded.
+        fan_calls = [c for c in ha.calls if c[2].get("entity_id") == "fan.abluft"]
+        assert fan_calls and fan_calls[-1][1] == "turn_on"
+        assert "percentage" not in fan_calls[-1][2]
 
 
 class TestControlLoopEvaluation:
