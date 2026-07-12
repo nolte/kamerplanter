@@ -11,6 +11,7 @@ from app.common.enums import (
 )
 from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
@@ -134,9 +135,11 @@ class CareReminderService:
         nutrient_plan_repo: INutrientPlanRepository | None = None,
         overwintering_repo: IOverwinteringProfileRepository | None = None,
         overwintering_template_repo: IOverwinteringProfileTemplateRepository | None = None,
+        recurrence: RecurrenceEngine | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
+        self._recurrence = recurrence or RecurrenceEngine()
         self._task_repo = task_repo
         self._watering_log_repo = watering_log_repo
         self._plant_repo = plant_repo
@@ -704,17 +707,14 @@ class CareReminderService:
                 ReminderType.WATERING,
             )
 
-        due_date = self._engine.calculate_due_date(
+        due_dt = self._next_watering_due_date(
             profile,
-            ReminderType.WATERING,
             last_confirmation,
             hemisphere=hemisphere,
             phase_watering_interval=phase_watering_interval,
         )
-        if due_date is None:
+        if due_dt is None:
             return None
-
-        due_dt = datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
 
         interval = self._engine._get_interval_days(profile, ReminderType.WATERING, hemisphere)
 
@@ -727,6 +727,58 @@ class CareReminderService:
             instruction=f"Water {plant_label} (every {interval} days).",
         )
         return self._task_repo.create_task(task)
+
+    def _next_watering_due_date(
+        self,
+        profile: CareProfile,
+        last_confirmation: CareConfirmation | None,
+        *,
+        hemisphere: str,
+        phase_watering_interval: int | None,
+    ) -> datetime | None:
+        """Compute the next watering due date, reusing the Task recurrence engine.
+
+        For the fixed-interval case — a prior ``CONFIRMED`` confirmation exists —
+        the cadence is expressed as a ``FREQ=DAILY;INTERVAL=n`` rule and advanced
+        by the shared :class:`RecurrenceEngine`, the same machinery the generic
+        recurring-task path uses (#510). The care engine stays the interval
+        authority: it still computes the season/phase/adaptive interval ``n``.
+
+        The two cases a static RRULE cannot express stay with the care engine
+        (documented boundary): a ``SNOOZED`` last confirmation (due = snooze base +
+        snooze days) and the no-confirmation bootstrap (due immediately at the
+        profile's creation date). Behaviour is identical to the previous
+        ``calculate_due_date`` path — the RRULE ``after`` a date midpoint at
+        midnight equals ``base + n days``.
+        """
+        is_fixed_interval = last_confirmation is not None and not (
+            last_confirmation.action == ConfirmAction.SNOOZED and last_confirmation.snooze_days
+        )
+        if is_fixed_interval:
+            interval_days = self._engine._get_interval_days(
+                profile,
+                ReminderType.WATERING,
+                hemisphere,
+                phase_watering_interval=phase_watering_interval,
+            )
+            rule = self._recurrence.fixed_interval_rule(interval_days)
+            if rule is None:
+                return None
+            base = last_confirmation.confirmed_at.date()
+            base_dt = datetime(base.year, base.month, base.day, tzinfo=UTC)
+            return self._recurrence.next_occurrence(rule, base_dt)
+
+        # Snooze / bootstrap: not a static recurrence — keep the care engine.
+        due_date = self._engine.calculate_due_date(
+            profile,
+            ReminderType.WATERING,
+            last_confirmation,
+            hemisphere=hemisphere,
+            phase_watering_interval=phase_watering_interval,
+        )
+        if due_date is None:
+            return None
+        return datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
 
     def _get_current_interval(self, profile: CareProfile, reminder_type: ReminderType) -> int | None:
         if reminder_type == ReminderType.WATERING:

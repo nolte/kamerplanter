@@ -59,6 +59,7 @@ from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
+from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.engines.tank_engine import TankEngine
@@ -469,11 +470,16 @@ def get_task_repo() -> ArangoTaskRepository:
     return ArangoTaskRepository(get_db())
 
 
+def get_recurrence_engine() -> RecurrenceEngine:
+    return RecurrenceEngine()
+
+
 def get_task_service() -> TaskService:
     return TaskService(
         get_task_repo(),
         HSTValidator(),
         DependencyResolver(),
+        recurrence=get_recurrence_engine(),
     )
 
 
@@ -681,6 +687,7 @@ def get_care_reminder_service() -> CareReminderService:
         nutrient_plan_repo=get_nutrient_plan_repo(),
         overwintering_repo=get_overwintering_profile_repo(),
         overwintering_template_repo=get_overwintering_template_repo(),
+        recurrence=get_recurrence_engine(),
     )
 
 
