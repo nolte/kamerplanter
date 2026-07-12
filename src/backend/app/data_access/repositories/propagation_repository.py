@@ -266,8 +266,8 @@ class PropagationRepository:
         """
         query = """
         FOR v, e, p IN 1..@max_depth OUTBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge], uniqueVertices: "path", bfs: false}
           PRUNE v.tenant_key != @tenant_key
+          OPTIONS {edgeCollections: [@edge], uniqueVertices: "path", bfs: false}
           FILTER v.tenant_key == @tenant_key
           RETURN p.vertices[* FILTER CURRENT._key != @plant_key]._key
         """
@@ -306,8 +306,8 @@ class PropagationRepository:
         """
         query = f"""
         FOR v IN 1..@max_depth OUTBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {{edgeCollections: [@edge], uniqueVertices: "global", bfs: true}}
           PRUNE v.tenant_key != @tenant_key
+          OPTIONS {{edgeCollections: [@edge], uniqueVertices: "global", bfs: true}}
           FILTER v.tenant_key == @tenant_key
           RETURN {self._LINEAGE_VERTEX_PROJECTION}
         """
@@ -330,8 +330,8 @@ class PropagationRepository:
         """
         query = f"""
         FOR v IN 1..@max_depth INBOUND @start GRAPH 'kamerplanter_graph'
-          OPTIONS {{edgeCollections: [@edge], uniqueVertices: "global", bfs: true}}
           PRUNE v.tenant_key != @tenant_key
+          OPTIONS {{edgeCollections: [@edge], uniqueVertices: "global", bfs: true}}
           FILTER v.tenant_key == @tenant_key
           RETURN {self._LINEAGE_VERTEX_PROJECTION}
         """
