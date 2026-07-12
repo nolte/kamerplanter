@@ -19,6 +19,7 @@ from app.api.v1.equipment.tenant_router import router as tenant_equipment_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
 from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
+from app.api.v1.glossar.router import router as tenant_glossary_router
 from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_router
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.inventree.tenant_router import router as tenant_inventree_router
@@ -84,6 +85,8 @@ tenant_scoped_router.include_router(tenant_overwintering_profiles_router)
 tenant_scoped_router.include_router(tenant_season_router)
 # REQ-031 KI-Assistent — /t/{slug}/ai/* (three-stage toggle enforced in-router)
 tenant_scoped_router.include_router(tenant_ai_router)
+# REQ-035 KI terminology glossary — /t/{slug}/glossary/* (no tenant data, §3.1)
+tenant_scoped_router.include_router(tenant_glossary_router)
 tenant_scoped_router.include_router(tenant_starter_kits_router)
 tenant_scoped_router.include_router(tenant_onboarding_router)
 tenant_scoped_router.include_router(tenant_favorites_router)

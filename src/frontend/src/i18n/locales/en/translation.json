@@ -524,6 +524,31 @@
       "ask": "Ask",
       "error": "The answer could not be loaded. Please try again later."
     },
+    "glossary": {
+      "title": "Terminology glossary",
+      "subtitle": "Look up technical terms like VPD, EC or the pre-harvest interval. The explanations come from the curated knowledge base and adapt to your experience level.",
+      "empty": "No terms are available yet.",
+      "loadError": "The term list could not be loaded. Please try again later.",
+      "backToList": "Back to overview",
+      "categories": {
+        "umwelt": "Environment & climate",
+        "duengung": "Fertilisation",
+        "bewaesserung": "Watering",
+        "phasen": "Growth phases",
+        "outdoor": "Outdoor & garden",
+        "ipm": "Plant protection",
+        "allgemein": "General"
+      },
+      "tooltip": {
+        "ariaOpen": "Open explanation for \"{{term}}\"",
+        "loading": "Loading explanation …",
+        "error": "The explanation could not be loaded.",
+        "fallbackHint": "Short definition (no knowledge-base match)",
+        "relatedTitle": "Related terms",
+        "back": "Back",
+        "close": "Close"
+      }
+    },
     "inventree": {
       "title": "Equipment & inventory",
       "intro": "Manage your operating resources (pumps, sensors, tools, cleaning agents) and optionally link them to your InvenTree inventory system for stock tracking.",

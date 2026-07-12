@@ -5364,6 +5364,44 @@ export interface AiConversationSummary {
   updated_at?: string | null;
 }
 
+// ── REQ-035 KI terminology glossary ─────────────────────────────────────
+
+export type GlossaryExpertiseLevel = 'beginner' | 'intermediate' | 'expert';
+
+/** A single row of the glossary term browser (§3.1 `/terms`). */
+export interface GlossaryTermSummary {
+  slug: string;
+  label: string;
+  category: string;
+}
+
+/** A related-term reference rendered as a clickable chip (§3.4). */
+export interface GlossaryRelatedTerm {
+  slug: string;
+  label: string;
+}
+
+/** The full `get_term` response envelope (§3.4). */
+export interface GlossaryTermAnswer {
+  slug: string;
+  label: string;
+  long_label: string;
+  category: string;
+  answer_text: string;
+  expertise_level: GlossaryExpertiseLevel;
+  language: string;
+  language_mismatch_warning: boolean;
+  sources: AiSourceRef[];
+  related_terms: GlossaryRelatedTerm[];
+  is_fallback: boolean;
+  model_name: string;
+  provider_type: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  kb_version?: string | null;
+  generated_at?: string | null;
+}
+
 // ── REQ-026 Aquaponics ──────────────────────────────────────────────────
 
 export type AquaponicSystemType =

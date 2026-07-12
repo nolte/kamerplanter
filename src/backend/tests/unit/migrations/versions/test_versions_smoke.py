@@ -48,6 +48,16 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "status", "created_at"], "unique": False},
             {"type": "persistent", "fields": ["reference_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "equipment_type", "status"], "unique": False},
+            # v0016 glossary collection indexes (glossary_terms + glossary_term_cache)
+            {"type": "persistent", "fields": ["slug"], "unique": True},
+            {"type": "persistent", "fields": ["category"], "unique": False},
+            {"type": "persistent", "fields": ["is_active"], "unique": False},
+            {
+                "type": "persistent",
+                "fields": ["term_slug", "language", "expertise_level", "kb_version"],
+                "unique": True,
+            },
+            {"type": "persistent", "fields": ["valid_until"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

@@ -203,6 +203,13 @@ AI_CONVERSATIONS = "ai_conversations"
 AI_TIP_CACHE = "ai_tip_cache"
 AI_AUDIT_LOG = "ai_audit_log"
 
+# REQ-035 KI terminology glossary — curated term skeleton + RAG answer cache.
+# Both are global (not tenant-scoped): the glossary is knowledge, not tenant
+# data (§6, no PII). The RAG answer text lives in ``glossary_term_cache``; the
+# vectors stay in the Knowledge-Service microservice.
+GLOSSARY_TERMS = "glossary_terms"
+GLOSSARY_TERM_CACHE = "glossary_term_cache"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -312,6 +319,9 @@ DOCUMENT_COLLECTIONS = [
     AI_CONVERSATIONS,
     AI_TIP_CACHE,
     AI_AUDIT_LOG,
+    # REQ-035 KI terminology glossary
+    GLOSSARY_TERMS,
+    GLOSSARY_TERM_CACHE,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -1865,6 +1875,18 @@ def ensure_collections(db: StandardDatabase) -> None:
     ai_audit_log_col = db.collection(AI_AUDIT_LOG)
     ai_audit_log_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
     ai_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    # REQ-035 KI terminology glossary indexes (§2.1, §2.2)
+    glossary_terms_col = db.collection(GLOSSARY_TERMS)
+    glossary_terms_col.add_persistent_index(fields=["slug"], unique=True)
+    glossary_terms_col.add_persistent_index(fields=["category"], unique=False)
+    glossary_terms_col.add_persistent_index(fields=["is_active"], unique=False)
+
+    glossary_term_cache_col = db.collection(GLOSSARY_TERM_CACHE)
+    glossary_term_cache_col.add_persistent_index(
+        fields=["term_slug", "language", "expertise_level", "kb_version"], unique=True
+    )
+    glossary_term_cache_col.add_persistent_index(fields=["valid_until"], unique=False)
 
     # REQ-026 Aquaponics indexes
     fish_species_col = db.collection(FISH_SPECIES)
