@@ -129,14 +129,13 @@ class ArangoInvenTreeRepository(BaseArangoRepository[InvenTreeConnection]):
         """
         self._require_tenant_key(tenant_key, "verify_linkable_entity")
         if entity_collection not in _LINKABLE_COLLECTIONS:
-            # Defense-in-depth: never dial an off-allowlist collection handle.
+            # REQ-016 narrows the InvenTree-linkable set to fertilizers | tanks |
+            # equipment (a subset of the shared ownership allowlist); reject
+            # anything outside it before delegating.
             raise NotFoundError(entity_collection, entity_key)
-        doc = self._db.collection(entity_collection).get(entity_key)
-        if doc is None:
-            raise NotFoundError(entity_collection, entity_key)
-        doc_tenant = doc.get("tenant_key", "") or ""
-        if doc_tenant not in ("", tenant_key):
-            raise NotFoundError(entity_collection, entity_key)
+        # Existence + tenant-ownership (globally-seeded rows stay linkable) via
+        # the shared guard — fail-closed 404, no re-implementation (#517).
+        self.verify_entity_ownership(entity_collection, entity_key, tenant_key)
 
     def upsert_reference(self, reference: InvenTreeReference) -> InvenTreeReference:
         existing = self.find_reference_by_entity(

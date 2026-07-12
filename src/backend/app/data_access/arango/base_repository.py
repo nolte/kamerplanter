@@ -7,6 +7,7 @@ from arango.exceptions import DocumentInsertError, DocumentUpdateError
 from pydantic import BaseModel
 
 from app.common.exceptions import DuplicateError, NotFoundError
+from app.data_access.arango import tenant_ownership
 from app.data_access.arango.query_builder import AQLBuilder
 
 #: ``(field, operator, value)`` filter triple. ``operator`` must be one of the
@@ -177,6 +178,39 @@ class BaseArangoRepository[TModel: BaseModel]:
             raise ValueError(
                 f"{method} is tenant-scoped and requires a non-empty tenant_key (SEC-B4 tenant isolation)."
             )
+
+    def verify_entity_ownership(
+        self,
+        collection: str,
+        key: str,
+        tenant_key: str,
+        *,
+        entity_name: str | None = None,
+    ) -> None:
+        """Guard a caller-supplied foreign reference before persisting it (#517).
+
+        Thin delegate to :func:`tenant_ownership.verify_entity_ownership` bound to
+        this repository's ``self._db``. Fails **closed** with
+        :class:`NotFoundError` (→ HTTP 404) when the referenced document is
+        missing or belongs to another tenant, so a foreign key's existence is
+        never disclosed (no cross-tenant oracle, SEC-B4).
+        """
+        tenant_ownership.verify_entity_ownership(self._db, collection, key, tenant_key, entity_name=entity_name)
+
+    def verify_entities_ownership(
+        self,
+        collection: str,
+        keys: Any,
+        tenant_key: str,
+        *,
+        entity_name: str | None = None,
+    ) -> None:
+        """Batch variant of :meth:`verify_entity_ownership` (#517).
+
+        Verifies every distinct, non-empty key, skipping falsy ones. Fails closed
+        with :class:`NotFoundError` on the first missing/foreign reference.
+        """
+        tenant_ownership.verify_entities_ownership(self._db, collection, keys, tenant_key, entity_name=entity_name)
 
     def _enforce_tenant_scope(self, tenant_key: str | None, all_tenants: bool) -> None:
         """Fail loudly when a tenant-scoped list query is not tenant-bound.
