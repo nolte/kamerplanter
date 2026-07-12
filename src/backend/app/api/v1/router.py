@@ -167,3 +167,12 @@ if settings.kamerplanter_mode == "full":
     from app.api.v1.glossar.admin_router import router as glossary_admin_router  # noqa: E402
 
     api_router.include_router(glossary_admin_router)
+
+# ── REQ-033 MCP server (Model Context Protocol) ───────────────────────
+# Always mounted; the operator flag (MCP_SERVER_ENABLED) is enforced per-request
+# and returns 404 when off, so the endpoints appear non-existent (§6). MCP
+# authenticates service-account API keys only (REQ-023), which exist in full
+# mode, but the flag/auth gate handles light mode gracefully.
+from app.api.v1.mcp.router import router as mcp_router  # noqa: E402
+
+api_router.include_router(mcp_router)

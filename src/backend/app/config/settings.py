@@ -320,6 +320,16 @@ class Settings(BaseSettings):
     # Light-mode public /ai/ask rate limit (per client IP).
     ai_public_rate_limit_per_min: int = 10
 
+    # REQ-033 MCP server (Model Context Protocol). Opt-in aggregation layer over
+    # the existing services, served in-process by the backend and gated by
+    # service-account API keys (§4.3). When false, the MCP endpoints answer
+    # HTTP 404 as if they did not exist (mirrors the AI operator flag).
+    mcp_server_enabled: bool = False
+    #: Idempotency-record TTL for MCP write tools (§2.6, AC-22).
+    mcp_idempotency_ttl_hours: int = 24
+    #: mcp_audit_log retention window (NFR-011, AC-S4).
+    mcp_audit_retention_days: int = 90
+
     # Shared secret for the cluster-internal M2M services (knowledge-service,
     # inference-service). Sent as ``Authorization: Bearer <token>`` on every
     # call. Must match the token those services expect (same key in

@@ -58,6 +58,16 @@ class _NoopCollection:
                 "unique": True,
             },
             {"type": "persistent", "fields": ["valid_until"], "unique": False},
+            # v0017 MCP collection indexes (mcp_audit_log + mcp_idempotency_record)
+            {"type": "persistent", "fields": ["service_account_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "created_at"], "unique": False},
+            {"type": "persistent", "fields": ["created_at"], "unique": False},
+            {
+                "type": "persistent",
+                "fields": ["service_account_key", "tool_name", "idempotency_key"],
+                "unique": True,
+            },
+            {"type": "persistent", "fields": ["expires_at"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
