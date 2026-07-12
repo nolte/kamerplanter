@@ -302,6 +302,10 @@ class NutrientCalculationsPage(BasePage):
         headings = self.driver.find_elements(By.CSS_SELECTOR, ".MuiCard-root h6")
         return [h.text for h in headings if h.text]
 
+    def get_calculate_button_count(self) -> int:
+        """Return the number of calculate/validate buttons across all panel cards."""
+        return len(self.driver.find_elements(*self.CALCULATE_BUTTONS))
+
     def get_page_title_text(self) -> str:
         """Return the page title text."""
         el = self.wait_for_element(self.PAGE_TITLE)

@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import BotanicalFamilyListPage, SpeciesDetailPage, SpeciesListPage
@@ -124,9 +123,7 @@ class TestSpeciesEnumTranslations:
         headers = species_list.get_column_headers()
 
         # Find growth habit and root type columns
-        rows = species_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table-row']"
-        )
+        rows = species_list.get_row_texts()
 
         raw_english_enums = {
             "herb", "shrub", "tree", "vine", "ground_cover",  # growth habit
@@ -134,9 +131,8 @@ class TestSpeciesEnumTranslations:
         }
 
         for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            for cell in cells:
-                cell_text = cell.text.strip().lower()
+            for cell_text_raw in row:
+                cell_text = cell_text_raw.strip().lower()
                 if cell_text in raw_english_enums:
                     pytest.fail(
                         f"TC-REQ-001-094 FAIL: Raw English enum '{cell_text}' found in species table. "
@@ -172,9 +168,7 @@ class TestCultivarTraitTranslations:
             pytest.skip("No cultivars for this species")
 
         # Find chip elements in the cultivar table
-        chips = species_detail.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiChip-label"
-        )
+        chips = species_detail.get_trait_chip_texts()
 
         raw_trait_keys = {
             "disease_resistant", "high_yield", "compact",
@@ -182,8 +176,8 @@ class TestCultivarTraitTranslations:
             "drought_tolerant",
         }
 
-        for chip in chips:
-            chip_text = chip.text.strip().lower()
+        for chip_text_raw in chips:
+            chip_text = chip_text_raw.strip().lower()
             if chip_text in raw_trait_keys:
                 pytest.fail(
                     f"TC-REQ-001-095 FAIL: Raw trait key '{chip_text}' found as chip label. "

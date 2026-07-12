@@ -81,6 +81,7 @@ class TestSpeciesListPage:
 class TestSpeciesCreateDialog:
     """Species creation and validation (Spec: TC-001-025, TC-001-026, TC-001-027)."""
 
+    @pytest.mark.core_crud
     def test_open_species_create_dialog(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
@@ -117,6 +118,7 @@ class TestSpeciesCreateDialog:
         species_list.wait_for_loading_complete()
         screenshot("TC-REQ-001-034_after-create", "Species list after successful creation — dialog closed, list refreshed")
 
+    @pytest.mark.core_crud
     def test_validation_empty_scientific_name(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
@@ -132,6 +134,7 @@ class TestSpeciesCreateDialog:
         screenshot("TC-REQ-001-035_validation-error", "Create dialog after submitting empty scientific_name — validation error expected")
         assert species_list.is_create_dialog_open(), "Dialog should remain open"
 
+    @pytest.mark.core_crud
     def test_create_species_without_family(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
@@ -182,7 +185,14 @@ class TestSpeciesDetailPage:
         assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
         assert any("MISCHKULTUR" in t for t in tabs_upper), f"Expected 'Mischkultur' tab, got {tabs}"
         assert any("FRUCHTFOLGE" in t for t in tabs_upper), f"Expected 'Fruchtfolge' tab, got {tabs}"
-        assert species_detail.has_delete_button(), "Delete button should be visible"
+        # Global/system species are deletion-protected (UI-NFR-018): the delete
+        # button is intentionally absent and a read-only banner is shown instead.
+        if species_detail.is_read_only():
+            assert not species_detail.has_delete_button(), (
+                "Deletion-protected species must not expose a delete button"
+            )
+        else:
+            assert species_detail.has_delete_button(), "Delete button should be visible"
 
     @pytest.mark.core_crud
     def test_edit_species_data(
@@ -200,6 +210,12 @@ class TestSpeciesDetailPage:
         species_list.click_row(0)
         species_list.wait_for_url_contains("/stammdaten/species/")
         screenshot("TC-REQ-001-039_before-edit", "Species detail edit tab before modification")
+
+        if species_detail.is_read_only():
+            pytest.skip(
+                "First species is origin-protected (read-only); "
+                "no editable save on the edit tab in light mode"
+            )
 
         unique = uuid.uuid4().hex[:6]
         species_detail.set_field("description", f"E2E-Updated {unique}")

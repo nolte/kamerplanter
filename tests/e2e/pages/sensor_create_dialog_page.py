@@ -108,6 +108,24 @@ class SensorCreateDialogPage(BasePage):
     def submit(self) -> None:
         self.wait_for_element_clickable(self.SUBMIT_BUTTON).click()
 
+    # ── Trigger button state (on the parent page) ──────────────────────────
+
+    def is_add_sensor_button_present(self) -> bool:
+        """Return True iff the add-sensor-button exists in the DOM (visibility ignored)."""
+        return bool(self.driver.find_elements(*self.ADD_SENSOR_BUTTON))
+
+    def scroll_add_sensor_button_into_view(self) -> None:
+        """Scroll the add-sensor-button into the viewport without clicking it."""
+        button = self.driver.find_element(*self.ADD_SENSOR_BUTTON)
+        self.driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center'});", button
+        )
+
+    def is_add_sensor_button_visible(self) -> bool:
+        """Return True iff the add-sensor-button is present and displayed."""
+        elements = self.driver.find_elements(*self.ADD_SENSOR_BUTTON)
+        return bool(elements) and elements[0].is_displayed()
+
     # ── Post-save verification ────────────────────────────────────────────
 
     def wait_until_closed(self, timeout: int = 15) -> None:
@@ -127,3 +145,17 @@ class SensorCreateDialogPage(BasePage):
             if sensor_name in row.text:
                 return row
         return None
+
+    def wait_for_row_containing(self, text: str, timeout: int = 15) -> bool:
+        """Wait until any ``data-table-row`` on the page contains *text*.
+
+        Returns True once found; raises TimeoutException if *timeout* elapses.
+        Used to verify a newly created sensor appears in the parent page's
+        table after a save + refresh, without a raw lookup in the test body.
+        """
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        def _row_present(driver: WebDriver) -> bool:
+            return self.find_row_by_name(text) is not None
+
+        return WebDriverWait(self.driver, timeout).until(_row_present)

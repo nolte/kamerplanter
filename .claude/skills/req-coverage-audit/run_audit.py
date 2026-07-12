@@ -451,7 +451,10 @@ def render_plan(eval_result: dict) -> str:
             # Skill-Empfehlung
             if e["type"] == "req":
                 if "test" in role.lower():
-                    lines.append(f"- **Empfohlener Skill**: `/test-extract {e['req']}`")
+                    lines.append(
+                        f"- **Empfohlener Agent**: `nolte-engineering:test-case-extractor` "
+                        f"(Testfälle für {e['req']} ableiten)"
+                    )
                 elif "page" in role.lower():
                     lines.append(f"- **Empfohlener Agent**: `frontend-usability-optimizer`")
                 else:

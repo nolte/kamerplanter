@@ -312,4 +312,70 @@ describe('ActivityPlanTab — assigned tasks view', () => {
     // The task renders in the assigned view without throwing on the overdue branch.
     expect(await screen.findByText('Überfällig')).toBeInTheDocument();
   });
+
+  // #548 — a recurring care reminder that is satisfied and only due in the future
+  // must read as "Geplant" (scheduled), never as an open "0 von 1 erledigt" task,
+  // so the activity plan agrees with the task queue's due-date bucketing.
+  it('shows a future-due recurring reminder as scheduled, not "0 von 1 erledigt"', async () => {
+    taskApi.listTasks.mockResolvedValue([
+      task({
+        key: 't-water',
+        template_key: null,
+        category: 'care_reminder',
+        name: 'Watering',
+        name_de: 'Gießen',
+        status: 'pending',
+        due_date: '2099-07-14T00:00:00Z',
+        trigger_phase: 'vegetative',
+      }),
+    ]);
+
+    renderWithProviders(
+      <ActivityPlanTab speciesKey="sp-1" plantKey="plant-1" currentPhaseName="vegetative" />,
+    );
+
+    expect(await screen.findByText('Gießen')).toBeInTheDocument();
+    // At least the group/phase/top chip present the "scheduled" state...
+    expect(screen.getAllByTestId('activity-scheduled-chip').length).toBeGreaterThan(0);
+    // ...and the misleading "0 von 1 erledigt" wording is gone entirely.
+    expect(
+      screen.queryByText(i18n.t('pages.activityPlan.completedOf', { completed: 0, total: 1 })),
+    ).not.toBeInTheDocument();
+  });
+
+  it('counts a done cycle as 1/1 and flags the queued next cycle as scheduled', async () => {
+    taskApi.listTasks.mockResolvedValue([
+      task({
+        key: 't-water-done',
+        template_key: null,
+        category: 'care_reminder',
+        name: 'Watering',
+        name_de: 'Gießen',
+        status: 'completed',
+        due_date: '2000-07-07T00:00:00Z',
+        trigger_phase: 'vegetative',
+      }),
+      task({
+        key: 't-water-next',
+        template_key: null,
+        category: 'care_reminder',
+        name: 'Watering',
+        name_de: 'Gießen',
+        status: 'pending',
+        due_date: '2099-07-14T00:00:00Z',
+        trigger_phase: 'vegetative',
+      }),
+    ]);
+
+    renderWithProviders(
+      <ActivityPlanTab speciesKey="sp-1" plantKey="plant-1" currentPhaseName="vegetative" />,
+    );
+
+    // The finished cycle counts as done (scheduled next cycle excluded from ratio)...
+    expect(
+      await screen.findAllByText(i18n.t('pages.activityPlan.completedOf', { completed: 1, total: 1 })),
+    ).not.toHaveLength(0);
+    // ...and the future occurrence is surfaced as "scheduled", not as unfinished.
+    expect(screen.getAllByTestId('activity-scheduled-count-chip').length).toBeGreaterThan(0);
+  });
 });

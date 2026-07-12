@@ -47,6 +47,8 @@ class FertilizerDetailPage(BasePage):
 
     # Error / not-found states
     ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")
+    READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='fertilizer-readonly-banner']")
+    EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -83,6 +85,10 @@ class FertilizerDetailPage(BasePage):
         """Return the text of the currently active tab."""
         active = self.driver.find_element(By.CSS_SELECTOR, "[role='tab'][aria-selected='true']")
         return active.text
+
+    def get_tab_count(self) -> int:
+        """Return the number of tabs rendered on the detail page."""
+        return len(self.driver.find_elements(By.CSS_SELECTOR, "[role='tab']"))
 
     # ── Details tab (Tab 0) ────────────────────────────────────────────
 
@@ -130,6 +136,12 @@ class FertilizerDetailPage(BasePage):
         rows = self.driver.find_elements(*self.STOCK_ROWS)
         return len(rows)
 
+    def has_stock_table_or_empty_state(self) -> bool:
+        """Return True if either the stock DataTable or the empty state is present."""
+        has_table = len(self.driver.find_elements(*self.STOCK_TABLE)) > 0
+        has_empty = len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
+        return has_table or has_empty
+
     def get_stock_headers(self) -> list[str]:
         """Return column header texts from the stock table."""
         headers = self.driver.find_elements(
@@ -168,6 +180,15 @@ class FertilizerDetailPage(BasePage):
         """Return the current value of the brand field."""
         el = self.wait_for_element(self.FORM_BRAND)
         return el.get_attribute("value") or ""
+
+    def is_read_only(self) -> bool:
+        """Return True if this fertilizer is origin-protected (read-only).
+
+        Global/system catalog entries (UI-NFR-018) show a read-only banner and
+        render no editable form actions on the edit tab, so the save-button
+        tests have no button to assert against.
+        """
+        return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
     def is_submit_button_enabled(self) -> bool:
         """Return True if the submit (save) button is enabled."""
@@ -217,3 +238,14 @@ class FertilizerDetailPage(BasePage):
         """Return True if an error or not-found display is visible."""
         elements = self.driver.find_elements(*self.ERROR_DISPLAY)
         return len(elements) > 0 and elements[0].is_displayed()
+
+    def wait_for_error_or_page(self, timeout: int = 15) -> None:
+        """Wait until either the error display or the detail page root appears."""
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        WebDriverWait(self.driver, timeout).until(
+            lambda d: (
+                len(d.find_elements(*self.ERROR_DISPLAY)) > 0
+                or len(d.find_elements(*self.PAGE)) > 0
+            )
+        )

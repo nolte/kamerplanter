@@ -5,6 +5,7 @@ import { Controller, type Control, type FieldValues, type Path } from 'react-hoo
 interface SelectOption {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface FormSelectFieldProps<T extends FieldValues> {
@@ -49,7 +50,7 @@ export default function FormSelectField<T extends FieldValues>({
           data-testid={`form-field-${name}`}
         >
           {options.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
+            <MenuItem key={opt.value} value={opt.value} disabled={opt.disabled}>
               {opt.label}
             </MenuItem>
           ))}

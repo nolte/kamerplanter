@@ -21,7 +21,7 @@ from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 
-from app.common.enums import TenantRole
+from app.common.enums import McpPermission, TenantRole
 
 
 class ResourceType(StrEnum):
@@ -217,3 +217,54 @@ def list_permissions(role: TenantRole) -> list[tuple[ResourceType, Action]]:
         ((resource, action) for (resource, action), roles in _RBAC.items() if role in roles),
         key=lambda pair: (pair[0].value, pair[1].value),
     )
+
+
+# ---------------------------------------------------------------------
+# REQ-033 MCP permission binding (§4.4)
+# ---------------------------------------------------------------------
+#
+# MCP tools declare one of three permission classes (mcp.read / mcp.write /
+# mcp.setup). A service account's *tenant role* decides which classes it may
+# use — this keeps the binding inside the existing RBAC primitive (a service
+# account is just a User with a membership) instead of introducing a parallel
+# per-account permission store:
+#
+#   * viewer → read-only assistant ("diagnose-bot")           → {mcp.read}
+#   * grower → day-to-day bot (care, diary, inspections)      → {mcp.read, mcp.write}
+#   * admin  → one-off onboarding agent ("setup-agent")       → {mcp.read, mcp.write, mcp.setup}
+#
+# This mirrors REQ-033 §4.4's three-tier table exactly and makes mcp.setup —
+# the destructive site/location class — admin-only (AC-S6). Anything not listed
+# is denied by default.
+
+_MCP_ROLE_PERMISSIONS: dict[TenantRole, frozenset[McpPermission]] = {
+    TenantRole.VIEWER: frozenset({McpPermission.READ}),
+    TenantRole.GROWER: frozenset({McpPermission.READ, McpPermission.WRITE}),
+    TenantRole.ADMIN: frozenset({McpPermission.READ, McpPermission.WRITE, McpPermission.SETUP}),
+}
+
+
+def has_mcp_permission(role: TenantRole, permission: McpPermission) -> bool:
+    """Return ``True`` when ``role`` may invoke a tool guarded by ``permission``."""
+
+    return permission in _MCP_ROLE_PERMISSIONS.get(role, frozenset())
+
+
+def assert_mcp_permission(role: TenantRole, permission: McpPermission) -> None:
+    """Raise :class:`ForbiddenError` when ``role`` lacks ``permission``.
+
+    Raised with the MCP-protocol error code ``permission.denied`` (REQ-033 §8.1
+    AC-2) so the transport layer forwards a stable, non-leaking code to the LLM
+    client.
+    """
+
+    if not has_mcp_permission(role, permission):
+        from app.common.exceptions import ForbiddenError
+
+        raise ForbiddenError(f"MCP permission '{permission.value}' is not granted to role '{role.value}'.")
+
+
+def list_mcp_permissions(role: TenantRole) -> list[McpPermission]:
+    """Return the sorted MCP permission classes granted to ``role``."""
+
+    return sorted(_MCP_ROLE_PERMISSIONS.get(role, frozenset()), key=lambda p: p.value)

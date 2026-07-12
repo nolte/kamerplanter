@@ -3,7 +3,7 @@
 This page explains the key terms you'll encounter in Kamerplanter and throughout this documentation — kept short and understandable without prior knowledge. Each entry links to the page where the topic is covered in depth.
 
 !!! info "A static reference"
-    This glossary page is a fixed list for looking things up. A searchable, in-context term explanation inside the Kamerplanter application itself (e.g. as a tooltip right where the term appears) is planned for a future version.
+    This glossary page is a fixed list for looking things up, intended for developers and for quickly cross-referencing the documentation. For a searchable, AI-backed term explanation right inside the Kamerplanter application — including experience-level-adaptive explanations and related terms — use the [Terminology Glossary](../user-guide/glossary.md) in the app. <!-- REQ-035 -->
 
 Terms are sorted alphabetically. Use the search box at the top of the page (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd>) to jump straight to a term.
 
@@ -86,6 +86,18 @@ A deliberate gap between the on and off thresholds of an automatic rule. Hystere
 A three-tier approach to plant protection: prevention before monitoring (regular inspections), monitoring before intervention (treatment). The goal is to treat as rarely and as precisely as possible.
 
 → [Pest Management (IPM)](../user-guide/pest-management.md)
+
+### InvenTree
+
+A separate, open-source inventory management system that you can optionally run alongside Kamerplanter and link to your fertilizers, tanks and equipment. A "part" there is a single article (e.g. a spare pump). Link a Kamerplanter entity to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand. The link is purely optional; without it, Kamerplanter keeps working without any limitation.
+
+→ [Equipment & Inventory (InvenTree)](../user-guide/inventree.md)
+
+### Model Context Protocol (MCP)
+
+An open protocol that lets external AI language-model clients (e.g. Claude Desktop, Claude Code) call a system's structured "tools". Kamerplanter exposes a curated, machine-to-machine interface over MCP, restricted to service accounts — distinct from the AI assistant built into the app, which is meant for human users.
+
+→ [MCP Server](../api/mcp-server.md)
 
 ### Nutrient Film Technique (NFT)
 

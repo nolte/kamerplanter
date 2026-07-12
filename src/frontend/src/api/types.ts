@@ -987,6 +987,14 @@ export interface IncompatibleSpecies {
   reason: string;
 }
 
+export interface SpeciesCompanionCounts {
+  compatible: number;
+  incompatible: number;
+}
+
+/** Whole-catalogue aggregate keyed by species_key (GET /companion-planting/counts). */
+export type CompanionCountsMap = Record<string, SpeciesCompanionCounts>;
+
 export interface CompatibilitySet {
   from_species_key: string;
   to_species_key: string;
@@ -3780,7 +3788,16 @@ export type ReminderType =
   | 'repotting'
   | 'pest_check'
   | 'location_check'
-  | 'humidity_check';
+  | 'humidity_check'
+  // REQ-022 v2.5 outdoor + overwintering reminder types (§3.2)
+  | 'deadheading'
+  | 'tuber_dig'
+  | 'storage_check'
+  | 'spring_uncover'
+  | 'winter_protection'
+  // REQ-047 §2.5 season-/dormancy-driven control reminders
+  | 'dormancy_health_check'
+  | 'quarter_climate_check';
 export type ConfirmAction = 'confirmed' | 'snoozed' | 'skipped';
 export type WateringMethod = 'soak' | 'drench_and_drain' | 'top_water' | 'bottom_water';
 
@@ -5355,6 +5372,111 @@ export interface AiConversationSummary {
   updated_at?: string | null;
 }
 
+// ── REQ-035 KI terminology glossary ─────────────────────────────────────
+
+export type GlossaryExpertiseLevel = 'beginner' | 'intermediate' | 'expert';
+
+/** A single row of the glossary term browser (§3.1 `/terms`). */
+export interface GlossaryTermSummary {
+  slug: string;
+  label: string;
+  category: string;
+}
+
+/** A related-term reference rendered as a clickable chip (§3.4). */
+export interface GlossaryRelatedTerm {
+  slug: string;
+  label: string;
+}
+
+/** The full `get_term` response envelope (§3.4). */
+export interface GlossaryTermAnswer {
+  slug: string;
+  label: string;
+  long_label: string;
+  category: string;
+  answer_text: string;
+  expertise_level: GlossaryExpertiseLevel;
+  language: string;
+  language_mismatch_warning: boolean;
+  sources: AiSourceRef[];
+  related_terms: GlossaryRelatedTerm[];
+  is_fallback: boolean;
+  model_name: string;
+  provider_type: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  kb_version?: string | null;
+  generated_at?: string | null;
+}
+
+// ── REQ-036 KI-Diagnose-Assistent ───────────────────────────────────────
+
+/** One curated symptom offered by the diagnosis wizard's first step. */
+export interface DiagnosisSymptom {
+  slug: string;
+  category: string;
+  label: string;
+  common_causes_hint: string;
+  applicable_phases: string[];
+}
+
+export interface DiagnosisSymptomListResponse {
+  symptoms: DiagnosisSymptom[];
+}
+
+/** A REQ-010 treatment suggested for a matched pest (bridge, read-only). */
+export interface DiagnosisMatchedTreatment {
+  key: string;
+  name: string;
+  name_de?: string | null;
+  treatment_type: string;
+  safety_interval_days: number;
+  has_karenz: boolean;
+  detail_url: string;
+}
+
+/** An enriched top-N diagnosis candidate (IPM-bridged). */
+export interface DiagnosisCandidate {
+  rank: number;
+  name: string;
+  scientific_name?: string | null;
+  category: string;
+  confidence: number;
+  confidence_level: AiConfidence;
+  explanation: string;
+  recommended_actions: string[];
+  matched_pest_key?: string | null;
+  matched_pest_detail_url?: string | null;
+  matched_disease_key?: string | null;
+  matched_disease_detail_url?: string | null;
+  matched_treatments: DiagnosisMatchedTreatment[];
+}
+
+/** The top-3 diagnosis envelope rendered inside `<AIResponse>`. */
+export interface DiagnosisResult {
+  candidates: DiagnosisCandidate[];
+  answer_summary: string;
+  sources: AiSourceRef[];
+  language: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  confidence: AiConfidence;
+  model_name: string;
+  provider_type: string;
+  kb_version?: string | null;
+  status: 'ok' | 'knowledge_service_error' | 'error';
+  error_class?: string | null;
+}
+
+export interface DiagnoseRequest {
+  symptom_slugs: string[];
+  extra_notes?: string | null;
+  plant_instance_key?: string | null;
+  photo_ref?: string | null;
+  language?: 'de' | 'en';
+}
+
 // ── REQ-026 Aquaponics ──────────────────────────────────────────────────
 
 export type AquaponicSystemType =
@@ -5671,4 +5793,193 @@ export interface EmergencyStopResult {
   scenario: string;
   stopped: string[];
   forced_on: string[];
+}
+
+// ── REQ-016 InvenTree integration (optional) ────────────────────────────
+
+export type EquipmentType =
+  | 'tool'
+  | 'consumable'
+  | 'sensor'
+  | 'lighting'
+  | 'pump'
+  | 'filter'
+  | 'container'
+  | 'cleaning_agent'
+  | 'other';
+
+export type EquipmentStatus =
+  | 'active'
+  | 'maintenance'
+  | 'stored'
+  | 'defective'
+  | 'retired';
+
+export type StockTransactionType = 'remove' | 'add' | 'count';
+
+export type StockTransactionStatus = 'pending' | 'synced' | 'failed';
+
+export interface Equipment {
+  key: string;
+  name: string;
+  equipment_type: EquipmentType;
+  status: EquipmentStatus;
+  brand?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  purchase_date?: string | null;
+  warranty_until?: string | null;
+  location_key?: string | null;
+  inventree_part_id?: number | null;
+  notes?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface EquipmentCreate {
+  name: string;
+  equipment_type: EquipmentType;
+  status?: EquipmentStatus;
+  brand?: string | null;
+  model?: string | null;
+  serial_number?: string | null;
+  location_key?: string | null;
+  inventree_part_id?: number | null;
+  notes?: string | null;
+}
+
+export type EquipmentUpdate = Partial<EquipmentCreate>;
+
+export interface InvenTreeConnection {
+  key: string;
+  name: string;
+  base_url: string;
+  is_active: boolean;
+  verify_ssl: boolean;
+  api_token_set: boolean;
+  sync_interval_minutes: number;
+  push_interval_minutes: number;
+  last_health_check_at?: string | null;
+  last_health_check_ok?: boolean | null;
+  last_stock_sync_at?: string | null;
+  last_push_at?: string | null;
+}
+
+export interface InvenTreeConnectionCreate {
+  name: string;
+  base_url: string;
+  api_token: string;
+  is_active?: boolean;
+  verify_ssl?: boolean;
+}
+
+export interface InvenTreeReference {
+  key: string;
+  entity_collection: string;
+  entity_key: string;
+  inventree_part_id: number;
+  inventree_part_name?: string | null;
+  cached_stock?: number | null;
+  cached_stock_unit?: string | null;
+  auto_deduct: boolean;
+}
+
+export interface StockTransaction {
+  key: string;
+  reference_key: string;
+  inventree_part_id: number;
+  transaction_type: StockTransactionType;
+  quantity: number;
+  unit: string;
+  reason: string;
+  status: StockTransactionStatus;
+  retry_count: number;
+  synced_at?: string | null;
+  created_at?: string | null;
+}
+
+// ── REQ-017 Propagation / lineage ────────────────────────────────────────────
+
+/** Event-level propagation method (REQ-017), distinct from the species-level
+ *  `PropagationMethod` vocabulary above. */
+export type PropagationEventMethod =
+  | 'clone'
+  | 'seed'
+  | 'cutting'
+  | 'graft'
+  | 'division'
+  | 'layering'
+  | 'offset'
+  | 'other';
+
+export type PropagationEventStatus =
+  | 'in_progress'
+  | 'rooted'
+  | 'transplanted'
+  | 'completed'
+  | 'failed';
+
+export type GraftCompatibilityLevel =
+  | 'compatible'
+  | 'possibly_compatible'
+  | 'incompatible';
+
+export interface PropagationEvent {
+  _key?: string;
+  method: PropagationEventMethod;
+  status: PropagationEventStatus;
+  parent_plant_keys: string[];
+  child_plant_keys: string[];
+  species_key?: string | null;
+  cultivar_key?: string | null;
+  protocol_key?: string | null;
+  batch_key?: string | null;
+  quantity: number;
+  survived_count?: number | null;
+  success_rate?: number | null;
+  callus_observed_at?: string | null;
+  roots_observed_at?: string | null;
+  transplant_ready_at?: string | null;
+  failure_reasons: string[];
+  happened_at?: string | null;
+  notes?: string | null;
+}
+
+export interface PropagationEventCreate {
+  method: PropagationEventMethod;
+  parent_plant_keys: string[];
+  child_plant_keys: string[];
+  species_key?: string | null;
+  quantity: number;
+  notes?: string | null;
+}
+
+export interface LineageNode {
+  key?: string | null;
+  instance_id?: string | null;
+  plant_name?: string | null;
+  species_key?: string | null;
+}
+
+export interface LineageResponse {
+  plant_key: string;
+  paths: string[][];
+  ancestors: LineageNode[];
+}
+
+export interface DescendantsResponse {
+  plant_key: string;
+  descendants: LineageNode[];
+}
+
+export interface GraftCompatibilityResponse {
+  scion_key: string;
+  rootstock_key: string;
+  scion_species_key: string;
+  rootstock_species_key: string;
+  compatible: boolean;
+  level: GraftCompatibilityLevel;
+  same_genus: boolean;
+  same_family: boolean;
+  message: string;
 }

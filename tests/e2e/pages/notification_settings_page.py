@@ -109,6 +109,11 @@ class NotificationSettingsPage(BasePage):
         self.wait_for_element(self.SAVE_BUTTON)
         return self
 
+    def is_save_button_visible(self) -> bool:
+        """Return True if the notification-settings save button is present and displayed."""
+        elements = self.driver.find_elements(*self.SAVE_BUTTON)
+        return len(elements) > 0 and elements[0].is_displayed()
+
     def get_tab_labels(self) -> list[str]:
         """Return the visible tab labels in the AccountSettings tab strip."""
         tabs = self.driver.find_elements(*self.TAB_BUTTONS)

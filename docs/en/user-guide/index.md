@@ -17,6 +17,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Watering Log](watering-log.md) | Document and review watering events |
 | [Sensors](sensors.md) | Sensor data, Home Assistant integration |
 | [Weather Sources](weather-sources.md) | Choose and prioritize a public weather service or Home Assistant per location |
+| [Calculations](calculations.md) | VPD, GDD, photoperiod, slot-capacity, and sun-position calculators |
 | [Tasks](tasks.md) | Task planning and workflow templates |
 | [Harvest](harvest.md) | Harvest management and quality scoring |
 | [Post-Harvest](post-harvest.md) | Track drying, curing, and storage of your harvest batches |
@@ -46,6 +47,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Configure Storage](object-storage.md) | Choose the object storage backend for photos, imports, and backups |
 | [AI Assistant](ai-assistant.md) | Query plant knowledge via AI search |
 | [AI Providers](ai-providers.md) | Configure AI providers (Ollama, Anthropic, OpenAI) |
+| [Terminology Glossary](glossary.md) | Look up terms like VPD or EC, tailored to your experience level |
 | [Actuator Control](actuator-control.md) | Automatic control of fans, lights, pumps |
 | [Propagation](propagation.md) | Cuttings, seeds, grafting |
 | [Privacy](privacy.md) | GDPR rights and data export |

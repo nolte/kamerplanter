@@ -55,6 +55,10 @@ const PlantIdentificationPage = lazy(
 const PestIdentificationPage = lazy(() => import('@/pages/ki-recognition/PestIdentificationPage'));
 // REQ-031 KI-Assistent & Wissensvermittlung
 const KIAssistentPage = lazy(() => import('@/pages/ki-assistent/KIAssistentPage'));
+// REQ-035 KI-Glossar
+const GlossaryPage = lazy(() => import('@/pages/glossar/GlossaryPage'));
+// REQ-036 KI-Diagnose-Assistent
+const DiagnosePage = lazy(() => import('@/pages/ki-diagnose/DiagnosePage'));
 const PlantingRunListPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunListPage'));
 const PlantingRunDetailPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunDetailPage'));
 const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/SuccessionPlanListPage'));
@@ -64,6 +68,10 @@ const OverwinteringListPage = lazy(() => import('@/pages/ueberwinterung/Overwint
 const AquaponikPage = lazy(() => import('@/pages/aquaponik/AquaponikPage'));
 // REQ-018 Umgebungssteuerung / Aktorik
 const EnvironmentControlPage = lazy(() => import('@/pages/environment/EnvironmentControlPage'));
+// REQ-016 InvenTree integration (Equipment + inventory sync)
+const InventreePage = lazy(() => import('@/pages/inventree/InventreePage'));
+// REQ-017 Vermehrung / Lineage
+const PropagationPage = lazy(() => import('@/pages/propagation/PropagationPage'));
 const TankListPage = lazy(() => import('@/pages/standorte/TankListPage'));
 const TankDetailPage = lazy(() => import('@/pages/standorte/TankDetailPage'));
 const FertilizerListPage = lazy(() => import('@/pages/duengung/FertilizerListPage'));
@@ -480,6 +488,26 @@ export const router = createBrowserRouter(
             }
           />
 
+          {/* REQ-016 InvenTree integration (Equipment + inventory) */}
+          <Route
+            path="inventree"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <InventreePage />
+              </Suspense>
+            }
+          />
+
+          {/* REQ-017 Vermehrung / Lineage */}
+          <Route
+            path="vermehrung"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                <PropagationPage />
+              </Suspense>
+            }
+          />
+
           {/* REQ-014 Tanks */}
           <Route
             path="standorte/tanks"
@@ -538,6 +566,24 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <KIAssistentPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-035 KI-Fachbegriff-Glossar — light-mode-fähig (kein Consent, §6) */}
+          <Route
+            path="glossar"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <GlossaryPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-036 KI-Diagnose-Assistent (strukturiert, symptombasiert) */}
+          <Route
+            path="diagnose"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <DiagnosePage />
               </Suspense>
             }
           />

@@ -29,6 +29,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import HistoryIcon from '@mui/icons-material/History';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import PestControlIcon from '@mui/icons-material/PestControl';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
@@ -124,6 +125,13 @@ export default function Sidebar({ open }: SidebarProps) {
       icon: <AutoAwesomeIcon />,
     },
     {
+      // REQ-035 — light-mode-capable terminology glossary, ungated like
+      // ki-assistent (no navItemConfig entry needed).
+      label: t('nav.glossary'),
+      path: '/glossar',
+      icon: <MenuBookIcon />,
+    },
+    {
       header: t('nav.pflanzen'),
       sectionKey: 'pflanzen',
       items: [
@@ -146,6 +154,11 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.overwintering'),
           path: '/ueberwinterung/profile',
           icon: <AcUnitIcon />,
+        },
+        {
+          label: t('nav.propagation'),
+          path: '/vermehrung',
+          icon: <AccountTreeIcon />,
         },
       ],
     },
@@ -237,6 +250,17 @@ export default function Sidebar({ open }: SidebarProps) {
           label: t('nav.environmentControl'),
           path: '/umgebungssteuerung',
           icon: <TuneIcon />,
+        },
+      ],
+    },
+    {
+      header: t('nav.inventar'),
+      sectionKey: 'inventree',
+      items: [
+        {
+          label: t('nav.equipment'),
+          path: '/inventree',
+          icon: <Inventory2Icon />,
         },
       ],
     },

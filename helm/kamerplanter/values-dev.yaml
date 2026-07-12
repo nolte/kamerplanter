@@ -29,7 +29,10 @@ controllers:
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: rootpassword
+          # ARANGODB_PASSWORD is sourced from kamerplanter-secrets (envFrom, base
+          # values.yaml) — never inline it here: the ArangoDB pod initialises its
+          # root password from the same Secret (ARANGO_ROOT_PASSWORD), so an inline
+          # override would drift from it and cause a startup-time HTTP 401.
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "true"
@@ -71,6 +74,12 @@ controllers:
           PEST_DETECTION_SYMPTOM_ENABLED: "true"
           PEST_DETECTION_DEMO_ENABLED: "true"
           PEST_DETECTION_PRIMARY_ADAPTER: "demo_pest"
+          # REQ-046/039/041/047 weather integration master switch (default off in
+          # base settings). Turning it on activates the keyless public providers
+          # (open-meteo default + DWD/brightsky), daily forecasts, NASA-POWER
+          # climate normals, hardiness-zone derivation and season-state evaluation.
+          # OpenWeatherMap additionally needs a per-location API key (REQ-046).
+          WEATHER_ENABLED: "true"
         probes:
           liveness:
             enabled: true
@@ -196,7 +205,10 @@ controllers:
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: rootpassword
+          # ARANGODB_PASSWORD is sourced from kamerplanter-secrets (envFrom, base
+          # values.yaml) — never inline it here: the ArangoDB pod initialises its
+          # root password from the same Secret (ARANGO_ROOT_PASSWORD), so an inline
+          # override would drift from it and cause a startup-time HTTP 401.
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
@@ -214,6 +226,17 @@ controllers:
           # REQ-029-A — reference-image acquisition calls the inference-service
           # (/embed, /reference) to build the DINOv2 pgvector index.
           INFERENCE_SERVICE_URL: "http://kamerplanter-recognition:8000"
+          # AP-4 (INF-S1/S2): the celery-worker calls the recognition/knowledge
+          # services (e.g. reference-image acquisition -> /embed) and must send the
+          # SAME shared M2M token they expect. The backend sets this inline too;
+          # without it the worker falls back to the envFrom kamerplanter-secrets
+          # value, which drifts from the services' inline dev-internal-service-token
+          # and yields 401 Unauthorized.
+          INTERNAL_SERVICE_TOKEN: dev-internal-service-token
+          # REQ-046 weather integration — the celery-worker runs the weather
+          # fetch, daily-forecast, climate-normal, hardiness and season tasks,
+          # all gated by this switch.
+          WEATHER_ENABLED: "true"
         probes:
           liveness:
             enabled: true
@@ -257,7 +280,10 @@ controllers:
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: rootpassword
+          # ARANGODB_PASSWORD is sourced from kamerplanter-secrets (envFrom, base
+          # values.yaml) — never inline it here: the ArangoDB pod initialises its
+          # root password from the same Secret (ARANGO_ROOT_PASSWORD), so an inline
+          # override would drift from it and cause a startup-time HTTP 401.
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           KAMERPLANTER_MODE: "light"
           JWT_SECRET_KEY: "dev-only-not-for-production-secret-key-1234"
@@ -272,6 +298,10 @@ controllers:
           TIMESCALEDB_DATABASE: kamerplanter_sensors
           TIMESCALEDB_USERNAME: postgres
           TIMESCALEDB_PASSWORD: devpassword
+          # REQ-046 weather integration — celery-beat schedules the daily
+          # forecast, monthly climate-normal, hardiness and season beats,
+          # all gated by this switch.
+          WEATHER_ENABLED: "true"
         probes:
           liveness:
             enabled: true

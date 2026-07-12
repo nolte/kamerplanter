@@ -146,6 +146,7 @@ class TestModeEndpoint:
                 f"{is_full} sein, war: {payload['features'][flag]}"
             )
 
+    @pytest.mark.smoke
     def test_mode_endpoint_reachable_without_auth(
         self,
         browser: WebDriver,

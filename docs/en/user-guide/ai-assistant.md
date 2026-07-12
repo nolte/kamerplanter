@@ -158,3 +158,4 @@ If the underlying knowledge base (Knowledge Service) is unreachable, the AI Assi
 - [AI Architecture (Developer)](../architecture/ai-architecture.md)
 - [API Reference: AI Assistant](../reference/api-reference.md#ki-assistent)
 - [Environment Variables: AI Assistant](../reference/environment-variables.md#ki-assistent)
+- [MCP Server — external LLM clients as a Kamerplanter tool](../api/mcp-server.md)

@@ -133,6 +133,7 @@ Die folgende Tabelle listet alle verfügbaren Router-Gruppen. Im Full-Modus sind
 | Aktivitäten | `/activities` | Aktivitätsdefinitionen (Gießen, Düngen, etc.) | REQ-006 |
 | Aktivitätspläne | `/activity-plans` | Generierung und Anwendung von Aktivitätsplänen | REQ-006 |
 | Wissensdatenbank | `/knowledge` | RAG-basierte Suche und KI-Antworten (optional) | — |
+| MCP-Server | `/mcp` | Werkzeug-Schnittstelle für externe LLM-Clients (Service-Account-Auth, opt-in) | REQ-033 |
 | Beobachtungen | `/observations` | TimescaleDB-Status | REQ-005 |
 | Health | `/health` | Liveness und Readiness | — |
 | Modus | `/mode` | Aktueller Deployment-Modus (full/light) | REQ-027 |
@@ -253,4 +254,5 @@ Jede API-Antwort enthält folgende Sicherheits-Header:
 - [Authentifizierung](authentication.md) — Token-Workflow und API-Keys
 - [Fehlerbehandlung](error-handling.md) — Fehlerstruktur und Fehlercodes
 - [Service Accounts](service-accounts.md) — M2M-Zugriff (geplant, noch nicht implementiert)
+- [MCP-Server](mcp-server.md) — externe LLM-Clients als Kamerplanter-Werkzeug
 - [Lokale Entwicklungsumgebung](../development/local-setup.md) — Backend lokal starten

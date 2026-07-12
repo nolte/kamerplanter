@@ -1,194 +1,217 @@
 # Propagation Management
 
-!!! note "Partially available"
-    **Manual** propagation (taking cuttings, seed crosses, grafting, division) and the interactive lineage graph are specified but not yet implemented — the corresponding sections below describe the planned behavior. Already available is the **automatic** pup continuation for plants that flower once (monocarpic plants), see [Automatic Pup Continuation for Monocarpic Plants](#automatische-kindel-fortfuehrung). <!-- REQ-017 -->
-
-Kamerplanter tracks the genetic lineage of your plants completely: which mother plant provided the cutting? Which two parent plants were crossed? Which rootstock was a variety grafted onto? The **lineage graph** makes these relationships visible and automatically checks graft compatibility.
+Kamerplanter helps you keep a traceable record of every propagation action — from a single cutting to grafting — and shows which plant descended from which mother plant. It also automatically checks whether two plants are taxonomically suited for grafting.
 
 ---
 
 ## Prerequisites
 
-- At least one plant instance (mother plant) is created
-- The species and variety are captured in the master data
+- At least one plant instance is created
+- The plant species is captured in the master data
+- The "Grower" role or higher to create propagation events — the "Viewer" role is enough to view them
+
+---
+
+## What Is Propagation? {#was-ist-vermehrung}
+
+Propagation covers all the methods you can use to grow new plants from an existing one — from cuttings to sowing to grafting. Kamerplanter distinguishes eight methods:
+
+| Method | Description | Genetic relationship to the source plant |
+|---------|-------------|------|
+| **Sowing** (seed) | Grown from seed | New genetic combination for crosses, true-to-type otherwise |
+| **Cutting** (cutting) | Rooted stem, leaf or root piece from the mother plant | Genetically identical (a clone) |
+| **Clone** (clone) | Umbrella term for vegetative propagation, including the automatic pup continuation (see below) | Genetically identical |
+| **Graft** (graft) | A scion (shoot of a variety) is applied to a rootstock (root system of another plant) | The scion stays genetically unchanged; the rootstock only supplies the root system |
+| **Division** (division) | The plant or root ball is split into several independent parts | Genetically identical |
+| **Layering** (layering) | A stem is rooted while still attached to the mother plant, and only separated afterwards | Genetically identical |
+| **Offset** (offset) | A natural side shoot that detaches from the mother plant on its own | Genetically identical |
+| **Other** (other) | All remaining propagation types, e.g. tissue culture | Depends on the method |
+
+!!! note "Difference from the \"Propagation Methods\" in the species profile"
+    The **species profile** (Master Data > Species) also has a **Propagation Methods** field (`propagation_methods`) — it records which methods are *typically used* for a species (e.g. tomato: seed + cutting), independent of any specific propagation event. Details: [Managing Master Data — Propagation Methods](plant-management.md#propagation-methods-propagation_methods).
 
 ---
 
 ## Automatic Pup Continuation for Monocarpic Plants {#automatische-kindel-fortfuehrung}
 
-For **monocarpic** plant species — they flower exactly once in their lifetime and then die, e.g. many agaves, bromeliads, and guzmanias — propagation works differently from the manual methods described below: as soon as such a mother plant automatically transitions into its final flowering phase, Kamerplanter **automatically** creates a new plant instance — the **pup** (the clonal offset) — and links it to the mother plant via a `descended_from` ancestry record, in addition to a recorded propagation event of type "clone".
+For **monocarpic** plant species — they flower exactly once in their lifetime and then die, e.g. many agaves, bromeliads, and guzmanias — propagation works differently from the self-documented methods described below: as soon as such a mother plant automatically transitions into its final flowering phase, Kamerplanter **automatically** creates a new plant instance — the **pup** (the clonal offset) — and links it to the mother plant via a `descended_from` ancestry record, in addition to a recorded propagation event of type "clone".
 
 The pup inherits the tenant, plant species, cultivar, and location of the mother plant, but no fixed slot — the mother plant keeps occupying its slot while it senesces. For this reason, the pup's detail view shows an ancestry link **"Descended from …"** to the mother plant.
 
 Full description: [Growth Phases — Monocarpic Plants](growth-phases.md#monokarpische-pflanzen). <!-- REQ-003 D10 / REQ-017 -->
 
-!!! tip "Difference from manual cutting propagation"
-    For monocarpic species, this automatic continuation replaces the manual cutting workflow described below — you don't need to trigger anything via the **Propagate** menu. For all other propagation types (seed cross, grafting, division, cuttings for repeatedly-flowering/polycarpic plants), the description of the planned manual workflows in the following sections still applies.
+!!! tip "Difference from self-documented propagation"
+    For monocarpic species, this automatic continuation replaces the documentation via a propagation event described below — you don't need to trigger anything on the **Propagation & Lineage** page. For all other propagation types (cutting, sowing, division, layering, grafting, offset for repeatedly-flowering/polycarpic plants), you document the action yourself via a propagation event — see below.
 
 ---
 
-## Propagation Methods Overview
+## Recording a Propagation Event
 
-| Method | Description | Genetic relationship |
-|--------|-------------|---------------------|
-| **Cutting (clone)** | Rooted shoot from the mother plant | Genetically identical |
-| **Seed cross** | Seeds from controlled pollination | 50% genetics from each parent |
-| **Grafting** | Scion applied to rootstock | Scion remains genetically unchanged |
-| **Division** | Plant divided into several parts | Genetically identical (like clone) |
+### Step 1: Navigate to the Propagation Page
 
-!!! note "Propagation methods in the species profile"
-    The **species profile** (Master Data > Species) includes the **Propagation Methods** field (`propagation_methods`). It records which methods are **typically used** for a species — e.g. tomato: seed + cutting. The field is a multi-select from 13 possible values and is shown from the **Intermediate** expertise level onward. All pre-loaded crop species already include this data. More details: [Managing Master Data — Propagation Methods](plant-management.md#propagation-methods-propagation_methods).
+Click **Propagation & Lineage** in the **Plants** section of the navigation.
 
----
+### Step 2: Create a New Event
 
-## Taking Cuttings (Clones)
+Click **Record Propagation**. A dialog opens.
 
-Cuttings are the most common propagation method for houseplants and in the grow tent. The system tracks every clone generation.
+### Step 3: What Was Propagated?
 
-### Creating a New Cutting
+| Field | Description | Example |
+|-------|-------------|---------|
+| Method | One of the eight propagation methods (see above) | Cutting |
+| Quantity | How many plants/attempts this action started with | 4 |
+| Species (optional) | Which plant species this success statistic is tracked against | Tomato |
 
-1. Navigate to **Plants** > mother plant
-2. Click **Propagate** > **Take Cutting**
-3. Fill in the form:
+### Step 4: Plants Involved (Optional)
 
-    | Field | Description | Example |
-    |-------|-------------|---------|
-    | **Number of cuttings** | How many cuttings are taken | 4 |
-    | **Date** | Date of taking | 2026-03-28 |
-    | **Location** | Where the cuttings will root | Propagation tent |
-    | **Substrate** | Rooting substrate | Rockwool plugs |
-    | **Notes** | Method, rooting hormone, etc. | Auxin powder, 45° cut |
+Pick the plants involved via the **name search** — you can select several. Type the plant name or ID to filter the list; the species is shown for context. For the **Graft** method, the fields are relabeled accordingly:
 
-4. Click **Create Cuttings**
+| Field (default) | For grafting | Meaning |
+|------|------|------|
+| Source plants | Rootstock(s) | The plant(s) the action starts from |
+| Result plants | Scion | The plant(s) produced or used in the action |
 
-The system automatically creates new plant instances with the `descended_from` edge to the mother plant.
+!!! tip "You no longer need to type the internal key"
+    You used to have to copy the technical plant key from the detail page — that's gone now: the name search finds the plant by its name or ID, and Kamerplanter fills in the matching key automatically in the background.
+
+### Step 5: Add Notes and Save
+
+Optionally enter notes (e.g. substrate, rooting hormone, cutting technique) and click **Save**. The event then appears on the **Events** tab with the status **"In progress"**.
 
 !!! tip "Tracking clone generations"
-    When a cutting is itself used as a mother plant, a clone chain is created: Mother → F1 clone → F2 clone. This chain is visible in the lineage view as a graph.
+    If you pick the plant that just resulted from a cutting as the source plant for the next one, a traceable chain builds up across several events in the event list — this is not, however, yet an automatic link in the lineage graph (see below).
 
-### Tracking Rooting Status
-
-1. Navigate to **Plants** > desired cutting
-2. The **Growth Phases** tab shows the current phase (Germination/Propagation)
-3. When roots are visible: execute the phase transition to **Seedling**
+<!-- Source: src/frontend/src/pages/propagation/PropagationEventDialog.tsx, PropagationPage.tsx, src/frontend/src/components/form/PlantInstanceAutocompleteField.tsx, src/backend/app/api/v1/propagation/tenant_router.py, src/backend/app/domain/services/propagation_service.py -->
 
 ---
 
-## Documenting Seed Crosses
+## The Event List — Status & Success Rate
 
-For controlled pollination — e.g. for breeding new varieties:
+The **Events** tab lists all propagation events documented for your tenant:
 
-### Creating a Cross
+| Column | Description |
+|--------|-------------|
+| Method | The chosen propagation method |
+| Status | "In progress", "Rooted", "Transplanted", "Completed" or "Failed" |
+| Quantity | How many plants/attempts were started |
+| Survived | Number of plants that successfully established (if recorded) |
+| Success rate | Survived ⁄ Quantity as a percentage (if recorded) |
+| Date | When the action took place |
 
-1. Navigate to **Master Data** > **Varieties** > **New Variety**
-2. Under the **Genetic Origin** section:
-    - Select the **Mother plant** (seed plant)
-    - Select the **Father plant** (pollen plant)
-    - Enter the **crossing date**
-3. Save
+!!! info "API only: Recording outcome & progress"
+    A newly created event always starts in status "In progress", with empty "Survived" and "Success rate" columns. Progress milestones (callus formation, visible roots, ready to transplant) and the final outcome (survived count, failure reasons) can already be recorded and are reflected in "Status"/"Success rate" — but there is no button for this in the interface yet. This update is currently only possible via the technical API. <!-- REQ-017 -->
 
-The system creates `descended_from` edges to both parent plants and marks the new variety as F1 hybrid.
-
-!!! example "Example: Tomato breeding"
-    You cross "San Marzano" (mother) with "Sungold" (father). The system creates a new variety "San Marzano × Sungold (F1)" with both ancestry edges in the graph.
-
----
-
-## Grafting
-
-Grafting is used to place a valuable variety (scion) onto a robust rootstock.
-
-### Creating a Graft
-
-1. Navigate to **Plants** > scion plant > **Propagate** > **Graft**
-2. Choose the **rootstock** (must be compatible)
-3. Document method (whip and tongue, budding, etc.) and date
-
-### Compatibility Check
-
-The system automatically checks genus and family compatibility:
-
-<!-- diagram-source: user-described — graft compatibility check decision tree (genus, then family) -->
-```mermaid
-flowchart TD
-    A[Create graft] --> B{Same genus?}
-    B -->|Yes| OK[Compatible]
-    B -->|No| C{Same family?}
-    C -->|Yes| W[Warning: Compatibility possible, check]
-    C -->|No| E[Error: Incompatible]
-```
-
-!!! warning "Compatibility rules"
-    Compatibility is checked at genus and family level. Tomato on potato rootstock (both Solanum) is compatible. Tomato on apple rootstock (Solanaceae / Rosaceae) is incompatible.
+<!-- Endpoints: PATCH /propagation/events/{event_key}/progress, PATCH /propagation/events/{event_key}/outcome -->
 
 ---
 
-## Plant Division
+## Exploring Lineage (Tab "Lineage & Grafting")
 
-For perennials, bulbous plants and bushy houseplants:
+On the **Lineage & Grafting** tab you can look up the ancestors and descendants of any plant:
 
-1. Navigate to **Plants** > desired plant > **Propagate** > **Divide**
-2. Specify into how many parts the plant is divided
-3. The system creates new plant instances with `descended_from` edge
+1. Pick the plant you're interested in via the **name search**.
+2. Click **Show Lineage**.
+3. Kamerplanter shows you two lists: **Ancestors** (which mother plant — and its mother plant, and so on — the plant descended from) and **Descendants** (which plants in turn descended from it).
 
----
-
-## The Lineage Graph
-
-The lineage view shows all parent, sibling and descendant plants in an interactive graphic.
-
-### Opening the Graph
-
-1. Navigate to **Plants** > desired plant
-2. Click the **Lineage** tab
+!!! tip "Link directly to the \"Lineage & Grafting\" tab"
+    The **Events** and **Lineage & Grafting** tabs remember their state in the browser's address bar. Append `#lineage` to the propagation page's URL (e.g. `.../vermehrung#lineage`) to land directly on the **Lineage & Grafting** tab — this also works on page reload or as a bookmark.
 
 <!-- diagram-source: user-described — plant lineage graph: mother plant with F1 clones and an F2 clone via descended_from edges -->
 ```mermaid
 flowchart TB
     M["Mother plant<br/>(origin)"]
-    K1["Clone F1-1"]
-    K2["Clone F1-2"]
-    K3["Clone F1-3"]
-    K2_1["Clone F2-1<br/>(from F1-2)"]
+    K1["Pup F1-1"]
+    K2["Pup F1-2"]
+    K3["Pup F1-3"]
+    K2_1["Pup F2-1<br/>(from F1-2)"]
     M -->|descended_from| K1
     M -->|descended_from| K2
     M -->|descended_from| K3
     K2 -->|descended_from| K2_1
 ```
 
-The graph shows:
-- **Mother plant** (source of the cutting)
-- **Sibling clones** (other cuttings from the same mother)
-- **Descendants** (cuttings from this clone)
-- **Crossing partners** for seed crosses
-- **Rootstock** for grafts
+!!! note "Partially available: Linking to a documented propagation event"
+    The plants you pick under "Plants involved" on a propagation event currently serve only your own propagation record and the success statistics (see above) — they do **not yet** automatically create a link in this lineage graph. So far, the only fully automatic link is the [pup continuation for monocarpic plants](#automatische-kindel-fortfuehrung). For all other methods, the event list is your propagation record; a direct link in the lineage graph is planned. <!-- REQ-017 -->
 
-!!! tip "Clone lines in the grow tent"
-    In professional cultivation, the clone line is crucial: a clone from generation F3 can show weaker characteristics than F1. The graph makes such lines transparent.
+---
+
+## Checking Graft Compatibility
+
+The **Graft Compatibility** card on the same tab checks whether two plants are taxonomically suited for grafting:
+
+1. Pick the **scion** (the variety you want to propagate) via the name search.
+2. Pick the **rootstock** (the root base) via the name search.
+3. Click **Check Compatibility**.
+
+Kamerplanter compares the genus and family of the two plants' species:
+
+<!-- diagram-source: user-described — graft compatibility check decision tree (genus, then family) -->
+```mermaid
+flowchart TD
+    A[Check graft] --> B{Same genus?}
+    B -->|Yes| OK[Compatible]
+    B -->|No| C{Same family?}
+    C -->|Yes| W[Possibly compatible — elevated rejection risk]
+    C -->|No| E[Incompatible]
+```
+
+| Result | Meaning |
+|--------|---------|
+| **Compatible** | Same genus — grafting usually succeeds |
+| **Possibly compatible** | Same family but different genus — possible, with elevated rejection risk |
+| **Incompatible** | Different families — grafting is not recommended |
+
+!!! example "Example: Tomato on potato rootstock"
+    Tomato and potato share the same genus (*Solanum*) — grafting between them is possible (known as the "TomTato"). Grafting a tomato onto an apple rootstock, on the other hand, would be incompatible, since nightshades (Solanaceae) and roses (Rosaceae) are different families.
+
+!!! warning "A taxonomy heuristic, not a guarantee"
+    The check only evaluates genus and family from the master data of the species involved. There is currently no way to manually override the result — instead, record any deviating real-world experience in the notes of the associated propagation event.
+
+<!-- Source: src/backend/app/domain/engines/lineage_engine.py (check_graft_compatibility), src/frontend/src/pages/propagation/LineagePanel.tsx, src/frontend/src/components/form/PlantInstancePicker.tsx, src/frontend/src/hooks/usePlantInstanceOptions.ts, src/frontend/src/hooks/useTabUrl.ts -->
+
+---
+
+## Batches, Rooting Protocols & Mother Plants (API Only for Now) {#erweiterte-funktionen}
+
+!!! info "For Technical Users"
+    Beyond the features described above, Kamerplanter already supports further propagation building blocks that don't have an interface yet:
+
+    - **Batches** group several propagation events that were started together, and can be finalized into an existing [Planting Run](planting-runs.md).
+    - **Rooting protocols** are reusable templates (substrate, hormone, expected rooting time, instructions) with their own success statistics.
+    - **Mother plants** can be designated as such, including priority, health score, and retirement.
+    - **Phenotype notes** document breeding observations (growth habit, aroma, yield, resistance, etc.) per plant.
+
+    These features are currently only available through the technical API. <!-- REQ-017 -->
+
+<!-- Source: src/backend/app/api/v1/propagation/tenant_router.py, src/backend/app/domain/services/propagation_service.py, src/backend/app/domain/models/propagation.py -->
 
 ---
 
 ## Frequently Asked Questions
 
-??? question "I took a cutting but forgot to enter it in the app — can I add it retrospectively?"
-    Yes. When creating a new plant instance you can always enter a mother plant and a historical taking date. The lineage graph will then be built correctly.
+??? question "Do I have to create a propagation event for every cutting?"
+    No. Propagation events are an optional record-keeping and statistics tool — you can continue to create plants without an accompanying event. Documenting them is useful when you want to compare success rates over time (e.g. which substrate roots better).
 
-??? question "Can a plant have multiple mother plants?"
-    For seed crosses, yes — a plant has exactly two parents (mother + father). For cuttings and divisions it has exactly one. Grafts have scion + rootstock, where the genetics come from the scion.
+??? question "Does a propagation event automatically link the plants involved in the lineage graph?"
+    No, not yet. The plants picked on the event currently serve only your own record. So far, the only method that links automatically in the lineage graph is the pup continuation for monocarpic plants. See [above](#automatische-kindel-fortfuehrung) for details.
 
-??? question "How do I know whether a variety comes from a cutting or from seed?"
-    In the plant instance profile under the **Lineage** tab you can see the propagation method of the `descended_from` edge (cutting, seed, graft, division).
+??? question "Can I record the outcome (survived/discarded) of an event afterwards?"
+    Yes, the data model already supports this — but currently only through the technical API, not yet via a button in the interface.
 
-??? question "The compatibility check fails even though I know it works."
-    The system checks by botanical family/genus. You can override the check and manually add a compatibility note. Record the observed compatibility as a note in the plant instance.
+??? question "Is the automatic pup continuation the same as a manually documented cutting?"
+    No. The automatic pup continuation for monocarpic plants runs without any action from you as soon as the mother plant automatically transitions into its final flowering phase — including an automatic link in the lineage graph. For all other propagation methods, you document the action yourself via **Record Propagation**.
 
-??? question "Is the automatic pup continuation the same as a manual cutting?"
-    No. The automatic pup continuation for monocarpic plants is already implemented and runs without any action from you when the mother plant automatically transitions into its final flowering phase. The manual cutting workflow via the **Propagate** menu described here, on the other hand, is not yet implemented.
+??? question "Do I still need to know the technical plant key?"
+    No. Everywhere you used to type a plant key (plants involved, lineage search, graft compatibility), you now pick the plant via a name search instead — Kamerplanter fills in the matching key automatically in the background.
+
+??? question "Can I link directly to the \"Lineage & Grafting\" tab?"
+    Yes. Append `#lineage` to the propagation page's URL (e.g. `.../vermehrung#lineage`) — the link opens the page directly on the **Lineage & Grafting** tab, even after a page reload.
 
 ---
 
 ## See Also
 
-- [Planting Runs](planting-runs.md)
-- [Plant Master Data](plant-management.md)
 - [Growth Phases](growth-phases.md)
+- [Plant Master Data](plant-management.md)
+- [Planting Runs](planting-runs.md)

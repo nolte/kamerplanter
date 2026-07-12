@@ -57,17 +57,20 @@ Bei diesen drei Widgets öffnet ein Klick auf die freie Fläche des Panels keine
 
 ## Übersicht der Dashboard-Bereiche
 
-### Aktive Pflanzen und Wachstumsphase
+### Pflanzenübersicht
 
-Der obere Bereich zeigt eine Übersicht aller aktiven Pflanzen mit ihrer aktuellen Wachstumsphase. Pflanzen sind farblich nach Phase kodiert:
+Das Widget **Pflanzenübersicht** zeigt jede deiner aktiven Pflanzen als eigene Karte: Name (oder Sortenname, falls du der Pflanze keinen eigenen Namen gegeben hast), aktuelle Wachstumsphase, Standort und — sofern vorhanden — den nächsten fälligen Termin. Pflanzen mit einer offenen Aufgabe oder Pflegeerinnerung sind zusätzlich klar markiert: ein farbiger Rahmen, ein Hinweis-Symbol und der Text-Badge „Offene Aufgabe" zeigen dir das auch dann, wenn du Farben nicht unterscheiden kannst. <!-- REQ-009 -->
 
-- Hellgrün: Keimung / Sämling
-- Grün: Vegetative Phase
-- Violett: Blütephase
-- Gelb: Erntephase
-- Grau: Ruhephase (Dormanz)
+Über die Filterleiste oberhalb der Karten schränkst du die Übersicht ein — nach **Phase**, **Standort** oder danach, ob eine **offene Aufgabe** vorliegt. Mehrere Filter lassen sich kombinieren; leere Ergebnisse zeigen dir einen entsprechenden Hinweis.
 
-Klicke auf eine Pflanze, um direkt zur Pflanzendetailseite zu gelangen.
+Mit dem Umschalter daneben wählst du das Kartenformat:
+
+- **Detailliert** — größere Karten mit Sorte, Standort und nächstem Termin zusätzlich zu Name und Phase
+- **Kompakt** — mehr, schmalere Karten mit nur Name, Phase und Aufgaben-Hinweis
+
+Deine Wahl wird in deinem Browser gespeichert und bleibt auch nach einem Neuladen erhalten.
+
+Klicke oder tippe auf eine Karte, um direkt zur Pflanzendetailseite zu gelangen.
 
 ### Anstehende Aufgaben
 

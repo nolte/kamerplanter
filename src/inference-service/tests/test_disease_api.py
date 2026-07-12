@@ -62,9 +62,7 @@ class TestClassifyDisease:
 
     def test_phenotype_included_when_requested(self, disease_client, fake_disease_classifier):
         fake_disease_classifier.results = [("x", "disease", None, 0.9)]
-        body = disease_client.post(
-            "/classify/disease", params={"phenotype": True}, files=_image_part()
-        ).json()
+        body = disease_client.post("/classify/disease", params={"phenotype": True}, files=_image_part()).json()
         assert body["phenotype"] is not None
         assert body["phenotype"]["leaf_area_px"] == 1234
         assert body["phenotype"]["plantcv_version"] == "4.0-fake"
@@ -79,7 +77,5 @@ class TestClassifyDisease:
         assert resp.status_code == 503
 
     def test_classify_400_on_empty_upload(self, disease_client):
-        resp = disease_client.post(
-            "/classify/disease", files={"image": ("empty.png", b"", "image/png")}
-        )
+        resp = disease_client.post("/classify/disease", files={"image": ("empty.png", b"", "image/png")})
         assert resp.status_code == 400

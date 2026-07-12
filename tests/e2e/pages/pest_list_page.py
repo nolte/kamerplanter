@@ -294,6 +294,42 @@ class PestListPage(BasePage):
         except Exception:
             return False
 
+    def has_any_dialog_error_helper_text(self) -> bool:
+        """Return True if any MUI error helper text is visible in the open dialog.
+
+        Fallback check for tests where the exact field emitting the error is
+        uncertain (e.g. `has_validation_error` looked at the wrong field id).
+        """
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
+        )) > 0
+
+    def field_has_aria_invalid(self, field_name: str) -> bool:
+        """Return True if the input for *field_name* carries ``aria-invalid='true'``."""
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            f"div[role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
+        )) > 0
+
+    def has_any_aria_invalid_in_dialog(self) -> bool:
+        """Return True if any input in the open dialog carries ``aria-invalid='true'``."""
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR, "div[role='dialog'] input[aria-invalid='true']"
+        )) > 0
+
+    def get_field_debug_state(self, field_name: str) -> tuple[str, str]:
+        """Return ``(value, aria-invalid)`` for *field_name*'s input — for failure messages.
+
+        Returns ``("NOT FOUND: <field_name>", "N/A")`` if the field is absent.
+        """
+        elements = self.driver.find_elements(
+            By.CSS_SELECTOR, f"div[role='dialog'] [data-testid='form-field-{field_name}'] input"
+        )
+        if not elements:
+            return f"NOT FOUND: form-field-{field_name}", "N/A"
+        el = elements[0]
+        return el.get_attribute("value") or "", el.get_attribute("aria-invalid") or ""
+
     # -- Internal helpers -----------------------------------------------------
 
     def _select_option(self, field_testid: str, value_text: str) -> None:

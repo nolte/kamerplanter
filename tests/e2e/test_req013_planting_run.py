@@ -339,9 +339,7 @@ class TestPlantingRunCreateDialog:
 
         # Fill name but leave id_prefix empty
         run_list.fill_name("TestRun Validation")
-        prefix_el = run_list.driver.find_elements(*PlantingRunListPage.FORM_ENTRY_ID_PREFIX)
-        if prefix_el:
-            prefix_el[0].clear()
+        run_list.clear_id_prefix_if_present()
 
         screenshot("TC-REQ-013-013_before-submit-no-prefix", "Create dialog without id_prefix")
         run_list.submit_create_form()
@@ -362,10 +360,6 @@ class TestPlantingRunCreateDialog:
 
         Spec: TC-013-005 -- Monokultur-Run erstellen (vollstaendiges Formular).
         """
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support import expected_conditions as EC
-        from selenium.webdriver.support.ui import WebDriverWait
-
         run_list.open()
         initial_count = run_list.get_row_count()
         screenshot("TC-REQ-013-014_before-create", "PlantingRun list before creating")
@@ -377,36 +371,16 @@ class TestPlantingRunCreateDialog:
         run_list.fill_name(unique_name)
 
         # Select the first available species if the dropdown is populated
-        species_select = run_list.driver.find_elements(
-            By.CSS_SELECTOR,
-            "[data-testid='form-field-entries.0.species_key'] .MuiSelect-select",
-        )
-        if species_select:
-            run_list.scroll_and_click(species_select[0])
-            options = WebDriverWait(run_list.driver, 10).until(
-                EC.presence_of_all_elements_located(
-                    (By.XPATH, "//li[@role='option']")
-                )
-            )
-            species_options = [o for o in options if o.text.strip()]
-            if species_options:
-                species_options[0].click()
-            else:
-                run_list.cancel_create_form()
-                pytest.skip("No species available in database — cannot complete create test")
-        else:
+        if not run_list.is_species_dropdown_present():
             run_list.cancel_create_form()
             pytest.skip("Species dropdown not found — cannot complete create test")
 
+        if run_list.select_first_available_species() is None:
+            run_list.cancel_create_form()
+            pytest.skip("No species available in database — cannot complete create test")
+
         # Fill the id_prefix (auto-populated from species genus but we ensure it's valid)
-        prefix_elements = run_list.driver.find_elements(
-            *PlantingRunListPage.FORM_ENTRY_ID_PREFIX
-        )
-        if prefix_elements:
-            current_prefix = prefix_elements[0].get_attribute("value") or ""
-            if not current_prefix or len(current_prefix) < 2:
-                prefix_elements[0].clear()
-                prefix_elements[0].send_keys("TST")
+        run_list.ensure_valid_id_prefix("TST")
 
         screenshot("TC-REQ-013-014_form-filled", "Create form filled before submit")
 
@@ -756,9 +730,7 @@ class TestPlantingRunErrorHandling:
         screenshot("TC-REQ-013-024_nonexistent-key-error", "Error state for non-existent run key")
 
         error_displayed = run_detail.is_error_displayed()
-        page_rendered = len(run_detail.driver.find_elements(
-            *PlantingRunDetailPage.PAGE
-        )) > 0
+        page_rendered = run_detail.is_page_rendered()
 
         assert error_displayed or page_rendered, (
             "TC-REQ-013-024 FAIL: Expected either an error display or the detail page to render"

@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable
-import time  # kept for debounce waits
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -68,8 +67,7 @@ class TestBotanicalFamilyListPage:
         Spec: TC-001-003 -- Suchfunktion in Botanische Familien-Liste.
         """
         family_list.open()
-        family_list.search("Solan")
-        time.sleep(0.3)  # debounce wait
+        family_list.search("Solan")  # debounce handled inside the page object
 
         screenshot("TC-REQ-001-007_search-results", "Family list after searching for 'Solan'")
 
@@ -90,8 +88,7 @@ class TestBotanicalFamilyListPage:
         Spec: TC-001-003 -- Suchfunktion — Suche nach uebersetztem Enum-Wert.
         """
         family_list.open()
-        family_list.search("Starkzehrer")
-        time.sleep(0.3)  # debounce wait
+        family_list.search("Starkzehrer")  # debounce handled inside the page object
 
         screenshot("TC-REQ-001-008_enum-search", "Family list after searching for 'Starkzehrer'")
 
@@ -132,8 +129,7 @@ class TestBotanicalFamilyListPage:
         family_list.open()
         initial_count = family_list.get_row_count()
 
-        family_list.search("Fabaceae")
-        time.sleep(0.3)  # debounce wait
+        family_list.search("Fabaceae")  # debounce handled inside the page object
         filtered_count = family_list.get_row_count()
         screenshot("TC-REQ-001-010_filtered", "Family list filtered by 'Fabaceae'")
 

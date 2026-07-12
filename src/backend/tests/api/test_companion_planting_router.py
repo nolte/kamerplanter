@@ -124,3 +124,38 @@ def test_get_endpoints_remain_open_to_non_admin(monkeypatch):
     resp = client.get("/api/v1/companion-planting/species/s1/compatible")
     assert resp.status_code == 200
     species_service.get_compatible_species.assert_called_once_with("s1")
+
+
+def test_counts_endpoint_returns_per_species_counts(monkeypatch):
+    """GET /counts returns the whole-catalogue aggregate keyed by species_key.
+
+    Includes a species with 0 compatible companions (only incompatible edges) —
+    the response fills the missing category with 0 via the SpeciesCompanionCounts
+    schema default.
+    """
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
+    tenant_service = MagicMock()
+    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.VIEWER, is_active=True)
+    species_service = MagicMock()
+    species_service.get_companion_counts.return_value = {
+        "tomato": {"compatible": 2, "incompatible": 1},
+        "basil": {"compatible": 1, "incompatible": 0},
+        "nettle": {"incompatible": 1},
+    }
+    app = FastAPI()
+    app.include_router(companion_router, prefix="/api/v1")
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+    app.dependency_overrides[get_current_user] = _user
+    app.dependency_overrides[get_species_service] = lambda: species_service
+    app.dependency_overrides[get_tenant_service] = lambda: tenant_service
+    client = TestClient(app)
+
+    resp = client.get("/api/v1/companion-planting/counts")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tomato"] == {"compatible": 2, "incompatible": 1}
+    assert body["basil"] == {"compatible": 1, "incompatible": 0}
+    # species with only an incompatible edge → compatible defaults to 0
+    assert body["nettle"] == {"compatible": 0, "incompatible": 1}
+    species_service.get_companion_counts.assert_called_once_with()

@@ -4,9 +4,15 @@ import type {
   IncompatibleSpecies,
   CompatibilitySet,
   IncompatibilitySet,
+  CompanionCountsMap,
 } from '../types';
 
 const BASE = '/companion-planting';
+
+export async function getCompanionCounts(): Promise<CompanionCountsMap> {
+  const { data } = await client.get<CompanionCountsMap>(`${BASE}/counts`);
+  return data;
+}
 
 export async function getCompatibleSpecies(speciesKey: string): Promise<CompatibleSpecies[]> {
   const { data } = await client.get<CompatibleSpecies[]>(

@@ -266,6 +266,7 @@
     "updatedAt": "Updated at",
     "skipToContent": "Skip to content",
     "toggleSidebar": "Toggle sidebar",
+    "sliderLabel": "{{label}} (slider)",
     "days": "days",
     "months_unit": "months",
     "showAllFields": "Show all fields",
@@ -343,6 +344,7 @@
     "calculations": "Calculations",
     "durchlaeufe": "Planting Runs",
     "overwintering": "Overwintering",
+    "propagation": "Propagation & Lineage",
     "plantingRuns": "Planting Runs",
     "successionPlans": "Succession Planting",
     "tanks": "Tanks",
@@ -350,6 +352,8 @@
     "aquaponicSystems": "Aquaponic Systems",
     "umgebungssteuerung": "Environment Control",
     "environmentControl": "Actuators & Control",
+    "inventar": "Inventory",
+    "equipment": "Equipment",
     "duengung": "Fertilization",
     "fertilizers": "Fertilizers",
     "nutrientPlans": "Nutrient Plans",
@@ -378,6 +382,7 @@
     "calendar": "Calendar",
     "wateringLog": "Watering Log",
     "kiAssistent": "AI Assistant",
+    "glossary": "Glossary",
     "phasen": "Phases",
     "detail": "Details",
     "beginnerHint": "Unlock more features in the settings"
@@ -513,7 +518,78 @@
       "consentRequiredLink": "Go to privacy settings"
     }
   },
+  "components": {
+    "plantInstancePicker": {
+      "searchHelper": "Search by plant name or ID",
+      "noResults": "No plant found",
+      "loading": "Loading plants…"
+    }
+  },
   "pages": {
+    "propagation": {
+      "title": "Propagation Management",
+      "intro": "Document propagation actions (cuttings, sowing, clones, grafting, division), track success rates and explore the genetic lineage of your plants.",
+      "createEvent": "Record propagation",
+      "eventCreated": "Propagation event saved.",
+      "emptyTitle": "No propagation events yet",
+      "emptyDescription": "Record your first propagation action to track success rates and lineage.",
+      "tabs": {
+        "events": "Events",
+        "lineage": "Lineage & Grafting"
+      },
+      "fields": {
+        "method": "Method",
+        "status": "Status",
+        "quantity": "Quantity",
+        "survived": "Survived",
+        "successRate": "Success rate",
+        "happenedAt": "Date",
+        "sectionWhat": "What was propagated?",
+        "sectionWhatIntro": "Method, quantity and optionally the plant species for this propagation action.",
+        "speciesKey": "Species",
+        "speciesKeyHelper": "Optional: which species is this success statistic for?",
+        "speciesLoading": "Loading species…",
+        "sectionPlants": "Plants involved",
+        "sectionPlantsIntro": "Pick the plants involved by name — you can select several.",
+        "parentKeys": "Source plants",
+        "parentKeysGraft": "Rootstock(s)",
+        "childKeys": "Result plants",
+        "childKeysGraft": "Scion",
+        "parentPlantsHelper": "Pick one or more plants by name.",
+        "childPlantsHelper": "Pick the plants produced by this propagation, by name.",
+        "plantsLoading": "Loading plants…",
+        "notes": "Notes"
+      },
+      "lineage": {
+        "title": "Explore lineage",
+        "intro": "Trace which mother plant a plant descended from, and which plants descended from it in turn.",
+        "plantKey": "Plant",
+        "plantKeyHelper": "Pick a plant by name.",
+        "trace": "Show lineage",
+        "hint": "Pick a plant and click “Show lineage” to see its ancestors and descendants.",
+        "ancestors": "Ancestors",
+        "descendants": "Descendants",
+        "noAncestors": "No ancestors found — this plant is a root.",
+        "noDescendants": "No descendants found.",
+        "unknownPlant": "Unnamed plant",
+        "unknownSpecies": "Unknown species"
+      },
+      "graft": {
+        "title": "Graft compatibility",
+        "intro": "Checks — by taxonomy (genus/family) — whether scion and rootstock are compatible.",
+        "scionKey": "Scion plant",
+        "scionKeyHelper": "Pick the scion plant (shoot) by name.",
+        "rootstockKey": "Rootstock plant",
+        "rootstockKeyHelper": "Pick the rootstock plant (root base) by name.",
+        "hint": "Pick the scion (shoot) and rootstock (root base) to check compatibility.",
+        "check": "Check compatibility",
+        "speciesLine": "Scion species: {{scion}} · Rootstock species: {{rootstock}}",
+        "sameGenus": "Same genus",
+        "differentGenus": "Different genus",
+        "sameFamily": "Same family",
+        "differentFamily": "Different family"
+      }
+    },
     "kiAssistent": {
       "title": "AI Assistant",
       "intro": "Ask a knowledge question about plant care — such as \"What is VPD?\" or \"How do I lower the pH?\". The answer comes from the curated knowledge base and is clearly labelled as AI-generated.",
@@ -575,6 +651,58 @@
         "haEntityRequired": "Please provide the Home Assistant entity ID.",
         "mqttTopicRequired": "Please provide the MQTT command topic.",
         "powerNonNegative": "Power draw must not be negative."
+      }
+    },
+    "glossary": {
+      "title": "Terminology glossary",
+      "subtitle": "Look up technical terms like VPD, EC or the pre-harvest interval. The explanations come from the curated knowledge base and adapt to your experience level.",
+      "empty": "No terms are available yet.",
+      "loadError": "The term list could not be loaded. Please try again later.",
+      "backToList": "Back to overview",
+      "categories": {
+        "umwelt": "Environment & climate",
+        "duengung": "Fertilisation",
+        "bewaesserung": "Watering",
+        "phasen": "Growth phases",
+        "outdoor": "Outdoor & garden",
+        "ipm": "Plant protection",
+        "allgemein": "General"
+      },
+      "tooltip": {
+        "ariaOpen": "Open explanation for \"{{term}}\"",
+        "loading": "Loading explanation …",
+        "error": "The explanation could not be loaded.",
+        "fallbackHint": "Short definition (no knowledge-base match)",
+        "relatedTitle": "Related terms",
+        "back": "Back",
+        "close": "Close"
+      }
+    },
+    "inventree": {
+      "title": "Equipment & inventory",
+      "intro": "Manage your operating resources (pumps, sensors, tools, cleaning agents) and optionally link them to your InvenTree inventory system for stock tracking.",
+      "createEquipment": "Add equipment",
+      "editEquipment": "Edit equipment",
+      "equipmentSaved": "Equipment saved.",
+      "equipmentDeleted": "Equipment deleted.",
+      "deleteTitle": "Delete equipment",
+      "deleteConfirm": "Do you really want to delete \"{{name}}\"? This action cannot be undone.",
+      "connectionActive": "InvenTree connection \"{{name}}\" is active. Stock levels are synced automatically.",
+      "noConnection": "No InvenTree connection configured. Equipment can still be managed independently.",
+      "emptyTitle": "No equipment yet",
+      "emptyDescription": "Add your first equipment item to manage pumps, sensors and consumables.",
+      "sectionInventree": "InvenTree link (optional)",
+      "sectionInventreeHelper": "Link this equipment item to an InvenTree part so stock and consumption are synced automatically. Without a link you can still manage the equipment normally.",
+      "fields": {
+        "name": "Name",
+        "equipmentType": "Type",
+        "status": "Status",
+        "brand": "Brand",
+        "model": "Model",
+        "serialNumber": "Serial number",
+        "inventreePartId": "InvenTree part ID",
+        "inventreePartHelp": "Optional link to an InvenTree part for stock tracking.",
+        "notes": "Notes"
       }
     },
     "aquaponik": {
@@ -1426,7 +1554,13 @@
       "notes": "Notes",
       "autoGenerated": "Automatic",
       "autoGeneratedHelp": "Automatically generated from the plant species defaults.",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manual",
+      "filterOrigin": "Origin",
+      "filterSubjectType": "Assignment",
+      "subjectPlant": "Plant",
+      "subjectRun": "Planting run",
+      "subjectNone": "Unassigned"
     },
     "botanicalFamilies": {
       "title": "Botanical Families",
@@ -1789,7 +1923,11 @@
       "noIncompatible": "No incompatible species added yet.",
       "addCompatibleHint": "Specify which species works well with the selected species.",
       "addIncompatibleHint": "Specify which species does not work well with the selected species.",
-      "targetSpeciesHelper": "Species to be related to the selected species"
+      "targetSpeciesHelper": "Species to be related to the selected species",
+      "optionCountSummary": "— {{compatible}} compatible, {{incompatible}} incompatible",
+      "optionCountLegendCompatible": "Number of compatible species",
+      "optionCountLegendIncompatible": "Number of incompatible species",
+      "noSpeciesFound": "No species found."
     },
     "cropRotation": {
       "title": "Crop Rotation",
@@ -1839,7 +1977,7 @@
       "name": "Name",
       "nameHelper": "e.g. 'Grow Tent 1', 'Greenhouse', 'Garden North', 'Balcony'",
       "type": "Type",
-      "typeHelper": "Determines which features are available — e.g. weather and frost protection only apply to outdoor and greenhouse sites.",
+      "typeHelper": "Determines which features are available — e.g. weather and frost protection only apply to outdoor, greenhouse and balcony sites.",
       "climateZone": "Climate Zone",
       "climateZoneHelper": "e.g. '8b' (USDA) or 'temperate' — helps with plant recommendations",
       "totalArea": "Total Area (m²)",
@@ -1851,7 +1989,8 @@
       "gpsBothRequired": "Please provide latitude and longitude together, or leave both empty.",
       "gpsLatRange": "Latitude must be between -90 and 90.",
       "gpsLonRange": "Longitude must be between -180 and 180.",
-      "weatherTypeHint": "Weather and frost features are only available for the \"{{outdoorLabel}}\" and \"{{greenhouseLabel}}\" site types. For other types, the GPS coordinates remain unused.",
+      "weatherTypeHint": "Weather and frost features are only available for the \"{{outdoorLabel}}\", \"{{greenhouseLabel}}\" and \"{{balconyLabel}}\" site types. For other types, the GPS coordinates remain unused.",
+      "balconyWeatherHint": "A balcony counts as a frost-exposed outdoor location: once GPS coordinates are stored, weather data and frost warnings become available for this site — just like for outdoor and greenhouse sites.",
       "editIntro": "Edit the basic data of this site. Name and climate zone help organize locations.",
       "sectionBasicData": "Basic Data",
       "sectionBasicDataDesc": "Name, climate zone, area, and timezone of the site.",
@@ -2132,6 +2271,7 @@
       "removedOn": "Removed On",
       "hideRemoved": "Hide removed",
       "currentPhase": "Current Phase",
+      "currentPhaseHelper": "The plant's actual current state — choose the phase the plant is in right now. For a freshly started plant this is the first phase; for a plant that already exists you can record it directly in its current phase (e.g. flowering).",
       "remove": "Remove Plant",
       "validatePlanting": "Validate Planting",
       "cultivarKey": "Cultivar",
@@ -2139,10 +2279,20 @@
       "slotKey": "Slot (Key)",
       "slotKeyHelper": "Key of the associated slot",
       "sectionLocation": "Location Assignment",
-      "siteHelper": "Select site",
+      "siteHelper": "Site where the plant is located (optional)",
       "locationHelper": "Area within the site",
       "slotHelper": "Slot within the area",
       "slotOccupied": "occupied",
+      "sectionLocationOptionalDesc": "Site, area, and slot assignment for the plant. All fields are optional — pick a site first, then the area, then the slot.",
+      "locationHelperOptional": "Area within the site (optional)",
+      "locationSelectSiteFirst": "Pick a site first to see its areas.",
+      "locationEmptyForSite": "This site has no areas yet. Create an area under \"Sites\" first.",
+      "slotHelperOptional": "Slot within the area (optional)",
+      "slotSelectSiteFirst": "Pick a site and an area first to choose a slot.",
+      "slotSelectAreaFirst": "Pick an area first to see its slots.",
+      "slotEmptyForArea": "This area has no slots yet. Create a slot under \"Sites\" first.",
+      "locationResetOnSiteChange": "Site changed — area and slot have been reset.",
+      "locationResetOnAreaChange": "Area changed — slot has been reset.",
       "substrateBatchKey": "Substrate Batch (Key)",
       "substrateBatchKeyHelper": "Key of the associated substrate batch",
       "containerVolumeLiters": "Container Volume (Liters)",
@@ -2371,27 +2521,77 @@
     },
     "calculations": {
       "title": "Calculations",
+      "intro": "Practical calculators for climate, growth, lighting and planting layout. All computation runs server-side — just pick the right values.",
+      "calculate": "Calculate",
+      "phase": "Growth phase",
+      "phases": {
+        "seedling": "Seedling",
+        "vegetative": "Vegetative",
+        "flowering": "Flowering",
+        "flushing": "Flushing",
+        "ripening": "Ripening",
+        "dormancy": "Dormancy"
+      },
       "vpd": "VPD Calculator",
-      "vpdTemp": "Temperature (°C)",
-      "vpdHumidity": "Humidity (%)",
+      "vpdIntro": "Vapor pressure deficit describes how \"thirsty\" the air is. Pick the growth phase to reveal its optimal target band.",
+      "vpdTemp": "Temperature",
+      "vpdHumidity": "Humidity",
       "vpdResult": "VPD (kPa)",
       "vpdStatus": "Status",
+      "vpdTargetBand": "Target band for this phase: {{min}}–{{max}} kPa",
+      "vpdStatusValues": {
+        "optimal": "optimal",
+        "low": "too low",
+        "high": "too high"
+      },
       "gdd": "GDD Calculator",
-      "gddBaseTemp": "Base Temperature (°C)",
+      "gddIntro": "Growing degree days sum the usable heat. Enter daily temperatures as min/max values.",
+      "gddBaseTemp": "Base temperature",
+      "gddBasePresets": {
+        "coolSeason": "Cool season",
+        "lettuce": "Lettuce",
+        "tomato": "Tomato",
+        "maize": "Maize",
+        "warmSeason": "Warm season"
+      },
       "gddTempsLabel": "Min,Max (one per line)",
+      "gddDailyTemps": "Daily temperatures",
+      "gddDay": "Day {{day}}",
+      "gddMinTemp": "Min",
+      "gddMaxTemp": "Max",
+      "gddAddDay": "Add day",
+      "gddRemoveDay": "Remove day {{day}}",
+      "gddInvalidRow": "Please check the temperatures — the maximum must not be below the minimum.",
       "gddResult": "Accumulated GDD",
+      "gddDaysCounted": "{{count}} days counted",
       "photoperiod": "Photoperiod Transition",
-      "currentHours": "Current Hours",
-      "targetHours": "Target Hours",
-      "transitionDays": "Transition Days",
-      "lightsOnTime": "Lights On (HH:MM)",
+      "photoperiodIntro": "Computes a gradual transition of the light period and the daily light integral (DLI) per day.",
+      "currentHours": "Current light period",
+      "targetHours": "Target light period",
+      "transitionDays": "Transition days",
+      "ppfd": "Light intensity (PPFD)",
+      "lightsOnTime": "Lights on",
+      "ppDay": "Day",
+      "ppHours": "Hours",
+      "ppOn": "On",
+      "ppOff": "Off",
+      "ppDli": "DLI (mol/m²/d)",
       "slotCapacity": "Slot Capacity",
-      "areaMsq": "Area (m²)",
-      "plantSpacing": "Plant Spacing (cm)",
-      "calculate": "Calculate",
+      "slotCapacityIntro": "Estimates how many plants fit on an area at a given spacing.",
+      "areaMsq": "Area",
+      "plantSpacing": "Plant spacing (cm)",
+      "plantSpacingHelp": "Pick a typical value or enter a custom spacing in cm.",
+      "scMax": "Maximum",
+      "scOptimal": "Optimal range",
+      "scPerM2": "Plants/m²",
       "sunTimes": "Sun Position Calculator",
+      "sunTimesIntro": "Computes sunrise, sunset and day length for a location and date.",
+      "sunTimesSite": "Use site",
+      "sunTimesSiteHelp": "Prefill coordinates and timezone from an existing site.",
       "latitude": "Latitude",
       "longitude": "Longitude",
+      "date": "Date",
+      "timezone": "Timezone",
       "sunrise": "Sunrise",
       "sunset": "Sunset",
       "dawn": "Dawn",
@@ -4125,6 +4325,9 @@
       "moveToNextPhase": "Move to \"{{phase}}\"",
       "assignedTasks": "Assigned Tasks",
       "completedOf": "{{completed}} of {{total}} completed",
+      "scheduled": "Scheduled",
+      "scheduledCount": "{{count}} scheduled",
+      "scheduledHint": "Done for this cycle – the next occurrence is in the future, no action needed right now.",
       "noAssignedTasks": "No tasks assigned yet. Generate an activity plan or assign a workflow.",
       "dormant": "Dormant",
       "statusAll": "All Tasks",
@@ -4587,6 +4790,46 @@
       "home_assistant": "Home Assistant",
       "mqtt": "MQTT",
       "manual": "Manual"
+    },
+    "equipmentType": {
+      "tool": "Tool",
+      "consumable": "Consumable",
+      "sensor": "Sensor / meter",
+      "lighting": "Lighting",
+      "pump": "Pump",
+      "filter": "Filter",
+      "container": "Container",
+      "cleaning_agent": "Cleaning agent",
+      "other": "Other"
+    },
+    "equipmentStatus": {
+      "active": "Active",
+      "maintenance": "In maintenance",
+      "stored": "Stored",
+      "defective": "Defective",
+      "retired": "Retired"
+    },
+    "propagationEventMethod": {
+      "clone": "Clone",
+      "seed": "Sowing",
+      "cutting": "Cutting",
+      "graft": "Graft",
+      "division": "Division",
+      "layering": "Layering",
+      "offset": "Offset",
+      "other": "Other"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In progress",
+      "rooted": "Rooted",
+      "transplanted": "Transplanted",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Compatible",
+      "possibly_compatible": "Possibly compatible",
+      "incompatible": "Incompatible"
     },
     "aquaponicSystemType": {
       "media_bed": "Media bed (clay pebbles)",
@@ -5670,6 +5913,42 @@
       "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
       "unit": "a_w (0–1)",
       "typicalRange": "0.55–0.65 (safe for storage)"
+    },
+    "inventree": {
+      "short": "External inventory management system for your real-world stock",
+      "long": "InvenTree is a separate, external inventory management system. A \"part\" there is a single article (e.g. a spare pump). Link an equipment item to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand.",
+      "beginnerTip": "The link is optional: you can still create and manage equipment normally without an InvenTree connection.",
+      "category": "allgemein"
+    },
+    "vermehrung": {
+      "short": "Growing new plants from an existing one",
+      "long": "Propagation covers all methods for creating new plants: sowing (seed), cutting/clone (rooting a plant part), division (splitting a root ball), layering (rooting a stem while still attached), offsets (natural side shoots), or grafting (joining two plants).",
+      "beginnerTip": "Cuttings are the easiest way to start: cut a shoot, let it root in water or soil.",
+      "category": "wachstum"
+    },
+    "steckling": {
+      "short": "A cut piece of a plant that grows new roots",
+      "long": "A cutting is a piece of stem, leaf or root separated from the mother plant and rooted on its own. The resulting plant is genetically identical to the mother plant (a clone).",
+      "beginnerTip": "Cut the shoot at an angle, remove the lowest leaves, place it in water or moist substrate — new roots usually appear within 1–3 weeks.",
+      "category": "wachstum"
+    },
+    "veredelung": {
+      "short": "Joining two plants into one — scion onto rootstock",
+      "long": "Grafting joins a shoot from one plant (the scion) onto the root system of another plant (the rootstock). This only works between closely related plants — most reliably within the same genus, sometimes still within the same family.",
+      "beginnerTip": "Classic example: a hardy tomato rootstock plus a high-yield scion for stronger growth and more fruit.",
+      "category": "wachstum"
+    },
+    "abstammung": {
+      "short": "A plant's genetic origin across generations",
+      "long": "Lineage shows which mother plant a plant descended from (ancestors) and which plants descended from it in turn (descendants). The system tracks this through propagation events such as cuttings, clones, sowings or grafts.",
+      "beginnerTip": "Handy for tracing which mother plant a particular cutting came from.",
+      "category": "taxonomie"
+    },
+    "gattung_familie": {
+      "short": "How closely related two plant species are, taxonomically",
+      "long": "Biological taxonomy groups species into genera (e.g. Solanum) and families (e.g. nightshades). The more closely two species are related, the more likely a graft between them succeeds: same genus is usually compatible, same family is often possible, different families are usually not compatible.",
+      "beginnerTip": "Tomato and potato share the same genus (Solanum) — grafting between them is possible (the 'TomTato').",
+      "category": "taxonomie"
     }
   },
   "dashboard": {
@@ -5745,7 +6024,30 @@
     },
     "plantGrid": {
       "unnamed": "Unnamed plant",
-      "empty": "No active plants yet."
+      "empty": "No active plants yet.",
+      "noMatches": "No plants match the filters.",
+      "format": {
+        "label": "Card format",
+        "detailed": "Detailed",
+        "compact": "Compact"
+      },
+      "filters": {
+        "phase": "Phase",
+        "location": "Location",
+        "task": "Tasks"
+      },
+      "filterValues": {
+        "noPhase": "No phase",
+        "noLocation": "No location",
+        "hasTask": "With open task",
+        "noTask": "Without open task"
+      },
+      "card": {
+        "phase": "Phase",
+        "nextDue": "Due: {{date}}",
+        "openTask": "Open task",
+        "openTaskAria": "has an open task"
+      }
     },
     "nav": {
       "openWidget": "Open {{widget}}",
@@ -5837,6 +6139,60 @@
         "label": "Plant grid",
         "description": "Tile overview of all your plants."
       }
+    }
+  },
+  "diagnose": {
+    "title": "AI diagnosis",
+    "subtitle": "Describe the symptoms you observe and get the three most likely causes – linked to matching pests and treatments. This is a structured assistant, not a confirmed diagnosis.",
+    "stepperAriaLabel": "AI diagnosis progress",
+    "stepIndicator": "Step {{current}} of {{total}}: {{label}}",
+    "status": {
+      "analyzing": "Running diagnosis…"
+    },
+    "symptoms": {
+      "causeHintLabel": "Show possible causes for \"{{label}}\""
+    },
+    "steps": {
+      "symptoms": "Symptoms",
+      "context": "Context",
+      "results": "Result",
+      "symptomsHelp": "Select all applicable symptoms. The more precise your selection, the better the diagnosis.",
+      "contextHelp": "Optional: add notes or use the photo diagnosis for image recognition."
+    },
+    "categories": {
+      "leaf_color_change": "Leaf discolouration",
+      "leaf_shape_change": "Changed leaf shape",
+      "growth_anomaly": "Growth anomaly",
+      "pest_visible": "Visible pests",
+      "disease_visible": "Visible disease",
+      "flowering_issue": "Flowering or fruiting issue",
+      "environmental": "Environmental stress"
+    },
+    "context": {
+      "notesLabel": "Notes (optional)",
+      "notesHelp": "For privacy your notes are not passed verbatim to the AI – only the hint that you added notes.",
+      "photoHint": "For an image-based diagnosis the photo recognition is available.",
+      "photoLink": "Go to photo diagnosis"
+    },
+    "actions": {
+      "analyze": "Start diagnosis",
+      "restart": "New diagnosis"
+    },
+    "results": {
+      "intro": "The three most likely causes, ordered by descending confidence:",
+      "rank": "#{{rank}}",
+      "confidence": "{{percent}}% confidence",
+      "actions": "Recommended actions",
+      "pestLink": "View pest details",
+      "treatments": "Possible treatments",
+      "treatmentKarenz": "{{name}} (waiting period {{days}} days)"
+    },
+    "errors": {
+      "loadSymptoms": "The symptom catalogue could not be loaded.",
+      "analyze": "The diagnosis could not be run. Please try again.",
+      "serviceUnavailable": "The knowledge assistant is temporarily unavailable. Please try again later.",
+      "invalidOutput": "The AI could not produce a usable result. Please try again.",
+      "noResult": "No diagnosis could be determined for the selected symptoms."
     }
   }
 }

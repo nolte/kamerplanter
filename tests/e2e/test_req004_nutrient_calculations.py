@@ -120,9 +120,9 @@ class TestNutrientCalculationsPageLoad:
         screenshot("TC-REQ-004-063_calc-mixing-button",
                    "Mixing Protocol panel with calculate button")
 
-        buttons = calc_page.driver.find_elements(*calc_page.CALCULATE_BUTTONS)
-        assert len(buttons) >= 1, (
-            f"TC-REQ-004-063 FAIL: Expected at least one calculate/validate button on the page, got {len(buttons)}"
+        button_count = calc_page.get_calculate_button_count()
+        assert button_count >= 1, (
+            f"TC-REQ-004-063 FAIL: Expected at least one calculate/validate button on the page, got {button_count}"
         )
 
     @pytest.mark.smoke

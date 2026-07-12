@@ -170,6 +170,21 @@ Diese Variablen gehören zum **Kamerplanter-Backend** und steuern den dreistufig
 
 ---
 
+## MCP-Server <!-- REQ-033 --> {#mcp-server}
+
+Diese Variablen steuern den [MCP-Server](../api/mcp-server.md) — die Werkzeug-Schnittstelle, über die externe LLM-Clients (Claude Desktop, Claude Code, eigene Agenten) per Service-Account-API-Key auf Kamerplanter zugreifen können.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `MCP_SERVER_ENABLED` | `false` | Nein | Gesamtschalter. Solange nicht `true`, antworten alle `/mcp/*`-Endpunkte mit HTTP 404 — die Schnittstelle existiert dann faktisch nicht. |
+| `MCP_IDEMPOTENCY_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer eines `idempotency_key` für Schreibwerkzeuge — danach wird ein Wiederholungs-Aufruf als neue Aktion behandelt. |
+| `MCP_AUDIT_RETENTION_DAYS` | `90` | Nein | Aufbewahrungsdauer des `mcp_audit_log` (NFR-011) — ältere Einträge werden automatisch gelöscht. |
+
+!!! note "Kein eigener Prozess, keine eigenen Verbindungsvariablen"
+    Der MCP-Server läuft im bestehenden Backend-Prozess mit und nutzt dessen ArangoDB-/Redis-Verbindung mit — es gibt keine separate Host-, Port- oder Credential-Konfiguration.
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -215,6 +230,19 @@ Sind beide Variablen gesetzt, aktiviert das Backend zusätzlich den Home-Assista
 
 !!! warning "Apprise-Kanal erfordert zusätzliches Python-Paket"
     Der `apprise`-Benachrichtigungskanal ist unabhängig von den Home-Assistant-Variablen immer aktiv, benötigt aber das optionale Python-Paket `apprise` im Backend-Image (`pip install apprise`) — dafür gibt es keine eigene Umgebungsvariable. Details siehe [Benachrichtigungen — Apprise](../user-guide/notifications.md#apprise).
+
+---
+
+## InvenTree-Integration (REQ-016)
+
+Diese Variablen aktivieren die optionale Anbindung an [InvenTree](https://github.com/inventree/inventree). Ohne `INVENTREE_ENABLED=true` liefern alle InvenTree-Endpunkte den Fehler „Funktion deaktiviert" (HTTP 409), ohne die App zu blockieren.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `INVENTREE_ENABLED` | `false` | Nein | Kill-Switch für die gesamte InvenTree-Integration. |
+| `INVENTREE_ALLOW_PRIVATE_ENDPOINT` | `false` | Nein | Erlaubt eine InvenTree-Instanz mit privater/LAN-Adresse (analog zu `HA_ALLOW_PRIVATE_ENDPOINT`). Ohne diese Freigabe blockiert der SSRF-Schutz Verbindungen zu internen Adressen. |
+
+Verbindung (inkl. API-Token) und Verknüpfungen richtest du anschließend über die REST-API ein — Details siehe [Betriebsmittel & Inventar (InvenTree) — Für technische Nutzer / Self-Hoster](../user-guide/inventree.md#fuer-technische-nutzer-self-hoster).
 
 ---
 
@@ -675,5 +703,7 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
 - [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
 - [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
+- [MCP-Server](../api/mcp-server.md)
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
 - [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)
+- [Betriebsmittel & Inventar (InvenTree) — Benutzerhandbuch](../user-guide/inventree.md)

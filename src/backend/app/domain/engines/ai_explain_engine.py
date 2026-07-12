@@ -16,9 +16,35 @@ import yaml
 
 logger = structlog.get_logger(__name__)
 
-#: ``spec/knowledge/explain-templates`` relative to the repo root. Resolved from
-#: this file's location (…/src/backend/app/domain/engines) up to the repo root.
-_TEMPLATES_DIR = Path(__file__).resolve().parents[5] / "spec" / "knowledge" / "explain-templates"
+
+def _resolve_templates_dir(start: Path | None = None) -> Path:
+    """Locate ``spec/knowledge/explain-templates`` without raising at import time.
+
+    Walks up from this file looking for the templates directory. This works both
+    in the repo layout (…/src/backend/app/domain/engines → repo root) and in the
+    container image, where the backend is copied to ``/app`` (skaffold build
+    context ``src/backend``) so the ``src/backend`` levels are absent and a fixed
+    ``parents[5]`` index would overshoot the filesystem root with an IndexError.
+    The container image does not ship ``spec/`` at all, so no candidate exists
+    there; the returned best-effort path is then reported as missing by
+    :func:`_load_templates`, which degrades gracefully to an empty template set.
+
+    ``start`` defaults to this module's file and exists for testing the
+    resolution against a synthetic layout.
+    """
+    here = (start or Path(__file__)).resolve()
+    for parent in here.parents:
+        candidate = parent / "spec" / "knowledge" / "explain-templates"
+        if candidate.is_dir():
+            return candidate
+    # No spec/ tree on disk (e.g. the container image). Return a stable,
+    # non-existent path so _load_templates() logs explain_templates_dir_missing.
+    return here.parents[-1] / "spec" / "knowledge" / "explain-templates"
+
+
+#: ``spec/knowledge/explain-templates``. Best-effort; missing in the container
+#: image, where :func:`_load_templates` degrades to an empty template set.
+_TEMPLATES_DIR = _resolve_templates_dir()
 
 _SLOT_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 

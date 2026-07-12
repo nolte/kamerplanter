@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | biennial (als Gemüse einjährig kultiviert) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze; gleiche Art wie Kohl/Grünkohl, siehe daucus/brassica-Konvention im Korpus) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 | Photoperiode | long_day | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -344,3 +347,8 @@ Brassica oleracea var. gongylodes,"Kohlrabi;Oberrübe;Turnip Cabbage",Brassicace
 17. [Trichogramma Tech Sheet, Sound Horticulture](https://soundhorticulture.com/pages/trichogramma-tech-sheet) — Trichogramma-Ausbringrate Kohlweißling
 18. [BIOCOMES EU: Cabbage moth biological control](https://www.biocomes.eu/pest/cabbage-moth) — Nützlinge Cotesia/Diadegma gegen Kohlschädlinge
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+19. [Wisconsin Horticulture Extension: Kohlrabi, Brassica oleracea var. gongylodes](https://hort.extension.wisc.edu/articles/kohlrabi-brassica-olearcea-var-gongylodes/) — biennial, im 2. Jahr Bluetenstand statt Speicherorgan (Bluehstrategie)
+20. [Seed Savers Exchange: Growing Guide Kohlrabi (PDF)](https://shop.seedsavers.org/site/pdf/grow-save-kohlrabi.pdf) — Samenbau im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze (monokarpe Bluehstrategie, gleiche Gattungs-/Artkonvention wie Kohl var. capitata/sabellica im Korpus)
+21. [The Lazy Homesteader: Seed Saving Kohlrabi](https://lazyhomesteader.com/2012/08/13/seed-saving-kohlrabi/) — Praxisbeleg: Pflanze "cannibalized" den Speicherkoerper zugunsten der Bluetenbildung und stirbt nach Samenreife
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

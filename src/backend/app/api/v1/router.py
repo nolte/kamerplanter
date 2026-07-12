@@ -155,3 +155,24 @@ from app.api.v1.ki_assistent.public_router import router as ai_public_router  # 
 api_router.include_router(ai_public_router)
 if settings.kamerplanter_mode == "full":
     api_router.include_router(ai_global_router)
+
+# ── REQ-035 KI terminology glossary ──────────────────────────────────
+# Knowledge feature (no PII, §6): the public/light endpoints are always mounted;
+# the platform-admin term CRUD is full-mode only. The tenant-scoped read routes
+# live under the tenant_scoped_router (/t/{slug}/glossary/*).
+from app.api.v1.glossar.public_router import router as glossary_public_router  # noqa: E402
+
+api_router.include_router(glossary_public_router)
+if settings.kamerplanter_mode == "full":
+    from app.api.v1.glossar.admin_router import router as glossary_admin_router  # noqa: E402
+
+    api_router.include_router(glossary_admin_router)
+
+# ── REQ-033 MCP server (Model Context Protocol) ───────────────────────
+# Always mounted; the operator flag (MCP_SERVER_ENABLED) is enforced per-request
+# and returns 404 when off, so the endpoints appear non-existent (§6). MCP
+# authenticates service-account API keys only (REQ-023), which exist in full
+# mode, but the flag/auth gate handles light mode gracefully.
+from app.api.v1.mcp.router import router as mcp_router  # noqa: E402
+
+api_router.include_router(mcp_router)

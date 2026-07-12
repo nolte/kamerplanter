@@ -42,7 +42,39 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["zone"], "unique": True},
             # v0014 plant_diagnosis_requests history index
             {"type": "persistent", "fields": ["tenant_key", "user_key", "created_at"], "unique": False},
-            # v0015 actuators (tenant_key, name) lookup index
+            # v0015 InvenTree collection indexes
+            {"type": "persistent", "fields": ["tenant_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "entity_collection", "entity_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "status", "created_at"], "unique": False},
+            {"type": "persistent", "fields": ["reference_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "equipment_type", "status"], "unique": False},
+            # v0016 glossary collection indexes (glossary_terms + glossary_term_cache)
+            {"type": "persistent", "fields": ["slug"], "unique": True},
+            {"type": "persistent", "fields": ["category"], "unique": False},
+            {"type": "persistent", "fields": ["is_active"], "unique": False},
+            {
+                "type": "persistent",
+                "fields": ["term_slug", "language", "expertise_level", "kb_version"],
+                "unique": True,
+            },
+            {"type": "persistent", "fields": ["valid_until"], "unique": False},
+            # v0017 MCP collection indexes (mcp_audit_log + mcp_idempotency_record)
+            {"type": "persistent", "fields": ["service_account_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "created_at"], "unique": False},
+            {"type": "persistent", "fields": ["created_at"], "unique": False},
+            {
+                "type": "persistent",
+                "fields": ["service_account_key", "tenant_key", "tool_name", "idempotency_key"],
+                "unique": True,
+            },
+            {"type": "persistent", "fields": ["expires_at"], "unique": False},
+            # v0018 propagation indexes
+            {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
+            # v0019 actuators (tenant_key, name) lookup index
             {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
         ]
 
@@ -67,7 +99,11 @@ class _NoopGraph:
             {"edge_collection": "cv_diagnosis_found"},
             {"edge_collection": "cv_attached_to_inspection"},
             {"edge_collection": "cv_phenotype_of"},
-            # v0015 actuator edges
+            # v0015 InvenTree integration edges
+            {"edge_collection": "has_inventree_ref"},
+            {"edge_collection": "has_stock_transaction"},
+            {"edge_collection": "equipment_at"},
+            # v0019 actuator edges
             {"edge_collection": "has_actuator"},
             {"edge_collection": "actuator_controls_location"},
             {"edge_collection": "actuator_has_schedule"},

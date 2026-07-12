@@ -1,6 +1,7 @@
 import structlog
 from fastapi import APIRouter, Cookie, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -19,18 +20,22 @@ from app.api.v1.auth.schemas import (
     UserProfileResponse,
     VerifyEmailRequest,
 )
+from app.api.v1.mcp.deps import require_mcp_enabled
 from app.common.auth import get_current_user, get_refresh_token_from_cookie
-from app.common.dependencies import get_auth_service, get_oidc_config_repo
+from app.common.dependencies import get_auth_service, get_mcp_authenticator, get_oidc_config_repo
 from app.common.exceptions import (
     InvalidTokenError,
     NotFoundError,
     UnauthorizedError,
     ValidationError,
 )
+from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
+from app.core.permissions import list_mcp_permissions
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.domain.models.user import User
 from app.domain.services.auth_service import AuthService
+from app.mcp_server.auth import McpAuthenticator
 
 logger = structlog.get_logger(__name__)
 
@@ -300,3 +305,59 @@ def revoke_api_key(
 ):
     service.revoke_api_key(current_user.key or "", key_id)
     return MessageResponse(message="API key revoked.")
+
+
+# ── REQ-033 §5 — service-account API-key validation (M2M) ──────────────
+class ServiceAccountValidateRequest(BaseModel):
+    """A raw service-account API key to validate (never logged)."""
+
+    api_key: str
+
+
+class ServiceAccountValidateResponse(BaseModel):
+    """Resolved service-account context for an MCP/M2M client (§4.3, §4.4)."""
+
+    service_account_key: str
+    display_name: str
+    tenant_key: str
+    tenant_slug: str
+    role: str
+    mcp_permissions: list[str]
+
+
+@router.post("/service-accounts/validate", response_model=ServiceAccountValidateResponse)
+@limiter.limit(settings.rate_limit_auth)
+def validate_service_account(
+    request: Request,
+    body: ServiceAccountValidateRequest,
+    _enabled: None = Depends(require_mcp_enabled),
+    authenticator: McpAuthenticator = Depends(get_mcp_authenticator),
+):
+    """Validate a service-account API key and return its tenant + MCP grants (§5).
+
+    The M2M validation entrypoint an external MCP-server process (future
+    follow-up) calls to resolve a key into a bound service account. The raw key
+    is hashed inside the authenticator and never persisted or logged (AC-S2).
+
+    Hardened per the REQ-033 security review (SEC-003): gated behind the MCP
+    enable flag (``require_mcp_enabled`` → 404 when MCP is off), per-IP rate
+    limited (reusing the auth limiter) and the valid-non-service case is
+    collapsed into the SAME generic 401 as an invalid/revoked key so the
+    endpoint can never be used as an oracle to prove a valid non-service key
+    exists (``mask_non_service=True``). The client IP is resolved so the key's
+    ``ip_allowlist`` (SEC-004) is enforced here too.
+    """
+
+    principal = authenticator.authenticate(
+        body.api_key,
+        client_ip=resolve_client_ip(request),
+        mask_non_service=True,
+    )
+    return ServiceAccountValidateResponse(
+        service_account_key=principal.service_account_key,
+        display_name=principal.display_name,
+        tenant_key=principal.tenant_key,
+        tenant_slug=principal.tenant_slug,
+        role=principal.role.value,
+        mcp_permissions=[p.value for p in list_mcp_permissions(principal.role)],
+    )

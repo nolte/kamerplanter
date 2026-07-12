@@ -3,7 +3,7 @@
 Diese Seite erklärt die wichtigsten Fachbegriffe, die dir in Kamerplanter und in dieser Dokumentation begegnen — kurz und ohne Vorwissen verständlich. Zu jedem Begriff findest du einen Verweis auf die Seite, auf der das Thema ausführlich beschrieben wird.
 
 !!! info "Statisches Nachschlagewerk"
-    Diese Glossar-Seite ist eine feste Liste zum Nachschlagen. Eine durchsuchbare Begriffserklärung direkt in der Kamerplanter-Anwendung (z. B. als Tooltip an Ort und Stelle) ist für eine künftige Version geplant.
+    Diese Glossar-Seite ist eine feste Liste zum Nachschlagen, gedacht für Entwickler:innen und zum schnellen Querlesen der Dokumentation. Für eine durchsuchbare, KI-gestützte Begriffserklärung direkt in der Kamerplanter-Anwendung — inklusive erfahrungsstufen-abhängiger Erklärungen und verwandter Begriffe — nutze das [Fachbegriff-Glossar](../user-guide/glossary.md) in der App. <!-- REQ-035 -->
 
 Die Begriffe sind alphabetisch sortiert. Nutze die Suche oben auf der Seite (oder <kbd>Strg</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd>), um schnell zu einem Begriff zu springen.
 
@@ -85,11 +85,23 @@ Dreistufiger Pflanzenschutz-Ansatz (englisch *Integrated Pest Management*): Prä
 
 → [Pflanzenschutz (IPM)](../user-guide/pest-management.md)
 
+### InvenTree
+
+Eigenständige, quelloffene Inventarverwaltung, die du optional zusätzlich zu Kamerplanter betreiben und mit deinen Düngern, Tanks und Betriebsmitteln verknüpfen kannst. Ein „Part“ ist dort ein einzelner Artikel (z. B. eine Ersatzpumpe). Verknüpfst du eine Kamerplanter-Entität mit einer Part-ID, gleicht Kamerplanter Bestand und Verbrauch automatisch mit InvenTree ab (Stock-Sync) — Mengen musst du dann nicht mehr manuell nachpflegen. Die Verknüpfung ist rein optional; ohne sie funktioniert Kamerplanter uneingeschränkt weiter.
+
+→ [Betriebsmittel & Inventar (InvenTree)](../user-guide/inventree.md)
+
 ### Karenzzeit (Pre-Harvest Interval, PHI)
 
 Gesetzlich vorgeschriebene Wartezeit zwischen der letzten Anwendung eines Pflanzenschutzmittels und der Ernte. Sie schützt Verbraucher vor Rückständen im Erntegut. Kamerplanter sperrt die Ernte einer Pflanze automatisch, solange ihre Karenzzeit noch läuft.
 
 → [Pflanzenschutz (IPM): Karenzzeit verstehen und überwachen](../user-guide/pest-management.md)
+
+### MCP (Model Context Protocol)
+
+Offenes Protokoll, über das externe KI-Sprachmodell-Clients (z. B. Claude Desktop, Claude Code) strukturierte "Werkzeuge" eines Systems aufrufen können. Kamerplanter stellt darüber eine kuratierte, maschinelle Schnittstelle bereit, ausschließlich für Service Accounts — zu unterscheiden vom in die App eingebauten KI-Assistenten, der für menschliche Nutzer:innen gedacht ist.
+
+→ [MCP-Server](../api/mcp-server.md)
 
 ### Mischkultur (Companion Planting)
 

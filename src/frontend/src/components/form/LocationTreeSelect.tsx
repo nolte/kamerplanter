@@ -30,7 +30,20 @@ interface LocationTreeSelectProps<T extends FieldValues> {
   siteKey: string | null | undefined;
   label?: string;
   disabled?: boolean;
-  onTreeLoaded?: () => void;
+  required?: boolean;
+  /**
+   * Helper text shown below the field when there is no validation error and no
+   * empty-state message applies. Use it to explain what a "Bereich" is.
+   */
+  helperText?: string;
+  /**
+   * Helper text shown when a site is selected but it has no areas yet. Surfaces
+   * the reason an otherwise-usable field renders as empty instead of leaving
+   * the user guessing (issue #543).
+   */
+  emptyHelperText?: string;
+  /** Called after the tree finished loading, with the number of flat options. */
+  onTreeLoaded?: (optionCount: number) => void;
 }
 
 export default function LocationTreeSelect<T extends FieldValues>({
@@ -39,6 +52,9 @@ export default function LocationTreeSelect<T extends FieldValues>({
   siteKey,
   label,
   disabled,
+  required,
+  helperText,
+  emptyHelperText,
   onTreeLoaded,
 }: LocationTreeSelectProps<T>) {
   const { t } = useTranslation();
@@ -53,10 +69,12 @@ export default function LocationTreeSelect<T extends FieldValues>({
     setLoading(true);
     try {
       const tree = await sitesApi.getLocationTree(siteKey);
-      setOptions(flattenTree(tree));
-      onTreeLoaded?.();
+      const flat = flattenTree(tree);
+      setOptions(flat);
+      onTreeLoaded?.(flat.length);
     } catch {
       setOptions([]);
+      onTreeLoaded?.(0);
     } finally {
       setLoading(false);
     }
@@ -66,36 +84,42 @@ export default function LocationTreeSelect<T extends FieldValues>({
     loadTree();
   }, [loadTree]);
 
+  const isEmptyForSite = !!siteKey && !loading && options.length === 0;
+
   return (
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState: { error } }) => (
-        <TextField
-          {...field}
-          value={field.value ?? ''}
-          select
-          label={label ?? t('entities.location')}
-          disabled={disabled || loading || !siteKey}
-          error={!!error}
-          helperText={error?.message}
-          fullWidth
-          sx={{ mb: 2 }}
-          data-testid={`form-field-${name}`}
-        >
-          <MenuItem value="">
-            {'—'}
-          </MenuItem>
-          {options.map((opt) => (
-            <MenuItem key={opt.key} value={opt.key}>
-              <ListItemText
-                primary={opt.label}
-                sx={{ pl: opt.depth * 2 }}
-              />
+      render={({ field, fieldState: { error } }) => {
+        const nonErrorHelper = isEmptyForSite ? (emptyHelperText ?? helperText) : helperText;
+        return (
+          <TextField
+            {...field}
+            value={field.value ?? ''}
+            select
+            label={label ?? t('entities.location')}
+            required={required}
+            disabled={disabled || loading || !siteKey}
+            error={!!error}
+            helperText={error?.message ?? nonErrorHelper}
+            fullWidth
+            sx={{ mb: 2 }}
+            data-testid={`form-field-${name}`}
+          >
+            <MenuItem value="">
+              {'—'}
             </MenuItem>
-          ))}
-        </TextField>
-      )}
+            {options.map((opt) => (
+              <MenuItem key={opt.key} value={opt.key}>
+                <ListItemText
+                  primary={opt.label}
+                  sx={{ pl: opt.depth * 2 }}
+                />
+              </MenuItem>
+            ))}
+          </TextField>
+        );
+      }}
     />
   );
 }

@@ -58,6 +58,7 @@ def _build_jobs() -> list[SeedJob]:
     from app.migrations.seed_fertilizers import run_seed_fertilizers
     from app.migrations.seed_fish_species import run_seed_fish_species
     from app.migrations.seed_gardol import run_seed_gardol
+    from app.migrations.seed_glossary import run_seed_glossary
     from app.migrations.seed_hardiness_zones import run_seed_hardiness_zones
     from app.migrations.seed_lifecycles_outdoor import run_seed_lifecycles_outdoor
     from app.migrations.seed_location_types import seed_location_types
@@ -82,6 +83,7 @@ def _build_jobs() -> list[SeedJob]:
         SeedJob("substrates", lambda db: run_seed_substrates()),
         SeedJob("hardiness_zones", lambda db: run_seed_hardiness_zones()),
         SeedJob("fish_species", lambda db: run_seed_fish_species()),
+        SeedJob("glossary", lambda db: run_seed_glossary()),
         SeedJob("overwintering_profiles", lambda db: run_seed_overwintering_profiles()),
         SeedJob("fertilizers", lambda db: run_seed_fertilizers()),
         SeedJob("plagron", lambda db: run_seed_plagron()),

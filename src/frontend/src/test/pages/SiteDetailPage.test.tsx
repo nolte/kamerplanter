@@ -157,6 +157,51 @@ describe('SiteDetailPage', () => {
     );
   });
 
+  it('treats a balcony as weather-relevant: no disabled hint, positive balcony hint shown', async () => {
+    useSite({ type: 'balcony', gps_coordinates: null });
+    useSiteSensors();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    // Balcony must NOT be treated as a non-weather type.
+    await waitFor(() =>
+      expect(screen.queryByTestId('site-weather-type-hint')).toBeNull(),
+    );
+    // Instead it explains why GPS/weather is available for a balcony.
+    expect(await screen.findByTestId('site-balcony-weather-hint')).toBeTruthy();
+    // Without GPS yet, the weather source still needs coordinates first.
+    expect(await screen.findByTestId('weather-source-gps-hint')).toBeTruthy();
+  });
+
+  it('renders the weather source section for a balcony site with GPS', async () => {
+    useSite({ type: 'balcony', gps_coordinates: [48.1, 11.6] });
+    useSiteSensors();
+    server.use(
+      http.get('/api/v1/t/:tenant/sites/:key/weather-sources', () => HttpResponse.json([])),
+    );
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    expect(await screen.findByTestId('weather-source-section')).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByTestId('weather-source-gps-hint')).toBeNull(),
+    );
+  });
+
+  it('keeps a windowsill site indoor: weather type hint shown, no weather section', async () => {
+    useSite({ type: 'windowsill', gps_coordinates: [48.1, 11.6] });
+    useSiteSensors();
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    expect(await screen.findByTestId('site-weather-type-hint')).toBeTruthy();
+    // Even with GPS present, an indoor type never unlocks the weather section.
+    await waitFor(() =>
+      expect(screen.queryByTestId('weather-source-section')).toBeNull(),
+    );
+    expect(screen.queryByTestId('site-balcony-weather-hint')).toBeNull();
+  });
+
   it('saves the edited site and notifies success', async () => {
     useSite();
     useSiteSensors();

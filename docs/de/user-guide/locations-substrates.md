@@ -63,14 +63,14 @@ Fülle folgende Felder aus:
 | Gewächshaus | Glashaus oder Folientunnel — schaltet Wetterquellen und die [Überwinterungsautomatik](overwintering.md) frei |
 | Innenbereich | Zimmer oder Wohnbereich ohne direkten Außenklimabezug |
 | Fensterbrett | Fensterplatz mit indirektem Außenklimabezug |
-| Balkon | Balkon — schaltet die [Überwinterungsautomatik](overwintering.md) frei; Wetterquellen sind nur für Außenbereich und Gewächshaus verfügbar |
+| Balkon | Balkon — als frostgefährdeter Außenstandort schaltet er wie Außenbereich und Gewächshaus GPS-Koordinaten, Wetterquellen und die [Überwinterungsautomatik](overwintering.md) frei |
 | Growzelt | Abgeschlossenes Growzelt mit kontrolliertem Klima |
 
 !!! info "Warum USDA-Zonen und nicht Köppen-Klimaklassifikation?"
     Kamerplanter erwartet für die Klimazone das **USDA-Winterhärtezonen-Format** (eine Zahl von 1–13, optional mit Zusatz „a" oder „b", z. B. „8a"), nicht die Köppen-Klimaklassifikation (z. B. „Cfb"). Der Grund: Die Winterhärte-Angaben der Pflanzenarten in den Stammdaten (`hardiness_zones`) nutzen ebenfalls dieses Format — nur so lässt sich später automatisch prüfen, ob eine Art an deinem Standort im Freien überwintern kann. Die passende Zone für deinen Wohnort findest du z. B. über die offizielle [USDA Plant Hardiness Zone Map](https://planthardiness.ars.usda.gov/) oder vergleichbare europäische Winterhärtezonen-Karten.
 
 !!! tip "Warum GPS-Koordinaten wichtig sind"
-    Erst mit hinterlegten GPS-Koordinaten kann Kamerplanter für Außenbereich- und Gewächshaus-Sites automatisch Wetterdaten abrufen und Frostwarnungen berechnen. Trägst du bei einem anderen Typ (z. B. Innenbereich) trotzdem Koordinaten ein, bleiben sie vorerst ungenutzt — schaltest du den Typ später auf Außenbereich oder Gewächshaus um, greifen sie automatisch.
+    Erst mit hinterlegten GPS-Koordinaten kann Kamerplanter für Außenbereich-, Gewächshaus- und Balkon-Sites automatisch Wetterdaten abrufen und Frostwarnungen berechnen — ein Balkon gilt dabei als frostgefährdeter Außenstandort und wird deshalb genau wie Außenbereich und Gewächshaus behandelt. Trägst du bei einem anderen Typ (z. B. Innenbereich) trotzdem Koordinaten ein, bleiben sie vorerst ungenutzt — schaltest du den Typ später auf Außenbereich, Gewächshaus oder Balkon um, greifen sie automatisch.
 
 !!! tip "Die Klimazone kann automatisch ermittelt werden"
     Für Außenbereich- und Gewächshaus-Sites mit GPS-Koordinaten berechnet Kamerplanter diese Zone bereits automatisch im Hintergrund aus den langjährigen Klimadaten deines Standorts und hält dieses Feld damit synchron — du musst sie in diesem Fall nicht selbst nachschlagen. Details zur Berechnung, zum manuellen Übersteuern und zum aktuellen Stand der Weboberfläche unter [Klimazonen & Winterhärte](../guides/climate-zones.md). <!-- REQ-039 -->
@@ -129,7 +129,7 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
     Neben Name, Typ, GPS-Koordinaten, Klimazone, Fläche und Zeitzone kennt eine Site im Hintergrund auch durchschnittliche Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst, Datum der Eisheiligen). Diese Einstellung ist derzeit nur über die API verfügbar — im Site-Formular ist sie noch nicht editierbar. Der Nutzen: Ist für eine Site eine GPS-Position hinterlegt, kann Kamerplanter daraus die tatsächliche Tageslänge an deinem Standort berechnen und automatische, photoperiodisch ausgelöste Phasenübergänge (z. B. den Blüteeinsatz bei Freiland-Kurztagspflanzen) korrekt auswerten — siehe [Automatische Phasenübergänge](growth-phases.md#automatische-phasenübergänge). Frost-Termine fließen zusätzlich in den Aussaatkalender ein.
 
 !!! tip "GPS-Koordinaten ermöglichen Wetterquellen"
-    Für Sites vom Typ Außenbereich oder Gewächshaus schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
+    Für Sites vom Typ Außenbereich, Gewächshaus oder Balkon schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
 
 ---
 
@@ -287,3 +287,4 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 - [Dünge-Logik](fertilization.md)
 - [Wachstumsphasen](growth-phases.md)
 - [Wetterquellen je Standort](weather-sources.md)
+- [Pflanze per Foto identifizieren](plant-identification.md#standort-zuweisen-optional) — Standort, Bereich und Stellplatz direkt beim Anlegen einer Pflanze zuweisen

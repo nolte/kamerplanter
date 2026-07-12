@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -49,10 +50,35 @@ class SpeciesListPage(BasePage):
                 texts.append(cells[0].text)
         return texts
 
+    def get_row_texts(self) -> list[list[str]]:
+        """Return text content of every visible row as a list of cell texts."""
+        rows = self.driver.find_elements(*self.TABLE_ROWS)
+        result: list[list[str]] = []
+        for row in rows:
+            cells = row.find_elements(By.TAG_NAME, "td")
+            result.append([c.text for c in cells])
+        return result
+
+    @staticmethod
+    def _row_nav_target(row: WebElement) -> WebElement:
+        """Return a link-free cell of *row* that triggers row navigation.
+
+        The row navigates to the species detail via ``onRowClick``, but the
+        "Familie" cell holds a ``stopPropagation`` link to the botanical-family
+        detail. A whole-row click lands near the row centre, which now overlaps
+        that link column, so it would open the family detail instead. Clicking a
+        cell with no nested ``<a>`` (e.g. the scientific-name column) lets the
+        click bubble to the row handler and navigate to the species detail.
+        """
+        for cell in row.find_elements(By.TAG_NAME, "td"):
+            if cell.text.strip() and not cell.find_elements(By.TAG_NAME, "a"):
+                return cell
+        return row
+
     def click_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         if index < len(rows):
-            self.scroll_and_click(rows[index])
+            self.scroll_and_click(self._row_nav_target(rows[index]))
 
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose scientific name matches *name*.
@@ -65,7 +91,7 @@ class SpeciesListPage(BasePage):
             cells = row.find_elements(By.TAG_NAME, "td")
             for cell in cells:
                 if cell.text == name:
-                    self.scroll_and_click(row)
+                    self.scroll_and_click(self._row_nav_target(row))
                     return
         raise ValueError(f"Row with name '{name}' not found")
 
@@ -99,6 +125,19 @@ class SpeciesListPage(BasePage):
         )
         el.clear()
         el.send_keys(value)
+
+    def open_dropdown_and_get_options(self, field_name: str) -> list[str]:
+        """Open the MUI Select for *field_name* and return its option texts.
+
+        Leaves the dropdown open; callers should close it via
+        :meth:`close_mui_dropdown` when done inspecting the options.
+        """
+        field = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
+        )
+        self.scroll_and_click(field)
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        return [o.text for o in options]
 
     def select_option(self, field_name: str, value_text: str) -> None:
         import time

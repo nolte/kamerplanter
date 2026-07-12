@@ -112,8 +112,8 @@ Wenn die erkannte Art im System bekannt ist, erscheint die Schaltfläche **Diese
 1. Vergleiche das Referenzbild mit deiner Pflanze
 2. Klicke auf **Diese Pflanze anlegen**
 3. Ein Formular öffnet sich mit der vorausgefüllten Art — gib deiner Pflanze einen Namen (z. B. „Monstera Wohnzimmer")
-4. Lege optional Standort und Substrat fest
-5. Klicke auf **Anlegen**
+4. Lege optional Standort und Substrat fest — siehe [Standort zuweisen](#standort-zuweisen-optional) weiter unten
+5. Klicke auf **Erstellen**
 
 Die Pflanze ist jetzt im System und bekommt automatisch passende Pflegevorschläge auf Basis der erkannten Art.
 
@@ -130,11 +130,30 @@ Falls die erkannte Art dem System unbekannt ist, siehst du den Hinweis „Diese 
 
 ---
 
+## Standort zuweisen (optional) {#standort-zuweisen-optional}
+
+Im Anlage-Formular ordnest du die Pflanze optional direkt einem **Standort** zu — über die drei aufeinander aufbauenden Felder **Standort**, **Bereich** und **Stellplatz** (zur Hierarchie siehe [Standort-Hierarchie verstehen](locations-substrates.md#standort-hierarchie-verstehen)). Wähle zuerst den Standort, dann den Bereich, zuletzt den Stellplatz — alle drei Felder bleiben optional.
+
+Ist ein Feld leer oder ausgegraut, erklärt der Hilfetext direkt darunter, woran das liegt:
+
+- Ohne gewählten Standort weisen **Bereich** und **Stellplatz** darauf hin, dass du zuerst einen Standort auswählen musst.
+- Hat der gewählte Standort noch keine Bereiche, meldet **Bereich**: „Dieser Standort hat noch keine Bereiche. Lege zuerst unter „Standorte" einen Bereich an." Lege den Bereich in diesem Fall über [Locations und Slots anlegen](locations-substrates.md#locations-und-slots-anlegen) an und kehre danach zum Formular zurück.
+- Entsprechend meldet **Stellplatz**, wenn noch kein Bereich gewählt ist oder der gewählte Bereich noch keine Stellplätze hat.
+- Bereits belegte Stellplätze erscheinen in der Auswahlliste ausgegraut mit dem Zusatz „(belegt)" und lassen sich nicht ein zweites Mal vergeben.
+
+!!! note "Standort ändern setzt Bereich und Stellplatz zurück"
+    Änderst du nachträglich den Standort, werden Bereich und Stellplatz automatisch geleert, weil sie zum vorherigen Standort gehörten — wähle sie danach neu. Für Screenreader-Nutzer:innen wird dieser Reset zusätzlich als Hinweis angesagt.
+
+!!! tip "Auch später im Bearbeiten-Tab verfügbar"
+    Du musst den Standort nicht sofort beim Anlegen festlegen. Öffne dazu jederzeit die Detailseite der Pflanze und wechsle in den Tab **Bearbeiten** — dieselben Felder und Hinweistexte stehen dir dort ebenfalls zur Verfügung, etwa wenn du eine bestehende Pflanze umstellst.
+
+---
+
 ## Foto der neuen Pflanze zuordnen
 
 Im Formular zum Anlegen der Pflanze — egal ob über **Diese Pflanze anlegen** oder **Art hinzufügen und Pflanze anlegen** — erscheint der Abschnitt **Erkennungsfoto** mit einer Vorschau deines soeben aufgenommenen Bilds und zwei Schaltern:
 
-- **Foto als Galeriebild übernehmen** (standardmäßig **an**): Das Foto wird direkt nach dem Anlegen als erstes Bild in die [Fotogalerie](plant-photos.md) der neuen Pflanze übernommen. Möchtest du das nicht, schalte den Regler einfach aus, bevor du auf **Anlegen** klickst.
+- **Foto als Galeriebild übernehmen** (standardmäßig **an**): Das Foto wird direkt nach dem Anlegen als erstes Bild in die [Fotogalerie](plant-photos.md) der neuen Pflanze übernommen. Möchtest du das nicht, schalte den Regler einfach aus, bevor du auf **Erstellen** klickst.
 - **Als Referenzbild für die Erkennung nutzen** (standardmäßig **aus**): Dieser Schalter erscheint nur, wenn deine Instanz die [Self-Hosted-Erkennung mit DINOv2](#self-hosted-erkennung-mit-dinov2) verwendet. Aktivierst du ihn, wird dein Foto zusätzlich der Erkennungsbasis der bestätigten Art hinzugefügt — es hilft also künftigen Foto-Identifikationen dieser Art, auch für andere Nutzer deiner Instanz. <!-- Issue #447 -->
 
 !!! note "Dein Beitrag wird erst nach Prüfung wirksam"
@@ -243,6 +262,7 @@ Platform-Admins können die Qualität des Referenz-Index verbessern, indem sie u
 ## Siehe auch
 
 - [Stammdaten verwalten](plant-management.md)
+- [Standorte und Substrate](locations-substrates.md) — Standorte, Bereiche und Stellplätze anlegen
 - [Externe Datenanreicherung](../guides/data-enrichment.md) — fehlende Stammdaten neuer Arten automatisch ergänzen
 - [Onboarding-Wizard](onboarding.md)
 - [Datenschutz & DSGVO](privacy.md)

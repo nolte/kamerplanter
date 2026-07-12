@@ -125,6 +125,12 @@ CONTROL_EVENTS = "control_events"
 MANUAL_OVERRIDES = "manual_overrides"
 PHASE_CONTROL_PROFILES = "phase_control_profiles"
 
+# REQ-016 InvenTree integration (optional)
+INVENTREE_CONNECTIONS = "inventree_connections"
+INVENTREE_REFERENCES = "inventree_references"
+STOCK_TRANSACTIONS = "stock_transactions"
+EQUIPMENT = "equipment"
+
 # REQ-041 NASA POWER — long-term monthly climate normals per site
 CLIMATE_NORMALS = "climate_normals"
 
@@ -195,8 +201,15 @@ PLANT_DIAGNOSIS_REQUESTS = "plant_diagnosis_requests"
 
 # REQ-017 Propagation / lineage — one document per propagation event (clone /
 # seed cross / graft / division). D10 persists the monocarpic-mother→pup clone
-# event; the full propagation API/router remains a REQ-017 follow-up.
+# event; the full propagation surface enriches the same document.
 PROPAGATION_EVENTS = "propagation_events"
+#: Groups propagation events started together (REQ-017 §2 propagation_batches).
+PROPAGATION_BATCHES = "propagation_batches"
+#: Reusable rooting / propagation protocol templates (REQ-017 §2 rooting_protocols).
+#: ``tenant_key == ""`` marks a global system template.
+ROOTING_PROTOCOLS = "rooting_protocols"
+#: Free-text phenotype observations recorded against a plant instance (REQ-017 §2).
+PHENOTYPE_NOTES = "phenotype_notes"
 
 # REQ-031 KI-Assistent (AI assistant) — tenant/user KI data; vectors live in the
 # Knowledge-Service microservice, never in the backend (§3.3).
@@ -204,6 +217,20 @@ AI_PROVIDER_CONFIGS = "ai_provider_configs"
 AI_CONVERSATIONS = "ai_conversations"
 AI_TIP_CACHE = "ai_tip_cache"
 AI_AUDIT_LOG = "ai_audit_log"
+
+# REQ-035 KI terminology glossary — curated term skeleton + RAG answer cache.
+# Both are global (not tenant-scoped): the glossary is knowledge, not tenant
+# data (§6, no PII). The RAG answer text lives in ``glossary_term_cache``; the
+# vectors stay in the Knowledge-Service microservice.
+GLOSSARY_TERMS = "glossary_terms"
+GLOSSARY_TERM_CACHE = "glossary_term_cache"
+
+# REQ-033 MCP server — adapter-layer collections only (no own domain data, §3).
+# ``mcp_audit_log`` records one entry per tool call (no PII, only hashes/sizes,
+# retention 90d via NFR-011). ``mcp_idempotency_record`` de-duplicates write
+# tools by idempotency key (retention 24h).
+MCP_AUDIT_LOG = "mcp_audit_log"
+MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -306,6 +333,9 @@ DOCUMENT_COLLECTIONS = [
     BENEFICIALS,
     PEST_IMAGE_CONTRIBUTIONS,
     PROPAGATION_EVENTS,
+    PROPAGATION_BATCHES,
+    ROOTING_PROTOCOLS,
+    PHENOTYPE_NOTES,
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
@@ -314,6 +344,12 @@ DOCUMENT_COLLECTIONS = [
     AI_CONVERSATIONS,
     AI_TIP_CACHE,
     AI_AUDIT_LOG,
+    # REQ-035 KI terminology glossary
+    GLOSSARY_TERMS,
+    GLOSSARY_TERM_CACHE,
+    # REQ-033 MCP server (adapter-layer only)
+    MCP_AUDIT_LOG,
+    MCP_IDEMPOTENCY_RECORD,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -321,6 +357,11 @@ DOCUMENT_COLLECTIONS = [
     WATER_TESTS,
     FISH_FEEDING_EVENTS,
     SUPPLEMENTATION_EVENTS,
+    # REQ-016 InvenTree integration
+    INVENTREE_CONNECTIONS,
+    INVENTREE_REFERENCES,
+    STOCK_TRANSACTIONS,
+    EQUIPMENT,
     # REQ-041 NASA POWER climate normals
     CLIMATE_NORMALS,
     # REQ-039 hardiness-zone reference catalog
@@ -498,6 +539,11 @@ ACTUATOR_EVENT = "actuator_event"  # actuators → control_events
 PHASE_PROFILE = "phase_profile"  # growth_phases → phase_control_profiles
 LOCATION_PROFILE = "location_profile"  # locations → phase_control_profiles
 RULE_MONITORS = "rule_monitors"  # control_rules → sensors
+
+# REQ-016 InvenTree integration edges
+HAS_INVENTREE_REF = "has_inventree_ref"  # fertilizers | tanks | equipment → inventree_references
+HAS_STOCK_TRANSACTION = "has_stock_transaction"  # inventree_references → stock_transactions
+EQUIPMENT_AT = "equipment_at"  # equipment → locations
 
 # REQ-041 NASA POWER climate-normal edge
 HAS_CLIMATE_NORMAL = "has_climate_normal"  # sites → climate_normals (1 per source)
@@ -721,6 +767,10 @@ EDGE_COLLECTIONS = [
     SUPPLEMENTATION_FOR,
     COMPATIBLE_FISH_PLANT,
     INCOMPATIBLE_FISH_PLANT,
+    # REQ-016 InvenTree integration
+    HAS_INVENTREE_REF,
+    HAS_STOCK_TRANSACTION,
+    EQUIPMENT_AT,
     # REQ-041 NASA POWER climate normals
     HAS_CLIMATE_NORMAL,
     # REQ-039 hardiness-zone assignment
@@ -1504,6 +1554,22 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [FISH_SPECIES],
         "to_vertex_collections": [SPECIES],
     },
+    # REQ-016 InvenTree integration
+    {
+        "edge_collection": HAS_INVENTREE_REF,
+        "from_vertex_collections": [FERTILIZERS, TANKS, EQUIPMENT],
+        "to_vertex_collections": [INVENTREE_REFERENCES],
+    },
+    {
+        "edge_collection": HAS_STOCK_TRANSACTION,
+        "from_vertex_collections": [INVENTREE_REFERENCES],
+        "to_vertex_collections": [STOCK_TRANSACTIONS],
+    },
+    {
+        "edge_collection": EQUIPMENT_AT,
+        "from_vertex_collections": [EQUIPMENT],
+        "to_vertex_collections": [LOCATIONS],
+    },
     # REQ-041 NASA POWER climate normals
     {
         "edge_collection": HAS_CLIMATE_NORMAL,
@@ -1912,6 +1978,35 @@ def ensure_collections(db: StandardDatabase) -> None:
     ai_audit_log_col.add_persistent_index(fields=["tenant_key", "user_key"], unique=False)
     ai_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
 
+    # REQ-035 KI terminology glossary indexes (§2.1, §2.2)
+    glossary_terms_col = db.collection(GLOSSARY_TERMS)
+    glossary_terms_col.add_persistent_index(fields=["slug"], unique=True)
+    glossary_terms_col.add_persistent_index(fields=["category"], unique=False)
+    glossary_terms_col.add_persistent_index(fields=["is_active"], unique=False)
+
+    glossary_term_cache_col = db.collection(GLOSSARY_TERM_CACHE)
+    glossary_term_cache_col.add_persistent_index(
+        fields=["term_slug", "language", "expertise_level", "kb_version"], unique=True
+    )
+    glossary_term_cache_col.add_persistent_index(fields=["valid_until"], unique=False)
+
+    # REQ-033 MCP server indexes (§3). Audit log queried by service account +
+    # tenant (privacy self-service) and swept by created_at (90d retention).
+    # Idempotency records keyed by (service_account_key, tenant_key, tool_name,
+    # idempotency_key) — tenant_key is part of the unique scope (SEC-005) so a
+    # multi-tenant service account cannot cross-replay — and swept by expires_at
+    # (24h retention).
+    mcp_audit_log_col = db.collection(MCP_AUDIT_LOG)
+    mcp_audit_log_col.add_persistent_index(fields=["service_account_key"], unique=False)
+    mcp_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
+    mcp_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    mcp_idempotency_record_col = db.collection(MCP_IDEMPOTENCY_RECORD)
+    mcp_idempotency_record_col.add_persistent_index(
+        fields=["service_account_key", "tenant_key", "tool_name", "idempotency_key"], unique=True
+    )
+    mcp_idempotency_record_col.add_persistent_index(fields=["expires_at"], unique=False)
+
     # REQ-026 Aquaponics indexes
     fish_species_col = db.collection(FISH_SPECIES)
     fish_species_col.add_persistent_index(fields=["scientific_name"], unique=True)
@@ -1933,6 +2028,22 @@ def ensure_collections(db: StandardDatabase) -> None:
     supplementation_events_col = db.collection(SUPPLEMENTATION_EVENTS)
     supplementation_events_col.add_persistent_index(fields=["system_key", "applied_at"], unique=False)
 
+    # REQ-016 InvenTree integration indexes (all tenant-scoped)
+    inventree_connections_col = db.collection(INVENTREE_CONNECTIONS)
+    inventree_connections_col.add_persistent_index(fields=["tenant_key"], unique=False)
+
+    inventree_references_col = db.collection(INVENTREE_REFERENCES)
+    inventree_references_col.add_persistent_index(
+        fields=["tenant_key", "entity_collection", "entity_key"], unique=False
+    )
+
+    stock_transactions_col = db.collection(STOCK_TRANSACTIONS)
+    stock_transactions_col.add_persistent_index(fields=["tenant_key", "status", "created_at"], unique=False)
+    stock_transactions_col.add_persistent_index(fields=["reference_key"], unique=False)
+
+    equipment_col = db.collection(EQUIPMENT)
+    equipment_col.add_persistent_index(fields=["tenant_key", "equipment_type", "status"], unique=False)
+
     # REQ-041 NASA POWER climate normals — one record per (site, source) within a
     # tenant; upserts key off it, so the uniqueness is enforced at the storage layer.
     climate_normals_col = db.collection(CLIMATE_NORMALS)
@@ -1946,6 +2057,24 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-039 — one hardiness-zone assignment edge per site.
     located_in_zone_col = db.collection(LOCATED_IN_ZONE)
     located_in_zone_col.add_persistent_index(fields=["_from"], unique=False)
+
+    # REQ-017 Propagation / lineage indexes — tenant-scoped event/batch/phenotype
+    # reads and the global+tenant rooting-protocol union.
+    propagation_events_col = db.collection(PROPAGATION_EVENTS)
+    propagation_events_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    propagation_events_col.add_persistent_index(fields=["tenant_key", "batch_key"], unique=False)
+    propagation_events_col.add_persistent_index(fields=["tenant_key", "species_key"], unique=False)
+
+    propagation_batches_col = db.collection(PROPAGATION_BATCHES)
+    propagation_batches_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    propagation_batches_col.add_persistent_index(fields=["tenant_key", "status"], unique=False)
+
+    rooting_protocols_col = db.collection(ROOTING_PROTOCOLS)
+    rooting_protocols_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    rooting_protocols_col.add_persistent_index(fields=["tenant_key", "method"], unique=False)
+
+    phenotype_notes_col = db.collection(PHENOTYPE_NOTES)
+    phenotype_notes_col.add_persistent_index(fields=["tenant_key", "plant_key"], unique=False)
 
     # REQ-037 irrigation demands — one record per (site, run, day) within a tenant;
     # the upsert keys off it, so uniqueness is enforced at the storage layer.

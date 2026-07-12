@@ -31,6 +31,7 @@ class WateringLogListPage(BasePage):
     PLANT_KEYS_INPUT = (By.CSS_SELECTOR, "[data-testid='plant-keys-input'] input")
     PLANT_KEYS_AUTOCOMPLETE = (By.CSS_SELECTOR, "[data-testid='plant-keys-autocomplete']")
     ADD_FERTILIZER_BUTTON = (By.CSS_SELECTOR, "[data-testid='add-fertilizer-button']")
+    REMOVE_FERTILIZER_BUTTON_0 = (By.CSS_SELECTOR, "[data-testid='remove-fertilizer-0']")
 
     # -- Create form field locators -----------------------------------------
     FORM_APPLICATION_METHOD = (
@@ -98,15 +99,25 @@ class WateringLogListPage(BasePage):
 
     def search(self, term: str) -> None:
         """Type *term* into the search field."""
+        import time
+
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
+        # debounce: bounded, justified (table-search-input has a 300ms
+        # debounce before it re-filters, so callers can rely on the result
+        # being settled once this method returns)
+        time.sleep(0.3)
 
     def clear_search(self) -> None:
         """Clear the search field."""
+        import time
+
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(Keys.BACKSPACE)
+        # debounce: bounded, justified (same 300ms debounce as search())
+        time.sleep(0.3)
 
     def has_search_chip(self) -> bool:
         """Return True if a search chip is visible."""
@@ -115,6 +126,10 @@ class WateringLogListPage(BasePage):
     def has_empty_state(self) -> bool:
         """Return True if the empty state illustration is visible."""
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
+
+    def has_table(self) -> bool:
+        """Return True if the DataTable is present."""
+        return len(self.driver.find_elements(*self.TABLE)) > 0
 
     def get_showing_count_text(self) -> str:
         """Return the text from the 'showing X of Y' counter."""
@@ -139,6 +154,20 @@ class WateringLogListPage(BasePage):
     def is_create_dialog_open(self) -> bool:
         """Return True if the create dialog is visible."""
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
+
+    def has_plant_autocomplete(self) -> bool:
+        """Return True if the plant-keys autocomplete is present in the dialog."""
+        return len(self.driver.find_elements(*self.PLANT_KEYS_AUTOCOMPLETE)) > 0
+
+    def click_add_fertilizer(self) -> None:
+        """Click 'add fertilizer' and wait for the new row's remove button."""
+        add_btn = self.wait_for_element_clickable(self.ADD_FERTILIZER_BUTTON)
+        self.scroll_and_click(add_btn)
+        self.wait_for_element_visible(self.REMOVE_FERTILIZER_BUTTON_0)
+
+    def has_remove_fertilizer_button(self) -> bool:
+        """Return True if a remove-fertilizer button is present (row 0)."""
+        return len(self.driver.find_elements(*self.REMOVE_FERTILIZER_BUTTON_0)) > 0
 
     def select_first_plant(self) -> bool:
         """Type into the plant autocomplete and select the first option.

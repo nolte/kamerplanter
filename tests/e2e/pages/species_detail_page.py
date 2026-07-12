@@ -14,6 +14,7 @@ class SpeciesDetailPage(BasePage):
 
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
+    READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='species-readonly-banner']")
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
@@ -135,6 +136,15 @@ class SpeciesDetailPage(BasePage):
     def has_delete_button(self) -> bool:
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
 
+    def is_read_only(self) -> bool:
+        """Return True if this species is origin-protected (read-only).
+
+        Global/system species (UI-NFR-018) show a read-only banner, render no
+        editable form actions on the edit tab, and — being deletion-protected —
+        no delete button.
+        """
+        return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
+
     # ── Cultivar tab (tab 1) ──────────────────────────────────────────
 
     def get_cultivar_count(self) -> int:
@@ -149,6 +159,11 @@ class SpeciesDetailPage(BasePage):
                 names.append(cells[0].text)
         return names
 
+    def get_trait_chip_texts(self) -> list[str]:
+        """Return the text of all MUI Chip labels currently rendered (e.g. cultivar traits)."""
+        chips = self.driver.find_elements(By.CSS_SELECTOR, ".MuiChip-label")
+        return [c.text for c in chips]
+
     def click_cultivar_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
         if index < len(rows):
@@ -157,6 +172,10 @@ class SpeciesDetailPage(BasePage):
     def click_cultivar_create(self) -> None:
         self.wait_for_element_clickable(self.CULTIVAR_CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)
+
+    def is_create_dialog_open(self) -> bool:
+        """Check whether the cultivar/growth-phase create dialog is present."""
+        return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
     def delete_cultivar_at_index(self, index: int) -> None:
         """Click the delete icon in the actions column of a cultivar row."""

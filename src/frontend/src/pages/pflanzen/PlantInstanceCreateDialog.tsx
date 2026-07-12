@@ -23,7 +23,7 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
-import LocationTreeSelect from '@/components/form/LocationTreeSelect';
+import LocationAssignmentSection from '@/components/form/LocationAssignmentSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as plantApi from '@/api/endpoints/plantInstances';
@@ -494,6 +494,7 @@ export default function PlantInstanceCreateDialog({
               name="current_phase_key"
               control={control}
               label={t('pages.plantInstances.currentPhase')}
+              helperText={t('pages.plantInstances.currentPhaseHelper')}
               disabled={growthPhases.length === 0}
               options={growthPhases
                 .sort((a, b) => a.sequence_order - b.sequence_order)
@@ -512,43 +513,11 @@ export default function PlantInstanceCreateDialog({
             substrates={substratesList}
           />
 
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            {t('pages.plantInstances.sectionLocation')}
-          </Typography>
-          <FormRow>
-            <FormSelectField
-              name="site_key"
-              control={control}
-              label={t('entities.site')}
-              helperText={t('pages.plantInstances.siteHelper')}
-              options={[
-                { value: '', label: '—' },
-                ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-              ]}
-            />
-            <LocationTreeSelect
-              name="location_key"
-              control={control}
-              siteKey={siteKey}
-              label={t('entities.location')}
-            />
-          </FormRow>
-          <FormSelectField
-            name="slot_key"
+          <LocationAssignmentSection
             control={control}
-            label={t('entities.slot')}
-            helperText={t('pages.plantInstances.slotHelper')}
-            disabled={slotsList.length === 0}
-            options={[
-              { value: '', label: '—' },
-              ...slotsList.map((s) => ({
-                value: s.key,
-                label: s.currently_occupied
-                  ? `${s.slot_id} (${t('pages.plantInstances.slotOccupied')})`
-                  : s.slot_id,
-              })),
-            ]}
+            sites={sitesList}
+            slots={slotsList}
+            variant="inline"
           />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </form>

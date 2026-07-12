@@ -59,12 +59,37 @@ def _owp(**overrides) -> OverwinteringProfile:
     return OverwinteringProfile(**data)
 
 
-def _build_service(*, owp: OverwinteringProfile | None, existing_tasks: list[dict] | None = None):
+def _fake_open_care_lookup(existing: list[Task]):
+    """Fake for the tenant-aware ``find_open_care_task`` helper (#509).
+
+    Mirrors the repository predicate in-memory: a task matches only when its
+    ``entity_key``, ``tenant_key``, category and reminder-type name suffix line
+    up and it is still open — so the wiring test exercises the real dedup key,
+    including the tenant scope.
+    """
+
+    def _lookup(entity_key, reminder_type, tenant_key, *, include_completed_today=True):  # noqa: ANN001, ANN202
+        suffix = f"— {reminder_type.value}"
+        for task in existing:
+            if (
+                (task.entity_key or "") == entity_key
+                and task.tenant_key == tenant_key
+                and task.category == TaskCategory.CARE_REMINDER.value
+                and (task.name or "").endswith(suffix)
+                and task.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+            ):
+                return task
+        return None
+
+    return _lookup
+
+
+def _build_service(*, owp: OverwinteringProfile | None, existing_tasks: list[Task] | None = None):
     care_repo = MagicMock()
     care_repo.get_profile_by_plant_key.return_value = _care()
 
     task_repo = MagicMock()
-    task_repo.find_by_field.return_value = existing_tasks or []
+    task_repo.find_open_care_task.side_effect = _fake_open_care_lookup(existing_tasks or [])
     task_repo.create_task.side_effect = lambda t: t
 
     plant_repo = MagicMock()
@@ -140,6 +165,7 @@ class TestEnsureSeasonalWinterTasks:
                 category=TaskCategory.CARE_REMINDER,
                 entity_key="plant-1",
                 entity_type="plant_instance",
+                tenant_key="tenant-1",
                 status=TaskStatus.PENDING,
             )
         ]

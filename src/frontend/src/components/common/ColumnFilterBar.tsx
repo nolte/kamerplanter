@@ -138,7 +138,14 @@ export function ColumnFilterBar({ filters, state }: ColumnFilterBarProps) {
       })}
 
       {activeCount > 0 && (
-        <>
+        // `role="status"` + `aria-live="polite"` so screen-reader users hear the
+        // updated active-filter count after toggling an option inside the Select
+        // menu, without requiring them to close the menu and re-discover the chip.
+        <Box
+          role="status"
+          aria-live="polite"
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
           <Chip
             label={t('table.activeFilters', { count: activeCount })}
             size="small"
@@ -153,7 +160,7 @@ export function ColumnFilterBar({ filters, state }: ColumnFilterBarProps) {
           >
             {t('table.clearFilters')}
           </Button>
-        </>
+        </Box>
       )}
     </Box>
   );
@@ -192,6 +199,10 @@ export function ColumnFilterBar({ filters, state }: ColumnFilterBarProps) {
             }
             data-testid="toggle-filter-panel-button"
             color={activeCount > 0 ? 'primary' : 'default'}
+            // UI-NFR-001 R-011: 48x48 minimum touch target on the mobile/tablet
+            // toggle — the default `size="small"` hit area (~34px) is below the
+            // mandatory minimum on this touch-primary breakpoint.
+            sx={{ minWidth: 48, minHeight: 48 }}
           >
             <Badge badgeContent={activeCount > 0 ? activeCount : undefined} color="primary">
               {panelOpen ? (
@@ -205,7 +216,7 @@ export function ColumnFilterBar({ filters, state }: ColumnFilterBarProps) {
 
         {/* Summary chips when panel is closed */}
         {!panelOpen && activeCount > 0 && (
-          <>
+          <Box role="status" aria-live="polite" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Chip
               label={t('table.activeFilters', { count: activeCount })}
               size="small"
@@ -220,7 +231,7 @@ export function ColumnFilterBar({ filters, state }: ColumnFilterBarProps) {
             >
               {t('table.clearFilters')}
             </Button>
-          </>
+          </Box>
         )}
       </Box>
 

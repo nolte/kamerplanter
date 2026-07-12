@@ -266,6 +266,7 @@
     "updatedAt": "Aktualisiert am",
     "skipToContent": "Zum Inhalt springen",
     "toggleSidebar": "Seitenleiste umschalten",
+    "sliderLabel": "{{label}} (Regler)",
     "days": "Tage",
     "months_unit": "Monate",
     "showAllFields": "Alle Felder anzeigen",
@@ -343,6 +344,7 @@
     "calculations": "Berechnungen",
     "durchlaeufe": "Durchläufe",
     "overwintering": "Überwinterung",
+    "propagation": "Vermehrung & Abstammung",
     "plantingRuns": "Pflanzdurchläufe",
     "successionPlans": "Staffelanbau",
     "tanks": "Tanks",
@@ -350,6 +352,8 @@
     "aquaponicSystems": "Aquaponik-Systeme",
     "umgebungssteuerung": "Umgebungssteuerung",
     "environmentControl": "Aktorik & Steuerung",
+    "inventar": "Inventar",
+    "equipment": "Betriebsmittel",
     "duengung": "Düngung",
     "fertilizers": "Düngemittel",
     "nutrientPlans": "Nährstoffpläne",
@@ -378,6 +382,7 @@
     "calendar": "Kalender",
     "wateringLog": "Gießprotokoll",
     "kiAssistent": "KI-Assistent",
+    "glossary": "Glossar",
     "phasen": "Phasen",
     "detail": "Details",
     "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
@@ -513,7 +518,78 @@
       "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
     }
   },
+  "components": {
+    "plantInstancePicker": {
+      "searchHelper": "Suche nach Pflanzenname oder Kennung",
+      "noResults": "Keine Pflanze gefunden",
+      "loading": "Pflanzen werden geladen…"
+    }
+  },
   "pages": {
+    "propagation": {
+      "title": "Vermehrungsmanagement",
+      "intro": "Dokumentiere Vermehrungsaktionen (Stecklinge, Aussaat, Klone, Veredelung, Teilung), verfolge Erfolgsraten und erkunde die genetische Abstammung deiner Pflanzen.",
+      "createEvent": "Vermehrung dokumentieren",
+      "eventCreated": "Vermehrungsevent gespeichert.",
+      "emptyTitle": "Noch keine Vermehrungsevents",
+      "emptyDescription": "Dokumentiere deine erste Vermehrungsaktion, um Erfolgsraten und Abstammung zu verfolgen.",
+      "tabs": {
+        "events": "Ereignisse",
+        "lineage": "Abstammung & Veredelung"
+      },
+      "fields": {
+        "method": "Methode",
+        "status": "Status",
+        "quantity": "Anzahl",
+        "survived": "Überlebt",
+        "successRate": "Erfolgsrate",
+        "happenedAt": "Datum",
+        "sectionWhat": "Was wurde vermehrt?",
+        "sectionWhatIntro": "Methode, Menge und optional die Pflanzenart dieser Vermehrungsaktion.",
+        "speciesKey": "Art",
+        "speciesKeyHelper": "Optional: Für welche Art läuft die Erfolgsstatistik mit?",
+        "speciesLoading": "Arten werden geladen…",
+        "sectionPlants": "Beteiligte Pflanzen",
+        "sectionPlantsIntro": "Wähle die beteiligten Pflanzen über die Namenssuche aus — du kannst mehrere auswählen.",
+        "parentKeys": "Quell-Pflanzen",
+        "parentKeysGraft": "Unterlage(n)",
+        "childKeys": "Ergebnis-Pflanzen",
+        "childKeysGraft": "Edelreis",
+        "parentPlantsHelper": "Wähle eine oder mehrere Pflanzen über die Namenssuche.",
+        "childPlantsHelper": "Wähle die aus der Vermehrung entstandenen Pflanzen über die Namenssuche.",
+        "plantsLoading": "Pflanzen werden geladen…",
+        "notes": "Notizen"
+      },
+      "lineage": {
+        "title": "Abstammung erkunden",
+        "intro": "Verfolge, aus welcher Mutterpflanze eine Pflanze entstanden ist und welche Pflanzen wiederum aus ihr hervorgegangen sind.",
+        "plantKey": "Pflanze",
+        "plantKeyHelper": "Wähle eine Pflanze über die Namenssuche.",
+        "trace": "Abstammung anzeigen",
+        "hint": "Wähle eine Pflanze aus und klicke auf „Abstammung anzeigen“, um Vorfahren und Nachkommen zu sehen.",
+        "ancestors": "Vorfahren",
+        "descendants": "Nachkommen",
+        "noAncestors": "Keine Vorfahren gefunden — diese Pflanze ist ein Ursprung.",
+        "noDescendants": "Keine Nachkommen gefunden.",
+        "unknownPlant": "Unbenannte Pflanze",
+        "unknownSpecies": "Unbekannte Art"
+      },
+      "graft": {
+        "title": "Veredelungs-Kompatibilität",
+        "intro": "Prüft anhand der Taxonomie (Gattung/Familie), ob Edelreis und Unterlage kompatibel sind.",
+        "scionKey": "Edelreis-Pflanze",
+        "scionKeyHelper": "Wähle die Edelreis-Pflanze (Trieb) über die Namenssuche.",
+        "rootstockKey": "Unterlagen-Pflanze",
+        "rootstockKeyHelper": "Wähle die Unterlagen-Pflanze (Wurzelbasis) über die Namenssuche.",
+        "hint": "Wähle Edelreis (Trieb) und Unterlage (Wurzelbasis) aus, um die Kompatibilität zu prüfen.",
+        "check": "Kompatibilität prüfen",
+        "speciesLine": "Edelreis-Art: {{scion}} · Unterlagen-Art: {{rootstock}}",
+        "sameGenus": "Gleiche Gattung",
+        "differentGenus": "Unterschiedliche Gattung",
+        "sameFamily": "Gleiche Familie",
+        "differentFamily": "Unterschiedliche Familie"
+      }
+    },
     "kiAssistent": {
       "title": "KI-Assistent",
       "intro": "Stelle eine Wissensfrage zur Pflanzenpflege — etwa „Was ist VPD?“ oder „Wie senke ich den pH-Wert?“. Die Antwort stammt aus der kuratierten Wissensbasis und wird klar als KI-generiert gekennzeichnet.",
@@ -575,6 +651,58 @@
         "haEntityRequired": "Bitte gib die Home-Assistant-Entity-ID an.",
         "mqttTopicRequired": "Bitte gib das MQTT-Command-Topic an.",
         "powerNonNegative": "Die Leistungsaufnahme darf nicht negativ sein."
+      }
+    },
+    "glossary": {
+      "title": "Fachbegriff-Glossar",
+      "subtitle": "Schlage Fachbegriffe wie VPD, EC oder Karenzzeit nach. Die Erklärungen stammen aus der kuratierten Wissensbasis und passen sich deiner Erfahrungsstufe an.",
+      "empty": "Es sind noch keine Begriffe verfügbar.",
+      "loadError": "Die Begriffsliste konnte nicht geladen werden. Bitte versuche es später erneut.",
+      "backToList": "Zurück zur Übersicht",
+      "categories": {
+        "umwelt": "Umwelt & Klima",
+        "duengung": "Düngung",
+        "bewaesserung": "Bewässerung",
+        "phasen": "Wachstumsphasen",
+        "outdoor": "Freiland & Garten",
+        "ipm": "Pflanzenschutz",
+        "allgemein": "Allgemein"
+      },
+      "tooltip": {
+        "ariaOpen": "Erklärung zu „{{term}}“ öffnen",
+        "loading": "Erklärung wird geladen …",
+        "error": "Die Erklärung konnte nicht geladen werden.",
+        "fallbackHint": "Kurzdefinition (kein Wissensbasis-Treffer)",
+        "relatedTitle": "Verwandte Begriffe",
+        "back": "Zurück",
+        "close": "Schließen"
+      }
+    },
+    "inventree": {
+      "title": "Betriebsmittel & Inventar",
+      "intro": "Verwalte deine Betriebsmittel (Pumpen, Sensoren, Werkzeuge, Reinigungsmittel) und verknüpfe sie optional mit deiner InvenTree-Inventarverwaltung für die Bestandsführung.",
+      "createEquipment": "Betriebsmittel anlegen",
+      "editEquipment": "Betriebsmittel bearbeiten",
+      "equipmentSaved": "Betriebsmittel wurde gespeichert.",
+      "equipmentDeleted": "Betriebsmittel wurde gelöscht.",
+      "deleteTitle": "Betriebsmittel löschen",
+      "deleteConfirm": "Möchtest du „{{name}}“ wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "connectionActive": "InvenTree-Verbindung „{{name}}“ ist aktiv. Bestände werden automatisch synchronisiert.",
+      "noConnection": "Keine InvenTree-Verbindung konfiguriert. Betriebsmittel können trotzdem eigenständig verwaltet werden.",
+      "emptyTitle": "Noch kein Betriebsmittel angelegt",
+      "emptyDescription": "Lege dein erstes Betriebsmittel an, um Pumpen, Sensoren und Verbrauchsmaterialien zu verwalten.",
+      "sectionInventree": "InvenTree-Verknüpfung (optional)",
+      "sectionInventreeHelper": "Verknüpfe dieses Betriebsmittel mit einem InvenTree-Part, damit Bestand und Verbrauch automatisch synchronisiert werden. Ohne Verknüpfung kannst du das Betriebsmittel trotzdem ganz normal verwalten.",
+      "fields": {
+        "name": "Bezeichnung",
+        "equipmentType": "Typ",
+        "status": "Status",
+        "brand": "Marke",
+        "model": "Modell",
+        "serialNumber": "Seriennummer",
+        "inventreePartId": "InvenTree-Part-ID",
+        "inventreePartHelp": "Optionale Verknüpfung zu einem InvenTree-Part für die Bestandsführung.",
+        "notes": "Notizen"
       }
     },
     "aquaponik": {
@@ -1426,7 +1554,13 @@
       "notes": "Notizen",
       "autoGenerated": "Automatisch",
       "autoGeneratedHelp": "Automatisch aus den Standardwerten der Pflanzenart erzeugt.",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manuell",
+      "filterOrigin": "Herkunft",
+      "filterSubjectType": "Zuordnung",
+      "subjectPlant": "Pflanze",
+      "subjectRun": "Pflanzdurchlauf",
+      "subjectNone": "Ohne Zuordnung"
     },
     "botanicalFamilies": {
       "title": "Botanische Familien",
@@ -1789,7 +1923,11 @@
       "noIncompatible": "Noch keine inkompatiblen Arten eingetragen.",
       "addCompatibleHint": "Geben Sie an, welche Art gut mit der gewählten Art verträglich ist.",
       "addIncompatibleHint": "Geben Sie an, welche Art nicht mit der gewählten Art verträglich ist.",
-      "targetSpeciesHelper": "Art die zur gewählten Art in Beziehung gesetzt werden soll"
+      "targetSpeciesHelper": "Art die zur gewählten Art in Beziehung gesetzt werden soll",
+      "optionCountSummary": "— {{compatible}} kompatibel, {{incompatible}} inkompatibel",
+      "optionCountLegendCompatible": "Anzahl kompatibler Arten",
+      "optionCountLegendIncompatible": "Anzahl inkompatibler Arten",
+      "noSpeciesFound": "Keine Art gefunden."
     },
     "cropRotation": {
       "title": "Fruchtfolge",
@@ -1839,7 +1977,7 @@
       "name": "Name",
       "nameHelper": "z.B. 'Growzelt 1', 'Gewächshaus', 'Garten Nord', 'Balkon'",
       "type": "Typ",
-      "typeHelper": "Bestimmt, welche Funktionen verfügbar sind — z. B. Wetter- und Frostschutz nur im Außenbereich und Gewächshaus.",
+      "typeHelper": "Bestimmt, welche Funktionen verfügbar sind — z. B. Wetter- und Frostschutz nur im Außenbereich, Gewächshaus und auf dem Balkon.",
       "climateZone": "Klimazone",
       "climateZoneHelper": "z.B. '8b' (USDA) oder 'gemäßigt' — hilft bei Pflanzenempfehlungen",
       "totalArea": "Gesamtfläche (m²)",
@@ -1851,7 +1989,8 @@
       "gpsBothRequired": "Bitte Breiten- und Längengrad gemeinsam angeben oder beide leer lassen.",
       "gpsLatRange": "Breitengrad muss zwischen -90 und 90 liegen.",
       "gpsLonRange": "Längengrad muss zwischen -180 und 180 liegen.",
-      "weatherTypeHint": "Wetter- und Frostfunktionen sind nur für die Standort-Typen „{{outdoorLabel}}\" und „{{greenhouseLabel}}\" verfügbar. Bei anderen Typen bleiben die GPS-Koordinaten ungenutzt.",
+      "weatherTypeHint": "Wetter- und Frostfunktionen sind nur für die Standort-Typen „{{outdoorLabel}}\", „{{greenhouseLabel}}\" und „{{balconyLabel}}\" verfügbar. Bei anderen Typen bleiben die GPS-Koordinaten ungenutzt.",
+      "balconyWeatherHint": "Ein Balkon gilt als frostgefährdeter Außenstandort: Mit hinterlegten GPS-Koordinaten stehen Wetterdaten und Frostwarnungen für diesen Standort zur Verfügung – genauso wie im Außenbereich und Gewächshaus.",
       "editIntro": "Bearbeiten Sie die Grunddaten dieses Standorts. Name und Klimazone helfen bei der Zuordnung von Bereichen.",
       "sectionBasicData": "Grunddaten",
       "sectionBasicDataDesc": "Name, Klimazone, Fläche und Zeitzone des Standorts.",
@@ -2132,6 +2271,7 @@
       "removedOn": "Entfernt am",
       "hideRemoved": "Entfernte ausblenden",
       "currentPhase": "Aktuelle Phase",
+      "currentPhaseHelper": "Aktueller Ist-Stand der Pflanze – wähle die Phase, in der sich die Pflanze gerade befindet. Bei einer neu angesetzten Pflanze ist das die erste Phase; eine bereits bestehende Pflanze kannst du direkt in ihrer aktuellen Phase erfassen (z. B. Blüte).",
       "remove": "Pflanze entfernen",
       "validatePlanting": "Pflanzung validieren",
       "cultivarKey": "Sorte",
@@ -2139,10 +2279,20 @@
       "slotKey": "Stellplatz (Key)",
       "slotKeyHelper": "Key des zugeordneten Stellplatzes",
       "sectionLocation": "Standort-Zuordnung",
-      "siteHelper": "Standort auswählen",
+      "siteHelper": "Standort, an dem sich die Pflanze befindet (optional)",
       "locationHelper": "Bereich innerhalb des Standorts",
       "slotHelper": "Stellplatz im Bereich",
       "slotOccupied": "belegt",
+      "sectionLocationOptionalDesc": "Standort, Bereich und Stellplatz der Pflanze. Alle Angaben sind optional – wähle zuerst einen Standort, dann den Bereich und zuletzt den Stellplatz.",
+      "locationHelperOptional": "Bereich innerhalb des Standorts (optional)",
+      "locationSelectSiteFirst": "Wähle zuerst einen Standort, um dessen Bereiche zu sehen.",
+      "locationEmptyForSite": "Dieser Standort hat noch keine Bereiche. Lege zuerst unter „Standorte“ einen Bereich an.",
+      "slotHelperOptional": "Stellplatz im Bereich (optional)",
+      "slotSelectSiteFirst": "Wähle zuerst einen Standort und einen Bereich, um einen Stellplatz zu wählen.",
+      "slotSelectAreaFirst": "Wähle zuerst einen Bereich, um dessen Stellplätze zu sehen.",
+      "slotEmptyForArea": "Dieser Bereich hat noch keine Stellplätze. Lege zuerst unter „Standorte“ einen Stellplatz an.",
+      "locationResetOnSiteChange": "Standort geändert – Bereich und Stellplatz wurden zurückgesetzt.",
+      "locationResetOnAreaChange": "Bereich geändert – Stellplatz wurde zurückgesetzt.",
       "substrateBatchKey": "Substratcharge (Key)",
       "substrateBatchKeyHelper": "Key der zugeordneten Substratcharge",
       "containerVolumeLiters": "Topfvolumen (Liter)",
@@ -2371,27 +2521,77 @@
     },
     "calculations": {
       "title": "Berechnungen",
+      "intro": "Praktische Rechner für Klima, Wachstum, Beleuchtung und Anbauplanung. Die Berechnung erfolgt serverseitig – wähle einfach die passenden Werte aus.",
+      "calculate": "Berechnen",
+      "phase": "Wachstumsphase",
+      "phases": {
+        "seedling": "Sämling",
+        "vegetative": "Vegetativ",
+        "flowering": "Blüte",
+        "flushing": "Spülung",
+        "ripening": "Reife",
+        "dormancy": "Ruhephase"
+      },
       "vpd": "VPD-Rechner",
-      "vpdTemp": "Temperatur (°C)",
-      "vpdHumidity": "Luftfeuchtigkeit (%)",
+      "vpdIntro": "Das Dampfdruckdefizit beschreibt, wie „durstig“ die Luft ist. Wähle die Wachstumsphase, um das optimale Zielband einzublenden.",
+      "vpdTemp": "Temperatur",
+      "vpdHumidity": "Luftfeuchtigkeit",
       "vpdResult": "VPD (kPa)",
       "vpdStatus": "Status",
+      "vpdTargetBand": "Zielband für diese Phase: {{min}}–{{max}} kPa",
+      "vpdStatusValues": {
+        "optimal": "optimal",
+        "low": "zu niedrig",
+        "high": "zu hoch"
+      },
       "gdd": "GDD-Rechner",
-      "gddBaseTemp": "Basistemperatur (°C)",
+      "gddIntro": "Wachstumsgradtage summieren die nutzbare Wärme. Trage die Tagestemperaturen als Min/Max-Werte ein.",
+      "gddBaseTemp": "Basistemperatur",
+      "gddBasePresets": {
+        "coolSeason": "Kühljahreszeit",
+        "lettuce": "Salat",
+        "tomato": "Tomate",
+        "maize": "Mais",
+        "warmSeason": "Warmjahreszeit"
+      },
       "gddTempsLabel": "Min,Max (pro Zeile)",
+      "gddDailyTemps": "Tagestemperaturen",
+      "gddDay": "Tag {{day}}",
+      "gddMinTemp": "Min",
+      "gddMaxTemp": "Max",
+      "gddAddDay": "Tag hinzufügen",
+      "gddRemoveDay": "Tag {{day}} entfernen",
+      "gddInvalidRow": "Bitte prüfe die Temperaturen – der Höchstwert darf nicht unter dem Tiefstwert liegen.",
       "gddResult": "Akkumulierte GDD",
+      "gddDaysCounted": "{{count}} Tage berücksichtigt",
       "photoperiod": "Photoperioden-Übergang",
-      "currentHours": "Aktuelle Stunden",
-      "targetHours": "Zielstunden",
+      "photoperiodIntro": "Berechnet einen schrittweisen Übergang der Belichtungsdauer und die tägliche Lichtsumme (DLI) je Tag.",
+      "currentHours": "Aktuelle Belichtungsdauer",
+      "targetHours": "Ziel-Belichtungsdauer",
       "transitionDays": "Übergangstage",
-      "lightsOnTime": "Licht Ein (HH:MM)",
+      "ppfd": "Lichtintensität (PPFD)",
+      "lightsOnTime": "Licht Ein",
+      "ppDay": "Tag",
+      "ppHours": "Stunden",
+      "ppOn": "Ein",
+      "ppOff": "Aus",
+      "ppDli": "DLI (mol/m²/d)",
       "slotCapacity": "Stellplatz-Kapazität",
-      "areaMsq": "Fläche (m²)",
+      "slotCapacityIntro": "Schätzt, wie viele Pflanzen bei gegebenem Abstand auf eine Fläche passen.",
+      "areaMsq": "Fläche",
       "plantSpacing": "Pflanzabstand (cm)",
-      "calculate": "Berechnen",
+      "plantSpacingHelp": "Typische Werte auswählen oder eigenen Abstand in cm eingeben.",
+      "scMax": "Maximal",
+      "scOptimal": "Optimalbereich",
+      "scPerM2": "Pflanzen/m²",
       "sunTimes": "Sonnenstand-Rechner",
+      "sunTimesIntro": "Berechnet Sonnenauf- und -untergang sowie Tageslänge für einen Standort und ein Datum.",
+      "sunTimesSite": "Standort übernehmen",
+      "sunTimesSiteHelp": "Koordinaten und Zeitzone aus einem vorhandenen Standort vorbelegen.",
       "latitude": "Breitengrad",
       "longitude": "Längengrad",
+      "date": "Datum",
+      "timezone": "Zeitzone",
       "sunrise": "Sonnenaufgang",
       "sunset": "Sonnenuntergang",
       "dawn": "Morgendämmerung",
@@ -4126,6 +4326,9 @@
       "moveToNextPhase": "Verschieben nach \"{{phase}}\"",
       "assignedTasks": "Zugewiesene Aufgaben",
       "completedOf": "{{completed}} von {{total}} erledigt",
+      "scheduled": "Geplant",
+      "scheduledCount": "{{count}} geplant",
+      "scheduledHint": "Für diesen Zyklus erledigt – der nächste Termin liegt in der Zukunft, aktuell ist keine Aktion nötig.",
       "noAssignedTasks": "Noch keine Aufgaben zugewiesen. Generieren Sie einen Aktivitätsplan oder weisen Sie einen Workflow zu.",
       "dormant": "Wartend",
       "statusAll": "Alle Aufgaben",
@@ -4588,6 +4791,46 @@
       "home_assistant": "Home Assistant",
       "mqtt": "MQTT",
       "manual": "Manuell"
+    },
+    "equipmentType": {
+      "tool": "Werkzeug",
+      "consumable": "Verbrauchsmaterial",
+      "sensor": "Sensor / Messgerät",
+      "lighting": "Beleuchtung",
+      "pump": "Pumpe",
+      "filter": "Filter",
+      "container": "Behälter",
+      "cleaning_agent": "Reinigungsmittel",
+      "other": "Sonstiges"
+    },
+    "equipmentStatus": {
+      "active": "Aktiv",
+      "maintenance": "In Wartung",
+      "stored": "Eingelagert",
+      "defective": "Defekt",
+      "retired": "Ausgemustert"
+    },
+    "propagationEventMethod": {
+      "clone": "Klon",
+      "seed": "Aussaat",
+      "cutting": "Steckling",
+      "graft": "Veredelung",
+      "division": "Teilung",
+      "layering": "Absenker",
+      "offset": "Kindel",
+      "other": "Sonstiges"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In Bearbeitung",
+      "rooted": "Bewurzelt",
+      "transplanted": "Umgetopft",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Kompatibel",
+      "possibly_compatible": "Bedingt kompatibel",
+      "incompatible": "Nicht kompatibel"
     },
     "aquaponicSystemType": {
       "media_bed": "Media-Bed (Blähton)",
@@ -5671,6 +5914,42 @@
       "beginnerTip": "Ohne Messgerät hilft der Knacktest als Näherung: Bricht der Stängel sauber statt sich zu biegen, ist die Charge meist trocken genug.",
       "unit": "a_w (0–1)",
       "typicalRange": "0,55–0,65 (sicher für die Lagerung)"
+    },
+    "inventree": {
+      "short": "Externes Lagerverwaltungssystem für deine realen Bestände",
+      "long": "InvenTree ist eine externe, eigenständige Inventarverwaltung. Ein „Part“ ist dort ein einzelner Artikel (z. B. eine Ersatzpumpe). Verknüpfst du ein Betriebsmittel mit einer Part-ID, gleicht Kamerplanter Bestand und Verbrauch automatisch mit InvenTree ab (Stock-Sync) — Mengen musst du dann nicht mehr manuell nachpflegen.",
+      "beginnerTip": "Die Verknüpfung ist optional: Auch ohne InvenTree-Verbindung kannst du Betriebsmittel ganz normal anlegen und verwalten.",
+      "category": "allgemein"
+    },
+    "vermehrung": {
+      "short": "Aus einer Pflanze neue Pflanzen gewinnen",
+      "long": "Vermehrung (Propagation) bezeichnet alle Methoden, um neue Pflanzen zu erzeugen: Aussaat (Samen), Steckling/Klon (Pflanzenteil bewurzeln), Teilung (Wurzelballen trennen), Absenker (Trieb im Boden bewurzeln lassen), Kindel (natürliche Ableger) oder Veredelung (zwei Pflanzen verbinden).",
+      "beginnerTip": "Für den Einstieg ist der Steckling am einfachsten: ein Trieb abschneiden, in Wasser oder Erde bewurzeln lassen.",
+      "category": "wachstum"
+    },
+    "steckling": {
+      "short": "Ein abgeschnittener Pflanzenteil, der neue Wurzeln bildet",
+      "long": "Ein Steckling (Cutting) ist ein Trieb-, Blatt- oder Wurzelstück, das von der Mutterpflanze getrennt und zum Bewurzeln gebracht wird. Die daraus entstehende Pflanze ist genetisch identisch mit der Mutterpflanze (ein Klon).",
+      "beginnerTip": "Trieb schräg anschneiden, unterste Blätter entfernen, in Wasser oder feuchtes Substrat stecken — nach 1–3 Wochen zeigen sich meist neue Wurzeln.",
+      "category": "wachstum"
+    },
+    "veredelung": {
+      "short": "Zwei Pflanzen zu einer verbinden — Edelreis auf Unterlage",
+      "long": "Bei der Veredelung (Grafting) wird ein Trieb einer Pflanze (Edelreis/Scion) auf das Wurzelsystem einer anderen Pflanze (Unterlage/Rootstock) aufgesetzt. Das funktioniert nur zwischen nah verwandten Pflanzen — am zuverlässigsten innerhalb derselben Gattung, oft auch noch innerhalb derselben Familie.",
+      "beginnerTip": "Klassisches Beispiel: robuste Tomaten-Unterlage + ertragreiches Edelreis für kräftigeres Wachstum und mehr Ertrag.",
+      "category": "wachstum"
+    },
+    "abstammung": {
+      "short": "Die genetische Herkunft einer Pflanze über Generationen",
+      "long": "Die Abstammung (Lineage) zeigt, aus welcher Mutterpflanze eine Pflanze entstanden ist (Vorfahren) und welche Pflanzen wiederum aus ihr entstanden sind (Nachkommen). Das System verfolgt das über Vermehrungsevents wie Stecklinge, Klone, Aussaaten oder Veredelungen.",
+      "beginnerTip": "Nützlich, um z. B. nachzuvollziehen, von welcher Mutterpflanze ein bestimmter Steckling stammt.",
+      "category": "taxonomie"
+    },
+    "gattung_familie": {
+      "short": "Verwandtschaftsgrad zweier Pflanzenarten in der Taxonomie",
+      "long": "Die biologische Systematik ordnet Arten in Gattungen (z. B. Solanum) und Familien (z. B. Nachtschattengewächse) ein. Je näher zwei Arten verwandt sind, desto wahrscheinlicher funktioniert eine Veredelung zwischen ihnen: gleiche Gattung ist meist kompatibel, gleiche Familie oft möglich, unterschiedliche Familien meist nicht kompatibel.",
+      "beginnerTip": "Tomate und Kartoffel gehören zur gleichen Gattung (Solanum) — eine Veredelung zwischen ihnen ist möglich (TomTato).",
+      "category": "taxonomie"
     }
   },
   "dashboard": {
@@ -5746,7 +6025,30 @@
     },
     "plantGrid": {
       "unnamed": "Unbenannte Pflanze",
-      "empty": "Noch keine aktiven Pflanzen."
+      "empty": "Noch keine aktiven Pflanzen.",
+      "noMatches": "Keine Pflanzen entsprechen den Filtern.",
+      "format": {
+        "label": "Kartenformat",
+        "detailed": "Detailliert",
+        "compact": "Kompakt"
+      },
+      "filters": {
+        "phase": "Phase",
+        "location": "Standort",
+        "task": "Aufgaben"
+      },
+      "filterValues": {
+        "noPhase": "Ohne Phase",
+        "noLocation": "Ohne Standort",
+        "hasTask": "Mit offener Aufgabe",
+        "noTask": "Ohne offene Aufgabe"
+      },
+      "card": {
+        "phase": "Phase",
+        "nextDue": "Fällig: {{date}}",
+        "openTask": "Offene Aufgabe",
+        "openTaskAria": "hat eine offene Aufgabe"
+      }
     },
     "nav": {
       "openWidget": "{{widget}} öffnen",
@@ -5838,6 +6140,60 @@
         "label": "Pflanzenübersicht",
         "description": "Kachelübersicht all deiner Pflanzen."
       }
+    }
+  },
+  "diagnose": {
+    "title": "KI-Diagnose",
+    "subtitle": "Beschreibe die beobachteten Symptome und erhalte die drei wahrscheinlichsten Ursachen – verknüpft mit passenden Schädlingen und Behandlungen. Dies ist ein strukturierter Assistent, keine gesicherte Diagnose.",
+    "stepperAriaLabel": "Fortschritt der KI-Diagnose",
+    "stepIndicator": "Schritt {{current}} von {{total}}: {{label}}",
+    "status": {
+      "analyzing": "Diagnose wird durchgeführt …"
+    },
+    "symptoms": {
+      "causeHintLabel": "Mögliche Ursachen für „{{label}}“ anzeigen"
+    },
+    "steps": {
+      "symptoms": "Symptome",
+      "context": "Kontext",
+      "results": "Ergebnis",
+      "symptomsHelp": "Wähle alle zutreffenden Symptome aus. Je genauer die Auswahl, desto besser die Diagnose.",
+      "contextHelp": "Optional: Füge Anmerkungen hinzu oder nutze die Foto-Diagnose für eine Bilderkennung."
+    },
+    "categories": {
+      "leaf_color_change": "Verfärbung der Blätter",
+      "leaf_shape_change": "Veränderte Blattform",
+      "growth_anomaly": "Wachstumsstörung",
+      "pest_visible": "Sichtbare Schädlinge",
+      "disease_visible": "Sichtbare Krankheit",
+      "flowering_issue": "Blüte- oder Fruchtproblem",
+      "environmental": "Umweltbedingter Stress"
+    },
+    "context": {
+      "notesLabel": "Anmerkungen (optional)",
+      "notesHelp": "Deine Anmerkungen werden aus Datenschutzgründen nicht im Wortlaut an die KI übergeben – nur der Hinweis, dass du Anmerkungen gemacht hast.",
+      "photoHint": "Für eine Bild-basierte Diagnose steht die Foto-Erkennung zur Verfügung.",
+      "photoLink": "Zur Foto-Diagnose"
+    },
+    "actions": {
+      "analyze": "Diagnose starten",
+      "restart": "Neue Diagnose"
+    },
+    "results": {
+      "intro": "Die drei wahrscheinlichsten Ursachen, absteigend nach Konfidenz:",
+      "rank": "#{{rank}}",
+      "confidence": "{{percent}}% Konfidenz",
+      "actions": "Empfohlene Maßnahmen",
+      "pestLink": "Schädling im Detail ansehen",
+      "treatments": "Mögliche Behandlungen",
+      "treatmentKarenz": "{{name}} (Karenz {{days}} Tage)"
+    },
+    "errors": {
+      "loadSymptoms": "Der Symptomkatalog konnte nicht geladen werden.",
+      "analyze": "Die Diagnose konnte nicht durchgeführt werden. Bitte versuche es erneut.",
+      "serviceUnavailable": "Der Wissensassistent ist gerade nicht erreichbar. Bitte versuche es später erneut.",
+      "invalidOutput": "Die KI konnte kein verwertbares Ergebnis liefern. Bitte versuche es erneut.",
+      "noResult": "Zu den gewählten Symptomen konnte keine Diagnose ermittelt werden."
     }
   }
 }

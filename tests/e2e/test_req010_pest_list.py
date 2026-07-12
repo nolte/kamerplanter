@@ -297,8 +297,6 @@ class TestPestCreateDialog:
 
         Spec: TC-010-009 -- Schaedling erstellen — Pflichtfeld 'Wissenschaftlicher Name' leer.
         """
-        from selenium.webdriver.common.by import By
-
         pest_list.open()
         pest_list.click_create()
         pest_list.wait_for_loading_complete()
@@ -317,29 +315,13 @@ class TestPestCreateDialog:
         )
         has_sci_error = pest_list.has_validation_error("scientific_name")
         # Fallback: any error helper text
-        has_any_error = len(pest_list.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        has_any_error = pest_list.has_any_dialog_error_helper_text()
         # Fallback: aria-invalid on input (validation fired but helperText may be empty)
-        has_aria_invalid = len(pest_list.driver.find_elements(
-            By.CSS_SELECTOR,
-            "div[role='dialog'] [data-testid='form-field-scientific_name'] input[aria-invalid='true']"
-        )) > 0
+        has_aria_invalid = pest_list.field_has_aria_invalid("scientific_name")
         # Fallback: any aria-invalid in dialog
-        has_any_aria_invalid = len(pest_list.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] input[aria-invalid='true']"
-        )) > 0
+        has_any_aria_invalid = pest_list.has_any_aria_invalid_in_dialog()
         # Debug: get scientific_name field value to understand state
-        try:
-            sci_input = pest_list.driver.find_element(
-                By.CSS_SELECTOR,
-                "div[role='dialog'] [data-testid='form-field-scientific_name'] input"
-            )
-            sci_value = sci_input.get_attribute("value")
-            sci_aria = sci_input.get_attribute("aria-invalid")
-        except Exception as e:
-            sci_value = f"NOT FOUND: {e}"
-            sci_aria = "N/A"
+        sci_value, sci_aria = pest_list.get_field_debug_state("scientific_name")
         assert has_sci_error or has_any_error or has_aria_invalid or has_any_aria_invalid, (
             f"TC-REQ-010-010 FAIL: Expected validation error for 'scientific_name'. "
             f"scientific_name value='{sci_value}', aria-invalid='{sci_aria}'"
@@ -357,8 +339,6 @@ class TestPestCreateDialog:
 
         Spec: TC-010-010 -- Schaedling erstellen — Pflichtfeld 'Gebraeuchlicher Name' leer.
         """
-        from selenium.webdriver.common.by import By
-
         pest_list.open()
         pest_list.click_create()
         pest_list.wait_for_loading_complete()
@@ -377,9 +357,7 @@ class TestPestCreateDialog:
         )
         has_common_error = pest_list.has_validation_error("common_name")
         # Fallback: any error helper text
-        has_any_error = len(pest_list.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        has_any_error = pest_list.has_any_dialog_error_helper_text()
         assert has_common_error or has_any_error, (
             "TC-REQ-010-011 FAIL: Expected validation error for 'common_name'"
         )

@@ -15,6 +15,9 @@ Verbindliche Spezifikation: [`spec/dev-tooling/MCP-SERVERS.md`](https://github.c
 !!! info "Selenium bleibt unverändert"
     MCP-Werkzeuge **ersetzen keine E2E-Tests**. Die `tests/e2e/`-Suite und `docker-compose.e2e.yml` bleiben gemäß [NFR-008a](https://github.com/nolte/kamerplanter/blob/main/spec/nfr/NFR-008a_E2E-Selenium-Teststandard.md) die alleinige Quelle der Wahrheit für E2E. MCP-Server sind **Debug- und Recherche-Hilfsmittel** für die Entwicklung.
 
+!!! note "Nicht zu verwechseln mit dem Kamerplanter-MCP-Server für Endnutzer"
+    Diese Seite beschreibt MCP-Server, die **Claude Code während der Entwicklung** nutzt. Kamerplanter selbst bietet außerdem einen eigenen **[MCP-Server](../api/mcp-server.md)**, über den externe LLM-Clients (Claude Desktop, Claude Code, eigene Agenten) als Nutzer:innen auf deinen Garten zugreifen können — zwei unabhängige, gleichnamige Konzepte.
+
 ---
 
 ## Schnellstart

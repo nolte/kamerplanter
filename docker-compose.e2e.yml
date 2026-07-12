@@ -113,6 +113,12 @@ services:
       valkey:
         condition: service_healthy
     command: celery -A app.tasks worker --loglevel=info
+    # The worker runs no HTTP server, so the backend image's inherited
+    # HTTP healthcheck (curl :8000) can never pass. Disable it — nothing
+    # depends_on this service being healthy, and it otherwise breaks
+    # `docker compose up --wait`.
+    healthcheck:
+      disable: true
 
   # ── Frontend (React + nginx) ─────────────────────────────
   frontend:
@@ -294,6 +300,11 @@ services:
       valkey:
         condition: service_healthy
     command: celery -A app.tasks worker --loglevel=info
+    # The worker runs no HTTP server, so the backend image's inherited
+    # HTTP healthcheck (curl :8000) can never pass. Disable it — nothing
+    # depends_on this service being healthy.
+    healthcheck:
+      disable: true
     profiles: ["full"]
 
   # ── Frontend (full mode) ─────────────────────────────────────

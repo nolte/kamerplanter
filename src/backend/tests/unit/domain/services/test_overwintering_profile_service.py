@@ -144,6 +144,32 @@ class TestAutoGenerate:
         assert profile.spring_action == SpringAction.REPLANT
         assert profile.spring_action_month is not None
 
+    def test_bed_yellow_stays_path_a(self, service) -> None:
+        """AC-26 baseline — a bed (non-container) yellow plant overwinters in-situ."""
+        # MODERATE frost + no zone gap → yellow (path A) when in a bed.
+        bed = service.auto_generate_profile(TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.MODERATE)
+        assert bed.winter_action == WinterAction.MULCH
+
+    def test_container_flag_moves_indoors(self, service) -> None:
+        """AC-26 — a potted (container) yellow plant is escalated to path B."""
+        potted = service.auto_generate_profile(
+            TENANT, plant_key="p1", frost_sensitivity=FrostTolerance.MODERATE, is_container=True
+        )
+        assert potted.hardiness_rating == HardinessRating.FROST_FREE
+        assert potted.winter_action == WinterAction.MOVE_INDOORS
+
+    def test_container_does_not_touch_green(self, service) -> None:
+        """A fully hardy (green) plant is never escalated by the container flag."""
+        profile = service.auto_generate_profile(
+            TENANT,
+            plant_key="p1",
+            frost_sensitivity=FrostTolerance.VERY_HARDY,
+            species_zone="6a",
+            site_zone="7a",
+            is_container=True,
+        )
+        assert profile.winter_action == WinterAction.NONE
+
 
 class TestDuplicateSubject:
     def test_second_profile_for_same_plant_rejected(self, service) -> None:

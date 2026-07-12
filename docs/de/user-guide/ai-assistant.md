@@ -158,3 +158,4 @@ Ist die zugrunde liegende Wissensbasis (Knowledge Service) nicht erreichbar, lie
 - [KI-Architektur (Entwickler)](../architecture/ai-architecture.md)
 - [API-Referenz: KI-Assistent](../reference/api-reference.md#ki-assistent)
 - [Umgebungsvariablen: KI-Assistent](../reference/environment-variables.md#ki-assistent)
+- [MCP-Server — externe LLM-Clients als Kamerplanter-Werkzeug](../api/mcp-server.md)

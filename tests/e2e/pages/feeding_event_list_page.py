@@ -128,10 +128,27 @@ class FeedingEventListPage(BasePage):
         """Return True if the empty state is shown."""
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
+    def has_table(self) -> bool:
+        """Return True if the DataTable is present."""
+        return len(self.driver.find_elements(*self.TABLE)) > 0
+
     def get_showing_count_text(self) -> str:
         """Return the text of the showing count element."""
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
+
+    def has_showing_count(self) -> bool:
+        """Return True if the showing-count element is present."""
+        return len(self.driver.find_elements(*self.SHOWING_COUNT)) > 0
+
+    def is_page_visible(self) -> bool:
+        """Return True if the list page root container is present."""
+        return len(self.driver.find_elements(*self.PAGE)) > 0
+
+    def is_create_button_visible(self) -> bool:
+        """Return True if the create button is present and displayed."""
+        elements = self.driver.find_elements(*self.CREATE_BUTTON)
+        return len(elements) > 0 and elements[0].is_displayed()
 
     # -- Create dialog -----------------------------------------------------
 
@@ -205,6 +222,12 @@ class FeedingEventListPage(BasePage):
     def has_plant_key_field(self) -> bool:
         """Return True if the plant_key form field is present."""
         return len(self.driver.find_elements(*self.FORM_PLANT_KEY)) > 0
+
+    def has_form_field(self, field_name: str) -> bool:
+        """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
+        )) > 0
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a given form field."""

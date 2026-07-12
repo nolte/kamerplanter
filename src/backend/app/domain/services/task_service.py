@@ -1,11 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
-from dateutil.rrule import rrulestr
-
 from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
+from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.task import (
     ChecklistItem,
@@ -25,10 +24,12 @@ class TaskService:
         repo: ITaskRepository,
         hst_validator: HSTValidator,
         dependency_resolver: DependencyResolver,
+        recurrence: RecurrenceEngine | None = None,
     ) -> None:
         self._repo = repo
         self._hst = hst_validator
         self._deps = dependency_resolver
+        self._recurrence = recurrence or RecurrenceEngine()
 
     # ── Workflow Templates ──
 
@@ -379,8 +380,8 @@ class TaskService:
         if completed_task.recurrence_end_date and datetime.now(UTC) >= completed_task.recurrence_end_date:
             return None
 
-        # Compute the next due date from the recurrence rule.
-        next_dt = self._compute_next_recurrence(completed_task.recurrence_rule, datetime.now(UTC))
+        # Compute the next due date from the recurrence rule via the shared engine.
+        next_dt = self._recurrence.next_occurrence(completed_task.recurrence_rule, datetime.now(UTC))
         if next_dt is None:
             return None
 
@@ -414,40 +415,13 @@ class TaskService:
         )
         return self._repo.create_task(new_task)
 
-    @staticmethod
-    def _compute_next_recurrence(rule: str, after: datetime) -> datetime | None:
-        """Return the next occurrence of a recurrence rule strictly after ``after``.
+    def _compute_next_recurrence(self, rule: str, after: datetime) -> datetime | None:
+        """Delegate to the shared :class:`RecurrenceEngine` (kept for callers/tests).
 
-        The canonical recurrence format is an iCal RRULE string as emitted by the
-        frontend (e.g. ``FREQ=DAILY``, ``FREQ=WEEKLY;INTERVAL=2``,
-        ``FREQ=WEEKLY;BYDAY=MO,WE``), parsed via ``dateutil.rrule``. This aligns
-        with the REQ-015 iCal token so a single format spans task recurrence and
-        calendar export.
-
-        Legacy cron expressions are tolerated as a fallback: if the rule does not
-        parse as an RRULE, it is retried with ``croniter``. No cron strings are
-        known to be persisted today, but the fallback keeps any historically
-        created rule working. An empty or unparseable rule yields ``None``.
+        The recurrence algorithm now lives in one place so the generic task path
+        and the fixed-interval care path share a single implementation (#510).
         """
-        if not rule:
-            return None
-
-        # Canonical path: iCal RRULE via dateutil. dtstart=after makes the rule
-        # relative to "now"; inc=False returns the first occurrence *after* it.
-        try:
-            rule_set = rrulestr(rule, dtstart=after)
-        except (ValueError, TypeError) as exc:  # noqa: F841 — parens kept vs ruff-format tuple strip
-            rule_set = None
-        if rule_set is not None:
-            return rule_set.after(after, inc=False)
-
-        # Legacy fallback: cron syntax via croniter.
-        try:
-            from croniter import croniter
-
-            return croniter(rule, after).get_next(datetime)
-        except (ValueError, KeyError, TypeError) as exc:  # noqa: F841 — parens kept vs ruff-format tuple strip
-            return None
+        return self._recurrence.next_occurrence(rule, after)
 
     def skip_task(self, key: str) -> Task:
         task = self.get_task(key)
@@ -701,18 +675,21 @@ class TaskService:
     def _deduplicate_care_tasks(tasks: list[Task]) -> list[Task]:
         """Remove duplicate care_reminder tasks for the same plant + reminder type.
 
-        Groups by full task name (e.g. "CANNA-0320-X90 — watering") which is
-        unique per plant+type. Within each group, prefers tasks with entity_key
-        set (newer format) over those without (legacy data), then by newest
-        due_date/created_at.
+        Groups by ``(tenant_key, full task name)`` — the name (e.g.
+        "CANNA-0320-X90 — watering") is unique per plant+type, and pinning the
+        tenant_key ensures two tenants whose plants happen to share a display
+        name + reminder type are never collapsed into one (cross-tenant dedup
+        gap, #509). Within each group, prefers tasks with entity_key set (newer
+        format) over those without (legacy data), then by newest due_date/created_at.
         """
         result: list[Task] = []
-        care_groups: dict[str, list[Task]] = {}
+        care_groups: dict[tuple[str, str], list[Task]] = {}
 
         for task in tasks:
             if task.category == "care_reminder":
-                # Group by full name — covers both entity_key and legacy tasks
-                care_groups.setdefault(task.name, []).append(task)
+                # Group by (tenant, full name) — tenant-scoped so the read-time
+                # safety net can never merge two tenants' care tasks (#509).
+                care_groups.setdefault((task.tenant_key, task.name), []).append(task)
             else:
                 result.append(task)
 

@@ -98,10 +98,6 @@ describe('GenericWidget', () => {
 
 describe('GenericWidget — entity deep links (#461)', () => {
   const TASK = { _key: 't1', name: 'Gießen', category: 'watering', due_date: '2026-07-10' };
-  const PLANTS = [
-    { _key: 'p1', plant_name: 'Basilikum', species_key: 'ocimum-basilicum' },
-    { _key: 'p2', plant_name: null, species_key: 'solanum-lycopersicum' },
-  ];
 
   it('deep-links each next_calendar_events row to its task detail — no nested <a>', () => {
     payloadMock.useWidgetPayload.mockReturnValue({ payload: { upcoming_tasks: [TASK] }, loading: false });
@@ -155,21 +151,6 @@ describe('GenericWidget — entity deep links (#461)', () => {
     expect(listLink).toHaveAttribute('href', '/kalender');
   });
 
-  it('deep-links each plant_grid tile to its plant detail — no nested <a>', () => {
-    payloadMock.useWidgetPayload.mockReturnValue({ payload: { plants: PLANTS }, loading: false });
-    render('plant_grid');
-    const tile = screen.getByTestId('widget-plant_grid-tile-p1');
-    expect(tile.tagName).toBe('A');
-    expect(tile).toHaveAttribute('href', '/pflanzen/plant-instances/p1');
-    expect(tile.parentElement?.closest('a')).toBeNull();
-    // A plant without a name falls back to a humanized species-key label
-    // (#461 usability follow-up) rather than the raw slug.
-    expect(screen.getByTestId('widget-plant_grid-tile-p2')).toHaveTextContent('Solanum Lycopersicum');
-  });
-
-  it('renders the empty state when plant_grid has no active plants', () => {
-    payloadMock.useWidgetPayload.mockReturnValue({ payload: { plants: [] }, loading: false });
-    render('plant_grid');
-    expect(screen.getByTestId('widget-plant_grid-tiles-empty')).toBeInTheDocument();
-  });
+  // ``plant_grid`` moved to its dedicated, rich PlantGridWidget (#488) — see
+  // PlantGridWidget.test.tsx for its card / filter / format / open-task coverage.
 });

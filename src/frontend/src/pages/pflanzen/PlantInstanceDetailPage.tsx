@@ -46,7 +46,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
-import LocationTreeSelect from '@/components/form/LocationTreeSelect';
+import LocationAssignmentSection from '@/components/form/LocationAssignmentSection';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
@@ -2400,53 +2400,13 @@ export default function PlantInstanceDetailPage() {
             </Card>
           </Box>
 
-          {/* Panel 3: Location (full-width below master-detail, R-058 — tree component) */}
-          <Card variant="outlined">
-            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
-              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
-                {t('pages.plantInstances.sectionLocation')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('pages.plantInstances.sectionLocationDesc')}
-              </Typography>
-              <FormRow>
-                <FormSelectField
-                  name="site_key"
-                  control={control}
-                  label={t('entities.site')}
-                  helperText={t('pages.plantInstances.siteHelper')}
-                  options={[
-                    { value: '', label: '—' },
-                    ...sitesList.map((s) => ({ value: s.key, label: s.name })),
-                  ]}
-                />
-                <LocationTreeSelect
-                  name="location_key"
-                  control={control}
-                  siteKey={editSiteKey}
-                  label={t('entities.location')}
-                />
-              </FormRow>
-              <FormRow>
-                <FormSelectField
-                  name="slot_key"
-                  control={control}
-                  label={t('entities.slot')}
-                  helperText={t('pages.plantInstances.slotHelper')}
-                  disabled={!editLocationKey}
-                  options={[
-                    { value: '', label: '—' },
-                    ...slotsList.map((s) => ({
-                      value: s.key,
-                      label: s.currently_occupied
-                        ? `${s.slot_id} (${t('pages.plantInstances.slotOccupied')})`
-                        : s.slot_id,
-                    })),
-                  ]}
-                />
-              </FormRow>
-            </CardContent>
-          </Card>
+          {/* Panel 3: Location (full-width below master-detail, R-058 — shared cascade) */}
+          <LocationAssignmentSection
+            control={control}
+            sites={sitesList}
+            slots={slotsList}
+            variant="card"
+          />
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={() => setTab(0)} loading={saving} />

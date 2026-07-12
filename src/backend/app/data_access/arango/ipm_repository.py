@@ -106,6 +106,13 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     # ── Inspection ──
 
     def create_inspection(self, inspection: Inspection) -> Inspection:
+        # #517 — the plant instance is a caller-supplied foreign reference; verify
+        # it exists and belongs to the caller's tenant before wiring an edge to
+        # it (fail-closed 404, no cross-tenant oracle).
+        if inspection.plant_key:
+            self.verify_entity_ownership(
+                col.PLANT_INSTANCES, inspection.plant_key, inspection.tenant_key, entity_name="PlantInstance"
+            )
         insp = self._inspections.create(inspection, default_now_fields=("inspected_at",))
 
         # Create edges
@@ -160,6 +167,15 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     # ── TreatmentApplication ──
 
     def create_treatment_application(self, app: TreatmentApplication) -> TreatmentApplication:
+        # #517 — verify the caller-supplied plant instance is own-tenant before
+        # persisting the applied-to edge (fail-closed 404). ``treatment_key`` is
+        # global reference data whose existence the service already validates
+        # (``IpmService.get_treatment`` → NotFoundError), so it needs no
+        # tenant-ownership check here.
+        if app.plant_key:
+            self.verify_entity_ownership(
+                col.PLANT_INSTANCES, app.plant_key, app.tenant_key, entity_name="PlantInstance"
+            )
         ta = self._applications.create(app, default_now_fields=("applied_at",))
 
         # Create edges

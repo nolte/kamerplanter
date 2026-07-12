@@ -16,11 +16,15 @@ from app.api.v1.attachments.tenant_router import router as tenant_attachments_ro
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
 from app.api.v1.dashboard.tenant_router import router as tenant_dashboard_router
+from app.api.v1.diagnose.tenant_router import router as tenant_diagnosis_router
+from app.api.v1.equipment.tenant_router import router as tenant_equipment_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
 from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
+from app.api.v1.glossar.router import router as tenant_glossary_router
 from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_router
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
+from app.api.v1.inventree.tenant_router import router as tenant_inventree_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
 from app.api.v1.ki_assistent.tenant_router import router as tenant_ai_router
 from app.api.v1.locations.tenant_router import router as tenant_locations_router
@@ -36,6 +40,7 @@ from app.api.v1.plant_instances.tenant_router import router as tenant_plants_rou
 from app.api.v1.planting_runs.tenant_router import router as tenant_planting_runs_router
 from app.api.v1.post_harvest.tenant_router import router as tenant_post_harvest_router
 from app.api.v1.print.tenant_router import router as tenant_print_router
+from app.api.v1.propagation.tenant_router import router as tenant_propagation_router
 from app.api.v1.recognition.tenant_router import router as tenant_recognition_router
 from app.api.v1.season.tenant_router import router as tenant_season_router
 from app.api.v1.sites.tenant_router import router as tenant_sites_router
@@ -83,6 +88,10 @@ tenant_scoped_router.include_router(tenant_overwintering_profiles_router)
 tenant_scoped_router.include_router(tenant_season_router)
 # REQ-031 KI-Assistent — /t/{slug}/ai/* (three-stage toggle enforced in-router)
 tenant_scoped_router.include_router(tenant_ai_router)
+# REQ-035 KI terminology glossary — /t/{slug}/glossary/* (no tenant data, §3.1)
+tenant_scoped_router.include_router(tenant_glossary_router)
+# REQ-036 KI-Diagnose — /t/{slug}/diagnosis/* (shares the KI three-stage toggle)
+tenant_scoped_router.include_router(tenant_diagnosis_router)
 tenant_scoped_router.include_router(tenant_starter_kits_router)
 tenant_scoped_router.include_router(tenant_onboarding_router)
 tenant_scoped_router.include_router(tenant_favorites_router)
@@ -99,3 +108,8 @@ tenant_scoped_router.include_router(tenant_cv_diagnosis_router)
 tenant_scoped_router.include_router(tenant_aquaponics_router)
 # REQ-018 Environment control / actuators
 tenant_scoped_router.include_router(tenant_actuators_router)
+# REQ-016 InvenTree integration (optional) — connections/references/sync + equipment
+tenant_scoped_router.include_router(tenant_inventree_router)
+tenant_scoped_router.include_router(tenant_equipment_router)
+# REQ-017 Propagation / lineage
+tenant_scoped_router.include_router(tenant_propagation_router)

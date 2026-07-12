@@ -266,9 +266,13 @@ class TestDiseaseCreateDialog:
             pytest.skip("Disease creation failed — dialog did not close after submit")
 
         disease_list.open()  # Refresh list
+        # A freshly-created row can be hidden by pagination (NFR-008a §7.2):
+        # search for it before asserting so the check is precise.
+        disease_list.search(sci_name)
+        disease_list.wait_for_loading_complete()
         names = disease_list.get_first_column_texts()
         assert any(sci_name in n for n in names), (
-            f"TC-REQ-010-021 FAIL: Expected '{sci_name}' in disease list, got {names}"
+            f"TC-REQ-010-021 FAIL: Expected '{sci_name}' in disease list after search, got {names}"
         )
 
     @pytest.mark.core_crud
@@ -281,8 +285,6 @@ class TestDiseaseCreateDialog:
 
         Spec: TC-010-017 -- Krankheit erstellen — Pflichtfelder leer (beide Namen fehlen).
         """
-        from selenium.webdriver.common.by import By
-
         disease_list.open()
         disease_list.click_create()
         disease_list.wait_for_loading_complete()
@@ -302,9 +304,7 @@ class TestDiseaseCreateDialog:
         has_sci = disease_list.has_validation_error("scientific_name")
         has_common = disease_list.has_validation_error("common_name")
         # Fallback: check for any error helper text in the dialog
-        has_any_error = len(disease_list.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        has_any_error = disease_list.has_any_dialog_error_helper_text()
         assert has_sci or has_common or has_any_error, (
             "TC-REQ-010-022 FAIL: Expected validation error for 'scientific_name' and/or 'common_name'"
         )

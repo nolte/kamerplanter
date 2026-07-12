@@ -33,6 +33,8 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   '/pflanzen/calculations': { label: 'nav.calculations', parent: '/dashboard' },
   // REQ-029 KI-Pflanzenerkennung
   '/pflanzen/identifikation': { label: 'nav.plantIdentification', parent: '/dashboard' },
+  // REQ-017 Vermehrung / Lineage
+  '/vermehrung': { label: 'nav.propagation', parent: '/dashboard' },
 
   // REQ-004 Düngung
   '/duengung/fertilizers': { label: 'nav.fertilizers', parent: '/dashboard' },
@@ -61,6 +63,9 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
 
   // REQ-013 Durchläufe
   '/durchlaeufe/planting-runs': { label: 'nav.plantingRuns', parent: '/dashboard' },
+
+  // REQ-016 InvenTree integration (Equipment)
+  '/inventree': { label: 'nav.equipment', parent: '/dashboard' },
 
   // Watering Log (unified)
   '/giessprotokoll': { label: 'nav.wateringLog', parent: '/dashboard' },

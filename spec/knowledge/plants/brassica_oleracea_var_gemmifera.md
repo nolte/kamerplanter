@@ -24,6 +24,9 @@
 | GDD-Basistemperatur (degC) | 4--5 (Hauptwuchsphase; kuehlliebende Kohlart -- Studienwerte mit Basis +5 degC, Cole-Crops-Reviews 3--5 degC) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | biennial (in Kultur als annual genutzt -- Ernte im 1. Jahr) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Bluehstrategie (flowering strategy) | monocarpic (bluesht einmal im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze; gleiche Art wie Kohl/Gruenkohl/Kohlrabi, siehe Brassica-oleracea-Konvention im Korpus) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 | Photoperiode | day_neutral (kein echter Kurz-/Langtagblueher; Bluete im 2. Jahr wird ueber Vernalisation/Kaeltereiz induziert, nicht ueber Tageslaenge -- Korpus-Konvention fuer vernalisationsgesteuerte Arten) | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Dormanz erforderlich | false (keine echte Endodormanz; Pflanze waechst bei milder Witterung durch) | `lifecycle_configs.dormancy_required` |
@@ -572,3 +575,8 @@ Rosenkohl (Pötschke Historisch),Brassica oleracea var. gemmifera,Pötschke,,hei
 24. MSU Extension -- Commercial Vegetable Recommendations, Cole Crops: erhoehter Bor- und Molybdaen-Bedarf der Brassicaceae (Whiptail bei Mo-Mangel): https://www.canr.msu.edu/resources/commercial_vegetable_recommendations_cole_crops_e1591
 25. University of Delaware Weekly Crop Update -- Calcium and Boron Deficiencies in Brassica Crops: hoher Bor-Bedarf, Hohlstrunk/braune Roeschen bei Mangel: https://sites.udel.edu/weeklycropupdate/?p=12446
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+26. Greg -- Brussels Sprout: Not a Perennial Plant: "In the second year, they flower and produce seeds before dying" (monokarpe Bluehstrategie, biennial): https://greg.app/brussels-sprout-perennial/
+27. LearnSeedSaving -- Brussels Sprouts (Brassica oleracea var. gemmifera): "As a biennial plant, Brussels sprouts require two seasons to produce seeds and must undergo vernalization in order to flower": https://www.learnseedsaving.com/brussels-sprouts/
+28. RHS -- Brussels Sprouts Problems: Quick Fixes (Bluete/Bolting im 2. Jahr, gleiche Gattungs-/Artkonvention wie Kohl var. capitata/sabellica/gongylodes im Korpus): https://www.rhs.org.uk/problems/brussels-sprouts-problems
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

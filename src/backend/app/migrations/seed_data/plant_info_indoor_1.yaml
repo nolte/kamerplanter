@@ -801,7 +801,9 @@ new_species:
     common_names: [Elefantenfuß, Flaschenbaum, Ponytail Palm, Elephant Foot Tree]
     genus: Beaucarnea
     plant_category: succulent_cactus
-    growth_habit: tree
+    # A4 reclassification (#453 WP-10): caudiciform succulent — verdickte Stammbasis als
+    # Wasserspeicher (Steckbrief §1: "caudiciformer Sukkulent"), category succulent_cactus.
+    growth_habit: succulent
     root_type: fibrous
     hardiness_zones: [9a, 9b, 10a, 10b, 11a, 11b]
     native_habitat: "Mexiko (Tamaulipas, Veracruz)"

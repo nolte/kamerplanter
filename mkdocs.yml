@@ -106,12 +106,14 @@ plugins:
             Dünge-Logik: Fertilization Logic
             Sensorik: Sensors
             Wetterquellen: Weather Sources
+            Berechnungen: Calculations
             Aufgaben: Tasks
             Ernte: Harvest
             Nacherntebehandlung: Post-Harvest
             Pflanzenschutz (IPM): Pest Management (IPM)
             Pflanzdurchläufe: Planting Runs
             Tankmanagement: Tank Management
+            Betriebsmittel & Inventar (InvenTree): Equipment & Inventory (InvenTree)
             Aquaponik: Aquaponics
             Kalender: Calendar
             Dashboard: Dashboard
@@ -120,7 +122,9 @@ plugins:
             Light-Modus: Light Mode
             Kiosk-Modus: Kiosk Mode
             KI-Assistent: AI Assistant
+            KI-Diagnose: AI Diagnosis
             KI-Provider einrichten: AI Provider Setup
+            Fachbegriff-Glossar: Terminology Glossary
             Umgebungssteuerung: Actuator Control
             Mandanten & Gaerten: Tenants & Gardens
             Pflegeerinnerungen: Care Reminders
@@ -175,6 +179,7 @@ plugins:
             Browser-Push einrichten: Set Up Browser Push
             RAG-Wissensbasis: RAG Knowledge Base
             Service Accounts: Service Accounts
+            MCP-Server: MCP Server
             Datenaufbewahrung: Data Retention
             Mischkultur: Companion Planting
             Nachernte: Post-Harvest
@@ -285,17 +290,21 @@ nav:
       - Stammdaten-Import: de/user-guide/import.md
       - Standorte & Substrate: de/user-guide/locations-substrates.md
       - Wachstumsphasen: de/user-guide/growth-phases.md
+      - Vermehrung: de/user-guide/propagation.md
       - Dünge-Logik: de/user-guide/fertilization.md
       - Gießprotokoll: de/user-guide/watering-log.md
       - Sensorik: de/user-guide/sensors.md
       - Wetterquellen: de/user-guide/weather-sources.md
+      - Berechnungen: de/user-guide/calculations.md
       - Aufgaben: de/user-guide/tasks.md
       - Ernte: de/user-guide/harvest.md
       - Nacherntebehandlung: de/user-guide/post-harvest.md
       - Pflanzenschutz (IPM): de/user-guide/pest-management.md
       - Pflanzenprobleme lösen: de/user-guide/plant-health-troubleshooting.md
+      - KI-Diagnose: de/user-guide/ai-diagnosis.md
       - Pflanzdurchläufe: de/user-guide/planting-runs.md
       - Tankmanagement: de/user-guide/tanks.md
+      - Betriebsmittel & Inventar (InvenTree): de/user-guide/inventree.md
       - Aquaponik: de/user-guide/aquaponics.md
       - Kalender: de/user-guide/calendar.md
       - Dashboard: de/user-guide/dashboard.md
@@ -307,13 +316,13 @@ nav:
       - Kiosk-Modus: de/user-guide/kiosk-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
+      - Fachbegriff-Glossar: de/user-guide/glossary.md
       - Umgebungssteuerung: de/user-guide/actuator-control.md
       - Mandanten & Gaerten: de/user-guide/tenants.md
       - Pflegeerinnerungen: de/user-guide/care-reminders.md
       - Saison-Automatik: de/user-guide/season-automation.md
       - Überwinterung: de/user-guide/overwintering.md
       - Benachrichtigungen: de/user-guide/notifications.md
-      - Vermehrung: de/user-guide/propagation.md
       - Datenschutz (DSGVO): de/user-guide/privacy.md
       - Druckansichten & Export: de/user-guide/print-export.md
       - Schädlinge per Foto erkennen: de/user-guide/pest-detection.md
@@ -348,6 +357,7 @@ nav:
           - Authentifizierung: de/api/authentication.md
           - Fehlerbehandlung: de/api/error-handling.md
           - Service Accounts: de/api/service-accounts.md
+          - MCP-Server: de/api/mcp-server.md
   - Deployment:
       - de/deployment/index.md
       - Docker installieren: de/deployment/docker-installation.md

@@ -94,6 +94,12 @@ class SpeciesService:
             for item in raw
         ]
 
+    def get_companion_counts(self) -> dict[str, dict[str, int]]:
+        # Whole-catalogue aggregate: per-species compatible/incompatible companion
+        # counts computed in a single batch AQL (no N+1). Companion edges are
+        # global reference data, so no tenant scoping applies.
+        return self._graph.get_companion_counts()
+
     def get_companion_recommendations(self, species_key: SpeciesKey) -> dict:
         self.get_species(species_key)
         engine = CompanionPlantingEngine(self._graph, None, self._repo)  # type: ignore[arg-type]

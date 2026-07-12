@@ -289,6 +289,15 @@ class DiseaseListPage(BasePage):
         except Exception:
             return False
 
+    def has_any_dialog_error_helper_text(self) -> bool:
+        """Return True if any MUI error helper text is visible in the open dialog.
+
+        Fallback check used when the exact field emitting the error is uncertain.
+        """
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
+        )) > 0
+
     # -- Internal helpers -----------------------------------------------------
 
     def _select_option(self, field_testid: str, value_text: str) -> None:

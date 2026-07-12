@@ -117,6 +117,11 @@ class CropRotationPage(BasePage):
         el = self.wait_for_element_clickable(self.DIALOG_WAIT_YEARS)
         self.clear_and_fill(el, years)
 
+    def get_dialog_wait_years_value(self) -> str:
+        """Return the current value of the wait-years input in the successor dialog."""
+        el = self.driver.find_element(*self.DIALOG_WAIT_YEARS)
+        return el.get_attribute("value") or ""
+
     def click_dialog_create(self) -> None:
         self.close_mui_dropdown()
         btn = self.wait_for_element_clickable(self.DIALOG_CREATE_BTN)
