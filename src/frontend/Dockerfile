@@ -27,8 +27,19 @@ ENTRYPOINT ["/docker-entrypoint.dev.sh"]
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # ── Build stage: compile static assets for production ──
+# Copy only what the production build (`tsc -p tsconfig.build.json --noEmit &&
+# vite build`) actually reads, so unrelated context files (nginx.conf,
+# entrypoints, Dockerfile, README, eslint/prettier config, and the git-ignored
+# tsconfig.tsbuildinfo) no longer bust this expensive layer.
+# tsconfig.build.json excludes tests, so the prod build compiles only app code —
+# it does NOT pull in test-only tooling (e.g. scripts/check-bundle-budget.mjs,
+# which is imported solely by a test). Tests stay type-checked separately by
+# `tsc --noEmit` in CI (.github/workflows/frontend.yml) and pre-commit.
+# NOTE: this is an allow-list — if a new non-test build input appears, add it.
 FROM base AS build
-COPY . .
+COPY tsconfig.json tsconfig.build.json tsconfig.node.json vite.config.ts index.html ./
+COPY public ./public
+COPY src ./src
 RUN npm run build
 
 # ── Production target (default; last stage): non-root nginx-unprivileged ──
