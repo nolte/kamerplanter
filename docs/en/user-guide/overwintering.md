@@ -20,6 +20,9 @@ Kamerplanter creates the plan immediately as soon as your plant is assigned to a
 
 If you move a plant from an outdoor, greenhouse, or balcony site indoors, Kamerplanter removes an automatically created plan again — after all, it no longer needs winter protection at its new, sheltered site. If you've adjusted the plan yourself beforehand, it's kept even after a move indoors; you can then delete it manually at any time (see [All Overwintering Plans at a Glance](#all-overwintering-plans-at-a-glance)).
 
+!!! note "No overwintering for plants whose lifecycle has ended"
+    If your plant's lifecycle has already ended — for example, because an annual or biennial species has naturally senesced after flowering, or because you've manually marked it as harvested, dead, or cancelled — Kamerplanter no longer creates a new overwintering plan for it, even if it's at an outdoor, greenhouse, or balcony site. An already-existing plan is left untouched and can still be viewed or deleted as usual. <!-- REQ-047 -->
+
 ---
 
 ## Viewing the Automatic Plan
@@ -49,6 +52,9 @@ The winter path also shows you how the plant overwinters:
 | **In-situ (protect in place)** | The plant stays at its location and is protected there (e.g. with mulch or fleece). |
 | **Relocate (winter quarter)** | The plant must move to a winter quarter, or its tubers must be dug up and stored. |
 
+!!! tip "Container plants are rated more strictly"
+    If your plant is in a pot or container (i.e. it has a container volume set), Kamerplanter automatically rates its winter hardiness more strictly than the same species growing in an outdoor bed: a rating that would otherwise only be "needs protection" (in-situ, protect in place) is automatically escalated to "must move to a winter quarter" (relocate) for container plants — the root ball in a pot freezes through much faster than in the ground. <!-- REQ-047 -->
+
 If winter dormancy is currently active for this plant, an additional **"Dormancy care active"** badge indicates that the reduced watering and fertilizing plan is in effect (see [Season Automation](season-automation.md#what-changes-during-winter-dormancy)).
 
 ---
@@ -70,6 +76,9 @@ In the dialog you can change, among other things:
 - Spring action and its month
 - Temperature and light conditions in the winter quarter
 - Check interval and status of a stored tuber or bulb
+
+!!! tip "The stored temperature range is actively monitored"
+    If your plant's winter quarter has a sensor or a Home Assistant connection with live temperature readings, Kamerplanter checks hourly whether the measured temperature stays within the range stored here — and immediately creates a "High"-priority reminder on a real breach above or below it. See [Season Automation](season-automation.md#what-changes-during-winter-dormancy) for details. <!-- REQ-047 -->
 
 !!! warning "Protection measure must match the hardiness rating"
     Kamerplanter does not allow a contradictory combination — for example "winter-hardy" together with "must be dug up". The protection-measure selector automatically shows only options that match the selected hardiness rating.
@@ -125,6 +134,12 @@ All active filters apply together (a plan must match every selected filter) and 
 
 ??? question "Can I also delete an overwintering profile?"
     Yes, via the table under **Plants > Overwintering** using the trash-can icon. If the plant remains at an outdoor, greenhouse, or balcony site and isn't winter-hardy, Kamerplanter automatically creates a new plan again at the next site change or, at the latest, the next transition into "winter approaching".
+
+??? question "Why is my container plant rated more strictly than the same species in a bed?"
+    Because the root ball in a pot or container freezes through much faster than in the ground. Kamerplanter detects a stored container volume and, in that case, automatically rates a plant that would otherwise only "need protection" as "must move to a winter quarter".
+
+??? question "Why doesn't my spent annual plant get an overwintering plan?"
+    That's intentional. If a plant's lifecycle has already ended — for example, because an annual or biennial species has naturally senesced after flowering, or you've manually marked it as harvested or dead — Kamerplanter no longer creates a new plan for it, since it won't see another winter. An already-existing plan is left untouched.
 
 ---
 

@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 
 from app.common.enums import SeasonTriggerTier, SiteType
 from app.domain.models.site import Site
-from app.domain.models.weather import WeatherForecast
+from app.domain.models.weather import ClimateNormal, WeatherForecast
 from app.domain.services.season_signal_resolver import SeasonSignalResolver, hemisphere_from_site
 
 
@@ -21,6 +21,16 @@ class _FakeWeatherRepo:
 
     def find_by_site(self, site_key: str, tenant_key: str) -> list[WeatherForecast]:
         return list(self._forecasts)
+
+
+class _FakeClimateNormalRepo:
+    """Minimal stand-in for ``IClimateNormalRepository.get_by_site``."""
+
+    def __init__(self, normals: list[ClimateNormal]) -> None:
+        self._normals = normals
+
+    def get_by_site(self, site_key: str, tenant_key: str) -> list[ClimateNormal]:
+        return list(self._normals)
 
 
 def _site(**overrides) -> Site:
@@ -130,6 +140,76 @@ class TestCalendarTier:
         terminus: the climatological tier would strand the site in ``growing``."""
         site = _site(last_frost_date_avg=date(2027, 4, 15))
         resolver = SeasonSignalResolver(_FakeWeatherRepo([]))
+        signal = resolver.resolve(site, date(2026, 9, 1))
+
+        assert signal.tier == SeasonTriggerTier.CALENDAR
+
+
+def _climate_normal(monthly_min: list[float], hemisphere_site_key: str = "s1") -> ClimateNormal:
+    return ClimateNormal(
+        site_key=hemisphere_site_key,
+        tenant_key="t1",
+        source="nasa-power",
+        fetched_at=datetime.now(UTC),
+        monthly_temp_min_c=monthly_min,
+        coldest_month_min_c=min(monthly_min),
+    )
+
+
+class TestClimateNormalTier:
+    """AC-4 upgrade path — climatological tier derived from :class:`ClimateNormal`."""
+
+    #: Northern-hemisphere monthly minima: Jan/Feb/Nov/Dec are sub-frost (<= 2 °C).
+    _NORTH_MIN = [-2.0, -1.0, 3.0, 6.0, 10.0, 14.0, 16.0, 15.0, 11.0, 6.0, 1.0, -1.0]
+
+    def test_derives_frost_termini_when_site_has_no_frost_dates(self) -> None:
+        site = _site()  # no first/last frost avg, but GPS present
+        resolver = SeasonSignalResolver(
+            _FakeWeatherRepo([]),
+            _FakeClimateNormalRepo([_climate_normal(self._NORTH_MIN)]),
+        )
+        signal = resolver.resolve(site, date(2026, 7, 1))
+
+        assert signal.tier == SeasonTriggerTier.CLIMATOLOGICAL
+        # First autumn frost month = November (index 10) → 11-15.
+        assert signal.estimated_first_frost_md == "11-15"
+        # Last spring frost month = February (index 1) → 02-15.
+        assert signal.estimated_last_frost_md == "02-15"
+        # July normal min exposed for transparency.
+        assert signal.min_temp_c == 16.0
+
+    def test_site_frost_dates_win_over_climate_normal(self) -> None:
+        site = _site(first_frost_date_avg=date(2026, 10, 20), last_frost_date_avg=date(2027, 4, 15))
+        resolver = SeasonSignalResolver(
+            _FakeWeatherRepo([]),
+            _FakeClimateNormalRepo([_climate_normal(self._NORTH_MIN)]),
+        )
+        signal = resolver.resolve(site, date(2026, 9, 1))
+
+        assert signal.estimated_first_frost_md == "10-20"
+        assert signal.min_temp_c is None  # site-frost-date path stays temperature-free
+
+    def test_frost_free_normals_fall_through_to_calendar(self) -> None:
+        site = _site()
+        warm = [8.0] * 12  # never dips to the frost threshold
+        resolver = SeasonSignalResolver(
+            _FakeWeatherRepo([]),
+            _FakeClimateNormalRepo([_climate_normal(warm)]),
+        )
+        signal = resolver.resolve(site, date(2026, 9, 1))
+
+        assert signal.tier == SeasonTriggerTier.CALENDAR
+
+    def test_no_normals_falls_through_to_calendar(self) -> None:
+        site = _site()
+        resolver = SeasonSignalResolver(_FakeWeatherRepo([]), _FakeClimateNormalRepo([]))
+        signal = resolver.resolve(site, date(2026, 9, 1))
+
+        assert signal.tier == SeasonTriggerTier.CALENDAR
+
+    def test_without_repo_falls_through_to_calendar(self) -> None:
+        site = _site()
+        resolver = SeasonSignalResolver(_FakeWeatherRepo([]))  # no climate-normal repo
         signal = resolver.resolve(site, date(2026, 9, 1))
 
         assert signal.tier == SeasonTriggerTier.CALENDAR

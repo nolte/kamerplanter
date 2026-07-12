@@ -28,8 +28,24 @@ from app.common.enums import SeasonTriggerTier
 from app.config.settings import settings
 
 if TYPE_CHECKING:
+    from app.domain.interfaces.climate_normal_repository import IClimateNormalRepository
     from app.domain.interfaces.weather_forecast_repository import IWeatherForecastRepository
     from app.domain.models.site import Site
+    from app.domain.models.weather import ClimateNormal
+
+#: Autumn / spring month sequences per hemisphere used to read the first / last
+#: frost month out of a :class:`ClimateNormal.monthly_temp_min_c` series (REQ-041).
+#: They mirror the engine's ``_PRE_WINTER_SEASON_MONTHS`` / ``_AFTER_COLDEST_MONTHS``
+#: so a climate-normal-derived terminus lands in the same season window the engine
+#: expects.
+_AUTUMN_MONTHS: dict[str, list[int]] = {
+    "north": [8, 9, 10, 11, 12],
+    "south": [2, 3, 4, 5, 6],
+}
+_SPRING_MONTHS: dict[str, list[int]] = {
+    "north": [1, 2, 3, 4, 5, 6],
+    "south": [7, 8, 9, 10, 11, 12],
+}
 
 
 def hemisphere_from_site(site: Site) -> Literal["north", "south"]:
@@ -67,8 +83,13 @@ class SeasonSignal:
 class SeasonSignalResolver:
     """Resolve the best-available :class:`SeasonSignal` for a site."""
 
-    def __init__(self, weather_forecast_repo: IWeatherForecastRepository) -> None:
+    def __init__(
+        self,
+        weather_forecast_repo: IWeatherForecastRepository,
+        climate_normal_repo: IClimateNormalRepository | None = None,
+    ) -> None:
         self._weather_repo = weather_forecast_repo
+        self._climate_normal_repo = climate_normal_repo
 
     def resolve(self, site: Site, on_date: date) -> SeasonSignal:
         live = self._try_live(site, on_date)
@@ -127,17 +148,72 @@ class SeasonSignalResolver:
         """
         first_md = self._to_md(site.first_frost_date_avg)
         last_md = self._to_md(site.last_frost_date_avg or site.eisheilige_date)
+        if first_md is not None:
+            return SeasonSignal(
+                tier=SeasonTriggerTier.CLIMATOLOGICAL,
+                min_temp_c=None,
+                forecast_first_frost_date=None,
+                estimated_first_frost_md=first_md,
+                estimated_last_frost_md=last_md,
+                reason_i18n_key="pages.season.trigger.climateEstimate",
+                hemisphere=hemisphere_from_site(site),
+            )
+        # AC-4 upgrade path (REQ-041) — no manual site frost dates, but a climate
+        # normal is available: derive the frost termini from the long-term monthly
+        # minima. This lets a GPS-resolved site with only NASA-POWER normals reach
+        # the climatological tier instead of falling through to the coarse calendar.
+        return self._try_climate_normal(site, on_date)
+
+    def _try_climate_normal(self, site: Site, on_date: date) -> SeasonSignal | None:
+        """Derive climatological frost termini from :class:`ClimateNormal` (REQ-041).
+
+        Reads the first autumn / last spring month whose long-term minimum drops to
+        or below the frost threshold and expresses each as a mid-month ``MM-DD``.
+        Also exposes the current month's normal minimum as ``min_temp_c`` for state
+        transparency (the engine's climatological branch remains date-driven, so this
+        value never changes a transition). Returns ``None`` when no repository is
+        wired, the site carries no normals, or the series has no sub-frost month.
+        """
+        if self._climate_normal_repo is None or not site.key:
+            return None
+        normals = self._climate_normal_repo.get_by_site(site.key, site.tenant_key)
+        normal = next((n for n in normals if len(n.monthly_temp_min_c) == 12), None)
+        if normal is None:
+            return None
+
+        hemisphere = hemisphere_from_site(site)
+        threshold = settings.season_frost_temp_c
+        first_md = self._first_frost_md(normal, hemisphere, threshold)
         if first_md is None:
             return None
+        last_md = self._last_frost_md(normal, hemisphere, threshold)
+        month_min = normal.monthly_temp_min_c[on_date.month - 1]
         return SeasonSignal(
             tier=SeasonTriggerTier.CLIMATOLOGICAL,
-            min_temp_c=None,
+            min_temp_c=month_min,
             forecast_first_frost_date=None,
             estimated_first_frost_md=first_md,
             estimated_last_frost_md=last_md,
             reason_i18n_key="pages.season.trigger.climateEstimate",
-            hemisphere=hemisphere_from_site(site),
+            hemisphere=hemisphere,
         )
+
+    @staticmethod
+    def _first_frost_md(normal: ClimateNormal, hemisphere: str, threshold: float) -> str | None:
+        """First autumn month (mid-month ``MM-DD``) whose normal minimum ≤ threshold."""
+        for month in _AUTUMN_MONTHS[hemisphere]:
+            if normal.monthly_temp_min_c[month - 1] <= threshold:
+                return f"{month:02d}-15"
+        return None
+
+    @staticmethod
+    def _last_frost_md(normal: ClimateNormal, hemisphere: str, threshold: float) -> str | None:
+        """Last spring month (mid-month ``MM-DD``) whose normal minimum ≤ threshold."""
+        last: int | None = None
+        for month in _SPRING_MONTHS[hemisphere]:
+            if normal.monthly_temp_min_c[month - 1] <= threshold:
+                last = month
+        return f"{last:02d}-15" if last is not None else None
 
     # ── Tier 3: calendar fallback ───────────────────────────────────────
 

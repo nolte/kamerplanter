@@ -20,6 +20,9 @@ Kamerplanter legt den Plan sofort an, sobald deine Pflanze einem frostexponierte
 
 Ziehst du eine Pflanze von einem Freiland-, Gewächshaus- oder Balkon-Standort in den Innenbereich um, entfernt Kamerplanter einen automatisch erstellten Plan wieder — sie braucht an ihrem neuen, geschützten Standort schließlich keinen Winterschutz mehr. Hast du den Plan zuvor selbst angepasst, bleibt er dagegen erhalten, auch nach einem Umzug nach drinnen; du kannst ihn dann jederzeit manuell löschen (siehe [Alle Überwinterungspläne im Überblick](#alle-uberwinterungsplane-im-uberblick)).
 
+!!! note "Keine Überwinterung für abgeschlossene Pflanzen"
+    Ist der Lebenszyklus deiner Pflanze bereits beendet — zum Beispiel, weil eine einjährige oder zweijährige Art nach der Blüte natürlich abgestorben ist, oder weil du sie manuell als geerntet, abgestorben oder abgebrochen markiert hast —, legt Kamerplanter für sie keinen neuen Überwinterungsplan mehr an, selbst wenn sie an einem Freiland-, Gewächshaus- oder Balkon-Standort steht. Ein bereits bestehender Plan bleibt davon unberührt und lässt sich weiterhin wie gewohnt einsehen oder löschen. <!-- REQ-047 -->
+
 ---
 
 ## Den automatischen Plan ansehen
@@ -49,6 +52,9 @@ Der Winter-Pfad zeigt dir außerdem, wie die Pflanze überwintert:
 | **In-situ (Schutz vor Ort)** | Die Pflanze bleibt an ihrem Standort und wird dort geschützt (z. B. mit Mulch oder Vlies). |
 | **Verlagern (Winterquartier)** | Die Pflanze muss ins Winterquartier umziehen, oder ihre Knollen müssen ausgegraben und eingelagert werden. |
 
+!!! tip "Kübelpflanzen werden strenger eingestuft"
+    Steht deine Pflanze in einem Kübel oder Topf (also mit hinterlegtem Topfvolumen), stuft Kamerplanter ihre Winterhärte automatisch strenger ein als dieselbe Art im gewachsenen Freiland-Beet: Aus einer eigentlich nur „schutzbedürftigen" Einstufung (In-situ, Schutz vor Ort) wird für Kübelpflanzen automatisch „muss ins Winterquartier" (Verlagern) — der Wurzelballen im Topf friert deutlich schneller durch als im Erdboden. <!-- REQ-047 -->
+
 Ist die Winterruhe für diese Pflanze gerade aktiv, zeigt ein zusätzliches Badge **„Winterruhe-Pflege aktiv"** an, dass gerade der reduzierte Gieß- und Düngeplan gilt (siehe [Saison-Automatik](season-automation.md#was-sich-wahrend-der-winterruhe-andert)).
 
 ---
@@ -70,6 +76,9 @@ Im Dialog kannst du unter anderem folgende Werte ändern:
 - Frühjahrsmaßnahme und deren Monat
 - Temperatur- und Lichtbedingungen im Winterquartier
 - Kontrollintervall und Status einer eingelagerten Knolle oder Zwiebel
+
+!!! tip "Der hinterlegte Temperaturbereich wird aktiv überwacht"
+    Hat das Winterquartier deiner Pflanze einen Sensor oder eine Home-Assistant-Anbindung mit Live-Temperaturwerten, prüft Kamerplanter stündlich, ob die gemessene Temperatur innerhalb des hier hinterlegten Bereichs bleibt — und legt bei einer echten Über- oder Unterschreitung sofort eine Erinnerung mit der Priorität „Hoch" an. Details dazu unter [Saison-Automatik](season-automation.md#was-sich-wahrend-der-winterruhe-andert). <!-- REQ-047 -->
 
 !!! warning "Schutzmaßnahme muss zur Winterhärte passen"
     Kamerplanter lässt keine Kombination zu, die sich widerspricht — zum Beispiel „winterhart" zusammen mit „muss ausgegraben werden". Das Auswahlfeld für die Schutzmaßnahme zeigt dir automatisch nur Optionen an, die zur gewählten Winterhärte passen.
@@ -125,6 +134,12 @@ Alle aktiven Filter wirken gemeinsam (ein Plan muss jeden gewählten Filter erf�
 
 ??? question "Kann ich ein Überwinterungsprofil auch löschen?"
     Ja, über die Tabelle unter **Pflanzen > Überwinterung** mit dem Papierkorb-Symbol. Bleibt die Pflanze an einem Freiland-, Gewächshaus- oder Balkon-Standort und ist sie nicht winterhart, legt Kamerplanter beim nächsten Standortwechsel oder spätestens beim nächsten Übergang in „Winter kündigt sich an" automatisch wieder einen neuen Plan an.
+
+??? question "Warum wird meine Kübelpflanze strenger eingestuft als dieselbe Art im Beet?"
+    Weil der Wurzelballen in einem Topf oder Kübel deutlich schneller durchfriert als im gewachsenen Boden. Kamerplanter erkennt ein hinterlegtes Topfvolumen und stuft eine eigentlich nur „schutzbedürftige" Pflanze in diesem Fall automatisch als „muss ins Winterquartier" ein.
+
+??? question "Warum bekommt meine abgeblühte einjährige Pflanze keinen Überwinterungsplan?"
+    Das ist beabsichtigt. Hat der Lebenszyklus einer Pflanze bereits geendet — etwa weil eine einjährige oder zweijährige Art nach der Blüte natürlich abgestorben ist oder du sie manuell als geerntet oder abgestorben markiert hast —, legt Kamerplanter keinen neuen Plan mehr für sie an, da sie keinen weiteren Winter mehr erleben wird. Ein bereits bestehender Plan bleibt unangetastet.
 
 ---
 

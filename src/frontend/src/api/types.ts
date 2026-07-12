@@ -3780,7 +3780,16 @@ export type ReminderType =
   | 'repotting'
   | 'pest_check'
   | 'location_check'
-  | 'humidity_check';
+  | 'humidity_check'
+  // REQ-022 v2.5 outdoor + overwintering reminder types (§3.2)
+  | 'deadheading'
+  | 'tuber_dig'
+  | 'storage_check'
+  | 'spring_uncover'
+  | 'winter_protection'
+  // REQ-047 §2.5 season-/dormancy-driven control reminders
+  | 'dormancy_health_check'
+  | 'quarter_climate_check';
 export type ConfirmAction = 'confirmed' | 'snoozed' | 'skipped';
 export type WateringMethod = 'soak' | 'drench_and_drain' | 'top_water' | 'bottom_water';
 

@@ -425,6 +425,7 @@ class OverwinteringProfileService:
         spring_action_month: int = 3,
         winter_quarter_key: str | None = None,
         is_geophyte: bool = False,
+        is_container: bool = False,
         species_key: str | None = None,
     ) -> OverwinteringProfile:
         """Derive an overwintering profile from the winter hardiness ampel.
@@ -436,13 +437,24 @@ class OverwinteringProfileService:
         than moved indoors, so the tuber-dig / storage-check reminders can fire
         (B3).
 
+        REQ-047 §3.9 / AC-26 — ``is_container`` escalates a marginal (yellow, path A)
+        plant to the relocation path B: the root ball of a potted plant freezes
+        through far faster than in open ground, so the same species that overwinters
+        in-situ in a bed must be moved into a winter quarter when grown in a
+        container. The escalation only ever sharpens yellow → red; a green
+        (fully hardy) or an already-red plant is unaffected, and the D5 invariant is
+        validated against the escalated light so the derivation stays consistent.
+
         When ``species_key`` resolves a species-level template, its curated
         winter-quarter conditions (temperature range, watering) and tuber-storage
         details replace the generic defaults — but only on a relocation path
         (``move_indoors`` / ``dig_store``), so the enrichment can never contradict
         the derived D5 path.
         """
-        light = evaluate_winter_hardiness(frost_sensitivity, species_zone, site_zone)
+        light = self.effective_hardiness_light(
+            evaluate_winter_hardiness(frost_sensitivity, species_zone, site_zone),
+            is_container=is_container,
+        )
         rating = _LIGHT_TO_RATING[light]
         action = _LIGHT_TO_ACTION[light]
 
@@ -793,3 +805,22 @@ class OverwinteringProfileService:
     def winter_path_for(profile: OverwinteringProfile) -> str:
         """Expose the derived winter path (A/B) for callers (e.g. reminder wiring)."""
         return derive_winter_path(_RATING_TO_LIGHT[profile.hardiness_rating])
+
+    @staticmethod
+    def effective_hardiness_light(
+        light: WinterHardinessLight,
+        *,
+        is_container: bool = False,
+    ) -> WinterHardinessLight:
+        """Apply the REQ-047 §3.9 container escalation to a raw hardiness light.
+
+        A potted (container) plant that would overwinter in-situ in a bed (yellow,
+        path A) is escalated to red (path B): the root ball in a container freezes
+        through, so the plant must be relocated to a winter quarter. Green (fully
+        hardy) and already-red lights are returned unchanged. Shared by the
+        materializer and the auto-generation path so the escalation is applied in
+        exactly one place.
+        """
+        if is_container and light == WinterHardinessLight.YELLOW:
+            return WinterHardinessLight.RED
+        return light
