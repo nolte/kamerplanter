@@ -150,6 +150,22 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             for r in cursor
         ]
 
+    def get_rotation_successor_counts(self) -> dict[str, int]:
+        # Single batch aggregation over the ROTATION_AFTER edge collection in one
+        # round trip — never a per-family query (no N+1). Grouping outbound edges
+        # by their _from family yields, per family, exactly the number of curated
+        # rotation successors. PARSE_IDENTIFIER strips the "botanical_families/"
+        # prefix so the caller keys directly by family _key. Rotation edges are
+        # global reference data — no tenant scoping applies.
+        query = """
+        FOR edge IN @@rotation_col
+          COLLECT family_key = PARSE_IDENTIFIER(edge._from).key WITH COUNT INTO n
+          RETURN {family_key: family_key, count: n}
+        """
+        bind_vars = {"@rotation_col": col.ROTATION_AFTER}
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return {row["family_key"]: row["count"] for row in cursor}
+
     def set_rotation_successor(
         self,
         from_family_key: str,

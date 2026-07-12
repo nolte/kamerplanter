@@ -1,7 +1,12 @@
 import client from '../client';
-import type { RotationSuccessor, RotationSuccessorSet } from '../types';
+import type { RotationCountsMap, RotationSuccessor, RotationSuccessorSet } from '../types';
 
 const BASE = '/crop-rotation';
+
+export async function getRotationCounts(): Promise<RotationCountsMap> {
+  const { data } = await client.get<RotationCountsMap>(`${BASE}/counts`);
+  return data;
+}
 
 export async function getSuccessors(familyKey: string): Promise<RotationSuccessor[]> {
   const { data } = await client.get<RotationSuccessor[]>(

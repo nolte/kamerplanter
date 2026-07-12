@@ -220,7 +220,13 @@ class FavoritesService:
 
     def _resolve_collection(self, key: str) -> str | None:
         """Resolve which document collection a key belongs to."""
-        for collection_name in [col.SPECIES, col.NUTRIENT_PLANS, col.FERTILIZERS, col.ACTIVITIES]:
+        for collection_name in [
+            col.SPECIES,
+            col.NUTRIENT_PLANS,
+            col.FERTILIZERS,
+            col.ACTIVITIES,
+            col.BOTANICAL_FAMILIES,
+        ]:
             try:
                 if self._db.collection(collection_name).has(key):
                     return collection_name

@@ -38,4 +38,11 @@ describe('cropRotation endpoints', () => {
     await cropRotation.setSuccessor(payload);
     expect(client.post).toHaveBeenCalledWith('/crop-rotation/successors', payload);
   });
+
+  it('getRotationCounts gets the whole-catalogue successor-count map', async () => {
+    client.get.mockResolvedValue({ data: { solanaceae: 3, fabaceae: 1 } });
+    const counts = await cropRotation.getRotationCounts();
+    expect(client.get).toHaveBeenCalledWith('/crop-rotation/counts');
+    expect(counts).toEqual({ solanaceae: 3, fabaceae: 1 });
+  });
 });

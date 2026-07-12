@@ -1888,7 +1888,20 @@
       "toFamily": "To Family",
       "toFamilyHelper": "Family that can be planted after the source family",
       "noSuccessors": "No successor families defined yet.",
-      "selectFamilyHint": "Please select a family to view crop rotation recommendations."
+      "selectFamilyHint": "Please select a family to view crop rotation recommendations.",
+      "noFamiliesFound": "No families found",
+      "countLegend": "Number next to each family: count of recommended successor families",
+      "successorCount_one": "{{count}} recommended successor family",
+      "successorCount_other": "{{count}} recommended successor families",
+      "toggleFavorite": "Mark {{name}} as favorite",
+      "filtersLabel": "Filter families",
+      "filterFavorites": "Favorites",
+      "filterHasRotation": "Has rotation",
+      "filterNitrogenFixing": "Nitrogen-fixing",
+      "filterFrostHardy": "Frost-hardy",
+      "filterNutrientDemand": "Nutrient demand",
+      "filterAll": "All",
+      "resetFilters": "Reset filters"
     },
     "siteDetail": {
       "climate": {
