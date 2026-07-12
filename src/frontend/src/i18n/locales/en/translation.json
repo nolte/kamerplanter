@@ -5048,6 +5048,13 @@
       "direct_seed": "from direct seeding",
       "transplant": "from transplant"
     },
+    "seedType": {
+      "open_pollinated": "Open-pollinated",
+      "f1_hybrid": "F1 hybrid",
+      "f2": "F2 generation",
+      "landrace": "Landrace",
+      "clone": "Clone (vegetative)"
+    },
     "floweringStrategy": {
       "monocarpic": "Monocarpic (flowers once)",
       "polycarpic": "Polycarpic (flowers repeatedly)"
@@ -5056,7 +5063,8 @@
       "fibrous": "Fibrous",
       "taproot": "Taproot",
       "tuberous": "Tuberous",
-      "bulbous": "Bulbous"
+      "bulbous": "Bulbous",
+      "corm": "Corm"
     },
     "propagationMethod": {
       "seed": "Seed",

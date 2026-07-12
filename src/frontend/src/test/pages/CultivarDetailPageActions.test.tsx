@@ -44,6 +44,7 @@ function makeCultivar(overrides: Partial<Cultivar> = {}): Cultivar {
     breeding_year: null,
     traits: [],
     patent_status: '',
+    seed_type: null,
     days_to_maturity: 150,
     dtm_reference: null,
     bearing_start_year_min: null,

@@ -197,6 +197,23 @@ class DtmReference(StrEnum):
     TRANSPLANT = "transplant"
 
 
+class SeedType(StrEnum):
+    """Reproduction / propagation type of a cultivar (REQ-008/REQ-017, Plan WP-6f).
+
+    Replaces the former free-text ``Cultivar.seed_type``. Values are derived from
+    the reproduction types actually present in the seed data (``open_pollinated``,
+    ``f1_hybrid``, ``clone``) plus botanically sensible additions (``f2``,
+    ``landrace``). The legacy free-text value ``cultivar`` is folded onto
+    ``CLONE`` by the model validator for backward compatibility with old volumes.
+    """
+
+    OPEN_POLLINATED = "open_pollinated"  # samenfest / sortenecht
+    F1_HYBRID = "f1_hybrid"  # F1-Hybride (nicht sortenecht)
+    F2 = "f2"  # F2-Generation aus F1-Aussaat (aufspaltend)
+    LANDRACE = "landrace"  # Landsorte / regional angepasste Population
+    CLONE = "clone"  # vegetativ vermehrt (Steckling, Teilung, Meristem)
+
+
 class ToxicitySeverity(StrEnum):
     """Severity of a species' toxicity (REQ-001 — toxicity object).
 

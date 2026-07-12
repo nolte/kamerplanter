@@ -68,7 +68,7 @@ export default function SpeciesGrowthPanel({ control }: SpeciesGrowthPanelProps)
               control={control}
               label={t('pages.species.rootType')}
               helperText={t('pages.species.rootTypeHelper')}
-              options={['fibrous', 'taproot', 'tuberous', 'bulbous'].map((v) => ({
+              options={['fibrous', 'taproot', 'tuberous', 'bulbous', 'corm'].map((v) => ({
                 value: v,
                 label: t(`enums.rootType.${v}`),
               }))}

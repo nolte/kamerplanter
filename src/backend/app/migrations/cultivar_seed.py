@@ -47,7 +47,7 @@ def build_cultivar(cv_entry: dict[str, Any], species_key: str) -> Cultivar:
         bearing_start_year_min=cv_entry.get("bearing_start_year_min"),
         bearing_start_year_max=cv_entry.get("bearing_start_year_max"),
         traits=[PlantTrait(t) for t in cv_entry.get("traits", []) if t in _VALID_TRAITS],
-        seed_type=cv_entry.get("seed_type", ""),
+        seed_type=cv_entry.get("seed_type"),
         disease_resistances=cv_entry.get("disease_resistances", []),
         watering_guide_override=(WateringGuide(**watering_override_raw) if watering_override_raw else None),
         phase_watering_overrides=cv_entry.get("phase_watering_overrides"),

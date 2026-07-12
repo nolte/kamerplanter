@@ -5049,6 +5049,13 @@
       "direct_seed": "ab Direktsaat",
       "transplant": "ab Auspflanzung"
     },
+    "seedType": {
+      "open_pollinated": "Samenfest",
+      "f1_hybrid": "F1-Hybride",
+      "f2": "F2-Generation",
+      "landrace": "Landsorte",
+      "clone": "Klon (vegetativ)"
+    },
     "floweringStrategy": {
       "monocarpic": "Monokarp (blüht einmal)",
       "polycarpic": "Polykarp (blüht mehrfach)"
@@ -5057,7 +5064,8 @@
       "fibrous": "Faserig",
       "taproot": "Pfahlwurzel",
       "tuberous": "Knollig",
-      "bulbous": "Zwiebel"
+      "bulbous": "Zwiebel",
+      "corm": "Knolle (Sprossknolle)"
     },
     "propagationMethod": {
       "seed": "Aussaat / Samen",

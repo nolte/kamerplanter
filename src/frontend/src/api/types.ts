@@ -33,8 +33,9 @@ export type HarvestedPart =
   | 'whole_plant';
 export type ClimactericClass = 'climacteric' | 'non_climacteric' | 'atypical';
 export type DtmReference = 'direct_seed' | 'transplant';
+export type SeedType = 'open_pollinated' | 'f1_hybrid' | 'f2' | 'landrace' | 'clone';
 export type FloweringStrategy = 'monocarpic' | 'polycarpic';
-export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous';
+export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous' | 'corm';
 export type PropagationMethod =
   | 'seed'
   | 'cutting'
@@ -449,6 +450,7 @@ export interface Cultivar {
   breeding_year: number | null;
   traits: PlantTrait[];
   patent_status: string;
+  seed_type: SeedType | null;
   days_to_maturity: number | null;
   dtm_reference: DtmReference | null;
   bearing_start_year_min: number | null;
@@ -466,6 +468,7 @@ export interface CultivarCreate {
   breeding_year?: number | null;
   traits?: PlantTrait[];
   patent_status?: string;
+  seed_type?: SeedType | null;
   days_to_maturity?: number | null;
   dtm_reference?: DtmReference | null;
   bearing_start_year_min?: number | null;
