@@ -77,3 +77,4 @@ So ist die Verknüpfung Entscheidung ↔ Spec-Änderung dauerhaft nachvollziehba
 | ADR-003 | Sensor-Retention für Perennials (W-014) | Accepted | 2026-04-27 |
 | ADR-004 | Vermehrung als strukturierte per-Methode-Objekte (propagation_configs) | Accepted | 2026-06-15 |
 | ADR-005 | Versioniertes Datenbank-Migrations-Framework | Accepted | 2026-07-04 |
+| ADR-006 | Modell des mehrjährigen Outdoor-Lebenszyklus (E1–E7) | Proposed | 2026-07-12 |

@@ -6,10 +6,12 @@ export function useNotification() {
 
   const notify = useCallback(
     (message: string, variant: VariantType = 'default') => {
+      // Errors auto-dismiss after a longer 8s window (#571) so a stale toast can
+      // never linger indefinitely; other variants keep their shorter timings.
       const autoHideDuration =
-        variant === 'error' ? null : variant === 'warning' ? 8000 : 5000;
+        variant === 'error' ? 8000 : variant === 'warning' ? 8000 : 5000;
 
-      enqueueSnackbar(message, { variant, autoHideDuration });
+      enqueueSnackbar(message, { variant, autoHideDuration, preventDuplicate: true });
     },
     [enqueueSnackbar],
   );
