@@ -19,6 +19,7 @@ from app.common.enums import (
     PropagationMethod,
     RootType,
     SeedPretreatment,
+    SeedType,
     Suitability,
     ToxicitySeverity,
     WateringMethod,
@@ -79,7 +80,11 @@ class Cultivar(BaseModel):
     breeding_year: int | None = None
     traits: list[PlantTrait] = Field(default_factory=list)
     patent_status: str = ""
-    seed_type: str = ""
+    seed_type: SeedType | None = Field(
+        default=None,
+        description="Reproduction/propagation type of the cultivar (REQ-008/017, Plan WP-6f). "
+        "Replaces the former free-text field; legacy values are tolerated on read.",
+    )
     days_to_maturity: int | None = Field(default=None, ge=1, le=1095)
     # ── Ernte-Bezug (REQ-007, Plan WP-6) ──
     dtm_reference: DtmReference | None = Field(
@@ -114,6 +119,30 @@ class Cultivar(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("seed_type", mode="before")
+    @classmethod
+    def coerce_legacy_seed_type(cls, v: object) -> SeedType | None:
+        """Tolerate legacy free-text ``seed_type`` values on read (Plan WP-6f).
+
+        Old persisted records (pre-enum) may carry an empty string, the legacy
+        token ``cultivar`` (now folded onto ``CLONE``) or an unrecognised
+        free-text value. None of these must crash the model load on old volumes,
+        so unknown/empty input degrades gracefully to ``None`` instead of raising.
+        """
+        if v is None or isinstance(v, SeedType):
+            return v
+        if isinstance(v, str):
+            token = v.strip().lower()
+            if not token:
+                return None
+            if token == "cultivar":
+                return SeedType.CLONE
+            try:
+                return SeedType(token)
+            except ValueError:
+                return None
+        return None
 
 
 class GrowingPeriod(BaseModel):

@@ -7,7 +7,7 @@ Kategorie: Pflanzenvermehrung
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.4 (Spec-Audit D2: vollständige Phasen-Eintrittsmatrix für alle 12 PropagationMethod-Werte; Naming-Vereinheitlichung Steckling-Start auf kanonisches `rooting`)
+Version: 1.5 (Plan WP-6f: `Cultivar.seed_type` von Freitext auf `SeedType`-Enum umgestellt)
 ```
 
 <!-- Spec-Audit 2026-07-02 D2 -->
@@ -15,6 +15,7 @@ Version: 1.4 (Spec-Audit D2: vollständige Phasen-Eintrittsmatrix für alle 12 P
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.5 | 2026-07-12 | **Plan WP-6f (Härtung):** Das Feld `Cultivar.seed_type` ist von Freitext auf das neue `SeedType`-Enum umgestellt (`common/enums.py`). Zulässige Werte — abgeleitet aus dem Saatgut-Bestand plus botanisch sinnvollen Ergänzungen: `open_pollinated` (samenfest), `f1_hybrid` (F1-Hybride), `f2` (F2-Generation), `landrace` (Landsorte), `clone` (vegetativ vermehrt). Der 3-Wege-Enum-Sync (`enums.py` ↔ `_defs.schema.yaml` ↔ `api/types.ts`) sowie i18n `enums.seedType.*` (de/en) sind konsistent; ein CI-Gate (`test_plant_property_enum_sync.py`) erzwingt die Konsistenz. **Abwärtskompatibel:** Alt-Bestand mit Freitext (`""`, Legacy-`cultivar` → `clone`, Unbekanntes → `null`) lädt weiterhin ohne Enum-Crash; keine Migration nötig. |
 | 1.4 | 2026-07-02 | **Spec-Audit D2:** Vollständige **Phasen-Eintrittsmatrix** ergänzt (§5), die jedem der 12 `PropagationMethod`-Werte genau einen Lebenszyklus-Eintrittspunkt mit fachlicher Begründung zuordnet — zuvor waren nur `seed_sowing → germination` und `cutting → seedling` definiert, die übrigen 10 Methoden hatten keinen Eintrittspunkt. **Naming-Vereinheitlichung:** Der Steckling-/Einwurzelungs-Start heißt kanonisch **`rooting`** (ersetzt `seedling` in diesem Dokument); `Bewurzelung` (REQ-003) und `Einwurzelung` (Knowledge-Base-Steckbriefe) sind Synonyme. Der Phasenwert `rooting` wird parallel in REQ-003 zum kanonischen `PhaseType`-Literal ergänzt und hier nur referenziert. |
 | 1.3 | — | Code-Reconciliation: PropagationMethod-Enum in `common/enums.py` auf das hier spezifizierte Vokabular angeglichen — air_layering/tissue_culture/bulbil/water_propagation; ADR-004. |
 

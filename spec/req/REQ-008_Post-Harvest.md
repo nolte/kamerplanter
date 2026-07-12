@@ -7,8 +7,17 @@ Kategorie: Post-Harvest
 Fokus: Beides
 Technologie: Python, Umweltsensorik, TimescaleDB (Zeitreihen)
 Status: Entwurf
-Version: 2.2 (U/P-Findings integriert)
+Version: 2.3 (Plan WP-6/WP-10: Pflanzen-Eigenschaften-Modellfelder für Ernte/Nachreife referenziert)
 ```
+
+> **Modellbezug (Plan WP-6/WP-10, v2.3):** Das Ernte- und Nachreifeverhalten stützt sich auf
+> Felder des Pflanzen-Eigenschaften-Modells (`Species`/`Cultivar`, `common/enums.py`):
+> `climacteric_class` (`ClimactericClass`: `climacteric` | `non_climacteric` | `atypical` —
+> steuert die Nachreife-Logik nach der Ernte), `harvest_pattern` (`HarvestPattern`),
+> `harvested_part` (`HarvestedPart`) und `dtm_reference` (`DtmReference`). Ergänzend führt
+> `Cultivar.seed_type` das `SeedType`-Enum (Plan WP-6f; für Samenernte-/Sortenechtheits-Hinweise
+> relevant, siehe REQ-017). Diese Felder sind additiv und werden über den Seed-Backfill (WP-10)
+> befüllt.
 
 ## 1. Business Case
 

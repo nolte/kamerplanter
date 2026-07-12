@@ -594,15 +594,15 @@ cultivars:
     - name: "Optimara Little Maya"
       traits: [miniature, compact, pink_flowers]
       days_to_maturity: 90
-      seed_type: cultivar
+      seed_type: clone
     - name: "Rob's Sassy Kassy"
       traits: [semi_miniature, chimera, pink_white_stripes]
       days_to_maturity: 90
-      seed_type: cultivar
+      seed_type: clone
     - name: "Ness Golden Chalice"
       traits: [standard, frilled, yellow_toned_white]
       days_to_maturity: 90
-      seed_type: cultivar
+      seed_type: clone
 
   "Syngonium podophyllum":
     - name: "Neon Robusta"

@@ -14,6 +14,7 @@ Version: 1.2 (Beginner-Navigation vollständig)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-07-12 | Plan WP-6f/WP-9: Neues `SeedType`-Enum für das Cultivar-Feld `seed_type` (`open_pollinated`, `f1_hybrid`, `f2`, `landrace`, `clone`) — ein fortgeschrittenes/experten-nahes botanisches Attribut analog zu `dtm_reference`/`flowering_strategy`. i18n `enums.seedType.*` (de/en) ergänzt; ein CI-Gate erzwingt den 3-Wege-Enum-Sync und die i18n-Vollständigkeit der Pflanzen-Eigenschaften-Enums (`SeedType`, `GrowthHabit`, `RootType`, …). Reine Modell-/Sync-Härtung, kein neues Formularfeld. |
 | 1.2 | 2026-04-02 | Navigations-Tiering überarbeitet: Beginner-Set erweitert um Standorte, Kalender, Gießprotokoll und Pflege-Dashboard (vorher 5, jetzt 8 Menüpunkte). Designprinzip ergänzt: vollständiger Pflanzen-Workflow auch für Einsteiger. § 3.3 enthält jetzt Referenztabelle mit allen Pfaden/Levels und Sektions-Sichtbarkeit. Akzeptanzkriterium angepasst. |
 | 1.1 | 2026-02-27 | F-004 (Casual-Houseplant-Review): `description` und `growth_habit` von beginner → intermediate verschoben. Neuer Abschnitt 3.8 "Quick-Add-Plant (Beginner-Flow)" — Pflanze per Common-Name-Suche anlegen statt Stammdaten-CRUD. Neuer `quickAddPlantFieldConfig`. Akzeptanzkriterien ergänzt. |
 | 1.0 | 2026-02-24 | Erstversion |
