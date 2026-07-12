@@ -6108,14 +6108,18 @@
         "phase": "Phase",
         "nextDue": "Due: {{date}}",
         "openTask": "Open task",
-        "openTaskAria": "has an open task"
+        "openTaskAria": "has an open task",
+        "reference": "No. {{id}}"
       }
     },
     "nav": {
       "openWidget": "Open {{widget}}",
       "openListNamed": "Open {{widget}} list",
       "openTask": "Open task: {{task}}",
-      "openPlant": "Open plant: {{plant}}"
+      "openPlant": "Open plant: {{plant}}",
+      "openSpecies": "Open species: {{species}}",
+      "openLocation": "Open location: {{location}}",
+      "openPhase": "Open phase: {{phase}}"
     },
     "widgets": {
       "comingSoon": "In preparation",

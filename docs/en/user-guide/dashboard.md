@@ -48,7 +48,7 @@ A panel only links you to places you're actually allowed to navigate to: if the 
 
 Three widgets go one step further than plain panel navigation: they display individual entries and link each one directly to its own detail page.
 
-- **Plant grid** (tile grid): Tap or click a single plant's tile to go directly to that plant's detail page.
+- **Plant grid** (tile grid): Here, the whole tile doesn't link to a single destination — name, species, location, and the phase chip are each their own link to the matching detail page. See "Plant Grid" further below for details.
 - **Tasks today** and **Next events**: Tap or click a single task row to go directly to that task's detail page. The **Tasks today** widget now also shows the upcoming tasks as a list, in addition to its counts.
 
 For these three widgets, clicking the panel's empty area no longer opens a list — instead, a dedicated arrow icon at the top of the widget header ("open list") still takes you to the matching overview page, while each row or tile takes you straight to the individual entry.
@@ -59,18 +59,29 @@ For these three widgets, clicking the panel's empty area no longer opens a list 
 
 ### Plant Grid
 
-The **Plant grid** widget shows every active plant of yours as its own card: name (or cultivar name, if you haven't given the plant its own name), current growth phase, location and — if available — the next due date. Plants with an open task or care reminder are additionally flagged clearly: a coloured border, a warning icon and the text badge "Open task" show you this even if you can't distinguish colours. <!-- REQ-009 -->
+The **Plant grid** widget shows every active plant of yours as its own card.
+
+The card's title is the plant's speaking name: if you've given it its own name, the card shows that; otherwise it shows the species' common name, with the cultivar name added when one is set. The internal instance number (e.g. "No. 7432") is additionally shown small as a reference — never on its own as the sole title.
+
+Alongside name, species and current growth phase, every card now also shows the **location** — in both card formats, compact and detailed — and, if available, the next due date. Plants with an open task or care reminder are additionally flagged clearly: a coloured border, a warning icon and the text badge "Open task" show you this even if you can't distinguish colours. <!-- REQ-009 -->
 
 The filter bar above the cards lets you narrow the overview down — by **phase**, **location**, or whether an **open task** is present. Multiple filters can be combined; an empty result shows you a matching notice.
 
 The toggle next to it lets you choose the card format:
 
-- **Detailed** — larger cards adding cultivar, location and next due date on top of name and phase
-- **Compact** — more, narrower cards showing only name, phase and the task indicator
+- **Detailed** — larger cards adding species, cultivar, location and next due date on top of name and phase
+- **Compact** — more, narrower cards with name, species, location, phase and the task indicator
 
 Your choice is stored in your browser and persists across reloads.
 
-Click or tap a card to go directly to the plant detail page.
+Every piece of information on the card is its own link to the matching detail page — the card itself is no longer a single, card-wide link:
+
+- **Name** → the plant's detail page
+- **Species** → the species' detail page in [Master Data](plant-management.md)
+- **Location** → the [location's](locations-substrates.md) detail page
+- **Phase chip** → the detail page of the matching [phase definition](growth-phases.md), provided the current phase can be resolved unambiguously; if it can't, the card shows the phase chip without a link
+
+The due date in the detailed view is informational only and not a link.
 
 ### Upcoming Tasks
 

@@ -6109,14 +6109,18 @@
         "phase": "Phase",
         "nextDue": "Fällig: {{date}}",
         "openTask": "Offene Aufgabe",
-        "openTaskAria": "hat eine offene Aufgabe"
+        "openTaskAria": "hat eine offene Aufgabe",
+        "reference": "Nr. {{id}}"
       }
     },
     "nav": {
       "openWidget": "{{widget}} öffnen",
       "openListNamed": "{{widget}}-Liste öffnen",
       "openTask": "Aufgabe öffnen: {{task}}",
-      "openPlant": "Pflanze öffnen: {{plant}}"
+      "openPlant": "Pflanze öffnen: {{plant}}",
+      "openSpecies": "Art öffnen: {{species}}",
+      "openLocation": "Standort öffnen: {{location}}",
+      "openPhase": "Phase öffnen: {{phase}}"
     },
     "widgets": {
       "comingSoon": "In Vorbereitung",

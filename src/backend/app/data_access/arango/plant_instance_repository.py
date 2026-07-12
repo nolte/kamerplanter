@@ -324,23 +324,30 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
         Feeds the ``plant_grid`` dashboard widget (#461 / #488): a newest-first list of
         active plants, each carrying its ``_key`` for a deep link to the plant detail
-        view plus the per-card status fields the rich grid renders — cultivar name,
-        current growth phase, location and an open-task marker with the earliest due
-        date. "Alive" mirrors ``count_active_for_tenant`` (``removed_on == null``).
+        view plus the per-card status fields the rich grid renders — the human-readable
+        ``instance_id`` reference, the species common/scientific name (for the speaking
+        card title, FIX-02 R2), cultivar name, current growth phase with its
+        ``phase_definition_key`` (for the phase deep link, FIX-02 R5), location and an
+        open-task marker with the earliest due date. "Alive" mirrors
+        ``count_active_for_tenant`` (``removed_on == null``).
 
         Efficiency (no N+1): everything is resolved server-side in a *single* AQL
-        round-trip. The related documents (cultivar / growth phase / location) are
-        pulled with :func:`DOCUMENT` primary-key lookups (O(1) each), and the open-task
-        marker is a correlated sub-query over the tasks collection filtered on the same
-        ``tenant_key`` — so the whole enriched grid costs one query regardless of how
-        many plants it returns.
+        round-trip. The related documents (species / cultivar / growth phase / phase
+        sequence entry / location) are pulled with :func:`DOCUMENT` primary-key lookups
+        (O(1) each), and the open-task marker is a correlated sub-query over the tasks
+        collection filtered on the same ``tenant_key`` — so the whole enriched grid
+        costs one query regardless of how many plants it returns.
 
         Security: the plant and task collections are bound via ``@@col`` / ``@@task_col``
         (never interpolated); the related-collection names travel as plain string binds
         to :func:`DOCUMENT`. Every plant row *and* every open-task row is filtered on
         ``… .tenant_key == @tenant_key``, and the empty-tenant sentinel is rejected
         up-front, so neither the list nor the task marker can ever span tenants (SEC-B4).
-        ``@limit`` is a bound integer, never interpolated.
+        The species join is the plant's *own* ``species_key`` (global catalog data, and
+        the plant is already tenant-filtered), so it cannot leak a foreign-tenant record;
+        the location label is additionally gated on the same ``tenant_key`` (defence in
+        depth), mirroring ``list_active_in_phase_definition``. ``@limit`` is a bound
+        integer, never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_for_tenant")
         query = """
@@ -349,7 +356,17 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           SORT p.planted_on DESC, p._key ASC
           LIMIT @limit
           LET cultivar = p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
+          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
           LET phase = p.current_phase_key != null ? DOCUMENT(@phase_col, p.current_phase_key) : null
+          // #488 FIX-02 (R5): resolve the phase-definition key for the card's phase
+          // deep link. ``current_phase_key`` points at a ``PhaseSequenceEntry`` on the
+          // preferred path; ``DOCUMENT`` returns null for the legacy ``GrowthPhase``
+          // path (whose key lives in a different collection), leaving
+          // ``phase_definition_key`` null so the chip renders without a link (A4).
+          LET phase_entry = p.current_phase_key != null ? DOCUMENT(@entry_col, p.current_phase_key) : null
+          LET species_common_name = (species != null AND LENGTH(species.common_names) > 0)
+            ? species.common_names[0]
+            : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET open_task_due_dates = (
             FOR tsk IN @@task_col
@@ -373,11 +390,15 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           LET has_open_task = due_now_task_count > 0
           RETURN {
             _key: p._key,
+            instance_id: p.instance_id,
             plant_name: p.plant_name,
             species_key: p.species_key,
+            species_common_name: species_common_name,
+            species_scientific_name: species != null ? species.scientific_name : null,
             cultivar_key: p.cultivar_key,
             cultivar_name: cultivar != null ? cultivar.name : null,
             phase_key: p.current_phase_key,
+            phase_definition_key: phase_entry != null ? phase_entry.phase_definition_key : null,
             phase_name: phase != null ? (phase.display_name != "" ? phase.display_name : phase.name) : null,
             location_key: p.location_key,
             location_name: location != null AND location.tenant_key == @tenant_key ? location.name : null,
@@ -391,7 +412,9 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "tenant_key": tenant_key,
             "limit": int(limit),
             "cultivar_col": col.CULTIVARS,
+            "species_col": col.SPECIES,
             "phase_col": col.GROWTH_PHASES,
+            "entry_col": col.PHASE_SEQUENCE_ENTRIES,
             "location_col": col.LOCATIONS,
             "plant_entity_type": "plant_instance",
             "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],
