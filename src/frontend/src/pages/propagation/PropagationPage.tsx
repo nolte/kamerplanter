@@ -15,6 +15,7 @@ import type { Column } from '@/components/common/DataTable';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import MobileCard from '@/components/common/MobileCard';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import { TabPanel, tabA11yProps } from '@/components/common/TabPanel';
 import { useNotification } from '@/hooks/useNotification';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { usePropagationEvents } from '@/hooks/usePropagationEvents';
@@ -130,12 +131,20 @@ export default function PropagationPage(): ReactElement {
         sx={{ mb: 2 }}
         aria-label={t('pages.propagation.title')}
       >
-        <Tab label={t('pages.propagation.tabs.events')} data-testid="tab-events" />
-        <Tab label={t('pages.propagation.tabs.lineage')} data-testid="tab-lineage" />
+        <Tab
+          label={t('pages.propagation.tabs.events')}
+          data-testid="tab-events"
+          {...tabA11yProps('propagation', 0)}
+        />
+        <Tab
+          label={t('pages.propagation.tabs.lineage')}
+          data-testid="tab-lineage"
+          {...tabA11yProps('propagation', 1)}
+        />
       </Tabs>
 
-      {tab === 0 &&
-        (loading ? (
+      <TabPanel index={0} value={tab} idPrefix="propagation">
+        {loading ? (
           <LoadingSkeleton variant="table" />
         ) : (
           <DataTable
@@ -178,9 +187,12 @@ export default function PropagationPage(): ReactElement {
               />
             )}
           />
-        ))}
+        )}
+      </TabPanel>
 
-      {tab === 1 && <LineagePanel />}
+      <TabPanel index={1} value={tab} idPrefix="propagation">
+        <LineagePanel />
+      </TabPanel>
 
       <PropagationEventDialog
         open={dialogOpen}
