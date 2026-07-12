@@ -118,15 +118,15 @@
     },
     "overwintering": {
       "label": "Overwintering",
-      "description": "Overwintering profiles, protection measures and spring uncovering."
+      "description": "Overwintering profiles, protection measures and winter quarters for cold-sensitive plants."
     },
     "phases": {
       "label": "Phases (Definitions & Sequences)",
-      "description": "Phase definitions and phase sequences for the growth cycle."
+      "description": "Growth phases such as germination or flowering and their order in the cultivation cycle."
     },
     "inventory": {
-      "label": "Inventory / Equipment",
-      "description": "Equipment and supplies management (InvenTree integration)."
+      "label": "Equipment & Inventory",
+      "description": "Equipment such as pumps, sensors and tools, optionally linked to InvenTree."
     },
     "master_data": {
       "label": "Master Data (Species/Families/Import)",
@@ -146,11 +146,11 @@
     },
     "ai_assistant": {
       "label": "AI Assistant",
-      "description": "AI-powered assistant for questions and knowledge sharing."
+      "description": "Chat assistant for plant-care questions, with answers clearly labelled as AI-generated."
     },
     "glossary": {
       "label": "Glossary",
-      "description": "Reference of technical terms around cultivation."
+      "description": "Reference of technical terms such as VPD or EC around cultivation."
     }
   },
   "storageSettings": {

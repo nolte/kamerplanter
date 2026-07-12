@@ -118,15 +118,15 @@
     },
     "overwintering": {
       "label": "Überwinterung",
-      "description": "Überwinterungsprofile, Schutzmaßnahmen und Frühjahrsauswinterung."
+      "description": "Überwinterungsprofile, Schutzmaßnahmen und Winterquartier für kälteempfindliche Pflanzen."
     },
     "phases": {
       "label": "Phasen (Definitionen & Abläufe)",
-      "description": "Phasen-Definitionen und Phasen-Abläufe für den Wachstumszyklus."
+      "description": "Wachstumsphasen wie Keimung oder Blüte und ihre Reihenfolge im Anbauzyklus."
     },
     "inventory": {
-      "label": "Inventar / Equipment",
-      "description": "Geräte- und Materialverwaltung (InvenTree-Anbindung)."
+      "label": "Betriebsmittel & Inventar",
+      "description": "Betriebsmittel wie Pumpen, Sensoren und Werkzeuge, optional verknüpft mit InvenTree."
     },
     "master_data": {
       "label": "Stammdaten (Arten/Familien/Import)",
@@ -146,11 +146,11 @@
     },
     "ai_assistant": {
       "label": "KI-Assistent",
-      "description": "KI-gestützter Assistent für Fragen und Wissensvermittlung."
+      "description": "Chat-Assistent für Wissensfragen zur Pflanzenpflege, mit klar als KI gekennzeichneten Antworten."
     },
     "glossary": {
       "label": "Glossar",
-      "description": "Nachschlagewerk für Fachbegriffe rund um den Anbau."
+      "description": "Nachschlagewerk für Fachbegriffe wie VPD oder EC rund um den Anbau."
     }
   },
   "storageSettings": {
