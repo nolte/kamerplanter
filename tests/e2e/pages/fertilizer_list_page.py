@@ -125,6 +125,21 @@ class FertilizerListPage(BasePage):
         """Return True if the empty state is shown."""
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
+    def has_table(self) -> bool:
+        """Return True if the DataTable is present."""
+        return len(self.driver.find_elements(*self.TABLE)) > 0
+
+    def get_search_input_value(self) -> str:
+        """Return the current value typed into the search input."""
+        el = self.wait_for_element(self.SEARCH_INPUT)
+        return el.get_attribute("value") or ""
+
+    def has_form_field(self, field_name: str) -> bool:
+        """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
+        )) > 0
+
     # ── Create dialog ──────────────────────────────────────────────────
 
     def click_create(self) -> None:

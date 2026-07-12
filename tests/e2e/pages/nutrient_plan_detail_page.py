@@ -70,6 +70,15 @@ class NutrientPlanDetailPage(BasePage):
         active = self.driver.find_element(By.CSS_SELECTOR, "[role='tab'][aria-selected='true']")
         return active.text
 
+    def get_tab_count(self) -> int:
+        """Return the number of tabs rendered on the detail page."""
+        return len(self.driver.find_elements(By.CSS_SELECTOR, "[role='tab']"))
+
+    def is_first_tab_selected(self) -> bool:
+        """Return True if the first (Phase Entries) tab is the active tab."""
+        first_tab = self.driver.find_element(*self.TAB_PHASE_ENTRIES)
+        return first_tab.get_attribute("aria-selected") == "true"
+
     # ── Tab navigation ─────────────────────────────────────────────────
 
     def click_tab_phase_entries(self) -> None:

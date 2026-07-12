@@ -50,6 +50,15 @@ class SpeciesListPage(BasePage):
                 texts.append(cells[0].text)
         return texts
 
+    def get_row_texts(self) -> list[list[str]]:
+        """Return text content of every visible row as a list of cell texts."""
+        rows = self.driver.find_elements(*self.TABLE_ROWS)
+        result: list[list[str]] = []
+        for row in rows:
+            cells = row.find_elements(By.TAG_NAME, "td")
+            result.append([c.text for c in cells])
+        return result
+
     @staticmethod
     def _row_nav_target(row: WebElement) -> WebElement:
         """Return a link-free cell of *row* that triggers row navigation.
@@ -116,6 +125,19 @@ class SpeciesListPage(BasePage):
         )
         el.clear()
         el.send_keys(value)
+
+    def open_dropdown_and_get_options(self, field_name: str) -> list[str]:
+        """Open the MUI Select for *field_name* and return its option texts.
+
+        Leaves the dropdown open; callers should close it via
+        :meth:`close_mui_dropdown` when done inspecting the options.
+        """
+        field = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
+        )
+        self.scroll_and_click(field)
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        return [o.text for o in options]
 
     def select_option(self, field_name: str, value_text: str) -> None:
         import time

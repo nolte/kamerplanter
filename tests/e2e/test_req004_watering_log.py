@@ -18,12 +18,10 @@ Spec-TC Mapping:
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -112,13 +110,14 @@ class TestWateringLogListPage:
             "Watering log list — table or empty state",
         )
 
-        has_table = len(watering_list.driver.find_elements(*WateringLogListPage.TABLE)) > 0
+        has_table = watering_list.has_table()
         has_empty = watering_list.has_empty_state()
 
         assert has_table or has_empty, (
             "TC-REQ-004-W001b FAIL: Expected either a DataTable or empty-state illustration"
         )
 
+    @pytest.mark.core_crud
     def test_showing_count_when_rows_exist(
         self,
         watering_list: WateringLogListPage,
@@ -176,10 +175,7 @@ class TestWateringLogCreateDialog:
         )
 
         # Verify the plant autocomplete input is present
-        plant_input = watering_list.driver.find_elements(
-            *WateringLogListPage.PLANT_KEYS_AUTOCOMPLETE
-        )
-        assert len(plant_input) > 0, (
+        assert watering_list.has_plant_autocomplete(), (
             "TC-REQ-004-W003 FAIL: Expected plant-keys-autocomplete to be present in dialog"
         )
 
@@ -268,7 +264,7 @@ class TestWateringLogCreateDialog:
         )
 
         watering_list.submit_create_form()
-        time.sleep(0.5)
+        watering_list.wait_for_loading_complete()
         screenshot(
             "TC-REQ-004-W005_validation-error",
             "Validation error after submitting with volume=0",
@@ -332,21 +328,14 @@ class TestWateringLogCreateDialog:
             "Create dialog before adding fertilizer",
         )
 
-        add_btn = watering_list.wait_for_element_clickable(
-            WateringLogListPage.ADD_FERTILIZER_BUTTON
-        )
-        watering_list.scroll_and_click(add_btn)
-        time.sleep(0.3)
+        watering_list.click_add_fertilizer()
         screenshot(
             "TC-REQ-004-W004b_after-add-fertilizer",
             "Create dialog after adding fertilizer row",
         )
 
         # Verify at least one remove-fertilizer button appeared
-        remove_btns = watering_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='remove-fertilizer-0']"
-        )
-        assert len(remove_btns) > 0, (
+        assert watering_list.has_remove_fertilizer_button(), (
             "TC-REQ-004-W004b FAIL: Expected remove-fertilizer-0 button after adding fertilizer"
         )
 
@@ -359,6 +348,7 @@ class TestWateringLogCreateDialog:
 class TestWateringLogSearch:
     """Watering log search and filter interactions."""
 
+    @pytest.mark.core_crud
     def test_search_filters_table_rows(
         self,
         watering_list: WateringLogListPage,
@@ -379,8 +369,7 @@ class TestWateringLogSearch:
             pytest.skip("No watering log rows to search/filter")
 
         # Search for a term unlikely to match all rows
-        watering_list.search("zzz-no-match-expected")
-        time.sleep(0.5)
+        watering_list.search("zzz-no-match-expected")  # debounce handled inside the page object
         screenshot(
             "TC-REQ-004-W007_after-search",
             "Watering log list after search with non-matching term",
@@ -392,8 +381,7 @@ class TestWateringLogSearch:
         )
 
         # Clear search to restore
-        watering_list.clear_search()
-        time.sleep(0.3)
+        watering_list.clear_search()  # debounce handled inside the page object
 
 
 # -- TC-REQ-004-W008 to TC-REQ-004-W009: Detail Page --------------------------
@@ -464,6 +452,7 @@ class TestWateringLogDetailPage:
             f"TC-REQ-004-W009 FAIL: Expected 2 tabs, got {tab_count}"
         )
 
+    @pytest.mark.core_crud
     def test_detail_page_shows_measurement_cards(
         self,
         watering_list: WateringLogListPage,
@@ -492,6 +481,7 @@ class TestWateringLogDetailPage:
             f"TC-REQ-004-W009b FAIL: Expected at least 1 detail card, got {card_count}"
         )
 
+    @pytest.mark.core_crud
     def test_detail_page_has_analyze_runoff_button(
         self,
         watering_list: WateringLogListPage,
@@ -519,6 +509,7 @@ class TestWateringLogDetailPage:
             "TC-REQ-004-W009c FAIL: Expected analyze-runoff button to be visible"
         )
 
+    @pytest.mark.core_crud
     def test_detail_page_delete_dialog_opens(
         self,
         watering_list: WateringLogListPage,
@@ -544,16 +535,14 @@ class TestWateringLogDetailPage:
             "Watering log detail — delete confirmation dialog",
         )
 
-        confirm_dialog = watering_detail.driver.find_elements(
-            *WateringLogDetailPage.CONFIRM_DIALOG
-        )
-        assert len(confirm_dialog) > 0 and confirm_dialog[0].is_displayed(), (
+        assert watering_detail.is_confirm_dialog_visible(), (
             "TC-REQ-004-W009d FAIL: Expected ConfirmDialog to be visible"
         )
 
         # Cancel the delete to avoid data loss
         watering_detail.cancel_delete()
 
+    @pytest.mark.core_crud
     def test_detail_page_edit_tab_shows_form(
         self,
         watering_list: WateringLogListPage,
@@ -574,7 +563,6 @@ class TestWateringLogDetailPage:
         watering_detail.wait_for_element(WateringLogDetailPage.PAGE)
 
         watering_detail.click_edit_tab()
-        time.sleep(0.5)
         screenshot(
             "TC-REQ-004-W009e_edit-tab",
             "Watering log detail — edit tab form",

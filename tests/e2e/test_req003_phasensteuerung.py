@@ -39,7 +39,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import PlantInstanceListExt, PlantInstanceDetailExt
@@ -113,17 +112,13 @@ class TestPlantInstanceListPage:
                    "Plant instance list DataTable or empty state")
 
         # DataTable is always rendered (even when empty) as a Paper wrapper
-        tables = plant_list.driver.find_elements(*plant_list.TABLE)
-        if not tables:
+        if not plant_list.has_table():
             # DataTable might not be rendered if page shows empty state instead
-            empty = plant_list.driver.find_elements(
-                By.CSS_SELECTOR, "[data-testid='empty-state']"
-            )
-            assert empty, (
+            assert plant_list.has_empty_state(), (
                 "TC-REQ-003-002 FAIL: Expected DataTable or EmptyState on plant list"
             )
         else:
-            assert tables[0].is_displayed(), (
+            assert plant_list.is_table_visible(), (
                 "TC-REQ-003-002 FAIL: DataTable should be visible"
             )
 
@@ -141,8 +136,7 @@ class TestPlantInstanceListPage:
                    "Plant instance list column headers")
 
         # Check that DataTable exists before inspecting headers
-        tables = plant_list.driver.find_elements(*plant_list.TABLE)
-        if not tables:
+        if not plant_list.has_table():
             pytest.skip("DataTable not rendered — cannot check column headers")
 
         headers = plant_list.get_column_headers()

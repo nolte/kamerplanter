@@ -111,6 +111,14 @@ class BasePage:
         )
         return len(elements) > 0 and elements[0].is_displayed()
 
+    def has_alert_notification(self) -> bool:
+        """Check whether any ``[role='alert']`` notification is present (e.g. an error snackbar)."""
+        return len(self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")) > 0
+
+    def get_body_text(self) -> str:
+        """Return the full text content of the page body (for keyword assertions)."""
+        return self.driver.find_element(By.TAG_NAME, "body").text
+
     # ── Interactions ─────────────────────────────────────────────────────
 
     def close_mui_dropdown(self, timeout: int = 5) -> None:
