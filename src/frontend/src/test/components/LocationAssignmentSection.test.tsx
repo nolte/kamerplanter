@@ -196,6 +196,30 @@ describe('LocationAssignmentSection', () => {
     expect(own).not.toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('announces via a polite live region when picking a site resets area and slot', async () => {
+    mockGetLocationTree.mockResolvedValue([treeNode('loc-1', 'Zone A')]);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness />);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('');
+    await selectSite(user);
+    await waitFor(() =>
+      expect(status).toHaveTextContent('Site changed — area and slot have been reset.'),
+    );
+  });
+
+  it('announces via a polite live region when picking an area resets the slot', async () => {
+    mockGetLocationTree.mockResolvedValue([treeNode('loc-1', 'Zone A')]);
+    const user = userEvent.setup();
+    renderWithProviders(<Harness slotsForArea={[slot('slot-1', 'A-01')]} />);
+    await selectSite(user);
+    await selectArea(user, 'Zone A');
+    const status = screen.getByRole('status');
+    await waitFor(() =>
+      expect(status).toHaveTextContent('Area changed — slot has been reset.'),
+    );
+  });
+
   it.each(['card', 'inline'] as const)(
     'submits identical site/location/slot field values from the %s variant',
     async (variant) => {

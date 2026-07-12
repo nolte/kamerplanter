@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
+import { visuallyHidden } from '@mui/utils';
 import {
   useWatch,
   type Control,
@@ -76,6 +78,14 @@ export default function LocationAssignmentSection<T extends FieldValues>({
   // (no site chosen or tree still loading), `0` = site has no areas.
   const [areaCount, setAreaCount] = useState<number | null>(null);
 
+  // Drop the previous site's area count as soon as the site changes, so a
+  // stale `0` doesn't briefly claim the *new* site has no areas while its
+  // tree is still loading (`LocationTreeSelect` disables the field for that
+  // window anyway, but the helper text must not lie in the meantime).
+  useEffect(() => {
+    setAreaCount(null);
+  }, [siteKey]);
+
   const siteHasNoAreas = !!siteKey && areaCount === 0;
 
   const areaHelperText = useMemo(() => {
@@ -92,6 +102,36 @@ export default function LocationAssignmentSection<T extends FieldValues>({
     if (slots.length === 0) return t('pages.plantInstances.slotEmptyForArea');
     return t('pages.plantInstances.slotHelperOptional');
   }, [siteKey, locationKey, slots.length, t]);
+
+  // Both call sites clear area + slot when the site changes, and clear the
+  // slot when the area changes (parent-owned cascade effects). Selection
+  // usually keeps focus on the field the user just changed, so screen-reader
+  // users would otherwise never learn a downstream field was reset. A polite
+  // live region announces it instead (mirrors the pattern in DashboardPage /
+  // ColumnFilterBar).
+  const [resetAnnouncement, setResetAnnouncement] = useState('');
+  const skipSiteAnnounce = useRef(true);
+  useEffect(() => {
+    if (skipSiteAnnounce.current) {
+      skipSiteAnnounce.current = false;
+      return;
+    }
+    setResetAnnouncement(t('pages.plantInstances.locationResetOnSiteChange'));
+  }, [siteKey, t]);
+
+  const skipAreaAnnounce = useRef(true);
+  useEffect(() => {
+    if (skipAreaAnnounce.current) {
+      skipAreaAnnounce.current = false;
+      return;
+    }
+    // Only announce when an area was actually *picked* — when the site
+    // change above resets the area to empty, that reset is already covered
+    // by the site announcement and would otherwise double up here.
+    if (locationKey) {
+      setResetAnnouncement(t('pages.plantInstances.locationResetOnAreaChange'));
+    }
+  }, [locationKey, t]);
 
   const slotOptions = useMemo(
     () => [
@@ -123,6 +163,9 @@ export default function LocationAssignmentSection<T extends FieldValues>({
 
   const fields = (
     <>
+      <Box role="status" aria-live="polite" sx={visuallyHidden}>
+        {resetAnnouncement}
+      </Box>
       <FormRow>
         <FormSelectField
           name={SITE_FIELD as Path<T>}
