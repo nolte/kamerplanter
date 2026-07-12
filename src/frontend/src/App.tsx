@@ -16,6 +16,7 @@ export default function App() {
         <ThemeContextProvider>
           <SnackbarProvider
             maxSnack={3}
+            preventDuplicate
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             autoHideDuration={5000}
             style={{ maxWidth: '480px', whiteSpace: 'pre-line' }}
