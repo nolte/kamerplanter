@@ -38,9 +38,11 @@
       "plant_protection": "Plant Protection",
       "harvest": "Harvest",
       "cultivation": "Cultivation",
+      "inventory": "Inventory & Equipment",
       "master_data": "Master Data",
       "automation": "Automation",
-      "ai": "AI"
+      "ai": "AI",
+      "knowledge": "Knowledge & Reference"
     },
     "dashboard": {
       "label": "Dashboard",
@@ -61,10 +63,6 @@
     "onboarding": {
       "label": "Onboarding",
       "description": "Setup wizard to get you started."
-    },
-    "care": {
-      "label": "Care & Reminders",
-      "description": "Care reminders and the care dashboard."
     },
     "calendar": {
       "label": "Calendar",
@@ -118,6 +116,18 @@
       "label": "Propagation",
       "description": "Cuttings, sowing and genetic lineage."
     },
+    "overwintering": {
+      "label": "Overwintering",
+      "description": "Overwintering profiles, protection measures and spring uncovering."
+    },
+    "phases": {
+      "label": "Phases (Definitions & Sequences)",
+      "description": "Phase definitions and phase sequences for the growth cycle."
+    },
+    "inventory": {
+      "label": "Inventory / Equipment",
+      "description": "Equipment and supplies management (InvenTree integration)."
+    },
     "master_data": {
       "label": "Master Data (Species/Families/Import)",
       "description": "Botanical families, species, activities and import."
@@ -126,21 +136,21 @@
       "label": "Companion Planting & Crop Rotation",
       "description": "Companion planting recommendations and crop rotation planning."
     },
-    "sensors": {
-      "label": "Sensors & Monitoring",
-      "description": "Sensors and environmental monitoring."
-    },
     "automation": {
       "label": "Environment Control & Actuators",
-      "description": "Rule-based control of actuators."
-    },
-    "smart_home": {
-      "label": "Smart Home / Home Assistant",
-      "description": "Integration with Home Assistant and smart-home devices."
+      "description": "Rule-based control of actuators and environment parameters."
     },
     "ai": {
-      "label": "AI Features (Recognition/Assistant)",
-      "description": "Image-based plant recognition and AI assistants."
+      "label": "AI Image Recognition",
+      "description": "Image-based plant and pest recognition."
+    },
+    "ai_assistant": {
+      "label": "AI Assistant",
+      "description": "AI-powered assistant for questions and knowledge sharing."
+    },
+    "glossary": {
+      "label": "Glossary",
+      "description": "Reference of technical terms around cultivation."
     }
   },
   "storageSettings": {

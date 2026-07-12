@@ -34,6 +34,35 @@ describe('ModuleGuard', () => {
     expect(screen.getByTestId('module-guard-action')).toBeInTheDocument();
   });
 
+  it('blocks the deep link of a newly-controllable module when disabled', () => {
+    // REQ-042 #551: disabling the KI-Assistent module must block /ki-assistent,
+    // which previously had no owning module and was always reachable.
+    renderWithProviders(
+      <ModuleGuard>
+        <div data-testid="guarded-content">assistant</div>
+      </ModuleGuard>,
+      {
+        store: createStoreWithModuleOverrides('expert', { ai_assistant: 'disabled' }),
+        route: '/ki-assistent',
+      },
+    );
+    expect(screen.getByTestId('module-guard-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('guarded-content')).not.toBeInTheDocument();
+  });
+
+  it('renders children for a newly-controllable module when enabled', () => {
+    renderWithProviders(
+      <ModuleGuard>
+        <div data-testid="guarded-content">phases</div>
+      </ModuleGuard>,
+      {
+        store: createStoreWithModuleOverrides('beginner', { phases: 'enabled' }),
+        route: '/phasen/definitionen',
+      },
+    );
+    expect(screen.getByTestId('guarded-content')).toBeInTheDocument();
+  });
+
   it('renders children for core paths', () => {
     renderWithProviders(
       <ModuleGuard>

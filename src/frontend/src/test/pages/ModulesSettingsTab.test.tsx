@@ -43,6 +43,35 @@ describe('ModulesSettingsTab', () => {
     expect(screen.getByTestId('modules-core-section')).toBeInTheDocument();
   });
 
+  it('lists the newly-controllable modules (REQ-042 #551)', () => {
+    renderWithProviders(<ModulesSettingsTab />, {
+      store: createStoreWithExpertise('expert'),
+    });
+    for (const key of [
+      'ai_assistant',
+      'glossary',
+      'inventory',
+      'overwintering',
+      'phases',
+      'automation',
+      'post_harvest',
+    ]) {
+      expect(screen.getByTestId(`module-switch-${key}`)).toBeInTheDocument();
+    }
+    // New category accordions are present.
+    expect(screen.getByTestId('modules-category-inventory')).toBeInTheDocument();
+    expect(screen.getByTestId('modules-category-knowledge')).toBeInTheDocument();
+  });
+
+  it('does not list the removed phantom modules', () => {
+    renderWithProviders(<ModulesSettingsTab />, {
+      store: createStoreWithExpertise('expert'),
+    });
+    expect(screen.queryByTestId('module-switch-care')).toBeNull();
+    expect(screen.queryByTestId('module-switch-sensors')).toBeNull();
+    expect(screen.queryByTestId('module-switch-smart_home')).toBeNull();
+  });
+
   it('disables core module switches', () => {
     renderWithProviders(<ModulesSettingsTab />, {
       store: createStoreWithExpertise('expert'),
