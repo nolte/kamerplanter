@@ -65,24 +65,24 @@ Klicke auf **Vermehrung dokumentieren**. Ein Dialog öffnet sich.
 
 ### Schritt 4: Beteiligte Pflanzen (optional)
 
-Trage die **Pflanzen-Schlüssel** der beteiligten Pflanzen ein — Schlüssel eingeben, dann Enter drücken, um ihn als Chip hinzuzufügen. Bei der Methode **Veredelung** beschriften sich die Felder passend um:
+Wähle die beteiligten Pflanzen über die **Namenssuche** aus — du kannst mehrere auswählen. Tippe Pflanzenname oder Kennung ein, um die Liste zu filtern; die Art wird zur Orientierung mit angezeigt. Bei der Methode **Veredelung** beschriften sich die Felder passend um:
 
 | Feld (Standard) | Bei Veredelung | Bedeutung |
 |------|------|------|
 | Quell-Pflanzen | Unterlage(n) | Die Pflanze(n), von der die Aktion ausgeht |
 | Ergebnis-Pflanzen | Edelreis | Die dabei entstehende(n) bzw. verwendete(n) Pflanze(n) |
 
-!!! tip "Wo finde ich den Pflanzen-Schlüssel?"
-    Öffne die Detailseite der betreffenden Pflanze unter **Pflanzen > Pflanzeninstanzen** — der Schlüssel steht am Ende der Adresszeile deines Browsers (z.B. `.../plant-instances/abc123`).
+!!! tip "Interne Schlüssel eingeben ist nicht mehr nötig"
+    Früher musstest du den technischen Pflanzen-Schlüssel von der Detailseite abtippen — das entfällt jetzt: Die Namenssuche findet die Pflanze anhand ihres Namens oder ihrer Kennung, den passenden Schlüssel trägt Kamerplanter im Hintergrund automatisch ein.
 
 ### Schritt 5: Notizen ergänzen und speichern
 
 Trage optional Notizen ein (z.B. Substrat, Bewurzelungshormon, Schnitttechnik) und klicke auf **Speichern**. Das Ereignis erscheint danach im Tab **Ereignisse** mit dem Status **„In Bearbeitung"**.
 
 !!! tip "Klon-Generationen nachvollziehen"
-    Trägst du beim nächsten Steckling die zuvor entstandene Pflanze als Quell-Pflanze ein, entsteht über mehrere Ereignisse hinweg eine nachvollziehbare Kette in der Ereignisliste — das ist allerdings noch keine automatische Verknüpfung im Abstammungsgraphen (siehe unten).
+    Wählst du beim nächsten Steckling die zuvor entstandene Pflanze als Quell-Pflanze aus, entsteht über mehrere Ereignisse hinweg eine nachvollziehbare Kette in der Ereignisliste — das ist allerdings noch keine automatische Verknüpfung im Abstammungsgraphen (siehe unten).
 
-<!-- Quelle: src/frontend/src/pages/propagation/PropagationEventDialog.tsx, PropagationPage.tsx, src/backend/app/api/v1/propagation/tenant_router.py, src/backend/app/domain/services/propagation_service.py -->
+<!-- Quelle: src/frontend/src/pages/propagation/PropagationEventDialog.tsx, PropagationPage.tsx, src/frontend/src/components/form/PlantInstanceAutocompleteField.tsx, src/backend/app/api/v1/propagation/tenant_router.py, src/backend/app/domain/services/propagation_service.py -->
 
 ---
 
@@ -110,9 +110,12 @@ Der Tab **Ereignisse** listet alle dokumentierten Vermehrungsereignisse deines M
 
 Im Tab **Abstammung & Veredelung** kannst du für eine beliebige Pflanze ihre Vorfahren und Nachkommen nachschlagen:
 
-1. Trage den **Pflanzen-Schlüssel** der gewünschten Pflanze ein (siehe Tipp oben).
+1. Wähle die gewünschte Pflanze über die **Namenssuche** aus.
 2. Klicke auf **Abstammung anzeigen**.
 3. Kamerplanter zeigt dir zwei Listen: **Vorfahren** (von welcher Mutterpflanze — und deren Mutterpflanze usw. — die Pflanze abstammt) und **Nachkommen** (welche Pflanzen wiederum aus ihr entstanden sind).
+
+!!! tip "Direkt zum Tab „Abstammung & Veredelung" verlinken"
+    Die beiden Tabs **Ereignisse** und **Abstammung & Veredelung** merken sich ihren Zustand in der Browser-Adresszeile. Hänge `#lineage` an die URL der Vermehrungsseite an (z.B. `.../vermehrung#lineage`), um direkt im Tab **Abstammung & Veredelung** zu landen — das funktioniert auch beim Neuladen der Seite oder als Lesezeichen.
 
 <!-- diagram-source: user-described — plant lineage graph: mother plant with F1 clones and an F2 clone via descended_from edges -->
 ```mermaid
@@ -129,7 +132,7 @@ flowchart TB
 ```
 
 !!! note "Teilweise verfügbar: Verknüpfung mit einem dokumentierten Vermehrungsereignis"
-    Die Pflanzen-Schlüssel, die du bei einem Vermehrungsereignis unter „Beteiligte Pflanzen" einträgst, dienen aktuell nur deinem eigenen Vermehrungsprotokoll und der Erfolgsstatistik (siehe oben) — sie erzeugen noch **keine** automatische Verknüpfung in diesem Abstammungsgraphen. Vollständig automatisch verknüpft ist bislang ausschließlich die [Kindel-Fortführung bei monokarpischen Pflanzen](#automatische-kindel-fortfuehrung). Für alle anderen Methoden ist die Ereignisliste dein Vermehrungsprotokoll; eine direkte Verknüpfung im Abstammungsgraphen ist geplant. <!-- REQ-017 -->
+    Die Pflanzen, die du bei einem Vermehrungsereignis unter „Beteiligte Pflanzen" auswählst, dienen aktuell nur deinem eigenen Vermehrungsprotokoll und der Erfolgsstatistik (siehe oben) — sie erzeugen noch **keine** automatische Verknüpfung in diesem Abstammungsgraphen. Vollständig automatisch verknüpft ist bislang ausschließlich die [Kindel-Fortführung bei monokarpischen Pflanzen](#automatische-kindel-fortfuehrung). Für alle anderen Methoden ist die Ereignisliste dein Vermehrungsprotokoll; eine direkte Verknüpfung im Abstammungsgraphen ist geplant. <!-- REQ-017 -->
 
 ---
 
@@ -137,8 +140,8 @@ flowchart TB
 
 Im selben Tab prüft die Karte **Veredelungs-Kompatibilität**, ob sich zwei Pflanzen taxonomisch für eine Veredelung eignen:
 
-1. Trage den Pflanzen-Schlüssel des **Edelreises** (der Sorte, die du vermehren möchtest) ein.
-2. Trage den Pflanzen-Schlüssel der **Unterlage** (der Wurzelbasis) ein.
+1. Wähle das **Edelreis** (die Sorte, die du vermehren möchtest) über die Namenssuche aus.
+2. Wähle die **Unterlage** (die Wurzelbasis) über die Namenssuche aus.
 3. Klicke auf **Kompatibilität prüfen**.
 
 Kamerplanter vergleicht Gattung und Familie der beiden hinterlegten Pflanzenarten:
@@ -165,7 +168,7 @@ flowchart TD
 !!! warning "Taxonomische Heuristik, keine Garantie"
     Die Prüfung wertet ausschließlich Gattung und Familie aus den Stammdaten der beteiligten Pflanzenarten aus. Es gibt aktuell keine Möglichkeit, das Ergebnis manuell zu überschreiben — dokumentiere eine abweichende, in der Praxis gemachte Erfahrung stattdessen in den Notizen des zugehörigen Vermehrungsereignisses.
 
-<!-- Quelle: src/backend/app/domain/engines/lineage_engine.py (check_graft_compatibility), src/frontend/src/pages/propagation/LineagePanel.tsx -->
+<!-- Quelle: src/backend/app/domain/engines/lineage_engine.py (check_graft_compatibility), src/frontend/src/pages/propagation/LineagePanel.tsx, src/frontend/src/components/form/PlantInstancePicker.tsx, src/frontend/src/hooks/usePlantInstanceOptions.ts, src/frontend/src/hooks/useTabUrl.ts -->
 
 ---
 
@@ -191,7 +194,7 @@ flowchart TD
     Nein. Vermehrungsereignisse sind ein optionales Protokoll- und Statistikwerkzeug — du kannst Pflanzen weiterhin ohne begleitendes Ereignis anlegen. Sinnvoll ist die Dokumentation, wenn du Erfolgsraten über die Zeit vergleichen möchtest (z.B. welches Substrat besser bewurzelt).
 
 ??? question "Verknüpft ein Vermehrungsereignis die beteiligten Pflanzen automatisch im Abstammungsgraphen?"
-    Nein, noch nicht. Die im Ereignis eingetragenen Pflanzen-Schlüssel dienen aktuell nur deinem eigenen Protokoll. Automatisch verknüpft im Abstammungsgraphen wird bislang ausschließlich die Kindel-Fortführung bei monokarpischen Pflanzen. Details siehe [oben](#automatische-kindel-fortfuehrung).
+    Nein, noch nicht. Die im Ereignis ausgewählten Pflanzen dienen aktuell nur deinem eigenen Protokoll. Automatisch verknüpft im Abstammungsgraphen wird bislang ausschließlich die Kindel-Fortführung bei monokarpischen Pflanzen. Details siehe [oben](#automatische-kindel-fortfuehrung).
 
 ??? question "Kann ich das Ergebnis (überlebt/verworfen) eines Ereignisses nachträglich eintragen?"
     Ja, das Datenmodell unterstützt das bereits — aktuell aber nur über die technische API, noch nicht über eine Schaltfläche in der Oberfläche.
@@ -199,8 +202,11 @@ flowchart TD
 ??? question "Ist die automatische Kindel-Fortführung dasselbe wie ein manuell dokumentierter Steckling?"
     Nein. Die automatische Kindel-Fortführung bei monokarpischen Pflanzen läuft ohne dein Zutun, sobald die Mutterpflanze automatisch in ihre letzte Blühphase wechselt — inklusive automatischer Verknüpfung im Abstammungsgraphen. Bei allen anderen Vermehrungsmethoden dokumentierst du die Aktion selbst über **Vermehrung dokumentieren**.
 
-??? question "Wie finde ich den Pflanzen-Schlüssel für die Abstammungssuche oder die Kompatibilitätsprüfung?"
-    Öffne die Detailseite der Pflanze unter **Pflanzen > Pflanzeninstanzen** — der Schlüssel steht am Ende der Adresszeile deines Browsers.
+??? question "Muss ich noch den technischen Pflanzen-Schlüssel kennen?"
+    Nein. Überall dort, wo früher ein Pflanzen-Schlüssel einzutippen war (beteiligte Pflanzen, Abstammungssuche, Veredelungs-Kompatibilität), wählst du die Pflanze jetzt über eine Namenssuche aus — Kamerplanter trägt den passenden Schlüssel automatisch im Hintergrund ein.
+
+??? question "Kann ich direkt zum Tab „Abstammung & Veredelung" verlinken?"
+    Ja. Hänge `#lineage` an die URL der Vermehrungsseite an (z.B. `.../vermehrung#lineage`) — der Link öffnet die Seite direkt im Tab **Abstammung & Veredelung**, auch nach einem Neuladen der Seite.
 
 ---
 
