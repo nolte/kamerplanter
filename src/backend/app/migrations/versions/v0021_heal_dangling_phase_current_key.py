@@ -1,4 +1,4 @@
-"""v0020_heal_dangling_phase_current_key — repoint plants at live phase entries.
+"""v0021_heal_dangling_phase_current_key — repoint plants at live phase entries.
 
 #579 error #2. Before #579 a PhaseSequence re-seed deleted and recreated every
 entry, minting fresh ``_key``s each time (fixed in ``seed_phase_sequences`` — the
@@ -75,7 +75,7 @@ def plan_healed_key(
 
 
 class HealDanglingPhaseCurrentKeyMigration(Migration):
-    version = "0020"
+    version = "0021"
     name = "heal_dangling_phase_current_key"
     description = (
         "Repoint plants whose current_phase_key dangles onto the live PhaseSequenceEntry matched by phase name (#579)."

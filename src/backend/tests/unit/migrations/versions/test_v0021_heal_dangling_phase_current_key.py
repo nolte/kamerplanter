@@ -1,4 +1,4 @@
-"""Tests for v0020_heal_dangling_phase_current_key (#579 error #2).
+"""Tests for v0021_heal_dangling_phase_current_key (#579 error #2).
 
 Verifies the name-anchored heal decision (pure), plus the full migration against a
 fake ArangoDB: a plant pointing at a dangling PhaseSequenceEntry key is repointed
@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.data_access.arango import collections as col
-from app.migrations.versions.v0020_heal_dangling_phase_current_key import (
+from app.migrations.versions.v0021_heal_dangling_phase_current_key import (
     migration,
     open_phase_name,
     plan_healed_key,
