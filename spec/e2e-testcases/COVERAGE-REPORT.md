@@ -1,9 +1,12 @@
 ---
 title: E2E-Testfall-Vollständigkeitsanalyse
 generated: 2026-04-02
+updated: 2026-07-13
 scope: spec/e2e-testcases/ vs spec/req/ und spec/nfr/
 analyst: e2e-testcase-extractor
 ---
+
+> **Aktualisierung 2026-07-13 (Issue #589):** Ergänzt um explizite **Core-Lifecycle-Journey**-Testgruppen (self-provisioning Happy-Path) in TC-REQ-001, TC-REQ-003, TC-REQ-004, TC-REQ-006 und TC-REQ-022. Der zugehörige Abschnitt ist als § 7 dokumentiert; die betroffenen Übersichtszeilen wurden auf den aktuellen `test_count` der Dokumente gehoben.
 
 # E2E-Testfall-Vollständigkeitsanalyse
 
@@ -20,12 +23,12 @@ Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-t
 
 | REQ/NFR | Titel (Kurzform) | Spec-Version | TC-Version | Testfälle | Abdeckungsgrad |
 |---------|-----------------|:------------:|:----------:|:---------:|:--------------:|
-| REQ-001 | Stammdatenverwaltung | 4.0 | 4.0 | 78 | Vollständig |
+| REQ-001 | Stammdatenverwaltung | 4.0 | 4.0 | 81 | Vollständig |
 | REQ-002 | Standortverwaltung | 4.2 | 4.2 | 62 | Vollständig |
-| REQ-003 | Phasensteuerung | 2.3 | 2.3 | 42 | Vollständig |
-| REQ-004 + 004-A | Dünge-Logik + EC-Budget | 3.4 / 1.1 | 3.4 / 1.1 | 88 | Vollständig |
+| REQ-003 | Phasensteuerung | 2.3 | 2.3 | 48 | Vollständig |
+| REQ-004 + 004-A | Dünge-Logik + EC-Budget | 3.4 / 1.1 | 3.4 / 1.1 | 91 | Vollständig |
 | REQ-005 | Hybrid-Sensorik | 2.6 | 2.6 | 58 | Vollständig |
-| REQ-006 | Aufgabenplanung | 3.0 | 3.0 | 72 | Vollständig |
+| REQ-006 | Aufgabenplanung | 3.0 | 3.0 | 77 | Vollständig |
 | REQ-007 | Erntemanagement | 2.3 | 2.3 | 42 | Vollständig |
 | REQ-008 | Post-Harvest | 2.2 | 2.2 | 68 | Vollständig |
 | REQ-009 | Dashboard | 2.0 | 2.0 | 42 | Vollständig |
@@ -41,7 +44,7 @@ Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-t
 | REQ-019 | Substratverwaltung | 4.1 | 4.1 | 38 | Vollständig |
 | REQ-020 | Onboarding-Wizard | 1.6 | 1.6 | 52 | Vollständig |
 | REQ-021 | UI-Erfahrungsstufen | **1.2** | **1.1** | 52 | **Teilweise — Version veraltet** |
-| REQ-022 | Pflegeerinnerungen | 2.4 | 2.4 | 68 | Vollständig |
+| REQ-022 | Pflegeerinnerungen | 2.4 | 2.4 | 88 | Vollständig |
 | REQ-023 | Benutzerverwaltung & Auth | 1.8 | 1.8 | 72 | Vollständig |
 | REQ-024 | Mandantenverwaltung | 1.4 | 1.4 | 82 | Vollständig |
 | REQ-025 | Datenschutz / DSGVO | 1.0 | 1.1 | 46 | Vollständig |
@@ -280,11 +283,31 @@ Spec v1.4 enthält **DutyRotation (Gießdienst-Rotation)**, **Pinnwand (Bulletin
 
 ---
 
-## 7. Zusammenfassung
+## 7. Core-Lifecycle-Journeys (Issue #589)
+
+**Priorität: Hoch** — Snapshot-Ergänzung 2026-07-13.
+
+Bisher waren die Kern-Lebenszyklus-Tests großteils passiv/read-only und wichen zur Laufzeit auf `skip` aus, statt den Flow aktiv zu treiben. Issue #589 ergänzt daher explizite **Core-Lifecycle-Journey**-Testgruppen, die den Kern-Pflanzen-Lebenszyklus als **self-provisioning Happy-Path-Journeys** aus Browser-/Nutzersicht abbilden: **Pflanze anlegen & bearbeiten → Phasenwechsel → Gießen → weitere Pflege** (Düngen, Care-Reminder-Abschluss, Care-Task aus der Aufgabenwarteschlange).
+
+Kernprinzip: **Jeder neue Testfall legt seine Vorbedingungen im Szenario selbst an** (Spezies/Sorte, Pflanzeninstanz, Düngemittel, Task, fällige Erinnerung), damit ein späterer Selenium-Test nie mangels Seed-Daten zur Laufzeit `skip`t.
+
+| Journey-Abschnitt | Dokument | Neue Testfälle | Tags (Kern) |
+|-------------------|----------|:--------------:|-------------|
+| Pflanze anlegen & bearbeiten (Species/Sorte/Standort/Start-Phase, Liste + Detail, Attribute editieren + Persistenz) | TC-REQ-001 (Gruppe 21) | TC-001-079 bis TC-001-081 | `core-crud`, `smoke`, `self-provisioning`, `journey` |
+| Phasenwechsel treiben (vorwärts, Rückwärts-Sperre + Korrekturmodus, Ist-Stand→Ernte) | TC-REQ-003 (Gruppe M) | TC-003-046 bis TC-003-048 | `core-lifecycle-journey`, `phase-transition`, `smoke`, `self-provisioning` |
+| Gießen & Düngen (Gießvorgang protokollieren + Detail, FeedingEvent, Pflege-Verifikation) | TC-REQ-004 (Gruppe O) | TC-004-089 bis TC-004-091 | `core-lifecycle-journey`, `watering-log`, `feeding-event`, `smoke`, `self-provisioning` |
+| Care-Task aus der Aufgabenwarteschlange abschließen | TC-REQ-006 (Gruppe 17) | TC-006-076, TC-006-077 | `core-lifecycle-journey`, `care-task`, `smoke`, `self-provisioning` |
+| Care-Reminder aus dem Pflege-Dashboard abschließen | TC-REQ-022 (§ 27) | TC-022-087, TC-022-088 | `core-lifecycle-journey`, `reminder-card`, `smoke`, `self-provisioning` |
+
+**Summe:** 13 neue Core-Lifecycle-Journey-Testfälle. Diese decken den durchgängigen Happy-Path aus Nutzersicht ab und bilden die Grundlage für die spätere Selenium-Umsetzung (Deliverable 2 von #589, separat).
+
+---
+
+## 8. Zusammenfassung
 
 | Metrik | Wert |
 |--------|------|
-| Gesamt-Testfälle | 1.654 |
+| Gesamt-Testfälle | 1.654 (Snapshot 2026-04-02) + 13 Core-Lifecycle-Journey (#589) |
 | REQs vollständig abgedeckt | 28 von 30 im Scope |
 | REQs mit Versionslücken | 2 (REQ-013, REQ-021) |
 | REQs komplett fehlend | 1 (REQ-032) |
