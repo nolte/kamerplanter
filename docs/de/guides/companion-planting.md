@@ -116,9 +116,10 @@ Zwei Kräuter, die sich fast überall einsetzen lassen:
 
 ### Bedienung
 
-1. Wähle im Dropdown eine Art aus. Kamerplanter zeigt zwei Karten: **Kompatible Arten** und **Inkompatible Arten**.
-2. Klicke auf **Kompatibilität hinzufügen**, wähle die Partnerart und vergib eine **Bewertung** zwischen 0,1 (schwach) und 1,0 (stark) — das ist der Kompatibilitäts-Score, wie z.B. 0,9 bei Tomate/Basilikum.
-3. Klicke auf **Inkompatibilität hinzufügen**, wähle die Partnerart und trage einen kurzen **Grund** ein (z.B. "Allelopathie").
+1. Öffne das Dropdown **Art auswählen**. Kamerplanter zeigt dort zu jeder Art bereits vor der Auswahl zwei Zähler: eine grüne Markierung mit der Anzahl bereits hinterlegter **kompatibler** Arten und eine rote Markierung mit der Anzahl **inkompatibler** Arten. So siehst du auf einen Blick, für welche Arten schon Mischkultur-Daten vorliegen, bevor du sie überhaupt öffnest. Eine kurze Legende unter dem Auswahlfeld erklärt beide Farben. Arten ohne hinterlegte Beziehungen (0 kompatibel, 0 inkompatibel) werden blasser dargestellt, bleiben aber ganz normal auswählbar.
+2. Wähle eine Art aus. Kamerplanter zeigt zwei Karten: **Kompatible Arten** und **Inkompatible Arten**.
+3. Klicke auf **Kompatibilität hinzufügen**, wähle die Partnerart und vergib eine **Bewertung** zwischen 0,1 (schwach) und 1,0 (stark) — das ist der Kompatibilitäts-Score, wie z.B. 0,9 bei Tomate/Basilikum.
+4. Klicke auf **Inkompatibilität hinzufügen**, wähle die Partnerart und trage einen kurzen **Grund** ein (z.B. "Allelopathie").
 
 !!! note "Familienebene-Fallback"
     Liegt für ein konkretes Artenpaar noch kein Eintrag vor, sucht Kamerplanter bei einer Empfehlungsabfrage automatisch nach einer Kompatibilität auf **Familienebene**. Ein solcher Fallback-Treffer wird im Score um 20 % reduziert (Score × 0,8) und als "Familienebene" statt "Artebene" gekennzeichnet.

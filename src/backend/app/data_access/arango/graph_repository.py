@@ -55,6 +55,43 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             for r in cursor
         ]
 
+    def get_companion_counts(self) -> dict[str, dict[str, int]]:
+        # Single batch aggregation over BOTH edge collections in one round trip —
+        # never a per-species query (no N+1). Edges are written bidirectionally
+        # (set_compatibility/set_incompatibility create A→B and B→A), so grouping
+        # outbound edges by their _from species yields, per species, exactly the
+        # number of its curated companions — each relationship counted once from
+        # that species' perspective. PARSE_IDENTIFIER strips the "species/" prefix
+        # so the caller keys directly by species _key.
+        query = """
+        LET compatible = (
+          FOR edge IN @@compatible_col
+            COLLECT species_key = PARSE_IDENTIFIER(edge._from).key WITH COUNT INTO n
+            RETURN {species_key: species_key, count: n}
+        )
+        LET incompatible = (
+          FOR edge IN @@incompatible_col
+            COLLECT species_key = PARSE_IDENTIFIER(edge._from).key WITH COUNT INTO n
+            RETURN {species_key: species_key, count: n}
+        )
+        RETURN {compatible: compatible, incompatible: incompatible}
+        """
+        bind_vars = {
+            "@compatible_col": col.COMPATIBLE_WITH,
+            "@incompatible_col": col.INCOMPATIBLE_WITH,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        aggregate = next(iter(cursor), {"compatible": [], "incompatible": []})
+
+        counts: dict[str, dict[str, int]] = {}
+        for row in aggregate.get("compatible", []):
+            entry = counts.setdefault(row["species_key"], {"compatible": 0, "incompatible": 0})
+            entry["compatible"] = row["count"]
+        for row in aggregate.get("incompatible", []):
+            entry = counts.setdefault(row["species_key"], {"compatible": 0, "incompatible": 0})
+            entry["incompatible"] = row["count"]
+        return counts
+
     def set_compatibility(self, from_key: SpeciesKey, to_key: SpeciesKey, score: float) -> None:
         from_id = f"{col.SPECIES}/{from_key}"
         to_id = f"{col.SPECIES}/{to_key}"

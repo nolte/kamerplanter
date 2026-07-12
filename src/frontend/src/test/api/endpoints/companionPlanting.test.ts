@@ -38,6 +38,13 @@ describe('companionPlanting endpoints', () => {
     expect(client.get).toHaveBeenCalledWith('/companion-planting/species/sp1/incompatible');
   });
 
+  it('getCompanionCounts gets the whole-catalogue counts aggregate', async () => {
+    client.get.mockResolvedValue({ data: { sp1: { compatible: 2, incompatible: 1 } } });
+    const result = await companion.getCompanionCounts();
+    expect(client.get).toHaveBeenCalledWith('/companion-planting/counts');
+    expect(result).toEqual({ sp1: { compatible: 2, incompatible: 1 } });
+  });
+
   it('setCompatible posts compatibility payload', async () => {
     client.post.mockResolvedValue({ data: undefined });
     const payload = { species_a: 'sp1', species_b: 'sp2' } as never;

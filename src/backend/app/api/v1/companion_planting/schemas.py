@@ -17,3 +17,8 @@ class CompatibleSpeciesResponse(BaseModel):
     species_key: str
     scientific_name: str | None = None
     score: float
+
+
+class SpeciesCompanionCounts(BaseModel):
+    compatible: int = 0
+    incompatible: int = 0
