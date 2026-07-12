@@ -55,6 +55,18 @@ describe('PlantInstanceCreateDialog', () => {
     });
   });
 
+  it('frames the current-phase field as actual-state capture via helper text', async () => {
+    renderWithProviders(
+      <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+    );
+    await screen.findByTestId('plant-instance-create-dialog');
+    // The descriptive helper text makes the phase an intentional actual-state
+    // choice (REQ-003 #539 gap 3), not a silent auto-selection.
+    expect(
+      within(screen.getByRole('dialog')).getByText(/Aktueller Ist-Stand der Pflanze/),
+    ).toBeTruthy();
+  });
+
   it('shows the duplicate title and disables species when duplicating', async () => {
     const duplicateFrom: PlantInstanceDuplicateData = {
       species_key: 'sp-1',

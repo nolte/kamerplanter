@@ -2,12 +2,13 @@
 req_id: REQ-003
 title: Phänologische Phasensteuerung & Ressourcen-Profile
 category: Wachstumslogik
-test_count: 42
+test_count: 45
 coverage_areas:
   - Lebenszyklus-Konfiguration (LifecycleConfigSection)
   - Wachstumsphasen-Verwaltung (GrowthPhaseListSection, GrowthPhaseDialog)
   - Ressourcen- und Nährstoffprofile (ProfilesSection, ProfileEditDialog)
   - Phasenübergang manuell & Korrekturmodus (PhaseTransitionDialog)
+  - Start-Phase bei Anlage / Ist-Stand-Erfassung (PlantInstanceCreateDialog)
   - Pflanzinstanz Phasen-Ansicht (PlantInstanceDetailPage Tab "Phasen")
   - Phasenverlauf-Tabelle (PhaseHistoryTable)
   - Phasen-Zeitstrahl (PlantPhaseTimeline / PhaseKamiTimeline)
@@ -1126,6 +1127,83 @@ Alle Test-IDs folgen dem Schema `TC-003-NNN`.
 
 ---
 
+## Gruppe L: Start-Phase bei Anlage / Ist-Stand-Erfassung (PlantInstanceCreateDialog)
+
+*Kontext: Pflanzinstanz-Anlagedialog (`data-testid="plant-instance-create-dialog"`) über `/pflanzen/plant-instances`. Issue #539: Beim Anlegen kann die aktuelle Phase frei gewählt werden, um den Ist-Stand bestehender Pflanzen zu erfassen.*
+
+---
+
+## TC-003-043: Ist-Stand-Erfassung — bestehende Pflanze direkt in Blüte anlegen
+
+**Anforderung**: REQ-003 §6 DoD "Start-Phase-bei-Anlage / Ist-Stand-Erfassung"; Issue #539
+**Priorität**: High
+**Kategorie**: Happy Path / Anlage
+
+**Vorbedingungen:**
+- Eine Spezies mit mehrphasiger Sequenz (z.B. germination → vegetative → flowering) existiert
+- Nutzer öffnet den Anlagedialog über `/pflanzen/plant-instances`
+
+**Testschritte:**
+1. Nutzer wählt die Spezies im Feld "Art" aus
+2. Das Feld "Aktuelle Phase" wird automatisch auf die erste Phase vorbelegt und zeigt einen beschreibenden Hilfetext, der mit "Aktueller Ist-Stand der Pflanze" beginnt
+3. Nutzer öffnet das Dropdown "Aktuelle Phase" und wählt "flowering" (Blüte)
+4. Nutzer füllt die Instanz-ID (vorbelegt) aus und klickt "Erstellen"
+
+**Erwartetes Ergebnis:**
+- Der Dialog schließt sich und die Pflanze wird angelegt
+- Die neue Pflanze befindet sich in Phase "flowering" (nicht in der ersten Phase)
+- Der initiale Phasenverlauf-Eintrag ist als Ist-Stand-Erfassung markiert (`transition_reason='initial_actual_state'`)
+
+**Nachbedingungen:**
+- Die Pflanze startet mitten im Lebenszyklus in Phase "flowering"
+
+**Tags**: [req-003, plant-create, ist-stand, start-phase, happy-path, issue-539]
+
+---
+
+## TC-003-044: Anlage ohne Phasenwahl — erste Phase wird automatisch aufgelöst
+
+**Anforderung**: REQ-003 §6 DoD "Start-Phase-bei-Anlage / Ist-Stand-Erfassung"; Issue #539
+**Priorität**: Medium
+**Kategorie**: Happy Path / Standardverhalten
+
+**Vorbedingungen:**
+- Eine Spezies mit mehrphasiger Sequenz existiert
+- Nutzer öffnet den Anlagedialog
+
+**Testschritte:**
+1. Nutzer wählt die Spezies aus, ändert die vorbelegte "Aktuelle Phase" aber nicht
+2. Nutzer klickt "Erstellen"
+
+**Erwartetes Ergebnis:**
+- Die Pflanze wird in der ersten Phase der Sequenz angelegt
+- Der initiale Phasenverlauf-Eintrag trägt `transition_reason='initial'` (keine Ist-Stand-Erfassung)
+
+**Tags**: [req-003, plant-create, start-phase, default, issue-539]
+
+---
+
+## TC-003-045: Fremde/unbekannte Phase bei Anlage wird abgelehnt (422)
+
+**Anforderung**: REQ-003 §6 DoD "Start-Phase-bei-Anlage / Ist-Stand-Erfassung"; Issue #539
+**Priorität**: High
+**Kategorie**: Serverseitige Validierung / Negativfall
+
+**Vorbedingungen:**
+- Eine Spezies A mit eigener Phasensequenz existiert
+- Ein `current_phase_key` einer anderen Spezies B (oder ein Fantasie-Schlüssel) liegt vor
+
+**Testschritte:**
+1. Es wird versucht, eine Pflanzinstanz der Spezies A mit einem `current_phase_key` anzulegen, der nicht zur Phasensequenz/Lifecycle von A gehört (fremde oder unbekannte Phase)
+
+**Erwartetes Ergebnis:**
+- Der Server lehnt die Anlage mit HTTP 422 ab (`error_code='VALIDATION_ERROR'`, Detail `code='PHASE_NOT_IN_SEQUENCE'`, `field='current_phase_key'`)
+- Es wird keine Pflanzinstanz und kein Phasenverlauf-Eintrag persistiert
+
+**Tags**: [req-003, plant-create, validierung, negativ, 422, issue-539]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spezifikationsabschnitt | Testfälle |
@@ -1152,6 +1230,7 @@ Alle Test-IDs folgen dem Schema `TC-003-NNN`.
 | §6 DoD — Gießintervall (watering_interval_days) | TC-003-039, TC-003-040, TC-003-041 |
 | §6 DoD — Ressourcen-Profile auf Pflanzinstanz | TC-003-042 |
 | §6 DoD — Pflanzinstanz-Erstellung mit Spezies | TC-003-033 |
+| §6 DoD — Start-Phase bei Anlage / Ist-Stand-Erfassung (Issue #539) | TC-003-043, TC-003-044, TC-003-045 |
 | §6 Testszenario 2 — VPD außerhalb Zielbereich | TC-003-027, TC-003-028 |
 | §6 Testszenario 4 — Gradueller Photoperioden-Wechsel | TC-003-030 |
 | §6 Testszenario 5/6/7 — Perennial Apfelbaum | TC-003-036, TC-003-037, TC-003-038 |
