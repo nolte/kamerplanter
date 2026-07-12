@@ -4256,6 +4256,7 @@
       "completedOf": "{{completed}} von {{total}} erledigt",
       "scheduled": "Geplant",
       "scheduledCount": "{{count}} geplant",
+      "scheduledHint": "Für diesen Zyklus erledigt – der nächste Termin liegt in der Zukunft, aktuell ist keine Aktion nötig.",
       "noAssignedTasks": "Noch keine Aufgaben zugewiesen. Generieren Sie einen Aktivitätsplan oder weisen Sie einen Workflow zu.",
       "dormant": "Wartend",
       "statusAll": "Alle Aufgaben",

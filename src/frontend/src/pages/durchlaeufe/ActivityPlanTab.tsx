@@ -24,6 +24,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import { alpha } from '@mui/material/styles';
+import { visuallyHidden } from '@mui/utils';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
@@ -231,6 +232,14 @@ function getCompletionColor(tasks: TaskItem[], now: Date = new Date()): StatusCo
  * instead of a misleading "0 von N erledigt"; otherwise the done/total ratio is
  * shown over the *countable* tasks (scheduled reminders excluded) plus a small
  * "geplant" chip when a future cycle is already queued.
+ *
+ * A11y (UI-NFR-002): "scheduled" reads as "planned" in isolation, which a user
+ * could easily misread as "still to do" — the opposite of what it means here
+ * (satisfied for the current cycle, next occurrence not due yet). Every
+ * scheduled chip therefore carries a `scheduledHint` explanation, exposed both
+ * as a hover tooltip for sighted users and as real (not aria-label-only) text
+ * via `visuallyHidden` so screen readers announce it regardless of focus —
+ * `aria-label` alone is not reliably exposed on Chip's unnamed root role.
  */
 function CompletionChips({
   tasks,
@@ -243,24 +252,38 @@ function CompletionChips({
 }) {
   const { t } = useTranslation();
   const summary = summarizeCompletion(tasks, new Date());
+  const scheduledHint = t('pages.activityPlan.scheduledHint');
 
   if (summary.countable === 0 && summary.scheduled > 0) {
     return (
-      <Chip
-        icon={<EventAvailableIcon />}
-        label={t('pages.activityPlan.scheduled')}
-        size="small"
-        color="info"
-        variant="outlined"
-        data-testid="activity-scheduled-chip"
-      />
+      <Tooltip title={scheduledHint} arrow enterTouchDelay={0} leaveTouchDelay={5000}>
+        <Chip
+          icon={<EventAvailableIcon />}
+          label={(
+            <>
+              {t('pages.activityPlan.scheduled')}
+              <Box component="span" sx={visuallyHidden}>{` – ${scheduledHint}`}</Box>
+            </>
+          )}
+          size="small"
+          color="info"
+          variant="outlined"
+          data-testid="activity-scheduled-chip"
+        />
+      </Tooltip>
     );
   }
 
   const color = getCompletionColor(tasks);
+  const ratioText = t('pages.activityPlan.completedOf', { completed: summary.completed, total: summary.countable });
   const label = compact
-    ? `${summary.completed}/${summary.countable}`
-    : t('pages.activityPlan.completedOf', { completed: summary.completed, total: summary.countable });
+    ? (
+      <>
+        {`${summary.completed}/${summary.countable}`}
+        <Box component="span" sx={visuallyHidden}>{` – ${ratioText}`}</Box>
+      </>
+    )
+    : ratioText;
 
   return (
     <>
@@ -272,14 +295,21 @@ function CompletionChips({
         variant={withIcon && color === 'default' ? 'outlined' : withIcon ? 'filled' : undefined}
       />
       {summary.scheduled > 0 && (
-        <Chip
-          icon={<EventAvailableIcon />}
-          label={t('pages.activityPlan.scheduledCount', { count: summary.scheduled })}
-          size="small"
-          color="info"
-          variant="outlined"
-          data-testid="activity-scheduled-count-chip"
-        />
+        <Tooltip title={scheduledHint} arrow enterTouchDelay={0} leaveTouchDelay={5000}>
+          <Chip
+            icon={<EventAvailableIcon />}
+            label={(
+              <>
+                {t('pages.activityPlan.scheduledCount', { count: summary.scheduled })}
+                <Box component="span" sx={visuallyHidden}>{` – ${scheduledHint}`}</Box>
+              </>
+            )}
+            size="small"
+            color="info"
+            variant="outlined"
+            data-testid="activity-scheduled-count-chip"
+          />
+        </Tooltip>
       )}
     </>
   );
