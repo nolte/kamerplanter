@@ -14,6 +14,7 @@ Version: 4.3 (data_classification für Sensor-Retention, ADR-003)
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.4 | 2026-07-12 | **GPS-Erfassung per Browser (opt-in):** Standortkoordinaten können zusätzlich zur manuellen Eingabe per Browser-Geolocation-API (`navigator.geolocation`) übernommen werden — permission-gated, nur im sicheren Kontext, mit Graceful Degradation und ohne serverseitige Ortung. Business-Case-Subsektion + DoD-Kriterium ergänzt (Issue #572). |
 | 4.3 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** `data_classification`-Feld auf Location ergänzt (5 Werte: `indoor_private`, `indoor_public`, `greenhouse`, `outdoor_open`, `unknown`). `extended_retention_optin` als Tenant-Admin-Opt-in für verlängerte Retention. `data_classification_set_at` für Audit. Steuert NFR-011 R-14 Sensor-Retention. Forward-only-Wechsel-Semantik. |
 | 4.2 | (vorher) | Wasserquellen-Konfiguration. |
 
@@ -33,6 +34,22 @@ Das System verwaltet eine **rekursiv verschachtelbare** Standort-Struktur: **Sit
 - **Growzelte** mit Raster-Slot-System und kontrolliertem Klima
 - **Hydroponik-Systeme** (NFT, DWC, Aeroponik) mit Nährlösungs-Kreisläufen
 - **Vertikale Farmen** mit mehreren Ebenen
+
+**GPS-Erfassung der Standortkoordinaten:**
+
+Die geografischen Koordinaten (`gps_coordinates`, Latitude/Longitude) eines Standorts können auf zwei Wegen erfasst werden:
+
+- **Manuelle Eingabe** von Breiten- und Längengrad — der Standardweg, immer verfügbar.
+- **Automatische Ermittlung per Browser** (opt-in): Auf Wunsch übernimmt das System die Koordinaten aus der Geräteposition über die Browser-Geolocation-API (`navigator.geolocation.getCurrentPosition`). Das erspart dem Nutzer das Nachschlagen der Koordinaten in externen Kartendiensten und ist besonders auf Mobilgeräten komfortabel (dort liefert das Gerät meist einen präzisen Fix).
+
+Randbedingungen der Browser-Ermittlung:
+
+- **Nur mit Nutzerfreigabe:** Die Ermittlung erfolgt ausschließlich, wenn Browser und Nutzer die Standortfreigabe erteilen. Ohne Freigabe bleibt die manuelle Eingabe unverändert nutzbar (die Funktion ist reine Komfort-Ergänzung, kein Pflichtweg).
+- **Nur im sicheren Kontext:** Die API steht ausschließlich über HTTPS (bzw. `localhost`) und in Browsern mit Geolocation-Unterstützung zur Verfügung; andernfalls wird die Funktion ausgeblendet oder deaktiviert (mit erklärendem Hinweis).
+- **Graceful Degradation:** Verweigerte Freigabe (`PERMISSION_DENIED`), nicht ermittelbare Position (`POSITION_UNAVAILABLE`) und Timeouts (`TIMEOUT`) führen zu einer verständlichen, lokalisierten Meldung (DE/EN), ohne bestehende Eingaben zu überschreiben.
+- **Keine serverseitige Ortung:** Es findet keine IP- oder serverbasierte Standortbestimmung statt; die Koordinaten stammen ausschließlich vom Endgerät und werden erst nach expliziter Nutzeraktion in den bestehenden `gps_coordinates`-Vertrag (`[lat, lon]`) übernommen. Der Backend-Vertrag bleibt unverändert.
+
+Die so erfassten Koordinaten speisen unverändert die nachgelagerte Nutzung (Hemisphären-Ableitung, Sonnenstandberechnung für `light_type: natural`/`mixed`, sowie Wetter-/Frostfunktionen der weather-relevanten Standorttypen, REQ-046).
 
 **Fruchtfolge-Engine:**
 - Tracking der letzten 3-5 Jahre Kulturhistorie pro Standort
@@ -1040,6 +1057,7 @@ und Tenant-Mitgliedschaft, sofern nicht anders angegeben.
 - [ ] **Hydro-Monitoring:** Spezielle Überwachungslogik für NFT, DWC, Aero-Systeme
 - [ ] **Nachbarschafts-Graph:** ADJACENT_TO-Beziehungen für Mischkultur-Analyse
 - [ ] **GPS-Integration:** Outdoor-Beete mit Koordinaten für Sonnenstand-Berechnung
+- [ ] **GPS-Browser-Erfassung (opt-in):** Nutzer kann die Standortkoordinaten im Site-Formular (Anlegen + Bearbeiten) per Browser-Geolocation (`navigator.geolocation`) übernehmen — nur mit Nutzerfreigabe und im sicheren Kontext (HTTPS/`localhost`), mit Graceful Degradation bei verweigert/nicht verfügbar/Timeout und unveränderter manueller Eingabe; keine serverseitige Ortung
 - [ ] **Slot-Verfügbarkeit:** Echtzeit-Status "belegt/frei" mit Last-Used-Datum
 - [ ] **Sanitärungs-Tracking:** Letzte Desinfektion pro Slot dokumentiert
 - [ ] **Mischkultur-Planer:** Kompatibilitäts-Check mit benachbarten Slots
