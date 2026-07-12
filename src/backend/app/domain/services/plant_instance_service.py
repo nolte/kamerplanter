@@ -107,11 +107,34 @@ class PlantInstanceService:
         if plant.current_phase_started_at is None:
             plant.current_phase_started_at = datetime.now(UTC)
 
-        # Resolve initial phase — prefer PhaseSequence, fallback to LifecycleConfig
-        if not plant.current_phase_key:
-            initial_key = self._resolve_initial_phase_key(plant.species_key)
-            if initial_key:
-                plant.current_phase_key = initial_key
+        # Resolve / validate the initial phase (REQ-003 #539). A caller-supplied
+        # phase captures the plant's *actual current state* (e.g. an existing plant
+        # already flowering) and must belong to the species' phase set; an unknown
+        # or foreign key is rejected (422) instead of being stored silently. When no
+        # phase is given, auto-resolve the species' first phase — prefer
+        # PhaseSequence, fall back to LifecycleConfig.
+        first_key = self._resolve_initial_phase_key(plant.species_key)
+        is_actual_state_capture = False
+        if plant.current_phase_key:
+            valid_keys = self._valid_phase_keys(plant.species_key)
+            if valid_keys and plant.current_phase_key not in valid_keys:
+                raise ValidationError(
+                    f"Phase '{plant.current_phase_key}' is not part of the phase sequence "
+                    f"of species '{plant.species_key}'.",
+                    details=[
+                        {
+                            "field": "current_phase_key",
+                            "reason": "Phase does not belong to the species' phase sequence/lifecycle.",
+                            "code": "PHASE_NOT_IN_SEQUENCE",
+                        }
+                    ],
+                )
+            # A deliberately chosen non-first phase is an actual-state capture, not a
+            # start-from-scratch: mark it so downstream GDD/lifecycle/analytics can tell
+            # "entered mid-lifecycle" apart from "germinated here" (#539 gap 2).
+            is_actual_state_capture = bool(first_key) and plant.current_phase_key != first_key
+        elif first_key:
+            plant.current_phase_key = first_key
 
         created = self._repo.create(plant)
 
@@ -123,7 +146,7 @@ class PlantInstanceService:
                 phase_key=plant.current_phase_key or "",
                 phase_name=phase_name,
                 entered_at=plant.current_phase_started_at or datetime.now(UTC),
-                transition_reason="initial",
+                transition_reason="initial_actual_state" if is_actual_state_capture else "initial",
             )
             self._phase_repo.create_phase_history(history)
 
@@ -641,6 +664,31 @@ class PlantInstanceService:
                     return first.key
 
         return None
+
+    def _valid_phase_keys(self, species_key: str) -> set[str]:
+        """Return the set of phase keys valid as a *start* phase for a species (#539 gap 1).
+
+        Mirrors :meth:`_resolve_initial_phase_key` resolution order: PhaseSequence
+        entry keys are authoritative; LifecycleConfig growth-phase keys are the
+        fallback. An empty set means the species has no configured phases — in which
+        case a supplied phase cannot be validated and is left untouched (no phase set
+        to reject against, so creation must not be blocked).
+        """
+        if self._phase_seq_repo:
+            seq = self._phase_seq_repo.get_sequence_by_species(species_key)
+            if seq:
+                entries = self._phase_seq_repo.get_entries_for_sequence(seq.key or "")
+                if entries:
+                    return {entry.key for entry in entries if entry.key}
+
+        if self._phase_repo:
+            lifecycle = self._phase_repo.get_lifecycle_by_species(species_key)
+            if lifecycle:
+                growth_phases = self._phase_repo.get_phases_by_lifecycle(lifecycle.key)
+                if growth_phases:
+                    return {gp.key for gp in growth_phases if gp.key}
+
+        return set()
 
     #: Canonical entry phase for a clonal pup (REQ-003 D10 flow-template vocab).
     _PUP_PHASE_NAME = "pup_establishment"

@@ -1805,6 +1805,8 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Phasen-State-Machine:** Graph-basierte Zustandsübergänge voll funktionsfähig
 - [ ] **Auto-Transition:** Zeitbasierte Übergänge mit konfigurierbarer Vorwarnzeit
 - [ ] **Manual-Override:** Manuelle Phasen-Einleitung (z.B. Blüte) jederzeit möglich
+<!-- Quelle: Issue #539 — Start-Phase bei Anlage / Ist-Stand-Erfassung -->
+- [ ] **Start-Phase-bei-Anlage / Ist-Stand-Erfassung:** Beim Anlegen einer `PlantInstance` kann die aktuelle Wachstumsphase frei gewählt werden (nicht zwingend die erste), um den **Ist-Stand bestehender Pflanzen** zu erfassen (z.B. eine bereits blühende Pflanze). Der Anlage-Pfad läuft NICHT über die `PhaseTransitionEngine` — eine spätere Phase ist ein gültiger Start-Zustand, keine gesperrte Rückwärts-Transition. Eine übergebene `current_phase_key`, die nicht zur Phasensequenz/Lifecycle der Spezies gehört (fremde oder unbekannte Phase), wird mit HTTP 422 (`code='PHASE_NOT_IN_SEQUENCE'`) abgelehnt. Ohne Angabe wird weiterhin die erste Phase automatisch aufgelöst. Wird bewusst eine Nicht-erste-Phase gewählt, markiert der initiale Phase-History-Eintrag dies als Ist-Stand-Erfassung (`transition_reason='initial_actual_state'` statt `'initial'`), damit GDD-/Lifecycle-/Analytics-Logik "mitten im Lebenszyklus erfasst" von "von Beginn an begleitet" unterscheiden kann.
 - [ ] **Ressourcen-Profile:** Jede Phase hat Light/Climate/Nutrient-Profile
 - [ ] **VPD-Berechnung:** Echtzeit-VPD mit Zielbereich-Validierung
 - [ ] **Photoperioden-Transition:** Gradueller Übergang (7 Tage) zwischen Licht-Zyklen
