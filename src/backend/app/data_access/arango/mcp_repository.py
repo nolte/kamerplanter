@@ -108,24 +108,28 @@ class ArangoMcpIdempotencyRepository:
         self._db = db
 
     @staticmethod
-    def _doc_key(service_account_key: str, tool_name: str, idempotency_key: str) -> str:
+    def _doc_key(service_account_key: str, tenant_key: str, tool_name: str, idempotency_key: str) -> str:
         # Deterministic, ASCII-safe document key. ArangoDB keys allow a limited
         # charset, so hash the composite to avoid rejecting arbitrary
-        # client-supplied idempotency keys.
+        # client-supplied idempotency keys. ``tenant_key`` is part of the scope
+        # (SEC-005) so the same idempotency key used by one service account under
+        # two tenants maps to two *distinct* documents and can never cross-replay.
         import hashlib
 
-        raw = f"{service_account_key}:{tool_name}:{idempotency_key}"
+        raw = f"{service_account_key}:{tenant_key}:{tool_name}:{idempotency_key}"
         return hashlib.sha256(raw.encode()).hexdigest()
 
     def get(
         self,
         service_account_key: str,
+        tenant_key: str,
         tool_name: str,
         idempotency_key: str,
     ) -> McpIdempotencyRecord | None:
         query = """
         FOR doc IN @@collection
           FILTER doc.service_account_key == @sa_key
+             AND doc.tenant_key == @tenant_key
              AND doc.tool_name == @tool
              AND doc.idempotency_key == @idem
           LIMIT 1
@@ -136,6 +140,7 @@ class ArangoMcpIdempotencyRepository:
             bind_vars={
                 "@collection": col.MCP_IDEMPOTENCY_RECORD,
                 "sa_key": service_account_key,
+                "tenant_key": tenant_key,
                 "tool": tool_name,
                 "idem": idempotency_key,
             },
@@ -150,7 +155,12 @@ class ArangoMcpIdempotencyRepository:
         record.created_at = record.created_at or now
         record.expires_at = record.expires_at or (now + timedelta(hours=ttl_hours))
         doc = record.model_dump(by_alias=True, exclude_none=True, mode="json")
-        doc["_key"] = self._doc_key(record.service_account_key, record.tool_name, record.idempotency_key)
+        doc["_key"] = self._doc_key(
+            record.service_account_key,
+            record.tenant_key,
+            record.tool_name,
+            record.idempotency_key,
+        )
         self._db.collection(col.MCP_IDEMPOTENCY_RECORD).insert(doc, overwrite=True)
         return record
 

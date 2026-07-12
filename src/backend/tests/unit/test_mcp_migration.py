@@ -27,7 +27,7 @@ def _applied_db() -> MagicMock:
         {"type": "persistent", "fields": ["service_account_key"]},
         {"type": "persistent", "fields": ["tenant_key", "created_at"]},
         {"type": "persistent", "fields": ["created_at"]},
-        {"type": "persistent", "fields": ["service_account_key", "tool_name", "idempotency_key"]},
+        {"type": "persistent", "fields": ["service_account_key", "tenant_key", "tool_name", "idempotency_key"]},
         {"type": "persistent", "fields": ["expires_at"]},
     ]
     return db

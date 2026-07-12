@@ -638,8 +638,14 @@ def get_mcp_idempotency_repo():
 
 def get_mcp_authenticator():
     from app.mcp_server.auth import McpAuthenticator
+    from app.mcp_server.rate_limit import McpRateLimiter
 
-    return McpAuthenticator(get_api_key_repo(), get_user_repo(), get_tenant_service())
+    return McpAuthenticator(
+        get_api_key_repo(),
+        get_user_repo(),
+        get_tenant_service(),
+        rate_limiter=McpRateLimiter(_get_redis_client()),
+    )
 
 
 def get_mcp_dispatcher():

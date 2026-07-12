@@ -64,7 +64,7 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["created_at"], "unique": False},
             {
                 "type": "persistent",
-                "fields": ["service_account_key", "tool_name", "idempotency_key"],
+                "fields": ["service_account_key", "tenant_key", "tool_name", "idempotency_key"],
                 "unique": True,
             },
             {"type": "persistent", "fields": ["expires_at"], "unique": False},

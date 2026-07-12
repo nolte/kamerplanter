@@ -25,9 +25,19 @@ class IdempotencyStore:
         tool_name: str,
         idempotency_key: str,
     ) -> McpToolResponse | None:
-        """Return the replayed response for a known key, else ``None``."""
+        """Return the replayed response for a known key, else ``None``.
 
-        record = self._repo.get(principal.service_account_key, tool_name, idempotency_key)
+        SEC-005: the lookup is scoped by ``principal.tenant_key`` in addition to
+        the service account + tool, so a multi-tenant service account can never
+        replay a result stored for a *different* tenant's call.
+        """
+
+        record = self._repo.get(
+            principal.service_account_key,
+            principal.tenant_key,
+            tool_name,
+            idempotency_key,
+        )
         if record is None:
             return None
         response = McpToolResponse(**record.result_payload)
@@ -44,6 +54,7 @@ class IdempotencyStore:
     ) -> None:
         record = McpIdempotencyRecord(
             service_account_key=principal.service_account_key,
+            tenant_key=principal.tenant_key,
             tool_name=tool_name,
             idempotency_key=idempotency_key,
             input_hash=input_hash,

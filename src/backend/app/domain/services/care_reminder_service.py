@@ -10,6 +10,7 @@ from app.common.enums import (
     TaskStatus,
 )
 from app.common.exceptions import NotFoundError
+from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
@@ -191,7 +192,17 @@ class CareReminderService:
         fertilizers_used: list[dict] | None = None,
         measured_ec: float | None = None,
         measured_ph: float | None = None,
+        tenant_key: str = "",
     ) -> CareConfirmation:
+        # SEC-001 defense-in-depth (mirrors the #517 shared-guard pattern): when a
+        # caller passes its ``tenant_key`` (the MCP path always does), re-verify
+        # the plant belongs to that tenant before mutating any care state. A
+        # foreign/missing key fails closed with NotFoundError (→ HTTP 404), never
+        # a 403, so a plant's existence is never disclosed across the boundary.
+        if tenant_key and self._plant_repo is not None:
+            plant = self._plant_repo.get_or_raise(plant_key)
+            verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
             profile = self.get_or_create_profile(plant_key)

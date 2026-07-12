@@ -99,9 +99,20 @@ def test_audit_list_for_user_accounts_empty_shortcircuits():
 def test_idempotency_get_returns_none_when_absent():
     db = _FakeDb(rows=[])
     repo = ArangoMcpIdempotencyRepository(db)
-    assert repo.get("sa-1", "create_site", "k-1") is None
+    assert repo.get("sa-1", "home", "create_site", "k-1") is None
     _query, bind = db.aql.calls[0]
     assert bind["idem"] == "k-1"
+    # SEC-005: the lookup is scoped by tenant_key too.
+    assert bind["tenant_key"] == "home"
+
+
+def test_idempotency_get_filters_by_tenant_key():
+    db = _FakeDb(rows=[])
+    repo = ArangoMcpIdempotencyRepository(db)
+    repo.get("sa-1", "garden", "create_site", "k-1")
+    query, bind = db.aql.calls[0]
+    assert "doc.tenant_key == @tenant_key" in query
+    assert bind["tenant_key"] == "garden"
 
 
 def test_idempotency_store_uses_deterministic_key_and_overwrite():
@@ -109,6 +120,7 @@ def test_idempotency_store_uses_deterministic_key_and_overwrite():
     repo = ArangoMcpIdempotencyRepository(db)
     record = McpIdempotencyRecord(
         service_account_key="sa-1",
+        tenant_key="home",
         tool_name="create_site",
         idempotency_key="k-1",
         input_hash="h",
@@ -117,8 +129,16 @@ def test_idempotency_store_uses_deterministic_key_and_overwrite():
     repo.store(record)
     doc, overwrite = db._collection.inserted[0]
     assert overwrite is True
-    assert doc["_key"] == ArangoMcpIdempotencyRepository._doc_key("sa-1", "create_site", "k-1")
+    assert doc["_key"] == ArangoMcpIdempotencyRepository._doc_key("sa-1", "home", "create_site", "k-1")
     assert record.expires_at is not None  # TTL stamped
+
+
+def test_idempotency_doc_key_is_tenant_scoped():
+    # SEC-005: the same (service account, tool, idempotency_key) under two
+    # different tenants must hash to two DISTINCT document keys.
+    key_a = ArangoMcpIdempotencyRepository._doc_key("sa-1", "home", "create_site", "k-1")
+    key_b = ArangoMcpIdempotencyRepository._doc_key("sa-1", "garden", "create_site", "k-1")
+    assert key_a != key_b
 
 
 def test_idempotency_delete_expired_returns_count():

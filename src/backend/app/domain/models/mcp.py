@@ -56,13 +56,16 @@ class McpAuditLogEntry(BaseModel):
 class McpIdempotencyRecord(BaseModel):
     """Idempotency replay record for a write tool (§2.6, §3).
 
-    Keyed by ``(service_account_key, tool_name, idempotency_key)``; a repeated
-    call within the TTL replays ``result_payload`` instead of writing twice
-    (AC-19).
+    Keyed by ``(service_account_key, tenant_key, tool_name, idempotency_key)``; a
+    repeated call within the TTL replays ``result_payload`` instead of writing
+    twice (AC-19). ``tenant_key`` is part of the scope (SEC-005): a multi-tenant
+    service account holding two tenant-scoped keys must never replay tenant-A's
+    stored result for a tenant-B call.
     """
 
     key: str | None = Field(default=None, alias="_key")
     service_account_key: str
+    tenant_key: str
     tool_name: str
     idempotency_key: str
     input_hash: str

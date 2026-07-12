@@ -1900,8 +1900,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     # REQ-033 MCP server indexes (§3). Audit log queried by service account +
     # tenant (privacy self-service) and swept by created_at (90d retention).
-    # Idempotency records keyed by (service_account_key, tool_name, idempotency
-    # key) and swept by expires_at (24h retention).
+    # Idempotency records keyed by (service_account_key, tenant_key, tool_name,
+    # idempotency_key) — tenant_key is part of the unique scope (SEC-005) so a
+    # multi-tenant service account cannot cross-replay — and swept by expires_at
+    # (24h retention).
     mcp_audit_log_col = db.collection(MCP_AUDIT_LOG)
     mcp_audit_log_col.add_persistent_index(fields=["service_account_key"], unique=False)
     mcp_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
@@ -1909,7 +1911,7 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     mcp_idempotency_record_col = db.collection(MCP_IDEMPOTENCY_RECORD)
     mcp_idempotency_record_col.add_persistent_index(
-        fields=["service_account_key", "tool_name", "idempotency_key"], unique=True
+        fields=["service_account_key", "tenant_key", "tool_name", "idempotency_key"], unique=True
     )
     mcp_idempotency_record_col.add_persistent_index(fields=["expires_at"], unique=False)
 

@@ -8,10 +8,11 @@ MCP server is disabled (``MCP_SERVER_ENABLED=false``) every endpoint answers HTT
 
 from __future__ import annotations
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 
 from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher
 from app.common.exceptions import NotFoundError, UnauthorizedError
+from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.mcp_server.auth import McpAuthenticator
 from app.mcp_server.dispatcher import ToolDispatcher
@@ -26,19 +27,24 @@ def require_mcp_enabled() -> None:
 
 
 def get_mcp_principal(
+    request: Request,
     _enabled: None = Depends(require_mcp_enabled),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     authorization: str | None = Header(default=None),
     authenticator: McpAuthenticator = Depends(get_mcp_authenticator),
 ) -> McpPrincipal:
-    """Authenticate the MCP caller via its service-account API key (§4.3)."""
+    """Authenticate the MCP caller via its service-account API key (§4.3).
+
+    The resolved client IP is threaded into the authenticator so it can enforce
+    the service-account ``ip_allowlist`` control (SEC-004).
+    """
 
     raw_key = x_api_key
     if not raw_key and authorization and authorization.startswith("Bearer "):
         raw_key = authorization[7:]
     if not raw_key:
         raise UnauthorizedError("Missing MCP service-account API key (X-API-Key).")
-    return authenticator.authenticate(raw_key)
+    return authenticator.authenticate(raw_key, client_ip=resolve_client_ip(request))
 
 
 def get_dispatcher(

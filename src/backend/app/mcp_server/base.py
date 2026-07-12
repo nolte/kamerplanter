@@ -113,9 +113,29 @@ def mcp_tool(
 
     ``write`` is derived from the class hierarchy (a :class:`WriteToolBase`
     subclass is always a write tool) so it cannot drift from the base contract.
+
+    The permission is decoupled from the ``write``/``destructive`` flags so a
+    tool could accidentally register a mutating handler under ``mcp.read`` (a
+    silent privilege downgrade — a viewer-scoped key would then be allowed to
+    write, SEC-006). We assert the invariant at import/registration time and
+    fail fast (a wiring bug must never ship): a :class:`WriteToolBase` must never
+    carry :attr:`McpPermission.READ`, and a ``destructive`` tool must be gated
+    behind the admin-only :attr:`McpPermission.SETUP` class (AC-S6).
     """
 
     def _decorate(cls: type[ToolBase]) -> type[ToolBase]:
+        is_write = issubclass(cls, WriteToolBase)
+        if is_write and permission == McpPermission.READ:
+            raise TypeError(
+                f"MCP tool '{name}' is a write tool but declares McpPermission.READ — "
+                "a mutating tool must be gated behind mcp.write or mcp.setup (SEC-006)."
+            )
+        if destructive and permission != McpPermission.SETUP:
+            raise TypeError(
+                f"MCP tool '{name}' is destructive but declares '{permission.value}' — "
+                "a destructive tool must require the admin-only mcp.setup permission (SEC-006, AC-S6)."
+            )
+
         cls.tool_name = name
         cls.permission = permission
         cls.destructive = destructive

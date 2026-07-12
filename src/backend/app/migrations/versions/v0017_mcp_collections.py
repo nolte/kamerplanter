@@ -5,8 +5,10 @@ Creates the two adapter-layer document collections that back the MCP server on
 
 * ``mcp_audit_log`` — ``service_account_key`` + ``(tenant_key, created_at)`` +
   ``created_at`` indexes (privacy self-service lookups + 90d retention sweep);
-* ``mcp_idempotency_record`` — unique ``(service_account_key, tool_name,
-  idempotency_key)`` + ``expires_at`` (24h retention sweep).
+* ``mcp_idempotency_record`` — unique ``(service_account_key, tenant_key,
+  tool_name, idempotency_key)`` + ``expires_at`` (24h retention sweep). The
+  ``tenant_key`` is part of the unique scope (SEC-005) so a multi-tenant service
+  account can never replay tenant-A's stored result for a tenant-B call.
 
 The MCP server keeps **no** own domain collections (§3) — it is a pure
 aggregation layer over the existing services; these two collections only hold
@@ -43,7 +45,7 @@ _INDEXES: list[tuple[str, list[str], bool]] = [
     (col.MCP_AUDIT_LOG, ["service_account_key"], False),
     (col.MCP_AUDIT_LOG, ["tenant_key", "created_at"], False),
     (col.MCP_AUDIT_LOG, ["created_at"], False),
-    (col.MCP_IDEMPOTENCY_RECORD, ["service_account_key", "tool_name", "idempotency_key"], True),
+    (col.MCP_IDEMPOTENCY_RECORD, ["service_account_key", "tenant_key", "tool_name", "idempotency_key"], True),
     (col.MCP_IDEMPOTENCY_RECORD, ["expires_at"], False),
 ]
 

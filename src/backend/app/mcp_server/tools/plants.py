@@ -50,8 +50,24 @@ class SetPlantLocation(WriteToolBase):
         location_key: str | None = None
         slot_key: str | None = None
 
+    @staticmethod
+    def _verify_targets(ctx: ToolContext, args: Input) -> None:
+        # SEC-002: the plant is ownership-checked, but the destination foreign
+        # keys are caller-supplied — validate each non-null target belongs to the
+        # caller's tenant BEFORE assigning it, so a plant can never be moved onto
+        # a foreign/dangling site/location/slot. Each getter fails closed with the
+        # 404 not-found contract on a foreign/missing target (never a 403), so a
+        # foreign key's existence is never disclosed.
+        if args.site_key is not None:
+            ctx.site_service.get_site(args.site_key, tenant_key=ctx.tenant_key)
+        if args.location_key is not None:
+            ctx.site_service.get_location(args.location_key, tenant_key=ctx.tenant_key)
+        if args.slot_key is not None:
+            ctx.site_service.get_slot(args.slot_key, tenant_key=ctx.tenant_key)
+
     async def preview(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        self._verify_targets(ctx, args)
         return self._response(
             summary=f"Would move plant '{plant.key}' to the requested location.",
             data={
@@ -71,6 +87,7 @@ class SetPlantLocation(WriteToolBase):
 
     async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
         plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
+        self._verify_targets(ctx, args)
         if args.site_key is not None:
             plant.site_key = args.site_key
         if args.location_key is not None:

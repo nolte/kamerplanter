@@ -120,12 +120,14 @@ async def test_get_due_care_tasks_filters_actionable():
 async def test_confirm_care_task_preview_and_execute():
     calls = {}
 
-    def _confirm(plant_key, reminder_type, notes):
+    def _confirm(plant_key, reminder_type, notes, tenant_key=""):
         calls["plant_key"] = plant_key
+        calls["tenant_key"] = tenant_key
         return SimpleNamespace(key="cc-1")
 
+    plant_svc = SimpleNamespace(get_plant=lambda key, tenant_key: SimpleNamespace(key=key))
     svc = SimpleNamespace(confirm_reminder=_confirm)
-    ctx = _ctx(care_reminder_service=svc)
+    ctx = _ctx(care_reminder_service=svc, plant_instance_service=plant_svc)
     tool = ConfirmCareTask()
     args = ConfirmCareTask.Input(plant_key="p1", reminder_type=ReminderType.WATERING)
 
@@ -135,7 +137,37 @@ async def test_confirm_care_task_preview_and_execute():
 
     result = await tool.execute(ctx, args)
     assert calls["plant_key"] == "p1"
+    assert calls["tenant_key"] == "home"  # SEC-001: tenant threaded for defence-in-depth
     assert result.data["confirmation_key"] == "cc-1"
+
+
+@pytest.mark.asyncio
+async def test_confirm_care_task_rejects_foreign_plant_key():
+    # SEC-001: a tenant-A caller must NOT be able to confirm a tenant-B plant.
+    # get_plant fails closed (404) on a foreign/missing key, so no care state is
+    # ever mutated across the tenant boundary.
+    from app.common.exceptions import NotFoundError
+
+    confirmed = {"called": False}
+
+    def _confirm(plant_key, reminder_type, notes, tenant_key=""):
+        confirmed["called"] = True
+        return SimpleNamespace(key="cc-1")
+
+    def _get_plant(key, tenant_key):
+        raise NotFoundError("PlantInstance", key)
+
+    plant_svc = SimpleNamespace(get_plant=_get_plant)
+    svc = SimpleNamespace(confirm_reminder=_confirm)
+    ctx = _ctx(care_reminder_service=svc, plant_instance_service=plant_svc)
+    tool = ConfirmCareTask()
+    args = ConfirmCareTask.Input(plant_key="foreign-plant", reminder_type=ReminderType.WATERING)
+
+    with pytest.raises(NotFoundError):
+        await tool.preview(ctx, args)
+    with pytest.raises(NotFoundError):
+        await tool.execute(ctx, args)
+    assert confirmed["called"] is False  # no cross-tenant write happened
 
 
 @pytest.mark.asyncio
@@ -160,21 +192,60 @@ async def test_archive_plant_delegates_to_remove_plant():
 async def test_set_plant_location_updates_fields():
     plant = SimpleNamespace(key="pl-1", site_key="s0", location_key="l0", slot_key=None)
     updated = {}
+    verified = {}
 
     def _update(key, p):
         updated["location_key"] = p.location_key
         return p
 
-    svc = SimpleNamespace(
+    def _get_location(key, tenant_key):
+        verified["location_key"] = key
+        verified["tenant_key"] = tenant_key
+        return SimpleNamespace(key=key, tenant_key=tenant_key)
+
+    plant_svc = SimpleNamespace(
         get_plant=lambda key, tenant_key: plant,
         update_plant=_update,
     )
+    site_svc = SimpleNamespace(get_location=_get_location)
     tool = SetPlantLocation()
     result = await tool.execute(
-        _ctx(plant_instance_service=svc), SetPlantLocation.Input(plant_key="pl-1", location_key="l9")
+        _ctx(plant_instance_service=plant_svc, site_service=site_svc),
+        SetPlantLocation.Input(plant_key="pl-1", location_key="l9"),
     )
     assert updated["location_key"] == "l9"
     assert result.data["location_key"] == "l9"
+    # SEC-002: the destination location was tenant-verified before assignment.
+    assert verified == {"location_key": "l9", "tenant_key": "home"}
+
+
+@pytest.mark.asyncio
+async def test_set_plant_location_rejects_foreign_destination():
+    # SEC-002: a foreign/missing destination location fails closed (404) and the
+    # plant is never persisted onto it.
+    from app.common.exceptions import NotFoundError
+
+    plant = SimpleNamespace(key="pl-1", site_key="s0", location_key="l0", slot_key=None)
+    updated = {"called": False}
+
+    def _update(key, p):
+        updated["called"] = True
+        return p
+
+    def _get_location(key, tenant_key):
+        raise NotFoundError("Location", key)
+
+    plant_svc = SimpleNamespace(get_plant=lambda key, tenant_key: plant, update_plant=_update)
+    site_svc = SimpleNamespace(get_location=_get_location)
+    tool = SetPlantLocation()
+    ctx = _ctx(plant_instance_service=plant_svc, site_service=site_svc)
+    args = SetPlantLocation.Input(plant_key="pl-1", location_key="foreign-loc")
+
+    with pytest.raises(NotFoundError):
+        await tool.preview(ctx, args)
+    with pytest.raises(NotFoundError):
+        await tool.execute(ctx, args)
+    assert updated["called"] is False  # no cross-tenant move persisted
 
 
 @pytest.mark.asyncio

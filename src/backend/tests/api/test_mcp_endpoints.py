@@ -39,11 +39,11 @@ class _FakeIdemRepo:
     def __init__(self) -> None:
         self.records: dict = {}
 
-    def get(self, sa, tool, idem):
-        return self.records.get((sa, tool, idem))
+    def get(self, sa, tenant_key, tool, idem):
+        return self.records.get((sa, tenant_key, tool, idem))
 
     def store(self, record, *, ttl_hours=24):
-        self.records[(record.service_account_key, record.tool_name, record.idempotency_key)] = record
+        self.records[(record.service_account_key, record.tenant_key, record.tool_name, record.idempotency_key)] = record
         return record
 
 
@@ -65,8 +65,16 @@ def _build_app(role: TenantRole = TenantRole.GROWER) -> tuple[FastAPI, dict]:
     # Read tools delegate to injected fakes so no DB is needed.
     species = [SimpleNamespace(key="sp-1", scientific_name="Tomato", common_names=["Tomato"], genus="Solanum")]
     fake_species = SimpleNamespace(list_species=lambda offset, limit: (species, 1))
-    fake_care = SimpleNamespace(confirm_reminder=lambda plant_key, reminder_type, notes: SimpleNamespace(key="cc-1"))
-    services = {"species_service": fake_species, "care_reminder_service": fake_care}
+    fake_care = SimpleNamespace(
+        confirm_reminder=lambda plant_key, reminder_type, notes, tenant_key="": SimpleNamespace(key="cc-1")
+    )
+    # SEC-001: confirm_care_task ownership-checks the plant first via get_plant.
+    fake_plants = SimpleNamespace(get_plant=lambda key, tenant_key: SimpleNamespace(key=key))
+    services = {
+        "species_service": fake_species,
+        "care_reminder_service": fake_care,
+        "plant_instance_service": fake_plants,
+    }
 
     dispatcher = ToolDispatcher(
         load_tools(),

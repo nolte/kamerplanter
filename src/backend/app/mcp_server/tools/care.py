@@ -61,21 +61,29 @@ class ConfirmCareTask(WriteToolBase):
         notes: str | None = None
 
     async def preview(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        # SEC-001: resolve + ownership-check the plant against the caller's tenant
+        # BEFORE touching care state. get_plant raises the project's cross-tenant
+        # 404 contract on a foreign/missing key (never a 403), so a tenant-A
+        # service account can never confirm/mutate a tenant-B plant's care state.
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
         return self._response(
-            summary=f"Would confirm a '{args.reminder_type}' reminder for plant '{args.plant_key}'.",
-            data={"plant_key": args.plant_key, "reminder_type": args.reminder_type},
+            summary=f"Would confirm a '{args.reminder_type}' reminder for plant '{plant.key}'.",
+            data={"plant_key": plant.key, "reminder_type": args.reminder_type},
         )
 
     async def execute(self, ctx: ToolContext, args: Input) -> McpToolResponse:
+        # SEC-001: same tenant-ownership gate as preview() before the write.
+        plant = ctx.plant_service.get_plant(args.plant_key, tenant_key=ctx.tenant_key)
         confirmation = ctx.care_service.confirm_reminder(
-            plant_key=args.plant_key,
+            plant_key=plant.key,
             reminder_type=args.reminder_type,
             notes=args.notes,
+            tenant_key=ctx.tenant_key,
         )
         return self._response(
-            summary=f"Confirmed '{args.reminder_type}' for plant '{args.plant_key}'.",
+            summary=f"Confirmed '{args.reminder_type}' for plant '{plant.key}'.",
             data={
-                "plant_key": args.plant_key,
+                "plant_key": plant.key,
                 "reminder_type": args.reminder_type,
                 "confirmation_key": getattr(confirmation, "key", None),
             },

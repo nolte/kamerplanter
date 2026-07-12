@@ -34,11 +34,12 @@ class _FakeIdempotencyRepo:
     def __init__(self) -> None:
         self.records: dict = {}
 
-    def get(self, sa_key, tool_name, idem_key):
-        return self.records.get((sa_key, tool_name, idem_key))
+    def get(self, sa_key, tenant_key, tool_name, idem_key):
+        # SEC-005: the scope includes tenant_key so two tenants never cross-replay.
+        return self.records.get((sa_key, tenant_key, tool_name, idem_key))
 
     def store(self, record, *, ttl_hours=24):
-        self.records[(record.service_account_key, record.tool_name, record.idempotency_key)] = record
+        self.records[(record.service_account_key, record.tenant_key, record.tool_name, record.idempotency_key)] = record
         return record
 
 
@@ -156,6 +157,36 @@ async def test_idempotent_replay_writes_once():
 
 
 @pytest.mark.asyncio
+async def test_idempotency_is_tenant_scoped_no_cross_tenant_replay():
+    # SEC-005: a multi-tenant service account holding two tenant-scoped keys must
+    # never replay tenant-A's stored result for a tenant-B call — the same
+    # idempotency key under a different tenant is a *distinct* write.
+    dispatcher, _, _, registry = _dispatcher()
+    args = {"label": "shared", "idempotency_key": "dup-key"}
+
+    tenant_a = McpPrincipal(
+        service_account_key="sa-1", display_name="bot", tenant_key="home", tenant_slug="home", role=TenantRole.GROWER
+    )
+    tenant_b = McpPrincipal(
+        service_account_key="sa-1",
+        display_name="bot",
+        tenant_key="garden",
+        tenant_slug="garden",
+        role=TenantRole.GROWER,
+    )
+
+    first = await dispatcher.dispatch(tenant_a, "counter_write", args)
+    writes_after_a = registry.get("counter_write").writes  # type: ignore[attr-defined]
+    second = await dispatcher.dispatch(tenant_b, "counter_write", args)
+    writes_after_b = registry.get("counter_write").writes  # type: ignore[attr-defined]
+
+    assert first.idempotent_replay is False
+    assert second.idempotent_replay is False  # NOT a replay — different tenant
+    assert writes_after_b == writes_after_a + 1  # tenant-B produced its own write
+    assert first.data["id"] != second.data["id"]
+
+
+@pytest.mark.asyncio
 async def test_unknown_tool_raises_not_found():
     dispatcher, _, _, _ = _dispatcher()
     with pytest.raises(NotFoundError):
@@ -184,3 +215,36 @@ def test_mcp_tool_decorator_registers_into_global_registry():
 
     assert "unit_probe_tool" in global_registry.names()
     assert not _Probe().write
+
+
+def test_write_tool_with_read_permission_fails_registration():
+    # SEC-006: a mutating tool declared under mcp.read is a silent privilege
+    # downgrade — registration must fail fast at import time.
+    with pytest.raises(TypeError, match="write tool"):
+
+        @mcp_tool(name="sec006_bad_write_read", permission=McpPermission.READ)
+        class _BadWrite(WriteToolBase):
+            class Input(WriteToolInput):
+                pass
+
+            async def preview(self, ctx, args):
+                return McpToolResponse(summary="would write")
+
+            async def execute(self, ctx, args):  # pragma: no cover - never registered
+                return McpToolResponse(summary="wrote")
+
+
+def test_destructive_tool_requires_setup_permission():
+    # SEC-006 / AC-S6: a destructive tool must be gated behind admin-only mcp.setup.
+    with pytest.raises(TypeError, match="destructive"):
+
+        @mcp_tool(name="sec006_bad_destructive", permission=McpPermission.WRITE, destructive=True)
+        class _BadDestructive(WriteToolBase):
+            class Input(WriteToolInput):
+                pass
+
+            async def preview(self, ctx, args):
+                return McpToolResponse(summary="would destroy")
+
+            async def execute(self, ctx, args):  # pragma: no cover - never registered
+                return McpToolResponse(summary="destroyed")
