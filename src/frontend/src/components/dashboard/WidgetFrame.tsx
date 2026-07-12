@@ -21,6 +21,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { getWidgetComponent } from '@/components/dashboard/widgetRegistry';
 import { dashboardWidgetCatalog, type DashboardWidgetDefinition } from '@/config/dashboardWidgetCatalog';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
+import { WIDGET_KEBAB_INSET, WIDGET_KEBAB_SIZE } from '@/lib/dashboardEditGridGeometry';
 import type { DashboardWidgetInstance } from '@/api/types';
 
 /**
@@ -163,7 +164,25 @@ export default function WidgetFrame({
   return (
     <Box sx={{ position: 'relative', height: '100%' }} data-testid={`widget-frame-${instance.widget_key}`}>
       {editMode && (
-        <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 2 }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: `${WIDGET_KEBAB_INSET}px`,
+            right: `${WIDGET_KEBAB_INSET}px`,
+            // DASH-1 (#487) — belt-and-suspenders over the handle-geometry fix
+            // in DashboardEditGrid: the east resize handle is a *sibling* of
+            // this widget in the `.react-grid-item` stacking context, so raise
+            // the kebab above it (z-index) AND have it claim pointer events in
+            // its own rectangle (pointer-events). z-index alone only reorders
+            // paint; it does not re-route a pointer-down if the handle wins
+            // hit-testing — both are needed to guarantee a tap opens the menu
+            // (U-006, UI-NFR-001 R-011). Scoped to the grid item's stacking
+            // context (`.react-grid-item` has a transform), so it never escapes
+            // above the app chrome.
+            zIndex: 3,
+            pointerEvents: 'auto',
+          }}
+        >
           <IconButton
             size="small"
             aria-label={t('dashboard.edit.widgetMenu', { widget: t(`dashboard.widgets.${instance.widget_key}.label`) })}
@@ -181,8 +200,8 @@ export default function WidgetFrame({
             // resize handles. Theme tokens keep contrast correct in light and
             // dark; `text.primary` on `background.paper` clears WCAG AA.
             sx={{
-              width: 48,
-              height: 48,
+              width: WIDGET_KEBAB_SIZE,
+              height: WIDGET_KEBAB_SIZE,
               p: 0,
               color: 'text.primary',
               '&:hover .widget-menu-affordance': { bgcolor: 'action.hover', boxShadow: 4 },
