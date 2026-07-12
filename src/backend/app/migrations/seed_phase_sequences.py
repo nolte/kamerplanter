@@ -94,20 +94,26 @@ def run_seed_phase_sequences() -> None:
         if existing:
             repo.update_sequence(existing.key or "", seq)
             seq_key = existing.key or ""
-
-            # Delete existing entries to recreate them
-            old_entries = repo.get_entries_for_sequence(seq_key)
-            for oe in old_entries:
-                repo.delete_entry(oe.key or "")
-
             seqs_updated += 1
         else:
             created_seq = repo.create_sequence(seq)
             seq_key = created_seq.key or ""
             seqs_created += 1
 
-        # Create entries
+        # ── Key-stable entry regeneration (#579) ──
+        # A re-seed MUST preserve each entry's ``_key`` so that a plant's
+        # ``current_phase_key`` (a PhaseSequenceEntry key) never dangles across
+        # re-seeds. Match existing entries to the YAML by ``phase_definition_key``
+        # (unique within a sequence — no sequence repeats a phase name) and update
+        # in place; only genuinely new phases are inserted and genuinely dropped
+        # phases are deleted.
+        existing_entries = repo.get_entries_for_sequence(seq_key)
+        entries_by_def: dict[str, PhaseSequenceEntry] = {
+            e.phase_definition_key: e for e in existing_entries if e.phase_definition_key
+        }
+
         entries_data = s.get("entries", [])
+        seen_def_keys: set[str] = set()
         for e in entries_data:
             phase_def_key = def_key_map.get(e["phase_name"], "")
             if not phase_def_key:
@@ -117,6 +123,7 @@ def run_seed_phase_sequences() -> None:
                     sequence=name,
                 )
                 continue
+            seen_def_keys.add(phase_def_key)
 
             entry = PhaseSequenceEntry(
                 phase_sequence_key=seq_key,
@@ -127,7 +134,18 @@ def run_seed_phase_sequences() -> None:
                 allows_harvest=e.get("allows_harvest", False),
                 is_recurring=e.get("is_recurring", False),
             )
-            repo.create_entry(entry)
+
+            prior = entries_by_def.get(phase_def_key)
+            if prior is not None:
+                # Preserve the existing ``_key`` (key-stable update).
+                repo.update_entry(prior.key or "", entry)
+            else:
+                repo.create_entry(entry)
+
+        # Remove entries for phases no longer part of the sequence.
+        for def_key, prior in entries_by_def.items():
+            if def_key not in seen_def_keys:
+                repo.delete_entry(prior.key or "")
 
         logger.info(
             "phase_sequence_seeded",

@@ -269,6 +269,10 @@ class TestPhaseTransitionEngineWithPhaseSequence:
         self.phase_repo = MagicMock()
         self.plant_repo = MagicMock()
         self.phase_seq_repo = MagicMock()
+        # These cases model a legacy GrowthPhase-keyed current phase whose species
+        # still has a PhaseSequence: the key resolves in the GrowthPhase key-space,
+        # so the entry lookup must miss (#579 resolution order).
+        self.phase_seq_repo.get_entry_by_key.return_value = None
         self.engine = PhaseTransitionEngine(self.phase_repo, self.plant_repo, phase_seq_repo=self.phase_seq_repo)
 
     def test_perennial_restart_from_phase_sequence(self):
