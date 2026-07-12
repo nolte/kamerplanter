@@ -197,6 +197,138 @@ describe('PlantInstanceCreateDialog', () => {
     });
   });
 
+  // ── Species favorite toggle (issue #546) ────────────────────────────
+  describe('species favorite toggle', () => {
+    async function selectTomato(user: ReturnType<typeof userEvent.setup>) {
+      const speciesInput = within(
+        await screen.findByTestId('form-field-species_key'),
+      ).getByRole('combobox');
+      await user.click(speciesInput);
+      await user.type(speciesInput, 'Solanum');
+      await user.click(await screen.findByRole('option', { name: /Solanum lycopersicum/ }));
+    }
+
+    it('disables the favorite toggle while no species is selected', async () => {
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      const toggle = await screen.findByTestId('favorite-toggle-species');
+      expect(toggle).toBeDisabled();
+    });
+
+    it('enables the favorite toggle once a species is selected', async () => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      const toggle = screen.getByTestId('favorite-toggle-species');
+      await waitFor(() => expect(toggle).not.toBeDisabled());
+      // Not yet a favorite → aria-pressed is false.
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('reflects an already-favorited species from the loaded favorites', async () => {
+      server.use(
+        http.get('/api/v1/t/:tenant/favorites', () =>
+          HttpResponse.json([
+            {
+              key: 'fav-1',
+              target_key: 'sp-1',
+              target_type: 'species',
+              source: 'manual',
+              cascade_from_key: null,
+              favorited_at: '2026-01-01T00:00:00Z',
+            },
+          ]),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      const toggle = screen.getByTestId('favorite-toggle-species');
+      await waitFor(() => expect(toggle).toHaveAttribute('aria-pressed', 'true'));
+    });
+
+    it('adds the selected species to favorites on click and persists it', async () => {
+      const addedKeys: string[] = [];
+      server.use(
+        http.get('/api/v1/t/:tenant/favorites', () => HttpResponse.json([])),
+        http.post('/api/v1/t/:tenant/favorites', async ({ request }) => {
+          const body = (await request.json()) as { target_key: string; source: string };
+          addedKeys.push(body.target_key);
+          return HttpResponse.json(
+            {
+              key: 'fav-new',
+              target_key: body.target_key,
+              target_type: 'species',
+              source: body.source,
+              cascade_from_key: null,
+              favorited_at: '2026-01-01T00:00:00Z',
+            },
+            { status: 201 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      const toggle = screen.getByTestId('favorite-toggle-species');
+      await waitFor(() => expect(toggle).not.toBeDisabled());
+
+      await user.click(toggle);
+
+      // Optimistic UI flips to favorited immediately …
+      await waitFor(() => expect(toggle).toHaveAttribute('aria-pressed', 'true'));
+      // … and the backend persists the selected species key.
+      await waitFor(() => expect(addedKeys).toEqual(['sp-1']));
+    });
+
+    it('does not interfere with the create submission after favoriting', async () => {
+      const createdPayloads: Array<{ species_key: string }> = [];
+      server.use(
+        http.get('/api/v1/t/:tenant/favorites', () => HttpResponse.json([])),
+        http.post('/api/v1/t/:tenant/favorites', () =>
+          HttpResponse.json(
+            {
+              key: 'fav-new',
+              target_key: 'sp-1',
+              target_type: 'species',
+              source: 'manual',
+              cascade_from_key: null,
+              favorited_at: '2026-01-01T00:00:00Z',
+            },
+            { status: 201 },
+          ),
+        ),
+        http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+          const body = (await request.json()) as { species_key: string };
+          createdPayloads.push({ species_key: body.species_key });
+          return HttpResponse.json({ key: 'plant-new', ...body }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={onCreated} />,
+      );
+      await selectTomato(user);
+      const toggle = screen.getByTestId('favorite-toggle-species');
+      await waitFor(() => expect(toggle).not.toBeDisabled());
+      await user.click(toggle);
+
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      // The favorite action left the form intact: species_key still submits.
+      expect(createdPayloads).toEqual([{ species_key: 'sp-1' }]);
+    });
+  });
+
   // ── Identification photo carry-over (issue #447) ─────────────────────
   describe('identification photo carry-over', () => {
     function makePhoto(): File {
