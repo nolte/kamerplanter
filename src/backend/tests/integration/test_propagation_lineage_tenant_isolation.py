@@ -6,6 +6,11 @@ grandmother (tenant-b)`` and asserts every traversal (ancestors / descendants /
 ancestor-paths) is pruned at the tenant boundary — the foreign grandmother is
 never returned. Skipped when no ArangoDB is reachable.
 
+Because every assertion here *executes* a real graph traversal, it also proves
+the AQL parses — the ``PRUNE``-before-``OPTIONS`` clause order (#571). When no
+ArangoDB is reachable this file is skipped, so the clause order is guarded
+statically in ``tests/unit/data_access/test_lineage_aql_clause_order.py``.
+
 Run with: pytest tests/integration/ -v   (requires docker compose up arangodb)
 """
 
