@@ -142,7 +142,9 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
       const locToken = p.location_key || NONE_TOKEN;
       locationByToken.set(
         locToken,
-        locToken === NONE_TOKEN ? t('dashboard.plantGrid.filterValues.noLocation') : p.location_name || locToken,
+        locToken === NONE_TOKEN
+          ? t('dashboard.plantGrid.filterValues.noLocation')
+          : p.location_name || humanizeSlug(p.location_key) || locToken,
       );
     }
     const toOptions = (m: Map<string, string>) =>
@@ -389,9 +391,15 @@ function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
       </Box>
 
       {detailed && plant.cultivar_name && (
-        <Typography variant="caption" color="text.secondary" noWrap>
-          {plant.cultivar_name}
-        </Typography>
+        // Secondary content only (the plant name above is the primary,
+        // never-truncated identifier) — `noWrap` keeps narrow compact-grid
+        // cards tidy, and the `Tooltip` restores the full value on hover/tap
+        // when it does clip.
+        <Tooltip title={plant.cultivar_name}>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {plant.cultivar_name}
+          </Typography>
+        </Tooltip>
       )}
 
       {plant.phase_name && (
@@ -407,12 +415,14 @@ function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
       )}
 
       {detailed && plant.location_name && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', minWidth: 0 }}>
-          <PlaceIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
-          <Typography variant="caption" noWrap>
-            {plant.location_name}
-          </Typography>
-        </Box>
+        <Tooltip title={plant.location_name}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', minWidth: 0 }}>
+            <PlaceIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
+            <Typography variant="caption" noWrap>
+              {plant.location_name}
+            </Typography>
+          </Box>
+        </Tooltip>
       )}
 
       {detailed && plant.next_due_date && (
