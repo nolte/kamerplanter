@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import DataOrigin, DtmReference, PlantTrait
+from app.common.enums import DataOrigin, DtmReference, PlantTrait, SeedType
 
 
 class CultivarCreate(BaseModel):
@@ -12,6 +12,7 @@ class CultivarCreate(BaseModel):
     breeding_year: int | None = None
     traits: list[PlantTrait] = Field(default_factory=list)
     patent_status: str = ""
+    seed_type: SeedType | None = None
     days_to_maturity: int | None = Field(default=None, ge=1, le=1095)
     dtm_reference: DtmReference | None = None
     bearing_start_year_min: int | None = Field(default=None, ge=1, le=20)
@@ -28,6 +29,7 @@ class CultivarResponse(BaseModel):
     breeding_year: int | None
     traits: list[PlantTrait]
     patent_status: str
+    seed_type: SeedType | None = None
     days_to_maturity: int | None
     dtm_reference: DtmReference | None = None
     bearing_start_year_min: int | None = None

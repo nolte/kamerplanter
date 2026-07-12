@@ -10,6 +10,7 @@ from app.common.enums import (
     PropagationDifficulty,
     PropagationMethod,
     RootType,
+    SeedType,
     Suitability,
     WoodStage,
 )
@@ -158,11 +159,39 @@ class TestCultivarValidation:
 
     def test_seed_type_default(self):
         c = Cultivar(name="Test", species_key="sp1")
-        assert c.seed_type == ""
+        assert c.seed_type is None
 
     def test_seed_type_set(self):
         c = Cultivar(name="Test", species_key="sp1", seed_type="f1_hybrid")
-        assert c.seed_type == "f1_hybrid"
+        assert c.seed_type is SeedType.F1_HYBRID
+
+    def test_seed_type_accepts_enum(self):
+        c = Cultivar(name="Test", species_key="sp1", seed_type=SeedType.CLONE)
+        assert c.seed_type is SeedType.CLONE
+
+    def test_seed_type_empty_string_coerced_to_none(self):
+        # Legacy persisted records carry seed_type="" (old free-text default).
+        c = Cultivar(name="Test", species_key="sp1", seed_type="")
+        assert c.seed_type is None
+
+    def test_seed_type_legacy_cultivar_folds_to_clone(self):
+        # WP-6f: the retired free-text token "cultivar" maps onto CLONE.
+        c = Cultivar(name="Test", species_key="sp1", seed_type="cultivar")
+        assert c.seed_type is SeedType.CLONE
+
+    def test_seed_type_unknown_freetext_degrades_to_none(self):
+        # Old volumes must load without a ValidationError crash (no enum whitelist trap).
+        c = Cultivar(name="Test", species_key="sp1", seed_type="mystery_value")
+        assert c.seed_type is None
+
+    def test_seed_type_nonstring_degrades_to_none(self):
+        # A stray non-string value (e.g. a legacy numeric code) must not crash the load.
+        c = Cultivar(name="Test", species_key="sp1", seed_type=123)
+        assert c.seed_type is None
+
+    def test_seed_type_uppercase_freetext_is_normalized(self):
+        c = Cultivar(name="Test", species_key="sp1", seed_type="F1_HYBRID")
+        assert c.seed_type is SeedType.F1_HYBRID
 
 
 class TestRootTypeCorm:

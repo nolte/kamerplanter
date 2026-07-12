@@ -437,9 +437,8 @@ $defs:
         items:
           type: string
       seed_type:
-        type: string
-        enum: [open_pollinated, f1_hybrid, clone, cultivar]
-        description: "Reproduction/propagation type of the cultivar"
+        $ref: "_defs.schema.yaml#/$defs/seed_type"
+        description: "Reproduction/propagation type of the cultivar (REQ-008/017, WP-6f)."
       days_to_maturity:
         type: [integer, "null"]
         minimum: 0

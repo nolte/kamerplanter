@@ -73,7 +73,7 @@ export const speciesEditSchema = z.object({
   family_key: z.string().nullable(),
   genus: z.string(),
   growth_habit: z.enum(GROWTH_HABITS),
-  root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous']),
+  root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous', 'corm']),
   // Empty string = "no selection" from the MUI select; normalised to null on submit.
   harvest_pattern: z.enum(HARVEST_PATTERNS).or(z.literal('')).nullable(),
   harvested_part: z.enum(HARVESTED_PARTS).or(z.literal('')).nullable(),

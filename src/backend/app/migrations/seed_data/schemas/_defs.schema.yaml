@@ -26,6 +26,10 @@ $defs:
     type: string
     enum: [monocarpic, polycarpic]
 
+  seed_type:
+    type: string
+    enum: [open_pollinated, f1_hybrid, f2, landrace, clone]
+
   growth_determinacy:
     type: string
     enum: [determinate, indeterminate, semi_determinate]
