@@ -1,23 +1,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import Alert from '@mui/material/Alert';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/environment';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { ActuatorProtocol, ActuatorType, Location, Site } from '@/api/types';
+
+const fieldWithHelpSx = { display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 } as const;
 
 const ACTUATOR_TYPES: ActuatorType[] = [
   'light',
@@ -43,28 +52,37 @@ const ACTUATOR_TYPES: ActuatorType[] = [
 
 const PROTOCOLS: ActuatorProtocol[] = ['home_assistant', 'mqtt', 'manual'];
 
-const schema = z
-  .object({
-    site_key: z.string().min(1),
-    location_key: z.string().min(1),
-    name: z.string().min(1),
-    actuator_type: z.enum(ACTUATOR_TYPES as [ActuatorType, ...ActuatorType[]]),
-    protocol: z.enum(['home_assistant', 'mqtt', 'manual']),
-    ha_entity_id: z.string().nullable(),
-    mqtt_command_topic: z.string().nullable(),
-    power_watts: z.number().min(0).nullable(),
-    notes: z.string().nullable(),
-  })
-  .refine((d) => d.protocol !== 'home_assistant' || !!d.ha_entity_id, {
-    path: ['ha_entity_id'],
-    message: 'haEntityRequired',
-  })
-  .refine((d) => d.protocol !== 'mqtt' || !!d.mqtt_command_topic, {
-    path: ['mqtt_command_topic'],
-    message: 'mqttTopicRequired',
-  });
+/**
+ * Built inside the component (via `useMemo`) so every validation message is
+ * translated instead of surfacing a raw, untranslated i18n-key-shaped string
+ * as `helperText` (e.g. the previous literal "haEntityRequired") — see
+ * `FormTextField`/`FormSelectField`, which render `fieldState.error.message`
+ * verbatim without an extra `t()` pass.
+ */
+function buildSchema(t: TFunction) {
+  return z
+    .object({
+      site_key: z.string().min(1, t('pages.environmentControl.validation.siteRequired')),
+      location_key: z.string().min(1, t('pages.environmentControl.validation.locationRequired')),
+      name: z.string().min(1, t('pages.environmentControl.validation.nameRequired')),
+      actuator_type: z.enum(ACTUATOR_TYPES as [ActuatorType, ...ActuatorType[]]),
+      protocol: z.enum(['home_assistant', 'mqtt', 'manual']),
+      ha_entity_id: z.string().nullable(),
+      mqtt_command_topic: z.string().nullable(),
+      power_watts: z.number().min(0, t('pages.environmentControl.validation.powerNonNegative')).nullable(),
+      notes: z.string().nullable(),
+    })
+    .refine((d) => d.protocol !== 'home_assistant' || !!d.ha_entity_id, {
+      path: ['ha_entity_id'],
+      message: t('pages.environmentControl.validation.haEntityRequired'),
+    })
+    .refine((d) => d.protocol !== 'mqtt' || !!d.mqtt_command_topic, {
+      path: ['mqtt_command_topic'],
+      message: t('pages.environmentControl.validation.mqttTopicRequired'),
+    });
+}
 
-type FormData = z.infer<typeof schema>;
+type FormData = z.infer<ReturnType<typeof buildSchema>>;
 
 interface Props {
   open: boolean;
@@ -95,6 +113,10 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = t
 
   const [sites, setSites] = useState<Site[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+
+  // Re-built whenever the active language changes so validation messages stay
+  // translated (see `buildSchema` doc comment above).
+  const schema = useMemo(() => buildSchema(t), [t]);
 
   const {
     control,
@@ -184,48 +206,71 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = t
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <FormSelectField
-            name="site_key"
-            control={control}
-            label={t('pages.environmentControl.fields.site')}
-            required
-            options={sites.map((s) => ({ value: s.key, label: s.name }))}
-          />
-          <FormSelectField
-            name="location_key"
-            control={control}
-            label={t('pages.environmentControl.fields.location')}
-            required
-            disabled={!siteKey}
-            options={locations.map((l) => ({ value: l.key, label: l.name }))}
-          />
+          {/* Section 1 — where the actuator lives (UI-NFR-008 R-037: grouped fields
+              with a heading; identification fields come first). */}
+          <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+            {t('pages.environmentControl.sectionLocation')}
+          </Typography>
+          <FormRow>
+            <FormSelectField
+              name="site_key"
+              control={control}
+              label={t('pages.environmentControl.fields.site')}
+              required
+              autoFocus
+              options={sites.map((s) => ({ value: s.key, label: s.name }))}
+            />
+            <FormSelectField
+              name="location_key"
+              control={control}
+              label={t('pages.environmentControl.fields.location')}
+              required
+              disabled={!siteKey}
+              options={locations.map((l) => ({ value: l.key, label: l.name }))}
+            />
+          </FormRow>
           <FormTextField
             name="name"
             control={control}
             label={t('pages.environmentControl.fields.name')}
             required
-            autoFocus
           />
-          <FormSelectField
-            name="actuator_type"
-            control={control}
-            label={t('pages.environmentControl.fields.actuatorType')}
-            required
-            options={ACTUATOR_TYPES.map((v) => ({
-              value: v,
-              label: t(`enums.actuatorType.${v}`),
-            }))}
-          />
-          <FormSelectField
-            name="protocol"
-            control={control}
-            label={t('pages.environmentControl.fields.protocol')}
-            required
-            options={protocolOptions.map((v) => ({
-              value: v,
-              label: t(`enums.actuatorProtocol.${v}`),
-            }))}
-          />
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Section 2 — type + protocol drive which extra field(s) appear below,
+              so the intro text calls that out explicitly for the user. */}
+          <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
+            {t('pages.environmentControl.sectionConfig')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {t('pages.environmentControl.sectionConfigIntro')}
+          </Typography>
+          <FormRow>
+            <Box sx={fieldWithHelpSx}>
+              <FormSelectField
+                name="actuator_type"
+                control={control}
+                label={t('pages.environmentControl.fields.actuatorType')}
+                required
+                options={ACTUATOR_TYPES.map((v) => ({
+                  value: v,
+                  label: t(`enums.actuatorType.${v}`),
+                }))}
+              />
+              <HelpTooltip term="aktor" iconOnly />
+            </Box>
+            <FormSelectField
+              name="protocol"
+              control={control}
+              label={t('pages.environmentControl.fields.protocol')}
+              required
+              options={protocolOptions.map((v) => ({
+                value: v,
+                label: t(`enums.actuatorProtocol.${v}`),
+              }))}
+            />
+          </FormRow>
           {protocol === 'home_assistant' && haEnabled && (
             <FormTextField
               name="ha_entity_id"
@@ -239,12 +284,26 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = t
               name="mqtt_command_topic"
               control={control}
               label={t('pages.environmentControl.fields.mqttTopic')}
+              helperText={t('pages.environmentControl.fields.mqttTopicHelp')}
             />
           )}
+          {protocol === 'manual' && (
+            <Alert severity="info" sx={{ mb: 1.5 }} data-testid="manual-protocol-hint">
+              {t('pages.environmentControl.fields.manualProtocolHint')}
+            </Alert>
+          )}
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Section 3 — everything below is optional. */}
+          <Typography variant="subtitle1" sx={{ mb: 1.5 }}>
+            {t('pages.environmentControl.sectionDetails')}
+          </Typography>
           <FormNumberField
             name="power_watts"
             control={control}
             label={t('pages.environmentControl.fields.powerWatts')}
+            helperText={t('pages.environmentControl.fields.powerWattsHelp')}
             step="any"
             min={0}
             suffix="W"
@@ -254,6 +313,7 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = t
             control={control}
             label={t('pages.environmentControl.fields.notes')}
             multiline
+            minRows={2}
           />
           <FormActions onCancel={handleClose} loading={isSubmitting} />
         </form>

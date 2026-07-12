@@ -530,17 +530,29 @@
       "createActuator": "Aktor anlegen",
       "actuatorCreated": "Aktor angelegt.",
       "commandSent": "Befehl gesendet.",
+      "commandQueued": "Gerät ist nicht direkt erreichbar — der Befehl wurde als Aufgabe zur manuellen Bedienung hinterlegt.",
       "emergencyStop": "Notabschaltung",
-      "emergencyConfirm": "Alle Stromverbraucher werden abgeschaltet (Brand-Szenario). Fortfahren?",
+      "emergencyConfirm": "Alle Stromverbraucher werden abgeschaltet (Brand-Szenario). Diese Aktion kann nicht rückgängig gemacht werden. Fortfahren?",
       "emergencyDone": "Notabschaltung ausgeführt: {{count}} Aktor(en) abgeschaltet.",
       "summary": "{{total}} Aktor(en), davon {{online}} online.",
       "online": "Online",
       "offline": "Offline",
       "stateLabel": "Zustand: {{state}}",
+      "stateValues": {
+        "on": "Ein",
+        "off": "Aus",
+        "fault": "Störung",
+        "unknown": "Unbekannt"
+      },
+      "powerWattsValue": "{{watts}} W Leistungsaufnahme",
       "turnOn": "Einschalten",
       "turnOff": "Ausschalten",
       "emptyTitle": "Noch kein Aktor angelegt",
       "emptyDescription": "Lege deinen ersten Aktor an, um Licht, Klima und Bewässerung zu steuern.",
+      "sectionLocation": "Standort",
+      "sectionConfig": "Aktor-Konfiguration",
+      "sectionConfigIntro": "Typ und Protokoll legen fest, wie der Aktor angesprochen wird und welche Felder du zusätzlich brauchst.",
+      "sectionDetails": "Weitere Angaben (optional)",
       "fields": {
         "site": "Standort (Site)",
         "location": "Bereich (Location)",
@@ -550,8 +562,19 @@
         "haEntityId": "Home-Assistant-Entity-ID",
         "haEntityHelp": "z. B. light.growzelt_1 oder switch.abluft",
         "mqttTopic": "MQTT-Command-Topic",
+        "mqttTopicHelp": "z. B. growzelt1/aktor1/set — das Topic, an das Befehle gesendet werden.",
+        "manualProtocolHint": "Bei manueller Steuerung sendet das System keine direkten Befehle an ein Gerät. Stattdessen wird bei jeder Aktion eine Aufgabe zur manuellen Bedienung erstellt.",
         "powerWatts": "Leistungsaufnahme",
+        "powerWattsHelp": "Optional, für die Verbrauchsübersicht.",
         "notes": "Notizen"
+      },
+      "validation": {
+        "siteRequired": "Bitte wähle einen Standort aus.",
+        "locationRequired": "Bitte wähle einen Bereich aus.",
+        "nameRequired": "Bitte gib einen Namen ein.",
+        "haEntityRequired": "Bitte gib die Home-Assistant-Entity-ID an.",
+        "mqttTopicRequired": "Bitte gib das MQTT-Command-Topic an.",
+        "powerNonNegative": "Die Leistungsaufnahme darf nicht negativ sein."
       }
     },
     "aquaponik": {
@@ -5498,6 +5521,12 @@
     "printLabelsShort": "Etiketten"
   },
   "glossary": {
+    "aktor": {
+      "short": "Ein Gerät, das etwas physisch steuert (Licht, Lüfter, Pumpe, Ventil)",
+      "long": "Ein Aktor führt Befehle physisch aus — er schaltet eine Lampe, dreht einen Lüfter oder öffnet ein Bewässerungsventil. Anders als ein Sensor (der nur misst) verändert der Aktor aktiv die Umgebung. Aktoren werden über Home Assistant, MQTT oder manuell gesteuert.",
+      "beginnerTip": "Denk an einen Aktor wie einen fernsteuerbaren Schalter: Licht, Abluft, Heizung, Pumpe — alles, was du an- und ausschalten kannst.",
+      "category": "allgemein"
+    },
     "ec": {
       "short": "Leitfähigkeit — wie viel Dünger im Wasser ist",
       "long": "EC misst die Nährstoffkonzentration im Gießwasser. Gesamt-EC = Leitungswasser-EC + Dünger-EC. Deutsches Leitungswasser hat ca. 0,3–0,8 mS/cm. Für Topfpflanzen Gesamt-EC 1,0–2,0 mS/cm anstreben. Hydroponik präziser: Netto-EC (nur Dünger) nach Pflanzenart einstellen.",

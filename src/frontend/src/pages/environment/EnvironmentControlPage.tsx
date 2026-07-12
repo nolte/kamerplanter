@@ -1,17 +1,20 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 import type { ChipProps } from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
 import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
+import PowerOffIcon from '@mui/icons-material/PowerOff';
 import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
@@ -19,6 +22,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useActuators } from '@/hooks/useActuators';
 import * as api from '@/api/endpoints/environment';
@@ -38,6 +42,23 @@ function stateColor(state: string | null): ChipProps['color'] {
   return 'success';
 }
 
+/** Icon for the current-state chip. Only `fault` gets a distinct icon (safety-relevant,
+ * matches the ReportProblemIcon used elsewhere for destructive/critical states) — `on`/`off`
+ * are already distinguished by their translated label text, so an icon there would be noise. */
+function stateIcon(state: string | null): ReactElement | undefined {
+  return state === 'fault' ? <ReportProblemIcon /> : undefined;
+}
+
+/** Known `current_state` values get a translated, human-readable label (UI-NFR-007).
+ * Unknown/future values (e.g. a dimmer percentage from a not-yet-wired protocol) fall
+ * back to the raw value instead of crashing or showing an untranslated i18n key. */
+function stateLabel(t: TFunction, state: string | null): string {
+  if (state === null) return t('pages.environmentControl.stateValues.unknown');
+  const key = `pages.environmentControl.stateValues.${state}`;
+  const translated = t(key);
+  return translated === key ? state : translated;
+}
+
 export default function EnvironmentControlPage() {
   const { t } = useTranslation();
   const notification = useNotification();
@@ -45,7 +66,11 @@ export default function EnvironmentControlPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
-  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [emergencyLoading, setEmergencyLoading] = useState(false);
+  // Tracks the exact actuator+command in flight so only the clicked button shows a
+  // spinner, while BOTH buttons on that card stay disabled to prevent a second command
+  // racing the first (UI-NFR-008 double-submit protection extended to card actions).
+  const [busy, setBusy] = useState<{ key: string; command: 'turn_on' | 'turn_off' } | null>(null);
 
   const handleCreated = useCallback(() => {
     setDialogOpen(false);
@@ -55,22 +80,30 @@ export default function EnvironmentControlPage() {
 
   const handleCommand = useCallback(
     async (actuator: Actuator, command: 'turn_on' | 'turn_off') => {
-      setBusyKey(actuator.key);
+      setBusy({ key: actuator.key, command });
       try {
-        await api.sendCommand(actuator.key, command);
-        notification.success(t('pages.environmentControl.commandSent'));
+        const event = await api.sendCommand(actuator.key, command);
+        // A failed dispatch (e.g. Home Assistant unreachable) still returns 201 —
+        // the backend degrades gracefully to a manual fallback task (REQ-018 §6) rather
+        // than throwing. Surface that distinction instead of a blanket "sent" message,
+        // otherwise the user believes the device reacted when only a task was queued.
+        if (event.success) {
+          notification.success(t('pages.environmentControl.commandSent'));
+        } else {
+          notification.warning(t('pages.environmentControl.commandQueued'));
+        }
         reload();
       } catch {
         notification.error(t('errors.generic'));
       } finally {
-        setBusyKey(null);
+        setBusy(null);
       }
     },
     [notification, t, reload],
   );
 
   const handleEmergencyStop = useCallback(async () => {
-    setEmergencyOpen(false);
+    setEmergencyLoading(true);
     try {
       const result = await api.emergencyStop('fire_alarm');
       notification.warning(
@@ -79,7 +112,13 @@ export default function EnvironmentControlPage() {
       reload();
     } catch {
       notification.error(t('errors.generic'));
+    } finally {
+      setEmergencyLoading(false);
     }
+    // Close only after the request settles — while it's in flight the ConfirmDialog
+    // stays open with its native `loading` state (spinner, no backdrop/Escape dismiss),
+    // so the safety-critical action can't be accidentally re-triggered mid-request.
+    setEmergencyOpen(false);
   }, [notification, t, reload]);
 
   const onlineCount = useMemo(
@@ -92,13 +131,14 @@ export default function EnvironmentControlPage() {
       <PageTitle
         title={t('pages.environmentControl.title')}
         action={
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
             <Button
               variant="outlined"
               color="error"
               startIcon={<ReportProblemIcon />}
               onClick={() => setEmergencyOpen(true)}
-              disabled={actuators.length === 0}
+              disabled={actuators.length === 0 || emergencyLoading}
+              sx={{ minHeight: 48 }}
               data-testid="emergency-stop-button"
             >
               {t('pages.environmentControl.emergencyStop')}
@@ -107,6 +147,7 @@ export default function EnvironmentControlPage() {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => setDialogOpen(true)}
+              sx={{ minHeight: 48 }}
               data-testid="create-actuator-button"
             >
               {t('pages.environmentControl.createActuator')}
@@ -115,9 +156,10 @@ export default function EnvironmentControlPage() {
         }
       />
 
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        {t('pages.environmentControl.intro')}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 3 }}>
+        <Typography color="text.secondary">{t('pages.environmentControl.intro')}</Typography>
+        <HelpTooltip term="aktor" iconOnly />
+      </Box>
 
       {loading ? (
         <LoadingSkeleton variant="card" />
@@ -137,8 +179,10 @@ export default function EnvironmentControlPage() {
             })}
           </Typography>
           <Grid container spacing={2}>
-            {actuators.map((actuator) => (
-              <Grid key={actuator.key} size={{ xs: 12, sm: 6, md: 4 }}>
+            {actuators.map((actuator) => {
+              const cardBusy = busy?.key === actuator.key;
+              return (
+              <Grid key={actuator.key} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <Card variant="outlined" data-testid={`actuator-card-${actuator.key}`}>
                   <CardContent>
                     <Box
@@ -178,26 +222,34 @@ export default function EnvironmentControlPage() {
                       />
                       <Chip
                         size="small"
+                        icon={stateIcon(actuator.current_state)}
                         color={stateColor(actuator.current_state)}
                         label={t('pages.environmentControl.stateLabel', {
-                          state: actuator.current_state ?? '—',
+                          state: stateLabel(t, actuator.current_state),
                         })}
                       />
                     </Stack>
 
                     {actuator.power_watts != null && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                        {actuator.power_watts} W
+                        {t('pages.environmentControl.powerWattsValue', { watts: actuator.power_watts })}
                       </Typography>
                     )}
 
-                    <Stack direction="row" spacing={1}>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
                       <Button
                         size="small"
                         variant="contained"
-                        startIcon={<PowerSettingsNewIcon />}
-                        disabled={busyKey === actuator.key}
+                        startIcon={
+                          cardBusy && busy?.command === 'turn_on' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <PowerSettingsNewIcon />
+                          )
+                        }
+                        disabled={cardBusy}
                         onClick={() => handleCommand(actuator, 'turn_on')}
+                        sx={{ minHeight: 48 }}
                         data-testid={`turn-on-${actuator.key}`}
                       >
                         {t('pages.environmentControl.turnOn')}
@@ -205,8 +257,16 @@ export default function EnvironmentControlPage() {
                       <Button
                         size="small"
                         variant="outlined"
-                        disabled={busyKey === actuator.key}
+                        startIcon={
+                          cardBusy && busy?.command === 'turn_off' ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            <PowerOffIcon />
+                          )
+                        }
+                        disabled={cardBusy}
                         onClick={() => handleCommand(actuator, 'turn_off')}
+                        sx={{ minHeight: 48 }}
                         data-testid={`turn-off-${actuator.key}`}
                       >
                         {t('pages.environmentControl.turnOff')}
@@ -215,7 +275,8 @@ export default function EnvironmentControlPage() {
                   </CardContent>
                 </Card>
               </Grid>
-            ))}
+              );
+            })}
           </Grid>
         </>
       )}
@@ -231,6 +292,7 @@ export default function EnvironmentControlPage() {
         message={t('pages.environmentControl.emergencyConfirm')}
         confirmLabel={t('pages.environmentControl.emergencyStop')}
         destructive
+        loading={emergencyLoading}
         onConfirm={handleEmergencyStop}
         onCancel={() => setEmergencyOpen(false)}
       />

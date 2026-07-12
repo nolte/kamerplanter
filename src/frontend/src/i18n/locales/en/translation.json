@@ -530,17 +530,29 @@
       "createActuator": "Add actuator",
       "actuatorCreated": "Actuator created.",
       "commandSent": "Command sent.",
+      "commandQueued": "Device is not directly reachable — the command was queued as a manual task instead.",
       "emergencyStop": "Emergency stop",
-      "emergencyConfirm": "All powered devices will be switched off (fire scenario). Continue?",
+      "emergencyConfirm": "All powered devices will be switched off (fire scenario). This action cannot be undone. Continue?",
       "emergencyDone": "Emergency stop executed: {{count}} actuator(s) switched off.",
       "summary": "{{total}} actuator(s), {{online}} online.",
       "online": "Online",
       "offline": "Offline",
       "stateLabel": "State: {{state}}",
+      "stateValues": {
+        "on": "On",
+        "off": "Off",
+        "fault": "Fault",
+        "unknown": "Unknown"
+      },
+      "powerWattsValue": "{{watts}} W power draw",
       "turnOn": "Turn on",
       "turnOff": "Turn off",
       "emptyTitle": "No actuator yet",
       "emptyDescription": "Add your first actuator to control light, climate and irrigation.",
+      "sectionLocation": "Location",
+      "sectionConfig": "Actuator configuration",
+      "sectionConfigIntro": "Type and protocol determine how the actuator is addressed and which extra fields you need.",
+      "sectionDetails": "Additional details (optional)",
       "fields": {
         "site": "Site",
         "location": "Location",
@@ -550,8 +562,19 @@
         "haEntityId": "Home Assistant entity ID",
         "haEntityHelp": "e.g. light.growzelt_1 or switch.exhaust",
         "mqttTopic": "MQTT command topic",
+        "mqttTopicHelp": "e.g. growroom1/actuator1/set — the topic commands are published to.",
+        "manualProtocolHint": "With manual control the system never sends direct commands to a device. Instead, every action creates a manual task.",
         "powerWatts": "Power draw",
+        "powerWattsHelp": "Optional, used for the consumption overview.",
         "notes": "Notes"
+      },
+      "validation": {
+        "siteRequired": "Please select a site.",
+        "locationRequired": "Please select a location.",
+        "nameRequired": "Please enter a name.",
+        "haEntityRequired": "Please provide the Home Assistant entity ID.",
+        "mqttTopicRequired": "Please provide the MQTT command topic.",
+        "powerNonNegative": "Power draw must not be negative."
       }
     },
     "aquaponik": {
@@ -5497,6 +5520,12 @@
     "printLabelsShort": "Labels"
   },
   "glossary": {
+    "aktor": {
+      "short": "A device that physically controls something (light, fan, pump, valve)",
+      "long": "An actuator physically carries out commands — it switches a lamp, spins a fan, or opens an irrigation valve. Unlike a sensor (which only measures), an actuator actively changes the environment. Actuators are controlled via Home Assistant, MQTT, or manually.",
+      "beginnerTip": "Think of an actuator as a remote-controlled switch: light, exhaust, heater, pump — anything you can turn on and off.",
+      "category": "allgemein"
+    },
     "ec": {
       "short": "Conductivity — how much fertiliser is in the water",
       "long": "EC measures nutrient concentration in irrigation water. Total EC = tap water EC + fertiliser EC. German tap water sits around 0.3–0.8 mS/cm. For potted plants aim for total EC 1.0–2.0 mS/cm. Hydroponics work with net EC (fertiliser only) tuned to the species.",
