@@ -89,6 +89,21 @@ class CompanionPlantingPage(BasePage):
         except Exception:
             return []
 
+    def has_compatible_card(self) -> bool:
+        """Return True if the 'Kompatible Arten' card is present on the page."""
+        return len(self.driver.find_elements(*self.COMPATIBLE_CARD)) > 0
+
+    def has_incompatible_card(self) -> bool:
+        """Return True if the 'Inkompatible Arten' card is present on the page."""
+        return len(self.driver.find_elements(*self.INCOMPATIBLE_CARD)) > 0
+
+    def get_compatible_card_chip_count(self) -> int:
+        """Return the number of MUI Chip badges (e.g. score chips) inside the compatible card."""
+        cards = self.driver.find_elements(*self.COMPATIBLE_CARD)
+        if not cards:
+            return 0
+        return len(cards[0].find_elements(By.CSS_SELECTOR, ".MuiChip-root"))
+
     def has_compatible_empty_state(self) -> bool:
         try:
             cards = self.driver.find_elements(*self.COMPATIBLE_CARD)

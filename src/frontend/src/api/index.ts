@@ -15,3 +15,4 @@ export * as overwinteringProfilesApi from './endpoints/overwinteringProfiles';
 export * as seasonApi from './endpoints/season';
 export * as aiApi from './endpoints/ai';
 export * as glossaryApi from './endpoints/glossary';
+export * as diagnoseApi from './endpoints/diagnose';

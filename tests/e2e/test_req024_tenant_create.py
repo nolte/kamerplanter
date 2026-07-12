@@ -12,6 +12,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-024.md):
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -157,7 +158,8 @@ class TestTenantCreateHappyPath:
             "Create page before filling form",
         )
 
-        create_page.enter_name("Selenium Test Garten")
+        unique_name = f"Selenium Test Garten {uuid.uuid4().hex[:6]}"
+        create_page.enter_name(unique_name)
         create_page.enter_description("Automatisierter Testgarten fuer E2E-Tests")
         screenshot(
             "TC-REQ-024-001_create-form-filled",

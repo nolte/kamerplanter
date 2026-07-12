@@ -121,6 +121,7 @@ plugins:
             Light-Modus: Light Mode
             Kiosk-Modus: Kiosk Mode
             KI-Assistent: AI Assistant
+            KI-Diagnose: AI Diagnosis
             KI-Provider einrichten: AI Provider Setup
             Fachbegriff-Glossar: Terminology Glossary
             Umgebungssteuerung: Actuator Control
@@ -296,6 +297,7 @@ nav:
       - Nacherntebehandlung: de/user-guide/post-harvest.md
       - Pflanzenschutz (IPM): de/user-guide/pest-management.md
       - Pflanzenprobleme lösen: de/user-guide/plant-health-troubleshooting.md
+      - KI-Diagnose: de/user-guide/ai-diagnosis.md
       - Pflanzdurchläufe: de/user-guide/planting-runs.md
       - Tankmanagement: de/user-guide/tanks.md
       - Betriebsmittel & Inventar (InvenTree): de/user-guide/inventree.md

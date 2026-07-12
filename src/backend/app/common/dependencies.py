@@ -1404,6 +1404,26 @@ def get_glossary_service():
     )
 
 
+# ── REQ-036 KI-Diagnose dependencies ─────────────────────────────
+
+
+def get_diagnose_service():
+    """REQ-036 §4.2 — the structured KI diagnosis service (stateless, IPM-bridged)."""
+    from app.domain.engines.diagnosis_analysis_engine import DiagnosisAnalysisEngine
+    from app.domain.services.diagnose_service import DiagnoseService
+
+    return DiagnoseService(
+        analysis_engine=DiagnosisAnalysisEngine(get_knowledge_service_adapter()),
+        consent_guard=get_ai_consent_guard(),
+        audit_logger=get_ai_audit_logger(),
+        ipm_repo=get_ipm_repo(),
+        context_builder=get_ai_context_builder(),
+        plant_repo=get_plant_repo(),
+        species_repo=get_species_repo(),
+        provider_repo=get_ai_provider_repo(),
+    )
+
+
 def get_dashboard_service():
     """REQ-009 dashboard aggregation service."""
     from app.domain.services.dashboard_service import DashboardService

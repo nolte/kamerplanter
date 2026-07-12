@@ -176,10 +176,10 @@ class TestLoginSSOProviders:
         )
 
         oauth_buttons = login_page.get_oauth_buttons()
-        if len(oauth_buttons) == 0:
-            assert len(oauth_buttons) == 0, (
-                "TC-REQ-023-004 FAIL: Expected no SSO buttons when no providers are configured"
-            )
+        assert len(oauth_buttons) == 0, (
+            f"TC-REQ-023-004 FAIL: Expected no SSO buttons when no providers are configured, "
+            f"got {len(oauth_buttons)}"
+        )
 
 
 # -- TC-023-013: Login with wrong password ------------------------------------
