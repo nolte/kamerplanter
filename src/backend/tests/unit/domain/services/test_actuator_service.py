@@ -202,6 +202,84 @@ class TestOverride:
         assert created.key == "ov1"
         assert ha.calls  # immediate dispatch happened
 
+    def test_expired_override_is_rejected(self, repo):
+        # SEC (REQ-018): an override whose window lies entirely in the past must
+        # not be applied — the model only enforces expires_at > started_at.
+        repo.actuators["act1"] = _ha_actuator(state="off")
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        now = datetime.now(UTC)
+        override = ManualOverride(
+            tenant_key="t1",
+            actuator_key="act1",
+            started_at=now - timedelta(hours=2),
+            expires_at=now - timedelta(hours=1),
+            override_value=100,
+            created_by="u1",
+        )
+        with pytest.raises(ValidationError):
+            service.set_override("act1", "t1", override, "u1")
+        assert not ha.calls  # nothing dispatched for an expired override
+
+    def test_override_value_is_clamped_to_max(self, repo):
+        # SEC (REQ-018): an override value beyond the actuator's envelope is clamped.
+        actuator = _ha_actuator(state="off")
+        actuator = actuator.model_copy(update={"min_value": 0.0, "max_value": 100.0})
+        repo.actuators["act1"] = actuator
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        now = datetime.now(UTC)
+        override = ManualOverride(
+            tenant_key="t1",
+            actuator_key="act1",
+            started_at=now,
+            expires_at=now + timedelta(hours=1),
+            override_value=5000,
+            created_by="u1",
+        )
+        service.set_override("act1", "t1", override, "u1")
+        assert repo.actuators["act1"].current_value == 100.0
+        assert repo.events[-1].value == 100.0
+
+
+class TestValueClamping:
+    """SEC (REQ-018): every dispatched command is clamped to [min_value, max_value]."""
+
+    def _bounded_actuator(self):
+        return _ha_actuator(state="off").model_copy(update={"min_value": 0.0, "max_value": 100.0})
+
+    def test_command_above_max_is_clamped(self, repo):
+        repo.actuators["act1"] = self._bounded_actuator()
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        event = service.send_command("act1", "t1", "set_value", 5000.0, user="u1")
+        assert event.value == 100.0
+        assert repo.actuators["act1"].current_value == 100.0
+        # The HA service call also received the clamped value, not 5000.
+        assert ha.calls[-1][2].get("brightness_pct") == 100.0
+
+    def test_command_below_min_is_clamped(self, repo):
+        actuator = self._bounded_actuator().model_copy(update={"min_value": 20.0})
+        repo.actuators["act1"] = actuator
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        event = service.send_command("act1", "t1", "set_value", -10.0, user="u1")
+        assert event.value == 20.0
+
+    def test_command_inside_bounds_passes_through(self, repo):
+        repo.actuators["act1"] = self._bounded_actuator()
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        event = service.send_command("act1", "t1", "set_value", 60.0, user="u1")
+        assert event.value == 60.0
+
+    def test_unbounded_actuator_not_clamped(self, repo):
+        repo.actuators["act1"] = _ha_actuator(state="off")  # no min/max configured
+        ha = FakeHaClient()
+        service = _service(repo, ha=ha, task_repo=FakeTaskRepo())
+        event = service.send_command("act1", "t1", "set_value", 250.0, user="u1")
+        assert event.value == 250.0
+
 
 class TestEmergencyStop:
     def test_water_leak_stops_pumps(self, repo):

@@ -39,6 +39,24 @@ PRIORITY_RULE = 500
 PRIORITY_SCHEDULE = 100
 
 
+def clamp_to_bounds(value: float | None, min_value: float | None, max_value: float | None) -> float | None:
+    """Clamp a commanded/overridden value into the actuator's ``[min, max]`` envelope.
+
+    Any value below ``min_value`` or above ``max_value`` is clamped to that bound
+    rather than passed through, so a command (direct, rule, schedule, override or
+    emergency) can never drive an actuator past its configured safe envelope
+    (REQ-018 safety). ``None`` (a pure on/off command with no numeric value) and
+    unbounded actuators (``min_value``/``max_value`` unset) are returned unchanged.
+    """
+    if value is None:
+        return None
+    if min_value is not None and value < min_value:
+        return min_value
+    if max_value is not None and value > max_value:
+        return max_value
+    return value
+
+
 @dataclass
 class DesiredState:
     """The winning control decision for an actuator (or ``None`` = no change)."""

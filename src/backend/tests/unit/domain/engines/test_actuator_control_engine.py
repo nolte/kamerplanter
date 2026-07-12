@@ -23,6 +23,7 @@ from app.domain.engines.actuator_control_engine import (
     ControlEngine,
     HomeAssistantCommandMapper,
     PhaseTransitionHandler,
+    clamp_to_bounds,
 )
 from app.domain.models.actuator import (
     Actuator,
@@ -256,3 +257,29 @@ class TestGradualTransition:
     def test_zero_days_returns_target(self):
         handler = PhaseTransitionHandler()
         assert handler.calculate_gradual_transition(75.0, 100.0, 0, 0) == 100.0
+
+
+class TestClampToBounds:
+    """SEC (REQ-018): a commanded/overridden value must never exceed the
+    actuator's configured [min, max] safe envelope."""
+
+    def test_value_above_max_is_clamped_down(self):
+        assert clamp_to_bounds(5000.0, 0.0, 100.0) == 100.0
+
+    def test_value_below_min_is_clamped_up(self):
+        assert clamp_to_bounds(-40.0, 10.0, 100.0) == 10.0
+
+    def test_value_inside_bounds_passes_through(self):
+        assert clamp_to_bounds(55.0, 0.0, 100.0) == 55.0
+
+    def test_none_value_unchanged(self):
+        assert clamp_to_bounds(None, 0.0, 100.0) is None
+
+    def test_unbounded_actuator_passes_through(self):
+        assert clamp_to_bounds(9999.0, None, None) == 9999.0
+
+    def test_only_max_configured(self):
+        assert clamp_to_bounds(150.0, None, 100.0) == 100.0
+
+    def test_only_min_configured(self):
+        assert clamp_to_bounds(-5.0, 0.0, None) == 0.0

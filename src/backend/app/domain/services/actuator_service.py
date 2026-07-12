@@ -37,6 +37,7 @@ from app.domain.engines.actuator_control_engine import (
     ControlEngine,
     DesiredState,
     HomeAssistantCommandMapper,
+    clamp_to_bounds,
 )
 from app.domain.models.actuator import (
     Actuator,
@@ -140,6 +141,13 @@ class ActuatorService:
         triggered_by_user: str | None = None,
         sensor_reading: float | None = None,
     ) -> ControlEvent:
+        # SEC (REQ-018): single chokepoint for every command path (direct, rule,
+        # schedule, override, emergency) — clamp the numeric value into the
+        # actuator's configured [min_value, max_value] envelope so nothing can
+        # drive the device past its safe bounds. The clamped value is what gets
+        # sent to hardware, stored as current_value and logged.
+        value = clamp_to_bounds(value, actuator.min_value, actuator.max_value)
+
         previous_state = actuator.current_state
         new_state = "off" if command == "turn_off" or value == 0 else "on"
 
@@ -260,6 +268,13 @@ class ActuatorService:
 
     def set_override(self, key: str, tenant_key: str, override: ManualOverride, user: str) -> ManualOverride:
         actuator = self.get_actuator(key, tenant_key)
+        # SEC (REQ-018): reject an override that is already expired. The model only
+        # guarantees expires_at > started_at, so a caller can still submit a cap
+        # whose window lies entirely in the past; applying it would drive the
+        # actuator with a cap the control loop immediately ignores. An override
+        # must be in force (expires_at > now) to take effect.
+        if override.expires_at <= self._now():
+            raise ValidationError("Manual override expires_at must be in the future.")
         override.actuator_key = key
         override.tenant_key = tenant_key
         override.created_by = user
