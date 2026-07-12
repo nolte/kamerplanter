@@ -1,9 +1,12 @@
 # Modules & Features
 
-In your account settings, the **Modules & Features** tab lets you show or hide individual functional areas — independently of, but building on, your chosen experience level. The result is a clean interface tailored exactly to the way you work.
+In your account settings, the **Modules & Features** tab lets you show or hide every sidebar navigation area — except the core modules — independently of, but building on, your chosen experience level. The result is a clean interface tailored exactly to the way you work.
 
 !!! note "Display preference only"
     Showing and hiding modules is a **personal display preference**, not an access-control mechanism. The system continues to store all your data, and you can re-enable any hidden module at any time — without losing any data.
+
+!!! note "New: every navigation area is now controllable"
+    A few sidebar areas used to be unaffected by these settings — including **AI Assistant**, **Glossary**, **Overwintering**, **Phases** (Definitions & Sequences), and **Equipment & Inventory**. These five modules are now just as controllable as every other non-essential area.
 
 ---
 
@@ -104,33 +107,35 @@ The following modules are essential functions of the application and cannot be h
 
 ## Available Modules (Overview)
 
-The table below lists all modules you can show or hide, along with the default visibility threshold per experience level.
+The table below lists all modules you can show or hide, along with the default visibility threshold per experience level. <!-- Source: src/frontend/src/config/moduleCatalog.ts -->
 
 | Module | Category | Default from level |
 |--------|----------|-----------------:|
-| Care & Reminders | Care & Planning | Beginner |
 | Calendar | Care & Planning | Beginner |
 | Watering Log | Care & Planning | Beginner |
 | Tasks & Workflows | Care & Planning | Beginner |
-| Fertilization & Nutrient Plans | Fertilization & Water | Intermediate |
-| Tank Management | Fertilization & Water | Expert |
-| Aquaponics | Fertilization & Water | Expert |
-| Substrates | Fertilization & Water | Expert |
-| Calculators (VPD/GDD/EC) | Fertilization & Water | Expert |
-| Pest Management (IPM) | Pest Control | Expert |
+| Fertilization & Nutrient Plans | Nutrition & Water | Intermediate |
+| Tank Management | Nutrition & Water | Expert |
+| Aquaponics | Nutrition & Water | Expert |
+| Substrates | Nutrition & Water | Expert |
+| Calculators (VPD/GDD/EC) | Nutrition & Water | Expert |
+| Plant Protection (IPM) | Plant Protection | Expert |
 | Harvest & Harvest Batches | Harvest | Expert |
 | Post-Harvest | Harvest | Expert |
-| Planting Runs | Growing | Expert |
-| Propagation | Growing | Expert |
-| Master Data | Master Data | Intermediate |
+| Planting Runs | Cultivation | Expert |
+| Propagation | Cultivation | Expert |
+| Overwintering | Cultivation | Intermediate |
+| Phases (Definitions & Sequences) | Cultivation | Expert |
+| Equipment & Inventory | Inventory & Equipment | Beginner |
+| Master Data (Species/Families/Import) | Master Data | Intermediate |
 | Companion Planting & Crop Rotation | Master Data | Expert |
-| Sensors & Monitoring | Automation | Expert |
-| Environment Control & Actuators | Automation | Expert |
-| Smart Home / Home Assistant | Automation | Expert |
-| AI Features | AI | Intermediate |
+| Environment Control & Actuators | Automation | Beginner |
+| AI Image Recognition | AI | Intermediate |
+| AI Assistant | AI | Beginner |
+| Glossary | Knowledge & Reference | Beginner |
 
 !!! note "About the 'Default from level' column"
-    This column shows from which experience level a module is visible by default, without any manual override. On the "Beginner" level, for example, only Care, Calendar, Watering Log, and Tasks are shown by default. You can manually override any module at any time.
+    This column shows from which experience level a module is visible by default, without any manual override. On the "Beginner" level, for example, the core modules plus Calendar, Watering Log, Tasks & Workflows, Environment Control & Actuators, Equipment & Inventory, AI Assistant, and Glossary are already shown by default. You can manually override any module at any time.
 
 ---
 
