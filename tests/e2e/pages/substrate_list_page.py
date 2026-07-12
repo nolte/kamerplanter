@@ -127,6 +127,10 @@ class SubstrateListPage(BasePage):
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
+        # debounce: bounded, justified (table-search-input has a 300ms
+        # debounce before it re-filters, so callers can rely on the result
+        # being settled once this method returns)
+        time.sleep(0.3)
 
     def clear_search(self) -> None:
         """Clear the search field."""
@@ -169,6 +173,19 @@ class SubstrateListPage(BasePage):
     def is_create_dialog_open(self) -> bool:
         """Return True if any dialog is open."""
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
+
+    def wait_for_create_dialog_closed(self, timeout: int = 15) -> None:
+        """Wait until the create dialog is no longer visible (post-submit)."""
+        self.wait_for_element_hidden(self.CREATE_DIALOG, timeout=timeout)
+
+    def wait_for_row_absent(self, text: str, timeout: int = 15) -> None:
+        """Wait until no row contains *text* (e.g. after a delete)."""
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        WebDriverWait(self.driver, timeout).until(
+            lambda d: text
+            not in " ".join(cell for row in self.get_row_texts() for cell in row)
+        )
 
     def fill_brand(self, value: str) -> None:
         """Fill the Brand field in the create dialog."""

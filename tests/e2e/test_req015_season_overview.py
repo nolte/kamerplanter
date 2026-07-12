@@ -64,9 +64,8 @@ class TestSeasonOverviewLoad:
         )
 
         cards = calendar.get_season_month_cards()
-        empty_states = calendar.driver.find_elements(*CalendarPage.EMPTY_STATE)
 
-        if len(empty_states) > 0:
+        if calendar.is_present(CalendarPage.EMPTY_STATE):
             screenshot("TC-REQ-015-060_season-empty", "Season overview showing empty state")
             pytest.skip("Season overview has empty state; no month cards to verify")
 

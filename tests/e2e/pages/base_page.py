@@ -88,6 +88,10 @@ class BasePage:
         """Return all elements matching the given ``data-testid``."""
         return self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
 
+    def is_present(self, locator: tuple[str, str]) -> bool:
+        """Return True if at least one element matching *locator* exists in the DOM."""
+        return len(self.driver.find_elements(*locator)) > 0
+
     def get_text_stable(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> str:
         """Return text of *locator*, retrying on StaleElementReferenceException."""
         deadline = time.time() + timeout

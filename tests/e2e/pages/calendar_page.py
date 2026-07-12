@@ -77,6 +77,10 @@ class CalendarPage(BasePage):
     # ── Calendar grid (month view) ──────────────────────────────────────
     MONTH_GRID_COLUMN_HEADERS = (By.CSS_SELECTOR, "th, [role='columnheader']")
 
+    # ── Sowing calendar cards ────────────────────────────────────────────
+    SOWING_CARDS = (By.CSS_SELECTOR, "[data-testid='calendar-page'] .MuiCard-root")
+    COLUMN_HEADERS = (By.CSS_SELECTOR, "[role='columnheader']")
+
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
 
@@ -288,6 +292,14 @@ class CalendarPage(BasePage):
 
     # ── Season overview specifics ───────────────────────────────────────
 
+    def get_sowing_cards(self) -> list[WebElement]:
+        """Return card elements rendered in the sowing calendar view."""
+        return self.driver.find_elements(*self.SOWING_CARDS)
+
+    def get_column_header_count(self) -> int:
+        """Return the number of ``[role='columnheader']`` elements (month columns)."""
+        return len(self.driver.find_elements(*self.COLUMN_HEADERS))
+
     def get_season_month_cards(self) -> list[WebElement]:
         """Return all 12 month cards in the season overview."""
         return self.driver.find_elements(*self.SEASON_MONTH_CARDS)
@@ -337,6 +349,14 @@ class CalendarPage(BasePage):
     def cancel_feed(self) -> None:
         """Click the Cancel button in the feed creation dialog."""
         self.wait_for_element_clickable(self.FEED_CANCEL_BTN).click()
+
+    def wait_for_create_feed_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the create feed dialog is no longer visible."""
+        self.wait_for_element_hidden(self.CREATE_FEED_DIALOG, timeout=timeout)
+
+    def is_feed_save_button_enabled(self) -> bool:
+        """Return True if the feed Save button is currently enabled."""
+        return self.wait_for_element(self.FEED_SAVE_BTN).is_enabled()
 
     def get_feed_items(self) -> list[WebElement]:
         """Return all feed list items."""

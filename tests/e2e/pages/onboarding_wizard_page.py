@@ -355,6 +355,11 @@ class OnboardingWizardPage(BasePage):
         card = self.wait_for_element_clickable(locator)
         self.scroll_and_click(card)
 
+    def has_experience_card(self, level: str) -> bool:
+        """Return True if the experience-level card for *level* is present."""
+        locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}']")
+        return len(self.driver.find_elements(*locator)) > 0
+
     def is_experience_selected(self, level: str) -> bool:
         """Return True if the given experience level card has a primary-coloured border."""
         import time
@@ -431,6 +436,11 @@ class OnboardingWizardPage(BasePage):
     def get_kit_card_count(self) -> int:
         """Return the number of starter kit cards."""
         return len(self.get_kit_cards())
+
+    def has_kit(self, kit_id: str) -> bool:
+        """Return True if a starter kit card with *kit_id* is present."""
+        locator = (By.CSS_SELECTOR, f"[data-testid='kit-{kit_id}']")
+        return len(self.driver.find_elements(*locator)) > 0
 
     def click_kit(self, kit_id: str) -> None:
         """Click a starter kit card by its kit_id."""
