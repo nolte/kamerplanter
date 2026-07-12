@@ -1415,6 +1415,32 @@ class LinkableEntityCollection(StrEnum):
     EQUIPMENT = "equipment"
 
 
+# ── REQ-033 MCP server (Model Context Protocol) ──────────────────────────────
+class McpPermission(StrEnum):
+    """The three MCP tool-permission classes (REQ-033 §4.4).
+
+    Assigned to a service account *indirectly* through its tenant role: a
+    read-only diagnose bot is a ``viewer``, a day-to-day bot is a ``grower`` and a
+    one-off onboarding agent is an ``admin``. ``mcp.setup`` is the most
+    destructive class (site/location deletion) and is therefore admin-only, so a
+    diary bot can never delete a location — not even through a macro tool
+    (AC-S6).
+    """
+
+    READ = "mcp.read"
+    WRITE = "mcp.write"
+    SETUP = "mcp.setup"
+
+
+class McpToolStatus(StrEnum):
+    """Audit-log outcome of a single MCP tool invocation (REQ-033 §3, §4.6)."""
+
+    OK = "ok"
+    DENIED = "denied"
+    ERROR = "error"
+    DRY_RUN = "dry_run"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

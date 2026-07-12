@@ -97,6 +97,12 @@ Gesetzlich vorgeschriebene Wartezeit zwischen der letzten Anwendung eines Pflanz
 
 → [Pflanzenschutz (IPM): Karenzzeit verstehen und überwachen](../user-guide/pest-management.md)
 
+### MCP (Model Context Protocol)
+
+Offenes Protokoll, über das externe KI-Sprachmodell-Clients (z. B. Claude Desktop, Claude Code) strukturierte "Werkzeuge" eines Systems aufrufen können. Kamerplanter stellt darüber eine kuratierte, maschinelle Schnittstelle bereit, ausschließlich für Service Accounts — zu unterscheiden vom in die App eingebauten KI-Assistenten, der für menschliche Nutzer:innen gedacht ist.
+
+→ [MCP-Server](../api/mcp-server.md)
+
 ### Mischkultur (Companion Planting)
 
 Gezielte Kombination unterschiedlicher Pflanzenarten auf engem Raum, die sich gegenseitig fördern, statt sich zu schaden — zum Beispiel durch Schädlingsabwehr, bessere Raumnutzung oder Förderung von Nützlingen.

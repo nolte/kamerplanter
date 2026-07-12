@@ -217,6 +217,13 @@ AI_AUDIT_LOG = "ai_audit_log"
 GLOSSARY_TERMS = "glossary_terms"
 GLOSSARY_TERM_CACHE = "glossary_term_cache"
 
+# REQ-033 MCP server — adapter-layer collections only (no own domain data, §3).
+# ``mcp_audit_log`` records one entry per tool call (no PII, only hashes/sizes,
+# retention 90d via NFR-011). ``mcp_idempotency_record`` de-duplicates write
+# tools by idempotency key (retention 24h).
+MCP_AUDIT_LOG = "mcp_audit_log"
+MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
+
 DOCUMENT_COLLECTIONS = [
     SPECIES,
     CULTIVARS,
@@ -332,6 +339,9 @@ DOCUMENT_COLLECTIONS = [
     # REQ-035 KI terminology glossary
     GLOSSARY_TERMS,
     GLOSSARY_TERM_CACHE,
+    # REQ-033 MCP server (adapter-layer only)
+    MCP_AUDIT_LOG,
+    MCP_IDEMPOTENCY_RECORD,
     # REQ-026 Aquaponics
     FISH_SPECIES,
     FISH_STOCKS,
@@ -1897,6 +1907,23 @@ def ensure_collections(db: StandardDatabase) -> None:
         fields=["term_slug", "language", "expertise_level", "kb_version"], unique=True
     )
     glossary_term_cache_col.add_persistent_index(fields=["valid_until"], unique=False)
+
+    # REQ-033 MCP server indexes (§3). Audit log queried by service account +
+    # tenant (privacy self-service) and swept by created_at (90d retention).
+    # Idempotency records keyed by (service_account_key, tenant_key, tool_name,
+    # idempotency_key) — tenant_key is part of the unique scope (SEC-005) so a
+    # multi-tenant service account cannot cross-replay — and swept by expires_at
+    # (24h retention).
+    mcp_audit_log_col = db.collection(MCP_AUDIT_LOG)
+    mcp_audit_log_col.add_persistent_index(fields=["service_account_key"], unique=False)
+    mcp_audit_log_col.add_persistent_index(fields=["tenant_key", "created_at"], unique=False)
+    mcp_audit_log_col.add_persistent_index(fields=["created_at"], unique=False)
+
+    mcp_idempotency_record_col = db.collection(MCP_IDEMPOTENCY_RECORD)
+    mcp_idempotency_record_col.add_persistent_index(
+        fields=["service_account_key", "tenant_key", "tool_name", "idempotency_key"], unique=True
+    )
+    mcp_idempotency_record_col.add_persistent_index(fields=["expires_at"], unique=False)
 
     # REQ-026 Aquaponics indexes
     fish_species_col = db.collection(FISH_SPECIES)

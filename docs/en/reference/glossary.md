@@ -93,6 +93,12 @@ A separate, open-source inventory management system that you can optionally run 
 
 → [Equipment & Inventory (InvenTree)](../user-guide/inventree.md)
 
+### Model Context Protocol (MCP)
+
+An open protocol that lets external AI language-model clients (e.g. Claude Desktop, Claude Code) call a system's structured "tools". Kamerplanter exposes a curated, machine-to-machine interface over MCP, restricted to service accounts — distinct from the AI assistant built into the app, which is meant for human users.
+
+→ [MCP Server](../api/mcp-server.md)
+
 ### Nutrient Film Technique (NFT)
 
 A hydroponic system in which a thin film of nutrient solution flows over the roots and then returns to a recirculation tank — unlike systems such as DWC, where the roots sit permanently in the nutrient solution.

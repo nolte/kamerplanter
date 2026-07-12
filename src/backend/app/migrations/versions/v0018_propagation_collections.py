@@ -1,4 +1,4 @@
-"""v0017 — REQ-017 propagation / lineage: collections + indexes.
+"""v0018 — REQ-017 propagation / lineage: collections + indexes.
 
 Creates the three REQ-017 document collections on *existing* volumes:
 ``propagation_batches``, ``rooting_protocols`` and ``phenotype_notes`` (the
@@ -49,7 +49,7 @@ def _has_index(indexes: object, fields: list[str]) -> bool:
 
 
 class PropagationCollectionsMigration(Migration):
-    version = "0017"
+    version = "0018"
     name = "propagation_collections"
     description = "Create the REQ-017 propagation_batches / rooting_protocols / phenotype_notes collections + indexes."
     reversible = False

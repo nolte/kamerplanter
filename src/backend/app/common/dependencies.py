@@ -639,6 +639,48 @@ def get_tenant_service() -> TenantService:
     )
 
 
+# ── REQ-033 MCP server dependencies ────────────────────────────────
+
+
+def get_mcp_audit_repo():
+    from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
+
+    return ArangoMcpAuditRepository(get_db())
+
+
+def get_mcp_idempotency_repo():
+    from app.data_access.arango.mcp_repository import ArangoMcpIdempotencyRepository
+
+    return ArangoMcpIdempotencyRepository(get_db())
+
+
+def get_mcp_authenticator():
+    from app.mcp_server.auth import McpAuthenticator
+    from app.mcp_server.rate_limit import McpRateLimiter
+
+    return McpAuthenticator(
+        get_api_key_repo(),
+        get_user_repo(),
+        get_tenant_service(),
+        rate_limiter=McpRateLimiter(_get_redis_client()),
+    )
+
+
+def get_mcp_dispatcher():
+    from app.mcp_server.audit import MCPAuditLogger
+    from app.mcp_server.dispatcher import ToolDispatcher
+    from app.mcp_server.idempotency import IdempotencyStore
+    from app.mcp_server.registry import load_tools
+
+    registry = load_tools()
+    audit_logger = MCPAuditLogger(get_mcp_audit_repo())
+    idempotency = IdempotencyStore(
+        get_mcp_idempotency_repo(),
+        ttl_hours=settings.mcp_idempotency_ttl_hours,
+    )
+    return ToolDispatcher(registry, audit_logger, idempotency)
+
+
 # ── REQ-022 Care Reminder dependencies ─────────────────────────────
 
 

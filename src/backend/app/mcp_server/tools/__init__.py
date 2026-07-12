@@ -1,0 +1,27 @@
+"""REQ-033 curated MCP tool palette (§2).
+
+Importing this package registers every tool with the global registry via the
+``@mcp_tool`` decorator. Keep the imports side-effecting and explicit so the
+palette is deterministic.
+
+Cut-1 core palette (extensible — see the PR/report for the deferred remainder of
+the ~30-tool inventory in §2):
+
+* read (mcp.read):  list_species, get_species_info, list_planting_runs,
+  list_tasks, get_due_care_tasks, get_harvest_readiness, get_mcp_activity
+* write (mcp.write): confirm_care_task, archive_plant, set_plant_location
+* setup (mcp.setup): create_site
+"""
+
+from __future__ import annotations
+
+from app.mcp_server.tools import (  # noqa: F401  (side-effect registration)
+    care,
+    harvest,
+    plants,
+    privacy,
+    runs,
+    sites,
+    species,
+    tasks,
+)

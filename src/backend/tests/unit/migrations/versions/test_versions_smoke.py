@@ -58,7 +58,17 @@ class _NoopCollection:
                 "unique": True,
             },
             {"type": "persistent", "fields": ["valid_until"], "unique": False},
-            # v0017 propagation indexes
+            # v0017 MCP collection indexes (mcp_audit_log + mcp_idempotency_record)
+            {"type": "persistent", "fields": ["service_account_key"], "unique": False},
+            {"type": "persistent", "fields": ["tenant_key", "created_at"], "unique": False},
+            {"type": "persistent", "fields": ["created_at"], "unique": False},
+            {
+                "type": "persistent",
+                "fields": ["service_account_key", "tenant_key", "tool_name", "idempotency_key"],
+                "unique": True,
+            },
+            {"type": "persistent", "fields": ["expires_at"], "unique": False},
+            # v0018 propagation indexes
             {"type": "persistent", "fields": ["tenant_key", "batch_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
