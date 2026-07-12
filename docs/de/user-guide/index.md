@@ -17,6 +17,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Gießprotokoll](watering-log.md) | Gießvorgänge dokumentieren und auswerten |
 | [Sensorik](sensors.md) | Sensordaten, Home Assistant Integration |
 | [Wetterquellen](weather-sources.md) | Öffentlichen Wetterdienst oder Home Assistant je Standort auswählen und priorisieren |
+| [Berechnungen](calculations.md) | VPD-, GDD-, Photoperioden-, Stellplatz- und Sonnenstand-Rechner |
 | [Aufgaben](tasks.md) | Aufgabenplanung und Workflow-Templates |
 | [Ernte](harvest.md) | Erntemanagement und Qualitätsbewertung |
 | [Nacherntebehandlung](post-harvest.md) | Trocknung, Aushärtung (Curing) und Lagerung deiner Erntechargen verfolgen |
