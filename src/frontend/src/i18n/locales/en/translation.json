@@ -5834,5 +5834,51 @@
         "description": "Tile overview of all your plants."
       }
     }
+  },
+  "diagnose": {
+    "title": "AI diagnosis",
+    "subtitle": "Describe the symptoms you observe and get the three most likely causes – linked to matching pests and treatments. This is a structured assistant, not a confirmed diagnosis.",
+    "steps": {
+      "symptoms": "Symptoms",
+      "context": "Context",
+      "results": "Result",
+      "symptomsHelp": "Select all applicable symptoms. The more precise your selection, the better the diagnosis.",
+      "contextHelp": "Optional: add notes or use the photo diagnosis for image recognition."
+    },
+    "categories": {
+      "leaf_color_change": "Leaf discolouration",
+      "leaf_shape_change": "Changed leaf shape",
+      "growth_anomaly": "Growth anomaly",
+      "pest_visible": "Visible pests",
+      "disease_visible": "Visible disease",
+      "flowering_issue": "Flowering or fruiting issue",
+      "environmental": "Environmental stress"
+    },
+    "context": {
+      "notesLabel": "Notes (optional)",
+      "notesHelp": "For privacy your notes are not passed verbatim to the AI – only the hint that you added notes.",
+      "photoHint": "For an image-based diagnosis the photo recognition is available.",
+      "photoLink": "Go to photo diagnosis"
+    },
+    "actions": {
+      "analyze": "Start diagnosis",
+      "restart": "New diagnosis"
+    },
+    "results": {
+      "intro": "The three most likely causes, ordered by descending confidence:",
+      "rank": "#{{rank}}",
+      "confidence": "{{percent}}% confidence",
+      "actions": "Recommended actions",
+      "pestLink": "View pest details",
+      "treatments": "Possible treatments",
+      "treatmentKarenz": "{{name}} (waiting period {{days}} days)"
+    },
+    "errors": {
+      "loadSymptoms": "The symptom catalogue could not be loaded.",
+      "analyze": "The diagnosis could not be run. Please try again.",
+      "serviceUnavailable": "The knowledge assistant is temporarily unavailable. Please try again later.",
+      "invalidOutput": "The AI could not produce a usable result. Please try again.",
+      "noResult": "No diagnosis could be determined for the selected symptoms."
+    }
   }
 }

@@ -15,6 +15,7 @@ from app.api.v1.attachments.tenant_router import router as tenant_attachments_ro
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
 from app.api.v1.dashboard.tenant_router import router as tenant_dashboard_router
+from app.api.v1.diagnose.tenant_router import router as tenant_diagnosis_router
 from app.api.v1.equipment.tenant_router import router as tenant_equipment_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
@@ -84,6 +85,8 @@ tenant_scoped_router.include_router(tenant_overwintering_profiles_router)
 tenant_scoped_router.include_router(tenant_season_router)
 # REQ-031 KI-Assistent — /t/{slug}/ai/* (three-stage toggle enforced in-router)
 tenant_scoped_router.include_router(tenant_ai_router)
+# REQ-036 KI-Diagnose — /t/{slug}/diagnosis/* (shares the KI three-stage toggle)
+tenant_scoped_router.include_router(tenant_diagnosis_router)
 tenant_scoped_router.include_router(tenant_starter_kits_router)
 tenant_scoped_router.include_router(tenant_onboarding_router)
 tenant_scoped_router.include_router(tenant_favorites_router)

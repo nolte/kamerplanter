@@ -5835,5 +5835,51 @@
         "description": "Kachelübersicht all deiner Pflanzen."
       }
     }
+  },
+  "diagnose": {
+    "title": "KI-Diagnose",
+    "subtitle": "Beschreibe die beobachteten Symptome und erhalte die drei wahrscheinlichsten Ursachen – verknüpft mit passenden Schädlingen und Behandlungen. Dies ist ein strukturierter Assistent, keine gesicherte Diagnose.",
+    "steps": {
+      "symptoms": "Symptome",
+      "context": "Kontext",
+      "results": "Ergebnis",
+      "symptomsHelp": "Wähle alle zutreffenden Symptome aus. Je genauer die Auswahl, desto besser die Diagnose.",
+      "contextHelp": "Optional: Füge Anmerkungen hinzu oder nutze die Foto-Diagnose für eine Bilderkennung."
+    },
+    "categories": {
+      "leaf_color_change": "Verfärbung der Blätter",
+      "leaf_shape_change": "Veränderte Blattform",
+      "growth_anomaly": "Wachstumsstörung",
+      "pest_visible": "Sichtbare Schädlinge",
+      "disease_visible": "Sichtbare Krankheit",
+      "flowering_issue": "Blüte- oder Fruchtproblem",
+      "environmental": "Umweltbedingter Stress"
+    },
+    "context": {
+      "notesLabel": "Anmerkungen (optional)",
+      "notesHelp": "Deine Anmerkungen werden aus Datenschutzgründen nicht im Wortlaut an die KI übergeben – nur der Hinweis, dass du Anmerkungen gemacht hast.",
+      "photoHint": "Für eine Bild-basierte Diagnose steht die Foto-Erkennung zur Verfügung.",
+      "photoLink": "Zur Foto-Diagnose"
+    },
+    "actions": {
+      "analyze": "Diagnose starten",
+      "restart": "Neue Diagnose"
+    },
+    "results": {
+      "intro": "Die drei wahrscheinlichsten Ursachen, absteigend nach Konfidenz:",
+      "rank": "#{{rank}}",
+      "confidence": "{{percent}}% Konfidenz",
+      "actions": "Empfohlene Maßnahmen",
+      "pestLink": "Schädling im Detail ansehen",
+      "treatments": "Mögliche Behandlungen",
+      "treatmentKarenz": "{{name}} (Karenz {{days}} Tage)"
+    },
+    "errors": {
+      "loadSymptoms": "Der Symptomkatalog konnte nicht geladen werden.",
+      "analyze": "Die Diagnose konnte nicht durchgeführt werden. Bitte versuche es erneut.",
+      "serviceUnavailable": "Der Wissensassistent ist gerade nicht erreichbar. Bitte versuche es später erneut.",
+      "invalidOutput": "Die KI konnte kein verwertbares Ergebnis liefern. Bitte versuche es erneut.",
+      "noResult": "Zu den gewählten Symptomen konnte keine Diagnose ermittelt werden."
+    }
   }
 }
