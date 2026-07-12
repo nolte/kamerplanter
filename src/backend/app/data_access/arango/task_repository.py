@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 from arango.database import StandardDatabase
 
-from app.common.enums import TaskCategory, TaskStatus
+from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -426,6 +426,72 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         )
         cursor = self._db.aql.execute(query, bind_vars={"now": now})
         return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    #: Statuses under which a care-reminder task still blocks re-creation.
+    _CARE_OPEN_STATUSES = [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value]
+
+    def find_open_care_task(
+        self,
+        entity_key: str,
+        reminder_type: ReminderType,
+        tenant_key: str,
+        *,
+        include_completed_today: bool = True,
+    ) -> Task | None:
+        """Single tenant-scoped care-reminder idempotency lookup (#509).
+
+        Returns the newest care-reminder task that still "satisfies" the reminder
+        for ``(tenant_key, entity_key, reminder_type)``, or ``None`` when none
+        exists. A task satisfies the reminder while it is still open
+        (``PENDING``/``IN_PROGRESS``) or — when ``include_completed_today`` — was
+        completed today (the recency rule that stops a reminder confirmed earlier
+        the same day from re-materializing).
+
+        This is THE single care-task dedup predicate: the service creation paths
+        (:meth:`CareReminderService._ensure_care_task`,
+        :meth:`CareReminderService.ensure_next_watering_task`), the dashboard
+        auto-complete (:meth:`CareReminderService._complete_pending_care_task`)
+        and the daily ``generate_due_care_reminders`` Celery producer all route
+        through it, so no path can drift. Crucially the filter is scoped by
+        ``tenant_key`` in the DB, so a care task in another tenant can never
+        match — closing the tenant-blind gap the old
+        ``find_by_field("entity_key", …)`` scans left open (#509).
+
+        The reminder type is matched via the task-name suffix (``"— {value}"``)
+        because it is not yet a first-class ``Task`` field (audit P5); newest is
+        ``due_date`` then ``created_at`` descending, so ties keep the latest task.
+        """
+        name_suffix = f"— {reminder_type.value}"
+        query = """
+        FOR doc IN @@col
+            FILTER doc.tenant_key == @tenant_key
+            FILTER doc.entity_key == @entity_key
+            FILTER doc.category == @care_category
+            FILTER doc.name != null
+            FILTER RIGHT(doc.name, LENGTH(@name_suffix)) == @name_suffix
+            FILTER doc.status IN @open_statuses
+                OR (@include_completed_today
+                    AND doc.status == @completed_status
+                    AND doc.completed_at != null
+                    AND LEFT(doc.completed_at, 10) >= @today)
+            SORT doc.due_date DESC, doc.created_at DESC
+            LIMIT 1
+            RETURN doc
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "tenant_key": tenant_key,
+            "entity_key": entity_key,
+            "care_category": TaskCategory.CARE_REMINDER.value,
+            "name_suffix": name_suffix,
+            "open_statuses": self._CARE_OPEN_STATUSES,
+            "completed_status": TaskStatus.COMPLETED.value,
+            "include_completed_today": include_completed_today,
+            "today": date.today().isoformat(),
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        doc = next(cursor, None)
+        return Task(**self._from_doc(doc)) if doc is not None else None
 
     def get_blocking_tasks(self, task_key: TaskKey) -> list[dict]:
         task_id = f"{col.TASKS}/{task_key}"

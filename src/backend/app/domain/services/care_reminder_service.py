@@ -302,29 +302,45 @@ class CareReminderService:
             return [plant.slot_key]
         return []
 
+    def _resolve_tenant_key(self, plant_key: str) -> str:
+        """Resolve a plant's ``tenant_key`` so care-task lookups stay tenant-scoped.
+
+        Returns ``""`` when the plant can't be resolved (no plant repo / unknown
+        key); the tenant-aware dedup helper then scopes to the empty-tenant slice
+        rather than scanning across tenants (#509).
+        """
+        if self._plant_repo is None:
+            return ""
+        plant = self._plant_repo.get_by_key(plant_key)
+        return plant.tenant_key if plant is not None else ""
+
     def _complete_pending_care_task(
         self,
         plant_key: str,
         reminder_type: ReminderType,
     ) -> None:
-        """Auto-complete the matching pending care task when confirmed via dashboard."""
+        """Auto-complete the matching pending care task when confirmed via dashboard.
+
+        Routes through the single tenant-aware dedup helper
+        (:meth:`ITaskRepository.find_open_care_task`) so it can only ever complete
+        a still-open task belonging to the plant's own tenant (#509). A task that
+        was already completed earlier today is intentionally excluded here
+        (``include_completed_today=False``): only an open task is completed.
+        """
         if self._task_repo is None:
             return
-        name_suffix = f"\u2014 {reminder_type.value}"
-        existing = self._task_repo.find_by_field("entity_key", plant_key)
-        for t in existing:
-            if (
-                t.category == TaskCategory.CARE_REMINDER.value
-                and (t.name or "").endswith(name_suffix)
-                and t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-            ):
-                task_key = t.key or ""
-                task = self._task_repo.get_task_by_key(task_key)
-                if task is not None:
-                    task.status = TaskStatus.COMPLETED.value
-                    task.completed_at = datetime.now(UTC)
-                    self._task_repo.update_task(task_key, task)
-                break
+        tenant_key = self._resolve_tenant_key(plant_key)
+        task = self._task_repo.find_open_care_task(
+            plant_key,
+            reminder_type,
+            tenant_key,
+            include_completed_today=False,
+        )
+        if task is None:
+            return
+        task.status = TaskStatus.COMPLETED.value
+        task.completed_at = datetime.now(UTC)
+        self._task_repo.update_task(task.key or "", task)
 
     def complete_care_task_with_log(
         self,
@@ -568,27 +584,16 @@ class CareReminderService:
         return created
 
     def _ensure_care_task(self, plant, reminder_type: ReminderType) -> Task | None:  # noqa: ANN001 — PlantInstance
-        """Create one care-reminder Task idempotently (shared dedup convention).
+        """Create one care-reminder Task idempotently (single tenant-aware dedup).
 
-        Skips when an equivalent task is already PENDING/IN_PROGRESS or was
-        completed today, matching the daily ``generate_due_care_reminders`` producer.
+        Skips when the tenant-scoped dedup helper reports an equivalent task that
+        is already PENDING/IN_PROGRESS or was completed today — the same predicate
+        the daily ``generate_due_care_reminders`` producer uses (#509).
         """
         if self._task_repo is None:
             return None
         plant_key = plant.key or ""
-        name_suffix = f"— {reminder_type.value}"
-        today_str = date.today().isoformat()
-        existing = self._task_repo.find_by_field("entity_key", plant_key)
-        already_exists = any(
-            t.category == TaskCategory.CARE_REMINDER.value
-            and (t.name or "").endswith(name_suffix)
-            and (
-                t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
-            )
-            for t in existing
-        )
-        if already_exists:
+        if self._task_repo.find_open_care_task(plant_key, reminder_type, plant.tenant_key) is not None:
             return None
 
         plant_label = plant.plant_name or plant.instance_id or plant_key
@@ -676,24 +681,20 @@ class CareReminderService:
             return None
 
         plant_key = profile.plant_key
-        rt_value = ReminderType.WATERING.value
-        name_suffix = f"\u2014 {rt_value}"
 
-        # Check for existing pending/in_progress watering task or one completed today
-        existing = self._task_repo.find_by_field("entity_key", plant_key)
-        from datetime import date
+        # Resolve the plant's display name + tenant up front: the tenant_key scopes
+        # the dedup lookup, so it must be known before the idempotency check (#509).
+        plant_label = plant_key
+        plant_tenant_key = ""
+        if self._plant_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is not None:
+                plant_label = plant.plant_name or plant.instance_id or plant_key
+                plant_tenant_key = plant.tenant_key
 
-        today_str = date.today().isoformat()
-        has_active_or_recent = any(
-            t.category == TaskCategory.CARE_REMINDER.value
-            and (t.name or "").endswith(name_suffix)
-            and (
-                t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
-            )
-            for t in existing
-        )
-        if has_active_or_recent:
+        # Single tenant-aware dedup: skip when an equivalent watering task is
+        # already open or was completed today.
+        if self._task_repo.find_open_care_task(plant_key, ReminderType.WATERING, plant_tenant_key) is not None:
             return None
 
         # Calculate next due date
@@ -714,15 +715,6 @@ class CareReminderService:
             return None
 
         due_dt = datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
-
-        # Resolve plant name and tenant for user-friendly display
-        plant_label = plant_key
-        plant_tenant_key = ""
-        if self._plant_repo is not None:
-            plant = self._plant_repo.get_by_key(plant_key)
-            if plant is not None:
-                plant_label = plant.plant_name or plant.instance_id or plant_key
-                plant_tenant_key = plant.tenant_key
 
         interval = self._engine._get_interval_days(profile, ReminderType.WATERING, hemisphere)
 

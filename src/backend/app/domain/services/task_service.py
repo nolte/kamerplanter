@@ -701,18 +701,21 @@ class TaskService:
     def _deduplicate_care_tasks(tasks: list[Task]) -> list[Task]:
         """Remove duplicate care_reminder tasks for the same plant + reminder type.
 
-        Groups by full task name (e.g. "CANNA-0320-X90 — watering") which is
-        unique per plant+type. Within each group, prefers tasks with entity_key
-        set (newer format) over those without (legacy data), then by newest
-        due_date/created_at.
+        Groups by ``(tenant_key, full task name)`` — the name (e.g.
+        "CANNA-0320-X90 — watering") is unique per plant+type, and pinning the
+        tenant_key ensures two tenants whose plants happen to share a display
+        name + reminder type are never collapsed into one (cross-tenant dedup
+        gap, #509). Within each group, prefers tasks with entity_key set (newer
+        format) over those without (legacy data), then by newest due_date/created_at.
         """
         result: list[Task] = []
-        care_groups: dict[str, list[Task]] = {}
+        care_groups: dict[tuple[str, str], list[Task]] = {}
 
         for task in tasks:
             if task.category == "care_reminder":
-                # Group by full name — covers both entity_key and legacy tasks
-                care_groups.setdefault(task.name, []).append(task)
+                # Group by (tenant, full name) — tenant-scoped so the read-time
+                # safety net can never merge two tenants' care tasks (#509).
+                care_groups.setdefault((task.tenant_key, task.name), []).append(task)
             else:
                 result.append(task)
 

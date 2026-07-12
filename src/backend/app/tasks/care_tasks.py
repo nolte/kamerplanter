@@ -27,7 +27,7 @@ def generate_due_care_reminders() -> dict:
         get_season_state_repo,
         get_task_repo,
     )
-    from app.common.enums import ReminderType, TaskCategory, TaskPriority, TaskStatus
+    from app.common.enums import ReminderType, TaskPriority
     from app.domain.services.care_reminder_service import build_care_reminder_task
 
     care_service = get_care_reminder_service()
@@ -145,23 +145,10 @@ def generate_due_care_reminders() -> dict:
             if urgency not in ("overdue", "due_today"):
                 continue
 
-            # Check if task already exists for this plant/type
-            # Skip if PENDING/IN_PROGRESS or COMPLETED today (avoid re-creation)
-            name_suffix = f"\u2014 {rt.value}"
-            existing = task_repo.find_by_field("entity_key", plant_key)
-            today_str = today.isoformat()
-            # The repository wraps documents into Pydantic ``Task`` models, so the
-            # dedup filter must use attribute access, not ``dict.get`` (regression #456).
-            already_exists = any(
-                t.category == TaskCategory.CARE_REMINDER.value
-                and (t.name or "").endswith(name_suffix)
-                and (
-                    t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                    or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
-                )
-                for t in existing
-            )
-            if already_exists:
+            # Single tenant-aware dedup (#509): skip if an equivalent care task is
+            # already PENDING/IN_PROGRESS or was completed today. The lookup is
+            # scoped by the plant's tenant, so it can never collide across tenants.
+            if task_repo.find_open_care_task(plant_key, rt, plant.tenant_key) is not None:
                 skipped_count += 1
                 continue
 
