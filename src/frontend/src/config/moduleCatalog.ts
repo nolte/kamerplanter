@@ -18,7 +18,6 @@ export type ModuleKey =
   | 'locations'
   | 'settings'
   | 'onboarding'
-  | 'care'
   | 'calendar'
   | 'watering'
   | 'tasks'
@@ -32,12 +31,15 @@ export type ModuleKey =
   | 'post_harvest'
   | 'runs'
   | 'propagation'
+  | 'overwintering'
+  | 'phases'
+  | 'inventory'
   | 'master_data'
   | 'companion'
-  | 'sensors'
   | 'automation'
-  | 'smart_home'
-  | 'ai';
+  | 'ai'
+  | 'ai_assistant'
+  | 'glossary';
 
 export interface ModuleDefinition {
   key: ModuleKey;
@@ -86,7 +88,6 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
   onboarding: def('onboarding', 'core', 'beginner', true, ['/onboarding']),
 
   // ── Care & planning ──
-  care: def('care', 'care_planning', 'beginner', false, ['/pflege']),
   calendar: def('calendar', 'care_planning', 'beginner', false, ['/kalender']),
   watering: def('watering', 'care_planning', 'beginner', false, ['/giessprotokoll']),
   tasks: def('tasks', 'care_planning', 'beginner', false, [
@@ -116,11 +117,21 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
 
   // ── Harvest ──
   harvest: def('harvest', 'harvest', 'expert', false, ['/ernte']),
-  post_harvest: def('post_harvest', 'harvest', 'expert', false, ['/post-harvest']),
+  // Owns the more specific /ernte/nachernte sidebar entry; the longest-path rule
+  // in findModuleByPath lets it govern that item independently of `harvest`
+  // (which owns the /ernte prefix and thus the batches entry).
+  post_harvest: def('post_harvest', 'harvest', 'expert', false, ['/ernte/nachernte']),
 
   // ── Cultivation ──
   runs: def('runs', 'cultivation', 'expert', false, ['/durchlaeufe']),
   propagation: def('propagation', 'cultivation', 'expert', false, ['/vermehrung']),
+  overwintering: def('overwintering', 'cultivation', 'intermediate', false, [
+    '/ueberwinterung',
+  ]),
+  phases: def('phases', 'cultivation', 'expert', false, ['/phasen']),
+
+  // ── Inventory & equipment ──
+  inventory: def('inventory', 'inventory', 'beginner', false, ['/inventree']),
 
   // ── Master data ──
   master_data: def('master_data', 'master_data', 'intermediate', false, [
@@ -135,15 +146,20 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
   ]),
 
   // ── Automation ──
-  sensors: def('sensors', 'automation', 'expert', false, ['/sensorik']),
-  automation: def('automation', 'automation', 'expert', false, ['/umgebung']),
-  smart_home: def('smart_home', 'automation', 'expert', false, ['/smart-home']),
+  // Owns the real /umgebungssteuerung sidebar entry (REQ-018). The section is
+  // ungated in navItemConfig, so the default level is `beginner` to keep the
+  // sidebar and the ModuleGuard/settings visibility in agreement.
+  automation: def('automation', 'automation', 'beginner', false, ['/umgebungssteuerung']),
 
   // ── AI ──
   ai: def('ai', 'ai', 'intermediate', false, [
     '/pflanzen/identifikation',
     '/pflanzenschutz/erkennung',
   ]),
+  ai_assistant: def('ai_assistant', 'ai', 'beginner', false, ['/ki-assistent']),
+
+  // ── Knowledge & reference ──
+  glossary: def('glossary', 'knowledge', 'beginner', false, ['/glossar']),
 };
 
 /** Ordered list of non-core categories for grouping in the settings dialog. */
@@ -153,9 +169,11 @@ export const MODULE_CATEGORIES: string[] = [
   'plant_protection',
   'harvest',
   'cultivation',
+  'inventory',
   'master_data',
   'automation',
   'ai',
+  'knowledge',
 ];
 
 /**

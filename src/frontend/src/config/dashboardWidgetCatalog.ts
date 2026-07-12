@@ -101,7 +101,7 @@ export const dashboardWidgetCatalog: Record<WidgetKey, DashboardWidgetDefinition
   // grown further but starts at a height that actually fits its content.
   quick_actions: def('quick_actions', 'essentials', 'beginner', s(12, 4), s(4, 2), s(12, 4), null),
   tasks_today: def('tasks_today', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'tasks', false, '/aufgaben/queue'),
-  care_reminders: def('care_reminders', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'care', false, '/aufgaben/queue'),
+  care_reminders: def('care_reminders', 'essentials', 'beginner', s(4, 4), s(2, 3), s(8, 8), 'tasks', false, '/aufgaben/queue'),
   active_plants_summary: def('active_plants_summary', 'essentials', 'beginner', s(4, 3), s(2, 2), s(8, 6), 'plants', false, '/pflanzen/plant-instances'),
   onboarding_progress: def('onboarding_progress', 'essentials', 'beginner', s(4, 3), s(2, 2), s(12, 4), null, false, '/onboarding'),
 
@@ -112,7 +112,7 @@ export const dashboardWidgetCatalog: Record<WidgetKey, DashboardWidgetDefinition
   community_activity: def('community_activity', 'insights', 'intermediate', s(4, 4), s(2, 3), s(8, 8), null),
 
   // ── Cultivation ──
-  winter_protection: def('winter_protection', 'cultivation', 'beginner', s(6, 4), s(3, 3), s(12, 8), 'care', false, '/ueberwinterung/profile'),
+  winter_protection: def('winter_protection', 'cultivation', 'beginner', s(6, 4), s(3, 3), s(12, 8), 'overwintering', false, '/ueberwinterung/profile'),
   ipm_alerts: def('ipm_alerts', 'cultivation', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'ipm', false, '/pflanzenschutz/pests'),
   next_calendar_events: def('next_calendar_events', 'cultivation', 'intermediate', s(4, 4), s(2, 3), s(8, 8), 'calendar', false, '/kalender'),
   phase_timeline: def('phase_timeline', 'cultivation', 'expert', s(8, 4), s(3, 3), s(12, 8), 'plants', false, '/phasen/ablaeufe'),

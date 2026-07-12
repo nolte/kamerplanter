@@ -38,9 +38,11 @@
       "plant_protection": "Pflanzenschutz",
       "harvest": "Ernte",
       "cultivation": "Anbau",
+      "inventory": "Inventar & Ausrüstung",
       "master_data": "Stammdaten",
       "automation": "Automation",
-      "ai": "KI"
+      "ai": "KI",
+      "knowledge": "Wissen & Referenz"
     },
     "dashboard": {
       "label": "Dashboard",
@@ -61,10 +63,6 @@
     "onboarding": {
       "label": "Onboarding",
       "description": "Einrichtungsassistent für den Einstieg."
-    },
-    "care": {
-      "label": "Pflege & Erinnerungen",
-      "description": "Pflegeerinnerungen und Pflege-Dashboard."
     },
     "calendar": {
       "label": "Kalender",
@@ -118,6 +116,18 @@
       "label": "Vermehrung",
       "description": "Stecklinge, Aussaat und genetische Abstammung."
     },
+    "overwintering": {
+      "label": "Überwinterung",
+      "description": "Überwinterungsprofile, Schutzmaßnahmen und Winterquartier für kälteempfindliche Pflanzen."
+    },
+    "phases": {
+      "label": "Phasen (Definitionen & Abläufe)",
+      "description": "Wachstumsphasen wie Keimung oder Blüte und ihre Reihenfolge im Anbauzyklus."
+    },
+    "inventory": {
+      "label": "Betriebsmittel & Inventar",
+      "description": "Betriebsmittel wie Pumpen, Sensoren und Werkzeuge, optional verknüpft mit InvenTree."
+    },
     "master_data": {
       "label": "Stammdaten (Arten/Familien/Import)",
       "description": "Botanische Familien, Arten, Aktivitäten und Import."
@@ -126,21 +136,21 @@
       "label": "Mischkultur & Fruchtfolge",
       "description": "Mischkultur-Empfehlungen und Fruchtfolge-Planung."
     },
-    "sensors": {
-      "label": "Sensorik & Monitoring",
-      "description": "Sensoren und Umgebungsüberwachung."
-    },
     "automation": {
       "label": "Umgebungssteuerung & Aktorik",
-      "description": "Regelbasierte Steuerung von Aktoren."
-    },
-    "smart_home": {
-      "label": "Smart-Home / Home Assistant",
-      "description": "Anbindung an Home Assistant und Smart-Home-Geräte."
+      "description": "Regelbasierte Steuerung von Aktoren und Umgebungsparametern."
     },
     "ai": {
-      "label": "KI-Funktionen (Erkennung/Assistent)",
-      "description": "Bildbasierte Pflanzenerkennung und KI-Assistenten."
+      "label": "KI-Bilderkennung",
+      "description": "Bildbasierte Pflanzen- und Schädlingserkennung."
+    },
+    "ai_assistant": {
+      "label": "KI-Assistent",
+      "description": "Chat-Assistent für Wissensfragen zur Pflanzenpflege, mit klar als KI gekennzeichneten Antworten."
+    },
+    "glossary": {
+      "label": "Glossar",
+      "description": "Nachschlagewerk für Fachbegriffe wie VPD oder EC rund um den Anbau."
     }
   },
   "storageSettings": {

@@ -1,9 +1,12 @@
 # Module & Funktionen
 
-In den Kontoeinstellungen kannst du unter dem Tab **Module & Funktionen** einzelne Funktionsbereiche gezielt ein- oder ausblenden. Das ermöglicht eine aufgeräumte Oberfläche, die genau auf deine Arbeitsweise zugeschnitten ist — unabhängig davon, welche Erfahrungsstufe du gewählt hast.
+In den Kontoeinstellungen kannst du unter dem Tab **Module & Funktionen** jeden Navigationsbereich der Seitenleiste — mit Ausnahme der Kern-Module — gezielt ein- oder ausblenden. Das ermöglicht eine aufgeräumte Oberfläche, die genau auf deine Arbeitsweise zugeschnitten ist — unabhängig davon, welche Erfahrungsstufe du gewählt hast.
 
 !!! note "Reine Anzeige-Präferenz"
     Das Ein- und Ausblenden von Modulen ist eine **persönliche Darstellungseinstellung**. Es handelt sich um keine Zugriffskontrolle: Das System speichert weiterhin alle deine Daten, und du kannst ein ausgeblendetes Modul jederzeit wieder einblenden — ohne Datenverlust.
+
+!!! note "Neu: wirklich jeder Navigationsbereich ist steuerbar"
+    Bisher ließen sich einige Bereiche der Seitenleiste nicht über diese Einstellungen ausblenden — darunter **KI-Assistent**, **Glossar**, **Überwinterung**, **Phasen** (Definitionen & Abläufe) und **Betriebsmittel & Inventar**. Diese fünf Module sind jetzt genauso steuerbar wie alle anderen nicht-essenziellen Bereiche.
 
 ---
 
@@ -104,11 +107,10 @@ Die folgenden Module sind Grundfunktionen der Anwendung und lassen sich nicht au
 
 ## Verfügbare Module (Übersicht)
 
-Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit dem jeweils voreingestellten Sichtbarkeits-Default je Erfahrungsstufe.
+Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit dem jeweils voreingestellten Sichtbarkeits-Default je Erfahrungsstufe. <!-- Quelle: src/frontend/src/config/moduleCatalog.ts -->
 
 | Modul | Kategorie | Standard ab Stufe |
 |-------|-----------|:----------------:|
-| Pflege & Erinnerungen | Pflege & Planung | Einsteiger |
 | Kalender | Pflege & Planung | Einsteiger |
 | Gießprotokoll | Pflege & Planung | Einsteiger |
 | Aufgaben & Workflows | Pflege & Planung | Einsteiger |
@@ -122,15 +124,18 @@ Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit 
 | Post-Harvest | Ernte | Experte |
 | Pflanzdurchläufe | Anbau | Experte |
 | Vermehrung | Anbau | Experte |
-| Stammdaten | Stammdaten | Mittelstufe |
+| Überwinterung | Anbau | Mittelstufe |
+| Phasen (Definitionen & Abläufe) | Anbau | Experte |
+| Betriebsmittel & Inventar | Inventar & Ausrüstung | Einsteiger |
+| Stammdaten (Arten/Familien/Import) | Stammdaten | Mittelstufe |
 | Mischkultur & Fruchtfolge | Stammdaten | Experte |
-| Sensorik & Monitoring | Automation | Experte |
-| Umgebungssteuerung & Aktorik | Automation | Experte |
-| Smart-Home / Home Assistant | Automation | Experte |
-| KI-Funktionen | KI | Mittelstufe |
+| Umgebungssteuerung & Aktorik | Automation | Einsteiger |
+| KI-Bilderkennung | KI | Mittelstufe |
+| KI-Assistent | KI | Einsteiger |
+| Glossar | Wissen & Referenz | Einsteiger |
 
 !!! note "Hinweis zur Erfahrungsstufe"
-    Der Spalte „Standard ab Stufe" entnimmst du, ab welcher Erfahrungsstufe ein Modul ohne manuelle Übersteuerung sichtbar ist. Auf Stufe „Einsteiger" sind zum Beispiel nur Pflege, Kalender, Gießprotokoll und Aufgaben standardmäßig eingeblendet. Du kannst jedes dieser Module jederzeit manuell übersteuern.
+    Der Spalte „Standard ab Stufe" entnimmst du, ab welcher Erfahrungsstufe ein Modul ohne manuelle Übersteuerung sichtbar ist. Auf Stufe „Einsteiger" sind neben den Kern-Modulen zum Beispiel bereits Kalender, Gießprotokoll, Aufgaben & Workflows, Umgebungssteuerung & Aktorik, Betriebsmittel & Inventar, KI-Assistent und Glossar standardmäßig eingeblendet. Du kannst jedes dieser Module jederzeit manuell übersteuern.
 
 ---
 
