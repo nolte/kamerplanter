@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.tenant_guard import verify_tenant_ownership
@@ -13,6 +16,9 @@ from app.domain.interfaces.watering_log_repository import IWateringLogRepository
 from app.domain.models.care_reminder import CareConfirmation
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 
+if TYPE_CHECKING:
+    from app.domain.services.care_reminder_service import CareReminderService
+
 
 class WateringLogService:
     def __init__(
@@ -24,6 +30,7 @@ class WateringLogService:
         task_repo: ITaskRepository | None = None,
         nutrient_plan_repo: INutrientPlanRepository | None = None,
         care_repo: ICareReminderRepository | None = None,
+        care_service: CareReminderService | None = None,
     ) -> None:
         self._repo = repo
         self._engine = engine
@@ -32,6 +39,7 @@ class WateringLogService:
         self._task_repo = task_repo
         self._nutrient_plan_repo = nutrient_plan_repo
         self._care_repo = care_repo
+        self._care_service = care_service
         self._runoff_analyzer = RunoffAnalyzer()
 
     # ── CRUD ─────────────────────────────────────────────────────────────
@@ -60,7 +68,12 @@ class WateringLogService:
 
         created = self._repo.create(log)
 
-        # Create CareConfirmation for each plant so "Zuletzt gegossen" updates
+        # Record the confirmation for each plant so "Zuletzt gegossen" updates, then
+        # advance the watering care-reminder task exactly like the task-queue
+        # completion bridge (#548): complete the open watering task and schedule the
+        # next occurrence. Without this the Gießprotokoll path left the task
+        # ``pending`` forever, so the activity plan / dashboard kept showing a stale
+        # open task even though watering had been logged.
         if self._care_repo and log.plant_keys:
             now = datetime.now(UTC)
             for plant_key in log.plant_keys:
@@ -80,6 +93,15 @@ class WateringLogService:
                 saved = self._care_repo.create_confirmation(confirmation)
                 if saved.key and profile.key:
                     self._care_repo.create_confirmation_edges(saved.key, profile.key, plant_key)
+                # Tenant-scoped, idempotent task advancement through the shared CARE
+                # helpers. ``log.tenant_key`` gates it so a foreign-tenant plant is
+                # never touched.
+                if self._care_service is not None:
+                    self._care_service.advance_watering_task_after_log(
+                        plant_key,
+                        saved,
+                        tenant_key=log.tenant_key,
+                    )
 
         return {"log": created, "warnings": warnings}
 

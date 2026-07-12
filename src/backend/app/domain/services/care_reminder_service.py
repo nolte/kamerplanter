@@ -280,6 +280,54 @@ class CareReminderService:
 
         return created
 
+    def advance_watering_task_after_log(
+        self,
+        plant_key: str,
+        last_confirmation: CareConfirmation | None = None,
+        *,
+        tenant_key: str = "",
+    ) -> Task | None:
+        """Advance the watering care-reminder task after an out-of-band watering log.
+
+        Mirrors both the dashboard-confirmation path (:meth:`confirm_reminder`) and
+        the task-queue completion bridge so that logging watering via the
+        Gießprotokoll tab has the *same* effect as completing the watering task in
+        the queue (#548): it completes the plant's still-open watering
+        care-reminder task and schedules the next occurrence.
+
+        Tenant-scoped and idempotent: when ``tenant_key`` is supplied the plant is
+        verified to belong to that tenant first and a foreign/unknown plant is left
+        untouched (``None``). Both the completion and the next-occurrence check
+        route through the single tenant-aware dedup helper
+        (:meth:`ITaskRepository.find_open_care_task`), so logging watering twice can
+        neither double-complete an already-closed task nor double-schedule the next
+        one. Returns the newly scheduled watering task, or ``None`` when no profile
+        exists, auto-scheduling is disabled, or a task completed today already
+        satisfies the reminder.
+        """
+        if tenant_key and self._plant_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is None or plant.tenant_key != tenant_key:
+                return None
+
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return None
+
+        # Close the still-open watering task for the plant's own tenant (idempotent:
+        # a task already completed earlier is not reopened/re-completed).
+        self._complete_pending_care_task(plant_key, ReminderType.WATERING)
+
+        if not profile.auto_create_watering_task:
+            return None
+
+        phase_interval = self._get_phase_watering_interval(plant_key)
+        return self.ensure_next_watering_task(
+            profile,
+            last_confirmation,
+            phase_watering_interval=phase_interval,
+        )
+
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
         """Look up watering_interval_days from the plant's current growth phase.
 

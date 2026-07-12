@@ -4254,6 +4254,8 @@
       "moveToNextPhase": "Verschieben nach \"{{phase}}\"",
       "assignedTasks": "Zugewiesene Aufgaben",
       "completedOf": "{{completed}} von {{total}} erledigt",
+      "scheduled": "Geplant",
+      "scheduledCount": "{{count}} geplant",
       "noAssignedTasks": "Noch keine Aufgaben zugewiesen. Generieren Sie einen Aktivitätsplan oder weisen Sie einen Workflow zu.",
       "dormant": "Wartend",
       "statusAll": "Alle Aufgaben",

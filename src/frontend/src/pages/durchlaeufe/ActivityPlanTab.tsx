@@ -33,6 +33,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import AlertTitle from '@mui/material/AlertTitle';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -153,15 +154,135 @@ function groupTasksByPhase(taskGroups: TaskGroup[], t: (key: string) => string):
 
 type StatusColor = 'success' | 'info' | 'default' | 'error';
 
-function getCompletionColor(tasks: TaskItem[]): StatusColor {
-  const completed = tasks.filter((t) => t.status === 'completed').length;
-  const hasOverdue = tasks.some(
-    (t) => t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed' && t.status !== 'skipped',
-  );
-  if (hasOverdue) return 'error';
-  if (completed === tasks.length) return 'success';
+/** Category marking a recurring care reminder (REQ-022). Such a task is never
+ *  "done for good" — it re-materializes every cycle — so a copy that is merely
+ *  scheduled for a future cycle must not read as an open/unfinished activity. */
+const RECURRING_REMINDER_CATEGORY = 'care_reminder';
+
+/**
+ * #548 — one shared "open / due / done" definition so the activity plan agrees
+ * with the task queue (`getTaskUrgency`) and the dashboard (`has_open_task`).
+ *
+ * - `completed` / `skipped` — resolved.
+ * - `overdue` / `due` — pending and due today-or-earlier → action needed now.
+ * - `scheduled` — a recurring care reminder whose next due date is still in the
+ *   future: satisfied for this cycle, NOT an open task. (A one-off activity keeps
+ *   counting as pending so the phase plan's progress ratio stays meaningful.)
+ */
+type TaskCycleState = 'completed' | 'skipped' | 'scheduled' | 'due' | 'overdue';
+
+function classifyTaskState(task: TaskItem, now: Date): TaskCycleState {
+  if (task.status === 'completed') return 'completed';
+  if (task.status === 'skipped') return 'skipped';
+  const recurring = task.category === RECURRING_REMINDER_CATEGORY;
+  if (!task.due_date) return recurring ? 'scheduled' : 'due';
+  const due = new Date(task.due_date);
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayEnd = new Date(todayStart);
+  todayEnd.setDate(todayEnd.getDate() + 1);
+  if (due < todayStart) return 'overdue';
+  if (due < todayEnd) return 'due';
+  // Future-due: a recurring reminder is "scheduled" (satisfied this cycle), a
+  // one-off planned activity stays pending in the plan.
+  return recurring ? 'scheduled' : 'due';
+}
+
+interface CompletionSummary {
+  /** Tasks resolved by completion. */
+  completed: number;
+  /** Tasks that count toward the done/total ratio (excludes scheduled reminders). */
+  countable: number;
+  /** Recurring reminders satisfied for now, awaiting a future cycle. */
+  scheduled: number;
+  /** Pending tasks that are actually overdue. */
+  overdue: number;
+}
+
+function summarizeCompletion(tasks: TaskItem[], now: Date): CompletionSummary {
+  let completed = 0;
+  let countable = 0;
+  let scheduled = 0;
+  let overdue = 0;
+  for (const task of tasks) {
+    const state = classifyTaskState(task, now);
+    if (state === 'scheduled') {
+      scheduled += 1;
+      continue;
+    }
+    countable += 1;
+    if (state === 'completed') completed += 1;
+    else if (state === 'overdue') overdue += 1;
+  }
+  return { completed, countable, scheduled, overdue };
+}
+
+function getCompletionColor(tasks: TaskItem[], now: Date = new Date()): StatusColor {
+  const s = summarizeCompletion(tasks, now);
+  if (s.overdue > 0) return 'error';
+  if (s.countable > 0 && s.completed === s.countable) return 'success';
   if (tasks.some((t) => t.status === 'in_progress')) return 'info';
+  if (s.countable === 0 && s.scheduled > 0) return 'info';
   return 'default';
+}
+
+/**
+ * Shared completion-chip renderer (#548). A group that is nothing but
+ * future-scheduled recurring reminders renders a single neutral "Geplant" chip
+ * instead of a misleading "0 von N erledigt"; otherwise the done/total ratio is
+ * shown over the *countable* tasks (scheduled reminders excluded) plus a small
+ * "geplant" chip when a future cycle is already queued.
+ */
+function CompletionChips({
+  tasks,
+  compact = false,
+  withIcon = false,
+}: {
+  tasks: TaskItem[];
+  compact?: boolean;
+  withIcon?: boolean;
+}) {
+  const { t } = useTranslation();
+  const summary = summarizeCompletion(tasks, new Date());
+
+  if (summary.countable === 0 && summary.scheduled > 0) {
+    return (
+      <Chip
+        icon={<EventAvailableIcon />}
+        label={t('pages.activityPlan.scheduled')}
+        size="small"
+        color="info"
+        variant="outlined"
+        data-testid="activity-scheduled-chip"
+      />
+    );
+  }
+
+  const color = getCompletionColor(tasks);
+  const label = compact
+    ? `${summary.completed}/${summary.countable}`
+    : t('pages.activityPlan.completedOf', { completed: summary.completed, total: summary.countable });
+
+  return (
+    <>
+      <Chip
+        icon={withIcon ? <CheckCircleOutlineIcon /> : undefined}
+        label={label}
+        size="small"
+        color={color}
+        variant={withIcon && color === 'default' ? 'outlined' : withIcon ? 'filled' : undefined}
+      />
+      {summary.scheduled > 0 && (
+        <Chip
+          icon={<EventAvailableIcon />}
+          label={t('pages.activityPlan.scheduledCount', { count: summary.scheduled })}
+          size="small"
+          color="info"
+          variant="outlined"
+          data-testid="activity-scheduled-count-chip"
+        />
+      )}
+    </>
+  );
 }
 
 // ── Props ───────────────────────────────────────────────────────────
@@ -359,11 +480,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
             <Typography variant="h6">
               {t('pages.activityPlan.assignedTasks')}
             </Typography>
-            <Chip
-              label={`${assignedTasks.filter((task) => task.status === 'completed').length}/${assignedTasks.length}`}
-              size="small"
-              color={getCompletionColor(assignedTasks)}
-            />
+            <CompletionChips tasks={assignedTasks} compact />
             {assignedTasks.some((task) => task.workflow_execution_key) && (
               <Chip
                 icon={<LinkIcon />}
@@ -385,7 +502,6 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
         {phaseTaskGroups.map((phaseGroup) => {
           const isCurrentPhase = currentPhaseName != null && phaseGroup.phaseName === currentPhaseName;
           const phaseTasks = phaseGroup.groups.flatMap((g) => g.tasks);
-          const phaseCompleted = phaseTasks.filter((task) => task.status === 'completed').length;
 
           return (
             <Accordion
@@ -410,22 +526,12 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                   {isCurrentPhase && (
                     <Chip label={t('pages.activityPlan.currentPhase')} size="small" color="primary" />
                   )}
-                  <Chip
-                    label={t('pages.activityPlan.completedOf', {
-                      completed: phaseCompleted,
-                      total: phaseTasks.length,
-                    })}
-                    size="small"
-                    color={getCompletionColor(phaseTasks)}
-                  />
+                  <CompletionChips tasks={phaseTasks} />
                 </Box>
               </AccordionSummary>
               <AccordionDetails>
                 <List disablePadding>
                   {phaseGroup.groups.map((group, idx) => {
-                    const completedCount = group.tasks.filter((task) => task.status === 'completed').length;
-                    const totalCount = group.tasks.length;
-                    const completionColor = getCompletionColor(group.tasks);
                     const instructionText = i18n.language === 'de'
                       ? (group.tasks[0]?.instruction_de || group.instruction)
                       : group.instruction;
@@ -454,16 +560,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                   variant="outlined"
                                   color={stressColors[group.stressLevel] ?? 'default'}
                                 />
-                                <Chip
-                                  icon={<CheckCircleOutlineIcon />}
-                                  label={t('pages.activityPlan.completedOf', {
-                                    completed: completedCount,
-                                    total: totalCount,
-                                  })}
-                                  size="small"
-                                  color={completionColor}
-                                  variant={completionColor === 'default' ? 'outlined' : 'filled'}
-                                />
+                                <CompletionChips tasks={group.tasks} withIcon />
                               </Box>
                             }
                             secondary={instructionText || undefined}

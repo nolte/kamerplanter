@@ -4253,6 +4253,8 @@
       "moveToNextPhase": "Move to \"{{phase}}\"",
       "assignedTasks": "Assigned Tasks",
       "completedOf": "{{completed}} of {{total}} completed",
+      "scheduled": "Scheduled",
+      "scheduledCount": "{{count}} scheduled",
       "noAssignedTasks": "No tasks assigned yet. Generate an activity plan or assign a workflow.",
       "dormant": "Dormant",
       "statusAll": "All Tasks",
