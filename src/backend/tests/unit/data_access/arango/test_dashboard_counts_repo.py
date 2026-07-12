@@ -119,6 +119,9 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert "@@task_col" in q
     assert "tsk.tenant_key == @tenant_key" in q
     assert "tsk.entity_key == p._key" in q
+    # location name is surfaced only for the caller's own-tenant location
+    # (defence-in-depth: a foreign location_key never leaks another tenant's name).
+    assert "location.tenant_key == @tenant_key" in q
     bv = db.aql.bind_vars or {}
     assert bv["@col"] == "plant_instances"
     assert bv["@task_col"] == "tasks"

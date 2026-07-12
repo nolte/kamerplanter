@@ -296,7 +296,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             phase_key: p.current_phase_key,
             phase_name: phase != null ? (phase.display_name != "" ? phase.display_name : phase.name) : null,
             location_key: p.location_key,
-            location_name: location != null ? location.name : null,
+            location_name: location != null AND location.tenant_key == @tenant_key ? location.name : null,
             has_open_task: has_open_task,
             next_due_date: has_open_task ? MIN(open_task_due_dates) : null
           }
