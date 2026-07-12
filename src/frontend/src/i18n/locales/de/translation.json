@@ -1856,7 +1856,10 @@
       "addCompatibleHint": "Geben Sie an, welche Art gut mit der gewählten Art verträglich ist.",
       "addIncompatibleHint": "Geben Sie an, welche Art nicht mit der gewählten Art verträglich ist.",
       "targetSpeciesHelper": "Art die zur gewählten Art in Beziehung gesetzt werden soll",
-      "optionCountSummary": "{{compatible}} kompatibel, {{incompatible}} inkompatibel"
+      "optionCountSummary": "— {{compatible}} kompatibel, {{incompatible}} inkompatibel",
+      "optionCountLegendCompatible": "Anzahl kompatibler Arten",
+      "optionCountLegendIncompatible": "Anzahl inkompatibler Arten",
+      "noSpeciesFound": "Keine Art gefunden."
     },
     "cropRotation": {
       "title": "Fruchtfolge",

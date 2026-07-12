@@ -117,12 +117,14 @@ export default function CompanionPlantingPage() {
       </Typography>
 
       <Autocomplete
+        fullWidth
         options={speciesList}
         value={selectedSpecies}
         onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
         getOptionLabel={(option) => option.scientific_name}
         isOptionEqualToValue={(option, value) => option.key === value.key}
-        sx={{ maxWidth: 480, mb: 3 }}
+        noOptionsText={t('pages.companionPlanting.noSpeciesFound')}
+        sx={{ maxWidth: 480, mb: 1 }}
         renderOption={({ key: optionKey, ...optionProps }, option) => {
           const counts = companionCounts[option.key] ?? { compatible: 0, incompatible: 0 };
           const hasRelations = counts.compatible > 0 || counts.incompatible > 0;
@@ -137,15 +139,19 @@ export default function CompanionPlantingPage() {
                 gap: 1,
                 justifyContent: 'space-between',
                 minHeight: 48,
-                opacity: hasRelations ? 1 : 0.6,
               }}
               data-testid={`species-option-${option.key}`}
               data-has-relations={hasRelations}
             >
+              {/* De-emphasis uses a plain secondary text colour, never `text.disabled` —
+                  these 0/0 options remain fully selectable and keyboard-reachable, so
+                  they must not visually read as disabled (UI-NFR-002). The count chips
+                  stay at full opacity: an explicit "0" is useful information on its own
+                  and must stay legible. */}
               <Typography
                 variant="body2"
                 noWrap
-                color={hasRelations ? 'text.primary' : 'text.disabled'}
+                color={hasRelations ? 'text.primary' : 'text.secondary'}
                 sx={{ flex: 1, minWidth: 0 }}
               >
                 {option.scientific_name}
@@ -189,6 +195,24 @@ export default function CompanionPlantingPage() {
           />
         )}
       />
+
+      {/* Persistent legend (not hover-dependent, so it works on touch too) mapping
+          the icon + colour badges rendered in the dropdown to their meaning for
+          non-expert users (UI-NFR-008/011 descriptive-text obligation). */}
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <CheckCircleIcon fontSize="small" color="success" />
+          <Typography variant="caption" color="text.secondary">
+            {t('pages.companionPlanting.optionCountLegendCompatible')}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <CancelIcon fontSize="small" color="error" />
+          <Typography variant="caption" color="text.secondary">
+            {t('pages.companionPlanting.optionCountLegendIncompatible')}
+          </Typography>
+        </Box>
+      </Box>
 
       {loading && <LoadingSkeleton variant="card" />}
 
