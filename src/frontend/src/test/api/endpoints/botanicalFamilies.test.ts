@@ -65,4 +65,39 @@ describe('botanicalFamilies endpoints', () => {
     await families.listSpeciesByFamily('fa1');
     expect(client.get).toHaveBeenCalledWith('/botanical-families/fa1/species');
   });
+
+  it('listAllBotanicalFamilies pages past the limit=50 cap until a short page', async () => {
+    // Two full pages of 200 then a short page → proves the "load all" fix is not
+    // capped at the single-request default (limit=50) or the backend max (200).
+    const fullA = Array.from({ length: 200 }, (_v, i) => ({ key: `a${i}` }));
+    const fullB = Array.from({ length: 200 }, (_v, i) => ({ key: `b${i}` }));
+    const tail = [{ key: 'tail-1' }, { key: 'tail-2' }];
+    client.get
+      .mockResolvedValueOnce({ data: fullA })
+      .mockResolvedValueOnce({ data: fullB })
+      .mockResolvedValueOnce({ data: tail });
+
+    const all = await families.listAllBotanicalFamilies();
+
+    expect(all).toHaveLength(402);
+    expect(client.get).toHaveBeenCalledTimes(3);
+    expect(client.get).toHaveBeenNthCalledWith(1, '/botanical-families', {
+      params: { offset: 0, limit: 200 },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(2, '/botanical-families', {
+      params: { offset: 200, limit: 200 },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(3, '/botanical-families', {
+      params: { offset: 400, limit: 200 },
+    });
+  });
+
+  it('listAllBotanicalFamilies stops after a single short page', async () => {
+    client.get.mockResolvedValueOnce({ data: [{ key: 'fa1' }, { key: 'fa2' }] });
+
+    const all = await families.listAllBotanicalFamilies();
+
+    expect(all).toHaveLength(2);
+    expect(client.get).toHaveBeenCalledTimes(1);
+  });
 });

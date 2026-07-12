@@ -1025,6 +1025,10 @@ export interface RotationSuccessorSet {
   benefit_reason?: string;
 }
 
+/** Whole-catalogue aggregate keyed by family_key (GET /crop-rotation/counts):
+ *  the number of curated rotation successors per botanical family. */
+export type RotationCountsMap = Record<string, number>;
+
 // Family Relationships
 
 export interface PestRisk {
