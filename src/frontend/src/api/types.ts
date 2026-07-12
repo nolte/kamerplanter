@@ -5364,6 +5364,73 @@ export interface AiConversationSummary {
   updated_at?: string | null;
 }
 
+// ── REQ-036 KI-Diagnose-Assistent ───────────────────────────────────────
+
+/** One curated symptom offered by the diagnosis wizard's first step. */
+export interface DiagnosisSymptom {
+  slug: string;
+  category: string;
+  label: string;
+  common_causes_hint: string;
+  applicable_phases: string[];
+}
+
+export interface DiagnosisSymptomListResponse {
+  symptoms: DiagnosisSymptom[];
+}
+
+/** A REQ-010 treatment suggested for a matched pest (bridge, read-only). */
+export interface DiagnosisMatchedTreatment {
+  key: string;
+  name: string;
+  name_de?: string | null;
+  treatment_type: string;
+  safety_interval_days: number;
+  has_karenz: boolean;
+  detail_url: string;
+}
+
+/** An enriched top-N diagnosis candidate (IPM-bridged). */
+export interface DiagnosisCandidate {
+  rank: number;
+  name: string;
+  scientific_name?: string | null;
+  category: string;
+  confidence: number;
+  confidence_level: AiConfidence;
+  explanation: string;
+  recommended_actions: string[];
+  matched_pest_key?: string | null;
+  matched_pest_detail_url?: string | null;
+  matched_disease_key?: string | null;
+  matched_disease_detail_url?: string | null;
+  matched_treatments: DiagnosisMatchedTreatment[];
+}
+
+/** The top-3 diagnosis envelope rendered inside `<AIResponse>`. */
+export interface DiagnosisResult {
+  candidates: DiagnosisCandidate[];
+  answer_summary: string;
+  sources: AiSourceRef[];
+  language: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  confidence: AiConfidence;
+  model_name: string;
+  provider_type: string;
+  kb_version?: string | null;
+  status: 'ok' | 'knowledge_service_error' | 'error';
+  error_class?: string | null;
+}
+
+export interface DiagnoseRequest {
+  symptom_slugs: string[];
+  extra_notes?: string | null;
+  plant_instance_key?: string | null;
+  photo_ref?: string | null;
+  language?: 'de' | 'en';
+}
+
 // ── REQ-026 Aquaponics ──────────────────────────────────────────────────
 
 export type AquaponicSystemType =
