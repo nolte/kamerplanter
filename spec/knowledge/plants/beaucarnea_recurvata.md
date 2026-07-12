@@ -17,7 +17,7 @@
 | Familie | Asparagaceae | `species.family` → `botanical_families.name` |
 | Gattung | Beaucarnea | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
-| Wuchsform | tree | `species.growth_habit` |
+| Wuchsform | succulent | `species.growth_habit` | <!-- A4 (#453 WP-10): caudiciformer Sukkulent (Wasserspeicher-Caudex), war zuvor `tree` -->
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
@@ -312,7 +312,7 @@ Entfällt — reine Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Beaucarnea recurvata,"Elefantenfuß;Pferdeschwanzpalme;Flaschenpalme;Ponytail Palm;Elephant Foot",Asparagaceae,Beaucarnea,perennial,day_neutral,tree,tuberous,"9a;9b;10a;10b;11a;11b","Östliches Mexiko",yes,3-15,20,60-200,40-100,yes,yes,false,light_feeder
+Beaucarnea recurvata,"Elefantenfuß;Pferdeschwanzpalme;Flaschenpalme;Ponytail Palm;Elephant Foot",Asparagaceae,Beaucarnea,perennial,day_neutral,succulent,tuberous,"9a;9b;10a;10b;11a;11b","Östliches Mexiko",yes,3-15,20,60-200,40-100,yes,yes,false,light_feeder
 ```
 
 ---
