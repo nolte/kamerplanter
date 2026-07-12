@@ -239,3 +239,7 @@ class PlantingRunDetailPage(BasePage):
             By.CSS_SELECTOR, "[data-testid='error-display']"
         )
         return len(elements) > 0 and elements[0].is_displayed()
+
+    def is_page_rendered(self) -> bool:
+        """Return True if the detail page container is present in the DOM."""
+        return len(self.driver.find_elements(*self.PAGE)) > 0

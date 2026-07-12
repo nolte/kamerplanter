@@ -176,6 +176,53 @@ class PlantingRunListPage(BasePage):
         el.clear()
         el.send_keys(prefix)
 
+    def clear_id_prefix_if_present(self) -> None:
+        """Clear the id_prefix field for entry 0, if it is currently rendered."""
+        elements = self.driver.find_elements(*self.FORM_ENTRY_ID_PREFIX)
+        if elements:
+            elements[0].clear()
+
+    def ensure_valid_id_prefix(self, fallback: str) -> None:
+        """Fill entry 0's id_prefix with *fallback* if its current value is too short.
+
+        The prefix is normally auto-populated from the selected species' genus;
+        this guards against a genus abbreviation shorter than the required
+        2 characters.
+        """
+        elements = self.driver.find_elements(*self.FORM_ENTRY_ID_PREFIX)
+        if not elements:
+            return
+        current = elements[0].get_attribute("value") or ""
+        if not current or len(current) < 2:
+            elements[0].clear()
+            elements[0].send_keys(fallback)
+
+    def is_species_dropdown_present(self) -> bool:
+        """Return True if the species select for entry 0 is rendered."""
+        return len(self.driver.find_elements(*self.FORM_ENTRY_SPECIES)) > 0
+
+    def select_first_available_species(self, timeout: int = 10) -> str | None:
+        """Open the species select for entry 0 and pick the first non-empty option.
+
+        Returns the selected option's label, or ``None`` if the dropdown opened
+        but had no selectable options. Assumes the dropdown itself is present
+        (check ``is_species_dropdown_present()`` first).
+        """
+        from selenium.webdriver.support import expected_conditions as EC
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        select_el = self.wait_for_element_clickable(self.FORM_ENTRY_SPECIES)
+        self.scroll_and_click(select_el)
+        options = WebDriverWait(self.driver, timeout).until(
+            EC.presence_of_all_elements_located((By.XPATH, "//li[@role='option']"))
+        )
+        species_options = [o for o in options if o.text.strip()]
+        if not species_options:
+            return None
+        label = species_options[0].text
+        species_options[0].click()
+        return label
+
     def fill_quantity(self, quantity: int) -> None:
         """Fill the quantity field for the first entry row."""
         el = self.wait_for_element_clickable(self.FORM_ENTRY_QUANTITY)

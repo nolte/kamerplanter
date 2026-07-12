@@ -294,8 +294,6 @@ class TestTreatmentCreateDialog:
 
         Spec: TC-010-025 -- Behandlung erstellen — Pflichtfeld 'Bezeichnung' leer.
         """
-        from selenium.webdriver.common.by import By
-
         treatment_list.open()
         treatment_list.click_create()
         treatment_list.wait_for_loading_complete()
@@ -313,9 +311,7 @@ class TestTreatmentCreateDialog:
         )
         has_name_error = treatment_list.has_validation_error("name")
         # Fallback: any error helper text
-        has_any_error = len(treatment_list.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        has_any_error = treatment_list.has_any_dialog_error_helper_text()
         assert has_name_error or has_any_error, (
             "TC-REQ-010-033 FAIL: Expected validation error for 'name'"
         )

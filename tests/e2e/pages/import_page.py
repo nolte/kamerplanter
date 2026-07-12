@@ -224,6 +224,11 @@ class ImportPage(BasePage):
         el = self.wait_for_element(self.FILE_SELECT_BUTTON)
         return el.text
 
+    def get_file_input_accept_attribute(self) -> str:
+        """Return the ``accept`` attribute of the hidden file input element."""
+        el = self.wait_for_element(self.FILE_INPUT)
+        return el.get_attribute("accept") or ""
+
     # ── Upload button ───────────────────────────────────────────────────
 
     def is_upload_button_enabled(self) -> bool:
@@ -257,6 +262,24 @@ class ImportPage(BasePage):
             lambda d: (
                 len(d.find_elements(*self.ERROR_ALERT)) > 0
                 or len(d.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")) > 0
+            )
+        )
+
+    def click_upload_and_wait_error_or_preview(self, timeout: int = 30) -> None:
+        """Click upload and wait until an error indicator or the preview step appears.
+
+        Some malformed CSVs surface as an in-page error alert or a snackbar
+        toast; others advance straight to the preview step (e.g. with zero or
+        all-invalid rows). Callers branch on the outcome via
+        ``is_error_alert_visible()`` / ``is_step_preview_visible()``.
+        """
+        btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
+        self.scroll_and_click(btn)
+        WebDriverWait(self.driver, timeout).until(
+            lambda d: (
+                len(d.find_elements(*self.ERROR_ALERT)) > 0
+                or len(d.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")) > 0
+                or len(d.find_elements(*self.STEP_PREVIEW)) > 0
             )
         )
 
