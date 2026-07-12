@@ -65,24 +65,24 @@ Click **Record Propagation**. A dialog opens.
 
 ### Step 4: Plants Involved (Optional)
 
-Enter the **plant keys** of the plants involved — type a key and press Enter to add it as a chip. For the **Graft** method, the fields are relabeled accordingly:
+Pick the plants involved via the **name search** — you can select several. Type the plant name or ID to filter the list; the species is shown for context. For the **Graft** method, the fields are relabeled accordingly:
 
 | Field (default) | For grafting | Meaning |
 |------|------|------|
 | Source plants | Rootstock(s) | The plant(s) the action starts from |
 | Result plants | Scion | The plant(s) produced or used in the action |
 
-!!! tip "Where do I find the plant key?"
-    Open the detail page of the plant in question under **Plants > Plant Instances** — the key appears at the end of your browser's address bar (e.g. `.../plant-instances/abc123`).
+!!! tip "You no longer need to type the internal key"
+    You used to have to copy the technical plant key from the detail page — that's gone now: the name search finds the plant by its name or ID, and Kamerplanter fills in the matching key automatically in the background.
 
 ### Step 5: Add Notes and Save
 
 Optionally enter notes (e.g. substrate, rooting hormone, cutting technique) and click **Save**. The event then appears on the **Events** tab with the status **"In progress"**.
 
 !!! tip "Tracking clone generations"
-    If you enter the plant that just resulted from a cutting as the source plant for the next one, a traceable chain builds up across several events in the event list — this is not, however, yet an automatic link in the lineage graph (see below).
+    If you pick the plant that just resulted from a cutting as the source plant for the next one, a traceable chain builds up across several events in the event list — this is not, however, yet an automatic link in the lineage graph (see below).
 
-<!-- Source: src/frontend/src/pages/propagation/PropagationEventDialog.tsx, PropagationPage.tsx, src/backend/app/api/v1/propagation/tenant_router.py, src/backend/app/domain/services/propagation_service.py -->
+<!-- Source: src/frontend/src/pages/propagation/PropagationEventDialog.tsx, PropagationPage.tsx, src/frontend/src/components/form/PlantInstanceAutocompleteField.tsx, src/backend/app/api/v1/propagation/tenant_router.py, src/backend/app/domain/services/propagation_service.py -->
 
 ---
 
@@ -110,9 +110,12 @@ The **Events** tab lists all propagation events documented for your tenant:
 
 On the **Lineage & Grafting** tab you can look up the ancestors and descendants of any plant:
 
-1. Enter the **plant key** of the plant you're interested in (see tip above).
+1. Pick the plant you're interested in via the **name search**.
 2. Click **Show Lineage**.
 3. Kamerplanter shows you two lists: **Ancestors** (which mother plant — and its mother plant, and so on — the plant descended from) and **Descendants** (which plants in turn descended from it).
+
+!!! tip "Link directly to the \"Lineage & Grafting\" tab"
+    The **Events** and **Lineage & Grafting** tabs remember their state in the browser's address bar. Append `#lineage` to the propagation page's URL (e.g. `.../vermehrung#lineage`) to land directly on the **Lineage & Grafting** tab — this also works on page reload or as a bookmark.
 
 <!-- diagram-source: user-described — plant lineage graph: mother plant with F1 clones and an F2 clone via descended_from edges -->
 ```mermaid
@@ -129,7 +132,7 @@ flowchart TB
 ```
 
 !!! note "Partially available: Linking to a documented propagation event"
-    The plant keys you enter under "Plants involved" on a propagation event currently serve only your own propagation record and the success statistics (see above) — they do **not yet** automatically create a link in this lineage graph. So far, the only fully automatic link is the [pup continuation for monocarpic plants](#automatische-kindel-fortfuehrung). For all other methods, the event list is your propagation record; a direct link in the lineage graph is planned. <!-- REQ-017 -->
+    The plants you pick under "Plants involved" on a propagation event currently serve only your own propagation record and the success statistics (see above) — they do **not yet** automatically create a link in this lineage graph. So far, the only fully automatic link is the [pup continuation for monocarpic plants](#automatische-kindel-fortfuehrung). For all other methods, the event list is your propagation record; a direct link in the lineage graph is planned. <!-- REQ-017 -->
 
 ---
 
@@ -137,8 +140,8 @@ flowchart TB
 
 The **Graft Compatibility** card on the same tab checks whether two plants are taxonomically suited for grafting:
 
-1. Enter the plant key of the **scion** (the variety you want to propagate).
-2. Enter the plant key of the **rootstock** (the root base).
+1. Pick the **scion** (the variety you want to propagate) via the name search.
+2. Pick the **rootstock** (the root base) via the name search.
 3. Click **Check Compatibility**.
 
 Kamerplanter compares the genus and family of the two plants' species:
@@ -165,7 +168,7 @@ flowchart TD
 !!! warning "A taxonomy heuristic, not a guarantee"
     The check only evaluates genus and family from the master data of the species involved. There is currently no way to manually override the result — instead, record any deviating real-world experience in the notes of the associated propagation event.
 
-<!-- Source: src/backend/app/domain/engines/lineage_engine.py (check_graft_compatibility), src/frontend/src/pages/propagation/LineagePanel.tsx -->
+<!-- Source: src/backend/app/domain/engines/lineage_engine.py (check_graft_compatibility), src/frontend/src/pages/propagation/LineagePanel.tsx, src/frontend/src/components/form/PlantInstancePicker.tsx, src/frontend/src/hooks/usePlantInstanceOptions.ts, src/frontend/src/hooks/useTabUrl.ts -->
 
 ---
 
@@ -191,7 +194,7 @@ flowchart TD
     No. Propagation events are an optional record-keeping and statistics tool — you can continue to create plants without an accompanying event. Documenting them is useful when you want to compare success rates over time (e.g. which substrate roots better).
 
 ??? question "Does a propagation event automatically link the plants involved in the lineage graph?"
-    No, not yet. The plant keys entered on the event currently serve only your own record. So far, the only method that links automatically in the lineage graph is the pup continuation for monocarpic plants. See [above](#automatische-kindel-fortfuehrung) for details.
+    No, not yet. The plants picked on the event currently serve only your own record. So far, the only method that links automatically in the lineage graph is the pup continuation for monocarpic plants. See [above](#automatische-kindel-fortfuehrung) for details.
 
 ??? question "Can I record the outcome (survived/discarded) of an event afterwards?"
     Yes, the data model already supports this — but currently only through the technical API, not yet via a button in the interface.
@@ -199,8 +202,11 @@ flowchart TD
 ??? question "Is the automatic pup continuation the same as a manually documented cutting?"
     No. The automatic pup continuation for monocarpic plants runs without any action from you as soon as the mother plant automatically transitions into its final flowering phase — including an automatic link in the lineage graph. For all other propagation methods, you document the action yourself via **Record Propagation**.
 
-??? question "How do I find the plant key for the lineage search or the compatibility check?"
-    Open the plant's detail page under **Plants > Plant Instances** — the key appears at the end of your browser's address bar.
+??? question "Do I still need to know the technical plant key?"
+    No. Everywhere you used to type a plant key (plants involved, lineage search, graft compatibility), you now pick the plant via a name search instead — Kamerplanter fills in the matching key automatically in the background.
+
+??? question "Can I link directly to the \"Lineage & Grafting\" tab?"
+    Yes. Append `#lineage` to the propagation page's URL (e.g. `.../vermehrung#lineage`) — the link opens the page directly on the **Lineage & Grafting** tab, even after a page reload.
 
 ---
 

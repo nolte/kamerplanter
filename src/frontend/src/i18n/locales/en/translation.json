@@ -516,6 +516,13 @@
       "consentRequiredLink": "Go to privacy settings"
     }
   },
+  "components": {
+    "plantInstancePicker": {
+      "searchHelper": "Search by plant name or ID",
+      "noResults": "No plant found",
+      "loading": "Loading plants…"
+    }
+  },
   "pages": {
     "propagation": {
       "title": "Propagation Management",
@@ -541,32 +548,38 @@
         "speciesKeyHelper": "Optional: which species is this success statistic for?",
         "speciesLoading": "Loading species…",
         "sectionPlants": "Plants involved",
-        "sectionPlantsIntro": "Enter the plant keys — you'll find them on the respective plant detail page. Type a key and press Enter to add it.",
-        "parentKeys": "Source plants (keys)",
-        "parentKeysGraft": "Rootstock(s) (keys)",
-        "childKeys": "Result plants (keys)",
-        "childKeysGraft": "Scion (key)",
-        "keysHelper": "Type a plant key, then press Enter.",
+        "sectionPlantsIntro": "Pick the plants involved by name — you can select several.",
+        "parentKeys": "Source plants",
+        "parentKeysGraft": "Rootstock(s)",
+        "childKeys": "Result plants",
+        "childKeysGraft": "Scion",
+        "parentPlantsHelper": "Pick one or more plants by name.",
+        "childPlantsHelper": "Pick the plants produced by this propagation, by name.",
+        "plantsLoading": "Loading plants…",
         "notes": "Notes"
       },
       "lineage": {
         "title": "Explore lineage",
         "intro": "Trace which mother plant a plant descended from, and which plants descended from it in turn.",
-        "plantKey": "Plant key",
-        "plantKeyHelper": "You'll find the key on the plant's detail page.",
+        "plantKey": "Plant",
+        "plantKeyHelper": "Pick a plant by name.",
         "trace": "Show lineage",
-        "hint": "Enter a plant key and click “Show lineage” to see its ancestors and descendants.",
+        "hint": "Pick a plant and click “Show lineage” to see its ancestors and descendants.",
         "ancestors": "Ancestors",
         "descendants": "Descendants",
         "noAncestors": "No ancestors found — this plant is a root.",
-        "noDescendants": "No descendants found."
+        "noDescendants": "No descendants found.",
+        "unknownPlant": "Unnamed plant",
+        "unknownSpecies": "Unknown species"
       },
       "graft": {
         "title": "Graft compatibility",
         "intro": "Checks — by taxonomy (genus/family) — whether scion and rootstock are compatible.",
-        "scionKey": "Scion plant (key)",
-        "rootstockKey": "Rootstock plant (key)",
-        "hint": "Enter the keys of the scion (shoot) and rootstock (root base) to check compatibility.",
+        "scionKey": "Scion plant",
+        "scionKeyHelper": "Pick the scion plant (shoot) by name.",
+        "rootstockKey": "Rootstock plant",
+        "rootstockKeyHelper": "Pick the rootstock plant (root base) by name.",
+        "hint": "Pick the scion (shoot) and rootstock (root base) to check compatibility.",
         "check": "Check compatibility",
         "speciesLine": "Scion species: {{scion}} · Rootstock species: {{rootstock}}",
         "sameGenus": "Same genus",

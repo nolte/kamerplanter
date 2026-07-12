@@ -15,12 +15,17 @@ import type { Column } from '@/components/common/DataTable';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import MobileCard from '@/components/common/MobileCard';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import { TabPanel, tabA11yProps } from '@/components/common/TabPanel';
 import { useNotification } from '@/hooks/useNotification';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { usePropagationEvents } from '@/hooks/usePropagationEvents';
 import type { PropagationEvent, PropagationEventStatus } from '@/api/types';
 import { formatDate } from '@/utils/formatting';
 import PropagationEventDialog from './PropagationEventDialog';
 import LineagePanel from './LineagePanel';
+
+/** URL hash anchors for the two tabs — index 0 (#'') = events, #lineage = lineage. */
+const PROPAGATION_TABS = ['events', 'lineage'] as const;
 
 const statusColor: Record<PropagationEventStatus, ChipProps['color']> = {
   in_progress: 'info',
@@ -35,7 +40,7 @@ export default function PropagationPage(): ReactElement {
   const notification = useNotification();
   const { events, loading, reload } = usePropagationEvents();
 
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useTabUrl(PROPAGATION_TABS);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleCreated = useCallback(() => {
@@ -126,12 +131,20 @@ export default function PropagationPage(): ReactElement {
         sx={{ mb: 2 }}
         aria-label={t('pages.propagation.title')}
       >
-        <Tab label={t('pages.propagation.tabs.events')} data-testid="tab-events" />
-        <Tab label={t('pages.propagation.tabs.lineage')} data-testid="tab-lineage" />
+        <Tab
+          label={t('pages.propagation.tabs.events')}
+          data-testid="tab-events"
+          {...tabA11yProps('propagation', 0)}
+        />
+        <Tab
+          label={t('pages.propagation.tabs.lineage')}
+          data-testid="tab-lineage"
+          {...tabA11yProps('propagation', 1)}
+        />
       </Tabs>
 
-      {tab === 0 &&
-        (loading ? (
+      <TabPanel index={0} value={tab} idPrefix="propagation">
+        {loading ? (
           <LoadingSkeleton variant="table" />
         ) : (
           <DataTable
@@ -174,9 +187,12 @@ export default function PropagationPage(): ReactElement {
               />
             )}
           />
-        ))}
+        )}
+      </TabPanel>
 
-      {tab === 1 && <LineagePanel />}
+      <TabPanel index={1} value={tab} idPrefix="propagation">
+        <LineagePanel />
+      </TabPanel>
 
       <PropagationEventDialog
         open={dialogOpen}

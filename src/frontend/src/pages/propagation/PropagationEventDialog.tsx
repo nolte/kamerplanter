@@ -14,13 +14,14 @@ import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormTextField from '@/components/form/FormTextField';
-import FormChipInput from '@/components/form/FormChipInput';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
+import PlantInstanceAutocompleteField from '@/components/form/PlantInstanceAutocompleteField';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useApiError } from '@/hooks/useApiError';
+import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
 import * as api from '@/api/endpoints/propagation';
 import * as speciesApi from '@/api/endpoints/species';
 import type { PropagationEventMethod, Species } from '@/api/types';
@@ -70,6 +71,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
 
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
   const [speciesLoading, setSpeciesLoading] = useState(false);
+  const { instances: plantInstances, loading: plantsLoading } = usePlantInstanceOptions(open);
 
   const defaults: FormData = {
     method: 'cutting',
@@ -202,25 +204,39 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             {t('pages.propagation.fields.sectionPlantsIntro')}
           </Typography>
-          <FormChipInput
+          <PlantInstanceAutocompleteField
             name="parent_plant_keys"
             control={control}
+            multiple
+            instances={plantInstances}
+            disabled={plantsLoading}
             label={
               isGraft
                 ? t('pages.propagation.fields.parentKeysGraft')
                 : t('pages.propagation.fields.parentKeys')
             }
-            helperText={t('pages.propagation.fields.keysHelper')}
+            helperText={
+              plantsLoading
+                ? t('pages.propagation.fields.plantsLoading')
+                : t('pages.propagation.fields.parentPlantsHelper')
+            }
           />
-          <FormChipInput
+          <PlantInstanceAutocompleteField
             name="child_plant_keys"
             control={control}
+            multiple
+            instances={plantInstances}
+            disabled={plantsLoading}
             label={
               isGraft
                 ? t('pages.propagation.fields.childKeysGraft')
                 : t('pages.propagation.fields.childKeys')
             }
-            helperText={t('pages.propagation.fields.keysHelper')}
+            helperText={
+              plantsLoading
+                ? t('pages.propagation.fields.plantsLoading')
+                : t('pages.propagation.fields.childPlantsHelper')
+            }
           />
           <FormTextField
             name="notes"
