@@ -38,6 +38,14 @@ from app.domain.interfaces.dashboard_repositories import (
 
 logger = structlog.get_logger(__name__)
 
+# Upper bound on the plant instances surfaced to the ``plant_grid`` widget (#488).
+# The rich, filterable grid needs enough breadth to make client-side filtering
+# meaningful for growers managing many instances — the former #461 tile strip cap
+# of 8 was sized for a preview, not an overview. The enriched rows are resolved in
+# a single AQL round-trip (no N+1), so a larger cap stays cheap; the cap keeps the
+# aggregated payload bounded regardless of tenant size.
+PLANT_GRID_LIMIT = 60
+
 
 @dataclass(frozen=True)
 class DashboardCounts:
@@ -196,7 +204,7 @@ class DashboardService:
             logger.exception("dashboard.upcoming_tasks.failed", tenant_key=tenant_key)
             return []
 
-    def _active_plants(self, tenant_key: str, limit: int = 8) -> list[dict[str, Any]]:
+    def _active_plants(self, tenant_key: str, limit: int = PLANT_GRID_LIMIT) -> list[dict[str, Any]]:
         self._require_methods(self._plant_repo, "list_active_for_tenant")
         try:
             return list(self._plant_repo.list_active_for_tenant(tenant_key, limit) or [])

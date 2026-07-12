@@ -38,7 +38,14 @@ class PlantDashboardRepository(Protocol):
         ...
 
     def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
-        """Newest alive plant instances (``_key`` + label fields) for the plant grid."""
+        """Newest alive plant instances for the plant grid (#488).
+
+        Each row carries ``_key`` plus the per-card status fields the rich grid
+        renders: ``plant_name`` / ``species_key`` / ``cultivar_key`` /
+        ``cultivar_name``, ``phase_key`` / ``phase_name``, ``location_key`` /
+        ``location_name`` and an open-task marker (``has_open_task`` +
+        ``next_due_date``). Resolved server-side in one query (no N+1).
+        """
         ...
 
 

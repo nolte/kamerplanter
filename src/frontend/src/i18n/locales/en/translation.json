@@ -5718,7 +5718,30 @@
     },
     "plantGrid": {
       "unnamed": "Unnamed plant",
-      "empty": "No active plants yet."
+      "empty": "No active plants yet.",
+      "noMatches": "No plants match the filters.",
+      "format": {
+        "label": "Card format",
+        "detailed": "Detailed",
+        "compact": "Compact"
+      },
+      "filters": {
+        "phase": "Phase",
+        "location": "Location",
+        "task": "Tasks"
+      },
+      "filterValues": {
+        "noPhase": "No phase",
+        "noLocation": "No location",
+        "hasTask": "With open task",
+        "noTask": "Without open task"
+      },
+      "card": {
+        "phase": "Phase",
+        "nextDue": "Due: {{date}}",
+        "openTask": "Open task",
+        "openTaskAria": "has an open task"
+      }
     },
     "nav": {
       "openWidget": "Open {{widget}}",

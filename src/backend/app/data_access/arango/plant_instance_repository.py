@@ -3,7 +3,7 @@ from typing import Any
 
 from arango.database import StandardDatabase
 
-from app.common.enums import TerminationType
+from app.common.enums import TaskStatus, TerminationType
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
@@ -247,15 +247,27 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         return int(next(cursor, 0) or 0)
 
     def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
-        """Return the newest *alive* plant instances of ``tenant_key`` (REQ-009).
+        """Return the newest *alive* plant instances of ``tenant_key``, enriched (REQ-009).
 
-        Feeds the ``plant_grid`` dashboard widget's clickable tiles (#461): a short,
-        newest-first list of active plants, each carrying its ``_key`` for a deep
-        link to the plant detail view. "Alive" mirrors ``count_active_for_tenant``
-        (``removed_on == null``). The collection is bound via ``@@col`` (never
-        interpolated) and every row is filtered on ``p.tenant_key == @tenant_key``;
-        the empty-tenant sentinel is rejected up-front so the list can never span
-        tenants (SEC-B4). ``@limit`` is a bound integer, never interpolated.
+        Feeds the ``plant_grid`` dashboard widget (#461 / #488): a newest-first list of
+        active plants, each carrying its ``_key`` for a deep link to the plant detail
+        view plus the per-card status fields the rich grid renders — cultivar name,
+        current growth phase, location and an open-task marker with the earliest due
+        date. "Alive" mirrors ``count_active_for_tenant`` (``removed_on == null``).
+
+        Efficiency (no N+1): everything is resolved server-side in a *single* AQL
+        round-trip. The related documents (cultivar / growth phase / location) are
+        pulled with :func:`DOCUMENT` primary-key lookups (O(1) each), and the open-task
+        marker is a correlated sub-query over the tasks collection filtered on the same
+        ``tenant_key`` — so the whole enriched grid costs one query regardless of how
+        many plants it returns.
+
+        Security: the plant and task collections are bound via ``@@col`` / ``@@task_col``
+        (never interpolated); the related-collection names travel as plain string binds
+        to :func:`DOCUMENT`. Every plant row *and* every open-task row is filtered on
+        ``… .tenant_key == @tenant_key``, and the empty-tenant sentinel is rejected
+        up-front, so neither the list nor the task marker can ever span tenants (SEC-B4).
+        ``@limit`` is a bound integer, never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_for_tenant")
         query = """
@@ -263,8 +275,42 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           FILTER p.tenant_key == @tenant_key AND p.removed_on == null
           SORT p.planted_on DESC, p._key ASC
           LIMIT @limit
-          RETURN { _key: p._key, plant_name: p.plant_name, species_key: p.species_key }
+          LET cultivar = p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
+          LET phase = p.current_phase_key != null ? DOCUMENT(@phase_col, p.current_phase_key) : null
+          LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
+          LET open_task_due_dates = (
+            FOR tsk IN @@task_col
+              FILTER tsk.tenant_key == @tenant_key
+                AND tsk.entity_type == @plant_entity_type
+                AND tsk.entity_key == p._key
+                AND tsk.status IN @open_statuses
+              RETURN tsk.due_date
+          )
+          LET has_open_task = LENGTH(open_task_due_dates) > 0
+          RETURN {
+            _key: p._key,
+            plant_name: p.plant_name,
+            species_key: p.species_key,
+            cultivar_key: p.cultivar_key,
+            cultivar_name: cultivar != null ? cultivar.name : null,
+            phase_key: p.current_phase_key,
+            phase_name: phase != null ? (phase.display_name != "" ? phase.display_name : phase.name) : null,
+            location_key: p.location_key,
+            location_name: location != null ? location.name : null,
+            has_open_task: has_open_task,
+            next_due_date: has_open_task ? MIN(open_task_due_dates) : null
+          }
         """
-        bind_vars = {"@col": self._collection_name, "tenant_key": tenant_key, "limit": int(limit)}
+        bind_vars = {
+            "@col": self._collection_name,
+            "@task_col": col.TASKS,
+            "tenant_key": tenant_key,
+            "limit": int(limit),
+            "cultivar_col": col.CULTIVARS,
+            "phase_col": col.GROWTH_PHASES,
+            "location_col": col.LOCATIONS,
+            "plant_entity_type": "plant_instance",
+            "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],
+        }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)

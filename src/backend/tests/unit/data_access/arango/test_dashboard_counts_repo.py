@@ -82,7 +82,21 @@ def test_count_active_for_tenant_filters_removed_on_null() -> None:
 
 
 def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
-    rows = [{"_key": "p-1", "plant_name": "Basil", "species_key": "ocimum-basilicum"}]
+    rows = [
+        {
+            "_key": "p-1",
+            "plant_name": "Basil",
+            "species_key": "ocimum-basilicum",
+            "cultivar_key": None,
+            "cultivar_name": None,
+            "phase_key": "veg",
+            "phase_name": "Vegetative",
+            "location_key": "loc-1",
+            "location_name": "Balcony",
+            "has_open_task": True,
+            "next_due_date": "2026-05-01T00:00:00+00:00",
+        }
+    ]
     db = _CapturingDb(rows)
     repo = ArangoPlantInstanceRepository(db)  # type: ignore[arg-type]
 
@@ -95,12 +109,26 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert "p.removed_on == null" in q  # only alive plants
     assert "SORT p.planted_on DESC" in q  # newest first
     assert "LIMIT @limit" in q
-    # Only _key + label fields leave the query (no full document / cross-field leak).
-    assert "RETURN { _key: p._key, plant_name: p.plant_name, species_key: p.species_key }" in q
+    # #488 — enriched per-card status fields are projected (no full document).
+    assert "cultivar_name:" in q
+    assert "phase_name:" in q
+    assert "location_name:" in q
+    assert "has_open_task:" in q
+    assert "next_due_date:" in q
+    # Open-task marker must be tenant-scoped too (no cross-tenant task leak, SEC-B4).
+    assert "@@task_col" in q
+    assert "tsk.tenant_key == @tenant_key" in q
+    assert "tsk.entity_key == p._key" in q
     bv = db.aql.bind_vars or {}
     assert bv["@col"] == "plant_instances"
+    assert bv["@task_col"] == "tasks"
     assert bv["tenant_key"] == "tenant-A"
     assert bv["limit"] == 8
+    assert bv["cultivar_col"] == "cultivars"
+    assert bv["phase_col"] == "growth_phases"
+    assert bv["location_col"] == "locations"
+    assert bv["plant_entity_type"] == "plant_instance"
+    assert bv["open_statuses"] == ["pending", "in_progress"]
     assert "tenant-A" not in q  # never interpolated
 
 
