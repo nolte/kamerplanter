@@ -113,7 +113,7 @@ class TestServicePathUsesFactory:
             confirmed_at=datetime(2026, 3, 1, tzinfo=UTC),
         )
         task_repo = MagicMock()
-        task_repo.find_by_field.return_value = []
+        task_repo.find_open_care_task.return_value = None
         task_repo.create_task.side_effect = lambda task: task
         service = self._service(task_repo, care_repo)
         profile = CareProfile(
@@ -136,7 +136,7 @@ class TestServicePathUsesFactory:
 
     def test_ensure_care_task_routes_through_factory(self) -> None:
         task_repo = MagicMock()
-        task_repo.find_by_field.return_value = []
+        task_repo.find_open_care_task.return_value = None
         task_repo.create_task.side_effect = lambda task: task
         service = self._service(task_repo, MagicMock())
         plant = SimpleNamespace(
@@ -228,7 +228,7 @@ class TestCeleryPathUsesFactory:
         service._engine.calculate_urgency.return_value = "due_today"
 
         task_repo = MagicMock()
-        task_repo.find_by_field.return_value = []
+        task_repo.find_open_care_task.return_value = None
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.care_tasks import generate_due_care_reminders
