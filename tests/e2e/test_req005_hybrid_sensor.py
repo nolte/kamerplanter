@@ -41,10 +41,7 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .pages.sensor_create_dialog_page import SensorCreateDialogPage
 from .pages.site_detail_page import SiteDetailPage
@@ -89,22 +86,17 @@ def opened_site_detail(
     """
     site_list.open()
 
-    rows = site_list.driver.find_elements(*SiteListPage.TABLE_ROWS)
-    if not rows:
+    if site_list.get_row_count() == 0:
         pytest.skip("No sites available -- e2e_seed_data did not seed a site")
 
-    target_index = 0
-    for idx, row in enumerate(rows):
-        if SEEDED_SITE_NAME in row.text:
-            target_index = idx
-            break
+    target_index = site_list.find_row_index_by_text(SEEDED_SITE_NAME)
+    if target_index == -1:
+        target_index = 0
 
     site_list.click_row(target_index)
 
     # Wait until the SiteDetailPage is loaded (URL change + page title visible)
-    WebDriverWait(site_list.driver, 15).until(
-        EC.url_contains("/standorte/sites/")
-    )
+    site_detail.wait_for_url_contains("/standorte/sites/")
     site_detail.wait_for_element_visible(SiteDetailPage.PAGE_TITLE)
     site_detail._wait_for_skeleton_gone()
     return site_detail
@@ -135,26 +127,21 @@ class TestSensorsSectionVisibility:
             "Site-Detail nach initialem Laden -- Sensors-Section sichtbar",
         )
 
-        buttons = opened_site_detail.driver.find_elements(
-            *SensorCreateDialogPage.ADD_SENSOR_BUTTON
-        )
         # The button is rendered inside a section that may need scrolling
         # into view on smaller viewports; existence in the DOM is the
         # contract we verify.
-        assert buttons, (
+        assert sensor_dialog.is_add_sensor_button_present(), (
             "TC-REQ-005-001 FAIL: Expected [data-testid='add-sensor-button'] "
             "to be present on the Site detail page (REQ-005 §1)."
         )
 
         # Scroll the button into the viewport and assert it becomes visible
-        sensor_dialog.driver.execute_script(
-            "arguments[0].scrollIntoView({block: 'center'});", buttons[0]
-        )
+        sensor_dialog.scroll_add_sensor_button_into_view()
         screenshot(
             "TC-REQ-005-001_add-sensor-button-in-view",
             "add-sensor-button nach scrollIntoView",
         )
-        assert buttons[0].is_displayed(), (
+        assert sensor_dialog.is_add_sensor_button_visible(), (
             "TC-REQ-005-001 FAIL: add-sensor-button is in the DOM but not "
             "displayed after scrolling into view."
         )
@@ -288,14 +275,8 @@ class TestSensorCreationSmokeFlow:
         # appears.  We avoid hard-coding which DataTable on the page renders
         # the sensor (locations vs. sensors); the unique sensor name makes the
         # match unambiguous.
-        def _row_present(driver: WebDriver) -> bool:
-            rows = driver.find_elements(
-                By.CSS_SELECTOR, "[data-testid='data-table-row']"
-            )
-            return any(sensor_name in row.text for row in rows)
-
         try:
-            WebDriverWait(opened_site_detail.driver, 15).until(_row_present)
+            sensor_dialog.wait_for_row_containing(sensor_name, timeout=15)
         except Exception:
             screenshot(
                 "TC-REQ-005-003_row-missing",

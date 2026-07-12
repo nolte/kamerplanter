@@ -131,9 +131,13 @@ class HarvestBatchListPage(BasePage):
 
     def search(self, term: str) -> None:
         """Type *term* into the search field."""
+        import time
+
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
+        # Allow the DataTable's search debounce to take effect.
+        time.sleep(0.3)
 
     def clear_search(self) -> None:
         """Clear the search field."""
@@ -341,6 +345,18 @@ class HarvestBatchListPage(BasePage):
             By.CSS_SELECTOR,
             "div[role='dialog'] [aria-invalid='true']",
         )) > 0
+
+    def wait_briefly_for_client_validation(self, seconds: float = 0.5) -> None:
+        """Give React Hook Form / native HTML5 validation a moment to render.
+
+        There is no DOM condition to wait on here — the dialog staying open
+        is the primary signal the caller checks; this bounded pause only
+        gives client-side validation feedback (helper text, aria-invalid)
+        time to paint before the caller inspects it.
+        """
+        import time
+
+        time.sleep(seconds)
 
     def wait_for_dialog_closed(self, timeout: int = 10) -> None:
         """Wait until the create dialog is no longer visible."""

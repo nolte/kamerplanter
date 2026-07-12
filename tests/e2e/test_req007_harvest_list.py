@@ -22,8 +22,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-import time  # kept for debounce waits
-
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -185,8 +183,7 @@ class TestHarvestBatchListPage:
             "Harvest list before search input",
         )
 
-        harvest_list.search("ZZZ_NONEXISTENT_BATCH_9999")
-        time.sleep(0.3)  # debounce wait
+        harvest_list.search("ZZZ_NONEXISTENT_BATCH_9999")  # debounce handled inside the page object
         screenshot(
             "TC-REQ-007-021_after-search",
             "Harvest list after search -- filtered results",
@@ -358,7 +355,7 @@ class TestHarvestCreateDialog:
         # Do not select a plant -- submit directly
         harvest_list.submit_create_form()
         # Wait briefly for React validation / native HTML5 validation to fire
-        time.sleep(0.5)
+        harvest_list.wait_briefly_for_client_validation()
         screenshot(
             "TC-REQ-007-026_validation-plant-missing",
             "Validation error: plant selection required",
