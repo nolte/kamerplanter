@@ -5838,6 +5838,14 @@
   "diagnose": {
     "title": "AI diagnosis",
     "subtitle": "Describe the symptoms you observe and get the three most likely causes – linked to matching pests and treatments. This is a structured assistant, not a confirmed diagnosis.",
+    "stepperAriaLabel": "AI diagnosis progress",
+    "stepIndicator": "Step {{current}} of {{total}}: {{label}}",
+    "status": {
+      "analyzing": "Running diagnosis…"
+    },
+    "symptoms": {
+      "causeHintLabel": "Show possible causes for \"{{label}}\""
+    },
     "steps": {
       "symptoms": "Symptoms",
       "context": "Context",

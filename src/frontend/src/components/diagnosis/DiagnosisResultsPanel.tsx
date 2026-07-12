@@ -13,6 +13,7 @@ import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AIResponse from '@/components/ai/AIResponse';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import type { AiConfidence, DiagnosisResult } from '@/api/types';
 
 export interface DiagnosisResultsPanelProps {
@@ -109,27 +110,31 @@ export default function DiagnosisResultsPanel({ result }: DiagnosisResultsPanelP
               {candidate.matched_treatments.length > 0 ? (
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="subtitle2">{t('diagnose.results.treatments')}</Typography>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
                     {candidate.matched_treatments.map((treatment) => (
-                      <Chip
-                        key={treatment.key}
-                        size="small"
-                        variant="outlined"
-                        clickable
-                        component={RouterLink}
-                        to={treatment.detail_url}
-                        icon={treatment.has_karenz ? <WarningAmberIcon /> : undefined}
-                        color={treatment.has_karenz ? 'warning' : 'default'}
-                        label={
-                          treatment.has_karenz
-                            ? t('diagnose.results.treatmentKarenz', {
-                                name: treatment.name_de || treatment.name,
-                                days: treatment.safety_interval_days,
-                              })
-                            : treatment.name_de || treatment.name
-                        }
-                        data-testid={`diagnosis-treatment-${treatment.key}`}
-                      />
+                      <Stack key={treatment.key} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          clickable
+                          component={RouterLink}
+                          to={treatment.detail_url}
+                          icon={treatment.has_karenz ? <WarningAmberIcon /> : undefined}
+                          color={treatment.has_karenz ? 'warning' : 'default'}
+                          label={
+                            treatment.has_karenz
+                              ? t('diagnose.results.treatmentKarenz', {
+                                  name: treatment.name_de || treatment.name,
+                                  days: treatment.safety_interval_days,
+                                })
+                              : treatment.name_de || treatment.name
+                          }
+                          data-testid={`diagnosis-treatment-${treatment.key}`}
+                        />
+                        {/* Karenz ("safety interval") is domain jargon — the shared
+                            glossary tooltip explains it non-colour-only (UI-NFR-011). */}
+                        {treatment.has_karenz ? <HelpTooltip term="karenzzeit" iconOnly /> : null}
+                      </Stack>
                     ))}
                   </Stack>
                 </Box>

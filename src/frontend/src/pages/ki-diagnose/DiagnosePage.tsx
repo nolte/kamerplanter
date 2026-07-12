@@ -17,10 +17,14 @@ export default function DiagnosePage() {
   return (
     <Box sx={{ p: 3 }} data-testid="diagnose-page">
       <PageTitle title={t('diagnose.title')} />
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
+      <Typography color="text.secondary" sx={{ mb: 2, maxWidth: '72ch' }}>
         {t('diagnose.subtitle')}
       </Typography>
-      <Paper sx={{ p: { xs: 2, sm: 3 } }}>
+      {/* 760px caps the reading column so the wizard's short-answer
+          controls (checkboxes, notes field, result cards) don't stretch
+          into an uncomfortably wide single-line-of-sight on desktop —
+          same READING_COL_MAX convention as TankDetailPage / FertilizerDetailPage. */}
+      <Paper sx={{ p: { xs: 2, sm: 3 }, maxWidth: 760 }}>
         <DiagnosisWizard />
       </Paper>
     </Box>

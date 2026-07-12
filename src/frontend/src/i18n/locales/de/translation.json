@@ -5839,6 +5839,14 @@
   "diagnose": {
     "title": "KI-Diagnose",
     "subtitle": "Beschreibe die beobachteten Symptome und erhalte die drei wahrscheinlichsten Ursachen – verknüpft mit passenden Schädlingen und Behandlungen. Dies ist ein strukturierter Assistent, keine gesicherte Diagnose.",
+    "stepperAriaLabel": "Fortschritt der KI-Diagnose",
+    "stepIndicator": "Schritt {{current}} von {{total}}: {{label}}",
+    "status": {
+      "analyzing": "Diagnose wird durchgeführt …"
+    },
+    "symptoms": {
+      "causeHintLabel": "Mögliche Ursachen für „{{label}}“ anzeigen"
+    },
     "steps": {
       "symptoms": "Symptome",
       "context": "Kontext",
