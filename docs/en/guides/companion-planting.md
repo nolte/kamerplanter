@@ -153,8 +153,12 @@ Crop rotation means deliberately alternating botanical families on a slot over t
 
 - Navigation: **Master Data → Crop Rotation**. Alternatively, on the species detail page: the **Crop Rotation** tab ("Expert" experience level), pre-selected with that species' family.
 
-1. Select a **source family**. Kamerplanter shows the already recorded **successor families**.
-2. Click **Add Successor**, choose the target family, and enter the **wait time in years** (1–10). This is how long to wait before a plant of the source family is grown on the same slot again.
+1. Above the family picker you'll find a **filter bar**: Favorites, Has rotation, Nitrogen-fixing, Frost-hardy, plus a dropdown for nutrient demand (Heavy Feeder / Medium Feeder / Light Feeder). Clear active filters again via **Reset filters**.
+2. Open the **From Family** dropdown. For every botanical family, Kamerplanter already shows, before you even select it, how many recommended **successor families** are on record — a short legend below the field explains the number. Families without recorded successors are shown in a muted color but remain fully selectable. The star next to each family lets you mark it as a **favorite** (keyboard shortcut: Shift+F on the family currently highlighted in the dropdown); favorites then sort to the top of the list and can be shown in isolation via the **Favorites** filter.
+3. Select a **source family**. Kamerplanter shows the already recorded **successor families**.
+4. Click **Add Successor**, choose the target family, and enter the **wait time in years** (1–10). This is how long to wait before a plant of the source family is grown on the same slot again.
+
+<!-- Source: src/frontend/src/pages/stammdaten/CropRotationPage.tsx, src/frontend/src/api/endpoints/cropRotation.ts, src/frontend/src/hooks/useFamilyFavorites.ts, src/backend/app/api/v1/crop_rotation/router.py -->
 
 ### Automatic check
 

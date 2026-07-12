@@ -153,8 +153,12 @@ Fruchtfolge bedeutet, auf einem Stellplatz über die Jahre bewusst zwischen bota
 
 - Navigation: **Stammdaten → Fruchtfolge**. Alternativ am Artendetail: Tab **Fruchtfolge** (Erfahrungsstufe "Experte"), vorbelegt mit der Familie der jeweiligen Art.
 
-1. Wähle eine **Ausgangsfamilie** aus. Kamerplanter zeigt die bereits hinterlegten **Nachfolgerfamilien**.
-2. Klicke auf **Nachfolger hinzufügen**, wähle die Zielfamilie und trage die **Wartezeit in Jahren** ein (1–10). Die Wartezeit gibt an, wie lange gewartet werden sollte, bevor auf demselben Stellplatz wieder eine Pflanze der Ausgangsfamilie angebaut wird.
+1. Über der Familienauswahl findest du eine **Filterleiste**: Favoriten, Mit Fruchtfolge, Stickstofffixierend, Frosthart sowie ein Dropdown für den Nährstoffbedarf (Starkzehrer / Mittelzehrer / Schwachzehrer). Aktive Filter hebst du über **Filter zurücksetzen** wieder auf.
+2. Öffne das Dropdown **Von Familie**. Kamerplanter zeigt dort zu jeder botanischen Familie bereits vor der Auswahl, wie viele empfohlene **Nachfolgerfamilien** hinterlegt sind — eine kurze Legende unter dem Auswahlfeld erklärt die Zahl. Familien ohne hinterlegte Nachfolger werden blasser dargestellt, bleiben aber ganz normal auswählbar. Über den Stern neben jeder Familie markierst du sie als **Favorit** (auch per Tastatur: Umschalt+F auf der gerade im Dropdown hervorgehobenen Familie); Favoriten stehen danach oben in der Liste und lassen sich über den Filter **Favoriten** isoliert anzeigen.
+3. Wähle eine **Ausgangsfamilie** aus. Kamerplanter zeigt die bereits hinterlegten **Nachfolgerfamilien**.
+4. Klicke auf **Nachfolger hinzufügen**, wähle die Zielfamilie und trage die **Wartezeit in Jahren** ein (1–10). Die Wartezeit gibt an, wie lange gewartet werden sollte, bevor auf demselben Stellplatz wieder eine Pflanze der Ausgangsfamilie angebaut wird.
+
+<!-- Quelle: src/frontend/src/pages/stammdaten/CropRotationPage.tsx, src/frontend/src/api/endpoints/cropRotation.ts, src/frontend/src/hooks/useFamilyFavorites.ts, src/backend/app/api/v1/crop_rotation/router.py -->
 
 ### Automatische Prüfung
 
