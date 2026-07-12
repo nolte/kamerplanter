@@ -17,6 +17,9 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import PlaceIcon from '@mui/icons-material/Place';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import EditIcon from '@mui/icons-material/Edit';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import EventNoteIcon from '@mui/icons-material/EventNote';
 import PageTitle from '@/components/layout/PageTitle';
 import PrintButton from '@/components/common/PrintButton';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -106,6 +109,17 @@ function getReminderIcon(type: ReminderType) {
       return <PlaceIcon />;
     case 'humidity_check':
       return <WaterDropIcon />;
+    case 'deadheading':
+      return <LocalFloristIcon />;
+    case 'winter_protection':
+    case 'spring_uncover':
+    case 'tuber_dig':
+    case 'storage_check':
+    case 'dormancy_health_check':
+    case 'quarter_climate_check':
+      return <AcUnitIcon />;
+    default:
+      return <EventNoteIcon />;
   }
 }
 

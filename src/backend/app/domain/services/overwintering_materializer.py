@@ -68,6 +68,18 @@ class OverwinteringMaterializer:
         """
         if not plant.key or not plant.species_key:
             return None
+        # AC-29 — a plant whose lifecycle has already ended (a monocarpic/biennial
+        # that has passed its flowering/senescence phase, or any harvested/died/
+        # cancelled instance, REQ-003) never gets a *new* overwintering profile: the
+        # next pre_winter transition must not materialise one for a plant that will
+        # not see another winter. An already-materialised profile is left untouched.
+        if plant.termination_type is not None and self._repo.get_profile_by_plant_key(plant.key) is None:
+            logger.info(
+                "overwintering_materialize_skipped_terminated",
+                plant_key=plant.key,
+                termination_type=plant.termination_type.value,
+            )
+            return None
         species = self._species_repo.get_by_key(plant.species_key)
         if species is None:
             return None
@@ -75,7 +87,15 @@ class OverwinteringMaterializer:
         species_zone = species.hardiness_zones[0] if species.hardiness_zones else None
         # REQ-039: prefer the auto-derived hardiness zone over legacy free-text.
         site_zone = getattr(site, "hardiness_zone", None) or site.climate_zone or None
-        light = evaluate_winter_hardiness(species.frost_sensitivity, species_zone, site_zone)
+        # AC-26 — a potted plant (container_volume_liters set) escalates a marginal
+        # yellow (in-situ) light to red (relocate), because the root ball freezes in
+        # a container. The escalation happens in exactly one place (the service
+        # helper) so the derived_path stamped here matches the generated profile.
+        is_container = plant.container_volume_liters is not None
+        light = self._service.effective_hardiness_light(
+            evaluate_winter_hardiness(species.frost_sensitivity, species_zone, site_zone),
+            is_container=is_container,
+        )
         if light == WinterHardinessLight.GREEN:
             # Winter-protection guard: no profile for a winter-hardy species (AC-9).
             return None
@@ -93,6 +113,7 @@ class OverwinteringMaterializer:
             species_zone=species_zone,
             site_zone=site_zone,
             is_geophyte=_is_geophyte(species),
+            is_container=is_container,
             species_key=plant.species_key,
         )
         stamped = created.model_copy(

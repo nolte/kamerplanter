@@ -37,6 +37,7 @@ import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 import CloseIcon from '@mui/icons-material/Close';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SnoozeIcon from '@mui/icons-material/Snooze';
 import OpacityIcon from '@mui/icons-material/Opacity';
@@ -124,6 +125,15 @@ function getReminderIcon(type: ReminderType) {
     case 'pest_check': return <BugReportIcon fontSize="small" />;
     case 'location_check': return <PlaceIcon fontSize="small" />;
     case 'humidity_check': return <WaterDropIcon fontSize="small" />;
+    case 'deadheading': return <LocalFloristIcon fontSize="small" />;
+    case 'winter_protection':
+    case 'spring_uncover':
+    case 'tuber_dig':
+    case 'storage_check':
+    case 'dormancy_health_check':
+    case 'quarter_climate_check':
+      return <AcUnitIcon fontSize="small" />;
+    default: return <ScheduleIcon fontSize="small" />;
   }
 }
 

@@ -703,7 +703,7 @@ def get_season_state_repo():
 def get_season_signal_resolver():
     from app.domain.services.season_signal_resolver import SeasonSignalResolver
 
-    return SeasonSignalResolver(get_weather_forecast_repo())
+    return SeasonSignalResolver(get_weather_forecast_repo(), get_climate_normal_repo())
 
 
 def get_overwintering_materializer():
@@ -732,6 +732,20 @@ def get_season_state_service():
         get_overwintering_profile_repo(),
         get_plant_repo(),
         get_site_repo(),
+    )
+
+
+def get_quarter_climate_service():
+    """REQ-047 §3.7.3 / AC-22 — winter-quarter climate warning service."""
+    from app.domain.services.quarter_climate_service import QuarterClimateService
+
+    return QuarterClimateService(
+        get_overwintering_profile_repo(),
+        get_care_reminder_repo(),
+        get_sensor_repo(),
+        get_observation_repo(),
+        get_plant_repo(),
+        get_task_repo(),
     )
 
 

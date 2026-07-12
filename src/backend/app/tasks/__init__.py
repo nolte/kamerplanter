@@ -220,3 +220,10 @@ if settings.season_state_eval_enabled:
         "task": "app.tasks.season_tasks.evaluate_season_states",
         "schedule": crontab(hour=6, minute=30),
     }
+    # AC-22 — event-driven winter-quarter climate check. Runs hourly so a heating
+    # failure / overheating in a winter quarter with live sensor data raises a HIGH
+    # task quickly, not just on the daily periodic pass.
+    celery_app.conf.beat_schedule["season-quarter-climate-hourly"] = {
+        "task": "app.tasks.season_tasks.evaluate_quarter_climate",
+        "schedule": crontab(minute=45),
+    }

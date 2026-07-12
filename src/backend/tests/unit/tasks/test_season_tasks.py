@@ -20,6 +20,8 @@ def task_module(monkeypatch):
     mock_deps = ModuleType("app.common.dependencies")
     mock_deps.get_season_state_service = MagicMock()  # type: ignore[attr-defined]
     mock_deps.get_site_repo = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_plant_repo = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.get_quarter_climate_service = MagicMock()  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.season_tasks as module
@@ -129,3 +131,62 @@ class TestEvaluateSeasonStates:
         result = module.evaluate_season_states()
 
         assert result == {"status": "ok", "evaluated": 1, "transitions": 0, "errors": 1}
+
+
+def _plant(key: str, *, removed: bool = False):
+    from datetime import date
+
+    from app.domain.models.plant_instance import PlantInstance
+
+    return PlantInstance(
+        _key=key,
+        tenant_key="t1",
+        instance_id=key,
+        species_key="sp1",
+        planted_on=date(2024, 1, 1),
+        removed_on=date(2024, 2, 1) if removed else None,
+    )
+
+
+class TestEvaluateQuarterClimate:
+    def test_noop_when_kill_switch_disabled(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "season_state_eval_enabled", False, raising=False)
+
+        result = module.evaluate_quarter_climate()
+
+        assert result == {"status": "skipped", "reason": "season_state_eval_disabled"}
+        deps.get_plant_repo.assert_not_called()
+
+    def test_counts_warnings_and_skips_removed(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
+
+        plant_repo = MagicMock()
+        plant_repo.get_all.return_value = ([_plant("p1"), _plant("p2"), _plant("p3", removed=True)], 3)
+        deps.get_plant_repo.return_value = plant_repo
+
+        service = MagicMock()
+        # p1 raises a warning task, p2 does not.
+        service.evaluate_plant.side_effect = [object(), None]
+        deps.get_quarter_climate_service.return_value = service
+
+        result = module.evaluate_quarter_climate()
+
+        assert result == {"status": "ok", "evaluated": 2, "warnings": 1, "errors": 0}
+
+    def test_one_bad_plant_is_isolated(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
+
+        plant_repo = MagicMock()
+        plant_repo.get_all.return_value = ([_plant("p1"), _plant("p2")], 2)
+        deps.get_plant_repo.return_value = plant_repo
+
+        service = MagicMock()
+        service.evaluate_plant.side_effect = [RuntimeError("boom"), None]
+        deps.get_quarter_climate_service.return_value = service
+
+        result = module.evaluate_quarter_climate()
+
+        assert result == {"status": "ok", "evaluated": 2, "warnings": 0, "errors": 1}

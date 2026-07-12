@@ -40,6 +40,29 @@ DEADHEADING_CARE_STYLES: frozenset[CareStyleType] = frozenset(
 #: Months in which deadheading is generated (northern-hemisphere growing season).
 DEADHEADING_MONTHS: frozenset[int] = frozenset({5, 6, 7, 8, 9})
 
+
+def evaluate_quarter_climate_violation(
+    profile: OverwinteringProfile,
+    current_temp_c: float | None,
+) -> str | None:
+    """REQ-047 §3.7.3 / AC-22 — classify a winter-quarter temperature violation.
+
+    Compares the quarter's live temperature against the profile's
+    ``winter_quarter_temp_min`` / ``winter_quarter_temp_max`` band. Returns
+    ``"too_cold"`` below the minimum (heating failure → the plant freezes),
+    ``"too_warm"`` above the maximum (overheating → premature budding) and ``None``
+    when the reading is inside the band or the data needed for a comparison is
+    missing (no reading, or the profile carries no bound). Pure and deterministic.
+    """
+    if current_temp_c is None:
+        return None
+    if profile.winter_quarter_temp_min is not None and current_temp_c < profile.winter_quarter_temp_min:
+        return "too_cold"
+    if profile.winter_quarter_temp_max is not None and current_temp_c > profile.winter_quarter_temp_max:
+        return "too_warm"
+    return None
+
+
 # ── Dormancy-aware phases ──────────────────────────────────────────────
 
 DORMANCY_PHASES: frozenset[str] = frozenset(
@@ -373,6 +396,7 @@ class CareReminderEngine:
         frost_sensitivity: FrostTolerance | None = None,
         cultivar_traits: list[str] | None = None,
         winter_quarter_has_livedata: bool = False,
+        winter_quarter_temp_violation: bool | None = None,
         season_phase: SeasonPhase | None = None,
         irrigation_demand_capped_mm: float | None = None,
     ) -> bool:
@@ -421,9 +445,17 @@ class CareReminderEngine:
         if reminder_type == ReminderType.DORMANCY_HEALTH_CHECK:
             return profile.dormancy_care_mode
         if reminder_type == ReminderType.QUARTER_CLIMATE_CHECK:
-            # The winter-quarter climate warning needs live data of the quarter
-            # (sensor/HA); without it, it cannot fire (REQ-047 §2.5 / AC-13).
-            return profile.dormancy_care_mode and winter_quarter_has_livedata
+            if not profile.dormancy_care_mode:
+                return False
+            # AC-22 (event-driven, REQ-047 §3.7.3) — once a caller has actually
+            # compared the quarter's live temperature against winter_quarter_temp_
+            # min/max, ``winter_quarter_temp_violation`` decides: fire only on a real
+            # violation (heating failure → too cold; overheating → premature budding).
+            if winter_quarter_temp_violation is not None:
+                return winter_quarter_temp_violation
+            # AC-13 fallback (periodic) — no violation signal computed yet: fire
+            # periodically while the quarter merely *has* live data (sensor/HA).
+            return winter_quarter_has_livedata
 
         # Deadheading (REQ-022 §3.2 / AB-016) — blooming ornamentals only, and
         # never for self-cleaning cultivars.
