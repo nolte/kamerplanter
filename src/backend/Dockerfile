@@ -28,14 +28,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml .
+# Copy the abstract source (pyproject.toml) and the compiled locks up front so
+# the dependency-install layers are cached independently of application code.
+# The locks are the single source of truth for what actually gets installed
+# (NFR-009 §2.3/§6.1); pyproject.toml is only used for the app package itself.
+COPY pyproject.toml requirements.txt requirements-dev.txt ./
 
 # ── Development target: hot-reload + debugpy (skaffold dev syncs app/**/*.py) ──
 # Runs as root by design; values-dev.yaml sets runAsUser:0 for the writable
 # rootfs the hot-reload/__pycache__ needs.
 FROM base AS dev
+# Install the pinned, hash-verified dev lock, then add the app package itself as
+# an editable install with --no-deps (deps already satisfied from the lock).
+# Editable keeps hot-reload working while the install set stays reproducible.
 # hadolint ignore=DL3013
-RUN pip install --no-cache-dir debugpy && pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir debugpy \
+    && pip install --no-cache-dir --require-hashes -r requirements-dev.txt \
+    && pip install --no-cache-dir --no-deps -e .
 COPY . .
 # Own /app as UID 1000 so the non-root dev pod (values-dev runAsUser:1000) can
 # hot-reload (__pycache__) and receive skaffold file-sync writes.
@@ -49,7 +58,13 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 
 # ── Production target (default; last stage, so CI's untargeted build picks it) ──
 FROM base AS prod
-RUN pip install --no-cache-dir .
+# Install the exact pinned, hash-verified dependency set from the lock, then add
+# the app package with --no-deps so nothing is re-resolved from PyPI. This makes
+# the shipped image reproducible: two builds of the same commit install byte-for-
+# byte the same wheels (NFR-009 §2.3/§6.1). Hash pinning verified feasible for
+# all native wheels (weasyprint, psycopg[binary], aquacropeto) on Python 3.14.
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && pip install --no-cache-dir --no-deps .
 COPY . .
 # Run as a non-root numeric user. UID 1000 matches the deployment's
 # fsGroup:1000 so the mounted attachments PVC stays writable.

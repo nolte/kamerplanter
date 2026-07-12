@@ -6,6 +6,17 @@
   mode: 'full',
   separateMajorMinor: true,
   separateMinorPatch: false,
+  // Let the `pip-compile` manager own the backend locks explicitly. It reads the
+  // pip-compile header of each requirements file, updates the constraints in the
+  // referenced source (src/backend/pyproject.toml) and regenerates the lock in the
+  // same PR (NFR-009 §6.1). If the inherited common preset pins `enabledManagers`
+  // to an allowlist, `pip-compile` must also be present there for these rules to fire.
+  'pip-compile': {
+    managerFilePatterns: [
+      '/^src/backend/requirements\\.txt$/',
+      '/^src/backend/requirements-dev\\.txt$/',
+    ],
+  },
   packageRules: [
     {
       matchCategories: [
@@ -34,10 +45,36 @@
         'major',
       ],
     },
+    // ── Python backend dependency management (NFR-009 §6.1) ──────────────────
+    // `src/backend/pyproject.toml` is the abstract single source of truth; the
+    // `requirements*.txt` files are pip-compile locks. Renovate manages both with
+    // the `pip-compile` manager, which bumps the constraint in pyproject.toml AND
+    // recompiles the pinned (hash-locked) requirements files in a SINGLE PR, so the
+    // source constraint and the lock always move together (closing the decorative-
+    // lock drift surface behind PR #563). The default `pip_requirements` and
+    // `pep621` managers are disabled for these backend files so the lock is not
+    // scanned in isolation and the source is not double-managed — this also neutral-
+    // ises any stray `pip_requirements` scan re-enabled by the inherited
+    // `gh-plumbing//renovate-configs/common` preset (that preset is consumed via
+    // `extends` above and could not be inspected offline; the explicit disable rule
+    // below is evaluated last and wins).
+    {
+      matchManagers: [
+        'pip_requirements',
+        'pep621',
+      ],
+      matchFileNames: [
+        'src/backend/**',
+      ],
+      enabled: false,
+    },
     {
       groupName: 'python minor/patch',
       matchManagers: [
-        'pip_requirements',
+        'pip-compile',
+      ],
+      matchFileNames: [
+        'src/backend/**',
       ],
       matchUpdateTypes: [
         'minor',
@@ -53,7 +90,10 @@
     {
       groupName: 'python fastapi-stack',
       matchManagers: [
-        'pip_requirements',
+        'pip-compile',
+      ],
+      matchFileNames: [
+        'src/backend/**',
       ],
       matchPackageNames: [
         'fastapi',
@@ -65,7 +105,10 @@
     {
       groupName: 'python major',
       matchManagers: [
-        'pip_requirements',
+        'pip-compile',
+      ],
+      matchFileNames: [
+        'src/backend/**',
       ],
       matchUpdateTypes: [
         'major',
