@@ -23,6 +23,27 @@ class ArangoPlantDiagnosisRepository(BaseArangoRepository[PlantDiagnosisRequest]
         super().__init__(db, col.PLANT_DIAGNOSIS_REQUESTS)
 
     def create(self, request: PlantDiagnosisRequest) -> PlantDiagnosisRequest:
+        # #517 — the plant instance / planting run / harvest observation are all
+        # caller-supplied foreign references; verify existence + tenant ownership
+        # before persisting the request and its provenance edges (fail-closed
+        # 404, no cross-tenant oracle). Matched disease/pest keys reference global
+        # REQ-010 stammdaten (not tenant-owned) and are left unguarded here.
+        if request.plant_instance_key:
+            self.verify_entity_ownership(
+                col.PLANT_INSTANCES, request.plant_instance_key, request.tenant_key, entity_name="PlantInstance"
+            )
+        if request.planting_run_key:
+            self.verify_entity_ownership(
+                col.PLANTING_RUNS, request.planting_run_key, request.tenant_key, entity_name="PlantingRun"
+            )
+        if request.harvest_observation_key:
+            self.verify_entity_ownership(
+                col.HARVEST_OBSERVATIONS,
+                request.harvest_observation_key,
+                request.tenant_key,
+                entity_name="HarvestObservation",
+            )
+
         created = super().create(request)
         req_id = f"{col.PLANT_DIAGNOSIS_REQUESTS}/{created.key}"
 
