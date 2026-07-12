@@ -225,6 +225,11 @@ Locators in dieser Praezedenz-Reihenfolge verwenden:
 4. `[role='...']` (fuer ARIA-Elemente wie TreeView)
 5. XPath (nur als letztes Mittel, nie positionsbasiert)
 
+> **Bereitstellungsseite:** Diese Hierarchie regelt, *wie Tests auswaehlen*. Dass das
+> Frontend die noetigen `data-testid`-Identifikatoren und Seiten-Marker ueberhaupt
+> **bereitstellt** (inkl. Namensschema und Stabilitaetsvertrag), ist in **UI-NFR-022**
+> normiert.
+
 **VERBOTEN** in Tests (nur in Page Objects erlaubt):
 - `driver.find_element()`
 - `driver.find_elements()`

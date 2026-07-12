@@ -646,7 +646,7 @@ Wiederverwendbare Wrapper um MUI + react-hook-form `Controller`:
 - `zodResolver` verbindet Schema mit react-hook-form
 - `FormActions` zeigt Speichern-Button nur wenn `isDirty`
 - `UnsavedChangesGuard` warnt bei Navigation mit ungespeicherten Aenderungen
-- `data-testid` auf allen interaktiven Elementen
+- `data-testid` auf allen interaktiven Elementen (verbindliches Namensschema und Stabilitaetsvertrag: UI-NFR-022)
 
 ---
 
