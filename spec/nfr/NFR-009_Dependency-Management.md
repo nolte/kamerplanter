@@ -602,7 +602,7 @@ jobs:
 | Artefakt | Befehl | Prüft |
 |---|---|---|
 | Frontend-Bundle | `npm run build` | Vite-Build, Tree-Shaking, TypeScript-Kompilierung |
-| Backend-Package | `pip install .` | Abhängigkeitsauflösung, Import-Prüfung |
+| Backend-Package | `pip install -r requirements.txt && pip install --no-deps .` | Lock-Installierbarkeit, Import-Prüfung |
 | Docker-Images | `docker build .` | Base-Image-Kompatibilität, Multi-Stage-Build |
 | Helm Chart | `helm lint helm/` | Chart-Validität, Values-Schema |
 

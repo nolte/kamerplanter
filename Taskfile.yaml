@@ -89,6 +89,20 @@ tasks:
     cmds:
       - python -m pytest tests/ {{.CLI_ARGS}}
 
+  deps:compile:
+    desc: |
+      Recompile the backend dependency locks (requirements.txt +
+      requirements-dev.txt) from src/backend/pyproject.toml — the single source of
+      truth (NFR-009 §6.1). Run this after editing [project].dependencies or the
+      dev extra, then commit the regenerated locks. Uses the exact same flags AND
+      the exact same pinned pip-tools version (7.5.3) as the CI lock-staleness
+      gate, so a fresh run leaves no diff. Requires that pinned pip-tools on a
+      Python 3.14 interpreter: `pip install 'pip-tools==7.5.3'`.
+    dir: src/backend
+    cmds:
+      - pip-compile --generate-hashes --output-file=requirements.txt --strip-extras pyproject.toml
+      - pip-compile --generate-hashes --extra=dev --output-file=requirements-dev.txt --strip-extras pyproject.toml
+
   # ── Shared libs ─────────────────────────────────────────────
 
   vectordb:sync:
