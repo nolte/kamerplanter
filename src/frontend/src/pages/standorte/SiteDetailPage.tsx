@@ -36,6 +36,7 @@ import SiteClimateSection from './SiteClimateSection';
 import SensorCreateDialog from './SensorCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSite, clearCurrent } from '@/store/slices/sitesSlice';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -61,6 +62,8 @@ export default function SiteDetailPage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // Issue #587: sensor UI is gated behind the smart-home toggle.
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
   const { currentSite: current, loading, error } = useAppSelector((s) => s.sites);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -274,8 +277,9 @@ export default function SiteDetailPage() {
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Box>
 
-      {/* Sensors */}
-      <Box sx={{ mt: 4 }}>
+      {/* Sensors — issue #587: only when smart home is enabled */}
+      {isSmartHomeEnabled && (
+      <Box sx={{ mt: 4 }} data-testid="site-sensors-section">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <SensorsIcon />
@@ -334,8 +338,9 @@ export default function SiteDetailPage() {
           />
         )}
       </Box>
+      )}
 
-      {key && (
+      {isSmartHomeEnabled && key && (
         <SensorCreateDialog
           open={sensorDialogOpen}
           onClose={() => { setSensorDialogOpen(false); setEditSensor(undefined); }}

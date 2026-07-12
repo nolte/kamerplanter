@@ -39,6 +39,7 @@ import SensorCreateDialog from './SensorCreateDialog';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
@@ -81,6 +82,8 @@ export default function LocationDetailPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // Issue #587: sensor UI is gated behind the smart-home toggle.
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
   const [location, setLocation] = useState<Location | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -731,8 +734,9 @@ export default function LocationDetailPage() {
         />
       </Box>
 
-      {/* Sensors */}
-      <Box sx={{ mt: 4 }}>
+      {/* Sensors — issue #587: only when smart home is enabled */}
+      {isSmartHomeEnabled && (
+      <Box sx={{ mt: 4 }} data-testid="location-sensors-section">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <SensorsIcon />
@@ -791,8 +795,9 @@ export default function LocationDetailPage() {
           />
         )}
       </Box>
+      )}
 
-      {key && (
+      {isSmartHomeEnabled && key && (
         <SensorCreateDialog
           open={sensorDialogOpen}
           onClose={() => { setSensorDialogOpen(false); setEditSensor(undefined); }}

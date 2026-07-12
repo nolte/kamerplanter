@@ -18,6 +18,7 @@ import {
   Tooltip,
 } from 'recharts';
 import dayjs from 'dayjs';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import * as observationsApi from '@/api/endpoints/observations';
 import type {
   SensorReadingResponse,
@@ -99,6 +100,8 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 
 export default function SensorHistoryChart({ sensorKey, sensorName, metricType, unit }: SensorHistoryChartProps) {
   const { t } = useTranslation();
+  // Issue #587: sensor telemetry is only shown when smart home is enabled.
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
   const [range, setRange] = useState<TimeRange>('24h');
   const [data, setData] = useState<ChartDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +152,10 @@ export default function SensorHistoryChart({ sensorKey, sensorName, metricType, 
   const yLabel = unit ?? metricType;
 
   const tickFormatter = useMemo(() => (ts: number) => formatTime(ts, range), [range]);
+
+  // Defense-in-depth: never render sensor telemetry while smart home is off,
+  // even if a parent forgot to gate this chart (issue #587).
+  if (!isSmartHomeEnabled) return null;
 
   return (
     <Box sx={{ mb: 3 }}>

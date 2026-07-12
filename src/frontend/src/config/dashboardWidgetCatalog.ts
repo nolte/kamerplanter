@@ -49,6 +49,12 @@ export interface DashboardWidgetDefinition {
   maxSize: WidgetSize;
   /** Gated via REQ-042; null = bound to core (always visible) */
   requiredModule: ModuleKey | null;
+  /**
+   * Issue #587 — widget surfaces sensor/actuator data (monitoring/telemetry) and
+   * is additionally gated behind the per-user `smart_home_enabled` toggle. When
+   * smart home is off the widget is neither rendered nor offered in the picker.
+   */
+  requiresSmartHome?: boolean;
   /** true → offers a per-widget config dialog */
   hasConfig: boolean;
   /**
@@ -74,6 +80,7 @@ function def(
   requiredModule: ModuleKey | null,
   hasConfig = false,
   navigateTo?: string,
+  requiresSmartHome = false,
 ): DashboardWidgetDefinition {
   return {
     key,
@@ -85,6 +92,7 @@ function def(
     minSize,
     maxSize,
     requiredModule,
+    requiresSmartHome,
     hasConfig,
     navigateTo,
   };
@@ -119,7 +127,8 @@ export const dashboardWidgetCatalog: Record<WidgetKey, DashboardWidgetDefinition
   plant_grid: def('plant_grid', 'cultivation', 'expert', s(8, 5), s(4, 3), s(12, 10), 'plants', false, '/pflanzen/plant-instances'),
 
   // ── Monitoring ──
-  tank_status: def('tank_status', 'monitoring', 'expert', s(4, 4), s(2, 3), s(8, 8), 'tanks', false, '/standorte/tanks'),
+  // Issue #587: monitoring widgets surface sensor telemetry → smart-home-gated.
+  tank_status: def('tank_status', 'monitoring', 'expert', s(4, 4), s(2, 3), s(8, 8), 'tanks', false, '/standorte/tanks', true),
 };
 
 /** Ordered list of categories for grouping in the settings tab. */

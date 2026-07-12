@@ -53,7 +53,7 @@ export default function ModulesSettingsTab() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { enqueueSnackbar } = useSnackbar();
-  const { isModuleVisible, overrides } = useModuleVisibility();
+  const { isModuleVisible, overrides, isSmartHomeEnabled } = useModuleVisibility();
   const coreSectionId = useId();
 
   const [search, setSearch] = useState('');
@@ -210,9 +210,14 @@ export default function ModulesSettingsTab() {
                   const override = overrides[def.key] as ModuleVisibilityState | undefined;
                   const visible = isModuleVisible(def.key);
                   const hasOverride = override !== undefined;
+                  // Issue #587: a smart-home-gated module cannot be toggled here
+                  // while smart home is off — it is controlled by the smart-home
+                  // switch (Integrationen). Show it locked with a pointer there.
+                  const smartHomeLocked = !!def.requiresSmartHome && !isSmartHomeEnabled;
 
                   let stateLabel: string;
-                  if (override === 'enabled') stateLabel = t('modules.manage.manualOn');
+                  if (smartHomeLocked) stateLabel = t('modules.manage.smartHomeLocked');
+                  else if (override === 'enabled') stateLabel = t('modules.manage.manualOn');
                   else if (override === 'disabled') stateLabel = t('modules.manage.manualOff');
                   else if (visible) stateLabel = t('modules.manage.followsLevelVisible');
                   else stateLabel = t('modules.manage.followsLevelHidden');
@@ -267,11 +272,21 @@ export default function ModulesSettingsTab() {
                           <Typography
                             variant="body2"
                             color="text.secondary"
-                            sx={{ mb: hasOverride ? 0.75 : 0 }}
+                            sx={{ mb: hasOverride || smartHomeLocked ? 0.75 : 0 }}
                           >
                             {t(def.descriptionKey)}
                           </Typography>
-                          {hasOverride && (
+                          {smartHomeLocked && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ display: 'block' }}
+                              data-testid={`module-smarthome-hint-${def.key}`}
+                            >
+                              {t('modules.manage.smartHomeLockedHint')}
+                            </Typography>
+                          )}
+                          {hasOverride && !smartHomeLocked && (
                             <Button
                               size="small"
                               variant="text"
@@ -303,6 +318,7 @@ export default function ModulesSettingsTab() {
                         >
                           <Switch
                             checked={visible}
+                            disabled={smartHomeLocked}
                             onChange={(e) => handleToggle(def.key, e.target.checked)}
                             slotProps={{ input: { 'aria-label': switchAriaLabel } }}
                             data-testid={`module-switch-${def.key}`}
