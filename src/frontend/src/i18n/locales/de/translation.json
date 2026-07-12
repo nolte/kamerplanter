@@ -516,6 +516,13 @@
       "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
     }
   },
+  "components": {
+    "plantInstancePicker": {
+      "searchHelper": "Suche nach Pflanzenname oder Kennung",
+      "noResults": "Keine Pflanze gefunden",
+      "loading": "Pflanzen werden geladen…"
+    }
+  },
   "pages": {
     "propagation": {
       "title": "Vermehrungsmanagement",
@@ -541,32 +548,38 @@
         "speciesKeyHelper": "Optional: Für welche Art läuft die Erfolgsstatistik mit?",
         "speciesLoading": "Arten werden geladen…",
         "sectionPlants": "Beteiligte Pflanzen",
-        "sectionPlantsIntro": "Trage die Pflanzen-Schlüssel ein — du findest sie auf der jeweiligen Pflanzen-Detailseite. Schlüssel eingeben und Enter drücken, um ihn hinzuzufügen.",
-        "parentKeys": "Quell-Pflanzen (Schlüssel)",
-        "parentKeysGraft": "Unterlage(n) (Schlüssel)",
-        "childKeys": "Ergebnis-Pflanzen (Schlüssel)",
-        "childKeysGraft": "Edelreis (Schlüssel)",
-        "keysHelper": "Pflanzen-Schlüssel eingeben, dann Enter drücken.",
+        "sectionPlantsIntro": "Wähle die beteiligten Pflanzen über die Namenssuche aus — du kannst mehrere auswählen.",
+        "parentKeys": "Quell-Pflanzen",
+        "parentKeysGraft": "Unterlage(n)",
+        "childKeys": "Ergebnis-Pflanzen",
+        "childKeysGraft": "Edelreis",
+        "parentPlantsHelper": "Wähle eine oder mehrere Pflanzen über die Namenssuche.",
+        "childPlantsHelper": "Wähle die aus der Vermehrung entstandenen Pflanzen über die Namenssuche.",
+        "plantsLoading": "Pflanzen werden geladen…",
         "notes": "Notizen"
       },
       "lineage": {
         "title": "Abstammung erkunden",
         "intro": "Verfolge, aus welcher Mutterpflanze eine Pflanze entstanden ist und welche Pflanzen wiederum aus ihr hervorgegangen sind.",
-        "plantKey": "Pflanzen-Schlüssel",
-        "plantKeyHelper": "Den Schlüssel findest du auf der Detailseite der Pflanze.",
+        "plantKey": "Pflanze",
+        "plantKeyHelper": "Wähle eine Pflanze über die Namenssuche.",
         "trace": "Abstammung anzeigen",
-        "hint": "Gib einen Pflanzen-Schlüssel ein und klicke auf „Abstammung anzeigen“, um Vorfahren und Nachkommen zu sehen.",
+        "hint": "Wähle eine Pflanze aus und klicke auf „Abstammung anzeigen“, um Vorfahren und Nachkommen zu sehen.",
         "ancestors": "Vorfahren",
         "descendants": "Nachkommen",
         "noAncestors": "Keine Vorfahren gefunden — diese Pflanze ist ein Ursprung.",
-        "noDescendants": "Keine Nachkommen gefunden."
+        "noDescendants": "Keine Nachkommen gefunden.",
+        "unknownPlant": "Unbenannte Pflanze",
+        "unknownSpecies": "Unbekannte Art"
       },
       "graft": {
         "title": "Veredelungs-Kompatibilität",
         "intro": "Prüft anhand der Taxonomie (Gattung/Familie), ob Edelreis und Unterlage kompatibel sind.",
-        "scionKey": "Edelreis-Pflanze (Schlüssel)",
-        "rootstockKey": "Unterlagen-Pflanze (Schlüssel)",
-        "hint": "Gib die Schlüssel von Edelreis (Trieb) und Unterlage (Wurzelbasis) ein, um die Kompatibilität zu prüfen.",
+        "scionKey": "Edelreis-Pflanze",
+        "scionKeyHelper": "Wähle die Edelreis-Pflanze (Trieb) über die Namenssuche.",
+        "rootstockKey": "Unterlagen-Pflanze",
+        "rootstockKeyHelper": "Wähle die Unterlagen-Pflanze (Wurzelbasis) über die Namenssuche.",
+        "hint": "Wähle Edelreis (Trieb) und Unterlage (Wurzelbasis) aus, um die Kompatibilität zu prüfen.",
         "check": "Kompatibilität prüfen",
         "speciesLine": "Edelreis-Art: {{scion}} · Unterlagen-Art: {{rootstock}}",
         "sameGenus": "Gleiche Gattung",

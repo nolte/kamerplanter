@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -6,7 +6,6 @@ import Grid from '@mui/material/Grid';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
@@ -19,13 +18,17 @@ import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import PlantInstancePicker from '@/components/form/PlantInstancePicker';
 import { useApiError } from '@/hooks/useApiError';
+import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
 import * as api from '@/api/endpoints/propagation';
+import * as speciesApi from '@/api/endpoints/species';
 import type {
   DescendantsResponse,
   GraftCompatibilityLevel,
   GraftCompatibilityResponse,
   LineageResponse,
+  Species,
 } from '@/api/types';
 
 const levelColor: Record<GraftCompatibilityLevel, ChipProps['color']> = {
@@ -47,6 +50,41 @@ const alertSeverity: Record<GraftCompatibilityLevel, 'success' | 'warning' | 'er
 export default function LineagePanel(): ReactElement {
   const { t } = useTranslation();
   const { handleError } = useApiError();
+  const { instances, loading: instancesLoading } = usePlantInstanceOptions();
+
+  // Species reference data resolves raw `*_species_key` values (e.g. in the
+  // graft result) to human-readable names so no raw key ever reaches the user.
+  const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await speciesApi.listSpecies(0, 200);
+        if (!cancelled) setSpeciesList(r.items);
+      } catch {
+        if (!cancelled) setSpeciesList([]);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const speciesNameByKey = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const s of speciesList) {
+      const common = s.common_names?.[0];
+      map.set(s.key, common ? `${common} (${s.scientific_name})` : s.scientific_name);
+    }
+    return map;
+  }, [speciesList]);
+
+  const resolveSpeciesName = useCallback(
+    (key: string | null | undefined): string =>
+      (key && speciesNameByKey.get(key)) || t('pages.propagation.lineage.unknownSpecies'),
+    [speciesNameByKey, t],
+  );
 
   const [plantKey, setPlantKey] = useState('');
   const [lineage, setLineage] = useState<LineageResponse | null>(null);
@@ -111,20 +149,14 @@ export default function LineagePanel(): ReactElement {
               spacing={1}
               sx={{ mb: 0.5, alignItems: { xs: 'stretch', sm: 'flex-start' } }}
             >
-              <TextField
-                fullWidth
-                size="small"
+              <PlantInstancePicker
                 label={t('pages.propagation.lineage.plantKey')}
                 helperText={t('pages.propagation.lineage.plantKeyHelper')}
+                instances={instances}
+                loading={instancesLoading}
                 value={plantKey}
-                onChange={(e) => setPlantKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && plantKey.trim() && !lineageLoading) {
-                    e.preventDefault();
-                    void handleTrace();
-                  }
-                }}
-                slotProps={{ htmlInput: { 'data-testid': 'lineage-plant-key' } }}
+                onChange={setPlantKey}
+                testId="lineage-plant-key"
               />
               <Button
                 variant="contained"
@@ -159,7 +191,11 @@ export default function LineagePanel(): ReactElement {
                       <Chip
                         key={a.key}
                         size="small"
-                        label={a.plant_name || a.instance_id || a.key}
+                        label={
+                          a.plant_name ||
+                          a.instance_id ||
+                          t('pages.propagation.lineage.unknownPlant')
+                        }
                       />
                     ))}
                   </Stack>
@@ -179,7 +215,11 @@ export default function LineagePanel(): ReactElement {
                         key={d.key}
                         size="small"
                         variant="outlined"
-                        label={d.plant_name || d.instance_id || d.key}
+                        label={
+                          d.plant_name ||
+                          d.instance_id ||
+                          t('pages.propagation.lineage.unknownPlant')
+                        }
                       />
                     ))}
                   </Stack>
@@ -205,33 +245,23 @@ export default function LineagePanel(): ReactElement {
               {t('pages.propagation.graft.intro')}
             </Typography>
             <Stack spacing={1.5} sx={{ mb: 0.5 }}>
-              <TextField
-                fullWidth
-                size="small"
+              <PlantInstancePicker
                 label={t('pages.propagation.graft.scionKey')}
+                helperText={t('pages.propagation.graft.scionKeyHelper')}
+                instances={instances}
+                loading={instancesLoading}
                 value={scionKey}
-                onChange={(e) => setScionKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && scionKey.trim() && rootstockKey.trim() && !graftLoading) {
-                    e.preventDefault();
-                    void handleGraftCheck();
-                  }
-                }}
-                slotProps={{ htmlInput: { 'data-testid': 'graft-scion-key' } }}
+                onChange={setScionKey}
+                testId="graft-scion-key"
               />
-              <TextField
-                fullWidth
-                size="small"
+              <PlantInstancePicker
                 label={t('pages.propagation.graft.rootstockKey')}
+                helperText={t('pages.propagation.graft.rootstockKeyHelper')}
+                instances={instances}
+                loading={instancesLoading}
                 value={rootstockKey}
-                onChange={(e) => setRootstockKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && scionKey.trim() && rootstockKey.trim() && !graftLoading) {
-                    e.preventDefault();
-                    void handleGraftCheck();
-                  }
-                }}
-                slotProps={{ htmlInput: { 'data-testid': 'graft-rootstock-key' } }}
+                onChange={setRootstockKey}
+                testId="graft-rootstock-key"
               />
               <Button
                 variant="contained"
@@ -263,8 +293,8 @@ export default function LineagePanel(): ReactElement {
                 </Alert>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                   {t('pages.propagation.graft.speciesLine', {
-                    scion: graft.scion_species_key,
-                    rootstock: graft.rootstock_species_key,
+                    scion: resolveSpeciesName(graft.scion_species_key),
+                    rootstock: resolveSpeciesName(graft.rootstock_species_key),
                   })}
                 </Typography>
                 <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>

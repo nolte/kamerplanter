@@ -16,11 +16,15 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import MobileCard from '@/components/common/MobileCard';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { usePropagationEvents } from '@/hooks/usePropagationEvents';
 import type { PropagationEvent, PropagationEventStatus } from '@/api/types';
 import { formatDate } from '@/utils/formatting';
 import PropagationEventDialog from './PropagationEventDialog';
 import LineagePanel from './LineagePanel';
+
+/** URL hash anchors for the two tabs — index 0 (#'') = events, #lineage = lineage. */
+const PROPAGATION_TABS = ['events', 'lineage'] as const;
 
 const statusColor: Record<PropagationEventStatus, ChipProps['color']> = {
   in_progress: 'info',
@@ -35,7 +39,7 @@ export default function PropagationPage(): ReactElement {
   const notification = useNotification();
   const { events, loading, reload } = usePropagationEvents();
 
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useTabUrl(PROPAGATION_TABS);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const handleCreated = useCallback(() => {
