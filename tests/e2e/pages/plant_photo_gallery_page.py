@@ -120,6 +120,9 @@ class PlantPhotoGalleryPage(BasePage):
         self.wait_for_element_clickable(self.PHOTOS_TAB).click()
         self.wait_for_element_visible(self.GALLERY)
 
+    def get_photos_tab_label(self) -> str:
+        return self.driver.find_element(*self.PHOTOS_TAB).text.strip()
+
     # ── Gallery state ───────────────────────────────────────────────────
 
     def get_photo_count(self) -> int:
@@ -132,6 +135,12 @@ class PlantPhotoGalleryPage(BasePage):
     def has_add_button(self) -> bool:
         els = self.driver.find_elements(*self.ADD_BUTTON)
         return bool(els) and els[0].is_displayed()
+
+    def has_empty_state_action(self) -> bool:
+        return len(self.driver.find_elements(*self.EMPTY_STATE_ACTION)) > 0
+
+    def has_cover_previews(self) -> bool:
+        return len(self.driver.find_elements(*self.COVER_PREVIEW)) > 0
 
     def has_any_write_action(self) -> bool:
         """True if any write affordance (add / set-cover / delete) is present."""
@@ -229,6 +238,9 @@ class PlantPhotoGalleryPage(BasePage):
     def is_upload_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.UPLOAD_DIALOG)) > 0
 
+    def has_upload_preview(self) -> bool:
+        return len(self.driver.find_elements(*self.UPLOAD_PREVIEW)) > 0
+
     def cancel_upload(self) -> None:
         self.wait_for_element_clickable(self.UPLOAD_CANCEL).click()
         self.wait_for_element_hidden(self.UPLOAD_DIALOG)
@@ -253,6 +265,9 @@ class PlantPhotoGalleryPage(BasePage):
         self.wait_for_element_hidden(self.LIGHTBOX)
 
     # ── Cover photo ─────────────────────────────────────────────────────
+
+    def has_set_cover_buttons(self) -> bool:
+        return len(self.driver.find_elements(*self.SET_COVER_BUTTONS)) > 0
 
     def set_cover_for_index(self, index: int = 0) -> None:
         """Click the 'set cover' icon on the photo at *index*."""
@@ -284,6 +299,9 @@ class PlantPhotoGalleryPage(BasePage):
         buttons = self.driver.find_elements(*self.DELETE_BUTTONS)
         self.scroll_and_click(buttons[index])
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
+
+    def is_confirm_dialog_open(self) -> bool:
+        return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
     def confirm_delete(self) -> None:
         self.wait_for_element_clickable(self.CONFIRM_DELETE).click()
