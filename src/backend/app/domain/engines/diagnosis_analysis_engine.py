@@ -23,10 +23,13 @@ from __future__ import annotations
 import json
 import re
 
+import structlog
 from pydantic import ValidationError
 
 from app.domain.interfaces.knowledge_service import AskResult, IKnowledgeService, QuestionContext
 from app.domain.models.diagnosis import LlmDiagnosis, SymptomCatalogEntry
+
+logger = structlog.get_logger(__name__)
 
 #: How many candidate diagnoses the client surfaces (top-3, §8 DoD).
 MAX_CANDIDATES = 3
@@ -181,8 +184,10 @@ class DiagnosisAnalysisEngine:
         )
         try:
             return (_parse_candidates(result.answer), result)
-        except ValueError, ValidationError, json.JSONDecodeError:
-            pass
+        except (ValueError, ValidationError, json.JSONDecodeError) as exc:
+            # First-attempt parse/validation failure → fall through to the
+            # stricter retry below (§4.3 two-attempt strategy).
+            logger.debug("diagnosis.first_attempt_parse_failed", error=str(exc))
 
         # Second, stricter attempt (§4.3 two-attempt strategy).
         strict_question = self.build_question(
