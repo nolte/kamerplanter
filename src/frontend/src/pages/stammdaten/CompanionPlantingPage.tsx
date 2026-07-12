@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -10,6 +11,7 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
+import Link from '@mui/material/Link';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
@@ -37,7 +39,21 @@ import type {
   IncompatibleSpecies,
   CompanionCountsMap,
 } from '@/api/types';
+import { getPrimaryCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+
+/**
+ * Combined dropdown label "common name · scientific name" (e.g. "Lauch · Allium
+ * porrum"). Leading with the layperson-facing common name (REQ-567/A) while
+ * keeping the scientific name in the same string so MUI's built-in Autocomplete
+ * filter still matches when the user types either one.
+ */
+function speciesOptionLabel(species: Species): string {
+  const common = getPrimaryCommonName(species.common_names, species.scientific_name);
+  const scientific = species.scientific_name;
+  if (common && scientific && common !== scientific) return `${common} · ${scientific}`;
+  return common ?? scientific ?? '';
+}
 
 export default function CompanionPlantingPage() {
   const theme = useTheme();
@@ -121,13 +137,19 @@ export default function CompanionPlantingPage() {
         options={speciesList}
         value={selectedSpecies}
         onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
-        getOptionLabel={(option) => option.scientific_name}
+        getOptionLabel={speciesOptionLabel}
         isOptionEqualToValue={(option, value) => option.key === value.key}
         noOptionsText={t('pages.companionPlanting.noSpeciesFound')}
         sx={{ maxWidth: 480, mb: 1 }}
         renderOption={({ key: optionKey, ...optionProps }, option) => {
           const counts = companionCounts[option.key] ?? { compatible: 0, incompatible: 0 };
           const hasRelations = counts.compatible > 0 || counts.incompatible > 0;
+          // Layperson-first hierarchy (REQ-567/A + C): the common name leads, the
+          // scientific name follows as secondary context — only rendered when it
+          // actually differs from the shown common name (species without a curated
+          // common name fall back to the scientific name as the primary line).
+          const commonName = getPrimaryCommonName(option.common_names, option.scientific_name);
+          const showScientific = !!option.scientific_name && option.scientific_name !== commonName;
           return (
             <Box
               component="li"
@@ -148,14 +170,26 @@ export default function CompanionPlantingPage() {
                   they must not visually read as disabled (UI-NFR-002). The count chips
                   stay at full opacity: an explicit "0" is useful information on its own
                   and must stay legible. */}
-              <Typography
-                variant="body2"
-                noWrap
-                color={hasRelations ? 'text.primary' : 'text.secondary'}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                {option.scientific_name}
-              </Typography>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                  variant="body2"
+                  noWrap
+                  color={hasRelations ? 'text.primary' : 'text.secondary'}
+                >
+                  {commonName ?? option.scientific_name}
+                </Typography>
+                {showScientific && (
+                  <Typography
+                    variant="caption"
+                    noWrap
+                    component="span"
+                    color="text.secondary"
+                    sx={{ display: 'block', fontStyle: 'italic' }}
+                  >
+                    {option.scientific_name}
+                  </Typography>
+                )}
+              </Box>
               {/* Visual badge cluster: icon + number (not colour alone). Hidden
                   from the a11y tree — the readable summary below carries the
                   same information as text for screen readers. */}
@@ -214,6 +248,13 @@ export default function CompanionPlantingPage() {
         </Box>
       </Box>
 
+      {/* Naming/navigation affordance hint (REQ-567/C): tells non-expert users
+          that the common name leads, the scientific name is secondary, and that
+          each entry is a link to the species detail page. */}
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3 }}>
+        {t('pages.companionPlanting.namingHint')}
+      </Typography>
+
       {loading && <LoadingSkeleton variant="card" />}
 
       {!selectedKey && !loading && (
@@ -258,18 +299,42 @@ export default function CompanionPlantingPage() {
                 />
               ) : (
                 <List dense disablePadding>
-                  {compatible.map((c) => (
-                    <ListItem key={c.species_key} divider>
-                      <ListItemText
-                        primary={c.scientific_name ?? c.species_key} slotProps={{ primary: { variant: 'body2' } }} />
-                      <Chip
-                        label={`${t('pages.companionPlanting.score')}: ${c.score}`}
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    </ListItem>
-                  ))}
+                  {compatible.map((c) => {
+                    const commonName =
+                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                    const showScientific =
+                      !!c.scientific_name && c.scientific_name !== commonName;
+                    return (
+                      <ListItem key={c.species_key} divider>
+                        <ListItemText
+                          primary={
+                            <Link
+                              component={RouterLink}
+                              to={`/stammdaten/species/${c.species_key}`}
+                              variant="body2"
+                              underline="hover"
+                              aria-label={t('pages.companionPlanting.viewSpeciesDetails', {
+                                name: commonName,
+                              })}
+                              data-testid={`compatible-species-link-${c.species_key}`}
+                            >
+                              {commonName}
+                            </Link>
+                          }
+                          secondary={showScientific ? c.scientific_name : undefined}
+                          slotProps={{
+                            secondary: { variant: 'caption', sx: { fontStyle: 'italic' } },
+                          }}
+                        />
+                        <Chip
+                          label={`${t('pages.companionPlanting.score')}: ${c.score}`}
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               )}
             </CardContent>
@@ -308,13 +373,59 @@ export default function CompanionPlantingPage() {
                 />
               ) : (
                 <List dense disablePadding>
-                  {incompatible.map((c) => (
-                    <ListItem key={c.species_key} divider>
-                      <ListItemText
-                        primary={c.scientific_name ?? c.species_key}
-                        secondary={c.reason || undefined} slotProps={{ primary: { variant: 'body2' }, secondary: { variant: 'caption' } }} />
-                    </ListItem>
-                  ))}
+                  {incompatible.map((c) => {
+                    const commonName =
+                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                    const showScientific =
+                      !!c.scientific_name && c.scientific_name !== commonName;
+                    return (
+                      <ListItem key={c.species_key} divider>
+                        <ListItemText
+                          primary={
+                            <Link
+                              component={RouterLink}
+                              to={`/stammdaten/species/${c.species_key}`}
+                              variant="body2"
+                              underline="hover"
+                              aria-label={t('pages.companionPlanting.viewSpeciesDetails', {
+                                name: commonName,
+                              })}
+                              data-testid={`incompatible-species-link-${c.species_key}`}
+                            >
+                              {commonName}
+                            </Link>
+                          }
+                          secondary={
+                            showScientific || c.reason ? (
+                              <>
+                                {showScientific && (
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block', fontStyle: 'italic' }}
+                                  >
+                                    {c.scientific_name}
+                                  </Typography>
+                                )}
+                                {c.reason && (
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block' }}
+                                  >
+                                    {c.reason}
+                                  </Typography>
+                                )}
+                              </>
+                            ) : undefined
+                          }
+                          slotProps={{ secondary: { component: 'div' } }}
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               )}
             </CardContent>
@@ -345,7 +456,7 @@ export default function CompanionPlantingPage() {
             data-testid="target-species-select"
           >
             {speciesList.filter((s) => s.key !== selectedKey).map((s) => (
-              <MenuItem key={s.key} value={s.key}>{s.scientific_name}</MenuItem>
+              <MenuItem key={s.key} value={s.key}>{speciesOptionLabel(s)}</MenuItem>
             ))}
           </TextField>
           {dialogType === 'compatible' && (

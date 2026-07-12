@@ -152,6 +152,56 @@ describe('CompanionPlantingPage species dropdown counts', () => {
     });
   });
 
+  it('leads each dropdown option with the common name and keeps the scientific name secondary (#567)', async () => {
+    renderWithProviders(<CompanionPlantingPage />);
+    await openDropdown();
+
+    const option = await screen.findByTestId('species-option-sp-tomato');
+    // Common name (from common_names[0]) leads, scientific name stays as context.
+    expect(option).toHaveTextContent('Tomato');
+    expect(option).toHaveTextContent('Solanum lycopersicum');
+  });
+
+  it('renders each compatible species as a detail-page link, common name first (#567)', async () => {
+    const state = mockRelationEndpoints();
+    state.compatible = [
+      {
+        species_key: 'sp-leek',
+        scientific_name: 'Allium porrum',
+        common_names: ['Lauch', 'Leek'],
+        score: 0.9,
+      },
+    ];
+    renderWithProviders(<CompanionPlantingPage />);
+    await selectSpecies(/Solanum lycopersicum/);
+
+    const link = await screen.findByTestId('compatible-species-link-sp-leek');
+    expect(link).toHaveTextContent('Lauch');
+    expect(link).toHaveAttribute('href', '/stammdaten/species/sp-leek');
+    // Scientific name still visible as secondary information.
+    expect(screen.getByText('Allium porrum')).toBeInTheDocument();
+  });
+
+  it('renders each incompatible species as a detail-page link, common name first (#567)', async () => {
+    const state = mockRelationEndpoints();
+    state.incompatible = [
+      {
+        species_key: 'sp-fennel',
+        scientific_name: 'Foeniculum vulgare',
+        common_names: ['Fenchel'],
+        reason: 'allelopathy',
+      },
+    ];
+    renderWithProviders(<CompanionPlantingPage />);
+    await selectSpecies(/Solanum lycopersicum/);
+
+    const link = await screen.findByTestId('incompatible-species-link-sp-fennel');
+    expect(link).toHaveTextContent('Fenchel');
+    expect(link).toHaveAttribute('href', '/stammdaten/species/sp-fennel');
+    expect(screen.getByText('Foeniculum vulgare')).toBeInTheDocument();
+    expect(screen.getByText('allelopathy')).toBeInTheDocument();
+  });
+
   it('closes the dialog on cancel without posting', async () => {
     const state = mockRelationEndpoints();
     renderWithProviders(<CompanionPlantingPage />);

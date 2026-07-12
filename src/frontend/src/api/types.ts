@@ -981,12 +981,16 @@ export interface NutrientProfileCreate {
 export interface CompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
+  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  common_names: string[];
   score: number;
 }
 
 export interface IncompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
+  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  common_names: string[];
   reason: string;
 }
 
@@ -1015,6 +1019,11 @@ export interface IncompatibilitySet {
 export interface RotationSuccessor {
   family_key: string;
   name: string | null;
+  /** German family common name (e.g. "Nachtschattengewächse"); UI leads with it. */
+  common_name_de: string;
+  common_name_en: string;
+  /** Raw rotation-category code (e.g. "legume"); UI maps it to a translated label. */
+  rotation_category: string;
   wait_years: number;
   benefit_score: number;
   benefit_reason: string;

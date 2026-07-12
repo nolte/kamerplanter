@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends
 
 from app.api.v1.companion_planting.schemas import (
     CompatibilitySet,
+    CompatibleSpeciesResponse,
     IncompatibilitySet,
+    IncompatibleSpeciesResponse,
     SpeciesCompanionCounts,
 )
 from app.common.auth import get_current_user, require_platform_admin
@@ -20,12 +22,12 @@ def get_counts(service: SpeciesService = Depends(get_species_service)) -> dict[s
     return service.get_companion_counts()
 
 
-@router.get("/species/{species_key}/compatible")
+@router.get("/species/{species_key}/compatible", response_model=list[CompatibleSpeciesResponse])
 def get_compatible(species_key: str, service: SpeciesService = Depends(get_species_service)):
     return service.get_compatible_species(species_key)
 
 
-@router.get("/species/{species_key}/incompatible")
+@router.get("/species/{species_key}/incompatible", response_model=list[IncompatibleSpeciesResponse])
 def get_incompatible(species_key: str, service: SpeciesService = Depends(get_species_service)):
     return service.get_incompatible_species(species_key)
 
