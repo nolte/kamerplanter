@@ -162,6 +162,45 @@ describe('CropRotationPage family dropdown counts + filters', () => {
     expect(names).toEqual(['family-option-fam-fabaceae']);
   });
 
+  it('favorites the highlighted family via the Shift+F keyboard shortcut, without Tab', async () => {
+    // Regression guard for the nested-in-listbox a11y trap: MUI's combobox popup
+    // keeps real DOM focus on the input the whole time (aria-activedescendant
+    // model), so the per-option star button is never Tab-reachable. Shift+F is
+    // the keyboard-only path to the same toggle, driven by arrow-key highlight.
+    renderWithProviders(<CropRotationPage />);
+    await openDropdown();
+    await screen.findByTestId('family-option-fam-solanaceae');
+
+    await userEvent.keyboard('{ArrowDown}');
+    await userEvent.keyboard('{Shift>}F{/Shift}');
+
+    // Must not select the highlighted option — combobox stays empty.
+    expect(familyCombobox()).toHaveValue('');
+
+    // Reopen through the favorites filter to confirm exactly one family was
+    // favorited (whichever the sort order put first), without guessing which.
+    await userEvent.click(screen.getByTestId('filter-favorites'));
+    await openDropdown();
+    const names = await optionNames();
+    expect(names).toHaveLength(1);
+  });
+
+  it('favorites nothing when Shift+F is pressed before any option is highlighted', async () => {
+    // Without a highlighted option there is nothing to favorite, so the guard
+    // clause is a no-op and deliberately does NOT swallow the keystroke — "F"
+    // must still reach the input so normal search typing (e.g. "Fabaceae")
+    // keeps working.
+    renderWithProviders(<CropRotationPage />);
+    await openDropdown();
+    await screen.findByTestId('family-option-fam-solanaceae');
+
+    await userEvent.keyboard('{Shift>}F{/Shift}');
+
+    await userEvent.click(screen.getByTestId('filter-favorites'));
+    await openDropdown();
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+  });
+
   it('loads successors after selecting a family', async () => {
     server.use(
       http.get('/api/v1/crop-rotation/families/fam-solanaceae/successors', () =>

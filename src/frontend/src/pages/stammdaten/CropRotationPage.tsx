@@ -48,6 +48,13 @@ export default function CropRotationPage() {
   const [families, setFamilies] = useState<BotanicalFamily[]>([]);
   const [rotationCounts, setRotationCounts] = useState<RotationCountsMap>({});
   const [selectedKey, setSelectedKey] = useState('');
+  // Tracks the option the user is currently browsing with the arrow keys (or
+  // hovering with the mouse) so the Shift+F keyboard shortcut below knows which
+  // family to favorite. MUI's combobox popup keeps real DOM focus on the input
+  // the whole time (aria-activedescendant model) — the nested per-option star
+  // button is therefore never reachable via Tab, so favoriting needs its own
+  // keyboard path independent of focus (UI-NFR-002 keyboard-operability).
+  const [highlightedFamilyKey, setHighlightedFamilyKey] = useState<string | null>(null);
   const [successors, setSuccessors] = useState<RotationSuccessor[]>([]);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -85,6 +92,22 @@ export default function CropRotationPage() {
   const successorCountOf = useCallback(
     (familyKey: string): number => rotationCounts[familyKey] ?? 0,
     [rotationCounts],
+  );
+
+  // Shift+F toggles the favorite of the currently highlighted option — the
+  // keyboard-accessible counterpart to the mouse/touch-only star button inside
+  // each option (see highlightedFamilyKey above). A modifier combo is required
+  // so normal search typing (e.g. "Fabaceae") is never intercepted; captured in
+  // the capture phase on the wrapping Box so it never competes with MUI's own
+  // Enter/Arrow handling on the input.
+  const handleFavoriteShortcut = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!e.shiftKey || e.key.toLowerCase() !== 'f' || !highlightedFamilyKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavorite(highlightedFamilyKey);
+    },
+    [highlightedFamilyKey, toggleFavorite],
   );
 
   // Filtered + sorted options — memoised so the Autocomplete keeps a stable
@@ -181,7 +204,7 @@ export default function CropRotationPage() {
           color={favoritesOnly ? 'warning' : 'default'}
           variant={favoritesOnly ? 'filled' : 'outlined'}
           aria-pressed={favoritesOnly}
-          sx={{ minHeight: 40 }}
+          sx={{ minHeight: 48 }}
           data-testid="filter-favorites"
         />
         <Chip
@@ -191,7 +214,7 @@ export default function CropRotationPage() {
           color={hasRotationOnly ? 'primary' : 'default'}
           variant={hasRotationOnly ? 'filled' : 'outlined'}
           aria-pressed={hasRotationOnly}
-          sx={{ minHeight: 40 }}
+          sx={{ minHeight: 48 }}
           data-testid="filter-has-rotation"
         />
         <Chip
@@ -200,7 +223,7 @@ export default function CropRotationPage() {
           color={nitrogenFixingOnly ? 'success' : 'default'}
           variant={nitrogenFixingOnly ? 'filled' : 'outlined'}
           aria-pressed={nitrogenFixingOnly}
-          sx={{ minHeight: 40 }}
+          sx={{ minHeight: 48 }}
           data-testid="filter-nitrogen-fixing"
         />
         <Chip
@@ -209,7 +232,7 @@ export default function CropRotationPage() {
           color={frostHardyOnly ? 'info' : 'default'}
           variant={frostHardyOnly ? 'filled' : 'outlined'}
           aria-pressed={frostHardyOnly}
-          sx={{ minHeight: 40 }}
+          sx={{ minHeight: 48 }}
           data-testid="filter-frost-hardy"
         />
         <TextField
@@ -218,7 +241,7 @@ export default function CropRotationPage() {
           label={t('pages.cropRotation.filterNutrientDemand')}
           value={nutrientDemand}
           onChange={(e) => setNutrientDemand(e.target.value as NutrientDemandFilter)}
-          sx={{ minWidth: 180 }}
+          sx={{ minWidth: 180, '& .MuiInputBase-root': { minHeight: 48 } }}
           data-testid="filter-nutrient-demand"
         >
           <MenuItem value="">{t('pages.cropRotation.filterAll')}</MenuItem>
@@ -233,99 +256,127 @@ export default function CropRotationPage() {
         )}
       </Box>
 
-      <Autocomplete
-        options={filteredFamilies}
-        value={selectedFamily}
-        onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
-        getOptionLabel={(option) => option.name}
-        isOptionEqualToValue={(option, value) => option.key === value.key}
-        noOptionsText={t('pages.cropRotation.noFamiliesFound')}
-        sx={{ maxWidth: 480, mb: 1 }}
-        renderOption={({ key: optionKey, ...optionProps }, option) => {
-          const count = successorCountOf(option.key);
-          const hasRotation = count > 0;
-          const favorited = isFavorite(option.key);
-          return (
-            <Box
-              component="li"
-              key={optionKey}
-              {...optionProps}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                justifyContent: 'space-between',
-                minHeight: 48,
-              }}
-              data-testid={`family-option-${option.key}`}
-              data-has-rotation={hasRotation}
-            >
-              {/* De-emphasis uses a plain secondary text colour, never
-                  `text.disabled` — the 0-successor families stay fully selectable
-                  and keyboard-reachable, so they must not read as disabled
-                  (UI-NFR-002). The count chip stays at full opacity: an explicit
-                  "0" is useful information and must stay legible. */}
-              <Typography
-                variant="body2"
-                noWrap
-                color={hasRotation ? 'text.primary' : 'text.secondary'}
-                sx={{ flex: 1, minWidth: 0 }}
-              >
-                {option.name}
-              </Typography>
-              {/* Star toggles the family favorite without selecting the option
-                  (stopPropagation) so the dropdown doubles as a favoriting
-                  surface for the favorites filter. */}
-              <IconButton
-                size="small"
-                aria-label={t('pages.cropRotation.toggleFavorite', { name: option.name })}
-                aria-pressed={favorited}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFavorite(option.key);
+      {/* onKeyDownCapture runs before MUI's own Enter/Arrow handling on the input
+          (capture phase, so it can never be shadowed by an internal stopPropagation),
+          giving the Shift+F favorite shortcut a safe, non-interfering hook. */}
+      <Box onKeyDownCapture={handleFavoriteShortcut}>
+        <Autocomplete
+          fullWidth
+          options={filteredFamilies}
+          value={selectedFamily}
+          onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
+          onHighlightChange={(_e, option) => setHighlightedFamilyKey(option?.key ?? null)}
+          getOptionLabel={(option) => option.name}
+          isOptionEqualToValue={(option, value) => option.key === value.key}
+          noOptionsText={t('pages.cropRotation.noFamiliesFound')}
+          sx={{ maxWidth: 480, mb: 1 }}
+          renderOption={({ key: optionKey, ...optionProps }, option) => {
+            const count = successorCountOf(option.key);
+            const hasRotation = count > 0;
+            const favorited = isFavorite(option.key);
+            return (
+              <Box
+                component="li"
+                key={optionKey}
+                {...optionProps}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  justifyContent: 'space-between',
+                  minHeight: 48,
                 }}
-                data-testid={`family-favorite-${option.key}`}
+                data-testid={`family-option-${option.key}`}
+                data-has-rotation={hasRotation}
               >
-                {favorited ? (
-                  <StarIcon fontSize="small" color="warning" />
-                ) : (
-                  <StarBorderIcon fontSize="small" />
-                )}
-              </IconButton>
-              {/* Visual badge: icon + number (not colour alone). Hidden from the
-                  a11y tree — the readable summary below carries the same info as
-                  text for screen readers. */}
-              <Chip
-                icon={<AutorenewIcon />}
-                label={count}
-                size="small"
-                color={hasRotation ? 'primary' : 'default'}
-                variant="outlined"
-                aria-hidden
-                data-testid={`family-option-count-${option.key}`}
-              />
-              <Box component="span" sx={visuallyHidden}>
-                {t('pages.cropRotation.successorCount', { count })}
+                {/* De-emphasis uses a plain secondary text colour, never
+                    `text.disabled` — the 0-successor families stay fully selectable
+                    and keyboard-reachable, so they must not read as disabled
+                    (UI-NFR-002). The count chip stays at full opacity: an explicit
+                    "0" is useful information and must stay legible. */}
+                <Typography
+                  variant="body2"
+                  noWrap
+                  color={hasRotation ? 'text.primary' : 'text.secondary'}
+                  sx={{ flex: 1, minWidth: 0 }}
+                >
+                  {option.name}
+                </Typography>
+                {/* Star toggles the family favorite without selecting the option
+                    (stopPropagation) so the dropdown doubles as a favoriting
+                    surface for the favorites filter. Sized to the 48x48px touch
+                    target minimum (UI-NFR-001 R-011) even though the icon itself
+                    stays small/dense; keyboard users reach the same toggle via the
+                    Shift+F shortcut since MUI's combobox never moves real DOM
+                    focus into the popup (see handleFavoriteShortcut above). */}
+                <IconButton
+                  size="small"
+                  aria-label={t(
+                    favorited ? 'pages.cropRotation.removeFavorite' : 'pages.cropRotation.addFavorite',
+                    { name: option.name },
+                  )}
+                  aria-pressed={favorited}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(option.key);
+                  }}
+                  sx={{ minWidth: 48, minHeight: 48 }}
+                  data-testid={`family-favorite-${option.key}`}
+                >
+                  {favorited ? (
+                    <StarIcon fontSize="small" color="warning" />
+                  ) : (
+                    <StarBorderIcon fontSize="small" />
+                  )}
+                </IconButton>
+                {/* Visual badge: icon + number (not colour alone). Hidden from the
+                    a11y tree — the readable summary below carries the same info as
+                    text for screen readers. */}
+                <Chip
+                  icon={<AutorenewIcon />}
+                  label={count}
+                  size="small"
+                  color={hasRotation ? 'primary' : 'default'}
+                  variant="outlined"
+                  aria-hidden
+                  data-testid={`family-option-count-${option.key}`}
+                />
+                <Box component="span" sx={visuallyHidden}>
+                  {t('pages.cropRotation.successorCount', { count })}
+                </Box>
               </Box>
-            </Box>
-          );
-        }}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label={t('pages.cropRotation.fromFamily')}
-            helperText={t('pages.cropRotation.fromFamilyHelper')}
-            data-testid="from-family-select"
-          />
-        )}
-      />
+            );
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label={t('pages.cropRotation.fromFamily')}
+              helperText={t('pages.cropRotation.fromFamilyHelper')}
+              slotProps={{
+                ...params.slotProps,
+                htmlInput: {
+                  ...params.slotProps.htmlInput,
+                  'aria-keyshortcuts': 'Shift+F',
+                },
+              }}
+              data-testid="from-family-select"
+            />
+          )}
+        />
+      </Box>
 
       {/* Persistent legend (touch-friendly, not hover-dependent) explaining the
-          count badge for non-expert users (UI-NFR-011 descriptive-text). */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 3 }}>
-        <AutorenewIcon fontSize="small" color="primary" />
+          count badge and the Shift+F favorite shortcut for non-expert users
+          (UI-NFR-011 descriptive-text). */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+          <AutorenewIcon fontSize="small" color="primary" />
+          <Typography variant="caption" color="text.secondary">
+            {t('pages.cropRotation.countLegend')}
+          </Typography>
+        </Box>
         <Typography variant="caption" color="text.secondary">
-          {t('pages.cropRotation.countLegend')}
+          {t('pages.cropRotation.favoriteShortcutHint')}
         </Typography>
       </Box>
 
