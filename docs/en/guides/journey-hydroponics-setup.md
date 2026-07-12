@@ -91,10 +91,10 @@ With the tank set up and the solution mixed, it's time for ongoing monitoring. [
 
 The final building block of a fully automated setup is the closed control loop: a sensor measures, a rule evaluates, an actuator switches — for example a circulation pump, a CO₂ doser, or a humidifier.
 
-!!! warning "Not yet implemented"
-    [Environment Control & Actuators](../user-guide/actuator-control.md) is fully specified but not yet implemented in code. Currently, only the Home Assistant communication layer for **reading** sensor data exists (Step 4) — the rule engine, schedules, hysteresis, and automatic sending of actuator commands are still missing.
+!!! note "Partially available"
+    The rule engine, schedules, hysteresis, and the full priority control loop of [Environment Control & Actuators](../user-guide/actuator-control.md) already run in the backend. In the UI you can currently create actuators, switch them on/off directly, and trigger an emergency stop — schedules, rules, and phase-linked profiles are currently only configurable via the API (see [For Technical Users / Self-Hosters](../user-guide/actuator-control.md#for-technical-users-self-hosters)).
 
-    Until then, control pumps, humidifiers, and dosing devices directly via Home Assistant or by hand, and log important events (water changes, calibration) manually via [Tank Maintenance Scheduling](../user-guide/tanks.md#scheduling-maintenance-tasks).
+    Until a dedicated UI exists for that, control pumps, humidifiers, and dosing devices directly via their actuator cards, via Home Assistant, or by hand, and log important events (water changes, calibration) manually via [Tank Maintenance Scheduling](../user-guide/tanks.md#scheduling-maintenance-tasks).
 
 ---
 

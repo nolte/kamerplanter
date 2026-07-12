@@ -1170,3 +1170,66 @@ curl -X POST \
 - [Nacherntebehandlung — Benutzerhandbuch](../user-guide/post-harvest.md)
 - [Ernte — Benutzerhandbuch](../user-guide/harvest.md)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Umgebungssteuerung & Aktorik <!-- REQ-018 --> {#umgebungssteuerung-aktorik}
+
+Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordern ein gültiges JWT-Token. Lesende Aufrufe akzeptieren jede aktive Mitgliedschaft; schreibende Aufrufe (Anlegen, Befehl, Override, Regeln, Zeitpläne, Notabschaltung) erfordern mindestens die Rolle **grower**; das Löschen eines Aktors erfordert **admin**. Die Oberfläche deckt bislang nur einen Teil der API ab (Aktor anlegen/auflisten/löschen, direkter Ein-/Aus-Befehl, Notabschaltung mit dem Szenario `fire_alarm`) — siehe [Umgebungssteuerung & Aktorik — Benutzerhandbuch: Für technische Nutzer / Self-Hoster](../user-guide/actuator-control.md#fuer-technische-nutzer-self-hoster) für die vollständige, noch UI-lose Restfläche der API (Zeitpläne, Regeln, phasengebundene Profile, Wertebereich-Konfiguration).
+
+| Ressourcengruppe | Endpunkte (Auswahl) |
+|-------------------|---------------------|
+| Aktoren | `GET`/`POST /locations/{location_key}/actuators`, `GET /actuators`, `GET`/`PUT`/`DELETE /actuators/{key}` |
+| Befehl & Override | `POST /actuators/{key}/command`, `POST`/`DELETE /actuators/{key}/override`, `GET /actuators/{key}/state` |
+| Zeitpläne | `GET`/`POST /actuators/{key}/schedules`, `PUT`/`DELETE /actuators/{key}/schedules/{schedule_key}`, `POST .../toggle` |
+| Regeln | `GET`/`POST /actuators/{key}/rules`, `GET /rules`, `PUT`/`DELETE /actuators/{key}/rules/{rule_key}`, `POST .../toggle`, `POST /rules/{rule_key}/test` |
+| Steuerungs-Chronik | `GET /actuators/{key}/events`, `GET /actuators/{key}/events/stats`, `GET /locations/{location_key}/control-events`, `GET /locations/{location_key}/control-status`, `GET /locations/{location_key}/energy` |
+| Phasengebundene Profile | `GET`/`POST /phase-control-profiles`, `GET`/`PUT`/`DELETE /phase-control-profiles/{key}`, `POST .../apply` |
+| Notabschaltung | `POST /emergency-stop` |
+
+### Sicherheitsgarantien
+
+**Wertebereich (Envelope):** Jeder Befehl, Regel-Treffer, Zeitplan-Treffer und Override durchläuft denselben Chokepoint im Backend. Ein numerischer Wert für einen Aktor ohne konfigurierten `min_value`/`max_value` wird abgelehnt (`422` bei einem direkten Befehl oder Override; bei der automatischen Regelschleife wird der betroffene Aktor übersprungen und protokolliert). Ist ein Wertebereich konfiguriert, wird jeder Wert automatisch auf `[min_value, max_value]` begrenzt (geklemmt) — auch nicht-endliche Werte (`NaN`/`Infinity`) werden dabei nie unverändert durchgereicht.
+
+**Zeitlich befristeter Override:** `POST /actuators/{key}/override` erfordert `expires_at` als Pflichtfeld. Ein `expires_at`, das bereits in der Vergangenheit liegt, wird mit `422` abgelehnt — es gibt keine implizite Standarddauer.
+
+```json
+POST /api/v1/t/mein-garten/actuators/act_42/override
+{
+  "expires_at": "2026-07-11T10:00:00Z",
+  "override_state": "on",
+  "reason": "Manuelle Belüftung vor dem Wochenende"
+}
+```
+
+**Antwort (422), wenn `expires_at` bereits abgelaufen ist:**
+
+```json
+{
+  "error_id": "err_...",
+  "error_code": "VALIDATION_ERROR",
+  "message": "Manual override expires_at must be in the future.",
+  "details": [],
+  "timestamp": "2026-07-11T09:00:00.000000+00:00",
+  "path": "/api/v1/t/mein-garten/actuators/act_42/override",
+  "method": "POST"
+}
+```
+
+**Notabschaltung — Fehlertoleranz je Aktor:** `POST /emergency-stop` behandelt jeden betroffenen Aktor isoliert. Scheitert das Schalten eines einzelnen Aktors (z. B. Home Assistant nicht erreichbar), bricht der Aufruf nicht ab — die Antwort listet erfolgreich geschaltete (`stopped`, `forced_on`) und fehlgeschlagene (`failed`) Aktor-Keys getrennt auf:
+
+```json
+{
+  "scenario": "fire_alarm",
+  "stopped": ["act_1", "act_3"],
+  "forced_on": [],
+  "failed": ["act_2"]
+}
+```
+
+### Siehe auch
+
+- [Umgebungssteuerung & Aktorik — Benutzerhandbuch](../user-guide/actuator-control.md)
+- [Sensorik — Benutzerhandbuch](../user-guide/sensors.md)
+- [Umgebungsvariablen — Umgebungssteuerung & Aktorik](environment-variables.md#umgebungssteuerung-aktorik-req-018)
+- [Fehlerbehandlung](../api/error-handling.md)

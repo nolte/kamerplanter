@@ -233,6 +233,21 @@ Sind beide Variablen gesetzt, aktiviert das Backend zusätzlich den Home-Assista
 
 ---
 
+## Umgebungssteuerung & Aktorik (REQ-018) {#umgebungssteuerung-aktorik-req-018}
+
+Diese Variable steuert die periodische Auswertung von Zeitplänen und Regeln, den stündlichen Override-Ablauf und den 5-Minuten-Online/Offline-Abgleich mit Home Assistant für [Umgebungssteuerung & Aktorik](../user-guide/actuator-control.md).
+
+<!-- Quelle: src/backend/app/config/settings.py (actuator_control_loop_enabled) -->
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `ACTUATOR_CONTROL_LOOP_ENABLED` | `false` | Nein | Kill-Switch für die drei periodischen Aktor-Steuerungs-Tasks (`evaluate_control_rules` alle 30 s, `expire_manual_overrides` stündlich, `sync_actuator_states` alle 5 min). Ist die Variable deaktiviert, laufen Zeitpläne und Regeln nicht automatisch — Aktoren bleiben aber jederzeit über die REST-API steuerbar (direkter Befehl, Override, Notabschaltung). |
+
+!!! note "Kein eigener HA-Schalter nötig"
+    Anders als die anderen Home-Assistant-Funktionen benötigt die Aktor-Steuerung keine zusätzliche Freischaltung — solange `HA_URL`/`HA_ACCESS_TOKEN` gesetzt sind und `ACTUATOR_CONTROL_LOOP_ENABLED=true` ist, dispatcht das System Befehle an Home-Assistant-Aktoren automatisch.
+
+---
+
 ## InvenTree-Integration (REQ-016)
 
 Diese Variablen aktivieren die optionale Anbindung an [InvenTree](https://github.com/inventree/inventree). Ohne `INVENTREE_ENABLED=true` liefern alle InvenTree-Endpunkte den Fehler „Funktion deaktiviert" (HTTP 409), ohne die App zu blockieren.
@@ -707,3 +722,5 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
 - [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)
 - [Betriebsmittel & Inventar (InvenTree) — Benutzerhandbuch](../user-guide/inventree.md)
+- [Umgebungssteuerung & Aktorik — Benutzerhandbuch](../user-guide/actuator-control.md)
+- [API-Referenz: Umgebungssteuerung & Aktorik](api-reference.md#umgebungssteuerung-aktorik)
