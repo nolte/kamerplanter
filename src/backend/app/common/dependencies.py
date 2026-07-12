@@ -800,6 +800,7 @@ def get_overwintering_materializer():
 def get_season_state_service():
     from app.domain.engines.season_state_engine import SeasonStateEngine
     from app.domain.services.dormancy_care_activator import DormancyCareActivator
+    from app.domain.services.season_phase_coupler import SeasonPhaseCoupler
     from app.domain.services.season_state_service import SeasonStateService
 
     return SeasonStateService(
@@ -812,6 +813,8 @@ def get_season_state_service():
         get_overwintering_profile_repo(),
         get_plant_repo(),
         get_site_repo(),
+        # ADR-006 E3 — season ↔ growth-phase coupling (REQ-047 ↔ REQ-003).
+        SeasonPhaseCoupler(get_phase_service(), get_lifecycle_repo(), get_phase_sequence_repo()),
     )
 
 
