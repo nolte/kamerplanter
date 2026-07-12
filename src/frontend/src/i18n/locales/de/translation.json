@@ -378,6 +378,7 @@
     "calendar": "Kalender",
     "wateringLog": "Gießprotokoll",
     "kiAssistent": "KI-Assistent",
+    "glossary": "Glossar",
     "phasen": "Phasen",
     "detail": "Details",
     "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
@@ -523,6 +524,31 @@
       "questionHelp": "Reine Wissensfragen ohne Bezug zu deinen konkreten Pflanzen. Mit Strg/Cmd + Enter absenden.",
       "ask": "Frage stellen",
       "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut."
+    },
+    "glossary": {
+      "title": "Fachbegriff-Glossar",
+      "subtitle": "Schlage Fachbegriffe wie VPD, EC oder Karenzzeit nach. Die Erklärungen stammen aus der kuratierten Wissensbasis und passen sich deiner Erfahrungsstufe an.",
+      "empty": "Es sind noch keine Begriffe verfügbar.",
+      "loadError": "Die Begriffsliste konnte nicht geladen werden. Bitte versuche es später erneut.",
+      "backToList": "Zurück zur Übersicht",
+      "categories": {
+        "umwelt": "Umwelt & Klima",
+        "duengung": "Düngung",
+        "bewaesserung": "Bewässerung",
+        "phasen": "Wachstumsphasen",
+        "outdoor": "Freiland & Garten",
+        "ipm": "Pflanzenschutz",
+        "allgemein": "Allgemein"
+      },
+      "tooltip": {
+        "ariaOpen": "Erklärung zu „{{term}}“ öffnen",
+        "loading": "Erklärung wird geladen …",
+        "error": "Die Erklärung konnte nicht geladen werden.",
+        "fallbackHint": "Kurzdefinition (kein Wissensbasis-Treffer)",
+        "relatedTitle": "Verwandte Begriffe",
+        "back": "Zurück",
+        "close": "Schließen"
+      }
     },
     "inventree": {
       "title": "Betriebsmittel & Inventar",

@@ -1,0 +1,528 @@
+# REQ-035 §2.3 — curated glossary skeleton (v1.0 mandatory set, >= 30 terms).
+#
+# Editorially maintained term list. The RAG answer text is produced on demand by
+# the Knowledge Service; this file only carries the curated metadata plus an
+# editorial `fallback_text` (used when the knowledge base has no hit, §4.1 step 6).
+#
+# `_key` equals `slug`. `rag_query_template` is German-only (the KS answers in the
+# requested prompt_language, §7). Both `labels` and `fallback_text` carry de + en.
+glossary_terms:
+  # ── umwelt ────────────────────────────────────────────────────────
+  - _key: vpd
+    slug: vpd
+    labels: { de: "VPD", en: "VPD" }
+    long_labels:
+      de: "Vapor Pressure Deficit (Wasserdampfdruck-Defizit)"
+      en: "Vapor Pressure Deficit"
+    aliases:
+      de: ["Wasserdampfdruck-Defizit", "Saettigungsdefizit"]
+      en: ["vapor pressure deficit", "saturation deficit"]
+    category: umwelt
+    default_expertise_level: beginner
+    applicable_phases: ["seedling", "vegetative", "flowering"]
+    related_term_slugs: ["blatttemperatur", "transpiration", "photoperiode"]
+    fallback_text:
+      de: "VPD steht fuer 'Wasserdampfdruck-Defizit' und beschreibt, wie 'durstig' die Luft ist. Es beeinflusst, wie schnell deine Pflanze ueber die Blaetter Wasser verliert. Niedrige VPD = feuchte Luft, hohe VPD = trockene Luft. Zielbereiche je Phase 0.8 - 1.5 kPa."
+      en: "VPD stands for 'Vapor Pressure Deficit' and describes how 'thirsty' the air is, influencing how fast your plant transpires water through its leaves. Low VPD = humid air, high VPD = dry air. Target ranges per phase 0.8 - 1.5 kPa."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine 2-3 Satz Definition und einen praxisnahen Hinweis. Falls relevant: Wertebereiche pro Wachstumsphase."
+  - _key: ppfd
+    slug: ppfd
+    labels: { de: "PPFD", en: "PPFD" }
+    long_labels:
+      de: "Photosynthetic Photon Flux Density (Photonenflussdichte)"
+      en: "Photosynthetic Photon Flux Density"
+    aliases:
+      de: ["Photonenflussdichte", "Lichtintensitaet"]
+      en: ["photon flux density", "light intensity"]
+    category: umwelt
+    default_expertise_level: beginner
+    related_term_slugs: ["dli", "photoperiode"]
+    fallback_text:
+      de: "PPFD misst, wie viel nutzbares Licht pro Sekunde auf einer Flaeche ankommt (in umol/m2/s). Je hoeher der Wert, desto mehr 'Nahrung' bekommt die Pflanze ueber die Photosynthese - aber zu viel kann Blaetter verbrennen."
+      en: "PPFD measures how much usable light reaches a surface per second (in umol/m2/s). Higher values feed more photosynthesis - but too much can scorch leaves."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: dli
+    slug: dli
+    labels: { de: "DLI", en: "DLI" }
+    long_labels:
+      de: "Daily Light Integral (Tageslichtsumme)"
+      en: "Daily Light Integral"
+    aliases:
+      de: ["Tageslichtsumme"]
+      en: ["daily light integral"]
+    category: umwelt
+    default_expertise_level: intermediate
+    related_term_slugs: ["ppfd", "photoperiode"]
+    fallback_text:
+      de: "DLI ist die gesamte Lichtmenge, die eine Pflanze ueber einen ganzen Tag bekommt (mol/m2/Tag). Sie fasst Lichtstaerke und Beleuchtungsdauer in einer Zahl zusammen."
+      en: "DLI is the total amount of light a plant receives over a full day (mol/m2/day). It combines light intensity and duration into a single number."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: photoperiode
+    slug: photoperiode
+    labels: { de: "Photoperiode", en: "Photoperiod" }
+    long_labels:
+      de: "Photoperiode (Belichtungsdauer)"
+      en: "Photoperiod (lighting duration)"
+    aliases:
+      de: ["Belichtungsdauer", "Tageslaenge"]
+      en: ["day length", "light cycle"]
+    category: umwelt
+    default_expertise_level: beginner
+    related_term_slugs: ["dli", "stretch"]
+    fallback_text:
+      de: "Die Photoperiode ist die taegliche Beleuchtungsdauer. Viele Pflanzen steuern ueber sie, wann sie von Wachstum auf Bluete umschalten (z. B. 18/6 vegetativ, 12/12 Bluete)."
+      en: "The photoperiod is the daily lighting duration. Many plants use it to switch from growth to flowering (e.g. 18/6 vegetative, 12/12 flowering)."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: hysterese
+    slug: hysterese
+    labels: { de: "Hysterese", en: "Hysteresis" }
+    long_labels:
+      de: "Hysterese (Schaltschwellen-Abstand)"
+      en: "Hysteresis (switching threshold gap)"
+    aliases:
+      de: ["Schalthysterese", "Totband"]
+      en: ["deadband", "switching gap"]
+    category: umwelt
+    default_expertise_level: intermediate
+    related_term_slugs: []
+    fallback_text:
+      de: "Hysterese ist der Abstand zwischen Ein- und Ausschaltpunkt einer Regelung. Er verhindert, dass ein Geraet (z. B. Luftbefeuchter) staendig flackernd an- und ausschaltet."
+      en: "Hysteresis is the gap between the on and off point of a control loop. It stops a device (e.g. a humidifier) from rapidly cycling on and off."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: blatttemperatur
+    slug: blatttemperatur
+    labels: { de: "Blatttemperatur", en: "Leaf temperature" }
+    long_labels:
+      de: "Blatttemperatur"
+      en: "Leaf temperature"
+    aliases:
+      de: ["Blattoberflaechentemperatur"]
+      en: ["leaf surface temperature"]
+    category: umwelt
+    default_expertise_level: intermediate
+    related_term_slugs: ["vpd", "transpiration"]
+    fallback_text:
+      de: "Die Blatttemperatur liegt durch Verdunstung meist etwas unter der Lufttemperatur. Sie ist wichtig, weil VPD eigentlich an der Blattoberflaeche wirkt, nicht in der Raumluft."
+      en: "Leaf temperature is usually a bit below air temperature due to evaporation. It matters because VPD really acts at the leaf surface, not in the room air."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: transpiration
+    slug: transpiration
+    labels: { de: "Transpiration", en: "Transpiration" }
+    long_labels:
+      de: "Transpiration (Wasserabgabe der Pflanze)"
+      en: "Transpiration (plant water loss)"
+    aliases:
+      de: ["Verdunstung"]
+      en: ["plant water loss"]
+    category: umwelt
+    default_expertise_level: beginner
+    related_term_slugs: ["vpd", "blatttemperatur"]
+    fallback_text:
+      de: "Transpiration ist die Wasserabgabe der Pflanze ueber die Blaetter. Sie kuehlt die Pflanze und transportiert Naehrstoffe von den Wurzeln nach oben."
+      en: "Transpiration is the plant's water loss through its leaves. It cools the plant and moves nutrients up from the roots."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  # ── duengung ──────────────────────────────────────────────────────
+  - _key: ec
+    slug: ec
+    labels: { de: "EC", en: "EC" }
+    long_labels:
+      de: "Electrical Conductivity (elektrische Leitfaehigkeit)"
+      en: "Electrical Conductivity"
+    aliases:
+      de: ["Leitfaehigkeit", "Leitwert"]
+      en: ["electrical conductivity", "conductivity"]
+    category: duengung
+    default_expertise_level: beginner
+    related_term_slugs: ["ph", "ro-wasser", "runoff"]
+    fallback_text:
+      de: "EC misst, wie viele geloeste Naehrstoffe im Wasser sind. Ein hoeherer EC-Wert bedeutet mehr Duenger. Typisch: vegetativ 1.0-1.4 mS/cm, Bluete 1.4-1.8 mS/cm - abhaengig vom Substrat."
+      en: "EC measures how many dissolved nutrients are in the water. A higher EC means more fertiliser. Typical: vegetative 1.0-1.4 mS/cm, flowering 1.4-1.8 mS/cm - substrate dependent."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine 2-3 Satz Definition und einen praxisnahen Hinweis. Falls relevant: konkrete Wertebereiche pro Wachstumsphase und Substrat."
+  - _key: ph
+    slug: ph
+    labels: { de: "pH", en: "pH" }
+    long_labels:
+      de: "pH-Wert (Saeuregrad)"
+      en: "pH value (acidity)"
+    aliases:
+      de: ["Saeuregrad", "pH-Wert"]
+      en: ["acidity", "ph value"]
+    category: duengung
+    default_expertise_level: beginner
+    related_term_slugs: ["ec", "ro-wasser"]
+    fallback_text:
+      de: "Der pH-Wert gibt an, wie sauer oder basisch das Wasser ist. Er steuert, welche Naehrstoffe die Wurzel aufnehmen kann. Erde ~6.0-6.8, Hydro ~5.5-6.2."
+      en: "The pH value indicates how acidic or basic the water is. It controls which nutrients the roots can absorb. Soil ~6.0-6.8, hydro ~5.5-6.2."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis mit Zielbereichen."
+  - _key: npk
+    slug: npk
+    labels: { de: "NPK", en: "NPK" }
+    long_labels:
+      de: "NPK (Stickstoff-Phosphor-Kalium)"
+      en: "NPK (Nitrogen-Phosphorus-Potassium)"
+    aliases:
+      de: ["Hauptnaehrstoffe"]
+      en: ["macronutrients"]
+    category: duengung
+    default_expertise_level: beginner
+    related_term_slugs: ["ec", "calmag"]
+    fallback_text:
+      de: "NPK steht fuer die drei Hauptnaehrstoffe Stickstoff (N), Phosphor (P) und Kalium (K). N foerdert Blattwachstum, P Wurzeln und Blueten, K die allgemeine Robustheit."
+      en: "NPK stands for the three main nutrients Nitrogen (N), Phosphorus (P) and Potassium (K). N drives leaf growth, P roots and flowers, K overall robustness."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: calmag
+    slug: calmag
+    labels: { de: "CalMag", en: "CalMag" }
+    long_labels:
+      de: "CalMag (Calcium-Magnesium-Zusatz)"
+      en: "CalMag (calcium-magnesium supplement)"
+    aliases:
+      de: ["Calcium-Magnesium"]
+      en: ["calcium magnesium"]
+    category: duengung
+    default_expertise_level: intermediate
+    related_term_slugs: ["ro-wasser", "npk"]
+    fallback_text:
+      de: "CalMag liefert Calcium und Magnesium - zwei Naehrstoffe, die vor allem bei weichem oder Umkehrosmose-Wasser fehlen. Mangel zeigt sich oft an jungen Blaettern."
+      en: "CalMag supplies calcium and magnesium - two nutrients often missing in soft or reverse-osmosis water. Deficiency usually shows on young leaves."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: ro-wasser
+    slug: ro-wasser
+    labels: { de: "RO-Wasser", en: "RO water" }
+    long_labels:
+      de: "Umkehrosmose-Wasser (Reverse Osmosis)"
+      en: "Reverse-osmosis water"
+    aliases:
+      de: ["Umkehrosmose", "Osmosewasser"]
+      en: ["reverse osmosis", "ro"]
+    category: duengung
+    default_expertise_level: intermediate
+    related_term_slugs: ["ec", "calmag"]
+    fallback_text:
+      de: "RO-Wasser ist durch eine Umkehrosmose-Membran gereinigtes Wasser mit nahezu null Ausgangs-EC. Es gibt volle Kontrolle ueber die Naehrstoffe, braucht aber meist CalMag-Zusatz."
+      en: "RO water is purified through a reverse-osmosis membrane with near-zero starting EC. It gives full nutrient control but usually needs a CalMag supplement."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: runoff
+    slug: runoff
+    labels: { de: "Runoff", en: "Runoff" }
+    long_labels:
+      de: "Runoff (Drainagewasser-Messung)"
+      en: "Runoff (drainage measurement)"
+    aliases:
+      de: ["Ablaufwasser", "Drainagewasser"]
+      en: ["run-off", "drainage water"]
+    category: duengung
+    default_expertise_level: intermediate
+    related_term_slugs: ["ec", "ph", "drainage"]
+    fallback_text:
+      de: "Runoff ist das Wasser, das nach dem Giessen unten aus dem Topf laeuft. Misst man dessen EC und pH, sieht man, ob sich im Substrat Naehrstoffe an- oder abreichern."
+      en: "Runoff is the water draining from the bottom of the pot after watering. Measuring its EC and pH shows whether nutrients are building up or depleting in the substrate."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: flush
+    slug: flush
+    labels: { de: "Flush", en: "Flush" }
+    long_labels:
+      de: "Flush (Ausspuelen des Substrats)"
+      en: "Flush (rinsing the substrate)"
+    aliases:
+      de: ["Spuelen", "Ausspuelen"]
+      en: ["flushing", "rinse"]
+    category: duengung
+    default_expertise_level: beginner
+    related_term_slugs: ["runoff", "ec"]
+    fallback_text:
+      de: "Flushen bedeutet, das Substrat mit reinem Wasser durchzuspuelen, um ueberschuessige Salze auszuwaschen - z. B. bei Ueberduengung oder vor der Ernte."
+      en: "Flushing means rinsing the substrate with plain water to wash out excess salts - e.g. after over-fertilising or before harvest."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  # ── bewaesserung ──────────────────────────────────────────────────
+  - _key: drainage
+    slug: drainage
+    labels: { de: "Drainage", en: "Drainage" }
+    long_labels:
+      de: "Drainage (Wasserabzug)"
+      en: "Drainage (water run-through)"
+    aliases:
+      de: ["Wasserabzug", "Abzugsloch"]
+      en: ["water run-through"]
+    category: bewaesserung
+    default_expertise_level: beginner
+    related_term_slugs: ["substrat", "runoff"]
+    fallback_text:
+      de: "Drainage beschreibt, wie gut ueberschuessiges Wasser aus Topf und Substrat abfliesst. Gute Drainage verhindert Staunaesse und Wurzelfaeule."
+      en: "Drainage describes how well excess water flows out of pot and substrate. Good drainage prevents waterlogging and root rot."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: substrat
+    slug: substrat
+    labels: { de: "Substrat", en: "Substrate" }
+    long_labels:
+      de: "Substrat (Pflanzmedium)"
+      en: "Substrate (growing medium)"
+    aliases:
+      de: ["Pflanzmedium", "Anzuchtmedium"]
+      en: ["growing medium", "medium"]
+    category: bewaesserung
+    default_expertise_level: beginner
+    related_term_slugs: ["drainage", "ec"]
+    fallback_text:
+      de: "Das Substrat ist das Medium, in dem die Wurzeln wachsen (z. B. Erde, Kokos, Steinwolle). Es haelt Wasser und Naehrstoffe und gibt der Pflanze Halt."
+      en: "The substrate is the medium the roots grow in (e.g. soil, coco, rockwool). It holds water and nutrients and anchors the plant."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: frequenz
+    slug: frequenz
+    labels: { de: "Giessfrequenz", en: "Watering frequency" }
+    long_labels:
+      de: "Giessfrequenz (Bewaesserungshaeufigkeit)"
+      en: "Watering frequency"
+    aliases:
+      de: ["Bewaesserungshaeufigkeit", "Giessrhythmus"]
+      en: ["irrigation frequency"]
+    category: bewaesserung
+    default_expertise_level: beginner
+    related_term_slugs: ["drainage", "substrat"]
+    fallback_text:
+      de: "Die Giessfrequenz ist, wie oft du giesst. Sie haengt von Substrat, Topfgroesse, Pflanzengroesse und Klima ab - lieber am Gewicht des Topfes als nach festem Kalender giessen."
+      en: "Watering frequency is how often you water. It depends on substrate, pot size, plant size and climate - water by pot weight rather than a fixed schedule."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  # ── phasen ────────────────────────────────────────────────────────
+  - _key: gdd
+    slug: gdd
+    labels: { de: "GDD", en: "GDD" }
+    long_labels:
+      de: "Growing Degree Days (Wachstumsgradtage)"
+      en: "Growing Degree Days"
+    aliases:
+      de: ["Wachstumsgradtage", "Temperatursumme"]
+      en: ["growing degree days", "heat units"]
+    category: phasen
+    default_expertise_level: intermediate
+    related_term_slugs: ["stretch"]
+    fallback_text:
+      de: "GDD sind aufsummierte Waermeeinheiten, die den Entwicklungsfortschritt einer Pflanze abbilden - genauer als das reine Kalenderdatum, weil warme Tage schneller zaehlen."
+      en: "GDD are accumulated heat units tracking a plant's development - more accurate than the calendar date because warm days count faster."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: stretch
+    slug: stretch
+    labels: { de: "Stretch", en: "Stretch" }
+    long_labels:
+      de: "Stretch (Streckungswachstum)"
+      en: "Stretch (flowering stretch)"
+    aliases:
+      de: ["Streckung", "Streckungswachstum"]
+      en: ["flowering stretch"]
+    category: phasen
+    default_expertise_level: intermediate
+    related_term_slugs: ["photoperiode", "topping"]
+    fallback_text:
+      de: "Als Stretch bezeichnet man den kraeftigen Laengenzuwachs zu Bluetebeginn. Viele Pflanzen verdoppeln dabei ihre Hoehe - das solltest du bei der Hoehenplanung einkalkulieren."
+      en: "Stretch is the strong height increase at the start of flowering. Many plants roughly double in height - plan your headroom accordingly."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: topping
+    slug: topping
+    labels: { de: "Topping", en: "Topping" }
+    long_labels:
+      de: "Topping (Kappen der Triebspitze)"
+      en: "Topping (cutting the main tip)"
+    aliases:
+      de: ["Kappen", "Entspitzen"]
+      en: ["pinching", "cutting the tip"]
+    category: phasen
+    default_expertise_level: intermediate
+    related_term_slugs: ["fim", "lst"]
+    fallback_text:
+      de: "Topping ist das Abschneiden der obersten Triebspitze. Die Pflanze bildet daraufhin zwei Haupttriebe statt einem und waechst buschiger."
+      en: "Topping is cutting off the top growth tip. The plant then forms two main shoots instead of one and grows bushier."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: fim
+    slug: fim
+    labels: { de: "FIM", en: "FIM" }
+    long_labels:
+      de: "FIM ('Fuck I Missed' - teilweises Toppen)"
+      en: "FIM ('Fuck I Missed' - partial topping)"
+    aliases:
+      de: ["Fimming"]
+      en: ["fimming"]
+    category: phasen
+    default_expertise_level: expert
+    related_term_slugs: ["topping", "lst"]
+    fallback_text:
+      de: "FIM ist eine Variante des Toppings, bei der die Triebspitze nur teilweise gekappt wird. Das kann mehrere neue Haupttriebe erzeugen, ist aber weniger praezise als Topping."
+      en: "FIM is a variant of topping where the growth tip is only partly cut. It can produce several new main shoots but is less precise than topping."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: lst
+    slug: lst
+    labels: { de: "LST", en: "LST" }
+    long_labels:
+      de: "Low Stress Training (schonendes Herunterbinden)"
+      en: "Low Stress Training"
+    aliases:
+      de: ["Herunterbinden", "Training"]
+      en: ["low stress training"]
+    category: phasen
+    default_expertise_level: intermediate
+    related_term_slugs: ["topping", "stretch"]
+    fallback_text:
+      de: "LST (Low Stress Training) heisst, Triebe schonend herunterzubinden statt zu schneiden. So entsteht ein flaches, gleichmaessiges Blaetterdach mit besserer Lichtausnutzung."
+      en: "LST (Low Stress Training) means gently tying down shoots instead of cutting. This creates a flat, even canopy with better light use."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  # ── outdoor ───────────────────────────────────────────────────────
+  - _key: mischkultur
+    slug: mischkultur
+    labels: { de: "Mischkultur", en: "Companion planting" }
+    long_labels:
+      de: "Mischkultur (foerderliche Pflanzenkombination)"
+      en: "Companion planting"
+    aliases:
+      de: ["Beetpartnerschaft"]
+      en: ["intercropping"]
+    category: outdoor
+    default_expertise_level: beginner
+    related_term_slugs: ["companion-planting", "fruchtfolge"]
+    fallback_text:
+      de: "Mischkultur ist das gezielte Kombinieren von Pflanzen, die sich gegenseitig foerdern - etwa durch Schaedlingsabwehr, Beschattung oder Naehrstoffteilung."
+      en: "Companion planting is deliberately combining plants that benefit each other - e.g. through pest defence, shading or nutrient sharing."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: fruchtfolge
+    slug: fruchtfolge
+    labels: { de: "Fruchtfolge", en: "Crop rotation" }
+    long_labels:
+      de: "Fruchtfolge (jaehrlicher Beetwechsel)"
+      en: "Crop rotation"
+    aliases:
+      de: ["Anbaufolge"]
+      en: ["rotation"]
+    category: outdoor
+    default_expertise_level: intermediate
+    related_term_slugs: ["gruenduengung", "mischkultur"]
+    fallback_text:
+      de: "Fruchtfolge bedeutet, auf einem Beet Jahr fuer Jahr unterschiedliche Pflanzenfamilien anzubauen. Das beugt Bodenmuedigkeit und bodenbuertigen Krankheiten vor."
+      en: "Crop rotation means growing different plant families on a bed year after year. It prevents soil fatigue and soil-borne diseases."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: companion-planting
+    slug: companion-planting
+    labels: { de: "Companion Planting", en: "Companion planting" }
+    long_labels:
+      de: "Companion Planting (Begleitpflanzung)"
+      en: "Companion planting"
+    aliases:
+      de: ["Begleitpflanzung"]
+      en: ["companion planting"]
+    category: outdoor
+    default_expertise_level: beginner
+    related_term_slugs: ["mischkultur"]
+    fallback_text:
+      de: "Companion Planting ist der englische Begriff fuer Mischkultur: das Kombinieren von Pflanzen, die voneinander profitieren."
+      en: "Companion planting is the practice of combining plants that benefit from each other."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: sukzession
+    slug: sukzession
+    labels: { de: "Sukzession", en: "Succession sowing" }
+    long_labels:
+      de: "Sukzession (gestaffelte Aussaat)"
+      en: "Succession sowing"
+    aliases:
+      de: ["Satzweise Aussaat", "gestaffelte Aussaat"]
+      en: ["succession planting"]
+    category: outdoor
+    default_expertise_level: intermediate
+    related_term_slugs: ["fruchtfolge"]
+    fallback_text:
+      de: "Sukzession bedeutet, dieselbe Kultur in kurzen Abstaenden mehrfach auszusaeen. So verlaengerst du die Erntezeit statt alles auf einmal zu ernten."
+      en: "Succession sowing means sowing the same crop repeatedly at short intervals. This extends the harvest window instead of harvesting everything at once."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: gruenduengung
+    slug: gruenduengung
+    labels: { de: "Gruenduengung", en: "Green manure" }
+    long_labels:
+      de: "Gruenduengung (Bodenverbesserung durch Pflanzen)"
+      en: "Green manure"
+    aliases:
+      de: ["Bodendecker-Duengung"]
+      en: ["cover crop", "green manure"]
+    category: outdoor
+    default_expertise_level: intermediate
+    related_term_slugs: ["fruchtfolge"]
+    fallback_text:
+      de: "Gruenduengung sind Pflanzen (z. B. Klee, Phacelia), die man anbaut und einarbeitet, um den Boden mit Naehrstoffen und Humus anzureichern statt ihn brachliegen zu lassen."
+      en: "Green manure are plants (e.g. clover, phacelia) grown and dug in to enrich the soil with nutrients and humus instead of leaving it bare."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: eisheilige
+    slug: eisheilige
+    labels: { de: "Eisheilige", en: "Ice Saints" }
+    long_labels:
+      de: "Eisheilige (spaete Frostperiode Mitte Mai)"
+      en: "Ice Saints (mid-May frost period)"
+    aliases:
+      de: ["Kalte Sophie"]
+      en: ["ice saints"]
+    category: outdoor
+    default_expertise_level: beginner
+    related_term_slugs: ["phaenologie", "winterhaerte"]
+    fallback_text:
+      de: "Die Eisheiligen sind eine Wetterregel: bis Mitte Mai kann es nachts noch Frost geben. Frostempfindliche Pflanzen kommen daher erst danach dauerhaft ins Freie."
+      en: "The Ice Saints are a weather rule of thumb: night frost is possible until mid-May. Frost-tender plants only go outside permanently after that."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: phaenologie
+    slug: phaenologie
+    labels: { de: "Phaenologie", en: "Phenology" }
+    long_labels:
+      de: "Phaenologie (Natur-Kalender)"
+      en: "Phenology (nature calendar)"
+    aliases:
+      de: ["Phaenologischer Kalender"]
+      en: ["phenology"]
+    category: outdoor
+    default_expertise_level: expert
+    related_term_slugs: ["eisheilige"]
+    fallback_text:
+      de: "Phaenologie nutzt natuerliche Ereignisse (z. B. Forsythien- oder Apfelbluete) als Zeitmarken fuer Gartenarbeiten - genauer als feste Kalenderdaten, weil sie das lokale Klima abbilden."
+      en: "Phenology uses natural events (e.g. forsythia or apple bloom) as timing cues for garden tasks - more accurate than fixed dates because they reflect the local climate."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: winterhaerte
+    slug: winterhaerte
+    labels: { de: "Winterhaerte", en: "Winter hardiness" }
+    long_labels:
+      de: "Winterhaerte (Frosttoleranz)"
+      en: "Winter hardiness (frost tolerance)"
+    aliases:
+      de: ["Frosthaerte", "Frosttoleranz"]
+      en: ["cold hardiness", "frost tolerance"]
+    category: outdoor
+    default_expertise_level: beginner
+    related_term_slugs: ["eisheilige"]
+    fallback_text:
+      de: "Winterhaerte beschreibt, wie viel Frost eine Pflanze uebersteht. Die Winterhaerte-Ampel teilt Pflanzen in gruen (winterhart), gelb (Schutz noetig) und rot (drinnen ueberwintern)."
+      en: "Winter hardiness describes how much frost a plant survives. The hardiness traffic light sorts plants into green (hardy), yellow (needs protection) and red (overwinter indoors)."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  # ── ipm ───────────────────────────────────────────────────────────
+  - _key: karenz
+    slug: karenz
+    labels: { de: "Karenz", en: "Pre-harvest interval" }
+    long_labels:
+      de: "Karenz (Wartezeit nach Behandlung)"
+      en: "Pre-harvest interval"
+    aliases:
+      de: ["Wartezeit"]
+      en: ["withholding period"]
+    category: ipm
+    default_expertise_level: beginner
+    related_term_slugs: ["karenzzeit", "flush"]
+    fallback_text:
+      de: "Die Karenz ist die vorgeschriebene Wartezeit zwischen einer Pflanzenschutz-Behandlung und der Ernte. Sie stellt sicher, dass keine Rueckstaende in der Ernte landen."
+      en: "The pre-harvest interval is the mandatory waiting time between a plant-protection treatment and harvest. It ensures no residues end up in the harvest."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."
+  - _key: karenzzeit
+    slug: karenzzeit
+    labels: { de: "Karenzzeit", en: "Karenz period" }
+    long_labels:
+      de: "Karenzzeit (Wartezeit bis zur Ernte)"
+      en: "Karenz period (waiting time to harvest)"
+    aliases:
+      de: ["Wartefrist", "Wartezeit"]
+      en: ["waiting period", "phi"]
+    category: ipm
+    default_expertise_level: beginner
+    related_term_slugs: ["karenz"]
+    fallback_text:
+      de: "Die Karenzzeit ist der konkrete Zeitraum (in Tagen), den du nach einer chemischen Behandlung bis zur Ernte einhalten musst. Sie steht auf dem Mittel und ist rechtlich verbindlich."
+      en: "The karenz period is the specific time (in days) you must wait after a chemical treatment before harvest. It is stated on the product and legally binding."
+    rag_query_template: "Erklaere den Begriff '{label_de}' fuer einen {expertise_level} Pflanzenfreund. Gib eine kurze Definition und einen praxisnahen Hinweis."

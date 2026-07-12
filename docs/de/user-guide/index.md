@@ -46,6 +46,7 @@ Das Benutzerhandbuch erklärt alle Funktionen von Kamerplanter für Pflanzenzüc
 | [Speicher konfigurieren](object-storage.md) | Object-Storage-Backend für Fotos, Importe und Backups wählen |
 | [KI-Assistent](ai-assistant.md) | Pflanzenwissen per KI-Suche abfragen |
 | [KI-Provider](ai-providers.md) | KI-Anbieter konfigurieren (Ollama, Anthropic, OpenAI) |
+| [Fachbegriff-Glossar](glossary.md) | Fachbegriffe wie VPD oder EC erfahrungsstufengerecht nachschlagen |
 | [Aktorik & Umgebungssteuerung](actuator-control.md) | Automatische Steuerung von Lüftern, Licht, Pumpen |
 | [Vermehrung](propagation.md) | Stecklinge, Samen, Veredelung |
 | [Datenschutz](privacy.md) | DSGVO-Rechte und Datenexport |

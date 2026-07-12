@@ -1363,6 +1363,50 @@ def get_ai_assistant_service():
     )
 
 
+# ── REQ-035 KI terminology glossary dependencies ─────────────────
+
+
+def get_glossary_term_repo():
+    from app.data_access.arango.glossary_repository import ArangoGlossaryTermRepository
+
+    return ArangoGlossaryTermRepository(get_db())
+
+
+def get_glossary_cache_repo():
+    from app.data_access.arango.glossary_repository import ArangoGlossaryTermCacheRepository
+
+    return ArangoGlossaryTermCacheRepository(get_db())
+
+
+def get_glossary_service():
+    """REQ-035 §4.1 — the cache-first glossary term-explanation service.
+
+    Consumes the REQ-031 foundation: the async KnowledgeServiceAdapter (with its
+    circuit breaker), the shared AiAuditLogger, and — for the tenant cloud gate —
+    the REQ-031 ConsentGuard + provider repository. The Redis hot cache is
+    best-effort (a Redis outage degrades to the ArangoDB persist cache).
+    """
+    from app.domain.services.glossary_service import GlossaryService
+
+    try:
+        redis_client = _get_redis_client()
+    except Exception:  # noqa: BLE001 — Redis is an optional accelerator (§2.2).
+        redis_client = None
+
+    return GlossaryService(
+        term_repo=get_glossary_term_repo(),
+        cache_repo=get_glossary_cache_repo(),
+        knowledge_adapter=get_knowledge_service_adapter(),
+        audit_logger=get_ai_audit_logger(),
+        consent_guard=get_ai_consent_guard(),
+        provider_repo=get_ai_provider_repo(),
+        redis_client=redis_client,
+    )
+
+
+# ── REQ-036 KI-Diagnose dependencies ─────────────────────────────
+
+
 def get_diagnose_service():
     """REQ-036 §4.2 — the structured KI diagnosis service (stateless, IPM-bridged)."""
     from app.domain.engines.diagnosis_analysis_engine import DiagnosisAnalysisEngine

@@ -24,6 +24,7 @@ celery_app.conf.update(
         "app.tasks.dormancy_checks",
         "app.tasks.enrichment_tasks",
         "app.tasks.frost_forecast_tasks",
+        "app.tasks.glossary_tasks",
         "app.tasks.hardiness_tasks",
         "app.tasks.inventree_tasks",
         "app.tasks.irrigation_tasks",
@@ -71,6 +72,11 @@ celery_app.conf.update(
         "ai-knowledge-service-ingest-weekly": {
             "task": "ai.knowledge_service_ingest",
             "schedule": crontab(hour=3, minute=0, day_of_week=0),
+        },
+        # REQ-035 KI glossary cache cleanup (§4.3)
+        "glossary-cleanup-cache-daily": {
+            "task": "glossary.cleanup_expired_cache",
+            "schedule": crontab(hour=2, minute=45),
         },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {

@@ -3,7 +3,7 @@
 This page explains the key terms you'll encounter in Kamerplanter and throughout this documentation — kept short and understandable without prior knowledge. Each entry links to the page where the topic is covered in depth.
 
 !!! info "A static reference"
-    This glossary page is a fixed list for looking things up. A searchable, in-context term explanation inside the Kamerplanter application itself (e.g. as a tooltip right where the term appears) is planned for a future version.
+    This glossary page is a fixed list for looking things up, intended for developers and for quickly cross-referencing the documentation. For a searchable, AI-backed term explanation right inside the Kamerplanter application — including experience-level-adaptive explanations and related terms — use the [Terminology Glossary](../user-guide/glossary.md) in the app. <!-- REQ-035 -->
 
 Terms are sorted alphabetically. Use the search box at the top of the page (or <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd>) to jump straight to a term.
 

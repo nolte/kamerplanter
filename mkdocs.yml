@@ -123,6 +123,7 @@ plugins:
             KI-Assistent: AI Assistant
             KI-Diagnose: AI Diagnosis
             KI-Provider einrichten: AI Provider Setup
+            Fachbegriff-Glossar: Terminology Glossary
             Umgebungssteuerung: Actuator Control
             Mandanten & Gaerten: Tenants & Gardens
             Pflegeerinnerungen: Care Reminders
@@ -311,6 +312,7 @@ nav:
       - Kiosk-Modus: de/user-guide/kiosk-mode.md
       - KI-Assistent: de/user-guide/ai-assistant.md
       - KI-Provider einrichten: de/user-guide/ai-providers.md
+      - Fachbegriff-Glossar: de/user-guide/glossary.md
       - Umgebungssteuerung: de/user-guide/actuator-control.md
       - Mandanten & Gaerten: de/user-guide/tenants.md
       - Pflegeerinnerungen: de/user-guide/care-reminders.md

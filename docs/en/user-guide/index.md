@@ -46,6 +46,7 @@ The user guide explains all Kamerplanter features for plant growers and gardener
 | [Configure Storage](object-storage.md) | Choose the object storage backend for photos, imports, and backups |
 | [AI Assistant](ai-assistant.md) | Query plant knowledge via AI search |
 | [AI Providers](ai-providers.md) | Configure AI providers (Ollama, Anthropic, OpenAI) |
+| [Terminology Glossary](glossary.md) | Look up terms like VPD or EC, tailored to your experience level |
 | [Actuator Control](actuator-control.md) | Automatic control of fans, lights, pumps |
 | [Propagation](propagation.md) | Cuttings, seeds, grafting |
 | [Privacy](privacy.md) | GDPR rights and data export |
