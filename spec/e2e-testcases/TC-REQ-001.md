@@ -2,8 +2,9 @@
 req_id: REQ-001
 title: Stammdatenverwaltung von Pflanzen-Entitätszyklen
 category: Stammdaten
-test_count: 78
+test_count: 81
 coverage_areas:
+  - Core-Lifecycle-Journey — Pflanzeninstanz anlegen & bearbeiten (self-provisioning)
   - BotanicalFamily CRUD
   - BotanicalFamily Formvalidierung (aceae, ales, nitrogen_fixing + heavy)
   - BotanicalFamily pH-Bereich-Validierung
@@ -2173,10 +2174,99 @@ version: "4.0"
 
 ---
 
+## Gruppe 21: Core-Lifecycle-Journey — Pflanzeninstanz anlegen & bearbeiten (self-provisioning)
+
+*Kontext: Kern-Pflanzen-Lebenszyklus aus Browser-/Nutzersicht. Diese Journey bildet den ersten Abschnitt des durchgängigen Kern-Flows ab (Pflanze anlegen & bearbeiten → Phasenwechsel → Gießen → weitere Pflege). Jeder Testfall legt seine Vorbedingungen im Szenario selbst an (self-provisioning), damit ein späterer E2E-Test nie auf fehlende Seed-Daten zur Laufzeit ausweichen (`skip`) muss.*
+
+---
+
+## TC-001-079: Core-Journey Vorbereitung — Test-Spezies und Sorte anlegen (self-provisioning)
+
+**Requirement**: REQ-001 §2 — Species & Cultivar CRUD
+**Priority**: Critical
+**Category**: Core-Lifecycle-Journey / Vorbereitung
+**Preconditions**:
+- Nutzer ist angemeldet
+- Mindestens eine botanische Familie (z.B. Solanaceae) ist als Seed vorhanden
+
+**Test Steps**:
+1. Nutzer navigiert zu `/stammdaten/species` und klickt "Species erstellen"
+2. Nutzer trägt als wissenschaftlichen Namen `Solanum lycopersicum 'Journey'` ein und wählt die Familie "Solanaceae"
+3. Nutzer klickt "Speichern"
+4. Auf der Species-Detailseite öffnet der Nutzer den Tab "Sorten" und klickt "Sorte erstellen"
+5. Nutzer trägt den Sortennamen `Journey-01` ein und klickt "Speichern"
+
+**Expected Results**:
+- Die neue Species erscheint in der Species-Liste und ist über die Detailseite erreichbar
+- Die Sorte "Journey-01" erscheint im Sorten-Tab der Species
+- Kein Fehler-Banner sichtbar
+
+**Postconditions**:
+- Test-Spezies und Sorte stehen als selbst angelegte Vorbedingung für die Kern-Journey bereit (keine Abhängigkeit von externen Seed-Arten)
+
+**Tags**: [req-001, core-crud, self-provisioning, journey, smoke, species, cultivar]
+
+---
+
+## TC-001-080: Core-Journey — Pflanzeninstanz anlegen und in Liste + Detailseite verifizieren
+
+**Requirement**: REQ-001 §2 — Pflanzeninstanz aus Stammdaten; PlantInstanceCreateDialog
+**Priority**: Critical
+**Category**: Core-Lifecycle-Journey / Anlage
+**Preconditions**:
+- Test-Spezies `Solanum lycopersicum 'Journey'` und Sorte "Journey-01" existieren (aus TC-001-079 oder analog frisch im Szenario angelegt)
+
+**Test Steps**:
+1. Nutzer navigiert zu `/pflanzen/plant-instances` und öffnet den Anlagedialog (`data-testid="plant-instance-create-dialog"`)
+2. Nutzer wählt im Feld "Art" die Test-Spezies aus
+3. Nutzer wählt im Feld "Sorte" die Sorte "Journey-01"
+4. Nutzer ordnet — sofern ein Standort vorhanden ist — im optionalen Feld "Standort" einen Standort zu (das Feld ist nicht pflichtig, ein Fehlen blockiert die Anlage nicht)
+5. Nutzer belässt die vorbelegte "Aktuelle Phase" (erste Phase) und die vorbelegte Instanz-ID
+6. Nutzer klickt "Erstellen"
+
+**Expected Results**:
+- Der Dialog schließt sich und eine Erfolgsbenachrichtigung erscheint
+- Die neue Pflanzeninstanz erscheint in der Liste `/pflanzen/plant-instances` mit Art- und Sorten-Bezug
+- Ein Klick auf die Zeile öffnet die Detailseite, die Art, Sorte und aktuelle Phase korrekt anzeigt
+
+**Postconditions**:
+- Eine Pflanzeninstanz der Test-Spezies ist persistiert und Ausgangspunkt der weiteren Journey-Abschnitte
+
+**Tags**: [req-001, core-crud, plant-instance, journey, smoke, self-provisioning]
+
+---
+
+## TC-001-081: Core-Journey — Kernattribute der Pflanzeninstanz bearbeiten und Persistenz prüfen
+
+**Requirement**: REQ-001 §2 — Pflanzeninstanz-Bearbeitung; §6 DoD Persistenz
+**Priority**: High
+**Category**: Core-Lifecycle-Journey / Bearbeitung
+**Preconditions**:
+- Eine Pflanzeninstanz der Test-Spezies existiert (aus TC-001-080 oder analog frisch im Szenario angelegt)
+
+**Test Steps**:
+1. Nutzer öffnet die Detailseite der Pflanzeninstanz und klickt "Bearbeiten"
+2. Nutzer setzt den Anzeigenamen auf `Journey-Tomate A`
+3. Nutzer ordnet — sofern verfügbar — einen Standort zu und klickt "Speichern"
+4. Nutzer lädt die Seite neu (Reload)
+
+**Expected Results**:
+- Nach dem Speichern erscheint eine Erfolgsbenachrichtigung
+- Nach dem Reload zeigt die Detailseite den geänderten Anzeigenamen `Journey-Tomate A` (und ggf. den zugeordneten Standort)
+- Die Änderung ist auch in der Listenansicht sichtbar
+
+**Postconditions**:
+- Die Kernattribute der Pflanzeninstanz sind dauerhaft geändert
+
+**Tags**: [req-001, core-crud, plant-instance, edit, persistenz, journey]
+
+---
+
 ## Abdeckungs-Matrix
 
 | Spezifikations-Abschnitt | Beschreibung | Testfälle |
 |---|---|---|
+| Core-Lifecycle-Journey (Anlegen & Bearbeiten, self-provisioning) | Test-Spezies+Sorte+Pflanzeninstanz anlegen, Liste/Detail, Attribute editieren + Persistenz | TC-001-079 bis TC-001-081 |
 | §2 BotanicalFamily Knoten | Listenansicht, CRUD, Formularfelder, pH-Felder | TC-001-001 bis TC-001-018 |
 | §2 Species Knoten | Listenansicht, Filter, CRUD, Tabs | TC-001-019 bis TC-001-035 |
 | §2 Cultivar Knoten | Sorten-Tab, CRUD, Detailseite, Autoflower, Phasen-Gießen | TC-001-036 bis TC-001-046 |

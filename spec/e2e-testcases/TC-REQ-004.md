@@ -2,8 +2,9 @@
 req_id: REQ-004 + REQ-004-A
 title: Dynamische Nährstoff- und Dünge-Engine (inkl. EC-Budget-Kalkulation)
 category: Bewässerung & Düngung
-test_count: 88
+test_count: 91
 coverage_areas:
+  - Core-Lifecycle-Journey — Gießen & Düngen (self-provisioning)
   - Düngemittel-Katalog (CRUD, Filterung, Lagerbestand)
   - Nährstoffplan-Verwaltung (CRUD, Phasen-Entries, Klonen, Zuweisung)
   - Multi-Channel Delivery (DeliveryChannel, Validierungsregeln)
@@ -2244,10 +2245,93 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 
 ---
 
+## Gruppe O — Core-Lifecycle-Journey — Gießen & Düngen (self-provisioning)
+
+*Kontext: Kern-Pflanzen-Lebenszyklus aus Browser-/Nutzersicht. Diese Journey protokolliert für eine selbst angelegte Pflanze zunächst einen Gießvorgang (`/giessprotokoll`, WateringLogCreateDialog) und danach eine Düngung (FeedingEvent). Da der Gießprotokoll-Dialog ein Düngemittel/Kanal voraussetzt, legt die Journey Düngemittel und Pflanze im Szenario selbst an (self-provisioning), damit ein späterer E2E-Test nie mangels Seed-Daten zur Laufzeit ausweichen (`skip`) muss.*
+
+---
+
+## TC-004-089: Core-Journey — Gießvorgang für self-provisioned Pflanze protokollieren
+
+**Requirement**: REQ-004 §3 (WateringSchedule / Gießprotokoll); §7 DoD „Dosierungs-Historie"
+**Priority**: Critical
+**Category**: Core-Lifecycle-Journey / Gießen
+**Preconditions**:
+- Nutzer ist angemeldet
+- Ein Düngemittel und eine Pflanzinstanz werden im Szenario selbst angelegt (self-provisioning), da der Gießprotokoll-Dialog ein Düngemittel/Kanal benötigt
+
+**Test Steps**:
+1. Nutzer navigiert zu „Düngung" → „Düngemittel" und legt über „Düngemittel erstellen" ein Düngemittel `Journey-Base A` (Typ „base_nutrient") an — sofern nicht bereits vorhanden
+2. Nutzer legt über `/pflanzen/plant-instances` die Pflanzinstanz `JOURNEY-004` an
+3. Nutzer navigiert zu `/giessprotokoll` und klickt „Gießvorgang erfassen" (`data-testid="create-watering-log-button"`)
+4. Im Dialog (`data-testid="watering-log-create-dialog"`) wählt der Nutzer das Düngemittel/den Kanal `Journey-Base A`, die Applikationsmethode „Drench", die Pflanze `JOURNEY-004`, das Volumen `2` L und die Wasserquelle „tap"
+5. Nutzer klickt „Speichern"
+
+**Expected Results**:
+- Erfolgsmeldung „Bewässerung erfasst" erscheint
+- Der neue Eintrag erscheint in der Gießprotokoll-Liste mit Datum/Uhrzeit und der Pflanze `JOURNEY-004`
+
+**Postconditions**:
+- Der Gießvorgang ist als Watering-Log persistiert
+
+**Tags**: [REQ-004, core-lifecycle-journey, watering-log, giessprotokoll, self-provisioning, smoke]
+
+---
+
+## TC-004-090: Core-Journey — Gießprotokoll-Detail und Pflege-/Detail-Verifikation
+
+**Requirement**: REQ-004 §3 (Gießprotokoll-Detail); §7 DoD „Dosierungs-Historie"
+**Priority**: High
+**Category**: Core-Lifecycle-Journey / Verifikation
+**Preconditions**:
+- Ein Gießvorgang für `JOURNEY-004` existiert (aus TC-004-089 oder analog frisch im Szenario angelegt)
+
+**Test Steps**:
+1. Nutzer öffnet in der Gießprotokoll-Liste den Eintrag und gelangt auf die Detailseite `/giessprotokoll/:key`
+2. Nutzer öffnet anschließend die Detailseite der Pflanze `JOURNEY-004`
+
+**Expected Results**:
+- Die Gießprotokoll-Detailseite zeigt Volumen `2` L, Applikationsmethode „Drench" und den Pflanzenbezug `JOURNEY-004`
+- Die Pflanzen-Detailseite / Pflege-Fläche reflektiert den jüngsten Gießvorgang (letztes Gießdatum aktualisiert)
+
+**Postconditions**:
+- Der Gießvorgang ist über Protokoll und Pflanzenkontext nachvollziehbar
+
+**Tags**: [REQ-004, core-lifecycle-journey, watering-log, detail, pflege-flaeche]
+
+---
+
+## TC-004-091: Core-Journey — Düngung (FeedingEvent) für self-provisioned Pflanze erfassen
+
+**Requirement**: REQ-004 §3 (FeedingEvent); §7 DoD „Dosierungs-Historie"
+**Priority**: High
+**Category**: Core-Lifecycle-Journey / Düngen
+**Preconditions**:
+- Die Pflanzinstanz `JOURNEY-004` existiert (aus TC-004-089 oder analog frisch im Szenario angelegt)
+
+**Test Steps**:
+1. Nutzer navigiert zu „Düngung" → „Düngungsprotokoll" → „Neu"
+2. Nutzer wählt die Pflanze `JOURNEY-004`
+3. Nutzer wählt die Applikationsmethode „Drench (Gießkanne)"
+4. Nutzer gibt ein: Volumen `2` L, EC vorher `1.2` mS, EC nachher `1.1` mS, pH vorher `6.0`, pH nachher `6.1`
+5. Nutzer klickt „Speichern"
+
+**Expected Results**:
+- Erfolgsmeldung erscheint
+- Das neue FeedingEvent erscheint in der FeedingEvent-Liste mit Pflanze `JOURNEY-004`, EC/pH-Werten und Methode „Drench"
+
+**Postconditions**:
+- Das FeedingEvent ist persistiert; die Dosierungs-Historie der Pflanze ist ergänzt
+
+**Tags**: [REQ-004, core-lifecycle-journey, feeding-event, duengen, self-provisioning]
+
+---
+
 ## Abdeckungs-Übersicht
 
 | Spec-Abschnitt | Beschreibung | Testfälle |
 |---|---|---|
+| Core-Lifecycle-Journey (Gießen & Düngen, self-provisioning) | Watering-Log erfassen + Detail, FeedingEvent, Pflege-Verifikation | TC-004-089 bis TC-004-091 |
 | REQ-004 §1 (Business Case) | Mischprotokoll, CalMag, organische Düngung, Foliar-Warnung | TC-004-028 bis TC-004-033, TC-004-049 bis TC-004-051, TC-004-088 |
 | REQ-004 §3 (Fertilizer-CRUD) | Erstellen, Filtern, Lagerbestand, Reverse Lookup | TC-004-001 bis TC-004-011 |
 | REQ-004 §3 (NutrientPlan-CRUD) | Plan, Phase-Entry, Dünger-Zuweisung, Klonen, Zuweisung | TC-004-012 bis TC-004-027 |

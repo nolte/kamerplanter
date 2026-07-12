@@ -2,8 +2,9 @@
 req_id: REQ-006
 title: Modulare Aufgabenplanung & Benutzerdefinierte Workflows
 category: Prozessmanagement
-test_count: 75
+test_count: 77
 coverage_areas:
+  - Core-Lifecycle-Journey — Care-Task aus der Aufgabenwarteschlange abschließen (self-provisioning)
   - Task-Queue (Aufgabenliste)
   - Task-Detailseite (CRUD, Status, Tabs)
   - Aufgabe erstellen (TaskCreateDialog)
@@ -1899,10 +1900,67 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 
 ---
 
+## Gruppe 17: Core-Lifecycle-Journey — Care-Task aus der Aufgabenwarteschlange abschließen (self-provisioning)
+
+*Kontext: Kern-Pflanzen-Lebenszyklus aus Browser-/Nutzersicht. Diese Journey schließt den Kern-Flow ab: Für eine selbst angelegte Pflanze wird ein Pflege-Task erstellt und aus der Aufgabenwarteschlange (`/aufgaben/queue`) abgeschlossen. Die Pflanze wird im Szenario selbst angelegt (self-provisioning), damit der Task-Anlagedialog eine Pflanze zuordnen kann und ein späterer E2E-Test nie mangels Seed-Pflanze zur Laufzeit ausweichen (`skip`) muss.*
+
+---
+
+### TC-006-076: Core-Journey — Pflege-Task self-provisioning anlegen und in der Queue abschließen
+
+**Anforderung**: REQ-006 §1 — Vollständige Einzelaufgaben-Pflege (CRUD); §1 Task-Statusübergänge
+**Priorität**: Critical
+**Kategorie**: Core-Lifecycle-Journey / Zustandswechsel
+
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Eine Pflanzinstanz wird im Szenario selbst angelegt (self-provisioning), damit der Task-Anlagedialog eine Pflanze zuordnen kann
+
+**Testschritte**:
+1. Nutzer legt über `/pflanzen/plant-instances` die Pflanzinstanz `JOURNEY-006` an
+2. Nutzer navigiert zu `/aufgaben/queue` und klickt den "Aufgabe erstellen"-Button
+3. Nutzer gibt als Name `Journey gießen` ein, wählt die Kategorie "Gießen", die Fälligkeit "heute", die Priorität "Hoch" und im Autocomplete-Feld "Pflanze" die Instanz `JOURNEY-006`
+4. Nutzer klickt "Erstellen"
+5. Die neue Task erscheint in der Gruppe "Heute" mit Kategorie-Badge "Gießen"
+6. Nutzer klickt den "Abschließen"-Button (Haken-Icon) der Task-Karte
+
+**Erwartetes Ergebnis**:
+- Snackbar "Aufgabe abgeschlossen" (bzw. "Erledigt") erscheint
+- Die Task verschwindet aus den aktiven Gruppen (überfällig, heute, diese Woche)
+
+**Nachbedingungen**: Der Care-Task hat Status `completed`
+
+**Tags**: [req-006, core-lifecycle-journey, task-queue, care-task, abschliessen, self-provisioning, smoke]
+
+---
+
+### TC-006-077: Core-Journey — abgeschlossener Care-Task erscheint im Erledigt-Filter
+
+**Anforderung**: REQ-006 §3 — Task-Status-Übergänge; §1 Task-Queue (Filter)
+**Priorität**: High
+**Kategorie**: Core-Lifecycle-Journey / Verifikation
+
+**Vorbedingungen**:
+- Ein abgeschlossener Care-Task `Journey gießen` für `JOURNEY-006` existiert (aus TC-006-076)
+
+**Testschritte**:
+1. Nutzer navigiert zu `/aufgaben/queue`
+2. Nutzer aktiviert die Option "Erledigte Tasks anzeigen"
+
+**Erwartetes Ergebnis**:
+- Die Task `Journey gießen` erscheint mit Status "Erledigt" (grün) und Pflanzenbezug `JOURNEY-006`
+
+**Nachbedingungen**: Der Abschluss des Care-Tasks ist nachvollziehbar dokumentiert
+
+**Tags**: [req-006, core-lifecycle-journey, task-queue, erledigt, filter]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spezifikationsabschnitt | Testfälle |
 |------------------------|-----------|
+| §1 Core-Lifecycle-Journey — Care-Task anlegen + abschließen (self-provisioning) | TC-006-076, TC-006-077 |
 | §1 Task-Queue (Übersicht, Filter, Gruppierung) | TC-006-001, TC-006-002, TC-006-003, TC-006-004, TC-006-005 |
 | §1 Task-Statusübergänge (Starten, Abschließen, Überspringen) | TC-006-006, TC-006-007, TC-006-008 |
 | §1 Batch-Operationen (Bulk-Modus, Mehrfachauswahl) | TC-006-009, TC-006-010, TC-006-011 |

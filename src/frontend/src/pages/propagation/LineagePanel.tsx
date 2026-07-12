@@ -20,6 +20,7 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import PlantInstancePicker from '@/components/form/PlantInstancePicker';
 import { useApiError } from '@/hooks/useApiError';
+import { useNotification } from '@/hooks/useNotification';
 import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
 import * as api from '@/api/endpoints/propagation';
 import * as speciesApi from '@/api/endpoints/species';
@@ -50,6 +51,7 @@ const alertSeverity: Record<GraftCompatibilityLevel, 'success' | 'warning' | 'er
 export default function LineagePanel(): ReactElement {
   const { t } = useTranslation();
   const { handleError } = useApiError();
+  const notification = useNotification();
   const { instances, loading: instancesLoading } = usePlantInstanceOptions();
 
   // Species reference data resolves raw `*_species_key` values (e.g. in the
@@ -118,6 +120,12 @@ export default function LineagePanel(): ReactElement {
     const scion = scionKey.trim();
     const rootstock = rootstockKey.trim();
     if (!scion || !rootstock) return;
+    // Guard the self-graft case client-side so the backend VALIDATION_ERROR
+    // (English, HTTP 422) is never triggered and the user sees a localised hint.
+    if (scion === rootstock) {
+      notification.warning(t('pages.propagation.graft.samePlant'));
+      return;
+    }
     setGraftLoading(true);
     try {
       setGraft(await api.checkGraftCompatibility(scion, rootstock));
@@ -126,7 +134,7 @@ export default function LineagePanel(): ReactElement {
     } finally {
       setGraftLoading(false);
     }
-  }, [scionKey, rootstockKey, handleError]);
+  }, [scionKey, rootstockKey, handleError, notification, t]);
 
   return (
     <Grid container spacing={3}>

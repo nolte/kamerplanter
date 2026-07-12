@@ -24,6 +24,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { siteFieldConfig } from '@/config/fieldConfigs';
 import * as api from '@/api/endpoints/sites';
 import type { SiteWaterConfig } from '@/api/types';
+import GpsDetectButton from './GpsDetectButton';
 import { buildSiteResolver, gpsToPayload, isWeatherRelevantSiteType, siteTypeOptions, type SiteFormData } from './siteForm';
 
 const DEFAULT_VALUES: SiteFormData = {
@@ -64,7 +65,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
 
   const resolver = useMemo(() => buildSiteResolver(t), [t]);
   const typeOptions = useMemo(() => siteTypeOptions(t), [t]);
-  const { control, handleSubmit, reset } = useForm<SiteFormData>({
+  const { control, handleSubmit, reset, setValue } = useForm<SiteFormData>({
     resolver,
     defaultValues: DEFAULT_VALUES,
   });
@@ -129,6 +130,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
               <FormNumberField name="gps_lat" control={control} label={t('pages.sites.gpsLat')} min={-90} max={90} />
               <FormNumberField name="gps_lon" control={control} label={t('pages.sites.gpsLon')} min={-180} max={180} />
             </FormRow>
+            <GpsDetectButton setValue={setValue} />
             {!weatherEnabledForType && (
               <Alert severity="info" variant="outlined" icon={false} role="status" sx={{ py: 0.5, mb: 1.5 }} data-testid="site-weather-type-hint">
                 <Typography variant="caption">
