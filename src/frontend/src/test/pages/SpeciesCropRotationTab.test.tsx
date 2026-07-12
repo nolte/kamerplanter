@@ -40,6 +40,9 @@ function makeSuccessor(overrides: Partial<RotationSuccessor> = {}): RotationSucc
   return {
     family_key: 'fam-2',
     name: 'Fabaceae',
+    common_name_de: '',
+    common_name_en: '',
+    rotation_category: '',
     wait_years: 3,
     benefit_score: 0.8,
     benefit_reason: 'Stickstoffanreicherung',

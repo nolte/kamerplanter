@@ -52,8 +52,15 @@ describe('SpeciesCompanionTab', () => {
 
   it('renders compatible and incompatible relations with count chips', async () => {
     setupRelations(
-      [{ species_key: 'sp-2', scientific_name: 'Ocimum basilicum', score: 0.9 }],
-      [{ species_key: 'sp-3', scientific_name: 'Brassica oleracea', reason: 'Nährstoffkonkurrenz' }],
+      [{ species_key: 'sp-2', scientific_name: 'Ocimum basilicum', common_names: [], score: 0.9 }],
+      [
+        {
+          species_key: 'sp-3',
+          scientific_name: 'Brassica oleracea',
+          common_names: [],
+          reason: 'Nährstoffkonkurrenz',
+        },
+      ],
     );
     renderWithProviders(
       <SpeciesCompanionTab speciesKey="sp-1" speciesName="Tomate" fullScreen={false} />,
@@ -66,7 +73,7 @@ describe('SpeciesCompanionTab', () => {
   });
 
   it('falls back to the species key when the scientific name is missing', async () => {
-    setupRelations([{ species_key: 'sp-9', scientific_name: null, score: 0.5 }], []);
+    setupRelations([{ species_key: 'sp-9', scientific_name: null, common_names: [], score: 0.5 }], []);
     renderWithProviders(
       <SpeciesCompanionTab speciesKey="sp-1" speciesName="Tomate" fullScreen={false} />,
     );

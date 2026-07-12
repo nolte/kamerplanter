@@ -2,8 +2,9 @@
 req_id: REQ-022
 title: Einfache Pflegeerinnerungen fuer Zimmerpflanzen & Ueberwinterungsmanagement
 category: Pflege & Erinnerungen
-test_count: 86
+test_count: 88
 coverage_areas:
+  - Core-Lifecycle-Journey — Care-Reminder aus dem Pflege-Dashboard abschließen (self-provisioning)
   - PflegeDashboardPage (/pflege) — Kartenansicht aller faelliger Erinnerungen
   - ReminderCard — Einzelne Erinnerungskarte mit Dringlichkeits-Badge
   - Ein-Tap-Bestaetigung (Confirm-Button auf ReminderCard)
@@ -2359,10 +2360,70 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 
 ---
 
+## 27. Core-Lifecycle-Journey — Care-Reminder aus dem Pflege-Dashboard abschließen (self-provisioning)
+
+*Kontext: Kern-Pflanzen-Lebenszyklus aus Browser-/Nutzersicht. Diese Journey bildet den Pflege-Abschnitt des Kern-Flows ab: Eine neu angelegte Pflanze erzeugt sofort eine fällige Gieß-Erinnerung im Pflege-Dashboard (vgl. TC-022-011, erstmalige Pflanze ohne Bestätigungshistorie), die per Ein-Tap bestätigt wird. Die Pflanze wird im Szenario selbst angelegt (self-provisioning), damit ein späterer E2E-Test nie mangels Seed-Erinnerung zur Laufzeit ausweichen (`skip`) muss.*
+
+---
+
+### TC-022-087: Core-Journey — Neu angelegte Pflanze erzeugt Gieß-Erinnerung und wird per Ein-Tap bestätigt
+
+**Requirement**: REQ-022 § 1 — Ein-Tap-Bestätigung; § 5.1 PflegeDashboardPage
+**Priority**: Critical
+**Category**: Core-Lifecycle-Journey / Bestätigung
+
+**Vorbedingungen**:
+- Nutzer ist angemeldet
+- Eine Pflanzinstanz mit Pflegeprofil wird im Szenario selbst angelegt (self-provisioning), sodass unmittelbar eine fällige, erstmalige Gieß-Erinnerung im Pflege-Dashboard erscheint
+
+**Testschritte**:
+1. Nutzer legt über `/pflanzen/plant-instances` die Pflanzinstanz `JOURNEY-022` an (Spezies mit CareProfile)
+2. Nutzer navigiert zum Pflege-Dashboard
+3. Die ReminderCard "Gießen" für `JOURNEY-022` ist sichtbar
+4. Nutzer klickt den Ein-Tap-Bestätigen-Button ("Gegossen")
+
+**Erwartetes Ergebnis**:
+- Die Karte verschwindet sofort aus dem Dashboard (Optimistic Update)
+- Eine CareConfirmation (reminder_type="watering", action="confirmed") wird erstellt
+- Die "Letzte Aktion" der Pflanze zeigt das heutige Datum
+
+**Nachbedingungen**:
+- Die Gieß-Erinnerung ist bestätigt; ein Adaptive-Learning-Signal ist erfasst
+
+**Tags**: [req-022, core-lifecycle-journey, reminder-card, bestaetigung, self-provisioning, smoke, watering, care-confirmation]
+
+---
+
+### TC-022-088: Core-Journey — Nach Bestätigung ist die Erinnerung nicht mehr fällig (Reload-Persistenz)
+
+**Requirement**: REQ-022 § 1 — Ein-Tap-Bestätigung; § 3 CareConfirmation-Interop
+**Priority**: High
+**Category**: Core-Lifecycle-Journey / Persistenz
+
+**Vorbedingungen**:
+- Eine bestätigte Gieß-Erinnerung für `JOURNEY-022` existiert (aus TC-022-087)
+
+**Testschritte**:
+1. Nutzer lädt das Pflege-Dashboard neu (Reload)
+2. Nutzer prüft die Bereiche "Fällig" und "Demnächst"
+
+**Erwartetes Ergebnis**:
+- Für `JOURNEY-022` erscheint keine fällige Gieß-Erinnerung mehr
+- Die nächste Fälligkeit gemäß Gießintervall wird — sofern angezeigt — im Bereich "Demnächst" (grau) geführt
+- Der Zustand bleibt auch nach dem Reload bestehen (Persistenz der Bestätigung)
+
+**Nachbedingungen**:
+- Die Bestätigung ist dauerhaft wirksam; der Kern-Pflege-Flow ist abgeschlossen
+
+**Tags**: [req-022, core-lifecycle-journey, reminder-card, persistenz, care-confirmation]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
 |----------------|-------------|--------------|
+| Core-Lifecycle-Journey — Care-Reminder abschließen (self-provisioning) | Neu angelegte Pflanze → fällige Gieß-Erinnerung → Ein-Tap-Bestätigung → Reload-Persistenz | TC-022-087, TC-022-088 |
 | § 1 Business Case — Care-Style-Presets | 9 Presets, Gießmethoden, Wasserqualitaets-Hinweise | TC-022-005, TC-022-006, TC-022-007, TC-022-028, TC-022-046, TC-022-047 |
 | § 1 Business Case — Erinnerungstypen (10 Typen) | watering, fertilizing, repotting, pest_check, location_check, humidity_check, winter_protection, spring_uncover, tuber_dig, storage_check | TC-022-012, TC-022-013, TC-022-014, TC-022-038, TC-022-039, TC-022-040, TC-022-043, TC-022-059, TC-022-061, TC-022-062, TC-022-084, TC-022-085, TC-022-086 |
 | § 1 Business Case — Dünge-Guard | Saison + Dormanz-Phasen | TC-022-031, TC-022-032, TC-022-033, TC-022-034 |

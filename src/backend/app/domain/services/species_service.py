@@ -73,10 +73,15 @@ class SpeciesService:
     def get_compatible_species(self, species_key: SpeciesKey) -> list[dict]:
         self.get_species(species_key)
         raw = self._graph.get_compatible_species(species_key)
+        # Pass the full common_names list straight through from the graph vertex —
+        # it is already loaded on the species document (no extra query). The
+        # presentation layer derives the layperson-facing display name from it
+        # (first entry = German common name by seed convention, REQ-567/A).
         return [
             {
                 "species_key": item["species"].get("_key", ""),
                 "scientific_name": item["species"].get("scientific_name"),
+                "common_names": item["species"].get("common_names", []),
                 "score": item.get("score", 0.0),
             }
             for item in raw
@@ -89,6 +94,7 @@ class SpeciesService:
             {
                 "species_key": item["species"].get("_key", ""),
                 "scientific_name": item["species"].get("scientific_name"),
+                "common_names": item["species"].get("common_names", []),
                 "reason": item.get("reason", ""),
             }
             for item in raw
