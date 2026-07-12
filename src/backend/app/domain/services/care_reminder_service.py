@@ -223,6 +223,11 @@ class CareReminderService:
                 for f in (fertilizers_used or [])
             ]
             watering_log = WateringLog(
+                # Stamp the tenant so the confirmation's log is visible in the
+                # global Gießprotokoll view, which filters strictly on tenant_key
+                # (#580). Prefer the caller-supplied tenant (MCP path); otherwise
+                # resolve it from the plant so the REST care path is also bound.
+                tenant_key=tenant_key or self._resolve_tenant_key(plant_key),
                 logged_at=now,
                 application_method=ApplicationMethod.DRENCH,
                 volume_liters=effective_volume,
@@ -409,8 +414,16 @@ class CareReminderService:
         task_key: str,
         plant_key: str,
         reminder_type: ReminderType,
+        tenant_key: str = "",
     ) -> None:
-        """Create a WateringLog when a watering/fertilizing task is completed via task queue."""
+        """Create a WateringLog when a watering/fertilizing task is completed via task queue.
+
+        ``tenant_key`` (the completing request's tenant, #580) is stamped onto the
+        log so the task-queue completion path — like the dashboard-confirmation
+        path — yields a tenant-bound log the global Gießprotokoll view surfaces
+        instead of dropping as an empty-tenant orphan. When the caller omits it the
+        tenant is resolved from the plant so the log is never left unbound.
+        """
         if self._watering_log_repo is None:
             return
         if reminder_type not in (ReminderType.WATERING, ReminderType.FERTILIZING):
@@ -419,6 +432,7 @@ class CareReminderService:
         now = datetime.now(UTC)
         slot_keys = self._resolve_slot_keys(plant_key)
         watering_log = WateringLog(
+            tenant_key=tenant_key or self._resolve_tenant_key(plant_key),
             logged_at=now,
             application_method=ApplicationMethod.DRENCH,
             volume_liters=1.0,

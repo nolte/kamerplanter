@@ -6,15 +6,29 @@ Kategorie: Dokumentation / Developer Experience Unterkategorie: API-Docs, ADR, O
 Technologie: MkDocs, Material Theme, Python, Markdown
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.1
+Version: 1.2
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [documentation, mkdocs, api-docs, adr, onboarding, developer-experience]
-Abhängigkeiten: [NFR-003]
+Abhängigkeiten: [NFR-003, NFR-017]
 Betroffene Module: [ALL]
 ---
 
 # NFR-005: Technische Dokumentation mit MkDocs Material
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.2 | 2026-07-12 | **Einordnung Docs-Mehrsprachigkeit in die Gesamtstrategie (Issue #568, NFR-017):** Cross-Reference ergänzt. Das DE-kanonisch/EN-Mirror-Prinzip (mkdocs-static-i18n, `docs/de/` + `docs/en/`, DE=default) ist der **dokumentationsseitige Sonderfall** der stack-weiten Mehrsprachigkeits-Architektur aus NFR-017 und erweitert sich auf weitere Sprachen als zusätzliche Mirror-Bäume — nicht als Umbau. |
+| 1.1 | 2026-02-27 | A-007 OpenAPI-Schema-Versionierung (`docs/api/openapi-v1.json`). |
+| 1.0 | 2026-02-27 | Erstversion — MkDocs Material, mkdocstrings, ADR, Versionierung (mike), CI/CD, Deployment. |
+
+> **Querverweis Mehrsprachigkeit (NFR-017):** Die technische Dokumentation ist mehrsprachig als
+> **DE-kanonisch mit EN-Mirror** organisiert (Detail-Konventionen: `spec/style-guides/DOCS.md`). Dieses
+> Prinzip ist ein Sonderfall der stack-weiten N-Sprachen-Strategie aus
+> **NFR-017 (Skalierbare Mehrsprachigkeit)** §6 (R-122): weitere Sprachen kommen als zusätzliche,
+> paarweise gepflegte Mirror-Bäume hinzu, ohne die Docs-Architektur zu verändern.
 
 ## 1. Business Case
 
@@ -1881,8 +1895,8 @@ Term
 
 **Dokumenten-Ende**
 
-**Version**: 1.1
+**Version**: 1.2
 **Status**: Genehmigt
-**Letzte Aktualisierung**: 2026-02-25
+**Letzte Aktualisierung**: 2026-07-12
 **Review**: Genehmigt
 **Genehmigung**: Genehmigt (2026-06-11)

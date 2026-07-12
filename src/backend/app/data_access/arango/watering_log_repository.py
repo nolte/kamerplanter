@@ -233,53 +233,105 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             return result.date()
         return None
 
+    # Two static AQL variants keep the tenant filter injection-safe (no f-strings,
+    # NFR-006): the tenant-scoped variant is used for every request-context call,
+    # the unscoped variant only for an explicit ``all_tenants=True`` system query.
+    _BY_PLANT_QUERY = """
+    FOR doc IN @@collection
+      FILTER @plant_key IN doc.plant_keys
+      SORT doc.logged_at DESC
+      LIMIT @offset, @limit
+      RETURN doc
+    """
+
+    _BY_PLANT_TENANT_QUERY = """
+    FOR doc IN @@collection
+      FILTER @plant_key IN doc.plant_keys
+        AND doc.tenant_key == @tenant_key
+      SORT doc.logged_at DESC
+      LIMIT @offset, @limit
+      RETURN doc
+    """
+
+    _RECENT_RUNOFF_QUERY = """
+    FOR doc IN @@collection
+      FILTER @plant_key IN doc.plant_keys
+        AND doc.runoff_ec != null
+      SORT doc.logged_at DESC
+      LIMIT @limit
+      RETURN doc
+    """
+
+    _RECENT_RUNOFF_TENANT_QUERY = """
+    FOR doc IN @@collection
+      FILTER @plant_key IN doc.plant_keys
+        AND doc.tenant_key == @tenant_key
+        AND doc.runoff_ec != null
+      SORT doc.logged_at DESC
+      LIMIT @limit
+      RETURN doc
+    """
+
     def get_by_plant(
         self,
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
+        tenant_key: str = "",
+        *,
+        all_tenants: bool = False,
     ) -> list[WateringLog]:
-        query = """
-        FOR doc IN @@collection
-          FILTER @plant_key IN doc.plant_keys
-          SORT doc.logged_at DESC
-          LIMIT @offset, @limit
-          RETURN doc
+        """Return a plant's watering logs, tenant-scoped by default (SEC-B4).
+
+        The per-plant Gießprotokoll view must not read another tenant's — nor an
+        orphaned empty-tenant — log (#580). ``tenant_key`` therefore filters the
+        query and is required in a request context: an unscoped read is only
+        allowed for an explicit ``all_tenants=True`` system-context call, mirroring
+        :meth:`BaseArangoRepository._list_docs`.
         """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.WATERING_LOGS,
-                "plant_key": plant_key,
-                "offset": offset,
-                "limit": limit,
-            },
-        )
+        self._enforce_tenant_scope(tenant_key, all_tenants)
+        bind_vars: dict[str, object] = {
+            "@collection": col.WATERING_LOGS,
+            "plant_key": plant_key,
+            "offset": offset,
+            "limit": limit,
+        }
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            query = self._BY_PLANT_TENANT_QUERY
+        else:
+            query = self._BY_PLANT_QUERY
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._to_model(doc) for doc in cursor]
 
-    def get_latest_by_plant(self, plant_key: str) -> WateringLog | None:
-        results = self.get_by_plant(plant_key, offset=0, limit=1)
+    def get_latest_by_plant(
+        self,
+        plant_key: str,
+        tenant_key: str = "",
+        *,
+        all_tenants: bool = False,
+    ) -> WateringLog | None:
+        results = self.get_by_plant(plant_key, offset=0, limit=1, tenant_key=tenant_key, all_tenants=all_tenants)
         return results[0] if results else None
 
     def get_recent_runoff_logs(
         self,
         plant_key: str,
         limit: int = 5,
+        tenant_key: str = "",
+        *,
+        all_tenants: bool = False,
     ) -> list[WateringLog]:
-        query = """
-        FOR doc IN @@collection
-          FILTER @plant_key IN doc.plant_keys
-            AND doc.runoff_ec != null
-          SORT doc.logged_at DESC
-          LIMIT @limit
-          RETURN doc
-        """
-        cursor = self._db.aql.execute(
-            query,
-            bind_vars={
-                "@collection": col.WATERING_LOGS,
-                "plant_key": plant_key,
-                "limit": limit,
-            },
-        )
+        self._enforce_tenant_scope(tenant_key, all_tenants)
+        bind_vars: dict[str, object] = {
+            "@collection": col.WATERING_LOGS,
+            "plant_key": plant_key,
+            "limit": limit,
+        }
+        if tenant_key:
+            bind_vars["tenant_key"] = tenant_key
+            query = self._RECENT_RUNOFF_TENANT_QUERY
+        else:
+            query = self._RECENT_RUNOFF_QUERY
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [self._to_model(doc) for doc in cursor]

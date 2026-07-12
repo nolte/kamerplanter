@@ -28,15 +28,17 @@ describe('useNotification', () => {
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Done!', {
       variant: 'success',
       autoHideDuration: 5000,
+      preventDuplicate: true,
     });
   });
 
-  it('calls error with persistent (null) auto-hide', () => {
+  it('calls error with finite 8s auto-hide and duplicate suppression (#571)', () => {
     const { result } = renderHook(() => useNotification(), { wrapper: Wrapper });
     act(() => result.current.error('Failure'));
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Failure', {
       variant: 'error',
-      autoHideDuration: null,
+      autoHideDuration: 8000,
+      preventDuplicate: true,
     });
   });
 
@@ -46,6 +48,7 @@ describe('useNotification', () => {
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Watch out', {
       variant: 'warning',
       autoHideDuration: 8000,
+      preventDuplicate: true,
     });
   });
 });

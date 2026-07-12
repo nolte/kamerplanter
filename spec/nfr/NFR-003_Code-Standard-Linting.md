@@ -6,15 +6,22 @@ Kategorie: Code-Qualität / Governance Unterkategorie: Naming, Linting, Formatti
 Technologie: Python 3.14, Ruff, mypy, ESLint, TypeScript, Prettier
 Status: Genehmigt
 Priorität: Kritisch
-Version: 2.1
+Version: 2.2
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-25
 Tags: [code-quality, linting, formatting, naming-conventions, type-safety, english-code]
-Abhängigkeiten: []
+Abhängigkeiten: [NFR-017]
 Betroffene Module: [ALL]
 ---
 
 # NFR-003: Englischer Source-Code-Standard & Linting-Richtlinie
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 2.2 | 2026-07-12 | **Scope-Klärung Laufzeit-Inhalte (Issue #568, NFR-017):** §2.1 präzisiert um die Abgrenzung Source-Language vs. lokalisierbare Laufzeit-Inhalte. Die Englisch-Pflicht gilt für Bezeichner/Code/Kommentare/Commits/API-Doku **sowie technische Fehlermeldungen und Logs** (English-only). **Nutzerseitige** Meldungen sind davon ausgenommen und werden über Keys/Katalog lokalisiert — geregelt in NFR-017 (Skalierbare Mehrsprachigkeit). |
+| 2.1 | 2026-02-25 | Bestand (W-015 Python-3.14-Type-Style, W-018 Scope-Klärung Spec/Docs, A-006 API-Response-Konsistenz). |
 
 ## 1. Business Case
 
@@ -112,6 +119,9 @@ def calculate_gdd(plant_id: str, base_temperature: float) -> float:
 
 <!-- Quelle: Widerspruchsanalyse W-018 — Klarstellung Scope der Englisch-Pflicht -->
 **Klarstellung:** Die Englisch-Pflicht gilt ausschließlich für Source Code, Code-Kommentare, Docstrings, Commit Messages und API-Dokumentation. Spezifikationsdokumente (`spec/**/*.md`), nutzerseitige Dokumentation (`docs/`) und Anforderungsanalysen werden auf Deutsch verfasst.
+
+<!-- Quelle: Issue #568 — Abgrenzung Source-Language vs. lokalisierbare Laufzeit-Inhalte (NFR-017) -->
+**Abgrenzung zu Laufzeit-Inhalten (NFR-017):** Die Englisch-Pflicht erstreckt sich auf **technische, entwicklerseitige** Laufzeit-Ausgaben — Logs, `structlog`-Events, 5xx/interne Fehlermeldungen und Diagnosen sind **English-only**. **Nutzerseitige** Inhalte (lokalisierte Stammdaten, UI-Texte, nutzerseitige Fehlermeldungen) fallen **nicht** unter diese Pflicht: Sie werden nie als lokalisiertes String-Literal im Code kodiert, sondern über stabile Keys/Katalog und das Locale-keyed Content-Modell aus **NFR-017 (Skalierbare Mehrsprachigkeit)** lokalisiert. NFR-003 regelt die Sprache des *Codes*, NFR-017 die Sprache der *Laufzeit-Inhalte*.
 
 ### 2.2 Englisch verpflichtend für
 
@@ -1746,8 +1756,8 @@ mypy --html-report ./mypy-report .
 
 **Dokumenten-Ende**
 
-**Version**: 2.1
+**Version**: 2.2
 **Status**: Genehmigt
-**Letzte Aktualisierung**: 2026-02-25
+**Letzte Aktualisierung**: 2026-07-12
 **Review**: Genehmigt
 **Genehmigung**: Genehmigt (2026-06-11)
