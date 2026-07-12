@@ -340,3 +340,4 @@ curl -X DELETE "https://api.kamerplanter.example.com/api/v1/t/{tenant_slug}/serv
 - [Authentication](authentication.md)
 - [Error Handling](error-handling.md)
 - [Environment Variables](../reference/environment-variables.md)
+- [MCP Server — uses service accounts for external LLM clients](mcp-server.md)
