@@ -116,9 +116,10 @@ Two flowers that can be used almost anywhere:
 
 ### How it works
 
-1. Select a species from the dropdown. Kamerplanter shows two cards: **Compatible Species** and **Incompatible Species**.
-2. Click **Add Compatibility**, choose the partner species, and assign a **score** between 0.1 (weak) and 1.0 (strong) — this is the compatibility score, such as the 0.9 score used for tomato and basil.
-3. Click **Add Incompatibility**, choose the partner species, and enter a short **reason** (e.g. "allelopathy").
+1. Open the **Select species** dropdown. For each species, Kamerplanter shows two counters before you even pick it: a green badge with the number of already recorded **compatible** species, and a red badge with the number of **incompatible** species. This lets you see at a glance which species already have companion-planting data, before you open them. A short legend below the field explains both colors. Species with no recorded relationships (0 compatible, 0 incompatible) are shown de-emphasized but remain fully selectable.
+2. Select a species. Kamerplanter shows two cards: **Compatible Species** and **Incompatible Species**.
+3. Click **Add Compatibility**, choose the partner species, and assign a **score** between 0.1 (weak) and 1.0 (strong) — this is the compatibility score, such as the 0.9 score used for tomato and basil.
+4. Click **Add Incompatibility**, choose the partner species, and enter a short **reason** (e.g. "allelopathy").
 
 !!! note "Family-level fallback"
     If no entry exists yet for a specific species pair, Kamerplanter automatically looks for a matching compatibility at the **family level** when you request a recommendation. Such a fallback match is reduced by 20% in score (score × 0.8) and marked "family level" instead of "species level".
