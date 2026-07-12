@@ -170,6 +170,21 @@ These variables belong to the **Kamerplanter backend** and control the three-sta
 
 ---
 
+## MCP Server <!-- REQ-033 --> {#mcp-server}
+
+These variables control the [MCP server](../api/mcp-server.md) — the tool interface through which external LLM clients (Claude Desktop, Claude Code, custom agents) can access Kamerplanter via a service-account API key.
+
+| Variable | Default | Required | Description |
+|----------|---------|----------|-------------|
+| `MCP_SERVER_ENABLED` | `false` | No | Master switch. Until set to `true`, all `/mcp/*` endpoints answer HTTP 404 — the interface effectively does not exist. |
+| `MCP_IDEMPOTENCY_TTL_HOURS` | `24` | No | Validity window for a write tool's `idempotency_key` — after it expires, a repeated call is treated as a new action. |
+| `MCP_AUDIT_RETENTION_DAYS` | `90` | No | Retention window for the `mcp_audit_log` (NFR-011) — older entries are automatically deleted. |
+
+!!! note "No standalone process, no dedicated connection variables"
+    The MCP server runs in-process with the existing backend and shares its ArangoDB/Redis connection — there is no separate host, port or credential configuration.
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Default | Required | Description |
@@ -688,6 +703,7 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [Weather Sources per Location — User Guide](../user-guide/weather-sources.md)
 - [Notifications: Frost Early-Warning — User Guide](../user-guide/notifications.md#frost-early-warning)
 - [API Reference: CV Disease Diagnosis](api-reference.md#cv-disease-diagnosis)
+- [MCP Server](../api/mcp-server.md)
 - [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
 - [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)
 - [Equipment & Inventory (InvenTree) — User Guide](../user-guide/inventree.md)

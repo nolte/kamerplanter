@@ -178,6 +178,7 @@ plugins:
             Browser-Push einrichten: Set Up Browser Push
             RAG-Wissensbasis: RAG Knowledge Base
             Service Accounts: Service Accounts
+            MCP-Server: MCP Server
             Datenaufbewahrung: Data Retention
             Mischkultur: Companion Planting
             Nachernte: Post-Harvest
@@ -354,6 +355,7 @@ nav:
           - Authentifizierung: de/api/authentication.md
           - Fehlerbehandlung: de/api/error-handling.md
           - Service Accounts: de/api/service-accounts.md
+          - MCP-Server: de/api/mcp-server.md
   - Deployment:
       - de/deployment/index.md
       - Docker installieren: de/deployment/docker-installation.md

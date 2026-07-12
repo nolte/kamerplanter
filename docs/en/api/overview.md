@@ -133,6 +133,7 @@ The following table lists all available router groups. In full mode, `auth`, `oi
 | Activities | `/activities` | Activity definitions (watering, fertilizing, etc.) | REQ-006 |
 | Activity Plans | `/activity-plans` | Activity plan generation and application | REQ-006 |
 | Knowledge Base | `/knowledge` | RAG-based search and AI answers (optional) | — |
+| MCP Server | `/mcp` | Tool interface for external LLM clients (service-account auth, opt-in) | REQ-033 |
 | Observations | `/observations` | TimescaleDB status | REQ-005 |
 | Health | `/health` | Liveness and readiness | — |
 | Mode | `/mode` | Current deployment mode (full/light) | REQ-027 |
@@ -253,4 +254,5 @@ Every API response includes the following security headers:
 - [Authentication](authentication.md) — Token workflow and API keys
 - [Error Handling](error-handling.md) — Error structure and error codes
 - [Service Accounts](service-accounts.md) — M2M access (planned, not yet implemented)
+- [MCP Server](mcp-server.md) — external LLM clients as a Kamerplanter tool
 - [Local Development Setup](../development/local-setup.md) — Running the backend locally

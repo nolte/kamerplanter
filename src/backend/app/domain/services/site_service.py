@@ -50,8 +50,11 @@ class SiteService:
         self.get_site(site_key)
         return self._repo.get_locations_by_site(site_key)
 
-    def get_location(self, key: LocationKey) -> Location:
-        return self._repo.get_location_or_raise(key)
+    def get_location(self, key: LocationKey, tenant_key: str = "") -> Location:
+        location = self._repo.get_location_or_raise(key)
+        if tenant_key:
+            verify_tenant_ownership(location, tenant_key, "Location")
+        return location
 
     def create_location(self, location: Location) -> Location:
         if location.parent_location_key:
@@ -88,8 +91,11 @@ class SiteService:
         self.get_location(location_key)
         return self._repo.get_slots_by_location(location_key)
 
-    def get_slot(self, key: SlotKey) -> Slot:
-        return self._repo.get_slot_or_raise(key)
+    def get_slot(self, key: SlotKey, tenant_key: str = "") -> Slot:
+        slot = self._repo.get_slot_or_raise(key)
+        if tenant_key:
+            verify_tenant_ownership(slot, tenant_key, "Slot")
+        return slot
 
     def create_slot(self, slot: Slot) -> Slot:
         self.get_location(slot.location_key)

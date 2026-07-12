@@ -170,6 +170,21 @@ Diese Variablen gehören zum **Kamerplanter-Backend** und steuern den dreistufig
 
 ---
 
+## MCP-Server <!-- REQ-033 --> {#mcp-server}
+
+Diese Variablen steuern den [MCP-Server](../api/mcp-server.md) — die Werkzeug-Schnittstelle, über die externe LLM-Clients (Claude Desktop, Claude Code, eigene Agenten) per Service-Account-API-Key auf Kamerplanter zugreifen können.
+
+| Variable | Standard | Pflicht | Beschreibung |
+|----------|---------|---------|-------------|
+| `MCP_SERVER_ENABLED` | `false` | Nein | Gesamtschalter. Solange nicht `true`, antworten alle `/mcp/*`-Endpunkte mit HTTP 404 — die Schnittstelle existiert dann faktisch nicht. |
+| `MCP_IDEMPOTENCY_TTL_HOURS` | `24` | Nein | Gültigkeitsdauer eines `idempotency_key` für Schreibwerkzeuge — danach wird ein Wiederholungs-Aufruf als neue Aktion behandelt. |
+| `MCP_AUDIT_RETENTION_DAYS` | `90` | Nein | Aufbewahrungsdauer des `mcp_audit_log` (NFR-011) — ältere Einträge werden automatisch gelöscht. |
+
+!!! note "Kein eigener Prozess, keine eigenen Verbindungsvariablen"
+    Der MCP-Server läuft im bestehenden Backend-Prozess mit und nutzt dessen ArangoDB-/Redis-Verbindung mit — es gibt keine separate Host-, Port- oder Credential-Konfiguration.
+
+---
+
 ## mDNS / Zeroconf Discovery
 
 | Variable | Standard | Pflicht | Beschreibung |
@@ -688,6 +703,7 @@ Weitere Hintergrundinformationen: [Speicher konfigurieren (Object Storage)](../u
 - [Wetterquellen je Standort — Benutzerhandbuch](../user-guide/weather-sources.md)
 - [Benachrichtigungen: Frost-Frühwarnung — Benutzerhandbuch](../user-guide/notifications.md#frost-fruehwarnung)
 - [API-Referenz: CV-Krankheitsdiagnose](api-reference.md#cv-krankheitsdiagnose)
+- [MCP-Server](../api/mcp-server.md)
 - [Datenschutz & DSGVO — KI-Krankheitsdiagnose](../user-guide/privacy.md#ki-krankheitsdiagnose-plant_diagnosis)
 - [Gießprotokoll: Vorgeschlagene Gießmenge — Benutzerhandbuch](../user-guide/watering-log.md#vorgeschlagene-giessmenge)
 - [Betriebsmittel & Inventar (InvenTree) — Benutzerhandbuch](../user-guide/inventree.md)

@@ -12,3 +12,5 @@ The Kamerplanter REST API follows OpenAPI 3.0. All endpoints are available under
 - [Overview](overview.md) — Base URL, pagination, error format
 - [Authentication](authentication.md) — JWT, OAuth2/OIDC
 - [Error Handling](error-handling.md) — HTTP status codes, error schema
+- [Service Accounts](service-accounts.md) — M2M access via API key
+- [MCP Server](mcp-server.md) — external LLM clients as a Kamerplanter tool (REQ-033)

@@ -22,7 +22,9 @@ from app.api.v1.privacy.schemas import (
     RightInfoResponse,
 )
 from app.common.auth import get_current_user
-from app.common.dependencies import get_privacy_service
+from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
+from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
+from app.domain.models.mcp import McpAuditLogEntry
 from app.domain.models.privacy import (
     ConsentRecord,
     DataExportRequest,
@@ -344,3 +346,20 @@ def get_privacy_policy(
         data_controller=DataControllerInfoResponse(**info.data_controller.model_dump()),
         rights_summary=[RightInfoResponse(**r.model_dump()) for r in info.rights_summary],
     )
+
+
+# ── REQ-033 §4.6 / AC-S3 — MCP activity self-service ──────────────────
+@router.get("/mcp-activity", response_model=list[McpAuditLogEntry])
+def get_mcp_activity(
+    current_user: User = Depends(get_current_user),
+    audit_repo: ArangoMcpAuditRepository = Depends(get_mcp_audit_repo),
+) -> list[McpAuditLogEntry]:
+    """Return the MCP tool-call audit trail attributed to the calling account.
+
+    DSGVO transparency for MCP usage (§4.6): entries are hash-only (no PII) and
+    scoped to the caller's own ``service_account_key`` (AC-S1). Retention is 90
+    days (AC-S4); aggregating across *all* service accounts a human owns is a
+    documented follow-up (needs a user→service-account ownership edge).
+    """
+
+    return audit_repo.list_for_service_account(current_user.key or "", limit=200)

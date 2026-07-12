@@ -28,6 +28,7 @@ celery_app.conf.update(
         "app.tasks.hardiness_tasks",
         "app.tasks.inventree_tasks",
         "app.tasks.irrigation_tasks",
+        "app.tasks.mcp_tasks",
         "app.tasks.notification_tasks",
         "app.tasks.pest_dataset_tasks",
         "app.tasks.pest_image_tasks",
@@ -77,6 +78,15 @@ celery_app.conf.update(
         "glossary-cleanup-cache-daily": {
             "task": "glossary.cleanup_expired_cache",
             "schedule": crontab(hour=2, minute=45),
+        },
+        # REQ-033 MCP server retention (§4.6)
+        "mcp-cleanup-audit-log-daily": {
+            "task": "mcp.cleanup_expired_audit_log",
+            "schedule": crontab(hour=2, minute=50),
+        },
+        "mcp-cleanup-idempotency-hourly": {
+            "task": "mcp.cleanup_expired_idempotency",
+            "schedule": 3600,
         },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {
