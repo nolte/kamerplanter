@@ -112,8 +112,8 @@ If the recognised species is known to the system, the **Add this plant** button 
 1. Compare the reference image with your plant
 2. Click **Add this plant**
 3. A form opens with the species pre-filled — give your plant a name (e.g. "Monstera living room")
-4. Optionally set location and substrate
-5. Click **Save**
+4. Optionally set location and substrate — see [Assigning a Location](#assigning-a-location-optional) below
+5. Click **Create**
 
 The plant is now in the system and automatically receives care suggestions based on the recognised species.
 
@@ -130,11 +130,30 @@ If the recognised species is unknown to the system, you see the notice "This spe
 
 ---
 
+## Assigning a Location (optional) {#assigning-a-location-optional}
+
+In the create form you can optionally assign the plant directly to a **location** — via the three cascading fields **Site**, **Area**, and **Slot** (for the hierarchy, see [Understanding the Location Hierarchy](locations-substrates.md#understanding-the-location-hierarchy)). Pick the site first, then the area, then the slot — all three fields remain optional.
+
+If a field is empty or greyed out, the helper text right below it explains why:
+
+- Without a selected site, **Area** and **Slot** point out that you need to pick a site first.
+- If the selected site has no areas yet, **Area** shows: "This site has no areas yet. Create an area under \"Sites\" first." In that case, create the area via [Adding Locations and Slots](locations-substrates.md#adding-locations-and-slots) and then return to the form.
+- Likewise, **Slot** shows a hint when no area is selected yet, or when the selected area has no slots yet.
+- Slots that are already occupied appear greyed out in the dropdown with the suffix "(occupied)" and cannot be assigned a second time.
+
+!!! note "Changing the site resets area and slot"
+    If you change the site afterwards, area and slot are automatically cleared, since they belonged to the previous site — pick them again. For screen-reader users this reset is additionally announced as a hint.
+
+!!! tip "Also available later in the Edit tab"
+    You don't have to set the location right when creating the plant. Open the plant's detail page at any time and switch to the **Edit** tab — the same fields and helper texts are available there too, for example when you relocate an existing plant.
+
+---
+
 ## Assigning the Photo to the New Plant
 
 The plant-creation form — whether reached via **Add this plant** or **Add species and plant** — shows an **Identification Photo** section with a preview of the photo you just took and two switches:
 
-- **Reuse photo as gallery image** (**on** by default): The photo is added as the first image in the new plant's [photo gallery](plant-photos.md) right after creation. If you don't want this, just turn the switch off before clicking **Save**.
+- **Reuse photo as gallery image** (**on** by default): The photo is added as the first image in the new plant's [photo gallery](plant-photos.md) right after creation. If you don't want this, just turn the switch off before clicking **Create**.
 - **Use as recognition reference** (**off** by default): This switch only appears if your instance uses [self-hosted recognition with DINOv2](#self-hosted-recognition-with-dinov2). Turning it on additionally adds your photo to the recognition base of the confirmed species — helping future photo identifications of that species, including for other users of your instance. <!-- Issue #447 -->
 
 !!! note "Your contribution only takes effect after review"
@@ -243,6 +262,7 @@ Platform admins can improve the quality of the reference index by deselecting un
 ## See Also
 
 - [Plant Master Data](plant-management.md)
+- [Sites and Substrates](locations-substrates.md) — create sites, areas, and slots
 - [External Data Enrichment](../guides/data-enrichment.md) — automatically fill in missing master data for new species
 - [Onboarding Wizard](onboarding.md)
 - [Privacy & GDPR](privacy.md)

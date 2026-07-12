@@ -287,3 +287,4 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 - [Dünge-Logik](fertilization.md)
 - [Wachstumsphasen](growth-phases.md)
 - [Wetterquellen je Standort](weather-sources.md)
+- [Pflanze per Foto identifizieren](plant-identification.md#standort-zuweisen-optional) — Standort, Bereich und Stellplatz direkt beim Anlegen einer Pflanze zuweisen

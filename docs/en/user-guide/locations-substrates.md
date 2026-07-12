@@ -279,3 +279,4 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 - [Fertilization](fertilization.md)
 - [Growth Phases](growth-phases.md)
 - [Weather Sources per Location](weather-sources.md)
+- [Plant Identification by Photo](plant-identification.md#assigning-a-location-optional) — assign a site, area, and slot directly when creating a plant
