@@ -610,6 +610,7 @@
       "emergencyStop": "Emergency stop",
       "emergencyConfirm": "All powered devices will be switched off (fire scenario). This action cannot be undone. Continue?",
       "emergencyDone": "Emergency stop executed: {{count}} actuator(s) switched off.",
+      "emergencyPartialFailure": "Emergency stop partially executed: {{stoppedCount}} actuator(s) switched off, {{failedCount}} actuator(s) could NOT be switched off ({{failedNames}}). Please check and disconnect these devices manually right away.",
       "summary": "{{total}} actuator(s), {{online}} online.",
       "online": "Online",
       "offline": "Offline",

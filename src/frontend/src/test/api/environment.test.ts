@@ -93,7 +93,12 @@ describe('environment api endpoints', () => {
       http.get(`${T}/actuators/:key/events`, () => HttpResponse.json([{ key: 'ev1' }])),
       http.post(`${T}/emergency-stop`, async ({ request }) => {
         scenario = await request.json();
-        return HttpResponse.json({ scenario: 'fire_alarm', stopped: ['a1'], forced_on: [] });
+        return HttpResponse.json({
+          scenario: 'fire_alarm',
+          stopped: ['a1'],
+          forced_on: [],
+          failed: [],
+        });
       }),
     );
     expect((await api.listActuatorEvents('a1'))[0].key).toBe('ev1');

@@ -106,9 +106,26 @@ export default function EnvironmentControlPage() {
     setEmergencyLoading(true);
     try {
       const result = await api.emergencyStop('fire_alarm');
-      notification.warning(
-        t('pages.environmentControl.emergencyDone', { count: result.stopped.length }),
-      );
+      // The backend isolates each device (a bulkhead: one dispatch failure never
+      // aborts the rest of the emergency stop) and reports the survivors in
+      // `failed`. Reporting only `stopped` here would let the user believe every
+      // device is safe even when one wasn't reached — always surface `failed`.
+      if (result.failed.length > 0) {
+        const failedNames = result.failed
+          .map((key) => actuators.find((a) => a.key === key)?.name ?? key)
+          .join(', ');
+        notification.error(
+          t('pages.environmentControl.emergencyPartialFailure', {
+            stoppedCount: result.stopped.length,
+            failedCount: result.failed.length,
+            failedNames,
+          }),
+        );
+      } else {
+        notification.warning(
+          t('pages.environmentControl.emergencyDone', { count: result.stopped.length }),
+        );
+      }
       reload();
     } catch {
       notification.error(t('errors.generic'));
@@ -119,7 +136,7 @@ export default function EnvironmentControlPage() {
     // stays open with its native `loading` state (spinner, no backdrop/Escape dismiss),
     // so the safety-critical action can't be accidentally re-triggered mid-request.
     setEmergencyOpen(false);
-  }, [notification, t, reload]);
+  }, [notification, t, reload, actuators]);
 
   const onlineCount = useMemo(
     () => actuators.filter((a) => a.is_online).length,
@@ -248,6 +265,7 @@ export default function EnvironmentControlPage() {
                           )
                         }
                         disabled={cardBusy}
+                        aria-busy={cardBusy && busy?.command === 'turn_on'}
                         onClick={() => handleCommand(actuator, 'turn_on')}
                         sx={{ minHeight: 48 }}
                         data-testid={`turn-on-${actuator.key}`}
@@ -265,6 +283,7 @@ export default function EnvironmentControlPage() {
                           )
                         }
                         disabled={cardBusy}
+                        aria-busy={cardBusy && busy?.command === 'turn_off'}
                         onClick={() => handleCommand(actuator, 'turn_off')}
                         sx={{ minHeight: 48 }}
                         data-testid={`turn-off-${actuator.key}`}

@@ -5797,6 +5797,10 @@ export interface EmergencyStopResult {
   scenario: string;
   stopped: string[];
   forced_on: string[];
+  /** Actuators the backend could not stop/force (per-device isolation — one
+   * dispatch failure never aborts the rest of the emergency stop). The UI
+   * MUST surface these instead of silently reporting a full success. */
+  failed: string[];
 }
 
 // ── REQ-016 InvenTree integration (optional) ────────────────────────────
