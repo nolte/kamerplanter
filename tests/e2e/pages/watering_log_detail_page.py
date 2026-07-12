@@ -74,8 +74,9 @@ class WateringLogDetailPage(BasePage):
         self.wait_for_element_clickable(self.DETAILS_TAB).click()
 
     def click_edit_tab(self) -> None:
-        """Click the Edit tab."""
+        """Click the Edit tab and wait for its form to render."""
         self.wait_for_element_clickable(self.EDIT_TAB).click()
+        self.wait_for_element_visible(self.FORM_VOLUME)
 
     # -- Details tab --------------------------------------------------------
 
@@ -110,6 +111,11 @@ class WateringLogDetailPage(BasePage):
     def cancel_delete(self) -> None:
         """Cancel the deletion dialog."""
         self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+
+    def is_confirm_dialog_visible(self) -> bool:
+        """Return True if the delete ConfirmDialog is visible."""
+        elements = self.driver.find_elements(*self.CONFIRM_DIALOG)
+        return len(elements) > 0 and elements[0].is_displayed()
 
     # -- Edit tab -----------------------------------------------------------
 

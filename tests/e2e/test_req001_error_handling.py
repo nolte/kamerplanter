@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import BotanicalFamilyDetailPage, BotanicalFamilyListPage
@@ -58,10 +57,7 @@ class TestErrorHandling:
 
         # Should show an error display or notification
         error_displayed = family_list.is_error_displayed()
-        notifications = family_list.driver.find_elements(
-            By.CSS_SELECTOR, "[role='alert']"
-        )
-        assert error_displayed or len(notifications) > 0, (
+        assert error_displayed or family_list.has_alert_notification(), (
             "TC-REQ-001-076 FAIL: An error display or notification should be shown when backend is unreachable"
         )
 
@@ -81,10 +77,7 @@ class TestErrorHandling:
         family_list.wait_for_loading_complete()
         screenshot("TC-REQ-001-077_server-error", "Page state after server error")
 
-        notifications = family_list.driver.find_elements(
-            By.CSS_SELECTOR, "[role='alert']"
-        )
-        assert len(notifications) > 0, (
+        assert family_list.has_alert_notification(), (
             "TC-REQ-001-077 FAIL: An error notification should be shown for server errors"
         )
 

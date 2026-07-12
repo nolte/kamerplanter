@@ -217,10 +217,7 @@ class TestGrowthPhaseManagement:
         species_detail.wait_for_loading_complete()
 
         # Edit dialog should open — wait for the dialog to appear
-        dialogs = species_detail.driver.find_elements(
-            *species_detail.CREATE_DIALOG
-        )
-        if not dialogs:
+        if not species_detail.is_create_dialog_open():
             pytest.skip("Edit dialog did not open on phase row click")
 
         # Modify duration inside the dialog

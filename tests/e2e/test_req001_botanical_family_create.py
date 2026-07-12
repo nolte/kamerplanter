@@ -142,10 +142,10 @@ class TestBotanicalFamilyCreateDialog:
 
         family_list.wait_for_loading_complete()
         screenshot("TC-REQ-001-020_after-submit", "Family list after minimal creation attempt")
-        # Dialog should close on success
-        closed = not family_list.is_create_dialog_open()
-        # If validation on required multi-selects keeps it open, that's also valid
-        assert True, "Minimal creation attempted"
+        # Either the dialog closes (creation succeeded) or it stays open because
+        # a required multi-select still needs a value — both are valid outcomes
+        # for a "minimal fields" attempt; the goal of this test is exercising the
+        # submit path without the app crashing, which the calls above already do.
 
     @pytest.mark.core_crud
     def test_cancel_create_dialog(
@@ -250,9 +250,7 @@ class TestBotanicalFamilyBackendValidation:
         # Backend validation should either keep dialog open or show an error
         # snackbar. Both are valid outcomes.
         dialog_open = family_list.is_create_dialog_open()
-        snackbar_visible = len(family_list.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiAlert-standardError, .MuiAlert-filledError, .MuiSnackbar-root"
-        )) > 0
+        snackbar_visible = family_list.has_error_snackbar()
         assert dialog_open or snackbar_visible, (
             "TC-REQ-001-019 FAIL: Backend validation error should keep dialog open or show error snackbar"
         )

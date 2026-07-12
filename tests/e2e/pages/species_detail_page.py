@@ -159,6 +159,11 @@ class SpeciesDetailPage(BasePage):
                 names.append(cells[0].text)
         return names
 
+    def get_trait_chip_texts(self) -> list[str]:
+        """Return the text of all MUI Chip labels currently rendered (e.g. cultivar traits)."""
+        chips = self.driver.find_elements(By.CSS_SELECTOR, ".MuiChip-label")
+        return [c.text for c in chips]
+
     def click_cultivar_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
         if index < len(rows):
@@ -167,6 +172,10 @@ class SpeciesDetailPage(BasePage):
     def click_cultivar_create(self) -> None:
         self.wait_for_element_clickable(self.CULTIVAR_CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)
+
+    def is_create_dialog_open(self) -> bool:
+        """Check whether the cultivar/growth-phase create dialog is present."""
+        return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
     def delete_cultivar_at_index(self, index: int) -> None:
         """Click the delete icon in the actions column of a cultivar row."""

@@ -119,6 +119,7 @@ class TestCultivarCreateDialog:
         species_detail.wait_for_loading_complete()
         screenshot("TC-REQ-001-045_after-create", "Cultivar tab after successful creation — new cultivar should appear in list")
 
+    @pytest.mark.core_crud
     def test_validation_empty_cultivar_name(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
@@ -134,10 +135,11 @@ class TestCultivarCreateDialog:
         species_detail.submit_cultivar_form()
 
         screenshot("TC-REQ-001-046_validation-error", "Cultivar create dialog after submitting empty name — validation error expected, dialog stays open")
-        assert len(species_detail.driver.find_elements(
-            *species_detail.CREATE_DIALOG
-        )) > 0, "Dialog should remain open after validation error"
+        assert species_detail.is_create_dialog_open(), (
+            "TC-REQ-001-046 FAIL: Dialog should remain open after validation error"
+        )
 
+    @pytest.mark.core_crud
     def test_days_to_maturity_boundary(
         self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],

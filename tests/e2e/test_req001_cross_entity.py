@@ -182,14 +182,8 @@ class TestDropdownIntegrations:
         screenshot("TC-REQ-001-090_create-dialog", "Species create dialog open")
 
         # Open the family dropdown and check options
-        from selenium.webdriver.common.by import By
         try:
-            field = species_list.wait_for_element_clickable(
-                (By.CSS_SELECTOR, "[data-testid='form-field-family_key'] .MuiSelect-select")
-            )
-            species_list.scroll_and_click(field)
-            options = species_list.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-            option_texts = [o.text for o in options]
+            option_texts = species_list.open_dropdown_and_get_options("family_key")
             screenshot("TC-REQ-001-090_dropdown-options", "Family dropdown options in species create dialog")
 
             # Should have at least the 9 seed families plus a "-" option
@@ -198,8 +192,7 @@ class TestDropdownIntegrations:
             )
 
             # Close the dropdown
-            from selenium.webdriver.common.keys import Keys
-            species_list.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+            species_list.close_mui_dropdown()
         except Exception:
             pytest.skip("Family dropdown not accessible in create dialog")
 

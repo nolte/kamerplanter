@@ -146,9 +146,15 @@ class SiteListPageExt(BasePage):
     # ── Search / filter ────────────────────────────────────────────────
 
     def search(self, term: str) -> None:
+        import time
+
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         search_input.clear()
         search_input.send_keys(term)
+        # debounce: bounded, justified (table-search-input has a 300ms
+        # debounce before it re-filters, so callers can rely on the result
+        # being settled once this method returns)
+        time.sleep(0.3)
 
     def clear_search(self) -> None:
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
@@ -170,6 +176,9 @@ class SiteListPageExt(BasePage):
     def get_showing_count_text(self) -> str:
         el = self.wait_for_element(self.SHOWING_COUNT)
         return el.text
+
+    def has_table(self) -> bool:
+        return len(self.driver.find_elements(*self.TABLE)) > 0
 
     def has_empty_state(self) -> bool:
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
