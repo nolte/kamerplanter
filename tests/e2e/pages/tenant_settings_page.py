@@ -157,6 +157,15 @@ class TenantSettingsPage(BasePage):
         btn = self.wait_for_element_clickable(self.CREATE_LINK_BTN)
         self.scroll_and_click(btn)
 
+    def is_invite_email_field_present(self) -> bool:
+        """Check if the invite-email input field is present on the Invitations tab."""
+        return self.is_present(self.INVITE_EMAIL_FIELD)
+
+    def is_create_link_button_visible(self) -> bool:
+        """Check if the Create Link button is present and displayed (admin indicator)."""
+        elements = self.driver.find_elements(*self.CREATE_LINK_BTN)
+        return len(elements) > 0 and elements[0].is_displayed()
+
     def get_invitation_count(self) -> int:
         """Return the number of invitations in the table."""
         rows = self.driver.find_elements(*self.INVITATIONS_TABLE_ROWS)
