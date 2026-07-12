@@ -29,6 +29,7 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
+import GpsDetectButton from './GpsDetectButton';
 import LocationTreeSection from './LocationTreeSection';
 import SiteRunsSection from './SiteRunsSection';
 import WeatherSourceSection from './WeatherSourceSection';
@@ -79,7 +80,7 @@ export default function SiteDetailPage() {
 
   const resolver = useMemo(() => buildSiteResolver(t), [t]);
   const typeOptions = useMemo(() => siteTypeOptions(t), [t]);
-  const { control, handleSubmit, reset, formState: { isDirty } } = useForm<SiteFormData>({
+  const { control, handleSubmit, reset, setValue, formState: { isDirty } } = useForm<SiteFormData>({
     resolver,
     defaultValues: DEFAULT_VALUES,
   });
@@ -234,6 +235,7 @@ export default function SiteDetailPage() {
               <FormNumberField name="gps_lat" control={control} label={t('pages.sites.gpsLat')} min={-90} max={90} />
               <FormNumberField name="gps_lon" control={control} label={t('pages.sites.gpsLon')} min={-180} max={180} />
             </FormRow>
+            <GpsDetectButton setValue={setValue} />
             {!weatherEnabledForType && (
               <Alert severity="info" variant="outlined" icon={false} role="status" sx={{ py: 0.5, mb: 2 }} data-testid="site-weather-type-hint">
                 <Typography variant="caption">
