@@ -164,8 +164,16 @@ class WateringLogService:
         plant_key: str,
         offset: int = 0,
         limit: int = 50,
+        tenant_key: str = "",
     ) -> list[WateringLog]:
-        return self._repo.get_by_plant(plant_key, offset, limit)
+        """List a plant's watering logs, tenant-scoped (SEC-B4, #580).
+
+        The per-plant Gießprotokoll view is tenant-bound just like the global list:
+        ``tenant_key`` is forwarded to the repository so a caller can neither read
+        another tenant's logs nor the orphaned empty-tenant logs the pre-fix
+        care/task path produced.
+        """
+        return self._repo.get_by_plant(plant_key, offset, limit, tenant_key=tenant_key)
 
     def get_by_slot(
         self,
@@ -228,8 +236,16 @@ class WateringLogService:
         volume_liters: float | None = None,
         overrides: dict | None = None,
         channel_id: str | None = None,
+        tenant_key: str = "",
     ) -> dict:
-        """Confirm a scheduled watering task: create ONE WateringLog, complete task."""
+        """Confirm a scheduled watering task: create ONE WateringLog, complete task.
+
+        ``tenant_key`` (the confirming request's tenant, #580) is stamped onto the
+        created ``WateringLog`` so this task-confirmation path — like the direct
+        create path — produces a tenant-bound log that the global Gießprotokoll
+        view (which filters strictly on ``tenant_key``) surfaces instead of
+        silently dropping as an empty-tenant orphan.
+        """
         if self._run_repo is None or self._task_repo is None:
             raise ValueError("confirm_watering requires run_repo and task_repo")
 
@@ -264,6 +280,7 @@ class WateringLogService:
         application_method = watering_schedule.application_method if watering_schedule else ApplicationMethod.DRENCH
 
         watering_log = WateringLog(
+            tenant_key=tenant_key,
             logged_at=now,
             application_method=application_method,
             volume_liters=volume_liters or 1.0,
@@ -310,6 +327,6 @@ class WateringLogService:
             "warnings": [],
         }
 
-    def quick_confirm_watering(self, run_key: str, task_key: str) -> dict:
+    def quick_confirm_watering(self, run_key: str, task_key: str, tenant_key: str = "") -> dict:
         """Quick confirm using plan defaults -- no overrides."""
-        return self.confirm_watering(run_key, task_key)
+        return self.confirm_watering(run_key, task_key, tenant_key=tenant_key)

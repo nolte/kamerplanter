@@ -39,13 +39,34 @@ class IWateringLogRepository(ABC):
     def get_last_watering_date_for_run(self, run_key: str) -> date | None: ...
 
     @abstractmethod
-    def get_by_plant(self, plant_key: str, offset: int = 0, limit: int = 50) -> list[WateringLog]: ...
+    def get_by_plant(
+        self,
+        plant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        tenant_key: str = "",
+        *,
+        all_tenants: bool = False,
+    ) -> list[WateringLog]: ...
 
     @abstractmethod
-    def get_latest_by_plant(self, plant_key: str) -> WateringLog | None: ...
+    def get_latest_by_plant(
+        self,
+        plant_key: str,
+        tenant_key: str = "",
+        *,
+        all_tenants: bool = False,
+    ) -> WateringLog | None: ...
 
     @abstractmethod
-    def get_recent_runoff_logs(self, plant_key: str, limit: int = 5) -> list[WateringLog]: ...
+    def get_recent_runoff_logs(
+        self,
+        plant_key: str,
+        limit: int = 5,
+        tenant_key: str = "",
+        *,
+        all_tenants: bool = False,
+    ) -> list[WateringLog]: ...
 
     @abstractmethod
     def resolve_plant_names(self, plant_keys: list[str]) -> dict[str, str]: ...
