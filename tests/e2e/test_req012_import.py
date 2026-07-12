@@ -26,7 +26,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.import_page import ImportPage
@@ -233,8 +232,7 @@ class TestImportFileSelection:
         """
         import_page.open()
 
-        file_input = import_page.driver.find_element(*ImportPage.FILE_INPUT)
-        accept_attr = file_input.get_attribute("accept") or ""
+        accept_attr = import_page.get_file_input_accept_attribute()
         screenshot("TC-REQ-012-007_file-accept-filter", "File input accept attribute check")
 
         assert ".csv" in accept_attr, (
@@ -508,15 +506,7 @@ class TestImportErrorHandling:
         screenshot("TC-REQ-012-014_before-empty-upload", "Before uploading empty CSV")
 
         # Click upload and wait for either an error alert OR the preview step (0 rows)
-        import_page.click_upload()
-        from selenium.webdriver.support.ui import WebDriverWait
-        WebDriverWait(import_page.driver, 30).until(
-            lambda d: (
-                len(d.find_elements(*ImportPage.ERROR_ALERT)) > 0
-                or len(d.find_elements(By.CSS_SELECTOR, ".MuiSnackbar-root")) > 0
-                or len(d.find_elements(*ImportPage.STEP_PREVIEW)) > 0
-            )
-        )
+        import_page.click_upload_and_wait_error_or_preview()
         screenshot("TC-REQ-012-014_empty-csv-error", "Result after uploading empty CSV")
 
         # Either an error is shown OR preview displays 0 rows
@@ -552,17 +542,7 @@ class TestImportErrorHandling:
         screenshot("TC-REQ-012-015_before-missing-cols-upload", "Before uploading CSV with missing columns")
 
         # This may either show an error on step 1 or advance to preview with all invalid rows
-        import_page.click_upload()
-
-        # Wait for either error alert or preview step
-        from selenium.webdriver.support.ui import WebDriverWait
-
-        WebDriverWait(import_page.driver, 30).until(
-            lambda d: (
-                len(d.find_elements(*ImportPage.ERROR_ALERT)) > 0
-                or len(d.find_elements(*ImportPage.STEP_PREVIEW)) > 0
-            )
-        )
+        import_page.click_upload_and_wait_error_or_preview()
         screenshot("TC-REQ-012-015_missing-cols-result", "Result after uploading CSV with missing columns")
 
         # Either an error alert is shown OR all preview rows are invalid
