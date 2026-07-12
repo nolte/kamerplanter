@@ -36,7 +36,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.onboarding_wizard_page import OnboardingWizardPage
@@ -124,9 +123,7 @@ class TestWizardTrigger:
         )
 
         for level in ("beginner", "intermediate", "expert"):
-            locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}']")
-            cards = wizard.driver.find_elements(*locator)
-            assert len(cards) > 0, (
+            assert wizard.has_experience_card(level), (
                 f"TC-REQ-020-007 FAIL: Expected experience card '{level}' to be present"
             )
 

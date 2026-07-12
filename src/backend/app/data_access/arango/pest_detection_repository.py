@@ -17,6 +17,18 @@ class ArangoPestDetectionRepository(BaseArangoRepository[PestDetection], IPestDe
         self._beneficials = BaseArangoRepository[Beneficial](db, col.BENEFICIALS, Beneficial)
 
     def create(self, detection: PestDetection) -> PestDetection:
+        # #517 — the plant instance / planting run are caller-supplied foreign
+        # references; verify existence + tenant ownership before persisting the
+        # detection and its support edge (fail-closed 404, no cross-tenant oracle).
+        if detection.plant_instance_key:
+            self.verify_entity_ownership(
+                col.PLANT_INSTANCES, detection.plant_instance_key, detection.tenant_key, entity_name="PlantInstance"
+            )
+        elif detection.planting_run_key:
+            self.verify_entity_ownership(
+                col.PLANTING_RUNS, detection.planting_run_key, detection.tenant_key, entity_name="PlantingRun"
+            )
+
         created = super().create(detection)
 
         # §5.2 — dual-support edge to the plant instance or planting run.

@@ -17,6 +17,14 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import PlaceIcon from '@mui/icons-material/Place';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import EditIcon from '@mui/icons-material/Edit';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import EventNoteIcon from '@mui/icons-material/EventNote';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import TerrainIcon from '@mui/icons-material/Terrain';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
 import PageTitle from '@/components/layout/PageTitle';
 import PrintButton from '@/components/common/PrintButton';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -106,6 +114,22 @@ function getReminderIcon(type: ReminderType) {
       return <PlaceIcon />;
     case 'humidity_check':
       return <WaterDropIcon />;
+    case 'deadheading':
+      return <LocalFloristIcon />;
+    case 'winter_protection':
+      return <AcUnitIcon />;
+    case 'spring_uncover':
+      return <WbSunnyIcon />;
+    case 'tuber_dig':
+      return <TerrainIcon />;
+    case 'storage_check':
+      return <Inventory2Icon />;
+    case 'dormancy_health_check':
+      return <HealthAndSafetyIcon />;
+    case 'quarter_climate_check':
+      return <ThermostatIcon />;
+    default:
+      return <EventNoteIcon />;
   }
 }
 

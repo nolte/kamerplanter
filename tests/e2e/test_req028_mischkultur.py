@@ -31,7 +31,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import CompanionPlantingPage, CropRotationPage
@@ -181,15 +180,13 @@ class TestCompanionRecommendationEngine:
 
         # Score-Chip-Verifikation: Im CompanionPlantingPage.tsx wird pro
         # ListItem ein <Chip label={`Bewertung: ${c.score}`}> gerendert.
-        compatible_card_locator = CompanionPlantingPage.COMPATIBLE_CARD
-        cards = companion_page.driver.find_elements(*compatible_card_locator)
-        assert cards, (
+        assert companion_page.has_compatible_card(), (
             "TC-REQ-028-003 FAIL: Erwartet 'Kompatible Arten'-Card auf der "
             "Mischkultur-Seite (REQ-028 §7.1)"
         )
 
-        chips = cards[0].find_elements(By.CSS_SELECTOR, ".MuiChip-root")
-        assert len(chips) > 0, (
+        chip_count = companion_page.get_compatible_card_chip_count()
+        assert chip_count > 0, (
             "TC-REQ-028-003 FAIL: Erwartet mindestens einen Score-Chip an "
             "kompatibler Empfehlung (REQ-028 §6.2 + §7.1 Score-Badge)"
         )
@@ -220,18 +217,11 @@ class TestCompanionRecommendationEngine:
             "Mischkultur-Seite zeigt kompatible und inkompatible Listen getrennt",
         )
 
-        compat_cards = companion_page.driver.find_elements(
-            *CompanionPlantingPage.COMPATIBLE_CARD
-        )
-        incompat_cards = companion_page.driver.find_elements(
-            *CompanionPlantingPage.INCOMPATIBLE_CARD
-        )
-
-        assert len(compat_cards) >= 1, (
+        assert companion_page.has_compatible_card(), (
             "TC-REQ-028-004 FAIL: 'Kompatible Arten'-Card fehlt "
             "(REQ-028 §7.1 Mischkultur-Partner-Panel zwei Bereiche)"
         )
-        assert len(incompat_cards) >= 1, (
+        assert companion_page.has_incompatible_card(), (
             "TC-REQ-028-004 FAIL: 'Inkompatible Arten'-Card fehlt "
             "(REQ-028 §7.1 'Vermeiden'-Bereich)"
         )
@@ -326,10 +316,7 @@ class TestCropRotationCycle:
 
         # Verifikation: Das wait_years-Input zeigt den Wert "4". Damit ist
         # der 4-Jahres-Zyklus aus REQ-028 §6.4 / CLAUDE.md konfigurierbar.
-        wait_input = rotation_page.driver.find_element(
-            *CropRotationPage.DIALOG_WAIT_YEARS
-        )
-        actual_value = wait_input.get_attribute("value")
+        actual_value = rotation_page.get_dialog_wait_years_value()
         assert actual_value == "4", (
             f"TC-REQ-028-006 FAIL: Erwartet wait_years='4' (4-Jahres-Zyklus, "
             f"REQ-028 §6.4), bekommen wait_years={actual_value!r}"

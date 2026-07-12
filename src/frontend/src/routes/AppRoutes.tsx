@@ -55,6 +55,10 @@ const PlantIdentificationPage = lazy(
 const PestIdentificationPage = lazy(() => import('@/pages/ki-recognition/PestIdentificationPage'));
 // REQ-031 KI-Assistent & Wissensvermittlung
 const KIAssistentPage = lazy(() => import('@/pages/ki-assistent/KIAssistentPage'));
+// REQ-035 KI-Glossar
+const GlossaryPage = lazy(() => import('@/pages/glossar/GlossaryPage'));
+// REQ-036 KI-Diagnose-Assistent
+const DiagnosePage = lazy(() => import('@/pages/ki-diagnose/DiagnosePage'));
 const PlantingRunListPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunListPage'));
 const PlantingRunDetailPage = lazy(() => import('@/pages/durchlaeufe/PlantingRunDetailPage'));
 const SuccessionPlanListPage = lazy(() => import('@/pages/durchlaeufe/SuccessionPlanListPage'));
@@ -550,6 +554,24 @@ export const router = createBrowserRouter(
             element={
               <Suspense fallback={<LoadingSkeleton variant="card" />}>
                 <KIAssistentPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-035 KI-Fachbegriff-Glossar — light-mode-fähig (kein Consent, §6) */}
+          <Route
+            path="glossar"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <GlossaryPage />
+              </Suspense>
+            }
+          />
+          {/* REQ-036 KI-Diagnose-Assistent (strukturiert, symptombasiert) */}
+          <Route
+            path="diagnose"
+            element={
+              <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                <DiagnosePage />
               </Suspense>
             }
           />

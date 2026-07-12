@@ -73,6 +73,9 @@ class TestListForUser:
 class TestCreateEdges:
     def test_create_wires_plant_and_found_edges(self, repo, mock_db):
         coll = mock_db.collection.return_value
+        # #517 — the create path now verifies the plant instance's tenant
+        # ownership; stub the lookup to return an own-tenant plant.
+        coll.get.return_value = {"_key": "plant_1", "tenant_key": "tenant_anna"}
         coll.insert.return_value = {
             "new": {"_key": "diag_1", "tenant_key": "tenant_anna", "user_key": "u", "image_hash": "sha256:x"}
         }
@@ -99,3 +102,34 @@ class TestCreateEdges:
         assert f"{col.DISEASES}/disease_early_blight" in edge_targets
         # the unmatched deficiency produced no found-edge
         assert not any(t.startswith(f"{col.PESTS}/") for t in edge_targets)
+
+
+class TestCreateOwnershipGuard:
+    """#517 — the caller-supplied plant instance must be own-tenant (fail-closed 404)."""
+
+    def test_foreign_plant_instance_raises_404_and_persists_nothing(self, repo, mock_db):
+        from app.common.exceptions import NotFoundError
+
+        coll = mock_db.collection.return_value
+        coll.get.return_value = {"_key": "plant_1", "tenant_key": "tenant_bob"}
+        with pytest.raises(NotFoundError):
+            repo.create(_request(plant_instance_key="plant_1"))
+        coll.insert.assert_not_called()
+
+    def test_missing_plant_instance_raises_404(self, repo, mock_db):
+        from app.common.exceptions import NotFoundError
+
+        coll = mock_db.collection.return_value
+        coll.get.return_value = None
+        with pytest.raises(NotFoundError):
+            repo.create(_request(plant_instance_key="plant_1"))
+        coll.insert.assert_not_called()
+
+    def test_foreign_harvest_observation_raises_404(self, repo, mock_db):
+        from app.common.exceptions import NotFoundError
+
+        coll = mock_db.collection.return_value
+        coll.get.return_value = {"_key": "obs_1", "tenant_key": "tenant_bob"}
+        with pytest.raises(NotFoundError):
+            repo.create(_request(harvest_observation_key="obs_1"))
+        coll.insert.assert_not_called()

@@ -11,6 +11,7 @@ from app.common.enums import (
 )
 from app.common.exceptions import NotFoundError
 from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
@@ -39,7 +40,13 @@ _SEASON_PHASE_REMINDERS: dict[SeasonPhase, tuple[ReminderType, ...]] = {
 
 
 def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
-    """Human-readable task instruction for a care-reminder type (shared, REQ-022)."""
+    """Human-readable task instruction for a care-reminder type (shared, REQ-022).
+
+    Single source of the per-reminder-type instruction text (P4). Consumed by both
+    the service path (:meth:`CareReminderService._ensure_care_task`) and the daily
+    Celery producer (``generate_due_care_reminders``) via
+    :func:`build_care_reminder_task`, so the two paths can never drift on wording.
+    """
     return {
         ReminderType.FERTILIZING: f"Fertilize {plant_label} according to care profile.",
         ReminderType.REPOTTING: f"Check if {plant_label} needs repotting.",
@@ -52,6 +59,41 @@ def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> 
         ReminderType.STORAGE_CHECK: f"Check the stored tubers/bulbs of {plant_label}.",
         ReminderType.DEADHEADING: f"Deadhead spent blooms on {plant_label}.",
     }.get(reminder_type, f"Care reminder: {reminder_type.value} for {plant_label}.")
+
+
+def build_care_reminder_task(
+    *,
+    plant_key: str,
+    plant_label: str,
+    tenant_key: str,
+    reminder_type: ReminderType,
+    due_date: datetime,
+    instruction: str | None = None,
+    priority: TaskPriority = TaskPriority.MEDIUM,
+) -> Task:
+    """Build the care-reminder ``Task`` shared by the service and Celery paths (P4).
+
+    Single construction point so the dashboard-confirmation path, the seasonal
+    winter path (:meth:`CareReminderService._ensure_care_task`), the auto-watering
+    path (:meth:`CareReminderService.ensure_next_watering_task`) and the daily
+    ``generate_due_care_reminders`` producer can never drift on task shape.
+
+    ``instruction`` defaults to the shared per-type text from
+    :func:`care_reminder_instruction`; the watering path passes its
+    interval-specific instruction explicitly. ``priority`` defaults to
+    ``MEDIUM``; the daily producer raises it to ``HIGH`` for overdue reminders.
+    """
+    return Task(
+        name=f"{plant_label} — {reminder_type.value}",
+        instruction=(instruction if instruction is not None else care_reminder_instruction(reminder_type, plant_label)),
+        category=TaskCategory.CARE_REMINDER,
+        entity_key=plant_key,
+        entity_type="plant_instance",
+        tenant_key=tenant_key,
+        due_date=due_date,
+        status=TaskStatus.PENDING,
+        priority=priority,
+    )
 
 
 def _template_to_profile(
@@ -93,9 +135,11 @@ class CareReminderService:
         nutrient_plan_repo: INutrientPlanRepository | None = None,
         overwintering_repo: IOverwinteringProfileRepository | None = None,
         overwintering_template_repo: IOverwinteringProfileTemplateRepository | None = None,
+        recurrence: RecurrenceEngine | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
+        self._recurrence = recurrence or RecurrenceEngine()
         self._task_repo = task_repo
         self._watering_log_repo = watering_log_repo
         self._plant_repo = plant_repo
@@ -261,29 +305,45 @@ class CareReminderService:
             return [plant.slot_key]
         return []
 
+    def _resolve_tenant_key(self, plant_key: str) -> str:
+        """Resolve a plant's ``tenant_key`` so care-task lookups stay tenant-scoped.
+
+        Returns ``""`` when the plant can't be resolved (no plant repo / unknown
+        key); the tenant-aware dedup helper then scopes to the empty-tenant slice
+        rather than scanning across tenants (#509).
+        """
+        if self._plant_repo is None:
+            return ""
+        plant = self._plant_repo.get_by_key(plant_key)
+        return plant.tenant_key if plant is not None else ""
+
     def _complete_pending_care_task(
         self,
         plant_key: str,
         reminder_type: ReminderType,
     ) -> None:
-        """Auto-complete the matching pending care task when confirmed via dashboard."""
+        """Auto-complete the matching pending care task when confirmed via dashboard.
+
+        Routes through the single tenant-aware dedup helper
+        (:meth:`ITaskRepository.find_open_care_task`) so it can only ever complete
+        a still-open task belonging to the plant's own tenant (#509). A task that
+        was already completed earlier today is intentionally excluded here
+        (``include_completed_today=False``): only an open task is completed.
+        """
         if self._task_repo is None:
             return
-        name_suffix = f"\u2014 {reminder_type.value}"
-        existing = self._task_repo.find_by_field("entity_key", plant_key)
-        for t in existing:
-            if (
-                t.category == TaskCategory.CARE_REMINDER.value
-                and (t.name or "").endswith(name_suffix)
-                and t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-            ):
-                task_key = t.key or ""
-                task = self._task_repo.get_task_by_key(task_key)
-                if task is not None:
-                    task.status = TaskStatus.COMPLETED.value
-                    task.completed_at = datetime.now(UTC)
-                    self._task_repo.update_task(task_key, task)
-                break
+        tenant_key = self._resolve_tenant_key(plant_key)
+        task = self._task_repo.find_open_care_task(
+            plant_key,
+            reminder_type,
+            tenant_key,
+            include_completed_today=False,
+        )
+        if task is None:
+            return
+        task.status = TaskStatus.COMPLETED.value
+        task.completed_at = datetime.now(UTC)
+        self._task_repo.update_task(task.key or "", task)
 
     def complete_care_task_with_log(
         self,
@@ -527,41 +587,26 @@ class CareReminderService:
         return created
 
     def _ensure_care_task(self, plant, reminder_type: ReminderType) -> Task | None:  # noqa: ANN001 — PlantInstance
-        """Create one care-reminder Task idempotently (shared dedup convention).
+        """Create one care-reminder Task idempotently (single tenant-aware dedup).
 
-        Skips when an equivalent task is already PENDING/IN_PROGRESS or was
-        completed today, matching the daily ``generate_due_care_reminders`` producer.
+        Skips when the tenant-scoped dedup helper reports an equivalent task that
+        is already PENDING/IN_PROGRESS or was completed today — the same predicate
+        the daily ``generate_due_care_reminders`` producer uses (#509).
         """
         if self._task_repo is None:
             return None
         plant_key = plant.key or ""
-        name_suffix = f"— {reminder_type.value}"
-        today_str = date.today().isoformat()
-        existing = self._task_repo.find_by_field("entity_key", plant_key)
-        already_exists = any(
-            t.category == TaskCategory.CARE_REMINDER.value
-            and (t.name or "").endswith(name_suffix)
-            and (
-                t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
-            )
-            for t in existing
-        )
-        if already_exists:
+        if self._task_repo.find_open_care_task(plant_key, reminder_type, plant.tenant_key) is not None:
             return None
 
         plant_label = plant.plant_name or plant.instance_id or plant_key
         today = date.today()
-        task = Task(
-            name=f"{plant_label} {name_suffix}",
-            instruction=care_reminder_instruction(reminder_type, plant_label),
-            category=TaskCategory.CARE_REMINDER,
-            entity_key=plant_key,
-            entity_type="plant_instance",
+        task = build_care_reminder_task(
+            plant_key=plant_key,
+            plant_label=plant_label,
             tenant_key=plant.tenant_key,
+            reminder_type=reminder_type,
             due_date=datetime(today.year, today.month, today.day, tzinfo=UTC),
-            status=TaskStatus.PENDING,
-            priority=TaskPriority.MEDIUM,
         )
         return self._task_repo.create_task(task)
 
@@ -639,24 +684,20 @@ class CareReminderService:
             return None
 
         plant_key = profile.plant_key
-        rt_value = ReminderType.WATERING.value
-        name_suffix = f"\u2014 {rt_value}"
 
-        # Check for existing pending/in_progress watering task or one completed today
-        existing = self._task_repo.find_by_field("entity_key", plant_key)
-        from datetime import date
+        # Resolve the plant's display name + tenant up front: the tenant_key scopes
+        # the dedup lookup, so it must be known before the idempotency check (#509).
+        plant_label = plant_key
+        plant_tenant_key = ""
+        if self._plant_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is not None:
+                plant_label = plant.plant_name or plant.instance_id or plant_key
+                plant_tenant_key = plant.tenant_key
 
-        today_str = date.today().isoformat()
-        has_active_or_recent = any(
-            t.category == TaskCategory.CARE_REMINDER.value
-            and (t.name or "").endswith(name_suffix)
-            and (
-                t.status in (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
-                or (t.status == TaskStatus.COMPLETED.value and str(t.completed_at or "")[:10] >= today_str)
-            )
-            for t in existing
-        )
-        if has_active_or_recent:
+        # Single tenant-aware dedup: skip when an equivalent watering task is
+        # already open or was completed today.
+        if self._task_repo.find_open_care_task(plant_key, ReminderType.WATERING, plant_tenant_key) is not None:
             return None
 
         # Calculate next due date
@@ -666,6 +707,68 @@ class CareReminderService:
                 ReminderType.WATERING,
             )
 
+        due_dt = self._next_watering_due_date(
+            profile,
+            last_confirmation,
+            hemisphere=hemisphere,
+            phase_watering_interval=phase_watering_interval,
+        )
+        if due_dt is None:
+            return None
+
+        interval = self._engine._get_interval_days(profile, ReminderType.WATERING, hemisphere)
+
+        task = build_care_reminder_task(
+            plant_key=plant_key,
+            plant_label=plant_label,
+            tenant_key=plant_tenant_key,
+            reminder_type=ReminderType.WATERING,
+            due_date=due_dt,
+            instruction=f"Water {plant_label} (every {interval} days).",
+        )
+        return self._task_repo.create_task(task)
+
+    def _next_watering_due_date(
+        self,
+        profile: CareProfile,
+        last_confirmation: CareConfirmation | None,
+        *,
+        hemisphere: str,
+        phase_watering_interval: int | None,
+    ) -> datetime | None:
+        """Compute the next watering due date, reusing the Task recurrence engine.
+
+        For the fixed-interval case — a prior ``CONFIRMED`` confirmation exists —
+        the cadence is expressed as a ``FREQ=DAILY;INTERVAL=n`` rule and advanced
+        by the shared :class:`RecurrenceEngine`, the same machinery the generic
+        recurring-task path uses (#510). The care engine stays the interval
+        authority: it still computes the season/phase/adaptive interval ``n``.
+
+        The two cases a static RRULE cannot express stay with the care engine
+        (documented boundary): a ``SNOOZED`` last confirmation (due = snooze base +
+        snooze days) and the no-confirmation bootstrap (due immediately at the
+        profile's creation date). Behaviour is identical to the previous
+        ``calculate_due_date`` path — the RRULE ``after`` a date midpoint at
+        midnight equals ``base + n days``.
+        """
+        is_fixed_interval = last_confirmation is not None and not (
+            last_confirmation.action == ConfirmAction.SNOOZED and last_confirmation.snooze_days
+        )
+        if is_fixed_interval:
+            interval_days = self._engine._get_interval_days(
+                profile,
+                ReminderType.WATERING,
+                hemisphere,
+                phase_watering_interval=phase_watering_interval,
+            )
+            rule = self._recurrence.fixed_interval_rule(interval_days)
+            if rule is None:
+                return None
+            base = last_confirmation.confirmed_at.date()
+            base_dt = datetime(base.year, base.month, base.day, tzinfo=UTC)
+            return self._recurrence.next_occurrence(rule, base_dt)
+
+        # Snooze / bootstrap: not a static recurrence — keep the care engine.
         due_date = self._engine.calculate_due_date(
             profile,
             ReminderType.WATERING,
@@ -675,32 +778,7 @@ class CareReminderService:
         )
         if due_date is None:
             return None
-
-        due_dt = datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
-
-        # Resolve plant name and tenant for user-friendly display
-        plant_label = plant_key
-        plant_tenant_key = ""
-        if self._plant_repo is not None:
-            plant = self._plant_repo.get_by_key(plant_key)
-            if plant is not None:
-                plant_label = plant.plant_name or plant.instance_id or plant_key
-                plant_tenant_key = plant.tenant_key
-
-        interval = self._engine._get_interval_days(profile, ReminderType.WATERING, hemisphere)
-
-        task = Task(
-            name=f"{plant_label} \u2014 {rt_value}",
-            instruction=f"Water {plant_label} (every {interval} days).",
-            category=TaskCategory.CARE_REMINDER,
-            entity_key=plant_key,
-            entity_type="plant_instance",
-            tenant_key=plant_tenant_key,
-            due_date=due_dt,
-            status=TaskStatus.PENDING,
-            priority=TaskPriority.MEDIUM,
-        )
-        return self._task_repo.create_task(task)
+        return datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
 
     def _get_current_interval(self, profile: CareProfile, reminder_type: ReminderType) -> int | None:
         if reminder_type == ReminderType.WATERING:

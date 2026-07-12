@@ -3,7 +3,6 @@ import { Link as RouterLink } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -25,7 +24,6 @@ import AgricultureIcon from '@mui/icons-material/Agriculture';
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
 import GroupsIcon from '@mui/icons-material/Groups';
 import TimelineIcon from '@mui/icons-material/Timeline';
-import GridViewIcon from '@mui/icons-material/GridView';
 import WidgetsIcon from '@mui/icons-material/Widgets';
 import type { SvgIconComponent } from '@mui/icons-material';
 import HelpTooltip from '@/components/common/HelpTooltip';
@@ -33,7 +31,7 @@ import { useWidgetPayload } from '@/components/dashboard/DashboardDataContext';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { dashboardWidgetCatalog, type WidgetKey } from '@/config/dashboardWidgetCatalog';
-import { formatDate, humanizeSlug } from '@/utils/formatting';
+import { formatDate } from '@/utils/formatting';
 import type { WidgetComponentProps } from '@/components/dashboard/widgetRegistry';
 
 /**
@@ -46,16 +44,8 @@ import type { WidgetComponentProps } from '@/components/dashboard/widgetRegistry
  * never nested inside a panel ``<a>`` (invalid, a11y-breaking markup).
  */
 const TASK_ROW_LINK_BASE = '/aufgaben/tasks';
-const PLANT_TILE_LINK_BASE = '/pflanzen/plant-instances';
 /** Widgets whose ``upcoming_tasks`` rows deep-link to a single task detail view. */
 const TASK_ROW_WIDGETS: ReadonlySet<string> = new Set(['tasks_today', 'next_calendar_events']);
-
-/** A raw plant-instance tile as delivered in the aggregated ``plant_grid`` slice. */
-interface PlantTile {
-  _key?: string;
-  plant_name?: string | null;
-  species_key?: string;
-}
 
 /**
  * Widgets whose title is itself a domain jargon term (UI-NFR-011) get the
@@ -82,7 +72,6 @@ const WIDGET_ICON: Partial<Record<string, SvgIconComponent>> = {
   daily_tip: TipsAndUpdatesIcon,
   community_activity: GroupsIcon,
   phase_timeline: TimelineIcon,
-  plant_grid: GridViewIcon,
 };
 
 /**
@@ -135,20 +124,14 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
       ? (payloadObj.upcoming_tasks as UpcomingTask[])
       : null;
 
-  // plant_grid carries a `plants` slice rendered as clickable tiles (#461).
-  const plants =
-    widgetKey === 'plant_grid' && payloadObj && Array.isArray(payloadObj.plants)
-      ? (payloadObj.plants as PlantTile[])
-      : null;
-
   // ── Deep-link enablement (#461) ──
-  // Rows/tiles link to a single entity only in read-only mode (never edit mode,
-  // where drag/resize + the kebab menu own the pointer) and only when the target
+  // Rows link to a single entity only in read-only mode (never edit mode, where
+  // drag/resize + the kebab menu own the pointer) and only when the target
   // route's module is visible (REQ-042). The header "open list" affordance points
   // at the widget's catalog navigateTo (the same list the panel linked to before).
-  const isEntityWidget = TASK_ROW_WIDGETS.has(widgetKey) || widgetKey === 'plant_grid';
+  // The rich ``plant_grid`` overview is owned by its own PlantGridWidget (#488).
+  const isEntityWidget = TASK_ROW_WIDGETS.has(widgetKey);
   const taskRowsLinkable = !editMode && TASK_ROW_WIDGETS.has(widgetKey) && isPathVisible(TASK_ROW_LINK_BASE);
-  const plantTilesLinkable = !editMode && widgetKey === 'plant_grid' && isPathVisible(PLANT_TILE_LINK_BASE);
   const listPath = dashboardWidgetCatalog[widgetKey as WidgetKey]?.navigateTo;
   const showListLink = isEntityWidget && !editMode && Boolean(listPath) && isPathVisible(listPath ?? '');
 
@@ -223,77 +206,6 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
           >
             <Skeleton variant="rounded" height={48} />
           </Box>
-        ) : plants !== null ? (
-          // plant_grid → a grid of clickable plant tiles, each deep-linking to
-          // its detail view (#461). An empty tenant renders an honest empty state.
-          plants.length > 0 ? (
-            <Box
-              sx={{
-                display: 'grid',
-                gap: 1,
-                gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                width: '100%',
-              }}
-              data-testid={`widget-${widgetKey}-tiles`}
-            >
-              {plants.map((p, i) => {
-                // A plant without a user-given name falls back to a humanized
-                // species-key slug ("ocimum-basilicum" → "Ocimum Basilicum")
-                // rather than the raw key — the dashboard aggregate has no
-                // species-catalog lookup to resolve a real display name.
-                const tileLabel = p.plant_name || humanizeSlug(p.species_key) || t('dashboard.plantGrid.unnamed');
-                const tileLinkable = plantTilesLinkable && Boolean(p._key);
-                const tileSx = {
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-start',
-                  gap: 0.75,
-                  minHeight: 48, // ≥48px touch target (Mobile-First)
-                  px: 1,
-                  py: 0.5,
-                  borderRadius: 1,
-                  border: 1,
-                  borderColor: 'divider',
-                  width: '100%',
-                  textAlign: 'left',
-                } as const;
-                const inner = (
-                  <>
-                    <LocalFloristIcon color="primary" fontSize="small" aria-hidden="true" />
-                    <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>
-                      {tileLabel}
-                    </Typography>
-                  </>
-                );
-                return tileLinkable ? (
-                  <ButtonBase
-                    key={p._key ?? i}
-                    component={RouterLink}
-                    to={`${PLANT_TILE_LINK_BASE}/${p._key}`}
-                    aria-label={t('dashboard.nav.openPlant', { plant: tileLabel })}
-                    sx={{ ...tileSx, '&:hover': { bgcolor: 'action.hover' } }}
-                    data-testid={`widget-plant_grid-tile-${p._key}`}
-                  >
-                    {inner}
-                  </ButtonBase>
-                ) : (
-                  <Box key={p._key ?? i} sx={tileSx}>
-                    {inner}
-                  </Box>
-                );
-              })}
-            </Box>
-          ) : (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              aria-live="polite"
-              sx={{ textAlign: 'center' }}
-              data-testid={`widget-${widgetKey}-tiles-empty`}
-            >
-              {t('dashboard.plantGrid.empty')}
-            </Typography>
-          )
         ) : numbers.length > 0 || events !== null ? (
           // Metrics and the event list are rendered independently (not either/or):
           // tasks_today carries both its counts *and* the upcoming-task rows.

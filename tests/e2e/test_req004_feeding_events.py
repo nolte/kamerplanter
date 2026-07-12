@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.feeding_event_list_page import FeedingEventListPage
@@ -48,8 +47,7 @@ class TestFeedingEventListPage:
             "Feeding event list page after initial load",
         )
 
-        page_elements = feeding_list.driver.find_elements(*feeding_list.PAGE)
-        assert len(page_elements) > 0, (
+        assert feeding_list.is_page_visible(), (
             "TC-REQ-004-040 FAIL: Expected the feeding-event-list-page container to be present"
         )
 
@@ -69,12 +67,8 @@ class TestFeedingEventListPage:
             "Feeding event list page showing create button",
         )
 
-        create_buttons = feeding_list.driver.find_elements(*feeding_list.CREATE_BUTTON)
-        assert len(create_buttons) > 0, (
-            "TC-REQ-004-041 FAIL: Expected a create button on the feeding event list page"
-        )
-        assert create_buttons[0].is_displayed(), (
-            "TC-REQ-004-041 FAIL: Create button should be displayed and visible"
+        assert feeding_list.is_create_button_visible(), (
+            "TC-REQ-004-041 FAIL: Expected a visible create button on the feeding event list page"
         )
 
     @pytest.mark.requires_desktop
@@ -95,16 +89,15 @@ class TestFeedingEventListPage:
         )
 
         # Page may show empty state OR table with headers depending on data
-        tables = feeding_list.driver.find_elements(*feeding_list.TABLE)
-        empty_states = feeding_list.driver.find_elements(*feeding_list.EMPTY_STATE)
-        assert len(tables) > 0 or len(empty_states) > 0, (
+        has_table = feeding_list.has_table()
+        assert has_table or feeding_list.has_empty_state(), (
             "TC-REQ-004-042 FAIL: Expected either a data table or an empty state on the page"
         )
 
-        if tables:
+        if has_table:
             headers = feeding_list.get_column_headers()
             assert len(headers) > 0, (
-                f"TC-REQ-004-042 FAIL: Expected column headers in feeding event table, got none"
+                "TC-REQ-004-042 FAIL: Expected column headers in feeding event table, got none"
             )
 
     @pytest.mark.core_crud
@@ -191,7 +184,7 @@ class TestFeedingEventListPage:
             "Feeding event list showing count label or empty state",
         )
 
-        has_count = len(feeding_list.driver.find_elements(*feeding_list.SHOWING_COUNT)) > 0
+        has_count = feeding_list.has_showing_count()
         has_empty = feeding_list.has_empty_state()
         assert has_count or has_empty, (
             "TC-REQ-004-045 FAIL: Expected either a showing-count label or an empty-state element"
@@ -252,17 +245,11 @@ class TestFeedingEventCreateDialog:
             "TC-REQ-004-051 FAIL: Expected a plant_key form field in the create dialog"
         )
 
-        method_fields = feeding_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='form-field-application_method']"
-        )
-        assert len(method_fields) > 0, (
+        assert feeding_list.has_form_field("application_method"), (
             "TC-REQ-004-051 FAIL: Expected an application_method form field in the create dialog"
         )
 
-        volume_fields = feeding_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='form-field-volume_applied_liters']"
-        )
-        assert len(volume_fields) > 0, (
+        assert feeding_list.has_form_field("volume_applied_liters"), (
             "TC-REQ-004-051 FAIL: Expected a volume_applied_liters form field in the create dialog"
         )
 
@@ -286,10 +273,7 @@ class TestFeedingEventCreateDialog:
 
         for field_name in ["measured_ec_before", "measured_ec_after",
                            "measured_ph_before", "measured_ph_after"]:
-            fields = feeding_list.driver.find_elements(
-                By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-            )
-            assert len(fields) > 0, (
+            assert feeding_list.has_form_field(field_name), (
                 f"TC-REQ-004-052 FAIL: Expected a '{field_name}' field in the create dialog"
             )
 
@@ -429,10 +413,7 @@ class TestFeedingEventCreateDialog:
         )
 
         for field_name in ["runoff_ec", "runoff_ph", "runoff_volume_liters"]:
-            fields = feeding_list.driver.find_elements(
-                By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-            )
-            assert len(fields) > 0, (
+            assert feeding_list.has_form_field(field_name), (
                 f"TC-REQ-004-056 FAIL: Expected a '{field_name}' field in the create dialog"
             )
 
@@ -454,9 +435,6 @@ class TestFeedingEventCreateDialog:
             "Create dialog showing notes textarea",
         )
 
-        notes_fields = feeding_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='form-field-notes']"
-        )
-        assert len(notes_fields) > 0, (
+        assert feeding_list.has_form_field("notes"), (
             "TC-REQ-004-057 FAIL: Expected a notes form field in the create dialog"
         )

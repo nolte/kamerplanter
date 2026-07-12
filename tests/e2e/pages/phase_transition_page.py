@@ -27,6 +27,7 @@ class PlantInstanceListExt(BasePage):
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
     RESET_FILTERS = (By.CSS_SELECTOR, "[data-testid='reset-filters-button']")
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
+    EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -40,6 +41,16 @@ class PlantInstanceListExt(BasePage):
     def get_row_count(self) -> int:
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
+
+    def has_table(self) -> bool:
+        return len(self.driver.find_elements(*self.TABLE)) > 0
+
+    def is_table_visible(self) -> bool:
+        elements = self.driver.find_elements(*self.TABLE)
+        return len(elements) > 0 and elements[0].is_displayed()
+
+    def has_empty_state(self) -> bool:
+        return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def get_first_column_texts(self) -> list[str]:
         """Return the Instance-ID column for all visible rows."""

@@ -81,6 +81,7 @@ class TestSpeciesListPage:
 class TestSpeciesCreateDialog:
     """Species creation and validation (Spec: TC-001-025, TC-001-026, TC-001-027)."""
 
+    @pytest.mark.core_crud
     def test_open_species_create_dialog(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
@@ -117,6 +118,7 @@ class TestSpeciesCreateDialog:
         species_list.wait_for_loading_complete()
         screenshot("TC-REQ-001-034_after-create", "Species list after successful creation — dialog closed, list refreshed")
 
+    @pytest.mark.core_crud
     def test_validation_empty_scientific_name(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
@@ -132,6 +134,7 @@ class TestSpeciesCreateDialog:
         screenshot("TC-REQ-001-035_validation-error", "Create dialog after submitting empty scientific_name — validation error expected")
         assert species_list.is_create_dialog_open(), "Dialog should remain open"
 
+    @pytest.mark.core_crud
     def test_create_species_without_family(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:

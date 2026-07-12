@@ -82,7 +82,21 @@ def test_count_active_for_tenant_filters_removed_on_null() -> None:
 
 
 def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
-    rows = [{"_key": "p-1", "plant_name": "Basil", "species_key": "ocimum-basilicum"}]
+    rows = [
+        {
+            "_key": "p-1",
+            "plant_name": "Basil",
+            "species_key": "ocimum-basilicum",
+            "cultivar_key": None,
+            "cultivar_name": None,
+            "phase_key": "veg",
+            "phase_name": "Vegetative",
+            "location_key": "loc-1",
+            "location_name": "Balcony",
+            "has_open_task": True,
+            "next_due_date": "2026-05-01T00:00:00+00:00",
+        }
+    ]
     db = _CapturingDb(rows)
     repo = ArangoPlantInstanceRepository(db)  # type: ignore[arg-type]
 
@@ -95,12 +109,29 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert "p.removed_on == null" in q  # only alive plants
     assert "SORT p.planted_on DESC" in q  # newest first
     assert "LIMIT @limit" in q
-    # Only _key + label fields leave the query (no full document / cross-field leak).
-    assert "RETURN { _key: p._key, plant_name: p.plant_name, species_key: p.species_key }" in q
+    # #488 — enriched per-card status fields are projected (no full document).
+    assert "cultivar_name:" in q
+    assert "phase_name:" in q
+    assert "location_name:" in q
+    assert "has_open_task:" in q
+    assert "next_due_date:" in q
+    # Open-task marker must be tenant-scoped too (no cross-tenant task leak, SEC-B4).
+    assert "@@task_col" in q
+    assert "tsk.tenant_key == @tenant_key" in q
+    assert "tsk.entity_key == p._key" in q
+    # location name is surfaced only for the caller's own-tenant location
+    # (defence-in-depth: a foreign location_key never leaks another tenant's name).
+    assert "location.tenant_key == @tenant_key" in q
     bv = db.aql.bind_vars or {}
     assert bv["@col"] == "plant_instances"
+    assert bv["@task_col"] == "tasks"
     assert bv["tenant_key"] == "tenant-A"
     assert bv["limit"] == 8
+    assert bv["cultivar_col"] == "cultivars"
+    assert bv["phase_col"] == "growth_phases"
+    assert bv["location_col"] == "locations"
+    assert bv["plant_entity_type"] == "plant_instance"
+    assert bv["open_statuses"] == ["pending", "in_progress"]
     assert "tenant-A" not in q  # never interpolated
 
 
@@ -132,11 +163,15 @@ def test_count_open_due_on_scoped_and_open_and_dated() -> None:
     assert "doc.tenant_key == @tenant_key" in q
     assert "doc.status IN @open_statuses" in q
     assert "LEFT(doc.due_date, 10) == @today" in q
+    # #508: generic task counts exclude care reminders (they own the dedicated
+    # care_reminders_due tile), so a care reminder is never double-counted.
+    assert "doc.category != @care_category" in q
     # Orphaned plant tasks excluded (mirrors get_all_tasks user-facing queue).
     assert "_plant.removed_on == null" in q
     bv = db.aql.bind_vars or {}
     assert bv["@col"] == "tasks"
     assert bv["tenant_key"] == "tenant-A"
+    assert bv["care_category"] == "care_reminder"
     assert bv["open_statuses"] == ["pending", "in_progress"]
     assert bv["today"] == "2026-04-29"
     assert bv["plant_col"] == "plant_instances"
@@ -152,7 +187,11 @@ def test_count_overdue_uses_strictly_before_today() -> None:
     q = db.aql.query or ""
     assert "LEFT(doc.due_date, 10) < @today" in q
     assert "doc.status IN @open_statuses" in q
-    assert (db.aql.bind_vars or {})["today"] == "2026-04-29"
+    # #508: overdue generic count excludes care reminders too.
+    assert "doc.category != @care_category" in q
+    bv = db.aql.bind_vars or {}
+    assert bv["today"] == "2026-04-29"
+    assert bv["care_category"] == "care_reminder"
 
 
 def test_list_upcoming_is_windowed_sorted_and_capped() -> None:
@@ -166,12 +205,15 @@ def test_list_upcoming_is_windowed_sorted_and_capped() -> None:
     assert "doc.tenant_key == @tenant_key" in q
     assert "LEFT(doc.due_date, 10) >= @today" in q
     assert "LEFT(doc.due_date, 10) <= @window_end" in q
+    # #508: the generic upcoming-tasks list is disjoint from the care section.
+    assert "doc.category != @care_category" in q
     assert "SORT doc.due_date ASC" in q
     assert "LIMIT @limit" in q
     bv = db.aql.bind_vars or {}
     assert bv["today"] == "2026-04-29"
     assert bv["window_end"] == "2026-05-06"
     assert bv["limit"] == 5
+    assert bv["care_category"] == "care_reminder"
 
 
 def test_task_dashboard_methods_reject_empty_tenant_key() -> None:

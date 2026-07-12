@@ -46,8 +46,10 @@ Kamerplanter nutzt für jeden Standort automatisch die beste verfügbare Quelle.
 | Badge | Datenquelle | Wann aktiv |
 |-------|-------------|-----------|
 | **Live-Wetter** | Deine hinterlegte [Wetterquelle](weather-sources.md) (öffentlicher Dienst oder Home Assistant) liefert eine Frost-/Tiefsttemperatur-Vorhersage. | Sobald dein Standort eine funktionierende Wetterquelle hat. |
-| **Klima-Schätzung** | Die am Standort hinterlegten durchschnittlichen Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst). | Ohne Live-Wetterdaten, aber mit hinterlegten Frost-Terminen. |
-| **Kalender** | Grober Richtwert nach Jahreszeit und Erdhalbkugel (Nord- oder Südhalbkugel deines Standorts). | Ohne Live-Wetterdaten und ohne hinterlegte Frost-Termine. |
+| **Klima-Schätzung** | Die am Standort hinterlegten durchschnittlichen Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst) — oder, falls diese fehlen, automatisch aus den [Klimanormalen](weather-sources.md#klima-am-standort) deines Standorts abgeleitete Termine. | Ohne Live-Wetterdaten, aber mit hinterlegten Frost-Terminen oder mit abgerufenen Klimanormalen für deinen Standort. |
+| **Kalender** | Grober Richtwert nach Jahreszeit und Erdhalbkugel (Nord- oder Südhalbkugel deines Standorts). | Ohne Live-Wetterdaten und ohne hinterlegte Frost-Termine oder Klimanormalen. |
+<!-- REQ-047 -->
+<!-- REQ-041 -->
 
 !!! info "Die Quelle steht nie still"
     Richtest du nachträglich eine Wetterquelle für einen Standort ein, der bisher nur die Kalender-Schätzung genutzt hat, wechselt Kamerplanter ab dem nächsten Tag automatisch auf die genauere Live-Stufe — ohne dass du etwas umstellen musst.
@@ -55,7 +57,8 @@ Kamerplanter nutzt für jeden Standort automatisch die beste verfügbare Quelle.
 Bei **Live-Wetter** zeigt dir Kamerplanter zusätzlich einen Frost-Countdown („Erster Frost in 4 Tagen"), sobald eine konkrete Frostvorhersage vorliegt. Ohne Live-Daten siehst du stattdessen den typischen Termin aus den Klimadaten deines Standorts („Erster Frost typisch um 25. Oktober").
 
 !!! note "Frost-Termine für deinen Standort"
-    Die durchschnittlichen Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst) sind Teil der Standort-Daten. Ohne eigene Angabe verwendet Kamerplanter Standardwerte für Mitteleuropa. Details dazu im [Kalender](calendar.md).
+    Die durchschnittlichen Frost-Termine (letzter Frost im Frühjahr, erster Frost im Herbst) sind Teil der Standort-Daten. Trägst du sie nicht selbst ein, leitet Kamerplanter sie automatisch aus den [Klimanormalen](weather-sources.md#klima-am-standort) deines Standorts ab, sofern GPS-Koordinaten hinterlegt sind — ganz ohne dein Zutun. Erst wenn auch das nicht möglich ist, greift die grobe Kalender-Schätzung nach Jahreszeit. Der separate Aussaatkalender verwendet bei fehlenden Angaben eigene feste Vorgabewerte, siehe [Kalender](calendar.md). <!-- REQ-047 -->
+    <!-- REQ-041 -->
 
 ---
 
@@ -69,8 +72,10 @@ Sobald ein Standort in die Winterruhe wechselt, schaltet Kamerplanter für alle 
 
 | Erinnerung | Wann sie erscheint |
 |------------|---------------------|
-| Winterquartier-Kontrolle | Regelmäßig während der Winterruhe — erinnert dich, nach Fäulnis, Schimmel oder Austrocknung zu schauen. |
-| Winterquartier-Temperaturwarnung | Nur wenn dein Winterquartier über einen Sensor oder Home Assistant Live-Temperaturwerte liefert und die Temperatur außerhalb des empfohlenen Bereichs liegt. |
+| Winterruhe-Kontrolle | Regelmäßig während der Winterruhe — erinnert dich, nach Fäulnis, Schimmel oder Austrocknung zu schauen. |
+| Winterquartier-Klima prüfen | Nur wenn dein Winterquartier über einen Sensor oder Home Assistant Live-Temperaturwerte liefert: Kamerplanter vergleicht die gemessene Temperatur stündlich mit dem für die Pflanze hinterlegten Bereich (siehe [Überwinterung](overwintering.md#den-plan-anpassen)) und legt bei einer echten Über- oder Unterschreitung sofort eine Erinnerung mit der Priorität „Hoch" an — praktisch etwa bei einem Heizungsausfall oder einem überhitzten Winterquartier an einem sonnigen Tag. |
+
+<!-- REQ-047 -->
 
 Verlässt der Standort die Winterruhe wieder (Übergang in die Frühjahrs-Rückholung), schaltet Kamerplanter den Winterruhe-Pflegeplan automatisch ab und kehrt zum normalen saisonalen Gießrhythmus zurück.
 

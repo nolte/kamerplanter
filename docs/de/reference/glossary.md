@@ -3,7 +3,7 @@
 Diese Seite erklärt die wichtigsten Fachbegriffe, die dir in Kamerplanter und in dieser Dokumentation begegnen — kurz und ohne Vorwissen verständlich. Zu jedem Begriff findest du einen Verweis auf die Seite, auf der das Thema ausführlich beschrieben wird.
 
 !!! info "Statisches Nachschlagewerk"
-    Diese Glossar-Seite ist eine feste Liste zum Nachschlagen. Eine durchsuchbare Begriffserklärung direkt in der Kamerplanter-Anwendung (z. B. als Tooltip an Ort und Stelle) ist für eine künftige Version geplant.
+    Diese Glossar-Seite ist eine feste Liste zum Nachschlagen, gedacht für Entwickler:innen und zum schnellen Querlesen der Dokumentation. Für eine durchsuchbare, KI-gestützte Begriffserklärung direkt in der Kamerplanter-Anwendung — inklusive erfahrungsstufen-abhängiger Erklärungen und verwandter Begriffe — nutze das [Fachbegriff-Glossar](../user-guide/glossary.md) in der App. <!-- REQ-035 -->
 
 Die Begriffe sind alphabetisch sortiert. Nutze die Suche oben auf der Seite (oder <kbd>Strg</kbd>/<kbd>Cmd</kbd> + <kbd>F</kbd>), um schnell zu einem Begriff zu springen.
 

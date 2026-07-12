@@ -88,6 +88,10 @@ class BasePage:
         """Return all elements matching the given ``data-testid``."""
         return self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
 
+    def is_present(self, locator: tuple[str, str]) -> bool:
+        """Return True if at least one element matching *locator* exists in the DOM."""
+        return len(self.driver.find_elements(*locator)) > 0
+
     def get_text_stable(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> str:
         """Return text of *locator*, retrying on StaleElementReferenceException."""
         deadline = time.time() + timeout
@@ -110,6 +114,14 @@ class BasePage:
             By.CSS_SELECTOR, "[data-testid='error-display']"
         )
         return len(elements) > 0 and elements[0].is_displayed()
+
+    def has_alert_notification(self) -> bool:
+        """Check whether any ``[role='alert']`` notification is present (e.g. an error snackbar)."""
+        return len(self.driver.find_elements(By.CSS_SELECTOR, "[role='alert']")) > 0
+
+    def get_body_text(self) -> str:
+        """Return the full text content of the page body (for keyword assertions)."""
+        return self.driver.find_element(By.TAG_NAME, "body").text
 
     # ── Interactions ─────────────────────────────────────────────────────
 

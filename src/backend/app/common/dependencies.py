@@ -59,6 +59,7 @@ from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.planting_run_engine import PlantingRunEngine
 from app.domain.engines.quality_scoring_engine import QualityScoringEngine
 from app.domain.engines.readiness_engine import ReadinessEngine
+from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.engines.resistance_engine import ResistanceManager
 from app.domain.engines.safety_interval_engine import SafetyIntervalValidator
 from app.domain.engines.tank_engine import TankEngine
@@ -487,11 +488,16 @@ def get_task_repo() -> ArangoTaskRepository:
     return ArangoTaskRepository(get_db())
 
 
+def get_recurrence_engine() -> RecurrenceEngine:
+    return RecurrenceEngine()
+
+
 def get_task_service() -> TaskService:
     return TaskService(
         get_task_repo(),
         HSTValidator(),
         DependencyResolver(),
+        recurrence=get_recurrence_engine(),
     )
 
 
@@ -699,6 +705,7 @@ def get_care_reminder_service() -> CareReminderService:
         nutrient_plan_repo=get_nutrient_plan_repo(),
         overwintering_repo=get_overwintering_profile_repo(),
         overwintering_template_repo=get_overwintering_template_repo(),
+        recurrence=get_recurrence_engine(),
     )
 
 
@@ -714,7 +721,7 @@ def get_season_state_repo():
 def get_season_signal_resolver():
     from app.domain.services.season_signal_resolver import SeasonSignalResolver
 
-    return SeasonSignalResolver(get_weather_forecast_repo())
+    return SeasonSignalResolver(get_weather_forecast_repo(), get_climate_normal_repo())
 
 
 def get_overwintering_materializer():
@@ -743,6 +750,20 @@ def get_season_state_service():
         get_overwintering_profile_repo(),
         get_plant_repo(),
         get_site_repo(),
+    )
+
+
+def get_quarter_climate_service():
+    """REQ-047 §3.7.3 / AC-22 — winter-quarter climate warning service."""
+    from app.domain.services.quarter_climate_service import QuarterClimateService
+
+    return QuarterClimateService(
+        get_overwintering_profile_repo(),
+        get_care_reminder_repo(),
+        get_sensor_repo(),
+        get_observation_repo(),
+        get_plant_repo(),
+        get_task_repo(),
     )
 
 
@@ -1356,6 +1377,67 @@ def get_ai_assistant_service():
         audit_logger=get_ai_audit_logger(),
         tip_cache_repo=get_ai_tip_cache_repo(),
         conversation_repo=get_ai_conversation_repo(),
+        provider_repo=get_ai_provider_repo(),
+    )
+
+
+# ── REQ-035 KI terminology glossary dependencies ─────────────────
+
+
+def get_glossary_term_repo():
+    from app.data_access.arango.glossary_repository import ArangoGlossaryTermRepository
+
+    return ArangoGlossaryTermRepository(get_db())
+
+
+def get_glossary_cache_repo():
+    from app.data_access.arango.glossary_repository import ArangoGlossaryTermCacheRepository
+
+    return ArangoGlossaryTermCacheRepository(get_db())
+
+
+def get_glossary_service():
+    """REQ-035 §4.1 — the cache-first glossary term-explanation service.
+
+    Consumes the REQ-031 foundation: the async KnowledgeServiceAdapter (with its
+    circuit breaker), the shared AiAuditLogger, and — for the tenant cloud gate —
+    the REQ-031 ConsentGuard + provider repository. The Redis hot cache is
+    best-effort (a Redis outage degrades to the ArangoDB persist cache).
+    """
+    from app.domain.services.glossary_service import GlossaryService
+
+    try:
+        redis_client = _get_redis_client()
+    except Exception:  # noqa: BLE001 — Redis is an optional accelerator (§2.2).
+        redis_client = None
+
+    return GlossaryService(
+        term_repo=get_glossary_term_repo(),
+        cache_repo=get_glossary_cache_repo(),
+        knowledge_adapter=get_knowledge_service_adapter(),
+        audit_logger=get_ai_audit_logger(),
+        consent_guard=get_ai_consent_guard(),
+        provider_repo=get_ai_provider_repo(),
+        redis_client=redis_client,
+    )
+
+
+# ── REQ-036 KI-Diagnose dependencies ─────────────────────────────
+
+
+def get_diagnose_service():
+    """REQ-036 §4.2 — the structured KI diagnosis service (stateless, IPM-bridged)."""
+    from app.domain.engines.diagnosis_analysis_engine import DiagnosisAnalysisEngine
+    from app.domain.services.diagnose_service import DiagnoseService
+
+    return DiagnoseService(
+        analysis_engine=DiagnosisAnalysisEngine(get_knowledge_service_adapter()),
+        consent_guard=get_ai_consent_guard(),
+        audit_logger=get_ai_audit_logger(),
+        ipm_repo=get_ipm_repo(),
+        context_builder=get_ai_context_builder(),
+        plant_repo=get_plant_repo(),
+        species_repo=get_species_repo(),
         provider_repo=get_ai_provider_repo(),
     )
 

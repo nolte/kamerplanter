@@ -12,6 +12,7 @@ from pathlib import Path
 
 from app.domain.engines.ai_explain_engine import (
     ExplainEngine,
+    ExplainTemplate,
     _load_templates,
     _resolve_templates_dir,
 )
@@ -65,5 +66,72 @@ class TestExplainEngineDegradation:
             engine = ExplainEngine()
             assert engine.get_template("anything") is None
             assert engine.build_question("anything", "en", {}) is None
+        finally:
+            _load_templates.cache_clear()
+
+
+class TestExplainTemplateRendering:
+    """REQ-031 §4.5 — the actual "why?" question rendering (slot filling)."""
+
+    def test_render_fills_slots_and_selects_language(self):
+        """DE/EN variants are chosen by language and slots are substituted."""
+        template = ExplainTemplate(
+            {
+                "id": "care_reminder_watering",
+                "question_de": "Warum sollte ich {{plant_display}} jetzt giessen? Phase {{phase}}.",
+                "question_en": "Why should I water {{plant_display}} now? Phase {{phase}}.",
+            }
+        )
+        slots = {"plant_display": "Tomate", "phase": "vegetative"}
+
+        assert template.render("de", slots) == "Warum sollte ich Tomate jetzt giessen? Phase vegetative."
+        assert template.render("en", slots) == "Why should I water Tomate now? Phase vegetative."
+
+    def test_render_leaves_unknown_slots_blank_and_collapses_whitespace(self):
+        """Missing slots become empty and the extra whitespace is collapsed."""
+        template = ExplainTemplate(
+            {
+                "id": "care_reminder_watering",
+                "question_de": "Pflanze {{species}} in Phase {{phase}}, Substrat {{substrate}}.",
+            }
+        )
+
+        rendered = template.render("de", {"species": "Cannabis sativa", "phase": "flowering"})
+
+        assert rendered == "Pflanze Cannabis sativa in Phase flowering, Substrat ."
+        assert "{{" not in rendered
+
+
+class TestExplainEngineWithTemplates:
+    """Rendering against the curated templates that ship in the repo layout."""
+
+    def test_load_templates_indexes_curated_care_templates(self):
+        """The shipped care templates are discoverable and keyed by id."""
+        _load_templates.cache_clear()
+        try:
+            templates = _load_templates()
+            assert "care_reminder_watering" in templates
+            assert templates["care_reminder_watering"].applies_to == "care.watering"
+        finally:
+            _load_templates.cache_clear()
+
+    def test_build_question_renders_known_template(self):
+        """A known template id renders a slot-filled, marker-free question."""
+        _load_templates.cache_clear()
+        try:
+            engine = ExplainEngine()
+            question = engine.build_question(
+                "care_reminder_watering",
+                "en",
+                {
+                    "plant_display": "Basil",
+                    "species": "Ocimum basilicum",
+                    "phase": "vegetative",
+                    "substrate": "coco",
+                },
+            )
+            assert question is not None
+            assert "Basil" in question
+            assert "{{" not in question
         finally:
             _load_templates.cache_clear()

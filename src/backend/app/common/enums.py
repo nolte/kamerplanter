@@ -327,6 +327,20 @@ class SiteType(StrEnum):
 OVERWINTERING_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
 
 
+#: REQ-002/REQ-046 — single source of truth for the "outdoor / weather-relevant"
+#: site types, i.e. the types for which GPS coordinates, weather sources and
+#: frost warnings make sense. It deliberately mirrors ``OVERWINTERING_SITE_TYPES``:
+#: a site exposed to outdoor winter frost is, by the same token, a site whose
+#: local weather (temperature, precipitation, frost) drives its plant care.
+#: BALCONY is included — a balcony is a frost-exposed outdoor location, so its
+#: plants benefit from GPS-based weather data and frost warnings just like
+#: ground/greenhouse ones. Previously the frontend only unlocked GPS/weather for
+#: OUTDOOR/GREENHOUSE, contradicting the frost classification above; keeping this
+#: set aligned with ``OVERWINTERING_SITE_TYPES`` structurally prevents that drift.
+#: INDOOR / WINDOWSILL / GROW_TENT stay excluded (climate-controlled, no weather).
+WEATHER_RELEVANT_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
+
+
 class LightType(StrEnum):
     NATURAL = "natural"
     LED = "led"

@@ -37,6 +37,12 @@ import LibraryAddCheckIcon from '@mui/icons-material/LibraryAddCheck';
 import CloseIcon from '@mui/icons-material/Close';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
+import WbSunnyIcon from '@mui/icons-material/WbSunny';
+import TerrainIcon from '@mui/icons-material/Terrain';
+import Inventory2Icon from '@mui/icons-material/Inventory2';
+import HealthAndSafetyIcon from '@mui/icons-material/HealthAndSafety';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SnoozeIcon from '@mui/icons-material/Snooze';
 import OpacityIcon from '@mui/icons-material/Opacity';
@@ -124,6 +130,14 @@ function getReminderIcon(type: ReminderType) {
     case 'pest_check': return <BugReportIcon fontSize="small" />;
     case 'location_check': return <PlaceIcon fontSize="small" />;
     case 'humidity_check': return <WaterDropIcon fontSize="small" />;
+    case 'deadheading': return <LocalFloristIcon fontSize="small" />;
+    case 'winter_protection': return <AcUnitIcon fontSize="small" />;
+    case 'spring_uncover': return <WbSunnyIcon fontSize="small" />;
+    case 'tuber_dig': return <TerrainIcon fontSize="small" />;
+    case 'storage_check': return <Inventory2Icon fontSize="small" />;
+    case 'dormancy_health_check': return <HealthAndSafetyIcon fontSize="small" />;
+    case 'quarter_climate_check': return <ThermostatIcon fontSize="small" />;
+    default: return <ScheduleIcon fontSize="small" />;
   }
 }
 

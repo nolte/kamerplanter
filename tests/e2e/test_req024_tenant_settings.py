@@ -16,6 +16,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-024.md):
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -241,10 +242,7 @@ class TestTenantInvitations:
             "Invitations tab loaded",
         )
 
-        field_elements = settings_page.driver.find_elements(
-            *TenantSettingsPage.INVITE_EMAIL_FIELD
-        )
-        assert len(field_elements) > 0, (
+        assert settings_page.is_invite_email_field_present(), (
             "TC-REQ-024-014 FAIL: Expected invite email field to be visible"
         )
 
@@ -288,15 +286,13 @@ class TestTenantInvitations:
         settings_page.open()
         settings_page.click_tab_invitations()
 
-        link_btn_elements = settings_page.driver.find_elements(
-            *TenantSettingsPage.CREATE_LINK_BTN
-        )
+        is_visible = settings_page.is_create_link_button_visible()
         screenshot(
             "TC-REQ-024-016_create-link-visible",
             "Create link button on Invitations tab",
         )
 
-        assert len(link_btn_elements) > 0 and link_btn_elements[0].is_displayed(), (
+        assert is_visible, (
             "TC-REQ-024-016 FAIL: Expected 'Create link' button to be visible for admin"
         )
 
@@ -316,7 +312,8 @@ class TestTenantInvitations:
         settings_page.open()
         settings_page.click_tab_invitations()
 
-        settings_page.enter_invite_email("test-invite@example.com")
+        unique_email = f"test-invite-{uuid.uuid4().hex[:6]}@example.com"
+        settings_page.enter_invite_email(unique_email)
         screenshot(
             "TC-REQ-024-017_invite-email-entered",
             "Email entered in invitation field",

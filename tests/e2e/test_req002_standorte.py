@@ -8,7 +8,8 @@ Covers:
 
 All tests follow NFR-008:
   - Page-Object-Pattern (no direct find_element calls in tests)
-  - WebDriverWait preferred — time.sleep only for search debounce (0.3s)
+  - WebDriverWait preferred — the only fixed sleep (0.3s, search debounce)
+    lives inside SiteListPageExt.search(), never in a test body
   - Screenshot at: Page Load / before action / after action / error state
   - Descriptive assertion messages
 
@@ -43,8 +44,6 @@ Spec-TC Mapping (test TC → spec/e2e-testcases/TC-REQ-002.md):
 """
 
 from __future__ import annotations
-
-import time  # kept for debounce waits
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -161,8 +160,7 @@ class TestSiteListPage:
         capture("TC-REQ-002-002_site-list-data-table", "Site list DataTable component — column headers and rows or empty state")
 
         # DataTable should be present (even if empty, it renders the Paper wrapper)
-        tables = site_list.driver.find_elements(*site_list.TABLE)
-        if not tables:
+        if not site_list.has_table():
             # If no data-table, may show empty state instead
             assert site_list.has_empty_state(), (
                 "TC-REQ-002-002 FAIL: Expected DataTable or EmptyState on site list page"
@@ -174,6 +172,7 @@ class TestSiteListPage:
             f"TC-REQ-002-002 FAIL: Expected at least 2 column headers, got {headers}"
         )
 
+    @pytest.mark.core_crud
     def test_site_list_shows_seed_data(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -186,13 +185,12 @@ class TestSiteListPage:
         if row_count == 0:
             # Sites have no seed data — the page should show either an empty
             # state or a DataTable with zero rows.  Both are valid states.
-            assert site_list.has_empty_state() or site_list.driver.find_elements(
-                *site_list.TABLE
-            ), (
+            assert site_list.has_empty_state() or site_list.has_table(), (
                 "TC-REQ-002-003 FAIL: Expected either site rows, empty state, or "
                 "an empty DataTable"
             )
 
+    @pytest.mark.core_crud
     def test_site_list_create_button_visible(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -222,6 +220,7 @@ class TestSiteListPage:
             "TC-REQ-002-005 FAIL: Create dialog (name input) should be visible after clicking create button"
         )
 
+    @pytest.mark.core_crud
     def test_site_list_create_dialog_name_required(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -248,6 +247,7 @@ class TestSiteListPage:
             "or dialog to remain open after submitting empty form"
         )
 
+    @pytest.mark.core_crud
     def test_site_list_create_dialog_cancel(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -282,8 +282,7 @@ class TestSiteListPage:
         search_term = first_names[0][:4] if first_names else "test"
 
         capture("TC-REQ-002-008_before-search")
-        site_list.search(search_term)
-        time.sleep(0.3)  # debounce wait
+        site_list.search(search_term)  # debounce handled inside the page object
         capture("TC-REQ-002-008_after-search")
 
         assert site_list.has_search_chip(), (
@@ -324,8 +323,7 @@ class TestSiteListPage:
         if initial_count == 0:
             pytest.skip("No sites — cannot test filter reset")
 
-        site_list.search("xyzzy_nonexistent_9999")
-        time.sleep(0.3)  # debounce wait
+        site_list.search("xyzzy_nonexistent_9999")  # debounce handled inside the page object
         capture("TC-REQ-002-010_after-search-empty")
 
         # There should now be a reset button (or no results)
@@ -420,6 +418,7 @@ class TestSiteDetailPage:
             "TC-REQ-002-013 FAIL: Error display should not be visible when loading a valid site"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_shows_edit_form(
         self,
         site_list: SiteListPageExt,
@@ -440,6 +439,7 @@ class TestSiteDetailPage:
             "TC-REQ-002-014 FAIL: The 'name' input should be pre-filled with the site's name"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_form_buttons_visible(
         self,
         site_list: SiteListPageExt,
@@ -496,6 +496,7 @@ class TestSiteDetailPage:
         # Restore original name by cancelling (UnsavedChangesGuard may alert — use cancel button)
         site_detail.cancel_form()
 
+    @pytest.mark.core_crud
     def test_site_detail_cancel_navigates_back(
         self,
         site_list: SiteListPageExt,
@@ -520,6 +521,7 @@ class TestSiteDetailPage:
             f"TC-REQ-002-017 FAIL: After cancel, expected URL to contain '/standorte', got '{current_url}'"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_location_section_visible(
         self,
         site_list: SiteListPageExt,
@@ -568,6 +570,7 @@ class TestSiteDetailPage:
             "TC-REQ-002-019 FAIL: Confirm dialog should be visible after clicking delete"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_delete_dialog_cancel(
         self,
         site_list: SiteListPageExt,
@@ -598,6 +601,7 @@ class TestSiteDetailPage:
             f"TC-REQ-002-020 FAIL: Should remain on site detail page after cancel, but URL is '{current_url}'"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_location_row_navigates(
         self,
         site_list: SiteListPageExt,
@@ -625,6 +629,7 @@ class TestSiteDetailPage:
             f"TC-REQ-002-021 FAIL: Expected URL to contain '/standorte/locations/', got '{current_url}'"
         )
 
+    @pytest.mark.core_crud
     def test_site_detail_unknown_key_shows_error(
         self,
         site_detail: SiteDetailPage,
@@ -694,6 +699,7 @@ class TestLocationDetailPage:
             "TC-REQ-002-023 FAIL: Error display should not be visible for a valid location key"
         )
 
+    @pytest.mark.core_crud
     def test_location_detail_name_field_prefilled(
         self,
         site_list: SiteListPageExt,
@@ -715,6 +721,7 @@ class TestLocationDetailPage:
             "TC-REQ-002-024 FAIL: The 'name' field should be pre-filled with the location's name"
         )
 
+    @pytest.mark.core_crud
     def test_location_detail_form_buttons_visible(
         self,
         site_list: SiteListPageExt,
@@ -791,6 +798,7 @@ class TestLocationDetailPage:
             "TC-REQ-002-027 FAIL: Delete confirm dialog should be visible after clicking Löschen"
         )
 
+    @pytest.mark.core_crud
     def test_location_detail_delete_dialog_cancel(
         self,
         site_list: SiteListPageExt,
@@ -819,6 +827,7 @@ class TestLocationDetailPage:
             f"TC-REQ-002-028 FAIL: Should remain on location detail page, but URL is '{current_url}'"
         )
 
+    @pytest.mark.core_crud
     def test_location_detail_watering_button_visible(
         self,
         site_list: SiteListPageExt,
@@ -839,6 +848,7 @@ class TestLocationDetailPage:
             "TC-REQ-002-029 FAIL: 'create-watering-button' should be visible on location detail page"
         )
 
+    @pytest.mark.core_crud
     def test_location_detail_unknown_key_shows_error(
         self,
         location_detail: LocationDetailPage,
@@ -889,6 +899,7 @@ def _get_first_slot_key(
 class TestSlotDetailPage:
     """TC-REQ-002-031 to TC-REQ-002-035: Slot detail page."""
 
+    @pytest.mark.core_crud
     def test_slot_detail_page_loads(
         self,
         site_list: SiteListPageExt,
@@ -914,6 +925,7 @@ class TestSlotDetailPage:
             "TC-REQ-002-031 FAIL: Error display should not be visible for a valid slot key"
         )
 
+    @pytest.mark.core_crud
     def test_slot_detail_slot_id_field_prefilled(
         self,
         site_list: SiteListPageExt,
@@ -936,6 +948,7 @@ class TestSlotDetailPage:
             "TC-REQ-002-032 FAIL: The 'slot_id' field should be pre-filled"
         )
 
+    @pytest.mark.core_crud
     def test_slot_detail_capacity_field_visible(
         self,
         site_list: SiteListPageExt,
@@ -961,6 +974,7 @@ class TestSlotDetailPage:
             f"TC-REQ-002-033 FAIL: Capacity should be >= 1, got '{capacity_value}'"
         )
 
+    @pytest.mark.core_crud
     def test_slot_detail_delete_dialog_opens(
         self,
         site_list: SiteListPageExt,
@@ -985,6 +999,7 @@ class TestSlotDetailPage:
             "TC-REQ-002-034 FAIL: Delete confirm dialog should be visible after clicking Löschen"
         )
 
+    @pytest.mark.core_crud
     def test_slot_detail_delete_dialog_cancel(
         self,
         site_list: SiteListPageExt,

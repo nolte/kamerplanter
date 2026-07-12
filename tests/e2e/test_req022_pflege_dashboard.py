@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.pflege_dashboard_page import PflegeDashboardPage
@@ -235,8 +234,7 @@ class TestReminderCardDisplay:
             "Overdue section with red badges",
         )
 
-        section = pflege.driver.find_element(*PflegeDashboardPage.SECTION_OVERDUE)
-        cards = section.find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
+        cards = pflege.get_cards_in_section("overdue")
 
         for card in cards:
             color = pflege.get_card_urgency_chip_color(card)
@@ -264,8 +262,7 @@ class TestReminderCardDisplay:
             "Due-today section with warning badges",
         )
 
-        section = pflege.driver.find_element(*PflegeDashboardPage.SECTION_DUE_TODAY)
-        cards = section.find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
+        cards = pflege.get_cards_in_section("due_today")
 
         for card in cards:
             color = pflege.get_card_urgency_chip_color(card)
@@ -293,8 +290,7 @@ class TestReminderCardDisplay:
             "Upcoming section with info badges",
         )
 
-        section = pflege.driver.find_element(*PflegeDashboardPage.SECTION_UPCOMING)
-        cards = section.find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
+        cards = pflege.get_cards_in_section("upcoming")
 
         for card in cards:
             color = pflege.get_card_urgency_chip_color(card)
@@ -319,20 +315,12 @@ class TestReminderCardDisplay:
         )
 
         for urgency in ("overdue", "due_today", "upcoming"):
-            testid = pflege._urgency_section_testid(urgency)
-            sections = pflege.driver.find_elements(
-                By.CSS_SELECTOR, f"[data-testid='{testid}']"
-            )
-            if not sections:
-                continue
-            all_cards = sections[0].find_elements(
-                By.CSS_SELECTOR, ".MuiCard-root"
-            )
-            if all_cards:
+            total_cards = pflege.get_section_total_card_count(urgency)
+            if total_cards:
                 chip_text = pflege.get_section_count_chip_text(urgency)
-                assert chip_text == str(len(all_cards)), (
+                assert chip_text == str(total_cards), (
                     f"TC-REQ-022-024 FAIL: Expected section '{urgency}' count chip to show "
-                    f"'{len(all_cards)}', got '{chip_text}'"
+                    f"'{total_cards}', got '{chip_text}'"
                 )
 
     @pytest.mark.core_crud
@@ -357,10 +345,8 @@ class TestReminderCardDisplay:
         )
 
         for card in cards:
-            action_btns = card.find_elements(
-                By.CSS_SELECTOR, "button.MuiIconButton-root"
-            )
-            assert len(action_btns) >= 2, (
+            action_btn_count = pflege.get_card_action_button_count(card)
+            assert action_btn_count >= 2, (
                 "TC-REQ-022-025 FAIL: Expected each care card to have at least 2 action buttons"
             )
 
@@ -386,10 +372,8 @@ class TestReminderCardDisplay:
         )
 
         for card in cards:
-            action_btns = card.find_elements(
-                By.CSS_SELECTOR, "button.MuiIconButton-root"
-            )
-            assert len(action_btns) >= 3, (
+            action_btn_count = pflege.get_card_action_button_count(card)
+            assert action_btn_count >= 3, (
                 "TC-REQ-022-026 FAIL: Expected each care card to have at least 3 action buttons"
             )
 
@@ -415,10 +399,8 @@ class TestReminderCardDisplay:
         )
 
         for card in cards:
-            action_btns = card.find_elements(
-                By.CSS_SELECTOR, "button.MuiIconButton-root"
-            )
-            assert len(action_btns) >= 1, (
+            action_btn_count = pflege.get_card_action_button_count(card)
+            assert action_btn_count >= 1, (
                 "TC-REQ-022-027 FAIL: Expected each care card to have at least 1 action button"
             )
 
@@ -490,11 +472,12 @@ class TestCareConfirmAction:
             "CareConfirmDialog buttons",
         )
 
-        submit_btns = pflege.driver.find_elements(*PflegeDashboardPage.CONFIRM_DIALOG_SUBMIT)
-        cancel_btns = pflege.driver.find_elements(*PflegeDashboardPage.CONFIRM_DIALOG_CANCEL)
-
-        assert len(submit_btns) > 0, "TC-REQ-022-029 FAIL: Expected submit button in confirm dialog"
-        assert len(cancel_btns) > 0, "TC-REQ-022-029 FAIL: Expected cancel button in confirm dialog"
+        assert pflege.is_present(PflegeDashboardPage.CONFIRM_DIALOG_SUBMIT), (
+            "TC-REQ-022-029 FAIL: Expected submit button in confirm dialog"
+        )
+        assert pflege.is_present(PflegeDashboardPage.CONFIRM_DIALOG_CANCEL), (
+            "TC-REQ-022-029 FAIL: Expected cancel button in confirm dialog"
+        )
 
     @pytest.mark.core_crud
     def test_confirm_dialog_cancel_closes_without_action(
@@ -581,8 +564,7 @@ class TestCareConfirmAction:
             "CareConfirmDialog notes field",
         )
 
-        notes_fields = pflege.driver.find_elements(*PflegeDashboardPage.CONFIRM_NOTES_FIELD)
-        assert len(notes_fields) > 0, (
+        assert pflege.is_present(PflegeDashboardPage.CONFIRM_NOTES_FIELD), (
             "TC-REQ-022-032 FAIL: Expected notes field in confirm dialog"
         )
 

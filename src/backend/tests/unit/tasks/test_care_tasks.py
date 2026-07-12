@@ -224,7 +224,7 @@ class TestGenerateDueCareReminders:
         service._engine.calculate_urgency.return_value = "due_today"
 
         task_repo = MagicMock()
-        task_repo.find_by_field.return_value = []
+        task_repo.find_open_care_task.return_value = None
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.care_tasks import generate_due_care_reminders
@@ -258,7 +258,7 @@ class TestGenerateDueCareReminders:
         service._engine.calculate_urgency.return_value = "due_today"
 
         task_repo = MagicMock()
-        task_repo.find_by_field.return_value = []
+        task_repo.find_open_care_task.return_value = None
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.care_tasks import generate_due_care_reminders
@@ -289,7 +289,7 @@ class TestGenerateDueCareReminders:
         service._engine.calculate_urgency.return_value = "upcoming"
 
         task_repo = MagicMock()
-        task_repo.find_by_field.return_value = []
+        task_repo.find_open_care_task.return_value = None
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.care_tasks import generate_due_care_reminders
@@ -313,17 +313,17 @@ class TestGenerateDueCareReminders:
         service._engine.calculate_urgency.return_value = "due_today"
 
         task_repo = MagicMock()
-        # Regression #456: the repository returns Pydantic ``Task`` models, not dicts.
-        task_repo.find_by_field.return_value = [
-            Task(
-                name="Monstera — fertilizing",
-                instruction="Fertilize Monstera according to care profile.",
-                category=TaskCategory.CARE_REMINDER,
-                entity_key="plant_1",
-                entity_type="plant_instance",
-                status=TaskStatus.PENDING,
-            )
-        ]
+        # The single tenant-aware dedup helper reports the still-open task (#509),
+        # so the daily producer must skip re-creating it.
+        task_repo.find_open_care_task.return_value = Task(
+            name="Monstera — fertilizing",
+            instruction="Fertilize Monstera according to care profile.",
+            category=TaskCategory.CARE_REMINDER,
+            entity_key="plant_1",
+            entity_type="plant_instance",
+            tenant_key="tenant_1",
+            status=TaskStatus.PENDING,
+        )
         _mock_dependencies.get_task_repo.return_value = task_repo
 
         from app.tasks.care_tasks import generate_due_care_reminders

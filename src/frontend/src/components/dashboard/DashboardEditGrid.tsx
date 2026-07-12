@@ -15,12 +15,16 @@ import {
   type WidgetKey,
 } from '@/config/dashboardWidgetCatalog';
 import { deriveBreakpointPlacements, sortByReadingOrder } from '@/lib/dashboardLayoutOps';
+import {
+  EDIT_GRID_MARGIN as GRID_MARGIN,
+  EDIT_GRID_ROW_HEIGHT as ROW_HEIGHT,
+  RESIZE_HANDLE_MARGIN_TOP,
+  RESIZE_HANDLE_SIZE,
+} from '@/lib/dashboardEditGridGeometry';
 import { useContentRowFloors } from '@/hooks/useContentRowFloors';
 import type { DashboardLayout, DashboardWidgetInstance, WidgetPlacement } from '@/api/types';
 
 const ResponsiveGrid = WidthProvider(GridLayout);
-const ROW_HEIGHT = 44;
-const GRID_MARGIN = 16;
 
 /**
  * REQ-045 §3.8 — the drag-and-drop / resize surface. Lazy-loaded (this module
@@ -159,9 +163,26 @@ export default function DashboardEditGrid({
           // U-006 — enlarge the resize-handle touch target to ≥48px while
           // keeping the visible icon small (padded hit-area, like MUI IconButton).
           '.react-resizable-handle': {
-            width: '48px',
-            height: '48px',
+            width: `${RESIZE_HANDLE_SIZE}px`,
+            height: `${RESIZE_HANDLE_SIZE}px`,
             padding: '0 14px 14px 0',
+          },
+          // DASH-1 (#487) — react-resizable positions the east handle at
+          // `top: 50%; margin-top: -10px`; that -10px is calibrated for its
+          // original 20px handle. The U-006 enlargement above grows the handle
+          // to 48px but leaves the -10px, so on a minimum-height (h=2 → 104px)
+          // tile the hit area reached up to `H/2 - 10 = 42px` — into the kebab's
+          // 4…52px band (~10px overlap), letting a corner tap start a
+          // width-resize instead of opening the widget menu. Re-centre the
+          // enlarged handle on the tile's vertical middle (`margin-top: 0` → top
+          // edge at `H/2` = 52px on an h=2 tile, level with the kebab's 52px
+          // bottom edge) so the two hit areas never overlap on any tile ≥ h=2,
+          // while keeping the full 48px ew-resize target and the #480
+          // row-equalisation untouched. The selector mirrors react-grid-layout's
+          // own `.react-grid-item > … .react-resizable-handle-e` specificity so
+          // this override wins deterministically over the library rule.
+          '.react-grid-item > .react-resizable-handle.react-resizable-handle-e': {
+            marginTop: `${RESIZE_HANDLE_MARGIN_TOP}px`,
           },
           // O-003 — respect reduced motion by dropping the grid transition.
           '@media (prefers-reduced-motion: reduce)': {

@@ -46,8 +46,10 @@ Kamerplanter automatically uses the best available source for each site. This so
 | Badge | Data Source | When Active |
 |-------|-------------|-------------|
 | **Live weather** | Your configured [weather source](weather-sources.md) (public service or Home Assistant) provides a frost/minimum-temperature forecast. | As soon as your site has a working weather source. |
-| **Climate estimate** | The site's stored average frost dates (last frost in spring, first frost in autumn). | Without live weather data, but with stored frost dates. |
-| **Calendar** | A rough estimate based on the season and hemisphere (northern or southern hemisphere of your site). | Without live weather data and without stored frost dates. |
+| **Climate estimate** | The site's stored average frost dates (last frost in spring, first frost in autumn) — or, if those are missing, dates automatically derived from your site's [climate normals](weather-sources.md#climate-at-the-site). | Without live weather data, but with stored frost dates or fetched climate normals for your site. |
+| **Calendar** | A rough estimate based on the season and hemisphere (northern or southern hemisphere of your site). | Without live weather data and without stored frost dates or climate normals. |
+<!-- REQ-047 -->
+<!-- REQ-041 -->
 
 !!! info "The source keeps improving"
     If you later set up a weather source for a site that previously only used the calendar estimate, Kamerplanter automatically switches to the more accurate live tier starting the next day — without you having to change anything.
@@ -55,7 +57,8 @@ Kamerplanter automatically uses the best available source for each site. This so
 With **live weather**, Kamerplanter also shows you a frost countdown ("First frost in 4 days") as soon as a concrete frost forecast is available. Without live data, you instead see the typical date from your site's climate data ("First frost typically around 25 October").
 
 !!! note "Frost dates for your site"
-    The average frost dates (last frost in spring, first frost in autumn) are part of the site data. Without your own entry, Kamerplanter uses default values for Central Europe. See the [Calendar](calendar.md) for details.
+    The average frost dates (last frost in spring, first frost in autumn) are part of the site data. If you don't enter them yourself, Kamerplanter automatically derives them from your site's [climate normals](weather-sources.md#climate-at-the-site), provided GPS coordinates are set — with no action needed from you. Only when that isn't possible either does the rough seasonal calendar estimate apply. The separate sowing calendar uses its own fixed defaults when data is missing, see the [Calendar](calendar.md). <!-- REQ-047 -->
+    <!-- REQ-041 -->
 
 ---
 
@@ -69,8 +72,10 @@ As soon as a site switches into winter dormancy, Kamerplanter automatically acti
 
 | Reminder | When It Appears |
 |----------|------------------|
-| Winter-quarter check | Regularly during winter dormancy — reminds you to check for rot, mold, or drying out. |
-| Winter-quarter temperature warning | Only if your winter quarter provides live temperature readings via a sensor or Home Assistant, and the temperature is outside the recommended range. |
+| Dormancy check | Regularly during winter dormancy — reminds you to check for rot, mold, or drying out. |
+| Winter-quarter climate check | Only if your winter quarter provides live temperature readings via a sensor or Home Assistant: Kamerplanter compares the measured temperature hourly against the range stored for the plant (see [Overwintering](overwintering.md#adjusting-the-plan)) and, on a real breach above or below it, immediately creates a "High"-priority reminder — handy for a heating failure or an overheated winter quarter on a sunny day. |
+
+<!-- REQ-047 -->
 
 When the site leaves winter dormancy again (transitioning into spring reactivation), Kamerplanter automatically switches off the winter-dormancy care plan and returns to the normal seasonal watering rhythm.
 

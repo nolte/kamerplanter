@@ -38,20 +38,33 @@ class PlantDashboardRepository(Protocol):
         ...
 
     def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
-        """Newest alive plant instances (``_key`` + label fields) for the plant grid."""
+        """Newest alive plant instances for the plant grid (#488).
+
+        Each row carries ``_key`` plus the per-card status fields the rich grid
+        renders: ``plant_name`` / ``species_key`` / ``cultivar_key`` /
+        ``cultivar_name``, ``phase_key`` / ``phase_name``, ``location_key`` /
+        ``location_name`` and an open-task marker (``has_open_task`` +
+        ``next_due_date``). Resolved server-side in one query (no N+1).
+        """
         ...
 
 
 @runtime_checkable
 class TaskDashboardRepository(Protocol):
-    """Task counts + upcoming list for the "tasks today" tile."""
+    """Task counts + upcoming list for the "tasks today" tile.
+
+    All three surfaces are the *generic* task view and therefore exclude
+    care-reminder tasks (``category == "care_reminder"``), which own the
+    dedicated ``care_reminders_due`` tile — so a care reminder is never
+    double-counted across the two tiles (#508).
+    """
 
     def count_open_due_on(self, tenant_key: str, today: date) -> int:
-        """Open tasks (``status IN {pending, in_progress}``) due on ``today``."""
+        """Open non-care tasks (``status IN {pending, in_progress}``) due on ``today``."""
         ...
 
     def count_overdue(self, tenant_key: str, today: date) -> int:
-        """Open tasks whose due date is strictly before ``today``."""
+        """Open non-care tasks whose due date is strictly before ``today``."""
         ...
 
     def list_upcoming(
@@ -61,7 +74,7 @@ class TaskDashboardRepository(Protocol):
         window_end: date,
         limit: int,
     ) -> list[dict[str, Any]]:
-        """Open tasks due within ``[today, window_end]``, soonest first."""
+        """Open non-care tasks due within ``[today, window_end]``, soonest first."""
         ...
 
 

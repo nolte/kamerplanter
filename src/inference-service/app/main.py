@@ -98,7 +98,8 @@ def _load_disease_model_meta() -> dict:
         return {}
     try:
         return json.loads(info_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("disease_model_meta_unreadable", path=str(info_path), error=str(exc))
         return {}
 
 

@@ -1,1 +1,1 @@
-"""REQ-035 Glossar router package (scaffold)."""
+"""REQ-035 KI-Fachbegriff-Glossar router package (tenant / public / admin)."""

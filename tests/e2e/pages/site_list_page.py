@@ -32,6 +32,17 @@ class SiteListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    def get_row_texts(self) -> list[str]:
+        """Return the text content of every row currently rendered in the table."""
+        return [row.text for row in self.driver.find_elements(*self.TABLE_ROWS)]
+
+    def find_row_index_by_text(self, text: str) -> int:
+        """Return the index of the first row whose text contains *text*, or -1."""
+        for idx, row_text in enumerate(self.get_row_texts()):
+            if text in row_text:
+                return idx
+        return -1
+
     def click_create(self) -> None:
         self.wait_for_element_clickable(self.CREATE_BUTTON).click()
 

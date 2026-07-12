@@ -246,9 +246,15 @@ class HarvestBatchDetailPage(BasePage):
 
     def add_defect(self, defect: str) -> None:
         """Add a defect chip by typing and pressing Enter."""
+        import time
+
         el = self.wait_for_element_clickable(self.QUALITY_DEFECTS)
         el.send_keys(defect)
         el.send_keys(Keys.ENTER)
+        # The MUI Autocomplete chip-insert animation is time-based (no DOM
+        # condition to wait on); bounded to 0.3s to let the chip settle
+        # before the caller adds another one or submits the form.
+        time.sleep(0.3)
 
     def fill_quality_notes(self, notes: str) -> None:
         """Fill the quality notes textarea."""

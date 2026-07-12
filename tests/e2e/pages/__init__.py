@@ -14,6 +14,7 @@ from .fertilizer_detail_page import FertilizerDetailPage
 from .fertilizer_list_page import FertilizerListPage
 from .harvest_batch_detail_page import HarvestBatchDetailPage
 from .harvest_batch_list_page import HarvestBatchListPage
+from .harvest_readiness_card_page import HarvestReadinessCardPage
 from .import_page import ImportPage
 from .invitation_accept_page import InvitationAcceptPage
 from .location_detail_page import LocationDetailPage
@@ -33,6 +34,7 @@ from .plant_instance_list_page import PlantInstanceListPage
 from .plant_photo_gallery_page import PlantPhotoGalleryPage
 from .planting_run_detail_page import PlantingRunDetailPage
 from .planting_run_list_page import PlantingRunListPage
+from .privacy_settings_page import PrivacySettingsPage
 from .register_page import RegisterPage
 from .sensor_create_dialog_page import SensorCreateDialogPage
 from .site_detail_page import SiteDetailPage
@@ -71,6 +73,7 @@ __all__ = [
     "FertilizerListPage",
     "HarvestBatchDetailPage",
     "HarvestBatchListPage",
+    "HarvestReadinessCardPage",
     "ImportPage",
     "InvitationAcceptPage",
     "LocationDetailPage",
@@ -92,6 +95,7 @@ __all__ = [
     "PlantingRunDetailPage",
     "PlantingRunListPage",
     "PrintButtonPage",
+    "PrivacySettingsPage",
     "RegisterPage",
     "SensorCreateDialogPage",
     "SiteDetailPage",

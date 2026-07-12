@@ -83,10 +83,7 @@ class TestNotificationSettingsNavigation:
         )
 
         # Save button is the anchor element rendered by NotificationSettingsTab.
-        save_buttons = notif_page.driver.find_elements(
-            *NotificationSettingsPage.SAVE_BUTTON
-        )
-        assert save_buttons and save_buttons[0].is_displayed(), (
+        assert notif_page.is_save_button_visible(), (
             "TC-REQ-030-001 FAIL: Expected notification-settings-save button to be visible"
         )
 

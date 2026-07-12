@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.pflege_dashboard_page import PflegeDashboardPage
@@ -106,8 +105,7 @@ class TestCareProfileEditDialogOpen:
             "CareProfileEditDialog with care style dropdown",
         )
 
-        style_selects = pflege.driver.find_elements(*PflegeDashboardPage.CARE_STYLE_SELECT)
-        assert len(style_selects) > 0, (
+        assert pflege.is_present(PflegeDashboardPage.CARE_STYLE_SELECT), (
             "TC-REQ-022-002 FAIL: Expected care style select in profile dialog"
         )
 
@@ -131,13 +129,15 @@ class TestCareProfileEditDialogOpen:
             "CareProfileEditDialog action buttons",
         )
 
-        save_btns = pflege.driver.find_elements(*PflegeDashboardPage.SAVE_PROFILE_BUTTON)
-        cancel_btns = pflege.driver.find_elements(*PflegeDashboardPage.CANCEL_BUTTON)
-        reset_btns = pflege.driver.find_elements(*PflegeDashboardPage.RESET_PROFILE_BUTTON)
-
-        assert len(save_btns) > 0, "TC-REQ-022-003 FAIL: Expected save button in profile dialog"
-        assert len(cancel_btns) > 0, "TC-REQ-022-003 FAIL: Expected cancel button in profile dialog"
-        assert len(reset_btns) > 0, "TC-REQ-022-003 FAIL: Expected reset button in profile dialog"
+        assert pflege.is_present(PflegeDashboardPage.SAVE_PROFILE_BUTTON), (
+            "TC-REQ-022-003 FAIL: Expected save button in profile dialog"
+        )
+        assert pflege.is_present(PflegeDashboardPage.CANCEL_BUTTON), (
+            "TC-REQ-022-003 FAIL: Expected cancel button in profile dialog"
+        )
+        assert pflege.is_present(PflegeDashboardPage.RESET_PROFILE_BUTTON), (
+            "TC-REQ-022-003 FAIL: Expected reset button in profile dialog"
+        )
 
 
 # -- TC-022-019 to TC-022-021: Sliders and Interval Controls ------------------
@@ -166,8 +166,7 @@ class TestCareProfileSliders:
             "CareProfileEditDialog watering interval slider",
         )
 
-        sliders = pflege.driver.find_elements(*PflegeDashboardPage.WATERING_INTERVAL_SLIDER)
-        assert len(sliders) > 0, (
+        assert pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER), (
             "TC-REQ-022-004 FAIL: Expected watering interval slider"
         )
 
@@ -191,8 +190,7 @@ class TestCareProfileSliders:
             "CareProfileEditDialog active fertilizing months",
         )
 
-        month_groups = pflege.driver.find_elements(*PflegeDashboardPage.FERTILIZING_ACTIVE_MONTHS)
-        assert len(month_groups) > 0, (
+        assert pflege.is_present(PflegeDashboardPage.FERTILIZING_ACTIVE_MONTHS), (
             "TC-REQ-022-005 FAIL: Expected fertilizing active months element"
         )
 
@@ -335,12 +333,7 @@ class TestCareProfileConditionalFields:
         pflege.wait_for_profile_dialog()
 
         # Expand the "Erweitert" (Advanced) accordion to reveal the switch
-        accordions = pflege.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='care-profile-edit-dialog'] .MuiAccordionSummary-root"
-        )
-        if accordions:
-            pflege.scroll_and_click(accordions[0])
-            pflege.wait_for_loading_complete()
+        pflege.expand_advanced_accordion()
 
         screenshot(
             "TC-REQ-022-009_adaptive-learning-initial",
@@ -393,16 +386,15 @@ class TestCareStyleChange:
             "CareStyle dropdown opened",
         )
 
-        options = pflege.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        option_texts = [opt.text for opt in options]
+        option_texts = pflege.get_open_dropdown_option_texts()
 
-        assert len(options) >= 5, (
+        assert len(option_texts) >= 5, (
             f"TC-REQ-022-010 FAIL: Expected at least 5 care style options, "
-            f"got {len(options)}: {option_texts}"
+            f"got {len(option_texts)}: {option_texts}"
         )
 
         # Close dropdown
-        pflege.driver.find_element(By.TAG_NAME, "body").click()
+        pflege.close_mui_dropdown()
 
 
 # -- Profile Dialog Save and Cancel --------------------------------------------
@@ -501,8 +493,7 @@ class TestCareProfileSaveCancel:
             ("repotting", PflegeDashboardPage.AUTO_CREATE_REPOTTING_SWITCH),
             ("pest_check", PflegeDashboardPage.AUTO_CREATE_PEST_CHECK_SWITCH),
         ]:
-            elements = pflege.driver.find_elements(*locator)
-            assert len(elements) > 0, (
+            assert pflege.is_present(locator), (
                 f"TC-REQ-022-013 FAIL: Expected task type toggle for '{locator_name}'"
             )
 
@@ -526,7 +517,6 @@ class TestCareProfileSaveCancel:
             "CareProfileEditDialog watering method dropdown",
         )
 
-        method_selects = pflege.driver.find_elements(*PflegeDashboardPage.WATERING_METHOD_SELECT)
-        assert len(method_selects) > 0, (
+        assert pflege.is_present(PflegeDashboardPage.WATERING_METHOD_SELECT), (
             "TC-REQ-022-014 FAIL: Expected watering method select element"
         )

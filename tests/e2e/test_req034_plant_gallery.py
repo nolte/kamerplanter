@@ -172,14 +172,15 @@ class TestPlantGalleryTab:
         assert gallery.has_empty_state(), (
             "TC-REQ-034-002 FAIL: Expected empty-state placeholder in an empty gallery"
         )
-        assert gallery.has_add_button() or gallery.driver.find_elements(
-            *PlantPhotoGalleryPage.EMPTY_STATE_ACTION
-        ), "TC-REQ-034-002 FAIL: Expected an 'add photo' affordance in the empty state"
+        assert gallery.has_add_button() or gallery.has_empty_state_action(), (
+            "TC-REQ-034-002 FAIL: Expected an 'add photo' affordance in the empty state"
+        )
 
 
 class TestPlantGalleryListPlaceholder:
     """Cover placeholder in the list view (Spec: TC-REQ-034-003)."""
 
+    @pytest.mark.smoke
     @pytest.mark.requires_auth
     def test_plant_without_photo_shows_placeholder(
         self,
@@ -203,15 +204,10 @@ class TestPlantGalleryListPlaceholder:
 
         # Every row renders a PlantCoverPreview — for plants without a cover it
         # shows the botanical placeholder icon, never a broken <img>.
-        previews = gallery.driver.find_elements(*PlantPhotoGalleryPage.COVER_PREVIEW)
-        assert previews, (
+        assert gallery.has_cover_previews(), (
             "TC-REQ-034-003 FAIL: Expected at least one cover-preview widget in the list"
         )
-        placeholders = gallery.driver.find_elements(
-            *PlantPhotoGalleryPage.COVER_PLACEHOLDER
-        )
-        images = gallery.driver.find_elements(*PlantPhotoGalleryPage.COVER_IMAGE)
-        assert placeholders or images, (
+        assert gallery.has_cover_placeholder() or gallery.has_cover_image(), (
             "TC-REQ-034-003 FAIL: Cover previews rendered neither a placeholder "
             "nor an image — possible broken-image state"
         )
@@ -362,9 +358,9 @@ class TestPlantGalleryUpload:
         )
 
         # No preview => the file was never accepted for upload.
-        assert not gallery.driver.find_elements(
-            *PlantPhotoGalleryPage.UPLOAD_PREVIEW
-        ), "TC-REQ-034-007 FAIL: An invalid file must not produce an upload preview"
+        assert not gallery.has_upload_preview(), (
+            "TC-REQ-034-007 FAIL: An invalid file must not produce an upload preview"
+        )
 
         gallery.cancel_upload()
         assert gallery.get_photo_count() == before, (
@@ -466,10 +462,7 @@ class TestPlantGalleryCover:
 
         # The freshly uploaded photo has a 'set cover' action unless it is
         # already the cover.  Click it if present, otherwise it is already cover.
-        set_cover_buttons = gallery.driver.find_elements(
-            *PlantPhotoGalleryPage.SET_COVER_BUTTONS
-        )
-        if set_cover_buttons:
+        if gallery.has_set_cover_buttons():
             gallery.set_cover_for_index(0)
             gallery.wait_for_success_snackbar()
         gallery.wait_for_cover_badge()
@@ -539,7 +532,7 @@ class TestPlantGalleryDelete:
             "TC-REQ-034-010_delete-confirm-dialog",
             "Delete confirmation dialog (safety prompt)",
         )
-        assert gallery.driver.find_elements(*PlantPhotoGalleryPage.CONFIRM_DIALOG), (
+        assert gallery.is_confirm_dialog_open(), (
             "TC-REQ-034-010 FAIL: Expected a confirmation dialog before deletion"
         )
 
@@ -563,6 +556,7 @@ class TestPlantGalleryDelete:
 class TestPlantGalleryI18n:
     """Gallery UI in English (Spec: TC-REQ-034-018)."""
 
+    @pytest.mark.smoke
     @pytest.mark.requires_auth
     def test_gallery_tab_label_english(
         self,
@@ -594,8 +588,7 @@ class TestPlantGalleryI18n:
             if not gallery.is_gallery_loaded():
                 pytest.skip("Gallery did not load — cannot assert i18n labels")
 
-            tab = gallery.driver.find_element(*PlantPhotoGalleryPage.PHOTOS_TAB)
-            label = tab.text.strip()
+            label = gallery.get_photos_tab_label()
             screenshot(
                 "TC-REQ-034-011_gallery-english",
                 "Gallery tab with the UI language set to English",

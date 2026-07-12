@@ -15,11 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable
-import time  # kept for debounce waits
 
 import pytest
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import BotanicalFamilyListPage, SpeciesListPage
@@ -51,8 +48,7 @@ class TestDataTableSearch:
         if family_list.get_row_count() == 0:
             pytest.skip("No botanical families in database")
 
-        family_list.search("ZZZNONEXISTENT")
-        time.sleep(0.3)  # debounce wait
+        family_list.search("ZZZNONEXISTENT")  # debounce handled inside the page object
 
         screenshot("TC-REQ-001-079_no-results", "Family list after searching for non-existent term")
 
@@ -151,10 +147,7 @@ class TestDataTableLoadingStates:
         screenshot("TC-REQ-001-083_page-loaded", "Family list page loaded (skeleton already resolved)")
 
         # The page should render successfully after loading
-        page_elements = family_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='botanical-family-list-page']"
-        )
-        assert len(page_elements) > 0, (
+        assert family_list.is_page_visible(), (
             "TC-REQ-001-083 FAIL: Page should render after loading"
         )
 
@@ -180,9 +173,6 @@ class TestDataTableLoadingStates:
         screenshot("TC-REQ-001-084_detail-loaded", "Family detail page loaded (skeleton resolved)")
 
         # The detail page should render with form elements
-        form_fields = family_list.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='form-field-']"
-        )
-        assert len(form_fields) > 0, (
+        assert family_list.get_form_field_count() > 0, (
             "TC-REQ-001-084 FAIL: Detail page should render with form fields"
         )

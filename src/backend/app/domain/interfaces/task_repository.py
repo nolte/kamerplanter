@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from app.common.enums import ReminderType
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.domain.models.task import (
     Task,
@@ -126,6 +127,23 @@ class ITaskRepository(ABC):
 
     @abstractmethod
     def get_overdue_tasks(self) -> list[Task]: ...
+
+    @abstractmethod
+    def find_open_care_task(
+        self,
+        entity_key: str,
+        reminder_type: ReminderType,
+        tenant_key: str,
+        *,
+        include_completed_today: bool = True,
+    ) -> Task | None:
+        """Single tenant-scoped care-reminder idempotency lookup (#509).
+
+        Returns the newest care-reminder task that still "satisfies" the
+        reminder for ``(tenant_key, entity_key, reminder_type)``, or ``None``.
+        The only care-task dedup predicate — see the ArangoDB implementation.
+        """
+        ...
 
     @abstractmethod
     def get_blocking_tasks(self, task_key: TaskKey) -> list[dict]: ...

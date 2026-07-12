@@ -24,6 +24,7 @@ celery_app.conf.update(
         "app.tasks.dormancy_checks",
         "app.tasks.enrichment_tasks",
         "app.tasks.frost_forecast_tasks",
+        "app.tasks.glossary_tasks",
         "app.tasks.hardiness_tasks",
         "app.tasks.inventree_tasks",
         "app.tasks.irrigation_tasks",
@@ -71,6 +72,11 @@ celery_app.conf.update(
         "ai-knowledge-service-ingest-weekly": {
             "task": "ai.knowledge_service_ingest",
             "schedule": crontab(hour=3, minute=0, day_of_week=0),
+        },
+        # REQ-035 KI glossary cache cleanup (§4.3)
+        "glossary-cleanup-cache-daily": {
+            "task": "glossary.cleanup_expired_cache",
+            "schedule": crontab(hour=2, minute=45),
         },
         # REQ-023 Auth tasks
         "auth-cleanup-tokens-hourly": {
@@ -219,4 +225,11 @@ if settings.season_state_eval_enabled:
     celery_app.conf.beat_schedule["season-evaluate-states-daily"] = {
         "task": "app.tasks.season_tasks.evaluate_season_states",
         "schedule": crontab(hour=6, minute=30),
+    }
+    # AC-22 — event-driven winter-quarter climate check. Runs hourly so a heating
+    # failure / overheating in a winter quarter with live sensor data raises a HIGH
+    # task quickly, not just on the daily periodic pass.
+    celery_app.conf.beat_schedule["season-quarter-climate-hourly"] = {
+        "task": "app.tasks.season_tasks.evaluate_quarter_climate",
+        "schedule": crontab(minute=45),
     }

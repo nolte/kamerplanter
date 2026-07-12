@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | biennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze; wilde Pastinake wird explizit als "monocarpic perennial" beschrieben, das nach Blüte/Samenbildung abstirbt) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photoperiode | day_neutral (Blüte ist vernalisationsgesteuert, nicht photoperiodisch — bei eng verwandter Möhre konditioniert die Tageslänge nach Vernalisation die Blüte nachweislich NICHT; im Anbau wird ohnehin im 1. Jahr vor jeder Blüte geerntet) | `lifecycle_configs.photoperiod_type` |
 | Photosynthese-Typ (photosynthesis pathway) | c3 | `species.photosynthesis_type` |
@@ -362,3 +365,8 @@ Pastinaca sativa,"Pastinake;Hammermöhre;Parsnip",Apiaceae,Pastinaca,biennial,da
 24. [Manitoba Agriculture — Parsnip Cultivars/Production (PDF)](https://www.gov.mb.ca/agriculture/crops/crop-management/pubs/bmz00s14p.pdf) — kommerzielle Saattiefe 1/4–3/8 inch, Saatgutrate 3–5 lbs/acre
 25. [Vital Seeds / West Coast Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/) — Pastinake 140–200 Samen/Gramm (TKG ~5–7 g)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+26. [Wikipedia — Parsnip](https://en.wikipedia.org/wiki/Parsnip) — "If unharvested, it produces a flowering stem... in its second growing season, later producing... seeds" (Bluehstrategie, biennial)
+27. [NC State Extension Gardener Plant Toolbox — Pastinaca sativa](https://plants.ces.ncsu.edu/plants/pastinaca-sativa/) — biennial, Bluete/Samenbildung im 2. Jahr
+28. [Friends of Eloise Butler — Wild Parsnip, Pastinaca sativa L.](https://friendsofeloisebutler.org/pages/plants/wildparsnip.html) — "aggressive, monocarpic perennial plant... bolts... flowers, sets seed, and dies" (explizite monokarpe Einordnung derselben Art)
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot (Ruebe = verdickte Pfahlwurzel + Hypokotyl) | `species.root_type` |
 | Lebenszyklus | biennial (wird als Einjaehrige kultiviert; Bluete im 2. Jahr nach Vernalisation) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+| Bluehstrategie (flowering strategy) | monocarpic (bluesht einmal im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze; Samenbildung erschoepft die Ressourcen vollstaendig) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
 | Photoperiode | long_day (Langtagspflanze -- lange Tage und Kaelteexposition koennen im 1. Jahr Schossen ausloesen; Bluete erst nach Vernalisation im 2. Jahr) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
 | Frostempfindlichkeit | moderate | `species.frost_sensitivity` |
@@ -550,3 +553,8 @@ Bull's Blood,Beta vulgaris subsp. vulgaris,,,ornamental;heirloom,60,,open_pollin
 22. Texas A&M AgriLife Extension -- Growing Beets (Drainage/Daemme bei Staunaesse, Bodenanspruch): https://agrilifeextension.tamu.edu/library/gardening/beets/
 23. ScienceDirect Topics -- Light Compensation point (C3-Pflanzen LCP 20--50 umol/m2/s, temperaturabhaengig): https://www.sciencedirect.com/topics/engineering/light-compensation
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -->
+24. Missouri Botanical Garden -- Beta vulgaris (Leaf Beet Group): "Beta vulgaris is a polymorphic biennial that flowers in the second year of growth" (Bluehstrategie, biennial): https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?taxonid=364081
+25. Gardener's Path -- How to Prevent Beet Plants from Bolting: "After the first year, beets send out flowers, which turn into seeds and then the plant dies" (monokarpe Bluehstrategie): https://gardenerspath.com/plants/vegetables/bolting-beets/
+26. NC State Extension Gardener Plant Toolbox -- Beta vulgaris Leaf Beet Group: Bluete im 2. Jahr, danach Samenbildung und Absterben: https://plants.ces.ncsu.edu/plants/beta-vulgaris-leaf-beet-group/
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

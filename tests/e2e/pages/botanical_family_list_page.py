@@ -60,6 +60,16 @@ class BotanicalFamilyListPage(BasePage):
         self.wait_for_loading_complete()
         return self
 
+    def is_page_visible(self) -> bool:
+        """Check whether the list page root element is present."""
+        return len(self.driver.find_elements(*self.PAGE)) > 0
+
+    def get_form_field_count(self) -> int:
+        """Return the number of ``form-field-*`` elements rendered on the current page."""
+        return len(
+            self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='form-field-']")
+        )
+
     # ── Table interactions ─────────────────────────────────────────────
 
     def get_row_count(self) -> int:
@@ -118,8 +128,14 @@ class BotanicalFamilyListPage(BasePage):
 
     def search(self, term: str) -> None:
         """Type a search term into the search field."""
+        import time
+
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
         self.clear_and_fill(search_input, term)
+        # debounce: bounded, justified (table-search-input has a 300ms
+        # debounce before it re-filters, so callers can rely on the result
+        # being settled once this method returns)
+        time.sleep(0.3)
 
     def clear_search(self) -> None:
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
@@ -143,6 +159,13 @@ class BotanicalFamilyListPage(BasePage):
 
     def has_empty_state(self) -> bool:
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
+
+    def has_error_snackbar(self) -> bool:
+        """Check whether an error Alert/Snackbar (backend validation) is visible."""
+        return len(self.driver.find_elements(
+            By.CSS_SELECTOR,
+            ".MuiAlert-standardError, .MuiAlert-filledError, .MuiSnackbar-root",
+        )) > 0
 
     # ── Create dialog ──────────────────────────────────────────────────
 

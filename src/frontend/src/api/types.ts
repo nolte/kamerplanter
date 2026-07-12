@@ -3780,7 +3780,16 @@ export type ReminderType =
   | 'repotting'
   | 'pest_check'
   | 'location_check'
-  | 'humidity_check';
+  | 'humidity_check'
+  // REQ-022 v2.5 outdoor + overwintering reminder types (§3.2)
+  | 'deadheading'
+  | 'tuber_dig'
+  | 'storage_check'
+  | 'spring_uncover'
+  | 'winter_protection'
+  // REQ-047 §2.5 season-/dormancy-driven control reminders
+  | 'dormancy_health_check'
+  | 'quarter_climate_check';
 export type ConfirmAction = 'confirmed' | 'snoozed' | 'skipped';
 export type WateringMethod = 'soak' | 'drench_and_drain' | 'top_water' | 'bottom_water';
 
@@ -5353,6 +5362,111 @@ export interface AiConversationSummary {
   context_key?: string | null;
   message_count: number;
   updated_at?: string | null;
+}
+
+// ── REQ-035 KI terminology glossary ─────────────────────────────────────
+
+export type GlossaryExpertiseLevel = 'beginner' | 'intermediate' | 'expert';
+
+/** A single row of the glossary term browser (§3.1 `/terms`). */
+export interface GlossaryTermSummary {
+  slug: string;
+  label: string;
+  category: string;
+}
+
+/** A related-term reference rendered as a clickable chip (§3.4). */
+export interface GlossaryRelatedTerm {
+  slug: string;
+  label: string;
+}
+
+/** The full `get_term` response envelope (§3.4). */
+export interface GlossaryTermAnswer {
+  slug: string;
+  label: string;
+  long_label: string;
+  category: string;
+  answer_text: string;
+  expertise_level: GlossaryExpertiseLevel;
+  language: string;
+  language_mismatch_warning: boolean;
+  sources: AiSourceRef[];
+  related_terms: GlossaryRelatedTerm[];
+  is_fallback: boolean;
+  model_name: string;
+  provider_type: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  kb_version?: string | null;
+  generated_at?: string | null;
+}
+
+// ── REQ-036 KI-Diagnose-Assistent ───────────────────────────────────────
+
+/** One curated symptom offered by the diagnosis wizard's first step. */
+export interface DiagnosisSymptom {
+  slug: string;
+  category: string;
+  label: string;
+  common_causes_hint: string;
+  applicable_phases: string[];
+}
+
+export interface DiagnosisSymptomListResponse {
+  symptoms: DiagnosisSymptom[];
+}
+
+/** A REQ-010 treatment suggested for a matched pest (bridge, read-only). */
+export interface DiagnosisMatchedTreatment {
+  key: string;
+  name: string;
+  name_de?: string | null;
+  treatment_type: string;
+  safety_interval_days: number;
+  has_karenz: boolean;
+  detail_url: string;
+}
+
+/** An enriched top-N diagnosis candidate (IPM-bridged). */
+export interface DiagnosisCandidate {
+  rank: number;
+  name: string;
+  scientific_name?: string | null;
+  category: string;
+  confidence: number;
+  confidence_level: AiConfidence;
+  explanation: string;
+  recommended_actions: string[];
+  matched_pest_key?: string | null;
+  matched_pest_detail_url?: string | null;
+  matched_disease_key?: string | null;
+  matched_disease_detail_url?: string | null;
+  matched_treatments: DiagnosisMatchedTreatment[];
+}
+
+/** The top-3 diagnosis envelope rendered inside `<AIResponse>`. */
+export interface DiagnosisResult {
+  candidates: DiagnosisCandidate[];
+  answer_summary: string;
+  sources: AiSourceRef[];
+  language: string;
+  uses_tenant_data: boolean;
+  uses_cloud_provider: boolean;
+  confidence: AiConfidence;
+  model_name: string;
+  provider_type: string;
+  kb_version?: string | null;
+  status: 'ok' | 'knowledge_service_error' | 'error';
+  error_class?: string | null;
+}
+
+export interface DiagnoseRequest {
+  symptom_slugs: string[];
+  extra_notes?: string | null;
+  plant_instance_key?: string | null;
+  photo_ref?: string | null;
+  language?: 'de' | 'en';
 }
 
 // ── REQ-026 Aquaponics ──────────────────────────────────────────────────
