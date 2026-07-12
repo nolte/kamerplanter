@@ -52,6 +52,22 @@ class PhaseDefinitionResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+class PhaseDefinitionSpeciesResponse(BaseModel):
+    """A species that traverses a phase definition, with the phase's typical duration (FIX-01 List 2).
+
+    ``typical_duration_days`` is the species-specific ``PhaseSequenceEntry`` override for
+    this definition when set, otherwise the ``PhaseDefinition`` default. ``illustration``
+    mirrors the phase definition's illustration (there is no per-species illustration in
+    the model yet — A3, nice-to-have; the UX pass decides final presentation).
+    """
+
+    key: str
+    scientific_name: str = ""
+    common_names: list[str] = Field(default_factory=list)
+    typical_duration_days: int = 1
+    illustration: str = ""
+
+
 # ── PhaseSequence schemas ──
 
 

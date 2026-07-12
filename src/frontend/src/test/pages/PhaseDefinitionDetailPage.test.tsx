@@ -5,7 +5,13 @@ import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
-import type { PhaseDefinition, PhaseSequence } from '@/api/types';
+import type {
+  PhaseDefinition,
+  PhaseSequence,
+  PlantInstanceInPhase,
+  PlantInstancesInPhase,
+  PhaseDefinitionSpecies,
+} from '@/api/types';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (orig) => {
@@ -17,6 +23,8 @@ import PhaseDefinitionDetailPage from '@/pages/phasen/PhaseDefinitionDetailPage'
 
 const DEF_URL = '/api/v1/phase-definitions/:key';
 const SEQ_URL = '/api/v1/phase-definitions/:key/sequences';
+const PLANTS_URL = '/api/v1/t/:tenant/plant-instances/by-phase-definition/:key';
+const SPECIES_URL = '/api/v1/phase-definitions/:key/species';
 
 function makeDefinition(overrides: Partial<PhaseDefinition> = {}): PhaseDefinition {
   return {
@@ -66,10 +74,46 @@ function makeSequence(overrides: Partial<PhaseSequence> = {}): PhaseSequence {
   };
 }
 
-function useDefinition(def: PhaseDefinition, sequences: PhaseSequence[] = []) {
+function makePlantInstanceInPhase(overrides: Partial<PlantInstanceInPhase> = {}): PlantInstanceInPhase {
+  return {
+    key: 'pi-1',
+    instance_id: 'PLANT-001',
+    plant_name: 'Tomato #1',
+    species_key: 'sp-1',
+    species_scientific_name: 'Solanum lycopersicum',
+    species_common_names: ['Tomate', 'Tomato'],
+    location_key: 'loc-1',
+    location_name: 'Greenhouse A',
+    slot_key: 'slot-1',
+    slot_label: 'Row 1, Pos 3',
+    current_phase_key: 'def-1',
+    current_phase_started_at: '2024-01-10T12:00:00Z',
+    ...overrides,
+  };
+}
+
+function makePhaseDefinitionSpecies(overrides: Partial<PhaseDefinitionSpecies> = {}): PhaseDefinitionSpecies {
+  return {
+    key: 'sp-1',
+    scientific_name: 'Solanum lycopersicum',
+    common_names: ['Tomate', 'Tomato'],
+    typical_duration_days: 28,
+    illustration: 'phases/vegetative.svg',
+    ...overrides,
+  };
+}
+
+function useDefinition(
+  def: PhaseDefinition,
+  sequences: PhaseSequence[] = [],
+  plants: PlantInstancesInPhase = { total: 0, items: [] },
+  species: PhaseDefinitionSpecies[] = []
+) {
   server.use(
     http.get(DEF_URL, () => HttpResponse.json(def)),
     http.get(SEQ_URL, () => HttpResponse.json(sequences)),
+    http.get(PLANTS_URL, () => HttpResponse.json(plants)),
+    http.get(SPECIES_URL, () => HttpResponse.json(species)),
   );
 }
 
@@ -320,5 +364,199 @@ describe('PhaseDefinitionDetailPage', () => {
     expect((await screen.findAllByText(i18n.t('errors.notFound'))).length).toBeGreaterThan(0);
     await user.click(screen.getByRole('button', { name: i18n.t('common.retry') }));
     expect(await screen.findByTestId('phase-definition-detail-page')).toBeInTheDocument();
+  });
+
+  describe('FIX-01: Plants and Species in Phase (R1–R10)', () => {
+    it('renders plants in phase section with count chip and table', async () => {
+      const plants: PlantInstancesInPhase = {
+        total: 2,
+        items: [
+          makePlantInstanceInPhase({ key: 'pi-1', instance_id: 'PLANT-001', plant_name: 'Tomato #1' }),
+          makePlantInstanceInPhase({ key: 'pi-2', instance_id: 'PLANT-002', plant_name: 'Tomato #2' }),
+        ],
+      };
+      useDefinition(makeDefinition(), [], plants);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      expect(await screen.findByTestId('phase-definition-plants-card')).toBeInTheDocument();
+      expect(screen.getByTestId('plants-in-phase-count')).toHaveTextContent('2');
+      expect(screen.getByText('Tomato #1')).toBeInTheDocument();
+      expect(screen.getByText('Tomato #2')).toBeInTheDocument();
+    });
+
+    it('renders empty state when no plants in phase', async () => {
+      useDefinition(makeDefinition(), [], { total: 0, items: [] });
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      expect(await screen.findByTestId('phase-definition-plants-card')).toBeInTheDocument();
+      expect(screen.getByTestId('plants-in-phase-count')).toHaveTextContent('0');
+      expect(screen.getByText(i18n.t('pages.phaseSequences.noPlantsInPhase'))).toBeInTheDocument();
+    });
+
+    it('navigates to plant detail when clicking a plant row (FIX-01 R2)', async () => {
+      const plants: PlantInstancesInPhase = {
+        total: 1,
+        items: [makePlantInstanceInPhase({ key: 'pi-42' })],
+      };
+      useDefinition(makeDefinition(), [], plants);
+      const user = userEvent.setup();
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      const plantLink = await screen.findByTestId('plant-in-phase-row-pi-42');
+      await user.click(plantLink);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/pflanzen/plant-instances/pi-42');
+    });
+
+    it('displays plant location and slot in the table', async () => {
+      const plants: PlantInstancesInPhase = {
+        total: 1,
+        items: [
+          makePlantInstanceInPhase({
+            location_name: 'Greenhouse A',
+            slot_label: 'Row 2',
+          }),
+        ],
+      };
+      useDefinition(makeDefinition(), [], plants);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      expect(await screen.findByText(/Greenhouse A · Row 2/)).toBeInTheDocument();
+    });
+
+    it('displays phase started date and calculated days in phase', async () => {
+      const now = new Date();
+      const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString();
+      const plants: PlantInstancesInPhase = {
+        total: 1,
+        items: [
+          makePlantInstanceInPhase({
+            current_phase_started_at: tenDaysAgo,
+          }),
+        ],
+      };
+      useDefinition(makeDefinition(), [], plants);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      await screen.findByTestId('phase-definition-plants-card');
+      // The page should display "10 days" (or similar i18n'd value)
+      expect(screen.getByText(/10\s*(Tage|days)/i)).toBeInTheDocument();
+    });
+
+    it('renders species in phase section with table', async () => {
+      const species: PhaseDefinitionSpecies[] = [
+        makePhaseDefinitionSpecies({ key: 'sp-1', scientific_name: 'Solanum lycopersicum' }),
+        makePhaseDefinitionSpecies({
+          key: 'sp-2',
+          scientific_name: 'Capsicum annuum',
+          common_names: ['Pepper', 'Paprika'],
+        }),
+      ];
+      useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      expect(await screen.findByTestId('phase-definition-species-card')).toBeInTheDocument();
+      expect(screen.getByText('Solanum lycopersicum')).toBeInTheDocument();
+      expect(screen.getByText('Capsicum annuum')).toBeInTheDocument();
+    });
+
+    it('renders empty state when no species in phase', async () => {
+      useDefinition(makeDefinition(), [], { total: 0, items: [] }, []);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      expect(await screen.findByTestId('phase-definition-species-card')).toBeInTheDocument();
+      expect(screen.getByText(i18n.t('pages.phaseSequences.noSpeciesInPhase'))).toBeInTheDocument();
+    });
+
+    it('navigates to species detail when clicking a species row (FIX-01 R5/R9)', async () => {
+      const species: PhaseDefinitionSpecies[] = [
+        makePhaseDefinitionSpecies({ key: 'sp-tomato', scientific_name: 'Solanum lycopersicum' }),
+      ];
+      useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
+      const user = userEvent.setup();
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      const speciesLink = await screen.findByTestId('species-in-phase-row-sp-tomato');
+      await user.click(speciesLink);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/stammdaten/species/sp-tomato');
+    });
+
+    it('displays typical duration for each species in the phase', async () => {
+      const species: PhaseDefinitionSpecies[] = [
+        makePhaseDefinitionSpecies({ key: 'sp-1', typical_duration_days: 28 }),
+        makePhaseDefinitionSpecies({ key: 'sp-2', typical_duration_days: 42 }),
+      ];
+      useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      await screen.findByTestId('phase-definition-species-card');
+      // Both durations should appear in the table (use getAllByText to find all occurrences)
+      const allDurations = screen.getAllByText(/\d+\s*(Tage|days)/i);
+      const durationTexts = allDurations.map((el) => el.textContent);
+      expect(durationTexts.join(' ')).toMatch(/28/);
+      expect(durationTexts.join(' ')).toMatch(/42/);
+    });
+
+    it('gracefully handles missing plants-in-phase data (light mode scenario)', async () => {
+      // When the tenant context is absent (light mode), the page should degrade gracefully
+      server.use(
+        http.get(DEF_URL, () => HttpResponse.json(makeDefinition())),
+        http.get(SEQ_URL, () => HttpResponse.json([])),
+        http.get(PLANTS_URL, () => new HttpResponse(null, { status: 403 })),
+        http.get(SPECIES_URL, () => HttpResponse.json([])),
+      );
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      expect(await screen.findByTestId('phase-definition-detail-page')).toBeInTheDocument();
+      expect(screen.getByTestId('plants-in-phase-count')).toHaveTextContent('0');
+    });
+
+    it('displays common names for species in the phase', async () => {
+      const species: PhaseDefinitionSpecies[] = [
+        makePhaseDefinitionSpecies({
+          key: 'sp-1',
+          common_names: ['Tomate', 'Tomato', 'Pomodoro'],
+        }),
+      ];
+      useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
+
+      renderWithProviders(<PhaseDefinitionDetailPage />, {
+        route: '/phasen/definitionen/def-1',
+      });
+
+      await screen.findByTestId('phase-definition-species-card');
+      expect(screen.getByText(/Tomate.*Tomato.*Pomodoro/)).toBeInTheDocument();
+    });
   });
 });

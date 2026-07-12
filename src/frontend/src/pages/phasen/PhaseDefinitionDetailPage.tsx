@@ -6,30 +6,44 @@ import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
-import Paper from '@mui/material/Paper';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
+import Divider from '@mui/material/Divider';
+import Grid from '@mui/material/Grid';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LoopIcon from '@mui/icons-material/Loop';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import DataTable, { type Column } from '@/components/common/DataTable';
+import MobileCard from '@/components/common/MobileCard';
+import OriginChip from '@/components/common/OriginChip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
-import type { PhaseDefinition, PhaseSequence } from '@/api/types';
+import * as plantInstanceApi from '@/api/endpoints/plantInstances';
+import type {
+  PhaseDefinition,
+  PhaseDefinitionSpecies,
+  PhaseSequence,
+  PlantInstanceInPhase,
+  PlantInstancesInPhase,
+} from '@/api/types';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
+
+/** Elapsed whole days since a phase-start timestamp (FIX-01 R2). Null when unknown. */
+function daysInPhase(startedAt: string | null): number | null {
+  if (!startedAt) return null;
+  const start = new Date(startedAt);
+  if (Number.isNaN(start.getTime())) return null;
+  return Math.max(0, Math.floor((Date.now() - start.getTime()) / 86_400_000));
+}
 
 const phaseIllustrations = import.meta.glob<{ default: string }>(
   '../../assets/brand/illustrations/phases/*.svg',
@@ -55,6 +69,11 @@ export default function PhaseDefinitionDetailPage() {
 
   const [definition, setDefinition] = useState<PhaseDefinition | null>(null);
   const [sequences, setSequences] = useState<PhaseSequence[]>([]);
+  const [plantsInPhase, setPlantsInPhase] = useState<PlantInstancesInPhase>({
+    total: 0,
+    items: [],
+  });
+  const [speciesInPhase, setSpeciesInPhase] = useState<PhaseDefinitionSpecies[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -69,13 +88,23 @@ export default function PhaseDefinitionDetailPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [defData, seqData] = await Promise.all([
+        const [defData, seqData, plantsData, speciesData] = await Promise.all([
           phaseSequenceApi.getPhaseDefinition(key),
           phaseSequenceApi.listSequencesForDefinition(key).catch(() => [] as PhaseSequence[]),
+          // Tenant-scoped (FIX-01 List 1): tolerate absence of a tenant context (e.g.
+          // light mode) by degrading to an empty list rather than failing the page.
+          plantInstanceApi
+            .listPlantInstancesInPhaseDefinition(key)
+            .catch(() => ({ total: 0, items: [] }) as PlantInstancesInPhase),
+          phaseSequenceApi
+            .listSpeciesForDefinition(key)
+            .catch(() => [] as PhaseDefinitionSpecies[]),
         ]);
         if (cancelled) return;
         setDefinition(defData);
         setSequences(seqData);
+        setPlantsInPhase(plantsData);
+        setSpeciesInPhase(speciesData);
         setError(null);
       } catch (err) {
         if (cancelled) return;
@@ -157,6 +186,146 @@ export default function PhaseDefinitionDetailPage() {
     );
   }
 
+  const displayName = (lang === 'de' ? definition.display_name_de : definition.display_name) || definition.name;
+  const illustrationUrl = definition.illustration ? getIllustrationUrl(definition.illustration) : null;
+
+  // Column definitions (FIX-01 R10: all lists use the shared DataTable, UI-NFR-010 R-037).
+  const sequenceColumns: Column<PhaseSequence>[] = [
+    {
+      id: 'name',
+      label: t('common.name'),
+      render: (seq) => (
+        <Typography
+          component={RouterLink}
+          to={`/phasen/ablaeufe/${seq.key}`}
+          data-testid={`sequence-row-${seq.key}`}
+          sx={{
+            color: 'primary.main',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          {(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
+        </Typography>
+      ),
+      searchValue: (seq) => (lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name,
+    },
+    {
+      id: 'cycleType',
+      label: t('pages.phaseSequences.cycleType'),
+      render: (seq) => (
+        <Chip label={t(`enums.cycleType.${seq.cycle_type}`)} size="small" variant="outlined" />
+      ),
+      searchValue: (seq) => t(`enums.cycleType.${seq.cycle_type}`),
+    },
+    {
+      id: 'isRepeating',
+      label: t('pages.phaseSequences.isRepeating'),
+      align: 'right',
+      sortable: false,
+      searchable: false,
+      render: (seq) =>
+        seq.is_repeating ? (
+          <Tooltip title={t('pages.phaseSequences.isRepeating')}>
+            <LoopIcon fontSize="small" color="secondary" aria-label={t('pages.phaseSequences.isRepeating')} />
+          </Tooltip>
+        ) : (
+          '—'
+        ),
+    },
+  ];
+
+  const plantColumns: Column<PlantInstanceInPhase>[] = [
+    {
+      id: 'plantLabel',
+      label: t('pages.phaseSequences.plantLabel'),
+      render: (plant) => (
+        <Typography
+          component={RouterLink}
+          to={`/pflanzen/plant-instances/${plant.key}`}
+          data-testid={`plant-in-phase-row-${plant.key}`}
+          sx={{
+            color: 'primary.main',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          {plant.plant_name || plant.instance_id}
+        </Typography>
+      ),
+      searchValue: (plant) => plant.plant_name || plant.instance_id,
+    },
+    {
+      id: 'species',
+      label: t('pages.phaseSequences.species'),
+      render: (plant) => plant.species_scientific_name || '—',
+      searchValue: (plant) => plant.species_scientific_name ?? '',
+    },
+    {
+      id: 'locationSlot',
+      label: t('pages.phaseSequences.locationSlot'),
+      render: (plant) => [plant.location_name, plant.slot_label].filter(Boolean).join(' · ') || '—',
+      searchValue: (plant) => [plant.location_name, plant.slot_label].filter(Boolean).join(' '),
+      hideBelowBreakpoint: 'md',
+    },
+    {
+      id: 'phaseSince',
+      label: t('pages.phaseSequences.phaseSince'),
+      render: (plant) =>
+        plant.current_phase_started_at
+          ? new Date(plant.current_phase_started_at).toLocaleDateString(lang)
+          : '—',
+      searchValue: (plant) =>
+        plant.current_phase_started_at ? new Date(plant.current_phase_started_at).toLocaleDateString(lang) : '',
+    },
+    {
+      id: 'daysInPhase',
+      label: t('pages.phaseSequences.daysInPhase'),
+      align: 'right',
+      render: (plant) => {
+        const days = daysInPhase(plant.current_phase_started_at);
+        return days != null ? t('pages.phaseSequences.daysInPhaseValue', { count: days }) : '—';
+      },
+      sortFn: (a, b) => (daysInPhase(a.current_phase_started_at) ?? -1) - (daysInPhase(b.current_phase_started_at) ?? -1),
+    },
+  ];
+
+  const speciesColumns: Column<PhaseDefinitionSpecies>[] = [
+    {
+      id: 'scientificName',
+      label: t('pages.phaseSequences.scientificName'),
+      render: (species) => (
+        <Typography
+          component={RouterLink}
+          to={`/stammdaten/species/${species.key}`}
+          data-testid={`species-in-phase-row-${species.key}`}
+          sx={{
+            fontStyle: 'italic',
+            color: 'primary.main',
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          {species.scientific_name || species.key}
+        </Typography>
+      ),
+      searchValue: (species) => species.scientific_name || species.key,
+    },
+    {
+      id: 'commonName',
+      label: t('pages.phaseSequences.commonName'),
+      render: (species) => (species.common_names.length > 0 ? species.common_names.join(', ') : '—'),
+      searchValue: (species) => species.common_names.join(' '),
+    },
+    {
+      id: 'typicalDuration',
+      label: t('pages.phaseSequences.typicalDuration'),
+      align: 'right',
+      render: (species) => t('pages.phaseSequences.totalDurationDays', { count: species.typical_duration_days }),
+      sortFn: (a, b) => a.typical_duration_days - b.typical_duration_days,
+    },
+  ];
+
   return (
     <Box data-testid="phase-definition-detail-page">
       <Button
@@ -168,8 +337,17 @@ export default function PhaseDefinitionDetailPage() {
         {t('common.back')}
       </Button>
 
+      {/* UI-NFR-017 Pattern C: title-row + meta-row (chips), actions aligned with the title row. */}
       <PageTitle
-        title={(lang === 'de' ? definition.display_name_de : definition.display_name) || definition.name}
+        title={displayName}
+        meta={
+          <>
+            <OriginChip isSystem={definition.is_system} />
+            {definition.tags.map((tag) => (
+              <Chip key={tag} label={tag} size="small" variant="outlined" />
+            ))}
+          </>
+        }
         action={
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button
@@ -207,29 +385,20 @@ export default function PhaseDefinitionDetailPage() {
         }
       />
 
-      {/* Metadata chips */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-        {definition.is_system && (
-          <Chip
-            label={t('pages.phaseSequences.system')}
-            color="info"
-            variant="outlined"
-          />
-        )}
-        {definition.tags.map((tag) => (
-          <Chip key={tag} label={tag} size="small" variant="outlined" />
-        ))}
-      </Box>
+      {/* Page-level intro: explains the dual operational/reference purpose (FIX-01 R10). */}
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 760 }}>
+        {t('pages.phaseSequences.detailIntro')}
+      </Typography>
 
-      {/* Properties Card */}
-      <Card variant="outlined" sx={{ mb: 3 }}>
+      {/* Properties Card — core reference data for the phase */}
+      <Card variant="outlined" sx={{ mb: 3 }} data-testid="phase-definition-properties-card">
         <CardContent>
           {definition.illustration && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
               <Box
                 component="img"
-                src={getIllustrationUrl(definition.illustration) ?? ''}
-                alt={(lang === 'de' ? definition.display_name_de : definition.display_name) || definition.name}
+                src={illustrationUrl ?? ''}
+                alt={displayName}
                 sx={{ maxHeight: 120, maxWidth: '100%', objectFit: 'contain' }}
                 onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                   (e.target as HTMLImageElement).style.display = 'none';
@@ -237,201 +406,250 @@ export default function PhaseDefinitionDetailPage() {
               />
             </Box>
           )}
-          <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
+          <Typography variant="h6" component="h2" sx={{ mb: 0.5 }}>
             {t('pages.phaseSequences.definitionDetails')}
           </Typography>
-          <TableContainer>
-            <Table size="small" aria-label={t('pages.phaseSequences.definitionDetails')}>
-              <TableBody>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', width: '30%', borderBottom: 'none' }}
-                  >
-                    {t('common.name')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.name}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.displayName')} (EN)
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.display_name || '—'}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.displayNameDe')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.display_name_de || '—'}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.descriptionLabel')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {(lang === 'de' ? definition.description_de : definition.description) || '—'}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.typicalDuration')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {t('pages.phaseSequences.totalDurationDays', {
-                      count: definition.typical_duration_days,
-                    })}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.stressTolerance')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    <Chip
-                      label={t(
-                        `enums.stressTolerance.${definition.stress_tolerance}`,
-                      )}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.wateringInterval')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.watering_interval_days != null
-                      ? t('pages.phaseSequences.wateringIntervalDays', {
-                          count: definition.watering_interval_days,
-                        })
-                      : '—'}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{ fontWeight: 'bold', borderBottom: 'none' }}
-                  >
-                    {t('pages.phaseSequences.tags')}
-                  </TableCell>
-                  <TableCell sx={{ borderBottom: 'none' }}>
-                    {definition.tags.length > 0 ? (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {definition.tags.map((tag) => (
-                          <Chip key={tag} label={tag} size="small" />
-                        ))}
-                      </Box>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-
-      {/* Sequences using this definition */}
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
-            {t('pages.phaseSequences.usedInSequences')}
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 760 }}>
+            {t('pages.phaseSequences.propertiesIntro')}
           </Typography>
 
-          {sequences.length === 0 ? (
-            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">
-                {t('pages.phaseSequences.noSequencesUsingDefinition')}
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t('common.name')}
               </Typography>
-            </Paper>
-          ) : (
-            <TableContainer>
-              <Table size="small" aria-label={t('pages.phaseSequences.usedInSequences')}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('common.name')}</TableCell>
-                    <TableCell>{t('pages.phaseSequences.cycleType')}</TableCell>
-                    <TableCell>{t('pages.phaseSequences.isRepeating')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sequences.map((seq) => (
-                    <TableRow
-                      key={seq.key}
-                      hover
-                      data-testid={`sequence-row-${seq.key}`}
-                    >
-                      <TableCell>
-                        <Typography
-                          component={RouterLink}
-                          to={`/phasen/ablaeufe/${seq.key}`}
-                          sx={{
-                            color: 'primary.main',
-                            textDecoration: 'none',
-                            '&:hover': { textDecoration: 'underline' },
-                          }}
-                        >
-                          {(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={t(`enums.cycleType.${seq.cycle_type}`)}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {seq.is_repeating ? (
-                          <Tooltip title={t('pages.phaseSequences.isRepeating')}>
-                            <LoopIcon fontSize="small" color="secondary" aria-label={t('pages.phaseSequences.isRepeating')} />
-                          </Tooltip>
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {definition.name}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t('pages.phaseSequences.displayName')} (EN)
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {definition.display_name || '—'}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Typography variant="caption" color="text.secondary">
+                {t('pages.phaseSequences.displayNameDe')}
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {definition.display_name_de || '—'}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.phaseSequences.typicalDuration')}
+                </Typography>
+                <Tooltip title={t('pages.phaseSequences.typicalDurationTooltip')} arrow>
+                  <InfoOutlinedIcon
+                    sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }}
+                    tabIndex={0}
+                    aria-label={t('pages.phaseSequences.typicalDurationTooltip')}
+                  />
+                </Tooltip>
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {t('pages.phaseSequences.totalDurationDays', { count: definition.typical_duration_days })}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.phaseSequences.stressTolerance')}
+                </Typography>
+                <Tooltip title={t('pages.phaseSequences.stressToleranceTooltip')} arrow>
+                  <InfoOutlinedIcon
+                    sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }}
+                    tabIndex={0}
+                    aria-label={t('pages.phaseSequences.stressToleranceTooltip')}
+                  />
+                </Tooltip>
+              </Box>
+              <Chip
+                label={t(`enums.stressTolerance.${definition.stress_tolerance}`)}
+                size="small"
+                variant="outlined"
+                sx={{ mt: 0.25 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6, sm: 4, md: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('pages.phaseSequences.wateringInterval')}
+                </Typography>
+                <Tooltip title={t('pages.phaseSequences.wateringIntervalTooltip')} arrow>
+                  <InfoOutlinedIcon
+                    sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }}
+                    tabIndex={0}
+                    aria-label={t('pages.phaseSequences.wateringIntervalTooltip')}
+                  />
+                </Tooltip>
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {definition.watering_interval_days != null
+                  ? t('pages.phaseSequences.wateringIntervalDays', { count: definition.watering_interval_days })
+                  : '—'}
+              </Typography>
+            </Grid>
+          </Grid>
+
+          <Box sx={{ mt: 2, maxWidth: 760 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              {t('pages.phaseSequences.descriptionLabel')}
+            </Typography>
+            <Typography variant="body2">
+              {(lang === 'de' ? definition.description_de : definition.description) || '—'}
+            </Typography>
+          </Box>
         </CardContent>
       </Card>
+
+      {/* List 1 — tenant's active plant instances currently in this phase (FIX-01 R1–R4).
+          Operational content: placed directly after the reference properties, so the
+          most actionable information ("which of my plants need attention now") is the
+          first thing beyond the phase's static definition. */}
+      <Card variant="outlined" sx={{ mb: 3, borderColor: 'primary.main' }} data-testid="phase-definition-plants-card">
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 0.5 }}>
+            <Typography variant="h6" component="h2">
+              {t('pages.phaseSequences.plantsInPhase')}
+            </Typography>
+            <Chip
+              label={plantsInPhase.total}
+              size="small"
+              color="primary"
+              data-testid="plants-in-phase-count"
+              aria-label={t('pages.phaseSequences.plantsInPhaseCount', { count: plantsInPhase.total })}
+            />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 760 }}>
+            {t('pages.phaseSequences.plantsInPhaseIntro')}
+          </Typography>
+
+          <DataTable
+            columns={plantColumns}
+            rows={plantsInPhase.items}
+            getRowKey={(plant) => plant.key}
+            onRowClick={(plant) => navigate(`/pflanzen/plant-instances/${plant.key}`)}
+            variant="simple"
+            ariaLabel={t('pages.phaseSequences.plantsInPhase')}
+            emptyMessage={t('pages.phaseSequences.noPlantsInPhase')}
+            emptyDescription={t('pages.phaseSequences.noPlantsInPhaseDesc')}
+            mobileCardRenderer={(plant) => {
+              const days = daysInPhase(plant.current_phase_started_at);
+              const locationSlot = [plant.location_name, plant.slot_label].filter(Boolean).join(' · ');
+              return (
+                <MobileCard
+                  title={plant.plant_name || plant.instance_id}
+                  subtitle={plant.species_scientific_name || undefined}
+                  fields={[
+                    ...(locationSlot ? [{ label: t('pages.phaseSequences.locationSlot'), value: locationSlot }] : []),
+                    {
+                      label: t('pages.phaseSequences.phaseSince'),
+                      value: plant.current_phase_started_at
+                        ? new Date(plant.current_phase_started_at).toLocaleDateString(lang)
+                        : '—',
+                    },
+                    {
+                      label: t('pages.phaseSequences.daysInPhase'),
+                      value: days != null ? t('pages.phaseSequences.daysInPhaseValue', { count: days }) : '—',
+                    },
+                  ]}
+                />
+              );
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Reference section — composition data: where this definition is used, and which
+          species traverse it. Grouped visually and laid out side-by-side on md+ to use
+          the available desktop width instead of stacking two narrow tables (UI-NFR-001
+          R-023). Stacks to a single column on mobile. */}
+      <Divider sx={{ mb: 2 }} />
+      <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.phaseSequences.referenceSectionTitle')}
+      </Typography>
+
+      <Grid container spacing={2}>
+        {/* Sequences using this definition */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card variant="outlined" sx={{ height: '100%' }} data-testid="phase-definition-sequences-card">
+            <CardContent>
+              <Typography variant="h6" component="h2" sx={{ mb: 0.5 }}>
+                {t('pages.phaseSequences.usedInSequences')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.phaseSequences.usedInSequencesIntro')}
+              </Typography>
+
+              <DataTable
+                columns={sequenceColumns}
+                rows={sequences}
+                getRowKey={(seq) => seq.key}
+                onRowClick={(seq) => navigate(`/phasen/ablaeufe/${seq.key}`)}
+                variant="simple"
+                ariaLabel={t('pages.phaseSequences.usedInSequences')}
+                emptyMessage={t('pages.phaseSequences.noSequencesUsingDefinition')}
+                emptyDescription={t('pages.phaseSequences.noSequencesUsingDefinitionDesc')}
+                mobileCardRenderer={(seq) => (
+                  <MobileCard
+                    title={(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
+                    chips={<Chip label={t(`enums.cycleType.${seq.cycle_type}`)} size="small" variant="outlined" />}
+                    trailing={
+                      seq.is_repeating ? (
+                        <Tooltip title={t('pages.phaseSequences.isRepeating')}>
+                          <LoopIcon fontSize="small" color="secondary" aria-label={t('pages.phaseSequences.isRepeating')} />
+                        </Tooltip>
+                      ) : undefined
+                    }
+                  />
+                )}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Species (global catalog) that traverse this phase */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Card variant="outlined" sx={{ height: '100%' }} data-testid="phase-definition-species-card">
+            <CardContent>
+              <Typography variant="h6" component="h2" sx={{ mb: 0.5 }}>
+                {t('pages.phaseSequences.speciesInPhase')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.phaseSequences.speciesInPhaseIntro')}
+              </Typography>
+
+              <DataTable
+                columns={speciesColumns}
+                rows={speciesInPhase}
+                getRowKey={(species) => species.key}
+                onRowClick={(species) => navigate(`/stammdaten/species/${species.key}`)}
+                variant="simple"
+                ariaLabel={t('pages.phaseSequences.speciesInPhase')}
+                emptyMessage={t('pages.phaseSequences.noSpeciesInPhase')}
+                emptyDescription={t('pages.phaseSequences.noSpeciesInPhaseDesc')}
+                mobileCardRenderer={(species) => (
+                  <MobileCard
+                    title={<Box sx={{ fontStyle: 'italic' }}>{species.scientific_name || species.key}</Box>}
+                    subtitle={species.common_names.length > 0 ? species.common_names.join(', ') : undefined}
+                    fields={[
+                      {
+                        label: t('pages.phaseSequences.typicalDuration'),
+                        value: t('pages.phaseSequences.totalDurationDays', { count: species.typical_duration_days }),
+                      },
+                    ]}
+                  />
+                )}
+              />
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Edit dialog */}
       <PhaseDefinitionDialog

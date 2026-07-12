@@ -205,6 +205,79 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return next(cursor, {})
 
+    # ── Phase-definition detail lists (FIX-01 R1/R8) ──────────────────
+
+    def list_active_in_phase_definition(self, tenant_key: str, phase_definition_key: str) -> list[dict[str, Any]]:
+        """Return the tenant's *active* instances currently in a phase definition (FIX-01 R1/R8).
+
+        The phase indirection (A1) is resolved inside a single AQL statement: a
+        plant's ``current_phase_key`` points at a ``PhaseSequenceEntry`` (the
+        preferred path) or — for legacy data — at a ``GrowthPhase``. There is no
+        ``phase_definition_key`` on ``GrowthPhase``, so the only stable legacy
+        bridge is the shared canonical phase ``name`` (``GrowthPhase.name ==
+        PhaseDefinition.name``); it is applied best-effort alongside the entry
+        keys. "Active" mirrors the codebase-wide alive marker ``removed_on ==
+        null`` (A2), consistent with ``count_active_for_tenant`` / survival stats.
+
+        Security (SEC-001 / SEC-B4): every plant row is filtered on
+        ``p.tenant_key == @tenant_key`` and the empty-tenant sentinel is rejected
+        up-front, so the list can never span tenants; the denormalised location /
+        slot labels are additionally gated on the *same* tenant so a cross-tenant
+        foreign reference can never leak a name. All collection names travel as
+        binds (``@@col`` / ``DOCUMENT(@…_col, …)``), never interpolated.
+        """
+        self._require_tenant_key(tenant_key, "list_active_in_phase_definition")
+        query = """
+        LET defn = DOCUMENT(@defn_col, @phase_definition_key)
+        LET seq_entry_keys = (
+          FOR e IN @@entry_col
+            FILTER e.phase_definition_key == @phase_definition_key
+            RETURN e._key
+        )
+        LET legacy_phase_keys = defn == null ? [] : (
+          FOR gp IN @@growth_phase_col
+            FILTER gp.name == defn.name
+            RETURN gp._key
+        )
+        LET phase_keys = APPEND(seq_entry_keys, legacy_phase_keys)
+        FOR p IN @@col
+          FILTER p.tenant_key == @tenant_key
+            AND p.removed_on == null
+            AND p.current_phase_key != null
+            AND p.current_phase_key IN phase_keys
+          SORT p.current_phase_started_at DESC, p._key ASC
+          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
+          LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null
+          RETURN {
+            key: p._key,
+            instance_id: p.instance_id,
+            plant_name: p.plant_name,
+            species_key: p.species_key,
+            species_scientific_name: species != null ? species.scientific_name : null,
+            species_common_names: species != null ? (species.common_names || []) : [],
+            location_key: p.location_key,
+            location_name: (location != null AND location.tenant_key == @tenant_key) ? location.name : null,
+            slot_key: p.slot_key,
+            slot_label: (slot != null AND slot.tenant_key == @tenant_key) ? slot.slot_id : null,
+            current_phase_key: p.current_phase_key,
+            current_phase_started_at: p.current_phase_started_at
+          }
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "@entry_col": col.PHASE_SEQUENCE_ENTRIES,
+            "@growth_phase_col": col.GROWTH_PHASES,
+            "tenant_key": tenant_key,
+            "phase_definition_key": phase_definition_key,
+            "defn_col": col.PHASE_DEFINITIONS,
+            "species_col": col.SPECIES,
+            "location_col": col.LOCATIONS,
+            "slot_col": col.SLOTS,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return list(cursor)
+
     # ── Dashboard counts (REQ-009) ────────────────────────────────────
 
     def count_for_tenant(self, tenant_key: str) -> int:

@@ -634,6 +634,19 @@ class PlantInstanceService:
             loss_by_phase=loss_by_phase,
         )
 
+    def list_active_in_phase_definition(self, tenant_key: str, phase_definition_key: str) -> list[dict]:
+        """List a tenant's active plant instances currently in a phase definition (FIX-01 R1/R8).
+
+        Tenant-scoped (SEC-001): the empty ``tenant_key`` sentinel is rejected before any
+        query runs (defence in depth — the repository rejects it too). "Active" means the
+        plant is still in cultivation (``removed_on == null``, A2). The current-phase→
+        definition indirection (A1) is resolved in the repository. Returns enriched row
+        dicts; an empty list is a valid result (R4).
+        """
+        if not tenant_key:
+            raise ValidationError("tenant_key is required to list plant instances in a phase definition.")
+        return self._repo.list_active_in_phase_definition(tenant_key, phase_definition_key)
+
     def get_plants_in_slot(self, slot_key: SlotKey) -> list[PlantInstance]:
         return self._repo.get_active_by_slot(slot_key)
 

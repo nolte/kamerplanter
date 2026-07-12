@@ -355,3 +355,123 @@ class TestReorderEntries:
 
         assert len(result) == 2
         mock_repo.reorder_entries.assert_called_once_with("ps1", orders)
+
+
+class TestGetSpeciesForDefinition:
+    """FIX-01 R5/R9 — species (global catalog) that traverse a phase definition."""
+
+    def test_dedupes_species_and_prefers_entry_override_duration(self, service, mock_repo):
+        defn = PhaseDefinition(name="Flowering", typical_duration_days=56)
+        defn.key = "pd1"
+        mock_repo.get_definition_by_key.return_value = defn
+
+        seq_a = PhaseSequence(name="seq-a")
+        seq_a.key = "ps_a"
+        seq_b = PhaseSequence(name="seq-b")
+        seq_b.key = "ps_b"
+        mock_repo.get_sequences_for_definition.return_value = [seq_a, seq_b]
+
+        # seq_a declares a species-specific override for pd1; seq_b uses the default.
+        entries = {
+            "ps_a": [
+                PhaseSequenceEntry(phase_sequence_key="ps_a", phase_definition_key="pd1", override_duration_days=40)
+            ],
+            "ps_b": [PhaseSequenceEntry(phase_sequence_key="ps_b", phase_definition_key="pd1")],
+        }
+        mock_repo.get_entries_for_sequence.side_effect = lambda k: entries[k]
+
+        # Species "sp1" appears in BOTH sequences → must be de-duplicated by key.
+        species = {
+            "ps_a": [{"key": "sp1", "scientific_name": "Cannabis sativa", "common_names": ["Hanf"]}],
+            "ps_b": [
+                {"key": "sp1", "scientific_name": "Cannabis sativa", "common_names": ["Hanf"]},
+                {"key": "sp2", "scientific_name": "Solanum lycopersicum", "common_names": ["Tomate"]},
+            ],
+        }
+        mock_repo.get_species_for_sequence.side_effect = lambda k: species[k]
+
+        result = service.get_species_for_definition("pd1")
+
+        by_key = {row["key"]: row for row in result}
+        assert set(by_key) == {"sp1", "sp2"}
+        # sp1 reached first via seq_a's override → 40; sp2 only via default → 56.
+        assert by_key["sp1"]["typical_duration_days"] == 40
+        assert by_key["sp2"]["typical_duration_days"] == 56
+        assert by_key["sp1"]["illustration"] == defn.illustration
+
+    def test_empty_species_is_valid_not_404(self, service, mock_repo):
+        defn = PhaseDefinition(name="Seedling", typical_duration_days=14)
+        defn.key = "pd9"
+        mock_repo.get_definition_by_key.return_value = defn
+        mock_repo.get_sequences_for_definition.return_value = []
+
+        assert service.get_species_for_definition("pd9") == []
+
+    def test_missing_definition_raises_not_found(self, service, mock_repo):
+        mock_repo.get_definition_by_key.return_value = None
+        with pytest.raises(NotFoundError):
+            service.get_species_for_definition("nope")
+
+    def test_uses_definition_default_when_no_entry_override(self, service, mock_repo):
+        """FIX-01 R5: when entry has no override, use definition's typical_duration_days."""
+        defn = PhaseDefinition(name="Vegetative", typical_duration_days=28)
+        defn.key = "pd1"
+        mock_repo.get_definition_by_key.return_value = defn
+
+        seq = PhaseSequence(name="tomato-cycle")
+        seq.key = "ps1"
+        mock_repo.get_sequences_for_definition.return_value = [seq]
+
+        entries = {
+            "ps1": [
+                PhaseSequenceEntry(
+                    phase_sequence_key="ps1",
+                    phase_definition_key="pd1",
+                    override_duration_days=None,
+                )
+            ]
+        }
+        mock_repo.get_entries_for_sequence.side_effect = lambda k: entries[k]
+
+        species = {"ps1": [{"key": "sp-tomato", "scientific_name": "Solanum lycopersicum", "common_names": []}]}
+        mock_repo.get_species_for_sequence.side_effect = lambda k: species[k]
+
+        result = service.get_species_for_definition("pd1")
+
+        assert len(result) == 1
+        assert result[0]["typical_duration_days"] == 28
+
+    def test_preserves_species_attributes(self, service, mock_repo):
+        """FIX-01 R9: ensure all species attributes are preserved for frontend."""
+        defn = PhaseDefinition(name="Flowering", typical_duration_days=56)
+        defn.key = "pd1"
+        defn.illustration = "phases/flowering.svg"
+        mock_repo.get_definition_by_key.return_value = defn
+
+        seq = PhaseSequence(name="seq")
+        seq.key = "ps1"
+        mock_repo.get_sequences_for_definition.return_value = [seq]
+
+        entries = {"ps1": [PhaseSequenceEntry(phase_sequence_key="ps1", phase_definition_key="pd1")]}
+        mock_repo.get_entries_for_sequence.side_effect = lambda k: entries[k]
+
+        species = {
+            "ps1": [
+                {
+                    "key": "sp-pepper",
+                    "scientific_name": "Capsicum annuum",
+                    "common_names": ["Pepper", "Paprika", "Peperoni"],
+                    "illustration": "species/capsicum.svg",
+                }
+            ]
+        }
+        mock_repo.get_species_for_sequence.side_effect = lambda k: species[k]
+
+        result = service.get_species_for_definition("pd1")
+
+        assert len(result) == 1
+        row = result[0]
+        assert row["key"] == "sp-pepper"
+        assert row["scientific_name"] == "Capsicum annuum"
+        assert row["common_names"] == ["Pepper", "Paprika", "Peperoni"]
+        assert row["illustration"] == "phases/flowering.svg"  # Should use definition's illustration

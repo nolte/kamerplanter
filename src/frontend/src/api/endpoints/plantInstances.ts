@@ -2,6 +2,7 @@ import { tenantClient as client } from '../client';
 import type {
   PlantInstance,
   PlantInstanceCreate,
+  PlantInstancesInPhase,
   RemovePlantRequest,
   SurvivalStats,
   ValidatePlantingResponse,
@@ -44,6 +45,19 @@ export async function removePlantInstance(
   body?: RemovePlantRequest,
 ): Promise<PlantInstance> {
   const { data } = await client.post<PlantInstance>(`${BASE}/${key}/remove`, body ?? {});
+  return data;
+}
+
+/**
+ * List the current tenant's active plant instances currently in a phase definition
+ * (FIX-01 R1/R8). Tenant-scoped via the tenant client; empty list is a valid result.
+ */
+export async function listPlantInstancesInPhaseDefinition(
+  phaseDefinitionKey: string,
+): Promise<PlantInstancesInPhase> {
+  const { data } = await client.get<PlantInstancesInPhase>(
+    `${BASE}/by-phase-definition/${phaseDefinitionKey}`,
+  );
   return data;
 }
 

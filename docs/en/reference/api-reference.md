@@ -1233,3 +1233,98 @@ POST /api/v1/t/my-garden/actuators/act_42/override
 - [Sensors — User Guide](../user-guide/sensors.md)
 - [Environment Variables — Environment Control & Actuators](environment-variables.md#environment-control-actuators-req-018)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## Phase Definitions: Plants & Species per Phase <!-- FIX-01 -->
+
+Two thin, read-only endpoints feed the two additional lists on the phase-definition detail page: which of your own plants are currently in a phase, and which species traverse that phase in the global catalog.
+
+### List Species for a Phase Definition (Global)
+
+Returns all species from the global catalog whose phase sequence includes the given phase definition. No tenant prefix — reference data like botanical families or the hardiness-zone catalog.
+
+```
+GET /api/v1/phase-definitions/{key}/species
+```
+
+Requires a valid JWT token; no separate role restriction.
+
+**Path parameter:** `key` — the phase definition's key.
+
+**Response (200):** a list of `PhaseDefinitionSpeciesResponse`. Empty if no species traverses this phase (no `404`).
+
+```json
+[
+  {
+    "key": "species/123",
+    "scientific_name": "Solanum lycopersicum",
+    "common_names": ["Tomate", "Tomato"],
+    "typical_duration_days": 30,
+    "illustration": "phases/flowering.svg"
+  }
+]
+```
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `key` | string | The species' key |
+| `scientific_name` | string | Scientific (binomial) name |
+| `common_names` | list[string] | Common names |
+| `typical_duration_days` | integer | This phase's typical duration for the species — the species-specific override (`override_duration_days`) from the phase-sequence entry when set, otherwise the phase definition's default |
+| `illustration` | string | The phase definition's own illustration path (no per-species illustration yet) |
+
+If a species is linked to the same phase definition through more than one phase sequence, it appears only once (de-duplicated by species key); a species-specific override, where set, takes precedence over the definition's default.
+
+### List the Tenant's Active Plant Instances in a Phase Definition
+
+Returns the calling tenant's **active** plant instances whose current phase resolves to the given phase definition. Tenant-scoped (SEC-001) — an empty tenant context is rejected server-side rather than returning another tenant's data.
+
+```
+GET /api/v1/t/{tenant_slug}/plant-instances/by-phase-definition/{phase_definition_key}
+```
+
+Requires a valid JWT token and an active tenant membership; any role may read.
+
+**Response (200):** `PlantInstancesInPhaseResponse`. `items` is empty if none of the tenant's active plants are in this phase (no `404`).
+
+```json
+{
+  "total": 2,
+  "items": [
+    {
+      "key": "plant_instances/101",
+      "instance_id": "T3-01",
+      "plant_name": "Balcony Tomato",
+      "species_key": "species/123",
+      "species_scientific_name": "Solanum lycopersicum",
+      "species_common_names": ["Tomato"],
+      "location_key": "locations/5",
+      "location_name": "South Balcony",
+      "slot_key": "slots/12",
+      "slot_label": "Row 2, Pot 3",
+      "current_phase_key": "phase_sequence_entries/456",
+      "current_phase_started_at": "2026-06-20T08:00:00Z"
+    }
+  ]
+}
+```
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `total` | integer | Total number of plant instances returned |
+| `items[].current_phase_key` | string \| null | Raw value of `PlantInstance.current_phase_key` — usually a `PhaseSequenceEntry` key; for older records it may still be a legacy `GrowthPhase` key |
+| `items[].current_phase_started_at` | datetime \| null | Timestamp of the last phase transition — the basis for the "days in phase" count computed client-side on the detail page |
+
+"Active" means `removed_on == null` — removed plants (see [Growth Phases — User Guide: Removing a Plant](../user-guide/growth-phases.md#pflanze-entfernen)) do not appear here. A plant is matched to the phase definition via its current phase-sequence assignment (`PhaseSequenceEntry.phase_definition_key`); for legacy data without a phase sequence, a fallback via the shared canonical phase name of a legacy `GrowthPhase` additionally applies.
+
+!!! note "No `days_in_phase` field in the response"
+    Days in phase are deliberately **not** returned by the backend; the UI derives them from `current_phase_started_at` instead, so the value stays current without a re-fetch.
+
+**Route order:** `/by-phase-definition/{phase_definition_key}` is declared **before** `/{key}` in the router so the literal path is not accidentally captured as a plant key (the same pattern used for `/survival-stats` above).
+
+### See Also
+
+- [Growth Phases — User Guide: Phase Definition Detail View](../user-guide/growth-phases.md#phasendefinition-detailansicht)
+- [Master Data: Plant Species — User Guide](../user-guide/plant-management.md)
+- [Error Handling](../api/error-handling.md)

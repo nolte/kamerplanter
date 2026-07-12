@@ -5,6 +5,7 @@ from app.api.v1.phase_sequences.schemas import (
     EntryReorderRequest,
     PhaseDefinitionCreate,
     PhaseDefinitionResponse,
+    PhaseDefinitionSpeciesResponse,
     PhaseDefinitionUpdate,
     PhaseSequenceCreate,
     PhaseSequenceEntryCreate,
@@ -144,6 +145,23 @@ def list_sequences_for_definition(
     """List all PhaseSequences that use this definition."""
     sequences = service.get_sequences_for_definition(key)
     return [to_response(s, PhaseSequenceResponse) for s in sequences]
+
+
+@router.get(
+    "/phase-definitions/{key}/species",
+    response_model=list[PhaseDefinitionSpeciesResponse],
+)
+def list_species_for_definition(
+    key: str,
+    _user: User = Depends(get_current_user),
+    service: PhaseSequenceService = Depends(get_phase_sequence_service),
+):
+    """List all species (global catalog) that traverse this phase definition (FIX-01 R5/R9).
+
+    Global read-only endpoint composed from existing repository building blocks; an
+    empty list is a valid result (no 404, R7).
+    """
+    return [PhaseDefinitionSpeciesResponse(**row) for row in service.get_species_for_definition(key)]
 
 
 @router.put(

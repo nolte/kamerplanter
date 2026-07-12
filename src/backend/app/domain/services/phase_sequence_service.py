@@ -42,6 +42,48 @@ class PhaseSequenceService:
         self.get_definition(key)
         return self._repo.get_sequences_for_definition(key)
 
+    def get_species_for_definition(self, key: str) -> list[dict]:
+        """List all species (global catalog) that traverse a phase definition (FIX-01 R5/R9).
+
+        Composed from existing repository building blocks: every sequence that uses the
+        definition (``get_sequences_for_definition``) → the species linked to each
+        sequence (``get_species_for_sequence``), de-duplicated by species key. Per
+        species the phase's typical duration is the ``PhaseSequenceEntry`` override for
+        this definition in that species' sequence when set, else the ``PhaseDefinition``
+        default. A missing definition raises ``NotFoundError``; an empty species list is
+        a valid result (no 404, R7).
+        """
+        defn = self.get_definition(key)
+        default_days = defn.typical_duration_days
+        result: dict[str, dict] = {}
+        for seq in self._repo.get_sequences_for_definition(key):
+            seq_key = seq.key or ""
+            # Duration override this species' sequence declares for this definition (if any).
+            override: int | None = None
+            for entry in self._repo.get_entries_for_sequence(seq_key):
+                if entry.phase_definition_key == key and entry.override_duration_days is not None:
+                    override = entry.override_duration_days
+                    break
+            duration = override if override is not None else default_days
+            for species in self._repo.get_species_for_sequence(seq_key):
+                species_key = species.get("key")
+                if not species_key:
+                    continue
+                existing = result.get(species_key)
+                if existing is None:
+                    result[species_key] = {
+                        "key": species_key,
+                        "scientific_name": species.get("scientific_name") or "",
+                        "common_names": species.get("common_names") or [],
+                        "typical_duration_days": duration,
+                        "illustration": defn.illustration,
+                    }
+                elif override is not None and existing["typical_duration_days"] == default_days:
+                    # Same species reached again via another sequence that DOES declare a
+                    # species-specific override — prefer it over the definition default.
+                    existing["typical_duration_days"] = duration
+        return list(result.values())
+
     def delete_definition(self, key: str) -> bool:
         defn = self.get_definition(key)
         if defn.is_system:
