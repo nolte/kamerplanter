@@ -23,8 +23,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-import time  # kept for MUI animation waits
-
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -430,9 +428,7 @@ class TestHarvestQualityAssessment:
         harvest_detail.fill_quality_aroma(60)
         harvest_detail.fill_quality_color(60)
         harvest_detail.add_defect("Schimmelfleck")
-        time.sleep(0.3)  # MUI animation
         harvest_detail.add_defect("Verfaerbung")
-        time.sleep(0.3)  # MUI animation
         screenshot(
             "TC-REQ-007-012_defect-chips-added",
             "Quality form with defect chips added",

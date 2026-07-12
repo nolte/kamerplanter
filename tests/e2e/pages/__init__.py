@@ -14,6 +14,7 @@ from .fertilizer_detail_page import FertilizerDetailPage
 from .fertilizer_list_page import FertilizerListPage
 from .harvest_batch_detail_page import HarvestBatchDetailPage
 from .harvest_batch_list_page import HarvestBatchListPage
+from .harvest_readiness_card_page import HarvestReadinessCardPage
 from .import_page import ImportPage
 from .invitation_accept_page import InvitationAcceptPage
 from .location_detail_page import LocationDetailPage
@@ -71,6 +72,7 @@ __all__ = [
     "FertilizerListPage",
     "HarvestBatchDetailPage",
     "HarvestBatchListPage",
+    "HarvestReadinessCardPage",
     "ImportPage",
     "InvitationAcceptPage",
     "LocationDetailPage",
