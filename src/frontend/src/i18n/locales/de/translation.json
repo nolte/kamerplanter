@@ -1888,7 +1888,23 @@
       "toFamily": "Zu Familie",
       "toFamilyHelper": "Familie, die nach der Ausgangsfamilie angebaut werden kann",
       "noSuccessors": "Noch keine Nachfolger-Familien definiert.",
-      "selectFamilyHint": "Bitte eine Familie auswählen, um die Fruchtfolge anzuzeigen."
+      "selectFamilyHint": "Bitte eine Familie auswählen, um die Fruchtfolge anzuzeigen.",
+      "noFamiliesFound": "Keine Familien gefunden",
+      "countLegend": "Zahl neben jeder Familie: Anzahl empfohlener Nachfolger-Familien",
+      "successorCount_one": "{{count}} empfohlene Nachfolger-Familie",
+      "successorCount_other": "{{count}} empfohlene Nachfolger-Familien",
+      "toggleFavorite": "{{name}} als Favorit markieren",
+      "addFavorite": "{{name}} als Favorit hinzufügen",
+      "removeFavorite": "{{name}} aus Favoriten entfernen",
+      "favoriteShortcutHint": "Tipp: Mit Umschalt+F favorisierst du die im Dropdown hervorgehobene Familie – auch ganz ohne Maus.",
+      "filtersLabel": "Familien filtern",
+      "filterFavorites": "Favoriten",
+      "filterHasRotation": "Mit Fruchtfolge",
+      "filterNitrogenFixing": "Stickstofffixierend",
+      "filterFrostHardy": "Frosthart",
+      "filterNutrientDemand": "Nährstoffbedarf",
+      "filterAll": "Alle",
+      "resetFilters": "Filter zurücksetzen"
     },
     "siteDetail": {
       "climate": {

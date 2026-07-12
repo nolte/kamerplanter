@@ -8,6 +8,14 @@ from app.data_access.arango.graph_repository import ArangoGraphRepository
 router = APIRouter(prefix="/crop-rotation", tags=["crop-rotation"], dependencies=[Depends(get_current_user)])
 
 
+@router.get("/counts", response_model=dict[str, int])
+def get_rotation_successor_counts(graph: ArangoGraphRepository = Depends(get_graph_repo)) -> dict[str, int]:
+    # Whole-catalogue aggregate keyed by family_key: one batch AQL request feeds
+    # the per-family successor-count chips in the "Von Familie" dropdown (no N+1).
+    # Family rotation data is global reference data — no tenant scoping needed.
+    return graph.get_rotation_successor_counts()
+
+
 @router.get("/families/{family_key}/successors")
 def get_rotation_successors(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     raw = graph.get_rotation_successors(family_key)

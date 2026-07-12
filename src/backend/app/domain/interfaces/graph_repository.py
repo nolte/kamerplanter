@@ -30,6 +30,9 @@ class IGraphRepository(ABC):
     def get_rotation_successors(self, family_key: str) -> list[dict[str, Any]]: ...
 
     @abstractmethod
+    def get_rotation_successor_counts(self) -> dict[str, int]: ...
+
+    @abstractmethod
     def set_rotation_successor(
         self,
         from_family_key: str,
