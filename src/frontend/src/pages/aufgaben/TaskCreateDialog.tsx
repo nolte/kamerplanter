@@ -77,6 +77,12 @@ interface Props {
    * is fixed by context and must not be changed.
    */
   hideEntitySelect?: boolean;
+  /**
+   * Speaking label for ``presetEntityKey`` (e.g. ``getPlantLabel(plant, ...)``), shown
+   * as a locked context field and in the dialog title when ``hideEntitySelect`` is set —
+   * so it stays clear which plant the task is created for even without the selector.
+   */
+  presetEntityLabel?: string | null;
 }
 
 export default function TaskCreateDialog({
@@ -85,6 +91,7 @@ export default function TaskCreateDialog({
   onCreated,
   presetEntityKey = null,
   hideEntitySelect = false,
+  presetEntityLabel = null,
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -171,7 +178,11 @@ export default function TaskCreateDialog({
 
   return (
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
-      <DialogTitle id="task-create-dialog-title">{t('pages.tasks.createTask')}</DialogTitle>
+      <DialogTitle id="task-create-dialog-title">
+        {hideEntitySelect && presetEntityLabel
+          ? t('pages.tasks.createTaskForPlant', { plant: presetEntityLabel })
+          : t('pages.tasks.createTask')}
+      </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.createIntro')}
@@ -263,7 +274,21 @@ export default function TaskCreateDialog({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.tasks.sectionAssignment')}
           </Typography>
-          {!hideEntitySelect && (
+          {hideEntitySelect ? (
+            // The entity is fixed by context (e.g. opened from a plant instance's Tasks
+            // tab) — show a locked, read-only field instead of leaving an empty gap where
+            // the plant selector would otherwise be, so it stays unambiguous which plant
+            // the task is created for even though it cannot be changed here.
+            <TextField
+              label={t('pages.tasks.plant')}
+              value={presetEntityLabel ?? presetEntityKey ?? ''}
+              disabled
+              fullWidth
+              helperText={t('pages.tasks.plantPresetHelper')}
+              sx={{ mb: 2 }}
+              data-testid="form-field-entity_key-preset"
+            />
+          ) : (
             <Controller
               name="entity_key"
               control={control}

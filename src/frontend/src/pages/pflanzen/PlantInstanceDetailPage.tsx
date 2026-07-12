@@ -16,6 +16,8 @@ import Link from '@mui/material/Link';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Skeleton from '@mui/material/Skeleton';
+import LinearProgress from '@mui/material/LinearProgress';
+import CircularProgress from '@mui/material/CircularProgress';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import LabelIcon from '@mui/icons-material/Label';
@@ -2090,32 +2092,52 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 6: Tasks */}
       {tab === 6 && (
-        <Box>
-          {plantTasksLoading ? (
-            <LoadingSkeleton variant="table" />
-          ) : plantTasksError ? (
-            <ErrorDisplay error={plantTasksError} onRetry={loadPlantTasks} />
-          ) : plantTasksLoaded && plantTasks.length === 0 ? (
-            <Box>
-              <EmptyState
-                message={t('pages.plantInstances.noTasks')}
-                description={t('pages.plantInstances.noTasksDesc')}
-                actionLabel={t('pages.plantInstances.noTasksCreateCta')}
-                onAction={() => setTaskCreateOpen(true)}
-              />
-              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => navigate('/aufgaben/queue')}
-                  data-testid="empty-state-queue-link"
-                >
-                  {t('pages.plantInstances.noTasksCta')}
-                </Button>
-              </Box>
-            </Box>
-          ) : (
+        // `aria-busy` covers both the initial load and any silent background refetch
+        // (e.g. after quick-completing a task) so assistive tech is aware content may
+        // still change, even where the DOM keeps showing the previous data (UI-NFR-002
+        // R-011). `showInitialSkeleton` treats "never loaded yet" as loading too — closes
+        // the one-frame gap between switching to this tab and the fetch effect actually
+        // flipping `plantTasksLoading`, where the populated branch would otherwise flash
+        // an empty 0/0/0 summary bar before the skeleton appears.
+        <Box aria-busy={plantTasksLoading}>
+          {(() => {
+            const showInitialSkeleton = !plantTasksLoaded && !plantTasksError;
+            if (showInitialSkeleton) return <LoadingSkeleton variant="table" />;
+            if (plantTasksError) return <ErrorDisplay error={plantTasksError} onRetry={loadPlantTasks} />;
+            if (plantTasks.length === 0) {
+              return (
+                <Box>
+                  <EmptyState
+                    message={t('pages.plantInstances.noTasks')}
+                    description={t('pages.plantInstances.noTasksDesc')}
+                    actionLabel={t('pages.plantInstances.noTasksCreateCta')}
+                    onAction={() => setTaskCreateOpen(true)}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={() => navigate('/aufgaben/queue')}
+                      data-testid="empty-state-queue-link"
+                    >
+                      {t('pages.plantInstances.noTasksCta')}
+                    </Button>
+                  </Box>
+                </Box>
+              );
+            }
+            return (
             <>
+              {/* Background-refetch indicator (e.g. after quick-completing a task, or
+                  reopening the tab): keeps the already-loaded table visible instead of
+                  swapping it out for a full skeleton on every refresh — avoids the
+                  flicker a repeated full-page skeleton would cause, while still
+                  satisfying UI-NFR-004 R-020 (every async action needs a visible
+                  indicator) via a lightweight top progress bar rather than a second,
+                  competing spinner. */}
+              {plantTasksLoading && (
+                <LinearProgress sx={{ mb: 1.5 }} data-testid="tasks-refetch-progress" />
+              )}
               {/* Summary stats bar */}
               <Box
                 sx={{
@@ -2255,7 +2277,9 @@ export default function PlantInstanceDetailPage() {
                                 aria-label={t('pages.plantInstances.taskCompleteQuick')}
                                 data-testid={`quick-complete-${row.key}`}
                               >
-                                <CheckCircleOutlineIcon fontSize="small" />
+                                {completingTaskKey === row.key
+                                  ? <CircularProgress size={16} color="inherit" data-testid={`quick-complete-${row.key}-spinner`} />
+                                  : <CheckCircleOutlineIcon fontSize="small" />}
                               </IconButton>
                             </span>
                           </Tooltip>
@@ -2384,13 +2408,15 @@ export default function PlantInstanceDetailPage() {
                 </Box>
               )}
             </>
-          )}
+            );
+          })()}
           {key && (
             <TaskCreateDialog
               open={taskCreateOpen}
               onClose={() => setTaskCreateOpen(false)}
               presetEntityKey={key}
               hideEntitySelect
+              presetEntityLabel={plant ? getPlantLabel(plant, species, assignedCultivar) : null}
               onCreated={() => {
                 setTaskCreateOpen(false);
                 loadPlantTasks();
