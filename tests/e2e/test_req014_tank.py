@@ -40,7 +40,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.tank_detail_page import TankDetailPage
@@ -845,8 +844,7 @@ class TestTankSchedulesTab:
         tank_detail.wait_for_loading_complete()
         screenshot("TC-REQ-014-029_schedules-tab", "Tank schedules tab visible")
 
-        tables = tank_detail.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table']")
-        assert len(tables) > 0, (
+        assert tank_detail.has_schedules_table(), (
             "TC-REQ-014-029 FAIL: Expected at least one [data-testid='data-table'] in Schedules tab"
         )
 
@@ -989,9 +987,7 @@ class TestTankErrorHandling:
         screenshot("TC-REQ-014-033_nonexistent-key-error", "Error state for non-existent tank key")
 
         error_displayed = tank_detail.is_error_displayed()
-        page_rendered = len(tank_detail.driver.find_elements(
-            *TankDetailPage.PAGE
-        )) > 0
+        page_rendered = tank_detail.is_page_present()
 
         assert error_displayed or page_rendered, (
             "TC-REQ-014-033 FAIL: Expected either an error display or the detail page to render"

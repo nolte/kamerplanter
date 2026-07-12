@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.onboarding_wizard_page import OnboardingWizardPage
@@ -171,10 +170,7 @@ class TestKitMetadata:
             "Kit list for difficulty badge check",
         )
 
-        growzelt_cards = wizard.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='kit-indoor-growzelt']"
-        )
-        if not growzelt_cards:
+        if not wizard.has_kit("indoor-growzelt"):
             pytest.skip("Kit 'indoor-growzelt' not found in the current kit list")
 
         color = wizard.get_kit_difficulty_chip_color("indoor-growzelt")

@@ -287,6 +287,10 @@ class TankDetailPage(BasePage):
         rows = self.driver.find_elements(*self.SCHEDULES_ROWS)
         return len(rows)
 
+    def has_schedules_table(self) -> bool:
+        """Return True if the Schedules tab rendered a DataTable component."""
+        return len(self.driver.find_elements(*self.SCHEDULES_TABLE)) > 0
+
     # ── Edit tab (tab=5) ───────────────────────────────────────────────
 
     def get_edit_name_value(self) -> str:
@@ -371,6 +375,10 @@ class TankDetailPage(BasePage):
             By.CSS_SELECTOR, "[data-testid='error-display']"
         )
         return len(elements) > 0 and elements[0].is_displayed()
+
+    def is_page_present(self) -> bool:
+        """Return True if the tank detail page container rendered."""
+        return len(self.driver.find_elements(*self.PAGE)) > 0
 
     # ── Validation errors ──────────────────────────────────────────────
 

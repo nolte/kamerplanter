@@ -25,12 +25,10 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-019.md):
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.substrate_detail_page import SubstrateDetailPage
@@ -187,7 +185,6 @@ class TestSubstrateListPage:
 
         substrate_list.search("xyzxyz_nicht_vorhanden")
         substrate_list.wait_for_loading_complete()
-        time.sleep(0.5)  # debounce
         screenshot("TC-REQ-019-006_no-search-results", "No search results message")
 
         assert substrate_list.has_no_search_results() or substrate_list.get_row_count() == 0, (
@@ -345,7 +342,7 @@ class TestSubstrateCreateDialog:
 
         substrate_list.submit_create_form()
         substrate_list.wait_for_loading_complete()
-        time.sleep(1)  # Wait for snackbar and list refresh
+        substrate_list.wait_for_create_dialog_closed()
         screenshot("TC-REQ-019-013_after-create", "Substrate list after creating substrate")
 
         assert not substrate_list.is_create_dialog_open(), (
@@ -481,11 +478,10 @@ class TestSubstrateDetailPage:
 
         substrate_detail.submit_form()
         substrate_detail.wait_for_loading_complete()
-        time.sleep(1)  # Wait for save and reload
+        updated_ph = substrate_detail.wait_for_field_value("ph_base", str(new_ph))
         screenshot("TC-REQ-019-022_after-save", "Detail page after saving")
 
         # Verify the value was saved (page reloads with updated value)
-        updated_ph = substrate_detail.get_ph_base_value()
         assert updated_ph == str(new_ph), (
             f"TC-REQ-019-022 FAIL: Expected pH value '{new_ph}' after save, got '{updated_ph}'"
         )
@@ -494,7 +490,7 @@ class TestSubstrateDetailPage:
         substrate_detail.fill_ph_base(float(original_ph))
         substrate_detail.submit_form()
         substrate_detail.wait_for_loading_complete()
-        time.sleep(0.5)
+        substrate_detail.wait_for_field_value("ph_base", original_ph)
 
     @pytest.mark.core_crud
     def test_delete_button_opens_confirm_dialog(
@@ -560,8 +556,7 @@ class TestSubstrateDetailPage:
         )
 
         # Verify still on detail page
-        page = substrate_detail.driver.find_elements(*SubstrateDetailPage.PAGE)
-        assert len(page) > 0, (
+        assert substrate_detail.is_present(SubstrateDetailPage.PAGE), (
             "TC-REQ-019-024 FAIL: Expected to remain on detail page after cancel"
         )
 
@@ -588,7 +583,7 @@ class TestSubstrateDetailPage:
 
         substrate_list.submit_create_form()
         substrate_list.wait_for_loading_complete()
-        time.sleep(1)
+        substrate_list.wait_for_create_dialog_closed()
 
         # Navigate to the newly created substrate
         substrate_list.open()
@@ -612,7 +607,7 @@ class TestSubstrateDetailPage:
         substrate_detail.confirm_delete()
         substrate_list.wait_for_url_contains("/standorte/substrates")
         substrate_list.wait_for_loading_complete()
-        time.sleep(1)
+        substrate_list.wait_for_row_absent("ZZZ-Loeschtest")
         screenshot("TC-REQ-019-025_after-delete", "Substrate list after deletion")
 
         # Verify the deleted substrate is no longer in the list
@@ -640,8 +635,7 @@ class TestSubstrateErrorHandling:
         Spec: (error handling) -- Nicht-existenter Key zeigt Fehler.
         """
         substrate_detail.navigate("/standorte/substrates/nonexistent-key-999")
-        substrate_detail.wait_for_loading_complete()
-        time.sleep(1)
+        substrate_detail.wait_for_error_or_page()
         screenshot("TC-REQ-019-030_nonexistent-key", "Error display for non-existent substrate")
 
         assert substrate_detail.is_error_displayed(), (

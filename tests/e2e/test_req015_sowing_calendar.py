@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.calendar_page import CalendarPage
@@ -66,9 +65,9 @@ class TestSowingCalendarLoad:
             f"TC-REQ-015-040 FAIL: Expected sowing tab to be active, got: '{active}'"
         )
 
-        cards = calendar.driver.find_elements(By.CSS_SELECTOR, ".MuiCard-root")
-        empty_states = calendar.driver.find_elements(*CalendarPage.EMPTY_STATE)
-        assert len(cards) > 0 or len(empty_states) > 0, (
+        has_cards = len(calendar.get_sowing_cards()) > 0
+        has_empty_state = calendar.is_present(CalendarPage.EMPTY_STATE)
+        assert has_cards or has_empty_state, (
             "TC-REQ-015-040 FAIL: Expected either sowing calendar card or empty state"
         )
 
@@ -102,11 +101,9 @@ class TestSowingCalendarLoad:
         _open_sowing_view(calendar)
         screenshot("TC-REQ-015-042_sowing-month-headers", "Sowing calendar with month headers")
 
-        headers = calendar.driver.find_elements(
-            By.CSS_SELECTOR, "[role='columnheader']"
-        )
-        assert len(headers) >= 12, (
-            f"TC-REQ-015-042 FAIL: Expected at least 12 month column headers, got {len(headers)}"
+        header_count = calendar.get_column_header_count()
+        assert header_count >= 12, (
+            f"TC-REQ-015-042 FAIL: Expected at least 12 month column headers, got {header_count}"
         )
 
 
@@ -156,8 +153,7 @@ class TestSowingCalendarFavoritesFilter:
         _open_sowing_view(calendar)
         screenshot("TC-REQ-015-044_favorites-filter", "Sowing view with favorites filter")
 
-        favorites_btns = calendar.driver.find_elements(*CalendarPage.SOWING_FAVORITES_FILTER)
-        assert len(favorites_btns) > 0, (
+        assert calendar.is_present(CalendarPage.SOWING_FAVORITES_FILTER), (
             "TC-REQ-015-044 FAIL: Expected sowing favorites filter button to be present"
         )
 

@@ -27,8 +27,6 @@ from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
 from .pages.calendar_page import CalendarPage
 
@@ -74,19 +72,18 @@ class TestCalendarPageLoad:
             ("sowing", CalendarPage.VIEW_TAB_SOWING),
             ("season", CalendarPage.VIEW_TAB_SEASON),
         ]:
-            tabs = calendar.driver.find_elements(*locator)
-            assert len(tabs) > 0, (
+            assert calendar.is_present(locator), (
                 f"TC-REQ-015-001 FAIL: Expected '{locator_name}' view tab to be present"
             )
 
         # Navigation buttons visible
-        assert calendar.driver.find_elements(*CalendarPage.PREV_MONTH_BTN), (
+        assert calendar.is_present(CalendarPage.PREV_MONTH_BTN), (
             "TC-REQ-015-001 FAIL: Expected prev-month button to be visible"
         )
-        assert calendar.driver.find_elements(*CalendarPage.NEXT_MONTH_BTN), (
+        assert calendar.is_present(CalendarPage.NEXT_MONTH_BTN), (
             "TC-REQ-015-001 FAIL: Expected next-month button to be visible"
         )
-        assert calendar.driver.find_elements(*CalendarPage.TODAY_BTN), (
+        assert calendar.is_present(CalendarPage.TODAY_BTN), (
             "TC-REQ-015-001 FAIL: Expected today button to be visible"
         )
 
@@ -389,8 +386,7 @@ class TestCalendarFeedManagement:
         calendar.toggle_feeds_section()
         screenshot("TC-REQ-015-013_after-feeds-toggle", "After toggling feeds section")
 
-        create_btns = calendar.driver.find_elements(*CalendarPage.CREATE_FEED_BTN)
-        assert len(create_btns) > 0, (
+        assert calendar.is_present(CalendarPage.CREATE_FEED_BTN), (
             "TC-REQ-015-013 FAIL: Expected Create Feed button after expanding feeds section"
         )
 
@@ -416,8 +412,7 @@ class TestCalendarFeedManagement:
             "TC-REQ-015-014 FAIL: Expected create feed dialog to be visible"
         )
 
-        name_inputs = calendar.driver.find_elements(*CalendarPage.FEED_NAME_INPUT)
-        assert len(name_inputs) > 0, (
+        assert calendar.is_present(CalendarPage.FEED_NAME_INPUT), (
             "TC-REQ-015-014 FAIL: Expected feed name input field in dialog"
         )
 
@@ -443,9 +438,7 @@ class TestCalendarFeedManagement:
         calendar.cancel_feed()
         screenshot("TC-REQ-015-015_after-cancel", "After cancelling create feed dialog")
 
-        WebDriverWait(calendar.driver, 5).until(
-            EC.invisibility_of_element_located(CalendarPage.CREATE_FEED_DIALOG)
-        )
+        calendar.wait_for_create_feed_dialog_closed(timeout=5)
 
     @pytest.mark.core_crud
     def test_create_feed_happy_path(
@@ -470,9 +463,7 @@ class TestCalendarFeedManagement:
         calendar.save_feed()
         screenshot("TC-REQ-015-016_after-feed-save", "After saving new feed")
 
-        WebDriverWait(calendar.driver, 10).until(
-            EC.invisibility_of_element_located(CalendarPage.CREATE_FEED_DIALOG)
-        )
+        calendar.wait_for_create_feed_dialog_closed(timeout=10)
 
         feeds_after = calendar.get_feed_items()
         assert len(feeds_after) >= count_before, (
@@ -497,8 +488,7 @@ class TestCalendarFeedManagement:
 
         screenshot("TC-REQ-015-017_empty-name-before-save", "Empty name — save button state")
 
-        save_btn = calendar.driver.find_element(*CalendarPage.FEED_SAVE_BTN)
-        assert not save_btn.is_enabled(), (
+        assert not calendar.is_feed_save_button_enabled(), (
             "TC-REQ-015-017 FAIL: Expected save button to be disabled when feed name is empty"
         )
 
