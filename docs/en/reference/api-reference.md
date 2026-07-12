@@ -1170,3 +1170,66 @@ curl -X POST \
 - [Post-Harvest — User Guide](../user-guide/post-harvest.md)
 - [Harvest — User Guide](../user-guide/harvest.md)
 - [Error Handling](../api/error-handling.md)
+
+---
+
+## Environment Control & Actuators <!-- REQ-018 --> {#environment-control-actuators}
+
+All endpoints live under the tenant-scoped path `/api/v1/t/{tenant_slug}/` and require a valid JWT token. Read calls accept any active membership; write calls (create, command, override, rules, schedules, emergency stop) require at least the **grower** role; deleting an actuator requires **admin**. The UI currently covers only part of the API (creating/listing/deleting an actuator, direct on/off command, emergency stop with the `fire_alarm` scenario) — see [Environment Control & Actuators — User Guide: For Technical Users / Self-Hosters](../user-guide/actuator-control.md#for-technical-users-self-hosters) for the full, still UI-less remainder of the API (schedules, rules, phase-linked profiles, envelope configuration).
+
+| Resource group | Endpoints (selection) |
+|-----------------|------------------------|
+| Actuators | `GET`/`POST /locations/{location_key}/actuators`, `GET /actuators`, `GET`/`PUT`/`DELETE /actuators/{key}` |
+| Command & override | `POST /actuators/{key}/command`, `POST`/`DELETE /actuators/{key}/override`, `GET /actuators/{key}/state` |
+| Schedules | `GET`/`POST /actuators/{key}/schedules`, `PUT`/`DELETE /actuators/{key}/schedules/{schedule_key}`, `POST .../toggle` |
+| Rules | `GET`/`POST /actuators/{key}/rules`, `GET /rules`, `PUT`/`DELETE /actuators/{key}/rules/{rule_key}`, `POST .../toggle`, `POST /rules/{rule_key}/test` |
+| Control log | `GET /actuators/{key}/events`, `GET /actuators/{key}/events/stats`, `GET /locations/{location_key}/control-events`, `GET /locations/{location_key}/control-status`, `GET /locations/{location_key}/energy` |
+| Phase-linked profiles | `GET`/`POST /phase-control-profiles`, `GET`/`PUT`/`DELETE /phase-control-profiles/{key}`, `POST .../apply` |
+| Emergency stop | `POST /emergency-stop` |
+
+### Safety guarantees
+
+**Value envelope:** every command, rule hit, schedule hit and override passes through the same backend chokepoint. A numeric value for an actuator without a configured `min_value`/`max_value` is refused (`422` for a direct command or override; the affected actuator is skipped and logged for the automatic control loop). If an envelope is configured, every value is automatically clamped into `[min_value, max_value]` — non-finite values (`NaN`/`Infinity`) are likewise never passed through unchanged.
+
+**Time-limited override:** `POST /actuators/{key}/override` requires `expires_at` as a mandatory field. An `expires_at` that already lies in the past is rejected with `422` — there is no implicit default duration.
+
+```json
+POST /api/v1/t/my-garden/actuators/act_42/override
+{
+  "expires_at": "2026-07-11T10:00:00Z",
+  "override_state": "on",
+  "reason": "Manual ventilation before the weekend"
+}
+```
+
+**Response (422) when `expires_at` has already passed:**
+
+```json
+{
+  "error_id": "err_...",
+  "error_code": "VALIDATION_ERROR",
+  "message": "Manual override expires_at must be in the future.",
+  "details": [],
+  "timestamp": "2026-07-11T09:00:00.000000+00:00",
+  "path": "/api/v1/t/my-garden/actuators/act_42/override",
+  "method": "POST"
+}
+```
+
+**Emergency stop — per-actuator fault tolerance:** `POST /emergency-stop` handles every affected actuator in isolation. If switching a single actuator fails (e.g. Home Assistant unreachable), the call is not aborted — the response lists successfully switched (`stopped`, `forced_on`) and failed (`failed`) actuator keys separately:
+
+```json
+{
+  "scenario": "fire_alarm",
+  "stopped": ["act_1", "act_3"],
+  "forced_on": [],
+  "failed": ["act_2"]
+}
+```
+
+### See Also
+
+- [Environment Control & Actuators — User Guide](../user-guide/actuator-control.md)
+- [Sensors — User Guide](../user-guide/sensors.md)
+- [Environment Variables — Environment Control & Actuators](environment-variables.md#environment-control-actuators-req-018)
+- [Error Handling](../api/error-handling.md)

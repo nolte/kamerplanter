@@ -293,6 +293,11 @@ class Settings(BaseSettings):
     #: truth shared by the signal resolver and the state engine (no copy-paste).
     season_live_forecast_window_days: int = 7
 
+    # REQ-018 environment-control loop (opt-in kill-switch). When off, the
+    # evaluate_control_rules / sync_actuator_states / expire_manual_overrides
+    # beats are not scheduled — actuators are still fully manageable via the API.
+    actuator_control_loop_enabled: bool = False
+
     # TimescaleDB (optional — for sensor time-series)
     timescaledb_enabled: bool = False
     timescaledb_host: str = "localhost"

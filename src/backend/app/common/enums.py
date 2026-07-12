@@ -1377,6 +1377,111 @@ class PestDetectionNextStep(StrEnum):
     NONE = "none"
 
 
+# ── REQ-018 Environment control / actuator system ──────────────────────
+
+
+class ActuatorType(StrEnum):
+    """REQ-018 §3 — controllable device category (19 types)."""
+
+    LIGHT = "light"
+    EXHAUST_FAN = "exhaust_fan"
+    CIRCULATION_FAN = "circulation_fan"
+    HEATER = "heater"
+    COOLER = "cooler"
+    HUMIDIFIER = "humidifier"
+    DEHUMIDIFIER = "dehumidifier"
+    CO2_DOSER = "co2_doser"
+    IRRIGATION_VALVE = "irrigation_valve"
+    PUMP = "pump"
+    DOSING_PUMP = "dosing_pump"
+    CHILLER = "chiller"
+    AIR_PUMP = "air_pump"
+    UV_STERILIZER = "uv_sterilizer"
+    SHADE_SCREEN = "shade_screen"
+    ROOF_VENT = "roof_vent"
+    ENERGY_SCREEN = "energy_screen"
+    FOGGER = "fogger"
+    GENERIC_SWITCH = "generic_switch"
+
+
+class ActuatorCapability(StrEnum):
+    """REQ-018 §3 — capability an actuator exposes."""
+
+    ON_OFF = "on_off"
+    DIMMABLE = "dimmable"
+    SPEED_CONTROL = "speed_control"
+    TEMPERATURE_SETPOINT = "temperature_setpoint"
+    TIMER = "timer"
+    SPECTRUM_CONTROL = "spectrum_control"
+    VOLUME_DOSING = "volume_dosing"
+
+
+class ActuatorProtocol(StrEnum):
+    """REQ-018 §1 — transport used to reach the physical device."""
+
+    HOME_ASSISTANT = "home_assistant"
+    MQTT = "mqtt"
+    MANUAL = "manual"
+
+
+class ScheduleType(StrEnum):
+    """REQ-018 §2 — recurrence model of a control schedule."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    INTERVAL = "interval"
+    SUNRISE_SUNSET = "sunrise_sunset"
+
+
+class RuleType(StrEnum):
+    """REQ-018 §2 — automation-rule evaluation model."""
+
+    THRESHOLD = "threshold"
+    RANGE = "range"
+    DELTA = "delta"
+    COMPOUND = "compound"
+
+
+class ConditionOperator(StrEnum):
+    """REQ-018 §3 — comparison operator of a rule condition."""
+
+    GT = "gt"
+    LT = "lt"
+    GTE = "gte"
+    LTE = "lte"
+    BETWEEN = "between"
+    OUTSIDE = "outside"
+
+
+class ActionCommand(StrEnum):
+    """REQ-018 §3 — command issued when a rule fires."""
+
+    TURN_ON = "turn_on"
+    TURN_OFF = "turn_off"
+    SET_VALUE = "set_value"
+    INCREASE = "increase"
+    DECREASE = "decrease"
+
+
+class ControlEventSource(StrEnum):
+    """REQ-018 §2 — origin of a logged control action."""
+
+    SCHEDULE = "schedule"
+    RULE = "rule"
+    PHASE_CHANGE = "phase_change"
+    MANUAL = "manual"
+    SAFETY = "safety"
+    FALLBACK_TASK = "fallback_task"
+
+
+class EmergencyStopScenario(StrEnum):
+    """REQ-018 §1 — predefined emergency-stop scenario."""
+
+    WATER_LEAK = "water_leak"
+    CO2_LEAK = "co2_leak"
+    FIRE_ALARM = "fire_alarm"
+
+
 class EquipmentType(StrEnum):
     """REQ-016 §3.1 — type of an operating resource (equipment)."""
 

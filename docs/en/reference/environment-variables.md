@@ -233,6 +233,21 @@ When both variables are set, the backend also enables the Home Assistant channel
 
 ---
 
+## Environment Control & Actuators (REQ-018) {#environment-control-actuators-req-018}
+
+This variable controls the periodic evaluation of schedules and rules, the hourly override-expiry sweep, and the 5-minute online/offline sync with Home Assistant for [Environment Control & Actuators](../user-guide/actuator-control.md).
+
+<!-- Source: src/backend/app/config/settings.py (actuator_control_loop_enabled) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `ACTUATOR_CONTROL_LOOP_ENABLED` | `false` | No | Kill switch for the three periodic actuator-control tasks (`evaluate_control_rules` every 30 s, `expire_manual_overrides` hourly, `sync_actuator_states` every 5 min). When disabled, schedules and rules are not evaluated automatically — actuators remain controllable via the REST API at any time regardless (direct command, override, emergency stop). |
+
+!!! note "No separate HA toggle needed"
+    Unlike the other Home Assistant features, actuator control needs no additional opt-in — as long as `HA_URL`/`HA_ACCESS_TOKEN` are set and `ACTUATOR_CONTROL_LOOP_ENABLED=true`, the system dispatches commands to Home Assistant actuators automatically.
+
+---
+
 ## InvenTree Integration (REQ-016)
 
 These variables enable the optional integration with [InvenTree](https://github.com/inventree/inventree). Without `INVENTREE_ENABLED=true`, every InvenTree endpoint returns a "feature disabled" error (HTTP 409) without blocking the app.
@@ -707,3 +722,5 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 - [Privacy & GDPR — AI Disease Diagnosis](../user-guide/privacy.md#ai-disease-diagnosis-plant_diagnosis)
 - [Watering Log: Suggested Watering Volume — User Guide](../user-guide/watering-log.md#suggested-watering-volume)
 - [Equipment & Inventory (InvenTree) — User Guide](../user-guide/inventree.md)
+- [Environment Control & Actuators — User Guide](../user-guide/actuator-control.md)
+- [API Reference: Environment Control & Actuators](api-reference.md#environment-control-actuators)

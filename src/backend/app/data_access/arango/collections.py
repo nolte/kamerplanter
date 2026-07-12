@@ -117,6 +117,14 @@ WATER_TESTS = "water_tests"
 FISH_FEEDING_EVENTS = "fish_feeding_events"
 SUPPLEMENTATION_EVENTS = "supplementation_events"
 
+# REQ-018 Environment control / actuators
+ACTUATORS = "actuators"
+CONTROL_SCHEDULES = "control_schedules"
+CONTROL_RULES = "control_rules"
+CONTROL_EVENTS = "control_events"
+MANUAL_OVERRIDES = "manual_overrides"
+PHASE_CONTROL_PROFILES = "phase_control_profiles"
+
 # REQ-016 InvenTree integration (optional)
 INVENTREE_CONNECTIONS = "inventree_connections"
 INVENTREE_REFERENCES = "inventree_references"
@@ -360,6 +368,13 @@ DOCUMENT_COLLECTIONS = [
     HARDINESS_ZONES,
     # REQ-037 irrigation demands
     IRRIGATION_DEMANDS,
+    # REQ-018 Environment control / actuators
+    ACTUATORS,
+    CONTROL_SCHEDULES,
+    CONTROL_RULES,
+    CONTROL_EVENTS,
+    MANUAL_OVERRIDES,
+    PHASE_CONTROL_PROFILES,
 ]
 
 # Edge collections
@@ -513,6 +528,17 @@ FEEDING_FOR_STOCK = "feeding_for_stock"  # fish_feeding_events → fish_stocks
 SUPPLEMENTATION_FOR = "supplementation_for"  # supplementation_events → aquaponic_systems
 COMPATIBLE_FISH_PLANT = "compatible_fish_plant"  # fish_species → species
 INCOMPATIBLE_FISH_PLANT = "incompatible_fish_plant"  # fish_species → species
+
+# REQ-018 Environment control / actuator edges
+HAS_ACTUATOR = "has_actuator"  # locations → actuators
+ACTUATOR_CONTROLS_LOCATION = "actuator_controls_location"  # actuators → locations
+ACTUATOR_HAS_SCHEDULE = "actuator_has_schedule"  # actuators → control_schedules
+ACTUATOR_HAS_RULE = "actuator_has_rule"  # actuators → control_rules
+ACTUATOR_HAS_OVERRIDE = "actuator_has_override"  # actuators → manual_overrides
+ACTUATOR_EVENT = "actuator_event"  # actuators → control_events
+PHASE_PROFILE = "phase_profile"  # growth_phases → phase_control_profiles
+LOCATION_PROFILE = "location_profile"  # locations → phase_control_profiles
+RULE_MONITORS = "rule_monitors"  # control_rules → sensors
 
 # REQ-016 InvenTree integration edges
 HAS_INVENTREE_REF = "has_inventree_ref"  # fertilizers | tanks | equipment → inventree_references
@@ -752,6 +778,16 @@ EDGE_COLLECTIONS = [
     # REQ-037 irrigation demands
     HAS_IRRIGATION_DEMAND,
     DEMAND_FOR_RUN,
+    # REQ-018 Environment control / actuators
+    HAS_ACTUATOR,
+    ACTUATOR_CONTROLS_LOCATION,
+    ACTUATOR_HAS_SCHEDULE,
+    ACTUATOR_HAS_RULE,
+    ACTUATOR_HAS_OVERRIDE,
+    ACTUATOR_EVENT,
+    PHASE_PROFILE,
+    LOCATION_PROFILE,
+    RULE_MONITORS,
 ]
 
 GRAPH_NAME = "kamerplanter_graph"
@@ -1556,6 +1592,52 @@ GRAPH_EDGE_DEFINITIONS = [
         "edge_collection": DEMAND_FOR_RUN,
         "from_vertex_collections": [PLANTING_RUNS],
         "to_vertex_collections": [IRRIGATION_DEMANDS],
+    },
+    # REQ-018 Environment control / actuators
+    {
+        "edge_collection": HAS_ACTUATOR,
+        "from_vertex_collections": [LOCATIONS],
+        "to_vertex_collections": [ACTUATORS],
+    },
+    {
+        "edge_collection": ACTUATOR_CONTROLS_LOCATION,
+        "from_vertex_collections": [ACTUATORS],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": ACTUATOR_HAS_SCHEDULE,
+        "from_vertex_collections": [ACTUATORS],
+        "to_vertex_collections": [CONTROL_SCHEDULES],
+    },
+    {
+        "edge_collection": ACTUATOR_HAS_RULE,
+        "from_vertex_collections": [ACTUATORS],
+        "to_vertex_collections": [CONTROL_RULES],
+    },
+    {
+        "edge_collection": ACTUATOR_HAS_OVERRIDE,
+        "from_vertex_collections": [ACTUATORS],
+        "to_vertex_collections": [MANUAL_OVERRIDES],
+    },
+    {
+        "edge_collection": ACTUATOR_EVENT,
+        "from_vertex_collections": [ACTUATORS],
+        "to_vertex_collections": [CONTROL_EVENTS],
+    },
+    {
+        "edge_collection": PHASE_PROFILE,
+        "from_vertex_collections": [GROWTH_PHASES],
+        "to_vertex_collections": [PHASE_CONTROL_PROFILES],
+    },
+    {
+        "edge_collection": LOCATION_PROFILE,
+        "from_vertex_collections": [LOCATIONS],
+        "to_vertex_collections": [PHASE_CONTROL_PROFILES],
+    },
+    {
+        "edge_collection": RULE_MONITORS,
+        "from_vertex_collections": [CONTROL_RULES],
+        "to_vertex_collections": [SENSORS],
     },
 ]
 

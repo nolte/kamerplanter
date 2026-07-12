@@ -134,6 +134,24 @@ def get_aquaponik_service():
     return AquaponikService(get_aquaponik_repo())
 
 
+def get_actuator_repo():
+    """REQ-018 environment-control repository (actuators + child collections)."""
+    from app.data_access.arango.actuator_repository import ArangoActuatorRepository
+
+    return ArangoActuatorRepository(get_db())
+
+
+def get_actuator_service():
+    """REQ-018 environment-control service with control engine + HA graceful degradation."""
+    from app.domain.services.actuator_service import ActuatorService
+
+    return ActuatorService(
+        get_actuator_repo(),
+        ha_client_factory=get_ha_client,
+        task_repo=get_task_repo(),
+    )
+
+
 def get_inventree_repo():
     """REQ-016 InvenTree integration repository (connections/refs/txns/equipment)."""
     from app.data_access.arango.inventree_repository import ArangoInvenTreeRepository

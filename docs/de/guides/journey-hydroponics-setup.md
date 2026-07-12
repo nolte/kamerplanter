@@ -91,10 +91,10 @@ Mit eingerichtetem Tank und gemischter Lösung geht es an die laufende Überwach
 
 Der letzte Baustein einer vollautomatischen Anlage ist der geschlossene Regelkreis: Sensor misst, Regel bewertet, Aktor schaltet — zum Beispiel eine Umwälzpumpe, ein CO₂-Doser oder ein Luftbefeuchter.
 
-!!! warning "Noch nicht implementiert"
-    [Umgebungssteuerung & Aktorik](../user-guide/actuator-control.md) ist vollständig spezifiziert, aber im Code noch nicht umgesetzt. Aktuell existiert nur die Home-Assistant-Kommunikationsschicht zum **Lesen** von Sensordaten (Schritt 4) — die Regel-Engine, Zeitpläne, Hysterese und das automatische Senden von Aktor-Befehlen fehlen noch.
+!!! note "Teilweise verfügbar"
+    Die Regel-Engine, Zeitpläne, Hysterese und der volle Prioritäts-Regelkreis von [Umgebungssteuerung & Aktorik](../user-guide/actuator-control.md) laufen bereits im Backend. In der Oberfläche kannst du bislang Aktoren anlegen, direkt ein-/ausschalten und eine Notabschaltung auslösen — Zeitpläne, Regeln und phasengebundene Profile sind aktuell nur über die API einrichtbar (siehe [Für technische Nutzer / Self-Hoster](../user-guide/actuator-control.md#fuer-technische-nutzer-self-hoster)).
 
-    Bis dahin steuerst du Pumpen, Luftbefeuchter und Dosiergeräte direkt über Home Assistant oder von Hand und protokollierst wichtige Ereignisse (Wasserwechsel, Kalibrierung) manuell über die [Tank-Wartungsplanung](../user-guide/tanks.md#wartungsaufgaben-planen).
+    Bis eine eigene Oberfläche dafür existiert, steuerst du Pumpen, Luftbefeuchter und Dosiergeräte direkt über die Aktor-Karten, über Home Assistant oder von Hand und protokollierst wichtige Ereignisse (Wasserwechsel, Kalibrierung) manuell über die [Tank-Wartungsplanung](../user-guide/tanks.md#wartungsaufgaben-planen).
 
 ---
 

@@ -74,6 +74,8 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
+            # v0019 actuators (tenant_key, name) lookup index
+            {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -101,6 +103,16 @@ class _NoopGraph:
             {"edge_collection": "has_inventree_ref"},
             {"edge_collection": "has_stock_transaction"},
             {"edge_collection": "equipment_at"},
+            # v0019 actuator edges
+            {"edge_collection": "has_actuator"},
+            {"edge_collection": "actuator_controls_location"},
+            {"edge_collection": "actuator_has_schedule"},
+            {"edge_collection": "actuator_has_rule"},
+            {"edge_collection": "actuator_has_override"},
+            {"edge_collection": "actuator_event"},
+            {"edge_collection": "phase_profile"},
+            {"edge_collection": "location_profile"},
+            {"edge_collection": "rule_monitors"},
         ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
