@@ -115,6 +115,10 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert "location_name:" in q
     assert "has_open_task:" in q
     assert "next_due_date:" in q
+    # #548 — the open-task alarm is due-date-aware: only tasks due today-or-earlier
+    # (or undated) count, so a merely future-scheduled task does not raise it.
+    assert "due_now_task_count" in q
+    assert "LEFT(d, 10) <= @today" in q
     # Open-task marker must be tenant-scoped too (no cross-tenant task leak, SEC-B4).
     assert "@@task_col" in q
     assert "tsk.tenant_key == @tenant_key" in q
@@ -132,6 +136,7 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert bv["location_col"] == "locations"
     assert bv["plant_entity_type"] == "plant_instance"
     assert bv["open_statuses"] == ["pending", "in_progress"]
+    assert bv["today"] == date.today().isoformat()  # #548 due-date-aware alarm
     assert "tenant-A" not in q  # never interpolated
 
 

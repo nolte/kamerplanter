@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 from arango.database import StandardDatabase
@@ -286,7 +286,18 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
                 AND tsk.status IN @open_statuses
               RETURN tsk.due_date
           )
-          LET has_open_task = LENGTH(open_task_due_dates) > 0
+          // #548 — "open task" means *due now / overdue*, consistent with the task
+          // queue's bucketing and the activity plan. A task merely scheduled in the
+          // future must not raise the dashboard alarm, so ``has_open_task`` only
+          // counts open tasks whose due date is today-or-earlier (an undated open
+          // task is always actionable). ``next_due_date`` still surfaces the earliest
+          // scheduled date for glanceable "next due" info, alarm or not.
+          LET due_now_task_count = LENGTH(
+            FOR d IN open_task_due_dates
+              FILTER d == null OR LEFT(d, 10) <= @today
+              RETURN 1
+          )
+          LET has_open_task = due_now_task_count > 0
           RETURN {
             _key: p._key,
             plant_name: p.plant_name,
@@ -298,7 +309,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             location_key: p.location_key,
             location_name: location != null AND location.tenant_key == @tenant_key ? location.name : null,
             has_open_task: has_open_task,
-            next_due_date: has_open_task ? MIN(open_task_due_dates) : null
+            next_due_date: LENGTH(open_task_due_dates) > 0 ? MIN(open_task_due_dates) : null
           }
         """
         bind_vars = {
@@ -311,6 +322,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "location_col": col.LOCATIONS,
             "plant_entity_type": "plant_instance",
             "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],
+            "today": date.today().isoformat(),
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)
