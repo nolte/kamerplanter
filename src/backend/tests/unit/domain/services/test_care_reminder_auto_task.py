@@ -285,6 +285,82 @@ def test_due_date_calculated_from_last_confirmation(
     assert created.due_date == datetime(2026, 3, 12, tzinfo=UTC)
 
 
+def test_fixed_interval_next_due_routes_through_recurrence_engine(
+    mock_care_repo: MagicMock,
+    engine: CareReminderEngine,
+    mock_task_repo: MagicMock,
+    mock_plant_repo: MagicMock,
+) -> None:
+    """#510: the fixed-interval watering cadence is advanced by the shared
+    RecurrenceEngine, not by hand-rolled date arithmetic.
+
+    The care engine remains the interval authority (it computes ``7``); the next
+    due date is produced by ``RecurrenceEngine.next_occurrence`` with a
+    ``FREQ=DAILY;INTERVAL=7`` rule — proving the care path and the generic
+    recurring-task path share one recurrence implementation. The resulting cadence
+    (March 5 + 7 days = March 12) is identical to the previous behaviour.
+    """
+    from app.domain.engines.recurrence_engine import RecurrenceEngine
+
+    recurrence = RecurrenceEngine()
+    spy = MagicMock(wraps=recurrence.next_occurrence)
+    recurrence.next_occurrence = spy  # type: ignore[method-assign]
+    service = CareReminderService(
+        mock_care_repo,
+        engine,
+        mock_task_repo,
+        plant_repo=mock_plant_repo,
+        recurrence=recurrence,
+    )
+
+    profile = _profile()
+    last = CareConfirmation(
+        plant_key="plant-1",
+        care_profile_key="cp-1",
+        reminder_type=ReminderType.WATERING,
+        action=ConfirmAction.CONFIRMED,
+        confirmed_at=datetime(2026, 3, 5, tzinfo=UTC),
+    )
+    mock_task_repo.find_open_care_task.return_value = None
+    mock_task_repo.create_task.side_effect = lambda task: task
+
+    result = service.ensure_next_watering_task(profile, last_confirmation=last)
+
+    # The shared recurrence engine was consulted with a fixed-interval RRULE...
+    spy.assert_called_once()
+    rule_arg, base_arg = spy.call_args[0]
+    assert rule_arg == "FREQ=DAILY;INTERVAL=7"
+    assert base_arg == datetime(2026, 3, 5, tzinfo=UTC)
+    # ...and the produced cadence is unchanged (7 days after March 5).
+    assert result is not None
+    assert result.due_date == datetime(2026, 3, 12, tzinfo=UTC)
+
+
+def test_snoozed_last_confirmation_keeps_engine_interval_authority(
+    service: CareReminderService,
+    mock_task_repo: MagicMock,
+) -> None:
+    """A snoozed last confirmation cannot be a static RRULE, so it stays on the
+    care engine (documented #510 boundary): due = snooze base + snooze days."""
+    profile = _profile()
+    snoozed = CareConfirmation(
+        plant_key="plant-1",
+        care_profile_key="cp-1",
+        reminder_type=ReminderType.WATERING,
+        action=ConfirmAction.SNOOZED,
+        snooze_days=3,
+        confirmed_at=datetime(2026, 3, 5, tzinfo=UTC),
+    )
+    mock_task_repo.find_open_care_task.return_value = None
+    mock_task_repo.create_task.side_effect = lambda task: task
+
+    result = service.ensure_next_watering_task(profile, last_confirmation=snoozed)
+
+    assert result is not None
+    # 3-day snooze after March 5 = March 8 (interval is ignored while snoozed).
+    assert result.due_date == datetime(2026, 3, 8, tzinfo=UTC)
+
+
 def test_confirm_triggers_next_task_creation(
     service: CareReminderService,
     mock_care_repo: MagicMock,
