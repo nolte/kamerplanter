@@ -1,20 +1,18 @@
 {
   extends: [
     'github>nolte/gh-plumbing//renovate-configs/common#v1.1.25',
-    // Pin third-party GitHub Actions to immutable commit SHAs (supply-chain
-    // hardening, AP-19/INF-S6) and keep the `# vX.Y.Z` comment digests fresh.
     'helpers:pinGitHubActionDigests',
   ],
   mode: 'full',
   separateMajorMinor: true,
   separateMinorPatch: false,
-  // Pin every Docker base image (Dockerfile FROM) to an immutable @sha256
-  // digest and keep it fresh via PRs — build reproducibility & supply-chain
-  // hardening. Renovate rewrites `image:tag` → `image:tag@sha256:…`.
-  docker: {
-    pinDigests: true,
-  },
   packageRules: [
+    {
+      matchCategories: [
+        'docker',
+      ],
+      pinDigests: true,
+    },
     {
       groupName: 'github-actions',
       matchManagers: [
@@ -171,7 +169,10 @@
       matchFileNames: [
         '.github/renovate-pins.yaml',
       ],
-      labels: ['dependencies', 'security'],
+      labels: [
+        'dependencies',
+        'security',
+      ],
     },
   ],
   customManagers: [
