@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.api.v1.auth.router import limiter
 from app.api.v1.glossar.deps import get_glossary_service
+from app.api.v1.ki_assistent.deps import require_ai_feature_flag
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
     GlossaryTermAnswer,
@@ -19,7 +20,11 @@ from app.domain.models.glossary_term import (
 )
 from app.domain.services.glossary_service import GlossaryService
 
-router = APIRouter(prefix="/public/glossary", tags=["glossary-public"])
+router = APIRouter(
+    prefix="/public/glossary",
+    tags=["glossary-public"],
+    dependencies=[Depends(require_ai_feature_flag)],
+)
 
 _TERM_RATE_LIMIT = "30/minute"
 _TERMS_RATE_LIMIT = "10/minute"

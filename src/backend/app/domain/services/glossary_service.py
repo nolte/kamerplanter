@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import ConsentRequiredError, NotFoundError, ValidationError
 from app.data_access.external.knowledge_service_adapter import KnowledgeServiceUnavailableError
 from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, ConsentGuard
 from app.domain.interfaces.knowledge_service import IKnowledgeService
@@ -113,12 +113,16 @@ class GlossaryService:
 
         cached = self._load_cache(canonical, language, expertise_level)
         if cached is not None:
-            self._audit_ok(term, language, expertise_level, cached, uses_cloud=uses_cloud)
+            self._audit_ok(
+                term, language, expertise_level, cached, uses_cloud=uses_cloud, tenant_key=tenant_key, user_key=user_key
+            )
             return self._to_answer(term, cached, language, expertise_level, uses_cloud=uses_cloud)
 
         entry = await self._generate(term, language, expertise_level)
         self._store_cache(entry)
-        self._audit_ok(term, language, expertise_level, entry, uses_cloud=uses_cloud)
+        self._audit_ok(
+            term, language, expertise_level, entry, uses_cloud=uses_cloud, tenant_key=tenant_key, user_key=user_key
+        )
         return self._to_answer(term, entry, language, expertise_level, uses_cloud=uses_cloud)
 
     def invalidate_cache(self, slug: str | None = None) -> int:
@@ -191,7 +195,14 @@ class GlossaryService:
         if provider is None:
             return False
         uses_cloud = provider.provider_type != "ollama" or provider.requires_consent
-        if uses_cloud and self._consent is not None and user_key:
+        if uses_cloud:
+            # Fail closed: a cloud call must be attributable and consent-checked.
+            # A missing principal (no ``user_key``) or an unwired consent guard is
+            # treated as consent-denied, never a silent bypass (mirrors REQ-031
+            # SEC-001). The public/anonymous path never reaches here because
+            # ``uses_cloud`` is forced false above (``tenant_key is None``).
+            if self._consent is None or not user_key:
+                raise ConsentRequiredError(AI_CLOUD_PROCESSING)
             self._consent.require_consent(user_key, AI_CLOUD_PROCESSING)
         return uses_cloud
 
@@ -387,11 +398,19 @@ class GlossaryService:
         entry: GlossaryTermCacheEntry,
         *,
         uses_cloud: bool,
+        tenant_key: str | None = None,
+        user_key: str | None = None,
     ) -> None:
-        """Write a PII-free audit record for a served answer (§4.1 step 9, §6)."""
+        """Write a PII-free audit record for a served answer (§4.1 step 9, §6).
+
+        On the tenant path the real ``tenant_key``/``user_key`` are recorded so a
+        consent-gated cloud call is attributable (DSGVO forensics); the answer
+        payload itself still carries no tenant context (``context=null``). The
+        public/anonymous path keeps the ``"glossary"`` sentinel with no user.
+        """
         self._audit.record(
-            tenant_key="glossary",
-            user_key=None,
+            tenant_key=tenant_key or "glossary",
+            user_key=user_key,
             endpoint="glossary",
             question=f"term:{term.slug}:{expertise_level}",
             answer_length=len(entry.answer_text),

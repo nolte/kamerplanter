@@ -24,12 +24,20 @@ from app.common.dependencies import get_glossary_service, get_glossary_term_repo
 from app.common.enums import TenantRole
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError, ValidationError
+from app.config.settings import settings
 from app.domain.models.glossary_term import (
     GlossaryTerm,
     GlossaryTermAnswer,
     GlossaryTermSummary,
 )
 from app.domain.models.tenant_context import TenantContext
+
+
+@pytest.fixture(autouse=True)
+def _enable_ai_flag(monkeypatch):
+    """Stage-1 operator flag on by default; the kill-switch test flips it off."""
+    monkeypatch.setattr(settings, "ai_features_enabled", True)
+    yield
 
 
 def _ctx() -> TenantContext:
@@ -132,6 +140,43 @@ def test_public_list_terms(service, monkeypatch) -> None:
     resp = client.get("/api/v1/public/glossary/terms")
     assert resp.status_code == 200
     assert resp.json()[0]["category"] == "umwelt"
+
+
+# ── Stage-1 operator kill-switch (SEC-G2) ──────────────────────────
+
+
+def test_public_term_flag_off_returns_404(service, monkeypatch) -> None:
+    monkeypatch.setattr(limiter, "enabled", False)
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+    client = TestClient(_build_app(service))
+    resp = client.get("/api/v1/public/glossary/term/vpd")
+    assert resp.status_code == 404
+    service.get_term.assert_not_awaited()
+
+
+def test_public_terms_flag_off_returns_404(service, monkeypatch) -> None:
+    monkeypatch.setattr(limiter, "enabled", False)
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+    client = TestClient(_build_app(service))
+    resp = client.get("/api/v1/public/glossary/terms")
+    assert resp.status_code == 404
+    service.list_terms.assert_not_called()
+
+
+def test_tenant_term_flag_off_returns_404(service, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+    client = TestClient(_build_app(service))
+    resp = client.get("/api/v1/t/home/glossary/term/vpd")
+    assert resp.status_code == 404
+    service.get_term.assert_not_awaited()
+
+
+def test_tenant_terms_flag_off_returns_404(service, monkeypatch) -> None:
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+    client = TestClient(_build_app(service))
+    resp = client.get("/api/v1/t/home/glossary/terms")
+    assert resp.status_code == 404
+    service.list_terms.assert_not_called()
 
 
 # ── Admin path ─────────────────────────────────────────────────────

@@ -13,6 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.v1.glossar.deps import get_glossary_service
+from app.api.v1.ki_assistent.deps import require_ai_feature_flag
 from app.common.auth import get_current_tenant
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
@@ -23,7 +24,11 @@ from app.domain.models.glossary_term import (
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.glossary_service import GlossaryService
 
-router = APIRouter(prefix="/glossary", tags=["glossary"])
+router = APIRouter(
+    prefix="/glossary",
+    tags=["glossary"],
+    dependencies=[Depends(require_ai_feature_flag)],
+)
 
 
 @router.get("/terms", response_model=list[GlossaryTermSummary])

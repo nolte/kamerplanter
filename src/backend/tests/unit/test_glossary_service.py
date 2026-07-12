@@ -249,6 +249,106 @@ async def test_tenant_cloud_provider_requires_consent() -> None:
         await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
 
 
+async def test_tenant_cloud_provider_missing_user_key_fails_closed() -> None:
+    # SEC-G3 — a cloud default with no principal must be treated as consent-denied,
+    # never a silent bypass.
+    term = _term()
+    cloud = AiProviderConfig(
+        _key="claude",
+        tenant_key="home",
+        provider_type="anthropic",
+        display_name="Claude",
+        model_name="claude-3-5",
+        requires_consent=True,
+        is_default=True,
+    )
+    ask = AsyncMock(return_value=_ask_result())
+    service, _tr, _cr, adapter, consent = _service(term=term, ks_ask=ask, provider=cloud)
+
+    with pytest.raises(ConsentRequiredError):
+        await service.get_term("vpd", tenant_key="home", user_key=None, allow_cloud=True)
+    adapter.ask.assert_not_awaited()
+    consent.require_consent.assert_not_called()
+
+
+async def test_tenant_cloud_provider_without_consent_guard_fails_closed() -> None:
+    # SEC-G3 — an unwired consent guard must not open a bypass for cloud calls.
+    term = _term()
+    cloud = AiProviderConfig(
+        _key="claude",
+        tenant_key="home",
+        provider_type="anthropic",
+        display_name="Claude",
+        model_name="claude-3-5",
+        requires_consent=True,
+        is_default=True,
+    )
+    term_repo = MagicMock()
+    term_repo.resolve_slug.return_value = term.slug
+    term_repo.get_by_slug.side_effect = lambda s: {term.slug: term}.get(s)
+    cache_repo = MagicMock()
+    cache_repo.find_valid.return_value = None
+    provider_repo = MagicMock()
+    provider_repo.get_default.return_value = cloud
+    adapter = MagicMock()
+    adapter.ask = AsyncMock(return_value=_ask_result())
+
+    service = GlossaryService(
+        term_repo=term_repo,
+        cache_repo=cache_repo,
+        knowledge_adapter=adapter,
+        audit_logger=MagicMock(),
+        consent_guard=None,  # unwired guard must fail closed, not bypass
+        provider_repo=provider_repo,
+        redis_client=None,
+    )
+
+    with pytest.raises(ConsentRequiredError):
+        await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+    adapter.ask.assert_not_awaited()
+
+
+async def test_tenant_path_audit_is_attributed() -> None:
+    # SEC-G4 — the served-answer audit record carries the real tenant/user on the
+    # tenant path, while the answer payload stays context-free.
+    term = _term()
+    local = AiProviderConfig(
+        _key="ollama",
+        tenant_key="home",
+        provider_type="ollama",
+        display_name="Ollama",
+        model_name="gemma3:12b",
+        is_default=True,
+    )
+    ask = AsyncMock(return_value=_ask_result())
+    service, _tr, _cr, _ad, _c = _service(term=term, ks_ask=ask, provider=local)
+    audit = MagicMock()
+    service._audit = audit  # noqa: SLF001 — assert the recorded attribution
+
+    await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+
+    audit.record.assert_called_once()
+    kwargs = audit.record.call_args.kwargs
+    assert kwargs["tenant_key"] == "home"
+    assert kwargs["user_key"] == "anna"
+    assert kwargs["uses_tenant_data"] is False  # answer stays context-free
+
+
+async def test_public_path_audit_keeps_no_attribution() -> None:
+    # SEC-G4 — the anonymous path keeps the sentinel and no user attribution.
+    term = _term()
+    ask = AsyncMock(return_value=_ask_result())
+    service, *_ = _service(term=term, ks_ask=ask)
+    audit = MagicMock()
+    service._audit = audit  # noqa: SLF001
+
+    await service.get_term("vpd")
+
+    kwargs = audit.record.call_args.kwargs
+    assert kwargs["tenant_key"] == "glossary"
+    assert kwargs["user_key"] is None
+
+
 async def test_public_path_never_uses_cloud() -> None:
     term = _term()
     ask = AsyncMock(return_value=_ask_result())
