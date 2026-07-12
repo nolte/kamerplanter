@@ -6,15 +6,30 @@ Kategorie: UI-Verhalten Unterkategorie: Internationalisierung, Lokalisierung
 Technologie: React, TypeScript, Flutter
 Status: Entwurf
 Priorität: Mittel
-Version: 1.0
+Version: 1.1
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-26
 Tags: [i18n, internationalisierung, lokalisierung, sprache, datumsformat, zahlenformat, pluralisierung]
-Abhängigkeiten: []
+Abhängigkeiten: [NFR-017]
 Betroffene Module: [Frontend, Mobile]
 ---
 
 # UI-NFR-007: Internationalisierung (i18n)
+
+### Changelog
+
+| Version | Datum | Änderungen |
+|---------|-------|-----------|
+| 1.1 | 2026-07-12 | **Architektur-Unterbau (Issue #568, NFR-017):** Cross-Reference ergänzt. Die N-Sprachen-Fähigkeit (R-003) und die RTL-Vorbereitung (R-024/R-025) werden durch das stack-weite Locale-keyed Content-Modell, die einheitliche Locale-Resolution und die Fallback-Kette aus NFR-017 architektonisch unterlegt. UI-NFR-007 bleibt maßgeblich für das UI-**Verhalten** (Rendering, Formate, Sprachwechsel); NFR-017 liefert das Daten-/Backend-Fundament. |
+| 1.0 | 2026-02-26 | Erstversion — Sprachen, Text-Externalisierung, Datums-/Zahlen-/Pluralformate, Sprachwechsel, RTL-Vorbereitung. |
+
+> **Querverweis (NFR-017):** Diese UI-NFR beschreibt das i18n-**Verhalten** im Frontend. Das
+> stack-weite Fundament — das Locale-keyed Content-Modell (`LocalizedText` statt per-Sprache-Attribute),
+> die eine serverseitige Locale-Resolution, die Enum-Wert-vs-Label-Trennung, die Regel
+> „technische Fehler English-only / nutzerseitige Meldungen katalogisierbar" und die RAG-Sprachstrategie —
+> ist in **NFR-017 (Skalierbare Mehrsprachigkeit)** geregelt. R-003 (weitere Sprachen ohne Code-Änderung)
+> und R-024/R-025 (RTL) sind dort architektonisch abgesichert. Ist-Zustand:
+> `spec/analysis/i18n-current-state-capture.md`; Rollout: `.audits/plans/07-i18n-nlanguage-rollout.md`.
 
 ## 1. Business Case
 
@@ -188,8 +203,8 @@ Internationalisierung von Anfang an einzuplanen ist deutlich günstiger als eine
 
 **Dokumenten-Ende**
 
-**Version**: 1.0
+**Version**: 1.1
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-26
+**Letzte Aktualisierung**: 2026-07-12
 **Review**: Pending
 **Genehmigung**: Pending

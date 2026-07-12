@@ -129,7 +129,8 @@ function extractDetail(data: unknown): string | null {
 }
 
 /** Known English backend error patterns that should not be shown as raw detail text. */
-const ENGLISH_DETAIL_PATTERN = /^(The .+ is invalid\.|.+ not found\.|An internal error occurred)/i;
+const ENGLISH_DETAIL_PATTERN =
+  /^(The .+ is invalid\.|.+ not found\.|An internal error occurred|.+ must be .+\.)/i;
 
 /** Return the detail only if it is not a raw English backend message. */
 function sanitizeDetail(detail: string | undefined | null): string | null {
