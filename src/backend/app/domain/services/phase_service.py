@@ -5,6 +5,7 @@ import structlog
 from app.common.enums import TransitionTrigger
 from app.common.exceptions import NotFoundError
 from app.common.types import PhaseKey, PlantID
+from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -28,6 +29,7 @@ class PhaseService:
         self._plant_repo = plant_repo
         self._phase_seq_repo = phase_seq_repo
         self._transition_engine = PhaseTransitionEngine(phase_repo, plant_repo, phase_seq_repo=phase_seq_repo)
+        self._resolver = PhaseKeyResolver(phase_repo, phase_seq_repo)
         self._profile_generator = ResourceProfileGenerator()
         self._on_phase_transition_callbacks: list = []
 
@@ -221,13 +223,17 @@ class PhaseService:
                 if target:
                     next_phase = target.name
 
+        # Resolve the phase name across both key-spaces (#579): a sequence-driven
+        # plant carries a PhaseSequenceEntry key that the legacy GrowthPhase lookup
+        # never finds. ``lifecycle_key`` only exists for a legacy GrowthPhase and
+        # gates the LifecycleConfig fallback below.
         phase_name = ""
         lifecycle_key = None
         if phase_key:
-            phase = self._repo.get_phase_by_key(phase_key)
-            if phase:
-                phase_name = phase.name
-                lifecycle_key = phase.lifecycle_key
+            resolved = self._resolver.resolve(phase_key)
+            if resolved:
+                phase_name = resolved.name
+                lifecycle_key = resolved.lifecycle_key
 
         # Resolve lifecycle metadata — prefer PhaseSequence, fallback to LifecycleConfig
         cycle_type: str | None = None
@@ -279,12 +285,10 @@ class PhaseService:
         """
         plant = self._transition_engine.execute_transition(plant_key, target_phase_key, reason, force=force)
 
-        # Resolve phase name for callbacks
+        # Resolve phase name for callbacks across both key-spaces (#579).
         phase_name = ""
         if plant.current_phase_key:
-            phase = self._repo.get_phase_by_key(plant.current_phase_key)
-            if phase:
-                phase_name = phase.name
+            phase_name = self._resolver.resolve_name(plant.current_phase_key)
 
         # Notify registered callbacks (e.g. activate dormant tasks, D10 pup spawn).
         # A failing callback must neither break the transition nor take siblings
