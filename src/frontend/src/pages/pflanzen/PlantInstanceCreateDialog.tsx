@@ -24,8 +24,10 @@ import FormRow from '@/components/form/FormRow';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import SpeciesAutocompleteField from '@/components/form/SpeciesAutocompleteField';
 import LocationAssignmentSection from '@/components/form/LocationAssignmentSection';
+import FavoriteToggle from '@/components/common/FavoriteToggle';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
 import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
@@ -95,6 +97,7 @@ export default function PlantInstanceCreateDialog({
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const { isFavorite, toggleFavorite } = useSowingFavorites();
   const [saving, setSaving] = useState(false);
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
@@ -345,15 +348,36 @@ export default function PlantInstanceCreateDialog({
       <DialogContent>
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Identification */}
-          <SpeciesAutocompleteField
-            name="species_key"
-            control={control}
-            label={t('entities.species')}
-            required
-            autoFocus
-            disabled={!!initialSpeciesKey || !!duplicateFrom}
-            species={speciesList}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+              <SpeciesAutocompleteField
+                name="species_key"
+                control={control}
+                label={t('entities.species')}
+                required
+                autoFocus
+                disabled={!!initialSpeciesKey || !!duplicateFrom}
+                species={speciesList}
+              />
+            </Box>
+            {/* Mark the selected species as a favorite right here — reuses the
+                backend-persisted favorites feature (issue #546). Only actionable
+                once a species is picked, so it is disabled while empty. Aligned
+                to the input row (mt) rather than the field box, which includes
+                helper text. */}
+            <Box sx={{ mt: 1, flexShrink: 0 }}>
+              <FavoriteToggle
+                favorited={!!speciesKey && isFavorite(speciesKey)}
+                onToggle={() => {
+                  if (speciesKey) {
+                    toggleFavorite(speciesKey);
+                  }
+                }}
+                disabled={!speciesKey}
+                testId="species"
+              />
+            </Box>
+          </Box>
           <FormRow>
             <FormSelectField
               name="cultivar_key"
