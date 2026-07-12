@@ -29,6 +29,7 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import BiotechIcon from '@mui/icons-material/Biotech';
 import HistoryIcon from '@mui/icons-material/History';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import PestControlIcon from '@mui/icons-material/PestControl';
 import CoronavirusIcon from '@mui/icons-material/Coronavirus';
@@ -121,6 +122,13 @@ export default function Sidebar({ open }: SidebarProps) {
       label: t('nav.kiAssistent'),
       path: '/ki-assistent',
       icon: <AutoAwesomeIcon />,
+    },
+    {
+      // REQ-035 — light-mode-capable terminology glossary, ungated like
+      // ki-assistent (no navItemConfig entry needed).
+      label: t('nav.glossary'),
+      path: '/glossar',
+      icon: <MenuBookIcon />,
     },
     {
       header: t('nav.pflanzen'),
