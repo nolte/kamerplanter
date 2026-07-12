@@ -130,7 +130,7 @@ def get_plant_logs(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    logs = service.get_by_plant(plant_key, pagination.offset, pagination.limit)
+    logs = service.get_by_plant(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
     all_fks = list({fu.fertilizer_key for log in logs for fu in log.fertilizers_used})
@@ -191,6 +191,7 @@ def confirm_watering(
         measured_ph=body.measured_ph,
         volume_liters=body.volume_liters,
         overrides=body.overrides,
+        tenant_key=ctx.tenant_key,
     )
     return WateringConfirmResponse(**result)
 
@@ -201,5 +202,5 @@ def quick_confirm_watering(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
-    result = service.quick_confirm_watering(body.run_key, body.task_key)
+    result = service.quick_confirm_watering(body.run_key, body.task_key, tenant_key=ctx.tenant_key)
     return WateringConfirmResponse(**result)
