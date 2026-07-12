@@ -2198,6 +2198,7 @@
       "removedOn": "Entfernt am",
       "hideRemoved": "Entfernte ausblenden",
       "currentPhase": "Aktuelle Phase",
+      "currentPhaseHelper": "Aktueller Ist-Stand der Pflanze – wähle die Phase, in der sich die Pflanze gerade befindet. Bei einer neu angesetzten Pflanze ist das die erste Phase; eine bereits bestehende Pflanze kannst du direkt in ihrer aktuellen Phase erfassen (z. B. Blüte).",
       "remove": "Pflanze entfernen",
       "validatePlanting": "Pflanzung validieren",
       "cultivarKey": "Sorte",

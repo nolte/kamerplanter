@@ -17,7 +17,7 @@
 | Familie | Araceae | `species.family` → `botanical_families.name` |
 | Gattung | Zamioculcas | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | succulent | `species.growth_habit` | <!-- A4 (#453 WP-10): CAM-Sukkulente mit sukkulenten Rhizomen/Knollen, war zuvor `herb` -->
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | cam (fakultatives, schwaches CAM — bei Trockenstress hochreguliert) | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temp, °C) | 10 (wärmeliebende tropische Art; Wachstumsstillstand und Kälteschäden unterhalb ~10 °C / 50 °F) | `species.base_temp` |
@@ -317,7 +317,7 @@ Entfällt — reine Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,nutrient_demand_level
-Zamioculcas zamiifolia,"Zamioculcas;Glücksfeder;ZZ Plant;Zanzibar Gem",Araceae,Zamioculcas,perennial,day_neutral,herb,rhizomatous,"9b;10a;10b;11a;11b",0.0,"Ostafrika (Tansania, Kenia)",yes,3-15,20,45-90,30-60,yes,limited,false,false,light_feeder
+Zamioculcas zamiifolia,"Zamioculcas;Glücksfeder;ZZ Plant;Zanzibar Gem",Araceae,Zamioculcas,perennial,day_neutral,succulent,rhizomatous,"9b;10a;10b;11a;11b",0.0,"Ostafrika (Tansania, Kenia)",yes,3-15,20,45-90,30-60,yes,limited,false,false,light_feeder
 ```
 
 ### 8.2 Cultivar CSV-Zeilen

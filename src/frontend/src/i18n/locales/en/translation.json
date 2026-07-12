@@ -2198,6 +2198,7 @@
       "removedOn": "Removed On",
       "hideRemoved": "Hide removed",
       "currentPhase": "Current Phase",
+      "currentPhaseHelper": "The plant's actual current state — choose the phase the plant is in right now. For a freshly started plant this is the first phase; for a plant that already exists you can record it directly in its current phase (e.g. flowering).",
       "remove": "Remove Plant",
       "validatePlanting": "Validate Planting",
       "cultivarKey": "Cultivar",

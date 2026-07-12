@@ -494,6 +494,7 @@ export default function PlantInstanceCreateDialog({
               name="current_phase_key"
               control={control}
               label={t('pages.plantInstances.currentPhase')}
+              helperText={t('pages.plantInstances.currentPhaseHelper')}
               disabled={growthPhases.length === 0}
               options={growthPhases
                 .sort((a, b) => a.sequence_order - b.sequence_order)
