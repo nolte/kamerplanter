@@ -9,6 +9,7 @@ from app.domain.engines.nutrient_engine import RunoffAnalyzer
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
 from app.domain.interfaces.nutrient_plan_repository import INutrientPlanRepository
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.task_repository import ITaskRepository
@@ -31,6 +32,7 @@ class WateringLogService:
         nutrient_plan_repo: INutrientPlanRepository | None = None,
         care_repo: ICareReminderRepository | None = None,
         care_service: CareReminderService | None = None,
+        plant_repo: IPlantInstanceRepository | None = None,
     ) -> None:
         self._repo = repo
         self._engine = engine
@@ -40,6 +42,7 @@ class WateringLogService:
         self._nutrient_plan_repo = nutrient_plan_repo
         self._care_repo = care_repo
         self._care_service = care_service
+        self._plant_repo = plant_repo
         self._runoff_analyzer = RunoffAnalyzer()
 
     # ── CRUD ─────────────────────────────────────────────────────────────
@@ -78,6 +81,17 @@ class WateringLogService:
             now = datetime.now(UTC)
             for plant_key in log.plant_keys:
                 if plant_key == "_compat":
+                    continue
+                # Fail-closed tenant guard (SEC-001): resolve the plant and skip the
+                # whole care-state block for a missing or foreign-tenant plant_key
+                # *before* any confirmation/edge is written. Tenant isolation must
+                # not rely on key-unguessability, so a tenant-A caller supplying a
+                # tenant-B plant_key writes no CareConfirmation into tenant B's care
+                # graph. Mirrors the defense-in-depth guard in
+                # ``care_reminder_service.confirm_reminder`` / ``advance_watering_
+                # task_after_log`` (silent skip, never a 403 that leaks existence).
+                plant = self._plant_repo.get_by_key(plant_key) if self._plant_repo else None
+                if plant is None or plant.tenant_key != log.tenant_key:
                     continue
                 profile = self._care_repo.get_profile_by_plant_key(plant_key)
                 if profile is None:

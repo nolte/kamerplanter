@@ -417,6 +417,7 @@ def get_watering_log_service() -> WateringLogService:
         nutrient_plan_repo=get_nutrient_plan_repo(),
         care_repo=get_care_reminder_repo(),
         care_service=get_care_reminder_service(),
+        plant_repo=get_plant_repo(),
     )
 
 

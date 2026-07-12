@@ -97,6 +97,7 @@ def _build(
         site_repo,
         care_repo=care_repo,
         care_service=care_service,
+        plant_repo=plant_repo,
     )
     return service, task_repo, care_repo
 
@@ -171,20 +172,49 @@ def test_create_log_is_idempotent_when_already_watered_today() -> None:
 
 
 def test_create_log_does_not_touch_foreign_tenant_plant() -> None:
-    """A plant belonging to another tenant is never advanced from this log's tenant.
+    """SEC-001: a tenant-A log with a tenant-B plant_key writes no care state.
 
-    The log carries ``tenant_key=tenant-A`` but the plant resolves to ``tenant-B``;
-    the advancement guard bails out before any care-task lookup or mutation.
+    The log carries ``tenant_key=tenant-A`` but the plant resolves to ``tenant-B``.
+    The fail-closed tenant guard at the *top* of the per-plant block bails out
+    before ANY care-state write: no ``CareConfirmation`` (or its edges) is written
+    into tenant B's care graph, and no watering task is advanced. Tenant isolation
+    must not rely on plant_key-unguessability.
     """
 
     def find_open(*_args, **_kwargs):  # pragma: no cover - must not be reached
         raise AssertionError("find_open_care_task must not run for a foreign-tenant plant")
 
-    service, task_repo, _ = _build(find_open_side_effect=find_open, plant_tenant="tenant-B")
+    service, task_repo, care_repo = _build(find_open_side_effect=find_open, plant_tenant="tenant-B")
 
     service.create_log(_log())
 
+    # No cross-tenant care-state write at all (SEC-001 closed).
+    care_repo.get_profile_by_plant_key.assert_not_called()
+    care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_edges.assert_not_called()
+    # And no task advancement either.
     task_repo.find_open_care_task.assert_not_called()
+    task_repo.update_task.assert_not_called()
+    task_repo.create_task.assert_not_called()
+
+
+def test_create_log_missing_plant_writes_no_confirmation() -> None:
+    """A plant_key that resolves to no plant (deleted/unknown) writes no care state.
+
+    Fail-closed: an unresolvable plant_key is skipped just like a foreign one, so a
+    dangling key can never create an orphan ``CareConfirmation``.
+    """
+
+    def find_open(*_args, **_kwargs):  # pragma: no cover - must not be reached
+        raise AssertionError("find_open_care_task must not run for a missing plant")
+
+    service, task_repo, care_repo = _build(find_open_side_effect=find_open)
+    service._plant_repo.get_by_key.return_value = None  # type: ignore[union-attr]
+
+    result = service.create_log(_log())
+
+    assert result["log"].key == "log-1"  # the log itself is still recorded
+    care_repo.create_confirmation.assert_not_called()
     task_repo.update_task.assert_not_called()
     task_repo.create_task.assert_not_called()
 
