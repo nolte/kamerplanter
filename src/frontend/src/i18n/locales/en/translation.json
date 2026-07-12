@@ -343,6 +343,7 @@
     "calculations": "Calculations",
     "durchlaeufe": "Planting Runs",
     "overwintering": "Overwintering",
+    "propagation": "Propagation & Lineage",
     "plantingRuns": "Planting Runs",
     "successionPlans": "Succession Planting",
     "tanks": "Tanks",
@@ -515,6 +516,64 @@
     }
   },
   "pages": {
+    "propagation": {
+      "title": "Propagation Management",
+      "intro": "Document propagation actions (cuttings, sowing, clones, grafting, division), track success rates and explore the genetic lineage of your plants.",
+      "createEvent": "Record propagation",
+      "eventCreated": "Propagation event saved.",
+      "emptyTitle": "No propagation events yet",
+      "emptyDescription": "Record your first propagation action to track success rates and lineage.",
+      "tabs": {
+        "events": "Events",
+        "lineage": "Lineage & Grafting"
+      },
+      "fields": {
+        "method": "Method",
+        "status": "Status",
+        "quantity": "Quantity",
+        "survived": "Survived",
+        "successRate": "Success rate",
+        "happenedAt": "Date",
+        "sectionWhat": "What was propagated?",
+        "sectionWhatIntro": "Method, quantity and optionally the plant species for this propagation action.",
+        "speciesKey": "Species",
+        "speciesKeyHelper": "Optional: which species is this success statistic for?",
+        "speciesLoading": "Loading species…",
+        "sectionPlants": "Plants involved",
+        "sectionPlantsIntro": "Enter the plant keys — you'll find them on the respective plant detail page. Type a key and press Enter to add it.",
+        "parentKeys": "Source plants (keys)",
+        "parentKeysGraft": "Rootstock(s) (keys)",
+        "childKeys": "Result plants (keys)",
+        "childKeysGraft": "Scion (key)",
+        "keysHelper": "Type a plant key, then press Enter.",
+        "notes": "Notes"
+      },
+      "lineage": {
+        "title": "Explore lineage",
+        "intro": "Trace which mother plant a plant descended from, and which plants descended from it in turn.",
+        "plantKey": "Plant key",
+        "plantKeyHelper": "You'll find the key on the plant's detail page.",
+        "trace": "Show lineage",
+        "hint": "Enter a plant key and click “Show lineage” to see its ancestors and descendants.",
+        "ancestors": "Ancestors",
+        "descendants": "Descendants",
+        "noAncestors": "No ancestors found — this plant is a root.",
+        "noDescendants": "No descendants found."
+      },
+      "graft": {
+        "title": "Graft compatibility",
+        "intro": "Checks — by taxonomy (genus/family) — whether scion and rootstock are compatible.",
+        "scionKey": "Scion plant (key)",
+        "rootstockKey": "Rootstock plant (key)",
+        "hint": "Enter the keys of the scion (shoot) and rootstock (root base) to check compatibility.",
+        "check": "Check compatibility",
+        "speciesLine": "Scion species: {{scion}} · Rootstock species: {{rootstock}}",
+        "sameGenus": "Same genus",
+        "differentGenus": "Different genus",
+        "sameFamily": "Same family",
+        "differentFamily": "Different family"
+      }
+    },
     "kiAssistent": {
       "title": "AI Assistant",
       "intro": "Ask a knowledge question about plant care — such as \"What is VPD?\" or \"How do I lower the pH?\". The answer comes from the curated knowledge base and is clearly labelled as AI-generated.",
@@ -4588,6 +4647,28 @@
       "defective": "Defective",
       "retired": "Retired"
     },
+    "propagationEventMethod": {
+      "clone": "Clone",
+      "seed": "Sowing",
+      "cutting": "Cutting",
+      "graft": "Graft",
+      "division": "Division",
+      "layering": "Layering",
+      "offset": "Offset",
+      "other": "Other"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In progress",
+      "rooted": "Rooted",
+      "transplanted": "Transplanted",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Compatible",
+      "possibly_compatible": "Possibly compatible",
+      "incompatible": "Incompatible"
+    },
     "aquaponicSystemType": {
       "media_bed": "Media bed (clay pebbles)",
       "dwc": "Deep Water Culture (DWC)",
@@ -5670,6 +5751,36 @@
       "long": "InvenTree is a separate, external inventory management system. A \"part\" there is a single article (e.g. a spare pump). Link an equipment item to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand.",
       "beginnerTip": "The link is optional: you can still create and manage equipment normally without an InvenTree connection.",
       "category": "allgemein"
+    },
+    "vermehrung": {
+      "short": "Growing new plants from an existing one",
+      "long": "Propagation covers all methods for creating new plants: sowing (seed), cutting/clone (rooting a plant part), division (splitting a root ball), layering (rooting a stem while still attached), offsets (natural side shoots), or grafting (joining two plants).",
+      "beginnerTip": "Cuttings are the easiest way to start: cut a shoot, let it root in water or soil.",
+      "category": "wachstum"
+    },
+    "steckling": {
+      "short": "A cut piece of a plant that grows new roots",
+      "long": "A cutting is a piece of stem, leaf or root separated from the mother plant and rooted on its own. The resulting plant is genetically identical to the mother plant (a clone).",
+      "beginnerTip": "Cut the shoot at an angle, remove the lowest leaves, place it in water or moist substrate — new roots usually appear within 1–3 weeks.",
+      "category": "wachstum"
+    },
+    "veredelung": {
+      "short": "Joining two plants into one — scion onto rootstock",
+      "long": "Grafting joins a shoot from one plant (the scion) onto the root system of another plant (the rootstock). This only works between closely related plants — most reliably within the same genus, sometimes still within the same family.",
+      "beginnerTip": "Classic example: a hardy tomato rootstock plus a high-yield scion for stronger growth and more fruit.",
+      "category": "wachstum"
+    },
+    "abstammung": {
+      "short": "A plant's genetic origin across generations",
+      "long": "Lineage shows which mother plant a plant descended from (ancestors) and which plants descended from it in turn (descendants). The system tracks this through propagation events such as cuttings, clones, sowings or grafts.",
+      "beginnerTip": "Handy for tracing which mother plant a particular cutting came from.",
+      "category": "taxonomie"
+    },
+    "gattung_familie": {
+      "short": "How closely related two plant species are, taxonomically",
+      "long": "Biological taxonomy groups species into genera (e.g. Solanum) and families (e.g. nightshades). The more closely two species are related, the more likely a graft between them succeeds: same genus is usually compatible, same family is often possible, different families are usually not compatible.",
+      "beginnerTip": "Tomato and potato share the same genus (Solanum) — grafting between them is possible (the 'TomTato').",
+      "category": "taxonomie"
     }
   },
   "dashboard": {

@@ -71,6 +71,54 @@ class PropagationMethod(StrEnum):
     SELF_SEEDING = "self_seeding"
 
 
+class GraftType(StrEnum):
+    """Graft union technique (REQ-017 §2 GraftType)."""
+
+    WHIP = "whip"  # Kopulationsschnitt
+    CLEFT = "cleft"  # Spaltpfropfen
+    APPROACH = "approach"  # Annäherungspfropfen
+    BUD = "bud"  # Okulation
+
+
+class GraftCompatibilityLevel(StrEnum):
+    """Taxonomy-derived graft-compatibility verdict (REQ-017 §3)."""
+
+    COMPATIBLE = "compatible"  # same genus
+    POSSIBLY_COMPATIBLE = "possibly_compatible"  # same family, different genus
+    INCOMPATIBLE = "incompatible"  # different family
+
+
+class PropagationEventStatus(StrEnum):
+    """Lifecycle status of a single propagation attempt (REQ-017)."""
+
+    IN_PROGRESS = "in_progress"
+    ROOTED = "rooted"
+    TRANSPLANTED = "transplanted"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PropagationBatchStatus(StrEnum):
+    """Lifecycle status of a propagation batch (REQ-017 §2 BatchStatus)."""
+
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class PhenotypeCategory(StrEnum):
+    """Phenotype-note category (REQ-017 §2 PhenotypeCategory)."""
+
+    MORPHOLOGY = "morphology"
+    AROMA = "aroma"
+    FLAVOR = "flavor"
+    VIGOR = "vigor"
+    RESISTANCE = "resistance"
+    YIELD = "yield"
+    POTENCY = "potency"
+    OTHER = "other"
+
+
 class WoodStage(StrEnum):
     """Cutting maturity stage — drives the propagation time-window per method (REQ-017)."""
 

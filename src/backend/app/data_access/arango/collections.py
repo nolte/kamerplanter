@@ -193,8 +193,15 @@ PLANT_DIAGNOSIS_REQUESTS = "plant_diagnosis_requests"
 
 # REQ-017 Propagation / lineage — one document per propagation event (clone /
 # seed cross / graft / division). D10 persists the monocarpic-mother→pup clone
-# event; the full propagation API/router remains a REQ-017 follow-up.
+# event; the full propagation surface enriches the same document.
 PROPAGATION_EVENTS = "propagation_events"
+#: Groups propagation events started together (REQ-017 §2 propagation_batches).
+PROPAGATION_BATCHES = "propagation_batches"
+#: Reusable rooting / propagation protocol templates (REQ-017 §2 rooting_protocols).
+#: ``tenant_key == ""`` marks a global system template.
+ROOTING_PROTOCOLS = "rooting_protocols"
+#: Free-text phenotype observations recorded against a plant instance (REQ-017 §2).
+PHENOTYPE_NOTES = "phenotype_notes"
 
 # REQ-031 KI-Assistent (AI assistant) — tenant/user KI data; vectors live in the
 # Knowledge-Service microservice, never in the backend (§3.3).
@@ -318,6 +325,9 @@ DOCUMENT_COLLECTIONS = [
     BENEFICIALS,
     PEST_IMAGE_CONTRIBUTIONS,
     PROPAGATION_EVENTS,
+    PROPAGATION_BATCHES,
+    ROOTING_PROTOCOLS,
+    PHENOTYPE_NOTES,
     # REQ-046 Weather data sources
     WEATHER_FORECASTS,
     WEATHER_SOURCE_CONFIGS,
@@ -1965,6 +1975,24 @@ def ensure_collections(db: StandardDatabase) -> None:
     # REQ-039 — one hardiness-zone assignment edge per site.
     located_in_zone_col = db.collection(LOCATED_IN_ZONE)
     located_in_zone_col.add_persistent_index(fields=["_from"], unique=False)
+
+    # REQ-017 Propagation / lineage indexes — tenant-scoped event/batch/phenotype
+    # reads and the global+tenant rooting-protocol union.
+    propagation_events_col = db.collection(PROPAGATION_EVENTS)
+    propagation_events_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    propagation_events_col.add_persistent_index(fields=["tenant_key", "batch_key"], unique=False)
+    propagation_events_col.add_persistent_index(fields=["tenant_key", "species_key"], unique=False)
+
+    propagation_batches_col = db.collection(PROPAGATION_BATCHES)
+    propagation_batches_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    propagation_batches_col.add_persistent_index(fields=["tenant_key", "status"], unique=False)
+
+    rooting_protocols_col = db.collection(ROOTING_PROTOCOLS)
+    rooting_protocols_col.add_persistent_index(fields=["tenant_key"], unique=False)
+    rooting_protocols_col.add_persistent_index(fields=["tenant_key", "method"], unique=False)
+
+    phenotype_notes_col = db.collection(PHENOTYPE_NOTES)
+    phenotype_notes_col.add_persistent_index(fields=["tenant_key", "plant_key"], unique=False)
 
     # REQ-037 irrigation demands — one record per (site, run, day) within a tenant;
     # the upsert keys off it, so uniqueness is enforced at the storage layer.

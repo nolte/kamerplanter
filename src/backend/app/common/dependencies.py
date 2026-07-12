@@ -1,9 +1,7 @@
 from arango.database import StandardDatabase
 
 from app.config.settings import settings
-from app.data_access.arango import collections as col
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
-from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
@@ -43,6 +41,7 @@ from app.data_access.arango.watering_log_repository import ArangoWateringLogRepo
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
+from app.data_access.repositories.propagation_repository import PropagationRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
@@ -51,6 +50,7 @@ from app.domain.engines.enrichment_engine import EnrichmentEngine
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.inspection_scheduler import InspectionScheduler
 from app.domain.engines.invitation_engine import InvitationEngine
+from app.domain.engines.lineage_engine import LineageEngine
 from app.domain.engines.login_throttle_engine import LoginThrottleEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.nutrient_plan_engine import NutrientPlanValidator
@@ -68,7 +68,6 @@ from app.domain.engines.token_engine import TokenEngine
 from app.domain.engines.watering_engine import WateringEngine
 from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
-from app.domain.models.propagation import PropagationEvent
 from app.domain.services.auth_service import AuthService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.enrichment_service import EnrichmentService
@@ -189,10 +188,29 @@ def get_substrate_service() -> SubstrateService:
     return SubstrateService(get_substrate_repo())
 
 
+def get_propagation_repo() -> PropagationRepository:
+    """REQ-017 propagation repository (events / batches / protocols / phenotypes / lineage)."""
+    return PropagationRepository(get_db())
+
+
+def get_lineage_engine() -> LineageEngine:
+    """REQ-017 lineage engine — graph traversal + graft compatibility."""
+    return LineageEngine(get_propagation_repo(), get_species_repo())
+
+
 def get_propagation_service() -> PropagationService:
-    """REQ-017 propagation service — D10 uses it only to persist the clone event."""
-    repo = BaseArangoRepository(get_db(), col.PROPAGATION_EVENTS, PropagationEvent)
-    return PropagationService(repo)
+    """REQ-017 propagation service.
+
+    Wires the full propagation surface (events / batches / protocols / mothers /
+    phenotypes / lineage / stats). The D10 clone path (``record``) keeps working
+    against the same tenant-scoped ``propagation_events`` collection.
+    """
+    prop_repo = get_propagation_repo()
+    return PropagationService(
+        propagation_repo=prop_repo,
+        lineage_engine=LineageEngine(prop_repo, get_species_repo()),
+        planting_run_repo=get_planting_run_repo(),
+    )
 
 
 def get_plant_instance_service() -> PlantInstanceService:

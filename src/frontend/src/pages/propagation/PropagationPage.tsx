@@ -1,25 +1,188 @@
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
+import { useCallback, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
+import Box from '@mui/material/Box';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import type { ChipProps } from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
+import AddIcon from '@mui/icons-material/Add';
+import PageTitle from '@/components/layout/PageTitle';
+import DataTable from '@/components/common/DataTable';
+import type { Column } from '@/components/common/DataTable';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import MobileCard from '@/components/common/MobileCard';
+import HelpTooltip from '@/components/common/HelpTooltip';
+import { useNotification } from '@/hooks/useNotification';
+import { usePropagationEvents } from '@/hooks/usePropagationEvents';
+import type { PropagationEvent, PropagationEventStatus } from '@/api/types';
+import { formatDate } from '@/utils/formatting';
+import PropagationEventDialog from './PropagationEventDialog';
+import LineagePanel from './LineagePanel';
 
-/**
- * REQ-017 Propagation / Vermehrungsmanagement page scaffold.
- * Full lineage graph + clone/cross/graft/division forms land with the
- * REQ-017 implementation PR.
- */
-export default function PropagationPage() {
+const statusColor: Record<PropagationEventStatus, ChipProps['color']> = {
+  in_progress: 'info',
+  rooted: 'primary',
+  transplanted: 'secondary',
+  completed: 'success',
+  failed: 'error',
+};
+
+export default function PropagationPage(): ReactElement {
   const { t } = useTranslation();
+  const notification = useNotification();
+  const { events, loading, reload } = usePropagationEvents();
+
+  const [tab, setTab] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handleCreated = useCallback(() => {
+    setDialogOpen(false);
+    notification.success(t('pages.propagation.eventCreated'));
+    reload();
+  }, [notification, t, reload]);
+
+  const columns = useMemo<Column<PropagationEvent>[]>(
+    () => [
+      {
+        id: 'method',
+        label: t('pages.propagation.fields.method'),
+        searchValue: (row) => t(`enums.propagationEventMethod.${row.method}`),
+        render: (row) => (
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+            <span>{t(`enums.propagationEventMethod.${row.method}`)}</span>
+            <HelpTooltip term="vermehrung" iconOnly />
+          </Box>
+        ),
+      },
+      {
+        id: 'status',
+        label: t('pages.propagation.fields.status'),
+        searchValue: (row) => t(`enums.propagationEventStatus.${row.status}`),
+        render: (row) => (
+          <Chip
+            size="small"
+            label={t(`enums.propagationEventStatus.${row.status}`)}
+            color={statusColor[row.status]}
+          />
+        ),
+      },
+      {
+        id: 'quantity',
+        label: t('pages.propagation.fields.quantity'),
+        align: 'right',
+        render: (row) => row.quantity,
+      },
+      {
+        id: 'survived',
+        label: t('pages.propagation.fields.survived'),
+        align: 'right',
+        render: (row) =>
+          row.survived_count == null ? '—' : `${row.survived_count} / ${row.quantity}`,
+      },
+      {
+        id: 'successRate',
+        label: t('pages.propagation.fields.successRate'),
+        align: 'right',
+        render: (row) =>
+          row.success_rate == null ? '—' : `${Math.round(row.success_rate * 100)} %`,
+      },
+      {
+        id: 'happenedAt',
+        label: t('pages.propagation.fields.happenedAt'),
+        hideBelowBreakpoint: 'md',
+        render: (row) => formatDate(row.happened_at),
+      },
+    ],
+    [t],
+  );
+
   return (
     <Box sx={{ p: 3 }} data-testid="propagation-page">
-      <Typography variant="h4" gutterBottom>
-        {t('pages.propagation.title', 'Vermehrungsmanagement')}
+      <PageTitle
+        title={t('pages.propagation.title')}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setDialogOpen(true)}
+            data-testid="create-event-button"
+            sx={{ minHeight: 48 }}
+          >
+            {t('pages.propagation.createEvent')}
+          </Button>
+        }
+      />
+
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
+        {t('pages.propagation.intro')}
       </Typography>
-      <Typography color="text.secondary">
-        {t(
-          'pages.propagation.scaffoldNotice',
-          'Diese Funktion ist noch in Vorbereitung (REQ-017).'
-        )}
-      </Typography>
+
+      <Tabs
+        value={tab}
+        onChange={(_e, v: number) => setTab(v)}
+        sx={{ mb: 2 }}
+        aria-label={t('pages.propagation.title')}
+      >
+        <Tab label={t('pages.propagation.tabs.events')} data-testid="tab-events" />
+        <Tab label={t('pages.propagation.tabs.lineage')} data-testid="tab-lineage" />
+      </Tabs>
+
+      {tab === 0 &&
+        (loading ? (
+          <LoadingSkeleton variant="table" />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={events}
+            getRowKey={(row) => row._key ?? ''}
+            ariaLabel={t('pages.propagation.tabs.events')}
+            emptyMessage={t('pages.propagation.emptyTitle')}
+            emptyDescription={t('pages.propagation.emptyDescription')}
+            emptyActionLabel={t('pages.propagation.createEvent')}
+            onEmptyAction={() => setDialogOpen(true)}
+            mobileCardRenderer={(row) => (
+              <MobileCard
+                title={t(`enums.propagationEventMethod.${row.method}`)}
+                subtitle={formatDate(row.happened_at)}
+                chips={
+                  <Chip
+                    size="small"
+                    label={t(`enums.propagationEventStatus.${row.status}`)}
+                    color={statusColor[row.status]}
+                  />
+                }
+                fields={[
+                  { label: t('pages.propagation.fields.quantity'), value: row.quantity },
+                  {
+                    label: t('pages.propagation.fields.survived'),
+                    value:
+                      row.survived_count == null
+                        ? '—'
+                        : `${row.survived_count} / ${row.quantity}`,
+                  },
+                  {
+                    label: t('pages.propagation.fields.successRate'),
+                    value:
+                      row.success_rate == null
+                        ? '—'
+                        : `${Math.round(row.success_rate * 100)} %`,
+                  },
+                ]}
+              />
+            )}
+          />
+        ))}
+
+      {tab === 1 && <LineagePanel />}
+
+      <PropagationEventDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onCreated={handleCreated}
+      />
     </Box>
   );
 }

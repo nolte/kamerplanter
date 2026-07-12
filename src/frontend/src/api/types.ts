@@ -5778,3 +5778,89 @@ export interface StockTransaction {
   synced_at?: string | null;
   created_at?: string | null;
 }
+
+// ── REQ-017 Propagation / lineage ────────────────────────────────────────────
+
+/** Event-level propagation method (REQ-017), distinct from the species-level
+ *  `PropagationMethod` vocabulary above. */
+export type PropagationEventMethod =
+  | 'clone'
+  | 'seed'
+  | 'cutting'
+  | 'graft'
+  | 'division'
+  | 'layering'
+  | 'offset'
+  | 'other';
+
+export type PropagationEventStatus =
+  | 'in_progress'
+  | 'rooted'
+  | 'transplanted'
+  | 'completed'
+  | 'failed';
+
+export type GraftCompatibilityLevel =
+  | 'compatible'
+  | 'possibly_compatible'
+  | 'incompatible';
+
+export interface PropagationEvent {
+  _key?: string;
+  method: PropagationEventMethod;
+  status: PropagationEventStatus;
+  parent_plant_keys: string[];
+  child_plant_keys: string[];
+  species_key?: string | null;
+  cultivar_key?: string | null;
+  protocol_key?: string | null;
+  batch_key?: string | null;
+  quantity: number;
+  survived_count?: number | null;
+  success_rate?: number | null;
+  callus_observed_at?: string | null;
+  roots_observed_at?: string | null;
+  transplant_ready_at?: string | null;
+  failure_reasons: string[];
+  happened_at?: string | null;
+  notes?: string | null;
+}
+
+export interface PropagationEventCreate {
+  method: PropagationEventMethod;
+  parent_plant_keys: string[];
+  child_plant_keys: string[];
+  species_key?: string | null;
+  quantity: number;
+  notes?: string | null;
+}
+
+export interface LineageNode {
+  key?: string | null;
+  instance_id?: string | null;
+  plant_name?: string | null;
+  species_key?: string | null;
+}
+
+export interface LineageResponse {
+  plant_key: string;
+  paths: string[][];
+  ancestors: LineageNode[];
+}
+
+export interface DescendantsResponse {
+  plant_key: string;
+  descendants: LineageNode[];
+}
+
+export interface GraftCompatibilityResponse {
+  scion_key: string;
+  rootstock_key: string;
+  scion_species_key: string;
+  rootstock_species_key: string;
+  compatible: boolean;
+  level: GraftCompatibilityLevel;
+  same_genus: boolean;
+  same_family: boolean;
+  message: string;
+}

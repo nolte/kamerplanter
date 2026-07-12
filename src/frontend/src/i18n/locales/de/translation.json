@@ -343,6 +343,7 @@
     "calculations": "Berechnungen",
     "durchlaeufe": "Durchläufe",
     "overwintering": "Überwinterung",
+    "propagation": "Vermehrung & Abstammung",
     "plantingRuns": "Pflanzdurchläufe",
     "successionPlans": "Staffelanbau",
     "tanks": "Tanks",
@@ -515,6 +516,64 @@
     }
   },
   "pages": {
+    "propagation": {
+      "title": "Vermehrungsmanagement",
+      "intro": "Dokumentiere Vermehrungsaktionen (Stecklinge, Aussaat, Klone, Veredelung, Teilung), verfolge Erfolgsraten und erkunde die genetische Abstammung deiner Pflanzen.",
+      "createEvent": "Vermehrung dokumentieren",
+      "eventCreated": "Vermehrungsevent gespeichert.",
+      "emptyTitle": "Noch keine Vermehrungsevents",
+      "emptyDescription": "Dokumentiere deine erste Vermehrungsaktion, um Erfolgsraten und Abstammung zu verfolgen.",
+      "tabs": {
+        "events": "Ereignisse",
+        "lineage": "Abstammung & Veredelung"
+      },
+      "fields": {
+        "method": "Methode",
+        "status": "Status",
+        "quantity": "Anzahl",
+        "survived": "Überlebt",
+        "successRate": "Erfolgsrate",
+        "happenedAt": "Datum",
+        "sectionWhat": "Was wurde vermehrt?",
+        "sectionWhatIntro": "Methode, Menge und optional die Pflanzenart dieser Vermehrungsaktion.",
+        "speciesKey": "Art",
+        "speciesKeyHelper": "Optional: Für welche Art läuft die Erfolgsstatistik mit?",
+        "speciesLoading": "Arten werden geladen…",
+        "sectionPlants": "Beteiligte Pflanzen",
+        "sectionPlantsIntro": "Trage die Pflanzen-Schlüssel ein — du findest sie auf der jeweiligen Pflanzen-Detailseite. Schlüssel eingeben und Enter drücken, um ihn hinzuzufügen.",
+        "parentKeys": "Quell-Pflanzen (Schlüssel)",
+        "parentKeysGraft": "Unterlage(n) (Schlüssel)",
+        "childKeys": "Ergebnis-Pflanzen (Schlüssel)",
+        "childKeysGraft": "Edelreis (Schlüssel)",
+        "keysHelper": "Pflanzen-Schlüssel eingeben, dann Enter drücken.",
+        "notes": "Notizen"
+      },
+      "lineage": {
+        "title": "Abstammung erkunden",
+        "intro": "Verfolge, aus welcher Mutterpflanze eine Pflanze entstanden ist und welche Pflanzen wiederum aus ihr hervorgegangen sind.",
+        "plantKey": "Pflanzen-Schlüssel",
+        "plantKeyHelper": "Den Schlüssel findest du auf der Detailseite der Pflanze.",
+        "trace": "Abstammung anzeigen",
+        "hint": "Gib einen Pflanzen-Schlüssel ein und klicke auf „Abstammung anzeigen“, um Vorfahren und Nachkommen zu sehen.",
+        "ancestors": "Vorfahren",
+        "descendants": "Nachkommen",
+        "noAncestors": "Keine Vorfahren gefunden — diese Pflanze ist ein Ursprung.",
+        "noDescendants": "Keine Nachkommen gefunden."
+      },
+      "graft": {
+        "title": "Veredelungs-Kompatibilität",
+        "intro": "Prüft anhand der Taxonomie (Gattung/Familie), ob Edelreis und Unterlage kompatibel sind.",
+        "scionKey": "Edelreis-Pflanze (Schlüssel)",
+        "rootstockKey": "Unterlagen-Pflanze (Schlüssel)",
+        "hint": "Gib die Schlüssel von Edelreis (Trieb) und Unterlage (Wurzelbasis) ein, um die Kompatibilität zu prüfen.",
+        "check": "Kompatibilität prüfen",
+        "speciesLine": "Edelreis-Art: {{scion}} · Unterlagen-Art: {{rootstock}}",
+        "sameGenus": "Gleiche Gattung",
+        "differentGenus": "Unterschiedliche Gattung",
+        "sameFamily": "Gleiche Familie",
+        "differentFamily": "Unterschiedliche Familie"
+      }
+    },
     "kiAssistent": {
       "title": "KI-Assistent",
       "intro": "Stelle eine Wissensfrage zur Pflanzenpflege — etwa „Was ist VPD?“ oder „Wie senke ich den pH-Wert?“. Die Antwort stammt aus der kuratierten Wissensbasis und wird klar als KI-generiert gekennzeichnet.",
@@ -4589,6 +4648,28 @@
       "defective": "Defekt",
       "retired": "Ausgemustert"
     },
+    "propagationEventMethod": {
+      "clone": "Klon",
+      "seed": "Aussaat",
+      "cutting": "Steckling",
+      "graft": "Veredelung",
+      "division": "Teilung",
+      "layering": "Absenker",
+      "offset": "Kindel",
+      "other": "Sonstiges"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In Bearbeitung",
+      "rooted": "Bewurzelt",
+      "transplanted": "Umgetopft",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Kompatibel",
+      "possibly_compatible": "Bedingt kompatibel",
+      "incompatible": "Nicht kompatibel"
+    },
     "aquaponicSystemType": {
       "media_bed": "Media-Bed (Blähton)",
       "dwc": "Deep Water Culture (DWC)",
@@ -5671,6 +5752,36 @@
       "long": "InvenTree ist eine externe, eigenständige Inventarverwaltung. Ein „Part“ ist dort ein einzelner Artikel (z. B. eine Ersatzpumpe). Verknüpfst du ein Betriebsmittel mit einer Part-ID, gleicht Kamerplanter Bestand und Verbrauch automatisch mit InvenTree ab (Stock-Sync) — Mengen musst du dann nicht mehr manuell nachpflegen.",
       "beginnerTip": "Die Verknüpfung ist optional: Auch ohne InvenTree-Verbindung kannst du Betriebsmittel ganz normal anlegen und verwalten.",
       "category": "allgemein"
+    },
+    "vermehrung": {
+      "short": "Aus einer Pflanze neue Pflanzen gewinnen",
+      "long": "Vermehrung (Propagation) bezeichnet alle Methoden, um neue Pflanzen zu erzeugen: Aussaat (Samen), Steckling/Klon (Pflanzenteil bewurzeln), Teilung (Wurzelballen trennen), Absenker (Trieb im Boden bewurzeln lassen), Kindel (natürliche Ableger) oder Veredelung (zwei Pflanzen verbinden).",
+      "beginnerTip": "Für den Einstieg ist der Steckling am einfachsten: ein Trieb abschneiden, in Wasser oder Erde bewurzeln lassen.",
+      "category": "wachstum"
+    },
+    "steckling": {
+      "short": "Ein abgeschnittener Pflanzenteil, der neue Wurzeln bildet",
+      "long": "Ein Steckling (Cutting) ist ein Trieb-, Blatt- oder Wurzelstück, das von der Mutterpflanze getrennt und zum Bewurzeln gebracht wird. Die daraus entstehende Pflanze ist genetisch identisch mit der Mutterpflanze (ein Klon).",
+      "beginnerTip": "Trieb schräg anschneiden, unterste Blätter entfernen, in Wasser oder feuchtes Substrat stecken — nach 1–3 Wochen zeigen sich meist neue Wurzeln.",
+      "category": "wachstum"
+    },
+    "veredelung": {
+      "short": "Zwei Pflanzen zu einer verbinden — Edelreis auf Unterlage",
+      "long": "Bei der Veredelung (Grafting) wird ein Trieb einer Pflanze (Edelreis/Scion) auf das Wurzelsystem einer anderen Pflanze (Unterlage/Rootstock) aufgesetzt. Das funktioniert nur zwischen nah verwandten Pflanzen — am zuverlässigsten innerhalb derselben Gattung, oft auch noch innerhalb derselben Familie.",
+      "beginnerTip": "Klassisches Beispiel: robuste Tomaten-Unterlage + ertragreiches Edelreis für kräftigeres Wachstum und mehr Ertrag.",
+      "category": "wachstum"
+    },
+    "abstammung": {
+      "short": "Die genetische Herkunft einer Pflanze über Generationen",
+      "long": "Die Abstammung (Lineage) zeigt, aus welcher Mutterpflanze eine Pflanze entstanden ist (Vorfahren) und welche Pflanzen wiederum aus ihr entstanden sind (Nachkommen). Das System verfolgt das über Vermehrungsevents wie Stecklinge, Klone, Aussaaten oder Veredelungen.",
+      "beginnerTip": "Nützlich, um z. B. nachzuvollziehen, von welcher Mutterpflanze ein bestimmter Steckling stammt.",
+      "category": "taxonomie"
+    },
+    "gattung_familie": {
+      "short": "Verwandtschaftsgrad zweier Pflanzenarten in der Taxonomie",
+      "long": "Die biologische Systematik ordnet Arten in Gattungen (z. B. Solanum) und Familien (z. B. Nachtschattengewächse) ein. Je näher zwei Arten verwandt sind, desto wahrscheinlicher funktioniert eine Veredelung zwischen ihnen: gleiche Gattung ist meist kompatibel, gleiche Familie oft möglich, unterschiedliche Familien meist nicht kompatibel.",
+      "beginnerTip": "Tomate und Kartoffel gehören zur gleichen Gattung (Solanum) — eine Veredelung zwischen ihnen ist möglich (TomTato).",
+      "category": "taxonomie"
     }
   },
   "dashboard": {
