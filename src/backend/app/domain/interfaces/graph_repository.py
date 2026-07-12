@@ -12,6 +12,9 @@ class IGraphRepository(ABC):
     def get_incompatible_species(self, species_key: SpeciesKey) -> list[dict[str, Any]]: ...
 
     @abstractmethod
+    def get_companion_counts(self) -> dict[str, dict[str, int]]: ...
+
+    @abstractmethod
     def set_compatibility(self, from_key: SpeciesKey, to_key: SpeciesKey, score: float) -> None: ...
 
     @abstractmethod

@@ -987,6 +987,14 @@ export interface IncompatibleSpecies {
   reason: string;
 }
 
+export interface SpeciesCompanionCounts {
+  compatible: number;
+  incompatible: number;
+}
+
+/** Whole-catalogue aggregate keyed by species_key (GET /companion-planting/counts). */
+export type CompanionCountsMap = Record<string, SpeciesCompanionCounts>;
+
 export interface CompatibilitySet {
   from_species_key: string;
   to_species_key: string;

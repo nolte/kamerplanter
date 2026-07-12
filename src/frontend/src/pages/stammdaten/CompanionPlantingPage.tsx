@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
+import Autocomplete from '@mui/material/Autocomplete';
+import { visuallyHidden } from '@mui/utils';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -29,7 +31,12 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as companionApi from '@/api/endpoints/companionPlanting';
 import * as speciesApi from '@/api/endpoints/species';
-import type { Species, CompatibleSpecies, IncompatibleSpecies } from '@/api/types';
+import type {
+  Species,
+  CompatibleSpecies,
+  IncompatibleSpecies,
+  CompanionCountsMap,
+} from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 export default function CompanionPlantingPage() {
@@ -39,6 +46,7 @@ export default function CompanionPlantingPage() {
   const notification = useNotification();
   const { handleError } = useApiError();
   const [speciesList, setSpeciesList] = useState<Species[]>([]);
+  const [companionCounts, setCompanionCounts] = useState<CompanionCountsMap>({});
   const [selectedKey, setSelectedKey] = useState('');
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
   const [incompatible, setIncompatible] = useState<IncompatibleSpecies[]>([]);
@@ -50,7 +58,18 @@ export default function CompanionPlantingPage() {
 
   useEffect(() => {
     speciesApi.listSpecies(0, 200).then((r) => setSpeciesList(r.items)).catch(() => {});
+    // Whole-catalogue companion counts in one aggregate request (no N+1) so the
+    // dropdown can badge every option before the user selects anything.
+    companionApi.getCompanionCounts().then(setCompanionCounts).catch(() => {});
   }, []);
+
+  // Stable lookup of the resolved count summary per species — memoised so the
+  // Autocomplete option renderer and the selected value derive from the same
+  // reference (custom-object convention, FRONTEND.md).
+  const selectedSpecies = useMemo(
+    () => speciesList.find((s) => s.key === selectedKey) ?? null,
+    [speciesList, selectedKey],
+  );
 
   const loadRelations = async (key: string) => {
     setLoading(true);
@@ -97,19 +116,79 @@ export default function CompanionPlantingPage() {
         {t('pages.companionPlanting.intro')}
       </Typography>
 
-      <TextField
-        select
-        label={t('pages.companionPlanting.selectSpecies')}
-        value={selectedKey}
-        onChange={(e) => setSelectedKey(e.target.value)}
-        helperText={t('pages.companionPlanting.selectSpeciesHelper')}
-        sx={{ minWidth: 300, mb: 3 }}
-        data-testid="species-select"
-      >
-        {speciesList.map((s) => (
-          <MenuItem key={s.key} value={s.key}>{s.scientific_name}</MenuItem>
-        ))}
-      </TextField>
+      <Autocomplete
+        options={speciesList}
+        value={selectedSpecies}
+        onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
+        getOptionLabel={(option) => option.scientific_name}
+        isOptionEqualToValue={(option, value) => option.key === value.key}
+        sx={{ maxWidth: 480, mb: 3 }}
+        renderOption={({ key: optionKey, ...optionProps }, option) => {
+          const counts = companionCounts[option.key] ?? { compatible: 0, incompatible: 0 };
+          const hasRelations = counts.compatible > 0 || counts.incompatible > 0;
+          return (
+            <Box
+              component="li"
+              key={optionKey}
+              {...optionProps}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                justifyContent: 'space-between',
+                minHeight: 48,
+                opacity: hasRelations ? 1 : 0.6,
+              }}
+              data-testid={`species-option-${option.key}`}
+              data-has-relations={hasRelations}
+            >
+              <Typography
+                variant="body2"
+                noWrap
+                color={hasRelations ? 'text.primary' : 'text.disabled'}
+                sx={{ flex: 1, minWidth: 0 }}
+              >
+                {option.scientific_name}
+              </Typography>
+              {/* Visual badge cluster: icon + number (not colour alone). Hidden
+                  from the a11y tree — the readable summary below carries the
+                  same information as text for screen readers. */}
+              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }} aria-hidden>
+                <Chip
+                  icon={<CheckCircleIcon />}
+                  label={counts.compatible}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                  data-testid={`species-option-compatible-${option.key}`}
+                />
+                <Chip
+                  icon={<CancelIcon />}
+                  label={counts.incompatible}
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                  data-testid={`species-option-incompatible-${option.key}`}
+                />
+              </Box>
+              <Box component="span" sx={visuallyHidden}>
+                {t('pages.companionPlanting.optionCountSummary', {
+                  compatible: counts.compatible,
+                  incompatible: counts.incompatible,
+                })}
+              </Box>
+            </Box>
+          );
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={t('pages.companionPlanting.selectSpecies')}
+            helperText={t('pages.companionPlanting.selectSpeciesHelper')}
+            data-testid="species-select"
+          />
+        )}
+      />
 
       {loading && <LoadingSkeleton variant="card" />}
 

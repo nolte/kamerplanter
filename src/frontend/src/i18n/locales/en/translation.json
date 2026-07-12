@@ -1855,7 +1855,8 @@
       "noIncompatible": "No incompatible species added yet.",
       "addCompatibleHint": "Specify which species works well with the selected species.",
       "addIncompatibleHint": "Specify which species does not work well with the selected species.",
-      "targetSpeciesHelper": "Species to be related to the selected species"
+      "targetSpeciesHelper": "Species to be related to the selected species",
+      "optionCountSummary": "{{compatible}} compatible, {{incompatible}} incompatible"
     },
     "cropRotation": {
       "title": "Crop Rotation",

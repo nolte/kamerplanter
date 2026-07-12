@@ -1,11 +1,23 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.companion_planting.schemas import CompatibilitySet, IncompatibilitySet
+from app.api.v1.companion_planting.schemas import (
+    CompatibilitySet,
+    IncompatibilitySet,
+    SpeciesCompanionCounts,
+)
 from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_species_service
 from app.domain.services.species_service import SpeciesService
 
 router = APIRouter(prefix="/companion-planting", tags=["companion-planting"], dependencies=[Depends(get_current_user)])
+
+
+@router.get("/counts", response_model=dict[str, SpeciesCompanionCounts])
+def get_counts(service: SpeciesService = Depends(get_species_service)) -> dict[str, dict[str, int]]:
+    # Whole-catalogue aggregate keyed by species_key: one batch request feeds the
+    # per-species companion badges in the selection dropdown (no N+1). Companion
+    # data is global reference data — no tenant scoping needed.
+    return service.get_companion_counts()
 
 
 @router.get("/species/{species_key}/compatible")
