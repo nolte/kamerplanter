@@ -19,20 +19,13 @@ from pathlib import Path
 from typing import Any, Callable
 
 import pytest
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-PRIVACY_PATH = "/privacy"
-DEFAULT_TIMEOUT = 15
+from .pages import PrivacySettingsPage
 
-PRIVACY_PAGE = (By.CSS_SELECTOR, "[data-testid='privacy-settings-page']")
-PRIVACY_TABS = (By.CSS_SELECTOR, "[data-testid='privacy-tabs']")
-TAB_CONSENTS = (By.CSS_SELECTOR, "[data-testid='privacy-tab-consents']")
-TAB_EXPORT = (By.CSS_SELECTOR, "[data-testid='privacy-tab-export']")
-TAB_ERASURE = (By.CSS_SELECTOR, "[data-testid='privacy-tab-erasure']")
-TAB_RESTRICT = (By.CSS_SELECTOR, "[data-testid='privacy-tab-restrict']")
+DEFAULT_TIMEOUT = 15
 
 
 # -- Helpers -----------------------------------------------------------------
@@ -84,11 +77,12 @@ class TestPrivacySettingsPage:
         Spec: REQ-025 §4 Frontend — Einwilligungen, Datenexport,
         Konto-Loeschung, Verarbeitungseinschraenkung.
         """
-        browser.get(f"{base_url.rstrip('/')}{PRIVACY_PATH}")
+        privacy_page = PrivacySettingsPage(browser, base_url)
+        privacy_page.open()
 
         try:
             WebDriverWait(browser, DEFAULT_TIMEOUT).until(
-                EC.presence_of_element_located(PRIVACY_PAGE)
+                EC.presence_of_element_located(PrivacySettingsPage.PAGE)
             )
         except Exception:
             screenshot(
@@ -105,19 +99,9 @@ class TestPrivacySettingsPage:
             "PrivacySettingsPage nach initialem Laden",
         )
 
-        for tab_locator, tab_name in (
-            (TAB_CONSENTS, "consents"),
-            (TAB_EXPORT, "export"),
-            (TAB_ERASURE, "erasure"),
-            (TAB_RESTRICT, "restrict"),
-        ):
-            elements = browser.find_elements(*tab_locator)
-            assert elements, (
-                f"TC-REQ-025-001 FAIL: Tab '{tab_name}' nicht gefunden "
-                f"(locator={tab_locator})"
-            )
-            assert elements[0].is_displayed(), (
-                f"TC-REQ-025-001 FAIL: Tab '{tab_name}' nicht sichtbar"
+        for tab_name in ("consents", "export", "erasure", "restrict"):
+            assert privacy_page.is_tab_visible(tab_name), (
+                f"TC-REQ-025-001 FAIL: Tab '{tab_name}' nicht gefunden oder nicht sichtbar"
             )
 
 

@@ -160,6 +160,24 @@ class PflegeDashboardPage(BasePage):
         cards = sections[0].find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-care-']")
         return len(cards)
 
+    def get_cards_in_section(self, urgency: str) -> list[WebElement]:
+        """Return the care-card elements nested inside a given urgency section."""
+        testid = self._urgency_section_testid(urgency)
+        section_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        sections = self.driver.find_elements(*section_locator)
+        if not sections:
+            return []
+        return sections[0].find_elements(By.CSS_SELECTOR, "[data-testid^='care-card-']")
+
+    def get_section_total_card_count(self, urgency: str) -> int:
+        """Return the total number of MUI Card elements (task + care) in a section."""
+        testid = self._urgency_section_testid(urgency)
+        section_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        sections = self.driver.find_elements(*section_locator)
+        if not sections:
+            return 0
+        return len(sections[0].find_elements(By.CSS_SELECTOR, ".MuiCard-root"))
+
     def get_section_count_chip_text(self, urgency: str) -> str:
         """Return the text of the count chip in a given urgency section header."""
         testid = self._urgency_section_testid(urgency)
@@ -237,6 +255,10 @@ class PflegeDashboardPage(BasePage):
             if text and any(c.isdigit() for c in text):
                 return text
         return ""
+
+    def get_card_action_button_count(self, card: WebElement) -> int:
+        """Return the number of MUI IconButton action controls inside a care card."""
+        return len(card.find_elements(By.CSS_SELECTOR, "button.MuiIconButton-root"))
 
     def get_card_plant_name(self, card: WebElement) -> str:
         """Return the plant name shown on a card.
@@ -399,6 +421,22 @@ class PflegeDashboardPage(BasePage):
     def click_reset_profile(self) -> None:
         """Click the reset-to-defaults button in the profile dialog."""
         self.wait_for_element_clickable(self.RESET_PROFILE_BUTTON).click()
+
+    def expand_advanced_accordion(self) -> None:
+        """Expand the "Erweitert" (Advanced) accordion in the profile dialog, if present."""
+        locator = (
+            By.CSS_SELECTOR,
+            "[data-testid='care-profile-edit-dialog'] .MuiAccordionSummary-root",
+        )
+        accordions = self.driver.find_elements(*locator)
+        if accordions:
+            self.scroll_and_click(accordions[0])
+            self.wait_for_loading_complete()
+
+    def get_open_dropdown_option_texts(self) -> list[str]:
+        """Return the visible label texts of an already-open MUI Select dropdown."""
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        return [opt.text for opt in options]
 
     def is_humidity_check_enabled(self) -> bool:
         """Return True if the humidity check switch is on."""
