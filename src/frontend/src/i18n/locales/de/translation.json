@@ -593,6 +593,7 @@
         "rootstockKeyHelper": "Wähle die Unterlagen-Pflanze (Wurzelbasis) über die Namenssuche.",
         "hint": "Wähle Edelreis (Trieb) und Unterlage (Wurzelbasis) aus, um die Kompatibilität zu prüfen.",
         "check": "Kompatibilität prüfen",
+        "samePlant": "Edelreis und Unterlage müssen unterschiedliche Pflanzen sein.",
         "speciesLine": "Edelreis-Art: {{scion}} · Unterlagen-Art: {{rootstock}}",
         "sameGenus": "Gleiche Gattung",
         "differentGenus": "Unterschiedliche Gattung",

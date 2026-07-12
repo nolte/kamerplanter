@@ -358,6 +358,32 @@ describe('PropagationPage', () => {
     expect(result.getByText('Gleiche Familie')).toBeInTheDocument();
   });
 
+  it('guards the self-graft case client-side without hitting the API (#571)', async () => {
+    const user = userEvent.setup();
+    const graftCalled = vi.fn();
+    server.use(
+      http.get(`${T}/propagation/graft-compatibility`, () => {
+        graftCalled();
+        return HttpResponse.json({}, { status: 422 });
+      }),
+    );
+    renderWithProviders(<PropagationPage />);
+    await user.click(await screen.findByTestId('tab-lineage'));
+
+    // Same plant for both scion and rootstock → localised warning, no request.
+    await pickByName(user, document.body, 'graft-scion-key', 'Mutter', /Mutter Rot/);
+    await pickByName(user, document.body, 'graft-rootstock-key', 'Mutter', /Mutter Rot/);
+    await user.click(screen.getByTestId('graft-check-button'));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Edelreis und Unterlage müssen unterschiedliche Pflanzen sein.'),
+      ).toBeInTheDocument(),
+    );
+    expect(graftCalled).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('graft-result')).not.toBeInTheDocument();
+  });
+
   it('deep-links directly to the lineage tab via the #lineage anchor', async () => {
     renderWithProviders(<PropagationPage />, { route: '/vermehrung#lineage' });
     // The lineage panel (not the events table) is shown on load.

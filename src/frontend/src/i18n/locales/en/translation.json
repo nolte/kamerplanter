@@ -593,6 +593,7 @@
         "rootstockKeyHelper": "Pick the rootstock plant (root base) by name.",
         "hint": "Pick the scion (shoot) and rootstock (root base) to check compatibility.",
         "check": "Check compatibility",
+        "samePlant": "Scion and rootstock must be different plants.",
         "speciesLine": "Scion species: {{scion}} · Rootstock species: {{rootstock}}",
         "sameGenus": "Same genus",
         "differentGenus": "Different genus",
