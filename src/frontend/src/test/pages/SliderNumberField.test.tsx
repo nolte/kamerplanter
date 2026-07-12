@@ -39,7 +39,9 @@ describe('SliderNumberField', () => {
     expect(screen.getByRole('spinbutton', { name: 'Temperature' })).toBeTruthy();
     expect(screen.getByText('°C')).toBeTruthy();
     expect(screen.getByText('helper text')).toBeTruthy();
-    expect(screen.getByRole('slider', { name: 'Temperature' })).toBeTruthy();
+    // Slider carries a distinct accessible name from the numeric field so a
+    // screen reader does not announce two identically-named controls.
+    expect(screen.getByRole('slider', { name: 'Temperature (slider)' })).toBeTruthy();
   });
 
   it('clamps a below-minimum numeric entry up to min', () => {
@@ -66,7 +68,7 @@ describe('SliderNumberField', () => {
     const onChange = vi.fn();
     renderWithProviders(<Harness onChange={onChange} />);
 
-    const slider = screen.getByRole('slider', { name: 'Temperature' });
+    const slider = screen.getByRole('slider', { name: 'Temperature (slider)' });
     fireEvent.change(slider, { target: { value: '30' } });
 
     expect(onChange).toHaveBeenCalledWith(30);

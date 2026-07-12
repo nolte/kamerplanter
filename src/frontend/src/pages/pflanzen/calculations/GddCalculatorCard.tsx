@@ -7,7 +7,8 @@ import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
-import ButtonGroup from '@mui/material/ButtonGroup';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -102,17 +103,31 @@ export default function GddCalculatorCard() {
             input: { endAdornment: <InputAdornment position="end">°C</InputAdornment> },
           }}
         />
-        <ButtonGroup size="small" variant="outlined" sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <ToggleButtonGroup
+          value={baseTemp}
+          exclusive
+          // Presets are a shortcut into the numeric field above, not an
+          // independent selection state — ignore the "deselect" (null) case
+          // exclusive mode fires when the pressed preset is clicked again.
+          onChange={(_event, next: number | null) => {
+            if (next !== null) setBaseTemp(next);
+          }}
+          size="small"
+          aria-label={t('pages.calculations.gddBaseTemp')}
+          sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}
+        >
           {GDD_BASE_TEMP_PRESETS.map((preset) => (
-            <Button
+            <ToggleButton
               key={preset.key}
-              onClick={() => setBaseTemp(preset.value)}
-              variant={baseTemp === preset.value ? 'contained' : 'outlined'}
+              value={preset.value}
+              // UI-NFR-001 R-011: 48x48 minimum touch target — the default
+              // `size="small"` hit area is below the mandatory mobile minimum.
+              sx={{ minHeight: 48 }}
             >
               {t(`pages.calculations.gddBasePresets.${preset.key}`)} ({preset.value}°C)
-            </Button>
+            </ToggleButton>
           ))}
-        </ButtonGroup>
+        </ToggleButtonGroup>
 
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('pages.calculations.gddDailyTemps')}
@@ -135,7 +150,11 @@ export default function GddCalculatorCard() {
                 size="small"
                 error={row.max < row.min}
                 slotProps={{
-                  htmlInput: { step: 0.5, 'aria-label': `${t('pages.calculations.gddMinTemp')} ${index + 1}` },
+                  htmlInput: {
+                    step: 0.5,
+                    'aria-label': `${t('pages.calculations.gddMinTemp')} ${index + 1}`,
+                    'aria-describedby': row.max < row.min ? 'gdd-invalid-row-error' : undefined,
+                  },
                   input: { endAdornment: <InputAdornment position="end">°C</InputAdornment> },
                 }}
               />
@@ -147,7 +166,11 @@ export default function GddCalculatorCard() {
                 size="small"
                 error={row.max < row.min}
                 slotProps={{
-                  htmlInput: { step: 0.5, 'aria-label': `${t('pages.calculations.gddMaxTemp')} ${index + 1}` },
+                  htmlInput: {
+                    step: 0.5,
+                    'aria-label': `${t('pages.calculations.gddMaxTemp')} ${index + 1}`,
+                    'aria-describedby': row.max < row.min ? 'gdd-invalid-row-error' : undefined,
+                  },
                   input: { endAdornment: <InputAdornment position="end">°C</InputAdornment> },
                 }}
               />
@@ -156,6 +179,9 @@ export default function GddCalculatorCard() {
                 disabled={rows.length <= 1}
                 aria-label={t('pages.calculations.gddRemoveDay', { day: index + 1 })}
                 size="small"
+                // UI-NFR-001 R-011: 48x48 minimum touch target — the default
+                // `size="small"` hit area is below the mandatory mobile minimum.
+                sx={{ minWidth: 48, minHeight: 48 }}
               >
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
@@ -163,7 +189,7 @@ export default function GddCalculatorCard() {
           ))}
         </Stack>
         {invalidRow && (
-          <Alert severity="error" sx={{ mb: 2 }}>
+          <Alert id="gdd-invalid-row-error" severity="error" sx={{ mb: 2 }}>
             {t('pages.calculations.gddInvalidRow')}
           </Alert>
         )}
@@ -171,7 +197,9 @@ export default function GddCalculatorCard() {
           startIcon={<AddIcon />}
           onClick={addRow}
           size="small"
-          sx={{ mb: 2 }}
+          // UI-NFR-001 R-011: 48x48 minimum touch target — the default
+          // `size="small"` hit area is below the mandatory mobile minimum.
+          sx={{ mb: 2, minHeight: 48 }}
         >
           {t('pages.calculations.gddAddDay')}
         </Button>

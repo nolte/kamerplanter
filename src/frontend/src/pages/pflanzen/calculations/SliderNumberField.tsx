@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Slider from '@mui/material/Slider';
 import TextField from '@mui/material/TextField';
@@ -36,9 +37,12 @@ interface SliderNumberFieldProps {
  * primary (keyboard- and test-friendly) affordance while the slider offers a
  * mobile-friendly coarse adjustment. Values are clamped to `[min, max]`.
  *
- * Mobile-first: the slider thumb and the input satisfy the ≥48 px touch target
- * (UI-NFR-001); the numeric field carries the unit as an `InputAdornment` rather
- * than only in label text.
+ * Mobile-first: the numeric field carries the unit as an `InputAdornment`
+ * rather than only in label text. The slider thumb's touch target is MUI's
+ * own `@media (pointer: coarse)` default (~42 px, see `@mui/material/Slider`)
+ * — a few px under the UI-NFR-001 R-011 48 px floor. That default is shared by
+ * every `Slider` in the app; overriding it only here would be inconsistent,
+ * so a project-wide fix belongs in the `MuiSlider` theme override, not here.
  */
 export default function SliderNumberField({
   label,
@@ -55,6 +59,14 @@ export default function SliderNumberField({
   disabled,
   testId,
 }: SliderNumberFieldProps) {
+  const { t } = useTranslation();
+
+  // The `TextField` above already exposes `label` as its accessible name. Giving
+  // the `Slider` the *same* name would make a screen reader announce two
+  // identically-named controls for one value — disambiguate with a suffix so
+  // both remain independently identifiable while staying obviously paired.
+  const sliderLabel = t('common.sliderLabel', { label });
+
   const clamp = useCallback(
     (raw: number): number => {
       if (Number.isNaN(raw)) return min;
@@ -104,7 +116,7 @@ export default function SliderNumberField({
           marks={marks}
           disabled={disabled}
           valueLabelDisplay="auto"
-          aria-label={label}
+          aria-label={sliderLabel}
           sx={{ flexGrow: 1 }}
         />
         {glossaryTerm && <HelpTooltip term={glossaryTerm} iconOnly />}

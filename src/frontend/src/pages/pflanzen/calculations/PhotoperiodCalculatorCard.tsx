@@ -6,7 +6,8 @@ import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import Button from '@mui/material/Button';
-import ButtonGroup from '@mui/material/ButtonGroup';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Box from '@mui/material/Box';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import DataTable, { type Column } from '@/components/common/DataTable';
@@ -134,17 +135,31 @@ export default function PhotoperiodCalculatorCard() {
           }}
         />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <ButtonGroup size="small" variant="outlined" sx={{ flexWrap: 'wrap' }}>
+          <ToggleButtonGroup
+            value={ppfd}
+            exclusive
+            // Presets are a shortcut into the numeric field above, not an
+            // independent selection state — ignore the "deselect" (null) case
+            // exclusive mode fires when the pressed preset is clicked again.
+            onChange={(_event, next: number | null) => {
+              if (next !== null) setPpfd(next);
+            }}
+            size="small"
+            aria-label={t('pages.calculations.ppfd')}
+            sx={{ flexWrap: 'wrap' }}
+          >
             {PPFD_PRESETS.map((preset) => (
-              <Button
+              <ToggleButton
                 key={preset}
-                onClick={() => setPpfd(preset)}
-                variant={ppfd === preset ? 'contained' : 'outlined'}
+                value={preset}
+                // UI-NFR-001 R-011: 48x48 minimum touch target — the default
+                // `size="small"` hit area is below the mandatory mobile minimum.
+                sx={{ minHeight: 48 }}
               >
                 {preset}
-              </Button>
+              </ToggleButton>
             ))}
-          </ButtonGroup>
+          </ToggleButtonGroup>
           <HelpTooltip term="ppfd" iconOnly />
         </Box>
 
