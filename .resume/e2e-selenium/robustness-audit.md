@@ -5,6 +5,23 @@ implementation for **missing dedicated `data-testid`s** on logical elements, so 
 page model stops breaking on small UI changes. Scope: R6 (non-behavioral
 testability affordances)._
 
+## Governing rule (binding)
+
+`spec/project/e2e-test-automation/` **§Locator strategy** mandates the hierarchy
+**`data-testid → id → role/semantic → CSS → XPath (last resort)`**, forbids
+**position-based XPath**, and requires selectors to **survive cosmetic markup
+changes**. The brittleness below is measured non-conformance to that rule; the R6
+testids and the base_page helpers restore conformance. Two residuals still to clean
+up to be fully spec-conformant:
+
+- **Position-based `cells[N]`** (e.g. `phase_transition_page.get_first_column_texts`
+  now reads `cells[1]`) — still position-based. The spec-conformant form is
+  `get_row_cell_text(row, '<col_id>')` against the new `data-testid='cell-{col.id}'`;
+  migrating needs each page's DataTable `col.id`.
+- **`contains(., label)` option XPaths** — XPath is "last resort" per the hierarchy;
+  prefer `select_option_by_value(...)` on the stable `data-value` / the new
+  `form-option-{name}-{value}` testid.
+
 ## Why this matters (evidence from this very run)
 
 Of the 19 drift failures fixed this session, the majority were **brittle-selector
