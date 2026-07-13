@@ -264,8 +264,8 @@ class TaskQueuePage(BasePage):
         """Open a FormSelectField MUI Select and pick the option by its stable value.
 
         Delegates to the robust BasePage helper, which opens the dropdown via the
-        dedicated ``form-field-{name}-trigger`` testid (no brittle
-        ``.MuiSelect-select`` class), selects by ``data-value`` (i18n-independent),
+        stable ARIA ``[role='combobox']`` display (no brittle ``.MuiSelect-select``
+        class), selects by ``data-value`` (i18n-independent),
         centres+JS-clicks to survive the Popover animation, and closes via the
         option click (no stray body-level ESCAPE that would close the dialog).
         """

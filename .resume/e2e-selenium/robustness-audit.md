@@ -36,11 +36,15 @@ fields, rows), `data-value` on MenuItems (i18n-independent), `role='option'` /
 
 ## Dedicated IDs that were MISSING → added this session (R6, additive, non-behavioral)
 
-1. **Select trigger** — `src/frontend/src/components/form/FormSelectField.tsx`
-   Added `SelectDisplayProps['data-testid'] = form-field-{name}-trigger` on the
-   clickable select display, plus `data-testid=form-option-{name}-{value}` on each
-   `MenuItem`. Replaces the 65× `.MuiSelect-select` open-click and the
-   text-`contains` option match across **~40 form Selects** with one component change.
+1. **Select options** — `src/frontend/src/components/form/FormSelectField.tsx`
+   Added `data-testid=form-option-{name}-{value}` on each `MenuItem` (options were
+   already addressable by their stable `data-value`; the testid makes the value
+   binding explicit). The clickable trigger is addressed in tests via the stable
+   ARIA `[data-testid='form-field-{name}'] [role='combobox']` (no dedicated testid
+   needed — the combobox role is MUI-version-stable), replacing the 65×
+   `.MuiSelect-select` open-click and the text-`contains` option match across
+   **~40 form Selects**. (An earlier `SelectDisplayProps` trigger-testid was
+   dropped — it clashed with MUI 7's TextField prop types at build time.)
 
 2. **Table cells** — `src/frontend/src/components/common/DataTable.tsx`
    Added `data-testid=cell-{col.id}` on every `TableCell`. Replaces position-based

@@ -6,6 +6,7 @@ plus the PhaseTransitionDialog interaction, into one cohesive page object.
 
 from __future__ import annotations
 
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -255,8 +256,14 @@ class PlantInstanceDetailExt(BasePage):
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def is_transition_dialog_open(self) -> bool:
-        elements = self.driver.find_elements(*self.TRANSITION_DIALOG)
-        return bool(elements) and elements[0].is_displayed()
+        # Stale-safe: an element unmounting mid fade-out is by definition gone.
+        for el in self.driver.find_elements(*self.TRANSITION_DIALOG):
+            try:
+                if el.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
 
     def get_target_phase_options(self) -> list[str]:
         """Return the text of all available phase options in the select.
@@ -326,8 +333,9 @@ class PlantInstanceDetailExt(BasePage):
         self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
 
     def cancel_transition(self) -> None:
-        """Click the 'Abbrechen' button in the transition dialog."""
+        """Click the 'Abbrechen' button and wait for the transition dialog to close."""
         self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_for_element_hidden(self.TRANSITION_DIALOG)
 
     def is_confirm_button_enabled(self) -> bool:
         btn = self.wait_for_element(self.TRANSITION_CONFIRM)
@@ -345,10 +353,18 @@ class PlantInstanceDetailExt(BasePage):
 
     def cancel_remove(self) -> None:
         self.wait_for_element_clickable(self.CONFIRM_CANCEL_BTN).click()
+        self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.CONFIRM_DIALOG)
-        return bool(elements) and elements[0].is_displayed()
+        # Stale-safe: the termination dialog animates out on cancel, so an element
+        # can go stale between find and is_displayed() — treat that as "gone".
+        for el in self.driver.find_elements(*self.CONFIRM_DIALOG):
+            try:
+                if el.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
 
     # ── Core-lifecycle-journey helpers (self-provisioning) ─────────────
 

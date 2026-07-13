@@ -159,9 +159,13 @@ class BasePage:
     # migrated incrementally.
 
     def open_select(self, field_name: str) -> None:
-        """Open a FormSelectField dropdown via its dedicated trigger testid."""
+        """Open a FormSelectField dropdown via a stable trigger selector.
+
+        Prefers the ARIA `[role='combobox']` display (stable across MUI versions);
+        falls back to the legacy `.MuiSelect-select` class for non-FormSelectField
+        selects that don't expose the combobox role.
+        """
         for selector in (
-            f"[data-testid='form-field-{field_name}-trigger']",
             f"[data-testid='form-field-{field_name}'] [role='combobox']",
             f"[data-testid='form-field-{field_name}'] .MuiSelect-select",
         ):

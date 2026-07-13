@@ -1,4 +1,3 @@
-import type { HTMLAttributes } from 'react';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
@@ -49,16 +48,14 @@ export default function FormSelectField<T extends FieldValues>({
           margin="dense"
           sx={{ mb: 1.5 }}
           data-testid={`form-field-${name}`}
-          SelectProps={{
-            // Dedicated testid on the clickable select display so tests can open
-            // the dropdown without depending on the internal `.MuiSelect-select`
-            // class (which changes across MUI versions / restyles). Options are
-            // addressable by their stable `data-value` (set from `value` below).
-            SelectDisplayProps: {
-              'data-testid': `form-field-${name}-trigger`,
-            } as HTMLAttributes<HTMLDivElement>,
-          }}
         >
+          {/*
+            Each option carries a dedicated testid `form-option-{name}-{value}` and
+            a stable `data-value` (from `value`), so tests select by value rather
+            than by i18n label text. The clickable trigger is addressed in tests via
+            the ARIA `[data-testid='form-field-{name}'] [role='combobox']` (stable
+            across MUI versions) instead of the internal `.MuiSelect-select` class.
+          */}
           {options.map((opt) => (
             <MenuItem
               key={opt.value}
