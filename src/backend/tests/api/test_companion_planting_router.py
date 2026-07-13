@@ -126,6 +126,36 @@ def test_get_endpoints_remain_open_to_non_admin(monkeypatch):
     species_service.get_compatible_species.assert_called_once_with("s1")
 
 
+def test_compatible_endpoint_passes_through_common_names(monkeypatch):
+    """GET /compatible surfaces the species common_names for layperson naming (#567)."""
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
+    tenant_service = MagicMock()
+    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.VIEWER, is_active=True)
+    species_service = MagicMock()
+    species_service.get_compatible_species.return_value = [
+        {
+            "species_key": "leek",
+            "scientific_name": "Allium porrum",
+            "common_names": ["Lauch", "Leek"],
+            "score": 0.9,
+        }
+    ]
+    app = FastAPI()
+    app.include_router(companion_router, prefix="/api/v1")
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+    app.dependency_overrides[get_current_user] = _user
+    app.dependency_overrides[get_species_service] = lambda: species_service
+    app.dependency_overrides[get_tenant_service] = lambda: tenant_service
+    client = TestClient(app)
+
+    resp = client.get("/api/v1/companion-planting/species/tomato/compatible")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body[0]["common_names"] == ["Lauch", "Leek"]
+    assert body[0]["scientific_name"] == "Allium porrum"
+
+
 def test_counts_endpoint_returns_per_species_counts(monkeypatch):
     """GET /counts returns the whole-catalogue aggregate keyed by species_key.
 

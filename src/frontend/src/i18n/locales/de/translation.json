@@ -22,6 +22,8 @@
       "manualOff": "Manuell ausgeblendet",
       "followsLevelVisible": "Folgt Stufe: sichtbar",
       "followsLevelHidden": "Folgt Stufe: ausgeblendet",
+      "smartHomeLocked": "Über Smart Home gesteuert",
+      "smartHomeLockedHint": "Dieses Modul wird über die Smart-Home-Einstellung gesteuert. Aktiviere die Smart-Home-Funktionen unter Integrationen, um es einzublenden.",
       "switchAriaLabel": "{{module}} — {{state}}",
       "coreSectionTitle": "Kern-Module",
       "coreSectionTooltip": "Kern-Module sind immer sichtbar und können nicht ausgeblendet werden — sie bilden die Grundlage der Anwendung.",
@@ -1220,7 +1222,10 @@
         "title": "Smart Home & Sensorik",
         "description": "Aktiviere diese Option wenn du Smart-Home-Geräte, Sensoren oder Aktoren mit Kamerplanter verwenden möchtest.",
         "toggle": "Smart Home Funktionen aktivieren",
-        "disabledInfo": "Smart-Home-Funktionen sind deaktiviert. Sensor- und Aktor-Elemente werden in der gesamten Oberfläche ausgeblendet."
+        "disabledInfo": "Smart-Home-Funktionen sind deaktiviert. Sensor- und Aktor-Elemente werden in der gesamten Oberfläche ausgeblendet.",
+        "guardTitle": "Smart-Home-Funktionen sind deaktiviert",
+        "guardDescription": "Sensoren und Aktoren sind ausgeblendet, weil die Smart-Home-Funktionen deaktiviert sind. Aktiviere sie in den Einstellungen, um diesen Bereich zu nutzen.",
+        "guardAction": "Smart Home aktivieren"
       },
       "platformModeTitle": "Deployment-Modus",
       "platformModeSubtitle": "Wählen Sie den Betriebsmodus Ihrer Kamerplanter-Instanz. Änderungen erfordern eine Anpassung der Umgebungsvariable und einen Neustart.",
@@ -1939,7 +1944,10 @@
       "optionCountSummary": "— {{compatible}} kompatibel, {{incompatible}} inkompatibel",
       "optionCountLegendCompatible": "Anzahl kompatibler Arten",
       "optionCountLegendIncompatible": "Anzahl inkompatibler Arten",
-      "noSpeciesFound": "Keine Art gefunden."
+      "noSpeciesFound": "Keine Art gefunden.",
+      "scientificNameLabel": "Wissenschaftlicher Name",
+      "viewSpeciesDetails": "Zur Detailseite von {{name}}",
+      "namingHint": "Angezeigt wird der gebräuchliche Name; der wissenschaftliche Name steht als Zusatz darunter. Tippe auf eine Art, um zu ihrer Detailseite zu gelangen."
     },
     "cropRotation": {
       "title": "Fruchtfolge",
@@ -1971,7 +1979,22 @@
       "filterFrostHardy": "Frosthart",
       "filterNutrientDemand": "Nährstoffbedarf",
       "filterAll": "Alle",
-      "resetFilters": "Filter zurücksetzen"
+      "resetFilters": "Filter zurücksetzen",
+      "scientificFamilyLabel": "Wissenschaftlicher Familienname",
+      "viewFamilyDetails": "Zur Detailseite von {{name}}",
+      "benefitLabel": "Nutzen",
+      "rotationCategoryLabel": "Kategorie",
+      "namingHint": "Angezeigt wird der deutsche Familienname; der wissenschaftliche Name steht als Zusatz. Tippe auf eine Familie, um zu ihrer Detailseite zu gelangen.",
+      "benefitReasonHint": {
+        "nitrogen_fixation": "Reichert den Boden mit Stickstoff an, von dem die Nachfolgekultur profitiert.",
+        "soil_structure": "Lockert und verbessert die Bodenstruktur für die folgende Kultur.",
+        "pest_break": "Unterbricht den Lebenszyklus familienspezifischer Schädlinge und Krankheiten.",
+        "biofumigation": "Setzt beim Verrotten natürliche Wirkstoffe frei, die Bodenschädlinge zurückdrängen."
+      },
+      "zehrerLegendTitle": "Nährstoffbedarf (Zehrerklassen)",
+      "zehrerHeavy": "Starkzehrer: hoher Nährstoffbedarf (z. B. Kohl, Tomaten, Kürbis).",
+      "zehrerMedium": "Mittelzehrer: mittlerer Nährstoffbedarf (z. B. Zwiebeln, Möhren, Salat).",
+      "zehrerLight": "Schwachzehrer: geringer Nährstoffbedarf (z. B. Kräuter, Hülsenfrüchte)."
     },
     "siteDetail": {
       "climate": {
@@ -5763,6 +5786,24 @@
       "forecast": "Vorhersage – ein berechneter Erwartungswert für ein zukünftiges Datum, noch keine Messung.",
       "observed": "Ist-Wert – ein tatsächlich gemessener Wert (z. B. von einem Home-Assistant-Sensor), kein berechneter Schätzwert.",
       "reanalysis": "Reanalyse – historische, aus Modellen abgeleitete Wetterdaten der Vergangenheit, keine Live-Messung und keine Vorhersage."
+    },
+    "benefitReason": {
+      "nitrogen_fixation": "Stickstoffanreicherung",
+      "soil_structure": "Bodenstruktur",
+      "pest_break": "Schädlingspause",
+      "biofumigation": "Biofumigation"
+    },
+    "rotationCategory": {
+      "brassica": "Kohlgewächse",
+      "composite": "Korbblütler",
+      "cucurbit": "Kürbisgewächse",
+      "fiber": "Faserpflanzen",
+      "fruit": "Fruchtgemüse",
+      "grain": "Getreide",
+      "herb": "Kräuter",
+      "legume": "Hülsenfrüchtler",
+      "ornamental": "Zierpflanzen",
+      "root": "Wurzelgemüse"
     }
   },
   "sensorChart": {

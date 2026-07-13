@@ -3,6 +3,7 @@ import {
   getSpeciesLabel,
   getPlantDisplayName,
   getPlantLabel,
+  getPrimaryCommonName,
   type PlantLike,
 } from '@/utils/plantDisplay';
 
@@ -110,5 +111,25 @@ describe('getPlantLabel', () => {
 
   it('avoids redundant parentheses when plant_name equals instance_id', () => {
     expect(getPlantLabel(plant({ plant_name: 'BASIL-001' }))).toBe('BASIL-001');
+  });
+});
+
+describe('getPrimaryCommonName', () => {
+  it('returns the first common name (German-first seed convention)', () => {
+    expect(getPrimaryCommonName(['Lauch', 'Leek'], 'Allium porrum')).toBe('Lauch');
+  });
+
+  it('falls back to the scientific name when there is no common name', () => {
+    expect(getPrimaryCommonName([], 'Allium porrum')).toBe('Allium porrum');
+    expect(getPrimaryCommonName(undefined, 'Allium porrum')).toBe('Allium porrum');
+  });
+
+  it('skips blank entries and falls back to the scientific name', () => {
+    expect(getPrimaryCommonName(['  '], 'Allium porrum')).toBe('Allium porrum');
+  });
+
+  it('returns null when neither a common nor a scientific name is available', () => {
+    expect(getPrimaryCommonName(undefined, null)).toBeNull();
+    expect(getPrimaryCommonName([], undefined)).toBeNull();
   });
 });

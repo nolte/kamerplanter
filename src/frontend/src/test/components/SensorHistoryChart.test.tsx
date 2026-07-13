@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import SensorHistoryChart from '@/components/sensors/SensorHistoryChart';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithSmartHome } from '../helpers';
 import { server } from '../mocks/server';
 
 /**
@@ -97,6 +97,7 @@ function registerReadings(opts: Opts = {}) {
 }
 
 function mount(props: Partial<{ sensorKey: string; sensorName: string; metricType: string; unit: string | null }> = {}) {
+  // Issue #587: the chart only renders when smart home is enabled.
   return renderWithProviders(
     <SensorHistoryChart
       sensorKey={props.sensorKey ?? 'sensor-1'}
@@ -104,6 +105,7 @@ function mount(props: Partial<{ sensorKey: string; sensorName: string; metricTyp
       metricType={props.metricType ?? 'ph'}
       unit={props.unit === undefined ? 'pH' : props.unit}
     />,
+    { store: createStoreWithSmartHome() },
   );
 }
 
@@ -115,6 +117,16 @@ describe('SensorHistoryChart', () => {
 
   afterAll(() => {
     i18n.changeLanguage('en');
+  });
+
+  it('renders nothing when smart home is disabled (#587)', () => {
+    registerReadings();
+    // Default store → smart_home_enabled falsy → the chart returns null.
+    const { container } = renderWithProviders(
+      <SensorHistoryChart sensorKey="sensor-1" sensorName="pH Probe" metricType="ph" unit="pH" />,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByText('pH Probe (pH)')).toBeNull();
   });
 
   it('renders the header with the sensor name and unit label, plus the range switch', async () => {

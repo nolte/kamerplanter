@@ -4,8 +4,13 @@ import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import TankDetailPage from '@/pages/standorte/TankDetailPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithSmartHome } from '../helpers';
 import { server } from '../mocks/server';
+
+// Issue #587: tank sensor surfaces are gated behind the smart-home toggle. Render
+// with smart home enabled by default; the disabled case has a dedicated test.
+const renderPage = (opts?: { route?: string }) =>
+  renderWithProviders(<TankDetailPage />, { store: createStoreWithSmartHome(), ...opts });
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (orig) => {
@@ -125,7 +130,7 @@ describe('TankDetailPage', () => {
 
   it('renders the tank detail page from the loaded tank', async () => {
     mount();
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
 
     expect(await screen.findByTestId('tank-detail-page')).toBeTruthy();
     expect(screen.getAllByText('Nutrient Tank').length).toBeGreaterThan(0);
@@ -139,7 +144,7 @@ describe('TankDetailPage', () => {
       ),
       http.get('/api/v1/t/:tenant/sites', () => HttpResponse.json([])),
     );
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     expect(await screen.findByTestId('error-display')).toBeInTheDocument();
   });
 
@@ -170,7 +175,7 @@ describe('TankDetailPage', () => {
         orp_mv: 400,
       }),
     });
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     await screen.findByTestId('tank-detail-page');
 
     expect(screen.getByText('Keep covered')).toBeInTheDocument();
@@ -191,7 +196,7 @@ describe('TankDetailPage', () => {
         dissolved_oxygen_mgl: 12,
       }),
     });
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText('7.5')).toBeInTheDocument();
     expect(screen.getByText(i18n.t('pages.tanks.latestState'))).toBeInTheDocument();
@@ -208,7 +213,7 @@ describe('TankDetailPage', () => {
         dissolved_oxygen_mgl: 6.5,
       }),
     });
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText('6')).toBeInTheDocument();
   });
@@ -225,7 +230,7 @@ describe('TankDetailPage', () => {
         { type: 'ph_out_of_range', severity: 'medium', value: 7.8, limit_max: 6.5, message: 'pH too high' },
       ],
     });
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     await screen.findByTestId('tank-detail-page');
     const alerts = screen.getAllByRole('alert');
     expect(alerts.length).toBeGreaterThanOrEqual(2);
@@ -238,13 +243,13 @@ describe('TankDetailPage', () => {
         state({ key: 's2', ph: 6.3, ec_ms: 1.6, water_temp_celsius: 21, fill_level_percent: 60, tds_ppm: 720 }),
       ],
     });
-    const { unmount } = renderWithProviders(<TankDetailPage />, { route: '/#states' });
+    const { unmount } = renderPage({ route: '/#states' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByTestId('tank-record-state-button')).toBeInTheDocument();
     unmount();
 
     mount({ states: [] });
-    renderWithProviders(<TankDetailPage />, { route: '/#states' });
+    renderPage({ route: '/#states' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText(i18n.t('pages.tanks.noMeasurements'))).toBeInTheDocument();
   });
@@ -260,7 +265,7 @@ describe('TankDetailPage', () => {
         { key: 'log-1', maintenance_type: 'cleaning', performed_at: '2024-05-01T09:00:00Z', performed_by: 'Sam', duration_minutes: 30, notes: 'done' },
       ],
     });
-    renderWithProviders(<TankDetailPage />, { route: '/#maintenance' });
+    renderPage({ route: '/#maintenance' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText(i18n.t('pages.tanks.dueMaintenances'))).toBeInTheDocument();
     expect(screen.getByTestId('tank-log-maintenance-button')).toBeInTheDocument();
@@ -269,7 +274,7 @@ describe('TankDetailPage', () => {
 
   it('renders the empty maintenance history state', async () => {
     mount({ due: [], logs: [] });
-    renderWithProviders(<TankDetailPage />, { route: '/#maintenance' });
+    renderPage({ route: '/#maintenance' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText(i18n.t('pages.tanks.noMaintenanceLogs'))).toBeInTheDocument();
   });
@@ -289,7 +294,7 @@ describe('TankDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />, { route: '/#schedules' });
+    renderPage({ route: '/#schedules' });
     await screen.findByTestId('tank-detail-page');
 
     await user.click(screen.getByTestId('schedule-delete-sched-1'));
@@ -299,7 +304,7 @@ describe('TankDetailPage', () => {
 
   it('renders the empty schedules state', async () => {
     mount({ schedules: [] });
-    renderWithProviders(<TankDetailPage />, { route: '/#schedules' });
+    renderPage({ route: '/#schedules' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText(i18n.t('pages.tanks.noSchedules'))).toBeInTheDocument();
   });
@@ -310,13 +315,13 @@ describe('TankDetailPage', () => {
         { key: 'fill-1', filled_at: '2024-05-05T10:00:00Z', fill_type: 'refill', volume_liters: 20, measured_ec_ms: 1.1, measured_ph: 6.2, water_source: 'tap' },
       ],
     });
-    const { unmount } = renderWithProviders(<TankDetailPage />, { route: '/#fills' });
+    const { unmount } = renderPage({ route: '/#fills' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByTestId('tank-record-fill-button')).toBeInTheDocument();
     unmount();
 
     mount({ fills: [] });
-    renderWithProviders(<TankDetailPage />, { route: '/#fills' });
+    renderPage({ route: '/#fills' });
     await screen.findByTestId('tank-detail-page');
     expect(screen.getByText(i18n.t('pages.tanks.noFills'))).toBeInTheDocument();
   });
@@ -331,7 +336,7 @@ describe('TankDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />, { route: '/#edit' });
+    renderPage({ route: '/#edit' });
     await screen.findByTestId('tank-detail-page');
 
     const airPump = await screen.findByTestId('form-field-has_air_pump');
@@ -354,7 +359,7 @@ describe('TankDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />, { route: '/#edit' });
+    renderPage({ route: '/#edit' });
     await screen.findByTestId('tank-detail-page');
 
     await user.click(await screen.findByTestId('sensor-delete-sensor-1'));
@@ -366,7 +371,7 @@ describe('TankDetailPage', () => {
     mount();
     server.use(http.delete('/api/v1/t/:tenant/tanks/tank-1', () => new HttpResponse(null, { status: 204 })));
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
 
     await screen.findByTestId('tank-detail-page');
     await user.click(screen.getByTestId('tank-delete-button'));
@@ -388,7 +393,7 @@ describe('TankDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
 
     await screen.findByTestId('tank-detail-page');
     await user.click(screen.getByTestId('tank-delete-button'));
@@ -414,7 +419,7 @@ describe('TankDetailPage', () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
 
     await screen.findByTestId('tank-detail-page');
     await user.click(screen.getByTestId('tank-delete-button'));
@@ -427,7 +432,7 @@ describe('TankDetailPage', () => {
   it('cancels the delete confirmation without deleting', async () => {
     mount();
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
 
     await screen.findByTestId('tank-detail-page');
     await user.click(screen.getByTestId('tank-delete-button'));
@@ -452,7 +457,7 @@ describe('TankDetailPage', () => {
     });
 
     for (const route of ['/#states', '/#maintenance', '/#schedules', '/#fills']) {
-      const { unmount } = renderWithProviders(<TankDetailPage />, { route });
+      const { unmount } = renderPage({ route });
       await screen.findByTestId('tank-detail-page');
       unmount();
     }
@@ -469,7 +474,7 @@ describe('TankDetailPage', () => {
       ['/#fills', 'tank-record-fill-button'],
     ];
     for (const [route, testid] of cases) {
-      const { unmount } = renderWithProviders(<TankDetailPage />, { route });
+      const { unmount } = renderPage({ route });
       await screen.findByTestId('tank-detail-page');
       await user.click(screen.getByTestId(testid));
       // a dialog opens
@@ -484,7 +489,7 @@ describe('TankDetailPage', () => {
 
     const routes = ['/#states', '/#maintenance', '/#schedules', '/#fills'];
     for (const route of routes) {
-      const { unmount } = renderWithProviders(<TankDetailPage />, { route });
+      const { unmount } = renderPage({ route });
       await screen.findByTestId('tank-detail-page');
       // EmptyState renders its own action button with the same label as the header
       const buttons = screen.getAllByRole('button');
@@ -500,7 +505,7 @@ describe('TankDetailPage', () => {
       due: [{ schedule_key: 'sc-1', maintenance_type: 'cleaning', next_due: '2024-06-01', status: 'overdue', priority: 'high' }],
     });
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     await screen.findByTestId('tank-detail-page');
 
     // overdue quick-info chip is clickable
@@ -513,7 +518,7 @@ describe('TankDetailPage', () => {
   it('changes the site in the edit tab and cancels the form', async () => {
     mount({ sites: [{ key: 'site-1', name: 'Greenhouse' }, { key: 'site-2', name: 'Balcony' }] });
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />, { route: '/#edit' });
+    renderPage({ route: '/#edit' });
     await screen.findByTestId('tank-detail-page');
 
     // open the MUI site select and choose an option (drives handleSiteChange)
@@ -533,7 +538,7 @@ describe('TankDetailPage', () => {
       ],
     });
     const user = userEvent.setup();
-    renderWithProviders(<TankDetailPage />, { route: '/#edit' });
+    renderPage({ route: '/#edit' });
     await screen.findByTestId('tank-detail-page');
 
     await user.click(screen.getByTestId('tank-add-sensor-button'));
@@ -558,8 +563,29 @@ describe('TankDetailPage', () => {
       http.get('/api/v1/observations/*', () => HttpResponse.json([])),
       http.get('/api/v1/t/:tenant/observations/*', () => HttpResponse.json([])),
     );
-    renderWithProviders(<TankDetailPage />);
+    renderPage();
     await screen.findByTestId('tank-detail-page');
     expect(await screen.findByText(i18n.t('pages.tanks.sensorHistory'))).toBeInTheDocument();
+  });
+
+  it('hides tank sensor surfaces when smart home is disabled (#587)', async () => {
+    mount({
+      tsAvailable: true,
+      sensors: [
+        { key: 'sensor-1', name: 'pH Probe', metric_type: 'ph', ha_entity_id: 'sensor.ph', is_active: true, unit_of_measurement: 'pH' },
+      ],
+    });
+    server.use(
+      http.get('/api/v1/observations/status', () => HttpResponse.json({ available: true })),
+      http.get('/api/v1/observations/*', () => HttpResponse.json([])),
+      http.get('/api/v1/t/:tenant/observations/*', () => HttpResponse.json([])),
+    );
+    // Default store → smart_home_enabled falsy → sensor card + history hidden.
+    renderWithProviders(<TankDetailPage />, { route: '/#edit' });
+    await screen.findByTestId('tank-detail-page');
+
+    expect(screen.queryByTestId('tank-sensors-section')).toBeNull();
+    expect(screen.queryByTestId('tank-add-sensor-button')).toBeNull();
+    expect(screen.queryByText(i18n.t('pages.tanks.sensorHistory'))).toBeNull();
   });
 });
