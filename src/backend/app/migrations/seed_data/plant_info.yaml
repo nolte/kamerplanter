@@ -1041,12 +1041,18 @@ growth_phases:
         calcium_ppm: 50
         magnesium_ppm: 25
 
+  # WP-8 (#565, ADR-006 E4): strawberry is a runner-propagated perennial bound to
+  # the cyclic ``perennial_runner`` sequence. Its once-only start is ``establishment``
+  # (is_recurring: false); the yearly cycle re-enters at ``sprouting`` — not
+  # ``germination`` — so the inline growth phases use the E4 establishment/sprouting
+  # naming and carry is_recurring flags consistent with the bound sequence.
   "Fragaria x ananassa":
-    - name: germination
-      display_name: Keimung/Etablierung
+    - name: establishment
+      display_name: Etablierung
       duration_days: 14
       sequence_order: 1
       is_terminal: false
+      is_recurring: false
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
@@ -1069,11 +1075,40 @@ growth_phases:
         calcium_ppm: 40
         magnesium_ppm: 20
 
+    - name: sprouting
+      display_name: Austrieb
+      duration_days: 21
+      sequence_order: 2
+      is_terminal: false
+      is_recurring: true
+      allows_harvest: false
+      stress_tolerance: low
+      requirement_profile:
+        vpd_sensitivity: high
+        photosynthesis_temp_opt_c: 20
+        light_ppfd_target: 250
+        photoperiod_hours: 12.0
+        temperature_day_c: 16.0
+        temperature_night_c: 8.0
+        humidity_day_percent: 70
+        humidity_night_percent: 75
+        vpd_target_kpa: 0.5
+        co2_ppm: 400
+        irrigation_frequency_days: 3.0
+        irrigation_volume_ml_per_plant: 80
+      nutrient_profile:
+        npk_ratio: [2, 1, 1]
+        target_ec_ms: 0.8
+        target_ph: 6.0
+        calcium_ppm: 60
+        magnesium_ppm: 30
+
     - name: vegetative
       display_name: Vegetativ
       duration_days: 90
-      sequence_order: 2
+      sequence_order: 3
       is_terminal: false
+      is_recurring: true
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
@@ -1099,8 +1134,9 @@ growth_phases:
     - name: flowering
       display_name: "Blüte"
       duration_days: 21
-      sequence_order: 3
+      sequence_order: 4
       is_terminal: false
+      is_recurring: true
       allows_harvest: false
       stress_tolerance: low
       requirement_profile:
@@ -1126,8 +1162,9 @@ growth_phases:
     - name: ripening
       display_name: Fruchtreife
       duration_days: 28
-      sequence_order: 4
+      sequence_order: 5
       is_terminal: false
+      is_recurring: true
       allows_harvest: true
       stress_tolerance: medium
       requirement_profile:
@@ -1153,8 +1190,9 @@ growth_phases:
     - name: recovery
       display_name: Erholung
       duration_days: 45
-      sequence_order: 5
+      sequence_order: 6
       is_terminal: false
+      is_recurring: true
       allows_harvest: false
       stress_tolerance: medium
       requirement_profile:
@@ -1180,8 +1218,9 @@ growth_phases:
     - name: dormancy
       display_name: Winterruhe
       duration_days: 90
-      sequence_order: 6
+      sequence_order: 7
       is_terminal: false
+      is_recurring: true
       allows_harvest: false
       stress_tolerance: high
       requirement_profile:
