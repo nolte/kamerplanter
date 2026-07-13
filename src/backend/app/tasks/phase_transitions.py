@@ -71,11 +71,66 @@ def _outdoor_day_length_for_plant(plant, site_repo) -> float | None:
     return float(times["day_length_hours"])
 
 
+def _should_restart_cycle(cyclic, lifecycle, cycle_number: int, phase_name: str) -> tuple[bool, str]:
+    """WP-2 — whether a PhaseSequence-driven plant restarts its cycle out of the
+    terminal phase. Delegates to :meth:`CyclicLifecycleEngine.should_restart_cycle`
+    when a LifecycleConfig is present (so a biennial ``max_seasons`` / monocarpic
+    lifecycle terminates instead of looping); otherwise the sequence's own
+    ``is_repeating`` gate — already applied when the restart target was resolved —
+    governs, so the restart is allowed."""
+    if lifecycle is not None:
+        return cyclic.should_restart_cycle(lifecycle, cycle_number, phase_name)
+    return True, "no lifecycle config — sequence is_repeating governs the restart"
+
+
+def _advance_sequence_plant(plant, info: dict, days_in_phase: int, lifecycle, phase_service, cyclic) -> bool:  # noqa: ANN001
+    """WP-2 — advance one PhaseSequence-driven plant along its sequence (Weg B).
+
+    Fires a time-based forward step once the current phase's duration has elapsed and,
+    from the terminal phase, the perennial cycle restart at ``cycle_restart_entry_order``
+    (gated by :func:`_should_restart_cycle`). Returns ``True`` when a transition fired.
+    """
+    advance = phase_service.resolve_sequence_auto_target(plant.species_key, plant.current_phase_key)
+    if advance is None or days_in_phase < advance.duration_days:
+        return False
+
+    phase_name = info.get("phase", "")
+    # E4: an indeterminate species stays in its stable productive phase — suppress
+    # any onward auto-advance (concurrent veg/flower/fruit, continuous harvest).
+    if lifecycle is not None and cyclic.stays_in_productive_phase(lifecycle, phase_name):
+        logger.info("auto_transition_suppressed_indeterminate", plant_key=plant.key, current_phase=phase_name)
+        return False
+
+    if advance.is_restart:
+        should, detail = _should_restart_cycle(cyclic, lifecycle, info.get("cycle_number", 1), phase_name)
+        if not should:
+            logger.info("cycle_restart_suppressed", plant_key=plant.key, current_phase=phase_name, reason=detail)
+            return False
+        reason = "auto_cycle_restart"
+    else:
+        reason = "auto_time_based"
+
+    phase_service.transition_phase(
+        plant.key or "", advance.target_phase_key, reason=reason, trigger=TransitionTrigger.AUTO
+    )
+    logger.info(
+        "auto_transition",
+        plant_key=plant.key,
+        to_phase=advance.target_phase_key,
+        trigger="sequence",
+        is_restart=advance.is_restart,
+    )
+    return True
+
+
 @celery_app.task(name="check_auto_transitions")
 def check_auto_transitions() -> dict:
     """Check active plants for automatic phase transitions.
 
-    Evaluates time-based (elapsed days), photoperiod-based (E1) and
+    PhaseSequence-driven plants (Weg B — strawberry & the migrated perennials, #565)
+    advance directly along their sequence, including the terminal→restart edge that
+    fires the perennial cycle restart (WP-2). Legacy GrowthPhase plants keep the
+    rule-based path: time-based (elapsed days), photoperiod-based (E1) and
     vernalization-based (E2) triggers. gdd-based wiring needs a per-plant GDD
     accumulation source and is a follow-up.
     """
@@ -100,6 +155,14 @@ def check_auto_transitions() -> dict:
             current_phase_info = phase_service.get_current_phase(plant.key or "")
             days_in_phase = current_phase_info["days_in_phase"]
             lifecycle = lifecycle_repo.get_lifecycle_by_species(plant.species_key)
+
+            # WP-2: PhaseSequence-driven plants (Weg B) advance along their sequence,
+            # including the terminal→restart cycle loop. This is the cyclic path after
+            # the #565 migration; the legacy GrowthPhase rule loop below is unchanged.
+            if current_phase_info.get("source") == "phase_sequence":
+                if _advance_sequence_plant(plant, current_phase_info, days_in_phase, lifecycle, phase_service, cyclic):
+                    transitioned += 1
+                continue
 
             rules = phase_service.get_transition_rules(plant.current_phase_key)
             for rule in rules:

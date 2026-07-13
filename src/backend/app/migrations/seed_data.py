@@ -108,27 +108,40 @@ def _load_harvest_indicators() -> list[dict]:
 def _link_indoor_species_to_default_sequence(
     species_key_map: dict[str, str],
 ) -> None:
-    """Create HAS_PHASE_SEQUENCE edges from indoor species to the indoor_default sequence.
+    """Create HAS_PHASE_SEQUENCE edges from indoor species to their phase sequence.
 
+    Attribute-driven (ADR-006 E2, #565): a perennial is bound to a *cyclic* sequence
+    (strawberry → ``perennial_runner``, other polycarpic perennials →
+    ``evergreen_foliage_perennial``) instead of the annual ``indoor_default`` blanket,
+    which terminates after one season. Non-perennial and monocarpic species keep
+    ``indoor_default`` (the latter await the clonal-pup template, a later-phase sweep).
     Idempotent — skips species that already have an edge.
     """
     from app.data_access.arango import collections as col
+    from app.migrations.perennial_binding import (
+        INDOOR_DEFAULT_SEQUENCE,
+        resolve_perennial_sequence_name,
+    )
 
     ps_repo = get_phase_sequence_repo()
+    lifecycle_repo = get_lifecycle_repo()
     db = get_db()
 
-    # Find the indoor_default sequence
+    # Resolve the sequence keys once (name -> _key). A perennial target that is not
+    # yet seeded is impossible here (phase_sequences are seeded before species), but
+    # guard anyway and fall back to indoor_default.
     all_seqs, _ = ps_repo.get_all_sequences(0, 200)
-    indoor_seq = next((s for s in all_seqs if s.name == "indoor_default"), None)
-    if not indoor_seq or not indoor_seq.key:
+    seq_key_by_name: dict[str, str] = {s.name: (s.key or "") for s in all_seqs}
+    indoor_key = seq_key_by_name.get(INDOOR_DEFAULT_SEQUENCE, "")
+    if not indoor_key:
         logger.warning("indoor_default_sequence_not_found")
         return
 
-    seq_id = f"{col.PHASE_SEQUENCES}/{indoor_seq.key}"
     edge_col = db.collection(col.HAS_PHASE_SEQUENCE)
     linked = 0
+    perennial_linked = 0
 
-    for _sci_name, sp_key in species_key_map.items():
+    for sci_name, sp_key in species_key_map.items():
         species_id = f"{col.SPECIES}/{sp_key}"
 
         # Check if any HAS_PHASE_SEQUENCE edge already exists for this species
@@ -144,11 +157,22 @@ def _link_indoor_species_to_default_sequence(
         if existing:
             continue
 
-        edge_col.insert({"_from": species_id, "_to": seq_id})
+        # Route perennials onto a cyclic sequence; everything else onto indoor_default.
+        target_key = indoor_key
+        lifecycle = lifecycle_repo.get_lifecycle_by_species(sp_key)
+        if lifecycle is not None:
+            cycle_type = lifecycle.cycle_type.value if hasattr(lifecycle.cycle_type, "value") else lifecycle.cycle_type
+            flowering = lifecycle.flowering_strategy.value if lifecycle.flowering_strategy is not None else None
+            target_name = resolve_perennial_sequence_name(sci_name, cycle_type, flowering)
+            if target_name and seq_key_by_name.get(target_name):
+                target_key = seq_key_by_name[target_name]
+                perennial_linked += 1
+
+        edge_col.insert({"_from": species_id, "_to": f"{col.PHASE_SEQUENCES}/{target_key}"})
         linked += 1
 
     if linked:
-        logger.info("indoor_species_linked_to_default_sequence", count=linked)
+        logger.info("indoor_species_linked_to_phase_sequence", count=linked, perennial=perennial_linked)
 
 
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915

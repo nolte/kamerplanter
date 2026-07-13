@@ -79,7 +79,7 @@ export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
   const { isNavVisible, level } = useExpertiseLevel();
-  const { findModuleByPath, overrides } = useModuleVisibility();
+  const { findModuleByPath, overrides, isSmartHomeEnabled } = useModuleVisibility();
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -91,6 +91,9 @@ export default function Sidebar({ open }: SidebarProps) {
   const isItemVisible = (path: string): boolean => {
     // REQ-042: personal module overrides take precedence over the level filter.
     const owner = findModuleByPath(path);
+    // Issue #587: the smart-home gate wins over override + level so sensor/actuator
+    // nav entries (e.g. Umgebungssteuerung) stay hidden until the user opts in.
+    if (owner?.requiresSmartHome && !isSmartHomeEnabled) return false;
     if (owner && !owner.core) {
       const ov = overrides[owner.key];
       if (ov === 'disabled') return false;

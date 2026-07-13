@@ -67,7 +67,12 @@ type ExpertiseLevel = 'beginner' | 'intermediate' | 'expert';
  * gate fields behind {@link useExpertiseLevel} (ExpertiseFieldWrapper) show the
  * intermediate/expert fields only when a preference is actually loaded.
  */
-export function createStoreWithExpertise(level: ExpertiseLevel): TestStore {
+export function createStoreWithExpertise(
+  level: ExpertiseLevel,
+  // Issue #587: sensor/monitoring surfaces (e.g. the monitoring widget category)
+  // only appear when smart home is on. Defaults to false (pre-#587 behaviour).
+  smartHomeEnabled = false,
+): TestStore {
   return createTestStore({
     userPreferences: {
       preferences: {
@@ -78,7 +83,7 @@ export function createStoreWithExpertise(level: ExpertiseLevel): TestStore {
         locale: 'de',
         theme: 'light',
         watering_can_liters: 5,
-        smart_home_enabled: false,
+        smart_home_enabled: smartHomeEnabled,
         module_visibility: {},
       },
       loading: false,
@@ -96,6 +101,9 @@ type ModuleVisibilityState = 'enabled' | 'disabled';
 export function createStoreWithModuleOverrides(
   level: ExpertiseLevel,
   overrides: Record<string, ModuleVisibilityState>,
+  // Issue #587: smart-home-gated modules (e.g. automation) only appear when this
+  // is true. Defaults to false to preserve the pre-#587 behaviour of callers.
+  smartHomeEnabled = false,
 ): TestStore {
   return createTestStore({
     userPreferences: {
@@ -107,8 +115,26 @@ export function createStoreWithModuleOverrides(
         locale: 'de',
         theme: 'light',
         watering_can_liters: 5,
-        smart_home_enabled: false,
+        smart_home_enabled: smartHomeEnabled,
         module_visibility: overrides,
+      },
+      loading: false,
+      error: null,
+    },
+  });
+}
+
+/**
+ * Store seeded with the smart-home toggle enabled (issue #587). Sensor/actuator
+ * surfaces are hidden until `smart_home_enabled` is true, so tests that exercise
+ * that UI need this store. Experience level is left unknown (matches the null
+ * default), so expertise-gated behaviour is unchanged.
+ */
+export function createStoreWithSmartHome(enabled = true): TestStore {
+  return createTestStore({
+    userPreferences: {
+      preferences: {
+        smart_home_enabled: enabled,
       },
       loading: false,
       error: null,

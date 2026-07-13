@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 from app.common.enums import CycleType, TerminationCause, TerminationType
 from app.common.exceptions import PhaseTransitionError
+from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -10,7 +11,13 @@ from app.domain.models.plant_instance import PlantInstance
 
 
 class PhaseTransitionEngine:
-    """Manages plant phase transitions with validation."""
+    """Manages plant phase transitions with validation.
+
+    Phase keys are resolved through :class:`PhaseKeyResolver` across both the
+    PhaseSequenceEntry and legacy GrowthPhase key-spaces (#579): before this the
+    engine looked keys up only in ``growth_phases``, so every transition of a
+    PhaseSequence-driven species failed with ``Target phase '…' not found``.
+    """
 
     def __init__(
         self,
@@ -21,6 +28,7 @@ class PhaseTransitionEngine:
         self._phase_repo = phase_repo
         self._plant_repo = plant_repo
         self._phase_seq_repo = phase_seq_repo
+        self._resolver = PhaseKeyResolver(phase_repo, phase_seq_repo)
 
     def _is_perennial_cycle_restart(
         self,
@@ -33,14 +41,29 @@ class PhaseTransitionEngine:
         the lifecycle is perennial, and the target phase matches the
         configured cycle_restart_phase_order.
 
-        Tries PhaseSequence first, falls back to LifecycleConfig.
+        Resolves the current phase across both key-spaces (#579): a PhaseSequence
+        entry carries its owning sequence directly (``sequence_key``); a legacy
+        GrowthPhase reaches its sequence via ``lifecycle_key -> species_key ->
+        PhaseSequence`` and finally falls back to the LifecycleConfig itself.
         """
-        current_phase = self._phase_repo.get_phase_by_key(current_phase_key)
+        current_phase = self._resolver.resolve(current_phase_key)
         if current_phase is None or not current_phase.is_terminal:
             return False
 
-        # Try PhaseSequence first (via lifecycle_key -> species_key -> PhaseSequence)
-        if self._phase_seq_repo:
+        # PhaseSequence-driven phase: the entry owns its sequence directly, so the
+        # restart decision reads the sequence's cycle metadata without a detour
+        # through LifecycleConfig (#579).
+        if current_phase.source == "phase_sequence" and self._phase_seq_repo and current_phase.sequence_key:
+            seq = self._phase_seq_repo.get_sequence_by_key(current_phase.sequence_key)
+            if seq:
+                if seq.cycle_type != CycleType.PERENNIAL:
+                    return False
+                if seq.cycle_restart_entry_order is not None:
+                    return target_sequence_order == seq.cycle_restart_entry_order
+                return False
+
+        # Legacy GrowthPhase: try PhaseSequence via lifecycle_key -> species_key.
+        if self._phase_seq_repo and current_phase.lifecycle_key:
             lifecycle = self._phase_repo.get_lifecycle_by_key(current_phase.lifecycle_key)
             if lifecycle and lifecycle.species_key:
                 seq = self._phase_seq_repo.get_sequence_by_species(lifecycle.species_key)
@@ -51,8 +74,8 @@ class PhaseTransitionEngine:
                         return target_sequence_order == seq.cycle_restart_entry_order
                     return False
 
-        # Fallback to LifecycleConfig
-        lifecycle = self._phase_repo.get_lifecycle_by_key(current_phase.lifecycle_key)
+        # Fallback to LifecycleConfig.
+        lifecycle = self._phase_repo.get_lifecycle_by_key(current_phase.lifecycle_key or "")
         if lifecycle is None:
             return False
 
@@ -90,14 +113,14 @@ class PhaseTransitionEngine:
         if plant is None:
             raise PhaseTransitionError(f"Plant '{plant_key}' not found")
 
-        target_phase = self._phase_repo.get_phase_by_key(target_phase_key)
+        target_phase = self._resolver.resolve(target_phase_key)
         if target_phase is None:
             raise PhaseTransitionError(f"Target phase '{target_phase_key}' not found")
 
         # If current_phase_key is not set (legacy plants), allow any transition
         current_phase = None
         if plant.current_phase_key:
-            current_phase = self._phase_repo.get_phase_by_key(plant.current_phase_key)
+            current_phase = self._resolver.resolve(plant.current_phase_key)
 
         if current_phase is not None:
             if target_phase.sequence_order < current_phase.sequence_order:
@@ -144,7 +167,7 @@ class PhaseTransitionEngine:
         if plant is None:
             raise PhaseTransitionError(f"Plant '{plant_key}' not found")
 
-        target_phase = self._phase_repo.get_phase_by_key(target_phase_key)
+        target_phase = self._resolver.resolve(target_phase_key)
         if target_phase is None:
             raise PhaseTransitionError(f"Target phase '{target_phase_key}' not found")
 

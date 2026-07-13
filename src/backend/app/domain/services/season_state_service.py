@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from app.domain.services.care_reminder_service import CareReminderService
     from app.domain.services.dormancy_care_activator import DormancyCareActivator
     from app.domain.services.overwintering_materializer import OverwinteringMaterializer
+    from app.domain.services.season_phase_coupler import SeasonPhaseCoupler
 
 logger = structlog.get_logger(__name__)
 
@@ -49,6 +50,7 @@ class SeasonStateService:
         overwintering_repo: IOverwinteringProfileRepository,
         plant_repo: IPlantInstanceRepository,
         site_repo: ISiteRepository,
+        phase_coupler: SeasonPhaseCoupler | None = None,
     ) -> None:
         self._repo = repo
         self._resolver = resolver
@@ -59,6 +61,10 @@ class SeasonStateService:
         self._overwintering_repo = overwintering_repo
         self._plant_repo = plant_repo
         self._site_repo = site_repo
+        # ADR-006 E3 — couples the season transition to the REQ-003 growth phase.
+        # Optional so existing callers/tests that build the service without the
+        # coupler keep the care-only behaviour (the coupling is then a no-op).
+        self._phase_coupler = phase_coupler
 
     # ── Evaluation ──────────────────────────────────────────────────────
 
@@ -131,9 +137,17 @@ class SeasonStateService:
         elif to_phase == SeasonPhase.WINTER_DORMANCY:
             for plant in self._active_plants(site):
                 self._safe(self._enter_dormancy, plant.key, plant_key=plant.key)
+                # ADR-006 E3 — also drive the biological growth phase to dormancy for
+                # effectively-perennial plants (not just the care mode above).
+                if self._phase_coupler is not None:
+                    self._safe(self._phase_coupler.enter_dormancy, plant, plant_key=plant.key)
         elif to_phase == SeasonPhase.PRE_SPRING:
             for plant in self._active_plants(site):
                 self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)
+                # ADR-006 E3 — restart the perennial growth-phase cycle in lockstep
+                # with the season's spring reactivation (not two decoupled cycles).
+                if self._phase_coupler is not None:
+                    self._safe(self._phase_coupler.restart_cycle, plant, plant_key=plant.key)
                 self._safe(
                     self._care_service.ensure_seasonal_winter_tasks, plant.key or "", to_phase, plant_key=plant.key
                 )

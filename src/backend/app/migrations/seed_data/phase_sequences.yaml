@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=./schemas/phase_sequences.schema.yaml
 # Phase definitions and reusable phase sequences.
-# 12 unique phase types, 11 sequence patterns (10 outdoor + 1 indoor default).
+# 13 unique phase types, 13 sequence patterns (10 outdoor + 1 indoor default
+# + 2 cyclic perennial templates: perennial_runner, evergreen_foliage_perennial).
 
 phase_definitions:
   - name: germination
@@ -121,6 +122,48 @@ phase_definitions:
     watering_interval_days: 1
     illustration: brand/illustrations/phases/timeline-kami-phase-flushing.svg
     tags: [pre-harvest, indoor]
+    is_system: true
+
+  # -- E4: split of germination into once-only establishment + cyclic sprouting --
+  # ``establishment`` is the ONE-TIME rooting/anchoring of a vegetatively propagated
+  # perennial (strawberry runner, division, cutting); it is never revisited on a
+  # seasonal restart (``is_recurring: false``). The yearly re-entry is ``sprouting``
+  # (ADR-006 E4). This makes "germination" botanically correct for runner-propagated
+  # stauden — the annual cycle restarts at sprouting/vegetative, not germination.
+  - name: establishment
+    display_name: Establishment
+    display_name_de: Etablierung
+    description: One-time rooting/establishment of a vegetatively propagated perennial (runner, division, cutting)
+    description_de: Einmalige Bewurzelung/Etablierung einer vegetativ vermehrten Staude (Ausläufer, Teilung, Steckling)
+    typical_duration_days: 45
+    stress_tolerance: low
+    watering_interval_days: 4
+    illustration: brand/illustrations/phases/timeline-kami-phase-seedling.svg
+    tags: [establishment, perennial, vegetative-propagation]
+    is_system: true
+
+  - name: active_growth
+    display_name: Active Growth
+    display_name_de: Aktivwachstum
+    description: Main active growth window of an evergreen/foliage perennial between flushes
+    description_de: Hauptwachstumsfenster einer immergrünen Blattschmuck-Staude zwischen den Schüben
+    typical_duration_days: 180
+    stress_tolerance: medium
+    watering_interval_days: 5
+    illustration: brand/illustrations/phases/timeline-kami-phase-vegetative.svg
+    tags: [growth, perennial, evergreen]
+    is_system: true
+
+  - name: maintenance
+    display_name: Maintenance Growth
+    display_name_de: Erhaltungswachstum
+    description: Steady-state maintenance growth of an evergreen foliage plant between flushes
+    description_de: Stationäres Erhaltungswachstum einer immergrünen Blattschmuckpflanze zwischen den Schüben
+    typical_duration_days: 180
+    stress_tolerance: medium
+    watering_interval_days: 5
+    illustration: brand/illustrations/phases/timeline-kami-phase-vegetative.svg
+    tags: [indoor, foliage, maintenance, perennial]
     is_system: true
 
 phase_sequences:
@@ -571,3 +614,110 @@ phase_sequences:
         override_duration_days: 14
         is_terminal: false
         allows_harvest: true
+
+  # -- 12. Runner-Propagated Perennial (E4) --
+  # Generic cyclic template for vegetatively propagated stauden (strawberry is the
+  # flagship). establishment (once) → sprouting → vegetative → flowering → fruiting →
+  # ripening → dormancy(terminal). The cycle RESTARTS at ``sprouting`` (entry_order 1),
+  # NOT at the once-only establishment (entry_order 0) — ADR-006 E4: the annual
+  # re-entry of a runner-propagated staude is dormancy → sprouting → vegetative, never
+  # "germination". ``dormancy`` is terminal, so the perennial cycle-restart path fires
+  # from it back to sprouting.
+  - name: perennial_runner
+    display_name: Runner-Propagated Perennial
+    display_name_de: Ausläufer-vermehrte Staude
+    description: Vegetatively (runner/division) propagated perennial with a once-only establishment and a yearly sprouting restart (strawberry)
+    description_de: Vegetativ (Ausläufer/Teilung) vermehrte Staude mit einmaliger Etablierung und jährlichem Austrieb-Neustart (Erdbeere)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 1
+    dormancy_required: true
+    photoperiod_type: day_neutral
+    tags: [perennial, runner, fruit, cyclic]
+    is_system: true
+    entries:
+      - phase_name: establishment
+        sequence_order: 0
+        override_duration_days: 45
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: false
+      - phase_name: sprouting
+        sequence_order: 1
+        override_duration_days: 21
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 2
+        override_duration_days: 45
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 3
+        override_duration_days: 25
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: fruiting
+        sequence_order: 4
+        override_duration_days: 35
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: ripening
+        sequence_order: 5
+        override_duration_days: 20
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: dormancy
+        sequence_order: 6
+        override_duration_days: 120
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- 13. Evergreen Foliage Perennial (audit #576 — largest indoor perennial cohort) --
+  # Tropical foliage houseplants (Araceae, Ficus, Marantaceae, …) with continuous
+  # growth, no true dormancy and only an occasional bloom. Restarts at ``active_growth``
+  # (entry_order 1) after the once-only establishment; ``maintenance`` is terminal so the
+  # cycle loops instead of terminating on the annual indoor_default like before.
+  - name: evergreen_foliage_perennial
+    display_name: Evergreen Foliage Perennial
+    display_name_de: Immergrüne Blattschmuck-Staude
+    description: Tropical foliage houseplants with continuous growth, no dormancy, occasional bloom
+    description_de: Tropische Blattschmuckpflanzen mit Dauerwachstum, ohne Ruhe, seltener Blüte
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 1
+    dormancy_required: false
+    photoperiod_type: day_neutral
+    tags: [indoor, foliage, evergreen, perennial, cyclic]
+    is_system: true
+    entries:
+      - phase_name: establishment
+        sequence_order: 0
+        override_duration_days: 60
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: false
+      - phase_name: active_growth
+        sequence_order: 1
+        override_duration_days: 180
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 2
+        override_duration_days: 30
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: maintenance
+        sequence_order: 3
+        override_duration_days: 180
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true

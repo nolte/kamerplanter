@@ -2,7 +2,8 @@
 
 > **Typ:** nav-icon (Serie von 27)
 > **Erstellt:** 2026-03-09
-> **Varianten:** Light Mode (primaer, SVG-Konvertierung vorgesehen)
+> **Varianten:** Light (primaer, SVG-Konvertierung vorgesehen) + Dark (Outline-Swap #c8e6c9, siehe Technische Hinweise)
+> **Audit-Referenz:** `spec/analysis/kami-illustration-audit-2026-07.md` — **G-04** (High). Dark-Mode-Hinweis ergaenzt (Sidebar rendert auf beiden Themes); die 27 Prompts selbst bleiben unveraendert.
 > **Zielgroesse:** 128×128px (primaer), muss bei 32×32px noch lesbar sein
 > **Format:** PNG (transparent), SVG-tauglich
 > **Einsatzort:** Sidebar-Navigation, ersetzt MUI Material Icons
@@ -1208,6 +1209,12 @@ Icons die sich thematisch aehneln und bewusst unterschiedlich gestaltet sind:
 6. **Keine Arme bei 32px:** Bei sehr kleiner Darstellung (32×32px im SVG) sollten Kami-Arme via SVG-Editor entfernt werden — sie werden zu duennen Artefakten.
 7. **Differenzierungs-Test:** Alle 27 Icons in einer Reihe bei 32×32px anzeigen und pruefen ob jedes auf den ersten Blick eindeutig erkennbar ist. Bei Verwechslungsgefahr Requisite vereinfachen und dominanter machen.
 8. **Naming-Konvention:** `nav-kami-{slug}.{format}` — z.B. `nav-kami-dashboard.png`, `nav-kami-pflege.png`
+9. **Dark-Mode (Authoring-Luecke G-04 geschlossen):** Die Sidebar rendert in Light **und** Dark.
+   Da alle Icons transparent sind, genuegt fuer Dark ein zweiter Render mit hellgruener Outline —
+   in jedem der 27 Prompts die Zeile `Outlines: dark green #1b5e20, ...` durch
+   `Outlines: light green #c8e6c9, ...` ersetzen (§3.2), alle uebrigen Farben unveraendert. Es
+   entsteht **kein** neuer Prompt. Alternativ kann die Outline im SVG via CSS-`currentColor`
+   themebar gemacht werden (Downstream-Entscheid).
 
 ## Nachbearbeitung Checkliste
 
@@ -1220,5 +1227,6 @@ Icons die sich thematisch aehneln und bewusst unterschiedlich gestaltet sind:
 - [ ] Kami-Proportionen zwischen Icons angleichen falls notig
 - [ ] SVG-Konvertierung via vtracer: Pfadanzahl pro Icon unter 40 halten
 - [ ] Sidebar.tsx Icons ersetzen: `<img>` oder MUI `<SvgIcon>` statt Material Icons
+- [ ] Je Icon Light- **und** Dark-Outline-Variante erzeugen (Dark: #c8e6c9), oder Outline via `currentColor` themebar
 - [ ] Dateien ablegen unter: `src/frontend/src/assets/icons/nav/`
 - [ ] Namenskonvention: `nav-kami-{slug}.svg` und `.png`
