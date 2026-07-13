@@ -147,13 +147,15 @@ class PlantInstanceListPage(BasePage):
         species_input = self.wait_for_element_clickable(self.FORM_SPECIES_INPUT)
         species_input.clear()
         species_input.send_keys(search_text)
-        time.sleep(0.5)  # allow autocomplete to filter
+        # bounded: MUI Autocomplete filters with a ~300ms client-side debounce
+        # that exposes no DOM transition, so allow it to settle before picking
+        time.sleep(0.5)
 
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "li[role='option']")
         )
         option.click()
-        time.sleep(0.3)
+        self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
 
     def fill_plant_name(self, name: str) -> None:
         """Fill the plant_name field in the create dialog."""
@@ -183,8 +185,6 @@ class PlantInstanceListPage(BasePage):
         phase, useful to start a plant in a late phase such as 'flowering'
         for the Ist-Stand journey).
         """
-        import time
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-current_phase_key'] .MuiSelect-select")
         )
@@ -192,28 +192,25 @@ class PlantInstanceListPage(BasePage):
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         if options:
             options[index].click()
-        time.sleep(0.2)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.2)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def get_current_phase_option_count(self) -> int:
         """Return how many options the current-phase select currently offers."""
-        import time
+        from selenium.webdriver.support.ui import WebDriverWait
 
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-current_phase_key'] .MuiSelect-select")
         )
         self.scroll_and_click(field)
-        time.sleep(0.2)
-        count = len(self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"))
         try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+            WebDriverWait(self.driver, 5).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+            )
         except Exception:
             pass
-        time.sleep(0.2)
+        count = len(self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"))
+        self.close_mui_dropdown()
         return count
 
     def submit_create_form(self) -> None:

@@ -49,8 +49,20 @@ export default function FormSelectField<T extends FieldValues>({
           sx={{ mb: 1.5 }}
           data-testid={`form-field-${name}`}
         >
+          {/*
+            Each option carries a dedicated testid `form-option-{name}-{value}` and
+            a stable `data-value` (from `value`), so tests select by value rather
+            than by i18n label text. The clickable trigger is addressed in tests via
+            the ARIA `[data-testid='form-field-{name}'] [role='combobox']` (stable
+            across MUI versions) instead of the internal `.MuiSelect-select` class.
+          */}
           {options.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value} disabled={opt.disabled}>
+            <MenuItem
+              key={opt.value}
+              value={opt.value}
+              disabled={opt.disabled}
+              data-testid={`form-option-${name}-${opt.value}`}
+            >
               {opt.label}
             </MenuItem>
           ))}

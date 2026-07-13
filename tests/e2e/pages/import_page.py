@@ -121,9 +121,6 @@ class ImportPage(BasePage):
 
     def select_entity_type(self, value_text: str) -> None:
         """Open the entity type dropdown and select an option by visible text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(self.ENTITY_TYPE_SELECT)
         self.scroll_and_click(select_el)
         option = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
@@ -135,9 +132,7 @@ class ImportPage(BasePage):
         # MUI auto-closes the popover on option click. Use the guarded
         # ``close_mui_dropdown`` helper instead of an unconditional Escape so
         # the keystroke does not fall through and dismiss a surrounding modal.
-        time.sleep(0.3)
         self.close_mui_dropdown()
-        time.sleep(0.3)
 
     def get_entity_type_options(self) -> list[str]:
         """Open the entity type dropdown and return all option texts."""
@@ -167,8 +162,6 @@ class ImportPage(BasePage):
 
     def select_duplicate_strategy(self, value_text: str) -> None:
         """Open the duplicate strategy dropdown and select an option."""
-        import time
-
         select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
         self.scroll_and_click(select_el)
         option = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
@@ -180,9 +173,7 @@ class ImportPage(BasePage):
         # MUI auto-closes the popover on option click. Guarded close_mui_dropdown
         # avoids a stray Escape that would race the option's onChange handler
         # and revert the selection to the previous default.
-        time.sleep(0.3)
         self.close_mui_dropdown()
-        time.sleep(0.3)
 
     def get_duplicate_strategy_options(self) -> list[str]:
         """Open the duplicate strategy dropdown and return all option texts."""
@@ -243,15 +234,16 @@ class ImportPage(BasePage):
 
     def click_upload_and_wait_preview(self, timeout: int = 30) -> None:
         """Click upload and wait until the preview step container appears."""
-        import time
-
         btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
         self.scroll_and_click(btn)
         WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located(self.STEP_PREVIEW)
         )
-        # Wait for preview content to render (table rows)
-        time.sleep(0.5)
+        # Preview renders its table after the step container mounts
+        try:
+            self.wait_for_element(self.PREVIEW_TABLE, timeout=5)
+        except Exception:
+            pass
 
     def click_upload_and_wait_error(self, timeout: int = 30) -> None:
         """Click upload and wait until the error alert or snackbar appears."""
@@ -418,14 +410,16 @@ class ImportPage(BasePage):
 
     def click_confirm_and_wait_result(self, timeout: int = 30) -> None:
         """Click confirm and wait for the result step to appear."""
-        import time
-
         btn = self.wait_for_element_clickable(self.CONFIRM_BUTTON)
         self.scroll_and_click(btn)
         WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located(self.STEP_RESULT)
         )
-        time.sleep(0.5)  # Wait for result content to render
+        # Result renders its summary chips after the step container mounts
+        try:
+            self.wait_for_element(self.RESULT_CHIPS, timeout=5)
+        except Exception:
+            pass
 
     # ── Result step ─────────────────────────────────────────────────────
 

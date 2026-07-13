@@ -6,6 +6,7 @@ plus the PhaseTransitionDialog interaction, into one cohesive page object.
 
 from __future__ import annotations
 
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -53,13 +54,17 @@ class PlantInstanceListExt(BasePage):
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def get_first_column_texts(self) -> list[str]:
-        """Return the Instance-ID column for all visible rows."""
+        """Return the Instance-ID column for all visible rows.
+
+        A leading cover-photo column (empty text) was inserted at index 0, so the
+        Instance-ID is now the second column (index 1).
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         result: list[str] = []
         for row in rows:
             cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                result.append(cells[0].text)
+            if len(cells) >= 2:
+                result.append(cells[1].text)
         return result
 
     def get_phase_column_texts(self) -> list[str]:
@@ -139,8 +144,12 @@ class PlantInstanceDetailExt(BasePage):
     PLANT_INFO_CARD = (By.CSS_SELECTOR, "[data-testid='plant-info-card']")
     PHASE_INFO_CARD = (By.CSS_SELECTOR, "[data-testid='phase-info-card']")
     CURRENT_PHASE_CHIP = (By.CSS_SELECTOR, "[data-testid='current-phase']")
-    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phase-history']")
-    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phase-history'] tbody tr")
+    # The "Phasenverlauf" table no longer has a dedicated data-testid='phase-history'
+    # container — PhaseHistoryTable now delegates to the shared DataTable, which
+    # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows.
+    # Scope to the phases-tab-content panel so these don't match other tables.
+    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table']")
+    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table-row']")
 
     # ── Phase Transition Dialog (PhaseTransitionDialog.tsx) ────────────
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
@@ -150,9 +159,11 @@ class PlantInstanceDetailExt(BasePage):
     TRANSITION_CONFIRM = (By.CSS_SELECTOR, "[data-testid='transition-confirm']")
 
     # ── Remove confirm dialog ──────────────────────────────────────────
-    CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
-    CONFIRM_OK = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
-    CONFIRM_CANCEL_BTN = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
+    # The "Pflanze entfernen" button now opens the richer TerminationDialog
+    # (not the generic ConfirmDialog), so target its termination-* testids.
+    CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='termination-dialog']")
+    CONFIRM_OK = (By.CSS_SELECTOR, "[data-testid='termination-confirm']")
+    CONFIRM_CANCEL_BTN = (By.CSS_SELECTOR, "[data-testid='termination-cancel']")
 
     # ── Correction ("force") mode ──────────────────────────────────────
     FORCE_SWITCH = (By.CSS_SELECTOR, "[data-testid='force-transition-switch']")
@@ -245,8 +256,14 @@ class PlantInstanceDetailExt(BasePage):
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def is_transition_dialog_open(self) -> bool:
-        elements = self.driver.find_elements(*self.TRANSITION_DIALOG)
-        return bool(elements) and elements[0].is_displayed()
+        # Stale-safe: an element unmounting mid fade-out is by definition gone.
+        for el in self.driver.find_elements(*self.TRANSITION_DIALOG):
+            try:
+                if el.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
 
     def get_target_phase_options(self) -> list[str]:
         """Return the text of all available phase options in the select.
@@ -264,46 +281,32 @@ class PlantInstanceDetailExt(BasePage):
 
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase by its data-value attribute."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
         self.scroll_and_click(select_el)
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def select_target_phase_by_text(self, text: str) -> None:
         """Select a target phase by its visible label text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
         self.scroll_and_click(select_el)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def set_transition_reason(self, reason: str) -> None:
+        # The reason field is pre-populated with 'manual' by default; el.clear()
+        # does not reliably clear a React controlled input, so use clear_and_fill
+        # (JS clear + native events, Ctrl+A fallback) to replace rather than append.
         el = self.wait_for_element_clickable(self.TRANSITION_REASON)
-        el.clear()
-        el.send_keys(reason)
+        self.clear_and_fill(el, reason)
 
     def get_transition_reason_value(self) -> str:
         el = self.wait_for_element(self.TRANSITION_REASON)
@@ -314,8 +317,9 @@ class PlantInstanceDetailExt(BasePage):
         self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
 
     def cancel_transition(self) -> None:
-        """Click the 'Abbrechen' button in the transition dialog."""
+        """Click the 'Abbrechen' button and wait for the transition dialog to close."""
         self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_for_element_hidden(self.TRANSITION_DIALOG)
 
     def is_confirm_button_enabled(self) -> bool:
         btn = self.wait_for_element(self.TRANSITION_CONFIRM)
@@ -333,10 +337,18 @@ class PlantInstanceDetailExt(BasePage):
 
     def cancel_remove(self) -> None:
         self.wait_for_element_clickable(self.CONFIRM_CANCEL_BTN).click()
+        self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
-        elements = self.driver.find_elements(*self.CONFIRM_DIALOG)
-        return bool(elements) and elements[0].is_displayed()
+        # Stale-safe: the termination dialog animates out on cancel, so an element
+        # can go stale between find and is_displayed() — treat that as "gone".
+        for el in self.driver.find_elements(*self.CONFIRM_DIALOG):
+            try:
+                if el.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
 
     # ── Core-lifecycle-journey helpers (self-provisioning) ─────────────
 
@@ -348,16 +360,19 @@ class PlantInstanceDetailExt(BasePage):
         or backward (earlier index) without hard-coding species-specific
         phase names.
         """
-        import time
-        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support.ui import WebDriverWait
 
         select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
         self.scroll_and_click(select_el)
-        time.sleep(0.2)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+            )
+        except Exception:
+            pass
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         keys = [o.get_attribute("data-value") or "" for o in options]
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.2)
+        self.close_mui_dropdown()
         return [k for k in keys if k]
 
     def transition_to_phase_key(self, phase_key: str, reason: str = "manual") -> None:

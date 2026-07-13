@@ -183,8 +183,10 @@ class TestSpeciesDetailPage:
         assert any("BEARBEITEN" in t for t in tabs_upper), f"Expected 'Bearbeiten' tab, got {tabs}"
         assert any("SORTEN" in t for t in tabs_upper), f"Expected 'Sorten' tab, got {tabs}"
         assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
-        assert any("MISCHKULTUR" in t for t in tabs_upper), f"Expected 'Mischkultur' tab, got {tabs}"
-        assert any("FRUCHTFOLGE" in t for t in tabs_upper), f"Expected 'Fruchtfolge' tab, got {tabs}"
+        # The Mischkultur (companion-planting) and Fruchtfolge (crop-rotation)
+        # tabs are expert-only (isFieldVisible('expert')); a light-mode tenant
+        # defaults to BEGINNER, so they are intentionally hidden here. Their
+        # expert-gated visibility is covered by test_req021_experience_level.
         # Global/system species are deletion-protected (UI-NFR-018): the delete
         # button is intentionally absent and a read-only banner is shown instead.
         if species_detail.is_read_only():

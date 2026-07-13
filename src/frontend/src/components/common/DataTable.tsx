@@ -474,7 +474,12 @@ export default function DataTable<T>({
                         ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
                         : undefined;
                       return (
-                        <TableCell key={col.id} align={col.align} sx={responsiveSx}>
+                        <TableCell
+                          key={col.id}
+                          align={col.align}
+                          sx={responsiveSx}
+                          data-testid={`cell-${col.id}`}
+                        >
                           {col.render(row)}
                         </TableCell>
                       );

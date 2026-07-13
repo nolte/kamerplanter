@@ -585,7 +585,15 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
     os.environ["E2E_BROWSER"] = browser_name
     os.environ["E2E_DEVICE"] = dev["name"]
 
-    driver.implicitly_wait(10)
+    # Keep the implicit wait small: elements that genuinely need waiting use
+    # explicit WebDriverWait (15 s), while every *absence* check
+    # (find_elements on a missing element, is_present, locator-fallback misses)
+    # otherwise blocks for the full implicit timeout. At 10 s those misses
+    # dominated the per-test cost; 3 s still covers real element appearances on
+    # a loaded page. (Mixing implicit + explicit waits is a known anti-pattern;
+    # a follow-up should move to 0 once all bare find_element calls are on
+    # explicit waits.)
+    driver.implicitly_wait(3)
 
     # Set German locale in localStorage so i18next picks it up (detection
     # order: localStorage → navigator).  We need to navigate to the origin

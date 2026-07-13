@@ -129,7 +129,7 @@ class OnboardingWizardPage(BasePage):
                     timeout=5,
                 )
             except (urllib.error.URLError, OSError):
-                time.sleep(0.3)
+                time.sleep(0.3)  # bounded backoff before retrying the reset POST
                 continue
 
             try:
@@ -147,7 +147,7 @@ class OnboardingWizardPage(BasePage):
             except (urllib.error.URLError, OSError, ValueError):
                 pass
 
-            time.sleep(0.3)
+            time.sleep(0.3)  # bounded backoff before re-reading wizard state
 
     def _ensure_step_one(self) -> None:
         """Reset the wizard to Step 1, always clearing backend state.
@@ -156,8 +156,6 @@ class OnboardingWizardPage(BasePage):
         backend state (``plant_configs``, ``selected_site_key``, etc.) is
         fully cleared before each test starts.
         """
-        import time
-
         # Case 1: completed / skipped card — click Restart directly
         restart_els = self.driver.find_elements(*self.RESTART_BUTTON)
         if restart_els and restart_els[0].is_displayed():
@@ -179,7 +177,11 @@ class OnboardingWizardPage(BasePage):
             self.navigate(self.PATH)
             self.wait_for_element(self.WIZARD)
             self.wait_for_loading_complete()
-            time.sleep(0.5)
+            # The completed card renders the Restart button after the wizard mounts
+            try:
+                self.wait_for_element(self.RESTART_BUTTON, timeout=5)
+            except Exception:
+                pass
             restart_els2 = self.driver.find_elements(*self.RESTART_BUTTON)
             if restart_els2 and restart_els2[0].is_displayed():
                 self.scroll_and_click(restart_els2[0])
@@ -264,14 +266,11 @@ class OnboardingWizardPage(BasePage):
 
         Waits briefly for React rendering to complete.
         """
-        import time
-        # Give React time to render the completed card
-        for _ in range(10):
-            elements = self.driver.find_elements(*self.RESTART_BUTTON)
-            if len(elements) > 0 and elements[0].is_displayed():
-                return True
-            time.sleep(0.3)
-        return False
+        try:
+            self.wait_for_element_visible(self.RESTART_BUTTON, timeout=3)
+            return True
+        except Exception:
+            return False
 
     def is_go_dashboard_button_visible(self) -> bool:
         """Return True if the Go-to-Dashboard button is visible."""
@@ -363,6 +362,8 @@ class OnboardingWizardPage(BasePage):
     def is_experience_selected(self, level: str) -> bool:
         """Return True if the given experience level card has a primary-coloured border."""
         import time
+        # bounded: the selection border is applied on the next React render and
+        # has no distinct DOM signal to wait on
         time.sleep(0.2)
         locator = (By.CSS_SELECTOR, f"[data-testid='experience-{level}']")
         elements = self.driver.find_elements(*locator)
@@ -567,7 +568,6 @@ class OnboardingWizardPage(BasePage):
         elements = self.driver.find_elements(*locator)
         if not elements:
             return False
-        border_color = elements[0].value_of_css_property("border-color")
         # Warning color in MUI is orange-ish; check for aria-pressed too
         aria = elements[0].get_attribute("aria-pressed")
         return aria == "true"
@@ -585,11 +585,7 @@ class OnboardingWizardPage(BasePage):
 
     def get_favorites_no_results_visible(self) -> bool:
         """Return True if the no-results empty state is visible on the favorites step."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR,
-            "[data-testid='onboarding-step-favorites'] .MuiTypography-body2[class*='text.secondary']"
-        )
-        # Fallback: look for the centered empty box
+        # Look for the centered empty box
         empty_boxes = self.driver.find_elements(
             By.CSS_SELECTOR,
             "[data-testid='onboarding-step-favorites'] > div[style*='text-align: center']"
@@ -654,7 +650,6 @@ class OnboardingWizardPage(BasePage):
     def select_site_type(self, label_text: str) -> None:
         """Open the site type dropdown and select by visible text."""
         import time
-        from selenium.webdriver.common.keys import Keys
         from selenium.common.exceptions import (
             StaleElementReferenceException,
             TimeoutException,
@@ -674,14 +669,9 @@ class OnboardingWizardPage(BasePage):
             except (StaleElementReferenceException, TimeoutException):
                 if attempt == 2:
                     raise
-                time.sleep(0.5)
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+                time.sleep(0.5)  # bounded backoff before retrying the select
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def is_water_section_visible(self) -> bool:
         """Return True if the water section (EC, pH, RO) is in the DOM."""
@@ -781,9 +771,6 @@ class OnboardingWizardPage(BasePage):
 
     def select_plant_phase(self, species_key: str, phase_label: str) -> None:
         """Select a phase for a species from the dropdown."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         trigger = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='plant-phase-select-{species_key}'] .MuiSelect-select")
         )
@@ -792,13 +779,8 @@ class OnboardingWizardPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{phase_label}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def get_total_plant_count_text(self) -> str:
         """Return the total plant count text shown below the plant configs."""
@@ -847,6 +829,8 @@ class OnboardingWizardPage(BasePage):
         selected = self.driver.find_elements(By.CSS_SELECTOR, "[data-selected='true']")
         for kit in selected:
             self.scroll_and_click(kit)
+            # bounded: deselection flips data-selected on the next React render
+            # with no distinct DOM signal to wait on
             time.sleep(0.3)
 
     def advance_to_step_favorites(self) -> None:
