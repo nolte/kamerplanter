@@ -7,9 +7,9 @@ import { renderWithProviders } from '../../helpers';
 import type { Pest, PestContribution, PestContributionList } from '@/api/types';
 
 vi.mock('@/api/endpoints/ipm', () => ({
-  listPests: vi.fn(),
+  listAllPests: vi.fn(),
 }));
-import { listPests } from '@/api/endpoints/ipm';
+import { listAllPests } from '@/api/endpoints/ipm';
 
 vi.mock('@/api/endpoints/adminPestRecognition', () => ({
   listPestContributions: vi.fn(),
@@ -97,7 +97,7 @@ describe('PestContributionsAdminCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     i18n.changeLanguage('de');
-    vi.mocked(listPests).mockResolvedValue([pest()]);
+    vi.mocked(listAllPests).mockResolvedValue([pest()]);
   });
 
   it('lists the contributed images for the selected pest', async () => {
@@ -147,7 +147,7 @@ describe('PestContributionsAdminCard', () => {
   });
 
   it('shows a fallback alert when the pest list fails to load', async () => {
-    vi.mocked(listPests).mockRejectedValue(new Error('boom'));
+    vi.mocked(listAllPests).mockRejectedValue(new Error('boom'));
     renderWithProviders(<PestContributionsAdminCard />);
 
     expect(await screen.findByTestId('pest-contributions-pests-unavailable')).toBeInTheDocument();
@@ -219,7 +219,7 @@ describe('PestContributionsAdminCard', () => {
   });
 
   it('renders contributions without caption and thumbnail using fallbacks', async () => {
-    vi.mocked(listPests).mockResolvedValue([
+    vi.mocked(listAllPests).mockResolvedValue([
       pest({ common_name_de: null, common_name: 'Spider mite fallback' }),
     ]);
     vi.mocked(listPestContributions).mockResolvedValue(

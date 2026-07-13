@@ -109,10 +109,10 @@ export default function WateringLogCreateDialog({
     let cancelled = false;
     async function loadOptions() {
       const [plants, fertilizers] = await Promise.all([
-        plantApi.listPlantInstances(0, 500).catch(() => []),
+        plantApi.listAllPlantInstances().catch(() => []),
         availableFertilizers
           ? Promise.resolve(availableFertilizers)
-          : fertApi.fetchFertilizers(0, 500).catch(() => []),
+          : fertApi.fetchAllFertilizers().catch(() => []),
       ]);
       if (cancelled) return;
       setPlantOptions(plants);

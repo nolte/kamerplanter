@@ -46,7 +46,7 @@ import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import * as wateringApi from '@/api/endpoints/watering-events';
 import * as runApi from '@/api/endpoints/plantingRuns';
-import { listPlantInstances } from '@/api/endpoints/plantInstances';
+import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
@@ -233,7 +233,7 @@ export default function LocationDetailPage() {
         setRunPlantCounts(counts);
         // Load all plant instances at this location and find standalone ones
         try {
-          const allInstances = await listPlantInstances(0, 500);
+          const allInstances = await listAllPlantInstances();
           const locationInstances = allInstances.filter((i) => i.location_key === key);
           setStandaloneInstances(locationInstances.filter((i) => !runInstanceKeys.has(i.key)));
         } catch {

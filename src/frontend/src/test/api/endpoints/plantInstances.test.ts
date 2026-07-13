@@ -88,4 +88,42 @@ describe('plantInstances endpoints', () => {
     await plants.getPlantRuns('pl1');
     expect(client.get).toHaveBeenCalledWith('/plant-instances/pl1/planting-runs');
   });
+
+  it('listAllPlantInstances pages past the limit=200 cap until a short page (#614)', async () => {
+    // Two full pages of 200 then a short page → proves the "load all" fix is not
+    // capped at the backend max (200) and never silently truncates a large tenant.
+    const fullA = Array.from({ length: 200 }, (_v, i) => ({ key: `a${i}` }));
+    const fullB = Array.from({ length: 200 }, (_v, i) => ({ key: `b${i}` }));
+    const tail = [{ key: 'tail-1' }, { key: 'tail-2' }];
+    client.get
+      .mockResolvedValueOnce({ data: fullA })
+      .mockResolvedValueOnce({ data: fullB })
+      .mockResolvedValueOnce({ data: tail });
+
+    const all = await plants.listAllPlantInstances();
+
+    expect(all).toHaveLength(402);
+    expect(client.get).toHaveBeenCalledTimes(3);
+    expect(client.get).toHaveBeenNthCalledWith(1, '/plant-instances', {
+      params: { offset: 0, limit: 200 },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(2, '/plant-instances', {
+      params: { offset: 200, limit: 200 },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(3, '/plant-instances', {
+      params: { offset: 400, limit: 200 },
+    });
+  });
+
+  it('listAllPlantInstances stops after a single short page', async () => {
+    client.get.mockResolvedValueOnce({ data: [{ key: 'p1' }, { key: 'p2' }] });
+
+    const all = await plants.listAllPlantInstances();
+
+    expect(all).toHaveLength(2);
+    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(client.get).toHaveBeenCalledWith('/plant-instances', {
+      params: { offset: 0, limit: 200 },
+    });
+  });
 });

@@ -34,6 +34,27 @@ export async function listPests(
   return data;
 }
 
+/**
+ * Loads the complete pest catalogue by paging through the ``/ipm/pests`` list
+ * endpoint until a short page is returned. That endpoint uses the shared
+ * pagination dependency (``limit<=200``), so a fixed ``limit=500`` both 422'd
+ * (over the cap, #614) and would silently truncate a large catalogue. Paging at
+ * 100 stays comfortably within the cap; callers that need the whole set (e.g. the
+ * admin contributions overview) must use this instead of ``listPests()``.
+ */
+export async function listAllPests(pageSize = 100): Promise<Pest[]> {
+  const all: Pest[] = [];
+  let offset = 0;
+  // Guard against an unbounded loop if the backend ever ignores the offset.
+  for (let page = 0; page < 1000; page += 1) {
+    const batch = await listPests(offset, pageSize);
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
 export async function getPest(key: string): Promise<Pest> {
   const { data } = await globalClient.get<Pest>(`${BASE}/pests/${key}`);
   return data;

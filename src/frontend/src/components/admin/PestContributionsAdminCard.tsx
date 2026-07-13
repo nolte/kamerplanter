@@ -19,7 +19,7 @@ import { visuallyHidden } from '@mui/utils';
 import AuthImage from '@/components/common/AuthImage';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { useNotification } from '@/hooks/useNotification';
-import { listPests } from '@/api/endpoints/ipm';
+import { listAllPests } from '@/api/endpoints/ipm';
 import {
   listPestContributions,
   setPestContributionPromotion,
@@ -68,7 +68,7 @@ export function PestContributionsAdminCard({ gridColumn }: PestContributionsAdmi
     let active = true;
     const load = async () => {
       try {
-        const data = await listPests(0, 500);
+        const data = await listAllPests();
         if (active) {
           setPests(data);
           setPestsFailed(false);

@@ -130,12 +130,16 @@ function seedPlant(plant: PlantInstance) {
 }
 
 /**
- * Seed the tenant-scoped task list. ``getList`` is re-read on every GET so a
- * mutation followed by a refetch observes the updated collection (#578).
+ * Seed the dedicated, pagination-free plant-tasks route the tab loads from
+ * (``GET /tasks/plants/{key}``). ``getList`` is re-read on every GET so a mutation
+ * followed by a refetch observes the updated collection (#578). The Info-tab
+ * watering badge still queries the paginated ``/tasks`` list endpoint; it is kept
+ * satisfied with an empty result so it never leaks into the tab's assertions.
  */
 function seedTasks(getList: () => TaskItem[]) {
   server.use(
-    http.get('/api/v1/t/:tenant/tasks', () => HttpResponse.json(getList())),
+    http.get('/api/v1/t/:tenant/tasks/plants/:plantKey', () => HttpResponse.json(getList())),
+    http.get('/api/v1/t/:tenant/tasks', () => HttpResponse.json([])),
   );
 }
 
@@ -179,9 +183,10 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
     expect(screen.getByTestId('empty-state-queue-link')).toBeTruthy();
   });
 
-  it('refetches after a quick-complete so the task moves to the archived section', async () => {
+  it('refetches after a complete so the task moves to the archived section', async () => {
     seedPlant(makePlant());
     let completed = false;
+    let completeCalled = false;
     seedTasks(() =>
       completed
         ? [makeTask({ key: 'active-1', name: 'Water basil', status: 'completed', completed_at: '2024-06-11T00:00:00Z' })]
@@ -190,6 +195,7 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
     server.use(
       http.post('/api/v1/t/:tenant/tasks/:key/complete', () => {
         completed = true;
+        completeCalled = true;
         return HttpResponse.json(
           makeTask({ key: 'active-1', name: 'Water basil', status: 'completed', completed_at: '2024-06-11T00:00:00Z' }),
         );
@@ -198,13 +204,14 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
 
     renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
 
-    const completeBtn = await screen.findByTestId('quick-complete-active-1', {}, QUERY_TIMEOUT);
+    const completeBtn = await screen.findByTestId('task-complete-active-1', {}, QUERY_TIMEOUT);
     fireEvent.click(completeBtn);
 
-    // After the refetch the task is no longer pending: the quick-complete button
-    // (only rendered for active tasks) disappears, and the done-summary reflects it.
+    // The complete endpoint was hit, and after the refetch the row leaves the
+    // active section (its actions disappear) and the done-summary reflects it.
+    await waitFor(() => expect(completeCalled).toBe(true), QUERY_TIMEOUT);
     await waitFor(
-      () => expect(screen.queryByTestId('quick-complete-active-1')).toBeNull(),
+      () => expect(screen.queryByTestId('task-complete-active-1')).toBeNull(),
       QUERY_TIMEOUT,
     );
     await screen.findByText(
@@ -214,15 +221,107 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
     );
   });
 
+  it('starts a pending task via the start action and refetches', async () => {
+    seedPlant(makePlant());
+    let started = false;
+    let startCalled = false;
+    seedTasks(() =>
+      started
+        ? [makeTask({ key: 'active-1', name: 'Water basil', status: 'in_progress', started_at: '2024-06-11T00:00:00Z' })]
+        : [makeTask({ key: 'active-1', name: 'Water basil', status: 'pending' })],
+    );
+    server.use(
+      http.post('/api/v1/t/:tenant/tasks/:key/start', () => {
+        started = true;
+        startCalled = true;
+        return HttpResponse.json(
+          makeTask({ key: 'active-1', name: 'Water basil', status: 'in_progress', started_at: '2024-06-11T00:00:00Z' }),
+        );
+      }),
+    );
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    const startBtn = await screen.findByTestId('task-start-active-1', {}, QUERY_TIMEOUT);
+    fireEvent.click(startBtn);
+
+    await waitFor(() => expect(startCalled).toBe(true), QUERY_TIMEOUT);
+    // An in_progress task is still active (complete/skip remain) but no longer
+    // pending, so the start action is gone after the refetch.
+    await waitFor(
+      () => expect(screen.queryByTestId('task-start-active-1')).toBeNull(),
+      QUERY_TIMEOUT,
+    );
+    expect(screen.getByTestId('task-complete-active-1')).toBeTruthy();
+    expect(screen.getByTestId('task-skip-active-1')).toBeTruthy();
+  });
+
+  it('skips a task via the skip action and refetches into the archived section', async () => {
+    seedPlant(makePlant());
+    let skipped = false;
+    let skipCalled = false;
+    seedTasks(() =>
+      skipped
+        ? [makeTask({ key: 'active-1', name: 'Water basil', status: 'skipped' })]
+        : [makeTask({ key: 'active-1', name: 'Water basil', status: 'pending' })],
+    );
+    server.use(
+      http.post('/api/v1/t/:tenant/tasks/:key/skip', () => {
+        skipped = true;
+        skipCalled = true;
+        return HttpResponse.json(makeTask({ key: 'active-1', name: 'Water basil', status: 'skipped' }));
+      }),
+    );
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    const skipBtn = await screen.findByTestId('task-skip-active-1', {}, QUERY_TIMEOUT);
+    fireEvent.click(skipBtn);
+
+    await waitFor(() => expect(skipCalled).toBe(true), QUERY_TIMEOUT);
+    // A skipped task is archived → no actions at all on that row anymore.
+    await waitFor(
+      () => expect(screen.queryByTestId('task-skip-active-1')).toBeNull(),
+      QUERY_TIMEOUT,
+    );
+    expect(screen.queryByTestId('task-complete-active-1')).toBeNull();
+    expect(screen.queryByTestId('task-start-active-1')).toBeNull();
+  });
+
+  it('gates row actions by status: start only for pending, none for archived', async () => {
+    seedPlant(makePlant());
+    seedTasks(() => [
+      makeTask({ key: 'pending-1', name: 'Pending task', status: 'pending' }),
+      makeTask({ key: 'progress-1', name: 'Running task', status: 'in_progress' }),
+      makeTask({ key: 'done-1', name: 'Done task', status: 'completed', completed_at: '2024-06-05T00:00:00Z' }),
+    ]);
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    // Pending: full trio.
+    await screen.findByTestId('task-start-pending-1', {}, QUERY_TIMEOUT);
+    expect(screen.getByTestId('task-complete-pending-1')).toBeTruthy();
+    expect(screen.getByTestId('task-skip-pending-1')).toBeTruthy();
+    // In progress: complete + skip, but NO start.
+    expect(screen.getByTestId('task-complete-progress-1')).toBeTruthy();
+    expect(screen.getByTestId('task-skip-progress-1')).toBeTruthy();
+    expect(screen.queryByTestId('task-start-progress-1')).toBeNull();
+    // Archived (completed): no actions at all.
+    expect(screen.queryByTestId('task-start-done-1')).toBeNull();
+    expect(screen.queryByTestId('task-complete-done-1')).toBeNull();
+    expect(screen.queryByTestId('task-skip-done-1')).toBeNull();
+  });
+
   it('shows an error state with retry when the task load fails', async () => {
     seedPlant(makePlant());
     let attempt = 0;
     server.use(
-      http.get('/api/v1/t/:tenant/tasks', () => {
+      // The Info-tab badge query still succeeds; only the tab's dedicated
+      // plant-tasks load fails. Any failure must surface the error state, never
+      // the silent empty state (#578).
+      http.get('/api/v1/t/:tenant/tasks', () => HttpResponse.json([])),
+      http.get('/api/v1/t/:tenant/tasks/plants/:plantKey', () => {
         attempt += 1;
-        // Fail the tab load (2nd GET: the 1st is the page's care-reminder badge
-        // query in load()). Any failure must surface the error state, never the
-        // silent empty state.
         return HttpResponse.json({ error_code: 'INTERNAL_ERROR', message: 'boom' }, { status: 500 });
       }),
     );
@@ -232,5 +331,27 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
     await screen.findByTestId('error-display', {}, QUERY_TIMEOUT);
     expect(screen.queryByTestId('empty-state')).toBeNull();
     expect(attempt).toBeGreaterThan(0);
+  });
+
+  it('surfaces the error state (not the empty state) on a 422 validation failure (#614)', async () => {
+    // Guards the #614 root cause: the tab formerly issued ``listTasks(0, 500, …)``,
+    // which 422'd against the shared ``limit<=200`` cap and was masked as "no tasks".
+    // A 422 from the load path must now surface a diagnosable, retryable error.
+    seedPlant(makePlant());
+    server.use(
+      http.get('/api/v1/t/:tenant/tasks', () => HttpResponse.json([])),
+      http.get('/api/v1/t/:tenant/tasks/plants/:plantKey', () =>
+        HttpResponse.json(
+          { detail: [{ loc: ['query', 'limit'], msg: 'ensure this value is less than or equal to 200' }] },
+          { status: 422 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    await screen.findByTestId('error-display', {}, QUERY_TIMEOUT);
+    expect(screen.queryByTestId('empty-state')).toBeNull();
+    expect(screen.getByTestId('error-retry-button')).toBeTruthy();
   });
 });
