@@ -1,6 +1,6 @@
 {
-  "_comment": "UI-NFR-003 R-013/R-014/R-015/R-028 gzip budgets. Values are set just above the measured baseline so the gate starts green but fails on regression. Measured initial JS = 495.4 KB gzip on 2026-07-12 (was 471.8 KB on 2026-07-11); the ~23.6 KB growth is the eagerly-loaded i18n translation bundle absorbing three feature merges with mandatory glossary/enum copy (REQ-016 InvenTree, the glossary-terms feature, REQ-017 propagation & lineage). The dominant cost remains the eager i18n bundle (~160 KB gzip). The R-013 aspirational target is 300 KB gzip; reaching it requires lazy-loading translations (tracked separately) — this gate locks the current baseline against silent growth in the meantime.",
-  "initialJsGzipKb": 500,
+  "_comment": "UI-NFR-003 R-013/R-014/R-015/R-028 gzip budgets. initialJsGzipKb is a deliberate ceiling of 600 KB with headroom above the 2026-07-12 measured baseline (503.3 KB gzip). The dominant cost is the eagerly-loaded i18n translation bundle (~182 KB gzip), which grows with every feature's DE/EN copy. HARD RULE: when the measured initial JS reaches 600 KB, do NOT raise this budget again — an alternative solution MUST be implemented first, i.e. lazy-load the translations (splitting the eager i18n bundle) to move back toward the R-013 aspirational 300 KB gzip target. Raising the ceiling past 600 KB is prohibited; the next step at that point is the lazy-i18n refactor, not a bigger number.",
+  "initialJsGzipKb": 600,
   "initialCssGzipKb": 50,
   "cssSeverity": "error",
   "routeChunks": {

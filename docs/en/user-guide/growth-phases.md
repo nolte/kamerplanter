@@ -82,6 +82,16 @@ Advanced users can create their own phase types and sequences, or review the exi
 
 Both pages are available in the navigation under **Phases**. Since they edit fundamental system data, they are — like other master data areas — intended primarily for advanced users.
 
+### Phase Definition Detail View {#phasendefinition-detailansicht}
+
+Opening a single phase definition from the list serves two purposes at once: it is a reference for the phase itself (typical duration, watering interval, stress tolerance, description) **and** an operational view of your plants that are currently going through it. Alongside the core properties and the phase sequences that use this definition, the detail page shows two further lists:
+
+- **Plants currently in this phase**: your active plants that are currently in this phase — with plant, species, location/slot, the "in phase since" date, and the days elapsed in phase. A counter next to the heading shows the total. Click a row to jump straight to that plant's detail page. If none of your plants are currently in this phase, a friendly message appears instead.
+- **Species that traverse this phase**: all species from the global catalog whose phase sequence includes this phase — with scientific name, common name, and the phase's typical duration for that species. Click a row to go to that species' detail page. If no species are associated with the phase, a friendly message appears here too.
+
+!!! tip "Two different views of the same phase"
+    The first list answers "which of my plants need attention right now?", the second "which species go through this phase in general?". The two lists are independent of each other: the first shows only your own active plants, while the second shows the full, cross-tenant species catalog.
+
 ---
 
 ## Viewing the Current Phase of a Plant

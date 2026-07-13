@@ -205,6 +205,79 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return next(cursor, {})
 
+    # ── Phase-definition detail lists (FIX-01 R1/R8) ──────────────────
+
+    def list_active_in_phase_definition(self, tenant_key: str, phase_definition_key: str) -> list[dict[str, Any]]:
+        """Return the tenant's *active* instances currently in a phase definition (FIX-01 R1/R8).
+
+        The phase indirection (A1) is resolved inside a single AQL statement: a
+        plant's ``current_phase_key`` points at a ``PhaseSequenceEntry`` (the
+        preferred path) or — for legacy data — at a ``GrowthPhase``. There is no
+        ``phase_definition_key`` on ``GrowthPhase``, so the only stable legacy
+        bridge is the shared canonical phase ``name`` (``GrowthPhase.name ==
+        PhaseDefinition.name``); it is applied best-effort alongside the entry
+        keys. "Active" mirrors the codebase-wide alive marker ``removed_on ==
+        null`` (A2), consistent with ``count_active_for_tenant`` / survival stats.
+
+        Security (SEC-001 / SEC-B4): every plant row is filtered on
+        ``p.tenant_key == @tenant_key`` and the empty-tenant sentinel is rejected
+        up-front, so the list can never span tenants; the denormalised location /
+        slot labels are additionally gated on the *same* tenant so a cross-tenant
+        foreign reference can never leak a name. All collection names travel as
+        binds (``@@col`` / ``DOCUMENT(@…_col, …)``), never interpolated.
+        """
+        self._require_tenant_key(tenant_key, "list_active_in_phase_definition")
+        query = """
+        LET defn = DOCUMENT(@defn_col, @phase_definition_key)
+        LET seq_entry_keys = (
+          FOR e IN @@entry_col
+            FILTER e.phase_definition_key == @phase_definition_key
+            RETURN e._key
+        )
+        LET legacy_phase_keys = defn == null ? [] : (
+          FOR gp IN @@growth_phase_col
+            FILTER gp.name == defn.name
+            RETURN gp._key
+        )
+        LET phase_keys = APPEND(seq_entry_keys, legacy_phase_keys)
+        FOR p IN @@col
+          FILTER p.tenant_key == @tenant_key
+            AND p.removed_on == null
+            AND p.current_phase_key != null
+            AND p.current_phase_key IN phase_keys
+          SORT p.current_phase_started_at DESC, p._key ASC
+          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
+          LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null
+          RETURN {
+            key: p._key,
+            instance_id: p.instance_id,
+            plant_name: p.plant_name,
+            species_key: p.species_key,
+            species_scientific_name: species != null ? species.scientific_name : null,
+            species_common_names: species != null ? (species.common_names || []) : [],
+            location_key: p.location_key,
+            location_name: (location != null AND location.tenant_key == @tenant_key) ? location.name : null,
+            slot_key: p.slot_key,
+            slot_label: (slot != null AND slot.tenant_key == @tenant_key) ? slot.slot_id : null,
+            current_phase_key: p.current_phase_key,
+            current_phase_started_at: p.current_phase_started_at
+          }
+        """
+        bind_vars = {
+            "@col": self._collection_name,
+            "@entry_col": col.PHASE_SEQUENCE_ENTRIES,
+            "@growth_phase_col": col.GROWTH_PHASES,
+            "tenant_key": tenant_key,
+            "phase_definition_key": phase_definition_key,
+            "defn_col": col.PHASE_DEFINITIONS,
+            "species_col": col.SPECIES,
+            "location_col": col.LOCATIONS,
+            "slot_col": col.SLOTS,
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return list(cursor)
+
     # ── Dashboard counts (REQ-009) ────────────────────────────────────
 
     def count_for_tenant(self, tenant_key: str) -> int:
@@ -251,23 +324,30 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
 
         Feeds the ``plant_grid`` dashboard widget (#461 / #488): a newest-first list of
         active plants, each carrying its ``_key`` for a deep link to the plant detail
-        view plus the per-card status fields the rich grid renders — cultivar name,
-        current growth phase, location and an open-task marker with the earliest due
-        date. "Alive" mirrors ``count_active_for_tenant`` (``removed_on == null``).
+        view plus the per-card status fields the rich grid renders — the human-readable
+        ``instance_id`` reference, the species common/scientific name (for the speaking
+        card title, FIX-02 R2), cultivar name, current growth phase with its
+        ``phase_definition_key`` (for the phase deep link, FIX-02 R5), location and an
+        open-task marker with the earliest due date. "Alive" mirrors
+        ``count_active_for_tenant`` (``removed_on == null``).
 
         Efficiency (no N+1): everything is resolved server-side in a *single* AQL
-        round-trip. The related documents (cultivar / growth phase / location) are
-        pulled with :func:`DOCUMENT` primary-key lookups (O(1) each), and the open-task
-        marker is a correlated sub-query over the tasks collection filtered on the same
-        ``tenant_key`` — so the whole enriched grid costs one query regardless of how
-        many plants it returns.
+        round-trip. The related documents (species / cultivar / growth phase / phase
+        sequence entry / location) are pulled with :func:`DOCUMENT` primary-key lookups
+        (O(1) each), and the open-task marker is a correlated sub-query over the tasks
+        collection filtered on the same ``tenant_key`` — so the whole enriched grid
+        costs one query regardless of how many plants it returns.
 
         Security: the plant and task collections are bound via ``@@col`` / ``@@task_col``
         (never interpolated); the related-collection names travel as plain string binds
         to :func:`DOCUMENT`. Every plant row *and* every open-task row is filtered on
         ``… .tenant_key == @tenant_key``, and the empty-tenant sentinel is rejected
         up-front, so neither the list nor the task marker can ever span tenants (SEC-B4).
-        ``@limit`` is a bound integer, never interpolated.
+        The species join is the plant's *own* ``species_key`` (global catalog data, and
+        the plant is already tenant-filtered), so it cannot leak a foreign-tenant record;
+        the location label is additionally gated on the same ``tenant_key`` (defence in
+        depth), mirroring ``list_active_in_phase_definition``. ``@limit`` is a bound
+        integer, never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_for_tenant")
         query = """
@@ -276,7 +356,17 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           SORT p.planted_on DESC, p._key ASC
           LIMIT @limit
           LET cultivar = p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
+          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
           LET phase = p.current_phase_key != null ? DOCUMENT(@phase_col, p.current_phase_key) : null
+          // #488 FIX-02 (R5): resolve the phase-definition key for the card's phase
+          // deep link. ``current_phase_key`` points at a ``PhaseSequenceEntry`` on the
+          // preferred path; ``DOCUMENT`` returns null for the legacy ``GrowthPhase``
+          // path (whose key lives in a different collection), leaving
+          // ``phase_definition_key`` null so the chip renders without a link (A4).
+          LET phase_entry = p.current_phase_key != null ? DOCUMENT(@entry_col, p.current_phase_key) : null
+          LET species_common_name = (species != null AND LENGTH(species.common_names) > 0)
+            ? species.common_names[0]
+            : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET open_task_due_dates = (
             FOR tsk IN @@task_col
@@ -300,11 +390,15 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           LET has_open_task = due_now_task_count > 0
           RETURN {
             _key: p._key,
+            instance_id: p.instance_id,
             plant_name: p.plant_name,
             species_key: p.species_key,
+            species_common_name: species_common_name,
+            species_scientific_name: species != null ? species.scientific_name : null,
             cultivar_key: p.cultivar_key,
             cultivar_name: cultivar != null ? cultivar.name : null,
             phase_key: p.current_phase_key,
+            phase_definition_key: phase_entry != null ? phase_entry.phase_definition_key : null,
             phase_name: phase != null ? (phase.display_name != "" ? phase.display_name : phase.name) : null,
             location_key: p.location_key,
             location_name: location != null AND location.tenant_key == @tenant_key ? location.name : null,
@@ -318,7 +412,9 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "tenant_key": tenant_key,
             "limit": int(limit),
             "cultivar_col": col.CULTIVARS,
+            "species_col": col.SPECIES,
             "phase_col": col.GROWTH_PHASES,
+            "entry_col": col.PHASE_SEQUENCE_ENTRIES,
             "location_col": col.LOCATIONS,
             "plant_entity_type": "plant_instance",
             "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],

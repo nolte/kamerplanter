@@ -23,6 +23,10 @@ import Tab from '@mui/material/Tab';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
+import FormLabel from '@mui/material/FormLabel';
+import FormHelperText from '@mui/material/FormHelperText';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import ToggleButton from '@mui/material/ToggleButton';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
@@ -36,7 +40,7 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import AddIcon from '@mui/icons-material/Add';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller, type Control } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
@@ -129,6 +133,96 @@ function MetaItem({ label, children }: { label: string; children: React.ReactNod
       </Typography>
       {children}
     </Box>
+  );
+}
+
+const RATING_VALUES = [1, 2, 3, 4, 5] as const;
+
+interface RatingSelectorProps {
+  name: 'difficulty_rating' | 'quality_rating';
+  control: Control<CompletionFormData>;
+  label: string;
+  helperText: string;
+  testId: string;
+}
+
+/**
+ * 1-5 rating control for the completion tab (R2, FIX-05). A segmented
+ * `ToggleButtonGroup` was chosen over MUI `Rating` stars: "more stars = better"
+ * reads naturally for the quality rating, but is a misleading metaphor for the
+ * difficulty rating (higher = harder is not "better"). The segmented selector
+ * keeps both ratings visually consistent while staying semantically neutral,
+ * and gives large, equally-sized ≥48px touch targets for free.
+ *
+ * The value stays `number 1-5 | null` (no contract change, R3): clicking the
+ * already-selected button deselects it (MUI's built-in exclusive-toggle
+ * behaviour), and an explicit "reset" action is offered for discoverability.
+ */
+function RatingSelector({ name, control, label, helperText, testId }: RatingSelectorProps) {
+  const { t } = useTranslation();
+  const labelId = `${testId}-label`;
+  const helperId = `${testId}-helper`;
+
+  return (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <Box sx={{ mb: { xs: 2.5, md: 1.5 } }}>
+          <FormLabel id={labelId} component="legend" sx={{ fontSize: '0.875rem', mb: 1, display: 'block' }}>
+            {label}
+          </FormLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+              {t('pages.tasks.ratingLow')}
+            </Typography>
+            <ToggleButtonGroup
+              exclusive
+              value={field.value}
+              onChange={(_, newValue) => field.onChange(newValue)}
+              aria-labelledby={labelId}
+              aria-describedby={helperId}
+              data-testid={testId}
+              sx={{ flexWrap: 'wrap' }}
+            >
+              {RATING_VALUES.map((v) => (
+                <ToggleButton
+                  key={v}
+                  value={v}
+                  aria-label={t('pages.tasks.ratingValueLabel', { value: v })}
+                  data-testid={`${testId}-${v}`}
+                  sx={{ minWidth: 48, minHeight: 48 }}
+                >
+                  {v}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+              {t('pages.tasks.ratingHigh')}
+            </Typography>
+            {field.value != null && (
+              <Button
+                size="small"
+                onClick={() => field.onChange(null)}
+                data-testid={`${testId}-clear`}
+                sx={{ textTransform: 'none' }}
+              >
+                {t('pages.tasks.ratingClear')}
+              </Button>
+            )}
+          </Box>
+          <FormHelperText id={helperId} sx={{ mx: 0 }}>
+            <Box component="span" data-testid={`${testId}-status`}>
+              {field.value != null
+                ? t('pages.tasks.ratingSelectedValue', { value: field.value })
+                : t('pages.tasks.ratingNotRated')}
+            </Box>
+            {' — '}
+            {helperText}
+          </FormHelperText>
+        </Box>
+      )}
+    />
   );
 }
 
@@ -939,6 +1033,7 @@ export default function TaskDetailPage() {
                 name="completion_notes"
                 control={completionControl}
                 label={t('pages.tasks.completionNotes')}
+                helperText={t('pages.tasks.completionNotesHelper')}
                 multiline
                 rows={4}
                 autoFocus
@@ -949,6 +1044,7 @@ export default function TaskDetailPage() {
                 label={t('pages.tasks.actualDuration')}
                 min={1}
                 step={1}
+                suffix={t('pages.tasks.minutesUnit')}
                 helperText={t('pages.tasks.actualDurationHelper')}
               />
             </CardContent>
@@ -963,49 +1059,48 @@ export default function TaskDetailPage() {
                 {t('pages.tasks.sectionRatingsDesc')}
               </Typography>
               <FormRow>
-                <FormNumberField
+                <RatingSelector
                   name="difficulty_rating"
                   control={completionControl}
                   label={t('pages.tasks.difficultyRating')}
-                  min={1}
-                  max={5}
-                  step={1}
                   helperText={t('pages.tasks.ratingHelper')}
+                  testId="task-difficulty-rating"
                 />
-                <FormNumberField
+                <RatingSelector
                   name="quality_rating"
                   control={completionControl}
                   label={t('pages.tasks.qualityRating')}
-                  min={1}
-                  max={5}
-                  step={1}
                   helperText={t('pages.tasks.ratingHelper')}
+                  testId="task-quality-rating"
                 />
               </FormRow>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined">
+            <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
+              <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
+                {t('pages.tasks.sectionPhotos')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {task.requires_photo
+                  ? t('pages.tasks.sectionPhotosRequiredDesc')
+                  : t('pages.tasks.sectionPhotosDesc')}
+              </Typography>
               {task.requires_photo && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {t('pages.tasks.photoRequired')}
-                  </Typography>
-                  <PhotoUpload
-                    taskKey={key!}
-                    photoRefs={photoRefs}
-                    onChange={setPhotoRefs}
-                  />
-                </Box>
+                <Typography
+                  variant="subtitle2"
+                  color={photoRefs.length === 0 ? 'error' : 'text.primary'}
+                  gutterBottom
+                >
+                  {t('pages.tasks.photoRequired')}
+                </Typography>
               )}
-              {!task.requires_photo && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {t('pages.tasks.photoUpload')}
-                  </Typography>
-                  <PhotoUpload
-                    taskKey={key!}
-                    photoRefs={photoRefs}
-                    onChange={setPhotoRefs}
-                  />
-                </Box>
-              )}
+              <PhotoUpload
+                taskKey={key!}
+                photoRefs={photoRefs}
+                onChange={setPhotoRefs}
+              />
             </CardContent>
           </Card>
 

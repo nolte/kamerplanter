@@ -82,6 +82,16 @@ Fortgeschrittene Nutzerinnen und Nutzer können eigene Phasentypen und -abläufe
 
 Beide Seiten findest du in der Navigation unter **Phasen**. Da hier grundlegende Systemdaten bearbeitet werden, sind sie wie andere Stammdaten-Bereiche eher für fortgeschrittene Nutzerinnen und Nutzer gedacht.
 
+### Detailansicht einer Phasendefinition {#phasendefinition-detailansicht}
+
+Öffnest du eine einzelne Phasendefinition aus der Liste, dient die Detailseite gleich zwei Zwecken: Sie ist ein Nachschlagewerk für die Phase selbst (typische Dauer, Gießintervall, Stresstoleranz, Beschreibung) **und** eine Betriebsansicht deiner Pflanzen, die sich gerade in dieser Phase befinden. Neben den Basis-Eigenschaften und den Phasenabläufen, die diese Definition verwenden, zeigt sie zwei weitere Listen:
+
+- **Pflanzen aktuell in dieser Phase**: deine aktiven Pflanzen, die sich gerade in dieser Phase befinden — mit Pflanze, Art, Standort/Platz, dem Datum „In Phase seit" und den seither vergangenen Tagen in Phase. Ein Zähler neben der Überschrift zeigt die Gesamtzahl. Klicke auf eine Zeile, um direkt zur Detailseite dieser Pflanze zu gelangen. Befindet sich aktuell keine deiner Pflanzen in dieser Phase, erscheint stattdessen ein Hinweistext.
+- **Arten, die diese Phase durchlaufen**: alle Arten aus dem globalen Katalog, deren Phasenablauf diese Phase enthält — mit wissenschaftlichem Namen, gebräuchlichem Namen und der für die Phase jeweils typischen Dauer. Klicke auf eine Zeile, um zur Detailseite dieser Art zu gelangen. Sind für die Phase keine Arten hinterlegt, erscheint auch hier ein Hinweistext.
+
+!!! tip "Zwei unterschiedliche Blickwinkel auf dieselbe Phase"
+    Die erste Liste beantwortet „Um welche meiner Pflanzen muss ich mich gerade kümmern?", die zweite „Welche Arten durchlaufen diese Phase grundsätzlich?". Beide Listen sind unabhängig voneinander: Die erste zeigt nur deine eigenen, aktiven Pflanzen; die zweite den kompletten, mandantenübergreifenden Artenkatalog.
+
 ---
 
 ## Aktuellen Phasenstand einer Pflanze sehen

@@ -6,6 +6,8 @@ from app.api.v1.plant_instances.schemas import (
     AssignNutrientPlanRequest,
     CultivarSummary,
     PlantCreate,
+    PlantInstanceInPhaseResponse,
+    PlantInstancesInPhaseResponse,
     PlantResponse,
     RemovePlantRequest,
     SpeciesSummary,
@@ -66,6 +68,27 @@ def get_survival_stats(
     """
     stats = service.get_survival_stats(ctx.tenant_key)
     return SurvivalStatsResponse(**stats.model_dump())
+
+
+@router.get(
+    "/by-phase-definition/{phase_definition_key}",
+    response_model=PlantInstancesInPhaseResponse,
+)
+def list_plants_in_phase_definition(
+    phase_definition_key: str,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantInstanceService = Depends(get_plant_instance_service),
+):
+    """List the tenant's *active* plant instances currently in a phase definition (FIX-01 R1/R8).
+
+    Read-only and tenant-scoped: only the caller's tenant's instances are returned
+    (SEC-001), and only active ones (``removed_on == null``). An empty list is a
+    valid result (R4). Declared before ``/{key}`` so the two-segment literal path is
+    matched here and not captured by the plant-key path parameter.
+    """
+    rows = service.list_active_in_phase_definition(ctx.tenant_key, phase_definition_key)
+    items = [PlantInstanceInPhaseResponse(**row) for row in rows]
+    return PlantInstancesInPhaseResponse(total=len(items), items=items)
 
 
 @router.get("/{key}", response_model=PlantResponse)

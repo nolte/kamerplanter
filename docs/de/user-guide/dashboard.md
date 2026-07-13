@@ -48,7 +48,7 @@ Ein Panel verlinkt dich nur dorthin, wo du auch tatsächlich hinnavigieren darfs
 
 Drei Widgets gehen noch einen Schritt weiter als die reine Panel-Navigation: Sie zeigen einzelne Einträge an und verlinken jeden davon direkt auf seine eigene Detailseite.
 
-- **Pflanzenübersicht** (Kachelraster): Tippe oder klicke auf die Kachel einer einzelnen Pflanze, um direkt zu deren Pflanzendetailseite zu gelangen.
+- **Pflanzenübersicht** (Kachelraster): Hier verlinkt nicht die ganze Kachel auf ein einziges Ziel — Name, Art, Standort und Phasen-Chip sind jeweils ihr eigener Link zur passenden Detailseite. Details dazu findest du weiter unten unter „Pflanzenübersicht".
 - **Aufgaben heute** und **Nächste Termine**: Tippe oder klicke auf eine einzelne Aufgabenzeile, um direkt zu deren Aufgabendetailseite zu gelangen. Der Widget **Aufgaben heute** zeigt dir dabei zusätzlich zu den Zählern jetzt auch die anstehenden Aufgaben als Liste.
 
 Bei diesen drei Widgets öffnet ein Klick auf die freie Fläche des Panels keine Liste mehr — stattdessen führt dich ein eigenes Pfeil-Symbol oben im Widget-Kopf ("Liste öffnen") weiterhin zur zugehörigen Übersichtsseite, während jede Zeile bzw. Kachel dich direkt zum einzelnen Eintrag bringt.
@@ -59,18 +59,29 @@ Bei diesen drei Widgets öffnet ein Klick auf die freie Fläche des Panels keine
 
 ### Pflanzenübersicht
 
-Das Widget **Pflanzenübersicht** zeigt jede deiner aktiven Pflanzen als eigene Karte: Name (oder Sortenname, falls du der Pflanze keinen eigenen Namen gegeben hast), aktuelle Wachstumsphase, Standort und — sofern vorhanden — den nächsten fälligen Termin. Pflanzen mit einer offenen Aufgabe oder Pflegeerinnerung sind zusätzlich klar markiert: ein farbiger Rahmen, ein Hinweis-Symbol und der Text-Badge „Offene Aufgabe" zeigen dir das auch dann, wenn du Farben nicht unterscheiden kannst. <!-- REQ-009 -->
+Das Widget **Pflanzenübersicht** zeigt jede deiner aktiven Pflanzen als eigene Karte.
+
+Der Kartentitel ist der sprechende Name der Pflanze: Hast du ihr einen eigenen Namen gegeben, zeigt die Karte diesen; ansonsten erscheint der umgangssprachliche Name der Art, ergänzt um die Sorte, falls hinterlegt. Die interne Instanznummer (z. B. „Nr. 7432") wird zusätzlich klein als Referenz angezeigt — nie mehr als alleiniger Titel.
+
+Neben Name, Art und aktueller Wachstumsphase zeigt jede Karte auch den **Standort** — in beiden Kartenformaten, kompakt wie detailliert, und sofern vorhanden den nächsten fälligen Termin. Pflanzen mit einer offenen Aufgabe oder Pflegeerinnerung sind zusätzlich klar markiert: ein farbiger Rahmen, ein Hinweis-Symbol und der Text-Badge „Offene Aufgabe" zeigen dir das auch dann, wenn du Farben nicht unterscheiden kannst. <!-- REQ-009 -->
 
 Über die Filterleiste oberhalb der Karten schränkst du die Übersicht ein — nach **Phase**, **Standort** oder danach, ob eine **offene Aufgabe** vorliegt. Mehrere Filter lassen sich kombinieren; leere Ergebnisse zeigen dir einen entsprechenden Hinweis.
 
 Mit dem Umschalter daneben wählst du das Kartenformat:
 
-- **Detailliert** — größere Karten mit Sorte, Standort und nächstem Termin zusätzlich zu Name und Phase
-- **Kompakt** — mehr, schmalere Karten mit nur Name, Phase und Aufgaben-Hinweis
+- **Detailliert** — größere Karten mit Art, Sorte, Standort und nächstem Termin zusätzlich zu Name und Phase
+- **Kompakt** — mehr, schmalere Karten mit Name, Art, Standort, Phase und Aufgaben-Hinweis
 
 Deine Wahl wird in deinem Browser gespeichert und bleibt auch nach einem Neuladen erhalten.
 
-Klicke oder tippe auf eine Karte, um direkt zur Pflanzendetailseite zu gelangen.
+Jede Information auf der Karte ist ihr eigener Link zur passenden Detailseite — die Karte selbst ist kein einzelner, kartenweiter Link mehr:
+
+- **Name** → Detailseite der Pflanze
+- **Art** → Detailseite der Art in den [Stammdaten](plant-management.md)
+- **Standort** → Detailseite des [Standorts](locations-substrates.md)
+- **Phasen-Chip** → Detailseite der zugehörigen [Phasendefinition](growth-phases.md), sofern sich die aktuelle Phase eindeutig zuordnen lässt; ist das nicht möglich, zeigt die Karte den Phasen-Chip ohne Link
+
+Das Fälligkeitsdatum in der detaillierten Ansicht ist reine Information und nicht verlinkt.
 
 ### Anstehende Aufgaben
 

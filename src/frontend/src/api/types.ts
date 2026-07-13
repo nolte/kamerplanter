@@ -3224,6 +3224,44 @@ export interface PhaseDefinition {
   updated_at: string | null;
 }
 
+/**
+ * A species that traverses a phase definition, with the phase's typical duration
+ * (FIX-01 List 2, from GET /phase-definitions/{key}/species).
+ */
+export interface PhaseDefinitionSpecies {
+  key: string;
+  scientific_name: string;
+  common_names: string[];
+  typical_duration_days: number;
+  illustration: string;
+}
+
+/**
+ * A tenant's active plant instance currently in a given phase definition
+ * (FIX-01 List 1, from GET /t/{slug}/plant-instances/by-phase-definition/{key}).
+ * ``days_in_phase`` is derived on the client from ``current_phase_started_at``.
+ */
+export interface PlantInstanceInPhase {
+  key: string;
+  instance_id: string;
+  plant_name: string | null;
+  species_key: string;
+  species_scientific_name: string | null;
+  species_common_names: string[];
+  location_key: string | null;
+  location_name: string | null;
+  slot_key: string | null;
+  slot_label: string | null;
+  current_phase_key: string | null;
+  current_phase_started_at: string | null;
+}
+
+/** List-1 payload: the tenant's active instances in a phase definition + total count (R3). */
+export interface PlantInstancesInPhase {
+  total: number;
+  items: PlantInstanceInPhase[];
+}
+
 export interface PhaseDefinitionCreate {
   name: string;
   display_name?: string;

@@ -59,6 +59,19 @@ class IPlantInstanceRepository(ABC):
         ...
 
     @abstractmethod
+    def list_active_in_phase_definition(self, tenant_key: str, phase_definition_key: str) -> list[dict[str, Any]]:
+        """List the tenant's active instances currently in a phase definition (FIX-01 R1/R8).
+
+        Returns enriched dicts (key, instance_id, plant_name, denormalised species /
+        location / slot labels, current_phase_key, current_phase_started_at). MUST be
+        tenant-scoped (SEC-001): only ``removed_on == null`` instances of ``tenant_key``,
+        and no cross-tenant document may be read. Resolving ``current_phase_key`` to the
+        definition follows the PhaseSequenceEntry path plus a best-effort legacy
+        GrowthPhase name match (A1).
+        """
+        ...
+
+    @abstractmethod
     def get_survival_stats(self, tenant_key: str) -> dict[str, Any]:
         """Aggregate the tenant's plant instances for survival analytics (REQ-003 G1).
 

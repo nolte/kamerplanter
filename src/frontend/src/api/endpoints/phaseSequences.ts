@@ -2,6 +2,7 @@ import client from '../client';
 import type {
   PhaseDefinition,
   PhaseDefinitionCreate,
+  PhaseDefinitionSpecies,
   PhaseDefinitionUpdate,
   PhaseSequence,
   PhaseSequenceCreate,
@@ -67,6 +68,15 @@ export async function listSequencesForDefinition(
 ): Promise<PhaseSequence[]> {
   const { data } = await client.get<PhaseSequence[]>(
     `/phase-definitions/${key}/sequences`,
+  );
+  return data;
+}
+
+export async function listSpeciesForDefinition(
+  key: string,
+): Promise<PhaseDefinitionSpecies[]> {
+  const { data } = await client.get<PhaseDefinitionSpecies[]>(
+    `/phase-definitions/${key}/species`,
   );
   return data;
 }

@@ -106,6 +106,34 @@ class SurvivalStatsResponse(BaseModel):
     loss_by_phase: list[PhaseLossCountResponse] = Field(default_factory=list)
 
 
+class PlantInstanceInPhaseResponse(BaseModel):
+    """A tenant's active plant instance currently in a given phase definition (FIX-01 List 1).
+
+    ``days_in_phase`` is intentionally NOT part of the payload: the frontend derives it
+    from ``current_phase_started_at`` so the elapsed count stays live without re-fetching.
+    """
+
+    key: str
+    instance_id: str
+    plant_name: str | None = None
+    species_key: str
+    species_scientific_name: str | None = None
+    species_common_names: list[str] = Field(default_factory=list)
+    location_key: str | None = None
+    location_name: str | None = None
+    slot_key: str | None = None
+    slot_label: str | None = None
+    current_phase_key: str | None = None
+    current_phase_started_at: datetime | None = None
+
+
+class PlantInstancesInPhaseResponse(BaseModel):
+    """List-1 payload: the tenant's active instances in a phase definition + total count (R3)."""
+
+    total: int
+    items: list[PlantInstanceInPhaseResponse] = Field(default_factory=list)
+
+
 class ValidatePlantingRequest(BaseModel):
     species_key: str
 

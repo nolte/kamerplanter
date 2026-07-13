@@ -85,11 +85,15 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     rows = [
         {
             "_key": "p-1",
+            "instance_id": "7432",
             "plant_name": "Basil",
             "species_key": "ocimum-basilicum",
+            "species_common_name": "Basil",
+            "species_scientific_name": "Ocimum basilicum",
             "cultivar_key": None,
             "cultivar_name": None,
             "phase_key": "veg",
+            "phase_definition_key": "phase-veg",
             "phase_name": "Vegetative",
             "location_key": "loc-1",
             "location_name": "Balcony",
@@ -110,8 +114,12 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert "SORT p.planted_on DESC" in q  # newest first
     assert "LIMIT @limit" in q
     # #488 — enriched per-card status fields are projected (no full document).
+    assert "instance_id:" in q  # FIX-02: business identifier for the card
     assert "cultivar_name:" in q
+    assert "species_common_name:" in q  # FIX-02 R2: speaking title
+    assert "species_scientific_name:" in q  # FIX-02: species row secondary hint
     assert "phase_name:" in q
+    assert "phase_definition_key:" in q  # FIX-02 R5: phase deep link
     assert "location_name:" in q
     assert "has_open_task:" in q
     assert "next_due_date:" in q
@@ -132,7 +140,9 @@ def test_list_active_for_tenant_is_scoped_sorted_and_capped() -> None:
     assert bv["tenant_key"] == "tenant-A"
     assert bv["limit"] == 8
     assert bv["cultivar_col"] == "cultivars"
+    assert bv["species_col"] == "species"  # FIX-02: species enrichment
     assert bv["phase_col"] == "growth_phases"
+    assert bv["entry_col"] == "phase_sequence_entries"  # FIX-02 R5: phase_definition_key
     assert bv["location_col"] == "locations"
     assert bv["plant_entity_type"] == "plant_instance"
     assert bv["open_statuses"] == ["pending", "in_progress"]

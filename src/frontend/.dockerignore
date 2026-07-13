@@ -3,3 +3,13 @@ dist
 .env
 .env.local
 *.log
+
+# Local build / test artifacts — never needed in the image and, when copied,
+# they needlessly invalidate the Docker build cache (tsconfig.tsbuildinfo is a
+# git-ignored incremental-tsc file that changes on every local typecheck).
+tsconfig.tsbuildinfo
+coverage
+test-results
+.vite
+*.local
+.DS_Store

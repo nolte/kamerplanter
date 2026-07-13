@@ -2,11 +2,11 @@ import { useCallback, useMemo, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import ButtonBase from '@mui/material/ButtonBase';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
+import Link from '@mui/material/Link';
 import Skeleton from '@mui/material/Skeleton';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
@@ -46,8 +46,12 @@ import type { WidgetComponentProps } from '@/components/dashboard/widgetRegistry
  * ``ArangoPlantInstanceRepository.list_active_for_tenant``.
  */
 
-/** Route the panel + each card deep-link into (mirrors #461). */
+/** Route the panel + each card's *title* deep-link into (mirrors #461). */
 const PLANT_LINK_BASE = '/pflanzen/plant-instances';
+/** Deep-link bases for the card's granular per-field links (FIX-02 R4). */
+const SPECIES_LINK_BASE = '/stammdaten/species';
+const LOCATION_LINK_BASE = '/standorte/locations';
+const PHASE_LINK_BASE = '/phasen/definitionen';
 
 /** URL-param ids owned by this widget's filters (namespaced so several dashboard
  *  widgets can coexist without clashing query params). */
@@ -70,16 +74,33 @@ const DEFAULT_FORMAT: CardFormat = 'detailed';
 /** One enriched plant-instance card as delivered in the aggregated ``plant_grid`` slice. */
 export interface PlantGridEntry {
   _key?: string;
+  /** Human-readable business identifier (e.g. "7432") — the small secondary reference (R1). */
+  instance_id?: string | null;
+  /** Optional user-given label; may be empty or hold the bare number (see A1). */
   plant_name?: string | null;
   species_key?: string;
+  /** Species common name (first entry), for the speaking card title (R2). */
+  species_common_name?: string | null;
+  /** Species scientific name, shown as a secondary hint (R2). */
+  species_scientific_name?: string | null;
   cultivar_key?: string | null;
   cultivar_name?: string | null;
   phase_key?: string | null;
+  /** Resolved phase-definition key targeting the phase link; null → chip without link (R5). */
+  phase_definition_key?: string | null;
   phase_name?: string | null;
   location_key?: string | null;
   location_name?: string | null;
   has_open_task?: boolean;
   next_due_date?: string | null;
+}
+
+/** Per-target link-visibility flags, derived once in the widget and passed to every card. */
+interface CardLinkTargets {
+  plant: boolean;
+  species: boolean;
+  location: boolean;
+  phase: boolean;
 }
 
 function readStoredFormat(): CardFormat {
@@ -187,7 +208,18 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
     });
   }, [plants, values]);
 
-  const cardsLinkable = !editMode && isPathVisible(PLANT_LINK_BASE);
+  // Each card field links to a different section; navigation is suppressed in edit
+  // mode (drag/resize owns the pointer) and whenever the target module is hidden
+  // (REQ-042). Memoised so the object identity is stable for the card props.
+  const linkTargets = useMemo<CardLinkTargets>(
+    () => ({
+      plant: !editMode && isPathVisible(PLANT_LINK_BASE),
+      species: !editMode && isPathVisible(SPECIES_LINK_BASE),
+      location: !editMode && isPathVisible(LOCATION_LINK_BASE),
+      phase: !editMode && isPathVisible(PHASE_LINK_BASE),
+    }),
+    [editMode, isPathVisible],
+  );
   const listPath = dashboardWidgetCatalog.plant_grid.navigateTo;
   const showListLink = !editMode && Boolean(listPath) && isPathVisible(listPath ?? '');
   const widgetLabel = t(`dashboard.widgets.${widgetKey}.label`);
@@ -311,7 +343,7 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
                 gap: 1,
                 gridTemplateColumns:
                   format === 'compact'
-                    ? 'repeat(auto-fill, minmax(150px, 1fr))'
+                    ? 'repeat(auto-fill, minmax(172px, 1fr))'
                     : 'repeat(auto-fill, minmax(220px, 1fr))',
               }}
               data-testid={`widget-${widgetKey}-cards`}
@@ -321,7 +353,7 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
                   key={p._key ?? i}
                   plant={p}
                   format={format}
-                  linkable={cardsLinkable && Boolean(p._key)}
+                  linkTargets={linkTargets}
                   t={t}
                 />
               ))}
@@ -336,26 +368,110 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
 interface PlantGridCardProps {
   plant: PlantGridEntry;
   format: CardFormat;
-  linkable: boolean;
+  linkTargets: CardLinkTargets;
   t: TFunction;
 }
 
-function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
-  const title = plant.plant_name || humanizeSlug(plant.species_key) || t('dashboard.plantGrid.unnamed');
+interface CardLabels {
+  /** Primary speaking title (R1 / A1). */
+  title: string;
+  /** Label for the species link row (A2), kept distinct from the title where possible. */
+  speciesLabel: string;
+  /**
+   * True when `speciesLabel` holds the scientific (botanical) name rather than a
+   * common name — used to render it in italics (botanical convention), which also
+   * helps visually disambiguate the species row from the title row (R7: title/
+   * subtitle hierarchy without redundancy).
+   */
+  speciesLabelIsScientific: boolean;
+}
+
+/**
+ * Derive the card's speaking title and species-row label (R1 / R4 / A1 / A2).
+ *
+ * ``plant_name`` is treated as a real user label unless it is empty or merely
+ * echoes the bare identifier (``instance_id`` / ``_key`` — e.g. "7432"), in which
+ * case the species common name (with the cultivar when present) becomes the title;
+ * the final title fallback chain is common name → ``humanizeSlug(species_key)`` →
+ * "unnamed".
+ *
+ * The species row is always its *own* link (R4). To avoid echoing the title
+ * verbatim when the common name has been promoted to the title, the species row
+ * then prefers the scientific name — so the two links stay visibly distinct.
+ */
+function resolveCardLabels(plant: PlantGridEntry, t: TFunction): CardLabels {
+  const rawName = (plant.plant_name ?? '').trim();
+  const hasUserLabel = rawName !== '' && rawName !== plant.instance_id && rawName !== plant._key;
+  const commonName = (plant.species_common_name ?? '').trim();
+  const scientific = (plant.species_scientific_name ?? '').trim();
+  const humanized = humanizeSlug(plant.species_key) || '';
+
+  let title: string;
+  let titleIsCommonName = false;
+  if (hasUserLabel) {
+    title = rawName;
+  } else {
+    const base = commonName || humanized;
+    titleIsCommonName = Boolean(commonName);
+    title = base
+      ? plant.cultivar_name
+        ? `${base} '${plant.cultivar_name}'`
+        : base
+      : t('dashboard.plantGrid.unnamed');
+  }
+
+  const speciesLabel = titleIsCommonName
+    ? scientific || commonName
+    : commonName || scientific || humanized;
+  const speciesLabelIsScientific = speciesLabel === scientific && scientific !== '';
+
+  return { title, speciesLabel, speciesLabelIsScientific };
+}
+
+/**
+ * Shared touch-target sizing for every inline link/clickable chip on the card
+ * (R7, UI-NFR-001 R-011/R-013): each interactive element gets its own ≥48px
+ * hit height on mobile/tablet, where fingers need the room; on desktop
+ * (`md+`) it may shrink to the 36px mouse-precision allowance (R-013) so the
+ * compact format stays dense where a pointer — not a fingertip — is doing the
+ * clicking. Applied directly to each `Link`/clickable `Chip` (not a wrapping
+ * `Box`) so the enlarged hit area belongs to the interactive element itself.
+ */
+const touchTargetSx = {
+  minHeight: { xs: 48, sm: 48, md: 36 },
+  display: 'inline-flex',
+  alignItems: 'center',
+} as const;
+
+function PlantGridCard({ plant, format, linkTargets, t }: PlantGridCardProps) {
+  const { title, speciesLabel, speciesLabelIsScientific } = resolveCardLabels(plant, t);
   const detailed = format === 'detailed';
   const hasTask = plant.has_open_task === true;
+  const reference = plant.instance_id ?? plant._key ?? '';
 
-  // A single accessible name conveys the open-task flag non-visually (AC4 a11y),
-  // so a screen reader announces it even though the visual cue is a coloured
-  // accent + badge.
-  const openTaskSuffix = hasTask ? ` — ${t('dashboard.plantGrid.card.openTaskAria')}` : '';
-  const ariaLabel = (linkable ? t('dashboard.nav.openPlant', { plant: title }) : title) + openTaskSuffix;
+  // Granular per-field links (R4/R6): the card is NOT a single card-wide anchor —
+  // each interactive element is its own sibling link, so no anchor is ever nested
+  // inside another (valid HTML + a clean tab order).
+  const linkPlant = linkTargets.plant && Boolean(plant._key);
+  const linkSpecies = linkTargets.species && Boolean(plant.species_key) && Boolean(speciesLabel);
+  const linkLocation = linkTargets.location && Boolean(plant.location_key);
+  const linkPhase = linkTargets.phase && Boolean(plant.phase_definition_key);
+
+  // Location label, resolved once so it can be rendered either in its own row
+  // (detailed) or merged with the species row (compact — A5 density pass).
+  const locationLabel = plant.location_key ? plant.location_name || humanizeSlug(plant.location_key) || '' : '';
+  const hasLocation = Boolean(locationLabel);
+
+  // The card is a `role="group"` so assistive tech announces the plant's identity
+  // (and, non-visually, its open-task state — reusing `card.openTaskAria`, R7 a11y)
+  // as soon as focus enters it, before the individual per-field links are reached.
+  const cardAriaLabel = hasTask ? `${title} — ${t('dashboard.plantGrid.card.openTaskAria')}` : title;
 
   const cardSx = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: 0.5,
+    gap: { xs: 1, sm: 0.75, md: 0.5 },
     minHeight: 48, // ≥48px touch target (UI-NFR-001, Mobile-First)
     px: 1,
     py: 0.75,
@@ -372,13 +488,96 @@ function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
     bgcolor: 'background.paper',
   } as const;
 
-  const body = (
-    <>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-        <LocalFloristIcon color="primary" fontSize="small" aria-hidden="true" sx={{ flexShrink: 0 }} />
-        <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, overflowWrap: 'break-word' }}>
-          {title}
+  // Species row content (icon-less): its own link into the species catalog (R4),
+  // shared between the detailed (own row) and compact (merged with location)
+  // layouts so the link/tooltip/italic logic lives in exactly one place.
+  const speciesNode = speciesLabel ? (
+    <Tooltip title={speciesLabel}>
+      {linkSpecies ? (
+        <Link
+          component={RouterLink}
+          to={`${SPECIES_LINK_BASE}/${plant.species_key}`}
+          variant="caption"
+          underline="always"
+          color="text.secondary"
+          aria-label={t('dashboard.nav.openSpecies', { species: speciesLabel })}
+          noWrap
+          sx={{
+            ...touchTargetSx,
+            minWidth: 0,
+            fontStyle: speciesLabelIsScientific ? 'italic' : 'normal',
+          }}
+          data-testid={`plant-grid-species-link-${plant._key}`}
+        >
+          {speciesLabel}
+        </Link>
+      ) : (
+        <Typography
+          variant="caption"
+          noWrap
+          sx={{ fontStyle: speciesLabelIsScientific ? 'italic' : 'normal' }}
+        >
+          {speciesLabel}
         </Typography>
+      )}
+    </Tooltip>
+  ) : null;
+
+  // Location row content, mirroring `speciesNode` above (R3/R4/A5).
+  const locationNode = hasLocation ? (
+    <Tooltip title={locationLabel}>
+      {linkLocation ? (
+        <Link
+          component={RouterLink}
+          to={`${LOCATION_LINK_BASE}/${plant.location_key}`}
+          variant="caption"
+          underline="always"
+          color="text.secondary"
+          aria-label={t('dashboard.nav.openLocation', { location: locationLabel })}
+          noWrap
+          sx={{ ...touchTargetSx, minWidth: 0 }}
+          data-testid={`plant-grid-location-link-${plant._key}`}
+        >
+          {locationLabel}
+        </Link>
+      ) : (
+        <Typography variant="caption" noWrap>
+          {locationLabel}
+        </Typography>
+      )}
+    </Tooltip>
+  ) : null;
+
+  return (
+    <Box sx={cardSx} role="group" aria-label={cardAriaLabel} data-testid={`plant-grid-card-${plant._key}`}>
+      {/* Title row — the plant's speaking name, linking to the plant detail (R1/R4).
+          In compact format the bare reference number rides along on the same line
+          (A5 density); in detailed format it gets its own line below (more room). */}
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, minWidth: 0 }}>
+        <LocalFloristIcon color="primary" fontSize="small" aria-hidden="true" sx={{ flexShrink: 0 }} />
+        {linkPlant ? (
+          <Link
+            component={RouterLink}
+            to={`${PLANT_LINK_BASE}/${plant._key}`}
+            variant="body2"
+            underline="always"
+            color="text.primary"
+            aria-label={t('dashboard.nav.openPlant', { plant: title })}
+            sx={{ ...touchTargetSx, fontWeight: 600, minWidth: 0, overflowWrap: 'break-word' }}
+            data-testid={`plant-grid-title-link-${plant._key}`}
+          >
+            {title}
+          </Link>
+        ) : (
+          <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0, overflowWrap: 'break-word' }}>
+            {title}
+          </Typography>
+        )}
+        {!detailed && reference && (
+          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+            {t('dashboard.plantGrid.card.reference', { id: reference })}
+          </Typography>
+        )}
         {hasTask && (
           <NotificationsActiveIcon
             color="warning"
@@ -390,11 +589,55 @@ function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
         )}
       </Box>
 
+      {/* Bare number as a small secondary reference — never the sole title (R1).
+          Detailed format only; compact folds it into the title row above. */}
+      {detailed && reference && (
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {t('dashboard.plantGrid.card.reference', { id: reference })}
+        </Typography>
+      )}
+
+      {detailed ? (
+        // Detailed: species gets its own breathing-room row (A5 — more room, more rows).
+        speciesNode && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', minWidth: 0 }}>
+            <SpaIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
+            {speciesNode}
+          </Box>
+        )
+      ) : (
+        // Compact: species + location share one row, separated by a visual "·"
+        // divider, to cut the card's row count under pressure (A5). DOM order
+        // (species then location) still matches the detailed layout's reading
+        // order, so tab order never jumps around between formats.
+        (speciesNode || locationNode) && (
+          <Box
+            sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, color: 'text.secondary', minWidth: 0 }}
+          >
+            {speciesNode && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                <SpaIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
+                {speciesNode}
+              </Box>
+            )}
+            {speciesNode && locationNode && (
+              <Box component="span" aria-hidden="true" sx={{ color: 'text.disabled' }}>
+                &middot;
+              </Box>
+            )}
+            {locationNode && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                <PlaceIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
+                {locationNode}
+              </Box>
+            )}
+          </Box>
+        )
+      )}
+
       {detailed && plant.cultivar_name && (
-        // Secondary content only (the plant name above is the primary,
-        // never-truncated identifier) — `noWrap` keeps narrow compact-grid
-        // cards tidy, and the `Tooltip` restores the full value on hover/tap
-        // when it does clip.
+        // Secondary content only — `noWrap` keeps narrow compact-grid cards tidy,
+        // and the `Tooltip` restores the full value on hover/tap when it clips.
         <Tooltip title={plant.cultivar_name}>
           <Typography variant="caption" color="text.secondary" noWrap>
             {plant.cultivar_name}
@@ -402,29 +645,45 @@ function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
         </Tooltip>
       )}
 
-      {plant.phase_name && (
-        <Chip
-          icon={<SpaIcon />}
-          label={plant.phase_name}
-          size="small"
-          variant="outlined"
-          color="primary"
-          aria-label={`${t('dashboard.plantGrid.card.phase')}: ${plant.phase_name}`}
-          sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}
-        />
+      {/* Phase chip — links to the phase definition when resolvable, otherwise a
+          plain chip (R5 graceful degradation). */}
+      {plant.phase_name &&
+        (linkPhase ? (
+          <Chip
+            component={RouterLink}
+            to={`${PHASE_LINK_BASE}/${plant.phase_definition_key}`}
+            clickable
+            icon={<SpaIcon />}
+            label={plant.phase_name}
+            size="small"
+            variant="outlined"
+            color="primary"
+            aria-label={t('dashboard.nav.openPhase', { phase: plant.phase_name })}
+            sx={{ ...touchTargetSx, alignSelf: 'flex-start', maxWidth: '100%' }}
+            data-testid={`plant-grid-phase-link-${plant._key}`}
+          />
+        ) : (
+          <Chip
+            icon={<SpaIcon />}
+            label={plant.phase_name}
+            size="small"
+            variant="outlined"
+            color="primary"
+            aria-label={`${t('dashboard.plantGrid.card.phase')}: ${plant.phase_name}`}
+            sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}
+          />
+        ))}
+
+      {/* Location row — detailed format only here; compact already folded it into
+          the merged species/location row above (R3, both formats still covered). */}
+      {detailed && locationNode && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', minWidth: 0 }}>
+          <PlaceIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
+          {locationNode}
+        </Box>
       )}
 
-      {detailed && plant.location_name && (
-        <Tooltip title={plant.location_name}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', minWidth: 0 }}>
-            <PlaceIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
-            <Typography variant="caption" noWrap>
-              {plant.location_name}
-            </Typography>
-          </Box>
-        </Tooltip>
-      )}
-
+      {/* Due date — informational only, never a link (R4). */}
       {detailed && plant.next_due_date && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', minWidth: 0 }}>
           <EventIcon fontSize="inherit" aria-hidden="true" sx={{ flexShrink: 0 }} />
@@ -444,25 +703,6 @@ function PlantGridCard({ plant, format, linkable, t }: PlantGridCardProps) {
           data-testid={`plant-grid-open-task-chip-${plant._key}`}
         />
       )}
-    </>
-  );
-
-  if (linkable) {
-    return (
-      <ButtonBase
-        component={RouterLink}
-        to={`${PLANT_LINK_BASE}/${plant._key}`}
-        aria-label={ariaLabel}
-        sx={{ ...cardSx, '&:hover': { bgcolor: 'action.hover' } }}
-        data-testid={`plant-grid-card-${plant._key}`}
-      >
-        {body}
-      </ButtonBase>
-    );
-  }
-  return (
-    <Box sx={cardSx} aria-label={hasTask ? ariaLabel : undefined} data-testid={`plant-grid-card-${plant._key}`}>
-      {body}
     </Box>
   );
 }

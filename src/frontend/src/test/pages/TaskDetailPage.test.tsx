@@ -405,6 +405,48 @@ describe('TaskDetailPage — complete & edit tabs', () => {
     expect(await screen.findByTestId('complete-task-submit')).toBeDisabled();
   });
 
+  it('picks a difficulty and quality rating via the segmented selector and submits them', async () => {
+    useTaskHandlers(spy);
+    const user = userEvent.setup();
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1#complete' });
+    await screen.findByTestId('task-detail-page');
+
+    await user.click(screen.getByTestId('task-difficulty-rating-2'));
+    await user.click(screen.getByTestId('task-quality-rating-5'));
+    expect(screen.getByTestId('task-difficulty-rating-status')).toHaveTextContent(
+      i18n.t('pages.tasks.ratingSelectedValue', { value: 2 }),
+    );
+    expect(screen.getByTestId('task-quality-rating-status')).toHaveTextContent(
+      i18n.t('pages.tasks.ratingSelectedValue', { value: 5 }),
+    );
+
+    await user.click(screen.getByTestId('complete-task-submit'));
+    await waitFor(() => expect(spy.completed).toBeTruthy());
+    expect(spy.completed!.difficulty_rating).toBe(2);
+    expect(spy.completed!.quality_rating).toBe(5);
+  });
+
+  it('clears a selected rating back to null via the reset action', async () => {
+    useTaskHandlers(spy);
+    const user = userEvent.setup();
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1#complete' });
+    await screen.findByTestId('task-detail-page');
+
+    await user.click(screen.getByTestId('task-difficulty-rating-3'));
+    expect(screen.getByTestId('task-difficulty-rating-status')).toHaveTextContent(
+      i18n.t('pages.tasks.ratingSelectedValue', { value: 3 }),
+    );
+
+    await user.click(screen.getByTestId('task-difficulty-rating-clear'));
+    expect(screen.getByTestId('task-difficulty-rating-status')).toHaveTextContent(
+      i18n.t('pages.tasks.ratingNotRated'),
+    );
+
+    await user.click(screen.getByTestId('complete-task-submit'));
+    await waitFor(() => expect(spy.completed).toBeTruthy());
+    expect(spy.completed!.difficulty_rating).toBeNull();
+  });
+
   it('saves edits from the edit tab once the form is dirty', async () => {
     useTaskHandlers(spy);
     const user = userEvent.setup();

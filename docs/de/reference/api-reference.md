@@ -1233,3 +1233,98 @@ POST /api/v1/t/mein-garten/actuators/act_42/override
 - [Sensorik — Benutzerhandbuch](../user-guide/sensors.md)
 - [Umgebungsvariablen — Umgebungssteuerung & Aktorik](environment-variables.md#umgebungssteuerung-aktorik-req-018)
 - [Fehlerbehandlung](../api/error-handling.md)
+
+---
+
+## Phasendefinitionen: Pflanzen & Arten je Phase <!-- FIX-01 -->
+
+Zwei schlanke, rein lesende Endpunkte speisen die beiden zusätzlichen Listen auf der Phasendefinitions-Detailseite: welche eigenen Pflanzen sich gerade in einer Phase befinden, und welche Arten diese Phase im globalen Katalog grundsätzlich durchlaufen.
+
+### Arten für eine Phasendefinition auflisten (global)
+
+Liefert alle Arten aus dem globalen Katalog, deren Phasenablauf die angegebene Phasendefinition enthält. Kein Mandanten-Präfix — Referenzdaten wie botanische Familien oder der Winterhärtezonen-Katalog.
+
+```
+GET /api/v1/phase-definitions/{key}/species
+```
+
+Erfordert ein gültiges JWT-Token, keine gesonderte Rollen-Einschränkung.
+
+**Pfad-Parameter:** `key` — Schlüssel der Phasendefinition.
+
+**Response (200):** Liste von `PhaseDefinitionSpeciesResponse`. Leer, wenn keine Art diese Phase durchläuft (kein `404`).
+
+```json
+[
+  {
+    "key": "species/123",
+    "scientific_name": "Solanum lycopersicum",
+    "common_names": ["Tomate", "Tomato"],
+    "typical_duration_days": 30,
+    "illustration": "phases/flowering.svg"
+  }
+]
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `key` | string | Schlüssel der Art |
+| `scientific_name` | string | Wissenschaftlicher (binomialer) Name |
+| `common_names` | Liste[string] | Gebräuchliche Namen |
+| `typical_duration_days` | integer | Typische Dauer dieser Phase für die Art — die art-spezifische Überschreibung (`override_duration_days`) aus dem Phasenablauf-Eintrag, falls für diese Art gesetzt, sonst der Standardwert der Phasendefinition |
+| `illustration` | string | Illustrations-Pfad der Phasendefinition selbst (noch keine art-spezifische Illustration) |
+
+Ist eine Art über mehrere Phasenabläufe mit derselben Phasendefinition verknüpft, erscheint sie nur einmal (dedupliziert nach Art-Schlüssel); eine gesetzte art-spezifische Überschreibung hat dabei Vorrang vor dem Standardwert der Definition.
+
+### Aktive Pflanzinstanzen des Mandanten in einer Phasendefinition auflisten
+
+Liefert die **aktiven** Pflanzinstanzen des aufrufenden Mandanten, deren aktuelle Phase auf die angegebene Phasendefinition aufgelöst wird. Mandantengescopt (SEC-001) — ein leerer Mandanten-Kontext wird serverseitig abgelehnt, statt fremde Daten zu liefern.
+
+```
+GET /api/v1/t/{tenant_slug}/plant-instances/by-phase-definition/{phase_definition_key}
+```
+
+Erfordert ein gültiges JWT-Token und eine aktive Mandanten-Mitgliedschaft; jede Rolle darf lesen.
+
+**Response (200):** `PlantInstancesInPhaseResponse`. `items` ist leer, wenn keine aktive Pflanze des Mandanten in dieser Phase ist (kein `404`).
+
+```json
+{
+  "total": 2,
+  "items": [
+    {
+      "key": "plant_instances/101",
+      "instance_id": "T3-01",
+      "plant_name": "Tomate Balkon",
+      "species_key": "species/123",
+      "species_scientific_name": "Solanum lycopersicum",
+      "species_common_names": ["Tomate"],
+      "location_key": "locations/5",
+      "location_name": "Balkon Süd",
+      "slot_key": "slots/12",
+      "slot_label": "Reihe 2, Topf 3",
+      "current_phase_key": "phase_sequence_entries/456",
+      "current_phase_started_at": "2026-06-20T08:00:00Z"
+    }
+  ]
+}
+```
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `total` | integer | Gesamtzahl der zurückgegebenen Pflanzinstanzen |
+| `items[].current_phase_key` | string \| null | Rohwert von `PlantInstance.current_phase_key` — üblicherweise der Schlüssel des `PhaseSequenceEntry`, bei älteren Datensätzen ggf. noch der Schlüssel einer Legacy-`GrowthPhase` |
+| `items[].current_phase_started_at` | datetime \| null | Zeitpunkt des letzten Phasenübergangs — Basis für die auf der Detailseite clientseitig berechnete Anzahl „Tage in Phase" |
+
+"Aktiv" bedeutet `removed_on == null` — entfernte Pflanzen (siehe [Wachstumsphasen — Benutzerhandbuch: Eine Pflanze entfernen](../user-guide/growth-phases.md#pflanze-entfernen)) erscheinen hier nicht. Die Zuordnung einer Pflanze zur Phasendefinition läuft über deren aktuelle Phasenablauf-Zuordnung (`PhaseSequenceEntry.phase_definition_key`); bei Altdaten ohne Phasenablauf greift zusätzlich ein Fallback über den gemeinsamen kanonischen Phasennamen einer Legacy-`GrowthPhase`.
+
+!!! note "Kein `days_in_phase`-Feld in der Antwort"
+    Die Tage in Phase werden bewusst **nicht** vom Backend mitgeliefert, sondern von der Oberfläche aus `current_phase_started_at` abgeleitet — so bleibt der Wert auch ohne erneuten Abruf aktuell.
+
+**Route-Reihenfolge:** `/by-phase-definition/{phase_definition_key}` ist im Router **vor** `/{key}` deklariert, damit der literale Pfad nicht versehentlich als Pflanzen-Key interpretiert wird (dasselbe Muster wie bei `/survival-stats`, siehe oben).
+
+### Siehe auch
+
+- [Wachstumsphasen — Benutzerhandbuch: Detailansicht einer Phasendefinition](../user-guide/growth-phases.md#phasendefinition-detailansicht)
+- [Stammdaten: Pflanzenarten — Benutzerhandbuch](../user-guide/plant-management.md)
+- [Fehlerbehandlung](../api/error-handling.md)
