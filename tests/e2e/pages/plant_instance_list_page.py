@@ -165,6 +165,57 @@ class PlantInstanceListPage(BasePage):
         el = self.wait_for_element(self.FORM_INSTANCE_ID)
         return el.get_attribute("value") or ""
 
+    def set_instance_id(self, instance_id: str) -> None:
+        """Overwrite the auto-generated instance_id with an explicit value.
+
+        Used by the self-provisioning core-lifecycle journeys to give the
+        freshly created plant a recognizable, unique instance id so a later
+        search can locate exactly this row.
+        """
+        el = self.wait_for_element_clickable(self.FORM_INSTANCE_ID)
+        self.clear_and_fill(el, instance_id)
+
+    def select_current_phase_by_index(self, index: int) -> None:
+        """Select an entry in the 'Aktuelle Phase' (current_phase_key) MUI Select.
+
+        Picks the option at *index* from the rendered option list. Negative
+        indices count from the end (e.g. ``-2`` selects the second-to-last
+        phase, useful to start a plant in a late phase such as 'flowering'
+        for the Ist-Stand journey).
+        """
+        import time
+
+        field = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, "[data-testid='form-field-current_phase_key'] .MuiSelect-select")
+        )
+        self.scroll_and_click(field)
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        if options:
+            options[index].click()
+        time.sleep(0.2)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.2)
+
+    def get_current_phase_option_count(self) -> int:
+        """Return how many options the current-phase select currently offers."""
+        import time
+
+        field = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, "[data-testid='form-field-current_phase_key'] .MuiSelect-select")
+        )
+        self.scroll_and_click(field)
+        time.sleep(0.2)
+        count = len(self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"))
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.2)
+        return count
+
     def submit_create_form(self) -> None:
         """Submit the create form."""
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()

@@ -154,6 +154,25 @@ class PlantInstanceDetailExt(BasePage):
     CONFIRM_OK = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL_BTN = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
 
+    # ── Correction ("force") mode ──────────────────────────────────────
+    FORCE_SWITCH = (By.CSS_SELECTOR, "[data-testid='force-transition-switch']")
+    FORCE_SWITCH_INPUT = (
+        By.CSS_SELECTOR,
+        "[data-testid='force-transition-switch'] input[type='checkbox']",
+    )
+
+    # ── Tabs ───────────────────────────────────────────────────────────
+    PHASES_TAB = (By.CSS_SELECTOR, "[data-testid='phases-tab']")
+    TASKS_TAB = (By.CSS_SELECTOR, "[data-testid='tasks-tab']")
+    WATERING_CARD = (By.CSS_SELECTOR, "[data-testid='watering-card']")
+    EDIT_TAB = (By.CSS_SELECTOR, "[data-testid='edit-tab']")
+    EDIT_PLANT_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-plant_name'] input")
+    EDIT_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+
+    # ── Snackbar / notifications ───────────────────────────────────────
+    SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")
+    ALERT = (By.CSS_SELECTOR, "[role='alert']")
+
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
 
@@ -318,3 +337,90 @@ class PlantInstanceDetailExt(BasePage):
     def is_confirm_dialog_visible(self) -> bool:
         elements = self.driver.find_elements(*self.CONFIRM_DIALOG)
         return bool(elements) and elements[0].is_displayed()
+
+    # ── Core-lifecycle-journey helpers (self-provisioning) ─────────────
+
+    def get_target_phase_option_keys(self) -> list[str]:
+        """Open the target-phase select and return the option ``data-value`` keys.
+
+        Keys equal the growth-phase keys and preserve the lifecycle's
+        sequence order, so callers can drive a plant forward (later index)
+        or backward (earlier index) without hard-coding species-specific
+        phase names.
+        """
+        import time
+        from selenium.webdriver.common.keys import Keys
+
+        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
+        self.scroll_and_click(select_el)
+        time.sleep(0.2)
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        keys = [o.get_attribute("data-value") or "" for o in options]
+        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        time.sleep(0.2)
+        return [k for k in keys if k]
+
+    def transition_to_phase_key(self, phase_key: str, reason: str = "manual") -> None:
+        """Open the dialog (assumed already open), select *phase_key*, set the
+        reason and confirm the transition."""
+        self.select_target_phase(phase_key)
+        if reason:
+            self.set_transition_reason(reason)
+        self.confirm_transition()
+
+    def toggle_force_mode(self) -> None:
+        """Toggle the 'Phase korrigieren (Fehlanlage)' correction switch."""
+        el = self.wait_for_element_clickable(self.FORCE_SWITCH)
+        self.scroll_and_click(el)
+
+    def is_force_mode_enabled(self) -> bool:
+        """Return True if the correction (force) switch is currently on."""
+        elements = self.driver.find_elements(*self.FORCE_SWITCH_INPUT)
+        return bool(elements) and elements[0].is_selected()
+
+    def wait_for_transition_dialog_closed(self, timeout: int = 15) -> None:
+        """Wait until the phase transition dialog is no longer visible."""
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
+        WebDriverWait(self.driver, timeout).until(
+            EC.invisibility_of_element_located(self.TRANSITION_DIALOG)
+        )
+
+    def has_alert(self) -> bool:
+        """Return True if any ``[role='alert']`` notification is present."""
+        return len(self.driver.find_elements(*self.ALERT)) > 0
+
+    # ── Phase history / tab ────────────────────────────────────────────
+
+    def open_phases_tab(self) -> None:
+        """Click the 'Phasen' tab and wait for its content."""
+        self.wait_for_element_clickable(self.PHASES_TAB).click()
+        self.wait_for_element_visible(
+            (By.CSS_SELECTOR, "[data-testid='phases-tab-content']")
+        )
+
+    def open_tasks_tab(self) -> None:
+        """Click the 'Aufgaben' (task history) tab."""
+        self.wait_for_element_clickable(self.TASKS_TAB).click()
+        self.wait_for_loading_complete()
+
+    def get_body_text(self) -> str:
+        """Return the full page body text (keyword assertions)."""
+        return self.driver.find_element(By.TAG_NAME, "body").text
+
+    # ── Edit tab (TC-001-081) ──────────────────────────────────────────
+
+    def open_edit_tab(self) -> None:
+        """Click the 'Bearbeiten' tab and wait for the plant_name field."""
+        self.wait_for_element_clickable(self.EDIT_TAB).click()
+        self.wait_for_element_visible(self.EDIT_PLANT_NAME)
+
+    def set_edit_plant_name(self, name: str) -> None:
+        """Set the plant display name on the edit tab."""
+        el = self.wait_for_element_clickable(self.EDIT_PLANT_NAME)
+        self.clear_and_fill(el, name)
+
+    def submit_edit(self) -> None:
+        """Submit the edit form (Speichern)."""
+        self.scroll_and_click(self.wait_for_element_clickable(self.EDIT_SUBMIT))
