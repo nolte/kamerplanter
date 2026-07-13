@@ -65,9 +65,34 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
+  /**
+   * Pre-bind the created task to a specific entity (e.g. the plant instance whose
+   * detail page opened this dialog). When set, the task is created with this
+   * ``entity_key`` and ``entity_type='plant_instance'`` without the user having to
+   * pick a plant.
+   */
+  presetEntityKey?: string | null;
+  /**
+   * Hide the plant selector. Used together with ``presetEntityKey`` when the entity
+   * is fixed by context and must not be changed.
+   */
+  hideEntitySelect?: boolean;
+  /**
+   * Speaking label for ``presetEntityKey`` (e.g. ``getPlantLabel(plant, ...)``), shown
+   * as a locked context field and in the dialog title when ``hideEntitySelect`` is set —
+   * so it stays clear which plant the task is created for even without the selector.
+   */
+  presetEntityLabel?: string | null;
 }
 
-export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
+export default function TaskCreateDialog({
+  open,
+  onClose,
+  onCreated,
+  presetEntityKey = null,
+  hideEntitySelect = false,
+  presetEntityLabel = null,
+}: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
@@ -83,7 +108,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
       name: '',
       instruction: '',
       category: 'maintenance',
-      entity_key: null,
+      entity_key: presetEntityKey,
       due_date: null,
       priority: 'medium',
       skill_level: 'beginner',
@@ -100,7 +125,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
   const [checklistInput, setChecklistInput] = useState('');
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || hideEntitySelect) return;
     const loadPlants = async () => {
       setLoadingPlants(true);
       try {
@@ -113,7 +138,7 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
       }
     };
     loadPlants();
-  }, [open, handleError]);
+  }, [open, hideEntitySelect, handleError]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -153,7 +178,11 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
 
   return (
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
-      <DialogTitle id="task-create-dialog-title">{t('pages.tasks.createTask')}</DialogTitle>
+      <DialogTitle id="task-create-dialog-title">
+        {hideEntitySelect && presetEntityLabel
+          ? t('pages.tasks.createTaskForPlant', { plant: presetEntityLabel })
+          : t('pages.tasks.createTask')}
+      </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.tasks.createIntro')}
@@ -245,39 +274,55 @@ export default function TaskCreateDialog({ open, onClose, onCreated }: Props) {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.tasks.sectionAssignment')}
           </Typography>
-          <Controller
-            name="entity_key"
-            control={control}
-            render={({ field }) => (
-              <Autocomplete
-                options={plants}
-                getOptionLabel={(p) => getPlantLabel(p)}
-                loading={loadingPlants}
-                value={plants.find((p) => p.key === field.value) ?? null}
-                onChange={(_, value) => field.onChange(value?.key ?? null)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={t('pages.tasks.plant')}
-                    sx={{ mb: 2 }}
-                    slotProps={{
-                      ...params.slotProps,
-                      input: {
-                        ...params.slotProps.input,
-                        endAdornment: (
-                          <>
-                            {loadingPlants && <CircularProgress size={16} />}
-                            {params.slotProps.input?.endAdornment}
-                          </>
-                        ),
-                      },
-                    }}
-                    data-testid="form-field-entity_key"
-                  />
-                )}
-              />
-            )}
-          />
+          {hideEntitySelect ? (
+            // The entity is fixed by context (e.g. opened from a plant instance's Tasks
+            // tab) — show a locked, read-only field instead of leaving an empty gap where
+            // the plant selector would otherwise be, so it stays unambiguous which plant
+            // the task is created for even though it cannot be changed here.
+            <TextField
+              label={t('pages.tasks.plant')}
+              value={presetEntityLabel ?? presetEntityKey ?? ''}
+              disabled
+              fullWidth
+              helperText={t('pages.tasks.plantPresetHelper')}
+              sx={{ mb: 2 }}
+              data-testid="form-field-entity_key-preset"
+            />
+          ) : (
+            <Controller
+              name="entity_key"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  options={plants}
+                  getOptionLabel={(p) => getPlantLabel(p)}
+                  loading={loadingPlants}
+                  value={plants.find((p) => p.key === field.value) ?? null}
+                  onChange={(_, value) => field.onChange(value?.key ?? null)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('pages.tasks.plant')}
+                      sx={{ mb: 2 }}
+                      slotProps={{
+                        ...params.slotProps,
+                        input: {
+                          ...params.slotProps.input,
+                          endAdornment: (
+                            <>
+                              {loadingPlants && <CircularProgress size={16} />}
+                              {params.slotProps.input?.endAdornment}
+                            </>
+                          ),
+                        },
+                      }}
+                      data-testid="form-field-entity_key"
+                    />
+                  )}
+                />
+              )}
+            />
+          )}
           <ExpertiseFieldWrapper minLevel="intermediate">
             <FormTextField
               name="assigned_to_user_key"
