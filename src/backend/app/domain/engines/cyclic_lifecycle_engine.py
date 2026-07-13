@@ -90,17 +90,27 @@ class CyclicLifecycleEngine:
         lifecycle: LifecycleConfig,
         current_season_number: int,
         current_phase_name: str,
+        *,
+        effective_cycle: CycleType | None = None,
     ) -> tuple[bool, str]:
         """Whether the seasonal cycle restarts after the terminal phase.
 
         Returns ``(should_restart, reason)``. Bounded (biennial / ``max_seasons``)
         and monocarpic lifecycles terminate instead of restarting (D1/D6/D10).
+
+        ``effective_cycle`` (ADR-006 E1) is the per-instance resolved cycle from
+        :func:`resolve_effective_cycle`; when given it overrides the species'
+        botanical ``cycle_type`` for the final annual-vs-perennial decision, so an
+        instance grown as an annual does not loop and an instance grown perennial
+        does. The bounded/monocarpic guards still read the species lifecycle. When
+        omitted the species botanical ``cycle_type`` governs (unchanged behaviour).
         """
+        cycle = effective_cycle if effective_cycle is not None else lifecycle.cycle_type
         max_seasons = self.effective_max_seasons(lifecycle)
         if max_seasons is not None and current_season_number >= max_seasons:
             return False, f"Terminal lifecycle: last season {current_season_number}/{max_seasons} reached"
         if self.is_monocarpic(lifecycle) and core_phase(current_phase_name) in _REPRODUCTIVE_TERMINAL:
             return False, "Monocarpic: flowers once, terminal senescence after seed set"
-        if lifecycle.cycle_type == CycleType.PERENNIAL:
+        if cycle == CycleType.PERENNIAL:
             return True, f"Seasonal restart: season {current_season_number + 1}"
         return False, "Non-cyclic lifecycle (annual) — no restart"

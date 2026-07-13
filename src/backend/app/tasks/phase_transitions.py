@@ -8,9 +8,10 @@ from app.common.dependencies import (
     get_plant_repo,
     get_site_repo,
 )
-from app.common.enums import LightType, TransitionTrigger, TransitionTriggerType
+from app.common.enums import CycleType, LightType, TransitionTrigger, TransitionTriggerType
 from app.domain.calculators.photoperiod_calculator import effective_light_hours
 from app.domain.calculators.sun_calculator import calculate_sun_times
+from app.domain.engines.cycle_resolver import resolve_effective_cycle
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
 from app.domain.engines.transition_trigger_evaluator import TransitionTriggerEvaluator
 from app.tasks import celery_app
@@ -71,15 +72,23 @@ def _outdoor_day_length_for_plant(plant, site_repo) -> float | None:
     return float(times["day_length_hours"])
 
 
-def _should_restart_cycle(cyclic, lifecycle, cycle_number: int, phase_name: str) -> tuple[bool, str]:
-    """WP-2 — whether a PhaseSequence-driven plant restarts its cycle out of the
-    terminal phase. Delegates to :meth:`CyclicLifecycleEngine.should_restart_cycle`
-    when a LifecycleConfig is present (so a biennial ``max_seasons`` / monocarpic
-    lifecycle terminates instead of looping); otherwise the sequence's own
-    ``is_repeating`` gate — already applied when the restart target was resolved —
-    governs, so the restart is allowed."""
+def _should_restart_cycle(
+    cyclic, lifecycle, cycle_number: int, phase_name: str, effective_cycle: CycleType | None
+) -> tuple[bool, str]:
+    """WP-2/E1 — whether a PhaseSequence-driven plant restarts its cycle out of the
+    terminal phase, honouring the per-instance effective cycle (ADR-006 E1).
+
+    An instance grown as an annual (``effective_cycle == ANNUAL``) never loops, even
+    on a perennial species. Otherwise it delegates to
+    :meth:`CyclicLifecycleEngine.should_restart_cycle` when a LifecycleConfig is
+    present (so a biennial ``max_seasons`` / monocarpic lifecycle terminates instead
+    of looping); without a LifecycleConfig the sequence's own ``is_repeating`` gate —
+    already applied when the restart target was resolved — governs, so the restart is
+    allowed."""
+    if effective_cycle == CycleType.ANNUAL:
+        return False, "effective cycle is annual (instance/species override) — no restart"
     if lifecycle is not None:
-        return cyclic.should_restart_cycle(lifecycle, cycle_number, phase_name)
+        return cyclic.should_restart_cycle(lifecycle, cycle_number, phase_name, effective_cycle=effective_cycle)
     return True, "no lifecycle config — sequence is_repeating governs the restart"
 
 
@@ -102,7 +111,12 @@ def _advance_sequence_plant(plant, info: dict, days_in_phase: int, lifecycle, ph
         return False
 
     if advance.is_restart:
-        should, detail = _should_restart_cycle(cyclic, lifecycle, info.get("cycle_number", 1), phase_name)
+        # ADR-006 E1: the per-instance override wins over the species cycle for the
+        # restart decision (an instance grown as an annual does not loop).
+        effective_cycle = resolve_effective_cycle(plant, lifecycle, None)
+        should, detail = _should_restart_cycle(
+            cyclic, lifecycle, info.get("cycle_number", 1), phase_name, effective_cycle
+        )
         if not should:
             logger.info("cycle_restart_suppressed", plant_key=plant.key, current_phase=phase_name, reason=detail)
             return False

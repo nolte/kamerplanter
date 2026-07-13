@@ -64,6 +64,8 @@ def _plant(**overrides):
         "site_key": None,
         "location_key": None,
         "chill_days_accumulated": 0,
+        # ADR-006 E1 — per-instance cycle override; None = "same as the species".
+        "cultivation_cycle_type": None,
     }
     data.update(overrides)
     return SimpleNamespace(**data)
@@ -408,7 +410,7 @@ class TestCheckAutoTransitions:
         module, deps = _task_module
         deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
-            cycle_type=CycleType.PERENNIAL, growth_determinacy=None
+            cultivation_cycle_type=None, cycle_type=CycleType.PERENNIAL, growth_determinacy=None
         )
         deps.get_phase_service.return_value = phase_service = self._seq_phase_service(
             is_terminal=False, is_restart=False
@@ -426,7 +428,11 @@ class TestCheckAutoTransitions:
         module, deps = _task_module
         deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
-            cycle_type=CycleType.PERENNIAL, max_seasons=None, flowering_strategy=None, growth_determinacy=None
+            cultivation_cycle_type=None,
+            cycle_type=CycleType.PERENNIAL,
+            max_seasons=None,
+            flowering_strategy=None,
+            growth_determinacy=None,
         )
         deps.get_phase_service.return_value = phase_service = self._seq_phase_service(is_terminal=True, is_restart=True)
 
@@ -442,7 +448,11 @@ class TestCheckAutoTransitions:
         module, deps = _task_module
         deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
-            cycle_type=CycleType.BIENNIAL, max_seasons=None, flowering_strategy=None, growth_determinacy=None
+            cultivation_cycle_type=None,
+            cycle_type=CycleType.BIENNIAL,
+            max_seasons=None,
+            flowering_strategy=None,
+            growth_determinacy=None,
         )
         deps.get_phase_service.return_value = phase_service = self._seq_phase_service(
             is_terminal=True, is_restart=True, cycle_number=2
@@ -457,7 +467,7 @@ class TestCheckAutoTransitions:
         module, deps = _task_module
         deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
         deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
-            cycle_type=CycleType.PERENNIAL, growth_determinacy=None
+            cultivation_cycle_type=None, cycle_type=CycleType.PERENNIAL, growth_determinacy=None
         )
         deps.get_phase_service.return_value = phase_service = self._seq_phase_service(
             is_terminal=False, is_restart=False, days=5

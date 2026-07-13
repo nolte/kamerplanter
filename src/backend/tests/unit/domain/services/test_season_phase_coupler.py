@@ -18,7 +18,10 @@ from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.season_phase_coupler import SeasonPhaseCoupler
 
 
-def _plant(current_phase_key: str = "e-flowering") -> PlantInstance:
+def _plant(
+    current_phase_key: str = "e-flowering",
+    cultivation_cycle_type: CycleType | None = None,
+) -> PlantInstance:
     return PlantInstance(
         _key="plant-1",
         tenant_key="t1",
@@ -26,6 +29,7 @@ def _plant(current_phase_key: str = "e-flowering") -> PlantInstance:
         species_key="sp-1",
         planted_on=date(2026, 1, 1),
         current_phase_key=current_phase_key,
+        cultivation_cycle_type=cultivation_cycle_type,
     )
 
 
@@ -113,3 +117,46 @@ class TestRestartCycle:
         coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(None), _seq_repo(seq))
 
         assert coupler.restart_cycle(_plant(current_phase_key="e-dormancy")) is True
+
+
+class TestInstanceOverride:
+    """ADR-006 E1 — the per-instance cultivation_cycle_type override drives the gate
+    via resolve_effective_cycle, beating the species cycle in both directions."""
+
+    def test_annual_override_on_perennial_species_is_not_driven_to_dormancy(self) -> None:
+        phase_service = MagicMock()
+        phase_service.find_phase_key_by_name.return_value = "e-dormancy"
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
+
+        plant = _plant(cultivation_cycle_type=CycleType.ANNUAL)
+        assert coupler.enter_dormancy(plant) is False
+        phase_service.transition_phase.assert_not_called()
+
+    def test_annual_override_on_perennial_species_is_not_restarted(self) -> None:
+        phase_service = MagicMock()
+        phase_service.resolve_cycle_restart_phase_key.return_value = "e-sprouting"
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
+
+        plant = _plant(current_phase_key="e-dormancy", cultivation_cycle_type=CycleType.ANNUAL)
+        assert coupler.restart_cycle(plant) is False
+        phase_service.transition_phase.assert_not_called()
+
+    def test_perennial_override_on_annual_species_is_driven_to_dormancy(self) -> None:
+        phase_service = MagicMock()
+        phase_service.find_phase_key_by_name.return_value = "e-dormancy"
+        annual = LifecycleConfig(species_key="sp-1", cycle_type=CycleType.ANNUAL)
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(annual))
+
+        plant = _plant(cultivation_cycle_type=CycleType.PERENNIAL)
+        assert coupler.enter_dormancy(plant) is True
+        phase_service.transition_phase.assert_called_once()
+
+    def test_perennial_override_on_annual_species_is_restarted(self) -> None:
+        phase_service = MagicMock()
+        phase_service.resolve_cycle_restart_phase_key.return_value = "e-sprouting"
+        annual = LifecycleConfig(species_key="sp-1", cycle_type=CycleType.ANNUAL)
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(annual))
+
+        plant = _plant(current_phase_key="e-dormancy", cultivation_cycle_type=CycleType.PERENNIAL)
+        assert coupler.restart_cycle(plant) is True
+        phase_service.transition_phase.assert_called_once()
