@@ -239,6 +239,97 @@ class TaskQueuePage(BasePage):
         """Check whether the create dialog is visible."""
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
+    # ── Create-task dialog field setters (TaskCreateDialog) ────────────
+
+    TASK_DIALOG = (By.CSS_SELECTOR, "[data-testid='task-create-dialog']")
+    FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
+    FORM_DUE_DATE = (By.CSS_SELECTOR, "[data-testid='form-field-due_date'] input")
+    FORM_ENTITY_KEY_INPUT = (By.CSS_SELECTOR, "[data-testid='form-field-entity_key'] input")
+    FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+
+    def fill_task_name(self, name: str) -> None:
+        """Fill the task name field."""
+        el = self.wait_for_element_clickable(self.FORM_NAME)
+        self.clear_and_fill(el, name)
+
+    def select_task_category(self, category_value: str) -> None:
+        """Open the category MUI Select and pick the option by its enum value."""
+        self._select_form_option("category", category_value)
+
+    def select_task_priority(self, priority_value: str) -> None:
+        """Open the priority MUI Select and pick the option by its enum value."""
+        self._select_form_option("priority", priority_value)
+
+    def _select_form_option(self, field_name: str, value: str) -> None:
+        """Open a FormSelectField MUI Select and click the ``data-value`` option."""
+        import time
+        from selenium.webdriver.common.keys import Keys
+
+        field = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
+        )
+        self.scroll_and_click(field)
+        option = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, f"li[role='option'][data-value='{value}']")
+        )
+        option.click()
+        time.sleep(0.2)
+        try:
+            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        except Exception:
+            pass
+        time.sleep(0.2)
+
+    def set_due_date_today(self) -> None:
+        """Set the due-date input to today's date (native date input)."""
+        from datetime import date
+
+        el = self.wait_for_element_clickable(self.FORM_DUE_DATE)
+        self.clear_and_fill(el, date.today().isoformat())
+
+    def select_task_plant_by_text(self, text: str) -> bool:
+        """Type *text* into the plant autocomplete and pick the matching option."""
+        import time
+
+        input_el = self.wait_for_element_clickable(self.FORM_ENTITY_KEY_INPUT)
+        input_el.click()
+        self.clear_and_fill(input_el, text)
+        time.sleep(0.4)
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        if options:
+            options[0].click()
+            time.sleep(0.2)
+            return True
+        return False
+
+    def submit_task_form(self) -> None:
+        """Submit the create-task form."""
+        self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
+
+    # ── Task lookup by name (self-provisioning journey) ────────────────
+
+    def find_task_key_by_name(self, name: str) -> str | None:
+        """Return the key of the task card whose text contains *name*.
+
+        The outer card carries ``data-testid='task-card-{key}'``; this parses
+        the key so the journey can target the correct complete-button without
+        relying on card ordering.
+        """
+        cards = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid^='task-card-']"
+        )
+        for card in cards:
+            testid = card.get_attribute("data-testid") or ""
+            if not testid.startswith("task-card-"):
+                continue
+            if name in card.text:
+                return testid.replace("task-card-", "")
+        return None
+
+    def has_task_with_name(self, name: str) -> bool:
+        """Return True if any task card text contains *name*."""
+        return self.find_task_key_by_name(name) is not None
+
     # ── Generate reminders ─────────────────────────────────────────────
 
     def click_generate_reminders(self) -> None:
