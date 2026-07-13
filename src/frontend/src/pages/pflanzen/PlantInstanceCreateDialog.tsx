@@ -33,9 +33,10 @@ import * as speciesApi from '@/api/endpoints/species';
 import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
 import { contributeReferenceImage } from '@/api/endpoints/identification';
 import * as phaseApi from '@/api/endpoints/phases';
+import { getSpeciesPhaseSequence } from '@/api/endpoints/phaseSequences';
 import * as substrateApi from '@/api/endpoints/substrates';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Species, Cultivar, Substrate, SubstrateType, GrowthPhase, Site, Slot } from '@/api/types';
+import type { Species, Cultivar, Substrate, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
 
 const schema = z.object({
@@ -54,6 +55,20 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/**
+ * Normalized Current-Phase option (#626). Both option sources — a species'
+ * PhaseSequence entries and the legacy LifecycleConfig growth phases — are
+ * mapped into this single shape so the dropdown, the disabled guard and the
+ * auto-select all read from one list and the two backend shapes
+ * (``PhaseSequenceEntry`` vs ``GrowthPhase``) never get mixed. ``key`` is the
+ * value validated by the backend's ``_valid_phase_keys``.
+ */
+interface PhaseOption {
+  key: string;
+  sequence_order: number;
+  label: string;
+}
 
 export interface PlantInstanceDuplicateData {
   species_key: string;
@@ -105,7 +120,7 @@ export default function PlantInstanceCreateDialog({
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
   const [substratesList, setSubstratesList] = useState<Substrate[]>([]);
-  const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
+  const [phaseOptions, setPhaseOptions] = useState<PhaseOption[]>([]);
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
 
@@ -234,7 +249,7 @@ export default function PlantInstanceCreateDialog({
   useEffect(() => {
     if (!speciesKey) {
       setCultivarList([]);
-      setGrowthPhases([]);
+      setPhaseOptions([]);
       return;
     }
     const isInitialDuplicate = duplicateFrom && !initialLoadDone;
@@ -249,22 +264,86 @@ export default function PlantInstanceCreateDialog({
       .catch(() => setCultivarList([]))
       .finally(() => setCultivarsLoading(false));
 
-    // Load growth phases for species
-    phaseApi.getLifecycleConfig(speciesKey)
-      .then((lc) => phaseApi.listGrowthPhases(lc.key))
-      .then((phases) => {
-        setGrowthPhases(phases);
-        if (!isInitialDuplicate) {
-          // Auto-select first phase
-          if (phases.length > 0) {
-            const sorted = [...phases].sort((a, b) => a.sequence_order - b.sequence_order);
-            setValue('current_phase_key', sorted[0].key);
+    // Resolve the Current-Phase options exactly like the backend's
+    // ``_valid_phase_keys`` (#626): a species' PhaseSequence entries are
+    // authoritative, the legacy LifecycleConfig growth phases are only the
+    // fallback. Loading — and defaulting — from the wrong key set makes the
+    // backend reject the auto-selected phase with 422 (PHASE_NOT_IN_SEQUENCE)
+    // before the grower even interacts with the form.
+    let cancelled = false;
+
+    const applyOptions = (options: PhaseOption[]) => {
+      if (cancelled) {
+        return;
+      }
+      setPhaseOptions(options);
+      // Auto-select the first phase (by sequence_order) so the default is always
+      // a member of the set the backend validates against. Never override an
+      // in-flight duplicate's carried-over phase.
+      if (!isInitialDuplicate && options.length > 0) {
+        const sorted = [...options].sort((a, b) => a.sequence_order - b.sequence_order);
+        setValue('current_phase_key', sorted[0].key);
+      }
+      setInitialLoadDone(true);
+    };
+
+    const loadFromLifecycle = () =>
+      phaseApi
+        .getLifecycleConfig(speciesKey)
+        .then((lc) => phaseApi.listGrowthPhases(lc.key))
+        .then((phases) =>
+          applyOptions(
+            phases.map((gp) => ({
+              key: gp.key,
+              sequence_order: gp.sequence_order,
+              label:
+                gp.display_name || t(`enums.phaseName.${gp.name}`, { defaultValue: gp.name }),
+            })),
+          ),
+        )
+        .catch(() => {
+          if (!cancelled) {
+            setPhaseOptions([]);
+            setInitialLoadDone(true);
           }
+        });
+
+    getSpeciesPhaseSequence(speciesKey)
+      .then((sequence) => {
+        if (cancelled) {
+          return undefined;
         }
-        setInitialLoadDone(true);
+        if (sequence && sequence.entries.length > 0) {
+          applyOptions(
+            sequence.entries.map((entry) => {
+              const defn = entry.phase_definition;
+              const rawName = defn?.name ?? entry.key;
+              return {
+                key: entry.key,
+                sequence_order: entry.sequence_order,
+                label:
+                  defn?.display_name || t(`enums.phaseName.${rawName}`, { defaultValue: rawName }),
+              };
+            }),
+          );
+          return undefined;
+        }
+        // No PhaseSequence (or an empty one) → legacy LifecycleConfig fallback.
+        return loadFromLifecycle();
       })
-      .catch(() => { setGrowthPhases([]); setInitialLoadDone(true); });
-  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open]);
+      .catch(() => {
+        // The PhaseSequence lookup itself failed — still try the fallback so the
+        // field stays usable rather than silently empty.
+        if (cancelled) {
+          return undefined;
+        }
+        return loadFromLifecycle();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open, t]);
 
   // Cascade: site → load locations (via LocationTreeSelect), location → load slots
   const skipLocationReset = useRef(false);
@@ -525,12 +604,12 @@ export default function PlantInstanceCreateDialog({
               control={control}
               label={t('pages.plantInstances.currentPhase')}
               helperText={t('pages.plantInstances.currentPhaseHelper')}
-              disabled={growthPhases.length === 0}
-              options={growthPhases
+              disabled={phaseOptions.length === 0}
+              options={[...phaseOptions]
                 .sort((a, b) => a.sequence_order - b.sequence_order)
-                .map((gp) => ({
-                  value: gp.key,
-                  label: gp.display_name || t(`enums.phaseName.${gp.name}`, { defaultValue: gp.name }),
+                .map((opt) => ({
+                  value: opt.key,
+                  label: opt.label,
                 }))}
             />
           </FormRow>

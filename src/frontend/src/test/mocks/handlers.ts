@@ -271,6 +271,12 @@ export const handlers = [
   http.get('/api/v1/species/:key/reference-images', ({ params }) => {
     return HttpResponse.json({ species_key: params.key, count: 0, images: [] });
   }),
+  // Species PhaseSequence (plant-instance create dialog, #626). Default: no
+  // sequence → the dialog falls back to the LifecycleConfig growth phases.
+  // Tests that exercise the PhaseSequence-first path override this handler.
+  http.get('/api/v1/species/:key/phase-sequence', () => {
+    return HttpResponse.json(null);
+  }),
   // Lifecycle config + growth phases (plant-instance create dialog)
   http.get('/api/v1/species/:key/lifecycle', ({ params }) => {
     return HttpResponse.json({
