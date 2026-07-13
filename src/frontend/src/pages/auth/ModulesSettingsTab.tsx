@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
@@ -39,11 +40,19 @@ const CORE_MODULES: ModuleDefinition[] = Object.values(moduleCatalog).filter(
   (m) => m.core,
 );
 
-/** Maps tri-state override to a chip colour so the status is visually distinct. */
+/**
+ * Maps tri-state override to a chip colour so the status is visually distinct.
+ * Issue #587: a smart-home-locked module always renders as neutral, even when a
+ * stale `enabled`/`disabled` override exists underneath — otherwise the chip
+ * colour (e.g. green "on") would contradict the "controlled via Smart Home,
+ * currently hidden" label next to it.
+ */
 function resolveChipColor(
   override: ModuleVisibilityState | undefined,
   visible: boolean,
+  smartHomeLocked: boolean,
 ): 'success' | 'warning' | 'default' {
+  if (smartHomeLocked) return 'default';
   if (override === 'enabled') return 'success';
   if (override === 'disabled') return 'warning';
   return visible ? 'default' : 'default';
@@ -227,6 +236,11 @@ export default function ModulesSettingsTab() {
                     module: t(def.labelKey),
                     state: stateLabel,
                   });
+                  // Stable per-row id (def.key is unique) linking the disabled
+                  // switch to its explanation, so screen-reader users landing on
+                  // the switch directly still hear *why* it is locked and *how*
+                  // to unlock it, not just the short aria-label state (UI-NFR-002).
+                  const smartHomeHintId = `module-smarthome-hint-${def.key}`;
 
                   return (
                     <Card
@@ -264,7 +278,7 @@ export default function ModulesSettingsTab() {
                             <Chip
                               size="small"
                               variant={hasOverride ? 'filled' : 'outlined'}
-                              color={resolveChipColor(override, visible)}
+                              color={resolveChipColor(override, visible, smartHomeLocked)}
                               label={stateLabel}
                               sx={{ fontSize: '0.7rem', height: 20 }}
                             />
@@ -277,14 +291,33 @@ export default function ModulesSettingsTab() {
                             {t(def.descriptionKey)}
                           </Typography>
                           {smartHomeLocked && (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ display: 'block' }}
-                              data-testid={`module-smarthome-hint-${def.key}`}
-                            >
-                              {t('modules.manage.smartHomeLockedHint')}
-                            </Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                              <Typography
+                                id={smartHomeHintId}
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                                data-testid={`module-smarthome-hint-${def.key}`}
+                              >
+                                {t('modules.manage.smartHomeLockedHint')}
+                              </Typography>
+                              {/*
+                               * Direct one-click path to the toggle mentioned in the
+                               * hint above ("wie freischalten"), not just a passive
+                               * pointer — mirrors the ModuleGuard CTA target.
+                               * Minimum 44px touch target via padding.
+                               */}
+                              <Button
+                                size="small"
+                                variant="text"
+                                component={RouterLink}
+                                to="/settings#ha"
+                                sx={{ mt: 0.25, py: 1.25, px: 1, minWidth: 'auto', fontSize: '0.75rem' }}
+                                data-testid={`module-smarthome-link-${def.key}`}
+                              >
+                                {t('pages.auth.smartHome.guardAction')}
+                              </Button>
+                            </Box>
                           )}
                           {hasOverride && !smartHomeLocked && (
                             <Button
@@ -320,7 +353,15 @@ export default function ModulesSettingsTab() {
                             checked={visible}
                             disabled={smartHomeLocked}
                             onChange={(e) => handleToggle(def.key, e.target.checked)}
-                            slotProps={{ input: { 'aria-label': switchAriaLabel } }}
+                            slotProps={{
+                              input: {
+                                'aria-label': switchAriaLabel,
+                                // Links the disabled switch to the reason + reactivation
+                                // hint below it, so AT users get the full explanation,
+                                // not just the short aria-label state (UI-NFR-002).
+                                ...(smartHomeLocked ? { 'aria-describedby': smartHomeHintId } : {}),
+                              },
+                            }}
                             data-testid={`module-switch-${def.key}`}
                           />
                         </Box>
