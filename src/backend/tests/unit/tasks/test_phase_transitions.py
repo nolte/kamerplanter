@@ -12,8 +12,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import GrowthDeterminacy, LightType, PhotoperiodType, TransitionTrigger, TransitionTriggerType
+from app.common.enums import (
+    CycleType,
+    GrowthDeterminacy,
+    LightType,
+    PhotoperiodType,
+    TransitionTrigger,
+    TransitionTriggerType,
+)
 from app.domain.models.site import Location
+from app.domain.services.phase_service import SequenceAutoTarget
 
 
 @pytest.fixture(autouse=True)
@@ -370,6 +378,90 @@ class TestCheckAutoTransitions:
             photoperiod_type=PhotoperiodType.DAY_NEUTRAL, critical_day_length_hours=None
         )
         deps.get_phase_service.return_value = phase_service = _photoperiod_phase_service()
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 0
+        phase_service.transition_phase.assert_not_called()
+
+    # ── WP-2: PhaseSequence-driven cyclic advance (Weg B, #565) ──
+
+    def _seq_phase_service(self, *, is_terminal: bool, is_restart: bool, cycle_number: int = 1, days: int = 200):
+        phase_service = MagicMock()
+        phase_service.get_current_phase.return_value = {
+            "days_in_phase": days,
+            "source": "phase_sequence",
+            "phase": "dormancy" if is_terminal else "sprouting",
+            "cycle_number": cycle_number,
+            "is_terminal": is_terminal,
+        }
+        phase_service.resolve_sequence_auto_target.return_value = SequenceAutoTarget(
+            target_phase_key="e-target",
+            duration_days=120 if is_terminal else 21,
+            is_restart=is_restart,
+            current_is_terminal=is_terminal,
+        )
+        return phase_service
+
+    def test_sequence_forward_advance_fires(self, _task_module):
+        """A PhaseSequence-driven plant advances to the next entry on time."""
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
+            cycle_type=CycleType.PERENNIAL, growth_determinacy=None
+        )
+        deps.get_phase_service.return_value = phase_service = self._seq_phase_service(
+            is_terminal=False, is_restart=False
+        )
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 1
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "e-target", reason="auto_time_based", trigger=TransitionTrigger.AUTO
+        )
+
+    def test_sequence_restart_fires_for_perennial(self, _task_module):
+        """From the terminal phase, a perennial restarts its cycle."""
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
+            cycle_type=CycleType.PERENNIAL, max_seasons=None, flowering_strategy=None, growth_determinacy=None
+        )
+        deps.get_phase_service.return_value = phase_service = self._seq_phase_service(is_terminal=True, is_restart=True)
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 1
+        phase_service.transition_phase.assert_called_once_with(
+            "plant_1", "e-target", reason="auto_cycle_restart", trigger=TransitionTrigger.AUTO
+        )
+
+    def test_sequence_restart_suppressed_for_biennial(self, _task_module):
+        """should_restart_cycle terminates a bounded (biennial) lifecycle instead of looping."""
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
+            cycle_type=CycleType.BIENNIAL, max_seasons=None, flowering_strategy=None, growth_determinacy=None
+        )
+        deps.get_phase_service.return_value = phase_service = self._seq_phase_service(
+            is_terminal=True, is_restart=True, cycle_number=2
+        )
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 0
+        phase_service.transition_phase.assert_not_called()
+
+    def test_sequence_not_due_does_not_fire(self, _task_module):
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
+            cycle_type=CycleType.PERENNIAL, growth_determinacy=None
+        )
+        deps.get_phase_service.return_value = phase_service = self._seq_phase_service(
+            is_terminal=False, is_restart=False, days=5
+        )
 
         result = module.check_auto_transitions()
 
