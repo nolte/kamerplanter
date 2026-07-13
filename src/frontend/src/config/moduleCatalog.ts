@@ -55,6 +55,14 @@ export interface ModuleDefinition {
   core: boolean;
   /** Navigation paths shown/hidden together with this module */
   navPaths: string[];
+  /**
+   * Issue #587 — module surfaces sensor/actuator UI and is therefore additionally
+   * gated behind the per-user `smart_home_enabled` toggle (UserPreference). When
+   * smart home is disabled the module is force-hidden regardless of the experience
+   * level or a personal REQ-042 override. Presentation-only: the backend keeps
+   * serving all data.
+   */
+  requiresSmartHome?: boolean;
 }
 
 function def(
@@ -63,6 +71,7 @@ function def(
   defaultLevel: ExperienceLevel,
   core: boolean,
   navPaths: string[],
+  requiresSmartHome = false,
 ): ModuleDefinition {
   return {
     key,
@@ -72,6 +81,7 @@ function def(
     defaultLevel,
     core,
     navPaths,
+    requiresSmartHome,
   };
 }
 
@@ -148,8 +158,10 @@ export const moduleCatalog: Record<ModuleKey, ModuleDefinition> = {
   // ── Automation ──
   // Owns the real /umgebungssteuerung sidebar entry (REQ-018). The section is
   // ungated in navItemConfig, so the default level is `beginner` to keep the
-  // sidebar and the ModuleGuard/settings visibility in agreement.
-  automation: def('automation', 'automation', 'beginner', false, ['/umgebungssteuerung']),
+  // sidebar and the ModuleGuard/settings visibility in agreement. Issue #587:
+  // actuator control is a smart-home surface, so it is additionally gated behind
+  // the `smart_home_enabled` toggle (hidden until the user opts in).
+  automation: def('automation', 'automation', 'beginner', false, ['/umgebungssteuerung'], true),
 
   // ── AI ──
   ai: def('ai', 'ai', 'intermediate', false, [

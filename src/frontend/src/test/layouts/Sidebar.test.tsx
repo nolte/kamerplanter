@@ -74,7 +74,8 @@ describe('Sidebar ↔ moduleCatalog sync (REQ-042 root-cause guard)', () => {
     // This FAILS the moment a future sidebar entry is added without an owning
     // module (the exact regression #551 was about), closing the root cause.
     renderWithProviders(<Sidebar open />, {
-      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED),
+      // smart home on so the automation entry (issue #587) is not filtered out.
+      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true),
     });
 
     const paths = renderedSidebarPaths();
@@ -88,7 +89,8 @@ describe('Sidebar ↔ moduleCatalog sync (REQ-042 root-cause guard)', () => {
     // Reverse direction: every controllable module must own at least one entry
     // that actually appears in the sidebar — no toggle without a visible target.
     renderWithProviders(<Sidebar open />, {
-      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED),
+      // smart home on so the automation entry (issue #587) is not filtered out.
+      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true),
     });
 
     const owningKeys = new Set(
@@ -117,7 +119,8 @@ describe('Sidebar — newly-controllable modules (REQ-042 #551)', () => {
 
   it.each(cases)('shows $key by default and hides it when disabled', ({ key, testid }) => {
     const { unmount } = renderWithProviders(<Sidebar open />, {
-      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED),
+      // smart home on so the automation entry (issue #587) is shown here.
+      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true),
     });
     expect(screen.getByTestId(testid)).toBeInTheDocument();
     unmount();
@@ -126,9 +129,17 @@ describe('Sidebar — newly-controllable modules (REQ-042 #551)', () => {
       store: createStoreWithModuleOverrides('expert', {
         ...ALL_MODULES_ENABLED,
         [key]: 'disabled',
-      }),
+      }, true),
     });
     expect(screen.queryByTestId(testid)).toBeNull();
+  });
+
+  it('hides the automation entry when smart home is disabled despite an override (#587)', () => {
+    // Even with automation explicitly enabled, the smart-home gate keeps it hidden.
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, false),
+    });
+    expect(screen.queryByTestId('nav-/umgebungssteuerung')).toBeNull();
   });
 
   it('hides the post-harvest entry independently of the harvest module', () => {

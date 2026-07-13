@@ -42,6 +42,7 @@ import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import TextField from '@mui/material/TextField';
@@ -160,6 +161,9 @@ export default function TankDetailPage() {
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
+  // Issue #587: tank sensor surfaces (HA/MQTT sensors, history charts) are gated
+  // behind the smart-home toggle; the tank itself stays visible.
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
 
   const [tank, setTank] = useState<Tank | null>(null);
   const [latestState, setLatestState] = useState<TankState | null>(null);
@@ -864,8 +868,9 @@ export default function TankDetailPage() {
             </Card>
           )}
 
-          {/* Sensor History Charts — only when sensors are configured */}
-          {tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
+          {/* Sensor History Charts — only when smart home is enabled (issue #587)
+              and sensors are configured */}
+          {isSmartHomeEnabled && tsAvailable && sensors.filter((s) => s.ha_entity_id && s.is_active).length > 0 && (
             <Card variant="outlined" sx={{ mt: 2 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -1310,8 +1315,9 @@ export default function TankDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Sensors */}
-          <Card variant="outlined">
+          {/* Sensors — issue #587: only when smart home is enabled */}
+          {isSmartHomeEnabled && (
+          <Card variant="outlined" data-testid="tank-sensors-section">
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
                 <Typography variant="h6">{t('pages.tanks.sensors')}</Typography>
@@ -1339,6 +1345,7 @@ export default function TankDetailPage() {
               />
             </CardContent>
           </Card>
+          )}
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions

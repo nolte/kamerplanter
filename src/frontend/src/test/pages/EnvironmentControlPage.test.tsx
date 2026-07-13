@@ -4,8 +4,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import EnvironmentControlPage from '@/pages/environment/EnvironmentControlPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithSmartHome } from '../helpers';
 import { server } from '../mocks/server';
+
+// Issue #587: the environment-control page is only reachable when smart home is
+// enabled (route guard), and the actuator dialog now derives HA availability from
+// that flag — so render it with smart home enabled.
+const renderPage = () =>
+  renderWithProviders(<EnvironmentControlPage />, { store: createStoreWithSmartHome() });
 
 const T = '/api/v1/t/:tenant';
 
@@ -53,7 +59,7 @@ describe('EnvironmentControlPage', () => {
   });
 
   it('renders the title, intro and create button', async () => {
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('create-actuator-button')).toBeInTheDocument(),
     );
@@ -62,7 +68,7 @@ describe('EnvironmentControlPage', () => {
   });
 
   it('shows the empty state with no actuators', async () => {
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText(/Noch kein Aktor angelegt/)).toBeInTheDocument(),
     );
@@ -72,7 +78,7 @@ describe('EnvironmentControlPage', () => {
 
   it('lists actuators with type, protocol and online chips', async () => {
     mockActuators([ACTUATOR]);
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('actuator-card-act1')).toBeInTheDocument(),
     );
@@ -94,7 +100,7 @@ describe('EnvironmentControlPage', () => {
         return HttpResponse.json({ key: 'ev1', success: true, new_state: 'on' });
       }),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByTestId('turn-on-act1')).toBeInTheDocument());
     await user.click(screen.getByTestId('turn-on-act1'));
     await waitFor(() => expect(commanded).toHaveBeenCalled());
@@ -111,7 +117,7 @@ describe('EnvironmentControlPage', () => {
         HttpResponse.json({ key: 'ev1', success: false, new_state: 'off' }),
       ),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByTestId('turn-on-act1')).toBeInTheDocument());
     await user.click(screen.getByTestId('turn-on-act1'));
     await waitFor(() =>
@@ -123,7 +129,7 @@ describe('EnvironmentControlPage', () => {
     const user = userEvent.setup();
     mockActuators([ACTUATOR]);
     server.use(http.post(`${T}/actuators/:key/command`, () => HttpResponse.error()));
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByTestId('turn-on-act1')).toBeInTheDocument());
     await user.click(screen.getByTestId('turn-on-act1'));
     // The button becomes usable again instead of staying stuck disabled/busy.
@@ -132,7 +138,7 @@ describe('EnvironmentControlPage', () => {
 
   it('shows a fault icon and label for a faulted actuator', async () => {
     mockActuators([{ ...ACTUATOR, current_state: 'fault' }]);
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('actuator-card-act1')).toBeInTheDocument(),
     );
@@ -141,7 +147,7 @@ describe('EnvironmentControlPage', () => {
 
   it('falls back to the raw value for an unrecognized current_state', async () => {
     mockActuators([{ ...ACTUATOR, current_state: 'dimming_42' }]);
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('actuator-card-act1')).toBeInTheDocument(),
     );
@@ -150,7 +156,7 @@ describe('EnvironmentControlPage', () => {
 
   it('shows the unknown-state label when current_state is null', async () => {
     mockActuators([{ ...ACTUATOR, current_state: null }]);
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('actuator-card-act1')).toBeInTheDocument(),
     );
@@ -160,7 +166,7 @@ describe('EnvironmentControlPage', () => {
   it('opens the create dialog from the empty state action', async () => {
     const user = userEvent.setup();
     mockActuators([]);
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByText(/Noch kein Aktor angelegt/)).toBeInTheDocument(),
     );
@@ -171,7 +177,7 @@ describe('EnvironmentControlPage', () => {
   it('closes the create dialog on cancel', async () => {
     const user = userEvent.setup();
     mockActuators([]);
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByTestId('form-cancel-button'));
@@ -193,7 +199,7 @@ describe('EnvironmentControlPage', () => {
         });
       }),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('emergency-stop-button')).toBeEnabled(),
     );
@@ -216,7 +222,7 @@ describe('EnvironmentControlPage', () => {
         }),
       ),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('emergency-stop-button')).toBeEnabled(),
     );
@@ -235,7 +241,7 @@ describe('EnvironmentControlPage', () => {
     const user = userEvent.setup();
     mockActuators([ACTUATOR]);
     server.use(http.post(`${T}/emergency-stop`, () => HttpResponse.error()));
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('emergency-stop-button')).toBeEnabled(),
     );
@@ -251,7 +257,7 @@ describe('EnvironmentControlPage', () => {
     mockActuators([ACTUATOR]);
     const stopped = vi.fn();
     server.use(http.post(`${T}/emergency-stop`, () => (stopped(), HttpResponse.json({}))));
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('emergency-stop-button')).toBeEnabled(),
     );
@@ -275,7 +281,7 @@ describe('EnvironmentControlPage', () => {
         return HttpResponse.json({ key: 'ev2', success: true, new_state: 'off' });
       }),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() => expect(screen.getByTestId('actuator-card-act2')).toBeInTheDocument());
     const card = screen.getByTestId('actuator-card-act2');
     expect(within(card).getByText('Offline')).toBeInTheDocument();
@@ -288,7 +294,7 @@ describe('EnvironmentControlPage', () => {
     const user = userEvent.setup();
     mockActuators([]);
     server.use(http.get(`${T}/sites`, () => HttpResponse.json([{ key: 'site1', name: 'Growroom' }])));
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
 
@@ -306,7 +312,7 @@ describe('EnvironmentControlPage', () => {
     const user = userEvent.setup();
     mockActuators([]);
     server.use(http.get(`${T}/sites`, () => HttpResponse.json([{ key: 'site1', name: 'Growroom' }])));
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
 
@@ -332,7 +338,7 @@ describe('EnvironmentControlPage', () => {
         return HttpResponse.json({ ...ACTUATOR, key: 'new2', protocol: 'mqtt' }, { status: 201 });
       }),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
 
@@ -375,7 +381,7 @@ describe('EnvironmentControlPage', () => {
         return HttpResponse.json({ ...ACTUATOR, key: 'new1' }, { status: 201 });
       }),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await waitFor(() =>
       expect(screen.getByTestId('create-actuator-button')).toBeInTheDocument(),
     );
@@ -409,7 +415,7 @@ describe('EnvironmentControlPage', () => {
     const user = userEvent.setup();
     mockActuators([]);
     server.use(http.get(`${T}/sites`, () => HttpResponse.error()));
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
     // The dialog stays open and usable — a failed site lookup must not crash it.
@@ -423,7 +429,7 @@ describe('EnvironmentControlPage', () => {
       http.get(`${T}/sites`, () => HttpResponse.json([{ key: 'site1', name: 'Growroom' }])),
       http.get(`${T}/locations`, () => HttpResponse.error()),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
     const siteSelect = within(dialog).getByTestId('form-field-site_key');
@@ -443,7 +449,7 @@ describe('EnvironmentControlPage', () => {
       http.get(`${T}/locations`, () => HttpResponse.json([{ key: 'loc1', name: 'Zelt 1' }])),
       http.post(`${T}/locations/:key/actuators`, () => HttpResponse.error()),
     );
-    renderWithProviders(<EnvironmentControlPage />);
+    renderPage();
     await user.click(await screen.findByTestId('create-actuator-button'));
     const dialog = await screen.findByRole('dialog');
 
