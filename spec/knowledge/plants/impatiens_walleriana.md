@@ -25,6 +25,9 @@
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: Impatiens walleriana folgt nicht dem typischen linearen Blühraten-/Temperaturmodell der Beetpflanzen (Days-to-flower sinkt 14→26 °C nicht monoton, Quelle [9]); kein belegter Wuchs-GDD-Basiswert auffindbar — kein Keim-/Kardinalwert umetikettiert --> | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig und wiederholt blühend; frostempfindlich und daher als einjährige Kultur gezogen (cultivation_cycle_type=annual)) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Typische Lebensdauer (Jahre) | 1 (als Einjährige) oder 2–3 (überwintert als Zimmerpflanze) | `lifecycle_configs.typical_lifespan_years` |
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | Dormanz erforderlich | false | `lifecycle_configs.dormancy_required` |

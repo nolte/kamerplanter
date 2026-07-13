@@ -20,6 +20,9 @@
 | Wuchsform | shrub | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
+| Blühstrategie (flowering strategy) | polycarpic (ausdauernd, blüht wiederholt über mehrere Jahre) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 4a–7b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |

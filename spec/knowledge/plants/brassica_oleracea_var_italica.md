@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
+| Blühstrategie (flowering strategy) | monocarpic (blüht einmal im 2. Jahr nach Vernalisation, danach Absterben der Mutterpflanze (Brassica-oleracea-Konvention wie Kohl/Kohlrabi); als Gemüse einjährig kultiviert (cultivation_cycle_type=biennial)) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Korrektur: Brokkoli ist tagneutral; Kopfbildung/Entwicklung ist temperatur-, nicht photoperiodengesteuert (Wurthmann 2000; Lindemann-Zutz 2016). --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (°C) | 4.5 (cole crops 3–5; T_opt 20) | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
