@@ -202,6 +202,26 @@ class WateringLogListPage(BasePage):
             return True
         return False
 
+    def select_plant_by_text(self, text: str) -> bool:
+        """Type *text* into the plant autocomplete and pick the matching option.
+
+        Returns True if an option was selected, False if none appeared. Used by
+        the self-provisioning journey to attach the freshly created plant
+        (identified by its unique instance id) to the watering log.
+        """
+        import time
+
+        input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
+        input_el.click()
+        self.clear_and_fill(input_el, text)
+        time.sleep(0.4)
+        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+        if options:
+            options[0].click()
+            time.sleep(0.2)
+            return True
+        return False
+
     def fill_volume(self, volume: float) -> None:
         """Fill the volume_liters field in the create dialog."""
         el = self.wait_for_element_clickable(self.FORM_VOLUME)

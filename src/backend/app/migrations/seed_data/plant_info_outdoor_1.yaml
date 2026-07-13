@@ -1579,84 +1579,25 @@ species_enrichment:
       sowing_density_per_m2: 5
 
 lifecycle_configs:
-  "Allium cepa":
-    cycle_type: biennial
-    photoperiod_type: long_day
-    dormancy_required: true
-    vernalization_required: true
-    vernalization_min_days: 90
-    critical_day_length_hours: 13.75
-
-  "Allium sativum":
-    cycle_type: perennial
-    photoperiod_type: long_day
-    dormancy_required: true
-    vernalization_required: true
-    critical_day_length_hours: 13
-
-  "Anemone hupehensis":
-    cycle_type: perennial
-    photoperiod_type: short_day
-    dormancy_required: true
-    vernalization_required: false
-    critical_day_length_hours: 14
-
-  "Asparagus officinalis":
-    cycle_type: perennial
-    photoperiod_type: day_neutral
-    dormancy_required: true
-    vernalization_required: true
-    vernalization_min_days: 30
-
-  "Astilbe chinensis":
-    cycle_type: perennial
-    photoperiod_type: long_day
-    dormancy_required: true
-    vernalization_required: true
-    vernalization_min_days: 70
-
+  # NOTE (WP-8, #565): the perennial/biennial outdoor species that declared
+  # dormancy_required without any phase model — Allium cepa, Allium sativum,
+  # Anemone hupehensis, Asparagus officinalis, Astilbe chinensis, Buxus
+  # sempervirens, Clematis spp., Cornus mas, Delphinium elatum, Echinacea
+  # purpurea — were moved to lifecycles_outdoor.yaml (path B), which binds them
+  # to a cyclic phase sequence carrying a real dormancy phase. Keeping them here
+  # too would double-source the lifecycle (the loaders keep zero overlap between
+  # lifecycles_outdoor.yaml and plant_info lifecycle_configs).
   "Brassica oleracea var. sabellica":
     cycle_type: biennial
     photoperiod_type: long_day
     dormancy_required: false
     vernalization_required: true
 
-  "Buxus sempervirens":
-    cycle_type: perennial
-    photoperiod_type: day_neutral
-    dormancy_required: true
-    vernalization_required: false
-
   "Calendula officinalis":
     cycle_type: annual
     photoperiod_type: day_neutral
     dormancy_required: false
     vernalization_required: false
-
-  "Clematis spp.":
-    cycle_type: perennial
-    photoperiod_type: long_day
-    dormancy_required: true
-    vernalization_required: true
-
-  "Cornus mas":
-    cycle_type: perennial
-    photoperiod_type: day_neutral
-    dormancy_required: true
-    vernalization_required: true
-
-  "Delphinium elatum":
-    cycle_type: perennial
-    photoperiod_type: long_day
-    dormancy_required: true
-    vernalization_required: true
-    critical_day_length_hours: 14
-
-  "Echinacea purpurea":
-    cycle_type: perennial
-    photoperiod_type: long_day
-    dormancy_required: true
-    vernalization_required: true
 
   # Enriched species lifecycle overrides
   "Capsicum annuum":

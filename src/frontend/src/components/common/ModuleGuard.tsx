@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import SensorsOffIcon from '@mui/icons-material/SensorsOff';
 import SettingsIcon from '@mui/icons-material/Settings';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
@@ -17,22 +18,43 @@ import { useModuleVisibility } from '@/hooks/useModuleVisibility';
  * REQ-042 — deep-link guard. Direct URL access to a route of a hidden module
  * does not 404; it renders a reactivation hint instead, so shared/saved links
  * stay usable. Core and unowned paths pass straight through.
+ *
+ * Issue #587 — when a path is blocked by the smart-home gate specifically (e.g.
+ * `/umgebungssteuerung`), the hint is tailored to point at the smart-home toggle
+ * (Settings → Integrationen) instead of the module list.
  */
 export default function ModuleGuard({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isPathVisible } = useModuleVisibility();
+  const { isPathVisible, isSmartHomeGatedPath } = useModuleVisibility();
   const descId = useId();
 
   if (isPathVisible(location.pathname)) {
     return <>{children}</>;
   }
 
+  const smartHomeGated = isSmartHomeGatedPath(location.pathname);
+  const copy = smartHomeGated
+    ? {
+        title: t('pages.auth.smartHome.guardTitle'),
+        description: t('pages.auth.smartHome.guardDescription'),
+        action: t('pages.auth.smartHome.guardAction'),
+        target: '/settings#ha',
+        testid: 'smart-home-guard-hint',
+      }
+    : {
+        title: t('modules.guard.title'),
+        description: t('modules.guard.description'),
+        action: t('modules.guard.action'),
+        target: '/settings#modules',
+        testid: 'module-guard-hint',
+      };
+
   return (
     <Box
       role="main"
-      data-testid="module-guard-hint"
+      data-testid={copy.testid}
       sx={{
         display: 'flex',
         justifyContent: 'center',
@@ -60,19 +82,26 @@ export default function ModuleGuard({ children }: { children: React.ReactNode })
           }}
         >
           {/* Decorative icon */}
-          <VisibilityOffIcon
-            sx={{ fontSize: { xs: 48, sm: 56 }, color: 'text.disabled' }}
-            aria-hidden="true"
-          />
+          {smartHomeGated ? (
+            <SensorsOffIcon
+              sx={{ fontSize: { xs: 48, sm: 56 }, color: 'text.disabled' }}
+              aria-hidden="true"
+            />
+          ) : (
+            <VisibilityOffIcon
+              sx={{ fontSize: { xs: 48, sm: 56 }, color: 'text.disabled' }}
+              aria-hidden="true"
+            />
+          )}
 
           {/* Heading */}
           <Typography variant="h6" component="h1" id="module-guard-title">
-            {t('modules.guard.title')}
+            {copy.title}
           </Typography>
 
           {/* Explanatory text */}
           <Typography id={descId} variant="body2" color="text.secondary" sx={{ maxWidth: '36ch' }}>
-            {t('modules.guard.description')}
+            {copy.description}
           </Typography>
 
           {/* Data-safety reassurance */}
@@ -89,12 +118,12 @@ export default function ModuleGuard({ children }: { children: React.ReactNode })
             variant="contained"
             size="large"
             startIcon={<SettingsIcon />}
-            onClick={() => navigate('/settings#modules')}
+            onClick={() => navigate(copy.target)}
             data-testid="module-guard-action"
             // Minimum 48px touch target (size="large" = 42px default; py override)
             sx={{ minHeight: 48, px: 3 }}
           >
-            {t('modules.guard.action')}
+            {copy.action}
           </Button>
 
           {/* Secondary: go back */}

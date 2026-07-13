@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
+| Blühstrategie (flowering strategy) | polycarpic (ausdauernd, blüht wiederholt über mehrere Jahre) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Photoperiode | day_neutral <!-- Quelle: Steckbrief-Erweiterung 2026-06 --> (korrigiert von long_day: Blüten- und Knospenbildung der krautigen Pfingstrose sind autonom und photoperiod-unabhängig; gesteuert über Kältebedarf/Vernalisation, nicht über Tageslänge) <!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a–8b | `species.hardiness_zones` |
 | Frostempfindlichkeit | hardy | `species.frost_sensitivity` |

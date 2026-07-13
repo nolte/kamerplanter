@@ -20,6 +20,9 @@
 | Wuchsform | tree | `species.growth_habit` |
 | Wurzeltyp | taproot | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
+| Blühstrategie (flowering strategy) | polycarpic (ausdauernd, blüht wiederholt über mehrere Jahre) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- KORREKTUR: war long_day. Süßkirsche ist photoperiodisch insensitiv (day-neutral); Wachstum, Knospenruhe und Blühinduktion werden durch Temperatur/Chilling gesteuert, nicht durch Tageslänge. Quellen: Heide 2008 (Interaction of photoperiod and temperature in Prunus); Beck et al. 2019 (Temperature effects on floral initiation in P. avium) --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Laubbaum der Rosaceae; C3-Stoffwechsel (kein C4/CAM) --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (°C) | 4.5 | `species.base_temp` |<!-- Quelle: Steckbrief-Erweiterung 2026-06 --> <!-- Wuchs-/Phänologie-GDD-Basis (cumulative degree-days ab swollen-bud), mehrfach in P.-avium-Phänologiemodellen verwendet (T0 = 4.5 °C); KEIN Keim-Basiswert --> <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

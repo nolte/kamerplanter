@@ -2,11 +2,12 @@
 
 > **Typ:** illustration-serie
 > **Erstellt:** 2026-03-09
-> **Varianten:** 6 Fuellstaende (0%, 20%, 40%, 60%, 80%, 100%), nur Light Mode
+> **Varianten:** 6 Fuellstaende (0%, 20%, 40%, 60%, 80%, 100%); Light (primaer) + Dark (siehe Abschnitt „Dark-Mode-Variante")
 > **Zielgroesse:** 320x240px (primaer), spaeter SVG-Konvertierung via vtracer
 > **Format:** PNG (transparent) → SVG
 > **Einsatzort:** TankDetailPage Fuellstand-Anzeige, TankListPage Statusicon, TankStateCreateDialog Illustration
-> **Referenz:** Design Guide Abschnitt 5 (Kami-Anatomie), illustration-kami-tankmanagement.md, REQ-014
+> **Referenz:** Design Guide Abschnitt 5 (Kami-Anatomie), KAMI-CHARACTER-REFERENCE.md §3.2 (Outline-System), illustration-kami-tankmanagement.md, REQ-014
+> **Audit-Referenz:** `spec/analysis/kami-illustration-audit-2026-07.md` — **G-05** (High). Dark-Mode-Variante ergaenzt (Authoring-Luecke „nur Light Mode" geschlossen); Prompts selbst unveraendert.
 
 ---
 
@@ -303,9 +304,30 @@ Avoid: text, numbers, gradients, photorealism, black outlines, complex backgroun
 
 ---
 
+## Dark-Mode-Variante
+
+Da `TankDetailPage`/`TankListPage`/`TankStateCreateDialog` sowohl im Light- als auch im
+Dark-Theme rendern, wird jede der 6 Fuellstand-Illustrationen zusaetzlich in einer Dark-Variante
+benoetigt. Die 6 Prompts bleiben **unveraendert** — es wird ausschliesslich die Outline-Zeile
+gemaess §3.2 getauscht:
+
+```
+# In jedem der 6 Prompts diese Zeile:
+Outlines: dark green #1b5e20, 2.5px outer, 1.5px inner. Rounded line caps.
+# ersetzen durch:
+Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner. Rounded line caps.
+```
+
+Alle uebrigen Farben (Kami-Koerper, Tank, Naehrloesung, Ventil, Warn-Dreieck, Glitzer) bleiben
+identisch — der transparente Hintergrund traegt die Illustration auf beiden Themes. Es entsteht
+**kein** neuer Prompt, nur ein zweiter Render-Durchlauf mit heller Outline.
+
+---
+
 ## Nachbearbeitung
 
 - [ ] Alle 6 PNGs auf exakt 320x240px zuschneiden
+- [ ] Je Fuellstand Light- **und** Dark-Outline-Variante erzeugen (Dark: #c8e6c9)
 - [ ] Pruefen ob Tank-Position und Kami-Groesse in allen 6 Bildern uebereinstimmen
 - [ ] Hintergrund auf vollstaendige Transparenz pruefen
 - [ ] Teal-Farbe der Naehrloesung gegen #4dd0e1 validieren

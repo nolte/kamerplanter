@@ -329,6 +329,69 @@ describe('PlantInstanceCreateDialog', () => {
     });
   });
 
+  // ── Per-instance cultivation cycle (ADR-006 E1, #565 Phase 2) ────────
+  describe('cultivation cycle override', () => {
+    async function selectTomato(user: ReturnType<typeof userEvent.setup>) {
+      const speciesInput = within(
+        await screen.findByTestId('form-field-species_key'),
+      ).getByRole('combobox');
+      await user.click(speciesInput);
+      await user.type(speciesInput, 'Solanum');
+      await user.click(await screen.findByRole('option', { name: /Solanum lycopersicum/ }));
+    }
+
+    it('defaults to "same as the species" and submits null', async () => {
+      const payloads: Array<{ cultivation_cycle_type: string | null }> = [];
+      server.use(
+        http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+          const body = (await request.json()) as { cultivation_cycle_type: string | null };
+          payloads.push({ cultivation_cycle_type: body.cultivation_cycle_type });
+          return HttpResponse.json({ key: 'plant-new', ...body }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={onCreated} />,
+      );
+      // The cultivation-cycle field is rendered and defaults to "same as the species".
+      expect(await screen.findByTestId('form-field-cultivation_cycle_type')).toBeTruthy();
+      await selectTomato(user);
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      expect(payloads).toEqual([{ cultivation_cycle_type: null }]);
+    });
+
+    it('submits the chosen cycle when the grower overrides it per plant', async () => {
+      const payloads: Array<{ cultivation_cycle_type: string | null }> = [];
+      server.use(
+        http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+          const body = (await request.json()) as { cultivation_cycle_type: string | null };
+          payloads.push({ cultivation_cycle_type: body.cultivation_cycle_type });
+          return HttpResponse.json({ key: 'plant-new', ...body }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      const onCreated = vi.fn();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={onCreated} />,
+      );
+      await selectTomato(user);
+
+      const cycleSelect = within(
+        await screen.findByTestId('form-field-cultivation_cycle_type'),
+      ).getByRole('combobox');
+      await user.click(cycleSelect);
+      await user.click(await screen.findByRole('option', { name: 'Mehrjährig' }));
+
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
+      expect(payloads).toEqual([{ cultivation_cycle_type: 'perennial' }]);
+    });
+  });
+
   // ── Identification photo carry-over (issue #447) ─────────────────────
   describe('identification photo carry-over', () => {
     function makePhoto(): File {

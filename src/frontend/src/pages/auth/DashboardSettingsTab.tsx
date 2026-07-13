@@ -30,6 +30,7 @@ import WidgetConfigDialog from '@/components/dashboard/WidgetConfigDialog';
 import { useAppDispatch } from '@/store/hooks';
 import { fetchWidgetCatalog } from '@/store/slices/dashboardSlice';
 import { useDashboardLayout } from '@/hooks/useDashboardLayout';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import {
   dashboardWidgetCatalog,
   WIDGET_CATEGORIES,
@@ -59,6 +60,7 @@ export default function DashboardSettingsTab() {
   const { enqueueSnackbar } = useSnackbar();
   const dispatch = useAppDispatch();
   const { layout, catalogByKey, catalogLoaded, isWidgetRenderable, persist, reset } = useDashboardLayout();
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
   const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
 
   // The settings tab is reachable directly via /settings#dashboard without
@@ -102,9 +104,15 @@ export default function DashboardSettingsTab() {
     () =>
       WIDGET_CATEGORIES.map((category) => ({
         category,
-        widgets: Object.values(dashboardWidgetCatalog).filter((w) => w.category === category),
-      })),
-    [],
+        widgets: Object.values(dashboardWidgetCatalog).filter(
+          (w) =>
+            w.category === category &&
+            // Issue #587: hide sensor/monitoring widgets from the picker entirely
+            // while smart home is off (AC: "weder gerendert noch im Picker").
+            (!w.requiresSmartHome || isSmartHomeEnabled),
+        ),
+      })).filter((group) => group.widgets.length > 0),
+    [isSmartHomeEnabled],
   );
 
   return (

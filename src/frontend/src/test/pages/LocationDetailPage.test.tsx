@@ -4,8 +4,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse, delay } from 'msw';
 import i18n from 'i18next';
 import LocationDetailPage from '@/pages/standorte/LocationDetailPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithSmartHome } from '../helpers';
 import { server } from '../mocks/server';
+
+// Issue #587: sensor UI is gated behind the smart-home toggle. Default the page
+// renders with smart home enabled so the existing sensor assertions hold; the
+// disabled (hidden) case is covered by a dedicated test.
+const renderPage = () =>
+  renderWithProviders(<LocationDetailPage />, { store: createStoreWithSmartHome() });
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (orig) => {
@@ -244,7 +250,7 @@ describe('LocationDetailPage', () => {
 
   it('renders a fully populated location with all sections', async () => {
     useFullLocation();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     expect(await screen.findByTestId('location-detail-page')).toBeTruthy();
     expect(screen.getAllByText('Zone A').length).toBeGreaterThan(0);
@@ -262,7 +268,7 @@ describe('LocationDetailPage', () => {
   it('renders the empty states and triggers their create actions', async () => {
     useEmptyLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     expect(await screen.findByText(i18n.t('pages.locations.noPlantsOrRuns'))).toBeTruthy();
@@ -284,16 +290,26 @@ describe('LocationDetailPage', () => {
   it('opens the sensor create dialog from the add button', async () => {
     useEmptyLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByTestId('add-sensor-button'));
     expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
+  it('hides the sensor section when smart home is disabled (#587)', async () => {
+    useEmptyLocation();
+    // Default store → smart_home_enabled falsy → sensor surfaces hidden.
+    renderWithProviders(<LocationDetailPage />);
+
+    await screen.findByTestId('location-detail-page');
+    expect(screen.queryByTestId('location-sensors-section')).toBeNull();
+    expect(screen.queryByTestId('add-sensor-button')).toBeNull();
+  });
+
   it('renders the alternate field variants (empty/inactive collaborators)', async () => {
     useVariantLocation();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     // Tank resolved through the fallback list despite no tank_key.
@@ -318,7 +334,7 @@ describe('LocationDetailPage', () => {
       dispatchEvent: () => false,
     }));
     useVariantLocation();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     expect(await screen.findAllByText('Soil Sensor')).toBeTruthy();
@@ -335,7 +351,7 @@ describe('LocationDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -348,7 +364,7 @@ describe('LocationDetailPage', () => {
 
   it('shows the error state when the location fetch fails', async () => {
     server.use(http.get('/api/v1/t/:tenant/locations/:key', () => errorEnvelope(500)));
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     expect(await screen.findByTestId('error-display')).toBeTruthy();
     expect(screen.queryByTestId('location-detail-page')).toBeNull();
@@ -356,7 +372,7 @@ describe('LocationDetailPage', () => {
 
   it('renders the dynamic-sunrise switch for a natural light type', async () => {
     useFullLocation({ light_type: 'natural', use_dynamic_sunrise: true });
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     expect(await screen.findByText(i18n.t('pages.locations.useDynamicSunrise'))).toBeTruthy();
@@ -372,7 +388,7 @@ describe('LocationDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -386,7 +402,7 @@ describe('LocationDetailPage', () => {
     useFullLocation();
     server.use(http.put('/api/v1/t/:tenant/locations/:key', () => errorEnvelope(500)));
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -397,7 +413,7 @@ describe('LocationDetailPage', () => {
   it('navigates back when cancelling the form', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByTestId('form-cancel-button'));
@@ -407,7 +423,7 @@ describe('LocationDetailPage', () => {
   it('navigates to the assigned tank on chip click', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(await screen.findByText(/Tank One/));
@@ -417,7 +433,7 @@ describe('LocationDetailPage', () => {
   it('navigates from the run, plant, sub-location and slot rows', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
 
@@ -437,7 +453,7 @@ describe('LocationDetailPage', () => {
   it('opens the create dialogs from their add buttons', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
 
@@ -457,7 +473,7 @@ describe('LocationDetailPage', () => {
   it('opens the sensor edit dialog from the row action', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     const sensorRow = (await screen.findByText('Soil Sensor')).closest('tr')!;
@@ -475,7 +491,7 @@ describe('LocationDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     const sensorRow = (await screen.findByText('Soil Sensor')).closest('tr')!;
@@ -491,7 +507,7 @@ describe('LocationDetailPage', () => {
       http.delete('/api/v1/t/:tenant/tanks/sensors/:key', () => errorEnvelope(500)),
     );
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     const sensorRow = (await screen.findByText('Soil Sensor')).closest('tr')!;
@@ -513,7 +529,7 @@ describe('LocationDetailPage', () => {
       dispatchEvent: () => false,
     }));
     useFullLocation();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     expect(await screen.findAllByText('Soil Sensor')).toBeTruthy();
@@ -525,7 +541,7 @@ describe('LocationDetailPage', () => {
     useFullLocation();
     useDeleteResponse(204);
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -546,7 +562,7 @@ describe('LocationDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -562,7 +578,7 @@ describe('LocationDetailPage', () => {
     useFullLocation();
     useDeleteResponse(500);
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -575,7 +591,7 @@ describe('LocationDetailPage', () => {
   it('cancels the delete confirmation without deleting', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderWithProviders(<LocationDetailPage />);
+    renderPage();
 
     await screen.findByTestId('location-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));

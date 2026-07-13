@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import SubstrateType, TerminationCause, TerminationType
+from app.common.enums import CycleType, SubstrateType, TerminationCause, TerminationType
 
 
 class PlantCreate(BaseModel):
@@ -19,6 +19,8 @@ class PlantCreate(BaseModel):
     current_phase_key: str | None = None
     container_volume_liters: float | None = Field(default=None, ge=0.1, le=500)
     substrate_type_override: SubstrateType | None = None
+    # ADR-006 E1 — per-instance cultivation cycle override; None = "same as the species".
+    cultivation_cycle_type: CycleType | None = None
 
 
 class RemovePlantRequest(BaseModel):
@@ -67,6 +69,8 @@ class PlantResponse(BaseModel):
     mother_key: str | None = None
     container_volume_liters: float | None = None
     substrate_type_override: SubstrateType | None = None
+    # ADR-006 E1 — per-instance cultivation cycle override (None = same as the species).
+    cultivation_cycle_type: CycleType | None = None
     species: SpeciesSummary | None = None
     cultivar: CultivarSummary | None = None
     created_at: datetime | None = None

@@ -742,6 +742,12 @@ export interface PlantInstance {
   current_phase_started_at: string | null;
   container_volume_liters: number | null;
   substrate_type_override: SubstrateType | null;
+  /**
+   * Per-instance cultivation cycle override (ADR-006 E1, #565). null/absent = "same as
+   * the species". The practised cycle axis (#297): overrides the species default for the
+   * season/overwintering and cycle-restart decisions; the botanical cycle stays species-fixed.
+   */
+  cultivation_cycle_type?: CycleType | null;
   species: PlantSpeciesSummary | null;
   cultivar: PlantCultivarSummary | null;
   /** Key of the mother instance this pup descended from via clonal continuation (D10, REQ-017). */
@@ -813,6 +819,8 @@ export interface PlantInstanceCreate {
   current_phase_key?: string | null;
   container_volume_liters?: number | null;
   substrate_type_override?: SubstrateType | null;
+  /** Per-instance cultivation cycle override (ADR-006 E1, #565). null/omitted = "same as the species". */
+  cultivation_cycle_type?: CycleType | null;
 }
 
 export interface ValidatePlantingResponse {
@@ -981,12 +989,16 @@ export interface NutrientProfileCreate {
 export interface CompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
+  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  common_names: string[];
   score: number;
 }
 
 export interface IncompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
+  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  common_names: string[];
   reason: string;
 }
 
@@ -1015,6 +1027,11 @@ export interface IncompatibilitySet {
 export interface RotationSuccessor {
   family_key: string;
   name: string | null;
+  /** German family common name (e.g. "Nachtschattengewächse"); UI leads with it. */
+  common_name_de: string;
+  common_name_en: string;
+  /** Raw rotation-category code (e.g. "legume"); UI maps it to a translated label. */
+  rotation_category: string;
   wait_years: number;
   benefit_score: number;
   benefit_reason: string;

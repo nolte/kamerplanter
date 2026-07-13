@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import SubstrateType, TerminationCause, TerminationType
+from app.common.enums import CycleType, SubstrateType, TerminationCause, TerminationType
 
 
 class PlantInstance(BaseModel):
@@ -34,6 +34,18 @@ class PlantInstance(BaseModel):
     )
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None
+    # ── Per-instance cultivation cycle (ADR-006 E1 / REQ-003, #565 Phase 2) ──
+    # The grower's per-plant cultivation decision, the most specific tier of the
+    # resolve_effective_cycle cascade (instance → species cultivation_cycle_type →
+    # species botanical cycle_type). None = "same as the species" (non-breaking).
+    # This is the PRACTISED cycle axis (#297): the botanical cycle_type stays
+    # species-fixed; only the cultivation decision becomes instance-overridable —
+    # e.g. an overwintered tomato grown perennial, or a strawberry grown as an annual.
+    cultivation_cycle_type: CycleType | None = Field(
+        default=None,
+        description="Per-instance practised lifespan; overrides the species default for the season/"
+        "overwintering and cycle-restart decisions. None = same as the species.",
+    )
     # ── Genetic lineage (REQ-017 / REQ-003 D10) ──
     mother_key: str | None = Field(
         default=None,

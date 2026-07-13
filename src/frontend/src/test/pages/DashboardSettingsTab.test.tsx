@@ -19,8 +19,9 @@ describe('DashboardSettingsTab', () => {
     expect(screen.getByTestId('dashboard-reset')).toBeInTheDocument();
   });
 
-  it('should display all widget categories', () => {
-    const store = createStoreWithExpertise('beginner');
+  it('should display all widget categories (smart home on shows monitoring)', () => {
+    // Issue #587: the monitoring category (tank_status) is smart-home-gated.
+    const store = createStoreWithExpertise('expert', true);
     renderWithProviders(<DashboardSettingsTab />, { store });
 
     // Widget catalog should show category accordions
@@ -28,6 +29,16 @@ describe('DashboardSettingsTab', () => {
     expect(screen.getByTestId('dashboard-category-insights')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-category-cultivation')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-category-monitoring')).toBeInTheDocument();
+  });
+
+  it('hides the monitoring category and tank_status widget when smart home is off (#587)', () => {
+    const store = createStoreWithExpertise('expert', false);
+    renderWithProviders(<DashboardSettingsTab />, { store });
+
+    expect(screen.getByTestId('dashboard-category-essentials')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-category-monitoring')).toBeNull();
+    expect(screen.queryByTestId('dashboard-widget-row-tank_status')).toBeNull();
+    expect(screen.queryByTestId('dashboard-switch-tank_status')).toBeNull();
   });
 
   it('should render widget rows with switches and proper data-testids', () => {

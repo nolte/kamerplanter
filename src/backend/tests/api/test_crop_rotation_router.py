@@ -56,3 +56,34 @@ def test_counts_endpoint_returns_empty_map_when_no_rotation_edges() -> None:
 
     assert resp.status_code == 200
     assert resp.json() == {}
+
+
+def test_successors_endpoint_passes_through_common_name_and_category() -> None:
+    """GET /successors surfaces common_name_de + rotation_category from the family
+    vertex so the UI can lead with a layperson name and humanise the code (#567)."""
+    graph = MagicMock()
+    graph.get_rotation_successors.return_value = [
+        {
+            "family": {
+                "_key": "fabaceae",
+                "name": "Fabaceae",
+                "common_name_de": "Hülsenfrüchtler",
+                "common_name_en": "Legumes",
+                "rotation_category": "legume",
+            },
+            "wait_years": 2,
+            "benefit_score": 0.9,
+            "benefit_reason": "nitrogen_fixation",
+        }
+    ]
+    client = TestClient(_build_app(graph))
+
+    resp = client.get("/api/v1/crop-rotation/families/solanaceae/successors")
+
+    assert resp.status_code == 200
+    row = resp.json()[0]
+    assert row["family_key"] == "fabaceae"
+    assert row["common_name_de"] == "Hülsenfrüchtler"
+    assert row["rotation_category"] == "legume"
+    assert row["benefit_reason"] == "nitrogen_fixation"
+    assert row["wait_years"] == 2

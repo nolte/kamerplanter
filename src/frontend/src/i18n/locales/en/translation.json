@@ -22,6 +22,8 @@
       "manualOff": "Manually hidden",
       "followsLevelVisible": "Follows level: visible",
       "followsLevelHidden": "Follows level: hidden",
+      "smartHomeLocked": "Controlled via Smart Home",
+      "smartHomeLockedHint": "This module is controlled by the Smart Home setting. Enable smart-home features under Integrations to show it.",
       "switchAriaLabel": "{{module}} — {{state}}",
       "coreSectionTitle": "Core modules",
       "coreSectionTooltip": "Core modules are always visible and cannot be hidden — they form the foundation of the application.",
@@ -1219,7 +1221,10 @@
         "title": "Smart Home & Sensors",
         "description": "Enable this option if you want to use smart home devices, sensors or actuators with Kamerplanter.",
         "toggle": "Enable Smart Home features",
-        "disabledInfo": "Smart Home features are disabled. Sensor and actuator elements will be hidden throughout the interface."
+        "disabledInfo": "Smart Home features are disabled. Sensor and actuator elements will be hidden throughout the interface.",
+        "guardTitle": "Smart Home features are disabled",
+        "guardDescription": "Sensors and actuators are hidden because smart-home features are turned off. Enable them in the settings to use this area.",
+        "guardAction": "Enable Smart Home"
       },
       "platformModeTitle": "Deployment Mode",
       "platformModeSubtitle": "Choose the operating mode for your Kamerplanter instance. Changes require updating the environment variable and a restart.",
@@ -1939,7 +1944,10 @@
       "optionCountSummary": "— {{compatible}} compatible, {{incompatible}} incompatible",
       "optionCountLegendCompatible": "Number of compatible species",
       "optionCountLegendIncompatible": "Number of incompatible species",
-      "noSpeciesFound": "No species found."
+      "noSpeciesFound": "No species found.",
+      "scientificNameLabel": "Scientific name",
+      "viewSpeciesDetails": "Open detail page for {{name}}",
+      "namingHint": "The common name is shown first; the scientific name appears below as context. Tap a species to open its detail page."
     },
     "cropRotation": {
       "title": "Crop Rotation",
@@ -1971,7 +1979,22 @@
       "filterFrostHardy": "Frost-hardy",
       "filterNutrientDemand": "Nutrient demand",
       "filterAll": "All",
-      "resetFilters": "Reset filters"
+      "resetFilters": "Reset filters",
+      "scientificFamilyLabel": "Scientific family name",
+      "viewFamilyDetails": "Open detail page for {{name}}",
+      "benefitLabel": "Benefit",
+      "rotationCategoryLabel": "Category",
+      "namingHint": "The German family name is shown first; the scientific name appears as context. Tap a family to open its detail page.",
+      "benefitReasonHint": {
+        "nitrogen_fixation": "Enriches the soil with nitrogen that the following crop benefits from.",
+        "soil_structure": "Loosens and improves the soil structure for the following crop.",
+        "pest_break": "Interrupts the life cycle of family-specific pests and diseases.",
+        "biofumigation": "Releases natural compounds while decomposing that suppress soil pests."
+      },
+      "zehrerLegendTitle": "Nutrient demand (feeder classes)",
+      "zehrerHeavy": "Heavy feeder: high nutrient demand (e.g. cabbage, tomatoes, squash).",
+      "zehrerMedium": "Medium feeder: moderate nutrient demand (e.g. onions, carrots, lettuce).",
+      "zehrerLight": "Light feeder: low nutrient demand (e.g. herbs, legumes)."
     },
     "siteDetail": {
       "climate": {
@@ -2306,6 +2329,9 @@
       "hideRemoved": "Hide removed",
       "currentPhase": "Current Phase",
       "currentPhaseHelper": "The plant's actual current state — choose the phase the plant is in right now. For a freshly started plant this is the first phase; for a plant that already exists you can record it directly in its current phase (e.g. flowering).",
+      "cultivationCycle": "Cultivation Cycle",
+      "cultivationCycleHelper": "How you grow this plant — overrides the species default. For example growing a strawberry as an annual or overwintering a tomato. Leave empty = same as the species.",
+      "cultivationCycleDefault": "Same as the species",
       "remove": "Remove Plant",
       "validatePlanting": "Validate Planting",
       "cultivarKey": "Cultivar",
@@ -2371,7 +2397,9 @@
       "wateringConfirmed": "Watering logged",
       "taskHistoryTab": "Task History",
       "noTasks": "No tasks for this plant.",
+      "noTasksDesc": "As soon as care reminders, workflow tasks or manual tasks are due for this plant, they appear here.",
       "noTasksCta": "Go to Task Queue",
+      "noTasksCreateCta": "Create task for this plant",
       "taskTabSummaryActive": "Active",
       "taskTabSummaryDone": "Done",
       "taskTabSummaryOverdue": "Overdue",
@@ -3472,6 +3500,7 @@
       "thisWeek": "This Week",
       "future": "Future",
       "createTask": "Create Task",
+      "createTaskForPlant": "Create task for {{plant}}",
       "createIntro": "Create a new standalone task. Optionally select a plant and due date.",
       "startTask": "Start",
       "completeTask": "Complete",
@@ -3516,6 +3545,7 @@
       "actualDurationHelper": "Actual time spent in minutes",
       "completionNotes": "Completion Notes",
       "plant": "Plant",
+      "plantPresetHelper": "This task is created for the currently open plant and cannot be reassigned here.",
       "startedAt": "Started At",
       "completedAt": "Completed At",
       "source": "Source",
@@ -4160,7 +4190,13 @@
       "locationCheck": "Location Check",
       "locationCheckMonths": "Location Check Months",
       "confirmationHistory": "Confirmation History",
+      "careTabIntro": "Controls how and how often automatic care tasks are generated for this plant. Changes take effect only after you tap \"Save\".",
       "profileReset": "Profile reset.",
+      "resetConfirmTitle": "Reset care profile?",
+      "resetConfirmMessage": "All customizations to this care profile will be discarded and replaced with the defaults for the selected care style. This action cannot be undone.",
+      "unsavedChangesHint": "Unsaved changes",
+      "careStyleHelper": "Determines the suggested default intervals for watering, fertilizing, and repotting. Choose \"Custom\" to enter all values freely.",
+      "humidityCheckInterval": "Humidity Check Interval (days)",
       "wateringIntervalLearned": "Learned Watering Interval",
       "fertilizingIntervalLearned": "Learned Fertilizing Interval",
       "sectionWatering": "Watering & Care Intervals",
@@ -5800,6 +5836,24 @@
       "forecast": "Forecast – a calculated expectation for a future date, not yet a measurement.",
       "observed": "Current – an actually measured value (e.g. from a Home Assistant sensor), not an estimate.",
       "reanalysis": "Reanalysis – historical weather data derived from models, neither a live reading nor a forecast."
+    },
+    "benefitReason": {
+      "nitrogen_fixation": "Nitrogen fixation",
+      "soil_structure": "Soil structure",
+      "pest_break": "Pest break",
+      "biofumigation": "Biofumigation"
+    },
+    "rotationCategory": {
+      "brassica": "Brassicas",
+      "composite": "Composites",
+      "cucurbit": "Cucurbits",
+      "fiber": "Fiber crops",
+      "fruit": "Fruiting vegetables",
+      "grain": "Grains",
+      "herb": "Herbs",
+      "legume": "Legumes",
+      "ornamental": "Ornamentals",
+      "root": "Root vegetables"
     }
   },
   "sensorChart": {

@@ -2737,6 +2737,63 @@ lifecycle_overrides:
   Yucca elephantipes: { flowering_strategy: polycarpic }
   Zamioculcas zamiifolia: { flowering_strategy: polycarpic }
   Zantedeschia aethiopica: { flowering_strategy: polycarpic }
+  # ── WP-10 flowering_strategy / cultivation_cycle_type backfill (#453) ──
+  # Convention (mirrors the existing corpus): flowering_strategy captures the
+  # BOTANICAL reproductive strategy — monocarpic (flowers once, then the mother
+  # plant dies: biennials + semelparous perennials) vs polycarpic (repeat-
+  # flowering perennials / woody plants). True annuals and non-flowering ferns
+  # are deliberately left unset (not applicable — same decision the steckbrief
+  # auditor took for Citrullus/Cucumis/Pisum/Luffa and Nephrolepis). Tillandsia
+  # usneoides stays unset (see the note above). cultivation_cycle_type records
+  # the PRACTISED cycle when it differs from the botanical lifespan.
+  #
+  # Biennials cultivated for a first-year harvest (mirror Brassica capitata / Daucus carota)
+  Brassica oleracea var. botrytis: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
+  Brassica oleracea var. gongylodes: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
+  Brassica oleracea var. italica: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
+  Pastinaca sativa: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
+  #
+  # Frost-tender perennials cultivated as annuals (mirror Capsicum / Solanum lycopersicum)
+  Begonia semperflorens: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  Impatiens walleriana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  Solanum tuberosum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  Tropaeolum majus: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  #
+  # Hardy herbaceous perennials, woody shrubs/trees & perennial fruit — repeat-flowering
+  Allium schoenoprasum: { flowering_strategy: polycarpic }
+  Artemisia dracunculus: { flowering_strategy: polycarpic }
+  Forsythia x intermedia: { flowering_strategy: polycarpic }
+  Geranium sanguineum: { flowering_strategy: polycarpic }
+  Helleborus niger: { flowering_strategy: polycarpic }
+  Hemerocallis spp.: { flowering_strategy: polycarpic }
+  Hosta spp.: { flowering_strategy: polycarpic }
+  Hydrangea macrophylla: { flowering_strategy: polycarpic }
+  Levisticum officinale: { flowering_strategy: polycarpic }
+  Ligustrum vulgare: { flowering_strategy: polycarpic }
+  Lupinus polyphyllus: { flowering_strategy: polycarpic }
+  Malus domestica: { flowering_strategy: polycarpic }
+  Medicago sativa: { flowering_strategy: polycarpic }
+  Melissa officinalis: { flowering_strategy: polycarpic }
+  Origanum vulgare: { flowering_strategy: polycarpic }
+  Paeonia lactiflora: { flowering_strategy: polycarpic }
+  Phlox paniculata: { flowering_strategy: polycarpic }
+  Prunus avium: { flowering_strategy: polycarpic }
+  Prunus domestica: { flowering_strategy: polycarpic }
+  Pyrus communis: { flowering_strategy: polycarpic }
+  Rheum rhabarbarum: { flowering_strategy: polycarpic }
+  Rhododendron spp.: { flowering_strategy: polycarpic }
+  Ribes rubrum: { flowering_strategy: polycarpic }
+  Ribes uva-crispa: { flowering_strategy: polycarpic }
+  Rosa spp.: { flowering_strategy: polycarpic }
+  Rubus fruticosus agg.: { flowering_strategy: polycarpic }
+  Rubus idaeus: { flowering_strategy: polycarpic }
+  Sambucus nigra: { flowering_strategy: polycarpic }
+  Syringa vulgaris: { flowering_strategy: polycarpic }
+  Trifolium pratense: { flowering_strategy: polycarpic }
+  Vaccinium corymbosum: { flowering_strategy: polycarpic }
+  Viburnum opulus: { flowering_strategy: polycarpic }
+  Vitis vinifera: { flowering_strategy: polycarpic }
+  Weigela florida: { flowering_strategy: polycarpic }
 
 default_phase_sequence: "indoor_default"
 

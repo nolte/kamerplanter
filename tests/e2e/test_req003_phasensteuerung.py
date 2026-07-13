@@ -41,7 +41,9 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import provision_plant
 from .pages import PlantInstanceListExt, PlantInstanceDetailExt
+from .pages.plant_instance_list_page import PlantInstanceListPage
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -57,21 +59,42 @@ def plant_detail(browser: WebDriver, base_url: str) -> PlantInstanceDetailExt:
     return PlantInstanceDetailExt(browser, base_url)
 
 
-# ── Helper: navigate to first plant and extract key ────────────────────────────
+@pytest.fixture
+def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
+    """List page with create-dialog helpers, used to self-provision plants."""
+    return PlantInstanceListPage(browser, base_url)
 
 
-def _get_first_plant_key(plant_list: PlantInstanceListExt) -> str | None:
-    """Open the list, click the first row and return the key from the URL.
+# ── Helper: self-provision a plant and extract its key ─────────────────────────
+#
+# The core-lifecycle path must always run (issue #589): instead of skipping when
+# the seed database has no plant instances, these helpers create one through the
+# real create dialog. ``_get_first_plant_key`` therefore never returns ``None``.
 
-    Returns None if the list is empty.
-    """
+
+def _provision_plant_key(plant_list: PlantInstanceListExt) -> str:
+    """Self-provision a plant instance via the UI and return its key."""
+    creator = PlantInstanceListPage(plant_list.driver, plant_list.base_url)
+    key, _ = provision_plant(creator, id_prefix="REQ003-AUTO")
+    return key
+
+
+def _get_first_plant_key(plant_list: PlantInstanceListExt) -> str:
+    """Open the list and return the first plant's key, self-provisioning if empty."""
     plant_list.open()
     if plant_list.get_row_count() == 0:
-        return None
+        return _provision_plant_key(plant_list)
     plant_list.click_row(0)
     plant_list.wait_for_url_contains("/pflanzen/plant-instances/")
     url = plant_list.driver.current_url
     return url.rstrip("/").rsplit("/", 1)[-1]
+
+
+def _ensure_plants(plant_list: PlantInstanceListExt) -> None:
+    """Guarantee the list shows at least one plant (self-provision if empty)."""
+    if plant_list.get_row_count() == 0:
+        _provision_plant_key(plant_list)
+        plant_list.open()
 
 
 # ==============================================================================
@@ -182,9 +205,7 @@ class TestPlantInstanceListPage:
         screenshot("TC-REQ-003-005_plant-list-phase-chips",
                    "Plant instance list rows with phase chips")
 
-        row_count = plant_list.get_row_count()
-        if row_count == 0:
-            pytest.skip("No plant instances in database")
+        _ensure_plants(plant_list)
 
         phase_texts = plant_list.get_phase_column_texts()
         assert any(t for t in phase_texts), (
@@ -201,9 +222,7 @@ class TestPlantInstanceListPage:
         """
         plant_list.open()
 
-        row_count = plant_list.get_row_count()
-        if row_count == 0:
-            pytest.skip("No plant instances in database")
+        _ensure_plants(plant_list)
 
         first_ids = plant_list.get_first_column_texts()
         search_term = first_ids[0][:4] if first_ids else "PLANT"
@@ -253,9 +272,7 @@ class TestPlantInstanceListPage:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Navigation).
         """
         plant_list.open()
-
-        if plant_list.get_row_count() == 0:
-            pytest.skip("No plant instances in database")
+        _ensure_plants(plant_list)
 
         screenshot("TC-REQ-003-008_before-row-click",
                    "Plant instance list before clicking first row")
@@ -278,13 +295,11 @@ class TestPlantInstanceListPage:
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
         plant_list.open()
+        # The showing-count element is only rendered when the DataTable has
+        # items — self-provision a plant so the footer always renders (#589).
+        _ensure_plants(plant_list)
         screenshot("TC-REQ-003-009_showing-count",
                    "Plant instance list showing-count footer")
-
-        # The showing-count element is only rendered when there are items in
-        # the DataTable (processedData.totalFiltered > 0). Skip if no plants.
-        if plant_list.get_row_count() == 0:
-            pytest.skip("No plant instances — showing-count not rendered for empty table")
 
         count_text = plant_list.get_showing_count_text()
         assert count_text, (
@@ -315,8 +330,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-024 -- Phasen-Zeitstrahl zeigt abgeschlossene, aktuelle und geplante Phasen.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-010_plant-detail-page-load",
@@ -342,8 +355,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-024 -- Phasen-Zeitstrahl zeigt abgeschlossene, aktuelle und geplante Phasen.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-011_plant-info-card",
@@ -365,8 +376,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-024 -- Phasen-Zeitstrahl zeigt abgeschlossene, aktuelle und geplante Phasen.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-012_phase-info-card",
@@ -388,8 +397,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Phase Chip).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-013_current-phase-chip",
@@ -412,8 +419,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Transition Button).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-014_transition-button",
@@ -436,8 +441,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-010 -- Wachstumsphase loeschen -- Bestaetigungsdialog (Remove Button).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-015_remove-button",
@@ -460,8 +463,6 @@ class TestPlantInstanceDetailPage:
         Spec: TC-003-026 -- Phasenverlauf-Tabelle zeigt historische Eintraege.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-016_phase-history",
@@ -513,13 +514,14 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Dialog oeffnen).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
 
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled — plant may be removed")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         screenshot("TC-REQ-003-018_before-open-transition-dialog",
                    "Plant detail page before opening transition dialog")
@@ -546,12 +548,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Target Phase Select).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
         screenshot("TC-REQ-003-019_transition-dialog-target-select",
@@ -576,12 +579,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Reason Field).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
         screenshot("TC-REQ-003-020_transition-reason-field",
@@ -606,12 +610,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Reason Default).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
         screenshot("TC-REQ-003-021_transition-reason-default",
@@ -636,12 +641,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-020 -- Phasentransition -- Zielphase nicht ausgewaehlt (Button deaktiviert).
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
         screenshot("TC-REQ-003-022_confirm-button-state-no-selection",
@@ -666,12 +672,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Cancel schliesst Dialog.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
         screenshot("TC-REQ-003-023_dialog-open-before-cancel",
@@ -697,12 +704,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Cancel preserves phase.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         initial_phase = plant_detail.get_current_phase()
         screenshot("TC-REQ-003-024_before-transition-dialog",
@@ -730,12 +738,13 @@ class TestPhaseTransitionDialog:
         Spec: TC-003-019 -- Manuelle Phasentransition -- Reason editable.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_transition_button_enabled():
-            pytest.skip("Transition button is disabled")
+            # First plant has no active lifecycle transition — self-provision a
+            # fresh, active plant so the core transition path always runs (#589).
+            key = _provision_plant_key(plant_list)
+            plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
         screenshot("TC-REQ-003-025_before-editing-reason",
@@ -775,10 +784,8 @@ class TestPhaseStateMachineEdgeCases:
         """
         # We look for a removed plant by checking for rows where removed_on is not '-'
         plant_list.open()
+        _ensure_plants(plant_list)
         rows = plant_list.get_row_count()
-
-        if rows == 0:
-            pytest.skip("No plant instances in database")
 
         # Iterate rows to find a removed plant (last column is removed_on)
         removed_key = None
@@ -817,9 +824,8 @@ class TestPhaseStateMachineEdgeCases:
         Spec: TC-003-021 -- Phasentransition rueckwaerts -- Remove button disabled.
         """
         plant_list.open()
+        _ensure_plants(plant_list)
         rows = plant_list.get_row_count()
-        if rows == 0:
-            pytest.skip("No plant instances in database")
 
         removed_key = None
         for i in range(rows):
@@ -857,8 +863,6 @@ class TestPhaseStateMachineEdgeCases:
         Spec: TC-003-010 -- Wachstumsphase loeschen -- Bestaetigungsdialog.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         if not plant_detail.is_remove_button_enabled():
@@ -894,9 +898,8 @@ class TestPhaseStateMachineEdgeCases:
         Spec: TC-003-023 -- Phasentransition -- Kein Lifecycle (Phase Options).
         """
         plant_list.open()
+        _ensure_plants(plant_list)
         rows = plant_list.get_row_count()
-        if rows == 0:
-            pytest.skip("No plant instances in database")
 
         # Find a plant instance where transition is enabled (has lifecycle)
         enabled_key = None
@@ -941,8 +944,6 @@ class TestPhaseStateMachineEdgeCases:
         Spec: TC-003-019 -- Manuelle Phasentransition -- URL-Struktur.
         """
         key = _get_first_plant_key(plant_list)
-        if key is None:
-            pytest.skip("No plant instances in database")
 
         plant_detail.open(key)
         screenshot("TC-REQ-003-030_plant-detail-url",
@@ -952,4 +953,161 @@ class TestPhaseStateMachineEdgeCases:
         expected_segment = f"/pflanzen/plant-instances/{key}"
         assert expected_segment in current_url, (
             f"TC-REQ-003-030 FAIL: Expected URL to contain '{expected_segment}', got '{current_url}'"
+        )
+
+
+# ==============================================================================
+# Core-Lifecycle-Journey — drive phases (self-provisioning): TC-003-046..048
+# ==============================================================================
+
+
+class TestCoreLifecycleJourneyPhaseTransitions:
+    """Actively drive a self-provisioned plant through manual phase transitions.
+
+    Spec: TC-003-046 (forward), TC-003-047 (backward lock + correction),
+    TC-003-048 (Ist-Stand start → harvest). Each journey provisions its own
+    multi-phase plant through the create dialog, so the path always runs.
+
+    The exact phase labels depend on the provisioned species' lifecycle, so the
+    journeys drive forward/backward by sequence-ordered option index rather than
+    hard-coded phase names — faithful to the TC intent (advance the state
+    machine, verify history / backward-lock / correction).
+    """
+
+    @pytest.mark.smoke
+    @pytest.mark.core_crud
+    def test_drive_phase_forward(
+        self,
+        plant_creator: PlantInstanceListPage,
+        plant_detail: PlantInstanceDetailExt,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-003-J046: Self-provision a plant and drive it forward two phases.
+
+        Spec: TC-003-046 -- Core-Journey Phasenwechsel vorwaerts (self-provisioning).
+        """
+        key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-003F")
+        plant_detail.open(key)
+        initial_phase = plant_detail.get_current_phase()
+        screenshot("TC-REQ-003-J046_initial",
+                   f"Self-provisioned plant {instance_id} at start phase")
+
+        plant_detail.initiate_phase_transition()
+        option_keys = plant_detail.get_target_phase_option_keys()
+        assert len(option_keys) >= 2, (
+            f"TC-REQ-003-J046 FAIL: Expected a multi-phase lifecycle, got options {option_keys}"
+        )
+
+        # Forward step 1 — jump to a later phase in the sequence.
+        plant_detail.transition_to_phase_key(
+            option_keys[len(option_keys) // 2], reason="Keimung abgeschlossen"
+        )
+        plant_detail.wait_for_transition_dialog_closed()
+        screenshot("TC-REQ-003-J046_after-step1",
+                   "Plant after first forward phase transition")
+
+        # Forward step 2 — advance to the final phase.
+        plant_detail.open(key)
+        plant_detail.initiate_phase_transition()
+        option_keys2 = plant_detail.get_target_phase_option_keys()
+        plant_detail.transition_to_phase_key(option_keys2[-1], reason="Weiter getrieben")
+        plant_detail.wait_for_transition_dialog_closed()
+        screenshot("TC-REQ-003-J046_after-step2",
+                   "Plant after second forward phase transition")
+
+        final_phase = plant_detail.get_current_phase()
+        assert final_phase and final_phase != initial_phase, (
+            f"TC-REQ-003-J046 FAIL: Expected current phase to advance from "
+            f"'{initial_phase}', got '{final_phase}'"
+        )
+
+        # The phase history documents the durchlaufenen Verlauf.
+        plant_detail.open(key)
+        plant_detail.open_phases_tab()
+        assert plant_detail.get_phase_history_count() >= 1, (
+            "TC-REQ-003-J046 FAIL: Expected at least one phase history entry after transitions"
+        )
+
+    @pytest.mark.core_crud
+    def test_backward_lock_and_correction(
+        self,
+        plant_creator: PlantInstanceListPage,
+        plant_detail: PlantInstanceDetailExt,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-003-J047: Backward transition is blocked without correction mode.
+
+        Spec: TC-003-047 -- Rueckwaerts-Sperre + Korrekturmodus (self-provisioning).
+        """
+        key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-003B")
+        plant_detail.open(key)
+
+        # Drive forward to the last phase so a backward transition is possible.
+        plant_detail.initiate_phase_transition()
+        option_keys = plant_detail.get_target_phase_option_keys()
+        assert len(option_keys) >= 2, (
+            f"TC-REQ-003-J047 FAIL: Expected a multi-phase lifecycle, got {option_keys}"
+        )
+        plant_detail.transition_to_phase_key(option_keys[-1], reason="Vorwaerts")
+        plant_detail.wait_for_transition_dialog_closed()
+
+        # Attempt a backward transition WITHOUT correction mode — must be rejected.
+        plant_detail.open(key)
+        plant_detail.initiate_phase_transition()
+        plant_detail.select_target_phase(option_keys[0])
+        plant_detail.confirm_transition()
+        import time
+        time.sleep(1.0)
+        screenshot("TC-REQ-003-J047_backward-rejected",
+                   "Backward transition rejected — dialog stays open")
+        assert plant_detail.is_transition_dialog_open(), (
+            "TC-REQ-003-J047 FAIL: Backward transition without correction mode should "
+            "keep the dialog open (rejected)"
+        )
+
+        # Enable correction mode and retry — must succeed.
+        plant_detail.toggle_force_mode()
+        assert plant_detail.is_force_mode_enabled(), (
+            "TC-REQ-003-J047 FAIL: Correction (force) switch should be enabled after toggle"
+        )
+        plant_detail.select_target_phase(option_keys[0])
+        plant_detail.confirm_transition()
+        plant_detail.wait_for_transition_dialog_closed()
+        screenshot("TC-REQ-003-J047_corrected",
+                   f"Plant {instance_id} corrected back to earlier phase")
+        assert not plant_detail.is_transition_dialog_open(), (
+            "TC-REQ-003-J047 FAIL: Correction transition should close the dialog on success"
+        )
+
+    @pytest.mark.core_crud
+    def test_ist_stand_start_to_harvest(
+        self,
+        plant_creator: PlantInstanceListPage,
+        plant_detail: PlantInstanceDetailExt,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-003-J048: Start a plant in a late phase and drive it to the final phase.
+
+        Spec: TC-003-048 -- Ist-Stand-Start (flowering) → harvest (self-provisioning).
+        """
+        # phase_index=-2 selects a late start phase (Ist-Stand-Erfassung).
+        key, instance_id = provision_plant(
+            plant_creator, id_prefix="JOURNEY-003I", phase_index=-2
+        )
+        plant_detail.open(key)
+        start_phase = plant_detail.get_current_phase()
+        screenshot("TC-REQ-003-J048_ist-stand-start",
+                   f"Plant {instance_id} started at Ist-Stand phase '{start_phase}'")
+
+        plant_detail.initiate_phase_transition()
+        option_keys = plant_detail.get_target_phase_option_keys()
+        plant_detail.transition_to_phase_key(option_keys[-1], reason="Ernte erreicht")
+        plant_detail.wait_for_transition_dialog_closed()
+        screenshot("TC-REQ-003-J048_harvest",
+                   "Plant advanced to the final (harvest) phase")
+
+        final_phase = plant_detail.get_current_phase()
+        assert final_phase and final_phase != start_phase, (
+            f"TC-REQ-003-J048 FAIL: Expected phase to advance from '{start_phase}' "
+            f"to the final phase, got '{final_phase}'"
         )

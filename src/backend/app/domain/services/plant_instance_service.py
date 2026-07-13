@@ -18,6 +18,7 @@ from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
+from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
@@ -68,6 +69,9 @@ class PlantInstanceService:
         self._companion = companion_engine
         self._phase_repo = phase_repo
         self._phase_seq_repo = phase_seq_repo
+        # Resolves a phase key across the PhaseSequenceEntry and legacy GrowthPhase
+        # key-spaces (#579) — only usable when a phase repo is wired.
+        self._phase_resolver = PhaseKeyResolver(phase_repo, phase_seq_repo) if phase_repo else None
         self._task_repo = task_repo
         self._species_repo = species_repo
         self._run_repo = planting_run_repo
@@ -735,11 +739,17 @@ class PlantInstanceService:
         return self._resolve_initial_phase_key(species_key)
 
     def resolve_phase_name(self, phase_key: str) -> str:
-        """Resolve a GrowthPhase key to its name."""
-        if not phase_key or not self._phase_repo:
+        """Resolve a phase key to its name across both key-spaces (#579).
+
+        A plant's ``current_phase_key`` is a PhaseSequenceEntry key for
+        sequence-driven species and a GrowthPhase key for legacy LifecycleConfig
+        species; the resolver checks the entry key-space first and falls back to
+        the legacy one, so the transition response no longer returns an empty name
+        for PhaseSequence-driven plants.
+        """
+        if not phase_key or not self._phase_resolver:
             return ""
-        phase = self._phase_repo.get_phase_by_key(phase_key)
-        return phase.name if phase else ""
+        return self._phase_resolver.resolve_name(phase_key)
 
     def resolve_species(self, species_key: str) -> Species | None:
         """Resolve a Species key to its full model (for denormalized labels)."""

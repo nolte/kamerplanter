@@ -53,9 +53,11 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 | `JWT_ALGORITHM` | `HS256` | No | JWT signature algorithm |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | No | JWT access token validity in minutes |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | No | Refresh token validity in days |
-| `FERNET_KEY` | — | No | Fernet key for encrypting OIDC provider secrets |
+| `SESSION_TOKEN_EXPIRE_HOURS` | `24` | No | Validity of server-side session tokens, in hours. |
+| `FERNET_KEY` | — | Yes | Fernet key for encrypting OIDC provider secrets. **Required regardless of whether OIDC is used** — the startup gate refuses to start in production when this is empty (AP-4, INF-S5). Must be a valid Fernet key: 32 bytes, url-safe base64-encoded (44 characters) — generate e.g. with `python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`. |
 | `REQUIRE_EMAIL_VERIFICATION` | `false` | No | Require email verification at registration |
 | `HIBP_ENABLED` | `false` | No | Enable "Have I Been Pwned" check on password change |
+| `COOKIE_SECURE` | `true` | No | Sets the `Secure` flag on the refresh-token cookie. Only set to `false` for plain-HTTP E2E test environments without TLS — **always** leave `true` in production. |
 
 !!! danger "Change JWT_SECRET_KEY in production"
     The default value `change-me-in-production-use-openssl-rand-hex-32` **must not** be used in production. Generate a secure value:
@@ -66,13 +68,34 @@ rediss://user:pass@redis-host:6380/1        # TLS (rediss://)
 
 ---
 
+## Privacy & GDPR (REQ-025 / NFR-011) {#datenschutz-dsgvo-req-025-nfr-011}
+
+These variables control the legally mandated deletion/anonymization of personal data (see [Privacy (GDPR)](../user-guide/privacy.md)) and are independent of the operating mode — they apply in both Light and Full mode.
+
+<!-- Source: src/backend/app/config/settings.py (erasure_tombstone_salt, privacy_data_controller_name, privacy_data_controller_email, privacy_export_retention_hours, privacy_hard_delete_after_days, privacy_email_change_ttl_hours); src/backend/app/main.py (insecure_default_secrets) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `ERASURE_TOMBSTONE_SALT` | — | Yes | High-entropy secret (at least 32 characters) used to pseudonymize deleted user accounts (tombstone hashing, NFR-011 §4). **The startup gate refuses to start in production** if this value is empty or shorter than 32 characters — regardless of operating mode. Generate with `openssl rand -hex 32`. |
+| `PRIVACY_DATA_CONTROLLER_NAME` | `Kamerplanter Operator` | No | Name of the data controller, shown in export and disclosure documents. |
+| `PRIVACY_DATA_CONTROLLER_EMAIL` | `privacy@kamerplanter.example` | No | Contact email of the controller for GDPR requests. |
+| `PRIVACY_EXPORT_RETENTION_HOURS` | `72` | No | How long a generated data export (Art. 15/20 GDPR) is kept before automatic deletion. |
+| `PRIVACY_HARD_DELETE_AFTER_DAYS` | `90` | No | Grace period before an account marked for deletion is permanently (hard-)deleted. |
+| `PRIVACY_EMAIL_CHANGE_TTL_HOURS` | `24` | No | Validity of the confirmation link when changing an email address. |
+
+!!! danger "ERASURE_TOMBSTONE_SALT — a boot blocker in production"
+    Unlike most other variables on this page, `ERASURE_TOMBSTONE_SALT` is **not an optional feature flag**: in production (`DEBUG=false`) the backend simply refuses to start when this value is missing or too short — regardless of whether GDPR erasure requests are actively used. For a full list of unconditionally required secrets, see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+---
+
 ## Operating Mode
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `KAMERPLANTER_MODE` | `full` | No | Operating mode: `full` (auth + tenants) or `light` (no auth, local single-user) |
-| `DEBUG` | `false` | No | Enable debug logging (verbose — never use in production) |
+| `DEBUG` | `false` | No | Enable debug logging (verbose — never use in production). Also disables the startup gate for production secrets — **never** set this in production. |
 | `FRONTEND_URL` | `http://localhost:5173` | No | Frontend URL (used for email links) |
+| `APP_BASE_URL` | `http://localhost:5173` | No | Base URL for QR codes on plant labels (print views, see [Print & Export](../user-guide/print-export.md)). Set to the publicly reachable frontend URL in production, otherwise printed QR codes point to `localhost`. |
 
 ### Light Mode (`KAMERPLANTER_MODE=light`)
 
@@ -225,11 +248,34 @@ The Helm chart sets `MDNS_ENABLED` to `false` by default. The manual config flow
 | `HA_URL` | — | No | Home Assistant base URL, e.g. `http://homeassistant.local:8123` |
 | `HA_ACCESS_TOKEN` | — | No | Long-Lived Access Token from Home Assistant |
 | `HA_TIMEOUT` | `10` | No | HTTP timeout for HA requests (seconds) |
+| `HA_ALLOW_PRIVATE_ENDPOINT` | `false` | No | SSRF opt-in: Home Assistant commonly runs on the LAN over HTTP at a private/RFC1918 address (`homeassistant.local`, `192.168.x.x`) or `localhost`. Without this opt-in, the SSRF guard blocks connections to such addresses. The cloud-metadata / link-local range (`169.254.0.0/16`) is **always** blocked regardless of this flag. |
 
-When both variables are set, the backend also enables the Home Assistant channel of the [notification system](../user-guide/notifications.md#home-assistant) (persistent notifications, mobile push, TTS).
+When both `HA_URL`/`HA_ACCESS_TOKEN` are set, the backend also enables the Home Assistant channel of the [notification system](../user-guide/notifications.md#home-assistant) (persistent notifications, mobile push, TTS).
 
 !!! warning "Apprise channel requires an additional Python package"
     The `apprise` notification channel is always active regardless of the Home Assistant variables, but requires the optional `apprise` Python package in the backend image (`pip install apprise`) — there is no dedicated environment variable for it. See [Notifications — Apprise](../user-guide/notifications.md#apprise) for details.
+
+---
+
+## Time-Series Data (TimescaleDB, REQ-005) {#zeitreihendaten-timescaledb-req-005}
+
+These variables enable the optional TimescaleDB connection for high-frequency sensor time-series with automatic downsampling (see [Sensors](../user-guide/sensors.md)). Without `TIMESCALEDB_ENABLED=true`, manual and automatic readings are still stored in ArangoDB — the app remains fully functional, just without automatic multi-stage downsampling.
+
+<!-- Source: src/backend/app/config/settings.py (timescaledb_enabled, timescaledb_host, timescaledb_port, timescaledb_database, timescaledb_username, timescaledb_password, timescaledb_pool_min_size, timescaledb_pool_max_size) -->
+
+| Variable | Default | Required | Description |
+|----------|---------|---------|-------------|
+| `TIMESCALEDB_ENABLED` | `false` | No | Master switch for the TimescaleDB connection. |
+| `TIMESCALEDB_HOST` | `localhost` | No | Hostname of the TimescaleDB instance. |
+| `TIMESCALEDB_PORT` | `5432` | No | TCP port. |
+| `TIMESCALEDB_DATABASE` | `kamerplanter_sensors` | No | Database name. |
+| `TIMESCALEDB_USERNAME` | `postgres` | No | Database user. |
+| `TIMESCALEDB_PASSWORD` | `changeme` | Conditional | Database password. **Required in production** — the startup gate refuses to start when `TIMESCALEDB_ENABLED=true` is set and this value is still the unchanged `changeme` (see [Configuration Matrix — Mandatory Secrets per Enabled Feature](../deployment/konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion)). |
+| `TIMESCALEDB_POOL_MIN_SIZE` | `2` | No | Minimum connection pool size. |
+| `TIMESCALEDB_POOL_MAX_SIZE` | `10` | No | Maximum connection pool size. |
+
+!!! note "Docker Compose: dedicated profile"
+    In the local Docker Compose environment, TimescaleDB only starts with `docker-compose --profile timescaledb up -d`. In Kubernetes, the `timescaledb` controller is commented out in the chart by default — the operator adds it via `valuesObject` (see [Helm Charts](../deployment/helm.md)).
 
 ---
 
@@ -268,6 +314,10 @@ These variables control the weather forecast fetching and the proactive frost ea
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `WEATHER_ENABLED` | `false` | No | Kill switch for the entire weather feature (source fetching + frost early-warning). See [Weather Sources per Location](../user-guide/weather-sources.md) for the actual source configuration. |
+| `WEATHER_DEFAULT_PUBLIC_SOURCE` | `open-meteo` | No | Factory-default public weather source for new locations without an explicit choice. |
+| `OPEN_METEO_ENABLED` | `true` | No | Instance-wide default for the Open-Meteo source (keyless, EU-focused). Overridable per instance by the platform admin via weather-service management (see [Configuring Weather Services](../user-guide/weather-services.md)) — this variable only sets the starting value. |
+| `DWD_ENABLED` | `true` | No | Instance-wide default for the DWD/Bright Sky source (Deutscher Wetterdienst). Also platform-admin overridable. |
+| `OPENWEATHERMAP_ENABLED` | `true` | No | Instance-wide default for the OpenWeatherMap source. Also platform-admin overridable. |
 | `FROST_FORECAST_HORIZON_DAYS` | `2` | No | Forecast horizon in days from today (inclusive) scanned for an expected frost day — the default covers today plus the next day. |
 | `FROST_FORECAST_THRESHOLD_CELSIUS` | `2.0` | No | Minimum temperature at or below which a forecast day counts as a frost day. Deliberately **separate** from the reactive threshold below, set a touch more conservative (closer to 0 °C) since a multi-day-ahead forecast carries more uncertainty than a live reading. |
 
@@ -366,12 +416,20 @@ These variables configure optional plant recognition by photo. If none of the AP
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
 | `PLANTNET_API_KEY` | — | No | API key for Pl@ntNet (free tier: ≤ 500 identifications/day). Register at [my.plantnet.org](https://my.plantnet.org). |
+| `PLANTNET_ENABLED` | `true` | No | Disables the Pl@ntNet adapter entirely, even if `PLANTNET_API_KEY` is set. Set to `false` to turn off Pl@ntNet despite a configured key (e.g. when relying exclusively on self-hosted DINOv2 recognition). |
 | `PLANTNET_BASE_URL` | `https://my-api.plantnet.org/v2` | No | Pl@ntNet API base URL. Only change for self-hosting or test endpoints. |
-| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`. Extensible through future adapters. |
+| `PLANT_ID_API_KEY` | — | No | API key for Plant.id (Kindwise) — an additional, purely operator-opt-in cloud adapter (never auto-primary, unlike Pl@ntNet). |
+| `PLANT_ID_BASE_URL` | `https://plant.id/api/v3` | No | Plant.id API base URL. |
+| `INFERENCE_SERVICE_ENABLED` | `false` | No | Enables the self-hosted DINOv2 recognition path (REQ-029-A). For the full setup (VectorDB, reference-index population, activation order) see [Setting Up Plant Identification](../deployment/inference-service.md). |
+| `INFERENCE_SERVICE_URL` | `http://kamerplanter-recognition:8000` | No | Internal URL of the inference service. |
+| `IDENTIFICATION_PRIMARY_ADAPTER` | `plantnet` | No | Preferred adapter. Possible values: `plantnet`, `local_embedding` (DINOv2, once `INFERENCE_SERVICE_ENABLED=true`). |
+| `IDENTIFICATION_HTTP_TIMEOUT` | `60` | No | HTTP timeout (seconds) for the external identification call (Pl@ntNet's upload + server-side ML inference can exceed the previous 30-second default under load). |
 | `IDENTIFICATION_CONFIDENCE_AUTO_ACCEPT` | `0.85` | No | Confidence threshold (0–1) above which a suggestion is highlighted as "very certain". |
 | `IDENTIFICATION_CONFIDENCE_MIN_SHOW` | `0.10` | No | Minimum confidence (0–1) required to show a suggestion. Results below this are filtered out. |
-| `IDENTIFICATION_MAX_IMAGE_SIZE_MB` | `10` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 400. |
-| `IDENTIFICATION_RATE_LIMIT_PER_USER_DAY` | `0` | No | Maximum requests per user per day. `0` uses the adapter default limit (500 for Pl@ntNet). |
+| `IDENTIFICATION_MAX_IMAGE_SIZE_MB` | `5` | No | Maximum image size in megabytes. Larger images are rejected with HTTP 400. |
+| `IDENTIFICATION_MAX_IMAGE_DIMENSION` | `1024` | No | Longest edge (px) the user image is downscaled to before upload to the adapter. Smaller = faster upload and less third-party bandwidth. |
+| `IDENTIFICATION_RATE_LIMIT_PER_USER_DAY` | `50` | No | Maximum requests per user per day (SEC-003 floor, preventing a single account from consuming the whole shared free-tier quota). `0` uses the adapter default limit instead (500 for Pl@ntNet). |
+| `IDENTIFICATION_EXTERNAL_IN_LIGHT_MODE` | `false` | No | Operator opt-in for the *external* recognition path (Pl@ntNet) in [Light Mode](../user-guide/light-mode.md). Light Mode has no consent subsystem, so sending a photo to a third party requires a deliberate operator decision. While this stays `false`, only the self-hosted `local_embedding` path is usable in Light Mode (once `INFERENCE_SERVICE_ENABLED=true` is set). |
 | `REFERENCE_CONTRIBUTION_RATE_LIMIT_PER_USER_DAY` | `20` | No | Maximum number of reference-image contributions (`POST /identification/reference`) per user per day — protects the recognition index against abuse/flooding from a single account. `0` disables the limit. Only relevant when self-hosted DINOv2 recognition is active (see [Self-Hosted Recognition with DINOv2](../user-guide/plant-identification.md#self-hosted-recognition-with-dinov2)). <!-- Issue #447 --> |
 
 !!! warning "Pl@ntNet for non-commercial use only"
@@ -454,8 +512,9 @@ These variables enable the browser push notification channel (`channel_key: "pwa
 | `VAPID_PUBLIC_KEY` | — | No* | VAPID public key (Base64url, 87 characters). Sent to the browser and used in the PWA subscription. |
 | `VAPID_PRIVATE_KEY` | — | No* | VAPID private key (Base64url or PEM). **Server-side only** — never expose in the frontend or logs. |
 | `VAPID_CONTACT_EMAIL` | — | No* | Contact email for the push service (format: `mailto:admin@example.com`). Used by push services (FCM, APNS, Mozilla) to report issues. |
+| `PWA_PUSH_ENDPOINT_ALLOWED_HOSTS` | — (empty) | No | SSRF hardening (SEC-001): comma-separated list of allowed host suffixes for web push endpoints, e.g. `fcm.googleapis.com,updates.push.services.mozilla.com`. Empty (default) falls back to an HTTPS requirement plus rejection of private IP addresses, so self-hosted push servers keep working. |
 
-*All three variables must be set for the browser push channel to become active. If any variable is missing, the channel remains disabled.
+*All three `VAPID_*` variables must be set for the browser push channel to become active. If any variable is missing, the channel remains disabled. `PWA_PUSH_ENDPOINT_ALLOWED_HOSTS` is independently optional.
 
 ### Generating a Key Pair
 
@@ -543,8 +602,10 @@ ARANGODB_PASSWORD=secure-root-password
 # Cache / Queue
 REDIS_URL=redis://valkey:6379/0
 
-# Security
+# Security (all three are mandatory secrets, startup gate in production)
 JWT_SECRET_KEY=generate-with-openssl-rand-hex-32
+FERNET_KEY=generate-with-Fernet.generate_key
+ERASURE_TOMBSTONE_SALT=generate-with-openssl-rand-hex-32
 REQUIRE_EMAIL_VERIFICATION=false
 
 # CORS
@@ -578,7 +639,7 @@ KNOWLEDGE_SERVICE_URL=http://knowledge-service:8000
 
 # Photo identification (empty = feature disabled)
 # PLANTNET_API_KEY=
-# IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=0
+# IDENTIFICATION_RATE_LIMIT_PER_USER_DAY=50
 
 # Browser Push / PWA (empty = channel disabled)
 # VAPID_PUBLIC_KEY=
@@ -605,7 +666,9 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 | `STORAGE_ALLOWED_MIME_TYPES_<CATEGORY>` | *(per category)* | No | Category-specific whitelist, e.g. `STORAGE_ALLOWED_MIME_TYPES_IMPORT=text/csv` |
 | `STORAGE_VIRUS_SCAN_ENABLED` | `false` | No | Enable virus scanning via ClamAV REST wrapper |
 | `STORAGE_VIRUS_SCAN_ENDPOINT` | *(empty)* | No | URL of the ClamAV REST wrapper |
-| `STORAGE_KEEP_EXIF_<CATEGORY>` | `false` | No | Retain EXIF data for a category, e.g. `STORAGE_KEEP_EXIF_PLANT=true` |
+| `STORAGE_STRIP_EXIF` | `true` | No | Strips EXIF/GPS metadata from image uploads globally at save time (NFR-013 §5.1). There is **no** per-category override variable — unlike the MIME whitelists, this is a single global switch. |
+| `STORAGE_TENANT_QUOTA_MB` | `2048` | No | Storage quota per tenant, in megabytes. `0` disables the quota (unlimited). |
+| `STORAGE_MAX_PHOTOS_PER_INSTANCE` | `50` | No | Maximum number of gallery photos per plant instance (REQ-034). `0` disables the limit. |
 
 **Default MIME whitelist per category:**
 
@@ -712,6 +775,8 @@ For background information, see [Configure Storage (Object Storage)](../user-gui
 
 ## See Also
 
+- [Configuration Matrix](../deployment/konfigurationsmatrix.md) — Feature → services → switches → mandatory secrets → resources in a single table
+- [Deployment Profiles](../deployment/betriebsprofile.md) — Recommended component bundles for typical use cases
 - [Local Setup](../development/local-setup.md)
 - [Operations Troubleshooting](../development/troubleshooting.md)
 - [Kubernetes Deployment](../deployment/kubernetes.md)

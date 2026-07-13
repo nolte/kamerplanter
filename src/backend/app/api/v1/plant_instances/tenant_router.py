@@ -134,6 +134,8 @@ def update_plant(
     existing.planted_on = update_data["planted_on"]
     existing.container_volume_liters = update_data.get("container_volume_liters")
     existing.substrate_type_override = update_data.get("substrate_type_override")
+    # ADR-006 E1 — per-instance cultivation cycle override (None = same as the species).
+    existing.cultivation_cycle_type = update_data.get("cultivation_cycle_type")
     updated = service.update_plant(key, existing)
     return _to_response(updated, service)
 

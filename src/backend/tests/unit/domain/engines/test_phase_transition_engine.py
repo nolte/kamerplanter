@@ -10,6 +10,7 @@ from app.common.exceptions import PhaseTransitionError
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import PhaseHistory, PhaseTransitionRule
+from app.domain.models.phase_sequence import PhaseDefinition, PhaseSequence, PhaseSequenceEntry
 from app.domain.models.plant_instance import PlantInstance
 
 
@@ -53,8 +54,13 @@ def _make_plant(
 ) -> PlantInstance:
     plant = MagicMock(spec=PlantInstance)
     plant.key = key
+    plant.species_key = "sp-1"
     plant.current_phase_key = current_phase_key
     plant.current_phase_started_at = datetime(2025, 1, 1, tzinfo=UTC)
+    # ADR-006 E1 — default to "same as the species" so the resolve_effective_cycle
+    # cascade falls through to the species/sequence botanical cycle (a bare
+    # MagicMock attribute would otherwise be read as a spurious override).
+    plant.cultivation_cycle_type = None
     return plant
 
 
@@ -247,6 +253,121 @@ class TestPrematureBolting:
         assert created.is_premature is False
 
 
+class TestPhaseSequenceDrivenTransitions:
+    """#579: transitions must resolve keys in the PhaseSequenceEntry key-space.
+
+    Before the fix the engine looked target/current keys up only in
+    ``growth_phases``, so every PhaseSequence-driven species failed with
+    ``Target phase '…' not found``.
+    """
+
+    def setup_method(self) -> None:
+        self.phase_repo = MagicMock()
+        self.plant_repo = MagicMock()
+        self.phase_seq_repo = MagicMock()
+        self.engine = PhaseTransitionEngine(self.phase_repo, self.plant_repo, phase_seq_repo=self.phase_seq_repo)
+
+        # Annual sequence: germination(0) → vegetative(1) → flowering(2, terminal).
+        self.entries = {
+            "e-germ": PhaseSequenceEntry(
+                _key="e-germ", phase_definition_key="pd-germ", sequence_order=0, phase_sequence_key="seq-1"
+            ),
+            "e-veg": PhaseSequenceEntry(
+                _key="e-veg", phase_definition_key="pd-veg", sequence_order=1, phase_sequence_key="seq-1"
+            ),
+            "e-flower": PhaseSequenceEntry(
+                _key="e-flower",
+                phase_definition_key="pd-flower",
+                sequence_order=2,
+                is_terminal=True,
+                phase_sequence_key="seq-1",
+            ),
+        }
+        self.defs = {
+            "pd-germ": PhaseDefinition(_key="pd-germ", name="germination"),
+            "pd-veg": PhaseDefinition(_key="pd-veg", name="vegetative"),
+            "pd-flower": PhaseDefinition(_key="pd-flower", name="flowering"),
+        }
+        self.phase_seq_repo.get_entry_by_key.side_effect = self.entries.get
+        self.phase_seq_repo.get_definition_by_key.side_effect = self.defs.get
+        self.phase_seq_repo.get_sequence_by_key.return_value = PhaseSequence(
+            _key="seq-1", name="Seq", species_key="sp-1", cycle_type=CycleType.ANNUAL
+        )
+        # No GrowthPhase / transition rules exist in the entry key-space.
+        self.phase_repo.get_phase_by_key.return_value = None
+        self.phase_repo.get_transition_rules.return_value = []
+
+    def test_forward_transition_succeeds(self) -> None:
+        """The core #579 fix: a forward transition between two entries succeeds."""
+        plant = _make_plant(current_phase_key="e-germ")
+        self.plant_repo.get_by_key.return_value = plant
+        self.plant_repo.update.side_effect = lambda _k, p: p
+        self.phase_repo.get_phase_history.return_value = [
+            PhaseHistory(
+                key="h-1",
+                plant_instance_key="plant-1",
+                phase_key="e-germ",
+                phase_name="germination",
+                entered_at=datetime(2025, 1, 1, tzinfo=UTC),
+                cycle_number=1,
+            )
+        ]
+
+        result = self.engine.execute_transition("plant-1", "e-veg", reason="manual")
+
+        assert result.current_phase_key == "e-veg"
+        created = self.phase_repo.create_phase_history.call_args[0][0]
+        assert created.phase_name == "vegetative"
+        assert created.phase_key == "e-veg"
+
+    def test_unknown_target_rejected(self) -> None:
+        plant = _make_plant(current_phase_key="e-germ")
+        self.plant_repo.get_by_key.return_value = plant
+
+        with pytest.raises(PhaseTransitionError, match="Target phase 'e-bogus' not found"):
+            self.engine.validate_transition("plant-1", "e-bogus")
+
+    def test_backward_correction_requires_force(self) -> None:
+        """A misplacement backward transition is blocked without force …"""
+        plant = _make_plant(current_phase_key="e-flower")
+        self.plant_repo.get_by_key.return_value = plant
+
+        with pytest.raises(PhaseTransitionError, match="Backward transition not allowed"):
+            self.engine.validate_transition("plant-1", "e-germ")
+
+    def test_backward_correction_allowed_with_force(self) -> None:
+        """… and allowed with force ("Phase korrigieren (Fehlanlage)")."""
+        plant = _make_plant(current_phase_key="e-flower")
+        self.plant_repo.get_by_key.return_value = plant
+
+        warnings = self.engine.validate_transition("plant-1", "e-germ", force=True)
+
+        assert any("Forced backward transition" in w for w in warnings)
+
+    def test_already_in_phase_rejected(self) -> None:
+        plant = _make_plant(current_phase_key="e-veg")
+        self.plant_repo.get_by_key.return_value = plant
+
+        with pytest.raises(PhaseTransitionError, match="Already in phase 'vegetative'"):
+            self.engine.validate_transition("plant-1", "e-veg")
+
+    def test_perennial_cycle_restart_from_entry(self) -> None:
+        """A terminal entry of a PERENNIAL sequence restarts onto the restart order."""
+        self.phase_seq_repo.get_sequence_by_key.return_value = PhaseSequence(
+            _key="seq-1",
+            name="Seq",
+            species_key="sp-1",
+            cycle_type=CycleType.PERENNIAL,
+            cycle_restart_entry_order=0,
+        )
+        plant = _make_plant(current_phase_key="e-flower")
+        self.plant_repo.get_by_key.return_value = plant
+
+        warnings = self.engine.validate_transition("plant-1", "e-germ")
+
+        assert any("Perennial cycle restart" in w for w in warnings)
+
+
 class TestGetCurrentPhasePerennial:
     """Test PhaseService.get_current_phase returns perennial metadata."""
 
@@ -260,7 +381,9 @@ class TestGetCurrentPhasePerennial:
         plant = MagicMock()
         plant.current_phase_key = "ph-3"
         plant.current_phase_started_at = datetime(2025, 6, 1, tzinfo=UTC)
+        plant.cultivation_cycle_type = None  # ADR-006 E1 — no per-instance override
         plant_repo.get_by_key.return_value = plant
+        plant_repo.get_or_raise.return_value = plant
 
         active_history = PhaseHistory(
             key="h-1",
@@ -303,7 +426,9 @@ class TestGetCurrentPhasePerennial:
         plant = MagicMock()
         plant.current_phase_key = "ph-2"
         plant.current_phase_started_at = datetime(2025, 6, 1, tzinfo=UTC)
+        plant.cultivation_cycle_type = None  # ADR-006 E1 — no per-instance override
         plant_repo.get_by_key.return_value = plant
+        plant_repo.get_or_raise.return_value = plant
 
         active_history = PhaseHistory(
             key="h-1",

@@ -4,8 +4,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse, delay } from 'msw';
 import i18n from 'i18next';
 import SiteDetailPage from '@/pages/standorte/SiteDetailPage';
-import { renderWithProviders } from '../helpers';
+import { renderWithProviders, createStoreWithSmartHome } from '../helpers';
 import { server } from '../mocks/server';
+
+// Issue #587: sensor UI is gated behind the smart-home toggle. Render with smart
+// home enabled by default; the disabled (hidden) case has a dedicated test.
+const renderPage = () =>
+  renderWithProviders(<SiteDetailPage />, { store: createStoreWithSmartHome() });
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async (orig) => {
@@ -91,7 +96,7 @@ describe('SiteDetailPage', () => {
 
   it('renders the site detail page from the loaded site', async () => {
     useSiteSensors();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     expect(await screen.findByTestId('site-detail-page')).toBeTruthy();
     expect(screen.getAllByText('Main Greenhouse').length).toBeGreaterThan(0);
@@ -118,7 +123,7 @@ describe('SiteDetailPage', () => {
       }),
     );
     useSiteSensors();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     // Skeleton first, then the page.
     expect(screen.queryByTestId('site-detail-page')).toBeNull();
@@ -127,7 +132,7 @@ describe('SiteDetailPage', () => {
 
   it('renders the error state when the site fetch fails', async () => {
     server.use(http.get('/api/v1/t/:tenant/sites/:key', () => errorEnvelope(500)));
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     expect(await screen.findByTestId('error-display')).toBeTruthy();
     expect(screen.queryByTestId('site-detail-page')).toBeNull();
@@ -136,7 +141,7 @@ describe('SiteDetailPage', () => {
   it('shows the weather type hint for a non-outdoor site', async () => {
     useSite({ type: 'indoor' });
     useSiteSensors();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     expect(await screen.findByTestId('site-weather-type-hint')).toBeTruthy();
@@ -148,7 +153,7 @@ describe('SiteDetailPage', () => {
     server.use(
       http.get('/api/v1/t/:tenant/sites/:key/weather-sources', () => HttpResponse.json([])),
     );
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     // The GPS hint must NOT appear when coordinates are present.
@@ -160,7 +165,7 @@ describe('SiteDetailPage', () => {
   it('treats a balcony as weather-relevant: no disabled hint, positive balcony hint shown', async () => {
     useSite({ type: 'balcony', gps_coordinates: null });
     useSiteSensors();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     // Balcony must NOT be treated as a non-weather type.
@@ -179,7 +184,7 @@ describe('SiteDetailPage', () => {
     server.use(
       http.get('/api/v1/t/:tenant/sites/:key/weather-sources', () => HttpResponse.json([])),
     );
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     expect(await screen.findByTestId('weather-source-section')).toBeTruthy();
@@ -191,7 +196,7 @@ describe('SiteDetailPage', () => {
   it('keeps a windowsill site indoor: weather type hint shown, no weather section', async () => {
     useSite({ type: 'windowsill', gps_coordinates: [48.1, 11.6] });
     useSiteSensors();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     expect(await screen.findByTestId('site-weather-type-hint')).toBeTruthy();
@@ -213,7 +218,7 @@ describe('SiteDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -228,7 +233,7 @@ describe('SiteDetailPage', () => {
     useSiteSensors();
     server.use(http.put('/api/v1/t/:tenant/sites/:key', () => errorEnvelope(500)));
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByTestId('form-submit-button'));
@@ -239,7 +244,7 @@ describe('SiteDetailPage', () => {
   it('navigates back when cancelling the form', async () => {
     useSiteSensors();
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByTestId('form-cancel-button'));
@@ -249,7 +254,7 @@ describe('SiteDetailPage', () => {
   it('renders the sensor table and opens the create dialog', async () => {
     useSiteSensors([sensor]);
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     expect(await screen.findByText('Temp Sensor')).toBeTruthy();
@@ -258,10 +263,21 @@ describe('SiteDetailPage', () => {
     expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 
+  it('hides the sensor section when smart home is disabled (#587)', async () => {
+    useSiteSensors([sensor]);
+    // Default store → smart_home_enabled falsy → sensor surfaces hidden.
+    renderWithProviders(<SiteDetailPage />);
+
+    await screen.findByTestId('site-detail-page');
+    expect(screen.queryByTestId('site-sensors-section')).toBeNull();
+    expect(screen.queryByTestId('add-sensor-button')).toBeNull();
+    expect(screen.queryByText('Temp Sensor')).toBeNull();
+  });
+
   it('opens the sensor edit dialog from the row action', async () => {
     useSiteSensors([sensor]);
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     const sensorRow = (await screen.findByText('Temp Sensor')).closest('tr')!;
@@ -281,7 +297,7 @@ describe('SiteDetailPage', () => {
       dispatchEvent: () => false,
     }));
     useSiteSensors([sensor]);
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     expect(await screen.findAllByText('Temp Sensor')).toBeTruthy();
@@ -298,7 +314,7 @@ describe('SiteDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     const sensorRow = (await screen.findByText('Temp Sensor')).closest('tr')!;
@@ -314,7 +330,7 @@ describe('SiteDetailPage', () => {
       http.delete('/api/v1/t/:tenant/tanks/sensors/:key', () => errorEnvelope(500)),
     );
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     const sensorRow = (await screen.findByText('Temp Sensor')).closest('tr')!;
@@ -328,7 +344,7 @@ describe('SiteDetailPage', () => {
     useSiteSensors();
     useDeleteResponse(204);
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -351,7 +367,7 @@ describe('SiteDetailPage', () => {
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -369,7 +385,7 @@ describe('SiteDetailPage', () => {
     useSiteSensors();
     useDeleteResponse(500);
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));
@@ -382,7 +398,7 @@ describe('SiteDetailPage', () => {
   it('cancels the delete confirmation without deleting', async () => {
     useSiteSensors();
     const user = userEvent.setup();
-    renderWithProviders(<SiteDetailPage />);
+    renderPage();
 
     await screen.findByTestId('site-detail-page');
     await user.click(screen.getByRole('button', { name: i18n.t('common.delete') }));

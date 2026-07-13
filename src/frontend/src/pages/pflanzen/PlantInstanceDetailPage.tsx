@@ -16,6 +16,8 @@ import Link from '@mui/material/Link';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Skeleton from '@mui/material/Skeleton';
+import LinearProgress from '@mui/material/LinearProgress';
+import CircularProgress from '@mui/material/CircularProgress';
 import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import LabelIcon from '@mui/icons-material/Label';
@@ -60,7 +62,7 @@ import OverwinteringSection from './OverwinteringSection';
 import PestScanButton from '@/components/pests/PestScanButton';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
-import CareProfileEditDialog from '@/pages/pflege/components/CareProfileEditDialog';
+import CareProfileForm from '@/pages/pflege/components/CareProfileForm';
 import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
@@ -91,6 +93,7 @@ import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import PlantPhotoGallery from './photos/PlantPhotoGallery';
 import PlantCoverPreview from './photos/PlantCoverPreview';
+import TaskCreateDialog from '@/pages/aufgaben/TaskCreateDialog';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -191,7 +194,6 @@ export default function PlantInstanceDetailPage() {
 
   // Care profile state
   const [careProfile, setCareProfile] = useState<import('@/api/types').CareProfile | null>(null);
-  const [careProfileEditOpen, setCareProfileEditOpen] = useState(false);
 
   // Watering state
   const [lastWatering, setLastWatering] = useState<CareConfirmation | null>(null);
@@ -200,7 +202,13 @@ export default function PlantInstanceDetailPage() {
   const [nextWateringTask, setNextWateringTask] = useState<TaskItem | null>(null);
   const [plantTasks, setPlantTasks] = useState<TaskItem[]>([]);
   const [plantTasksLoading, setPlantTasksLoading] = useState(false);
+  // Distinguishes "not loaded yet" from "loaded and genuinely empty" so the empty
+  // state is only shown for a real ``[]`` result — never while a load is pending or
+  // after a failure (#578).
+  const [plantTasksLoaded, setPlantTasksLoaded] = useState(false);
+  const [plantTasksError, setPlantTasksError] = useState<string | null>(null);
   const [completingTaskKey, setCompletingTaskKey] = useState<string | null>(null);
+  const [taskCreateOpen, setTaskCreateOpen] = useState(false);
   const taskTableState = useTableLocalState({ defaultSort: { column: 'due_date', direction: 'asc' } });
 
   const {
@@ -392,16 +400,33 @@ export default function PlantInstanceDetailPage() {
     }
   }, [tab, key, species?.scientific_name]);
 
-  // Load all tasks when switching to Tasks tab
-  useEffect(() => {
-    if (tab === 6 && key && plantTasks.length === 0) {
-      setPlantTasksLoading(true);
-      taskApi.listTasks(0, 500, { entity_type: 'plant_instance', entity_key: key })
-        .then(setPlantTasks)
-        .catch(() => setPlantTasks([]))
-        .finally(() => setPlantTasksLoading(false));
+  // Load every task bound to this plant instance (all categories, all statuses).
+  // A dedicated ``loaded``/``error`` state pair replaces the former
+  // ``plantTasks.length === 0`` guard: that guard conflated "never loaded" with
+  // "genuinely empty" and swallowed every failure into the empty state, so a
+  // transient error left the tab stuck on the empty CTA forever (#578).
+  const loadPlantTasks = useCallback(async () => {
+    if (!key) return;
+    setPlantTasksLoading(true);
+    setPlantTasksError(null);
+    try {
+      const tasks = await taskApi.listTasks(0, 500, { entity_type: 'plant_instance', entity_key: key });
+      setPlantTasks(tasks);
+      setPlantTasksLoaded(true);
+    } catch {
+      setPlantTasksError('errors.loadFailed');
+    } finally {
+      setPlantTasksLoading(false);
     }
-  }, [tab, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Refetch whenever the Tasks tab is (re)opened — a fresh open must always reflect
+  // tasks created or completed since the last visit.
+  useEffect(() => {
+    if (tab === 6 && key) {
+      loadPlantTasks();
+    }
+  }, [tab, key, loadPlantTasks]);
 
   // Load sites + substrates when switching to Edit tab
   useEffect(() => {
@@ -498,8 +523,10 @@ export default function PlantInstanceDetailPage() {
     try {
       setCompletingTaskKey(taskKey);
       await taskApi.completeTask(taskKey, {});
-      setPlantTasks((prev) => prev.map((t) => t.key === taskKey ? { ...t, status: 'completed' } : t));
       notification.success(t('pages.plantInstances.taskCompleted'));
+      // Refetch so the completed task moves to the archived section and any
+      // follow-up task the backend spawns (e.g. next watering reminder) appears.
+      await loadPlantTasks();
     } catch (err) {
       handleError(err);
     } finally {
@@ -831,30 +858,43 @@ export default function PlantInstanceDetailPage() {
     return t('pages.plantInstances.taskDueDateOverdue', { count: Math.abs(diffDays) });
   };
 
-  // Split tasks into active (pending/in_progress) and archived (completed/skipped/cancelled)
-  const ACTIVE_STATUSES = new Set(['pending', 'in_progress']);
-  const activeTasks = plantTasks
-    .filter((t) => ACTIVE_STATUSES.has(t.status))
-    .sort((a, b) => {
-      // in_progress before pending
-      const statusOrder: Record<string, number> = { in_progress: 0, pending: 1 };
-      const sA = statusOrder[a.status] ?? 2;
-      const sB = statusOrder[b.status] ?? 2;
-      if (sA !== sB) return sA - sB;
-      // then by due date ascending (null last)
-      if (!a.due_date && !b.due_date) return 0;
-      if (!a.due_date) return 1;
-      if (!b.due_date) return -1;
-      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-    });
-  const archivedTasks = plantTasks.filter((t) => !ACTIVE_STATUSES.has(t.status));
+  // Split tasks into active (pending/in_progress) and archived (completed/skipped/cancelled).
+  // Memoised so the derived arrays keep a stable reference across renders that do not
+  // change ``plantTasks`` (avoids re-sorting and re-rendering the DataTables).
+  const activeTasks = useMemo(() => {
+    const ACTIVE_STATUSES = new Set(['pending', 'in_progress']);
+    return plantTasks
+      .filter((t) => ACTIVE_STATUSES.has(t.status))
+      .sort((a, b) => {
+        // in_progress before pending
+        const statusOrder: Record<string, number> = { in_progress: 0, pending: 1 };
+        const sA = statusOrder[a.status] ?? 2;
+        const sB = statusOrder[b.status] ?? 2;
+        if (sA !== sB) return sA - sB;
+        // then by due date ascending (null last)
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+      });
+  }, [plantTasks]);
+  const archivedTasks = useMemo(
+    () => plantTasks.filter((t) => !['pending', 'in_progress'].includes(t.status)),
+    [plantTasks],
+  );
+
+  // Midnight boundary for overdue comparisons, stable within a render pass.
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
 
   // Count overdue active tasks (due date in the past)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const overdueCount = activeTasks.filter(
-    (t) => t.due_date && new Date(t.due_date) < today,
-  ).length;
+  const overdueCount = useMemo(
+    () => activeTasks.filter((t) => t.due_date && new Date(t.due_date) < today).length,
+    [activeTasks, today],
+  );
 
   // Status chip color mapping
   const taskStatusColor = (status: string): 'success' | 'warning' | 'info' | 'error' | 'default' => {
@@ -932,7 +972,7 @@ export default function PlantInstanceDetailPage() {
         <Tab label={t('nav.pflege')} />
         <Tab label={t('pages.activityPlan.tabTitle')} data-testid="activity-plan-tab" />
         <Tab label={t('pages.plantInstances.taskHistoryTab')} data-testid="tasks-tab" />
-        <Tab label={t('common.edit')} />
+        <Tab label={t('common.edit')} data-testid="edit-tab" />
         <Tab label={t('pages.plantPhotos.tabTitle')} data-testid="photos-tab" />
       </Tabs>
 
@@ -1962,63 +2002,25 @@ export default function PlantInstanceDetailPage() {
         <Box sx={{ maxWidth: 1280 }}>
           {careProfile ? (
             <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              {/* Care-tab profile editing happens inline (#577): the form is always
+                  editable directly on the page instead of behind a modal. The
+                  care-style chip stays visible as the section header; the per-task
+                  toggles inside the form already communicate the on/off state that
+                  the former read-only summary duplicated. An intro line spells out
+                  that edits still require an explicit save — the inline placement
+                  has no modal boundary to signal that on its own. */}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.pflege.careTabIntro')}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Chip
                   label={t(`enums.careStyle.${careProfile.care_style}`)}
                   size="small"
                   variant="outlined"
                 />
-                <Button variant="outlined" size="small" onClick={() => setCareProfileEditOpen(true)}>
-                  {t('common.edit')}
-                </Button>
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {([
-                  { type: 'watering', enabled: careProfile.auto_create_watering_task, interval: careProfile.watering_interval_days, unit: t('common.days'), color: 'primary' as const },
-                  { type: 'fertilizing', enabled: careProfile.auto_create_fertilizing_task, interval: careProfile.fertilizing_interval_days, unit: t('common.days'), color: 'success' as const },
-                  { type: 'repotting', enabled: careProfile.auto_create_repotting_task, interval: careProfile.repotting_interval_months, unit: t('common.months_unit'), color: 'warning' as const },
-                  { type: 'pest_check', enabled: careProfile.auto_create_pest_check_task, interval: careProfile.pest_check_interval_days, unit: t('common.days'), color: 'error' as const },
-                  ...(careProfile.humidity_check_enabled ? [{ type: 'humidity_check' as const, enabled: true, interval: careProfile.humidity_check_interval_days, unit: t('common.days'), color: 'info' as const }] : []),
-                ] as const).map((row) => (
-                  <Box
-                    key={row.type}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
-                      px: 2,
-                      py: 1,
-                      borderRadius: 1,
-                      border: 1,
-                      borderColor: row.enabled ? 'divider' : 'action.disabledBackground',
-                      opacity: row.enabled ? 1 : 0.5,
-                    }}
-                  >
-                    <Chip
-                      size="small"
-                      color={row.enabled ? row.color : 'default'}
-                      label={row.enabled ? t('common.on') : t('common.off')}
-                      sx={{ minWidth: 40 }}
-                    />
-                    <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
-                      {t(`enums.reminderType.${row.type}`)}
-                    </Typography>
-                    {row.enabled && (
-                      <Typography variant="body2" color="text.secondary">
-                        {t('pages.pflege.everyN', { n: row.interval, unit: row.unit })}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-              {careProfile.notes && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontStyle: 'italic' }}>
-                  {careProfile.notes}
-                </Typography>
-              )}
-              <CareProfileEditDialog
-                open={careProfileEditOpen}
-                onClose={() => setCareProfileEditOpen(false)}
+              <CareProfileForm
+                embedded
                 profile={careProfile}
                 onUpdated={(updated) => setCareProfile(updated)}
               />
@@ -2051,17 +2053,52 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 6: Tasks */}
       {tab === 6 && (
-        <Box>
-          {plantTasksLoading ? (
-            <LoadingSkeleton variant="table" />
-          ) : plantTasks.length === 0 ? (
-            <EmptyState
-              message={t('pages.plantInstances.noTasks')}
-              actionLabel={t('pages.plantInstances.noTasksCta')}
-              onAction={() => navigate('/aufgaben/queue')}
-            />
-          ) : (
+        // `aria-busy` covers both the initial load and any silent background refetch
+        // (e.g. after quick-completing a task) so assistive tech is aware content may
+        // still change, even where the DOM keeps showing the previous data (UI-NFR-002
+        // R-011). `showInitialSkeleton` treats "never loaded yet" as loading too — closes
+        // the one-frame gap between switching to this tab and the fetch effect actually
+        // flipping `plantTasksLoading`, where the populated branch would otherwise flash
+        // an empty 0/0/0 summary bar before the skeleton appears.
+        <Box aria-busy={plantTasksLoading}>
+          {(() => {
+            const showInitialSkeleton = !plantTasksLoaded && !plantTasksError;
+            if (showInitialSkeleton) return <LoadingSkeleton variant="table" />;
+            if (plantTasksError) return <ErrorDisplay error={plantTasksError} onRetry={loadPlantTasks} />;
+            if (plantTasks.length === 0) {
+              return (
+                <Box>
+                  <EmptyState
+                    message={t('pages.plantInstances.noTasks')}
+                    description={t('pages.plantInstances.noTasksDesc')}
+                    actionLabel={t('pages.plantInstances.noTasksCreateCta')}
+                    onAction={() => setTaskCreateOpen(true)}
+                  />
+                  <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={() => navigate('/aufgaben/queue')}
+                      data-testid="empty-state-queue-link"
+                    >
+                      {t('pages.plantInstances.noTasksCta')}
+                    </Button>
+                  </Box>
+                </Box>
+              );
+            }
+            return (
             <>
+              {/* Background-refetch indicator (e.g. after quick-completing a task, or
+                  reopening the tab): keeps the already-loaded table visible instead of
+                  swapping it out for a full skeleton on every refresh — avoids the
+                  flicker a repeated full-page skeleton would cause, while still
+                  satisfying UI-NFR-004 R-020 (every async action needs a visible
+                  indicator) via a lightweight top progress bar rather than a second,
+                  competing spinner. */}
+              {plantTasksLoading && (
+                <LinearProgress sx={{ mb: 1.5 }} data-testid="tasks-refetch-progress" />
+              )}
               {/* Summary stats bar */}
               <Box
                 sx={{
@@ -2098,6 +2135,16 @@ export default function PlantInstanceDetailPage() {
                   color="default"
                   variant="outlined"
                 />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AddIcon />}
+                  onClick={() => setTaskCreateOpen(true)}
+                  sx={{ ml: 'auto' }}
+                  data-testid="plant-task-create-button"
+                >
+                  {t('pages.plantInstances.noTasksCreateCta')}
+                </Button>
               </Box>
 
               {/* Active tasks section */}
@@ -2191,7 +2238,9 @@ export default function PlantInstanceDetailPage() {
                                 aria-label={t('pages.plantInstances.taskCompleteQuick')}
                                 data-testid={`quick-complete-${row.key}`}
                               >
-                                <CheckCircleOutlineIcon fontSize="small" />
+                                {completingTaskKey === row.key
+                                  ? <CircularProgress size={16} color="inherit" data-testid={`quick-complete-${row.key}-spinner`} />
+                                  : <CheckCircleOutlineIcon fontSize="small" />}
                               </IconButton>
                             </span>
                           </Tooltip>
@@ -2320,6 +2369,20 @@ export default function PlantInstanceDetailPage() {
                 </Box>
               )}
             </>
+            );
+          })()}
+          {key && (
+            <TaskCreateDialog
+              open={taskCreateOpen}
+              onClose={() => setTaskCreateOpen(false)}
+              presetEntityKey={key}
+              hideEntitySelect
+              presetEntityLabel={plant ? getPlantLabel(plant, species, assignedCultivar) : null}
+              onCreated={() => {
+                setTaskCreateOpen(false);
+                loadPlantTasks();
+              }}
+            />
           )}
         </Box>
       )}
