@@ -176,29 +176,40 @@ class WateringLogListPage(BasePage):
         """
         import time
 
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        option_locator = (By.CSS_SELECTOR, "li[role='option']")
         input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
         input_el.click()
         # Type a space to trigger the dropdown, then clear it
         input_el.send_keys(" ")
-        time.sleep(0.3)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                lambda d: len(d.find_elements(*option_locator)) > 0
+            )
+        except Exception:
+            pass  # options may not populate for an empty catalog
         input_el.clear()
+        # bounded: clearing re-filters via MUI's ~300ms client-side debounce,
+        # which exposes no DOM transition once options already exist
         time.sleep(0.3)
 
         # MUI Autocomplete renders options in a listbox
-        options = self.driver.find_elements(
-            By.CSS_SELECTOR, "li[role='option']"
-        )
+        options = self.driver.find_elements(*option_locator)
         if not options:
             # Try clicking the input again to open the dropdown
             input_el.click()
-            time.sleep(0.5)
-            options = self.driver.find_elements(
-                By.CSS_SELECTOR, "li[role='option']"
-            )
+            try:
+                WebDriverWait(self.driver, 5).until(
+                    lambda d: len(d.find_elements(*option_locator)) > 0
+                )
+            except Exception:
+                pass
+            options = self.driver.find_elements(*option_locator)
 
         if options:
             options[0].click()
-            time.sleep(0.3)
+            self.wait_for_element_hidden(option_locator)
             return True
         return False
 
@@ -215,8 +226,6 @@ class WateringLogListPage(BasePage):
         ``"{instance_id} ({name})"`` so prefer the option whose text starts with
         the instance id rather than blindly taking the first.
         """
-        import time
-
         from selenium.webdriver.support.ui import WebDriverWait
 
         for _ in range(3):
@@ -236,7 +245,7 @@ class WateringLogListPage(BasePage):
             )
             if target is not None:
                 self.scroll_and_click(target)
-                time.sleep(0.2)
+                self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
                 return True
         return False
 
@@ -280,8 +289,6 @@ class WateringLogListPage(BasePage):
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
-        import time
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
         )
@@ -290,13 +297,8 @@ class WateringLogListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

@@ -128,3 +128,48 @@ implicit → 0 (with explicit waits everywhere) compounds this further.
   with zero test-behaviour change — **measured 2.5× on smoke from the wait change alone**.
 - Tier 2 (pyramid rebalance) is the structural fix: **702 → ~150 E2E**, most former E2E coverage running 100–1000× faster as component tests, and far less flake.
 - Net: a **meaningful PR/local signal in single-digit minutes** (smoke+core), full E2E reserved for nightly.
+
+## Appendix — concrete Tier-2 demotion plan (measured)
+
+A full classification of the 702 tests against the journey-vs-single-surface rule:
+
+| Bucket | Tests | Share | Runtime @ ~21 s |
+|---|---|---|---|
+| **DEMOTE** (single-surface / logic → vitest component/unit) | **~526** | **~75 %** | ~184 min |
+| **KEEP** (true cross-layer journey) | **~176** | **~25 %** | ~62 min |
+
+**~3 of 4 E2E tests assert component-level behaviour.** Demoting them reclaims ~3 h
+of E2E wall-clock per full run and leaves a lean ~176-journey suite.
+
+**Top demotion clusters** (biggest savings; "extend" = a vitest test exists,
+"create" = new `src/frontend/src/test/pages/*.test.tsx`):
+
+| E2E source | ~Demote | Target component | vitest |
+|---|---:|---|---|
+| `test_req002_standorte.py` | 30 | SiteList/Detail, LocationDetail, SiteCreateDialog | extend |
+| `test_req003_phasensteuerung.py` | 28 | **PhaseTransitionDialog** + PlantInstanceListPage | mixed (dialog: create) |
+| `test_req014_tank.py` | 26 | TankList/Detail | mixed |
+| `test_req004_fertilizer.py` | 20 | Fertilizer list/dialog/detail | mixed |
+| `test_req004_nutrient_calculations.py` | 20 | **pure calc → `*.ts` unit test** | extend/move |
+| `test_req020_onboarding_wizard.py` | 19 | onboarding step components | create |
+| `test_req021_experience_level.py` | 18 | ExperienceLevelStep + level-gated dialogs | create |
+| `test_req004_nutrient_plan.py` | 18 | NutrientPlanDetail | extend |
+| `test_req013_planting_run.py` | 18 | PlantingRun list/detail | create |
+| `test_req022_pflege_dashboard.py` | 17 | PflegeDashboard, CareConfirmDialog | create |
+
+**Exemplar (recommended first migration):** `TestPhaseTransitionDialog`
+(`test_req003_phasensteuerung.py`, ~7 field-assert tests, each ~33 s and
+self-provisioning a live plant just to open one dialog) →
+one `src/frontend/src/test/pages/PhaseTransitionDialog.test.tsx` (~10 ms):
+`shows target-phase-select / reason field / reason default 'manual' / confirm
+disabled without selection / reason editable / cancel closes / opens`. The two
+genuinely cross-layer tests in that file (`_cancel_preserves_phase`, the
+`TestCoreLifecycleJourneyPhaseTransitions` journeys) stay at the E2E tier.
+
+**Execution order:** (1) create the exemplar `PhaseTransitionDialog.test.tsx`
+(proves the pattern, removes 7 slow tests); (2) extend existing vitest tests for
+the "extend" clusters (lowest friction); (3) create new component tests for
+planting-run / onboarding / experience-level / pflege-dashboard; (4) move pure
+logic (nutrient calc math, botanical-family validation rules, i18n) down to unit
+tests. Audit with `nolte-engineering:test-pyramid-check`; scaffold replacements
+with `nolte-engineering:component-test-generator`.

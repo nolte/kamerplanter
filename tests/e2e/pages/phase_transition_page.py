@@ -281,41 +281,25 @@ class PlantInstanceDetailExt(BasePage):
 
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase by its data-value attribute."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
         self.scroll_and_click(select_el)
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def select_target_phase_by_text(self, text: str) -> None:
         """Select a target phase by its visible label text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
         self.scroll_and_click(select_el)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def set_transition_reason(self, reason: str) -> None:
         # The reason field is pre-populated with 'manual' by default; el.clear()
@@ -376,16 +360,19 @@ class PlantInstanceDetailExt(BasePage):
         or backward (earlier index) without hard-coding species-specific
         phase names.
         """
-        import time
-        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support.ui import WebDriverWait
 
         select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
         self.scroll_and_click(select_el)
-        time.sleep(0.2)
+        try:
+            WebDriverWait(self.driver, 5).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+            )
+        except Exception:
+            pass
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         keys = [o.get_attribute("data-value") or "" for o in options]
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        time.sleep(0.2)
+        self.close_mui_dropdown()
         return [k for k in keys if k]
 
     def transition_to_phase_key(self, phase_key: str, reason: str = "manual") -> None:

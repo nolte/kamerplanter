@@ -298,7 +298,7 @@ class ExpertiseLevelPage(BasePage):
         while time.time() < deadline:
             if self.is_form_field_visible(field_name):
                 return True
-            time.sleep(0.3)
+            time.sleep(0.3)  # poll interval for the explicit field-visibility condition
         return False
 
     def get_visible_form_field_names(self) -> list[str]:
