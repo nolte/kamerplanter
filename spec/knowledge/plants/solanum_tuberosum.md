@@ -20,6 +20,9 @@
 | Wuchsform | herb | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
+| Blühstrategie (flowering strategy) | polycarpic (mehrjährig und wiederholt blühend; frostempfindlich und daher als einjährige Kultur gezogen (cultivation_cycle_type=annual)) | `lifecycle_configs.flowering_strategy` |
+<!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
