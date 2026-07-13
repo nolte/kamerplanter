@@ -1,6 +1,9 @@
 # Betriebsprofile
 
-Kamerplanter ist modular aufgebaut. Du entscheidest selbst, welche Komponenten du brauchst — von einer schlanken Installation auf dem Raspberry Pi bis zum vollständigen Multi-Tenant-Setup auf Kubernetes. Diese Seite hilft dir, das richtige Profil für deinen Anwendungsfall zu finden.
+Kamerplanter ist modular aufgebaut. Du entscheidest selbst, welche Komponenten du brauchst — von einer schlanken Installation auf dem Raspberry Pi bis zum vollständigen Multi-Tenant-Setup auf Kubernetes. Diese Seite hilft dir, das richtige **Bündel** aus Komponenten für deinen Anwendungsfall zu finden.
+
+!!! tip "Vollständige Feature-für-Feature-Referenz"
+    Diese Seite zeigt fünf empfohlene Bündel für typische Anwendungsfälle. Für eine erschöpfende Tabelle aller ~40 Funktionen mit exakter Umgebungsvariable, Pflicht-Secrets und Ressourcenauswirkung siehe die [Konfigurationsmatrix](konfigurationsmatrix.md).
 
 ---
 
@@ -23,15 +26,18 @@ Jede Kamerplanter-Installation besteht aus einem **Kern** (immer erforderlich) u
 | Komponente | Aufgabe | Ressourcenbedarf | Konfiguration |
 |------------|---------|------------------|---------------|
 | **Betriebsmodus** | `light` = kein Login, ein Nutzer; `full` = JWT-Auth, Multi-Tenant | — | `KAMERPLANTER_MODE` |
-| **KI-Assistent** | Pflegetipps, Diagnosen, Empfehlungen per Sprachmodell | 2--8 GB RAM (lokal) | `AI_DEFAULT_PROVIDER` |
-| **Ollama** | Lokale Ausführung von Sprachmodellen (kein Datentransfer) | 4--16 GB RAM, optional GPU | Docker-Profil `ollama` |
-| **Knowledge Service** | RAG-Pipeline: Wissensbasis durchsuchen, Kontext anreichern | 512 MB RAM | Eigenes Deployment |
-| **VectorDB** (pgvector) | Vektorspeicher für RAG-Embeddings | 256 MB RAM | `VECTORDB_ENABLED` |
-| **Embedding Service** | ONNX-basierte Embedding-Berechnung (kein PyTorch) | 512 MB RAM | Eigenes Deployment |
-| **Reranker Service** | Cross-Encoder Re-Ranking für höhere RAG-Präzision (ADR-007) | 1,5–4 GB RAM | `RERANKER_URL` |
+| **KI-Assistent** (Backend-Seite) | Freischaltung der `/ai/*`-Endpunkte, Pflegetipps, Diagnosen, Glossar | 128 MB – 2 GB RAM (Backend, ohne LLM) | `AI_FEATURES_ENABLED` + `KNOWLEDGE_SERVICE_ENABLED`/`KNOWLEDGE_SERVICE_URL` |
+| **Ollama** | Lokale Ausführung von Sprachmodellen (kein Datentransfer) | 4--16 GB RAM, optional GPU | Docker-Profil `ollama`; `LLM_PROVIDER=ollama` **am Knowledge Service** |
+| **Knowledge Service** | RAG-Pipeline: Wissensbasis durchsuchen, LLM-Provider anbinden, Kontext anreichern | 128 MB – 512 MB RAM | Eigener Helm-Controller (`controllers.knowledge-service`), kein vorgefertigtes `enabled`-Flag in `values.yaml` — Operator liefert den vollständigen Block |
+| **VectorDB** (pgvector) | Vektorspeicher für RAG-Embeddings **und** für den Bilderkennungs-Referenzindex (REQ-029-A) | 128 MB – 512 MB RAM | `controllers.vectordb.enabled` (in `values.yaml` vordefiniert, Default `false`) |
+| **Embedding Service** | ONNX-basierte Embedding-Berechnung (kein PyTorch) | 1,5–4 GB RAM | Eigener Helm-Controller (`controllers.embedding-service`), kein vorgefertigtes `enabled`-Flag |
+| **Reranker Service** | Cross-Encoder Re-Ranking für höhere RAG-Präzision (ADR-007) | 1,5–4 GB RAM | `RERANKER_URL` **am Knowledge Service** (leer = deaktiviert) |
 | **TimescaleDB** | Zeitreihendaten von Sensoren, automatisches Downsampling | 256--512 MB RAM | `TIMESCALEDB_ENABLED` |
 | **Home Assistant** | Sensor- und Aktor-Integration (Temperatur, Luftfeuchte, Lampen) | Extern | `HA_URL` + `HA_ACCESS_TOKEN` |
 | **Externe Datenanreicherung** | Pflanzendaten von GBIF und Perenual automatisch ergänzen | — | `PERENUAL_API_KEY` |
+
+!!! info "KI-Assistent — Betreiber-Schalter und Provider-Wahl sind getrennt"
+    `AI_FEATURES_ENABLED` ist ein reiner **Backend-Schalter** (Stufe 1 des dreistufigen Freischalt-Mechanismus, siehe [Für technische Nutzer / Self-Hoster](../user-guide/ai-assistant.md#fuer-technische-nutzer-self-hoster)): `false` lässt alle `/ai/*`-Endpunkte mit HTTP 404 antworten. Er bestimmt **nicht**, welches Sprachmodell verwendet wird — das ist `LLM_PROVIDER` (`ollama`, `anthropic`, `openai_compatible`) **am eigenständigen Knowledge Service** (`src/knowledge-service/`), nicht am Backend. Es gibt kein `AI_DEFAULT_PROVIDER`, kein `AI_OLLAMA_URL`/`AI_OLLAMA_MODEL` und kein `AI_FALLBACK_PROVIDER` im Backend — diese früher hier dokumentierten Variablen existieren im Code nicht. Details: [KI-Provider einrichten](../user-guide/ai-providers.md), [Umgebungsvariablen — KI-Assistent](../reference/environment-variables.md#ki-assistent).
 
 ---
 
@@ -43,8 +49,8 @@ Die folgende Matrix zeigt fünf vordefinierte Profile. Jedes Profil ist eine Emp
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Infrastruktur** | Docker Compose | Docker Compose | Docker Compose / K8s | Kubernetes | Kubernetes |
 | **Betriebsmodus** | Light | Light | Full | Full | Full |
-| **KI-Assistent** | — | Ollama (lokal) | Ollama (lokal) | Ollama + Cloud-Fallback | Cloud (OpenAI / Anthropic) |
-| **Knowledge Service + RAG** | — | — | Optional | Ja | Ja |
+| **KI-Assistent** | — | Ollama (lokal) | Ollama (lokal) | Ollama (lokal) | Cloud (OpenAI / Anthropic) |
+| **Knowledge Service + Embedding Service + VectorDB** | — | Ja (Pflicht-Bündel für Ollama) | Ja (Pflicht-Bündel für Ollama) | Ja | Ja |
 | **Reranker Service** | — | — | Optional | Optional | Ja |
 | **TimescaleDB** | — | — | Optional | Ja | Ja |
 | **Home Assistant** | — | Optional | Optional | Ja | Optional |
@@ -93,9 +99,8 @@ services:
     build: ./src/backend
     environment:
       KAMERPLANTER_MODE: light
-      AI_DEFAULT_PROVIDER: none
+      AI_FEATURES_ENABLED: "false"
       TIMESCALEDB_ENABLED: "false"
-      VECTORDB_ENABLED: "false"
     depends_on: [arangodb, valkey]
 
   celery-worker:
@@ -130,7 +135,7 @@ Du hast 10--50 Pflanzen und einen Home-Server (NAS, alter Desktop, NUC). Du möc
 ### Voraussetzungen
 
 - Docker + Docker Compose
-- 4 GB freier RAM (8 GB mit 7B-Modell), optional GPU
+- 6–8 GB freier RAM für den KI-Stack (Ollama-Modell + Knowledge/Embedding-Service/VectorDB-Overhead — siehe [Konfigurationsmatrix](konfigurationsmatrix.md#ki-assistent-req-031)), mehr bei einem 7B-Modell, optional GPU
 - Home-Server, NUC, Desktop-PC
 
 ### Aktivierte Komponenten
@@ -139,10 +144,13 @@ Du hast 10--50 Pflanzen und einen Home-Server (NAS, alter Desktop, NUC). Du möc
 - [x] ArangoDB + Valkey
 - [x] Celery Worker + Beat
 - [x] Ollama (lokales Sprachmodell)
-- [ ] Knowledge Service / RAG (optional aktivierbar)
+- [x] Knowledge Service + Embedding Service + VectorDB (nötig, damit Ollama vom KI-Assistenten überhaupt erreicht wird)
 - [ ] TimescaleDB
 - [ ] Home Assistant (optional)
 - [ ] Externe Anreicherung (optional)
+
+!!! note "Ollama allein reicht nicht"
+    Das Backend spricht **nie** direkt mit Ollama. Die Provider-Anbindung (`LLM_PROVIDER`) liegt am **Knowledge Service** — er ruft Ollama auf und liefert das Ergebnis über `KNOWLEDGE_SERVICE_URL` an das Backend zurück. Ohne laufenden Knowledge Service (+ Embedding Service für die Ähnlichkeitssuche, + VectorDB als Vektorspeicher) bleiben die KI-Endpunkte funktionslos, selbst wenn Ollama läuft.
 
 ### Beispielkonfiguration
 
@@ -154,11 +162,29 @@ services:
     build: ./src/backend
     environment:
       KAMERPLANTER_MODE: light
-      AI_DEFAULT_PROVIDER: ollama
-      AI_OLLAMA_URL: http://ollama:11434
-      AI_OLLAMA_MODEL: gemma3:4b
+      AI_FEATURES_ENABLED: "true"
+      KNOWLEDGE_SERVICE_ENABLED: "true"
+      KNOWLEDGE_SERVICE_URL: http://knowledge-service:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}  # openssl rand -hex 32
       TIMESCALEDB_ENABLED: "false"
     depends_on: [arangodb, valkey]
+
+  knowledge-service:
+    build: ./src/knowledge-service
+    environment:
+      LLM_PROVIDER: ollama
+      LLM_API_URL: http://ollama:11434
+      LLM_MODEL: gemma3:4b
+      EMBEDDING_SERVICE_URL: http://embedding-service:8080
+      VECTORDB_HOST: vectordb
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+    depends_on: [ollama, embedding-service, vectordb]
+
+  embedding-service:
+    build: ./docker/embedding-service
+
+  vectordb:
+    build: ./docker/vectordb
 
   ollama:
     image: ollama/ollama:latest
@@ -190,7 +216,7 @@ Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. M
 ### Voraussetzungen
 
 - Docker Compose oder Kubernetes-Cluster
-- 4--6 GB freier RAM
+- 6--8 GB freier RAM (KI-Stack wie im Hobby-Profil, siehe oben)
 - Server, NUC oder kleiner K8s-Cluster
 
 ### Aktivierte Komponenten
@@ -198,9 +224,9 @@ Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. M
 - [x] Backend + Frontend
 - [x] ArangoDB + Valkey
 - [x] Celery Worker + Beat
-- [x] Ollama (lokales Sprachmodell)
+- [x] Ollama + Knowledge Service + Embedding Service + VectorDB (KI-Stack als Bündel, siehe Hobby-Profil)
 - [x] Externe Anreicherung (GBIF + Perenual)
-- [ ] Knowledge Service / RAG (optional)
+- [ ] Reranker Service (optional — höhere RAG-Präzision)
 - [ ] TimescaleDB (optional)
 - [ ] Home Assistant (optional)
 
@@ -210,15 +236,16 @@ Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. M
 
     ```yaml title="docker-compose.yml (Auszug)"
     services:
-      # ... Kern + Ollama ...
+      # ... Kern + Ollama + Knowledge Service + Embedding Service + VectorDB (siehe Hobby-Profil) ...
 
       backend:
         build: ./src/backend
         environment:
           KAMERPLANTER_MODE: full
-          AI_DEFAULT_PROVIDER: ollama
-          AI_OLLAMA_URL: http://ollama:11434
-          AI_OLLAMA_MODEL: gemma3:4b
+          AI_FEATURES_ENABLED: "true"
+          KNOWLEDGE_SERVICE_ENABLED: "true"
+          KNOWLEDGE_SERVICE_URL: http://knowledge-service:8000
+          INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
           JWT_SECRET_KEY: ${JWT_SECRET_KEY}  # openssl rand -hex 32
           PERENUAL_API_KEY: ${PERENUAL_API_KEY}
           TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
@@ -234,10 +261,18 @@ Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. M
           main:
             env:
               KAMERPLANTER_MODE: full
-              AI_DEFAULT_PROVIDER: ollama
-              AI_OLLAMA_URL: http://ollama:11434
-              AI_OLLAMA_MODEL: gemma3:4b
+              AI_FEATURES_ENABLED: "true"
+              KNOWLEDGE_SERVICE_ENABLED: "true"
+              KNOWLEDGE_SERVICE_URL: "http://kamerplanter-knowledge-service:8000"
               TIMESCALEDB_ENABLED: "false"
+      knowledge-service:
+        enabled: true
+        containers:
+          main:
+            env:
+              LLM_PROVIDER: ollama
+              LLM_API_URL: "http://kamerplanter-ollama:11434"
+              LLM_MODEL: gemma3:4b
     ```
 
 !!! note "TimescaleDB nur bei Sensoren nötig"
@@ -245,7 +280,7 @@ Du bist engagierter Hobbyist oder betreibst einen kleinen Gemeinschaftsgarten. M
 
 ### Was fehlt im Vergleich zum nächsten Profil?
 
-Ohne TimescaleDB kein automatisches Downsampling von Sensordaten. Ohne Home Assistant keine automatische Sensorerfassung und Aktorsteuerung. Ohne Knowledge Service / RAG keine kontextangereicherten KI-Antworten aus der Wissensbasis.
+Ohne TimescaleDB kein automatisches Downsampling von Sensordaten. Ohne Home Assistant keine automatische Sensorerfassung und Aktorsteuerung. Ohne Reranker Service ist die Trefferqualität der RAG-Antworten etwas niedriger (reine Hybrid-Search statt Cross-Encoder-Re-Ranking).
 
 ---
 
@@ -253,7 +288,10 @@ Ohne TimescaleDB kein automatisches Downsampling von Sensordaten. Ohne Home Assi
 
 ### Zielgruppe
 
-Du betreibst professionelles Indoor-Growing oder einen großen Gemeinschaftsgarten mit Rollenverwaltung. Sensoren und Aktoren sind über Home Assistant angebunden. Du willst lückenlose Zeitreihen, KI-gestützte Diagnosen mit RAG-Kontext und Cloud-Fallback für das Sprachmodell.
+Du betreibst professionelles Indoor-Growing oder einen großen Gemeinschaftsgarten mit Rollenverwaltung. Sensoren und Aktoren sind über Home Assistant angebunden. Du willst lückenlose Zeitreihen und KI-gestützte Diagnosen mit vollem RAG-Kontext (Re-Ranking für höhere Trefferqualität).
+
+!!! info "Kein automatischer Cloud-Fallback"
+    Der Knowledge Service verwendet **einen** konfigurierten `LLM_PROVIDER` (`ollama`, `anthropic` oder `openai_compatible`) — es gibt keinen automatischen Laufzeit-Fallback von Ollama auf einen Cloud-Provider bei Nichterreichbarkeit. Ein Wechsel des Providers ist eine bewusste Konfigurationsänderung (Redeploy des Knowledge Service). Ist Ollama nicht erreichbar, meldet der KI-Assistent einen Fehler — die übrige Anwendung bleibt unbeeinflusst.
 
 ### Voraussetzungen
 
@@ -267,7 +305,7 @@ Du betreibst professionelles Indoor-Growing oder einen großen Gemeinschaftsgart
 - [x] Backend + Frontend
 - [x] ArangoDB + Valkey
 - [x] Celery Worker + Beat
-- [x] Ollama + Cloud-Fallback (OpenAI oder Anthropic)
+- [x] Ollama (lokales Sprachmodell, `mistral:7b`)
 - [x] Knowledge Service + VectorDB + Embedding Service
 - [x] Reranker Service (Cross-Encoder Re-Ranking)
 - [x] TimescaleDB
@@ -283,14 +321,9 @@ controllers:
       main:
         env:
           KAMERPLANTER_MODE: full
-          AI_DEFAULT_PROVIDER: ollama
-          AI_OLLAMA_URL: http://ollama:11434
-          AI_OLLAMA_MODEL: mistral:7b
-          AI_FALLBACK_PROVIDER: openai
-          AI_OPENAI_API_KEY:
-            secretKeyRef:
-              name: kamerplanter-secrets
-              key: openai-api-key
+          AI_FEATURES_ENABLED: "true"
+          KNOWLEDGE_SERVICE_ENABLED: "true"
+          KNOWLEDGE_SERVICE_URL: "http://kamerplanter-knowledge-service:8000"
           TIMESCALEDB_ENABLED: "true"
           TIMESCALEDB_HOST: timescaledb
           HA_URL: http://homeassistant.home:8123
@@ -302,6 +335,8 @@ controllers:
             secretKeyRef:
               name: kamerplanter-secrets
               key: perenual-api-key
+        envFrom:
+          - secret: kamerplanter-secrets  # trägt u.a. INTERNAL_SERVICE_TOKEN (Pflicht ab hier)
 
   timescaledb:
     enabled: true
@@ -311,7 +346,10 @@ controllers:
     containers:
       main:
         env:
-          RERANKER_URL: "http://kamerplanter-ki-reranker-service:8081"
+          LLM_PROVIDER: ollama
+          LLM_API_URL: "http://kamerplanter-ollama:11434"
+          LLM_MODEL: mistral:7b
+          RERANKER_URL: "http://kamerplanter-reranker-service:8081"
           RERANKER_INITIAL_K: "20"
           RERANKER_TOP_K: "5"
 
@@ -334,7 +372,7 @@ controllers:
 
 ### Was fehlt im Vergleich zum nächsten Profil?
 
-Im Profi-Profil betreibst du eine einzelne Instanz für deine Organisation. Das SaaS-Profil fügt Multi-Mandanten-Isolation, horizontale Skalierung und Cloud-KI als Primärprovider hinzu.
+Im Profi-Profil betreibst du eine einzelne Instanz für deine Organisation und ein lokales Sprachmodell. Das SaaS-Profil fügt Multi-Mandanten-Isolation, horizontale Skalierung und einen Cloud-Sprachmodell-Provider anstelle von Ollama hinzu.
 
 ---
 
@@ -356,7 +394,7 @@ Du betreibst Kamerplanter als Plattform für mehrere unabhängige Mandanten (Gä
 - [x] Backend + Frontend (mehrere Replicas)
 - [x] ArangoDB + Valkey
 - [x] Celery Worker (mehrere Replicas) + Beat
-- [x] Cloud-KI (OpenAI / Anthropic)
+- [x] Cloud-Sprachmodell (Anthropic oder OpenAI-kompatibler Endpunkt) statt Ollama
 - [x] Knowledge Service + VectorDB + Embedding Service
 - [x] TimescaleDB
 - [x] Externe Anreicherung (GBIF + Perenual)
@@ -372,9 +410,23 @@ controllers:
       main:
         env:
           KAMERPLANTER_MODE: full
-          AI_DEFAULT_PROVIDER: openai
-          AI_OPENAI_MODEL: gpt-4o-mini
+          AI_FEATURES_ENABLED: "true"
+          KNOWLEDGE_SERVICE_ENABLED: "true"
+          KNOWLEDGE_SERVICE_URL: "http://kamerplanter-knowledge-service:8000"
           TIMESCALEDB_ENABLED: "true"
+
+  knowledge-service:
+    enabled: true
+    containers:
+      main:
+        env:
+          LLM_PROVIDER: openai_compatible
+          LLM_API_URL: "https://api.openai.com/v1"
+          LLM_MODEL: gpt-4o-mini
+          LLM_API_KEY:
+            secretKeyRef:
+              name: kamerplanter-secrets
+              key: llm-api-key
 
   celery-worker:
     replicas: 2
@@ -382,6 +434,9 @@ controllers:
   frontend:
     replicas: 2
 ```
+
+!!! note "Anthropic als Alternative"
+    Für Anthropic direkt (statt eines OpenAI-kompatiblen Endpunkts) `LLM_PROVIDER: anthropic` setzen — `LLM_API_URL` entfällt dann, `LLM_API_KEY` bleibt Pflicht. Gültige Werte für `LLM_PROVIDER` sind ausschließlich `ollama`, `anthropic` und `openai_compatible`; ein bloßes `openai` ist **kein** gültiger Wert.
 
 !!! tip "Managed Datenbanken"
     Im SaaS-Betrieb empfiehlt sich der Einsatz von Managed-Datenbank-Diensten statt selbst betriebener Container. Das reduziert den Betriebsaufwand für Backups, Updates und Hochverfügbarkeit erheblich.
@@ -395,12 +450,16 @@ Die Profile oben sind Empfehlungen. Du kannst jede Komponente einzeln aktivieren
 | Entscheidung | Variable | Werte |
 |-------------|----------|-------|
 | Login und Multi-Tenant? | `KAMERPLANTER_MODE` | `light` / `full` |
-| KI-Pflegetipps? | `AI_DEFAULT_PROVIDER` | `ollama`, `llamacpp`, `openai`, `anthropic`, `openai-compatible`, `none` |
+| KI-Assistent instanzweit freischalten? (Backend) | `AI_FEATURES_ENABLED` | `true` / `false` |
+| KI-Assistent mit dem Knowledge Service verbinden? (Backend) | `KNOWLEDGE_SERVICE_ENABLED` + `KNOWLEDGE_SERVICE_URL` | `true`/`false` + HTTP-URL |
+| Welches Sprachmodell? (Knowledge Service, **nicht** Backend) | `LLM_PROVIDER` | `ollama`, `anthropic`, `openai_compatible` |
 | Sensordaten-Zeitreihen? | `TIMESCALEDB_ENABLED` | `true` / `false` |
-| RAG-Wissensbasis? | `VECTORDB_ENABLED` | `true` / `false` |
-| Re-Ranking (höhere Präzision)? | `RERANKER_URL` | HTTP-URL des Reranker-Service (leer = deaktiviert) |
+| Re-Ranking (höhere Präzision)? (Knowledge Service) | `RERANKER_URL` | HTTP-URL des Reranker-Service (leer = deaktiviert) |
 | Home Assistant? | `HA_URL` + `HA_ACCESS_TOKEN` | URL + Token (leer = deaktiviert) |
 | Pflanzendaten-Anreicherung? | `PERENUAL_API_KEY` | API-Key (leer = nur GBIF) |
+
+!!! warning "`VECTORDB_ENABLED` ist kein Backend-Schalter"
+    `VECTORDB_ENABLED` taucht in `.env.example` als **reines Docker-Compose-Profil-Flag** auf (`docker-compose --profile vectordb up`) — es ist keine vom Kamerplanter-Backend gelesene Umgebungsvariable und steuert dort nichts. Das Backend aktiviert die Anbindung an die KI-/RAG-Kette ausschließlich über `KNOWLEDGE_SERVICE_ENABLED` (KI-Assistent) und `INFERENCE_SERVICE_ENABLED` (Pflanzen-/Schädlings-Bilderkennung, siehe [Bilderkennung in Betrieb nehmen](inference-service.md)).
 
 In Docker Compose aktivierst du optionale Dienste über Profile:
 
@@ -461,12 +520,13 @@ Nein. Ohne automatische Sensordatenerfassung (IoT/MQTT oder Home Assistant) brin
 
 ### Was passiert, wenn ich keinen KI-Provider konfiguriere?
 
-Kamerplanter funktioniert vollständig ohne KI. Wenn `AI_DEFAULT_PROVIDER=none` gesetzt ist (oder kein Provider konfiguriert), werden die KI-Tipp-Karten in der Oberfläche nicht angezeigt. Alle regelbasierten Funktionen (Phasensteuerung, Düngepläne, Pflegeerinnerungen) arbeiten unabhängig vom KI-Provider.
+Kamerplanter funktioniert vollständig ohne KI. Der Standardwert `AI_FEATURES_ENABLED=false` lässt sämtliche `/ai/*`-Endpunkte mit HTTP 404 antworten, als gäbe es sie nicht — die KI-Tipp-Karten, das Glossar und die KI-Diagnose erscheinen dann nicht in der Oberfläche. Alle regelbasierten Funktionen (Phasensteuerung, Düngepläne, Pflegeerinnerungen) arbeiten unabhängig davon.
 
 ---
 
 ## Siehe auch
 
+- [Konfigurationsmatrix](konfigurationsmatrix.md) — Erschöpfende Referenz aller Funktionen mit Schalter, Pflicht-Secrets und Ressourcenauswirkung
 - [Light-Modus](../user-guide/light-mode.md) — Details zum Betrieb ohne Authentifizierung
 - [KI-Provider einrichten](../user-guide/ai-providers.md) — Ollama, OpenAI, Anthropic und andere Provider konfigurieren
 - [Home Assistant Integration](../guides/home-assistant-integration.md) — Sensor- und Aktor-Anbindung

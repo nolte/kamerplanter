@@ -162,6 +162,7 @@ plugins:
             Authentifizierung: Authentication
             Fehlerbehandlung: Error Handling
             Betriebsprofile: Deployment Profiles
+            Konfigurationsmatrix: Configuration Matrix
             Deployment: Deployment
             Kubernetes: Kubernetes
             Helm Charts: Helm Charts
@@ -364,6 +365,7 @@ nav:
       - Docker Compose Schnellstart: de/deployment/docker-quickstart.md
       - Docker Compose Dauerbetrieb: de/deployment/docker-dauerbetrieb.md
       - Betriebsprofile: de/deployment/betriebsprofile.md
+      - Konfigurationsmatrix: de/deployment/konfigurationsmatrix.md
       - Kubernetes: de/deployment/kubernetes.md
       - Helm Charts: de/deployment/helm.md
       - ArgoCD: de/deployment/argocd.md
