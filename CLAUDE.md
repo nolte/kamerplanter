@@ -26,7 +26,6 @@ Agents authored under `.claude/agents/` (`distribution: project`) MAY author the
   - `spec/rag-eval/` — RAG benchmark questions & topic synonyms
   - `spec/design/` — KAMI graphic prompts
   - `spec/analysis/` — Review & analysis reports
-  - `spec/ha-integration/` — Home Assistant integration specs
   - `spec/target-audiences/` — Target audience personas
   - `spec/e2e-testcases/` — E2E test case specifications
 - `src/backend/` — Python/FastAPI backend (implemented)
