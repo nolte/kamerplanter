@@ -277,6 +277,13 @@ class PhaseService:
             phases = self._repo.get_phases_by_lifecycle(lifecycle_key)
             has_harvest_phase = any(p.allows_harvest for p in phases)
 
+        # ADR-006 E1 — reflect the per-instance cultivation override in the reported
+        # cycle_type so the dashboard / phase detail / timeline show the EFFECTIVE
+        # cycle the plant is actually grown on (the single-source-of-truth cascade;
+        # the species tiers already produced ``cycle_type`` above).
+        if plant.cultivation_cycle_type is not None:
+            cycle_type = plant.cultivation_cycle_type.value
+
         return {
             "phase": phase_name,
             "phase_key": phase_key,

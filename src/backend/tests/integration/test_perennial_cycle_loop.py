@@ -200,6 +200,12 @@ def _task_env(monkeypatch):
     seq_repo.add_sequence(
         "evergreen_foliage_perennial", _EVERGREEN, cycle_restart_entry_order=1, species_keys=["sp-ficus"]
     )
+    # A facultative "tender perennial" (tomato): a cyclic sequence structure, but its
+    # LifecycleConfig is grown as an ANNUAL by default (#565 Phase 2 / ADR-006 E1/E6).
+    # Without a per-instance override it must NOT loop; a perennial override makes it loop.
+    seq_repo.add_sequence(
+        "tender_perennial", _PERENNIAL_RUNNER, cycle_restart_entry_order=1, species_keys=["sp-tomato"]
+    )
     phase_repo = _FakePhaseRepo()
 
     strawberry = PlantInstance(
@@ -220,16 +226,27 @@ def _task_env(monkeypatch):
         current_phase_key=seq_repo.entry_key("evergreen_foliage_perennial", 0),  # establishment
         current_phase_started_at=datetime.now(UTC),
     )
-    plant_repo = _FakePlantRepo([strawberry, ficus])
+    tomato = PlantInstance(
+        _key="plant-tomato",
+        tenant_key="t1",
+        instance_id="tm1",
+        species_key="sp-tomato",
+        planted_on=datetime.now(UTC).date(),
+        current_phase_key=seq_repo.entry_key("tender_perennial", 0),  # establishment
+        current_phase_started_at=datetime.now(UTC),
+    )
+    plant_repo = _FakePlantRepo([strawberry, ficus, tomato])
     lifecycle_repo = _FakeLifecycleRepo(
         {
             "sp-strawberry": LifecycleConfig(species_key="sp-strawberry", cycle_type=CycleType.PERENNIAL),
             "sp-ficus": LifecycleConfig(species_key="sp-ficus", cycle_type=CycleType.PERENNIAL),
+            # Grown as an annual by default — the instance override (E1) decides otherwise.
+            "sp-tomato": LifecycleConfig(species_key="sp-tomato", cycle_type=CycleType.ANNUAL),
         }
     )
 
     # Open the first phase history for each plant (mirrors plant creation).
-    for plant in (strawberry, ficus):
+    for plant in (strawberry, ficus, tomato):
         phase_repo.create_phase_history(
             PhaseHistory(
                 plant_instance_key=plant.key or "",
@@ -263,6 +280,7 @@ def _task_env(monkeypatch):
         plant_repo=plant_repo,
         strawberry=strawberry,
         ficus=ficus,
+        tomato=tomato,
     )
 
 
@@ -330,3 +348,47 @@ class TestPerennialCycleLoop:
         # Every step reported a transition (strawberry + ficus both advance).
         assert result["transitioned"] >= 1
         assert result["errors"] == 0
+
+
+class TestInstanceCycleOverride:
+    """DoD (#565 Phase 2): a per-instance ``cultivation_cycle_type`` override changes
+    the effective growth flow END-TO-END through the real task/engine/service — driven
+    entirely by the single ``resolve_effective_cycle`` cascade (ADR-006 E1).
+    """
+
+    def _max_cycle(self, trail: list[tuple[str, int]]) -> int:
+        return max((c for _p, c in trail), default=1)
+
+    def test_annual_override_on_perennial_species_does_not_restart(self, _task_env) -> None:
+        """Override 'annual' on a perennial strawberry → it terminates at dormancy,
+        the cycle NEVER restarts (the annual user intent wins over the species cycle)."""
+        _task_env.strawberry.cultivation_cycle_type = CycleType.ANNUAL
+
+        trail = _run_year(_task_env, _task_env.strawberry)
+
+        phases = [p for p, _c in trail]
+        # It still runs the full linear first year …
+        assert "dormancy" in phases
+        # … but the terminal dormancy does NOT loop: no cycle-2 growth phase, cycle stays 1.
+        assert ("sprouting", 2) not in trail
+        assert ("vegetative", 2) not in trail
+        assert self._max_cycle(trail) == 1
+
+    def test_perennial_override_on_annual_species_restarts(self, _task_env) -> None:
+        """Override 'perennial' on the annual-by-default tomato → its cyclic sequence
+        loops back into a new vegetative growth cycle (cycle 2)."""
+        _task_env.tomato.cultivation_cycle_type = CycleType.PERENNIAL
+
+        trail = _run_year(_task_env, _task_env.tomato)
+
+        assert ("sprouting", 2) in trail
+        assert ("vegetative", 2) in trail
+        assert self._max_cycle(trail) == 2
+
+    def test_annual_default_on_tomato_does_not_restart(self, _task_env) -> None:
+        """Baseline: without an override the tomato inherits its ANNUAL species default
+        (resolve_effective_cycle species tier) and does NOT loop."""
+        trail = _run_year(_task_env, _task_env.tomato)
+
+        assert ("vegetative", 2) not in trail
+        assert self._max_cycle(trail) == 1

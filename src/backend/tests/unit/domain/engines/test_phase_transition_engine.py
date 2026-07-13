@@ -54,8 +54,13 @@ def _make_plant(
 ) -> PlantInstance:
     plant = MagicMock(spec=PlantInstance)
     plant.key = key
+    plant.species_key = "sp-1"
     plant.current_phase_key = current_phase_key
     plant.current_phase_started_at = datetime(2025, 1, 1, tzinfo=UTC)
+    # ADR-006 E1 — default to "same as the species" so the resolve_effective_cycle
+    # cascade falls through to the species/sequence botanical cycle (a bare
+    # MagicMock attribute would otherwise be read as a spurious override).
+    plant.cultivation_cycle_type = None
     return plant
 
 
@@ -376,7 +381,9 @@ class TestGetCurrentPhasePerennial:
         plant = MagicMock()
         plant.current_phase_key = "ph-3"
         plant.current_phase_started_at = datetime(2025, 6, 1, tzinfo=UTC)
+        plant.cultivation_cycle_type = None  # ADR-006 E1 — no per-instance override
         plant_repo.get_by_key.return_value = plant
+        plant_repo.get_or_raise.return_value = plant
 
         active_history = PhaseHistory(
             key="h-1",
@@ -419,7 +426,9 @@ class TestGetCurrentPhasePerennial:
         plant = MagicMock()
         plant.current_phase_key = "ph-2"
         plant.current_phase_started_at = datetime(2025, 6, 1, tzinfo=UTC)
+        plant.cultivation_cycle_type = None  # ADR-006 E1 — no per-instance override
         plant_repo.get_by_key.return_value = plant
+        plant_repo.get_or_raise.return_value = plant
 
         active_history = PhaseHistory(
             key="h-1",

@@ -8,13 +8,13 @@ season transition into ``winter_dormancy`` the affected plants' growth phase is
 driven to ``dormancy``, and on ``pre_spring`` the perennial cycle is restarted at
 its restart anchor.
 
-Instance gating (ADR-006 E3) is deliberately CONSERVATIVE here: the central
-``resolve_effective_cycle`` cascade (Phase 2 / E1) does not exist yet, so an
-instance is treated as perennial only when its species' *practised* cycle
-(``LifecycleConfig.cultivation_cycle_type`` → botanical ``cycle_type``, else the
-PhaseSequence ``cycle_type``) is perennial. An annual instance at a perennial site
-is therefore NOT forced into dormancy/restart — the annual user intent wins, exactly
-as E3 requires — without pre-empting the Phase-2 instance override.
+Instance gating (ADR-006 E3) reads the central ``resolve_effective_cycle`` cascade
+(Phase 2 / E1): an instance is treated as perennial only when its EFFECTIVE cycle
+(instance ``cultivation_cycle_type`` → species ``cultivation_cycle_type`` → botanical
+``cycle_type`` → PhaseSequence ``cycle_type``) is perennial. An annual instance at a
+perennial site is therefore NOT forced into dormancy/restart — the annual user intent
+wins, exactly as E3 requires — while a perennial override on an otherwise-annual
+species IS driven through the dormancy/restart cycle.
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ import structlog
 
 from app.common.enums import CycleType, TransitionTrigger
 from app.common.exceptions import PhaseTransitionError
+from app.domain.engines.cycle_resolver import resolve_effective_cycle
 
 if TYPE_CHECKING:
     from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -83,18 +84,12 @@ class SeasonPhaseCoupler:
     # ── Internals ───────────────────────────────────────────────────────
 
     def _is_effective_perennial(self, plant: PlantInstance) -> bool:
-        """Conservative E3 gate — see the module docstring."""
+        """E1/E3 gate via the central resolve_effective_cycle cascade — see the module docstring."""
         if not plant.species_key:
             return False
         lifecycle = self._lifecycle_repo.get_lifecycle_by_species(plant.species_key)
-        if lifecycle is not None:
-            effective = lifecycle.cultivation_cycle_type or lifecycle.cycle_type
-            return effective == CycleType.PERENNIAL
-        if self._phase_seq_repo is not None:
-            seq = self._phase_seq_repo.get_sequence_by_species(plant.species_key)
-            if seq is not None:
-                return seq.cycle_type == CycleType.PERENNIAL
-        return False
+        seq = self._phase_seq_repo.get_sequence_by_species(plant.species_key) if self._phase_seq_repo else None
+        return resolve_effective_cycle(plant, lifecycle, seq) == CycleType.PERENNIAL
 
     def _transition(self, plant: PlantInstance, target_phase_key: str, reason: str) -> bool:
         """Best-effort growth-phase transition; a benign engine refusal is swallowed."""
