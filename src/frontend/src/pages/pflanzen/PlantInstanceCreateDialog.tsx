@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -33,9 +33,10 @@ import * as speciesApi from '@/api/endpoints/species';
 import { uploadPlantPhoto } from '@/api/endpoints/plantPhotos';
 import { contributeReferenceImage } from '@/api/endpoints/identification';
 import * as phaseApi from '@/api/endpoints/phases';
+import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as substrateApi from '@/api/endpoints/substrates';
 import * as sitesApi from '@/api/endpoints/sites';
-import type { Species, Cultivar, Substrate, SubstrateType, GrowthPhase, Site, Slot } from '@/api/types';
+import type { Species, Cultivar, Substrate, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
 
 const schema = z.object({
@@ -54,6 +55,18 @@ const schema = z.object({
 });
 
 type FormData = z.infer<typeof schema>;
+
+/**
+ * A start-phase option normalized from either source (issue #626): a
+ * PhaseSequence entry or a LifecycleConfig growth phase. `key` is the value the
+ * backend validates against (`_valid_phase_keys`); `name`/`displayName` drive
+ * the human-readable label (display name first, i18n phase-name fallback).
+ */
+interface PhaseOptionSource {
+  key: string;
+  displayName: string | null;
+  name: string;
+}
 
 export interface PlantInstanceDuplicateData {
   species_key: string;
@@ -105,7 +118,11 @@ export default function PlantInstanceCreateDialog({
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
   const [substratesList, setSubstratesList] = useState<Substrate[]>([]);
-  const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
+  // Normalized start-phase options for the "Current Phase" select. The source
+  // (PhaseSequence entries vs LifecycleConfig growth phases) is resolved the
+  // same way the backend validates (issue #626), so the stored keys are always
+  // members of the backend's `_valid_phase_keys` set.
+  const [phaseOptionSources, setPhaseOptionSources] = useState<PhaseOptionSource[]>([]);
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
 
@@ -234,7 +251,7 @@ export default function PlantInstanceCreateDialog({
   useEffect(() => {
     if (!speciesKey) {
       setCultivarList([]);
-      setGrowthPhases([]);
+      setPhaseOptionSources([]);
       return;
     }
     const isInitialDuplicate = duplicateFrom && !initialLoadDone;
@@ -249,22 +266,62 @@ export default function PlantInstanceCreateDialog({
       .catch(() => setCultivarList([]))
       .finally(() => setCultivarsLoading(false));
 
-    // Load growth phases for species
-    phaseApi.getLifecycleConfig(speciesKey)
-      .then((lc) => phaseApi.listGrowthPhases(lc.key))
-      .then((phases) => {
-        setGrowthPhases(phases);
-        if (!isInitialDuplicate) {
-          // Auto-select first phase
-          if (phases.length > 0) {
-            const sorted = [...phases].sort((a, b) => a.sequence_order - b.sequence_order);
-            setValue('current_phase_key', sorted[0].key);
-          }
+    // Resolve the start-phase options the SAME way the backend validates them
+    // (issue #626): a species' PhaseSequence entry keys are authoritative; only a
+    // species without a sequence falls back to the LifecycleConfig growth phases.
+    // This guarantees the auto-selected default `current_phase_key` is always a
+    // member of the backend's `_valid_phase_keys` set, so an unchanged form no
+    // longer 422s with PHASE_NOT_IN_SEQUENCE.
+    phaseSequenceApi
+      .getSpeciesPhaseSequence(speciesKey)
+      .then(async (seq): Promise<PhaseOptionSource[]> => {
+        if (seq && seq.entries.length > 0) {
+          return [...seq.entries]
+            .sort((a, b) => a.sequence_order - b.sequence_order)
+            .map((entry) => ({
+              key: entry.key,
+              displayName: entry.phase_definition?.display_name || null,
+              name: entry.phase_definition?.name ?? entry.key,
+            }));
+        }
+        // No PhaseSequence → fall back to the LifecycleConfig growth phases
+        // (unchanged behaviour for LifecycleConfig-only species).
+        const lifecycle = await phaseApi.getLifecycleConfig(speciesKey);
+        const phases = await phaseApi.listGrowthPhases(lifecycle.key);
+        return [...phases]
+          .sort((a, b) => a.sequence_order - b.sequence_order)
+          .map((gp) => ({
+            key: gp.key,
+            displayName: gp.display_name || null,
+            name: gp.name,
+          }));
+      })
+      .then((sources) => {
+        setPhaseOptionSources(sources);
+        // Auto-select the first phase only when the caller did not carry one over
+        // (the duplicate path preserves its explicit `current_phase_key`).
+        if (!isInitialDuplicate && sources.length > 0) {
+          setValue('current_phase_key', sources[0].key);
         }
         setInitialLoadDone(true);
       })
-      .catch(() => { setGrowthPhases([]); setInitialLoadDone(true); });
+      .catch(() => {
+        setPhaseOptionSources([]);
+        setInitialLoadDone(true);
+      });
   }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open]);
+
+  // Human-readable, i18n-aware option list for the "Current Phase" select. Both
+  // sources are normalized to `{ value, label }` so the dropdown renders
+  // identically regardless of the resolved phase source (issue #626).
+  const phaseOptions = useMemo(
+    () =>
+      phaseOptionSources.map((src) => ({
+        value: src.key,
+        label: src.displayName || t(`enums.phaseName.${src.name}`, { defaultValue: src.name }),
+      })),
+    [phaseOptionSources, t],
+  );
 
   // Cascade: site → load locations (via LocationTreeSelect), location → load slots
   const skipLocationReset = useRef(false);
@@ -525,13 +582,8 @@ export default function PlantInstanceCreateDialog({
               control={control}
               label={t('pages.plantInstances.currentPhase')}
               helperText={t('pages.plantInstances.currentPhaseHelper')}
-              disabled={growthPhases.length === 0}
-              options={growthPhases
-                .sort((a, b) => a.sequence_order - b.sequence_order)
-                .map((gp) => ({
-                  value: gp.key,
-                  label: gp.display_name || t(`enums.phaseName.${gp.name}`, { defaultValue: gp.name }),
-                }))}
+              disabled={phaseOptions.length === 0}
+              options={phaseOptions}
             />
           </FormRow>
           {/* ADR-006 E1 (#565) — per-instance cultivation cycle. Optional: leaving it
