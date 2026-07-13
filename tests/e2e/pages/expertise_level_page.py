@@ -283,6 +283,24 @@ class ExpertiseLevelPage(BasePage):
         # Check if any matching element is displayed (there may be multiple in nested dialogs)
         return any(el.is_displayed() for el in elements)
 
+    def wait_for_form_field_visible(self, field_name: str, timeout: int = 8) -> bool:
+        """Poll until a form field becomes visible, then return True (or False on timeout).
+
+        Expertise-gated fields are hidden during the async user-preferences fetch
+        that runs on every full-reload navigation (``useExpertiseLevel`` falls back
+        to the beginner view while ``levelKnown`` is false), so a field that a
+        higher-tier user *will* see can be momentarily absent right after the
+        dialog opens. Polling waits out that load window instead of sampling once.
+        """
+        import time
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.is_form_field_visible(field_name):
+                return True
+            time.sleep(0.3)  # poll interval for the explicit field-visibility condition
+        return False
+
     def get_visible_form_field_names(self) -> list[str]:
         """Return a list of all visible form field names in the current dialog."""
         elements = self.driver.find_elements(

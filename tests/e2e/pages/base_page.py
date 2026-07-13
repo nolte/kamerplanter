@@ -127,7 +127,7 @@ class BasePage:
 
     def close_mui_dropdown(self, timeout: int = 5) -> None:
         """Close any open MUI Select dropdown and wait until it is removed from the DOM."""
-        from selenium.common.exceptions import NoSuchElementException, TimeoutException
+        from selenium.common.exceptions import TimeoutException
         from selenium.webdriver.common.keys import Keys
 
         if not self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
@@ -150,6 +150,54 @@ class BasePage:
             element.click()
         except (ElementNotInteractableException, ElementClickInterceptedException):
             self.driver.execute_script("arguments[0].click();", element)
+
+    # ── Robust form-select / table helpers (prefer dedicated testids) ──────
+    # These replace brittle `.MuiSelect-select` clicks, i18n-fragile
+    # `contains(text(), label)` option XPaths, and position-based `cells[N]`
+    # access with the dedicated data-testids emitted by FormSelectField and
+    # DataTable. They fall back to the legacy selectors so page objects can be
+    # migrated incrementally.
+
+    def open_select(self, field_name: str) -> None:
+        """Open a FormSelectField dropdown via a stable trigger selector.
+
+        Prefers the ARIA `[role='combobox']` display (stable across MUI versions);
+        falls back to the legacy `.MuiSelect-select` class for non-FormSelectField
+        selects that don't expose the combobox role.
+        """
+        for selector in (
+            f"[data-testid='form-field-{field_name}'] [role='combobox']",
+            f"[data-testid='form-field-{field_name}'] .MuiSelect-select",
+        ):
+            els = self.driver.find_elements(By.CSS_SELECTOR, selector)
+            if els:
+                self.scroll_and_click(els[0])
+                return
+        raise AssertionError(f"Select trigger for field '{field_name}' not found")
+
+    def select_option_by_value(self, value: str, field_name: str | None = None) -> None:
+        """Click an open dropdown option by its stable data-value (i18n-independent)."""
+        selectors = []
+        if field_name:
+            selectors.append(f"[data-testid='form-option-{field_name}-{value}']")
+        selectors.append(f"li[role='option'][data-value='{value}']")
+        for selector in selectors:
+            locator = (By.CSS_SELECTOR, selector)
+            if self.is_present(locator):
+                self.scroll_and_click(self.wait_for_element_clickable(locator))
+                self.close_mui_dropdown()
+                return
+        raise AssertionError(f"Option with value '{value}' not found in the open dropdown")
+
+    def choose_select_value(self, field_name: str, value: str) -> None:
+        """Open a FormSelectField and pick the option with the given value."""
+        self.open_select(field_name)
+        self.select_option_by_value(value, field_name)
+
+    def get_row_cell_text(self, row: WebElement, col_id: str) -> str:
+        """Return a DataTable row cell's text addressed by column id (not position)."""
+        cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+        return cells[0].text if cells else ""
 
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.

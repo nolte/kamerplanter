@@ -16,7 +16,11 @@ class CompanionPlantingPage(BasePage):
     PATH = "/stammdaten/companion-planting"
 
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
-    SPECIES_SELECT = (By.CSS_SELECTOR, "[data-testid='species-select'] .MuiSelect-select")
+    # The main species picker was refactored from a MUI <Select> to a MUI
+    # <Autocomplete>, whose clickable trigger is the inner combobox <input>
+    # (there is no .MuiSelect-select child). The dialog target picker below is
+    # still a real MUI <Select>, so its .MuiSelect-select locator stays valid.
+    SPECIES_SELECT = (By.CSS_SELECTOR, "[data-testid='species-select'] input")
     COMPATIBLE_CARD = (By.XPATH, "//h6[starts-with(normalize-space(text()), 'Kompatible')]/ancestor::div[contains(@class, 'MuiCard-root')]")
     INCOMPATIBLE_CARD = (By.XPATH, "//h6[starts-with(normalize-space(text()), 'Inkompatible')]/ancestor::div[contains(@class, 'MuiCard-root')]")
     ADD_COMPATIBLE_BTN = (By.CSS_SELECTOR, "[data-testid='add-compatible-button']")
@@ -43,19 +47,36 @@ class CompanionPlantingPage(BasePage):
         return self.wait_for_element(self.PAGE_TITLE).text
 
     def select_species(self, species_name: str) -> None:
-        """Select a species from the dropdown."""
+        """Select a species from the Autocomplete dropdown."""
         from selenium.webdriver.support.ui import WebDriverWait
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.SPECIES_SELECT)
         self.scroll_and_click(select)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{species_name}')]")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
+        # Autocomplete options render the common name and scientific name in two
+        # stacked <Typography> blocks, so o.text is multi-line ("Name\nGenus
+        # species"). Match Selenium-side on whitespace-normalised text instead of
+        # an XPath contains(): the XPath string-value has no newline, so it would
+        # never contain the multi-line label the caller passes back from
+        # get_species_options().
+        option = self._find_option(species_name)
         self.scroll_and_click(option)
         WebDriverWait(self.driver, 5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
         time.sleep(1)  # Wait for companion data to load
+
+    def _find_option(self, name: str):
+        """Return the open-listbox option matching *name* (whitespace-normalised)."""
+        target = " ".join(name.split())
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            for option in self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
+                otext = " ".join(option.text.split())
+                if otext == target or target in otext or otext in target:
+                    return option
+            time.sleep(0.2)
+        raise AssertionError(f"Option matching '{name}' not found in the dropdown")
 
     def get_species_options(self) -> list[str]:
         """Return available species names in the dropdown."""
