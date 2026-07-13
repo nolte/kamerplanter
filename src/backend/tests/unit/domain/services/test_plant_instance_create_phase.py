@@ -19,7 +19,7 @@ import pytest
 
 from app.common.exceptions import ValidationError
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
-from app.domain.models.phase_sequence import PhaseSequence, PhaseSequenceEntry
+from app.domain.models.phase_sequence import PhaseDefinition, PhaseSequence, PhaseSequenceEntry
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
 
@@ -70,12 +70,18 @@ class TestCreatePlantStartPhase:
         self.phase_repo.get_phase_by_key.return_value = None
 
         # Default species phase set: germination(0) → vegetative(1) → flowering(2).
-        self.phase_seq_repo.get_sequence_by_species.return_value = _sequence()
-        self.phase_seq_repo.get_entries_for_sequence.return_value = [
+        entries = [
             _entry("entry-germ", 0),
             _entry("entry-veg", 1),
             _entry("entry-flower", 2),
         ]
+        entries_by_key = {e.key: e for e in entries}
+        self.phase_seq_repo.get_sequence_by_species.return_value = _sequence()
+        self.phase_seq_repo.get_entries_for_sequence.return_value = entries
+        # The PhaseSequenceEntry key-space resolves entry-by-key + its definition
+        # name (#579); a non-entry key (a legacy growth-phase key, or garbage) misses.
+        self.phase_seq_repo.get_entry_by_key.side_effect = entries_by_key.get
+        self.phase_seq_repo.get_definition_by_key.side_effect = lambda k: PhaseDefinition(_key=k, name="phase")
 
         self.service = PlantInstanceService(
             self.plant_repo,

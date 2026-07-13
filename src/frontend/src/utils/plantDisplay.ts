@@ -41,6 +41,27 @@ function nonEmpty(value: string | null | undefined): string | null {
 }
 
 /**
+ * Derive the layperson-facing common name of a species from its `common_names`
+ * list, falling back to the scientific name.
+ *
+ * `common_names` is a single, flat, language-mixed list (DE + EN, e.g.
+ * `["Porree", "Lauch", "Leek"]`) with no structured `common_name_de` field. By
+ * the seed-data convention the German name is listed first, so we take the first
+ * entry as the display name. This is the pragmatic choice that satisfies the
+ * layperson-naming requirement (REQ-567/A) without forcing a schema refactor of
+ * the species model; it also matches the existing convention already used across
+ * the app (see `getSpeciesLabel`, WorkflowDetailPage).
+ *
+ * Returns `null` only when neither a common nor a scientific name is available.
+ */
+export function getPrimaryCommonName(
+  commonNames: readonly string[] | null | undefined,
+  scientificName?: string | null,
+): string | null {
+  return nonEmpty(commonNames?.[0]) ?? nonEmpty(scientificName);
+}
+
+/**
  * Build the botanical label for a species (+ optional cultivar), e.g.
  * "Basilikum – Genovese". Returns `null` when no species data is available.
  */
