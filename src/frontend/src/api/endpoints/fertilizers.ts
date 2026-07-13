@@ -28,6 +28,29 @@ export async function fetchFertilizers(
   return data;
 }
 
+/**
+ * Loads the complete fertilizer catalogue by paging through the list endpoint
+ * until a short page is returned. The single-request wrapper above caps at the
+ * backend's ``limit<=200``; a fixed ``limit=500`` both 422'd (over the cap, #614)
+ * and would silently truncate a large catalogue. Callers that populate a
+ * "pick any fertilizer" selector must see every product, so use this instead.
+ */
+export async function fetchAllFertilizers(
+  pageSize = 200,
+  filters?: Record<string, string>,
+): Promise<Fertilizer[]> {
+  const all: Fertilizer[] = [];
+  let offset = 0;
+  // Guard against an unbounded loop if the backend ever ignores the offset.
+  for (let page = 0; page < 1000; page += 1) {
+    const batch = await fetchFertilizers(offset, pageSize, filters);
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+    offset += pageSize;
+  }
+  return all;
+}
+
 export async function fetchFertilizer(key: string): Promise<Fertilizer> {
   const { data } = await client.get<Fertilizer>(`${BASE}/${key}`);
   return data;

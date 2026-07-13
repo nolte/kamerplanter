@@ -103,3 +103,35 @@ describe('fertilizers endpoints — incompatibilities & usage', () => {
     expect(client.get).toHaveBeenCalledWith('/fertilizers/f1/nutrient-plans');
   });
 });
+
+describe('fertilizers endpoints — fetch all', () => {
+  it('fetchAllFertilizers pages past the limit=200 cap until a short page (#614)', async () => {
+    const full = Array.from({ length: 200 }, (_v, i) => ({ key: `f${i}` }));
+    const tail = [{ key: 'tail-1' }];
+    client.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: tail });
+
+    const all = await fertilizers.fetchAllFertilizers();
+
+    expect(all).toHaveLength(201);
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(client.get).toHaveBeenNthCalledWith(1, '/fertilizers', {
+      params: { offset: 0, limit: 200 },
+    });
+    expect(client.get).toHaveBeenNthCalledWith(2, '/fertilizers', {
+      params: { offset: 200, limit: 200 },
+    });
+  });
+
+  it('fetchAllFertilizers forwards filters on every page request', async () => {
+    client.get.mockResolvedValueOnce({ data: [{ key: 'f1' }] });
+
+    await fertilizers.fetchAllFertilizers(200, { type: 'base' });
+
+    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(client.get).toHaveBeenCalledWith('/fertilizers', {
+      params: { offset: 0, limit: 200, type: 'base' },
+    });
+  });
+});

@@ -27,15 +27,20 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import OpacityIcon from '@mui/icons-material/Opacity';
 import AddIcon from '@mui/icons-material/Add';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import CheckIcon from '@mui/icons-material/Check';
+import SkipNextIcon from '@mui/icons-material/SkipNext';
 import RepeatIcon from '@mui/icons-material/Repeat';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import PendingIcon from '@mui/icons-material/Pending';
+import axios from 'axios';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { isApiError } from '@/api/errors';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
@@ -107,6 +112,36 @@ const editSchema = z.object({
 });
 
 type EditFormData = z.infer<typeof editSchema>;
+
+/**
+ * Map a data-load failure to a diagnosable ``errors.*`` i18n key, distinguishing
+ * permission and not-found failures (4xx) from transport failures (network /
+ * timeout) and server errors. A 422 (e.g. a pagination-cap mismatch, #614) is
+ * intentionally *not* mapped to ``errors.validation`` — that key reads as "please
+ * check your input", which is misleading on a read-only tab load where the user
+ * has no input field to correct. It falls through to the generic
+ * ``errors.loadFailed`` instead. The raw error is still logged by the caller for
+ * diagnosis, so a future contract drift remains diagnosable without misdirecting
+ * the end user.
+ */
+function resolveLoadErrorKey(error: unknown): string {
+  if (isApiError(error)) {
+    if (error.statusCode === 403) return 'errors.forbidden';
+    if (error.statusCode === 404) return 'errors.notFound';
+    if (error.statusCode >= 500) return 'errors.server';
+    return 'errors.loadFailed';
+  }
+  if (axios.isAxiosError(error)) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ERR_CANCELED') return 'errors.networkTimeout';
+    if (!error.response) return 'errors.network';
+    const status = error.response.status;
+    if (status === 403) return 'errors.forbidden';
+    if (status === 404) return 'errors.notFound';
+    if (status >= 500) return 'errors.server';
+    return 'errors.loadFailed';
+  }
+  return 'errors.loadFailed';
+}
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -207,7 +242,10 @@ export default function PlantInstanceDetailPage() {
   // after a failure (#578).
   const [plantTasksLoaded, setPlantTasksLoaded] = useState(false);
   const [plantTasksError, setPlantTasksError] = useState<string | null>(null);
-  const [completingTaskKey, setCompletingTaskKey] = useState<string | null>(null);
+  // Single per-row action lock covering start/complete/skip, mirroring the task
+  // queue's ``actionLoading`` so the acting row shows a spinner and its sibling
+  // actions disable while a request is in flight.
+  const [taskActionLoading, setTaskActionLoading] = useState<string | null>(null);
   const [taskCreateOpen, setTaskCreateOpen] = useState(false);
   const taskTableState = useTableLocalState({ defaultSort: { column: 'due_date', direction: 'asc' } });
 
@@ -410,11 +448,20 @@ export default function PlantInstanceDetailPage() {
     setPlantTasksLoading(true);
     setPlantTasksError(null);
     try {
-      const tasks = await taskApi.listTasks(0, 500, { entity_type: 'plant_instance', entity_key: key });
+      // Dedicated, pagination-free route: returns every task bound to this plant
+      // instance (all categories, all statuses) sorted by due_date, matching the
+      // set the active/archived split renders. The former ``listTasks(0, 500, …)``
+      // 422'd because the shared list endpoint caps ``limit`` at ``le=200`` (#614).
+      const tasks = await taskApi.getTasksForPlant(key);
       setPlantTasks(tasks);
       setPlantTasksLoaded(true);
-    } catch {
-      setPlantTasksError('errors.loadFailed');
+    } catch (err) {
+      // Surface a diagnosable, classified error instead of a blanket "load failed"
+      // — and never flip ``plantTasksLoaded`` here, so the empty-state CTA stays
+      // reserved for a genuine ``[]`` result and a transient failure is retryable
+      // rather than masked as "no tasks" (#578).
+      console.error('Failed to load plant tasks', err);
+      setPlantTasksError(resolveLoadErrorKey(err));
     } finally {
       setPlantTasksLoading(false);
     }
@@ -518,19 +565,46 @@ export default function PlantInstanceDetailPage() {
     }
   };
 
-  const handleQuickCompleteTask = async (taskKey: string, event: React.MouseEvent) => {
-    event.stopPropagation();
+  // Per-row task actions — same trio the task queue offers (start ▶ / complete ✓ /
+  // skip ⏭). Each refetches the tab data afterwards so the row moves between the
+  // active and archived sections and any backend-spawned follow-up (e.g. the next
+  // watering reminder) shows up. Notifications reuse the queue's i18n keys.
+  const handleStartTask = async (taskKey: string) => {
     try {
-      setCompletingTaskKey(taskKey);
-      await taskApi.completeTask(taskKey, {});
-      notification.success(t('pages.plantInstances.taskCompleted'));
-      // Refetch so the completed task moves to the archived section and any
-      // follow-up task the backend spawns (e.g. next watering reminder) appears.
+      setTaskActionLoading(taskKey);
+      await taskApi.startTask(taskKey);
+      notification.success(t('pages.tasks.taskStarted'));
       await loadPlantTasks();
     } catch (err) {
       handleError(err);
     } finally {
-      setCompletingTaskKey(null);
+      setTaskActionLoading(null);
+    }
+  };
+
+  const handleCompleteTask = async (taskKey: string) => {
+    try {
+      setTaskActionLoading(taskKey);
+      await taskApi.completeTask(taskKey, {});
+      notification.success(t('pages.tasks.taskCompleted'));
+      await loadPlantTasks();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setTaskActionLoading(null);
+    }
+  };
+
+  const handleSkipTask = async (taskKey: string) => {
+    try {
+      setTaskActionLoading(taskKey);
+      await taskApi.skipTask(taskKey);
+      notification.success(t('pages.tasks.taskSkipped'));
+      await loadPlantTasks();
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setTaskActionLoading(null);
     }
   };
 
@@ -911,6 +985,73 @@ export default function PlantInstanceDetailPage() {
     if (status === 'in_progress') return <HourglassEmptyIcon fontSize="small" color="info" />;
     if (status === 'pending') return <PendingIcon fontSize="small" color="warning" />;
     return null;
+  };
+
+  // Per-row action trio for the active tasks table + mobile cards. Gated by status
+  // exactly like the task queue (``isActionable``): start ▶ only for a pending row;
+  // complete ✓ and skip ⏭ for any active (pending / in_progress) row. Archived rows
+  // (completed / skipped / cancelled) are non-actionable and render no actions.
+  // ``stopPropagation`` on the wrapper and each button keeps the row-click navigate
+  // from firing when an action is pressed.
+  const renderTaskActions = (row: TaskItem) => {
+    const isActive = row.status === 'pending' || row.status === 'in_progress';
+    if (!isActive) return null;
+    const isPending = row.status === 'pending';
+    const isLoading = taskActionLoading === row.key;
+    return (
+      <Box
+        sx={{ display: 'flex', alignItems: 'center', gap: 0 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {isPending && (
+          <Tooltip title={t('pages.tasks.startTask')}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={(e) => { e.stopPropagation(); handleStartTask(row.key); }}
+                disabled={isLoading}
+                aria-label={t('pages.tasks.startTask')}
+                data-testid={`task-start-${row.key}`}
+                sx={{ minWidth: 40, minHeight: 40 }}
+              >
+                {isLoading ? <CircularProgress size={16} color="inherit" /> : <PlayArrowIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        <Tooltip title={t('pages.tasks.completeTask')}>
+          <span>
+            <IconButton
+              size="small"
+              color="success"
+              onClick={(e) => { e.stopPropagation(); handleCompleteTask(row.key); }}
+              disabled={isLoading}
+              aria-label={t('pages.tasks.completeTask')}
+              data-testid={`task-complete-${row.key}`}
+              sx={{ minWidth: 40, minHeight: 40 }}
+            >
+              {isLoading
+                ? <CircularProgress size={16} color="inherit" data-testid={`task-complete-${row.key}-spinner`} />
+                : <CheckIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={t('pages.tasks.skipTask')}>
+          <span>
+            <IconButton
+              size="small"
+              onClick={(e) => { e.stopPropagation(); handleSkipTask(row.key); }}
+              disabled={isLoading}
+              aria-label={t('pages.tasks.skipTask')}
+              data-testid={`task-skip-${row.key}`}
+              sx={{ minWidth: 40, minHeight: 40 }}
+            >
+              {isLoading ? <CircularProgress size={16} color="inherit" /> : <SkipNextIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Box>
+    );
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -2227,25 +2368,8 @@ export default function PlantInstanceDetailPage() {
                       {
                         id: 'actions',
                         label: '',
-                        render: (row) => (
-                          <Tooltip title={t('pages.plantInstances.taskCompleteQuick')}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                color="success"
-                                disabled={completingTaskKey === row.key}
-                                onClick={(e) => handleQuickCompleteTask(row.key, e)}
-                                aria-label={t('pages.plantInstances.taskCompleteQuick')}
-                                data-testid={`quick-complete-${row.key}`}
-                              >
-                                {completingTaskKey === row.key
-                                  ? <CircularProgress size={16} color="inherit" data-testid={`quick-complete-${row.key}-spinner`} />
-                                  : <CheckCircleOutlineIcon fontSize="small" />}
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                        ),
-                        width: 56,
+                        render: (row) => renderTaskActions(row),
+                        width: 132,
                       },
                     ]}
                     rows={activeTasks}
@@ -2258,6 +2382,7 @@ export default function PlantInstanceDetailPage() {
                       <MobileCard
                         title={row.name}
                         subtitle={formatRelativeDueDate(row.due_date)}
+                        trailing={renderTaskActions(row)}
                         chips={
                           <>
                             <Chip

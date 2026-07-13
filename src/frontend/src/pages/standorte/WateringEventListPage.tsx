@@ -45,7 +45,7 @@ function usePlantResolver(events: WateringEvent[]) {
     let cancelled = false;
 
     async function resolve() {
-      const plants = await plantApi.listPlantInstances(0, 500);
+      const plants = await plantApi.listAllPlantInstances();
       if (cancelled) return;
       const byKey = new Map<string, PlantInstance>();
       for (const p of plants) {

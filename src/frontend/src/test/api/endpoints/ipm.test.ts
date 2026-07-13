@@ -39,6 +39,28 @@ describe('ipm endpoints — pests (global client)', () => {
     expect(tenantClient.get).not.toHaveBeenCalled();
   });
 
+  it('listAllPests pages through the catalogue until a short page (#614)', async () => {
+    // A fixed limit=500 formerly 422'd against the endpoint cap; paging at 100
+    // stays within it and never silently truncates the catalogue.
+    const full = Array.from({ length: 100 }, (_v, i) => ({ key: `pe${i}` }));
+    const tail = [{ key: 'tail-1' }, { key: 'tail-2' }];
+    globalClient.get
+      .mockResolvedValueOnce({ data: full })
+      .mockResolvedValueOnce({ data: tail });
+
+    const all = await ipm.listAllPests();
+
+    expect(all).toHaveLength(102);
+    expect(globalClient.get).toHaveBeenCalledTimes(2);
+    expect(globalClient.get).toHaveBeenNthCalledWith(1, '/ipm/pests', {
+      params: { offset: 0, limit: 100 },
+    });
+    expect(globalClient.get).toHaveBeenNthCalledWith(2, '/ipm/pests', {
+      params: { offset: 100, limit: 100 },
+    });
+    expect(tenantClient.get).not.toHaveBeenCalled();
+  });
+
   it('getPest gets pest by key via global client', async () => {
     globalClient.get.mockResolvedValue({ data: { key: 'pe1' } });
     await ipm.getPest('pe1');

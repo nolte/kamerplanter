@@ -72,7 +72,7 @@ export default function SpeciesCropRotationTab({
   const openRotationDialog = () => {
     if (!rotationFamiliesLoaded) {
       familiesApi
-        .listBotanicalFamilies(0, 500)
+        .listAllBotanicalFamilies()
         .then((f) => {
           setRotationFamilies(f);
           setRotationFamiliesLoaded(true);

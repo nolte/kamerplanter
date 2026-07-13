@@ -255,6 +255,7 @@
     "close": "Close",
     "confirm": "Confirm",
     "search": "Search",
+    "status": "Status",
     "loading": "Loading...",
     "processing": "Processing...",
     "noData": "No data available",
