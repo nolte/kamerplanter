@@ -45,6 +45,8 @@ const schema = z.object({
   plant_name: z.string().nullable(),
   planted_on: z.string().min(1),
   current_phase_key: z.string().nullable(),
+  // ADR-006 E1 (#565) — per-instance cultivation cycle override; '' = same as the species.
+  cultivation_cycle_type: z.enum(['', 'annual', 'biennial', 'perennial']),
   substrate_key: z.string().nullable(),
   site_key: z.string().nullable(),
   location_key: z.string().nullable(),
@@ -146,6 +148,7 @@ export default function PlantInstanceCreateDialog({
       plant_name: null,
       planted_on: new Date().toISOString().split('T')[0],
       current_phase_key: null,
+      cultivation_cycle_type: '',
       substrate_key: null,
       site_key: null,
       location_key: null,
@@ -173,6 +176,7 @@ export default function PlantInstanceCreateDialog({
         plant_name: duplicateFrom?.plant_name ? `${duplicateFrom.plant_name} (Kopie)` : null,
         planted_on: new Date().toISOString().split('T')[0],
         current_phase_key: duplicateFrom?.current_phase_key ?? null,
+        cultivation_cycle_type: '',
         substrate_key: substrateVal,
         site_key: null,
         location_key: null,
@@ -292,7 +296,7 @@ export default function PlantInstanceCreateDialog({
     try {
       setSaving(true);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { substrate_key: rawSubstrateKey, site_key: _siteKey, ...rest } = data;
+      const { substrate_key: rawSubstrateKey, site_key: _siteKey, cultivation_cycle_type: cycle, ...rest } = data;
       // Type-only fallback keys start with '_type_' — don't send as substrate_key
       const isTypeOnly = rawSubstrateKey?.startsWith('_type_');
       const substrateKey = isTypeOnly ? null : (rawSubstrateKey || null);
@@ -306,6 +310,8 @@ export default function PlantInstanceCreateDialog({
         slot_key: rest.slot_key || null,
         substrate_key: substrateKey,
         substrate_type_override: typeOverride,
+        // ADR-006 E1 (#565): '' = "same as the species" → send null (inherit default).
+        cultivation_cycle_type: cycle || null,
       });
       notification.success(t('common.create'));
 
@@ -528,6 +534,21 @@ export default function PlantInstanceCreateDialog({
                 }))}
             />
           </FormRow>
+          {/* ADR-006 E1 (#565) — per-instance cultivation cycle. Optional: leaving it
+              on "same as the species" keeps the existing species-driven behaviour, so
+              the flow is unchanged when the grower does not decide per plant. */}
+          <FormSelectField
+            name="cultivation_cycle_type"
+            control={control}
+            label={t('pages.plantInstances.cultivationCycle')}
+            helperText={t('pages.plantInstances.cultivationCycleHelper')}
+            options={[
+              { value: '', label: t('pages.plantInstances.cultivationCycleDefault') },
+              { value: 'annual', label: t('enums.cycleType.annual') },
+              { value: 'biennial', label: t('enums.cycleType.biennial') },
+              { value: 'perennial', label: t('enums.cycleType.perennial') },
+            ]}
+          />
           <FormTextField name="instance_id" control={control} label={t('pages.plantInstances.instanceId')} required helperText={t('pages.plantInstances.instanceIdHelper')} />
           <SubstrateSelectField
             name="substrate_key"
