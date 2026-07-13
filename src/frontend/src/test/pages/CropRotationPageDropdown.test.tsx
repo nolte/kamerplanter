@@ -250,6 +250,60 @@ describe('CropRotationPage family dropdown counts + filters', () => {
     });
   });
 
+  it('leads family options with the German common name and links successors to the family detail page, humanising raw codes (#567)', async () => {
+    server.use(
+      http.get('/api/v1/botanical-families', () =>
+        HttpResponse.json([
+          {
+            key: 'fam-solanaceae',
+            name: 'Solanaceae',
+            common_name_de: 'Nachtschattengewächse',
+            nitrogen_fixing: false,
+            frost_tolerance: 'sensitive',
+            typical_nutrient_demand: 'heavy',
+          },
+        ]),
+      ),
+      http.get('/api/v1/crop-rotation/families/fam-solanaceae/successors', () =>
+        HttpResponse.json([
+          {
+            family_key: 'fam-fabaceae',
+            name: 'Fabaceae',
+            common_name_de: 'Hülsenfrüchtler',
+            common_name_en: 'Legumes',
+            rotation_category: 'legume',
+            wait_years: 2,
+            benefit_score: 0.9,
+            benefit_reason: 'nitrogen_fixation',
+          },
+        ]),
+      ),
+    );
+
+    renderWithProviders(<CropRotationPage />);
+    await openDropdown();
+
+    // German family common name leads, scientific name is secondary.
+    const option = await screen.findByTestId('family-option-fam-solanaceae');
+    expect(option).toHaveTextContent('Nachtschattengewächse');
+    expect(option).toHaveTextContent('Solanaceae');
+
+    await userEvent.click(await screen.findByRole('option', { name: /Nachtschattengewächse/ }));
+
+    const link = await screen.findByTestId('successor-family-link-fam-fabaceae');
+    expect(link).toHaveTextContent('Hülsenfrüchtler');
+    expect(link).toHaveAttribute('href', '/stammdaten/botanical-families/fam-fabaceae');
+    // Raw codes are rendered as translated labels (this suite runs in English).
+    expect(link).toHaveTextContent(i18n.t('enums.rotationCategory.legume'));
+    expect(link).toHaveTextContent(i18n.t('enums.benefitReason.nitrogen_fixation'));
+  });
+
+  it('explains the Zehrer classes through an inline info affordance (#567)', async () => {
+    renderWithProviders(<CropRotationPage />);
+    const info = await screen.findByTestId('zehrer-info');
+    expect(info).toHaveAccessibleName(i18n.t('pages.cropRotation.zehrerLegendTitle'));
+  });
+
   it('clears all active filters with the reset button', async () => {
     renderWithProviders(<CropRotationPage />);
     await userEvent.click(await screen.findByTestId('filter-nitrogen-fixing'));

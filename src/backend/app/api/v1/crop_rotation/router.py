@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1.crop_rotation.schemas import RotationSuccessorSet
+from app.api.v1.crop_rotation.schemas import RotationSuccessorResponse, RotationSuccessorSet
 from app.common.auth import get_current_user
 from app.common.dependencies import get_graph_repo
 from app.data_access.arango.graph_repository import ArangoGraphRepository
@@ -16,13 +16,20 @@ def get_rotation_successor_counts(graph: ArangoGraphRepository = Depends(get_gra
     return graph.get_rotation_successor_counts()
 
 
-@router.get("/families/{family_key}/successors")
+@router.get("/families/{family_key}/successors", response_model=list[RotationSuccessorResponse])
 def get_rotation_successors(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
     raw = graph.get_rotation_successors(family_key)
+    # The graph vertex already carries the full family document (common_name_de/_en,
+    # rotation_category); pass those through verbatim so the presentation layer can
+    # lead with the German common name and humanise the rotation-category code
+    # without a second query (REQ-567/A).
     return [
         {
             "family_key": item["family"].get("_key", ""),
             "name": item["family"].get("name"),
+            "common_name_de": item["family"].get("common_name_de", ""),
+            "common_name_en": item["family"].get("common_name_en", ""),
+            "rotation_category": item["family"].get("rotation_category", ""),
             "wait_years": item.get("wait_years", 1),
             "benefit_score": item.get("benefit_score", 0.0),
             "benefit_reason": item.get("benefit_reason", ""),

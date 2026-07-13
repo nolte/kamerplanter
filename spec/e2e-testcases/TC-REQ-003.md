@@ -2,8 +2,9 @@
 req_id: REQ-003
 title: Phänologische Phasensteuerung & Ressourcen-Profile
 category: Wachstumslogik
-test_count: 45
+test_count: 48
 coverage_areas:
+  - Core-Lifecycle-Journey — Phasenwechsel treiben (self-provisioning)
   - Lebenszyklus-Konfiguration (LifecycleConfigSection)
   - Wachstumsphasen-Verwaltung (GrowthPhaseListSection, GrowthPhaseDialog)
   - Ressourcen- und Nährstoffprofile (ProfilesSection, ProfileEditDialog)
@@ -1204,6 +1205,92 @@ Alle Test-IDs folgen dem Schema `TC-003-NNN`.
 
 ---
 
+## Gruppe M: Core-Lifecycle-Journey — Phasenwechsel treiben (self-provisioning)
+
+*Kontext: Kern-Pflanzen-Lebenszyklus aus Browser-/Nutzersicht. Diese Journey treibt eine selbst angelegte Pflanze aktiv durch manuelle Phasenwechsel (`PhaseTransitionDialog`) — statt passiv/read-only zu prüfen. Jeder Testfall legt die Pflanze (und ihre Phasensequenz-Spezies) im Szenario selbst an, sodass ein späterer E2E-Test nie mangels Seed-Pflanze zur Laufzeit ausweichen (`skip`) muss. Vgl. Gruppe D (Detail-Verhalten des Dialogs) und Gruppe L (Start-Phase bei Anlage).*
+
+---
+
+## TC-003-046: Core-Journey — Pflanze self-provisioning anlegen und Phase vorwärts treiben
+
+**Anforderung**: REQ-003 §1 "Manual-Override"; §6 DoD "Phase-History vollständig"
+**Priorität**: Critical
+**Kategorie**: Core-Lifecycle-Journey / Happy Path
+
+**Vorbedingungen:**
+- Eine Spezies mit mehrphasiger Sequenz (z.B. germination → vegetative → flowering) existiert oder wird im Szenario zuvor angelegt
+
+**Testschritte:**
+1. Nutzer legt über `/pflanzen/plant-instances` eine Pflanzinstanz der mehrphasigen Spezies an und belässt die Start-Phase auf der ersten Phase "germination"
+2. Nutzer öffnet die Detailseite der Pflanze und wechselt auf den Tab "Phasen"
+3. Nutzer klickt "Phasenwechsel", wählt im Dialog (`data-testid="phase-transition-dialog"`) die Zielphase "vegetative", gibt als Grund `Keimung abgeschlossen` ein und klickt "Bestätigen"
+4. Nutzer klickt erneut "Phasenwechsel", wählt die Zielphase "flowering", gibt einen Grund ein und klickt "Bestätigen"
+
+**Erwartetes Ergebnis:**
+- Nach jedem Wechsel erscheint eine Erfolgsbenachrichtigung und der Dialog schließt sich
+- Die Anzeige "Aktuelle Phase" zeigt zuletzt "flowering"
+- Der Phasenverlauf (PhaseHistoryTable / Timeline) enthält Einträge für "germination" und "vegetative" mit gesetztem Enddatum und dem jeweiligen Übergangsgrund
+
+**Nachbedingungen:**
+- Pflanze befindet sich in Phase "flowering"; die Phasen-Historie dokumentiert den durchlaufenen Verlauf
+
+**Tags**: [req-003, core-lifecycle-journey, phase-transition, self-provisioning, smoke, happy-path, phase-history]
+
+---
+
+## TC-003-047: Core-Journey — Rückwärts-Sperre und Korrekturmodus (Fehlanlage) an self-provisioned Pflanze
+
+**Anforderung**: REQ-003 §3 `validate_transition` — Rückwärts-Transition-Sperre; §6 DoD "Rückwärts-Transition"; PhaseTransitionDialog `force`-Flag
+**Priorität**: High
+**Kategorie**: Core-Lifecycle-Journey / Fehlermeldung & Korrektur
+
+**Vorbedingungen:**
+- Eine self-provisioned Pflanze befindet sich in Phase "flowering" (aus TC-003-046 oder im Szenario frisch angelegt und vorwärts getrieben)
+
+**Testschritte:**
+1. Nutzer öffnet auf dem Tab "Phasen" den Dialog "Phasenwechsel"
+2. Nutzer wählt die Zielphase "vegetative" (niedrigere sequence_order), lässt den Schalter "Phase korrigieren (Fehlanlage)" deaktiviert und klickt "Bestätigen"
+3. Nutzer aktiviert danach den Schalter "Phase korrigieren (Fehlanlage)" — eine orange Warnung erscheint und der Button wechselt zu "Phase korrigieren"
+4. Nutzer wählt erneut "vegetative" und klickt "Phase korrigieren"
+
+**Erwartetes Ergebnis:**
+- Der erste Versuch (ohne Korrekturmodus) scheitert: Fehlerbenachrichtigung über ungültige Rückwärts-Transition, Dialog bleibt geöffnet, Phase unverändert
+- Nach Aktivierung des Korrekturmodus wechselt die Phase erfolgreich auf "vegetative"
+- Der Phasenverlauf enthält einen Korrektur-Eintrag
+
+**Nachbedingungen:**
+- Pflanze befindet sich in Phase "vegetative"; die Fehlanlage ist korrigiert
+
+**Tags**: [req-003, core-lifecycle-journey, phase-transition, rueckwaerts, rückwärts-sperre, korrektur, self-provisioning]
+
+---
+
+## TC-003-048: Core-Journey — Ist-Stand-Start (flowering) anlegen und bis Ernte treiben
+
+**Anforderung**: REQ-003 §6 DoD "Start-Phase bei Anlage / Ist-Stand-Erfassung" (Issue #539); §1 "Manual-Override"
+**Priorität**: Medium
+**Kategorie**: Core-Lifecycle-Journey / Ist-Stand
+
+**Vorbedingungen:**
+- Eine Spezies mit mehrphasiger Sequenz (inkl. Phase "flowering" und "harvest") existiert oder wird im Szenario angelegt
+
+**Testschritte:**
+1. Nutzer öffnet über `/pflanzen/plant-instances` den Anlagedialog und wählt die Spezies
+2. Nutzer wählt im Feld "Aktuelle Phase" den Ist-Stand "flowering" (Blüte) und klickt "Erstellen"
+3. Nutzer öffnet die Detailseite → Tab "Phasen", klickt "Phasenwechsel", wählt "harvest" und klickt "Bestätigen"
+
+**Erwartetes Ergebnis:**
+- Die Pflanze startet in Phase "flowering"; der initiale Phasenverlauf-Eintrag ist als Ist-Stand-Erfassung markiert (`transition_reason='initial_actual_state'`)
+- Nach dem Wechsel zeigt "Aktuelle Phase" den Wert "harvest"
+- Der Phasenverlauf dokumentiert den Übergang flowering → harvest
+
+**Nachbedingungen:**
+- Pflanze befindet sich in Phase "harvest"
+
+**Tags**: [req-003, core-lifecycle-journey, ist-stand, start-phase, phase-transition, self-provisioning, issue-539]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spezifikationsabschnitt | Testfälle |
@@ -1231,6 +1318,8 @@ Alle Test-IDs folgen dem Schema `TC-003-NNN`.
 | §6 DoD — Ressourcen-Profile auf Pflanzinstanz | TC-003-042 |
 | §6 DoD — Pflanzinstanz-Erstellung mit Spezies | TC-003-033 |
 | §6 DoD — Start-Phase bei Anlage / Ist-Stand-Erfassung (Issue #539) | TC-003-043, TC-003-044, TC-003-045 |
+| Core-Lifecycle-Journey — Phasenwechsel vorwärts (self-provisioning) | TC-003-046, TC-003-048 |
+| Core-Lifecycle-Journey — Rückwärts-Sperre + Korrekturmodus | TC-003-047 |
 | §6 Testszenario 2 — VPD außerhalb Zielbereich | TC-003-027, TC-003-028 |
 | §6 Testszenario 4 — Gradueller Photoperioden-Wechsel | TC-003-030 |
 | §6 Testszenario 5/6/7 — Perennial Apfelbaum | TC-003-036, TC-003-037, TC-003-038 |

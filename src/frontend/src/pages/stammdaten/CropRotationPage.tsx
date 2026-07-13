@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
@@ -8,9 +9,10 @@ import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
+import ListItemButton from '@mui/material/ListItemButton';
 import Chip from '@mui/material/Chip';
 import Dialog from '@mui/material/Dialog';
+import Tooltip from '@mui/material/Tooltip';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { visuallyHidden } from '@mui/utils';
@@ -20,7 +22,9 @@ import DialogContentText from '@mui/material/DialogContentText';
 import DialogActions from '@mui/material/DialogActions';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import PageTitle from '@/components/layout/PageTitle';
@@ -37,6 +41,19 @@ import { kamiMasterdata } from '@/assets/brand/illustrations';
 type NutrientDemandFilter = '' | 'heavy' | 'medium' | 'light';
 
 const HARDY_FROST_TOLERANCES = new Set(['hardy', 'very_hardy']);
+
+/**
+ * Combined dropdown label "German family name · scientific name" (e.g.
+ * "Kohlgewächse · Brassicaceae"). Leads with the layperson-facing German common
+ * name (REQ-567/A) while keeping the scientific name in the same string so MUI's
+ * built-in Autocomplete filter matches when the user types either one. Falls back
+ * to the scientific name alone when the family has no curated common name.
+ */
+function familyOptionLabel(family: BotanicalFamily): string {
+  const common = family.common_name_de?.trim();
+  if (common && common !== family.name) return `${common} · ${family.name}`;
+  return common || family.name;
+}
 
 export default function CropRotationPage() {
   const theme = useTheme();
@@ -249,6 +266,40 @@ export default function CropRotationPage() {
           <MenuItem value="medium">{t('enums.nutrientDemand.medium')}</MenuItem>
           <MenuItem value="light">{t('enums.nutrientDemand.light')}</MenuItem>
         </TextField>
+        {/* Inline explanation of the domain "Zehrer" classes (REQ-567/A): a
+            touch-and-keyboard-reachable info affordance spelling out what
+            Stark-/Mittel-/Schwachzehrer mean for a layperson, next to the filter
+            that uses those terms. */}
+        <Tooltip
+          title={
+            <Box sx={{ maxWidth: 320 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                {t('pages.cropRotation.zehrerLegendTitle')}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                {t('pages.cropRotation.zehrerHeavy')}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
+                {t('pages.cropRotation.zehrerMedium')}
+              </Typography>
+              <Typography variant="caption" sx={{ display: 'block' }}>
+                {t('pages.cropRotation.zehrerLight')}
+              </Typography>
+            </Box>
+          }
+          arrow
+          enterTouchDelay={0}
+          leaveTouchDelay={6000}
+        >
+          <IconButton
+            size="small"
+            aria-label={t('pages.cropRotation.zehrerLegendTitle')}
+            sx={{ minWidth: 48, minHeight: 48 }}
+            data-testid="zehrer-info"
+          >
+            <InfoOutlinedIcon fontSize="small" color="action" />
+          </IconButton>
+        </Tooltip>
         {activeFilterCount > 0 && (
           <Button size="small" onClick={clearAllFilters} data-testid="clear-filters">
             {t('pages.cropRotation.resetFilters')}
@@ -266,7 +317,7 @@ export default function CropRotationPage() {
           value={selectedFamily}
           onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
           onHighlightChange={(_e, option) => setHighlightedFamilyKey(option?.key ?? null)}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={familyOptionLabel}
           isOptionEqualToValue={(option, value) => option.key === value.key}
           noOptionsText={t('pages.cropRotation.noFamiliesFound')}
           sx={{ maxWidth: 480, mb: 1 }}
@@ -274,6 +325,12 @@ export default function CropRotationPage() {
             const count = successorCountOf(option.key);
             const hasRotation = count > 0;
             const favorited = isFavorite(option.key);
+            // Layperson-first hierarchy (REQ-567/A + C): the German family name
+            // leads, the scientific name follows as secondary context — only when
+            // it differs from the shown common name (families without a curated
+            // common name fall back to the scientific name as the primary line).
+            const commonName = option.common_name_de?.trim() || option.name;
+            const showScientific = !!option.name && option.name !== commonName;
             return (
               <Box
                 component="li"
@@ -294,14 +351,26 @@ export default function CropRotationPage() {
                     and keyboard-reachable, so they must not read as disabled
                     (UI-NFR-002). The count chip stays at full opacity: an explicit
                     "0" is useful information and must stay legible. */}
-                <Typography
-                  variant="body2"
-                  noWrap
-                  color={hasRotation ? 'text.primary' : 'text.secondary'}
-                  sx={{ flex: 1, minWidth: 0 }}
-                >
-                  {option.name}
-                </Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="body2"
+                    noWrap
+                    color={hasRotation ? 'text.primary' : 'text.secondary'}
+                  >
+                    {commonName}
+                  </Typography>
+                  {showScientific && (
+                    <Typography
+                      variant="caption"
+                      noWrap
+                      component="span"
+                      color="text.secondary"
+                      sx={{ display: 'block', fontStyle: 'italic' }}
+                    >
+                      {option.name}
+                    </Typography>
+                  )}
+                </Box>
                 {/* Star toggles the family favorite without selecting the option
                     (stopPropagation) so the dropdown doubles as a favoriting
                     surface for the favorites filter. Sized to the 48x48px touch
@@ -378,6 +447,12 @@ export default function CropRotationPage() {
         <Typography variant="caption" color="text.secondary">
           {t('pages.cropRotation.favoriteShortcutHint')}
         </Typography>
+        {/* Naming/navigation affordance hint (REQ-567/C): tells non-expert users
+            that the German family name leads, the scientific name is secondary,
+            and that each successor links to the family detail page. */}
+        <Typography variant="caption" color="text.secondary">
+          {t('pages.cropRotation.namingHint')}
+        </Typography>
       </Box>
 
       {loading && <LoadingSkeleton variant="card" />}
@@ -407,18 +482,93 @@ export default function CropRotationPage() {
             />
           ) : (
             <List>
-              {successors.map((s) => (
-                <ListItem key={s.family_key} divider>
-                  <ListItemText
-                    primary={s.name ?? s.family_key} slotProps={{ primary: { variant: 'body2' } }} />
-                  <Chip
-                    label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`}
-                    size="small"
-                    color="default"
-                    variant="outlined"
-                  />
-                </ListItem>
-              ))}
+              {successors.map((s) => {
+                const commonName = s.common_name_de?.trim() || s.name || s.family_key;
+                const showScientific = !!s.name && s.name !== commonName;
+                const categoryLabel = s.rotation_category
+                  ? t(`enums.rotationCategory.${s.rotation_category}`, { defaultValue: '' })
+                  : '';
+                const benefitLabel = s.benefit_reason
+                  ? t(`enums.benefitReason.${s.benefit_reason}`, { defaultValue: '' })
+                  : '';
+                const benefitHint = s.benefit_reason
+                  ? t(`pages.cropRotation.benefitReasonHint.${s.benefit_reason}`, {
+                      defaultValue: '',
+                    })
+                  : '';
+                return (
+                  <ListItem key={s.family_key} divider disablePadding>
+                    <ListItemButton
+                      component={RouterLink}
+                      to={`/stammdaten/botanical-families/${s.family_key}`}
+                      aria-label={t('pages.cropRotation.viewFamilyDetails', { name: commonName })}
+                      data-testid={`successor-family-link-${s.family_key}`}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 1.5,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {commonName}
+                        </Typography>
+                        {showScientific && (
+                          <Typography
+                            variant="caption"
+                            component="span"
+                            color="text.secondary"
+                            sx={{ display: 'block', fontStyle: 'italic' }}
+                          >
+                            {s.name}
+                          </Typography>
+                        )}
+                        {benefitLabel && (
+                          <Typography
+                            variant="caption"
+                            component="span"
+                            color="text.secondary"
+                            sx={{ display: 'block', mt: 0.25 }}
+                          >
+                            {benefitHint
+                              ? `${t('pages.cropRotation.benefitLabel')}: ${benefitLabel} – ${benefitHint}`
+                              : `${t('pages.cropRotation.benefitLabel')}: ${benefitLabel}`}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 0.75,
+                          flexWrap: 'wrap',
+                          justifyContent: 'flex-end',
+                        }}
+                      >
+                        {categoryLabel && (
+                          <Chip
+                            label={categoryLabel}
+                            size="small"
+                            color="default"
+                            variant="outlined"
+                            data-testid={`successor-category-${s.family_key}`}
+                          />
+                        )}
+                        <Chip
+                          label={`${s.wait_years} ${t('pages.cropRotation.waitYears')}`}
+                          size="small"
+                          color={
+                            s.wait_years <= 1 ? 'success' : s.wait_years <= 3 ? 'warning' : 'error'
+                          }
+                          variant="outlined"
+                        />
+                        <ArrowForwardIcon fontSize="small" color="action" />
+                      </Box>
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
             </List>
           )}
         </Box>
@@ -448,7 +598,7 @@ export default function CropRotationPage() {
             data-testid="to-family-select"
           >
             {families.filter((f) => f.key !== selectedKey).map((f) => (
-              <MenuItem key={f.key} value={f.key}>{f.name}</MenuItem>
+              <MenuItem key={f.key} value={f.key}>{familyOptionLabel(f)}</MenuItem>
             ))}
           </TextField>
           <TextField
