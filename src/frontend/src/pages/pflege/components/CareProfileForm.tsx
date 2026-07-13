@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Slider from '@mui/material/Slider';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
+import FormHelperText from '@mui/material/FormHelperText';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
@@ -30,6 +31,8 @@ import type { CareProfile, CareConfirmation, CareStyleType, WateringMethod } fro
 import * as careApi from '@/api/endpoints/careReminders';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 
 const CARE_STYLES: CareStyleType[] = [
   'tropical',
@@ -70,7 +73,10 @@ export interface CareProfileFormProps {
   onCancel?: () => void;
   /**
    * Renders the form for an inline (non-modal) placement: a top divider is added
-   * above the action row so it reads as part of the surrounding page section.
+   * above the action row so it reads as part of the surrounding page section, an
+   * unsaved-changes hint appears next to the actions once the form is dirty, and
+   * in-app navigation away from the page is guarded while changes are pending
+   * (there is no modal boundary here to force a save/discard decision).
    */
   embedded?: boolean;
 }
@@ -147,6 +153,7 @@ export default function CareProfileForm({
   const notification = useNotification();
   const { handleError } = useApiError();
   const [submitting, setSubmitting] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
 
   const [careStyle, setCareStyle] = useState<CareStyleType>(profile.care_style);
   const [wateringInterval, setWateringInterval] = useState(profile.watering_interval_days);
@@ -205,6 +212,85 @@ export default function CareProfileForm({
   const [history, setHistory] = useState<CareConfirmation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  // Current form values as the save payload shape. Also doubles as the dirty-
+  // check snapshot below (UI-NFR-008 R-006): comparing this against the
+  // profile-derived baseline tells the always-editable inline placement
+  // whether there are unsaved changes to warn about.
+  const formValues = useMemo(
+    () => ({
+      care_style: careStyle,
+      watering_interval_days: wateringInterval,
+      watering_method: wateringMethod,
+      fertilizing_interval_days: fertilizingInterval,
+      repotting_interval_months: repottingInterval,
+      pest_check_interval_days: pestCheckInterval,
+      adaptive_learning_enabled: adaptiveLearning,
+      auto_create_watering_task: autoCreateWateringTask,
+      auto_create_fertilizing_task: autoCreateFertilizingTask,
+      auto_create_repotting_task: autoCreateRepottingTask,
+      auto_create_pest_check_task: autoCreatePestCheckTask,
+      humidity_check_enabled: humidityCheckEnabled,
+      humidity_check_interval_days: humidityCheckInterval,
+      notes: notes || null,
+      winter_watering_multiplier: winterWateringMultiplier,
+      water_quality_hint: waterQualityHint || null,
+      fertilizing_active_months: fertilizingActiveMonths,
+      location_check_enabled: locationCheckEnabled,
+      location_check_months: locationCheckMonths,
+    }),
+    [
+      careStyle,
+      wateringInterval,
+      wateringMethod,
+      fertilizingInterval,
+      repottingInterval,
+      pestCheckInterval,
+      adaptiveLearning,
+      autoCreateWateringTask,
+      autoCreateFertilizingTask,
+      autoCreateRepottingTask,
+      autoCreatePestCheckTask,
+      humidityCheckEnabled,
+      humidityCheckInterval,
+      notes,
+      winterWateringMultiplier,
+      waterQualityHint,
+      fertilizingActiveMonths,
+      locationCheckEnabled,
+      locationCheckMonths,
+    ],
+  );
+
+  const baselineValues = useMemo(
+    () => ({
+      care_style: profile.care_style,
+      watering_interval_days: profile.watering_interval_days,
+      watering_method: profile.watering_method,
+      fertilizing_interval_days: profile.fertilizing_interval_days,
+      repotting_interval_months: profile.repotting_interval_months,
+      pest_check_interval_days: profile.pest_check_interval_days,
+      adaptive_learning_enabled: profile.adaptive_learning_enabled,
+      auto_create_watering_task: profile.auto_create_watering_task,
+      auto_create_fertilizing_task: profile.auto_create_fertilizing_task,
+      auto_create_repotting_task: profile.auto_create_repotting_task,
+      auto_create_pest_check_task: profile.auto_create_pest_check_task,
+      humidity_check_enabled: profile.humidity_check_enabled,
+      humidity_check_interval_days: profile.humidity_check_interval_days,
+      notes: profile.notes ?? null,
+      winter_watering_multiplier: profile.winter_watering_multiplier ?? 1.0,
+      water_quality_hint: profile.water_quality_hint ?? null,
+      fertilizing_active_months: profile.fertilizing_active_months ?? [3, 4, 5, 6, 7, 8, 9],
+      location_check_enabled: profile.location_check_enabled ?? false,
+      location_check_months: profile.location_check_months ?? [],
+    }),
+    [profile],
+  );
+
+  const isDirty = useMemo(
+    () => JSON.stringify(formValues) !== JSON.stringify(baselineValues),
+    [formValues, baselineValues],
+  );
+
   // Re-seed the form whenever a different profile object arrives. In the dialog
   // this happens on each open (fresh mount); inline it happens after a save/reset
   // hands back the refreshed profile — both cases must reflect the latest values.
@@ -246,27 +332,7 @@ export default function CareProfileForm({
   const handleSave = useCallback(async () => {
     try {
       setSubmitting(true);
-      const updated = await careApi.updateProfile(profile.plant_key, {
-        care_style: careStyle,
-        watering_interval_days: wateringInterval,
-        watering_method: wateringMethod,
-        fertilizing_interval_days: fertilizingInterval,
-        repotting_interval_months: repottingInterval,
-        pest_check_interval_days: pestCheckInterval,
-        adaptive_learning_enabled: adaptiveLearning,
-        auto_create_watering_task: autoCreateWateringTask,
-        auto_create_fertilizing_task: autoCreateFertilizingTask,
-        auto_create_repotting_task: autoCreateRepottingTask,
-        auto_create_pest_check_task: autoCreatePestCheckTask,
-        humidity_check_enabled: humidityCheckEnabled,
-        humidity_check_interval_days: humidityCheckInterval,
-        notes: notes || null,
-        winter_watering_multiplier: winterWateringMultiplier,
-        water_quality_hint: waterQualityHint || null,
-        fertilizing_active_months: fertilizingActiveMonths,
-        location_check_enabled: locationCheckEnabled,
-        location_check_months: locationCheckMonths,
-      });
+      const updated = await careApi.updateProfile(profile.plant_key, formValues);
       notification.success(t('common.save'));
       onUpdated(updated);
       onDone?.();
@@ -275,39 +341,19 @@ export default function CareProfileForm({
     } finally {
       setSubmitting(false);
     }
-  }, [
-    careStyle,
-    wateringInterval,
-    wateringMethod,
-    fertilizingInterval,
-    repottingInterval,
-    pestCheckInterval,
-    adaptiveLearning,
-    autoCreateWateringTask,
-    autoCreateFertilizingTask,
-    autoCreateRepottingTask,
-    autoCreatePestCheckTask,
-    humidityCheckEnabled,
-    humidityCheckInterval,
-    notes,
-    winterWateringMultiplier,
-    waterQualityHint,
-    fertilizingActiveMonths,
-    locationCheckEnabled,
-    locationCheckMonths,
-    profile.plant_key,
-    notification,
-    handleError,
-    onUpdated,
-    onDone,
-    t,
-  ]);
+  }, [formValues, profile.plant_key, notification, handleError, onUpdated, onDone, t]);
 
-  const handleReset = useCallback(async () => {
+  // The Reset action discards every customization on the profile — it is now
+  // reached directly from the always-visible inline placement (no longer
+  // gated behind an explicit "Edit" click into a modal), so an accidental tap
+  // is more likely than before. A confirmation step (UI-NFR-008 R-029) guards
+  // against that; the actual API call only fires from `confirmReset`.
+  const confirmReset = useCallback(async () => {
     try {
       setSubmitting(true);
       const reset = await careApi.resetProfile(profile.plant_key);
       notification.success(t('pages.pflege.profileReset'));
+      setResetConfirmOpen(false);
       onUpdated(reset);
       onDone?.();
     } catch (err) {
@@ -334,6 +380,11 @@ export default function CareProfileForm({
     max: number,
     marks: { value: number; label: string }[],
     unit: string,
+    // Also used as the visible label of the "custom" numeric fallback field
+    // and as the Slider's aria-label — neither had an accessible name before
+    // (UI-NFR-002): the slider only exposed value/min/max to assistive tech,
+    // with no indication of *what* it controls.
+    ariaLabel: string,
     testId: string,
     customValue?: number,
     onCustomChange?: (v: number) => void,
@@ -342,10 +393,11 @@ export default function CareProfileForm({
       <TextField
         type="number"
         size="small"
+        label={ariaLabel}
         value={customValue ?? value}
         onChange={(e) => (onCustomChange ?? onChange)(Math.max(min, Number(e.target.value)))}
         slotProps={{ htmlInput: { min, max } }}
-        sx={{ width: 100 }}
+        sx={{ width: 140 }}
         data-testid={testId}
       />
     ) : (
@@ -358,6 +410,7 @@ export default function CareProfileForm({
           step={1}
           marks={marks}
           valueLabelDisplay="auto"
+          aria-label={ariaLabel}
           data-testid={testId}
           sx={{ flex: 1 }}
         />
@@ -389,6 +442,7 @@ export default function CareProfileForm({
             </MenuItem>
           ))}
         </Select>
+        <FormHelperText>{t('pages.pflege.careStyleHelper')}</FormHelperText>
       </FormControl>
 
       {/* ── Section 2: Task types — each as a card with toggle + inline interval ── */}
@@ -425,7 +479,7 @@ export default function CareProfileForm({
         {intervalSlider(
           wateringInterval, setWateringInterval, 1, 30,
           [{ value: 1, label: '1' }, { value: 7, label: '7' }, { value: 14, label: '14' }, { value: 30, label: '30' }],
-          t('common.days'), 'watering-interval-slider',
+          t('common.days'), t('pages.pflege.wateringInterval'), 'watering-interval-slider',
         )}
       </TaskTypeRow>
 
@@ -440,7 +494,7 @@ export default function CareProfileForm({
         {intervalSlider(
           fertilizingInterval, setFertilizingInterval, 7, 90,
           [{ value: 7, label: '7' }, { value: 14, label: '14' }, { value: 30, label: '30' }, { value: 90, label: '90' }],
-          t('common.days'), 'fertilizing-interval-slider',
+          t('common.days'), t('pages.pflege.fertilizingInterval'), 'fertilizing-interval-slider',
         )}
         <Box sx={{ mt: 1 }}>
           <Typography variant="caption" color="text.secondary" gutterBottom>
@@ -453,6 +507,7 @@ export default function CareProfileForm({
             }
             size="small"
             sx={{ flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}
+            aria-label={t('pages.pflege.fertilizingActiveMonths')}
             data-testid="fertilizing-active-months"
           >
             {MONTHS.map((month) => (
@@ -480,7 +535,7 @@ export default function CareProfileForm({
         {intervalSlider(
           repottingInterval, setRepottingInterval, 3, 36,
           [{ value: 3, label: '3' }, { value: 12, label: '12' }, { value: 24, label: '24' }, { value: 36, label: '36' }],
-          t('common.months_unit'), 'repotting-interval-slider',
+          t('common.months_unit'), t('pages.pflege.repottingInterval'), 'repotting-interval-slider',
         )}
       </TaskTypeRow>
 
@@ -495,7 +550,7 @@ export default function CareProfileForm({
         {intervalSlider(
           pestCheckInterval, setPestCheckInterval, 3, 30,
           [{ value: 3, label: '3' }, { value: 7, label: '7' }, { value: 14, label: '14' }, { value: 30, label: '30' }],
-          t('common.days'), 'pest-check-interval-slider',
+          t('common.days'), t('pages.pflege.pestCheckInterval'), 'pest-check-interval-slider',
         )}
       </TaskTypeRow>
 
@@ -510,7 +565,7 @@ export default function CareProfileForm({
         {intervalSlider(
           humidityCheckInterval, setHumidityCheckInterval, 1, 14,
           [{ value: 1, label: '1' }, { value: 7, label: '7' }, { value: 14, label: '14' }],
-          t('common.days'), 'humidity-interval-slider',
+          t('common.days'), t('pages.pflege.humidityCheckInterval'), 'humidity-interval-slider',
         )}
       </TaskTypeRow>
 
@@ -532,6 +587,7 @@ export default function CareProfileForm({
           }
           size="small"
           sx={{ flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}
+          aria-label={t('pages.pflege.locationCheckMonths')}
           data-testid="location-check-months"
         >
           {MONTHS.map((month) => (
@@ -667,6 +723,7 @@ export default function CareProfileForm({
         sx={{
           display: 'flex',
           flexWrap: 'wrap',
+          alignItems: 'center',
           justifyContent: 'flex-end',
           gap: 1,
           ...(embedded
@@ -674,6 +731,23 @@ export default function CareProfileForm({
             : {}),
         }}
       >
+        {/* The form is always editable — nothing is written until "Save" is
+            pressed. This hint (plus the unsaved-changes navigation guard
+            below) makes that explicit so it doesn't read as auto-save. */}
+        {isDirty && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mr: 'auto' }}
+            data-testid="care-profile-dirty-hint"
+          >
+            <Box
+              component="span"
+              sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'warning.main', flexShrink: 0 }}
+            />
+            {t('pages.pflege.unsavedChangesHint')}
+          </Typography>
+        )}
         {onCancel && (
           <Button onClick={onCancel} disabled={submitting} data-testid="cancel-button">
             {t('common.cancel')}
@@ -681,11 +755,11 @@ export default function CareProfileForm({
         )}
         <Button
           color="warning"
-          onClick={handleReset}
+          onClick={() => setResetConfirmOpen(true)}
           disabled={submitting}
           data-testid="reset-profile-button"
         >
-          {t('pages.pflege.profileReset')}
+          {t('pages.pflege.resetProfile')}
         </Button>
         <Button
           variant="contained"
@@ -696,6 +770,28 @@ export default function CareProfileForm({
           {t('common.save')}
         </Button>
       </Box>
+
+      {/* Reset discards every customization on this profile; it is reached
+          directly from the always-visible inline form now (no longer behind
+          an explicit "Edit" click), so it is gated behind a confirmation
+          step (UI-NFR-008 R-029). */}
+      <ConfirmDialog
+        open={resetConfirmOpen}
+        title={t('pages.pflege.resetConfirmTitle')}
+        message={t('pages.pflege.resetConfirmMessage')}
+        confirmLabel={t('pages.pflege.resetProfile')}
+        destructive
+        loading={submitting}
+        onConfirm={confirmReset}
+        onCancel={() => setResetConfirmOpen(false)}
+      />
+
+      {/* Inline placement keeps unsaved edits alive across the whole page
+          session — there is no modal boundary that forces a save/discard
+          decision — so navigating away with pending changes must warn
+          (UI-NFR-008 R-007/R-008). The dialog placement already has an
+          explicit Cancel affordance and a bounded lifetime, so it is exempt. */}
+      {embedded && <UnsavedChangesGuard dirty={isDirty} />}
     </Box>
   );
 }

@@ -2006,7 +2006,12 @@ export default function PlantInstanceDetailPage() {
                   editable directly on the page instead of behind a modal. The
                   care-style chip stays visible as the section header; the per-task
                   toggles inside the form already communicate the on/off state that
-                  the former read-only summary duplicated. */}
+                  the former read-only summary duplicated. An intro line spells out
+                  that edits still require an explicit save — the inline placement
+                  has no modal boundary to signal that on its own. */}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.pflege.careTabIntro')}
+              </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Chip
                   label={t(`enums.careStyle.${careProfile.care_style}`)}

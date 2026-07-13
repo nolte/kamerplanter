@@ -1,4 +1,5 @@
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { useState } from 'react';
+import { screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -70,7 +71,7 @@ describe('CareProfileForm', () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
-  it('resets the profile via careApi.resetProfile and refreshes the host state', async () => {
+  it('resets the profile via careApi.resetProfile after confirmation and refreshes the host state', async () => {
     const profile = makeCareProfile({ care_style: 'custom' });
     const reset = makeCareProfile({ care_style: 'tropical' });
     let didReset = false;
@@ -84,10 +85,66 @@ describe('CareProfileForm', () => {
     const onUpdated = vi.fn();
     renderWithProviders(<CareProfileForm profile={profile} onUpdated={onUpdated} embedded />);
 
+    // Reset is destructive, so clicking it only opens the confirmation dialog;
+    // the API call fires from the dialog's confirm action.
     fireEvent.click(screen.getByTestId('reset-profile-button'));
+    expect(didReset).toBe(false);
+    await screen.findByTestId('confirm-dialog', {}, QUERY_TIMEOUT);
+    fireEvent.click(screen.getByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => expect(didReset).toBe(true), QUERY_TIMEOUT);
     await waitFor(() => expect(onUpdated).toHaveBeenCalledWith(reset), QUERY_TIMEOUT);
+  });
+
+  it('cancelling the reset confirmation leaves the profile untouched', async () => {
+    let didReset = false;
+    server.use(
+      http.post('/api/v1/care-reminders/plants/:key/reset-profile', () => {
+        didReset = true;
+        return HttpResponse.json(makeCareProfile());
+      }),
+    );
+
+    renderWithProviders(
+      <CareProfileForm profile={makeCareProfile()} onUpdated={vi.fn()} embedded />,
+    );
+
+    fireEvent.click(screen.getByTestId('reset-profile-button'));
+    await screen.findByTestId('confirm-dialog', {}, QUERY_TIMEOUT);
+    fireEvent.click(screen.getByTestId('confirm-dialog-cancel'));
+
+    await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).toBeNull(), QUERY_TIMEOUT);
+    expect(didReset).toBe(false);
+  });
+
+  it('shows an unsaved-changes hint once a field is edited and clears it once the saved profile round-trips back in', async () => {
+    const profile = makeCareProfile();
+    const saved = makeCareProfile({ care_style: 'succulent' });
+    server.use(
+      http.patch('/api/v1/care-reminders/plants/:key/profile', () => HttpResponse.json(saved)),
+    );
+
+    // A minimal stateful host, matching how the real embedding page feeds the
+    // saved profile back in via `onUpdated` — that round-trip is what clears
+    // the dirty state (the profile prop and the local baseline both change).
+    function Host() {
+      const [current, setCurrent] = useState(profile);
+      return <CareProfileForm profile={current} onUpdated={setCurrent} embedded />;
+    }
+
+    renderWithProviders(<Host />);
+
+    expect(screen.queryByTestId('care-profile-dirty-hint')).toBeNull();
+
+    const combobox = within(screen.getByTestId('care-style-select')).getByRole('combobox');
+    fireEvent.mouseDown(combobox);
+    fireEvent.click(await screen.findByRole('option', { name: i18n.t('enums.careStyle.succulent') }));
+
+    await waitFor(() => expect(screen.getByTestId('care-profile-dirty-hint')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('save-profile-button'));
+
+    await waitFor(() => expect(screen.queryByTestId('care-profile-dirty-hint')).toBeNull(), QUERY_TIMEOUT);
   });
 
   it('omits the Cancel action for the inline (embedded) placement', () => {
