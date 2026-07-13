@@ -16,7 +16,12 @@ class CropRotationPage(BasePage):
     PATH = "/stammdaten/crop-rotation"
 
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
-    FAMILY_SELECT = (By.CSS_SELECTOR, "[data-testid='from-family-select'] .MuiSelect-select")
+    # The main family picker was refactored from a MUI <Select> to a MUI
+    # <Autocomplete>; its clickable trigger is the inner combobox <input>.
+    # Scope by the testid — the page has a second combobox (filter-nutrient-
+    # demand) so a bare role='combobox' locator would be ambiguous. The dialog
+    # target picker below is still a real MUI <Select>.
+    FAMILY_SELECT = (By.CSS_SELECTOR, "[data-testid='from-family-select'] input")
     SUCCESSOR_LIST = (By.CSS_SELECTOR, ".MuiList-root .MuiListItem-root")
     ADD_SUCCESSOR_BTN = (By.CSS_SELECTOR, "[data-testid='add-successor-button']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
@@ -45,15 +50,30 @@ class CropRotationPage(BasePage):
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
         self.scroll_and_click(select)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{family_name}')]")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
+        # Autocomplete options render family name + scientific name in stacked
+        # <Typography> blocks (multi-line o.text), so match Selenium-side on
+        # normalised text rather than an XPath contains() that can't see the
+        # newline. See _find_option.
+        option = self._find_option(family_name)
         self.scroll_and_click(option)
         # Wait for options to be removed from DOM (natural close after selection)
         WebDriverWait(self.driver, 5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
         time.sleep(1)  # Wait for successors to load
+
+    def _find_option(self, name: str):
+        """Return the open-listbox option matching *name* (whitespace-normalised)."""
+        target = " ".join(name.split())
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            for option in self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
+                otext = " ".join(option.text.split())
+                if otext == target or target in otext or otext in target:
+                    return option
+            time.sleep(0.2)
+        raise AssertionError(f"Option matching '{name}' not found in the dropdown")
 
     def get_family_options(self) -> list[str]:
         self.close_mui_dropdown()

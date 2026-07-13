@@ -93,6 +93,14 @@ services:
       interval: 5s
       timeout: 3s
       retries: 15
+      # The backend runs the full light-mode seed (210 species + cultivars)
+      # inside the FastAPI lifespan *before* uvicorn binds, so /health/live is
+      # unreachable during seeding. Measured time-to-healthy: ~51 s isolated,
+      # >78 s under full-stack concurrent boot. Without a start_period the 15×5 s
+      # retry budget (~75 s) trips the container unhealthy mid-seed, and frontend
+      # (depends_on: backend healthy) never starts. During start_period a failing
+      # check does not count toward retries or mark the container unhealthy.
+      start_period: 180s
 
   # ── Celery Worker ────────────────────────────────────────
   celery-worker:
@@ -278,6 +286,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 15
+      # Same lifespan-seed-before-uvicorn-binds timing as the light backend
+      # (see its healthcheck comment). Parity fix — full mode is out of scope
+      # for this run but shares the identical latent unhealthy-mid-seed bug.
+      start_period: 180s
     profiles: ["full"]
 
   # ── Celery Worker (full mode) ────────────────────────────────

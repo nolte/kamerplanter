@@ -457,22 +457,38 @@ class TestHarvestCreateDialog:
         )
 
         harvest_list.submit_create_form()
-        try:
-            harvest_list.wait_for_dialog_closed(timeout=25)
-        except Exception:
-            # The Karenz-Gate (IPM safety intervals) or other backend
-            # validation may block harvest creation. Check for an error
-            # snackbar or error display in the dialog.
+        # The auto-selected plant may sit inside an active IPM Karenz interval, in
+        # which case the backend correctly rejects the harvest (422) and the dialog
+        # stays open with a *transient* error snackbar. A blind
+        # wait_for_dialog_closed(25) misses that snackbar (notistack auto-dismisses
+        # long before the 25 s elapse), so sample early: check dialog-closed first
+        # (success wins) and capture a transient error while it is still up.
+        import time as _t
+
+        saw_error = False
+        deadline = _t.time() + 12
+        while _t.time() < deadline:
+            if not harvest_list.is_create_dialog_open():
+                break  # success — dialog closed
+            if harvest_list.is_snackbar_visible() or harvest_list.has_any_dialog_error():
+                saw_error = True
+                break
+            _t.sleep(0.2)
+
+        if harvest_list.is_create_dialog_open():
+            # Dialog never closed → creation was blocked. The final open-dialog
+            # check (not saw_error alone) gates this, so a success snackbar seen
+            # mid-close-animation cannot cause a false skip.
             screenshot(
                 "TC-REQ-007-028_submit-failed",
-                "Create with details failed -- dialog still open (possible Karenz-Gate)",
+                "Create with details did not close -- possible Karenz-Gate IPM interval",
             )
-            if harvest_list.is_snackbar_visible() or harvest_list.has_any_dialog_error():
+            if saw_error or harvest_list.is_snackbar_visible() or harvest_list.has_any_dialog_error():
                 pytest.skip(
                     "Harvest creation blocked by backend validation "
                     "(likely Karenz-Gate IPM safety interval)"
                 )
-            pytest.fail("Create dialog did not close after submit")
+            pytest.fail("Create dialog did not close after submit and no error was surfaced")
 
         screenshot(
             "TC-REQ-007-028_after-create",

@@ -208,18 +208,36 @@ class WateringLogListPage(BasePage):
         Returns True if an option was selected, False if none appeared. Used by
         the self-provisioning journey to attach the freshly created plant
         (identified by its unique instance id) to the watering log.
+
+        The dialog loads up to 500 plant options asynchronously on open, so a
+        fixed sleep + single read races the fetch. Wait explicitly for an option
+        and retry the type (mirrors ``select_first_plant``); the plant label is
+        ``"{instance_id} ({name})"`` so prefer the option whose text starts with
+        the instance id rather than blindly taking the first.
         """
         import time
 
-        input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
-        input_el.click()
-        self.clear_and_fill(input_el, text)
-        time.sleep(0.4)
-        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        if options:
-            options[0].click()
-            time.sleep(0.2)
-            return True
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        for _ in range(3):
+            input_el = self.wait_for_element_clickable(self.PLANT_KEYS_INPUT)
+            input_el.click()
+            self.clear_and_fill(input_el, text)
+            try:
+                WebDriverWait(self.driver, 5).until(
+                    lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+                )
+            except Exception:
+                continue  # options not populated yet — re-type and retry
+            options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+            target = next(
+                (o for o in options if o.text.strip().startswith(text)),
+                options[0] if options else None,
+            )
+            if target is not None:
+                self.scroll_and_click(target)
+                time.sleep(0.2)
+                return True
         return False
 
     def fill_volume(self, volume: float) -> None:

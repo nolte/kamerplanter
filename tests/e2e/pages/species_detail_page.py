@@ -1,4 +1,10 @@
-"""Page object for the Species detail page (3 tabs: Edit, Cultivars, Lifecycle)."""
+"""Page object for the Species detail page.
+
+Tabs (label-based navigation via ``click_tab_by_label``): Übersicht, Aussaat &
+Ernte, Sorten (cultivars), Lebenszyklus-Konfiguration, Workflows, Bearbeiten
+(plus expert-only Mischkultur / Fruchtfolge). Navigate by label, not index — the
+tab set and order vary with experience level.
+"""
 
 from __future__ import annotations
 
@@ -145,7 +151,7 @@ class SpeciesDetailPage(BasePage):
         """
         return len(self.driver.find_elements(*self.READONLY_BANNER)) > 0
 
-    # ── Cultivar tab (tab 1) ──────────────────────────────────────────
+    # ── Cultivar tab ("Sorten") ───────────────────────────────────────
 
     def get_cultivar_count(self) -> int:
         return len(self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS))
@@ -170,6 +176,10 @@ class SpeciesDetailPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def click_cultivar_create(self) -> None:
+        # The cultivar create button lives under the "Sorten" tab of the (now
+        # 6-tab) species detail page. Switch to it by label first — robust to
+        # tab reordering (cultivars is no longer at a fixed low index).
+        self.click_tab_by_label("Sorten")
         self.wait_for_element_clickable(self.CULTIVAR_CREATE_BUTTON).click()
         self.wait_for_element_visible(self.CREATE_DIALOG)
 

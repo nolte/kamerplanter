@@ -97,8 +97,8 @@ class TestCoreJourneySpeciesAndCultivar:
             "Species detail page after creation",
         )
 
-        # Open the Cultivars tab (index 1) and create a cultivar.
-        species_detail.click_tab(1)
+        # Create a cultivar — click_cultivar_create() switches to the "Sorten"
+        # tab itself (it is no longer at a fixed low tab index).
         species_detail.click_cultivar_create()
         species_detail.fill_cultivar_form(cultivar_name)
         screenshot(

@@ -80,12 +80,27 @@ class SpeciesListPage(BasePage):
         if index < len(rows):
             self.scroll_and_click(self._row_nav_target(rows[index]))
 
+    def search(self, query: str) -> None:
+        """Filter the table via the DataTable search box (debounced 300ms)."""
+        import time
+
+        el = self.wait_for_element_clickable(self.SEARCH_INPUT)
+        self.clear_and_fill(el, query)
+        time.sleep(0.5)  # DataTable debounces the search input by 300ms
+        self.wait_for_loading_complete()
+
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose scientific name matches *name*.
 
         The species table has a star/favorite column at index 0 (empty text),
         so we search across all cells rather than only the first one.
+
+        The DataTable is client-side sorted (scientific name asc) and paginated
+        at 25 rows/page, so a freshly created species can land on a later page
+        that is not in the page-1 DOM. Search first to filter it onto page 1
+        before scanning — mirrors ``provision_plant`` in ``_journey_helpers.py``.
         """
+        self.search(name)
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         for row in rows:
             cells = row.find_elements(By.TAG_NAME, "td")

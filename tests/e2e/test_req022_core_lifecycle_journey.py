@@ -52,20 +52,23 @@ def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
 # ── Shared arrange step ──────────────────────────────────────────────────────
 
 
-def _generate_and_wait_for_watering_card(
-    task_queue: TaskQueuePage,
+def _wait_for_watering_card(
     pflege: PflegeDashboardPage,
     plant_key: str,
     timeout: float = 15.0,
 ) -> bool:
-    """Trigger reminder generation and wait for the plant's watering care card.
+    """Wait for the plant's live watering care card in the merged task queue.
 
     Returns True once the ``care-card-care-{plant_key}-watering`` card appears.
+
+    A freshly provisioned plant gets an auto care profile whose watering entry
+    is due today, so the live care dashboard renders the card on its own. We
+    deliberately do NOT click "Generate reminders": generation materialises a
+    ``care_reminder`` *task*, and the merged task queue then deduplicates the
+    live care card away (rendering it as a task card instead), which would hide
+    the very card this journey asserts on. The dedup is intentional app
+    behaviour — see TaskQueuePage's merged-queue logic — not a regression.
     """
-    task_queue.open()
-    if task_queue.is_generate_reminders_visible():
-        task_queue.click_generate_reminders()
-        task_queue.wait_for_loading_complete()
     deadline = time.time() + timeout
     while time.time() < deadline:
         pflege.open()
@@ -96,7 +99,7 @@ class TestCoreJourneyConfirmWateringReminder:
         """
         key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-022")
 
-        appeared = _generate_and_wait_for_watering_card(task_queue, pflege, key)
+        appeared = _wait_for_watering_card(pflege, key)
         screenshot("TC-REQ-022-J087_reminder-card",
                    f"Care dashboard with watering reminder for {instance_id}")
         assert appeared, (
@@ -140,7 +143,7 @@ class TestCoreJourneyReminderPersistsConfirmed:
         """
         key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-022P")
 
-        appeared = _generate_and_wait_for_watering_card(task_queue, pflege, key)
+        appeared = _wait_for_watering_card(pflege, key)
         assert appeared, (
             f"TC-REQ-022-J088 FAIL: A watering reminder for '{instance_id}' should appear first"
         )

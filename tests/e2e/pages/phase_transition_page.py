@@ -53,13 +53,17 @@ class PlantInstanceListExt(BasePage):
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
     def get_first_column_texts(self) -> list[str]:
-        """Return the Instance-ID column for all visible rows."""
+        """Return the Instance-ID column for all visible rows.
+
+        A leading cover-photo column (empty text) was inserted at index 0, so the
+        Instance-ID is now the second column (index 1).
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         result: list[str] = []
         for row in rows:
             cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                result.append(cells[0].text)
+            if len(cells) >= 2:
+                result.append(cells[1].text)
         return result
 
     def get_phase_column_texts(self) -> list[str]:
@@ -139,8 +143,12 @@ class PlantInstanceDetailExt(BasePage):
     PLANT_INFO_CARD = (By.CSS_SELECTOR, "[data-testid='plant-info-card']")
     PHASE_INFO_CARD = (By.CSS_SELECTOR, "[data-testid='phase-info-card']")
     CURRENT_PHASE_CHIP = (By.CSS_SELECTOR, "[data-testid='current-phase']")
-    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phase-history']")
-    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phase-history'] tbody tr")
+    # The "Phasenverlauf" table no longer has a dedicated data-testid='phase-history'
+    # container — PhaseHistoryTable now delegates to the shared DataTable, which
+    # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows.
+    # Scope to the phases-tab-content panel so these don't match other tables.
+    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table']")
+    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table-row']")
 
     # ── Phase Transition Dialog (PhaseTransitionDialog.tsx) ────────────
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
@@ -150,9 +158,11 @@ class PlantInstanceDetailExt(BasePage):
     TRANSITION_CONFIRM = (By.CSS_SELECTOR, "[data-testid='transition-confirm']")
 
     # ── Remove confirm dialog ──────────────────────────────────────────
-    CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
-    CONFIRM_OK = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
-    CONFIRM_CANCEL_BTN = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
+    # The "Pflanze entfernen" button now opens the richer TerminationDialog
+    # (not the generic ConfirmDialog), so target its termination-* testids.
+    CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='termination-dialog']")
+    CONFIRM_OK = (By.CSS_SELECTOR, "[data-testid='termination-confirm']")
+    CONFIRM_CANCEL_BTN = (By.CSS_SELECTOR, "[data-testid='termination-cancel']")
 
     # ── Correction ("force") mode ──────────────────────────────────────
     FORCE_SWITCH = (By.CSS_SELECTOR, "[data-testid='force-transition-switch']")
@@ -301,9 +311,11 @@ class PlantInstanceDetailExt(BasePage):
         time.sleep(0.3)
 
     def set_transition_reason(self, reason: str) -> None:
+        # The reason field is pre-populated with 'manual' by default; el.clear()
+        # does not reliably clear a React controlled input, so use clear_and_fill
+        # (JS clear + native events, Ctrl+A fallback) to replace rather than append.
         el = self.wait_for_element_clickable(self.TRANSITION_REASON)
-        el.clear()
-        el.send_keys(reason)
+        self.clear_and_fill(el, reason)
 
     def get_transition_reason_value(self) -> str:
         el = self.wait_for_element(self.TRANSITION_REASON)

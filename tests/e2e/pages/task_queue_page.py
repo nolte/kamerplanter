@@ -261,31 +261,39 @@ class TaskQueuePage(BasePage):
         self._select_form_option("priority", priority_value)
 
     def _select_form_option(self, field_name: str, value: str) -> None:
-        """Open a FormSelectField MUI Select and click the ``data-value`` option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
+        """Open a FormSelectField MUI Select and pick the option by its stable value.
 
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"li[role='option'][data-value='{value}']")
-        )
-        option.click()
-        time.sleep(0.2)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.2)
+        Delegates to the robust BasePage helper, which opens the dropdown via the
+        dedicated ``form-field-{name}-trigger`` testid (no brittle
+        ``.MuiSelect-select`` class), selects by ``data-value`` (i18n-independent),
+        centres+JS-clicks to survive the Popover animation, and closes via the
+        option click (no stray body-level ESCAPE that would close the dialog).
+        """
+        self.choose_select_value(field_name, value)
 
     def set_due_date_today(self) -> None:
-        """Set the due-date input to today's date (native date input)."""
+        """Set the due-date input to today's date (native ``<input type='date'>``).
+
+        A native date input's ``.value`` is always ISO (YYYY-MM-DD), but typing
+        that ISO string with send_keys fills the *localized* DD.MM.YYYY segments
+        left-to-right and produces a garbage date (observed: year 60713 under
+        de-DE), which blocks the create-task submit. Assign the value directly via
+        the native setter and dispatch input/change so the React controlled field
+        picks it up, instead of typing it.
+        """
         from datetime import date
 
         el = self.wait_for_element_clickable(self.FORM_DUE_DATE)
-        self.clear_and_fill(el, date.today().isoformat())
+        self.driver.execute_script(
+            "var el = arguments[0], v = arguments[1];"
+            "var setter = Object.getOwnPropertyDescriptor("
+            "window.HTMLInputElement.prototype, 'value').set;"
+            "setter.call(el, v);"
+            "el.dispatchEvent(new Event('input', {bubbles: true}));"
+            "el.dispatchEvent(new Event('change', {bubbles: true}));",
+            el,
+            date.today().isoformat(),
+        )
 
     def select_task_plant_by_text(self, text: str) -> bool:
         """Type *text* into the plant autocomplete and pick the matching option."""

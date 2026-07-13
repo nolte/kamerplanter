@@ -91,8 +91,15 @@ class NutrientCalculationsPage(BasePage):
         el.send_keys(val_str)
 
     def _fill_text_input_in_card(self, card, value: str) -> None:
-        """Clear and fill the first text input (non-number) within a card."""
-        inputs = card.find_elements(By.CSS_SELECTOR, "input:not([type='number'])")
+        """Clear and fill the first free-text input within a card.
+
+        Excludes ``.MuiSelect-nativeInput`` — a Phase ``<TextField select>`` was
+        added to the card and MUI renders its value in a hidden text input, which
+        would otherwise be matched ahead of the real free-text field.
+        """
+        inputs = card.find_elements(
+            By.CSS_SELECTOR, "input:not([type='number']):not(.MuiSelect-nativeInput)"
+        )
         if not inputs:
             raise ValueError("No text input found in card")
         el = inputs[0]
@@ -174,8 +181,11 @@ class NutrientCalculationsPage(BasePage):
         # Number inputs in order: volume, targetEc, targetPh, baseEc, basePh
         for idx, val in enumerate([volume, target_ec, target_ph, base_ec, base_ph]):
             self._fill_number_input_in_card(card, idx, val)
-        # Fertilizer keys text field
-        text_inputs = card.find_elements(By.CSS_SELECTOR, "input:not([type='number'])")
+        # Fertilizer keys text field — exclude the Phase select's hidden native
+        # input (.MuiSelect-nativeInput), which was inserted before this field.
+        text_inputs = card.find_elements(
+            By.CSS_SELECTOR, "input:not([type='number']):not(.MuiSelect-nativeInput)"
+        )
         if text_inputs:
             el = text_inputs[0]
             self.scroll_and_click(el)

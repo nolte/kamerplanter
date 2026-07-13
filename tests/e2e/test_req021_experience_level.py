@@ -66,6 +66,19 @@ def _set_experience_level(
 
     expertise_page.wait_for_saved_snackbar()
 
+    # The "saved" snackbar is optimistic — it is enqueued right after dispatching
+    # the async PATCH, before the server has durably stored the new level. A
+    # dependent field-visibility assertion that runs before persistence can read
+    # a stale level after the next full-reload navigation. Reload the tab and poll
+    # the active toggle until it reflects the target level (fetchPreferences ran).
+    import time
+
+    for _ in range(10):
+        expertise_page.open_experience_tab()
+        if expertise_page.get_active_toggle_level() == target_level:
+            return
+        time.sleep(0.5)
+
 
 # -- TC-021-004 to TC-021-009: Experience Level Switcher -----------------------
 
@@ -838,7 +851,7 @@ class TestPlantingRunFieldVisibility:
         assert expertise_page.is_form_field_visible("name"), (
             "TC-REQ-021-019 FAIL: Expected 'name' visible for intermediate"
         )
-        assert expertise_page.is_form_field_visible("run_type"), (
+        assert expertise_page.wait_for_form_field_visible("run_type"), (
             "TC-REQ-021-019 FAIL: Expected 'run_type' visible for intermediate"
         )
         assert not expertise_page.is_form_field_visible("substrate_batch_key"), (
@@ -869,7 +882,7 @@ class TestPlantingRunFieldVisibility:
         assert expertise_page.is_form_field_visible("name"), (
             "TC-REQ-021-020 FAIL: Expected 'name' visible for expert"
         )
-        assert expertise_page.is_form_field_visible("run_type"), (
+        assert expertise_page.wait_for_form_field_visible("run_type"), (
             "TC-REQ-021-020 FAIL: Expected 'run_type' visible for expert"
         )
         assert expertise_page.is_form_field_visible("substrate_batch_key"), (

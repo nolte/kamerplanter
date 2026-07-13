@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -158,9 +159,18 @@ class FeedingEventListPage(BasePage):
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
-        """Return True if the create dialog is visible."""
-        dialogs = self.driver.find_elements(*self.CREATE_DIALOG)
-        return any(d.is_displayed() for d in dialogs)
+        """Return True if the create dialog is visible.
+
+        Stale-safe: a dialog mid fade-out can unmount between find_elements and
+        is_displayed(); a stale reference means the dialog is already gone.
+        """
+        for dialog in self.driver.find_elements(*self.CREATE_DIALOG):
+            try:
+                if dialog.is_displayed():
+                    return True
+            except StaleElementReferenceException:
+                continue
+        return False
 
     def select_plant(self, option_text: str) -> None:
         """Open the plant_key select and pick an option by label text."""
@@ -169,17 +179,23 @@ class FeedingEventListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{option_text}')]")
         )
-        option.click()
+        # scroll_and_click centres the option and JS-clicks if a neighbour would
+        # intercept mid-animation; a raw click here can silently miss, leaving the
+        # menu open and blocking the next field.
+        self.scroll_and_click(option)
         self.close_mui_dropdown()
 
     def select_application_method(self, option_text: str) -> None:
         """Open the application_method select and pick an option."""
+        # Ensure the preceding plant-Select popover is fully gone before opening
+        # this field, otherwise its closing overlay blocks the interaction.
+        self.close_mui_dropdown()
         field = self.wait_for_element_clickable(self.FORM_APPLICATION_METHOD)
         self.scroll_and_click(field)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{option_text}')]")
         )
-        option.click()
+        self.scroll_and_click(option)
         self.close_mui_dropdown()
 
     def fill_volume(self, value: float) -> None:

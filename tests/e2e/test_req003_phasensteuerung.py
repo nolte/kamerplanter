@@ -1006,14 +1006,20 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         screenshot("TC-REQ-003-J046_after-step1",
                    "Plant after first forward phase transition")
 
-        # Forward step 2 — advance to the final phase.
-        plant_detail.open(key)
-        plant_detail.initiate_phase_transition()
-        option_keys2 = plant_detail.get_target_phase_option_keys()
-        plant_detail.transition_to_phase_key(option_keys2[-1], reason="Weiter getrieben")
-        plant_detail.wait_for_transition_dialog_closed()
-        screenshot("TC-REQ-003-J046_after-step2",
-                   "Plant after second forward phase transition")
+        # Forward step 2 — advance to the final phase. Only attempt this for a
+        # lifecycle with >= 3 phases: for a 2-phase species step 1 (index
+        # len//2 == 1) already lands on the last phase, so targeting the last
+        # option again would be a same-phase transition, which the backend
+        # correctly rejects (leaving the dialog open by design). Step 1 alone
+        # already proves forward movement for the assertion below.
+        if len(option_keys) >= 3:
+            plant_detail.open(key)
+            plant_detail.initiate_phase_transition()
+            option_keys2 = plant_detail.get_target_phase_option_keys()
+            plant_detail.transition_to_phase_key(option_keys2[-1], reason="Weiter getrieben")
+            plant_detail.wait_for_transition_dialog_closed()
+            screenshot("TC-REQ-003-J046_after-step2",
+                       "Plant after second forward phase transition")
 
         final_phase = plant_detail.get_current_phase()
         assert final_phase and final_phase != initial_phase, (
