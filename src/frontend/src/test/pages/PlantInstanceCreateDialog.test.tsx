@@ -392,6 +392,158 @@ describe('PlantInstanceCreateDialog', () => {
     });
   });
 
+  // ── Start-phase source resolution (issue #626) ───────────────────────
+  describe('current-phase source resolution', () => {
+    async function selectTomato(user: ReturnType<typeof userEvent.setup>) {
+      const speciesInput = within(
+        await screen.findByTestId('form-field-species_key'),
+      ).getByRole('combobox');
+      await user.click(speciesInput);
+      await user.type(speciesInput, 'Solanum');
+      await user.click(await screen.findByRole('option', { name: /Solanum lycopersicum/ }));
+    }
+
+    function phaseSequenceWithEntries() {
+      // Entry keys (seq-entry-*) deliberately differ from the LifecycleConfig
+      // growth-phase keys (gp-*) so the assertion proves the default came from
+      // the PhaseSequence, not the fallback source.
+      return {
+        key: 'seq-1',
+        name: 'tomato-sequence',
+        display_name: 'Tomato Sequence',
+        display_name_de: 'Tomaten-Sequenz',
+        description: '',
+        description_de: '',
+        species_key: 'sp-1',
+        cycle_type: 'annual',
+        is_repeating: false,
+        cycle_restart_entry_order: null,
+        typical_lifespan_years: null,
+        dormancy_required: false,
+        vernalization_required: false,
+        vernalization_min_days: null,
+        photoperiod_type: 'day_neutral',
+        critical_day_length_hours: null,
+        is_system: true,
+        tags: [],
+        entries: [
+          {
+            key: 'seq-entry-flowering',
+            phase_sequence_key: 'seq-1',
+            phase_definition_key: 'pd-flowering',
+            sequence_order: 2,
+            override_duration_days: null,
+            effective_duration_days: 60,
+            is_terminal: true,
+            allows_harvest: true,
+            is_recurring: false,
+            phase_definition: {
+              key: 'pd-flowering',
+              name: 'flowering',
+              display_name: 'Flowering',
+              display_name_de: 'Blüte',
+              description: '',
+              description_de: '',
+              typical_duration_days: 60,
+              stress_tolerance: 'low',
+              watering_interval_days: null,
+              illustration: '',
+              tags: [],
+              is_system: true,
+              usage_count: 0,
+              created_at: null,
+              updated_at: null,
+            },
+            created_at: null,
+            updated_at: null,
+          },
+          {
+            key: 'seq-entry-germination',
+            phase_sequence_key: 'seq-1',
+            phase_definition_key: 'pd-germination',
+            sequence_order: 1,
+            override_duration_days: null,
+            effective_duration_days: 7,
+            is_terminal: false,
+            allows_harvest: false,
+            is_recurring: false,
+            phase_definition: {
+              key: 'pd-germination',
+              name: 'germination',
+              display_name: 'Germination',
+              display_name_de: 'Keimung',
+              description: '',
+              description_de: '',
+              typical_duration_days: 7,
+              stress_tolerance: 'low',
+              watering_interval_days: null,
+              illustration: '',
+              tags: [],
+              is_system: true,
+              usage_count: 0,
+              created_at: null,
+              updated_at: null,
+            },
+            created_at: null,
+            updated_at: null,
+          },
+        ],
+        created_at: null,
+        updated_at: null,
+      };
+    }
+
+    it('defaults current_phase_key from the PhaseSequence entries, not LifecycleConfig (#626)', async () => {
+      const payloads: Array<{ current_phase_key: string | null }> = [];
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () =>
+          HttpResponse.json(phaseSequenceWithEntries()),
+        ),
+        http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+          const body = (await request.json()) as { current_phase_key: string | null };
+          payloads.push({ current_phase_key: body.current_phase_key });
+          return HttpResponse.json({ key: 'plant-new', ...body }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(payloads).toHaveLength(1));
+      // The unchanged form pre-selects the first PhaseSequence entry (ordered by
+      // sequence_order) — a key in the backend's _valid_phase_keys set — instead
+      // of a LifecycleConfig growth-phase key (gp-veg), so create no longer 422s.
+      expect(payloads[0].current_phase_key).toBe('seq-entry-germination');
+    });
+
+    it('falls back to LifecycleConfig growth phases when the species has no PhaseSequence (#626)', async () => {
+      const payloads: Array<{ current_phase_key: string | null }> = [];
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () => HttpResponse.json(null)),
+        http.post('/api/v1/t/:tenant/plant-instances', async ({ request }) => {
+          const body = (await request.json()) as { current_phase_key: string | null };
+          payloads.push({ current_phase_key: body.current_phase_key });
+          return HttpResponse.json({ key: 'plant-new', ...body }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(payloads).toHaveLength(1));
+      // No sequence → default comes from the first LifecycleConfig growth phase
+      // (gp-veg, sequence_order 1) — unchanged behaviour for LifecycleConfig-only
+      // species.
+      expect(payloads[0].current_phase_key).toBe('gp-veg');
+    });
+  });
+
   // ── Identification photo carry-over (issue #447) ─────────────────────
   describe('identification photo carry-over', () => {
     function makePhoto(): File {
