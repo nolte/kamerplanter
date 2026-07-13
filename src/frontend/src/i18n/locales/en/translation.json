@@ -22,6 +22,8 @@
       "manualOff": "Manually hidden",
       "followsLevelVisible": "Follows level: visible",
       "followsLevelHidden": "Follows level: hidden",
+      "smartHomeLocked": "Controlled via Smart Home",
+      "smartHomeLockedHint": "This module is controlled by the Smart Home setting. Enable smart-home features under Integrations to show it.",
       "switchAriaLabel": "{{module}} — {{state}}",
       "coreSectionTitle": "Core modules",
       "coreSectionTooltip": "Core modules are always visible and cannot be hidden — they form the foundation of the application.",
@@ -1219,7 +1221,10 @@
         "title": "Smart Home & Sensors",
         "description": "Enable this option if you want to use smart home devices, sensors or actuators with Kamerplanter.",
         "toggle": "Enable Smart Home features",
-        "disabledInfo": "Smart Home features are disabled. Sensor and actuator elements will be hidden throughout the interface."
+        "disabledInfo": "Smart Home features are disabled. Sensor and actuator elements will be hidden throughout the interface.",
+        "guardTitle": "Smart Home features are disabled",
+        "guardDescription": "Sensors and actuators are hidden because smart-home features are turned off. Enable them in the settings to use this area.",
+        "guardAction": "Enable Smart Home"
       },
       "platformModeTitle": "Deployment Mode",
       "platformModeSubtitle": "Choose the operating mode for your Kamerplanter instance. Changes require updating the environment variable and a restart.",

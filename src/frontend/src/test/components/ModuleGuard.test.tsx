@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
 
 import ModuleGuard from '@/components/common/ModuleGuard';
-import { renderWithProviders, createStoreWithModuleOverrides } from '../helpers';
+import {
+  renderWithProviders,
+  createStoreWithModuleOverrides,
+  createStoreWithSmartHome,
+} from '../helpers';
 
 describe('ModuleGuard', () => {
   it('renders children when the current path belongs to a visible module', () => {
@@ -61,6 +65,35 @@ describe('ModuleGuard', () => {
       },
     );
     expect(screen.getByTestId('guarded-content')).toBeInTheDocument();
+  });
+
+  it('shows the smart-home reactivation hint for a smart-home route when disabled (#587)', () => {
+    renderWithProviders(
+      <ModuleGuard>
+        <div data-testid="guarded-content">environment control</div>
+      </ModuleGuard>,
+      {
+        store: createStoreWithSmartHome(false),
+        route: '/umgebungssteuerung',
+      },
+    );
+    expect(screen.getByTestId('smart-home-guard-hint')).toBeInTheDocument();
+    expect(screen.queryByTestId('module-guard-hint')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('guarded-content')).not.toBeInTheDocument();
+  });
+
+  it('renders the smart-home route when smart home is enabled (#587)', () => {
+    renderWithProviders(
+      <ModuleGuard>
+        <div data-testid="guarded-content">environment control</div>
+      </ModuleGuard>,
+      {
+        store: createStoreWithSmartHome(true),
+        route: '/umgebungssteuerung',
+      },
+    );
+    expect(screen.getByTestId('guarded-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('smart-home-guard-hint')).not.toBeInTheDocument();
   });
 
   it('renders children for core paths', () => {

@@ -22,6 +22,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import * as api from '@/api/endpoints/environment';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { ActuatorProtocol, ActuatorType, Location, Site } from '@/api/types';
@@ -88,7 +89,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCreated: () => void;
-  /** Whether the Home Assistant integration is available (REQ-005 §4a visibility). */
+  /**
+   * Whether the Home Assistant integration is available (REQ-005 §4a visibility).
+   * Issue #587: when omitted this now defaults to the user's `smart_home_enabled`
+   * setting instead of an unconditional `true`, so the HA option is not offered
+   * while smart-home features are off.
+   */
   haEnabled?: boolean;
 }
 
@@ -104,12 +110,15 @@ const DEFAULTS: FormData = {
   notes: null,
 };
 
-export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = true }: Props) {
+export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const notification = useNotification();
   const { handleError } = useApiError();
+  const { isSmartHomeEnabled } = useSmartHomeEnabled();
+  // Issue #587: fall back to the global smart-home setting instead of `true`.
+  const haAvailable = haEnabled ?? isSmartHomeEnabled;
 
   const [sites, setSites] = useState<Site[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -132,8 +141,8 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = t
   const protocol = watch('protocol');
 
   const protocolOptions = useMemo(
-    () => PROTOCOLS.filter((p) => haEnabled || p !== 'home_assistant'),
-    [haEnabled],
+    () => PROTOCOLS.filter((p) => haAvailable || p !== 'home_assistant'),
+    [haAvailable],
   );
 
   useEffect(() => {
@@ -271,7 +280,7 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled = t
               }))}
             />
           </FormRow>
-          {protocol === 'home_assistant' && haEnabled && (
+          {protocol === 'home_assistant' && haAvailable && (
             <FormTextField
               name="ha_entity_id"
               control={control}

@@ -25,7 +25,7 @@ const DEBOUNCE_MS = 500;
 export function useDashboardLayout() {
   const dispatch = useAppDispatch();
   const { level } = useExpertiseLevel();
-  const { isModuleVisible } = useModuleVisibility();
+  const { isModuleVisible, isSmartHomeEnabled } = useModuleVisibility();
   const stored = useAppSelector((s) => s.userPreferences.preferences?.dashboard_layout ?? null);
   const catalog = useAppSelector((s) => s.dashboard.catalog);
   const catalogLoaded = useAppSelector((s) => s.dashboard.catalogLoaded);
@@ -69,6 +69,8 @@ export function useDashboardLayout() {
       const entry = catalogByKey.get(widgetKey);
       if (entry && !entry.available) return false;
       const def = dashboardWidgetCatalog[widgetKey as WidgetKey];
+      // Issue #587: monitoring/sensor widgets stay hidden while smart home is off.
+      if (def?.requiresSmartHome && !isSmartHomeEnabled) return false;
       if (def?.requiredModule && !isModuleVisible(def.requiredModule)) return false;
       return true;
     };
@@ -87,5 +89,5 @@ export function useDashboardLayout() {
       persist,
       reset,
     };
-  }, [stored, catalog, catalogLoaded, level, isModuleVisible, persist, reset]);
+  }, [stored, catalog, catalogLoaded, level, isModuleVisible, isSmartHomeEnabled, persist, reset]);
 }
