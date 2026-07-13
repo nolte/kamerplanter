@@ -40,6 +40,14 @@ helm/kamerplanter/charts/
 # work from here (no resumable transcript). Use `task worktree:add` instead.
 .claude/worktrees/
 
+# Worktree-local resume artifacts: crash-recovery plans (.resume/<slug>/plan.md)
+# and resumable-skill state (.resume/pull-request-*/). Per
+# spec/project/parallel-working-copies/ these are working artifacts that must
+# never reach the default branch. A developer MAY still checkpoint one into git
+# during work via `git add -f`; the guard-resume-files CI hook then forces the
+# strip before the PR merges. See scripts/guard_resume_files.sh.
+.resume/
+
 # MkDocs build output
 site/
 

@@ -25,6 +25,21 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── Resume-artifact guard ──────────────────────────────────────────────
+  # Fails in CI (the required `static` job runs pre-commit) when the branch
+  # tip still tracks .resume/ files. Inverse to the guard above: a no-op on
+  # local commits so a developer may checkpoint .resume/ into git during work,
+  # but it forces the strip before the PR merges to develop. See
+  # scripts/guard_resume_files.sh and spec/project/parallel-working-copies/.
+  - repo: local
+    hooks:
+      - id: guard-resume-files
+        name: no .resume/ artifacts on the branch (CI-only)
+        entry: scripts/guard_resume_files.sh
+        language: system
+        always_run: true
+        pass_filenames: false
+
   # ── Backend (Python) ──────────────────────────────────────────────────
   # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local
