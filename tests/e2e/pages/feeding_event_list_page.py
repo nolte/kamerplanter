@@ -164,8 +164,6 @@ class FeedingEventListPage(BasePage):
 
     def select_plant(self, option_text: str) -> None:
         """Open the plant_key select and pick an option by label text."""
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(self.FORM_PLANT_KEY_SELECT)
         self.scroll_and_click(field)
         option = self.wait_for_element_clickable(
@@ -198,6 +196,20 @@ class FeedingEventListPage(BasePage):
         """Fill the measured_ec_after field."""
         el = self.wait_for_element_clickable(self.FORM_EC_AFTER)
         self.clear_and_fill(el, str(value))
+
+    def fill_ph_before(self, value: float) -> None:
+        """Fill the measured_ph_before field."""
+        el = self.wait_for_element_clickable(self.FORM_PH_BEFORE)
+        self.clear_and_fill(el, str(value))
+
+    def fill_ph_after(self, value: float) -> None:
+        """Fill the measured_ph_after field."""
+        el = self.wait_for_element_clickable(self.FORM_PH_AFTER)
+        self.clear_and_fill(el, str(value))
+
+    def select_plant_by_text(self, text: str) -> None:
+        """Open the plant_key select and pick the option whose label contains *text*."""
+        self.select_plant(text)
 
     def fill_notes(self, notes: str) -> None:
         """Fill the notes textarea."""

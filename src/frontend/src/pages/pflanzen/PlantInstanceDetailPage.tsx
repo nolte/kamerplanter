@@ -972,7 +972,7 @@ export default function PlantInstanceDetailPage() {
         <Tab label={t('nav.pflege')} />
         <Tab label={t('pages.activityPlan.tabTitle')} data-testid="activity-plan-tab" />
         <Tab label={t('pages.plantInstances.taskHistoryTab')} data-testid="tasks-tab" />
-        <Tab label={t('common.edit')} />
+        <Tab label={t('common.edit')} data-testid="edit-tab" />
         <Tab label={t('pages.plantPhotos.tabTitle')} data-testid="photos-tab" />
       </Tabs>
 
