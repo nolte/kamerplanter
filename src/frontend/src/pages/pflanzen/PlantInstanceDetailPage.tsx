@@ -62,7 +62,7 @@ import OverwinteringSection from './OverwinteringSection';
 import PestScanButton from '@/components/pests/PestScanButton';
 import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
-import CareProfileEditDialog from '@/pages/pflege/components/CareProfileEditDialog';
+import CareProfileForm from '@/pages/pflege/components/CareProfileForm';
 import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
@@ -194,7 +194,6 @@ export default function PlantInstanceDetailPage() {
 
   // Care profile state
   const [careProfile, setCareProfile] = useState<import('@/api/types').CareProfile | null>(null);
-  const [careProfileEditOpen, setCareProfileEditOpen] = useState(false);
 
   // Watering state
   const [lastWatering, setLastWatering] = useState<CareConfirmation | null>(null);
@@ -2003,63 +2002,25 @@ export default function PlantInstanceDetailPage() {
         <Box sx={{ maxWidth: 1280 }}>
           {careProfile ? (
             <>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              {/* Care-tab profile editing happens inline (#577): the form is always
+                  editable directly on the page instead of behind a modal. The
+                  care-style chip stays visible as the section header; the per-task
+                  toggles inside the form already communicate the on/off state that
+                  the former read-only summary duplicated. An intro line spells out
+                  that edits still require an explicit save — the inline placement
+                  has no modal boundary to signal that on its own. */}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.pflege.careTabIntro')}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Chip
                   label={t(`enums.careStyle.${careProfile.care_style}`)}
                   size="small"
                   variant="outlined"
                 />
-                <Button variant="outlined" size="small" onClick={() => setCareProfileEditOpen(true)}>
-                  {t('common.edit')}
-                </Button>
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {([
-                  { type: 'watering', enabled: careProfile.auto_create_watering_task, interval: careProfile.watering_interval_days, unit: t('common.days'), color: 'primary' as const },
-                  { type: 'fertilizing', enabled: careProfile.auto_create_fertilizing_task, interval: careProfile.fertilizing_interval_days, unit: t('common.days'), color: 'success' as const },
-                  { type: 'repotting', enabled: careProfile.auto_create_repotting_task, interval: careProfile.repotting_interval_months, unit: t('common.months_unit'), color: 'warning' as const },
-                  { type: 'pest_check', enabled: careProfile.auto_create_pest_check_task, interval: careProfile.pest_check_interval_days, unit: t('common.days'), color: 'error' as const },
-                  ...(careProfile.humidity_check_enabled ? [{ type: 'humidity_check' as const, enabled: true, interval: careProfile.humidity_check_interval_days, unit: t('common.days'), color: 'info' as const }] : []),
-                ] as const).map((row) => (
-                  <Box
-                    key={row.type}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 2,
-                      px: 2,
-                      py: 1,
-                      borderRadius: 1,
-                      border: 1,
-                      borderColor: row.enabled ? 'divider' : 'action.disabledBackground',
-                      opacity: row.enabled ? 1 : 0.5,
-                    }}
-                  >
-                    <Chip
-                      size="small"
-                      color={row.enabled ? row.color : 'default'}
-                      label={row.enabled ? t('common.on') : t('common.off')}
-                      sx={{ minWidth: 40 }}
-                    />
-                    <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
-                      {t(`enums.reminderType.${row.type}`)}
-                    </Typography>
-                    {row.enabled && (
-                      <Typography variant="body2" color="text.secondary">
-                        {t('pages.pflege.everyN', { n: row.interval, unit: row.unit })}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-              {careProfile.notes && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2, fontStyle: 'italic' }}>
-                  {careProfile.notes}
-                </Typography>
-              )}
-              <CareProfileEditDialog
-                open={careProfileEditOpen}
-                onClose={() => setCareProfileEditOpen(false)}
+              <CareProfileForm
+                embedded
                 profile={careProfile}
                 onUpdated={(updated) => setCareProfile(updated)}
               />
