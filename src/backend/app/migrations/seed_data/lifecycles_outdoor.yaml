@@ -2023,3 +2023,720 @@ lifecycles:
         stress_tolerance: "high"
         allows_harvest: false
         is_terminal: true
+
+  # ============================================================================
+  # WP-8 Master-Data-Sweep (#565) — dormancy consistency + herb/Spargel models.
+  # Species below previously declared dormancy_required without any phase model
+  # (10 outdoor stubs moved off plant_info_outdoor_1.yaml) or had no lifecycle
+  # model at all (5 perennial herbs). Each is bound to a cyclic template whose
+  # phase set includes a genuine dormancy/winter-rest phase.
+  # ============================================================================
+
+  # -- Anemone hupehensis (Herbst-Anemone) -- Staude
+  - scientific_name: "Anemone hupehensis"
+    cycle_type: "perennial"
+    typical_lifespan_years: 10
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "short_day"
+    critical_day_length_hours: 14
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 90
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 45
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Astilbe chinensis (Prachtspiere) -- Schatten-Staude
+  - scientific_name: "Astilbe chinensis"
+    cycle_type: "perennial"
+    typical_lifespan_years: 10
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 70
+    photoperiod_type: "long_day"
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 70
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 35
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Clematis spp. (Waldrebe) -- Kletterstaude, laubabwerfend
+  - scientific_name: "Clematis spp."
+    cycle_type: "perennial"
+    typical_lifespan_years: 25
+    dormancy_required: true
+    vernalization_required: true
+    photoperiod_type: "long_day"
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 45
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Delphinium elatum (Rittersporn) -- Staude
+  - scientific_name: "Delphinium elatum"
+    cycle_type: "perennial"
+    typical_lifespan_years: 8
+    dormancy_required: true
+    vernalization_required: true
+    photoperiod_type: "long_day"
+    critical_day_length_hours: 14
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 40
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Echinacea purpurea (Roter Sonnenhut) -- Staude
+  - scientific_name: "Echinacea purpurea"
+    cycle_type: "perennial"
+    typical_lifespan_years: 8
+    dormancy_required: true
+    vernalization_required: true
+    photoperiod_type: "long_day"
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_standard"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Vegetative Phase"
+        typical_duration_days: 70
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 50
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Cornus mas (Kornelkirsche) -- Früh blühender Fruchtstrauch
+  - scientific_name: "Cornus mas"
+    cycle_type: "perennial"
+    typical_lifespan_years: 80
+    dormancy_required: true
+    vernalization_required: true
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_fruit_early"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte (vor Laubaustrieb)"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "fruiting"
+        display_name: "Fruchtansatz"
+        typical_duration_days: 90
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "ripening"
+        display_name: "Fruchtreife"
+        typical_duration_days: 40
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Blattfall"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Asparagus officinalis (Spargel) -- Frühernte-Staude (WP-8 Spargel-Modell)
+  - scientific_name: "Asparagus officinalis"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 30
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_early_harvest"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Stangenaustrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "ripening"
+        display_name: "Stangenernte"
+        typical_duration_days: 49
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Laubwachstum (Kraut)"
+        typical_duration_days: 120
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Krauteinzug"
+        typical_duration_days: 35
+        sequence_order: 5
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Allium sativum (Knoblauch) -- Mehrjähriges Zwiebelgewächs, Ernte
+  - scientific_name: "Allium sativum"
+    cycle_type: "perennial"
+    typical_lifespan_years: 5
+    dormancy_required: true
+    vernalization_required: true
+    photoperiod_type: "long_day"
+    critical_day_length_hours: 13
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_harvest_veg"
+    phases:
+      - name: "dormancy"
+        display_name: "Zwiebelruhe"
+        typical_duration_days: 90
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Laubwachstum"
+        typical_duration_days: 120
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blütenschaft"
+        typical_duration_days: 21
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "ripening"
+        display_name: "Zwiebelreife (Ernte)"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Abtrocknen"
+        typical_duration_days: 21
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Mentha piperita (Pfefferminze) -- Mehrjähriges Kraut mit Ausläufern (WP-8 Kräuter)
+  - scientific_name: "Mentha piperita"
+    cycle_type: "perennial"
+    typical_lifespan_years: 8
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "perennial_harvest_veg"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe (Rhizom)"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "sprouting"
+        display_name: "Austrieb"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Blattwachstum"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 30
+        sequence_order: 4
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "ripening"
+        display_name: "Späternte"
+        typical_duration_days: 40
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "senescence"
+        display_name: "Einziehen"
+        typical_duration_days: 21
+        sequence_order: 6
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Allium cepa (Zwiebel) -- Zweijährig mit Vernalisation
+  - scientific_name: "Allium cepa"
+    cycle_type: "biennial"
+    typical_lifespan_years: 2
+    dormancy_required: true
+    vernalization_required: true
+    vernalization_min_days: 90
+    photoperiod_type: "long_day"
+    critical_day_length_hours: 13.75
+    phase_sequence: "biennial_vernalization"
+    phases:
+      - name: "germination"
+        display_name: "Keimung"
+        typical_duration_days: 10
+        sequence_order: 1
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "seedling"
+        display_name: "Jungpflanze"
+        typical_duration_days: 21
+        sequence_order: 2
+        stress_tolerance: "low"
+        allows_harvest: false
+        is_terminal: false
+      - name: "vegetative"
+        display_name: "Zwiebelbildung"
+        typical_duration_days: 90
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 90
+        sequence_order: 4
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+      - name: "flowering"
+        display_name: "Blüte (2. Jahr)"
+        typical_duration_days: 30
+        sequence_order: 5
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+      - name: "ripening"
+        display_name: "Samenreife"
+        typical_duration_days: 30
+        sequence_order: 6
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: true
+
+  # -- Buxus sempervirens (Buchsbaum) -- Immergrüner Halbstrauch mit Winterruhe
+  - scientific_name: "Buxus sempervirens"
+    cycle_type: "perennial"
+    typical_lifespan_years: 100
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "evergreen_subshrub_rest"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe (immergrün)"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Triebwachstum"
+        typical_duration_days: 180
+        sequence_order: 2
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte (unscheinbar)"
+        typical_duration_days: 21
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: false
+        is_terminal: true
+        is_recurring: true
+
+  # -- Lavandula angustifolia (Echter Lavendel) -- Immergrüner Halbstrauch (WP-8 Kräuter)
+  - scientific_name: "Lavandula angustifolia"
+    cycle_type: "perennial"
+    typical_lifespan_years: 12
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "evergreen_subshrub_rest"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe (immergrün)"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Triebwachstum"
+        typical_duration_days: 120
+        sequence_order: 2
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte (Ernte)"
+        typical_duration_days: 60
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: true
+        is_recurring: true
+
+  # -- Salvia rosmarinus (Rosmarin) -- Immergrüner Halbstrauch (WP-8 Kräuter)
+  - scientific_name: "Salvia rosmarinus"
+    cycle_type: "perennial"
+    typical_lifespan_years: 15
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "evergreen_subshrub_rest"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe (immergrün)"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Triebwachstum"
+        typical_duration_days: 180
+        sequence_order: 2
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: true
+        is_recurring: true
+
+  # -- Salvia officinalis (Echter Salbei) -- Halbimmergrüner Halbstrauch (WP-8 Kräuter)
+  - scientific_name: "Salvia officinalis"
+    cycle_type: "perennial"
+    typical_lifespan_years: 10
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "evergreen_subshrub_rest"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Triebwachstum"
+        typical_duration_days: 150
+        sequence_order: 2
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte"
+        typical_duration_days: 40
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: true
+        is_recurring: true
+
+  # -- Thymus vulgaris (Echter Thymian) -- Immergrüner Halbstrauch (WP-8 Kräuter)
+  - scientific_name: "Thymus vulgaris"
+    cycle_type: "perennial"
+    typical_lifespan_years: 8
+    dormancy_required: true
+    vernalization_required: false
+    photoperiod_type: "day_neutral"
+    cycle_restart_phase_order: 1
+    phase_sequence: "evergreen_subshrub_rest"
+    phases:
+      - name: "dormancy"
+        display_name: "Winterruhe (immergrün)"
+        typical_duration_days: 120
+        sequence_order: 1
+        stress_tolerance: "high"
+        allows_harvest: false
+        is_terminal: false
+        is_recurring: true
+      - name: "vegetative"
+        display_name: "Triebwachstum"
+        typical_duration_days: 150
+        sequence_order: 2
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: false
+        is_recurring: true
+      - name: "flowering"
+        display_name: "Blüte (Ernte)"
+        typical_duration_days: 45
+        sequence_order: 3
+        stress_tolerance: "medium"
+        allows_harvest: true
+        is_terminal: true
+        is_recurring: true

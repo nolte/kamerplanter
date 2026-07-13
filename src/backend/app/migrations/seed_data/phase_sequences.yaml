@@ -721,3 +721,42 @@ phase_sequences:
         is_terminal: true
         allows_harvest: false
         is_recurring: true
+
+  # -- 14. Evergreen Woody Subshrub with Winter Rest (WP-8, #565) --
+  # Hardy Mediterranean/temperate evergreen subshrubs (lavender, rosemary, sage,
+  # thyme, boxwood) that keep their foliage through winter but enter a genuine
+  # winter dormancy (growth arrest at low temperature) — distinct from the
+  # tropical ``evergreen_foliage_perennial`` (no dormancy) and from the deciduous
+  # ``perennial_standard`` (leaf-fall senescence). No senescence entry: evergreens
+  # do not drop their canopy. Restarts at ``dormancy`` (entry_order 0).
+  - name: evergreen_subshrub_rest
+    display_name: Evergreen Subshrub (Winter Rest)
+    display_name_de: Immergrüner Halbstrauch (Winterruhe)
+    description: Evergreen woody subshrubs with a true winter dormancy but no leaf-fall senescence (lavender, rosemary, sage, thyme, boxwood)
+    description_de: Immergrüne verholzende Halbsträucher mit echter Winterruhe, aber ohne Blattfall-Seneszenz (Lavendel, Rosmarin, Salbei, Thymian, Buchsbaum)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    dormancy_required: true
+    photoperiod_type: day_neutral
+    tags: [perennial, outdoor, evergreen, subshrub, rest]
+    is_system: true
+    entries:
+      - phase_name: dormancy
+        sequence_order: 0
+        override_duration_days: 120
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 1
+        override_duration_days: 150
+        is_terminal: false
+        allows_harvest: true
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 2
+        override_duration_days: 60
+        is_terminal: true
+        allows_harvest: true
+        is_recurring: true

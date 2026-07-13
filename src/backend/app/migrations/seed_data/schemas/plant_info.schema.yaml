@@ -519,6 +519,9 @@ $defs:
         enum: [low, medium, high]
       allows_harvest: { type: boolean }
       is_terminal: { type: boolean }
+      is_recurring:
+        type: boolean
+        description: "True if this phase repeats each cycle of a perennial (E4). One-off phases (establishment) are false."
       requirement_profile:
         type: object
         additionalProperties: true
