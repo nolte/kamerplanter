@@ -30,6 +30,10 @@ from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.watering_log_detail_page import WateringLogDetailPage
 from .pages.watering_log_list_page import WateringLogListPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('watering', 'nutrient')
+
 # German i18n option labels (enums.applicationMethod.drench, enums.waterSource.tap).
 DRENCH_LABEL = "Gießen"
 TAP_LABEL = "Leitungswasser"

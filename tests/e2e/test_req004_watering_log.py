@@ -29,6 +29,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from .pages.watering_log_detail_page import WateringLogDetailPage
 from .pages.watering_log_list_page import WateringLogListPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('watering',)
+
 
 # -- Fixtures -----------------------------------------------------------------
 

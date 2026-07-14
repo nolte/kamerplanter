@@ -38,6 +38,10 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from .pages.fertilizer_list_page import FertilizerListPage
 from .pages.fertilizer_detail_page import FertilizerDetailPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('nutrient',)
+
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
