@@ -9,7 +9,7 @@
 # See ADR-007 for rationale.
 
 # ── Shared base for downloads ────────────────────────────────────────
-FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS dl-base
+FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS dl-base
 # hadolint ignore=DL3013,SC2102
 RUN pip install --no-cache-dir --root-user-action=ignore huggingface-hub optimum[onnxruntime] sentencepiece
 
@@ -34,7 +34,7 @@ model.save_pretrained('/model')" && \
 
 # ── Runtime base (shared across all final targets) ───────────────────
 
-FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS runtime
+FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS runtime
 
 LABEL org.opencontainers.image.title="kamerplanter-reranker-service" \
       org.opencontainers.image.description="ONNX cross-encoder reranker (BGE reranker v2 m3) that re-scores RAG retrieval hits for Kamerplanter" \
