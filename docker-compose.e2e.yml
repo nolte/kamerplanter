@@ -153,7 +153,7 @@ services:
 
   # ── Chrome Node ──────────────────────────────────────────
   chrome:
-    image: selenium/node-chrome:149.0@sha256:fae4a6dbb32939885ad92f8b7e1ed994179309d297c9e8b1fd39ea55af34ff4a
+    image: selenium/node-chrome:150.0@sha256:4a4689d68468d33b6b5321e59c7d9d8301ebb21006829347ae373248ee984fb2
     depends_on:
       - selenium-hub
     environment:
