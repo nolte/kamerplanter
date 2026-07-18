@@ -2,7 +2,7 @@
 # logic, no separate Dockerfile.dev).
 #   prod (default, built by CI):   docker build .
 #   dev  (built by skaffold):      docker build --target dev .
-FROM python:3.14-slim@sha256:b877e50bd90de10af8d82c57a022fc2e0dc731c5320d762a27986facfc3355c1 AS base
+FROM python:3.14-slim@sha256:cea0e6040540fb2b965b6e7fb5ffa00871e632eef63719f0ea54bca189ce14a6 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-backend" \
       org.opencontainers.image.description="Kamerplanter core REST API and business logic (FastAPI) for plant lifecycle, phases, fertilizing, tasks and multi-tenant data" \
