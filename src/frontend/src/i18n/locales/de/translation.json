@@ -3877,7 +3877,13 @@
       "phaseName": "Phasenname",
       "moveUp": "Nach oben",
       "moveDown": "Nach unten",
-      "usedBySpecies": "Verwendet von Arten"
+      "usedBySpecies": "Verwendet von Arten",
+      "duplicate": "Duplizieren",
+      "duplicateSequence": "Ablauf duplizieren",
+      "duplicateTooltip": "Editierbare Kopie dieses Systemablaufs erstellen",
+      "duplicateHelper": "Erzeugt eine editierbare, eigene Kopie dieses Ablaufs mit allen Phasen. Der Originalablauf bleibt unverändert.",
+      "copySuffix": "Kopie",
+      "sequenceCloned": "Phasenablauf dupliziert."
     },
     "ipm": {
       "title": "Pflanzenschutz",
