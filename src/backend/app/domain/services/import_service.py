@@ -93,7 +93,12 @@ class ImportService:
                     scientific_name=data["scientific_name"],
                     **_species_fields_from_row(data, self._family_repo),
                 )
-                self._species_repo.create(species)
+                # REQ-048 Stufe 1 / SEC-003: route through the atomic dedup UPSERT
+                # instead of a plain insert. A plain create() only trips the exact-
+                # name unique index, so a normalized-duplicate (differing only by
+                # the hybrid marker × vs x, casing or whitespace) would be inserted
+                # as a second row. The UPSERT resolves onto the existing record.
+                self._species_repo.upsert_by_normalized_scientific_name(species)
 
             return create_species
 
@@ -145,7 +150,9 @@ class ImportService:
                     # Duplicate flagged at preview time but gone now — create instead.
                     from app.domain.models.species import Species
 
-                    self._species_repo.create(
+                    # SEC-003: still route the fallback create through the atomic
+                    # dedup UPSERT so a normalized-duplicate never slips in here.
+                    self._species_repo.upsert_by_normalized_scientific_name(
                         Species(
                             scientific_name=data["scientific_name"],
                             **_species_fields_from_row(data, self._family_repo),

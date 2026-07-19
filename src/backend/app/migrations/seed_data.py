@@ -332,7 +332,11 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
         family_name = family_species_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
-        created_sp = species_repo.create(sp)
+        # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
+        # UPSERT so a stored normalized-duplicate (× vs x, casing, whitespace)
+        # missed by the exact-name lookup resolves onto the existing record
+        # instead of minting a second row.
+        created_sp = species_repo.upsert_by_normalized_scientific_name(sp)
         species_key = created_sp.key or ""
         species_key_map[sp.scientific_name] = species_key
         logger.info("species_created", name=sp.scientific_name, key=species_key)

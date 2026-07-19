@@ -435,7 +435,12 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
             logger.info("species_updated", name=sp.scientific_name, source=yaml_filename)
             continue
 
-        created = species_repo.create(sp)
+        # REQ-048 Stufe 1 / SEC-003: the exact-name lookup above misses a stored
+        # normalized-duplicate that differs only by the hybrid marker (× vs x),
+        # casing or whitespace. Route the insert through the atomic dedup UPSERT
+        # so such a variant resolves onto the existing record (returned unchanged,
+        # preserving its server-managed origin) instead of minting a second row.
+        created = species_repo.upsert_by_normalized_scientific_name(sp)
         species_key_map[sp.scientific_name] = created.key or ""
         logger.info("species_created", name=sp.scientific_name, source=yaml_filename)
 

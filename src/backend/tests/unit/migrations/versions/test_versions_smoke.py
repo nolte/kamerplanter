@@ -76,6 +76,9 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
             # v0019 actuators (tenant_key, name) lookup index
             {"type": "persistent", "fields": ["tenant_key", "name"], "unique": False},
+            # v0025 (#624): the canonical species dedup index is bootstrapped UNIQUE
+            # on a fresh volume, so the promotion migration finds it present → no-op.
+            {"type": "persistent", "fields": ["scientific_name_normalized"], "unique": True},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

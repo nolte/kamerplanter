@@ -305,7 +305,11 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
 
         family_name = new_species_family_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
-        created = species_repo.create(sp)
+        # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
+        # UPSERT so a stored normalized-duplicate (× vs x, casing, whitespace)
+        # missed by the exact-name lookup resolves onto the existing record
+        # instead of minting a second row.
+        created = species_repo.upsert_by_normalized_scientific_name(sp)
         species_key_map[sp.scientific_name] = created.key or ""
         logger.info("species_created", name=sp.scientific_name)
 
