@@ -241,7 +241,13 @@
       "bulkDisable": "Nicht veröffentlichen",
       "bulkClear": "Auswahl aufheben",
       "bulkEnabled": "Ausgewählte Elemente werden veröffentlicht.",
-      "bulkDisabled": "Ausgewählte Elemente werden nicht mehr veröffentlicht."
+      "bulkDisabled": "Ausgewählte Elemente werden nicht mehr veröffentlicht.",
+      "filterAriaLabel": "Sichtbarkeit filtern",
+      "filterActiveOnly": "Nur aktive",
+      "filterShowAll": "Alle anzeigen",
+      "inactiveChip": "Inaktiv",
+      "removedOn": "Entfernt am {{date}}",
+      "noActiveEntities": "Keine aktiven Einträge vorhanden."
     }
   },
   "common": {

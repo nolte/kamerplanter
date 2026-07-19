@@ -241,7 +241,13 @@
       "bulkDisable": "Don't publish",
       "bulkClear": "Clear selection",
       "bulkEnabled": "Selected entities will be published.",
-      "bulkDisabled": "Selected entities will no longer be published."
+      "bulkDisabled": "Selected entities will no longer be published.",
+      "filterAriaLabel": "Filter visibility",
+      "filterActiveOnly": "Active only",
+      "filterShowAll": "Show all",
+      "inactiveChip": "Inactive",
+      "removedOn": "Removed on {{date}}",
+      "noActiveEntities": "No active entries available."
     }
   },
   "common": {
