@@ -54,6 +54,7 @@ def _build_jobs() -> list[SeedJob]:
     from app.migrations.migrate_lifecycle_to_phase_sequence import run_migrate_lifecycle_to_phase_sequence
     from app.migrations.seed_activities import run_seed_activities
     from app.migrations.seed_adventskalender import run_seed_adventskalender
+    from app.migrations.seed_cultivation_flexible import run_seed_cultivation_flexible
     from app.migrations.seed_data import run_seed
     from app.migrations.seed_fertilizers import run_seed_fertilizers
     from app.migrations.seed_fish_species import run_seed_fish_species
@@ -80,6 +81,10 @@ def _build_jobs() -> list[SeedJob]:
         SeedJob("adventskalender", lambda db: run_seed_adventskalender()),
         SeedJob("plant_info", lambda db: run_seed_plant_info()),
         SeedJob("plant_info_extended", lambda db: run_seed_plant_info_extended()),
+        # Post-species pass: applies the ADR-006 E6 cultivation_flexible flag once
+        # every species record exists (base + plant-info), so facultative species
+        # defined only in the plant-info files are covered too.
+        SeedJob("cultivation_flexible", lambda db: run_seed_cultivation_flexible()),
         SeedJob("substrates", lambda db: run_seed_substrates()),
         SeedJob("hardiness_zones", lambda db: run_seed_hardiness_zones()),
         SeedJob("fish_species", lambda db: run_seed_fish_species()),

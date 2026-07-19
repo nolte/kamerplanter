@@ -325,6 +325,7 @@ describe('identificationSlice — history thunk', () => {
         created_at: '2026-06-15T00:00:00Z',
         selected_result_rank: 1,
         results: [],
+        plant_instance_key: null,
       },
     ];
     mockedApi.listIdentificationHistory.mockResolvedValue(history);

@@ -2342,6 +2342,7 @@
       "cultivationCycle": "Kulturführung",
       "cultivationCycleHelper": "Wie du diese Pflanze führst – überschreibt den Standard der Art. Beispiel: eine Erdbeere einjährig ziehen oder eine Tomate überwintern. Leer lassen = wie bei der Art.",
       "cultivationCycleDefault": "Wie bei der Art",
+      "cultivationCycleFixed": "Die Kulturführung folgt bei dieser Art dem Standard – sie lässt sich nicht pro Pflanze zwischen einjährig und mehrjährig wählen.",
       "remove": "Pflanze entfernen",
       "validatePlanting": "Pflanzung validieren",
       "cultivarKey": "Sorte",

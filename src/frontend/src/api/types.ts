@@ -335,6 +335,12 @@ export interface Species {
   support_required: boolean;
   watering_guide: WateringGuide | null;
   default_nutrient_plan_key: string | null;
+  /**
+   * ADR-006 E6: the species can be grown facultatively as annual OR perennial.
+   * Gates whether the plant-create flow offers the per-instance cultivation-cycle
+   * choice. Optional for backward compatibility with pre-flag API responses.
+   */
+  cultivation_flexible?: boolean;
   representative_image_url: string | null;
   representative_image_attribution: string | null;
   representative_image_license: string | null;

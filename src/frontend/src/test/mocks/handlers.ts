@@ -34,6 +34,9 @@ const mockSpecies = [
     root_type: 'fibrous',
     allelopathy_score: 0.2,
     base_temp: 10,
+    // ADR-006 E6: tomato is a facultative species (annual or overwintered
+    // perennial), so the per-instance cultivation-cycle choice is offered.
+    cultivation_flexible: true,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: null,
   },

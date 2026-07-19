@@ -30,6 +30,15 @@ class TestSpeciesValidation:
         s = Species(scientific_name="Genus species", allelopathy_score=0.5)
         assert s.allelopathy_score == 0.5
 
+    def test_cultivation_flexible_defaults_false(self):
+        # ADR-006 E6 (#615): additive capability flag, non-breaking default.
+        s = Species(scientific_name="Genus species")
+        assert s.cultivation_flexible is False
+
+    def test_cultivation_flexible_can_be_set(self):
+        s = Species(scientific_name="Solanum lycopersicum", cultivation_flexible=True)
+        assert s.cultivation_flexible is True
+
     def test_allelopathy_too_high(self):
         with pytest.raises(ValidationError):
             Species(scientific_name="Genus species", allelopathy_score=1.5)
