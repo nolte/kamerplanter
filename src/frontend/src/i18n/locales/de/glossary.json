@@ -1,0 +1,210 @@
+{
+  "glossary": {
+    "aktor": {
+      "short": "Ein Gerät, das etwas physisch steuert (Licht, Lüfter, Pumpe, Ventil)",
+      "long": "Ein Aktor führt Befehle physisch aus — er schaltet eine Lampe, dreht einen Lüfter oder öffnet ein Bewässerungsventil. Anders als ein Sensor (der nur misst) verändert der Aktor aktiv die Umgebung. Aktoren werden über Home Assistant, MQTT oder manuell gesteuert.",
+      "beginnerTip": "Denk an einen Aktor wie einen fernsteuerbaren Schalter: Licht, Abluft, Heizung, Pumpe — alles, was du an- und ausschalten kannst.",
+      "category": "allgemein"
+    },
+    "ec": {
+      "short": "Leitfähigkeit — wie viel Dünger im Wasser ist",
+      "long": "EC misst die Nährstoffkonzentration im Gießwasser. Gesamt-EC = Leitungswasser-EC + Dünger-EC. Deutsches Leitungswasser hat ca. 0,3–0,8 mS/cm. Für Topfpflanzen Gesamt-EC 1,0–2,0 mS/cm anstreben. Hydroponik präziser: Netto-EC (nur Dünger) nach Pflanzenart einstellen.",
+      "beginnerTip": "Ohne EC-Messgerät: Halte dich an die Dosierungsempfehlung auf der Dünger-Flasche. Lieber etwas weniger als zu viel.",
+      "unit": "mS/cm",
+      "typicalRange": "0,5–3,5 mS/cm"
+    },
+    "alkalinity": {
+      "short": "Karbonathärte des Wassers — puffert gegen pH-Änderungen",
+      "long": "Die Alkalinität (in ppm CaCO₃) beschreibt, wie stark ein Wasser einer pH-Änderung widersteht. Hartes Wasser mit hoher Alkalinität braucht mehr Säure, um den pH zu senken — das verbraucht EC-Budget, das sonst für Dünger zur Verfügung stünde. Weiches Wasser (niedrige Alkalinität) braucht kaum Säure.",
+      "beginnerTip": "Ohne Wasseranalyse: Normales Leitungswasser liegt meist bei 50–150 ppm. Ein Osmose-Filter senkt die Alkalinität auf nahe 0.",
+      "unit": "ppm CaCO₃",
+      "typicalRange": "0–300 ppm (leitungswasserabhängig)"
+    },
+    "ph": {
+      "short": "Säuregrad des Bodens oder Gießwassers",
+      "long": "Der pH-Wert gibt an, wie sauer oder basisch ein Medium ist. Skala 0–14: unter 7 = sauer, 7 = neutral, über 7 = basisch. Die meisten Pflanzen mögen leicht sauren bis neutralen Boden (pH 5,5–7,0). Heidelbeeren brauchen sauren Boden (pH 4,0–5,0).",
+      "beginnerTip": "Normale Blumenerde hat meist den richtigen pH-Wert. Erst bei Problemen (gelbe Blätter trotz Düngung) den pH prüfen.",
+      "unit": "pH",
+      "typicalRange": "5,5–7,0"
+    },
+    "vpd": {
+      "short": "Dampfdruckdefizit — wie „durstig\" die Luft ist",
+      "long": "Das VPD misst, wie stark die Luft Feuchtigkeit aufnehmen kann. Hoher VPD = trockene Luft = Pflanze verdunstet mehr. Optimale Werte sind artabhängig: Tropische Pflanzen mögen 0,4–0,8 kPa, Nutzpflanzen im Wachstum 0,8–1,2 kPa, Kakteen tolerieren über 1,5 kPa.",
+      "beginnerTip": "Im Zimmer normalerweise kein Problem. Nur bei geschlossenen Growzelten relevant.",
+      "unit": "kPa",
+      "typicalRange": "0,4–1,6 kPa"
+    },
+    "ppfd": {
+      "short": "Lichtmenge für Pflanzen — wie hell es wirklich ist",
+      "long": "PPFD misst die Lichtintensität, die Pflanzen tatsächlich nutzen können. Anders als Lux (für menschliche Augen) erfasst PPFD nur das pflanzenrelevante Lichtspektrum.",
+      "beginnerTip": "Faustregel: Südfenster mit Direktsonne im Sommer ≈ 200–400. Ost-/Westfenster: 100–200. Nordfenster: unter 50.",
+      "unit": "µmol/m²/s",
+      "typicalRange": "100–1500 µmol/m²/s"
+    },
+    "npk": {
+      "short": "Stickstoff-Phosphor-Kalium — die drei Hauptnährstoffe",
+      "long": "Die drei Zahlen auf jeder Düngerflasche: N (Stickstoff, für Blattwachstum), P (Phosphor, für Wurzeln und Blüten), K (Kalium, für Fruchtbildung und Widerstandskraft).",
+      "beginnerTip": "Für Anfänger reicht ein Universaldünger — die NPK-Werte stehen auf der Flasche."
+    },
+    "calmag": {
+      "short": "Calcium-Magnesium-Ergänzung zum Basisdünger",
+      "long": "Weiches Wasser enthält wenig Calcium und Magnesium. CalMag gleicht das aus und wird IMMER VOR dem Basisdünger ins Wasser gegeben (Reihenfolge wichtig!).",
+      "beginnerTip": "Nur bei Hydroponik oder sehr weichem Wasser nötig. Die meisten Leitungswässer haben genug."
+    },
+    "gdd": {
+      "short": "Wachstumsgradtage — akkumulierte Wärme seit dem Pflanzen",
+      "long": "GDD misst, wie viel verwertbare Wärme eine Pflanze seit dem Start erhalten hat. Jeder Tag über einer Basistemperatur (z.B. 10°C) trägt Gradtage bei. Tomaten brauchen ca. 1000–1500 GDD bis zur Ernte.",
+      "beginnerTip": "Musst du nicht selbst berechnen — das System trackt das automatisch.",
+      "unit": "GDD"
+    },
+    "dli": {
+      "short": "Tageslichtmenge — wie viel Licht pro Tag",
+      "long": "DLI fasst die gesamte Lichtmenge eines Tages zusammen. Wichtig für die Lichtplanung: Kräuter brauchen 12–20, Tomaten 20–40 mol/m²/d.",
+      "beginnerTip": "Sonnige Fensterbank im Sommer ≈ 10–15 mol/m²/d. Im Winter nur 3–5.",
+      "unit": "mol/m²/d",
+      "typicalRange": "5–40 mol/m²/d"
+    },
+    "hardiness_zones": {
+      "short": "Winterhärtezonen — wie viel Frost hält die Pflanze aus?",
+      "long": "USDA-System mit Zonen 1–13. Deutschland liegt in Zone 6–8. Eine Pflanze in Zone 7 übersteht Temperaturen bis ca. -15°C.",
+      "beginnerTip": "Nur relevant für Outdoor-Pflanzen und Überwinterung. Für reine Zimmerpflanzen unwichtig."
+    },
+    "dinov2": {
+      "short": "KI-Bilderkennungsmodell von Meta — erkennt Pflanzen anhand visueller Merkmale",
+      "long": "DINOv2 ist ein selbstlernend trainiertes KI-Modell von Meta, das Bilder in numerische Merkmalsvektoren (Embeddings) umwandelt. Kamerplanter vergleicht Fotos mit gespeicherten Referenzmerkmalen aller Pflanzenarten, um Pflanzen zu erkennen — ohne Cloud-Anbindung.",
+      "beginnerTip": "Sie müssen nichts konfigurieren — DINOv2 läuft lokal auf Ihrem Server und sendet keine Fotos nach außen.",
+      "category": "allgemein"
+    },
+    "confidence_score": {
+      "short": "Trefferwahrscheinlichkeit — wie sicher ist die Erkennung?",
+      "long": "Die Konfidenz gibt an, wie ähnlich das Foto den gespeicherten Referenzbildern einer Art ist. 90% bedeutet: Das System ist zu 90% sicher. Ergebnisse unter dem eingestellten Mindestwert werden gar nicht angezeigt; Ergebnisse über dem Auto-Übernahme-Wert werden automatisch übernommen.",
+      "beginnerTip": "Wenn kein Ergebnis angezeigt wird, ist das Foto möglicherweise unscharf oder zeigt nicht die richtigen Pflanzenteile.",
+      "unit": "% (Prozent)",
+      "typicalRange": "10–100 %",
+      "category": "allgemein"
+    },
+    "embedding_adapter": {
+      "short": "Erkennungs-Verfahren — welcher Algorithmus Ihr Pflanzenfoto verarbeitet",
+      "long": "Ein Adapter ist die Software-Schicht, die ein Pflanzenfoto in vergleichbare Zahlenwerte (Merkmale) umrechnet. 'local_embedding' bedeutet: Das passiert auf Ihrem eigenen Server mit dem DINOv2-Modell, ohne externe Dienste.",
+      "beginnerTip": "Für die meisten Installationen ist 'local_embedding' die richtige Wahl.",
+      "category": "allgemein"
+    },
+    "ipm": {
+      "short": "Integrierter Pflanzenschutz — Vorbeugung vor Chemie",
+      "long": "Dreistufiger Ansatz: 1) Vorbeugen (gesunde Pflanzen, Hygiene), 2) Beobachten (regelmässig kontrollieren), 3) Eingreifen (Nützlinge vor Spritzmitteln). Chemische Mittel sind immer der letzte Schritt.",
+      "beginnerTip": "Gesunde Pflanzen werden seltener krank. Regelmässig nach Schädlingen schauen reicht für den Anfang."
+    },
+    "karenzzeit": {
+      "short": "Sicherheitsabstand zwischen letzter Behandlung und Ernte",
+      "long": "Nach dem Einsatz chemischer Pflanzenschutzmittel muss eine Mindestzeit vergehen, bevor die Ernte verzehrt werden darf. Die Dauer steht auf dem Produktetikett und ist gesetzlich vorgeschrieben.",
+      "beginnerTip": "Nie ernten, wenn eine Karenzzeit läuft. Das System warnt dich automatisch."
+    },
+    "nuetzlinge": {
+      "short": "Natürliche Fressfeinde von Schädlingen",
+      "long": "Nützlinge (z.B. Marienkäfer, Florfliegen, Schlupfwespen, Raubmilben) fressen Schädlinge oder parasitieren sie. Ihr gezielter Einsatz ist biologischer Pflanzenschutz und schont Mensch und Umwelt.",
+      "beginnerTip": "Marienkäfer gegen Blattläuse ist das bekannteste Beispiel. Im Gewächshaus können Nützlinge käuflich erworben und ausgesetzt werden."
+    },
+    "ammonia_tan": {
+      "short": "Ammoniak/Ammonium (TAN) — giftiger Fischabfall, muss niedrig bleiben",
+      "long": "TAN (Total Ammonia Nitrogen) ist die Summe aus giftigem, freiem Ammoniak (NH₃) und ungiftigem Ammonium (NH₄⁺). Fische scheiden es über die Kiemen aus, die Biofilterbakterien wandeln es zu Nitrit um. Hohe TAN-Werte sind lebensgefährlich für Fische — besonders bei hohem pH und hoher Temperatur, weil dann mehr davon als giftiges freies Ammoniak vorliegt.",
+      "beginnerTip": "Besonders in den ersten Wochen (Cycling-Phase) und nach starker Fütterung regelmäßig testen. Bei erhöhten Werten sofort teilweise Wasser wechseln und weniger füttern.",
+      "unit": "mg/L",
+      "typicalRange": "0–0,5 mg/L (0 nach dem Einfahren)"
+    },
+    "nitrite": {
+      "short": "Nitrit (NO₂⁻) — giftiges Zwischenprodukt des Stickstoffkreislaufs",
+      "long": "Nitrit entsteht, wenn Biofilterbakterien Ammoniak abbauen. Es ist für Fische giftig, weil es die Sauerstoffaufnahme im Blut blockiert. Eine zweite Bakteriengruppe wandelt Nitrit weiter zu ungiftigerem Nitrat um — bis diese Gruppe aktiv ist, treten während des Einfahrens typische Nitrit-Spitzen auf.",
+      "beginnerTip": "Eine Nitrit-Spitze in Woche 3–5 des Cyclings ist normal. Bei erhöhten Werten Fütterung reduzieren und teilweisen Wasserwechsel durchführen.",
+      "unit": "mg/L",
+      "typicalRange": "0–0,1 mg/L (0 nach dem Einfahren)"
+    },
+    "nitrate": {
+      "short": "Nitrat (NO₃⁻) — Endprodukt des Stickstoffkreislaufs, Pflanzendünger",
+      "long": "Nitrat ist das ungiftige Endprodukt des Stickstoffkreislaufs und für die Pflanzen im System der wichtigste Stickstoff-Nährstoff. Steigende Nitratwerte bei gleichzeitig niedrigem Ammoniak und Nitrit zeigen, dass der Biofilter zuverlässig arbeitet.",
+      "beginnerTip": "Steigt Nitrat kontinuierlich, ohne dass Ammoniak oder Nitrit auffällig sind, ist das ein gutes Zeichen — der Kreislauf funktioniert.",
+      "unit": "mg/L",
+      "typicalRange": "5–150 mg/L (systemabhängig)"
+    },
+    "dissolved_oxygen": {
+      "short": "Gelöstsauerstoff — Sauerstoffgehalt im Wasser, den Fische atmen",
+      "long": "Fische und die nitrifizierenden Biofilterbakterien benötigen gelösten Sauerstoff im Wasser. Warmes Wasser hält weniger Sauerstoff als kaltes, deshalb ist Belüftung besonders bei hoher Temperatur und hoher Fischdichte wichtig.",
+      "beginnerTip": "Faustregel: Über 5 mg/L ist meist unbedenklich. Ein sichtbar sprudelnder Luftausströmer sorgt in der Regel für ausreichend Sauerstoff.",
+      "unit": "mg/L",
+      "typicalRange": "5–9 mg/L"
+    },
+    "biofilter_cycling": {
+      "short": "Einfahren des Biofilters — Aufbau der nützlichen Bakterienkultur",
+      "long": "Bevor Fische in voller Besatzdichte einziehen können, muss sich im Biofilter eine Bakterienkultur aufbauen, die Ammoniak zu Nitrit und weiter zu Nitrat umwandelt. Dieser Prozess dauert 4–8 Wochen. Als eingefahren gilt der Filter nach 7 aufeinanderfolgenden Tagen mit TAN unter 0,25 mg/L und Nitrit unter 0,1 mg/L.",
+      "beginnerTip": "Während des Einfahrens nur wenige, robuste Fische einsetzen oder fischlos mit reinem Ammoniak starten. Wasserwerte in dieser Phase engmaschig kontrollieren.",
+      "typicalRange": "4–8 Wochen"
+    },
+    "curing": {
+      "short": "Aushärtung nach der Trocknung — lässt Aroma und Wirkstoffe nachreifen",
+      "long": "Beim Curing lagert die getrocknete Ernte luftdicht (meist in Gläsern). Restfeuchte verteilt sich gleichmäßig zwischen Stängel und Blüte, Chlorophyll baut weiter ab, Aroma und Wirkstoffe reifen nach. Die Behälter werden anfangs täglich kurz geöffnet, damit überschüssige Feuchtigkeit entweicht ('Burping').",
+      "beginnerTip": "Ungeduld verschlechtert das Ergebnis: Lieber ein paar Tage länger aushärten lassen als die Charge zu früh öffnen.",
+      "typicalRange": "2–4 Wochen"
+    },
+    "water_activity": {
+      "short": "Wasseraktivität (a_w) — freies Wasser, das Schimmel nutzen kann",
+      "long": "Die Wasseraktivität misst, wie viel Wasser in der Charge für Mikroorganismen tatsächlich verfügbar ist (Skala 0–1) — anders als der reine Feuchtigkeitsgehalt in Prozent. Ab a_w > 0,65 steigt das Schimmelrisiko deutlich, auch wenn die Charge sich bereits trocken anfühlt.",
+      "beginnerTip": "Ohne Messgerät hilft der Knacktest als Näherung: Bricht der Stängel sauber statt sich zu biegen, ist die Charge meist trocken genug.",
+      "unit": "a_w (0–1)",
+      "typicalRange": "0,55–0,65 (sicher für die Lagerung)"
+    },
+    "inventree": {
+      "short": "Externes Lagerverwaltungssystem für deine realen Bestände",
+      "long": "InvenTree ist eine externe, eigenständige Inventarverwaltung. Ein „Part“ ist dort ein einzelner Artikel (z. B. eine Ersatzpumpe). Verknüpfst du ein Betriebsmittel mit einer Part-ID, gleicht Kamerplanter Bestand und Verbrauch automatisch mit InvenTree ab (Stock-Sync) — Mengen musst du dann nicht mehr manuell nachpflegen.",
+      "beginnerTip": "Die Verknüpfung ist optional: Auch ohne InvenTree-Verbindung kannst du Betriebsmittel ganz normal anlegen und verwalten.",
+      "category": "allgemein"
+    },
+    "vermehrung": {
+      "short": "Aus einer Pflanze neue Pflanzen gewinnen",
+      "long": "Vermehrung (Propagation) bezeichnet alle Methoden, um neue Pflanzen zu erzeugen: Aussaat (Samen), Steckling/Klon (Pflanzenteil bewurzeln), Teilung (Wurzelballen trennen), Absenker (Trieb im Boden bewurzeln lassen), Kindel (natürliche Ableger) oder Veredelung (zwei Pflanzen verbinden).",
+      "beginnerTip": "Für den Einstieg ist der Steckling am einfachsten: ein Trieb abschneiden, in Wasser oder Erde bewurzeln lassen.",
+      "category": "wachstum"
+    },
+    "steckling": {
+      "short": "Ein abgeschnittener Pflanzenteil, der neue Wurzeln bildet",
+      "long": "Ein Steckling (Cutting) ist ein Trieb-, Blatt- oder Wurzelstück, das von der Mutterpflanze getrennt und zum Bewurzeln gebracht wird. Die daraus entstehende Pflanze ist genetisch identisch mit der Mutterpflanze (ein Klon).",
+      "beginnerTip": "Trieb schräg anschneiden, unterste Blätter entfernen, in Wasser oder feuchtes Substrat stecken — nach 1–3 Wochen zeigen sich meist neue Wurzeln.",
+      "category": "wachstum"
+    },
+    "veredelung": {
+      "short": "Zwei Pflanzen zu einer verbinden — Edelreis auf Unterlage",
+      "long": "Bei der Veredelung (Grafting) wird ein Trieb einer Pflanze (Edelreis/Scion) auf das Wurzelsystem einer anderen Pflanze (Unterlage/Rootstock) aufgesetzt. Das funktioniert nur zwischen nah verwandten Pflanzen — am zuverlässigsten innerhalb derselben Gattung, oft auch noch innerhalb derselben Familie.",
+      "beginnerTip": "Klassisches Beispiel: robuste Tomaten-Unterlage + ertragreiches Edelreis für kräftigeres Wachstum und mehr Ertrag.",
+      "category": "wachstum"
+    },
+    "abstammung": {
+      "short": "Die genetische Herkunft einer Pflanze über Generationen",
+      "long": "Die Abstammung (Lineage) zeigt, aus welcher Mutterpflanze eine Pflanze entstanden ist (Vorfahren) und welche Pflanzen wiederum aus ihr entstanden sind (Nachkommen). Das System verfolgt das über Vermehrungsevents wie Stecklinge, Klone, Aussaaten oder Veredelungen.",
+      "beginnerTip": "Nützlich, um z. B. nachzuvollziehen, von welcher Mutterpflanze ein bestimmter Steckling stammt.",
+      "category": "taxonomie"
+    },
+    "gattung_familie": {
+      "short": "Verwandtschaftsgrad zweier Pflanzenarten in der Taxonomie",
+      "long": "Die biologische Systematik ordnet Arten in Gattungen (z. B. Solanum) und Familien (z. B. Nachtschattengewächse) ein. Je näher zwei Arten verwandt sind, desto wahrscheinlicher funktioniert eine Veredelung zwischen ihnen: gleiche Gattung ist meist kompatibel, gleiche Familie oft möglich, unterschiedliche Familien meist nicht kompatibel.",
+      "beginnerTip": "Tomate und Kartoffel gehören zur gleichen Gattung (Solanum) — eine Veredelung zwischen ihnen ist möglich (TomTato).",
+      "category": "taxonomie"
+    },
+    "dormancy": {
+      "short": "Winterruhe — eine natürliche Ruhephase, in der die Pflanze kaum wächst",
+      "long": "In der Dormanz fährt die Pflanze ihren Stoffwechsel herunter und stellt das Wachstum weitgehend ein — meist ausgelöst durch kürzere Tage und sinkende Temperaturen. Sie überdauert so den Winter. In dieser Zeit deutlich weniger gießen und nicht düngen; ein kühler, aber frostfreier Standort ist ideal.",
+      "beginnerTip": "Normal bei vielen mehrjährigen Pflanzen: Sie sehen im Winter „schlafend“ aus, das ist kein Absterben. Einfach kühler stellen und nur sparsam gießen.",
+      "category": "lebenszyklus"
+    },
+    "vernalization": {
+      "short": "Kältereiz, den manche Pflanzen zum Blühen brauchen",
+      "long": "Vernalisation ist eine Phase mit niedrigen Temperaturen (oft nahe 0–10 °C über mehrere Wochen), die manche Arten durchlaufen müssen, bevor sie Blüten anlegen. Ohne diesen Kältereiz bleibt die Blüte aus. Typisch für Zweijährige und viele Kohl- und Zwiebelgewächse.",
+      "beginnerTip": "Deshalb blühen manche Pflanzen erst im zweiten Jahr — sie brauchen erst einen Winter, bevor sie blühen.",
+      "category": "lebenszyklus"
+    },
+    "photoperiod": {
+      "short": "Tageslänge — wie viele Stunden Licht die Pflanze pro Tag bekommt",
+      "long": "Die Photoperiode ist die tägliche Lichtdauer. Viele Pflanzen steuern ihre Blüte darüber: Kurztagspflanzen blühen, wenn die Tage kürzer als eine kritische Länge werden, Langtagspflanzen bei längeren Tagen. Tagneutrale Pflanzen blühen unabhängig von der Tageslänge.",
+      "beginnerTip": "Draußen regelt das die Jahreszeit von selbst. Wichtig wird es nur bei Kunstlicht, wo du die Beleuchtungsdauer einstellst.",
+      "unit": "h/Tag",
+      "category": "lebenszyklus"
+    }
+  }
+}

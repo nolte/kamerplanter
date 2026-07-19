@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import de from '@/i18n/locales/de/translation.json';
-import en from '@/i18n/locales/en/translation.json';
+import { deFull as de, enFull as en } from '../i18nTestResources';
 
 /**
  * Guards DE/EN parity for the REQ-013 §2 succession-plan UI strings. Every key
