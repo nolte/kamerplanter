@@ -51,6 +51,51 @@ ARANGODB_PASSWORD=dein-sicheres-passwort        # (2)!
 
 Die übrigen Einstellungen kannst du zunächst auf den Standardwerten belassen.
 
+### Drei zusätzliche Pflicht-Secrets (sonst startet das Backend nicht)
+
+!!! danger "Ohne diese drei Werte bricht der Backend-Start ab"
+    `.env.example` setzt `DEBUG=false`. Bei `DEBUG=false` prüft das Backend beim Start drei weitere Geheimnisse — `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` — und bricht mit einer Fehlermeldung ab, wenn einer davon fehlt (Fail-Fast-Gate, unabhängig vom Betriebsmodus). Die mitgelieferten `docker-compose.yml`/`docker-compose.release.yml` reichen diese drei Variablen **nicht automatisch** an den Backend-Container durch — du musst sie selbst ergänzen.
+
+Erzeuge die drei Werte:
+
+```bash
+# JWT_SECRET_KEY und ERASURE_TOMBSTONE_SALT (mind. 32 Zeichen)
+openssl rand -hex 32
+
+# FERNET_KEY (muss ein gültiger Fernet-Schlüssel sein)
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Trage die drei Werte in deine `.env` ein:
+
+```ini title=".env"
+JWT_SECRET_KEY=<Ausgabe von openssl rand -hex 32>
+FERNET_KEY=<Ausgabe des Fernet-Kommandos>
+ERASURE_TOMBSTONE_SALT=<zweite Ausgabe von openssl rand -hex 32>
+```
+
+Lege zusätzlich eine `docker-compose.override.yml` an, die diese Werte tatsächlich an die Container durchreicht (Docker Compose lädt sie automatisch mit, sobald sie im selben Verzeichnis liegt):
+
+```yaml title="docker-compose.override.yml"
+services:
+  backend:
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+  celery-worker:
+    environment:
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+  celery-beat:
+    environment:
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+```
+
+!!! note "Alternative: DEBUG=true nur für kurze lokale Tests"
+    Setzt du `DEBUG=true` in der `.env`, überspringt das Backend diese Prüfung komplett und startet auch ohne die drei Secrets. Das ist für einen kurzen, rein lokalen Test auf deinem eigenen Rechner vertretbar, aber **niemals** für einen Server, der über das Netzwerk erreichbar ist — `DEBUG=true` schaltet zusätzlich ausführliche Logs frei. Details zu allen Pflicht-Secrets je Funktion: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
 ---
 
 ## 3. Kamerplanter starten
