@@ -16,6 +16,9 @@ import Paper from '@mui/material/Paper';
 import Switch from '@mui/material/Switch';
 import Checkbox from '@mui/material/Checkbox';
 import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import TextField from '@mui/material/TextField';
@@ -28,7 +31,9 @@ import { useNotification } from '@/hooks/useNotification';
 import { listPlantInstances } from '@/api/endpoints/plantInstances';
 import { listTanks } from '@/api/endpoints/tanks';
 import { getPlantLabel } from '@/utils/plantDisplay';
+import { formatDate } from '@/utils/formatting';
 import { listSites, listLocations } from '@/api/endpoints/sites';
+import type { TerminationType } from '@/api/types';
 import {
   bulkSetHaPublishStatus,
   listHaPublishSettings,
@@ -39,24 +44,42 @@ import {
 interface EntityRow {
   key: string;
   label: string;
+  /**
+   * Whether the entity is still active. Plant instances become inactive once
+   * they are removed (``removed_on``) or their lifecycle is terminated
+   * (``termination_type``). Tanks and locations have no such lifecycle, so they
+   * are always active. Inactive rows are hidden by default (#625).
+   */
+  isActive: boolean;
+  /** ISO date the plant was removed, if any — drives the "removed on" hint. */
+  removedOn?: string | null;
+  /** How the plant's lifecycle ended, if any — drives the status chip label. */
+  terminationType?: TerminationType | null;
 }
 
 const PAGE_LIMIT = 200;
 
 async function loadPlants(): Promise<EntityRow[]> {
   const plants = await listPlantInstances(0, PAGE_LIMIT);
-  return plants.map((p) => ({ key: p.key, label: getPlantLabel(p) }));
+  return plants.map((p) => ({
+    key: p.key,
+    label: getPlantLabel(p),
+    // A plant is active while it is neither removed nor lifecycle-terminated.
+    isActive: p.removed_on == null && p.termination_type == null,
+    removedOn: p.removed_on,
+    terminationType: p.termination_type,
+  }));
 }
 
 async function loadTanks(): Promise<EntityRow[]> {
   const tanks = await listTanks(0, PAGE_LIMIT);
-  return tanks.map((t) => ({ key: t.key, label: t.name }));
+  return tanks.map((t) => ({ key: t.key, label: t.name, isActive: true }));
 }
 
 async function loadLocations(): Promise<EntityRow[]> {
   const sites = await listSites(0, PAGE_LIMIT);
   const perSite = await Promise.all(sites.map((s) => listLocations(s.key)));
-  return perSite.flat().map((l) => ({ key: l.key, label: l.name }));
+  return perSite.flat().map((l) => ({ key: l.key, label: l.name, isActive: true }));
 }
 
 const LOADERS: Record<HaPublishEntityType, () => Promise<EntityRow[]>> = {
@@ -92,6 +115,8 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
   const [error, setError] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Default view shows active entities only; inactive ones are opt-in (#625).
+  const [showInactive, setShowInactive] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
 
@@ -107,6 +132,7 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
     setLoading(true);
     setError(false);
     setSearch('');
+    setShowInactive(false);
     setSelected(new Set());
     Promise.all([LOADERS[entityType](), listHaPublishSettings(entityType)])
       .then(([entities, settings]) => {
@@ -144,15 +170,23 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
     [enabled, entityType, notify, t],
   );
 
-  const filteredRows = useMemo(() => {
-    if (!search.trim()) return rows;
-    const q = search.trim().toLowerCase();
-    return rows.filter((r) => r.label.toLowerCase().includes(q));
-  }, [rows, search]);
+  // Are there any inactive entities at all? Drives whether the filter is shown.
+  const hasInactive = useMemo(() => rows.some((r) => !r.isActive), [rows]);
 
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      // Hide inactive entities unless the user opted to show them.
+      if (!showInactive && !r.isActive) return false;
+      if (q && !r.label.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [rows, search, showInactive]);
+
+  // Counter and select-all operate over the currently visible (filtered) set.
   const enabledCount = useMemo(
-    () => rows.filter((r) => enabled[r.key]).length,
-    [rows, enabled],
+    () => filteredRows.filter((r) => enabled[r.key]).length,
+    [filteredRows, enabled],
   );
 
   const toggleSelected = useCallback((entityKey: string) => {
@@ -256,8 +290,31 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          {t('haPublish.manage.publishedCount', { count: enabledCount, total: rows.length })}
+          {t('haPublish.manage.publishedCount', {
+            count: enabledCount,
+            total: filteredRows.length,
+          })}
         </Typography>
+        {hasInactive && (
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={showInactive ? 'all' : 'active'}
+            onChange={(_e, value) => {
+              // Ignore deselection (null) so one option always stays active.
+              if (value !== null) setShowInactive(value === 'all');
+            }}
+            aria-label={t('haPublish.manage.filterAriaLabel')}
+            data-testid="ha-publish-active-filter"
+          >
+            <ToggleButton value="active" data-testid="ha-publish-filter-active">
+              {t('haPublish.manage.filterActiveOnly')}
+            </ToggleButton>
+            <ToggleButton value="all" data-testid="ha-publish-filter-all">
+              {t('haPublish.manage.filterShowAll')}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        )}
         <TextField
           size="small"
           value={search}
@@ -348,11 +405,20 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
 
       {/* No-results state after filtering */}
       {filteredRows.length === 0 ? (
-        <EmptyState
-          message={t('haPublish.manage.noSearchResults')}
-          actionLabel={t('haPublish.manage.clearSearch')}
-          onAction={() => setSearch('')}
-        />
+        search.trim() ? (
+          <EmptyState
+            message={t('haPublish.manage.noSearchResults')}
+            actionLabel={t('haPublish.manage.clearSearch')}
+            onAction={() => setSearch('')}
+          />
+        ) : (
+          /* No visible rows without a search term means everything is inactive. */
+          <EmptyState
+            message={t('haPublish.manage.noActiveEntities')}
+            actionLabel={t('haPublish.manage.filterShowAll')}
+            onAction={() => setShowInactive(true)}
+          />
+        )
       ) : (
         <TableContainer
           component={Paper}
@@ -418,27 +484,61 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
                       py: { xs: 1.5, sm: 0.75 },
                     }}
                   >
-                    <MuiLink
-                      component={RouterLink}
-                      to={DETAIL_PATH[entityType](row.key)}
-                      /*
-                       * `underline="always"` provides a permanent visual cue that the name
-                       * is a navigation link — more discoverable than "hover" only, especially
-                       * on touch devices where hover state never fires (UI-NFR-001 R-011,
-                       * UI-NFR-002 R-003/R-009).
-                       */
-                      underline="always"
-                      color="primary"
-                      /*
-                       * `title` adds a browser tooltip on hover (desktop) and supplies an
-                       * additional Screen Reader hint without overriding the accessible name
-                       * (which must stay equal to the visible label for the existing test).
-                       */
-                      title={t('haPublish.manage.linkTitle')}
-                      data-testid={`ha-publish-link-${row.key}`}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        /* De-emphasize inactive rows without dropping below contrast (#625). */
+                        opacity: row.isActive ? 1 : 0.7,
+                      }}
                     >
-                      {row.label}
-                    </MuiLink>
+                      <MuiLink
+                        component={RouterLink}
+                        to={DETAIL_PATH[entityType](row.key)}
+                        /*
+                         * `underline="always"` provides a permanent visual cue that the name
+                         * is a navigation link — more discoverable than "hover" only, especially
+                         * on touch devices where hover state never fires (UI-NFR-001 R-011,
+                         * UI-NFR-002 R-003/R-009).
+                         */
+                        underline="always"
+                        color="primary"
+                        /*
+                         * `title` adds a browser tooltip on hover (desktop) and supplies an
+                         * additional Screen Reader hint without overriding the accessible name
+                         * (which must stay equal to the visible label for the existing test).
+                         */
+                        title={t('haPublish.manage.linkTitle')}
+                        data-testid={`ha-publish-link-${row.key}`}
+                      >
+                        {row.label}
+                      </MuiLink>
+                      {!row.isActive && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          color="default"
+                          label={
+                            row.terminationType
+                              ? t(`enums.terminationType.${row.terminationType}`)
+                              : t('haPublish.manage.inactiveChip')
+                          }
+                          data-testid={`ha-publish-inactive-${row.key}`}
+                        />
+                      )}
+                      {!row.isActive && row.removedOn && (
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ width: '100%' }}
+                        >
+                          {t('haPublish.manage.removedOn', { date: formatDate(row.removedOn) })}
+                        </Typography>
+                      )}
+                    </Box>
                   </TableCell>
                   <TableCell align="right" sx={{ whiteSpace: 'nowrap', py: { xs: 1.5, sm: 0.75 } }}>
                     <Switch

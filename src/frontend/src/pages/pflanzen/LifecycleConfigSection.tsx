@@ -4,16 +4,16 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Typography from '@mui/material/Typography';
-import Switch from '@mui/material/Switch';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import HelpTooltip from '@/components/common/HelpTooltip';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import GrowthPhaseListSection from './GrowthPhaseListSection';
@@ -165,6 +165,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                 name="cycle_type"
                 control={control}
                 label={t('pages.lifecycle.cycleType')}
+                helperText={t('pages.lifecycle.cycleTypeHelper')}
                 options={CYCLE_TYPES.map((v) => ({
                   value: v,
                   label: t(`enums.cycleType.${v}`),
@@ -222,9 +223,13 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
             component="fieldset"
             sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}
           >
-            <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
-              {t('pages.lifecycle.sectionPhotoperiod')}
-            </Typography>
+            <Box
+              component="legend"
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 1.5, mb: 2 }}
+            >
+              <Typography variant="h6">{t('pages.lifecycle.sectionPhotoperiod')}</Typography>
+              <HelpTooltip term="photoperiod" iconOnly />
+            </Box>
             <FormRow>
               <FormSelectField
                 name="photoperiod_type"
@@ -258,28 +263,24 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
             <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 2 }}>
               {t('pages.lifecycle.sectionDormancy')}
             </Typography>
-            <Controller
-              name="dormancy_required"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={<Switch checked={field.value} onChange={field.onChange} />}
-                  label={t('pages.lifecycle.dormancy')}
-                  sx={{ mb: 0.5, display: 'block' }}
-                />
-              )}
-            />
-            <Controller
-              name="vernalization_required"
-              control={control}
-              render={({ field }) => (
-                <FormControlLabel
-                  control={<Switch checked={field.value} onChange={field.onChange} />}
-                  label={t('pages.lifecycle.vernalization')}
-                  sx={{ mb: 1, display: 'block' }}
-                />
-              )}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+              <FormSwitchField
+                name="dormancy_required"
+                control={control}
+                label={t('pages.lifecycle.dormancy')}
+                helperText={t('pages.lifecycle.dormancyHelper')}
+              />
+              <HelpTooltip term="dormancy" iconOnly />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+              <FormSwitchField
+                name="vernalization_required"
+                control={control}
+                label={t('pages.lifecycle.vernalization')}
+                helperText={t('pages.lifecycle.vernalizationHelper')}
+              />
+              <HelpTooltip term="vernalization" iconOnly />
+            </Box>
             <FormNumberField
               name="vernalization_min_days"
               control={control}
