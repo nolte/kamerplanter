@@ -11,7 +11,9 @@ from app.common.exceptions import (
     AdapterNotAvailableError,
     ConsentRequiredError,
     FeatureNotConfiguredError,
+    NotFoundError,
 )
+from app.common.tenant_guard import verify_tenant_ownership
 from app.config.settings import settings
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.engines.identification_engine import IdentificationEngine
@@ -22,6 +24,7 @@ from app.domain.interfaces.plant_identification_adapter import (
     PlantIdentificationAdapter,
     PlantOrgan,
 )
+from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.services.identification_rate_limiter import IdentificationRateLimiter
 from app.domain.services.identification_registry import IdentificationAdapterRegistry
 
@@ -51,6 +54,7 @@ class IdentificationService:
         consent_engine: ConsentEngine,
         rate_limiter: IdentificationRateLimiter,
         registry: type[IdentificationAdapterRegistry] = IdentificationAdapterRegistry,
+        plant_instance_repo: IPlantInstanceRepository | None = None,
     ) -> None:
         self._engine = engine
         self._identification_repo = identification_repo
@@ -58,6 +62,7 @@ class IdentificationService:
         self._consent_engine = consent_engine
         self._rate_limiter = rate_limiter
         self._registry = registry
+        self._plant_instance_repo = plant_instance_repo
 
     # ── availability / status ───────────────────────────────────────────
 
@@ -312,6 +317,50 @@ class IdentificationService:
     ) -> dict:
         """Persist the user's explicit candidate selection."""
         return self._engine.select_result(request_key, selected_rank, tenant_key=tenant_key)
+
+    # ── link created plant instance (#630) ──────────────────────────────
+
+    def link_plant_instance(
+        self,
+        request_key: str,
+        plant_instance_key: str,
+        *,
+        tenant_key: str,
+    ) -> dict:
+        """Persist the plant instance created from an identification result (#630).
+
+        Both sides are tenant-checked before anything is written (SEC-001, defence
+        in depth): the identification request must belong to ``tenant_key`` and so
+        must the plant instance. A missing/foreign record on either side surfaces
+        as a 404 (``NotFoundError``) rather than leaking cross-tenant existence.
+
+        Returns the linked keys so the caller can echo them back.
+
+        Raises:
+            NotFoundError: the request or the plant instance is not in this tenant.
+            RuntimeError: the service was constructed without a plant-instance repo.
+        """
+        if self._plant_instance_repo is None:  # pragma: no cover - misconfiguration guard
+            raise RuntimeError("link_plant_instance requires a plant_instance_repo.")
+
+        request = self._identification_repo.get(request_key, tenant_key)
+        if request is None:
+            raise NotFoundError("IdentificationRequest", request_key)
+
+        # Verify the target plant instance exists and belongs to the same tenant.
+        plant = self._plant_instance_repo.get_by_key(plant_instance_key)
+        if plant is None:
+            raise NotFoundError("PlantInstance", plant_instance_key)
+        verify_tenant_ownership(plant, tenant_key, "PlantInstance")
+
+        updated = self._identification_repo.set_plant_instance_key(request_key, tenant_key, plant_instance_key)
+        if updated is None:  # pragma: no cover - race: request vanished between checks
+            raise NotFoundError("IdentificationRequest", request_key)
+
+        return {
+            "request_key": request_key,
+            "plant_instance_key": plant_instance_key,
+        }
 
     # ── history ─────────────────────────────────────────────────────────
 

@@ -50,6 +50,40 @@ class ArangoIdentificationRepository(BaseArangoRepository[IdentificationRequest]
             return None
         return IdentificationRequest(**self._from_doc(updated))
 
+    def set_plant_instance_key(
+        self,
+        key: str,
+        tenant_key: str,
+        plant_instance_key: str,
+    ) -> IdentificationRequest | None:
+        """Link the identification request to the plant instance created from it (#630).
+
+        The ``tenant_key`` filter is part of the parametrized ``FILTER`` (never an
+        f-string) so a caller can only ever mutate a record in its own tenant.
+        Returns ``None`` when no matching record exists in this tenant.
+        """
+        query = """
+        FOR req IN @@collection
+          FILTER req._key == @key AND req.tenant_key == @tenant_key
+          UPDATE req WITH {
+            plant_instance_key: @plant_instance_key,
+            updated_at: @now
+          } IN @@collection
+          RETURN NEW
+        """
+        bind_vars = {
+            "@collection": self._collection_name,
+            "key": key,
+            "tenant_key": tenant_key,
+            "plant_instance_key": plant_instance_key,
+            "now": self._now(),
+        }
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        updated = next(cursor, None)
+        if updated is None:
+            return None
+        return IdentificationRequest(**self._from_doc(updated))
+
     def list_for_user(
         self,
         tenant_key: str,

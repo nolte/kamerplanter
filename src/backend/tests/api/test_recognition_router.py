@@ -186,6 +186,87 @@ def test_select_result():
     service.select_result.assert_called_once_with("ident_1", 1, tenant_key="tenant_anna")
 
 
+# ── issue #630 — link the created plant instance to the identification ────
+
+
+def test_link_plant_instance_success():
+    service = MagicMock()
+    service.link_plant_instance.return_value = {
+        "request_key": "ident_1",
+        "plant_instance_key": "plant_42",
+    }
+    client = TestClient(_build_app(service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/ident_1/instance",
+        json={"plant_instance_key": "plant_42"},
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"request_key": "ident_1", "plant_instance_key": "plant_42"}
+    service.link_plant_instance.assert_called_once_with("ident_1", "plant_42", tenant_key="tenant_anna")
+
+
+def test_link_plant_instance_rejects_empty_key():
+    service = MagicMock()
+    client = TestClient(_build_app(service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/ident_1/instance",
+        json={"plant_instance_key": ""},
+    )
+    assert resp.status_code == 422
+    service.link_plant_instance.assert_not_called()
+
+
+def test_link_plant_instance_foreign_instance_returns_404():
+    """A plant instance from another tenant surfaces as a 404 (no leakage)."""
+    service = MagicMock()
+    service.link_plant_instance.side_effect = NotFoundError("PlantInstance", "plant_foreign")
+    client = TestClient(_build_app(service))
+
+    resp = client.post(
+        f"/api/v1/t/{TENANT_SLUG}/identification/ident_1/instance",
+        json={"plant_instance_key": "plant_foreign"},
+    )
+    assert resp.status_code == 404
+
+
+def test_history_surfaces_plant_instance_key():
+    """The history DTO exposes the linked plant instance key (#630)."""
+    service = MagicMock()
+    service.get_history.return_value = [
+        {
+            "key": "ident_1",
+            "adapter_key": "plantnet",
+            "request_type": "identification",
+            "image_organ": "auto",
+            "status": "completed",
+            "results": [],
+            "selected_result_rank": 1,
+            "plant_instance_key": "plant_42",
+            "created_at": "2026-06-15T10:00:00Z",
+        },
+        {
+            "key": "ident_2",
+            "adapter_key": "plantnet",
+            "request_type": "identification",
+            "image_organ": "auto",
+            "status": "completed",
+            "results": [],
+            "selected_result_rank": None,
+            "created_at": "2026-06-14T10:00:00Z",
+        },
+    ]
+    client = TestClient(_build_app(service))
+
+    resp = client.get(f"/api/v1/t/{TENANT_SLUG}/identification/history")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body[0]["plant_instance_key"] == "plant_42"
+    # An entry without a link reports null, never omits the field.
+    assert body[1]["plant_instance_key"] is None
+
+
 # ── issue #447 — reuse identification photo as a DINOv2 reference ─────────
 
 

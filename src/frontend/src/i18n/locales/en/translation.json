@@ -853,6 +853,9 @@
       "historyEmpty": "No identifications yet.",
       "historySelected": "Selected",
       "historyNoResult": "No result",
+      "historyOpenInstance": "Open plant",
+      "historyInstanceCreated": "Plant created",
+      "historyLinkFailed": "The plant was created but could not be linked to the identification.",
       "webcam": {
         "start": "Use webcam",
         "shoot": "Capture",

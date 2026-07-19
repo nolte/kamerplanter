@@ -14,6 +14,8 @@ from PIL import Image, UnidentifiedImageError
 from app.api.v1.recognition.schemas import (
     HistoryEntryResponse,
     IdentifyResponse,
+    LinkInstanceRequest,
+    LinkInstanceResponse,
     ReferenceContributionResponse,
     SelectResultResponse,
     SuggestionResponse,
@@ -220,6 +222,28 @@ def select_result(
     return SelectResultResponse(**result)
 
 
+@router.post("/{request_key}/instance", response_model=LinkInstanceResponse)
+def link_plant_instance(
+    request_key: str,
+    payload: LinkInstanceRequest,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: IdentificationService = Depends(get_identification_service),
+) -> LinkInstanceResponse:
+    """Link an identification request to the plant instance created from it (#630).
+
+    Persists the reference so the identification history can surface (and link to)
+    the instance the user turned this result into, surviving reloads. Both the
+    request and the target instance are tenant-checked in the service; a
+    missing/foreign record on either side is a 404 (no cross-tenant leakage).
+    """
+    result = service.link_plant_instance(
+        request_key,
+        payload.plant_instance_key,
+        tenant_key=ctx.tenant_key,
+    )
+    return LinkInstanceResponse(**result)
+
+
 @router.get("/history", response_model=list[HistoryEntryResponse])
 def identification_history(
     limit: int = Query(20, ge=1, le=100),
@@ -241,6 +265,7 @@ def identification_history(
             status=e["status"],
             results=[SuggestionResponse(**r) for r in e.get("results", [])],
             selected_result_rank=e.get("selected_result_rank"),
+            plant_instance_key=e.get("plant_instance_key"),
             created_at=str(e["created_at"]) if e.get("created_at") else None,
         )
         for e in entries
