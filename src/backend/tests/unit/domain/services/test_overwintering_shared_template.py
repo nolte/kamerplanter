@@ -85,7 +85,15 @@ class FakePlantRepo:
 
     def get_by_key(self, key):
         tenant = self._plants.get(key)
-        return SimpleNamespace(tenant_key=tenant, species_key="sp1") if tenant else None
+        if not tenant:
+            return None
+        return SimpleNamespace(
+            tenant_key=tenant,
+            species_key="sp1",
+            plant_name=None,
+            instance_id=key,
+            location_key=None,
+        )
 
 
 def _template(**overrides) -> OverwinteringProfileTemplate:

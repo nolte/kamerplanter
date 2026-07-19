@@ -2526,6 +2526,7 @@
     "lifecycle": {
       "title": "Lebenszyklus-Konfiguration",
       "cycleType": "Zyklustyp",
+      "cycleTypeHelper": "Botanischer Lebenszyklus: Einjährig blüht und stirbt in einer Saison, Zweijährig blüht im zweiten Jahr, Mehrjährig lebt und blüht über viele Jahre.",
       "cultivationCycleType": "Anbau-Zyklustyp",
       "cultivationCycleTypeHelper": "Wie die Art im Anbau geführt wird — kann vom botanischen Lebenszyklus abweichen (z. B. mehrjährig botanisch, aber einjährig kultiviert)",
       "floweringStrategy": "Blühstrategie",
@@ -2535,7 +2536,9 @@
       "sectionPhotoperiod": "Photoperiode",
       "sectionDormancy": "Dormanz & Vernalisation",
       "dormancy": "Winterruhe erforderlich",
+      "dormancyHelper": "Aktivieren, wenn die Art eine Winterruhe (Dormanz) braucht — eine Phase, in der Wachstum und Stoffwechsel ruhen. Das System reduziert dann automatisch das Gießen und pausiert die Düngung in der Ruhezeit.",
       "vernalization": "Vernalisation erforderlich",
+      "vernalizationHelper": "Aktivieren, wenn die Art einen Kältereiz braucht, um zu blühen (Vernalisation). Ohne die vorgeschriebene Kälteperiode bildet die Pflanze keine Blüten — typisch z. B. für Zweijährige und viele Kohlarten.",
       "vernalizationDays": "Vernalisation (Tage)",
       "vernalizationDaysHelper": "Mindestdauer der Kältebehandlung in Tagen",
       "photoperiodType": "Photoperioden-Typ",
@@ -3877,7 +3880,13 @@
       "phaseName": "Phasenname",
       "moveUp": "Nach oben",
       "moveDown": "Nach unten",
-      "usedBySpecies": "Verwendet von Arten"
+      "usedBySpecies": "Verwendet von Arten",
+      "duplicate": "Duplizieren",
+      "duplicateSequence": "Ablauf duplizieren",
+      "duplicateTooltip": "Editierbare Kopie dieses Systemablaufs erstellen",
+      "duplicateHelper": "Erzeugt eine editierbare, eigene Kopie dieses Ablaufs mit allen Phasen. Der Originalablauf bleibt unverändert.",
+      "copySuffix": "Kopie",
+      "sequenceCloned": "Phasenablauf dupliziert."
     },
     "ipm": {
       "title": "Pflanzenschutz",
@@ -6094,6 +6103,25 @@
       "long": "Die biologische Systematik ordnet Arten in Gattungen (z. B. Solanum) und Familien (z. B. Nachtschattengewächse) ein. Je näher zwei Arten verwandt sind, desto wahrscheinlicher funktioniert eine Veredelung zwischen ihnen: gleiche Gattung ist meist kompatibel, gleiche Familie oft möglich, unterschiedliche Familien meist nicht kompatibel.",
       "beginnerTip": "Tomate und Kartoffel gehören zur gleichen Gattung (Solanum) — eine Veredelung zwischen ihnen ist möglich (TomTato).",
       "category": "taxonomie"
+    },
+    "dormancy": {
+      "short": "Winterruhe — eine natürliche Ruhephase, in der die Pflanze kaum wächst",
+      "long": "In der Dormanz fährt die Pflanze ihren Stoffwechsel herunter und stellt das Wachstum weitgehend ein — meist ausgelöst durch kürzere Tage und sinkende Temperaturen. Sie überdauert so den Winter. In dieser Zeit deutlich weniger gießen und nicht düngen; ein kühler, aber frostfreier Standort ist ideal.",
+      "beginnerTip": "Normal bei vielen mehrjährigen Pflanzen: Sie sehen im Winter „schlafend“ aus, das ist kein Absterben. Einfach kühler stellen und nur sparsam gießen.",
+      "category": "lebenszyklus"
+    },
+    "vernalization": {
+      "short": "Kältereiz, den manche Pflanzen zum Blühen brauchen",
+      "long": "Vernalisation ist eine Phase mit niedrigen Temperaturen (oft nahe 0–10 °C über mehrere Wochen), die manche Arten durchlaufen müssen, bevor sie Blüten anlegen. Ohne diesen Kältereiz bleibt die Blüte aus. Typisch für Zweijährige und viele Kohl- und Zwiebelgewächse.",
+      "beginnerTip": "Deshalb blühen manche Pflanzen erst im zweiten Jahr — sie brauchen erst einen Winter, bevor sie blühen.",
+      "category": "lebenszyklus"
+    },
+    "photoperiod": {
+      "short": "Tageslänge — wie viele Stunden Licht die Pflanze pro Tag bekommt",
+      "long": "Die Photoperiode ist die tägliche Lichtdauer. Viele Pflanzen steuern ihre Blüte darüber: Kurztagspflanzen blühen, wenn die Tage kürzer als eine kritische Länge werden, Langtagspflanzen bei längeren Tagen. Tagneutrale Pflanzen blühen unabhängig von der Tageslänge.",
+      "beginnerTip": "Draußen regelt das die Jahreszeit von selbst. Wichtig wird es nur bei Kunstlicht, wo du die Beleuchtungsdauer einstellst.",
+      "unit": "h/Tag",
+      "category": "lebenszyklus"
     }
   },
   "dashboard": {

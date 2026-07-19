@@ -262,13 +262,93 @@ class TestTransplantAtStart:
 
 class TestPlanTotals:
     def test_total_activities_and_duration(self, engine):
+        # A phaseless activity eligible in both phases must be emitted exactly once
+        # (Issue #619), bound to its first eligible phase — but the plan's total
+        # duration still spans every phase.
         phases = [_phase(duration=20, order=0), _phase("flowering", 40, 1)]
         activities = [
             _activity(name="A", key="a1", forbidden=[], stress=StressLevel.LOW),
         ]
         wt, templates = engine.generate_plan("P", phases, activities)
-        assert len(templates) == 2
+        assert len(templates) == 1
+        assert templates[0].trigger_phase == "vegetative"
         assert wt.total_duration_days == 60
+
+
+class TestNoPerPhaseDuplication:
+    """Issue #619 — a generation run must emit each activity exactly once."""
+
+    def test_generic_activity_emitted_once_across_all_phases(self, engine):
+        # Umpflanzen-style activity: forbids nothing, so it is eligible in every
+        # phase. Before the fix it was emitted once per phase (4x for strawberry).
+        phases = [
+            _phase("germination", duration=10, order=0),
+            _phase("seedling", duration=15, order=1),
+            _phase("vegetative", duration=30, order=2),
+            _phase("flowering", duration=40, order=3),
+        ]
+        activities = [
+            _activity(
+                name="Umpflanzen",
+                key="transplant",
+                category=ActivityCategory.TRANSPLANT,
+                stress=StressLevel.LOW,
+                forbidden=[],
+            ),
+        ]
+        _wt, templates = engine.generate_plan("Erdbeere", phases, activities)
+        assert len(templates) == 1
+        assert templates[0].activity_key == "transplant"
+        # Bound to the first (earliest) eligible phase.
+        assert templates[0].trigger_phase == "germination"
+
+    def test_no_duplicate_activity_keys_in_plan(self, engine):
+        phases = [
+            _phase("vegetative", duration=30, order=0),
+            _phase("flowering", duration=40, order=1),
+        ]
+        activities = [
+            _activity(name="A", key="a1", forbidden=[], stress=StressLevel.LOW),
+            _activity(name="B", key="a2", forbidden=[], stress=StressLevel.LOW, sort_order=1),
+        ]
+        _wt, templates = engine.generate_plan("P", phases, activities)
+        keys = [t.activity_key for t in templates]
+        assert sorted(keys) == ["a1", "a2"]
+        assert len(keys) == len(set(keys))
+
+    def test_phase_specific_activity_stays_on_its_only_phase(self, engine):
+        # Forbidden everywhere except flowering — must land on flowering, once.
+        phases = [
+            _phase("vegetative", duration=30, order=0),
+            _phase("flowering", duration=40, order=1),
+        ]
+        activities = [
+            _activity(name="Flip", key="a1", forbidden=["vegetative"], stress=StressLevel.LOW),
+        ]
+        _wt, templates = engine.generate_plan("P", phases, activities)
+        assert len(templates) == 1
+        assert templates[0].trigger_phase == "flowering"
+
+    def test_harvest_prep_binds_to_last_eligible_phase(self, engine):
+        # harvest_prep is eligible in several phases but belongs near harvest, so it
+        # binds to the last eligible phase — not the first.
+        phases = [
+            _phase("seedling", duration=15, order=0),
+            _phase("vegetative", duration=30, order=1),
+            _phase("flowering", duration=40, order=2),
+        ]
+        activities = [
+            _activity(
+                name="Flush",
+                key="flush",
+                category=ActivityCategory.HARVEST_PREP,
+                stress=StressLevel.NONE,
+                forbidden=[],
+            ),
+        ]
+        _wt, templates = engine.generate_plan("P", phases, activities)
+        assert len(templates) == 1
+        assert templates[0].trigger_phase == "flowering"
 
 
 class TestWorkflowTemplateFields:

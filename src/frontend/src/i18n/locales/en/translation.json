@@ -2526,6 +2526,7 @@
     "lifecycle": {
       "title": "Lifecycle Configuration",
       "cycleType": "Cycle Type",
+      "cycleTypeHelper": "Botanical lifecycle: Annual flowers and dies within one season, Biennial flowers in its second year, Perennial lives and flowers over many years.",
       "cultivationCycleType": "Cultivation Cycle Type",
       "cultivationCycleTypeHelper": "How the species is grown in cultivation — may differ from the botanical lifespan (e.g. botanically perennial but grown as an annual)",
       "floweringStrategy": "Flowering Strategy",
@@ -2535,7 +2536,9 @@
       "sectionPhotoperiod": "Photoperiod",
       "sectionDormancy": "Dormancy & Vernalization",
       "dormancy": "Dormancy Required",
+      "dormancyHelper": "Enable when the species needs a winter rest (dormancy) — a period in which growth and metabolism pause. The system then automatically reduces watering and pauses fertilization during the rest period.",
       "vernalization": "Vernalization Required",
+      "vernalizationHelper": "Enable when the species needs a cold stimulus to flower (vernalization). Without the required cold period the plant will not set flowers — typical e.g. for biennials and many brassicas.",
       "vernalizationDays": "Vernalization Days",
       "vernalizationDaysHelper": "Minimum cold treatment duration in days",
       "photoperiodType": "Photoperiod Type",
@@ -3876,7 +3879,13 @@
       "phaseName": "Phase Name",
       "moveUp": "Move Up",
       "moveDown": "Move Down",
-      "usedBySpecies": "Used by Species"
+      "usedBySpecies": "Used by Species",
+      "duplicate": "Duplicate",
+      "duplicateSequence": "Duplicate sequence",
+      "duplicateTooltip": "Create an editable copy of this system sequence",
+      "duplicateHelper": "Creates an editable, tenant-owned copy of this sequence with all its phases. The original sequence stays unchanged.",
+      "copySuffix": "copy",
+      "sequenceCloned": "Phase sequence duplicated."
     },
     "ipm": {
       "title": "Plant Protection",
@@ -6093,6 +6102,25 @@
       "long": "Biological taxonomy groups species into genera (e.g. Solanum) and families (e.g. nightshades). The more closely two species are related, the more likely a graft between them succeeds: same genus is usually compatible, same family is often possible, different families are usually not compatible.",
       "beginnerTip": "Tomato and potato share the same genus (Solanum) — grafting between them is possible (the 'TomTato').",
       "category": "taxonomie"
+    },
+    "dormancy": {
+      "short": "Winter rest — a natural resting phase in which the plant barely grows",
+      "long": "During dormancy the plant slows its metabolism and largely stops growing — usually triggered by shorter days and falling temperatures. This is how it survives winter. Water much less during this time and do not fertilize; a cool but frost-free spot is ideal.",
+      "beginnerTip": "Normal for many perennials: they look 'asleep' in winter, which is not the same as dying. Just move them somewhere cooler and water sparingly.",
+      "category": "lebenszyklus"
+    },
+    "vernalization": {
+      "short": "The cold stimulus some plants need in order to flower",
+      "long": "Vernalization is a period of low temperatures (often near 0–10 °C for several weeks) that some species must go through before they can form flowers. Without this cold stimulus flowering does not happen. Typical for biennials and many brassicas and alliums.",
+      "beginnerTip": "This is why some plants only flower in their second year — they first need a winter before they bloom.",
+      "category": "lebenszyklus"
+    },
+    "photoperiod": {
+      "short": "Day length — how many hours of light the plant gets per day",
+      "long": "The photoperiod is the daily duration of light. Many plants control their flowering through it: short-day plants flower when days become shorter than a critical length, long-day plants when days are longer. Day-neutral plants flower regardless of day length.",
+      "beginnerTip": "Outdoors the season handles this by itself. It only matters under artificial light, where you set the lighting hours.",
+      "unit": "h/day",
+      "category": "lebenszyklus"
     }
   },
   "dashboard": {

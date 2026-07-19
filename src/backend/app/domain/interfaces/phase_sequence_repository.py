@@ -71,6 +71,9 @@ class IPhaseSequenceRepository(ABC):
     @abstractmethod
     def get_sequence_usage_count(self, key: str) -> int: ...
 
+    @abstractmethod
+    def clone_sequence(self, source_key: str, new_name: str) -> PhaseSequence: ...
+
     # ── PhaseSequenceEntry CRUD ──
 
     @abstractmethod

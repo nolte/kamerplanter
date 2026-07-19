@@ -131,6 +131,11 @@ class WinterHardinessOverviewEntryResponse(BaseModel):
     planting_run_key: str | None = None
     hardiness_rating: HardinessRating
     winter_action: WinterAction
+    plant_name: str | None = None
+    instance_id: str | None = None
+    species_common_name: str | None = None
+    species_scientific_name: str | None = None
+    location_name: str | None = None
 
 
 class WinterHardinessOverviewResponse(BaseModel):
