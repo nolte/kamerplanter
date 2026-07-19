@@ -514,10 +514,13 @@ export default function CareProfileForm({
               <ToggleButton
                 key={month}
                 value={month}
-                sx={{ px: 1, py: 0.25, minWidth: 32 }}
+                sx={{ flexDirection: 'column', lineHeight: 1.1, minWidth: 44, px: 1, py: 0.25 }}
                 data-testid={`fertilizing-month-${month}`}
               >
-                {month}
+                <Box component="span">{t(`pages.species.months.${month}`)}</Box>
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+                  {month}
+                </Typography>
               </ToggleButton>
             ))}
           </ToggleButtonGroup>
@@ -594,10 +597,13 @@ export default function CareProfileForm({
             <ToggleButton
               key={month}
               value={month}
-              sx={{ px: 1, py: 0.25, minWidth: 32 }}
+              sx={{ flexDirection: 'column', lineHeight: 1.1, minWidth: 44, px: 1, py: 0.25 }}
               data-testid={`location-month-${month}`}
             >
-              {month}
+              <Box component="span">{t(`pages.species.months.${month}`)}</Box>
+              <Typography component="span" variant="caption" color="text.secondary" sx={{ lineHeight: 1 }}>
+                {month}
+              </Typography>
             </ToggleButton>
           ))}
         </ToggleButtonGroup>
