@@ -1243,6 +1243,8 @@ def get_identification_service():
         consent_engine=ConsentEngine(),
         rate_limiter=IdentificationRateLimiter(_get_redis_client()),
         registry=IdentificationAdapterRegistry,
+        # #630 — needed to tenant-verify the plant instance a result is linked to.
+        plant_instance_repo=get_plant_repo(),
     )
 
 

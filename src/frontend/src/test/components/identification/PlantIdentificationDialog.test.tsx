@@ -238,6 +238,8 @@ describe('PlantIdentificationDialog', () => {
         speciesKey: 'species_monstera',
         scientificName: 'Monstera deliciosa',
         photo: expect.any(File),
+        // #630 — the persisted request key is carried back for the link step.
+        requestKey: 'ident_1',
       }),
     );
   });
@@ -388,6 +390,8 @@ describe('PlantIdentificationDialog', () => {
         speciesKey: 'species_new',
         scientificName: 'Monstera adansonii',
         photo: expect.any(File),
+        // #630 — the persisted request key is carried back for the link step.
+        requestKey: 'ident_1',
       }),
     );
   });
@@ -512,6 +516,8 @@ describe('PlantIdentificationDialog', () => {
           speciesKey: 'species_monstera',
           scientificName: 'Monstera deliciosa',
           photo: expect.any(File),
+          // #630 — the persisted request key is carried back for the link step.
+          requestKey: 'ident_1',
         }),
       );
     });

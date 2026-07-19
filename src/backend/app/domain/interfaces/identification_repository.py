@@ -16,6 +16,11 @@ class IIdentificationRepository(ABC):
     def set_selected_rank(self, key: str, tenant_key: str, selected_rank: int) -> IdentificationRequest | None: ...
 
     @abstractmethod
+    def set_plant_instance_key(
+        self, key: str, tenant_key: str, plant_instance_key: str
+    ) -> IdentificationRequest | None: ...
+
+    @abstractmethod
     def list_for_user(
         self,
         tenant_key: str,

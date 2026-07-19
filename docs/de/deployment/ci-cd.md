@@ -112,7 +112,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22    # (1)!
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -122,6 +122,8 @@ jobs:
       - run: npm run test
       - run: npm run build
 ```
+
+1. Nur der `lint-test-build`-Job nutzt Node 22. Die `bundle-budget`- und `lighthouse`-Jobs im selben Workflow laufen auf Node 24 — passend zum Frontend-Dockerfile, das mit `node:24-alpine` baut (siehe [Frontend-Image](#frontend-image) unten).
 
 !!! tip "Lokale Prüfung vor dem Push"
     ```bash
@@ -186,39 +188,45 @@ Bei einem `v*`-Tag oder manuellem Auslösen wird das Filtern übersprungen — e
 
 ### Backend-Image
 
-Das Backend-Image basiert auf `python:3.14-slim` und wird als Single-Stage-Build erstellt:
+Das Backend-Image basiert auf `python:3.14-slim` und nutzt ein Multi-Stage-Dockerfile mit einer gemeinsamen `base`-Stage sowie getrennten `dev`- und `prod`-Zielen (`docker build .` ohne `--target` baut standardmäßig `prod`, da es die letzte Stage ist). Die `dev`-Stage läuft als root für Skaffold-Hot-Reload; die `prod`-Stage läuft als nicht-root Nutzer (UID 1000):
 
-```dockerfile title="src/backend/Dockerfile"
+```dockerfile title="src/backend/Dockerfile (vereinfacht, prod-Stage)"
 FROM python:3.14-slim AS base
 WORKDIR /app
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+COPY pyproject.toml requirements.txt requirements-dev.txt ./
+
+FROM base AS prod
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && pip install --no-cache-dir --no-deps .
 COPY . .
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
+    && chown -R 1000:1000 /app
+USER 1000
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-Das Image wird nach `ghcr.io/nolte/kamerplanter-backend` gepusht.
+Das Image wird nach `ghcr.io/nolte/kamerplanter-backend` gepusht. Abhängigkeiten kommen ausschließlich aus den Hash-gepinnten `requirements*.txt`-Locks (NFR-009), nicht direkt aus `pyproject.toml`.
 
-### Frontend-Image
+### Frontend-Image {#frontend-image}
 
-Das Frontend-Image verwendet einen zweistufigen Multi-Stage-Build: Zuerst wird die React-App mit Node.js 22 gebaut, dann werden die statischen Dateien in ein schlankes nginx-Image kopiert:
+Das Frontend-Image verwendet ebenfalls ein Multi-Stage-Dockerfile: Zuerst wird die React-App mit Node.js 24 gebaut, dann werden die statischen Dateien in ein schlankes, **unprivilegiertes** nginx-Image kopiert (läuft nicht als root, kompatibel mit `runAsNonRoot`):
 
-```dockerfile title="src/frontend/Dockerfile"
-FROM node:22-alpine AS build
+```dockerfile title="src/frontend/Dockerfile (vereinfacht)"
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+EXPOSE 8080
 ```
 
-Das Image wird nach `ghcr.io/nolte/kamerplanter-frontend` gepusht.
+Das Image wird nach `ghcr.io/nolte/kamerplanter-frontend` gepusht. Der interne Port ist `8080` (unprivilegiertes nginx darf nicht an Port 80 binden), gemappt auf den öffentlichen Port 8080 in Docker Compose bzw. Port 80 im Helm-Chart-Service.
 
 ### Image-Tags
 

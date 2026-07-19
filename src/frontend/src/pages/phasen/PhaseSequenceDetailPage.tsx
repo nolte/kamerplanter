@@ -27,6 +27,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
@@ -178,6 +179,96 @@ function EditSequenceDialog({
   );
 }
 
+const cloneSchema = z.object({
+  new_name: z.string().min(1).max(200),
+});
+
+type CloneFormData = z.infer<typeof cloneSchema>;
+
+function CloneSequenceDialog({
+  open,
+  onClose,
+  sequence,
+  onCloned,
+}: {
+  open: boolean;
+  onClose: () => void;
+  sequence: PhaseSequence;
+  onCloned: (cloned: PhaseSequence) => void;
+}) {
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const { t, i18n } = useTranslation();
+  const { handleError } = useApiError();
+  const [saving, setSaving] = useState(false);
+
+  const defaultName = useMemo(() => {
+    const base =
+      (i18n.language === 'de' ? sequence.display_name_de : sequence.display_name) ||
+      sequence.name;
+    return `${base} (${t('pages.phaseSequences.copySuffix')})`;
+  }, [sequence, i18n.language, t]);
+
+  const { control, handleSubmit, reset } = useForm<CloneFormData>({
+    resolver: zodResolver(cloneSchema),
+    defaultValues: { new_name: '' },
+  });
+
+  useEffect(() => {
+    if (open) {
+      reset({ new_name: defaultName });
+    }
+  }, [open, defaultName, reset]);
+
+  const onSubmit = async (data: CloneFormData) => {
+    try {
+      setSaving(true);
+      const cloned = await phaseSequenceApi.clonePhaseSequence(sequence.key, {
+        new_name: data.new_name,
+      });
+      onCloned(cloned);
+    } catch (err) {
+      handleError(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog
+      fullScreen={fullScreen}
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="clone-sequence-dialog-title"
+    >
+      <DialogTitle id="clone-sequence-dialog-title">
+        {t('pages.phaseSequences.duplicateSequence')}
+      </DialogTitle>
+      <DialogContent>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t('pages.phaseSequences.duplicateHelper')}
+        </Typography>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <FormTextField
+            name="new_name"
+            control={control}
+            label={t('common.name')}
+            required
+            autoFocus
+          />
+          <FormActions
+            onCancel={onClose}
+            loading={saving}
+            saveLabel={t('pages.phaseSequences.duplicate')}
+          />
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function PhaseSequenceDetailPage() {
   const { key } = useParams<{ key: string }>();
   const navigate = useNavigate();
@@ -191,6 +282,7 @@ export default function PhaseSequenceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [cloneOpen, setCloneOpen] = useState(false);
   const [entryDialogOpen, setEntryDialogOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<PhaseSequenceEntry | undefined>(
     undefined,
@@ -199,7 +291,7 @@ export default function PhaseSequenceDetailPage() {
   const [deletingEntry, setDeletingEntry] = useState(false);
   const [reordering, setReordering] = useState(false);
   // UI-NFR-018: PhaseSequence carries only is_system; treat true as origin='system'.
-  const { isReadOnly } = useOriginProtection({ isSystem: sequence?.is_system });
+  const { isReadOnly, canCopyAsTemplate } = useOriginProtection({ isSystem: sequence?.is_system });
   const [linkedSpecies, setLinkedSpecies] = useState<{ key: string; scientific_name: string; common_names: string[] }[]>([]);
   const [showAllSpecies, setShowAllSpecies] = useState(false);
 
@@ -310,6 +402,12 @@ export default function PhaseSequenceDetailPage() {
     loadSequence();
   };
 
+  const handleCloned = (cloned: PhaseSequence) => {
+    setCloneOpen(false);
+    notification.success(t('pages.phaseSequences.sequenceCloned'));
+    navigate(`/phasen/ablaeufe/${cloned.key}`);
+  };
+
   const sortedEntries = sequence
     ? [...sequence.entries].sort((a, b) => a.sequence_order - b.sequence_order)
     : [];
@@ -370,6 +468,19 @@ export default function PhaseSequenceDetailPage() {
               >
                 {t('pages.phaseSequences.editSequence')}
               </Button>
+            )}
+            {/* UI-NFR-018 R-015: offer "copy as template" for read-only system data */}
+            {canCopyAsTemplate && (
+              <Tooltip title={t('pages.phaseSequences.duplicateTooltip')}>
+                <Button
+                  variant="contained"
+                  startIcon={<ContentCopyIcon />}
+                  onClick={() => setCloneOpen(true)}
+                  data-testid="duplicate-sequence-button"
+                >
+                  {t('pages.phaseSequences.duplicate')}
+                </Button>
+              </Tooltip>
             )}
           </Box>
         }
@@ -608,6 +719,16 @@ export default function PhaseSequenceDetailPage() {
             setEditOpen(false);
             loadSequence();
           }}
+        />
+      )}
+
+      {/* Duplicate sequence dialog (UI-NFR-018 R-015) */}
+      {cloneOpen && (
+        <CloneSequenceDialog
+          open={cloneOpen}
+          onClose={() => setCloneOpen(false)}
+          sequence={sequence}
+          onCloned={handleCloned}
         />
       )}
 

@@ -20,6 +20,7 @@ const SPECIES_URL = '/api/v1/phase-sequences/:key/species';
 const ENTRY_DELETE_URL = '/api/v1/phase-sequences/:seqKey/entries/:entryKey';
 const REORDER_URL = '/api/v1/phase-sequences/:seqKey/entries/reorder';
 const UPDATE_URL = '/api/v1/phase-sequences/:key';
+const CLONE_URL = '/api/v1/phase-sequences/:key/clone';
 
 function makeEntry(overrides: Partial<PhaseSequenceEntry> = {}): PhaseSequenceEntry {
   return {
@@ -391,6 +392,74 @@ describe('PhaseSequenceDetailPage', () => {
     expect(
       screen.getByRole('button', { name: i18n.t('pages.phaseSequences.removeEntry') }),
     ).toBeDisabled();
+  });
+
+  it('offers duplicate for a system sequence but not for a tenant sequence', async () => {
+    // Tenant (editable) sequence: no duplicate action, edit button visible.
+    useSequence(makeSequence({ is_system: false }));
+    const { unmount } = renderWithProviders(<PhaseSequenceDetailPage />, {
+      route: '/phasen/ablaeufe/seq-1',
+    });
+    await screen.findByTestId('entry-row-entry-1');
+    expect(screen.queryByTestId('duplicate-sequence-button')).not.toBeInTheDocument();
+    expect(screen.getByTestId('edit-sequence-button')).toBeInTheDocument();
+    unmount();
+
+    // System (read-only) sequence: duplicate action offered (UI-NFR-018 R-015).
+    useSequence(makeSequence({ is_system: true }));
+    renderWithProviders(<PhaseSequenceDetailPage />, {
+      route: '/phasen/ablaeufe/seq-1',
+    });
+    await screen.findByTestId('entry-row-entry-1');
+    expect(screen.getByTestId('duplicate-sequence-button')).toBeInTheDocument();
+  });
+
+  it('duplicates a system sequence and navigates to the editable copy', async () => {
+    let clonedName: string | null = null;
+    useSequence(makeSequence({ is_system: true }));
+    server.use(
+      http.post(CLONE_URL, async ({ request }) => {
+        const body = (await request.json()) as { new_name: string };
+        clonedName = body.new_name;
+        return HttpResponse.json(
+          makeSequence({ key: 'seq-copy', name: body.new_name, is_system: false }),
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PhaseSequenceDetailPage />, {
+      route: '/phasen/ablaeufe/seq-1',
+    });
+
+    await user.click(await screen.findByTestId('duplicate-sequence-button'));
+    const dialog = await screen.findByRole('dialog');
+    // Default name pre-filled as "<display name> (copy)".
+    const nameField = within(dialog).getByLabelText(i18n.t('common.name'), { exact: false });
+    expect(nameField).toHaveValue(`Tomaten-Zyklus (${i18n.t('pages.phaseSequences.copySuffix')})`);
+    await user.click(within(dialog).getByTestId('form-submit-button'));
+
+    await waitFor(() =>
+      expect(clonedName).toBe(`Tomaten-Zyklus (${i18n.t('pages.phaseSequences.copySuffix')})`),
+    );
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/phasen/ablaeufe/seq-copy'),
+    );
+  });
+
+  it('surfaces an error when duplicating a sequence fails', async () => {
+    useSequence(makeSequence({ is_system: true }));
+    server.use(http.post(CLONE_URL, () => new HttpResponse(null, { status: 500 })));
+    const user = userEvent.setup();
+    renderWithProviders(<PhaseSequenceDetailPage />, {
+      route: '/phasen/ablaeufe/seq-1',
+    });
+
+    await user.click(await screen.findByTestId('duplicate-sequence-button'));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByTestId('form-submit-button'));
+
+    expect(await screen.findByText(i18n.t('errors.server'))).toBeInTheDocument();
   });
 
   it('renders even when the linked-species request fails', async () => {

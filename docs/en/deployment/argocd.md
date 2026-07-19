@@ -27,10 +27,16 @@ kubectl create namespace kamerplanter
 kubectl create secret generic kamerplanter-secrets \
   --namespace kamerplanter \
   --from-literal=ARANGODB_PASSWORD=your-secure-password \
-  --from-literal=ARANGO_ROOT_PASSWORD=your-secure-password
+  --from-literal=ARANGO_ROOT_PASSWORD=your-secure-password \
+  --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
 ```
 
 The Secret is referenced by both backend and ArangoDB via `envFrom` — no passwords appear in ArgoCD manifests or Git history.
+
+!!! danger "Without the last three values the backend pod won't start"
+    `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` are independent boot blockers — separate from `ARANGODB_PASSWORD`/`ARANGO_ROOT_PASSWORD`: the backend aborts with `SystemExit` when `DEBUG=false` if any of the three is missing, or (for `ERASURE_TOMBSTONE_SALT`) shorter than 32 characters. Full overview: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 !!! tip "Declarative secret management"
     Instead of running `kubectl create secret` manually, consider these options for GitOps workflows:
@@ -128,7 +134,7 @@ spec:
                   ARANGODB_USERNAME: root
                   REDIS_URL: redis://kamerplanter-valkey:6379/0
                   CORS_ORIGINS: '["https://plants.example.com"]'
-                  KAMERPLANTER_MODE: standard
+                  KAMERPLANTER_MODE: full
           arangodb:
             containers:
               main:

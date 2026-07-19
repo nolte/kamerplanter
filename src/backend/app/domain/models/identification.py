@@ -46,6 +46,10 @@ class IdentificationRequest(BaseModel):
     status: IdentificationStatus = "completed"
     results: list[IdentificationCandidate] = Field(default_factory=list)
     selected_result_rank: int | None = None
+    # Key of the plant instance created from this identification result (#630).
+    # ``None`` until the grower turns a suggestion into an actual plant; set once
+    # the create-plant step succeeds so the history can surface a link to it.
+    plant_instance_key: str | None = None
     api_response_time_ms: int = 0
     created_at: datetime | None = None
     updated_at: datetime | None = None
