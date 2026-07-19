@@ -116,6 +116,15 @@ describe('phaseSequences endpoints — sequences', () => {
     expect(client.delete).toHaveBeenCalledWith('/phase-sequences/ps1');
   });
 
+  it('clonePhaseSequence posts new_name to the clone endpoint', async () => {
+    client.post.mockResolvedValue({ data: { key: 'ps2', is_system: false } });
+    const result = await seq.clonePhaseSequence('ps1', { new_name: 'Standard Staude (copy)' });
+    expect(client.post).toHaveBeenCalledWith('/phase-sequences/ps1/clone', {
+      new_name: 'Standard Staude (copy)',
+    });
+    expect(result).toEqual({ key: 'ps2', is_system: false });
+  });
+
   it('listSpeciesForSequence gets species for sequence', async () => {
     client.get.mockResolvedValue({ data: [] });
     await seq.listSpeciesForSequence('ps1');

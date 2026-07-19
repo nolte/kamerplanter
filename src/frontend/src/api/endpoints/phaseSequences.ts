@@ -120,6 +120,17 @@ export async function deletePhaseSequence(key: string): Promise<void> {
   await client.delete(`/phase-sequences/${key}`);
 }
 
+export async function clonePhaseSequence(
+  key: string,
+  payload: { new_name: string },
+): Promise<PhaseSequence> {
+  const { data } = await client.post<PhaseSequence>(
+    `/phase-sequences/${key}/clone`,
+    payload,
+  );
+  return data;
+}
+
 export async function listSpeciesForSequence(
   key: string,
 ): Promise<{ key: string; scientific_name: string; common_names: string[] }[]> {
