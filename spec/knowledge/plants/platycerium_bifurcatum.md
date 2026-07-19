@@ -17,7 +17,7 @@
 | Familie | Polypodiaceae | `species.family` → `botanical_families.name` |
 | Gattung | Platycerium | `species.genus` |
 | Ordnung | Polypodiales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | fern | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -301,7 +301,7 @@ Entfällt — reine Zimmerpflanze (epiphytisch, Wandmontage).
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Platycerium bifurcatum,"Geweihfarn;Hirschgeweihfarn;Staghorn Fern;Elkhorn Fern",Polypodiaceae,Platycerium,perennial,day_neutral,herb,aerial,"10a;10b;11a;11b","Australien, Südostasien (epiphytisch)",limited,,, 30-90,30-90,yes,limited,true,light_feeder
+Platycerium bifurcatum,"Geweihfarn;Hirschgeweihfarn;Staghorn Fern;Elkhorn Fern",Polypodiaceae,Platycerium,perennial,day_neutral,fern,aerial,"10a;10b;11a;11b","Australien, Südostasien (epiphytisch)",limited,,, 30-90,30-90,yes,limited,true,light_feeder
 ```
 
 ---

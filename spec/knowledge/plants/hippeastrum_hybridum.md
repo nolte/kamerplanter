@@ -17,7 +17,7 @@
 | Familie | Amaryllidaceae | `species.family` → `botanical_families.name` |
 | Gattung | Hippeastrum | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte | `species.growth_habit` |
 | Wurzeltyp | bulbous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
@@ -359,7 +359,7 @@ Der Schlüssel zu einer guten Wiederblüte liegt in der Blattphase (April–Sept
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Hippeastrum hybridum,Amaryllis;Ritterstern;Knight's Star Lily,Amaryllidaceae,Hippeastrum,perennial,day_neutral,herb,bulbous,9a;9b;10a;10b;11a;11b,0.0,Tropisches Südamerika,yes,3,20,70,35,—,yes,no,false,true
+Hippeastrum hybridum,Amaryllis;Ritterstern;Knight's Star Lily,Amaryllidaceae,Hippeastrum,perennial,day_neutral,bulb_geophyte,bulbous,9a;9b;10a;10b;11a;11b,0.0,Tropisches Südamerika,yes,3,20,70,35,—,yes,no,false,true
 ```
 
 ---

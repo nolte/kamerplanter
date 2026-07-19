@@ -7,7 +7,7 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.6 (cultivation_flexible-Fähigkeitsflag auf Species — ADR-006 E6/#615)
+Version: 4.7 (Seed↔Phase-Sequence-Tracking #611: growth_determinacy nachgezogen + Lifecycle-Resolution-Pflichtfelder)
 Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.2 (R-19 Promotion-Audit-Retention)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.7 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586):** (1) `LifecycleConfig.growth_determinacy: Optional[GrowthDeterminacy]` (`determinate`/`indeterminate`/`semi_determinate`) im Body **nachgezogen** — das Feld existierte bereits in `species.schema.yaml`/`_defs.schema.yaml`, im `LifecycleConfig`-Model, in `species.yaml/lifecycle_overrides` und in REQ-003 §E4, war aber nie in REQ-001 geführt (selbst ein „not-carried-through"-Spec-Gap). Neuer `GrowthDeterminacy`-Enum. (2) **Lifecycle-Resolution-Pflichtfelder** explizit gemacht: `cultivation_cycle_type`, `flowering_strategy` und `growth_determinacy` sind verbindliche **Resolution-Inputs je Species** (nicht optionale Metadaten) — sie speisen den attributgetriebenen Phase-Sequence-Resolver (REQ-003 §D14), `resolve_effective_cycle` und die REQ-047-Überwinterungs-Kopplung. Fehlen sie, fällt die Art auf das strukturell falsche `indoor_default`-Blankett. Reine Spec-Schärfung, keine Code-/Migration-Änderung. |
 | 4.6 | 2026-07-19 | **`cultivation_flexible`-Flag (ADR-006 E6, #615):** Additives Boolean `Species.cultivation_flexible` (default `false`) — Fähigkeits-Signal „diese Art kann fakultativ annuell ODER perennial kultiviert werden" (frostzarte Staude überwintert vs. neu gekauft, einjährig gezogene Erdbeere). Drückt die *Fähigkeit* aus, nicht den Wert (der Default bleibt `cycle_type`/`cultivation_cycle_type`, #297 unangetastet). Master-Data-gepflegt aus `species.yaml/lifecycle_overrides` (Steckbrief-belegte Kohorte), in `SpeciesResponse` exponiert; die Pflanz-Anlage-Maske gated damit die per-Instanz-Kulturführungs-Wahl (ADR-006 E1/#539). Non-breaking, keine Migration nötig. |
 | 4.5 | 2026-07-02 | **Spec-Audit D-Umsetzung (WP-1/WP-3/WP-4):** Die in v4.4 angekündigten Felder sind nun tatsächlich im Body definiert. `GrowthHabit`-Enum real erweitert (12 Werte: +`subshrub`, `grass`, `succulent`, `bulb_geophyte`, `fern`, `aquatic`, `epiphyte`) — beide `growth_habit`-Literal-Stellen mitgezogen. `LifecycleConfig.cultivation_cycle_type: Optional[CycleType]` (Kultur-Praxis vs. botanisch) + abgeleitetes `grown_as_annual`-Flag. Neuer Enum `FloweringStrategy` (`monocarpic`/`polycarpic`) + `LifecycleConfig.flowering_strategy` (Voraussetzung für monokarpe Terminal-Transition REQ-003 §D6, Bulb-Geophyt-Zyklus §D7). Alle Felder optional, non-breaking. Quelle: Spec-Audit-Findings D6/D7 + `.audits/datenmodell-pflanzeneigenschaften-plan.md` WP-1/3/4. |
 | 4.4 | 2026-06-15 | **Phase A — additive Stammdaten-Felder (Plan WP-1/WP-3):** `GrowthHabit`-Enum auf die reale botanische Bandbreite erweitert (+`subshrub`, `grass`, `succulent`, `bulb_geophyte`, `fern`, `aquatic`, `epiphyte`). Lebensdauer-Split: `LifecycleConfig.cultivation_cycle_type` (Kultur-Praxis) ergänzt `cycle_type` (botanisch) — bildet „einjährig in Kultur"/tender perennial ab. Alle Felder optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §1.2/§2.1. _(v4.5: tatsächlich im Body umgesetzt.)_ |
@@ -168,6 +169,11 @@ Zusätzlich erfasst das System:
     <!-- Spec-Audit 2026-07-02 A1/A2 + D6: Lebenszyklus-Felder umgesetzt (datenmodell-pflanzeneigenschaften-plan.md WP-3/WP-4). -->
     - `cultivation_cycle_type: Optional[CycleType]` (Kultur-Praxis-Lebensdauer; überschreibt die **botanische** `cycle_type` für Überwinterungs- und Saison-Ende-Hinweise. Beispiel: Tomate botanisch `perennial`, in Kultur `annual`. Abgeleitetes Read-Flag `grown_as_annual = cultivation_cycle_type == 'annual' and cycle_type != 'annual'`. `null` = Kultur folgt der botanischen `cycle_type`.)
     - `flowering_strategy: Optional[FloweringStrategy]` (Reproduktions-Achse `monocarpic`/`polycarpic`, orthogonal zu `cycle_type`. `monocarpic` = „blüht einmal, stirbt danach" (Agave, viele Bambusse; **alle Bienniale sind monokarp**) auch bei mehrjährigem Wuchs → erzwingt eine terminale Nach-Blüte-Transition, siehe REQ-003 §Monokarp-Terminal (D6). `polycarpic` = blüht wiederholt über mehrere Saisons. `null` = unspezifiziert.)
+    <!-- Spec-Audit 2026-07-19 #611 WS1: growth_determinacy in Schema/Model/Seed vorhanden, aber bislang nicht in REQ-001 geführt (not-carried-through-Spec-Gap). Hier nachgezogen. -->
+    - `growth_determinacy: Optional[GrowthDeterminacy]` (Wuchs-Determiniertheit `determinate`/`indeterminate`/`semi_determinate`, orthogonal zu Lebensdauer und Blühstrategie. `indeterminate` = Pflanze verbleibt in einer stabilen produktiven Phase (`fruiting`/`flowering_fruit`, wiederkehrend) mit gleichzeitigem Veg-/Blüh-/Frucht-Wachstum (`harvest_pattern='continuous'`); `determinate` = lineare Sequenz bis zur Terminalphase. `null` = wie `determinate` behandelt. Steuert REQ-003 §E4 (Indeterminate/gleichzeitige Phasen).)
+
+<!-- Spec-Audit 2026-07-19 #611 WS1 (Audit #576/#586 → #616): die drei Lebenszyklus-Achsen sind Pflicht-Inputs der Sequenz-Resolution, nicht optionale Metadaten. -->
+    - **Lifecycle-Resolution-Pflichtfelder:** `cultivation_cycle_type`, `flowering_strategy` und `growth_determinacy` sind zwar am Datentyp `Optional` (schemalos, kein Backfill-Zwang für Bestandsdaten), gelten aber als **verbindliche Resolution-Inputs je Species**: Sie speisen den attributgetriebenen Phase-Sequence-Resolver (REQ-003 §D14, Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type`), die Zyklus-Kaskade `resolve_effective_cycle` (REQ-003 v2.13) und die Überwinterungs-Kopplung (REQ-047). Fehlt eine dieser Achsen, fällt die Art auf das strukturell falsche `indoor_default`-Blankett zurück — genau der von Audit #586 aufgedeckte „specified-but-not-carried-through"-Defekt. Der Steckbrief (`spec/knowledge/plants/*.md`) ist die Quelle der Wahrheit; die Master-Data-Pflege füllt diese Achsen für jede kultivierbare Art. Die Anlage-/Pflegemaske (REQ-001 Capture-UI) exponiert sie als strukturierte Auswahlfelder (Enum-Dropdowns), nicht als Freitext (vgl. #610).
 
 - **`:GrowthPhase`** - Wachstumsphase
   - Properties:
@@ -1278,6 +1284,15 @@ class FloweringStrategy(str, Enum):
     """Ob eine Pflanze einmal oder wiederholt blüht — unabhängig von der Lebensdauer."""
     MONOCARPIC = "monocarpic"   # blüht einmal, stirbt danach (Agave, Bambus, alle Bienniale)
     POLYCARPIC = "polycarpic"   # blüht wiederholt über mehrere Saisons
+
+# Spec-Audit 2026-07-19 #611 WS1: Wuchs-Determiniertheit (REQ-003 §E4), orthogonal zu Lebensdauer/Blühstrategie.
+# Bereits in species.schema.yaml/_defs.schema.yaml, LifecycleConfig-Model und species.yaml/lifecycle_overrides
+# vorhanden; hier nachgezogen (not-carried-through-Spec-Gap).
+class GrowthDeterminacy(str, Enum):
+    """Ob der Wuchs linear zu einer Terminalphase führt oder unbegrenzt produktiv bleibt."""
+    DETERMINATE = "determinate"          # lineare Sequenz bis Terminalphase
+    INDETERMINATE = "indeterminate"      # stabile produktive Phase, gleichzeitiges Veg-/Blüh-/Fruchtwachstum
+    SEMI_DETERMINATE = "semi_determinate" # Zwischenform (begrenzt unbestimmt)
 
 class RootDepth(str, Enum):
     """Typische Wurzeltiefe einer Pflanzenfamilie"""

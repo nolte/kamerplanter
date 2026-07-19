@@ -17,7 +17,7 @@
 | Familie | Pteridaceae | `species.family` → `botanical_families.name` |
 | Gattung | Adiantum | `species.genus` |
 | Ordnung | Polypodiales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | fern | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` <!-- Quelle: Steckbrief-Erweiterung 2026-06 --><!-- /Quelle: Steckbrief-Erweiterung 2026-06 --> |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -296,7 +296,7 @@ Entfällt — reine Zimmerpflanze (ideal für Terraria und Badezimmer-Arrangemen
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Adiantum raddianum,"Frauenhaarfarn;Delta-Frauenhaarfarn;Maidenhair Fern;Delta Maidenhair",Pteridaceae,Adiantum,perennial,day_neutral,herb,rhizomatous,"10a;10b;11a;11b","Tropisches Amerika (Brasilien)",yes,1-5,12,20-45,20-40,yes,limited,false,light_feeder
+Adiantum raddianum,"Frauenhaarfarn;Delta-Frauenhaarfarn;Maidenhair Fern;Delta Maidenhair",Pteridaceae,Adiantum,perennial,day_neutral,fern,rhizomatous,"10a;10b;11a;11b","Tropisches Amerika (Brasilien)",yes,1-5,12,20-45,20-40,yes,limited,false,light_feeder
 ```
 
 ---

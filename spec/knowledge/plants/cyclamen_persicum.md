@@ -17,7 +17,7 @@
 | Familie | Primulaceae | `species.family` → `botanical_families.name` |
 | Gattung | Cyclamen | `species.genus` |
 | Ordnung | Ericales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |
@@ -325,7 +325,7 @@ Entfällt — reine Zimmer-/Balkonpflanze (saisonale Winterblüte).
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Cyclamen persicum,"Alpenveilchen;Cyclamen;Persian Cyclamen",Primulaceae,Cyclamen,perennial,day_neutral,herb,tuberous,"9a;9b;10a;10b;11a","Mittelmeerraum, Naher Osten",yes,0.5-3,12,15-30,15-30,yes,limited,false,light_feeder
+Cyclamen persicum,"Alpenveilchen;Cyclamen;Persian Cyclamen",Primulaceae,Cyclamen,perennial,day_neutral,bulb_geophyte,tuberous,"9a;9b;10a;10b;11a","Mittelmeerraum, Naher Osten",yes,0.5-3,12,15-30,15-30,yes,limited,false,light_feeder
 ```
 
 ---
