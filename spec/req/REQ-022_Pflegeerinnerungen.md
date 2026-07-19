@@ -1498,15 +1498,22 @@ Router: `/api/v1/care-reminders`
 
 ## 5. Frontend-Spezifikation
 
-### 5.1 PflegeDashboardPage (`/pflege`)
+### 5.1 Pflegeerinnerungen in der Aufgabenwarteschlange (`/pflege` → `/aufgaben/queue`)
 
-Kartenbasierte Übersicht aller fälligen Erinnerungen. Primäre Seite für Einsteiger (Beginner-Navigation: Position 3 "Pflege").
+Fällige Pflegeerinnerungen werden als Karten innerhalb der gemeinsamen
+Aufgabenwarteschlange (`TaskQueuePage`, REQ-006) dargestellt. Es gibt **keine
+eigenständige `PflegeDashboardPage`** mehr: Die Route `/pflege` leitet dauerhaft
+per Redirect auf `/aufgaben/queue` um. Aktive Tasks und fällige
+Care-Reminder-Karten teilen sich dort eine nach Dringlichkeit gruppierte Liste.
+Der Quellen-Filter der Warteschlange ("Alle" / "Aufgaben" / "Pflege") blendet
+wahlweise nur die Care-Reminder-Karten ein.
 
-**Layout:**
-- Header: "Pflege-Erinnerungen" mit Datum
-- Sortierung: Überfällig → Heute fällig → Demnächst (nächste 2 Tage)
-- Leerer Zustand: Illustration + "Alle Pflanzen sind versorgt!" (Erfolgsmeldung)
-- Pull-to-Refresh (mobile UX)
+**Layout (Care-Reminder-Karten in der Warteschlange):**
+- Gruppierung nach Dringlichkeit: Überfällig → Heute fällig → Diese Woche → Zukunft
+- Care-Reminder-Karten werden dedupliziert, wenn bereits ein `care_reminder`-Task
+  für dieselbe Pflanze + denselben Typ existiert (kein Doppel-Eintrag)
+- Leerer Zustand: Illustration + Erfolgsmeldung ("Keine offenen Aufgaben")
+- Quellen-Filter erlaubt die Fokussierung auf reine Pflege-Erinnerungen
 
 **ReminderCard — Einzelne Erinnerungskarte:**
 
@@ -1714,7 +1721,10 @@ enums.wateringMethod.bottom_water            = "Von unten gießen" / "Bottom Wat
 
 ### 5.6 Navigations-Integration (REQ-021)
 
-Die PflegeDashboardPage wird in die Navigations-Tiering-Konfiguration integriert:
+Der Pflege-Menüpunkt wird in die Navigations-Tiering-Konfiguration integriert.
+Er verlinkt auf `/pflege`, das per Redirect auf die Aufgabenwarteschlange
+(`/aufgaben/queue`) führt; dort sind die Care-Reminder-Karten über den
+Quellen-Filter "Pflege" erreichbar.
 
 | Modus | Navigation | Position |
 |-------|-----------|----------|
@@ -1722,7 +1732,10 @@ Die PflegeDashboardPage wird in die Navigations-Tiering-Konfiguration integriert
 | Fortgeschritten | "Pflege" | Position 3 |
 | Experte | "Pflege & Erinnerungen" (zusätzlich zu "Aufgaben & Workflows") | Position 6 |
 
-Im Experten-Modus ist die PflegeDashboardPage eine alternative Ansicht auf dieselben Tasks — Experten können zwischen der klassischen Task-Queue (REQ-006) und der vereinfachten Pflege-Ansicht wechseln.
+Es gibt keine getrennte Pflege-Ansicht mehr: In allen Modi münden sowohl der
+"Pflege"- als auch der "Aufgaben"-Menüpunkt in dieselbe gemergte
+Aufgabenwarteschlange (REQ-006). Der Quellen-Filter der Warteschlange trennt bei
+Bedarf Aufgaben von Pflege-Erinnerungen.
 
 ## 6. Akzeptanzkriterien
 

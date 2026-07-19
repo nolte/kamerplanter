@@ -24,6 +24,7 @@ import dashboardReducer from '@/store/slices/dashboardSlice';
 import plantingRunsReducer from '@/store/slices/plantingRunsSlice';
 import tasksReducer from '@/store/slices/tasksSlice';
 import postHarvestReducer from '@/store/slices/postHarvestSlice';
+import careRemindersReducer from '@/store/slices/careRemindersSlice';
 
 const rootReducer = combineReducers({
   ui: uiReducer,
@@ -45,6 +46,7 @@ const rootReducer = combineReducers({
   plantingRuns: plantingRunsReducer,
   tasks: tasksReducer,
   postHarvest: postHarvestReducer,
+  careReminders: careRemindersReducer,
 });
 
 // Loosely-typed preloaded state: only the slices a given test cares about need
