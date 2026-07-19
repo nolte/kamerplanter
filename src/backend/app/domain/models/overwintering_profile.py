@@ -117,13 +117,25 @@ class PlantOverwinteringStatus(BaseModel):
 
 
 class WinterHardinessOverviewEntry(BaseModel):
-    """One red (must-relocate) plant in the dashboard hardiness overview."""
+    """One red (must-relocate) plant in the dashboard hardiness overview.
+
+    The bare ``*_key`` fields identify the subject for deep links; the enrichment
+    fields (``plant_name`` … ``location_name``) carry the human-readable labels the
+    widget renders so it never has to fall back to the raw document key (#631). All
+    enrichment is best-effort and tenant-scoped: a field stays ``None`` when the
+    related document is missing or belongs to another tenant.
+    """
 
     profile_key: str
     plant_key: str | None = None
     planting_run_key: str | None = None
     hardiness_rating: HardinessRating
     winter_action: WinterAction
+    plant_name: str | None = None
+    instance_id: str | None = None
+    species_common_name: str | None = None
+    species_scientific_name: str | None = None
+    location_name: str | None = None
 
 
 class WinterHardinessOverview(BaseModel):
