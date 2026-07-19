@@ -22,6 +22,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Stack from '@mui/material/Stack';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
@@ -52,6 +54,7 @@ import BugReportIcon from '@mui/icons-material/BugReport';
 import PlaceIcon from '@mui/icons-material/Place';
 import WaterDropIcon from '@mui/icons-material/WaterDrop';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import DoneAllIcon from '@mui/icons-material/DoneAll';
 import TodayIcon from '@mui/icons-material/Today';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PageTitle from '@/components/layout/PageTitle';
@@ -61,7 +64,7 @@ import EmptyState from '@/components/common/EmptyState';
 import PrintButton from '@/components/common/PrintButton';
 import { downloadCareChecklistPdf } from '@/api/endpoints/print';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchTaskQueue, fetchOverdueTasks } from '@/store/slices/tasksSlice';
+import { fetchTaskQueue, fetchOverdueTasks, fetchCompletedTasks } from '@/store/slices/tasksSlice';
 import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -195,7 +198,9 @@ export default function TaskQueuePage() {
   const { handleError } = useApiError();
 
   // Task state
-  const { taskQueue, loading: tasksLoading } = useAppSelector((s) => s.tasks);
+  const { taskQueue, loading: tasksLoading, completedTasks, completedTasksLoading } = useAppSelector(
+    (s) => s.tasks,
+  );
   const [createOpen, setCreateOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [generateLoading, setGenerateLoading] = useState(false);
@@ -203,6 +208,7 @@ export default function TaskQueuePage() {
   const [filterPlantKey, setFilterPlantKey] = useState<string | null>(null);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Care state
   const { dashboard: careDashboard, loading: careLoading, currentProfile } = useAppSelector(
@@ -225,6 +231,13 @@ export default function TaskQueuePage() {
     dispatch(fetchDashboard());
     plantApi.listPlantInstances(0, 200).then(setPlants).catch(() => {});
   }, [dispatch]);
+
+  // Lazily load completed tasks only when the user reveals them.
+  useEffect(() => {
+    if (showCompleted) {
+      dispatch(fetchCompletedTasks());
+    }
+  }, [showCompleted, dispatch]);
 
   // ── Task actions ─────────────────────────────────────────────────────
 
@@ -270,13 +283,14 @@ export default function TaskQueuePage() {
         await taskApi.completeTask(key, {});
         notification.success(t('pages.tasks.taskCompleted'));
         dispatch(fetchTaskQueue());
+        if (showCompleted) dispatch(fetchCompletedTasks());
       } catch (err) {
         handleError(err);
       } finally {
         setActionLoading(null);
       }
     },
-    [dispatch, notification, handleError, t],
+    [dispatch, notification, handleError, t, showCompleted],
   );
 
   const handleSkip = useCallback(
@@ -392,9 +406,10 @@ export default function TaskQueuePage() {
         setSelectedKeys(new Set());
         dispatch(fetchTaskQueue());
         dispatch(fetchOverdueTasks());
+        if (showCompleted) dispatch(fetchCompletedTasks());
       }
     },
-    [selectedKeys, dispatch, notification, handleError, t],
+    [selectedKeys, dispatch, notification, handleError, t, showCompleted],
   );
 
   const handleBulkSkip = useCallback(
@@ -556,6 +571,29 @@ export default function TaskQueuePage() {
     }
     return groups;
   }, [filtered]);
+
+  // Completed tasks respect the active category/plant filters and are sorted by
+  // most-recently completed first. Care reminders are excluded from this list —
+  // the "care" source has its own not-due state, not a completed status.
+  const completedFiltered = useMemo(() => {
+    if (!showCompleted || sourceFilter === 'care') return [];
+    return completedTasks
+      .filter((task) => {
+        if (filterCategory && task.category !== filterCategory) return false;
+        const taskPlantKey = task.entity_type === 'plant_instance' ? task.entity_key : null;
+        if (filterPlantKey && taskPlantKey !== filterPlantKey) return false;
+        return true;
+      })
+      .slice()
+      .sort((a, b) => {
+        const da = a.completed_at ?? a.due_date;
+        const db = b.completed_at ?? b.due_date;
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return new Date(db).getTime() - new Date(da).getTime();
+      });
+  }, [showCompleted, sourceFilter, completedTasks, filterCategory, filterPlantKey]);
 
   const allTaskKeys = useMemo(
     () => filtered.filter((i) => i.source === 'task').map((i) => i.task!.key),
@@ -1003,6 +1041,65 @@ export default function TaskQueuePage() {
     [renderItem, t],
   );
 
+  // Completed tasks live in a distinct, visually muted section below the active
+  // urgency groups. They are read-only cards (no start/complete/skip actions,
+  // since renderTaskCard only shows actions for pending/in_progress tasks).
+  const renderCompletedSection = useCallback(
+    (tasks: TaskItem[]) => (
+      <Box
+        component="section"
+        aria-label={t('pages.tasks.completed')}
+        sx={{ mb: 3, opacity: 0.85 }}
+        data-testid="task-section-completed"
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            mb: 1.5,
+            borderLeft: '3px solid',
+            borderColor: 'success.main',
+            ml: -0.75,
+            pl: 1,
+          }}
+        >
+          <Box sx={{ color: 'success.main', display: 'flex', alignItems: 'center' }} aria-hidden="true">
+            <DoneAllIcon sx={{ fontSize: 18 }} />
+          </Box>
+          <Typography
+            variant="overline"
+            component="h2"
+            sx={{ color: 'success.main', fontWeight: 700, letterSpacing: 1.2, lineHeight: 1 }}
+          >
+            {t('pages.tasks.completed')}
+          </Typography>
+          <Chip
+            label={tasks.length}
+            size="small"
+            sx={{ height: 20, fontSize: '0.7rem', minWidth: 24 }}
+            aria-label={t('pages.tasks.sectionCount', { count: tasks.length })}
+          />
+        </Box>
+        {completedTasksLoading && tasks.length === 0 ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+            <CircularProgress size={18} />
+            <Typography variant="body2" color="text.secondary">
+              {t('common.loading')}
+            </Typography>
+          </Box>
+        ) : tasks.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+            {t('pages.tasks.noCompletedTasks')}
+          </Typography>
+        ) : (
+          tasks.map((task) => renderTaskCard(task, 'future'))
+        )}
+      </Box>
+    ),
+    [renderTaskCard, completedTasksLoading, t],
+  );
+
   // ── Loading ──────────────────────────────────────────────────────────
 
   const loading = tasksLoading || careLoading;
@@ -1236,6 +1333,29 @@ export default function TaskQueuePage() {
               {t('common.clearFilters')}
             </Button>
           )}
+
+          {/* Reveal completed tasks (#606) — hidden for the care-only source
+              since care reminders have no completed status. */}
+          {sourceFilter !== 'care' && (
+            <FormControlLabel
+              sx={{ ml: { xs: 0, sm: 'auto' }, mr: 0 }}
+              control={
+                <Switch
+                  checked={showCompleted}
+                  onChange={(e) => setShowCompleted(e.target.checked)}
+                  size="small"
+                  data-testid="show-completed-toggle"
+                  slotProps={{ input: { 'aria-label': t('pages.tasks.showCompleted') } }}
+                />
+              }
+              label={
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                  <DoneAllIcon sx={{ fontSize: 16 }} aria-hidden="true" />
+                  <Typography variant="body2">{t('pages.tasks.showCompleted')}</Typography>
+                </Box>
+              }
+            />
+          )}
         </Box>
 
         {/* Active filter summary chips — makes it obvious which filters are applied */}
@@ -1267,7 +1387,7 @@ export default function TaskQueuePage() {
       </Paper>
 
       {/* Content area */}
-      {totalItems === 0 ? (
+      {totalItems === 0 && !showCompleted ? (
         hasActiveFilters ? (
           // Contextual empty state when filters are active
           <EmptyState
@@ -1288,10 +1408,16 @@ export default function TaskQueuePage() {
         )
       ) : (
         <>
+          {totalItems === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {hasActiveFilters ? t('pages.tasks.noTasksFiltered') : t('pages.tasks.noTasks')}
+            </Typography>
+          )}
           {renderSection('overdue', grouped.overdue)}
           {renderSection('today', grouped.today)}
           {renderSection('thisWeek', grouped.thisWeek)}
           {renderSection('future', grouped.future)}
+          {showCompleted && renderCompletedSection(completedFiltered)}
         </>
       )}
 
