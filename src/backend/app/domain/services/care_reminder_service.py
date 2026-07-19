@@ -39,6 +39,19 @@ _SEASON_PHASE_REMINDERS: dict[SeasonPhase, tuple[ReminderType, ...]] = {
     SeasonPhase.PRE_SPRING: (ReminderType.SPRING_UNCOVER,),
 }
 
+#: CareProfile interval field → the care-reminder type whose pending task must be
+#: re-terminated when that field is edited (#622). Editing e.g.
+#: ``watering_interval_days`` recomputes the pending watering task's due date and
+#: refreshes its "every N days" instruction; the same wiring covers fertilizing,
+#: pest-check, humidity-check and repotting.
+_INTERVAL_FIELD_REMINDERS: dict[str, ReminderType] = {
+    "watering_interval_days": ReminderType.WATERING,
+    "fertilizing_interval_days": ReminderType.FERTILIZING,
+    "pest_check_interval_days": ReminderType.PEST_CHECK,
+    "humidity_check_interval_days": ReminderType.HUMIDITY_CHECK,
+    "repotting_interval_months": ReminderType.REPOTTING,
+}
+
 
 def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
     """Human-readable task instruction for a care-reminder type (shared, REQ-022).
@@ -173,14 +186,145 @@ class CareReminderService:
         return created
 
     def update_profile(self, plant_key: str, updates: dict) -> CareProfile:
+        """Persist care-profile edits and re-terminate the affected pending tasks.
+
+        Beyond writing the fields, an edit to any task-interval field
+        (``watering_interval_days`` and its fertilizing/pest/humidity/repotting
+        siblings) reschedules the corresponding **pending** care task so its due
+        date and "every N days" instruction reflect the new cadence immediately —
+        instead of staying stale until the next confirmation regenerates the task
+        (#622). Only pending tasks are touched; completed/skipped history is never
+        revived and no duplicates are created (the tenant-aware dedup helper is the
+        single predicate). An explicit interval edit also resets the matching
+        adaptive-learned interval, so the edited base value — not a stale learned
+        value — drives the new schedule.
+        """
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
             raise NotFoundError("CareProfile", plant_key)
 
+        # Which task-interval fields actually change (a no-op write is not a change).
+        changed_reminders = {
+            reminder_type
+            for field, reminder_type in _INTERVAL_FIELD_REMINDERS.items()
+            if field in updates and updates[field] != getattr(profile, field)
+        }
+
         data = profile.model_dump()
         data.update(updates)
+
+        # An explicit interval edit takes precedence over the adaptive-learned
+        # value: reset the learned interval (unless the caller set it in the same
+        # request) so the freshly edited base interval drives scheduling (#622).
+        if ReminderType.WATERING in changed_reminders and "watering_interval_learned" not in updates:
+            data["watering_interval_learned"] = None
+        if ReminderType.FERTILIZING in changed_reminders and "fertilizing_interval_learned" not in updates:
+            data["fertilizing_interval_learned"] = None
+
         updated = CareProfile(**data)
-        return self._repo.update_profile(profile.key or "", updated)
+        saved = self._repo.update_profile(profile.key or "", updated)
+
+        for reminder_type in changed_reminders:
+            self._reschedule_pending_care_task(saved, reminder_type)
+
+        return saved
+
+    def _reschedule_pending_care_task(self, profile: CareProfile, reminder_type: ReminderType) -> None:
+        """Re-terminate the plant's pending care task after an interval edit (#622).
+
+        Routes through the single tenant-aware dedup helper
+        (:meth:`ITaskRepository.find_open_care_task`) with
+        ``include_completed_today=False`` so only a still-open task is considered —
+        completed/skipped history is never revived. Only a ``PENDING`` task is
+        rescheduled in place (an ``IN_PROGRESS`` task is being worked on and is left
+        untouched). When no pending task exists, the opted-in watering path
+        materialises the next occurrence via :meth:`ensure_next_watering_task`
+        (which respects ``auto_create_watering_task`` and its own dedup); every
+        other reminder type is left as-is, so no duplicates are created.
+        """
+        if self._task_repo is None:
+            return
+
+        plant_key = profile.plant_key
+        tenant_key = self._resolve_tenant_key(plant_key)
+        task = self._task_repo.find_open_care_task(
+            plant_key,
+            reminder_type,
+            tenant_key,
+            include_completed_today=False,
+        )
+
+        if task is not None:
+            if task.status != TaskStatus.PENDING:
+                return
+            due_dt, instruction = self._compute_care_reschedule(profile, reminder_type, plant_key)
+            if due_dt is None:
+                return
+            task.due_date = due_dt
+            if instruction is not None:
+                task.instruction = instruction
+            self._task_repo.update_task(task.key or "", task)
+            return
+
+        # No pending task to re-terminate. Only the opted-in watering path creates
+        # the next occurrence here; ensure_next_watering_task's own dedup prevents
+        # a duplicate when a task was already completed today.
+        if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
+            phase_interval = self._get_phase_watering_interval(plant_key)
+            self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
+
+    def _compute_care_reschedule(
+        self,
+        profile: CareProfile,
+        reminder_type: ReminderType,
+        plant_key: str,
+    ) -> tuple[datetime | None, str | None]:
+        """Compute the ``(due_date, instruction)`` for a rescheduled care task (#622).
+
+        Reuses the existing scheduling machinery so the interval edit never
+        duplicates cadence math: the watering path routes through the same
+        :meth:`_next_watering_due_date` (RecurrenceEngine) and interval authority
+        (:meth:`CareReminderEngine._get_interval_days`) as
+        :meth:`ensure_next_watering_task`; every other reminder type reuses the
+        engine's :meth:`CareReminderEngine.calculate_due_date`. Both cases anchor on
+        the last confirmation (or the profile bootstrap when none exists).
+        """
+        last = self._repo.get_last_confirmation(plant_key, reminder_type)
+        plant_label = self._resolve_plant_label(plant_key)
+
+        if reminder_type == ReminderType.WATERING:
+            phase_interval = self._get_phase_watering_interval(plant_key)
+            due_dt = self._next_watering_due_date(
+                profile,
+                last,
+                hemisphere="north",
+                phase_watering_interval=phase_interval,
+            )
+            interval = self._engine._get_interval_days(
+                profile,
+                ReminderType.WATERING,
+                "north",
+                phase_watering_interval=phase_interval,
+            )
+            instruction = f"Water {plant_label} (every {interval} days)." if interval is not None else None
+            return due_dt, instruction
+
+        # Non-watering reminders: the engine owns the cadence and the instruction is
+        # the shared per-type text (no interval baked into the string).
+        due_date = self._engine.calculate_due_date(profile, reminder_type, last)
+        if due_date is None:
+            return None, None
+        due_dt = datetime(due_date.year, due_date.month, due_date.day, tzinfo=UTC)
+        return due_dt, care_reminder_instruction(reminder_type, plant_label)
+
+    def _resolve_plant_label(self, plant_key: str) -> str:
+        """Resolve a plant's display label (name → instance id → key) for task text."""
+        if self._plant_repo is None:
+            return plant_key
+        plant = self._plant_repo.get_by_key(plant_key)
+        if plant is None:
+            return plant_key
+        return plant.plant_name or plant.instance_id or plant_key
 
     def confirm_reminder(
         self,
