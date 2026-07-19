@@ -18,6 +18,7 @@ import PhaseSequenceListPage from '@/pages/phasen/PhaseSequenceListPage';
 const LIST_URL = '/api/v1/phase-sequences';
 const DELETE_URL = '/api/v1/phase-sequences/:key';
 const CREATE_URL = '/api/v1/phase-sequences';
+const CLONE_URL = '/api/v1/phase-sequences/:key/clone';
 
 function makeSequence(overrides: Partial<PhaseSequence> = {}): PhaseSequence {
   return {
@@ -330,5 +331,51 @@ describe('PhaseSequenceListPage', () => {
     expect(
       screen.queryByRole('button', { name: i18n.t('common.delete') }),
     ).not.toBeInTheDocument();
+  });
+
+  it('offers a duplicate action only for system-owned sequences (UI-NFR-018 R-015)', async () => {
+    useSequences([makeSequence({ is_system: false })]);
+    const { unmount } = renderWithProviders(<PhaseSequenceListPage />);
+    await screen.findByText('Tomaten-Zyklus');
+    expect(
+      screen.queryByRole('button', { name: i18n.t('pages.phaseSequences.duplicate') }),
+    ).not.toBeInTheDocument();
+    unmount();
+
+    useSequences([makeSequence({ is_system: true })]);
+    renderWithProviders(<PhaseSequenceListPage />);
+    await screen.findByText('Tomaten-Zyklus');
+    expect(
+      screen.getByRole('button', { name: i18n.t('pages.phaseSequences.duplicate') }),
+    ).toBeInTheDocument();
+  });
+
+  it('duplicates a system sequence from the row and navigates to the copy', async () => {
+    let clonedName: string | null = null;
+    useSequences([makeSequence({ is_system: true })]);
+    server.use(
+      http.post(CLONE_URL, async ({ request }) => {
+        const body = (await request.json()) as { new_name: string };
+        clonedName = body.new_name;
+        return HttpResponse.json(
+          makeSequence({ key: 'seq-copy', name: body.new_name, is_system: false }),
+          { status: 201 },
+        );
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PhaseSequenceListPage />);
+
+    await screen.findByText('Tomaten-Zyklus');
+    await user.click(
+      screen.getByRole('button', { name: i18n.t('pages.phaseSequences.duplicate') }),
+    );
+
+    await waitFor(() =>
+      expect(clonedName).toBe(`Tomaten-Zyklus (${i18n.t('pages.phaseSequences.copySuffix')})`),
+    );
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith('/phasen/ablaeufe/seq-copy'),
+    );
   });
 });

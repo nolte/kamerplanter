@@ -13,6 +13,7 @@ import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LoopIcon from '@mui/icons-material/Loop';
 import OriginChip from '@/components/common/OriginChip';
@@ -215,6 +216,18 @@ export default function PhaseSequenceListPage() {
   const getDisplayName = (seq: PhaseSequence): string =>
     (lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name;
 
+  const handleClone = async (seq: PhaseSequence) => {
+    try {
+      const cloned = await phaseSequenceApi.clonePhaseSequence(seq.key, {
+        new_name: `${getDisplayName(seq)} (${t('pages.phaseSequences.copySuffix')})`,
+      });
+      notification.success(t('pages.phaseSequences.sequenceCloned'));
+      navigate(`/phasen/ablaeufe/${cloned.key}`);
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
   const columns: Column<PhaseSequence>[] = [
     {
       id: 'name',
@@ -289,6 +302,20 @@ export default function PhaseSequenceListPage() {
       searchable: false,
       render: (seq) => (
         <Box onClick={(e) => e.stopPropagation()}>
+          {/* UI-NFR-018 R-015: offer "copy as template" for read-only system data */}
+          {seq.is_system && (
+            <Tooltip title={t('pages.phaseSequences.duplicateTooltip')}>
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => handleClone(seq)}
+                aria-label={t('pages.phaseSequences.duplicate')}
+                data-testid={`duplicate-sequence-${seq.key}`}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {/* UI-NFR-018 R-013: hide delete action for system data */}
           {!seq.is_system && (
             <Tooltip title={t('common.delete')}>
