@@ -17,6 +17,15 @@ import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import {
+  useFertilizerOptions,
+  useLocationOptions,
+  FertilizerMultiSelect,
+  FertilizerSingleSelect,
+  LocationSelect,
+  EcBudgetFertilizerRows,
+  type EcBudgetFertilizerRow,
+} from './NutrientCalcFertilizerFields';
 import { useApiError } from '@/hooks/useApiError';
 import * as calcApi from '@/api/endpoints/nutrient-calculations';
 import type {
@@ -88,6 +97,10 @@ export default function NutrientCalculationsPage() {
   const { t } = useTranslation();
   const { handleError } = useApiError();
 
+  // Shared master-data catalogues, fetched once and reused by every panel (#610).
+  const { fertilizers, loading: fertilizersLoading } = useFertilizerOptions();
+  const { locations, loading: locationsLoading } = useLocationOptions();
+
   // ── Mixing Protocol ──────────────────────────────────────────────────
   const [mpVolume, setMpVolume] = useState(10);
   const [mpTargetEc, setMpTargetEc] = useState(1.8);
@@ -96,7 +109,7 @@ export default function NutrientCalculationsPage() {
   const [mpBasePh, setMpBasePh] = useState(7.2);
   const [mpAlkalinity, setMpAlkalinity] = useState(0);
   const [mpPhase, setMpPhase] = useState<PhaseName>('vegetative');
-  const [mpFertKeys, setMpFertKeys] = useState('');
+  const [mpFertKeys, setMpFertKeys] = useState<string[]>([]);
   const [mpResult, setMpResult] = useState<MixingProtocolResponse | null>(null);
 
   // ── Flushing ─────────────────────────────────────────────────────────
@@ -114,7 +127,7 @@ export default function NutrientCalculationsPage() {
   const [roResult, setRoResult] = useState<RunoffResponse | null>(null);
 
   // ── Mixing Safety ────────────────────────────────────────────────────
-  const [msKeys, setMsKeys] = useState('');
+  const [msKeys, setMsKeys] = useState<string[]>([]);
   const [msResult, setMsResult] = useState<MixingSafetyResponse | null>(null);
 
   // ── Water Mixer (reverse) ──────────────────────────────────────────
@@ -124,7 +137,7 @@ export default function NutrientCalculationsPage() {
   const [wmResult, setWmResult] = useState<WaterMixReverseResponse | null>(null);
 
   // ── Area-based Dosing (REQ-004 W-013) ────────────────────────────────
-  const [adFertKeys, setAdFertKeys] = useState('');
+  const [adFertKeys, setAdFertKeys] = useState<string[]>([]);
   const [adAreaM2, setAdAreaM2] = useState<number | ''>('');
   const [adLocationKey, setAdLocationKey] = useState('');
   const [adDemandLevel, setAdDemandLevel] = useState<NutrientDemandLevel | ''>('');
@@ -135,7 +148,7 @@ export default function NutrientCalculationsPage() {
   const [ebSubstrate, setEbSubstrate] = useState<SubstrateType>('coco');
   const [ebPhase, setEbPhase] = useState<PhaseName>('vegetative');
   const [ebVolume, setEbVolume] = useState(10);
-  const [ebFertKeys, setEbFertKeys] = useState('');
+  const [ebFertRows, setEbFertRows] = useState<EcBudgetFertilizerRow[]>([]);
   const [ebCalmagKey, setEbCalmagKey] = useState('');
   const [ebCalmagDose, setEbCalmagDose] = useState(1.0);
   const [ebSilicateKey, setEbSilicateKey] = useState('');
@@ -147,7 +160,6 @@ export default function NutrientCalculationsPage() {
 
   const calcMixingProtocol = async () => {
     try {
-      const keys = mpFertKeys.split(',').map((k) => k.trim()).filter(Boolean);
       const result = await calcApi.calculateMixingProtocol({
         target_volume_liters: mpVolume,
         target_ec_ms: mpTargetEc,
@@ -156,7 +168,7 @@ export default function NutrientCalculationsPage() {
         base_water_ph: mpBasePh,
         alkalinity_ppm: mpAlkalinity,
         phase: mpPhase,
-        fertilizer_keys: keys,
+        fertilizer_keys: mpFertKeys,
       });
       setMpResult(result);
     } catch (err) {
@@ -194,9 +206,8 @@ export default function NutrientCalculationsPage() {
 
   const calcMixingSafety = async () => {
     try {
-      const keys = msKeys.split(',').map((k) => k.trim()).filter(Boolean);
       const result = await calcApi.validateMixingSafety({
-        fertilizer_keys: keys,
+        fertilizer_keys: msKeys,
       });
       setMsResult(result);
     } catch (err) {
@@ -206,9 +217,8 @@ export default function NutrientCalculationsPage() {
 
   const calcAreaDosing = async () => {
     try {
-      const keys = adFertKeys.split(',').map((k) => k.trim()).filter(Boolean);
       const result = await calcApi.calculateAreaDosing({
-        fertilizer_keys: keys,
+        fertilizer_keys: adFertKeys,
         area_m2: adAreaM2 !== '' ? adAreaM2 : undefined,
         location_key: adLocationKey.trim() || undefined,
         demand_level: adDemandLevel || undefined,
@@ -233,17 +243,13 @@ export default function NutrientCalculationsPage() {
 
   const calcEcBudget = async () => {
     try {
-      const fertEntries = ebFertKeys
-        .split(',')
-        .map((entry) => entry.trim())
-        .filter(Boolean)
-        .map((entry) => {
-          const [key, dose] = entry.split(':');
-          return {
-            key: key.trim(),
-            recipe_ml_per_liter: dose ? Number(dose.trim()) : undefined,
-          };
-        });
+      const fertEntries = ebFertRows
+        .filter((row) => row.key)
+        .map((row) => ({
+          key: row.key,
+          recipe_ml_per_liter:
+            row.mlPerLiter !== '' ? row.mlPerLiter : undefined,
+        }));
 
       const baseEc = wmResult ? wmResult.effective_profile.ec_ms : wmTargetBaseEc;
 
@@ -350,8 +356,11 @@ export default function NutrientCalculationsPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
                 {t('pages.nutrientCalc.mixingProtocol')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.mixingProtocolIntro')}
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={12}>
@@ -433,12 +442,14 @@ export default function NutrientCalculationsPage() {
                   </TextField>
                 </Grid>
                 <Grid size={12}>
-                  <TextField
-                    label={t('pages.nutrientCalc.fertilizerKeys')}
+                  <FertilizerMultiSelect
+                    options={fertilizers}
+                    loading={fertilizersLoading}
                     value={mpFertKeys}
-                    onChange={(e) => setMpFertKeys(e.target.value)}
-                    fullWidth
-                    helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
+                    onChange={setMpFertKeys}
+                    label={t('pages.nutrientCalc.fertilizers')}
+                    helperText={t('pages.nutrientCalc.fertilizersHelp')}
+                    placeholder={t('pages.nutrientCalc.fertilizersPlaceholder')}
                   />
                 </Grid>
               </Grid>
@@ -515,8 +526,11 @@ export default function NutrientCalculationsPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
                 {t('pages.nutrientCalc.flushing')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.flushingIntro')}
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -577,8 +591,11 @@ export default function NutrientCalculationsPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
                 {t('pages.nutrientCalc.runoffAnalysis')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.runoffAnalysisIntro')}
               </Typography>
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -672,17 +689,23 @@ export default function NutrientCalculationsPage() {
         <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
                 {t('pages.nutrientCalc.mixingSafety')}
               </Typography>
-              <TextField
-                label={t('pages.nutrientCalc.fertilizerKeys')}
-                value={msKeys}
-                onChange={(e) => setMsKeys(e.target.value)}
-                fullWidth
-                sx={{ mb: 2 }}
-                helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
-              />
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.mixingSafetyIntro')}
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <FertilizerMultiSelect
+                  options={fertilizers}
+                  loading={fertilizersLoading}
+                  value={msKeys}
+                  onChange={setMsKeys}
+                  label={t('pages.nutrientCalc.fertilizers')}
+                  helperText={t('pages.nutrientCalc.fertilizersSafetyHelp')}
+                  placeholder={t('pages.nutrientCalc.fertilizersPlaceholder')}
+                />
+              </Box>
               <Button variant="contained" onClick={calcMixingSafety} fullWidth>
                 {t('pages.nutrientCalc.validate')}
               </Button>
@@ -722,12 +745,14 @@ export default function NutrientCalculationsPage() {
               </Typography>
               <Grid container spacing={2} sx={{ alignItems: 'flex-start' }}>
                 <Grid size={12}>
-                  <TextField
-                    label={t('pages.nutrientCalc.fertilizerKeys')}
+                  <FertilizerMultiSelect
+                    options={fertilizers}
+                    loading={fertilizersLoading}
                     value={adFertKeys}
-                    onChange={(e) => setAdFertKeys(e.target.value)}
-                    fullWidth
-                    helperText={t('pages.nutrientCalc.fertilizerKeysHelp')}
+                    onChange={setAdFertKeys}
+                    label={t('pages.nutrientCalc.fertilizers')}
+                    helperText={t('pages.nutrientCalc.fertilizersAreaHelp')}
+                    placeholder={t('pages.nutrientCalc.fertilizersPlaceholder')}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -742,12 +767,13 @@ export default function NutrientCalculationsPage() {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    label={t('pages.nutrientCalc.locationKey')}
+                  <LocationSelect
+                    options={locations}
+                    loading={locationsLoading}
                     value={adLocationKey}
-                    onChange={(e) => setAdLocationKey(e.target.value)}
-                    fullWidth
-                    helperText={t('pages.nutrientCalc.locationKeyHelper')}
+                    onChange={setAdLocationKey}
+                    label={t('pages.nutrientCalc.location')}
+                    helperText={t('pages.nutrientCalc.locationHelper')}
                   />
                 </Grid>
                 <Grid size={12}>
@@ -831,14 +857,20 @@ export default function NutrientCalculationsPage() {
         <Grid size={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>
                 {t('pages.nutrientCalc.ecBudgetTitle')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('pages.nutrientCalc.ecBudgetIntro')}
               </Typography>
 
               {/* Water Mixer Section (intermediate+) */}
               <ExpertiseFieldWrapper minLevel="intermediate">
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
                   {t('pages.nutrientCalc.waterMixer')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  {t('pages.nutrientCalc.waterMixerIntro')}
                 </Typography>
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   <Grid size={{ xs: 12, sm: 6, md: 4 }}>
@@ -888,8 +920,11 @@ export default function NutrientCalculationsPage() {
 
               {/* EC Budget Section (expert) */}
               <ExpertiseFieldWrapper minLevel="expert">
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                <Typography variant="subtitle1" sx={{ mb: 0.5 }}>
                   {t('pages.nutrientCalc.ecBudget')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  {t('pages.nutrientCalc.ecBudgetSectionIntro')}
                 </Typography>
                 <Grid container spacing={2} sx={{ mb: 2 }}>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -938,20 +973,20 @@ export default function NutrientCalculationsPage() {
                     />
                   </Grid>
                   <Grid size={12}>
-                    <TextField
-                      label={t('pages.nutrientCalc.fertilizerKeys')}
-                      value={ebFertKeys}
-                      onChange={(e) => setEbFertKeys(e.target.value)}
-                      fullWidth
-                      helperText={t('pages.nutrientCalc.fertilizerKeysEcBudgetHelp')}
+                    <EcBudgetFertilizerRows
+                      options={fertilizers}
+                      loading={fertilizersLoading}
+                      rows={ebFertRows}
+                      onChange={setEbFertRows}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <CalcField
-                      helpTerm="calmag"
-                      label={t('pages.nutrientCalc.calmagKey')}
+                    <FertilizerSingleSelect
+                      options={fertilizers}
+                      loading={fertilizersLoading}
                       value={ebCalmagKey}
-                      onChange={(e) => setEbCalmagKey(e.target.value)}
+                      onChange={setEbCalmagKey}
+                      label={t('pages.nutrientCalc.calmagKey')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -965,10 +1000,12 @@ export default function NutrientCalculationsPage() {
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <CalcField
-                      label={t('pages.nutrientCalc.silicateKey')}
+                    <FertilizerSingleSelect
+                      options={fertilizers}
+                      loading={fertilizersLoading}
                       value={ebSilicateKey}
-                      onChange={(e) => setEbSilicateKey(e.target.value)}
+                      onChange={setEbSilicateKey}
+                      label={t('pages.nutrientCalc.silicateKey')}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>
