@@ -149,6 +149,13 @@ class PhaseSequenceResponse(BaseModel):
     updated_at: datetime | None = None
 
 
+# ── Clone schemas ──
+
+
+class PhaseSequenceCloneRequest(BaseModel):
+    new_name: str = Field(min_length=1, max_length=200)
+
+
 # ── PhaseSequenceEntry schemas ──
 
 

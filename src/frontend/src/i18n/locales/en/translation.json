@@ -853,6 +853,9 @@
       "historyEmpty": "No identifications yet.",
       "historySelected": "Selected",
       "historyNoResult": "No result",
+      "historyOpenInstance": "Open plant",
+      "historyInstanceCreated": "Plant created",
+      "historyLinkFailed": "The plant was created but could not be linked to the identification.",
       "webcam": {
         "start": "Use webcam",
         "shoot": "Capture",
@@ -3876,7 +3879,13 @@
       "phaseName": "Phase Name",
       "moveUp": "Move Up",
       "moveDown": "Move Down",
-      "usedBySpecies": "Used by Species"
+      "usedBySpecies": "Used by Species",
+      "duplicate": "Duplicate",
+      "duplicateSequence": "Duplicate sequence",
+      "duplicateTooltip": "Create an editable copy of this system sequence",
+      "duplicateHelper": "Creates an editable, tenant-owned copy of this sequence with all its phases. The original sequence stays unchanged.",
+      "copySuffix": "copy",
+      "sequenceCloned": "Phase sequence duplicated."
     },
     "ipm": {
       "title": "Plant Protection",

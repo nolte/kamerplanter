@@ -79,6 +79,13 @@ export interface IdentifiedSpecies {
    * `undefined` when the flow was completed without a retained capture.
    */
   photo?: File;
+  /**
+   * Key of the persisted identification request this selection came from (#630).
+   * Handed back so the downstream "create plant" step can link the created
+   * instance back onto the identification record. `undefined` when the flow had
+   * no persisted request (e.g. a species linked without an identify round-trip).
+   */
+  requestKey?: string;
 }
 
 interface PlantIdentificationDialogProps {
@@ -280,6 +287,9 @@ export default function PlantIdentificationDialog({
         speciesKey,
         scientificName: selection.scientific_name,
         photo: preview?.file,
+        // Carry the persisted request key so the create-plant step can link the
+        // new instance back onto this identification record (#630).
+        requestKey: result.request_key ?? undefined,
       });
       onClose();
     } catch (err) {

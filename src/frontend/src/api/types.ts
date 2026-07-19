@@ -4781,7 +4781,19 @@ export interface IdentificationHistoryEntry {
   status: string;
   results: IdentificationSuggestion[];
   selected_result_rank: number | null;
+  /**
+   * Key of the plant instance created from this identification result (#630).
+   * `null` until the grower turned a suggestion into an actual plant; once set,
+   * the history surfaces a link to the instance's detail page.
+   */
+  plant_instance_key: string | null;
   created_at: string | null;
+}
+
+/** Result of linking an identification request to a created plant instance (#630). */
+export interface IdentificationInstanceLink {
+  request_key: string;
+  plant_instance_key: string;
 }
 
 // ── REQ-044 Bildbasierte Schädlingserkennung ──────────────────────────

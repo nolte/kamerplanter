@@ -121,6 +121,34 @@ class TestGeneratePlan:
         # Should create at least one task template
         assert service._task_repo.create_task_template.call_count >= 1
 
+    def test_generic_activity_persisted_once_across_phases(self, service):
+        # Issue #619: a phaseless activity eligible in every phase must be persisted
+        # exactly once per generation run — not once per phase.
+        species = _make_species()
+        service._species_repo.get_by_key.return_value = species
+        service._phase_repo.get_lifecycle_by_species.return_value = _make_lifecycle()
+        service._phase_repo.get_phases_by_lifecycle.return_value = [
+            _make_phase(name="germination", order=0, duration=10),
+            _make_phase(name="seedling", order=1, duration=15),
+            _make_phase(name="vegetative", order=2, duration=30),
+            _make_phase(name="flowering", order=3, duration=40),
+        ]
+        generic = Activity(
+            _key="transplant",
+            name="Umpflanzen",
+            category=ActivityCategory.TRANSPLANT,
+            stress_level=StressLevel.LOW,
+            skill_level=SkillLevel.BEGINNER,
+        )
+        service._activity_repo.get_all.return_value = ([generic], 1)
+        service._task_repo.create_workflow_template.return_value = _make_workflow_template()
+
+        service.generate_plan("sp1")
+
+        assert service._task_repo.create_task_template.call_count == 1
+        persisted = service._task_repo.create_task_template.call_args.args[0]
+        assert persisted.activity_key == "transplant"
+
     def test_uses_explicit_lifecycle_key(self, service):
         species = _make_species()
         service._species_repo.get_by_key.return_value = species

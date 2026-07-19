@@ -248,6 +248,32 @@ class TestDeleteSequence:
             service.delete_sequence("ps1")
 
 
+class TestCloneSequence:
+    def test_ensures_source_exists_and_delegates(self, service, mock_repo):
+        source = PhaseSequence(name="Standard Staude", is_system=True)
+        source.key = "ps1"
+        mock_repo.get_sequence_by_key.return_value = source
+
+        cloned = PhaseSequence(name="Standard Staude (copy)", is_system=False)
+        cloned.key = "ps2"
+        mock_repo.clone_sequence.return_value = cloned
+
+        result = service.clone_sequence("ps1", "Standard Staude (copy)")
+
+        assert result.key == "ps2"
+        assert result.is_system is False
+        mock_repo.get_sequence_by_key.assert_called_once_with("ps1")
+        mock_repo.clone_sequence.assert_called_once_with("ps1", "Standard Staude (copy)")
+
+    def test_missing_source_raises_not_found(self, service, mock_repo):
+        mock_repo.get_sequence_by_key.return_value = None
+
+        with pytest.raises(NotFoundError):
+            service.clone_sequence("nonexistent", "Copy")
+
+        mock_repo.clone_sequence.assert_not_called()
+
+
 # ── PhaseSequenceEntry tests ──
 
 
