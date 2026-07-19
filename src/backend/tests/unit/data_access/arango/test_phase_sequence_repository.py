@@ -267,6 +267,82 @@ class TestCreateSequence:
         assert coll.insert.call_count == 1
 
 
+class TestCloneSequence:
+    def test_copies_metadata_and_entries_as_editable_copy(self, repo, mock_db):
+        coll = mock_db.collection.return_value
+        source = _seq_doc(
+            _key="sys1",
+            name="Standard Staude",
+            display_name_de="Standard Staude",
+            description_de="System-Ablauf",
+            species_key="",
+            cycle_type="perennial",
+            is_repeating=True,
+            cycle_restart_entry_order=1,
+            typical_lifespan_years=10,
+            dormancy_required=True,
+            vernalization_required=True,
+            vernalization_min_days=30,
+            photoperiod_type="long_day",
+            critical_day_length_hours=14.5,
+            is_system=True,
+            tags=["staude"],
+        )
+        coll.get.return_value = source
+        coll.insert.return_value = {"new": _seq_doc(_key="copy1", name="Standard Staude (copy)", is_system=False)}
+        # get_entries_for_sequence(source) -> one entry via aql.execute.
+        mock_db.aql.execute.return_value = iter(
+            [
+                _entry_doc(
+                    _key="e1",
+                    phase_sequence_key="sys1",
+                    sequence_order=0,
+                    override_duration_days=21,
+                    is_terminal=True,
+                    allows_harvest=True,
+                    is_recurring=True,
+                )
+            ]
+        )
+
+        result = repo.clone_sequence("sys1", "Standard Staude (copy)")
+
+        assert isinstance(result, PhaseSequence)
+        assert result.is_system is False
+
+        seq_insert = coll.insert.call_args_list[0].args[0]
+        assert seq_insert["name"] == "Standard Staude (copy)"
+        assert seq_insert["is_system"] is False
+        assert seq_insert["display_name_de"] == "Standard Staude"
+        assert seq_insert["description_de"] == "System-Ablauf"
+        assert seq_insert["cycle_type"] == "perennial"
+        assert seq_insert["is_repeating"] is True
+        assert seq_insert["cycle_restart_entry_order"] == 1
+        assert seq_insert["typical_lifespan_years"] == 10
+        assert seq_insert["dormancy_required"] is True
+        assert seq_insert["vernalization_required"] is True
+        assert seq_insert["vernalization_min_days"] == 30
+        assert seq_insert["photoperiod_type"] == "long_day"
+        assert seq_insert["critical_day_length_hours"] == 14.5
+        assert seq_insert["tags"] == ["staude"]
+
+        # Sequence doc insert (no species edge, species_key empty) + entry doc + 2 entry edges.
+        assert coll.insert.call_count == 1 + 3
+        entry_insert = coll.insert.call_args_list[1].args[0]
+        assert entry_insert["phase_definition_key"] == "d1"
+        assert entry_insert["sequence_order"] == 0
+        assert entry_insert["override_duration_days"] == 21
+        assert entry_insert["is_terminal"] is True
+        assert entry_insert["allows_harvest"] is True
+        assert entry_insert["is_recurring"] is True
+
+    def test_raises_when_source_missing(self, repo, mock_db):
+        mock_db.collection.return_value.get.return_value = None
+
+        with pytest.raises(ValueError, match="not found"):
+            repo.clone_sequence("nope", "Copy")
+
+
 class TestUpdateSequence:
     def test_updates_and_returns_model(self, repo, mock_db):
         coll = mock_db.collection.return_value

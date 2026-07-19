@@ -7,6 +7,7 @@ from app.api.v1.phase_sequences.schemas import (
     PhaseDefinitionResponse,
     PhaseDefinitionSpeciesResponse,
     PhaseDefinitionUpdate,
+    PhaseSequenceCloneRequest,
     PhaseSequenceCreate,
     PhaseSequenceEntryCreate,
     PhaseSequenceEntryResponse,
@@ -221,6 +222,24 @@ def create_phase_sequence(
     seq = PhaseSequence(**body.model_dump())
     created = service.create_sequence(seq)
     return to_response(created, PhaseSequenceResponse)
+
+
+@router.post(
+    "/phase-sequences/{key}/clone",
+    response_model=PhaseSequenceResponse,
+    status_code=201,
+)
+def clone_phase_sequence(
+    key: str,
+    body: PhaseSequenceCloneRequest,
+    _user: User = Depends(get_current_user),
+    service: PhaseSequenceService = Depends(get_phase_sequence_service),
+):
+    """Duplicate a phase sequence into a new editable, tenant-owned copy (is_system=false)."""
+    cloned = service.clone_sequence(key, body.new_name)
+    full = service.get_full_sequence(cloned.key or "")
+    entries = [_entry_response(e) for e in full.get("entries", [])]
+    return to_response(cloned, PhaseSequenceResponse, entries=entries)
 
 
 @router.get("/phase-sequences/{key}/species")

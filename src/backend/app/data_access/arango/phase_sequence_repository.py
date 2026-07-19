@@ -220,6 +220,64 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         cursor = self._db.aql.execute(query, bind_vars={"key": key})
         return next(cursor, 0)
 
+    def clone_sequence(self, source_key: str, new_name: str) -> PhaseSequence:
+        """Clone a sequence and its ordered entries into a new editable copy.
+
+        The copy carries over all sequence metadata and every entry (with its overrides,
+        terminal/harvest/recurring flags and order), but is always ``is_system=False`` so
+        it is fully editable. The ``HAS_PHASE_SEQUENCE`` species edge is deliberately not
+        duplicated: the source's ``species_key`` is preserved as metadata, yet the species
+        keeps resolving to its original (system) sequence to avoid an ambiguous link.
+        """
+        source = self.get_sequence_by_key(source_key)
+        if source is None:
+            raise ValueError(f"Source phase sequence '{source_key}' not found")
+
+        new_seq = PhaseSequence(
+            name=new_name,
+            display_name=source.display_name,
+            display_name_de=source.display_name_de,
+            description=source.description,
+            description_de=source.description_de,
+            species_key=source.species_key,
+            cycle_type=source.cycle_type,
+            is_repeating=source.is_repeating,
+            cycle_restart_entry_order=source.cycle_restart_entry_order,
+            typical_lifespan_years=source.typical_lifespan_years,
+            dormancy_required=source.dormancy_required,
+            vernalization_required=source.vernalization_required,
+            vernalization_min_days=source.vernalization_min_days,
+            photoperiod_type=source.photoperiod_type,
+            critical_day_length_hours=source.critical_day_length_hours,
+            is_system=False,
+            tags=list(source.tags),
+        )
+
+        # Insert the sequence document directly (no species edge — see docstring).
+        coll = self._db.collection(col.PHASE_SEQUENCES)
+        data = self._to_doc(new_seq)
+        now = self._now()
+        data["created_at"] = now
+        data["updated_at"] = now
+        result = coll.insert(data, return_new=True)
+        created = PhaseSequence(**self._from_doc(result["new"]))
+
+        # Clone every entry in order; create_entry rebuilds the graph edges.
+        for entry in self.get_entries_for_sequence(source_key):
+            self.create_entry(
+                PhaseSequenceEntry(
+                    phase_sequence_key=created.key or "",
+                    phase_definition_key=entry.phase_definition_key,
+                    sequence_order=entry.sequence_order,
+                    override_duration_days=entry.override_duration_days,
+                    is_terminal=entry.is_terminal,
+                    allows_harvest=entry.allows_harvest,
+                    is_recurring=entry.is_recurring,
+                )
+            )
+
+        return created
+
     # ── PhaseSequenceEntry ──
 
     def get_entries_for_sequence(self, seq_key: str) -> list[PhaseSequenceEntry]:
