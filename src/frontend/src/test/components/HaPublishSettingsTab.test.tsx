@@ -121,6 +121,62 @@ describe('HaPublishSettingsTab', () => {
     }
   });
 
+  it('hides inactive plants by default and reveals them via the filter (#625)', async () => {
+    mockListSettings.mockResolvedValue([]);
+    mockListPlants.mockResolvedValue([
+      {
+        key: 'plant-1',
+        plant_name: 'Tomate',
+        instance_id: 'T-001',
+        removed_on: null,
+        termination_type: null,
+      },
+      {
+        key: 'plant-2',
+        plant_name: 'Basilikum',
+        instance_id: 'T-002',
+        removed_on: '2026-04-04',
+        termination_type: 'harvested',
+      },
+    ] as unknown as PlantInstance[]);
+
+    renderWithProviders(<HaPublishSettingsTab />);
+
+    // Active plant is visible; the inactive (harvested) one is hidden by default.
+    expect(await screen.findByText('T-001 (Tomate)')).toBeInTheDocument();
+    expect(screen.queryByText('T-002 (Basilikum)')).not.toBeInTheDocument();
+
+    // Counter reflects only the visible (active) plant.
+    expect(screen.getByText('0 of 1 published')).toBeInTheDocument();
+
+    // Switching to "Show all" reveals the inactive plant.
+    await userEvent.click(screen.getByTestId('ha-publish-filter-all'));
+    expect(await screen.findByText('T-002 (Basilikum)')).toBeInTheDocument();
+  });
+
+  it('marks inactive plants with a status chip and removal date (#625)', async () => {
+    mockListSettings.mockResolvedValue([]);
+    mockListPlants.mockResolvedValue([
+      {
+        key: 'plant-2',
+        plant_name: 'Basilikum',
+        instance_id: 'T-002',
+        removed_on: '2026-04-04',
+        termination_type: 'harvested',
+      },
+    ] as unknown as PlantInstance[]);
+
+    renderWithProviders(<HaPublishSettingsTab />);
+
+    // With only inactive plants, the default active-only view is empty; reveal all.
+    await waitFor(() => expect(mockListPlants).toHaveBeenCalled());
+    await userEvent.click(screen.getByTestId('ha-publish-filter-all'));
+
+    const row = (await screen.findByText('T-002 (Basilikum)')).closest('tr')!;
+    expect(within(row).getByText('Harvested')).toBeInTheDocument();
+    expect(within(row).getByText(/Removed on/)).toBeInTheDocument();
+  });
+
   it('loads tanks when switching to the tank sub-tab', async () => {
     mockListSettings.mockResolvedValue([]);
 
