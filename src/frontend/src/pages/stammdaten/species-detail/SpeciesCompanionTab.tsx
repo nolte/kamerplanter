@@ -29,6 +29,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/species';
 import * as companionApi from '@/api/endpoints/companionPlanting';
 import type { CompatibleSpecies, IncompatibleSpecies, Species } from '@/api/types';
+import { getPrimaryCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 interface SpeciesCompanionTabProps {
@@ -169,28 +170,38 @@ export default function SpeciesCompanionTab({
                 />
               ) : (
                 <List dense disablePadding>
-                  {compatible.map((c) => (
-                    <ListItem key={c.species_key} divider>
-                      <ListItemText
-                        primary={
-                          <Link
-                            component={RouterLink}
-                            to={`/stammdaten/species/${c.species_key}`}
-                            variant="body2"
-                            underline="hover"
-                          >
-                            {c.scientific_name ?? c.species_key}
-                          </Link>
-                        }
-                      />
-                      <Chip
-                        label={`${t('pages.companionPlanting.score')}: ${c.score}`}
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    </ListItem>
-                  ))}
+                  {compatible.map((c) => {
+                    const commonName =
+                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                    const showScientific =
+                      !!c.scientific_name && c.scientific_name !== commonName;
+                    return (
+                      <ListItem key={c.species_key} divider>
+                        <ListItemText
+                          primary={
+                            <Link
+                              component={RouterLink}
+                              to={`/stammdaten/species/${c.species_key}`}
+                              variant="body2"
+                              underline="hover"
+                            >
+                              {commonName}
+                            </Link>
+                          }
+                          secondary={showScientific ? c.scientific_name : undefined}
+                          slotProps={{
+                            secondary: { variant: 'caption', sx: { fontStyle: 'italic' } },
+                          }}
+                        />
+                        <Chip
+                          label={`${t('pages.companionPlanting.score')}: ${c.score}`}
+                          size="small"
+                          color="success"
+                          variant="outlined"
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               )}
             </CardContent>
@@ -235,24 +246,55 @@ export default function SpeciesCompanionTab({
                 />
               ) : (
                 <List dense disablePadding>
-                  {incompatible.map((c) => (
-                    <ListItem key={c.species_key} divider>
-                      <ListItemText
-                        primary={
-                          <Link
-                            component={RouterLink}
-                            to={`/stammdaten/species/${c.species_key}`}
-                            variant="body2"
-                            underline="hover"
-                          >
-                            {c.scientific_name ?? c.species_key}
-                          </Link>
-                        }
-                        secondary={c.reason || undefined}
-                        slotProps={{ secondary: { variant: 'caption' } }}
-                      />
-                    </ListItem>
-                  ))}
+                  {incompatible.map((c) => {
+                    const commonName =
+                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                    const showScientific =
+                      !!c.scientific_name && c.scientific_name !== commonName;
+                    return (
+                      <ListItem key={c.species_key} divider>
+                        <ListItemText
+                          primary={
+                            <Link
+                              component={RouterLink}
+                              to={`/stammdaten/species/${c.species_key}`}
+                              variant="body2"
+                              underline="hover"
+                            >
+                              {commonName}
+                            </Link>
+                          }
+                          secondary={
+                            showScientific || c.reason ? (
+                              <>
+                                {showScientific && (
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block', fontStyle: 'italic' }}
+                                  >
+                                    {c.scientific_name}
+                                  </Typography>
+                                )}
+                                {c.reason && (
+                                  <Typography
+                                    component="span"
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block' }}
+                                  >
+                                    {c.reason}
+                                  </Typography>
+                                )}
+                              </>
+                            ) : undefined
+                          }
+                          slotProps={{ secondary: { component: 'div' } }}
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               )}
             </CardContent>
