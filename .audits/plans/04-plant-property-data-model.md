@@ -9,6 +9,16 @@ created: 2026-07-10
 verified-against: develop (Phase A+B DONE via #192)
 parallelizable: true
 specialist: fullstack-developer + seed-data pipeline agents
+status: substantially-implemented (#453)
+implementation-notes: >-
+  #453 delivered the WP-10 backfill (flowering_strategy / cultivation_cycle_type
+  in species.yaml lifecycle_overrides; harvest_pattern / harvested_part across
+  species.yaml + plant_info*.yaml + adventskalender.yaml; growth_habit now 100%),
+  the WP-7 ToxicityBadge (frontend, via #465) and the WP-Rest hardening
+  (SeedType StrEnum + legacy coercion, 3-way enum-sync contract test
+  test_plant_property_enum_sync.py). Final A1 gap closed: leek / beetroot /
+  Brussels sprouts in adventskalender.yaml plus the adventskalender
+  _build_species whitelist that previously dropped the harvest attributes.
 ---
 
 # Pflanzen-Eigenschaften-Datenmodell vervollständigen

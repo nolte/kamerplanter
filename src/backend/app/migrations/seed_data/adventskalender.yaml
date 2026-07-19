@@ -68,6 +68,11 @@ new_species:
     base_temp: 5.0
     frost_sensitivity: hardy
     allows_harvest: true
+    # WP-10 A1 backfill (#453): leek forms no bulb — the blanched pseudostem
+    # (leaf sheaths) is the edible part, lifted once. Mirrors Apium graveolens
+    # (celery: stem/single); distinct from onion/garlic (bulb).
+    harvest_pattern: single
+    harvested_part: stem
     sowing_indoor_weeks_before_last_frost: null
     sowing_outdoor_after_last_frost_days: null
     growing_periods:
@@ -128,6 +133,11 @@ new_species:
     base_temp: 5.0
     frost_sensitivity: moderate
     allows_harvest: true
+    # WP-10 A1 backfill (#453): beetroot is grown for its swollen taproot,
+    # lifted once. Mirrors Daucus carota / Apium graveolens var. rapaceum
+    # (root/single).
+    harvest_pattern: single
+    harvested_part: root
     sowing_indoor_weeks_before_last_frost: 4
     sowing_outdoor_after_last_frost_days: 0
     direct_sow_months: [4, 5, 6, 7]
@@ -155,6 +165,12 @@ new_species:
     base_temp: 5.0
     frost_sensitivity: very_hardy
     allows_harvest: true
+    # WP-10 A1 backfill (#453): the sprouts are compressed axillary leaf buds
+    # (miniature cabbages), harvested progressively bottom-up over the season.
+    # Mirrors var. capitata (cabbage: leaf) for the part and var. sabellica
+    # (kale: continuous) for the pick-over pattern.
+    harvest_pattern: continuous
+    harvested_part: leaf
     sowing_indoor_weeks_before_last_frost: 6
     sowing_outdoor_after_last_frost_days: 0
     direct_sow_months: [4, 5]

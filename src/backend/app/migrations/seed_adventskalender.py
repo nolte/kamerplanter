@@ -103,6 +103,8 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
             "base_temp",
             "frost_sensitivity",
             "allows_harvest",
+            "harvest_pattern",
+            "harvested_part",
             "sowing_indoor_weeks_before_last_frost",
             "sowing_outdoor_after_last_frost_days",
             "direct_sow_months",

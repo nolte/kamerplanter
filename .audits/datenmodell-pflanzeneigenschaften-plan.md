@@ -3,8 +3,15 @@ plan-type: data-model-implementation
 title: Umsetzungsplan — vollständige Datenmodell-Abbildung der Pflanzen-Eigenschaftsreferenz
 quelle: spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md
 betroffene-reqs: REQ-001, REQ-003, REQ-007, REQ-008, REQ-017, REQ-021
-status: backlog
+status: partially-implemented (Phase A+B via #192)
 created: 2026-06-15
+fortsetzung: .audits/plans/04-plant-property-data-model.md
+hinweis: >-
+  Phase A (additive Felder/Enums) und die breaking Phase B (propagation_configs)
+  sind via #192 umgesetzt; der Feld-Backfill (WP-10 A1-A4), das Toxizitäts-Badge
+  (WP-7) und die Härtung (WP-6f SeedType-Enum, WP-9 Enum-Sync-Gate) sind über
+  #453 nachgezogen. Verbliebener A1-Rest (leek/beetroot/Brussels sprouts in
+  adventskalender.yaml + Loader-Whitelist) via #453 geschlossen.
 ---
 
 # Umsetzungsplan: Pflanzen-Eigenschaften vollständig im Datenmodell abbilden
