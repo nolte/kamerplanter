@@ -72,8 +72,9 @@ def test_create_species_maps_all_template_columns():
 
     create_fn(_FULL_SPECIES_DATA)
 
-    species_repo.create.assert_called_once()
-    species: Species = species_repo.create.call_args[0][0]
+    # SEC-003 / #624: species create routes through the atomic dedup UPSERT.
+    species_repo.upsert_by_normalized_scientific_name.assert_called_once()
+    species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
     assert species.scientific_name == "Rosa canina"
     assert species.common_names == ["Dog rose"]
     # family_name is resolved by display name to the referenced family's _key.
@@ -102,7 +103,7 @@ def test_create_species_family_name_resolved_to_real_key():
 
     create_fn({"scientific_name": "Solanum lycopersicum", "family_name": "Solanaceae"})
 
-    species: Species = species_repo.create.call_args[0][0]
+    species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
     family_repo.get_by_name.assert_called_once_with("Solanaceae")
     assert species.family_key == "fam_solanaceae"
 
@@ -119,7 +120,7 @@ def test_create_species_unknown_family_name_leaves_key_unset():
 
     create_fn({"scientific_name": "Rosa canina", "family_name": "Totally Unknown Family"})
 
-    species: Species = species_repo.create.call_args[0][0]
+    species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
     family_repo.get_by_name.assert_called_once_with("Totally Unknown Family")
     assert species.family_key is None
 
@@ -131,7 +132,7 @@ def test_create_species_is_empty_tolerant():
 
     create_fn({field: "" for field in _FULL_SPECIES_DATA} | {"scientific_name": "Mentha spicata"})
 
-    species: Species = species_repo.create.call_args[0][0]
+    species: Species = species_repo.upsert_by_normalized_scientific_name.call_args[0][0]
     assert species.scientific_name == "Mentha spicata"
     assert species.common_names == []
     assert species.family_key is None
@@ -153,7 +154,7 @@ def test_create_species_end_to_end_accepts_17_column_csv():
     assert result.result is not None
     assert result.result.created == 1
     assert result.result.failed == 0
-    species_repo.create.assert_called_once()
+    species_repo.upsert_by_normalized_scientific_name.assert_called_once()
 
 
 # ── #1 cultivar create (no longer a noop) ───────────────────────────────
