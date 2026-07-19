@@ -25,6 +25,17 @@ async function retype(
   await user.type(field, value);
 }
 
+/** Opens a MUI Autocomplete input and clicks the option matching `optionName`. */
+async function pickOption(
+  user: ReturnType<typeof userEvent.setup>,
+  input: HTMLElement,
+  optionName: RegExp | string,
+): Promise<void> {
+  await user.click(input);
+  const option = await screen.findByRole('option', { name: optionName });
+  await user.click(option);
+}
+
 describe('NutrientCalculationsPage — AP-10/11 additions', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
@@ -99,14 +110,12 @@ describe('NutrientCalculationsPage — AP-10/11 additions', () => {
     renderWithProviders(<NutrientCalculationsPage />);
     const card = cardForHeading(/Flächendosierung/);
 
-    const keysField = within(card).getByLabelText(/Düngemittel-Keys/);
-    await user.type(keysField, 'compost');
+    await pickOption(user, within(card).getByLabelText('Düngemittel'), /Compost/);
     await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
 
     await waitFor(() => {
-      expect(within(card).getByText('Compost')).toBeTruthy();
+      expect(within(card).getByText('1800.0')).toBeTruthy();
     });
-    expect(within(card).getByText('1800.0')).toBeTruthy();
   });
 });
 
@@ -150,7 +159,9 @@ describe('NutrientCalculationsPage — mixing protocol details', () => {
     await retype(user, within(card).getByLabelText(/Basiswasser-EC/), '0.4');
     await retype(user, within(card).getByLabelText(/Basiswasser-pH/), '7');
     await retype(user, within(card).getByLabelText(/Alkalinität/), '120');
-    await user.type(within(card).getByLabelText(/Düngemittel-Keys/), 'grow,bloom');
+    const mpFertInput = within(card).getByLabelText('Düngemittel');
+    await pickOption(user, mpFertInput, /Grow A/);
+    await pickOption(user, mpFertInput, /Bloom B/);
 
     const phaseSelect = within(card).getByLabelText(/Wachstumsphase/);
     await user.click(phaseSelect);
@@ -347,7 +358,9 @@ describe('NutrientCalculationsPage — mixing safety', () => {
     const user = userEvent.setup({ delay: null });
     renderWithProviders(<NutrientCalculationsPage />);
     const card = cardForHeading(/Mischsicherheit/);
-    await user.type(within(card).getByLabelText(/Düngemittel-Keys/), 'a,b');
+    const msInput = within(card).getByLabelText('Düngemittel');
+    await pickOption(user, msInput, /Grow A/);
+    await pickOption(user, msInput, /Bloom B/);
     await user.click(within(card).getByRole('button', { name: /Validieren/ }));
 
     await waitFor(() => {
@@ -368,7 +381,9 @@ describe('NutrientCalculationsPage — mixing safety', () => {
     const user = userEvent.setup({ delay: null });
     renderWithProviders(<NutrientCalculationsPage />);
     const card = cardForHeading(/Mischsicherheit/);
-    await user.type(within(card).getByLabelText(/Düngemittel-Keys/), 'calmag,base');
+    const msInput = within(card).getByLabelText('Düngemittel');
+    await pickOption(user, msInput, /CalMag Plus/);
+    await pickOption(user, msInput, /Base Nute/);
     await user.click(within(card).getByRole('button', { name: /Validieren/ }));
 
     await waitFor(() => {
@@ -424,12 +439,14 @@ describe('NutrientCalculationsPage — area dosing edge cases', () => {
     renderWithProviders(<NutrientCalculationsPage />);
     const card = cardForHeading(/Flächendosierung/);
 
-    await user.type(within(card).getByLabelText(/Düngemittel-Keys/), 'liquid-manure');
+    await pickOption(user, within(card).getByLabelText('Düngemittel'), /Jauche Liquid/);
     await retype(user, within(card).getByLabelText(/Beetfläche/), '8');
-    await user.type(within(card).getByLabelText(/Standort/), 'bed-1');
+    await pickOption(user, within(card).getByLabelText('Standort'), /Zone A/);
 
     // area + location both set -> override hint alert (branch)
-    expect(within(card).getByText(/Standort wird ignoriert/)).toBeTruthy();
+    await waitFor(() => {
+      expect(within(card).getByText(/Standort wird ignoriert/)).toBeTruthy();
+    });
 
     const demandSelect = within(card).getByLabelText(/Nährstoffbedarf/);
     await user.click(demandSelect);
@@ -452,7 +469,7 @@ describe('NutrientCalculationsPage — area dosing edge cases', () => {
 
     expect(captured).toMatchObject({
       area_m2: 8,
-      location_key: 'bed-1',
+      location_key: 'loc-1',
       demand_level: 'nitrogen_fixer',
       fertilizer_keys: ['liquid-manure'],
     });
@@ -544,10 +561,17 @@ describe('NutrientCalculationsPage — water mixer + EC budget (expert)', () => 
 
     await retype(user, within(card).getByLabelText(/Ziel-EC/), '1.8');
     await retype(user, within(card).getByLabelText('Zielvolumen (L)'), '15');
-    await user.type(within(card).getByLabelText(/Düngemittel-Keys/), 'grow:3.0,bloom');
-    await user.type(within(card).getByLabelText(/CalMag-Dünger/), 'calmag');
+
+    // fertilizer rows editor: row 1 = grow @ 3.0 ml/L, row 2 = bloom (no dose)
+    await user.click(within(card).getByRole('button', { name: /Dünger hinzufügen/ }));
+    await pickOption(user, within(card).getByLabelText('Düngemittel'), /Grow A/);
+    await retype(user, within(card).getByLabelText('Dosis (ml/L)'), '3.0');
+    await user.click(within(card).getByRole('button', { name: /Dünger hinzufügen/ }));
+    await pickOption(user, within(card).getAllByLabelText('Düngemittel')[1], /Bloom B/);
+
+    await pickOption(user, within(card).getByLabelText(/CalMag-Dünger/), /CalMag Plus/);
     await retype(user, within(card).getByLabelText(/CalMag-Dosis/), '1.2');
-    await user.type(within(card).getByLabelText(/Silikat-Dünger/), 'si');
+    await pickOption(user, within(card).getByLabelText(/Silikat-Dünger/), /Silica Boost/);
     await retype(user, within(card).getByLabelText(/Silikat-Dosis/), '0.6');
     await retype(user, within(card).getByLabelText(/Substrat-Zyklen/), '3');
     await retype(user, within(card).getByLabelText(/Gemessener EC/), '1.9');
@@ -725,6 +749,78 @@ describe('NutrientCalculationsPage — water mixer + EC budget (expert)', () => 
       expect(within(card).getByText(/EC-Budget gültig/)).toBeTruthy();
     });
     expect(ecBudgetPayload).toMatchObject({ base_water_ec: 0.22 });
+  });
+});
+
+describe('NutrientCalculationsPage — panel intros and selectors (#610)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+
+  it('renders a descriptive intro under every panel heading', async () => {
+    renderWithProviders(<NutrientCalculationsPage />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    expect(screen.getByText(/genaue Dosierung je Dünger/)).toBeTruthy();
+    expect(screen.getByText(/Spülplan/)).toBeTruthy();
+    expect(screen.getByText(/Ablaufwasser \(Drainage\)/)).toBeTruthy();
+    expect(screen.getByText(/bedenkenlos zusammen anmischen/)).toBeTruthy();
+    expect(screen.getByText(/Organische Freiland-Dünger/)).toBeTruthy();
+    expect(screen.getByText(/mischt zunächst das Basiswasser/)).toBeTruthy();
+  });
+
+  it('submits the selected fertilizer key (not free text) from the mixing-protocol autocomplete', async () => {
+    let captured: Record<string, unknown> | null = null;
+    server.use(
+      http.post('/api/v1/t/:tenant/nutrient-calculations/mixing-protocol', async ({ request }) => {
+        captured = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({
+          dosages: [],
+          calculated_ec: 1.5,
+          ph_adjustment: { needed: false, direction: 'none', delta: 0 },
+          warnings: [],
+          instructions: [],
+          ec_net: 1.2,
+          ec_ph_reserve: 0.3,
+          valid: true,
+        });
+      }),
+    );
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<NutrientCalculationsPage />);
+    const card = cardForHeading(/Mischprotokoll/);
+
+    await pickOption(user, within(card).getByLabelText('Düngemittel'), /Grow A/);
+    await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
+
+    await waitFor(() => {
+      expect(captured).not.toBeNull();
+    });
+    expect(captured).toMatchObject({ fertilizer_keys: ['grow'] });
+  });
+
+  it('adds and removes rows in the EC-budget fertilizer editor', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderWithProviders(<NutrientCalculationsPage />, {
+      store: createStoreWithExpertise('expert'),
+    });
+    const card = cardForHeading(/EC-Budget-Kalkulation/);
+
+    // Empty state hint before any row is added.
+    expect(within(card).getByText(/Noch keine Dünger hinzugefügt/)).toBeTruthy();
+
+    const addButton = within(card).getByRole('button', { name: /Dünger hinzufügen/ });
+    await user.click(addButton);
+    await user.click(addButton);
+
+    expect(within(card).getAllByLabelText('Düngemittel')).toHaveLength(2);
+
+    // Remove the first row -> one row left.
+    const removeButtons = within(card).getAllByRole('button', { name: /Dünger entfernen/ });
+    await user.click(removeButtons[0]);
+
+    expect(within(card).getAllByLabelText('Düngemittel')).toHaveLength(1);
   });
 });
 

@@ -189,10 +189,35 @@ export const mockSubstrates = [
   },
 ];
 
+// Minimal fertilizer catalogue for the nutrient-calculations selectors (#610).
+// The page only reads key/product_name/brand, so partial objects suffice.
+export const mockFertilizers = [
+  { key: 'grow', product_name: 'Grow A', brand: 'BrandX' },
+  { key: 'bloom', product_name: 'Bloom B', brand: 'BrandX' },
+  { key: 'compost', product_name: 'Compost', brand: 'Nature' },
+  { key: 'liquid-manure', product_name: 'Jauche Liquid', brand: 'Nature' },
+  { key: 'calmag', product_name: 'CalMag Plus', brand: 'BrandX' },
+  { key: 'si', product_name: 'Silica Boost', brand: 'BrandX' },
+  { key: 'base', product_name: 'Base Nute', brand: 'BrandX' },
+];
+
 export const handlers = [
   // Health
   http.get('/api/v1/health/live', () => {
     return HttpResponse.json({ status: 'alive' });
+  }),
+
+  // Fertilizers catalogue (tenant-scoped) — offset/limit paging aware so the
+  // fetchAllFertilizers pager terminates after a single short page.
+  http.get('/api/v1/t/:tenant/fertilizers', ({ request }) => {
+    const url = new URL(request.url);
+    const offset = Number(url.searchParams.get('offset') ?? '0');
+    return HttpResponse.json(offset > 0 ? [] : mockFertilizers);
+  }),
+  http.get('/api/v1/fertilizers', ({ request }) => {
+    const url = new URL(request.url);
+    const offset = Number(url.searchParams.get('offset') ?? '0');
+    return HttpResponse.json(offset > 0 ? [] : mockFertilizers);
   }),
 
   // Auth
