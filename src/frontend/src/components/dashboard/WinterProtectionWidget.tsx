@@ -23,7 +23,66 @@ import type { SvgIconComponent } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchHardinessOverview } from '@/store/slices/overwinteringProfilesSlice';
 import SeasonOverviewPanel from './SeasonOverviewPanel';
-import type { WinterHardinessLight } from '@/api/types';
+import type {
+  WinterHardinessLight,
+  WinterHardinessOverviewEntry,
+} from '@/api/types';
+
+/** Human-readable primary/secondary labels derived for one red overview entry. */
+interface RedEntryLabels {
+  /** Speaking title — user-given name, else species/common, else raw reference. */
+  title: string;
+  /** Secondary species + location line; empty when nothing enriched. */
+  detail: string;
+}
+
+/**
+ * Derive the display labels for a red plant, mirroring the Pflanzenübersicht
+ * card logic (`PlantGridWidget.resolveCardLabels`): a user-given speaking name
+ * wins, falling back to the species common/scientific name, and only as a last
+ * resort to the raw subject key so the entry is never titled by a bare doc key
+ * (#631). The species name and location form the secondary detail line.
+ */
+function resolveRedEntryLabels(
+  entry: WinterHardinessOverviewEntry,
+  unknownLabel: string,
+): RedEntryLabels {
+  const rawName = (entry.plant_name ?? '').trim();
+  const commonName = (entry.species_common_name ?? '').trim();
+  const scientific = (entry.species_scientific_name ?? '').trim();
+  const location = (entry.location_name ?? '').trim();
+  const subjectKey = entry.plant_key ?? entry.planting_run_key ?? '';
+
+  // A user label only counts when it is meaningful — not empty and not just an
+  // echo of the raw key / instance id the user never typed.
+  const hasUserLabel =
+    rawName !== '' &&
+    rawName !== entry.instance_id &&
+    rawName !== subjectKey;
+
+  const speciesName = commonName || scientific;
+
+  let title: string;
+  if (hasUserLabel) {
+    title = rawName;
+  } else if (speciesName) {
+    title = speciesName;
+  } else {
+    title = subjectKey || unknownLabel;
+  }
+
+  // Secondary line: species name (when it did not already become the title) and
+  // the location, so the user sees "what" and "where" at a glance.
+  const detailParts: string[] = [];
+  if (speciesName && speciesName !== title) {
+    detailParts.push(speciesName);
+  }
+  if (location) {
+    detailParts.push(location);
+  }
+
+  return { title, detail: detailParts.join(' · ') };
+}
 
 /** REQ-022 §Winterhärte-Ampel — traffic-light colour → MUI palette token. */
 export const winterColor: Record<
@@ -184,32 +243,57 @@ export default function WinterProtectionWidget() {
                   {t('pages.dashboard.winterProtection.actionRequired')}
                 </Typography>
                 <List dense disablePadding data-testid="winter-red-list">
-                  {redPlants.map((entry) => (
-                    <ListItem
-                      key={entry.profile_key}
-                      disableGutters
-                      secondaryAction={
-                        <Chip
-                          label={t(`enums.winterAction.${entry.winter_action}`)}
-                          size="small"
-                          color="error"
-                          variant="outlined"
-                        />
-                      }
-                      data-testid={`winter-red-${entry.profile_key}`}
-                    >
-                      <ListItemText
-                        primary={
-                          entry.plant_key ??
-                          entry.planting_run_key ??
-                          t('pages.dashboard.winterProtection.unknownSubject')
+                  {redPlants.map((entry) => {
+                    const { title, detail } = resolveRedEntryLabels(
+                      entry,
+                      t('pages.dashboard.winterProtection.unknownSubject'),
+                    );
+                    const ratingLabel = t(
+                      `enums.hardinessRating.${entry.hardiness_rating}`,
+                    );
+                    return (
+                      <ListItem
+                        key={entry.profile_key}
+                        disableGutters
+                        secondaryAction={
+                          <Chip
+                            label={t(`enums.winterAction.${entry.winter_action}`)}
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                          />
                         }
-                        secondary={t(
-                          `enums.hardinessRating.${entry.hardiness_rating}`,
-                        )}
-                      />
-                    </ListItem>
-                  ))}
+                        data-testid={`winter-red-${entry.profile_key}`}
+                      >
+                        <ListItemText
+                          primary={title}
+                          secondary={
+                            <>
+                              {detail && (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                  component="span"
+                                  sx={{ display: 'block' }}
+                                  data-testid={`winter-red-detail-${entry.profile_key}`}
+                                >
+                                  {detail}
+                                </Typography>
+                              )}
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                component="span"
+                                sx={{ display: 'block' }}
+                              >
+                                {ratingLabel}
+                              </Typography>
+                            </>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               </>
             )}
