@@ -5081,6 +5081,12 @@ export interface WinterHardinessOverviewEntry {
   planting_run_key: string | null;
   hardiness_rating: HardinessRating;
   winter_action: WinterAction;
+  /** Server-enriched, human-readable labels (#631) — all best-effort / nullable. */
+  plant_name?: string | null;
+  instance_id?: string | null;
+  species_common_name?: string | null;
+  species_scientific_name?: string | null;
+  location_name?: string | null;
 }
 
 /**

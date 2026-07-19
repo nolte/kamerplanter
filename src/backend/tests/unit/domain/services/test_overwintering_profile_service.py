@@ -551,3 +551,91 @@ class TestHardinessOverview:
         service.create_profile(_profile(plant_key="p2"), "other_tenant")
         overview = service.get_hardiness_overview(TENANT)
         assert overview.total == 1
+
+    @staticmethod
+    def _seed_red_profile(repo: FakeOverwinteringRepo, *, plant_key: str, tenant_key: str = TENANT) -> None:
+        """Insert a red (must-relocate) profile straight into the store.
+
+        Bypasses ``create_profile`` (and its frost-exposed-site guard) so the test can
+        target the overview enrichment in isolation.
+        """
+        key = f"ow_{plant_key}"
+        repo.store[key] = _profile(
+            plant_key=plant_key,
+            hardiness_rating=HardinessRating.FROST_FREE,
+            winter_action=WinterAction.MOVE_INDOORS,
+        ).model_copy(update={"key": key, "tenant_key": tenant_key})
+
+    def test_red_entries_enriched_with_plant_labels(self) -> None:
+        """#631 — red entries carry a speaking name / species / location, not just keys."""
+        repo = FakeOverwinteringRepo()
+
+        class _PlantRepo:
+            def get_by_key(self, key):  # noqa: ANN001, ANN201
+                return PlantInstance(
+                    _key=key,
+                    tenant_key=TENANT,
+                    instance_id="TOM-001",
+                    species_key="s1",
+                    location_key="loc1",
+                    plant_name="Fensterbank-Tomate",
+                    planted_on=date(2024, 1, 1),
+                )
+
+        class _SpeciesRepo:
+            def get_by_key(self, key):  # noqa: ANN001, ANN201
+                return SimpleNamespace(scientific_name="Solanum lycopersicum", common_names=["Tomate"])
+
+        class _SiteRepo:
+            def get_location_by_key(self, key):  # noqa: ANN001, ANN201
+                return Location(_key=key, name="Balkon Süd", area_m2=1.0, tenant_key=TENANT)
+
+        self._seed_red_profile(repo, plant_key="p_red")
+        service = OverwinteringProfileService(
+            repo, plant_repo=_PlantRepo(), species_repo=_SpeciesRepo(), site_repo=_SiteRepo()
+        )
+
+        overview = service.get_hardiness_overview(TENANT)
+        assert len(overview.red_plants) == 1
+        entry = overview.red_plants[0]
+        assert entry.plant_name == "Fensterbank-Tomate"
+        assert entry.instance_id == "TOM-001"
+        assert entry.species_common_name == "Tomate"
+        assert entry.species_scientific_name == "Solanum lycopersicum"
+        assert entry.location_name == "Balkon Süd"
+
+    def test_foreign_tenant_labels_are_not_leaked(self) -> None:
+        """SEC — enrichment never surfaces a plant/location owned by another tenant."""
+        repo = FakeOverwinteringRepo()
+
+        class _ForeignPlantRepo:
+            def get_by_key(self, key):  # noqa: ANN001, ANN201
+                return PlantInstance(
+                    _key=key,
+                    tenant_key="other_tenant",
+                    instance_id="SECRET",
+                    species_key="s1",
+                    location_key="loc1",
+                    plant_name="Foreign plant",
+                    planted_on=date(2024, 1, 1),
+                )
+
+        self._seed_red_profile(repo, plant_key="p_red")
+        service = OverwinteringProfileService(repo, plant_repo=_ForeignPlantRepo())
+
+        overview = service.get_hardiness_overview(TENANT)
+        entry = overview.red_plants[0]
+        assert entry.plant_name is None
+        assert entry.instance_id is None
+        assert entry.location_name is None
+
+    def test_overview_without_repos_keeps_keys(self) -> None:
+        """No enrichment repos injected → entry still valid, labels just stay None."""
+        repo = FakeOverwinteringRepo()
+        self._seed_red_profile(repo, plant_key="p_red")
+        service = OverwinteringProfileService(repo)
+
+        entry = service.get_hardiness_overview(TENANT).red_plants[0]
+        assert entry.plant_key == "p_red"
+        assert entry.plant_name is None
+        assert entry.species_scientific_name is None
