@@ -853,6 +853,9 @@
       "historyEmpty": "Noch keine Identifikationen vorhanden.",
       "historySelected": "Ausgewählt",
       "historyNoResult": "Kein Ergebnis",
+      "historyOpenInstance": "Pflanze öffnen",
+      "historyInstanceCreated": "Pflanze erstellt",
+      "historyLinkFailed": "Die Pflanze wurde erstellt, konnte aber nicht mit der Identifikation verknüpft werden.",
       "webcam": {
         "start": "Webcam verwenden",
         "shoot": "Aufnehmen",

@@ -94,4 +94,20 @@ class HistoryEntryResponse(BaseModel):
     status: str
     results: list[SuggestionResponse] = Field(default_factory=list)
     selected_result_rank: int | None = None
+    # Key of the plant instance created from this result, if any (#630). Lets the
+    # history surface a link to the instance's detail page.
+    plant_instance_key: str | None = None
     created_at: str | None = None
+
+
+class LinkInstanceRequest(BaseModel):
+    """Body of the ``/{request_key}/instance`` call (#630)."""
+
+    plant_instance_key: str = Field(..., min_length=1)
+
+
+class LinkInstanceResponse(BaseModel):
+    """Result of linking an identification request to a created plant instance (#630)."""
+
+    request_key: str
+    plant_instance_key: str

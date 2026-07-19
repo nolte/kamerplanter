@@ -6,6 +6,7 @@ import { server } from '@/test/mocks/server';
 import { renderWithProviders, createStoreWithExpertise } from '@/test/helpers';
 import PlantIdentificationPage from '@/pages/ki-recognition/PlantIdentificationPage';
 import type { IdentifiedSpecies } from '@/components/identification/PlantIdentificationDialog';
+import * as identificationApi from '@/api/endpoints/identification';
 
 const navigateSpy = vi.fn();
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -107,6 +108,9 @@ function historyEntry(overrides: Record<string, unknown> = {}) {
 
 describe('PlantIdentificationPage', () => {
   beforeEach(() => {
+    // Restore any vi.spyOn (e.g. linkPlantInstance) so call history never leaks
+    // between tests. navigateSpy is a vi.fn (not a spy) and is cleared below.
+    vi.restoreAllMocks();
     navigateSpy.mockClear();
     dialogProps.current = null;
     createDialogProps.current = null;
@@ -282,6 +286,60 @@ describe('PlantIdentificationPage', () => {
     });
     await waitFor(() => expect(createDialogProps.current?.open).toBe(true));
     createDialogProps.current!.onCreated!('plant_42');
+    expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
+  });
+
+  // ── issue #630 — persist + surface the link to the created instance ──────
+
+  it('links the created instance to the identification request, then navigates', async () => {
+    const linkSpy = vi
+      .spyOn(identificationApi, 'linkPlantInstance')
+      .mockResolvedValue({ request_key: 'ident_7', plant_instance_key: 'plant_42' });
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onSpeciesResolved).toBeDefined());
+    dialogProps.current!.onSpeciesResolved!({
+      speciesKey: 'species_monstera',
+      scientificName: 'Monstera deliciosa',
+      requestKey: 'ident_7',
+    });
+    await waitFor(() => expect(createDialogProps.current?.open).toBe(true));
+    await createDialogProps.current!.onCreated!('plant_42');
+    await waitFor(() => expect(linkSpy).toHaveBeenCalledWith('ident_7', 'plant_42'));
+    expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
+  });
+
+  it('still navigates when there is no request key to link', async () => {
+    const linkSpy = vi.spyOn(identificationApi, 'linkPlantInstance');
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('intermediate'),
+    });
+    await screen.findByTestId('open-identification-dialog');
+    await waitFor(() => expect(dialogProps.current?.onSpeciesResolved).toBeDefined());
+    dialogProps.current!.onSpeciesResolved!({
+      speciesKey: 'species_monstera',
+      scientificName: 'Monstera deliciosa',
+    });
+    await waitFor(() => expect(createDialogProps.current?.open).toBe(true));
+    await createDialogProps.current!.onCreated!('plant_42');
+    expect(linkSpy).not.toHaveBeenCalled();
+    expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
+  });
+
+  it('renders a link chip to the created instance and navigates on click', async () => {
+    server.use(
+      http.get('/api/v1/t/:tenant/identification/history', () =>
+        HttpResponse.json([historyEntry({ plant_instance_key: 'plant_42' })]),
+      ),
+    );
+    renderWithProviders(<PlantIdentificationPage />, {
+      store: createStoreWithExpertise('beginner'),
+    });
+    const chip = await screen.findByTestId('identification-history-instance-link');
+    expect(screen.getByTestId('identification-history-instance-created')).toBeInTheDocument();
+    await userEvent.click(chip);
     expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
   });
 });
