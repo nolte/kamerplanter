@@ -61,6 +61,66 @@ describe('WinterProtectionWidget', () => {
     expect(within(row).getByText(i18n.t('enums.winterAction.dig_store'))).toBeTruthy();
   });
 
+  it('prefers the speaking name and shows species + location instead of the raw key (#631)', async () => {
+    useOverview({
+      green: 0,
+      yellow: 0,
+      red: 1,
+      total: 1,
+      red_plants: [
+        {
+          profile_key: 'ow-red-2',
+          plant_key: '11508185',
+          planting_run_key: null,
+          hardiness_rating: 'frost_free',
+          winter_action: 'move_indoors',
+          plant_name: 'Oma ihre Tomate',
+          instance_id: 'TOM-001',
+          species_common_name: 'Tomate',
+          species_scientific_name: 'Solanum lycopersicum',
+          location_name: 'Balkon Süd',
+        },
+      ],
+    });
+    renderWithProviders(<WinterProtectionWidget />);
+
+    const row = await screen.findByTestId('winter-red-ow-red-2');
+    // Speaking name wins as the primary title; the raw doc key never appears.
+    expect(within(row).getByText('Oma ihre Tomate')).toBeTruthy();
+    expect(within(row).queryByText('11508185')).toBeNull();
+    // Species + location form the secondary detail line.
+    expect(within(row).getByTestId('winter-red-detail-ow-red-2').textContent).toContain('Tomate');
+    expect(within(row).getByTestId('winter-red-detail-ow-red-2').textContent).toContain('Balkon Süd');
+  });
+
+  it('falls back to the species name as the title when no speaking name is set (#631)', async () => {
+    useOverview({
+      green: 0,
+      yellow: 0,
+      red: 1,
+      total: 1,
+      red_plants: [
+        {
+          profile_key: 'ow-red-3',
+          plant_key: '11508185',
+          planting_run_key: null,
+          hardiness_rating: 'frost_free',
+          winter_action: 'move_indoors',
+          plant_name: null,
+          instance_id: 'TOM-002',
+          species_common_name: 'Zitrone',
+          species_scientific_name: 'Citrus limon',
+          location_name: 'Terrasse',
+        },
+      ],
+    });
+    renderWithProviders(<WinterProtectionWidget />);
+
+    const row = await screen.findByTestId('winter-red-ow-red-3');
+    expect(within(row).getByText('Zitrone')).toBeTruthy();
+    expect(within(row).queryByText('11508185')).toBeNull();
+  });
+
   it('shows the empty state when there are no profiles', async () => {
     useOverview({ green: 0, yellow: 0, red: 0, total: 0, red_plants: [] });
     renderWithProviders(<WinterProtectionWidget />);
