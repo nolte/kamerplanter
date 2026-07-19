@@ -7,15 +7,16 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.16 (Epic #565 Nachzügler: cultivation_flexible-Flag gated die per-Instanz-Kulturführung — ADR-006 E6/#615)
+Version: 2.17 (Seed↔Phase-Sequence-Tracking #611: attributgetriebener Sequenz-Resolver als First-Class-Spezifikation, D14)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.17 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586 → #616):** Der in v2.15 nur als Changelog-Notiz geführte **attributgetriebene Sequenz-Resolver** wird zur **First-Class-Spezifikation** ausgebaut (neuer Abschnitt **§D14**): (1) explizite Präzedenz-Kaskade `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` als geordnete Entscheidungsregel mit Zuordnungstabelle; (2) `indoor_default` verbindlich als **Last-Resort-Fallback** deklariert (nur annuell/biennial/unbekannt), nicht als Blankett; (3) die 8 Audit-Archetypen (`cam_succulent_rest`, `cam_double_rest`, `clonal_monocarp`, `photoperiodic_ornamental`, `palm_evergreen`, `fern_spore`, `geophyte_fine`, `evergreen_foliage_perennial`) als benannte First-Class-Sequenzen in den Katalog aufgenommen (Deckung geprüft gegen `phase_sequences.yaml`: 21 Sequenzen / 28 `phase_definitions` auf `develop`); (4) Faktenkorrektur der Migration-Referenz (v0025 → real **v0027**) und der Kohorten-Ausnahmen (Cannabis annuell, Herbst-Anemone + Allium via WP-8 outdoor). Verweis REQ-001 v4.7 (drei Lifecycle-Achsen als **Pflicht-Resolution-Inputs**), REQ-047 (Dormanz-Kopplung der neuen Rest-Phasen bestätigt). Reine Spec-Schärfung, keine Code-/Seed-Änderung — beschreibt den auf `develop` bereits gelandeten Zustand. |
 | 2.16 | 2026-07-19 | **ADR-006 E6 Umsetzung (Epic #565 Nachzügler, WP-6/#615 — `cultivation_flexible`-Flag):** Additives Boolean `Species.cultivation_flexible` (default `false`) macht die in v2.13 (E1/#605) eingeführte per-Instanz-Kulturführungs-Wahl **botanisch gated**: Der „Kulturführung"-Select im Plant-Instance-Create-Flow wird nur noch für **fakultative** Arten angeboten (die genuin annuell ODER perennial gezogen werden können), sonst versteckt + informativer Hinweis. Die Steckbrief-belegte Kohorte (Tomate, Paprika, Aubergine, Andenbeere, Basilikum, Geranie, Petunie, Verbene, Stiefmütterchen, Erdbeere, Wachsbegonie, Fleißiges Lieschen) ist in `species.yaml/lifecycle_overrides` geflaggt und wird per idempotentem Seed-Pass (`seed_cultivation_flexible`) auf die Species-Records angewendet; strikt einjährig gezogene botanische Perennials (Kartoffel, Kapuzinerkresse) bleiben bewusst ungeflaggt. `resolve_effective_cycle`-Semantik (v2.13) **unverändert** (non-flexible → Art-Default). Additiv/non-breaking, **keine Migration** (schemaloses Feld, default false). #297 unangetastet — das Flag drückt die *Fähigkeit* aus, nicht den Wert. Siehe REQ-001 v4.6. |
-| 2.15 | 2026-07-19 | **CAM-/Monokarp-/Photoperioden-Feintypisierung (Epic #565 Nachzügler, #616 / Audit #576):** Die von Phase 1 (#601 / v0022) bewusst auf den generischen Templates (`evergreen_foliage_perennial` / annuelles `indoor_default`) belassenen Indoor-Kohorten erhalten ihre biologisch präzisen Sequenzen als **First-Class-Templates** (D9–D12). Neu geseedet in `phase_sequences.yaml` (additiv, schema-valide, DE+EN): **`cam_succulent_rest`** (D9a — Aktivwachstum→Blüte→kühl-trockene `winter_rest` ↻), **`cam_double_rest`** (D9b — Lithops/Mesemb mit `winter_hull_change` + `summer_rest`), **`clonal_monocarp`** (D10 — `juvenile`→`mature`→Blüte→`pup_establishment` terminal = klonale Kindel-Fortführung, **kein** Zyklus-Neustart; #390-Präzedenz), **`photoperiodic_ornamental`** (D11 — `short_day_induction`→`bract_coloring`, `critical_day_length_hours: 12`; Weihnachtsstern/Kalanchoe), **`palm_evergreen`**, **`fern_spore`** und **`geophyte_fine`** (D12) — dazu 15 neue `phase_definitions`. Der bisherige Blankett-Link wird durch einen **attributgetriebenen Resolver** (`resolve_phase_sequence_name`) ersetzt: Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type`, der **vor** dem `indoor_default`-Last-Resort läuft (Kurztag-Induktion nur für Perennials, damit die annuelle Cannabis-Ernte nicht zum blütenlosen Zierzyklus wird). Re-Assignment pro Kohorte: cam_succulent_rest 20, cam_double_rest 1 (Lithops), clonal_monocarp 4, photoperiodic_ornamental 11, palm_evergreen 4, fern_spore 4, geophyte_fine 6. Migration **v0025** (additiv/idempotent, provisorische Nummer) hängt bestehende Installationen von den Blankett-Sequenzen auf das feingetypte Ziel um bzw. legt fehlende Kanten an; WP-8-Outdoor-Arten (v0024) werden durch einen Scope-Guard nicht angetastet. |
+| 2.15 | 2026-07-19 | **CAM-/Monokarp-/Photoperioden-Feintypisierung (Epic #565 Nachzügler, #616 / Audit #576):** Die von Phase 1 (#601 / v0022) bewusst auf den generischen Templates (`evergreen_foliage_perennial` / annuelles `indoor_default`) belassenen Indoor-Kohorten erhalten ihre biologisch präzisen Sequenzen als **First-Class-Templates** (D9–D12). Neu geseedet in `phase_sequences.yaml` (additiv, schema-valide, DE+EN): **`cam_succulent_rest`** (D9a — Aktivwachstum→Blüte→kühl-trockene `winter_rest` ↻), **`cam_double_rest`** (D9b — Lithops/Mesemb mit `winter_hull_change` + `summer_rest`), **`clonal_monocarp`** (D10 — `juvenile`→`mature`→Blüte→`pup_establishment` terminal = klonale Kindel-Fortführung, **kein** Zyklus-Neustart; #390-Präzedenz), **`photoperiodic_ornamental`** (D11 — `short_day_induction`→`bract_coloring`, `critical_day_length_hours: 12`; Weihnachtsstern/Kalanchoe), **`palm_evergreen`**, **`fern_spore`** und **`geophyte_fine`** (D12) — dazu 15 neue `phase_definitions`. Der bisherige Blankett-Link wird durch einen **attributgetriebenen Resolver** (`resolve_phase_sequence_name`) ersetzt: Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type`, der **vor** dem `indoor_default`-Last-Resort läuft (Kurztag-Induktion nur für Perennials, damit die annuelle Cannabis-Ernte nicht zum blütenlosen Zierzyklus wird). Re-Assignment pro Kohorte: cam_succulent_rest 20, cam_double_rest 1 (Lithops), clonal_monocarp 4, photoperiodic_ornamental 11 (Cannabis annuell + Herbst-Anemone via WP-8 outdoor ausgenommen), palm_evergreen 4, fern_spore 4, geophyte_fine 6 (Allium cepa/sativum via WP-8 ausgenommen). Migration **v0027** (additiv/idempotent) hängt bestehende Installationen von den Blankett-Sequenzen auf das feingetypte Ziel um bzw. legt fehlende Kanten an; WP-8-Outdoor-Arten (v0024) werden durch einen Scope-Guard nicht angetastet. |
 | 2.14 | 2026-07-13 | **ADR-006 Umsetzung Phase 3 (Epic #565, WP-8 — Stammdaten-Sweep Lebenszyklus-/Dormanz-Konsistenz):** Bereinigt die Master-Data-Inkonsistenzen im Phasenmodell. (1) **Dormanz-Konsistenz:** Jede Art mit `dormancy_required: true` besitzt jetzt ein korrespondierendes Dormanz-Phasenmodell (literale `dormancy`-Phase, eine botanisch distinkte Ruhephase wie `winter_rest`/`cool_rest`/`summer_dormancy`/`dry_storage`, oder eine gebundene `phase_sequence` mit Dormanzphase). Die 10 Outdoor-Stauden/-Zweijährigen, die Dormanz deklarierten aber kein Phasenmodell hatten (u. a. **Asparagus officinalis**, Buchsbaum, Kornelkirsche, Zwiebel, Knoblauch, Clematis, Rittersporn, Sonnenhut, Prachtspiere, Herbst-Anemone), wurden von `plant_info_outdoor_1.yaml` auf den zyklischen Weg B (`lifecycles_outdoor.yaml`) überführt und je an ein Template mit echter Dormanzphase gebunden (Null-Überlappung zwischen beiden Dateien bleibt gewahrt). Die 7 Indoor-Arten mit abweichend benannten, aber biologisch validen Ruhephasen (Ardisia/Begonie/Klivie/Dendrobium/Ritterstern/Lithops/Mammillaria) bleiben unverändert — ihre `winter_rest`/`cool_rest`/`summer_dormancy`-Namen tragen botanische Bedeutung und werden nicht auf `dormancy` kollabiert. (2) **Kräuter-/Spargel-Modelle:** Lavendel, Rosmarin, Salbei, Thymian (immergrüne mediterrane Halbsträucher mit Winterruhe) über die neue Sequenz `evergreen_subshrub_rest` (Dormanz→Vegetativ→Blüte, ohne Blattfall-Seneszenz); Pfefferminze (krautig, Rhizom-Ausläufer) über `perennial_harvest_veg`; Spargel über `perennial_early_harvest`. (3) **Erdbeer-Feinschliff (ADR-006 E4):** Inline-`growth_phases` von `germination` auf den `establishment`(einmalig)/`sprouting`(zyklisch)-Split umgestellt, konsistent zur gebundenen `perennial_runner`-Sequenz; `is_recurring`-Flags ergänzt (Schema um `is_recurring` auf `phase_entry` erweitert). Neuer Konsistenz-Test `test_dormancy_phase_consistency.py` sperrt die Invariante. Migration **v0024** bindet bestehende Installationen (die die Sweep-Arten noch auf der generischen Phase-1-Bindung `evergreen_foliage_perennial` bzw. dem `indoor_default`-Blankett trugen) auf die präzise Sequenz um (additiv/idempotent). |
 | 2.13 | 2026-07-13 | **ADR-006 Umsetzung Phase 2 (Epic #565, E1/Option C — per-Instanz Kulturführung):** Neues additives Feld `PlantInstance.cultivation_cycle_type: CycleType \| None` (`None` = „wie Art", schemalos/kein Backfill; dokumentiert in Migration **v0023**). Die **einzige** Quelle der Zyklus-Wahrheit ist jetzt `resolve_effective_cycle(instance, lifecycle, phase_sequence)` (`app/domain/engines/cycle_resolver.py`) mit der Kaskade **Instanz-Override → Art-`cultivation_cycle_type` → botanisches `cycle_type` → PhaseSequence-`cycle_type`**. Alle Zyklus-Konsumenten lesen die Kaskade statt `species.cycle_type`: der Phasen-Restart-Gate (`check_auto_transitions`/`should_restart_cycle`), die REQ-047-Season-Kopplung (`SeasonPhaseCoupler`), die Restart-Validierung + Zyklusnummer-Inkrement (`PhaseTransitionEngine`) und die Anzeige (`get_current_phase.cycle_type` für Dashboard/Timeline). Ein Instanz-Override ändert den effektiven Flow **end-to-end** (Integrationstest: `annual` an perennial-Art → kein Restart; `perennial` an annual-Art → Restart). **#297 bleibt unberührt:** das botanische `cycle_type` bleibt art-fix; nur die *praktizierte* Achse wird instanz-fähig. Erfassung bei Anlage: optionales Auswahlfeld „Kulturführung" im Plant-Instance-Create-Flow (Default „wie Art"). `cultivation_flexible`-Flag (E6) und der Master-Data-Sweep (WP-8) bleiben Folgephasen. |
 | 2.12 | 2026-07-13 | **ADR-006 Umsetzung Phase 1 (Epic #565, WP-1..3 — zyklische Perennierung verdrahtet):** Der Zyklus-Restart-Motor wird jetzt **produktiv aufgerufen**: `check_auto_transitions` schaltet PhaseSequence-getriebene Pflanzen (Weg B) entlang ihrer Sequenz fort **und** feuert aus der Terminalphase den Perennierungs-Neustart am `cycle_restart_entry_order` — gegated durch `CyclicLifecycleEngine.should_restart_cycle` (biennial/monokarp terminieren statt zu loopen). Neues E4-Template `perennial_runner` (Erdbeere): `germination` in einmaliges `establishment` (`is_recurring:false`) + zyklischen `sprouting`-Wiedereinstieg gesplittet, Restart-Anker auf `sprouting`/`vegetative` (nicht `germination`), `dormancy` terminal. Generisches `evergreen_foliage_perennial`-Template für die übrigen Weg-A-Stauden. Migration **v0022** überführt bestehende Perennials von der annuellen `indoor_default`-Blankettbindung auf den zyklischen Pfad (Seed für Neuinstallationen attribut-getrieben). E3-Kopplung (REQ-047 ↔ REQ-003) siehe REQ-047 v1.3. Instanz-Override (E1/WP-5), Master-Data-Sweep (WP-7) und CAM-/Photoperioden-/Geophyten-Feintypisierung bleiben Folgephasen. |
@@ -1644,6 +1645,74 @@ wird über Jahre gehalten und jährlich neu induziert):
   reduzierten Enums in `activities.schema.yaml`/`workflows.schema.yaml` (Task-Templates) bleiben bewusst auf
   der Kern-Teilmenge. `seed-data-validator` Phase 0.2 wacht über künftige Drift.
 
+<!-- Spec-Audit 2026-07-19 #611 WS1 (Audit #576/#586 → Umsetzung #616): attributgetriebener Sequenz-Resolver als First-Class-Spezifikation. -->
+### D14 — Attributgetriebener Sequenz-Resolver (Seed-Zeit-Bindung)
+
+D9–D12 definieren die **Templates**; D14 spezifiziert die **Zuordnungsmechanik**, die einer geseedeten Art
+zur Seed-Zeit *ohne* handkuratierten `phase_sequence:`-Eintrag ihre biologisch passende Sequenz zuweist.
+Vor #616 fielen alle ~169 Indoor-Arten unterschiedslos auf den **Blankett-Link** `indoor_default` (annuell,
+`is_repeating: false`, cannabis-`flushing`) — die reichhaltigen Steuer-Attribute waren erfasst, aber für die
+Sequenz-Wahl **ungenutzt** (Audit #586). Der Resolver behebt das: `indoor_default` ist ab hier ausschließlich
+**Last-Resort-Fallback** für annuelle/biennale/unbestimmte Arten, kein Standard-Ziel für Perennials.
+
+**Verbindliche Präzedenz** (stärkstes biologisches Signal gewinnt; realisiert als geordnete
+Entscheidungsregel `resolve_phase_sequence_name`, geteilt von Seed **und** Rebind-Migration v0027, damit
+keine Drift entsteht):
+
+```
+flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type
+```
+
+| # | Bedingung (in dieser Reihenfolge geprüft) | Ziel-Sequenz | Template |
+|---|---|---|---|
+| 0 | `scientific_name` ist runner-/ausläufer-vermehrt (z.B. _Fragaria x ananassa_) | `perennial_runner` | E4 |
+| 1 | `photoperiod_type = short_day` **und** `cycle_type = perennial` | `photoperiodic_ornamental` | D11 |
+| 2 | `flowering_strategy = monocarpic` **und** `cycle_type = perennial` **und** `growth_habit = epiphyte` | `clonal_monocarp` | D10 |
+| 3 | `photosynthesis_type = cam` **und** Gattung ∈ {Lithops} | `cam_double_rest` | D9b |
+| 3 | `photosynthesis_type = cam` (sonst) | `cam_succulent_rest` | D9a |
+| 4 | `growth_habit = fern` | `fern_spore` | D12 |
+| 4 | `growth_habit = bulb_geophyte` | `geophyte_fine` | D12 |
+| 4 | Gattung ∈ {Chamaedorea, Dypsis, Howea, Livistona} (Palmen; `growth_habit = tree`) | `palm_evergreen` | D12 |
+| 5 | `cycle_type = perennial` (jede verbleibende Staude) | `evergreen_foliage_perennial` | Audit-Fund |
+| 6 | sonst (annuell / biennial / unbekannt) | **`indoor_default`** (Last-Resort) | — |
+
+**Begründete Sonderfälle:**
+
+- **Kurztag nur für Perennials** (Regel 1): Die annuelle Kurztag-Nutzpflanze _Cannabis sativa_ behält ihren
+  ernte-terminierten `indoor_default`-Fluss und wird **nicht** zum blütenlosen Zierzyklus umgetypt.
+- **Palmen nach Gattung** (Regel 4): Ihr `growth_habit` ist `tree` — botanisch nicht von Ficus/Dracaena
+  unterscheidbar; daher explizite Gattungs-Whitelist statt Attribut-Raten.
+- **Monokarpe Bromelien** (Regel 2): terminale Einmalblüte + **klonale Kindel-Fortführung** (`clonal_monocarp`,
+  `is_repeating: false`) statt eines fälschlichen neuen Sämlingszyklus (D10; #390-Präzedenz).
+
+**Katalog der First-Class-Sequenzen** (8 Archetypen, geseedet in `phase_sequences.yaml` #616 — Deckung geprüft:
+21 `phase_sequences` / 28 `phase_definitions` auf `develop`; die Angabe „12 `phase_definitions`" im
+Ursprungs-Issue war Drift, real waren es vor #616 **10**, nach #616 **28**):
+
+| Sequenz | Template | Restart-Semantik | Kandidaten (v0027) |
+|---|---|---|---|
+| `cam_succulent_rest` | D9a | wiederholend, `winter_rest` terminal → Restart 0 | 20 |
+| `cam_double_rest` | D9b (Lithops) | wiederholend, `summer_rest` terminal → Restart 0 | 1 |
+| `clonal_monocarp` | D10 | **nicht** wiederholend; `pup_establishment` terminal = neue Instanz | 4 |
+| `photoperiodic_ornamental` | D11 | wiederholend, `short_day`-Induktion, `critical_day_length_hours: 12` | 11 |
+| `palm_evergreen` | D12 | wiederholend, Restart bei `establishment` | 4 |
+| `fern_spore` | D12 | wiederholend, `leaf_phase` ↔ `rest_phase` | 4 |
+| `geophyte_fine` | D12 + D7 | wiederholend, Restart bei `dry_storage` → `sprout_formation` | 6 |
+| `evergreen_foliage_perennial` | Audit-Fund | wiederholend, Restart bei `active_growth` (kein Termin-Ende) | 63 (Phase-1 #565) |
+
+**Idempotenz & Migration:** Der Resolver läuft **vor** dem `indoor_default`-Blankett (der übersprungene Arten
+mit bereits existierender `has_phase_sequence`-Kante nicht erneut anfasst — sonst „gewinnt" `indoor_default`).
+Bestehende Installationen werden per **versionierter Migration v0027** (NFR-016, additiv/idempotent) von den
+generischen Blankett-Sequenzen (`indoor_default`/`evergreen_foliage_perennial`) auf das feingetypte Ziel
+umgehängt; ein **Scope-Guard** verhindert das Umhängen bereits präziser Bindungen (WP-8-Outdoor-Arten aus
+v0024 auf `perennial_standard`/`evergreen_subshrub_rest` bleiben unangetastet). Die Kohorten-Zahlen weichen von
+den Roh-Kandidatenzahlen des Audits (§5) ab, weil Cannabis (annuell) und die WP-8-Outdoor-Arten (Herbst-Anemone,
+_Allium cepa_/_sativum_) bereits anderweitig gebunden sind.
+
+**Pflicht-Inputs:** Der Resolver ist nur so gut wie die im Steckbrief erfassten Attribute. `flowering_strategy`,
+`cultivation_cycle_type` und `growth_determinacy` sind daher **Pflicht-Resolution-Inputs je Species**, nicht
+optionale Metadaten — siehe REQ-001 §Lifecycle-Resolution-Pflichtfelder.
+
 <!-- Spec-Audit 2026-07-02 E1-E8: Lifecycle-Vollständigkeits-Audit II — Trigger-Vollständigkeit, nicht-lineare Pfade, Ausfallbehandlung, Bewässerung & Nährstoffbedarf über den Lebenszyklus. Quelle: spec/analysis/lifecycle-flow-completeness-audit.md -->
 ## Lifecycle-Vollständigkeits-Audit II (E1–E8)
 
@@ -1838,6 +1907,8 @@ Zustandslose Berechnungsendpunkte (VPD, GDD, Photoperiode) sind öffentlich zug�
 - [ ] **Reifegrad-Berechnung:** Automatische Bestimmung von juvenile/productive/declining basierend auf Pflanzenalter
 - [ ] **Saison-Vergleich:** Ertrag und Phasen-Dauern sind über mehrere Jahre vergleichbar
 - [ ] **Perennial-Phasen-Template:** Standard-Phasensequenz für Dauerkulturen (dormancy → bud_break → vegetative → flowering → fruit_development → ripening → senescence)
+<!-- Quelle: #611 WS1 (Audit #576/#586) — attributgetriebener Sequenz-Resolver -->
+- [ ] **Attributgetriebener Sequenz-Resolver (§D14):** Eine geseedete Art ohne handkuratierten `phase_sequence:`-Eintrag wird über die Präzedenz `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` auf ihre biologisch passende Sequenz gebunden; `indoor_default` gilt nur als Last-Resort-Fallback (annuell/biennial/unbekannt). Der Resolver ist zwischen Seed (`resolve_phase_sequence_name`) und Rebind-Migration v0027 geteilt (keine Drift). Repräsentative Kohorten-Vertreter (CAM-Sukkulente, monokarpe Bromelie, Weihnachtsstern, Palme, Farn, Geophyt) lösen auf ihre feingetypte Sequenz auf, nicht auf `indoor_default`.
 - [ ] **Kältestunden-Integration:** Chill-Hours pro Saison aus VernalizationTracker (REQ-001) übernommen
 <!-- Quelle: Cannabis Indoor Grower Review G-009 -->
 - [ ] **Autoflower-Transition:** Bei `cultivar_photoperiod_type='autoflower'` ist Vegi→Blüte automatisch zeitbasiert (kein manueller Trigger, keine Photoperioden-Änderung)

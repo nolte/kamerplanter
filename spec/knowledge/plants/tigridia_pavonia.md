@@ -17,7 +17,7 @@
 | Familie | Iridaceae | `species.family` → `botanical_families.name` |
 | Gattung | Tigridia | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte | `species.growth_habit` |
 | Wurzeltyp | corm (Korm — solides Speicherorgan ohne Schalen; bildet jährlich Tochterkormen an der Basis; keine echte Zwiebel) | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
@@ -589,7 +589,7 @@ Hinweis: Tigridia hat relativ schmale, schwertfoermige Blaetter (Wuchsform aehnl
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,frost_sensitivity,nutrient_demand_level,green_manure_suitable,pruning_type,pruning_months,bloom_months,sowing_indoor_weeks_before_last_frost,sowing_outdoor_after_last_frost_days,direct_sow_months,traits
-Tigridia pavonia,"Pfauenblume;Tigerblume;Tiger Flower;Mexican Shell Flower;Peacock Flower;Jockey's Cap Lily",Iridaceae,Tigridia,perennial,day_neutral,herb,corm,"7a;7b;8a;8b;9a;9b;10a;10b",0.0,"Mexiko;Guatemala;Kolumbien;Kiefer-Eichenwald 2000-3000m",yes,5,20,75,30,15,limited,yes,false,false,tender,light_feeder,false,after_harvest,"9;10","7;8;9",6,0,"5;6","ornamental;bee_friendly"
+Tigridia pavonia,"Pfauenblume;Tigerblume;Tiger Flower;Mexican Shell Flower;Peacock Flower;Jockey's Cap Lily",Iridaceae,Tigridia,perennial,day_neutral,bulb_geophyte,corm,"7a;7b;8a;8b;9a;9b;10a;10b",0.0,"Mexiko;Guatemala;Kolumbien;Kiefer-Eichenwald 2000-3000m",yes,5,20,75,30,15,limited,yes,false,false,tender,light_feeder,false,after_harvest,"9;10","7;8;9",6,0,"5;6","ornamental;bee_friendly"
 ```
 
 ### 8.2 Cultivar CSV-Zeilen (bekannte Sorten)

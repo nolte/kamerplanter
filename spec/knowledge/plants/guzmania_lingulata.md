@@ -17,7 +17,7 @@
 | Familie | Bromeliaceae | `species.family` -> `botanical_families.name` |
 | Gattung | Guzmania | `species.genus` |
 | Ordnung | Poales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | epiphyte | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Wurzelanpassungen | epiphytic | `species.root_adaptations` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -475,7 +475,7 @@ Entfaellt (reine Zimmerpflanze). Fruchtfolge und Mischkultur sind Konzepte des F
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,frost_sensitivity,nutrient_demand_level,green_manure_suitable,traits,air_purification_score
-Guzmania lingulata,Bromelie;Guzmanie;Scarlet Star,Bromeliaceae,Guzmania,perennial,day_neutral,herb,fibrous,10a;10b;11a;11b;12a;12b,0.0,Tropische Regenwaelder Mittel- und Suedamerikas,sensitive,light_feeder,false,ornamental,0.3
+Guzmania lingulata,Bromelie;Guzmanie;Scarlet Star,Bromeliaceae,Guzmania,perennial,day_neutral,epiphyte,fibrous,10a;10b;11a;11b;12a;12b,0.0,Tropische Regenwaelder Mittel- und Suedamerikas,sensitive,light_feeder,false,ornamental,0.3
 ```
 
 ### 8.2 BotanicalFamily CSV-Zeile (falls noch nicht vorhanden)

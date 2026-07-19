@@ -17,7 +17,7 @@
 | Familie | Aspleniaceae | `species.family` → `botanical_families.name` |
 | Gattung | Asplenium | `species.genus` |
 | Ordnung | Polypodiales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | fern | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Photosynthese-Typ (photosynthesis pathway) | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN --> kein publizierter GDD-Basiswert für *Asplenium nidus*; als wärmeliebende Tropenpflanze (Wachstumsstopp < 13–15°C) läge die Basis deutlich oberhalb der ~10°C wärmeliebender Freilandkulturen, jedoch ohne belastbare Quelle nicht belegbar | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -298,7 +298,7 @@ Entfällt — reine Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level,air_purification_score
-Asplenium nidus,"Nestfarn;Vogelnestfarn;Bird's Nest Fern",Aspleniaceae,Asplenium,perennial,day_neutral,herb,fibrous,"11a;11b;12a","Tropisches Asien, Australien, Ostafrika",yes,2-8,15,30-80,30-80,yes,no,false,light_feeder,0.5
+Asplenium nidus,"Nestfarn;Vogelnestfarn;Bird's Nest Fern",Aspleniaceae,Asplenium,perennial,day_neutral,fern,fibrous,"11a;11b;12a","Tropisches Asien, Australien, Ostafrika",yes,2-8,15,30-80,30-80,yes,no,false,light_feeder,0.5
 ```
 
 ### 8.2 Cultivar CSV-Zeilen
