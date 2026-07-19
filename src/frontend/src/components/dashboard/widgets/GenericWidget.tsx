@@ -50,7 +50,7 @@ const TASK_ROW_WIDGETS: ReadonlySet<string> = new Set(['tasks_today', 'next_cale
 /**
  * Widgets whose title is itself a domain jargon term (UI-NFR-011) get the
  * shared glossary tooltip next to the heading. Only map keys with an existing
- * `glossary.<term>` entry — see `i18n/locales/{de,en}/translation.json`.
+ * `glossary.<term>` entry — see `i18n/locales/{de,en}/glossary.json`.
  */
 const WIDGET_GLOSSARY_TERM: Partial<Record<string, string>> = {
   ipm_alerts: 'ipm',

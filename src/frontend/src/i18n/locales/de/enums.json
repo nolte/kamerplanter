@@ -1,0 +1,986 @@
+{
+  "enums": {
+    "actuatorType": {
+      "light": "Licht",
+      "exhaust_fan": "Abluftventilator",
+      "circulation_fan": "Umluftventilator",
+      "heater": "Heizung",
+      "cooler": "Kühlung",
+      "humidifier": "Befeuchter",
+      "dehumidifier": "Entfeuchter",
+      "co2_doser": "CO₂-Doser",
+      "irrigation_valve": "Bewässerungsventil",
+      "pump": "Pumpe",
+      "dosing_pump": "Dosierpumpe",
+      "chiller": "Chiller (Nährlösungskühlung)",
+      "air_pump": "Luftpumpe",
+      "uv_sterilizer": "UV-Sterilisator",
+      "shade_screen": "Schattierung",
+      "roof_vent": "Dachlüftung",
+      "energy_screen": "Energieschirm",
+      "fogger": "Vernebler",
+      "generic_switch": "Allgemeiner Schalter"
+    },
+    "actuatorProtocol": {
+      "home_assistant": "Home Assistant",
+      "mqtt": "MQTT",
+      "manual": "Manuell"
+    },
+    "equipmentType": {
+      "tool": "Werkzeug",
+      "consumable": "Verbrauchsmaterial",
+      "sensor": "Sensor / Messgerät",
+      "lighting": "Beleuchtung",
+      "pump": "Pumpe",
+      "filter": "Filter",
+      "container": "Behälter",
+      "cleaning_agent": "Reinigungsmittel",
+      "other": "Sonstiges"
+    },
+    "equipmentStatus": {
+      "active": "Aktiv",
+      "maintenance": "In Wartung",
+      "stored": "Eingelagert",
+      "defective": "Defekt",
+      "retired": "Ausgemustert"
+    },
+    "propagationEventMethod": {
+      "clone": "Klon",
+      "seed": "Aussaat",
+      "cutting": "Steckling",
+      "graft": "Veredelung",
+      "division": "Teilung",
+      "layering": "Absenker",
+      "offset": "Kindel",
+      "other": "Sonstiges"
+    },
+    "propagationEventStatus": {
+      "in_progress": "In Bearbeitung",
+      "rooted": "Bewurzelt",
+      "transplanted": "Umgetopft",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "graftCompatibilityLevel": {
+      "compatible": "Kompatibel",
+      "possibly_compatible": "Bedingt kompatibel",
+      "incompatible": "Nicht kompatibel"
+    },
+    "aquaponicSystemType": {
+      "media_bed": "Media-Bed (Blähton)",
+      "dwc": "Deep Water Culture (DWC)",
+      "nft": "Nutrient Film Technique (NFT)",
+      "hybrid": "Hybrid",
+      "wicking_bed": "Wicking-Bed (Dochtbewässerung)"
+    },
+    "cyclingStatus": {
+      "new": "Neu",
+      "cycling": "Fährt ein",
+      "cycled": "Eingefahren",
+      "dormant": "Winterruhe"
+    },
+    "biofilterType": {
+      "media_bed_integrated": "Integriert (Blähton)",
+      "mbbr": "MBBR (K1-Medien)",
+      "trickle": "Rieselfilter (Lava)",
+      "fluidized_bed": "Wirbelbett (Sand)"
+    },
+    "waterTestSource": {
+      "manual": "Manuell",
+      "sensor": "Sensor",
+      "test_kit": "Test-Kit"
+    },
+    "temperatureZone": {
+      "coldwater": "Kaltwasser",
+      "temperate": "Temperiert",
+      "warmwater": "Warmwasser"
+    },
+    "category": "Kategorie",
+    "pestCategory": {
+      "pest": "Schädling",
+      "beneficial": "Nützling",
+      "symptom": "Schadbild",
+      "unknown": "Unbekannt"
+    },
+    "pestMode": {
+      "direct": "Direkt erkannt",
+      "symptom": "Schadbild"
+    },
+    "plantOrgan": {
+      "auto": "Automatisch",
+      "leaf": "Blatt",
+      "flower": "Blüte",
+      "fruit": "Frucht",
+      "bark": "Rinde",
+      "habit": "Ganze Pflanze"
+    },
+    "phaseDescription": {
+      "germination": "Keimungsphase: Samen quellen, brechen auf und bilden erste Wurzel (Radicula). Gleichmäßige Feuchtigkeit und Wärme (20–25 °C) sind entscheidend. Kein Dünger nötig.",
+      "seedling": "Sämlings-Phase: Erste Keimblätter und echte Blätter entwickeln sich. Sehr empfindlich gegenüber Überwässerung und direktem Licht. Niedrige EC-Werte (0,4–0,8 mS/cm).",
+      "vegetative": "Vegetative Phase: Intensives Wachstum von Stängel und Blättern. Hoher Stickstoff-Bedarf (N), längere Lichtperioden fördern das Wachstum. Formschnitt und Erziehung in dieser Phase möglich.",
+      "flowering": "Blütephase: Bildung von Blüten/Früchten. Umstellung auf Phosphor/Kalium-betonte Düngung (P/K). Bei photoperiodischen Pflanzen durch veränderten Lichtzyklus ausgelöst.",
+      "ripening": "Reifephase: Früchte/Blüten reifen aus und erreichen die Erntereife. Düngung reduzieren. Erntezeitpunkt durch Fruchtfarbe, Festigkeit und sortentypische Reifemerkmale bestimmen.",
+      "harvest": "Erntephase: Pflanzen werden geerntet. Auf Karenzzeiten (IPM-Behandlungen) achten. Ernteindikator-Checks und Qualitätsbewertung durchführen.",
+      "drying": "Trocknungsphase: Erntegut bei 18–22 °C und 55–65 % Luftfeuchte trocknen. Langsames Trocknen verbessert Qualität und Haltbarkeit.",
+      "curing": "Aushärtungsphase: Getrocknetes Erntegut in geeigneten Behältern lagern und regelmäßig lüften. Verbessert Aroma und Haltbarkeit über mehrere Wochen.",
+      "flushing": "Spülphase: Nur klares Wasser ohne Dünger geben. Entfernt Salz- und Nährstoffrückstände aus dem Substrat. Typisch 1–2 Wochen vor der Ernte.",
+      "juvenile": "Juvenilphase: Junge Pflanze etabliert sich, noch nicht blühfähig. Aufbau des Wurzelsystems und der Grundstruktur. Bei mehrjährigen Pflanzen oft 1–3 Jahre.",
+      "climbing": "Kletterphase: Pflanze bildet Ranken/Triebe und benötigt Stützstruktur (Spalier, Netz). Regelmäßiges Aufleiten der Triebe und Luftwurzeln fördert geordnetes Wachstum.",
+      "mature": "Reife-/Ertragsphase: Pflanze ist ausgewachsen und bringt vollen Ertrag. Fokus auf Pflege, Düngung und Ernte. Bei Stauden jährlich wiederkehrend.",
+      "dormancy": "Winterruhe/Dormanz: Pflanze reduziert Stoffwechsel und Wachstum. Gießen stark reduzieren, nicht düngen. Kühler, aber frostfreier Standort. Normaler Zyklus bei mehrjährigen Pflanzen.",
+      "senescence": "Alterungsphase: Natürliches Absterben oberirdischer Pflanzenteile am Saisonende. Einziehen der Nährstoffe in Wurzel/Knolle. Abgestorbenes Laub entfernen, Pflanze auf Überwinterung vorbereiten.",
+      "establishment": "Etablierungsphase: Die Pflanze gewöhnt sich an den neuen Standort und bildet erste Wurzeln. Gleichmäßig feucht halten, direkte Sonne vermeiden.",
+      "pup_establishment": "Kindel-Etablierung: Abgetrenntes Kindel bewurzelt sich im eigenen Topf. Hohe Luftfeuchtigkeit und Wärme sind entscheidend.",
+      "pre_bloom": "Vorblüte: Die Pflanze bereitet sich auf die Blütenbildung vor. Nährstoffe und Licht beibehalten.",
+      "recovery": "Erholungsphase: Die Pflanze regeneriert sich nach der Ernte und bildet neue Blattmasse. Moderat düngen und pflegen.",
+      "sprouting": "Austrieb: Knollen oder Zwiebeln treiben aus und bilden erste Triebe. Sparsam gießen und warm halten.",
+      "hardening_off": "Abhärtung: Vorgezogene Pflanzen schrittweise an Außenbedingungen gewöhnen. Erst nach den Eisheiligen dauerhaft ins Freiland.",
+      "budding": "Knospenbildung: Die Pflanze bildet Blütenknospen. Phosphor-betonte Düngung unterstützt die Entwicklung.",
+      "corm_ripening": "Knollenreife: Die Pflanze verlagert Nährstoffe in die Knolle für die nächste Saison. Gießen reduzieren.",
+      "tuber_formation": "Knollenbildung: Die unterirdische Knolle schwillt an. Kalium-betonte Düngung und gleichmäßige Feuchtigkeit sind wichtig."
+    },
+    "phaseDescriptions": {
+      "chlorophytum_comosum": {
+        "establishment": "Frisch getopfte Grünlilie an den neuen Standort gewöhnen. Indirekte Helligkeit bevorzugt, Substrat gleichmäßig feucht halten aber Staunässe vermeiden.",
+        "vegetative": "Hauptwachstumsphase mit kräftiger Blattentwicklung und zunehmender Ausläuferbildung. Regelmäßig düngen und bei Bedarf umtopfen, wenn Wurzeln aus dem Topf wachsen.",
+        "flowering": "Die Grünlilie bildet lange Blütentriebe mit kleinen weißen Sternblüten und anschließend Kindel. Ausläufer nicht abschneiden — die Kindel können zur Vermehrung genutzt werden.",
+        "mature": "Ausgewachsene, pflegeleichte Grünlilie mit hoher Stresstoleranz. Nur noch mäßig gießen und gelegentlich düngen — die Pflanze verzeiht kurze Trockenperioden problemlos."
+      },
+      "guzmania_lingulata": {
+        "pup_establishment": "Abgetrennte Guzmania-Kindel bewurzeln sich langsam im eigenen Topf. Hohe Luftfeuchtigkeit und Wärme sind entscheidend — am besten in den Blatttrichter gießen statt ins Substrat.",
+        "vegetative": "Lange Aufbauphase der Guzmania-Rosette — die Pflanze sammelt über Monate Energie für die einmalige Blüte. Nur sehr sparsam düngen, Wasser im Trichter regelmäßig erneuern.",
+        "pre_bloom": "Die Guzmania bereitet sich auf ihre einmalige Blüte vor. Ein reifer Apfel neben der Pflanze kann durch Ethylen-Abgabe die Blütenbildung fördern.",
+        "flowering": "Die leuchtend farbige Hochblatt-Blüte der Guzmania hält bis zu drei Monate. Direktes Sonnenlicht vermeiden, da es die Blütenfarbe bleicht.",
+        "senescence": "Die Mutterpflanze stirbt langsam ab und bildet am Fuß 1–3 Kindel. Kindel erst abtrennen, wenn sie mindestens ein Drittel der Mutterpflanzengröße erreicht haben."
+      },
+      "monstera_deliciosa": {
+        "juvenile": "Junge Monstera mit noch ungefensterten, herzförmigen Blättern. Heller Standort ohne direkte Sonne fördert das Wachstum — eine Rankhilfe früh einsetzen.",
+        "vegetative": "Die Monstera entwickelt erste gefensterte Blätter und Luftwurzeln. Regelmäßig mit kalkfreiem Wasser besprühen und Luftwurzeln in feuchtes Moos am Moosstab leiten.",
+        "climbing": "Die Monstera klettert aktiv und bildet zunehmend größere, stärker gefensterte Blätter. Stabile Kletterhilfe nötig — Moosstab oder Kokosfaser-Stab regelmäßig feucht halten.",
+        "mature": "Ausgewachsene Monstera mit imposanten Blättern bis 90 cm Durchmesser. Regelmäßig Blätter abstauben und bei Bedarf Rückschnitt vornehmen — Stecklinge eignen sich hervorragend zur Vermehrung."
+      },
+      "spathiphyllum_wallisii": {
+        "establishment": "Frisch eingetopftes Einblatt an halbschattigen Standort gewöhnen. Empfindlich gegen Zugluft und direkte Sonne — hängende Blätter zeigen Wasserbedarf sofort an.",
+        "vegetative": "Das Einblatt bildet kräftige dunkelgrüne Blätter und breitet sich durch Teilung im Topf aus. Regelmäßiges Besprühen mit kalkarmem Wasser unterstützt die tropische Herkunft.",
+        "flowering": "Die weiße Spatha erscheint typischerweise nach kühlen Nächten (15–17 °C) oder Trockenstress. Kühlere Nächte über einige Wochen fördern die Blütenbildung. Verblühte Blütenstände bodennah abschneiden.",
+        "mature": "Robustes, ausgereiftes Einblatt mit regelmäßiger Blütenbildung. Bei Bedarf durch Teilung des Wurzelballens vermehren — ideal beim Umtopfen im Frühjahr."
+      },
+      "fragaria_x_ananassa": {
+        "germination": "Erdbeersamen keimen langsam bei gleichmäßiger Feuchtigkeit und Licht. Samen nur auf die Oberfläche drücken (Lichtkeimer) und mit Folie abdecken, bis die Keimblätter erscheinen.",
+        "vegetative": "Kräftiger Blattaufbau und Ausläuferbildung der Erdbeere. Ausläufer für stärkere Fruchternte entfernen, oder zur Vermehrung bewurzeln lassen.",
+        "flowering": "Die Erdbeere blüht weiß und benötigt Bestäubung für Fruchtansatz. Bei Indoor-Anbau manuell mit Pinsel bestäuben — kühlere Nachttemperaturen fördern den Fruchtansatz.",
+        "ripening": "Die Früchte reifen und färben sich rot — Kalium-betonte Düngung fördert Geschmack und Süße. Stroh oder Mulch unterlegen, um Grauschimmel-Befall an aufliegenden Früchten zu vermeiden.",
+        "recovery": "Nach der Ernte regeneriert die Erdbeerpflanze und bildet neue Blattmasse auf. Altes Laub zurückschneiden und moderat düngen, um die Pflanze für die nächste Saison zu stärken.",
+        "dormancy": "Die Erdbeere benötigt eine Kälteperiode nahe 0–5 °C für die Blüteninduktion der nächsten Saison. Nur minimal gießen und nicht düngen — Frostschutz bei Topfkultur beachten."
+      },
+      "helianthus_annuus": {
+        "germination": "Sonnenblumenkerne keimen schnell bei Wärme und Dunkelheit. Samen 2–3 cm tief setzen und gleichmäßig feucht halten — Schnecken sind in dieser Phase die größte Gefahr.",
+        "seedling": "Die junge Sonnenblume entwickelt die ersten echten Blattpaare und wächst rasant. Sehr lichtbedürftig — bei zu wenig Licht vergeilt der Stängel und knickt später leicht um.",
+        "vegetative": "Explosives Höhenwachstum der Sonnenblume mit hohem Wasser- und Nährstoffbedarf. Stützstab bei großen Sorten frühzeitig setzen, da der Stängel bis zu 3 m hoch werden kann.",
+        "flowering": "Der Blütenkorb öffnet sich. Reife Blütenköpfe sind statisch nach Osten gerichtet — Heliotropismus tritt nur in der Jugendphase auf. Hoher Wasserbedarf — bei Trockenheit welken die Randblüten zuerst und die Samenbildung wird beeinträchtigt.",
+        "ripening": "Der Blütenkopf neigt sich und die Kerne reifen aus. Vogelschutz-Netz anbringen, wenn die Kerne geerntet werden sollen — die Bewässerung kann jetzt deutlich reduziert werden.",
+        "senescence": "Die einjährige Sonnenblume trocknet ab und kann kompostiert werden. Blütenköpfe mit reifen Kernen zum Trocknen aufhängen — als Saatgut oder Vogelfutter verwendbar."
+      },
+      "viola_x_wittrockiana": {
+        "germination": "Stiefmütterchen-Samen bei kühlen 14–16 °C und Dunkelheit keimen lassen. Die feinen Samen nur hauchdünn mit Erde bedecken und gleichmäßig feucht halten.",
+        "seedling": "Junge Stiefmütterchen bilden kompakte Blattrosetten. Kühle Temperaturen um 12–16 °C fördern gedrungenen Wuchs — bei Wärme vergeilen die Pflänzchen schnell.",
+        "vegetative": "Das Stiefmütterchen baut eine kräftige Blattrosette auf und verzweigt sich. Regelmäßiges Entspitzen fördert buschigen Wuchs und mehr Blütenansätze.",
+        "flowering": "Lange Blütezeit mit den charakteristischen bunten Blütengesichtern. Verblühtes regelmäßig ausputzen, um die Blütenbildung über Monate aufrechtzuerhalten.",
+        "senescence": "Bei sommerlicher Hitze über 25 °C lässt die Blühkraft nach und die Pflanze vergreist. Stark zurückschneiden und kühl halten kann bei zweijährigen Sorten eine Herbstblüte fördern."
+      },
+      "dahlia_pinnata": {
+        "dormancy": "Dahlienknollen frostfrei bei 4–7 °C in trockenem Sand oder Torf einlagern. Regelmäßig auf Fäulnis und Austrocknung kontrollieren — schrumpelige Knollen leicht befeuchten.",
+        "sprouting": "Dahlienknollen ab April in Töpfe setzen und bei Wärme zum Austrieb bringen. Erst sparsam gießen und steigern, sobald die ersten grünen Triebe erscheinen.",
+        "hardening_off": "Vorgezogene Dahlien schrittweise an Außenbedingungen gewöhnen. Erst nach den Eisheiligen (Mitte Mai) dauerhaft ins Freiland pflanzen — Spätfrost ist tödlich für Dahlien.",
+        "vegetative": "Rasches Triebwachstum mit hohem Nährstoffbedarf. Seitentriebe bei großblumigen Sorten frühzeitig ausbrechen (Entgeizen), um wenige aber prachtvolle Blüten zu erzielen.",
+        "flowering": "Prachtvolle Dahlienblüte von Juli bis zum ersten Frost. Verblühte Köpfe konsequent abschneiden und wöchentlich kaliumreich düngen für andauernde Blütenbildung.",
+        "senescence": "Nach dem ersten Frost oberirdisches Laub absterben lassen und 10 cm über dem Boden abschneiden. Die Knollen reifen im Boden nach — erst nach 1–2 Wochen vorsichtig ausgraben."
+      },
+      "petunia_x_hybrida": {
+        "germination": "Winzige Petuniensamen bei konstant 22–24 °C und Licht keimen lassen. Nicht mit Erde bedecken (Lichtkeimer) — Abdeckung mit Klarsichtfolie hält die nötige Luftfeuchtigkeit.",
+        "seedling": "Sehr langsam wachsende Petuniensämlinge brauchen viel Licht und moderate Temperaturen. Nach dem Pikieren einzeln in Töpfe setzen und vor Zugluft schützen.",
+        "vegetative": "Die Petunie verzweigt sich und baut Blattmasse auf. Triebspitzen entspitzen fördert buschigen Wuchs — stickstoffbetonte Düngung für kräftiges Blattwachstum.",
+        "hardening_off": "Petunien schrittweise an die Außentemperaturen gewöhnen. Tagsüber rausstellen, nachts reinholen — erst nach den Eisheiligen dauerhaft draußen lassen.",
+        "flowering": "Üppige Dauerblüte der Petunie von Mai bis Oktober bei regelmäßiger Düngung. Klebrige, verblühte Blüten entfernen und bei Regen geschützt aufstellen — nasse Blüten verkleben leicht.",
+        "senescence": "Bei den ersten Frösten stirbt die einjährige Petunie ab. Samen aus den Kapseln für die nächste Saison sammeln — bei Hybridsorten lohnt sich allerdings Neukauf von Saatgut."
+      },
+      "tigridia_pavonia": {
+        "sprouting": "Tigerblumen-Knollen ab April 5 cm tief pflanzen und mäßig gießen. Die Knollen treiben langsam aus — Staunässe führt schnell zu Knollenfäule.",
+        "vegetative": "Die Tigerblume bildet schwertförmige, irisartige Blätter und einen kräftigen Stängel. Sonniger, windgeschützter Standort ist ideal — bei Bedarf mit Stützstab sichern.",
+        "hardening_off": "Vorgezogene Tigerblumen schrittweise an Freilandbedingungen gewöhnen. Erst nach den Eisheiligen dauerhaft auspflanzen — die Knollen vertragen keinen Frost.",
+        "budding": "Die Tigerblume bildet Blütenknospen an langen Stängeln. Phosphor-betonte Düngung unterstützt die Knospenbildung — nicht umsetzen, da die Pflanze jetzt empfindlich reagiert.",
+        "flowering": "Spektakuläre, gefleckte Einzelblüten öffnen sich morgens und welken am selben Tag. Jede Pflanze bildet über Wochen nacheinander viele Blüten — verblühte Stiele nicht entfernen.",
+        "corm_ripening": "Die Tigerblume verlagert Nährstoffe in die Knolle für die nächste Saison. Gießen reduzieren und Laub natürlich einziehen lassen — das Laub nicht vorzeitig abschneiden.",
+        "dormancy": "Knollen nach dem Einziehen ausgraben, trocknen und bei 10–12 °C frostfrei einlagern. Wärmer als Dahlien lagern — Tigerblumen-Knollen vertragen keine Temperaturen unter 8 °C."
+      },
+      "apium_graveolens_var_rapaceum": {
+        "germination": "Sellerie keimt sehr langsam bei 20–22 °C und benötigt Licht zum Keimen. Samen nur andrücken und nicht mit Erde bedecken — Geduld ist nötig, denn die Keimung dauert bis zu 3 Wochen.",
+        "seedling": "Sellerie-Sämlinge wachsen anfangs extrem langsam und brauchen konstante Feuchtigkeit. Temperaturen unter 10 °C unbedingt vermeiden — Kältereiz löst vorzeitige Blütenbildung (Schossen) aus.",
+        "vegetative": "Der Sellerie bildet kräftige Blattstiele und ein dichtes Blattwerk. Hoher Wasserbedarf und stickstoffbetonte Düngung — äußere Blattstiele können als Suppengrün verwendet werden.",
+        "tuber_formation": "Die Knollensellerie-Knolle schwillt unterirdisch an und braucht viel Kalium. Erde um die Knolle anhäufeln und gleichmäßig feucht halten — Trockenheit führt zu holzigen, rissigen Knollen.",
+        "harvest": "Knollensellerie vor dem ersten starken Frost ernten, wenn die Knolle faustgroß ist. Leichter Frost verbessert den Geschmack — Knollen bei 0–4 °C und hoher Luftfeuchtigkeit monatelang lagerfähig."
+      }
+    },
+    "suitability": {
+      "yes": "Ja",
+      "limited": "Eingeschränkt",
+      "no": "Nein"
+    },
+    "growthHabit": {
+      "herb": "Kraut",
+      "shrub": "Strauch",
+      "subshrub": "Halbstrauch",
+      "tree": "Baum",
+      "vine": "Ranke",
+      "groundcover": "Bodendecker",
+      "grass": "Gras",
+      "succulent": "Sukkulente",
+      "bulb_geophyte": "Zwiebel-/Knollengeophyt",
+      "fern": "Farn",
+      "aquatic": "Wasserpflanze",
+      "epiphyte": "Epiphyt"
+    },
+    "harvestPattern": {
+      "single": "Einmalernte",
+      "continuous": "Mehrfach-/Durchpflückernte",
+      "perennial": "Mehrjährig wiederkehrend"
+    },
+    "harvestedPart": {
+      "fruit": "Frucht",
+      "seed": "Samen",
+      "leaf": "Blatt",
+      "root": "Wurzel",
+      "tuber": "Knolle",
+      "bulb": "Zwiebel",
+      "flower_bud": "Blütenknospe",
+      "flower": "Blüte",
+      "stem": "Stängel/Trieb",
+      "whole_plant": "Ganze Pflanze"
+    },
+    "climacteric": {
+      "climacteric": "Klimakterisch (nachreifend)",
+      "non_climacteric": "Nicht-klimakterisch",
+      "atypical": "Atypisch/Grenzfall"
+    },
+    "dtmReference": {
+      "direct_seed": "ab Direktsaat",
+      "transplant": "ab Auspflanzung"
+    },
+    "seedType": {
+      "open_pollinated": "Samenfest",
+      "f1_hybrid": "F1-Hybride",
+      "f2": "F2-Generation",
+      "landrace": "Landsorte",
+      "clone": "Klon (vegetativ)"
+    },
+    "floweringStrategy": {
+      "monocarpic": "Monokarp (blüht einmal)",
+      "polycarpic": "Polykarp (blüht mehrfach)"
+    },
+    "rootType": {
+      "fibrous": "Faserig",
+      "taproot": "Pfahlwurzel",
+      "tuberous": "Knollig",
+      "bulbous": "Zwiebel",
+      "corm": "Knolle (Sprossknolle)"
+    },
+    "propagationMethod": {
+      "seed": "Aussaat / Samen",
+      "cutting": "Steckling",
+      "leaf_cutting": "Blattsteckling",
+      "division": "Teilung",
+      "rhizome_division": "Rhizomteilung",
+      "bulb": "Zwiebel",
+      "bulbil": "Brutzwiebel",
+      "tuber": "Knolle",
+      "offset": "Kindel",
+      "runner": "Ausläufer",
+      "grafting": "Veredelung",
+      "layering": "Absenker",
+      "air_layering": "Abmoosen",
+      "water_propagation": "Wasservermehrung",
+      "tissue_culture": "Gewebekultur",
+      "spore": "Sporen",
+      "self_seeding": "Selbstaussaat"
+    },
+    "woodStage": {
+      "softwood": "Weichholz",
+      "semi_hardwood": "Halbreif",
+      "hardwood": "Hartholz",
+      "herbaceous": "Krautig"
+    },
+    "propagationDifficulty": {
+      "easy": "Einfach",
+      "moderate": "Mittel",
+      "difficult": "Schwierig"
+    },
+    "photoperiodType": {
+      "short_day": "Kurztagpflanze",
+      "long_day": "Langtagpflanze",
+      "day_neutral": "Tagneutral"
+    },
+    "cycleType": {
+      "annual": "Einjährig",
+      "biennial": "Zweijährig",
+      "perennial": "Mehrjährig"
+    },
+    "stressTolerance": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "siteType": {
+      "outdoor": "Außenbereich",
+      "greenhouse": "Gewächshaus",
+      "indoor": "Innenbereich",
+      "windowsill": "Fensterbrett",
+      "balcony": "Balkon",
+      "grow_tent": "Growzelt"
+    },
+    "lightType": {
+      "natural": "Natürlich",
+      "led": "LED",
+      "hps": "HPS",
+      "cmh": "CMH",
+      "mixed": "Gemischt"
+    },
+    "irrigationSystem": {
+      "manual": "Manuell",
+      "drip": "Tropf",
+      "hydro": "Hydro",
+      "mist": "Nebel",
+      "nft": "NFT",
+      "ebb_flow": "Ebbe-Flut"
+    },
+    "substrateType": {
+      "soil": "Erde",
+      "coco": "Kokos",
+      "clay_pebbles": "Blähton",
+      "perlite": "Perlit",
+      "living_soil": "Lebende Erde",
+      "peat": "Torf",
+      "rockwool_slab": "Steinwollmatte",
+      "rockwool_plug": "Steinwollwürfel",
+      "vermiculite": "Vermiculit",
+      "none": "Kein Substrat",
+      "orchid_bark": "Orchideenrinde",
+      "pon_mineral": "PON-Mineralsubstrat",
+      "sphagnum": "Sphagnum-Moos",
+      "hydro_solution": "Hydrolösung"
+    },
+    "nutrientDemand": {
+      "light": "Schwachzehrer",
+      "medium": "Mittelzehrer",
+      "heavy": "Starkzehrer"
+    },
+    "rootDepth": {
+      "shallow": "Flach",
+      "medium": "Mittel",
+      "deep": "Tief"
+    },
+    "frostTolerance": {
+      "sensitive": "Empfindlich",
+      "moderate": "Moderat",
+      "hardy": "Hardy",
+      "very_hardy": "Sehr hardy"
+    },
+    "hardinessRating": {
+      "hardy": "Winterhart",
+      "needs_protection": "Schutz nötig",
+      "frost_free": "Frostfreies Quartier",
+      "dig_and_store": "Ausgraben & einlagern"
+    },
+    "winterAction": {
+      "none": "Keine",
+      "mulch": "Mulchen",
+      "fleece": "Vlies",
+      "earth_up": "Anhäufeln",
+      "move_indoors": "Ins Quartier holen",
+      "dig_store": "Ausgraben & lagern",
+      "wrap": "Umwickeln"
+    },
+    "springAction": {
+      "uncover": "Abdecken entfernen",
+      "move_outdoors": "Nach draußen stellen",
+      "replant": "Auspflanzen",
+      "prune": "Rückschnitt",
+      "harden_off": "Abhärten"
+    },
+    "tuberStatus": {
+      "planted": "Gepflanzt",
+      "growing": "Im Wachstum",
+      "dig_pending": "Ausgraben fällig",
+      "drying": "Trocknend",
+      "stored": "Eingelagert",
+      "pre_sprouting": "Vorgetrieben"
+    },
+    "winterQuarterLight": {
+      "bright": "Hell",
+      "semi_bright": "Halbschattig",
+      "dark": "Dunkel"
+    },
+    "winterWatering": {
+      "none": "Kein Gießen",
+      "minimal": "Minimal",
+      "reduced": "Reduziert",
+      "normal": "Normal"
+    },
+    "winterHardinessLight": {
+      "green": "Grün",
+      "yellow": "Gelb",
+      "red": "Rot"
+    },
+    "seasonPhase": {
+      "growing": "Wachstumsphase",
+      "pre_winter": "Winter kündigt sich an",
+      "winter_dormancy": "Winterruhe",
+      "pre_spring": "Frühjahrs-Rückholung"
+    },
+    "seasonTriggerTier": {
+      "live": "Live-Wetter",
+      "climatological": "Klima-Schätzung",
+      "calendar": "Kalender"
+    },
+    "plantCategory": {
+      "indoor_houseplant": "Zimmerpflanze",
+      "outdoor_ornamental": "Gartenzierpflanze",
+      "outdoor_vegetable": "Gemüse",
+      "balcony_plant": "Balkonpflanze",
+      "succulent_cactus": "Sukkulente / Kaktus",
+      "tropical_foliage": "Tropische Blattpflanze",
+      "orchid": "Orchidee",
+      "herb": "Küchenkraut",
+      "bulb_tuber": "Zwiebel- / Knollenpflanze"
+    },
+    "pollinationType": {
+      "insect": "Insektenbestäubung",
+      "wind": "Windbestäubung",
+      "self": "Selbstbestäubung"
+    },
+    "toxicitySeverity": {
+      "none": "Ungiftig",
+      "mild": "Leicht giftig",
+      "moderate": "Mäßig giftig",
+      "severe": "Stark giftig"
+    },
+    "waterRetention": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "bufferCapacity": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "orientation": {
+      "north": "Nord",
+      "south": "Süd",
+      "east": "Ost",
+      "west": "West"
+    },
+    "plantTrait": {
+      "disease_resistant": "Krankheitsresistent",
+      "pest_resistant": "Schädlingsresistent",
+      "high_yield": "Ertragreich",
+      "compact": "Kompakt",
+      "drought_tolerant": "Trockenheitstolerant",
+      "cold_hardy": "Winterhart",
+      "heat_tolerant": "Hitzetolerant",
+      "early_maturing": "Frühreifend",
+      "long_season": "Langzeit",
+      "ornamental": "Zierpflanze",
+      "heirloom": "Historisch",
+      "hybrid": "Hybrid",
+      "f1": "F1"
+    },
+    "transitionTriggerType": {
+      "time_based": "Zeitbasiert",
+      "manual": "Manuell",
+      "event_based": "Ereignisbasiert",
+      "conditional": "Bedingt"
+    },
+    "plantingRunType": {
+      "monoculture": "Monokultur",
+      "clone": "Klon",
+      "mixed_culture": "Mischkultur"
+    },
+    "plantingRunStatus": {
+      "planned": "Geplant",
+      "active": "Aktiv",
+      "harvesting": "Ernte",
+      "completed": "Abgeschlossen",
+      "cancelled": "Abgebrochen"
+    },
+    "successionPlanStatus": {
+      "planned": "Geplant",
+      "active": "Aktiv",
+      "completed": "Abgeschlossen",
+      "cancelled": "Abgebrochen"
+    },
+    "entryRole": {
+      "primary": "Hauptkultur",
+      "companion": "Begleitpflanze",
+      "trap_crop": "Fangpflanze"
+    },
+    "tankType": {
+      "nutrient": "Nährstoff",
+      "irrigation": "Bewässerung",
+      "reservoir": "Reservoir",
+      "recirculation": "Rezirkulation",
+      "stock_solution": "Stammlösung"
+    },
+    "tankMaterial": {
+      "plastic": "Kunststoff",
+      "stainless_steel": "Edelstahl",
+      "glass": "Glas",
+      "ibc": "IBC"
+    },
+    "maintenanceType": {
+      "water_change": "Wasserwechsel",
+      "cleaning": "Reinigung",
+      "sanitization": "Desinfektion",
+      "calibration": "Kalibrierung",
+      "filter_change": "Filterwechsel",
+      "pump_inspection": "Pumpeninspektion"
+    },
+    "maintenancePriority": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "critical": "Kritisch"
+    },
+    "maintenanceStatus": {
+      "ok": "OK",
+      "due_soon": "Bald fällig",
+      "overdue": "Überfällig"
+    },
+    "sensorMetricType": {
+      "ph": "pH-Wert",
+      "ec_ms": "EC (mS/cm)",
+      "water_temp_celsius": "Wassertemperatur (°C)",
+      "fill_level_percent": "Füllstand (%)",
+      "tds_ppm": "TDS (ppm)",
+      "dissolved_oxygen_mgl": "Gelöster Sauerstoff (mg/L)",
+      "orp_mv": "ORP (mV)",
+      "temperature_celsius": "Temperatur (°C)",
+      "humidity_percent": "Luftfeuchtigkeit (%)",
+      "co2_ppm": "CO₂ (ppm)",
+      "vpd_kpa": "VPD (kPa)",
+      "ppfd": "PPFD (µmol/m²/s)"
+    },
+    "fillType": {
+      "full_change": "Komplettwechsel",
+      "top_up": "Nachfüllen",
+      "adjustment": "Korrektur"
+    },
+    "fertilizerType": {
+      "base": "Basisdünger",
+      "supplement": "Ergänzungsdünger",
+      "booster": "Booster",
+      "biological": "Biologisch",
+      "ph_adjuster": "pH-Korrektur",
+      "organic": "Organisch",
+      "silicate": "Silikat",
+      "calmag": "CalMag (Calcium/Magnesium)"
+    },
+    "nutrientReleaseSpeed": {
+      "immediate": "Sofort verfügbar",
+      "weeks": "Über Wochen",
+      "months": "Über Monate",
+      "season_long": "Ganze Saison"
+    },
+    "nutrientDemandLevel": {
+      "heavy_feeder": "Starkzehrer",
+      "medium_feeder": "Mittelzehrer",
+      "light_feeder": "Schwachzehrer",
+      "nitrogen_fixer": "Stickstoffsammler"
+    },
+    "phEffect": {
+      "acidic": "Sauer",
+      "alkaline": "Alkalisch",
+      "neutral": "Neutral"
+    },
+    "applicationMethod": {
+      "fertigation": "Fertigation (Tank/automatisch)",
+      "drench": "Gießen (Gießkanne/manuell)",
+      "foliar": "Blattdüngung",
+      "top_dress": "Aufstreuen",
+      "any": "Beliebig",
+      "tank_drip": "Tank-Tropfbewässerung",
+      "watering_can": "Gießkanne",
+      "foliar_spray": "Blattsprühung",
+      "drip": "Tropfbewässerung"
+    },
+    "bioavailability": {
+      "immediate": "Sofort verfügbar",
+      "slow_release": "Langzeitwirkung",
+      "microbial_dependent": "Mikrobiell abhängig"
+    },
+    "incompatibilitySeverity": {
+      "critical": "Kritisch",
+      "warning": "Warnung",
+      "minor": "Gering"
+    },
+    "phaseName": {
+      "germination": "Keimung",
+      "seedling": "Sämling",
+      "vegetative": "Vegetativ",
+      "flowering": "Blüte",
+      "flushing": "Spülung",
+      "dormancy": "Ruhephase",
+      "ripening": "Reife",
+      "harvest": "Ernte",
+      "juvenile": "Juvenil",
+      "climbing": "Kletterphase",
+      "mature": "Reife Pflanze",
+      "establishment": "Etablierung",
+      "pup_establishment": "Kindel-Etablierung",
+      "pre_bloom": "Vorblüte",
+      "senescence": "Seneszenz",
+      "recovery": "Erholung",
+      "sprouting": "Austrieb",
+      "hardening_off": "Abhärtung",
+      "budding": "Knospenbildung",
+      "corm_ripening": "Knollenreife",
+      "tuber_formation": "Knollenbildung"
+    },
+    "waterSource": {
+      "tank": "Tank",
+      "tap": "Leitungswasser",
+      "osmose": "Osmosewasser",
+      "rainwater": "Regenwasser",
+      "distilled": "Destilliert",
+      "well": "Brunnenwasser",
+      "mixed": "Mischwasser"
+    },
+    "pestType": {
+      "insect": "Insekt",
+      "mite": "Milbe",
+      "nematode": "Nematode",
+      "mollusk": "Weichtier",
+      "arachnid": "Spinnentier",
+      "gastropod": "Schnecke",
+      "mammal": "Säugetier"
+    },
+    "pathogenType": {
+      "fungal": "Pilzlich",
+      "bacterial": "Bakteriell",
+      "viral": "Viral",
+      "physiological": "Physiologisch",
+      "oomycete": "Oomyzet (Eipilz)",
+      "protist": "Protist"
+    },
+    "treatmentType": {
+      "cultural": "Kulturmassnahme",
+      "biological": "Biologisch",
+      "chemical": "Chemisch",
+      "mechanical": "Mechanisch"
+    },
+    "ipmApplicationMethod": {
+      "spray": "Sprühen",
+      "drench": "Giessen",
+      "granular": "Granulat",
+      "release": "Freilassung",
+      "cultural": "Kulturmassnahme"
+    },
+    "detectionDifficulty": {
+      "easy": "Einfach",
+      "medium": "Mittel",
+      "hard": "Schwierig"
+    },
+    "pressureLevel": {
+      "none": "Keiner",
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "critical": "Kritisch"
+    },
+    "harvestType": {
+      "partial": "Teilernte",
+      "final": "Endernte",
+      "continuous": "Fortlaufend"
+    },
+    "postHarvestStage": {
+      "drying": "Trocknung",
+      "curing": "Aushärtung (Curing)",
+      "stored": "Eingelagert",
+      "released": "Freigegeben"
+    },
+    "postHarvestNextAction": {
+      "ensure_airflow": "Für ausreichende Luftzirkulation sorgen",
+      "monitor_climate": "Temperatur und Luftfeuchtigkeit im Blick behalten",
+      "run_snap_test": "Knacktest durchführen: Ein Stängel sollte brechen, nicht biegen",
+      "ready_for_curing": "Bereit für die Aushärtung (Curing)",
+      "over_dried": "Zu stark getrocknet — zügig mit der Aushärtung beginnen"
+    },
+    "dryingMethod": {
+      "hang_dry": "Hängetrocknung",
+      "rack_dry": "Gittertrocknung",
+      "dehydrator": "Dörrgerät",
+      "air_cure": "Lufttrocknung"
+    },
+    "postHarvestSpeciesType": {
+      "flower": "Blüte",
+      "herb": "Kraut",
+      "root": "Wurzel/Knolle",
+      "fruit": "Frucht",
+      "mushroom": "Pilz"
+    },
+    "moldAlertSeverity": {
+      "warning": "Warnung",
+      "critical": "Kritisch"
+    },
+    "qualityGrade": {
+      "a_plus": "A+",
+      "a": "A",
+      "b": "B",
+      "c": "C",
+      "d": "D"
+    },
+    "harvestIndicatorType": {
+      "trichome": "Trichome",
+      "color": "Farbe",
+      "brix": "Brix",
+      "size": "Größe",
+      "days_since_flowering": "Tage seit Blüte",
+      "aroma": "Aroma",
+      "texture": "Textur",
+      "foliage": "Blattwerk"
+    },
+    "ripenessStage": {
+      "immature": "Unreif",
+      "approaching": "Heranreifend",
+      "peak": "Optimal",
+      "overripe": "Überreif"
+    },
+    "readinessRecommendation": {
+      "optimal": "Erntebereit",
+      "approaching": "Bald erntebereit",
+      "developing": "In Entwicklung",
+      "immature": "Unreif"
+    },
+    "taskStatus": {
+      "pending": "Ausstehend",
+      "in_progress": "In Bearbeitung",
+      "completed": "Abgeschlossen",
+      "skipped": "Übersprungen",
+      "cancelled": "Abgebrochen",
+      "dormant": "Ruhend",
+      "failed": "Fehlgeschlagen"
+    },
+    "taskPriority": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "critical": "Kritisch"
+    },
+    "taskCategory": {
+      "maintenance": "Wartung",
+      "watering": "Gießen",
+      "feeding": "Düngung",
+      "training": "Training",
+      "pruning": "Schnitt",
+      "ausgeizen": "Ausgeizen",
+      "transplant": "Umtopfen",
+      "pest_control": "Schädlingsbekämpfung",
+      "monitoring": "Monitoring",
+      "ipm": "Pflanzenschutz",
+      "harvest": "Ernte",
+      "observation": "Beobachtung",
+      "cleaning": "Reinigung",
+      "care_reminder": "Pflegeerinnerung",
+      "seasonal": "Saisonale Aufgabe",
+      "phenological": "Phänologische Aufgabe"
+    },
+    "triggerType": {
+      "manual": "Manuell",
+      "phase_change": "Phasenwechsel",
+      "phase_entry": "Phaseneintritt",
+      "days_after_phase": "Tage nach Phase",
+      "days_after_planting": "Tage nach Pflanzung",
+      "absolute_date": "Festes Datum",
+      "time_based": "Zeitbasiert",
+      "event_based": "Ereignisbasiert",
+      "conditional": "Bedingt",
+      "gdd_threshold": "GDD-Schwellenwert",
+      "seasonal_month": "Saisonaler Monat",
+      "phenological": "Phänologisch"
+    },
+    "activityCategory": {
+      "training_hst": "Training (HST)",
+      "training_lst": "Training (LST)",
+      "pruning": "Schnitt",
+      "ausgeizen": "Ausgeizen",
+      "transplant": "Umpflanzen",
+      "harvest_prep": "Erntevorbereitung",
+      "propagation": "Vermehrung",
+      "inspection": "Kontrolle",
+      "general": "Allgemein"
+    },
+    "skillLevel": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Erfahren",
+      "expert": "Experte"
+    },
+    "stressLevel": {
+      "none": "Kein Stress",
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "difficultyLevel": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Erfahren",
+      "expert": "Experte"
+    },
+    "tenantRole": {
+      "admin": "Administrator",
+      "grower": "Gärtner",
+      "viewer": "Betrachter"
+    },
+    "tenantType": {
+      "personal": "Persönlich",
+      "organization": "Organisation"
+    },
+    "invitationStatus": {
+      "pending": "Ausstehend",
+      "accepted": "Angenommen",
+      "expired": "Abgelaufen",
+      "revoked": "Widerrufen"
+    },
+    "irrigationStrategy": {
+      "infrequent": "Selten",
+      "moderate": "Moderat",
+      "frequent": "Häufig",
+      "continuous": "Kontinuierlich"
+    },
+    "careStyle": {
+      "tropical": "Tropisch",
+      "succulent": "Sukkulente",
+      "orchid": "Orchidee",
+      "calathea": "Calathea",
+      "herb_tropical": "Tropische Kräuter",
+      "mediterranean": "Mediterran",
+      "fern": "Farn",
+      "cactus": "Kaktus",
+      "custom": "Benutzerdefiniert"
+    },
+    "reminderType": {
+      "watering": "Gießen",
+      "fertilizing": "Düngen",
+      "repotting": "Umtopfen",
+      "pest_check": "Schädlingskontrolle",
+      "location_check": "Standort-Check",
+      "humidity_check": "Luftfeuchte-Check",
+      "deadheading": "Verblühtes entfernen",
+      "winter_protection": "Winterschutz anbringen",
+      "spring_uncover": "Winterschutz abnehmen",
+      "tuber_dig": "Knollen ausgraben",
+      "storage_check": "Lagerkontrolle",
+      "dormancy_health_check": "Winterruhe-Kontrolle",
+      "quarter_climate_check": "Winterquartier-Klima prüfen"
+    },
+    "wateringMethod": {
+      "soak": "Tauchen",
+      "drench_and_drain": "Durchgießen",
+      "top_water": "Von oben gießen",
+      "bottom_water": "Von unten gießen"
+    },
+    "experienceLevel": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "expert": "Experte"
+    },
+    "starterKitDifficulty": {
+      "beginner": "Anfänger",
+      "intermediate": "Fortgeschritten",
+      "advanced": "Erfahren"
+    },
+    "plantPhase": {
+      "germination": "Keimung",
+      "seedling": "Keimling",
+      "vegetative": "Wachstum",
+      "flowering": "Blüte",
+      "harvest": "Ernte",
+      "post_harvest": "Nachernte",
+      "dormancy": "Ruhephase",
+      "early_flower": "Frühblüte",
+      "late_flower": "Spätblüte"
+    },
+    "plantPart": {
+      "leaf": "Blatt",
+      "stem": "Stängel",
+      "root": "Wurzel",
+      "flower": "Blüte",
+      "fruit": "Frucht"
+    },
+    "pestSeverity": {
+      "low": "Gering",
+      "medium": "Mittel",
+      "high": "Hoch"
+    },
+    "terminationType": {
+      "harvested": "Geerntet",
+      "senesced": "Natürlich abgestorben (Seneszenz)",
+      "died": "Verlust (eingegangen)",
+      "cancelled": "Abgebrochen"
+    },
+    "terminationCause": {
+      "disease": "Krankheit",
+      "pest": "Schädlingsbefall",
+      "frost": "Frost",
+      "heat": "Hitze",
+      "drought": "Trockenheit",
+      "waterlogging": "Staunässe",
+      "neglect": "Vernachlässigung",
+      "mechanical": "Mechanischer Schaden",
+      "unknown": "Unbekannt"
+    },
+    "weatherSource": {
+      "open-meteo": "Open-Meteo",
+      "dwd": "Deutscher Wetterdienst (DWD)",
+      "openweathermap": "OpenWeatherMap",
+      "nasa-power": "NASA POWER",
+      "ha_weather": "Home Assistant"
+    },
+    "weatherSourceKind": {
+      "public": "Öffentlicher Dienst",
+      "home_assistant": "Home Assistant"
+    },
+    "haWeatherMode": {
+      "weather_entity": "Eine Wetter-Entität",
+      "sensor_mapping": "Einzelne Sensoren"
+    },
+    "weatherDataKind": {
+      "forecast": "Vorhersage",
+      "observed": "Ist-Wert",
+      "reanalysis": "Reanalyse"
+    },
+    "weatherDataKindHint": {
+      "forecast": "Vorhersage – ein berechneter Erwartungswert für ein zukünftiges Datum, noch keine Messung.",
+      "observed": "Ist-Wert – ein tatsächlich gemessener Wert (z. B. von einem Home-Assistant-Sensor), kein berechneter Schätzwert.",
+      "reanalysis": "Reanalyse – historische, aus Modellen abgeleitete Wetterdaten der Vergangenheit, keine Live-Messung und keine Vorhersage."
+    },
+    "benefitReason": {
+      "nitrogen_fixation": "Stickstoffanreicherung",
+      "soil_structure": "Bodenstruktur",
+      "pest_break": "Schädlingspause",
+      "biofumigation": "Biofumigation"
+    },
+    "rotationCategory": {
+      "brassica": "Kohlgewächse",
+      "composite": "Korbblütler",
+      "cucurbit": "Kürbisgewächse",
+      "fiber": "Faserpflanzen",
+      "fruit": "Fruchtgemüse",
+      "grain": "Getreide",
+      "herb": "Kräuter",
+      "legume": "Hülsenfrüchtler",
+      "ornamental": "Zierpflanzen",
+      "root": "Wurzelgemüse"
+    }
+  }
+}
