@@ -2368,22 +2368,22 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 
 ### TC-022-087: Core-Journey — Neu angelegte Pflanze erzeugt Gieß-Erinnerung und wird per Ein-Tap bestätigt
 
-**Requirement**: REQ-022 § 1 — Ein-Tap-Bestätigung; § 5.1 PflegeDashboardPage
+**Requirement**: REQ-022 § 1 — Ein-Tap-Bestätigung; § 5.1 Pflegeerinnerungen in der Aufgabenwarteschlange
 **Priority**: Critical
 **Category**: Core-Lifecycle-Journey / Bestätigung
 
 **Vorbedingungen**:
 - Nutzer ist angemeldet
-- Eine Pflanzinstanz mit Pflegeprofil wird im Szenario selbst angelegt (self-provisioning), sodass unmittelbar eine fällige, erstmalige Gieß-Erinnerung im Pflege-Dashboard erscheint
+- Eine Pflanzinstanz mit Pflegeprofil wird im Szenario selbst angelegt (self-provisioning), sodass unmittelbar eine fällige, erstmalige Gieß-Erinnerung als Care-Reminder-Karte in der Aufgabenwarteschlange erscheint
 
 **Testschritte**:
 1. Nutzer legt über `/pflanzen/plant-instances` die Pflanzinstanz `JOURNEY-022` an (Spezies mit CareProfile)
-2. Nutzer navigiert zum Pflege-Dashboard
-3. Die ReminderCard "Gießen" für `JOURNEY-022` ist sichtbar
+2. Nutzer navigiert zu `/pflege` (leitet auf die Aufgabenwarteschlange `/aufgaben/queue` um)
+3. Die Care-Reminder-Karte "Gießen" für `JOURNEY-022` ist in der Warteschlange sichtbar (optional über den Quellen-Filter "Pflege" isolierbar)
 4. Nutzer klickt den Ein-Tap-Bestätigen-Button ("Gegossen")
 
 **Erwartetes Ergebnis**:
-- Die Karte verschwindet sofort aus dem Dashboard (Optimistic Update)
+- Die Karte verschwindet sofort aus der Warteschlange (Optimistic Update)
 - Eine CareConfirmation (reminder_type="watering", action="confirmed") wird erstellt
 - Die "Letzte Aktion" der Pflanze zeigt das heutige Datum
 
@@ -2404,12 +2404,12 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 - Eine bestätigte Gieß-Erinnerung für `JOURNEY-022` existiert (aus TC-022-087)
 
 **Testschritte**:
-1. Nutzer lädt das Pflege-Dashboard neu (Reload)
-2. Nutzer prüft die Bereiche "Fällig" und "Demnächst"
+1. Nutzer lädt die Aufgabenwarteschlange (`/aufgaben/queue`) neu (Reload)
+2. Nutzer prüft die Dringlichkeits-Gruppen "Überfällig"/"Heute" und "Diese Woche"/"Zukunft"
 
 **Erwartetes Ergebnis**:
 - Für `JOURNEY-022` erscheint keine fällige Gieß-Erinnerung mehr
-- Die nächste Fälligkeit gemäß Gießintervall wird — sofern angezeigt — im Bereich "Demnächst" (grau) geführt
+- Die nächste Fälligkeit gemäß Gießintervall wird — sofern angezeigt — in der Gruppe "Diese Woche"/"Zukunft" (grau) geführt
 - Der Zustand bleibt auch nach dem Reload bestehen (Persistenz der Bestätigung)
 
 **Nachbedingungen**:

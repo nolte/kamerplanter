@@ -28,6 +28,8 @@ const baseState = {
   currentTask: null,
   taskQueue: [],
   overdueTasks: [],
+  completedTasks: [],
+  completedTasksLoading: false,
   loading: false,
   error: null,
 };
