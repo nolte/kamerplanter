@@ -74,7 +74,26 @@ helm pull oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter --version 0.2.0
     echo $GITHUB_TOKEN | helm registry login ghcr.io --username $GITHUB_USER --password-stdin
     ```
 
-### 2. Create a values file
+### 2. Create the mandatory secrets
+
+!!! danger "No backend pod starts without this secret"
+    Before installing the chart, the Kubernetes secret `kamerplanter-secrets` must exist. The backend container reads `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` exclusively via `envFrom` from this secret — **not** from `values.yaml`. If any of the last three values is missing (or `ARANGODB_PASSWORD` is left at the literal `rootpassword`), the backend start-up aborts with `SystemExit` as soon as `DEBUG=false` is set (fail-fast gate, `src/backend/app/main.py`). `ARANGO_ROOT_PASSWORD` must be identical to `ARANGODB_PASSWORD` — both go to the same ArangoDB container.
+
+```bash
+kubectl create namespace kamerplanter
+
+kubectl create secret generic kamerplanter-secrets \
+  --namespace kamerplanter \
+  --from-literal=ARANGODB_PASSWORD="your-secure-password" \
+  --from-literal=ARANGO_ROOT_PASSWORD="your-secure-password" \
+  --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+```
+
+Full overview of every mandatory secret per enabled feature (e.g. `INTERNAL_SERVICE_TOKEN` once the AI assistant or image recognition is active): [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+### 3. Create a values file
 
 Create a `values-production.yaml` with your customizations:
 
@@ -84,16 +103,17 @@ controllers:
     replicas: 2     # (1)!
     containers:
       main:
+        envFrom:
+          - secret: kamerplanter-secrets    # (2)!
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: "your-secure-password"   # (2)!
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["https://plants.example.com"]'
           DEBUG: "false"
-          KAMERPLANTER_MODE: light    # (3)!
+          KAMERPLANTER_MODE: full    # (3)!
 
   frontend:
     replicas: 2
@@ -101,8 +121,8 @@ controllers:
   arangodb:
     containers:
       main:
-        env:
-          ARANGO_ROOT_PASSWORD: "your-secure-password"  # (4)!
+        envFrom:
+          - secret: kamerplanter-secrets    # (4)!
     statefulset:
       volumeClaimTemplates:
         - name: data
@@ -128,16 +148,16 @@ ingress:
 ```
 
 1. Two replicas for rolling updates without downtime.
-2. Use a secure password. In production: prefer referencing a Kubernetes Secret.
-3. `light` = without login/tenant system. For multi-user operation, set to `standard`.
-4. Must be identical to `ARANGODB_PASSWORD`.
-5. Adjust the size to your needs. 5 Gi is enough for most home users.
+2. Pulls `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` from the secret created in the previous step — no plain-text passwords in `values.yaml`.
+3. `light` = without login/tenant system, single user. `full` (the chart default) = with JWT auth and tenant management. Details: [Deployment Profiles](betriebsprofile.md).
+4. `ARANGO_ROOT_PASSWORD` is also injected from `kamerplanter-secrets`.
+5. Adjust the size to your needs. The chart default for the ArangoDB PVC is 5Gi.
 6. Your desired hostname. The Ingress controller must be configured for it.
 
-!!! warning "Passwords in values files"
-    For production use, you should **not** store passwords in plain text in values files. Instead, use Kubernetes Secrets and reference them via `envFrom` or a secret management tool like Sealed Secrets or External Secrets Operator.
+!!! warning "Never inline passwords in the values file"
+    `values-production.yaml` references secrets exclusively via `envFrom`/`secretKeyRef` — never as a plain-text value under `env:`. For GitOps workflows, use a secret management tool like Sealed Secrets or External Secrets Operator instead of a manual `kubectl create secret` (see [ArgoCD — Declarative secret management](argocd.md#prepare-the-secret)).
 
-### 3. Install the Helm chart
+### 4. Install the Helm chart
 
 ```bash
 helm install kamerplanter \
@@ -148,7 +168,7 @@ helm install kamerplanter \
   --values values-production.yaml
 ```
 
-### 4. Verify the deployment
+### 5. Verify the deployment
 
 ```bash
 # Check pod status
@@ -249,10 +269,18 @@ curl http://localhost:8000/api/v1/health/ready
 ??? question "Ingress works but the page won't load"
     Check: (1) Is an Ingress controller installed? (2) Does the DNS entry point to the cluster? (3) Does the hostname in the values file match the DNS?
 
+??? question "Backend pod stays in 'CreateContainerConfigError'"
+    The `kamerplanter-secrets` secret doesn't exist in the target namespace, or a key referenced via `envFrom`/`secretKeyRef` is missing from it. Check: `kubectl get secret kamerplanter-secrets -n kamerplanter` and compare the existing keys against step 2 above.
+
+??? question "Backend pod starts and immediately crashes again (CrashLoopBackOff with 'FATAL: Default secrets detected')"
+    The secret exists but still contains an unchanged default value — e.g. `ARANGODB_PASSWORD=rootpassword` or an empty `FERNET_KEY`. The log line names the affected fields directly: `kubectl logs -l app.kubernetes.io/component=backend -n kamerplanter`. Details on the check: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
 ---
 
 ## See also
 
+- [Configuration Matrix](konfigurationsmatrix.md) — Complete reference of every mandatory secret per feature
 - [Helm Charts](helm.md) — Detailed description of the chart structure and all configuration options
+- [ArgoCD](argocd.md) — GitOps-based deployment with declarative secret management
 - [Docker Compose Quick Start](docker-quickstart.md) — Simpler alternative with Docker Compose
 - [Docker Compose Permanent Operation](docker-dauerbetrieb.md) — Docker Compose based permanent operation

@@ -27,8 +27,13 @@ appVersion: "1.0.0"     # Application version
 
 | Dependency | Version | Source | Purpose |
 |-----------|---------|--------|---------|
-| common (bjw-s) | 4.6.2 | bjw-s-labs Helm Charts | Library chart for standardized Kubernetes resources |
-| valkey | 0.9.3 | OCI: ghcr.io/valkey-io/valkey-helm | Redis-compatible cache + Celery broker |
+| common (bjw-s) | 5.0.1 | bjw-s-labs Helm Charts | Library chart for standardized Kubernetes resources |
+| valkey | 0.10.0 | OCI: ghcr.io/valkey-io/valkey-helm | Redis-compatible cache + Celery broker |
+
+<!-- Source: helm/kamerplanter/Chart.yaml -->
+
+!!! note "Ollama subchart is commented out"
+    `Chart.yaml` contains a third, **commented-out** dependency entry for an Ollama Helm chart (`otwld/ollama-helm`). It is not active — in Kubernetes deployments, Ollama currently runs as a separate controller added by the operator (see [Deployment Profiles → Professional](betriebsprofile.md#profi)), not as a sub-chart dependency.
 
 ---
 
@@ -61,31 +66,35 @@ The chart uses the bjw-s `common.loader.all` approach: all Kubernetes resources 
 controllers:
   backend:
     type: deployment
-    replicas: 2                    # Adjustable
+    replicas: 1                    # Chart default; typically raised to 2 for production (see Kubernetes Deployment)
     strategy: RollingUpdate
     containers:
       main:
         image:
           repository: ghcr.io/nolte/kamerplanter-backend
           tag: latest              # In production: use a fixed version
+        envFrom:
+          - secret: kamerplanter-secrets    # ARANGODB_PASSWORD, JWT_SECRET_KEY, FERNET_KEY, ERASURE_TOMBSTONE_SALT
         env:
           ARANGODB_HOST: "..."
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: "kamerplanter"
           ARANGODB_USERNAME: "root"
-          ARANGODB_PASSWORD: "..."
           REDIS_URL: "redis://kamerplanter-valkey:6379/0"
           CORS_ORIGINS: '["..."]'
           DEBUG: "false"
-          KAMERPLANTER_MODE: "light"    # or "standard"
+          KAMERPLANTER_MODE: "light"    # or "full" (chart default)
         resources:
           requests:
             cpu: 250m
-            memory: 256Mi
+            memory: 512Mi
           limits:
             cpu: "1"
-            memory: 512Mi
+            memory: 2Gi                 # Image uploads (REQ-034) decode in memory — 512Mi OOMKills on upload
 ```
+
+!!! danger "`ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY`, `ERASURE_TOMBSTONE_SALT` never come from `env:`"
+    The real chart deliberately does **not** declare these four values under `env:` — they come exclusively via `envFrom: - secret: kamerplanter-secrets` from a secret you create beforehand. Without that secret (or with an unchanged default value inside it), the backend refuses to start when `DEBUG=false`. Details: [Kubernetes Deployment — Create the mandatory secrets](kubernetes.md), [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 #### Frontend
 
@@ -93,7 +102,7 @@ controllers:
 controllers:
   frontend:
     type: deployment
-    replicas: 2
+    replicas: 1                    # Chart default; typically raised to 2 for production
     containers:
       main:
         image:
@@ -121,9 +130,9 @@ controllers:
       main:
         image:
           repository: arangodb
-          tag: "3.11"
-        env:
-          ARANGO_ROOT_PASSWORD: "..."
+          tag: "3.12.9"
+        envFrom:
+          - secret: kamerplanter-secrets    # ARANGO_ROOT_PASSWORD
         resources:
           requests:
             cpu: 250m
@@ -153,7 +162,8 @@ service:
     controller: frontend
     ports:
       http:
-        port: 80
+        port: 80          # Service port stays 80 (Ingress/DNS)
+        targetPort: 8080  # nginx-unprivileged container listens on 8080, not 80
   arangodb:
     controller: arangodb
     ports:
@@ -217,13 +227,19 @@ valkey:
 | `ARANGODB_PORT` | Yes | `8529` | Port of the ArangoDB service |
 | `ARANGODB_DATABASE` | Yes | `kamerplanter` | Database name |
 | `ARANGODB_USERNAME` | Yes | `root` | Database user |
-| `ARANGODB_PASSWORD` | Yes | — | Database password |
-| `ARANGO_ROOT_PASSWORD` | Yes | — | ArangoDB root password (must match `ARANGODB_PASSWORD`) |
+| `ARANGODB_PASSWORD` | Yes | — | Database password. Comes from the `kamerplanter-secrets` secret (`envFrom`) in the chart, **not** from `env:`. |
+| `ARANGO_ROOT_PASSWORD` | Yes | — | ArangoDB root password, also from `kamerplanter-secrets`. Must match `ARANGODB_PASSWORD`. |
+| `JWT_SECRET_KEY` | Yes | — | JWT signing key, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if the chart-internal default is left unchanged. |
+| `FERNET_KEY` | Yes | — | Encryption key for OIDC provider secrets, from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty. |
+| `ERASURE_TOMBSTONE_SALT` | Yes | — | GDPR pseudonymization salt (≥ 32 characters), from `kamerplanter-secrets`. Boot blocker with `DEBUG=false` if empty or too short. |
+| `INTERNAL_SERVICE_TOKEN` | Conditional | — | Only required once `KNOWLEDGE_SERVICE_ENABLED=true` or `INFERENCE_SERVICE_ENABLED=true` is set, also from `kamerplanter-secrets`. |
 | `REDIS_URL` | Yes | — | Valkey/Redis connection URL |
 | `CORS_ORIGINS` | Yes | — | Allowed origins as JSON array |
-| `DEBUG` | No | `false` | Enable debug mode |
-| `KAMERPLANTER_MODE` | No | `light` | `light` (no auth) or `standard` (with auth) |
+| `DEBUG` | No | `false` | Enable debug mode. Setting `true` also disables the boot blocker for the five rows above — **never** set this in production. |
+| `KAMERPLANTER_MODE` | No | `full` | `light` (no auth, single user) or `full` (with JWT auth and tenant management). The chart does **not** set this variable on the backend controller by default — the Python-side default `full` applies. On the frontend init container it is hard-set to `full` and must be explicitly overridden for light mode. |
 | `REQUIRE_EMAIL_VERIFICATION` | No | `false` | Email verification on registration |
+
+Full list of every mandatory secret per enabled feature: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
 
 ---
 
@@ -231,14 +247,16 @@ valkey:
 
 A separate values file exists for local development, used automatically by Skaffold:
 
-| Setting | Production | Development |
+<!-- Source: helm/kamerplanter/values.yaml, helm/kamerplanter/values-dev.yaml -->
+
+| Setting | Production (`values.yaml`) | Development (`values-dev.yaml`) |
 |---------|-----------|-------------|
-| Replicas (backend/frontend) | 2 | 1 |
+| Replicas (backend/frontend) | 1 (chart default — typically raised to 2 manually for production, see [Kubernetes Deployment](kubernetes.md)) | 1 |
 | Update strategy | RollingUpdate | Recreate |
 | DEBUG | false | true |
 | Resource limits | Strict | Generous |
 | Frontend port | 80 (nginx) | 5173 (Vite dev server) |
-| ArangoDB PVC | 5 Gi | 2 Gi |
+| ArangoDB PVC | 5 Gi (chart default) | 2 Gi |
 | Ingress host | (configurable) | `kamerplanter.local` |
 
 ---
@@ -324,7 +342,7 @@ storage:
   localFs:
     root: /data/attachments           # Container-internal mount path
     pvc:
-      size: 100Gi
+      size: 20Gi                      # Chart default; increase as needed
       accessMode: ReadWriteOnce       # For single-replica (default)
       storageClass: ""                # Empty = cluster default
 ```

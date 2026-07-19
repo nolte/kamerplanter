@@ -51,6 +51,51 @@ ARANGODB_PASSWORD=your-secure-password          # (2)!
 
 You can leave the remaining settings at their default values for now.
 
+### Three additional mandatory secrets (otherwise the backend won't start)
+
+!!! danger "Without these three values the backend start-up aborts"
+    `.env.example` sets `DEBUG=false`. With `DEBUG=false` the backend checks three more secrets at start-up — `JWT_SECRET_KEY`, `FERNET_KEY` and `ERASURE_TOMBSTONE_SALT` — and aborts with an error if any of them is missing (fail-fast gate, independent of the operating mode). The bundled `docker-compose.yml`/`docker-compose.release.yml` do **not** automatically pass these three variables into the backend container — you have to add them yourself.
+
+Generate the three values:
+
+```bash
+# JWT_SECRET_KEY and ERASURE_TOMBSTONE_SALT (at least 32 characters)
+openssl rand -hex 32
+
+# FERNET_KEY (must be a valid Fernet key)
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+Add the three values to your `.env`:
+
+```ini title=".env"
+JWT_SECRET_KEY=<output of openssl rand -hex 32>
+FERNET_KEY=<output of the Fernet command>
+ERASURE_TOMBSTONE_SALT=<second output of openssl rand -hex 32>
+```
+
+Also create a `docker-compose.override.yml` that actually passes these values into the containers (Docker Compose loads it automatically when it sits in the same directory):
+
+```yaml title="docker-compose.override.yml"
+services:
+  backend:
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+  celery-worker:
+    environment:
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+  celery-beat:
+    environment:
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+```
+
+!!! note "Alternative: DEBUG=true for short local tests only"
+    Setting `DEBUG=true` in `.env` skips this check entirely and the backend starts even without the three secrets. That's acceptable for a brief, purely local test on your own machine, but **never** for a server reachable over the network — `DEBUG=true` also enables verbose logging. Details on every mandatory secret per feature: [Configuration Matrix — Mandatory secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
 ---
 
 ## 3. Start Kamerplanter
