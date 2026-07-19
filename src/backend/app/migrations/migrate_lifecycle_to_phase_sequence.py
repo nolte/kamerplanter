@@ -93,3 +93,10 @@ def run_migrate_lifecycle_to_phase_sequence() -> None:
         migrated=migrated,
         skipped=skipped,
     )
+
+    # Post-seed reconcile (registry-final step): every species and phase sequence now
+    # exists, so bind any species still without an edge to its attribute-resolved
+    # sequence (REQ-003 D9–D12 fine-typing, #616). Idempotent — skips edged species.
+    from app.migrations.seed_data import link_indoor_species_to_phase_sequence
+
+    link_indoor_species_to_phase_sequence()

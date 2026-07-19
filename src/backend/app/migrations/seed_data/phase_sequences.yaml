@@ -166,6 +166,180 @@ phase_definitions:
     tags: [indoor, foliage, maintenance, perennial]
     is_system: true
 
+  # ── Fine-typing phases (REQ-003 D9–D12, audit #576 / #616) ──────────────
+  # CAM/succulent rest, clonal-monocarp (Kindel), photoperiodic-ornamental
+  # induction and palm/fern/geophyte phases. ``active_growth``, ``establishment``
+  # and ``maintenance`` are reused from above (not redefined here).
+
+  # -- CAM / succulent rest phases (D9) --
+  - name: winter_rest
+    display_name: Winter Rest
+    display_name_de: Winterruhe (kühl-trocken)
+    description: Cool, dry winter rest for CAM succulents; biologically distinct from woody dormancy
+    description_de: Kühl-trockene Winterruhe der CAM-Sukkulenten; biologisch verschieden von Gehölz-Dormanz
+    typical_duration_days: 120
+    stress_tolerance: high
+    watering_interval_days: 30
+    tags: [cam, succulent, rest, winter]
+    is_system: true
+
+  - name: summer_rest
+    display_name: Summer Rest
+    display_name_de: Sommerruhe
+    description: Aestivation rest for summer-dormant geophytes and mesembs
+    description_de: Sommerruhe sommerruhender Geophyten und Mittagsblumengewächse
+    typical_duration_days: 90
+    stress_tolerance: high
+    watering_interval_days: 30
+    tags: [succulent, rest, summer]
+    is_system: true
+
+  - name: winter_hull_change
+    display_name: Hull Change
+    display_name_de: Hüllblattwechsel
+    description: Lithops leaf-pair renewal during rest; watering must stop
+    description_de: Blattpaar-Erneuerung bei Lithops während der Ruhe; Gießen muss ruhen
+    typical_duration_days: 60
+    stress_tolerance: high
+    watering_interval_days: 45
+    tags: [lithops, mesemb, rest]
+    is_system: true
+
+  # -- Clonal monocarp phases (D10) --
+  - name: juvenile
+    display_name: Juvenile
+    display_name_de: Jugendphase
+    description: Pre-reproductive vegetative maturation of monocarpic rosette plants
+    description_de: Vorreproduktive vegetative Reifung monokarper Rosettenpflanzen
+    typical_duration_days: 365
+    stress_tolerance: medium
+    watering_interval_days: 7
+    tags: [monocarp, juvenile]
+    is_system: true
+
+  - name: mature
+    display_name: Mature
+    display_name_de: Reife (blühfähig)
+    description: Reproductively mature rosette ready for terminal flowering
+    description_de: Reproduktiv reife Rosette, bereit zur terminalen Blüte
+    typical_duration_days: 180
+    stress_tolerance: medium
+    watering_interval_days: 7
+    tags: [monocarp, mature]
+    is_system: true
+
+  - name: pup_establishment
+    display_name: Pup Establishment
+    display_name_de: Kindel-Etablierung
+    description: Clonal offset (pup) rooting after the mother rosette dies; new instance continuation
+    description_de: Bewurzelung des klonalen Kindels nach Absterben der Mutterrosette; Fortführung als neue Instanz
+    typical_duration_days: 90
+    stress_tolerance: low
+    watering_interval_days: 5
+    tags: [monocarp, pup, clonal]
+    is_system: true
+
+  # -- Photoperiodic ornamental induction phases (D11) --
+  - name: short_day_induction
+    display_name: Short-Day Induction
+    display_name_de: Kurztag-Induktion
+    description: Photoperiodic flower induction under short days (< critical day length)
+    description_de: Photoperiodische Blühinduktion unter Kurztag (< kritische Tageslänge)
+    typical_duration_days: 42
+    stress_tolerance: medium
+    watering_interval_days: 4
+    tags: [photoperiod, short-day, induction]
+    is_system: true
+
+  - name: bract_coloring
+    display_name: Bract Coloring
+    display_name_de: Hochblattfärbung
+    description: Bract/inflorescence coloring following short-day induction (poinsettia, Kalanchoe)
+    description_de: Hochblatt-/Blütenstandsfärbung nach Kurztag-Induktion (Weihnachtsstern, Kalanchoe)
+    typical_duration_days: 35
+    stress_tolerance: medium
+    watering_interval_days: 4
+    tags: [photoperiod, ornamental, bract]
+    is_system: true
+
+  # -- Palm / fern / fine geophyte phases (D12) --
+  - name: young_palm
+    display_name: Young Palm
+    display_name_de: Jungpalme
+    description: Juvenile palm stage before trunk formation
+    description_de: Juveniles Palmenstadium vor der Stammbildung
+    typical_duration_days: 365
+    stress_tolerance: medium
+    watering_interval_days: 6
+    tags: [palm, juvenile]
+    is_system: true
+
+  - name: shaft_growth
+    display_name: Shaft Growth
+    display_name_de: Stammwachstum
+    description: Ongoing frond and trunk growth of established evergreen palms
+    description_de: Fortlaufendes Wedel- und Stammwachstum etablierter immergrüner Palmen
+    typical_duration_days: 300
+    stress_tolerance: medium
+    watering_interval_days: 6
+    tags: [palm, growth]
+    is_system: true
+
+  - name: leaf_phase
+    display_name: Frond Phase
+    display_name_de: Wedelphase
+    description: Active frond growth of ferns (no flowering; spore-based reproduction)
+    description_de: Aktives Wedelwachstum der Farne (keine Blüte; sporenbasierte Vermehrung)
+    typical_duration_days: 210
+    stress_tolerance: medium
+    watering_interval_days: 3
+    tags: [fern, frond]
+    is_system: true
+
+  - name: rest_phase
+    display_name: Rest Phase
+    display_name_de: Ruhephase
+    description: Reduced-growth rest for ferns and evergreens over winter
+    description_de: Wachstumsreduzierte Winterruhe für Farne und Immergrüne
+    typical_duration_days: 90
+    stress_tolerance: high
+    watering_interval_days: 7
+    tags: [fern, rest]
+    is_system: true
+
+  - name: sprout_formation
+    display_name: Sprout Formation
+    display_name_de: Austriebsbildung
+    description: Bud/sprout formation of geophytes emerging from the storage organ
+    description_de: Knospen-/Austriebsbildung der Geophyten aus dem Speicherorgan
+    typical_duration_days: 21
+    stress_tolerance: low
+    watering_interval_days: 4
+    tags: [geophyte, sprout]
+    is_system: true
+
+  - name: tuber_formation
+    display_name: Tuber Formation
+    display_name_de: Knollenbildung
+    description: Storage-organ (tuber/corm/bulb) fill before senescence
+    description_de: Auffüllung des Speicherorgans (Knolle/Korm/Zwiebel) vor der Seneszenz
+    typical_duration_days: 45
+    stress_tolerance: medium
+    watering_interval_days: 5
+    tags: [geophyte, storage]
+    is_system: true
+
+  - name: dry_storage
+    display_name: Dry Storage
+    display_name_de: Trockenlager
+    description: Dormant dry storage of the geophyte storage organ (lifted or in situ)
+    description_de: Trockene Ruhelagerung des Geophyten-Speicherorgans (ausgegraben oder in situ)
+    typical_duration_days: 120
+    stress_tolerance: high
+    watering_interval_days: 45
+    tags: [geophyte, storage, dormancy]
+    is_system: true
+
 phase_sequences:
 
   # -- 1. Standard Perennial --
@@ -759,4 +933,228 @@ phase_sequences:
         override_duration_days: 60
         is_terminal: true
         allows_harvest: true
+        is_recurring: true
+
+  # ── Fine-typed cohorts (REQ-003 D9–D12, audit #576 / #616) ──────────────
+  # ``evergreen_foliage_perennial`` already exists above; not re-added here.
+
+  # -- D9a: CAM succulent single winter rest --
+  - name: cam_succulent_rest
+    display_name: CAM Succulent (Winter Rest)
+    display_name_de: CAM-Sukkulente (Winterruhe)
+    description: CAM succulents with active growth, bloom and a cool-dry winter rest
+    description_de: CAM-Sukkulenten mit Aktivwachstum, Blüte und kühl-trockener Winterruhe
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    dormancy_required: true
+    photoperiod_type: day_neutral
+    tags: [cam, succulent, indoor, rest]
+    is_system: true
+    entries:
+      - phase_name: active_growth
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: winter_rest
+        sequence_order: 2
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- D9b: CAM double rest (Lithops / mesembs) --
+  - name: cam_double_rest
+    display_name: CAM Double Rest
+    display_name_de: CAM-Doppelruhe
+    description: Mesembs/Lithops with both a summer rest and a winter hull-change rest
+    description_de: Mittagsblumen/Lithops mit Sommerruhe und winterlichem Hüllblattwechsel
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    dormancy_required: true
+    photoperiod_type: day_neutral
+    tags: [cam, mesemb, lithops, double-rest]
+    is_system: true
+    entries:
+      - phase_name: active_growth
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: winter_hull_change
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: summer_rest
+        sequence_order: 3
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- D10: Clonal monocarp (Kindel) — terminal bloom + pup continuation --
+  - name: clonal_monocarp
+    display_name: Clonal Monocarp (Pup Continuation)
+    display_name_de: Klonaler Monokarp (Kindel-Fortführung)
+    description: Monocarpic rosettes (Bromeliad/Agave) that flower once, die, and continue via pups
+    description_de: Monokarpe Rosetten (Bromelie/Agave) die einmal blühen, absterben und über Kindel fortleben
+    cycle_type: perennial
+    is_repeating: false
+    photoperiod_type: day_neutral
+    tags: [monocarp, clonal, bromeliad, indoor]
+    is_system: true
+    entries:
+      - phase_name: juvenile
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: mature
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: flowering
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: pup_establishment
+        sequence_order: 3
+        is_terminal: true
+        allows_harvest: false
+
+  # -- D11: Photoperiodic ornamental short-day induction --
+  - name: photoperiodic_ornamental
+    display_name: Photoperiodic Ornamental (Short-Day)
+    display_name_de: Photoperiodische Zierpflanze (Kurztag)
+    description: Short-day ornamentals induced to color bracts/flowers (poinsettia, Kalanchoe)
+    description_de: Kurztag-Zierpflanzen mit induzierter Hochblatt-/Blütenfärbung (Weihnachtsstern, Kalanchoe)
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    photoperiod_type: short_day
+    critical_day_length_hours: 12
+    tags: [photoperiod, short-day, ornamental, indoor]
+    is_system: true
+    entries:
+      - phase_name: active_growth
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: short_day_induction
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: bract_coloring
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: rest_phase
+        sequence_order: 3
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- D12a: Evergreen palm --
+  - name: palm_evergreen
+    display_name: Evergreen Palm
+    display_name_de: Immergrüne Palme
+    description: Evergreen palms with no flowering cycle; establishment then continuous frond/shaft growth
+    description_de: Immergrüne Palmen ohne Blühzyklus; Etablierung, dann fortlaufendes Wedel-/Stammwachstum
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 1
+    photoperiod_type: day_neutral
+    tags: [palm, evergreen, indoor]
+    is_system: true
+    entries:
+      - phase_name: young_palm
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+      - phase_name: establishment
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: shaft_growth
+        sequence_order: 2
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- D12b: Spore-based fern --
+  - name: fern_spore
+    display_name: Spore-Based Fern
+    display_name_de: Sporenbasierter Farn
+    description: Ferns with active frond phase and a reduced winter rest; no flowering
+    description_de: Farne mit aktiver Wedelphase und reduzierter Winterruhe; keine Blüte
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 0
+    photoperiod_type: day_neutral
+    tags: [fern, spore, indoor]
+    is_system: true
+    entries:
+      - phase_name: leaf_phase
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: rest_phase
+        sequence_order: 1
+        is_terminal: true
+        allows_harvest: false
+        is_recurring: true
+
+  # -- D12c: Fine-grained geophyte --
+  - name: geophyte_fine
+    display_name: Fine-Grained Geophyte
+    display_name_de: Feingranularer Geophyt
+    description: Storage-organ geophytes with sprout, growth, bloom, storage fill and dry dormancy
+    description_de: Speicherorgan-Geophyten mit Austrieb, Wachstum, Blüte, Speicherauffüllung und Trockenruhe
+    cycle_type: perennial
+    is_repeating: true
+    cycle_restart_entry_order: 4
+    dormancy_required: true
+    photoperiod_type: day_neutral
+    tags: [geophyte, bulb, tuber, corm, indoor]
+    is_system: true
+    entries:
+      - phase_name: sprout_formation
+        sequence_order: 0
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: vegetative
+        sequence_order: 1
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: flowering
+        sequence_order: 2
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: tuber_formation
+        sequence_order: 3
+        is_terminal: false
+        allows_harvest: false
+        is_recurring: true
+      - phase_name: dry_storage
+        sequence_order: 4
+        is_terminal: true
+        allows_harvest: false
         is_recurring: true
