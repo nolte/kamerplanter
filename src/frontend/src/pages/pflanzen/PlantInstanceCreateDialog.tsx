@@ -177,6 +177,16 @@ export default function PlantInstanceCreateDialog({
   const siteKey = useWatch({ control, name: 'site_key' });
   const locationKey = useWatch({ control, name: 'location_key' });
 
+  // ADR-006 E6 (#615): only species that are genuinely facultative (can be grown
+  // annual OR perennial) may offer the per-instance cultivation-cycle choice. For
+  // any other species the cycle follows the species default, so the select is
+  // hidden and an informative caption explains that.
+  const selectedSpecies = useMemo(
+    () => speciesList.find((s) => s.key === speciesKey) ?? null,
+    [speciesList, speciesKey],
+  );
+  const cultivationFlexible = selectedSpecies?.cultivation_flexible ?? false;
+
   const effectiveSpeciesKey = duplicateFrom?.species_key ?? initialSpeciesKey ?? '';
 
   useEffect(() => {
@@ -322,6 +332,15 @@ export default function PlantInstanceCreateDialog({
       })),
     [phaseOptionSources, t],
   );
+
+  // Keep the per-instance cultivation-cycle override consistent with the gate: a
+  // non-facultative species has no cycle choice, so any value carried over from a
+  // previously-selected facultative species is reset to "same as the species".
+  useEffect(() => {
+    if (speciesKey && !cultivationFlexible) {
+      setValue('cultivation_cycle_type', '');
+    }
+  }, [speciesKey, cultivationFlexible, setValue]);
 
   // Cascade: site → load locations (via LocationTreeSelect), location → load slots
   const skipLocationReset = useRef(false);
@@ -588,19 +607,33 @@ export default function PlantInstanceCreateDialog({
           </FormRow>
           {/* ADR-006 E1 (#565) — per-instance cultivation cycle. Optional: leaving it
               on "same as the species" keeps the existing species-driven behaviour, so
-              the flow is unchanged when the grower does not decide per plant. */}
-          <FormSelectField
-            name="cultivation_cycle_type"
-            control={control}
-            label={t('pages.plantInstances.cultivationCycle')}
-            helperText={t('pages.plantInstances.cultivationCycleHelper')}
-            options={[
-              { value: '', label: t('pages.plantInstances.cultivationCycleDefault') },
-              { value: 'annual', label: t('enums.cycleType.annual') },
-              { value: 'biennial', label: t('enums.cycleType.biennial') },
-              { value: 'perennial', label: t('enums.cycleType.perennial') },
-            ]}
-          />
+              the flow is unchanged when the grower does not decide per plant.
+              ADR-006 E6 (#615): only offered for facultative species (can be grown
+              annual OR perennial). For any other species the cycle follows the
+              species default and an informative caption explains that instead. */}
+          {cultivationFlexible ? (
+            <FormSelectField
+              name="cultivation_cycle_type"
+              control={control}
+              label={t('pages.plantInstances.cultivationCycle')}
+              helperText={t('pages.plantInstances.cultivationCycleHelper')}
+              options={[
+                { value: '', label: t('pages.plantInstances.cultivationCycleDefault') },
+                { value: 'annual', label: t('enums.cycleType.annual') },
+                { value: 'biennial', label: t('enums.cycleType.biennial') },
+                { value: 'perennial', label: t('enums.cycleType.perennial') },
+              ]}
+            />
+          ) : speciesKey ? (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', mb: 1 }}
+              data-testid="cultivation-cycle-fixed-note"
+            >
+              {t('pages.plantInstances.cultivationCycleFixed')}
+            </Typography>
+          ) : null}
           <FormTextField name="instance_id" control={control} label={t('pages.plantInstances.instanceId')} required helperText={t('pages.plantInstances.instanceIdHelper')} />
           <SubstrateSelectField
             name="substrate_key"

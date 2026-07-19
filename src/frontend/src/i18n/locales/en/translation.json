@@ -2342,6 +2342,7 @@
       "cultivationCycle": "Cultivation Cycle",
       "cultivationCycleHelper": "How you grow this plant — overrides the species default. For example growing a strawberry as an annual or overwintering a tomato. Leave empty = same as the species.",
       "cultivationCycleDefault": "Same as the species",
+      "cultivationCycleFixed": "For this species the cultivation cycle follows the default — it cannot be chosen per plant between annual and perennial.",
       "remove": "Remove Plant",
       "validatePlanting": "Validate Planting",
       "cultivarKey": "Cultivar",
