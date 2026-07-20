@@ -1589,7 +1589,7 @@ lifecycle_configs:
   # lifecycles_outdoor.yaml and plant_info lifecycle_configs).
   "Brassica oleracea var. sabellica":
     cycle_type: biennial
-    photoperiod_type: long_day
+    photoperiod_type: day_neutral
     dormancy_required: false
     vernalization_required: true
 

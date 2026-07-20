@@ -97,7 +97,7 @@ species_enrichment: {}
 lifecycle_configs:
   "Nymphaea alba":
     cycle_type: perennial
-    photoperiod_type: long_day
+    photoperiod_type: day_neutral
     typical_lifespan_years: 30
     dormancy_required: true
     vernalization_required: false
