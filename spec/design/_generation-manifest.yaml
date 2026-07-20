@@ -505,120 +505,16 @@ jobs:
       conversion, every element at least 3px. Centered on a plain flat dark background, square
       1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
 
-  # --- G-01/G-02 PWA app-icons (opaque, maskable, theme-neutral) + logo (app-icons-kami-pwa.md)
-  - id: app-icon-512
-    gap: G-01
-    doc: spec/design/app-icons-kami-pwa.md
-    variant: neutral
-    emotion: "Happy (§4.2)"
-    pose: "Frontal aufrecht, Blaetter gerade hoch, keine Arme, Topf unteres Drittel, Safe-Zone ~40px"
-    size: "512x512px maskable, opaque"
-    out: public/icons/icon-512.png
-    prompt: |
-      A cute comic-style mascot app icon for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta pot, centered
-      and upright, filling the frame as a recognizable app icon. Frontal and symmetrical: two
-      leaves pointing straight upward, pot in the lower third, arms omitted for icon reduction.
-      Kami has a Happy expression: leaves pointing straight upward, large round dot eyes with white
-      highlight glints, small curved upward smile. Keep the entire character within a central safe
-      zone with generous inset so circular or squircle maskable cropping never clips the leaves or pot.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20.
-
-      Outlines: dark green #1b5e20, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Background: solid light brand background #f5f5f5, fully opaque, flat, edge to edge, filling
-      the full square for maskable cropping. Square 1:1.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes, every element at
-      least 3px. Character only, no lettering or numerals anywhere, no watermark.
-
-  - id: app-icon-192
-    gap: G-02
-    doc: spec/design/app-icons-kami-pwa.md
-    variant: neutral
-    emotion: "Happy (§4.2)"
-    pose: "Wie 512, vereinfachte Silhouette, Augen als Punkte, kein Mund, keine Arme, Safe-Zone ~15px"
-    size: "192x192px maskable, opaque"
-    out: public/icons/icon-192.png
-    prompt: |
-      A cute comic-style mascot app icon for a plant management app, square 1:1 format.
-
-      Scene: A reduced, simplified version for small renders. A small anthropomorphic green
-      seedling character (Kami) in a terracotta pot, centered, upright, frontal, filling the frame.
-      Strongly simplified silhouette: single-tone leaves, single-tone pot with one decorative
-      stripe, eyes as simple dots, no mouth detail, no arms. Happy overall impression. Keep the
-      character within a central safe zone for maskable cropping.
-
-      Kami: leaves #66bb6a, pot #8d6e63 with stripe #a1887f. Eyes as two black dots with a tiny
-      white highlight.
-
-      Outlines: dark green #1b5e20, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Background: solid light brand background #f5f5f5, fully opaque, filling the full square.
-      Square 1:1.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, strongly
-      reduced detail for sharp small rendering, every element at least 3px. Character only, no
-      lettering or numerals anywhere, no watermark.
-
-  - id: app-logo-light
-    gap: G-01
-    doc: spec/design/app-icons-kami-pwa.md
-    variant: light
-    emotion: "Happy (§4.2)"
-    pose: "Frontal aufrecht, volle Details, Arme locker seitlich; reine Maskottchen-Marke ohne Wortmarke"
-    size: "512x512px transparent"
-    out: src/frontend/src/assets/brand/logo/logo-kami.svg
-    prompt: |
-      A cute comic-style mascot logo mark for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta pot, centered,
-      upright, frontal — a clean logo mark with full detail. Kami has a Happy expression: leaves
-      pointing straight upward, large round dot eyes with white highlight glints, small curved
-      upward smile. Arms relaxed at sides. A mascot mark only, no wordmark.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20.
-
-      Outlines: dark green #1b5e20, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat empty background, square
-      1:1 with 10% padding, character only, no lettering or numerals anywhere, no watermark.
-
-  - id: app-logo-dark
-    gap: G-01
-    doc: spec/design/app-icons-kami-pwa.md
-    variant: dark
-    emotion: "Happy (§4.2)"
-    pose: "Frontal aufrecht, volle Details, Arme locker seitlich; reine Maskottchen-Marke ohne Wortmarke"
-    size: "512x512px transparent"
-    out: src/frontend/src/assets/brand/logo/logo-kami-dark.svg
-    prompt: |
-      A cute comic-style mascot logo mark for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta pot, centered,
-      upright, frontal — a clean logo mark with full detail. Kami has a Happy expression: leaves
-      pointing straight upward, large round dot eyes with white highlight glints, small curved
-      upward smile. Arms relaxed at sides. A mascot mark only, no wordmark.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
-      1:1 with 10% padding, character only, no lettering or numerals anywhere, no watermark.
+  # --- G-01/G-02 PWA app-icons + logo: SOURCED FROM brand/ (NOT FLUX) ---
+  # The app icon and logo are hand-crafted brand marks that already exist as
+  # brand/icon@2x.png and brand/logo@2x.png (512x512, transparent, face-on-pot).
+  # A text-to-image model cannot reproduce a pixel-exact brand mark, so these are
+  # derived deterministically instead of being FLUX render jobs:
+  #   - PWA icons : brand/icon@2x.png -> src/frontend/public/icons/icon-{192,512}.png
+  #                 (opaque #f5f5f5 background, mascot at 80% maskable safe-zone)
+  #   - App logo  : brand/logo@2x.png (vectorise via nolte-media:png-to-transparent-svg
+  #                 when an SVG deliverable is needed)
+  # See scripts/kami/README.md > 'Logo & app-icons come from brand/, not FLUX'.
 
   # -------------------------------------------------------------------------
   # Batch 2 — series wired via from_doc + motif_heading (auto FLUX-normalised:

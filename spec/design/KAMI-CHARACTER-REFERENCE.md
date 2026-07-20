@@ -28,35 +28,39 @@ ANATOMIE-SCHEMA:
          ╱╲    ╱╲         BLAETTER (2 Stueck)
         ╱  ╲  ╱  ╲        Form: Tropfenfoermig (Ellipse + Spitze)
        ╱    ╲╱    ╲       Symmetrisch angeordnet, je 10° nach aussen geneigt
-      ╱      ╲      ╲     SVG: Einfache Ellipse, oben spitz zulaufend
-       ╲    ╱  ╲    ╱
+      ╱      ╲      ╲     Schlichtes Laub mit Mittelrippe — KEIN Gesicht,
+       ╲    ╱  ╲    ╱     KEINE Augen auf den Blaettern
         ╲  ╱    ╲  ╱
          ╲╱      ╲╱
-           ╲    ╱
-      ┌─────╲──╱─────┐
-      │      ││      │    KOPF-/GESICHTSBEREICH
-      │   ●     ●    │    Zwischen Blaettern und Topfrand
-      │      ◡       │    Augen + Mund sitzen hier
-      └──────┬┬──────┘
-             ││               STIEL/HALS
-             ││               Duenn, leicht geschwungen
-      ┌──────┴┴──────┐
-     ╱│              │╲   ARME: Duenne Linien seitlich am Topfkoerper
+           ││              STIEL: Duenn, leicht geschwungen,
+           ││              verbindet die Blaetter direkt mit dem Topf
+      ┌────┴┴────────┐
+     ╱│   ●     ●    │╲   GESICHT SITZT AUF DEM TOPF:
+      │      ◡       │    Augen + Mund auf der oberen Topf-Vorderseite,
+      │  ══════════  │    deutlich unter dem Rand
+      │              │    ARME: Duenne Linien seitlich am Topfkoerper
       │              │    (bei 32px und kleiner: WEGLASSEN)
-      │   ════════   │    DEKOSTREIFEN: Einzelne Linie, hellerer Ton
-      │              │    TOPF: Konische Trapezform
-      └──────────────┘    (oben breiter als unten)
+      └──────────────┘    DEKOSTREIFEN: Breite Baender, hellerer Ton
+                          TOPF: Konische Trapezform (oben breiter),
+                          traegt Gesicht UND Arme — es gibt keinen
+                          separaten Kopf zwischen Blaettern und Topf
 ```
+
+> **Verbindlich (Markenzeichen, vgl. `brand/logo@2x.png`):** Das Gesicht (zwei
+> Augen + Mund) und die beiden Arme sitzen **auf dem Topfkoerper** — der Topf ist
+> Koerper und Gesichtstraeger zugleich. Die Blaetter sind reines Laub ohne
+> Gesichtszuege. Ein Gesicht auf der Pflanze/zwischen den Blaettern ist
+> **falsch** und der haeufigste Generierungsfehler.
 
 ### 2.1 Proportionen (verbindlich)
 
 | Koerperteil | Anteil Gesamthoehe | Hinweis |
 |------------|-------------------|---------|
 | Blaetter (Spitze bis Basis) | 45% | Dominantes Element, Markenzeichen |
-| Stiel/Hals | 10–15% | Duenn, verbindet Kopf mit Topf |
-| Topf (Oberkante bis Boden) | 35–40% | Stabiler Sockel |
-| Blaetter-Spannweite | 80% der Kopfbreite | Nicht breiter als der Topf |
-| Auge (einzeln) | 25% der Kopfbreite | Gross, ausdrucksstark |
+| Stiel | 10–15% | Duenn, verbindet die Blaetter direkt mit dem Topf |
+| Topf (Oberkante bis Boden) | 35–40% | Stabiler Sockel, traegt Gesicht + Arme |
+| Blaetter-Spannweite | 80% der Topfbreite | Nicht breiter als der Topf |
+| Auge (einzeln) | 25% der Topfbreite | Gross, ausdrucksstark, auf dem Topf |
 
 ### 2.2 Einzelteil-Geometrie (SVG-tauglich)
 
