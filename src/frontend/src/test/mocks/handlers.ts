@@ -210,6 +210,12 @@ export const handlers = [
     return HttpResponse.json({ status: 'alive' });
   }),
 
+  // Issue #685 — KI-Assistent availability probe (fetched once from MainLayout).
+  // Default to disabled (matches the AI_FEATURES_ENABLED=false default).
+  http.get('/api/v1/ai/status', () => {
+    return HttpResponse.json({ available: false });
+  }),
+
   // Fertilizers catalogue (tenant-scoped) — offset/limit paging aware so the
   // fetchAllFertilizers pager terminates after a single short page.
   http.get('/api/v1/t/:tenant/fertilizers', ({ request }) => {

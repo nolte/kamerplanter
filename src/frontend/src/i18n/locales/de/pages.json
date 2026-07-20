@@ -73,7 +73,11 @@
       "questionPlaceholder": "z. B. Was ist VPD und warum ist es wichtig?",
       "questionHelp": "Reine Wissensfragen ohne Bezug zu deinen konkreten Pflanzen. Mit Strg/Cmd + Enter absenden.",
       "ask": "Frage stellen",
-      "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut."
+      "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut.",
+      "notConfigured": {
+        "title": "KI-Assistent nicht verfügbar",
+        "description": "Die KI-Funktionen sind auf dieser Instanz nicht aktiviert. Wende dich an die Administration, wenn du sie nutzen möchtest."
+      }
     },
     "environmentControl": {
       "title": "Umgebungssteuerung",

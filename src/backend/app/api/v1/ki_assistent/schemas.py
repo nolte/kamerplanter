@@ -10,6 +10,17 @@ from pydantic import BaseModel, Field
 from app.domain.interfaces.knowledge_service import ConfidenceLevel
 
 
+class AiStatusResponse(BaseModel):
+    """Public feature-availability payload for the KI-Assistent (issue #685).
+
+    Mirrors ``settings.ai_features_enabled`` so the frontend can hide the
+    KI-Assistent nav entry and degrade its page instead of hitting the
+    404 that the feature-flag guard returns when AI is off cluster-wide.
+    """
+
+    available: bool
+
+
 class SourceRefSchema(BaseModel):
     """A cited knowledge chunk (Quellenpflicht)."""
 
