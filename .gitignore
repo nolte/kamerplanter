@@ -81,3 +81,6 @@ docker/embedding-service/models/
 !.github/styles/config/
 .github/styles/config/vocabularies/*
 !.github/styles/config/vocabularies/kamerplanter/
+
+# KAMI image-render pipeline — generated PNGs + per-run state (scripts/kami/render.py)
+.render/

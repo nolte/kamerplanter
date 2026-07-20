@@ -126,5 +126,30 @@ Priorisiert gemaess Audit §4 (Critical → High → Medium → Low):
 4. **G-08…G-15 (Medium):** restliche Illustrationen/Banner/Icons.
 5. **G-16/G-17 (Low):** `kamiDashboard` konsumieren bzw. Export entfernen; Loading-KAMI.
 
-Jeder Schritt: PNG rendern (Gemini) → Hintergrund transparent pruefen → PNG→SVG (vtracer) →
+Jeder Schritt: PNG rendern → Hintergrund transparent pruefen → PNG→SVG (vtracer) →
 Barrel-Export/`manifest.json`/Consumer verdrahten → Light+Dark verifizieren.
+
+---
+
+## 5. Automatisierte Render-/Review-Pipeline (`scripts/kami/`)
+
+Der „PNG rendern"-Schritt aus §4 ist automatisiert und mit einem **automatischen
+Claude-Vision-Konformitaets-Check** gegen `KAMI-CHARACTER-REFERENCE.md` versehen. Details:
+`scripts/kami/README.md`.
+
+- **`spec/design/_generation-manifest.yaml`** — maschinelle SSOT: pro Motiv/Variante ein
+  Render-Job (`id`, `gap`, `variant`, `emotion`, `pose`, `size`, `out`) mit FLUX-Prompt
+  (inline oder als `doc:`+`motif_heading:`-Referenz in das jeweilige Prompt-Doc dieses Registers).
+  Deckt Batch 1 (20 Jobs, die 8 neuen #593-Docs, inline) + Batch 2 (59 Jobs: Features G-06,
+  Tank G-05, Nav G-04 via `doc:`-Referenz) ab.
+- **`scripts/kami/render.py`** — treibt die nolte-media `image-generate` (FLUX.1-schnell via
+  Cloudflare, kostenlos) ueber den Manifest; verwaltet Job-Zustaende; regeneriert abgelehnte
+  Bilder mit frischem Seed. `task kami:status` / `task kami:generate` / `task kami:worklist`.
+- **`.claude/agents/kami-image-reviewer.md`** — prueft je EIN generiertes PNG visuell gegen
+  §3/§3.2/§4.2/§5/§6/§8 und schreibt ein `approved`/`rejected`-Verdikt zurueck (Regen-Loop).
+
+**Modell-Hinweis (nolte-media):** Provider `cloudflare`=FLUX.1-schnell (Default, frei, ignoriert
+width/height → immer ~1024² quadratisch), `gemini`=gemini-2.5-flash-image (kostenpflichtig +
+SynthID-Wasserzeichen), `pollinations`=FLUX (frei, Lizenz ungeklaert). FLUX kennt **keine**
+Negativ-Prompts → `render.py` normalisiert `doc:`-Bloecke FLUX-tauglich (streicht `Avoid:`,
+tauscht Dark-Outline).

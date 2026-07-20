@@ -414,3 +414,30 @@ tasks:
         task worktree:add -- chore/ci-tidy ci
     cmds:
       - ./scripts/worktree_add.sh {{.CLI_ARGS}}
+
+  kami:status:
+    desc: |
+      Show the KAMI image render/review state for every job in
+      spec/design/_generation-manifest.yaml. Needs no credentials.
+      Usage: task kami:status
+    cmds:
+      - python3 scripts/kami/render.py status -v
+
+  kami:generate:
+    desc: |
+      Generate the pending/rejected KAMI images via the nolte-media generator
+      (FLUX.1-schnell via Cloudflare by default). Requires CLOUDFLARE_API_TOKEN
+      + CLOUDFLARE_ACCOUNT_ID (and optionally NOLTE_MEDIA_ROOT). Pass a filter
+      after --, e.g. `task kami:generate -- --only 'empty-state|app-icon'`, or
+      `task kami:generate -- --dry-run` to preview without calling the API.
+      Review generated images with the kami-image-reviewer agent, then re-run.
+    cmds:
+      - python3 scripts/kami/render.py generate {{.CLI_ARGS}}
+
+  kami:worklist:
+    desc: |
+      Emit the review worklist (images awaiting KAMI-conformance review) as JSON
+      for the kami-image-reviewer agent. Usage: task kami:worklist
+    cmds:
+      - python3 scripts/kami/render.py worklist --json
+    silent: true
