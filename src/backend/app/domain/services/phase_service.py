@@ -7,6 +7,7 @@ from app.common.enums import TransitionTrigger
 from app.common.exceptions import NotFoundError
 from app.common.types import PhaseKey, PlantID
 from app.domain.engines.phase_key_resolver import PhaseKeyResolver
+from app.domain.engines.phase_role_map import core_phase
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.engines.resource_profile_generator import ResourceProfileGenerator
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -363,6 +364,24 @@ class PhaseService:
         phases, _cycle, _meta = self._resolve_phases_for_species(species_key)
         for phase in phases:
             if phase.get("name") == phase_name and phase.get("key"):
+                return phase["key"]
+        return None
+
+    def find_phase_key_by_role(self, species_key: str, core_role: str) -> str | None:
+        """Resolve a species' phase key by its REQ-003 §D8 engine ROLE, not its literal name.
+
+        Unlike :meth:`find_phase_key_by_name`, this matches any archetype-specific phase
+        that *behaves* like ``core_role`` via ``phase_role_map.core_phase`` — e.g. the #616
+        fine-typed rest phases ``winter_rest`` / ``rest_phase`` / ``dry_storage`` all resolve
+        to the ``dormancy`` role. Used by the REQ-047 ↔ REQ-003 season coupling (ADR-006 E3)
+        so the site winter signal reaches a plant's real, botanically-named rest phase and
+        not only a literal ``dormancy``. Returns the first matching phase in sequence order,
+        or ``None`` when the species has no phase in that role.
+        """
+        phases, _cycle, _meta = self._resolve_phases_for_species(species_key)
+        for phase in sorted(phases, key=lambda p: p.get("sequence_order") or 0):
+            name = phase.get("name")
+            if name and core_phase(name) == core_role and phase.get("key"):
                 return phase["key"]
         return None
 

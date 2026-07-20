@@ -20,18 +20,32 @@ _RUNNER = [
     ("dormancy", 3, 120, True, True),
 ]
 
+# #616 fine-typed CAM succulent sequence: the rest phase is the botanically-named
+# ``winter_rest`` (role ``dormancy`` via phase_role_map), NOT a literal ``dormancy``.
+_CAM_SUCCULENT_REST = [
+    ("active_growth", 0, 120, False, False),
+    ("growth_bloom", 1, 30, False, True),
+    ("winter_rest", 2, 90, True, True),
+]
 
-def _seq_repo(*, is_repeating: bool = True, cycle_restart_entry_order: int | None = 1) -> MagicMock:
+
+def _seq_repo(
+    *,
+    is_repeating: bool = True,
+    cycle_restart_entry_order: int | None = 1,
+    rows: list[tuple[str, int, int, bool, bool]] = _RUNNER,
+    seq_name: str = "perennial_runner",
+) -> MagicMock:
     seq = PhaseSequence(
         _key="seq-1",
-        name="perennial_runner",
+        name=seq_name,
         cycle_type=CycleType.PERENNIAL,
         is_repeating=is_repeating,
         cycle_restart_entry_order=cycle_restart_entry_order,
     )
     entries = []
     defs = {}
-    for name, order, duration, is_terminal, is_recurring in _RUNNER:
+    for name, order, duration, is_terminal, is_recurring in rows:
         def_key = f"def-{name}"
         defs[def_key] = PhaseDefinition(_key=def_key, name=name, typical_duration_days=max(duration, 1))
         entries.append(
@@ -108,3 +122,27 @@ class TestPhaseKeyLookups:
     def test_resolve_cycle_restart_phase_key_none(self) -> None:
         svc = _service(_seq_repo(cycle_restart_entry_order=None))
         assert svc.resolve_cycle_restart_phase_key("sp-1") is None
+
+    def test_find_phase_key_by_role_matches_literal_dormancy(self) -> None:
+        """A legacy sequence whose rest phase is the literal ``dormancy`` resolves by role."""
+        svc = _service(_seq_repo())
+        assert svc.find_phase_key_by_role("sp-1", "dormancy") == "e-3"
+
+    def test_find_phase_key_by_role_matches_fine_typed_rest_phase(self) -> None:
+        """#677 / NCT-2: a #616 ``cam_succulent_rest`` sequence carries no literal
+        ``dormancy`` phase; the winter/rest signal must resolve ``winter_rest`` by role."""
+        svc = _service(_seq_repo(rows=_CAM_SUCCULENT_REST, seq_name="cam_succulent_rest"))
+        # The literal name lookup misses the botanically-named rest phase ...
+        assert svc.find_phase_key_by_name("sp-1", "dormancy") is None
+        # ... but the role lookup couples to ``winter_rest`` (role ``dormancy``).
+        assert svc.find_phase_key_by_role("sp-1", "dormancy") == "e-2"
+
+    def test_find_phase_key_by_role_absent(self) -> None:
+        """An evergreen-like sequence without any rest-role phase returns ``None``."""
+        rows = [
+            ("active_growth", 0, 120, False, False),
+            ("flowering", 1, 30, False, True),
+            ("ripening", 2, 45, True, True),
+        ]
+        svc = _service(_seq_repo(rows=rows, seq_name="evergreen"))
+        assert svc.find_phase_key_by_role("sp-1", "dormancy") is None
