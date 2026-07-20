@@ -21,7 +21,8 @@
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
-| Photoperiode | day_neutral | `lifecycle_configs.photoperiod_type` |
+| Photoperiode | short_day | `lifecycle_configs.photoperiod_type` |
+<!-- KORREKTUR (#676, NCT-1): zuvor day_neutral. Bewusste Kohorten-Entscheidung — G. jasminoides wird der photoperiodischen Kurztag-Zierpflanzen-Kohorte (REQ-003 D11, v0027 _TARGET_SEQUENCE → photoperiodic_ornamental) zugeordnet und trägt daher konsistent zu Seed und Migration short_day. Biologisch ist die Blühinduktion primär nachttemperatur-gesteuert (ISHS Acta Hortic. 515.11); die Kurztag-Einstufung ist die Pflege-/Lifecycle-Konvention der Kohorte, nicht ein obligater photoperiodischer Mechanismus. -->
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für G. jasminoides auffindbar; Wachstum stoppt unterhalb ~15,5 °C (60 °F), aber dies ist kein validierter GDD-base --> | `species.base_temp` |
@@ -29,7 +30,7 @@
 | Dormanz erforderlich (dormancy required) | false | `lifecycle_configs.dormancy_required` |
 | Vernalisation erforderlich (vernalization required) | false | `lifecycle_configs.vernalization_required` |
 | Vernalisation Mindest-Tage | — (kein Kältebedarf; immergrüne Subtropenart. Kühle Nächte ~13–17 °C fördern den Blütenansatz als Temperaturreiz, sind aber KEINE Vernalisation) | `lifecycle_configs.vernalization_min_days` |
-| Kritische Tageslänge (h) | — (day_neutral; Blühinduktion über Nachttemperatur, nicht Photoperiode) | `lifecycle_configs.critical_day_length_hours` |
+| Kritische Tageslänge (h) | 12 (Kohorten-Konvention der Kurztag-Zierpflanzen, #676; biologisch ist die Blühinduktion nachttemperatur-gesteuert, kein belegter photoperiodischer Schwellwert) | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 | USDA Zonen | 8a–11b | `species.hardiness_zones` |
 | Frostempfindlichkeit | tender | `species.frost_sensitivity` |
@@ -345,7 +346,7 @@ Gardenien sind **pH-Spezialisten** — der pH muss zwingend bei 5.0–6.0 liegen
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Gardenia jasminoides,Gardenie;Cape Jasmine,Rubiaceae,Gardenia,perennial,day_neutral,shrub,fibrous,8a;8b;9a;9b;10a;10b;11a;11b,0.0,China Japan Südostasien,yes,10,20,120,120,—,yes,limited,false,false
+Gardenia jasminoides,Gardenie;Cape Jasmine,Rubiaceae,Gardenia,perennial,short_day,shrub,fibrous,8a;8b;9a;9b;10a;10b;11a;11b,0.0,China Japan Südostasien,yes,10,20,120,120,—,yes,limited,false,false
 ```
 
 ---
