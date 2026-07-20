@@ -40,17 +40,29 @@ with a trailing `Avoid: text, numbers …` clause — under FLUX that clause mak
 
 ## Prerequisites
 
+This pipeline drives the `nolte-media` plugin's `image-generate` script directly by
+path — it does **not** require the plugin to be loaded into Claude Code (kamerplanter
+deliberately omits `nolte-media` from `task claude`). You only need a local checkout
+of `nolte/claude-shared`; `render.py` resolves the script via `$NOLTE_MEDIA_ROOT` →
+`$CLAUDE_PLUGIN_ROOT` → the dogfooding default `~/repos/github/claude-shared/plugins/nolte-media`.
+
 ```bash
-# Cloudflare (default, free) — both are required:
+# Cloudflare (default provider, free) — both are required:
 export CLOUDFLARE_API_TOKEN=...      # scope: Workers AI — https://dash.cloudflare.com/profile/api-tokens
 export CLOUDFLARE_ACCOUNT_ID=...
+
+# Only if you render with `--provider gemini` (best mascot fidelity, but BILLING
+# required — the free-tier quota for gemini-2.5-flash-image is 0):
+export GEMINI_API_KEY=...            # https://aistudio.google.com/apikey
 
 # Point at your nolte-media plugin checkout (only if not the dogfooding default
 # ~/repos/github/claude-shared/plugins/nolte-media):
 export NOLTE_MEDIA_ROOT=~/repos/github/claude-shared/plugins/nolte-media
 ```
 
-No credentials needed to `--dry-run` or to exercise the review state machine.
+The `pollinations` provider needs no credentials at all (optional
+`POLLINATIONS_API_TOKEN` only removes the watermark). No credentials are needed to
+`--dry-run` or to exercise the review state machine.
 
 ## Run the loop
 
