@@ -170,6 +170,9 @@ _AVOID_RE = re.compile(r"\n[ \t]*Avoid:.*\Z", re.IGNORECASE | re.DOTALL)
 _OUTLINE_LIGHT_RE = re.compile(r"Outlines:\s*dark green\s*#1b5e20[^\n]*", re.IGNORECASE)
 _DARK_OUTLINE = "Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps."
 
+# Cloudflare Workers-AI FLUX rejects prompts longer than ~2048 chars with HTTP 400.
+MAX_PROMPT_CHARS = 2040
+
 
 def flux_normalize(block: str, variant: str | None) -> str:
     block = _AVOID_RE.sub("", block).strip()
@@ -195,7 +198,24 @@ def resolve_prompt(job: dict, anchor: str = "") -> str:
     # inline or doc-referenced — states the load-bearing invariant that FLUX most
     # often gets wrong: the face + arms are on the pot, the leaves are plain.
     anchor = (anchor or "").strip()
-    return f"{anchor}\n\n{body}" if anchor else body
+    if not anchor:
+        return body
+    combined = f"{anchor}\n\n{body}"
+    # Cloudflare FLUX rejects prompts over ~2048 chars with HTTP 400. The anchor is
+    # load-bearing, so when the anchor + scene body overflow, trim the scene body
+    # (at a sentence/word boundary) rather than dropping the invariant.
+    if len(combined) > MAX_PROMPT_CHARS:
+        budget = MAX_PROMPT_CHARS - len(anchor) - 2
+        trimmed = body[: max(0, budget)]
+        cut = max(trimmed.rfind(". "), trimmed.rfind("\n"), trimmed.rfind(" "))
+        if cut > budget * 0.6:
+            trimmed = trimmed[: cut + 1]
+        sys.stderr.write(
+            f"warning: prompt for {job['id']} exceeded {MAX_PROMPT_CHARS} chars; "
+            "scene body trimmed to fit (anatomy anchor kept).\n"
+        )
+        combined = f"{anchor}\n\n{trimmed.rstrip()}"
+    return combined
 
 
 # --------------------------------------------------------------------------- #

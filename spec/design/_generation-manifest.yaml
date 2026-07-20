@@ -35,17 +35,12 @@ defaults:
   # face + arms on the pot, leaves are plain foliage. Editing this reshapes the
   # whole render set without touching individual prompts.
   anatomy_anchor: |
-    Character identity (Kami mascot): Kami is a friendly TERRACOTTA FLOWER POT with
-    a face. Two large round black eyes, each with a small white highlight glint, and
-    one small simple upward-curved smile sit ON THE POT BODY (centered on the pot's
-    front, below the rim). Two thin dark-green stick-arms reach out from the left and
-    right sides of the pot. Out of the pot grows a thin green stem carrying exactly two
-    plain teardrop leaves with a central vein; the leaves are plain foliage with NO
-    eyes and NO face. Never draw a face on the plant or between the leaves. The pot is a
-    muted earthy terracotta-brown clay tone (a soft brown-orange, NOT a bright saturated
-    orange), with two or three broad horizontal stripe bands in warm clay tones. Smooth
-    plain pot surface, no pink or red blush on the cheeks. One consistent bold dark-green
-    #1b5e20 outline, flat cartoon style, no cast shadow.
+    Kami mascot = a friendly TERRACOTTA FLOWER POT with a face: two round black eyes
+    with white glints and a small upward smile ON THE POT BODY, and two thin dark-green
+    stick-arms from the pot's sides. Two plain green leaves (central vein, NO face, NO
+    eyes) grow on a thin stem from the pot — never put a face on the leaves. Pot is a
+    muted terracotta-brown (not bright orange) with a few broad horizontal stripe bands,
+    smooth surface, no blush. Bold dark-green #1b5e20 outline, flat cartoon, no shadow.
 
 # ---------------------------------------------------------------------------
 # Batch 1 — the 8 new #593 single/small-motif docs, fully FLUX-normalised.
