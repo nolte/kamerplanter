@@ -18,6 +18,7 @@ import {
   WOOD_STAGES,
   PROPAGATION_DIFFICULTIES,
   GROWTH_HABITS,
+  PHOTOSYNTHESIS_TYPES,
   MONTHS,
   type SpeciesFormData,
 } from './speciesDetailSchema';
@@ -75,6 +76,21 @@ export default function SpeciesGrowthPanel({ control }: SpeciesGrowthPanelProps)
             />
           </ExpertiseFieldWrapper>
         </FormRow>
+        <ExpertiseFieldWrapper minLevel="expert">
+          <FormSelectField
+            name="photosynthesis_type"
+            control={control}
+            label={t('pages.species.photosynthesisType')}
+            helperText={t('pages.species.photosynthesisTypeHelper')}
+            options={[
+              { value: '', label: '—' },
+              ...PHOTOSYNTHESIS_TYPES.map((v) => ({
+                value: v,
+                label: t(`enums.photosynthesisType.${v}`),
+              })),
+            ]}
+          />
+        </ExpertiseFieldWrapper>
         {/* Propagation config editor — one repeatable entry per method
           (method + month picker + optional wood stage + notes). Replaces
           the former flat propagation_methods multi-select (WP-5). */}

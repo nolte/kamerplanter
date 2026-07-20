@@ -277,6 +277,16 @@
       "monocarpic": "Monocarpic (flowers once)",
       "polycarpic": "Polycarpic (flowers repeatedly)"
     },
+    "photosynthesisType": {
+      "c3": "C3 (standard)",
+      "c4": "C4 (heat/drought efficient)",
+      "cam": "CAM (nocturnal stomata)"
+    },
+    "growthDeterminacy": {
+      "determinate": "Determinate (finite growth)",
+      "indeterminate": "Indeterminate (continuous growth)",
+      "semi_determinate": "Semi-determinate"
+    },
     "rootType": {
       "fibrous": "Fibrous",
       "taproot": "Taproot",

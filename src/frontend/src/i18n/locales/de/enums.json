@@ -277,6 +277,16 @@
       "monocarpic": "Monokarp (blüht einmal)",
       "polycarpic": "Polykarp (blüht mehrfach)"
     },
+    "photosynthesisType": {
+      "c3": "C3 (Standard)",
+      "c4": "C4 (hitze-/trockeneffizient)",
+      "cam": "CAM (nächtliche Stomata)"
+    },
+    "growthDeterminacy": {
+      "determinate": "Determiniert (endlicher Wuchs)",
+      "indeterminate": "Indeterminiert (fortlaufender Wuchs)",
+      "semi_determinate": "Semi-determiniert"
+    },
     "rootType": {
       "fibrous": "Faserig",
       "taproot": "Pfahlwurzel",

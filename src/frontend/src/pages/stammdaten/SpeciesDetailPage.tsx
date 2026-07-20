@@ -154,6 +154,7 @@ export default function SpeciesDetailPage() {
       setSaving(true);
       const payload = {
         ...data,
+        photosynthesis_type: data.photosynthesis_type || null,
         container_suitable: data.container_suitable || null,
         indoor_suitable: data.indoor_suitable || null,
         balcony_suitable: data.balcony_suitable || null,
