@@ -39,6 +39,10 @@ class SpeciesService:
         # submitted by the edit form — preserve it so a full-replace update never
         # resets an enriched/tenant record back to the 'system' default.
         species.origin = existing.origin
+        # cultivation_flexible is master data (seed lifecycle_overrides, ADR-006 E6),
+        # not an edit-form field — preserve it so a full-replace update never resets
+        # the facultative-cultivation capability flag to its default.
+        species.cultivation_flexible = existing.cultivation_flexible
         return self._repo.update(key, species)
 
     def delete_species(self, key: SpeciesKey) -> bool:

@@ -354,13 +354,62 @@ describe('PlantInstanceCreateDialog', () => {
       renderWithProviders(
         <PlantInstanceCreateDialog open onClose={() => {}} onCreated={onCreated} />,
       );
-      // The cultivation-cycle field is rendered and defaults to "same as the species".
-      expect(await screen.findByTestId('form-field-cultivation_cycle_type')).toBeTruthy();
       await selectTomato(user);
+      // Tomato is a facultative species, so the cultivation-cycle field is rendered
+      // and defaults to "same as the species".
+      expect(await screen.findByTestId('form-field-cultivation_cycle_type')).toBeTruthy();
       await user.click(screen.getByTestId('form-submit-button'));
 
       await waitFor(() => expect(onCreated).toHaveBeenCalledWith('plant-new'));
       expect(payloads).toEqual([{ cultivation_cycle_type: null }]);
+    });
+
+    it('hides the cycle select and shows an informative note for a non-facultative species (#615)', async () => {
+      // ADR-006 E6: a species that is not cultivation_flexible offers no per-instance
+      // cycle choice — the select is hidden and a caption explains the cycle follows
+      // the species default.
+      server.use(
+        http.get('/api/v1/species', () =>
+          HttpResponse.json({
+            items: [
+              {
+                key: 'sp-lettuce',
+                scientific_name: 'Lactuca sativa',
+                common_names: ['Lettuce'],
+                family_key: 'fam-1',
+                genus: 'Lactuca',
+                hardiness_zones: ['4-9'],
+                native_habitat: 'Mediterranean',
+                growth_habit: 'herb',
+                root_type: 'fibrous',
+                allelopathy_score: 0,
+                base_temp: 5,
+                cultivation_flexible: false,
+                created_at: '2024-01-01T00:00:00Z',
+                updated_at: null,
+              },
+            ],
+            total: 1,
+            offset: 0,
+            limit: 50,
+          }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      const speciesInput = within(
+        await screen.findByTestId('form-field-species_key'),
+      ).getByRole('combobox');
+      await user.click(speciesInput);
+      await user.type(speciesInput, 'Lactuca');
+      await user.click(await screen.findByRole('option', { name: /Lactuca sativa/ }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId('cultivation-cycle-fixed-note')).toBeTruthy(),
+      );
+      expect(screen.queryByTestId('form-field-cultivation_cycle_type')).toBeNull();
     });
 
     it('submits the chosen cycle when the grower overrides it per plant', async () => {

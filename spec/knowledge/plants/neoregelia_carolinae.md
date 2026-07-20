@@ -17,7 +17,7 @@
 | Familie | Bromeliaceae | `species.family` → `botanical_families.name` |
 | Gattung | Neoregelia | `species.genus` |
 | Ordnung | Poales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | epiphyte | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
@@ -303,7 +303,7 @@ Neoregelia ist wie alle Tank-Bromeliaden ein Epiphyt — Düngung ausschließlic
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Neoregelia carolinae,Errötendes Bromeliad;Blushing Bromeliad,Bromeliaceae,Neoregelia,perennial,day_neutral,herb,aerial,10a;10b;11a;11b,0.0,Brasilien Atlantischer Regenwald,yes,3,10,40,70,—,yes,no,false,false
+Neoregelia carolinae,Errötendes Bromeliad;Blushing Bromeliad,Bromeliaceae,Neoregelia,perennial,day_neutral,epiphyte,aerial,10a;10b;11a;11b,0.0,Brasilien Atlantischer Regenwald,yes,3,10,40,70,—,yes,no,false,false
 ```
 
 ---

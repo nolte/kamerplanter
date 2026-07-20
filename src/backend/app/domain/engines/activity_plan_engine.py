@@ -76,18 +76,26 @@ class ActivityPlanEngine:
         sorted_phases = sorted(phases, key=lambda p: p.sequence_order)
         skill_max = _SKILL_RANK.get(skill_level or "intermediate", 1)
 
+        # Bind every activity to exactly one phase before scheduling (Issue #619).
+        # A generic activity that forbids no phase is "eligible" in *every* phase;
+        # emitting it once per phase produced 3-4 duplicate TaskTemplates per
+        # activity (e.g. strawberry "Umpflanzen" 4x). Pick a single target phase
+        # per activity so phase-specific activities stay on their (only) eligible
+        # phase while phaseless ones land exactly once.
+        activities_by_target_phase = self._bind_activities_to_phases(
+            sorted_phases,
+            activities,
+            species_name,
+            skill_max,
+            species=species,
+            family_name=family_name,
+        )
+
         all_templates: list[TaskTemplate] = []
         sequence_counter = 0
 
         for phase in sorted_phases:
-            eligible = self._filter_activities(
-                activities,
-                phase,
-                species_name,
-                skill_max,
-                species=species,
-                family_name=family_name,
-            )
+            eligible = activities_by_target_phase.get(phase.name, [])
             templates = self._schedule_activities(eligible, phase, species_name)
 
             # Assign sequence_order across all phases
@@ -108,6 +116,51 @@ class ActivityPlanEngine:
         )
 
         return wt, all_templates
+
+    def _bind_activities_to_phases(
+        self,
+        sorted_phases: list[GrowthPhase],
+        activities: list[Activity],
+        species_name: str,
+        skill_max: int,
+        *,
+        species: Species | None = None,
+        family_name: str = "",
+    ) -> dict[str, list[Activity]]:
+        """Assign each activity to exactly one target phase (Issue #619).
+
+        For every phase (in sequence order) the negative filter yields the set of
+        eligible activities. An activity that clears the filter in several phases
+        must not be emitted once per phase; it is bound to a single target phase:
+        ``harvest_prep`` activities bind to their *last* eligible phase (they belong
+        near harvest), every other activity binds to its *first* eligible phase.
+        Activities eligible in a single phase (phase-specific ones scoped by
+        ``forbidden_phases``/``restricted_sub_phases``/species) keep that phase.
+        """
+        eligible_phases_by_activity: dict[int, list[GrowthPhase]] = {}
+        activity_by_id: dict[int, Activity] = {}
+
+        for phase in sorted_phases:
+            eligible = self._filter_activities(
+                activities,
+                phase,
+                species_name,
+                skill_max,
+                species=species,
+                family_name=family_name,
+            )
+            for act in eligible:
+                act_id = id(act)
+                eligible_phases_by_activity.setdefault(act_id, []).append(phase)
+                activity_by_id[act_id] = act
+
+        activities_by_target_phase: dict[str, list[Activity]] = {}
+        for act_id, eligible_phases in eligible_phases_by_activity.items():
+            act = activity_by_id[act_id]
+            target = eligible_phases[-1] if act.category.value == "harvest_prep" else eligible_phases[0]
+            activities_by_target_phase.setdefault(target.name, []).append(act)
+
+        return activities_by_target_phase
 
     def _filter_activities(
         self,

@@ -18,7 +18,7 @@
 | Familie | Araceae | `species.family` → `botanical_families.name` |
 | Gattung | Zantedeschia | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | GDD-Basistemperatur (°C) | 7 (Kühlzehrer; Wachstum kommt < 7–10 °C praktisch zum Erliegen, optimaler Wuchs bei 13–18 °C) | `species.base_temp` | <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
@@ -298,7 +298,7 @@ Entfällt — reine Zier-/Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Zantedeschia aethiopica,"Calla;Weiße Calla;Zimmercalla;Sumpfcalla;Calla Lily;Arum Lily",Araceae,Zantedeschia,perennial,day_neutral,herb,rhizomatous,"8a;8b;9a;9b;10a;10b;11a","Südafrika, Lesotho",yes,5-15,20,60-120,40-80,yes,yes,false,medium_feeder
+Zantedeschia aethiopica,"Calla;Weiße Calla;Zimmercalla;Sumpfcalla;Calla Lily;Arum Lily",Araceae,Zantedeschia,perennial,day_neutral,bulb_geophyte,rhizomatous,"8a;8b;9a;9b;10a;10b;11a","Südafrika, Lesotho",yes,5-15,20,60-120,40-80,yes,yes,false,medium_feeder
 ```
 
 ---

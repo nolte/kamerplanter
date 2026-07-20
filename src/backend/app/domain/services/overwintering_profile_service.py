@@ -633,7 +633,8 @@ class OverwinteringProfileService:
             counts[light] += 1
             if light == WinterHardinessLight.RED:
                 red_plants.append(
-                    WinterHardinessOverviewEntry(
+                    self._build_red_entry(
+                        tenant_key,
                         profile_key=profile.key or "",
                         plant_key=profile.plant_key,
                         planting_run_key=profile.planting_run_key,
@@ -652,7 +653,8 @@ class OverwinteringProfileService:
                 counts[light] += 1
                 if light == WinterHardinessLight.RED:
                     red_plants.append(
-                        WinterHardinessOverviewEntry(
+                        self._build_red_entry(
+                            tenant_key,
                             profile_key=template.key or "",
                             plant_key=plant_key,
                             planting_run_key=planting_run_key,
@@ -668,6 +670,85 @@ class OverwinteringProfileService:
             total=total,
             red_plants=red_plants,
         )
+
+    def _build_red_entry(
+        self,
+        tenant_key: str,
+        *,
+        profile_key: str,
+        plant_key: str | None,
+        planting_run_key: str | None,
+        hardiness_rating: HardinessRating,
+        winter_action: WinterAction,
+    ) -> WinterHardinessOverviewEntry:
+        """Build one red overview entry, enriched with human-readable labels (#631).
+
+        The dashboard widget must never fall back to the raw document key, so the
+        subject is joined onto its plant-instance / planting-run to surface a speaking
+        name, ``instance_id``, species name and location. Enrichment is best-effort and
+        tenant-scoped: a foreign-tenant or missing document simply leaves the label
+        ``None`` and the widget degrades gracefully to the remaining fields.
+        """
+        labels = self._resolve_subject_labels(tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
+        return WinterHardinessOverviewEntry(
+            profile_key=profile_key,
+            plant_key=plant_key,
+            planting_run_key=planting_run_key,
+            hardiness_rating=hardiness_rating,
+            winter_action=winter_action,
+            **labels,
+        )
+
+    def _resolve_subject_labels(
+        self,
+        tenant_key: str,
+        *,
+        plant_key: str | None,
+        planting_run_key: str | None,
+    ) -> dict[str, str | None]:
+        """Resolve the speaking labels for a red subject via the available repos.
+
+        A ``plant_key`` subject resolves its name / ``instance_id`` / species / location
+        from the plant-instance; a ``planting_run_key`` subject resolves the run name and
+        its location. Species catalog data is global (already tenant-safe); the plant,
+        run and location documents are gated on ``tenant_key`` so no foreign-tenant label
+        can leak into the dashboard (SEC-001).
+        """
+        labels: dict[str, str | None] = {
+            "plant_name": None,
+            "instance_id": None,
+            "species_common_name": None,
+            "species_scientific_name": None,
+            "location_name": None,
+        }
+        species_key: str | None = None
+        location_key: str | None = None
+
+        if plant_key and self._plant_repo is not None:
+            plant = self._plant_repo.get_by_key(plant_key)
+            if plant is not None and plant.tenant_key == tenant_key:
+                labels["plant_name"] = plant.plant_name
+                labels["instance_id"] = plant.instance_id
+                species_key = plant.species_key
+                location_key = plant.location_key
+        elif planting_run_key and self._planting_run_repo is not None:
+            run = self._planting_run_repo.get_by_key(planting_run_key)
+            if run is not None and run.tenant_key == tenant_key:
+                labels["plant_name"] = run.name
+                location_key = run.location_key
+
+        if species_key and self._species_repo is not None:
+            species = self._species_repo.get_by_key(species_key)
+            if species is not None:
+                labels["species_scientific_name"] = species.scientific_name
+                labels["species_common_name"] = species.common_names[0] if species.common_names else None
+
+        if location_key and self._site_repo is not None:
+            location = self._site_repo.get_location_by_key(location_key)
+            if location is not None and location.tenant_key == tenant_key:
+                labels["location_name"] = location.name
+
+        return labels
 
     # ── Helpers ─────────────────────────────────────────────────────────
 

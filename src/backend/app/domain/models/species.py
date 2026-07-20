@@ -303,6 +303,19 @@ class Species(BaseModel):
     plant_category: PlantCategory | None = None
     nutrient_demand_level: NutrientDemandLevel | None = None
     green_manure_suitable: bool = False
+    # ── Fakultative Kulturführung (REQ-001/REQ-003, ADR-006 E6) ──
+    # Capability flag: True marks a species that can be genuinely grown EITHER as an
+    # annual OR as a perennial (a frost-tender perennial overwintered indoors vs. re-
+    # bought each year, a strawberry grown as an annual). It expresses the *capability*
+    # to choose, not the value — the practised default still comes from the
+    # cycle_type / cultivation_cycle_type axes (#297). Additive, defaults False, and
+    # master-data-managed (seed lifecycle_overrides); the plant-instance create flow
+    # reads it to gate the per-instance cultivation-cycle choice (ADR-006 E1/#539).
+    cultivation_flexible: bool = Field(
+        default=False,
+        description="Species can be cultivated facultatively as annual OR perennial (ADR-006 E6). "
+        "Capability flag; the practised default is still driven by cycle_type/cultivation_cycle_type.",
+    )
     pruning_months: list[int] = Field(default_factory=list)
     pruning_type: str | None = None
     # ── Toxizität & Allergene (REQ-001) ──

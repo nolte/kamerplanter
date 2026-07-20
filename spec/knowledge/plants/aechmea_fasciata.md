@@ -17,7 +17,7 @@
 | Familie | Bromeliaceae | `species.family` → `botanical_families.name` |
 | Gattung | Aechmea | `species.genus` |
 | Ordnung | Poales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | epiphyte | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |
@@ -364,7 +364,7 @@
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required
-Aechmea fasciata,Urnenpflanze;Lanzenrosette;Silver Vase Plant;Urn Plant,Bromeliaceae,Aechmea,perennial,day_neutral,herb,aerial,10a;10b;11a;11b,0.0,"Brasilien, Atlantischer Regenwald",yes,3,15,60,70,yes,limited,false,false
+Aechmea fasciata,Urnenpflanze;Lanzenrosette;Silver Vase Plant;Urn Plant,Bromeliaceae,Aechmea,perennial,day_neutral,epiphyte,aerial,10a;10b;11a;11b,0.0,"Brasilien, Atlantischer Regenwald",yes,3,15,60,70,yes,limited,false,false
 ```
 
 ---

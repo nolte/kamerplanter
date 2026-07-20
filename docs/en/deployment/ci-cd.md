@@ -112,7 +112,7 @@ jobs:
     steps:
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22    # (1)!
           cache: npm
           cache-dependency-path: src/frontend/package-lock.json
 
@@ -122,6 +122,8 @@ jobs:
       - run: npm run test
       - run: npm run build
 ```
+
+1. Only the `lint-test-build` job uses Node 22. The `bundle-budget` and `lighthouse` jobs in the same workflow run on Node 24 — matching the frontend Dockerfile, which builds with `node:24-alpine` (see [Frontend image](#frontend-image) below).
 
 !!! tip "Local check before pushing"
     ```bash
@@ -186,39 +188,45 @@ On a `v*` tag or manual trigger, the filtering is skipped — all components are
 
 ### Backend image
 
-The backend image is based on `python:3.14-slim` and is built as a single-stage build:
+The backend image is based on `python:3.14-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):
 
-```dockerfile title="src/backend/Dockerfile"
+```dockerfile title="src/backend/Dockerfile (simplified, prod stage)"
 FROM python:3.14-slim AS base
 WORKDIR /app
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
+COPY pyproject.toml requirements.txt requirements-dev.txt ./
+
+FROM base AS prod
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && pip install --no-cache-dir --no-deps .
 COPY . .
+RUN groupadd -g 1000 app && useradd -u 1000 -g 1000 -d /app -s /usr/sbin/nologin app \
+    && chown -R 1000:1000 /app
+USER 1000
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
-The image is pushed to `ghcr.io/nolte/kamerplanter-backend`.
+The image is pushed to `ghcr.io/nolte/kamerplanter-backend`. Dependencies come exclusively from the hash-pinned `requirements*.txt` locks (NFR-009), not directly from `pyproject.toml`.
 
-### Frontend image
+### Frontend image {#frontend-image}
 
-The frontend image uses a two-stage multi-stage build: first the React app is built with Node.js 22, then the static files are copied into a slim nginx image:
+The frontend image also uses a multi-stage Dockerfile: first the React app is built with Node.js 24, then the static files are copied into a slim, **unprivileged** nginx image (does not run as root, compatible with `runAsNonRoot`):
 
-```dockerfile title="src/frontend/Dockerfile"
-FROM node:22-alpine AS build
+```dockerfile title="src/frontend/Dockerfile (simplified)"
+FROM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+EXPOSE 8080
 ```
 
-The image is pushed to `ghcr.io/nolte/kamerplanter-frontend`.
+The image is pushed to `ghcr.io/nolte/kamerplanter-frontend`. The internal port is `8080` (unprivileged nginx can't bind to port 80), mapped to the public port 8080 in Docker Compose, and to port 80 on the service in the Helm chart.
 
 ### Image tags
 

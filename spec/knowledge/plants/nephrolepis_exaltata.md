@@ -20,7 +20,7 @@
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | fern | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Wurzelanpassungen | stoloniferous (Ausläufer) | `species.root_adaptations` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
@@ -332,7 +332,7 @@ Entfällt — reine Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level,air_purification_score
-Nephrolepis exaltata,"Schwertfarn;Bostonfarn;Boston Fern;Sword Fern",Nephrolepidaceae,Nephrolepis,perennial,day_neutral,herb,fibrous,"9a;9b;10a;10b;11a;11b","Tropisches Amerika",yes,3-15,15,30-90,60-150,yes,yes,false,light_feeder,0.8
+Nephrolepis exaltata,"Schwertfarn;Bostonfarn;Boston Fern;Sword Fern",Nephrolepidaceae,Nephrolepis,perennial,day_neutral,fern,fibrous,"9a;9b;10a;10b;11a;11b","Tropisches Amerika",yes,3-15,15,30-90,60-150,yes,yes,false,light_feeder,0.8
 ```
 
 ### 8.2 Cultivar CSV-Zeilen

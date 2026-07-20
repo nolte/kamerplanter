@@ -66,6 +66,51 @@ CORS_ORIGINS=["http://localhost:8080"]
 !!! warning "Passwörter"
     Verwende **nicht** die Beispielpasswörter aus `.env.example`. Generiere sichere Passwörter, z.B. mit `openssl rand -base64 24`. Beide Passwort-Felder (`ARANGO_ROOT_PASSWORD` und `ARANGODB_PASSWORD`) müssen identisch sein.
 
+### Drei zusätzliche Pflicht-Secrets (sonst startet das Backend nicht)
+
+!!! danger "Ohne diese drei Werte bricht der Backend-Start ab"
+    `.env.example` setzt `DEBUG=false` — der für einen Dauerbetrieb richtige Wert. Bei `DEBUG=false` prüft das Backend beim Start zusätzlich `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` und bricht mit einer Fehlermeldung ab, wenn einer davon fehlt (Fail-Fast-Gate). `docker-compose.release.yml` reicht diese drei Variablen **nicht automatisch** an den Backend-Container durch — du musst sie selbst ergänzen.
+
+Erzeuge die drei Werte und trage sie in deine `.env` ein:
+
+```bash
+# JWT_SECRET_KEY und ERASURE_TOMBSTONE_SALT (mind. 32 Zeichen)
+openssl rand -hex 32
+
+# FERNET_KEY (muss ein gültiger Fernet-Schlüssel sein)
+python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+```ini title=".env"
+JWT_SECRET_KEY=<Ausgabe von openssl rand -hex 32>
+FERNET_KEY=<Ausgabe des Fernet-Kommandos>
+ERASURE_TOMBSTONE_SALT=<zweite Ausgabe von openssl rand -hex 32>
+```
+
+Lege zusätzlich eine `docker-compose.override.yml` neben `docker-compose.release.yml` an — Docker Compose lädt sie automatisch mit:
+
+```yaml title="docker-compose.override.yml"
+services:
+  backend:
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+  celery-worker:
+    environment:
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+  celery-beat:
+    environment:
+      FERNET_KEY: ${FERNET_KEY}
+      ERASURE_TOMBSTONE_SALT: ${ERASURE_TOMBSTONE_SALT}
+```
+
+Vollständige Übersicht aller Pflicht-Secrets je Funktion: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+!!! warning "Ab jetzt beide Compose-Dateien angeben"
+    Da du eine zusätzliche `docker-compose.override.yml` angelegt hast, muss ab hier jeder `docker compose`-Befehl **beide** Dateien referenzieren: `-f docker-compose.release.yml -f docker-compose.override.yml`. Alle folgenden Befehle auf dieser Seite gehen davon aus.
+
 ---
 
 ## 3. Version festlegen
@@ -85,13 +130,13 @@ sed -i 's/__VERSION__/1.0.0/g' docker-compose.release.yml
 ## 4. Starten
 
 ```bash
-docker compose -f docker-compose.release.yml up -d
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml up -d
 ```
 
 Prüfe den Status:
 
 ```bash
-docker compose -f docker-compose.release.yml ps
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml ps
 ```
 
 Alle Dienste sollten nach 30–60 Sekunden als **running** oder **healthy** angezeigt werden.
@@ -135,8 +180,8 @@ cd ~/kamerplanter
 sed -i 's/alte-version/neue-version/g' docker-compose.release.yml
 
 # 2. Neue Images herunterladen und Dienste neu starten
-docker compose -f docker-compose.release.yml pull
-docker compose -f docker-compose.release.yml up -d
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml pull
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml up -d
 
 # 3. Alte, nicht mehr benötigte Images aufräumen (optional)
 docker image prune -f
@@ -158,12 +203,12 @@ Die Daten von Kamerplanter liegen in zwei Docker Volumes:
 
 ```bash
 # ArangoDB-Daten sichern
-docker compose -f docker-compose.release.yml exec arangodb \
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml exec arangodb \
   arangodump --server.password "$ARANGO_ROOT_PASSWORD" \
   --output-directory /tmp/backup --overwrite true
 
 # Backup aus dem Container kopieren
-docker compose -f docker-compose.release.yml cp \
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml cp \
   arangodb:/tmp/backup ./backup-$(date +%Y%m%d)
 ```
 
@@ -171,11 +216,11 @@ docker compose -f docker-compose.release.yml cp \
 
 ```bash
 # Backup in den Container kopieren
-docker compose -f docker-compose.release.yml cp \
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml cp \
   ./backup-20260317 arangodb:/tmp/backup
 
 # Daten wiederherstellen
-docker compose -f docker-compose.release.yml exec arangodb \
+docker compose -f docker-compose.release.yml -f docker-compose.override.yml exec arangodb \
   arangorestore --server.password "$ARANGO_ROOT_PASSWORD" \
   --input-directory /tmp/backup --overwrite true
 ```
@@ -206,7 +251,7 @@ Standardmäßig ist Kamerplanter nur über den Server selbst erreichbar. Um von 
 4. Starte die Dienste nach der Änderung neu:
 
     ```bash
-    docker compose -f docker-compose.release.yml up -d
+    docker compose -f docker-compose.release.yml -f docker-compose.override.yml up -d
     ```
 
 ---
@@ -222,7 +267,7 @@ Standardmäßig ist Kamerplanter nur über den Server selbst erreichbar. Um von 
 ## Fehlerbehebung
 
 ??? question "Die Seite lädt nicht (Verbindung abgelehnt)"
-    Prüfe, ob alle Dienste laufen: `docker compose -f docker-compose.release.yml ps`. Falls der Frontend-Dienst nicht läuft, prüfe die Logs: `docker compose -f docker-compose.release.yml logs frontend`.
+    Prüfe, ob alle Dienste laufen: `docker compose -f docker-compose.release.yml -f docker-compose.override.yml ps`. Falls der Frontend-Dienst nicht läuft, prüfe die Logs: `docker compose -f docker-compose.release.yml -f docker-compose.override.yml logs frontend`.
 
 ??? question "Backend meldet 'Connection refused' zur Datenbank"
     ArangoDB braucht beim ersten Start etwas länger. Warte 30 Sekunden und prüfe erneut. Falls der Fehler bleibt: Stimmen die Passwörter in `.env` überein? `ARANGO_ROOT_PASSWORD` und `ARANGODB_PASSWORD` müssen identisch sein.

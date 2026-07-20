@@ -72,12 +72,64 @@ describe('SpeciesCompanionTab', () => {
     expect(screen.getByText(`${i18n.t('pages.companionPlanting.score')}: 0.9`)).toBeInTheDocument();
   });
 
-  it('falls back to the species key when the scientific name is missing', async () => {
+  it('leads with the common (German) name and shows the scientific name as secondary text', async () => {
+    setupRelations(
+      [
+        {
+          species_key: 'sp-2',
+          scientific_name: 'Ocimum basilicum',
+          common_names: ['Basilikum', 'Basil'],
+          score: 0.9,
+        },
+      ],
+      [
+        {
+          species_key: 'sp-3',
+          scientific_name: 'Brassica oleracea',
+          common_names: ['Kohl', 'Cabbage'],
+          reason: 'Nährstoffkonkurrenz',
+        },
+      ],
+    );
+    renderWithProviders(
+      <SpeciesCompanionTab speciesKey="sp-1" speciesName="Tomate" fullScreen={false} />,
+    );
+
+    // Primary label is the DE common name and links to the species detail page.
+    const compatibleLink = await screen.findByRole('link', { name: 'Basilikum' });
+    expect(compatibleLink).toHaveAttribute('href', '/stammdaten/species/sp-2');
+    // Scientific name is present as secondary context (not the link label).
+    expect(screen.getByText('Ocimum basilicum')).toBeInTheDocument();
+
+    const incompatibleLink = screen.getByRole('link', { name: 'Kohl' });
+    expect(incompatibleLink).toHaveAttribute('href', '/stammdaten/species/sp-3');
+    expect(screen.getByText('Brassica oleracea')).toBeInTheDocument();
+    // Reason line stays intact alongside the scientific name.
+    expect(screen.getByText('Nährstoffkonkurrenz')).toBeInTheDocument();
+  });
+
+  it('falls back to the scientific name when no common name is available', async () => {
+    setupRelations(
+      [{ species_key: 'sp-2', scientific_name: 'Ocimum basilicum', common_names: [], score: 0.9 }],
+      [],
+    );
+    renderWithProviders(
+      <SpeciesCompanionTab speciesKey="sp-1" speciesName="Tomate" fullScreen={false} />,
+    );
+
+    // With no common name the scientific name becomes the primary link label and
+    // is not additionally repeated as secondary text.
+    const link = await screen.findByRole('link', { name: 'Ocimum basilicum' });
+    expect(link).toHaveAttribute('href', '/stammdaten/species/sp-2');
+    expect(screen.getAllByText('Ocimum basilicum')).toHaveLength(1);
+  });
+
+  it('falls back to the species key when neither common nor scientific name is present', async () => {
     setupRelations([{ species_key: 'sp-9', scientific_name: null, common_names: [], score: 0.5 }], []);
     renderWithProviders(
       <SpeciesCompanionTab speciesKey="sp-1" speciesName="Tomate" fullScreen={false} />,
     );
-    expect(await screen.findByText('sp-9')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'sp-9' })).toBeInTheDocument();
   });
 
   it('adds a compatible relation via the dialog', async () => {

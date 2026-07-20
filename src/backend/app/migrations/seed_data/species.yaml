@@ -2601,22 +2601,38 @@ perennial_species:
 lifecycle_overrides:
   # cultivation_cycle_type = practised lifespan when it differs from botanical cycle_type
   # cultivation_cycle_type + flowering_strategy
+  #
+  # cultivation_flexible (ADR-006 E6): capability flag "this species can genuinely be
+  # grown EITHER as an annual OR as a perennial". Set true ONLY where the Steckbrief
+  # (spec/knowledge/plants/*.md) documents that the standing plant can be overwintered
+  # / kept multi-year as a real grower choice — never guessed. It gates the per-instance
+  # cultivation-cycle choice in the plant-create flow (ADR-006 E1/#539). Applied to
+  # Species.cultivation_flexible by the seed_cultivation_flexible pass; defaults false.
+  # Per-species Steckbrief evidence is noted inline below.
   Apium graveolens: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   Brassica oleracea var. capitata: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
-  Capsicum annuum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, growth_determinacy: indeterminate }
+  # Paprika: "nicht streng einjaehrig ... frostfrei im Haus ueberwintert werden kann" (capsicum_annuum.md §4.2)
+  Capsicum annuum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, growth_determinacy: indeterminate, cultivation_flexible: true }
   Daucus carota: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   Foeniculum vulgare: { cultivation_cycle_type: annual, flowering_strategy: monocarpic }
-  Ocimum basilicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
-  Pelargonium zonale: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  # Basilikum: "einjaehrig kultiviert ... oder ganzjaehrig auf der Fensterbank/im Gewaechshaus" (ocimum_basilicum.md §1.2)
+  Ocimum basilicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
+  # Geranie: "koennen eingewintert werden (hell, 5-10C) oder werden jaehrlich neu gekauft" (pelargonium_zonale.md AB-003)
+  Pelargonium zonale: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
   Petroselinum crispum: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
-  Petunia x hybrida: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
-  Physalis peruviana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
-  Solanum lycopersicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, growth_determinacy: indeterminate }
+  # Petunie: "Ueberwinterung nur frostfrei (mind. +5C) als Stecklingspflanze oder in hellem Kalthaus moeglich" (petunia_x_hybrida.md §1.2)
+  Petunia x hybrida: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
+  # Andenbeere: "als Einjaehrige kultiviert ODER im Fruehling als Kuebelpflanze hereingeholt" (physalis_peruviana.md §1.2)
+  Physalis peruviana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
+  # Tomate: tender perennial, "in frostfreiem Klima ... mehrjaehrig weiterwachsen und -bluehen" (solanum_lycopersicum.md §4.2 / Quelle 29)
+  Solanum lycopersicum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, growth_determinacy: indeterminate, cultivation_flexible: true }
   # Cucumis sativus (cucumber): indeterminate — continuous fruit set on a stable
   # productive phase, no botanical lifespan/flowering override needed (REQ-003 E4).
   Cucumis sativus: { growth_determinacy: indeterminate }
-  Solanum melongena: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
-  Verbena x hybrida: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  # Aubergine: "In subtropischen Klimazonen mehrjaehrig" / tender perennial (solanum_melongena.md §1.1/§1.2)
+  Solanum melongena: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
+  # Verbene: "Ueberwinterung im frostfreien Quartier (5-10C) moeglich; Stecklinge ueberwintern besser" (verbena_x_hybrida.md §1.2)
+  Verbena x hybrida: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
   # flowering_strategy (monocarpic = flowers once then dies; polycarpic = repeat-flowering)
   Aechmea fasciata: { flowering_strategy: monocarpic }
   Aeschynanthus radicans: { flowering_strategy: polycarpic }
@@ -2674,7 +2690,9 @@ lifecycle_overrides:
   Ficus elastica: { flowering_strategy: polycarpic }
   Ficus lyrata: { flowering_strategy: polycarpic }
   Fittonia albivenis: { flowering_strategy: polycarpic }
-  Fragaria x ananassa: { flowering_strategy: polycarpic }
+  # Erdbeere: botanisch perennial (fragaria_x_ananassa.md §1.1, zyklischer Phasenverlauf §2.3);
+  # in der Praxis mehrjaehrig ODER einjaehrig gezogen (ADR-006 E6 / #541 "einjaehrig gezogene Erdbeere").
+  Fragaria x ananassa: { flowering_strategy: polycarpic, cultivation_flexible: true }
   Gardenia jasminoides: { flowering_strategy: polycarpic }
   Goeppertia lancifolia: { flowering_strategy: polycarpic }
   Goeppertia makoyana: { flowering_strategy: polycarpic }
@@ -2732,7 +2750,9 @@ lifecycle_overrides:
   # is not species-specifically verifiable for Spanish moss (growing-phase-auditor
   # 2026-07; sources silent, one hint at repeat-flowering) → null, not a guess.
   Tradescantia zebrina: { flowering_strategy: polycarpic }
-  Viola x wittrockiana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  # Stiefmuetterchen: kurzlebige Staude, "kulturell meist einjaehrig gefuehrt, bei Herbstaussaat
+  # mit Ueberwinterung auch zweijaehrig moeglich"; winterhart bis ~-10C (viola_x_wittrockiana.md §1.1/§1.2)
+  Viola x wittrockiana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
   Vriesea splendens: { flowering_strategy: monocarpic }
   Yucca elephantipes: { flowering_strategy: polycarpic }
   Zamioculcas zamiifolia: { flowering_strategy: polycarpic }
@@ -2754,9 +2774,18 @@ lifecycle_overrides:
   Pastinaca sativa: { cultivation_cycle_type: biennial, flowering_strategy: monocarpic }
   #
   # Frost-tender perennials cultivated as annuals (mirror Capsicum / Solanum lycopersicum)
-  Begonia semperflorens: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
-  Impatiens walleriana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  # cultivation_flexible where the Steckbrief documents overwintering as a real grower choice.
+  # Wachsbegonie: "1 (als Annuelle) ODER 3-5 (als Zimmerpflanze ueberwintert)"; frostfreie
+  # Ueberwinterung §4.3 (begonia_semperflorens.md §1.2/§4.3)
+  Begonia semperflorens: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
+  # Fleissiges Lieschen: "1 (als Einjaehrige) ODER 2-3 (ueberwintert als Zimmerpflanze)";
+  # frostfreie Ueberwinterung §4.3 (impatiens_walleriana.md §1.2/§4.3)
+  Impatiens walleriana: { cultivation_cycle_type: annual, flowering_strategy: polycarpic, cultivation_flexible: true }
+  # Kartoffel: NICHT flexible — die stehende Pflanze wird nicht ueberwintert; Fortfuehrung nur ueber
+  # eingelagerte Knollen (dig_store, solanum_tuberosum.md §4.3), keine annual-ODER-perennial-Pflanzenwahl.
   Solanum tuberosum: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
+  # Kapuzinerkresse: NICHT flexible — botanisch perennial, in der Praxis strikt einjaehrig
+  # ("Nov Abraeumen; kompostieren"), keine Ueberwinterung als Wahl dokumentiert (tropaeolum_majus.md §4.2)
   Tropaeolum majus: { cultivation_cycle_type: annual, flowering_strategy: polycarpic }
   #
   # Hardy herbaceous perennials, woody shrubs/trees & perennial fruit — repeat-flowering

@@ -1,6 +1,7 @@
 import client, { tenantClient } from '../client';
 import type {
   IdentificationHistoryEntry,
+  IdentificationInstanceLink,
   IdentificationSelection,
   IdentificationStatus,
   IdentifyResult,
@@ -88,6 +89,25 @@ export async function contributeReferenceImage(
     `${BASE}/reference`,
     formData,
     { headers: { 'Content-Type': 'multipart/form-data' } },
+  );
+  return data;
+}
+
+/**
+ * POST /t/{slug}/identification/{request_key}/instance — link an identification
+ * result to the plant instance created from it (#630).
+ *
+ * Persists the reference so the history can surface (and link to) the created
+ * instance, surviving reloads. Both the request and the instance are
+ * tenant-checked server-side; a foreign/missing record on either side is a 404.
+ */
+export async function linkPlantInstance(
+  requestKey: string,
+  plantInstanceKey: string,
+): Promise<IdentificationInstanceLink> {
+  const { data } = await tenantClient.post<IdentificationInstanceLink>(
+    `${BASE}/${requestKey}/instance`,
+    { plant_instance_key: plantInstanceKey },
   );
   return data;
 }

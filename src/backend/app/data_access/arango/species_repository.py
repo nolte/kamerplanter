@@ -45,10 +45,12 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         on a match the existing document is returned unchanged (``UPDATE {}``),
         otherwise the new species is inserted. Behaviour is identical to the prior
         lookup-then-create, but the window between check and insert is closed
-        server-side. NB: a *fully* TOCTOU-race-free guarantee against two
-        simultaneous inserts of the same normalized key additionally needs the
-        index to be unique — deferred to a follow-up migration because the index
-        cannot become unique until v0010 has de-duplicated every volume.
+        server-side. The remaining TOCTOU-race guarantee against two simultaneous
+        inserts of the same normalized key is provided by the DB-level *unique*
+        index on ``scientific_name_normalized`` — promoted from the non-unique
+        bootstrap index by migration v0025 once v0010 has de-duplicated every
+        volume (Issue #624). All three create paths (service, import, seed) route
+        through this UPSERT so no path bypasses the dedup.
         """
         doc = self._to_doc(species)
         now = self._now()

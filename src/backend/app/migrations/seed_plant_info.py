@@ -396,7 +396,11 @@ def run_seed_plant_info() -> None:  # noqa: C901, PLR0912, PLR0915
             logger.info("species_updated", name=sp.scientific_name)
             continue
 
-        created = species_repo.create(sp)
+        # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
+        # UPSERT so a stored normalized-duplicate (× vs x, casing, whitespace)
+        # missed by the exact-name lookup resolves onto the existing record
+        # instead of minting a second row.
+        created = species_repo.upsert_by_normalized_scientific_name(sp)
         species_key_map[sp.scientific_name] = created.key or ""
         logger.info("species_created", name=sp.scientific_name)
 

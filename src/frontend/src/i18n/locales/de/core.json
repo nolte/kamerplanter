@@ -1,0 +1,862 @@
+{
+  "modules": {
+    "guard": {
+      "title": "Dieses Modul ist ausgeblendet",
+      "description": "Du hast diesen Funktionsbereich in deinen Einstellungen ausgeblendet. Blende das Modul wieder ein, um den vollen Funktionsumfang zu nutzen.",
+      "dataSafeNote": "Deine Daten in diesem Bereich sind weiterhin vollständig vorhanden — das Ausblenden löscht nichts.",
+      "action": "In Einstellungen aktivieren",
+      "goBack": "Zurück"
+    },
+    "manage": {
+      "introTitle": "Module & Funktionen",
+      "subtitle": "Lege fest, welche Funktionsbereiche angezeigt werden. Dies ist eine reine Anzeige-Präferenz — es werden keine Daten gelöscht und keine Berechtigungen geändert.",
+      "searchPlaceholder": "Modul suchen …",
+      "searchAriaLabel": "Module durchsuchen",
+      "searchResultsAria": "{{count}} Modul gefunden für \"{{query}}\"",
+      "searchResultsAria_other": "{{count}} Module gefunden für \"{{query}}\"",
+      "categoryCount": "{{count}} Modul",
+      "categoryCount_other": "{{count}} Module",
+      "reset": "Auf Erfahrungsstufe zurücksetzen",
+      "resetAriaLabel": "{{module}}: Übersteuerung aufheben und Erfahrungsstufe folgen",
+      "manualOn": "Manuell eingeblendet",
+      "manualOff": "Manuell ausgeblendet",
+      "followsLevelVisible": "Folgt Stufe: sichtbar",
+      "followsLevelHidden": "Folgt Stufe: ausgeblendet",
+      "smartHomeLocked": "Über Smart Home gesteuert",
+      "smartHomeLockedHint": "Dieses Modul wird über die Smart-Home-Einstellung gesteuert. Aktiviere die Smart-Home-Funktionen unter Integrationen, um es einzublenden.",
+      "switchAriaLabel": "{{module}} — {{state}}",
+      "coreSectionTitle": "Kern-Module",
+      "coreSectionTooltip": "Kern-Module sind immer sichtbar und können nicht ausgeblendet werden — sie bilden die Grundlage der Anwendung.",
+      "coreSectionTooltipAriaLabel": "Erklärung: Warum können Kern-Module nicht ausgeblendet werden?",
+      "coreTooltip": "Grundfunktion, immer sichtbar",
+      "coreAriaLabel": "{{module}} — Grundfunktion, immer sichtbar",
+      "noResultsTitle": "Kein Modul gefunden",
+      "noResultsHint": "Für \"{{query}}\" gibt es keine Treffer. Überprüfe die Schreibweise oder suche nach einem anderen Begriff.",
+      "clearSearch": "Suche zurücksetzen"
+    },
+    "categories": {
+      "care_planning": "Pflege & Planung",
+      "nutrition_water": "Düngung & Wasser",
+      "plant_protection": "Pflanzenschutz",
+      "harvest": "Ernte",
+      "cultivation": "Anbau",
+      "inventory": "Inventar & Ausrüstung",
+      "master_data": "Stammdaten",
+      "automation": "Automation",
+      "ai": "KI",
+      "knowledge": "Wissen & Referenz"
+    },
+    "dashboard": {
+      "label": "Dashboard",
+      "description": "Startseite mit Übersicht und Schnellzugriffen."
+    },
+    "plants": {
+      "label": "Meine Pflanzen",
+      "description": "Deine Pflanzen und ihre Details."
+    },
+    "locations": {
+      "label": "Standorte",
+      "description": "Standorte, Bereiche und Stellplätze."
+    },
+    "settings": {
+      "label": "Einstellungen",
+      "description": "Konto- und Anwendungseinstellungen."
+    },
+    "onboarding": {
+      "label": "Onboarding",
+      "description": "Einrichtungsassistent für den Einstieg."
+    },
+    "calendar": {
+      "label": "Kalender",
+      "description": "Termine, Aufgaben und Aussaatkalender im Zeitverlauf."
+    },
+    "watering": {
+      "label": "Gießprotokoll",
+      "description": "Protokoll von Gieß- und Düngevorgängen."
+    },
+    "tasks": {
+      "label": "Aufgaben & Workflows",
+      "description": "Aufgabenplanung und wiederkehrende Workflows."
+    },
+    "nutrition": {
+      "label": "Düngung & Nährstoffpläne",
+      "description": "Dünger, Nährstoffpläne und Düngeprotokolle."
+    },
+    "tanks": {
+      "label": "Tankmanagement",
+      "description": "Tanks, Füllstände und Tankwartung."
+    },
+    "aquaponics": {
+      "label": "Aquaponik",
+      "description": "Fisch-Pflanzen-Kreislaufsysteme, Stickstoffkreislauf und Wassertests."
+    },
+    "substrates": {
+      "label": "Substrate",
+      "description": "Substratverwaltung und Wiederverwendung."
+    },
+    "calculators": {
+      "label": "Kalkulatoren (VPD/GDD/EC)",
+      "description": "Berechnungswerkzeuge für Klima und Nährstoffe."
+    },
+    "ipm": {
+      "label": "Pflanzenschutz (IPM)",
+      "description": "Schädlinge, Krankheiten und Behandlungen."
+    },
+    "harvest": {
+      "label": "Ernte & Erntechargen",
+      "description": "Ernteplanung, Erntechargen und Qualität."
+    },
+    "post_harvest": {
+      "label": "Post-Harvest",
+      "description": "Nacherntebehandlung wie Trocknen und Aushärten."
+    },
+    "runs": {
+      "label": "Pflanzdurchläufe",
+      "description": "Gruppenmanagement von Pflanzdurchläufen."
+    },
+    "propagation": {
+      "label": "Vermehrung",
+      "description": "Stecklinge, Aussaat und genetische Abstammung."
+    },
+    "overwintering": {
+      "label": "Überwinterung",
+      "description": "Überwinterungsprofile, Schutzmaßnahmen und Winterquartier für kälteempfindliche Pflanzen."
+    },
+    "phases": {
+      "label": "Phasen (Definitionen & Abläufe)",
+      "description": "Wachstumsphasen wie Keimung oder Blüte und ihre Reihenfolge im Anbauzyklus."
+    },
+    "inventory": {
+      "label": "Betriebsmittel & Inventar",
+      "description": "Betriebsmittel wie Pumpen, Sensoren und Werkzeuge, optional verknüpft mit InvenTree."
+    },
+    "master_data": {
+      "label": "Stammdaten (Arten/Familien/Import)",
+      "description": "Botanische Familien, Arten, Aktivitäten und Import."
+    },
+    "companion": {
+      "label": "Mischkultur & Fruchtfolge",
+      "description": "Mischkultur-Empfehlungen und Fruchtfolge-Planung."
+    },
+    "automation": {
+      "label": "Umgebungssteuerung & Aktorik",
+      "description": "Regelbasierte Steuerung von Aktoren und Umgebungsparametern."
+    },
+    "ai": {
+      "label": "KI-Bilderkennung",
+      "description": "Bildbasierte Pflanzen- und Schädlingserkennung."
+    },
+    "ai_assistant": {
+      "label": "KI-Assistent",
+      "description": "Chat-Assistent für Wissensfragen zur Pflanzenpflege, mit klar als KI gekennzeichneten Antworten."
+    },
+    "glossary": {
+      "label": "Glossar",
+      "description": "Nachschlagewerk für Fachbegriffe wie VPD oder EC rund um den Anbau."
+    }
+  },
+  "storageSettings": {
+    "title": "Speicher",
+    "intro": "Lege fest, wo Kamerplanter Binärdaten (Fotos, Importe, Exporte) ablegt. Die Auswahl gilt für die gesamte Instanz und wirkt sofort nach dem Speichern.",
+    "targetRegion": "Datenspeicherort (DSGVO §6.5): {{region}}",
+    "targetRegionHelp": "Der geografische Ort, an dem Dateien gespeichert werden. Laut DSGVO §6.5 muss dieser dem Nutzer transparent gemacht werden.",
+    "regionLocal": "Lokales Volume im Cluster",
+    "regionUnknown": "nicht angegeben",
+    "backendLabel": "Speicher-Backend",
+    "backendDesc": "Wähle, wie Dateien gespeichert werden. Lokales Dateisystem ist einfach einzurichten; S3-kompatibel eignet sich für skalierbare oder externe Objektspeicher (AWS S3, MinIO, Backblaze B2 usw.).",
+    "backendLocalFs": "Lokales Dateisystem",
+    "backendLocalFsDesc": "Dateien werden direkt auf einem Datenträger im Cluster gespeichert. Geeignet für Einzelinstallationen.",
+    "backendS3": "S3-kompatibel (AWS S3, MinIO, Backblaze B2 …)",
+    "backendS3Desc": "Dateien werden in einem Objektspeicher abgelegt. Skalierbar und für verteilte Installationen empfohlen.",
+    "localFsRoot": "Speicherpfad",
+    "localFsRootHelper": "Absoluter Pfad zum Verzeichnis im Container, in das Dateien geschrieben werden (z. B. /data/attachments). Das Verzeichnis muss vorhanden und vom Backend-Prozess beschreibbar sein.",
+    "localFsPublicBaseUrl": "Öffentliche Basis-URL",
+    "localFsPublicBaseUrlHelper": "Optionale URL, unter der die gespeicherten Dateien öffentlich erreichbar sind (z. B. https://media.meine-domain.de). Leer lassen, wenn Dateien ausschließlich über das Backend ausgeliefert werden sollen.",
+    "s3SectionBasic": "Verbindung",
+    "s3SectionBasicDesc": "Endpunkt, Region und Bucket identifizieren eindeutig, wo Dateien abgelegt werden.",
+    "s3SectionAdvanced": "Erweiterte Optionen",
+    "s3SectionAdvancedDesc": "Pfad-Stil und TLS sind in den meisten Cloud-Umgebungen standardmäßig korrekt vorkonfiguriert. Nur anpassen, wenn dein Anbieter es ausdrücklich verlangt.",
+    "s3EndpointUrl": "Endpunkt-URL",
+    "s3EndpointUrlHelper": "Die API-URL des S3-Dienstes, z. B. https://s3.eu-central-1.amazonaws.com (AWS) oder https://play.min.io (MinIO). Für AWS S3 kann dieses Feld leer bleiben.",
+    "s3Region": "Region",
+    "s3RegionHelper": "Pflichtfeld — auch bei MinIO erforderlich. Beispiel: eu-central-1 (AWS Frankfurt) oder us-east-1. Bestimmt den Datenspeicherort (DSGVO-Relevanz).",
+    "s3Bucket": "Bucket-Name",
+    "s3BucketHelper": "Name des Buckets, in dem Kamerplanter Dateien ablegt. Der Bucket muss bereits existieren und dem konfigurierten Zugang zugänglich sein.",
+    "s3KmsKeyId": "KMS-Schlüssel-ID (optional)",
+    "s3KmsKeyIdHelper": "Amazon Resource Name (ARN) oder Alias eines AWS KMS Customer Managed Key für serverseitige Verschlüsselung (SSE-KMS). Leer lassen, um die Standard-Verschlüsselung des Anbieters zu verwenden (empfohlen für den Start).",
+    "s3UsePathStyleLabel": "Path-Style-URLs verwenden",
+    "s3UsePathStyleHelper": "Path-Style: Bucket-Name ist Teil des URL-Pfads (https://endpoint/bucket/objekt). Virtueller Hosting-Stil (Standard bei AWS S3): Bucket ist Subdomain (https://bucket.endpoint/objekt). Path-Style ist für MinIO und die meisten Nicht-AWS-Anbieter erforderlich.",
+    "s3ForceTlsLabel": "TLS erzwingen",
+    "s3ForceTlsHelper": "Verweigert unverschlüsselte HTTP-Verbindungen zum Speicher. Sollte in Produktionsumgebungen immer aktiviert sein. Nur für lokale Entwicklung mit selbst-signiertem Zertifikat deaktivieren.",
+    "credentialsSectionTitle": "Zugangsdaten",
+    "credentialsSectionDesc": "S3 Access Key ID und Secret Access Key werden aus Sicherheitsgründen nicht in dieser Oberfläche eingegeben oder gespeichert. Sie müssen als Umgebungsvariablen (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY) oder über den External Secrets Operator bereitgestellt werden.",
+    "credentialsConfigured": "Beide Zugangsdaten (Access Key ID und Secret) sind über die Umgebung konfiguriert. Die Verbindung kann getestet werden.",
+    "credentialsMissing": "Keine S3-Zugangsdaten gefunden. Bitte AWS_ACCESS_KEY_ID und AWS_SECRET_ACCESS_KEY als Umgebungsvariablen oder über den External Secrets Operator bereitstellen.",
+    "credentialsWhyNotHere": "Warum gibt es hier kein Passwortfeld?",
+    "credentialsWhyNotHereExplain": "Secrets in der Datenbank zu speichern birgt Sicherheitsrisiken (Leaks via API, Backups, Logs). Kamerplanter liest Zugangsdaten ausschließlich aus der Umgebung, wo sie durch den Cluster-Secrets-Manager geschützt sind.",
+    "sourceDb": "Hier konfiguriert",
+    "sourceEnv": "Aus Umgebung",
+    "testButton": "Verbindung testen",
+    "testingButton": "Teste…",
+    "saveButton": "Speichern",
+    "saveSuccess": "Speicher-Einstellungen gespeichert.",
+    "saveError": "Speicher-Einstellungen konnten nicht gespeichert werden.",
+    "testError": "Verbindungstest konnte nicht ausgeführt werden.",
+    "testResultSuccess": "Verbindung erfolgreich",
+    "testResultFailed": "Verbindung fehlgeschlagen",
+    "loadError": "Speicher-Einstellungen konnten nicht geladen werden."
+  },
+  "haPublish": {
+    "sectionTitle": "Home Assistant",
+    "label": "Als Home-Assistant-Sensor veröffentlichen",
+    "helper": "Wenn aktiviert, wird dieses Element an Home Assistant übertragen und dort als Sensor angezeigt. Standardmäßig wird nichts übertragen.",
+    "enabled": "Veröffentlichung an Home Assistant aktiviert",
+    "disabled": "Veröffentlichung an Home Assistant deaktiviert",
+    "loadError": "Veröffentlichungsstatus konnte nicht geladen werden.",
+    "saveError": "Veröffentlichungsstatus konnte nicht gespeichert werden.",
+    "loadingAriaLabel": "Wird geladen…",
+    "manage": {
+      "title": "Veröffentlichte Elemente",
+      "intro": "Wähle aus, welche Pflanzen, Tanks und Standorte an Home Assistant übertragen werden. Standardmäßig wird nichts übertragen.",
+      "tabPlants": "Pflanzen",
+      "tabTanks": "Tanks",
+      "tabLocations": "Standorte",
+      "colName": "Name",
+      "colPublished": "Veröffentlicht",
+      "publishedCount": "{{count}} von {{total}} veröffentlicht",
+      "toggleAria": "{{name}} an Home Assistant veröffentlichen",
+      "noEntities": "Keine Elemente vorhanden.",
+      "searchPlaceholder": "Suchen…",
+      "searchAriaLabel": "Einträge filtern",
+      "noSearchResults": "Keine Einträge gefunden.",
+      "clearSearch": "Suche zurücksetzen",
+      "tableAriaLabel": "Home-Assistant-Veröffentlichungsstatus",
+      "subTabsAriaLabel": "Entitätstyp auswählen",
+      "linkTitle": "Detailseite öffnen",
+      "selectAllAria": "Alle sichtbaren Einträge auswählen",
+      "selectRowAria": "{{name}} auswählen",
+      "bulkBarAria": "Aktionen für ausgewählte Einträge",
+      "bulkSelected": "{{count}} ausgewählt",
+      "bulkEnable": "Veröffentlichen",
+      "bulkDisable": "Nicht veröffentlichen",
+      "bulkClear": "Auswahl aufheben",
+      "bulkEnabled": "Ausgewählte Elemente werden veröffentlicht.",
+      "bulkDisabled": "Ausgewählte Elemente werden nicht mehr veröffentlicht.",
+      "filterAriaLabel": "Sichtbarkeit filtern",
+      "filterActiveOnly": "Nur aktive",
+      "filterShowAll": "Alle anzeigen",
+      "inactiveChip": "Inaktiv",
+      "removedOn": "Entfernt am {{date}}",
+      "noActiveEntities": "Keine aktiven Einträge vorhanden."
+    }
+  },
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "done": "Fertig",
+    "create": "Erstellen",
+    "add": "Hinzufügen",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "search": "Suchen",
+    "status": "Status",
+    "loading": "Wird geladen...",
+    "processing": "Wird verarbeitet...",
+    "noData": "Keine Daten vorhanden",
+    "none": "Keine",
+    "name": "Name",
+    "actions": "Aktionen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "yes": "Ja",
+    "no": "Nein",
+    "on": "An",
+    "off": "Aus",
+    "optional": "Optional",
+    "copy": "Kopie",
+    "required": "Pflichtfeld",
+    "rowsPerPage": "Zeilen pro Seite",
+    "of": "von",
+    "unsavedChanges": "Sie haben ungespeicherte Änderungen. Möchten Sie die Seite wirklich verlassen?",
+    "deleteConfirm": "Sind Sie sicher, dass Sie \"{{name}}\" löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "createdAt": "Erstellt am",
+    "updatedAt": "Aktualisiert am",
+    "skipToContent": "Zum Inhalt springen",
+    "toggleSidebar": "Seitenleiste umschalten",
+    "sliderLabel": "{{label}} (Regler)",
+    "days": "Tage",
+    "months_unit": "Monate",
+    "showAllFields": "Alle Felder anzeigen",
+    "showFewerFields": "Weniger Felder anzeigen",
+    "saved": "Gespeichert",
+    "lightModeWarning": "Kamerplanter laeuft im Light-Modus ohne Authentifizierung. Dieser Modus ist nur fuer geschlossene Netzwerke gedacht.",
+    "all": "Alle",
+    "clearFilters": "Filter löschen",
+    "active": "Aktiv",
+    "retry": "Erneut versuchen",
+    "more": "weitere",
+    "description": "Beschreibung",
+    "yesterday": "Gestern",
+    "tomorrow": "Morgen",
+    "addFavorite": "Als Favorit markieren",
+    "removeFavorite": "Favorit entfernen",
+    "selectAll": "Alle auswählen",
+    "deselectAll": "Auswahl aufheben",
+    "loadingError": "Fehler beim Laden der Daten.",
+    "favorites": "Favoriten",
+    "other": "Sonstige",
+    "unknown": "Unbekannt",
+    "langDE": "Deutsch",
+    "langEN": "Englisch",
+    "open": "Öffnen",
+    "showAll": "Alle anzeigen ({{count}})",
+    "showLess": "Weniger anzeigen",
+    "origin": {
+      "system": "System",
+      "enrichment": "Angereichert",
+      "import": "Importiert",
+      "tenant": "Eigene",
+      "tooltipSystem": "Vom System bereitgestellt. Kann nicht bearbeitet oder gelöscht werden.",
+      "tooltipEnrichment": "Automatisch über externe Quellen angereichert. Kann nicht direkt bearbeitet werden.",
+      "tooltipImport": "Über CSV-Import hinzugefügt. Kann bearbeitet und gelöscht werden.",
+      "tooltipTenant": "Selbst angelegt oder bearbeitet. Volle Bearbeitungs- und Löschrechte.",
+      "filterLabel": "Herkunft",
+      "copyAsTemplate": "Als Vorlage kopieren",
+      "copyAsTemplateUnavailable": "Das Kopieren als Vorlage steht in Kürze zur Verfügung.",
+      "readOnlyHint": "Systemdaten können nicht bearbeitet werden."
+    },
+    "glossary": {
+      "unit": "Einheit",
+      "typical": "Typisch"
+    },
+    "failed": "Fehlgeschlagen"
+  },
+  "table": {
+    "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
+    "noSearchResults": "Keine Ergebnisse für Ihre Suche gefunden",
+    "resetFilters": "Filter zurücksetzen",
+    "sortedBy": "Sortiert nach",
+    "searchPlaceholder": "Tabelle durchsuchen...",
+    "activeFilters": "{{count}} Filter aktiv",
+    "activeFilters_other": "{{count}} Filter aktiv",
+    "clearFilters": "Filter zurücksetzen",
+    "noFilterResults": "Keine Einträge entsprechen den gewählten Filtern.",
+    "filterGroupLabel": "Spaltenfilter",
+    "showFilters": "Filter einblenden",
+    "hideFilters": "Filter ausblenden"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "stammdaten": "Stammdaten",
+    "botanicalFamilies": "Botanische Familien",
+    "species": "Arten",
+    "companionPlanting": "Mischkultur",
+    "cropRotation": "Fruchtfolge",
+    "standorte": "Standorte",
+    "sites": "Standorte",
+    "substrates": "Substrate",
+    "pflanzen": "Pflanzen",
+    "plantInstances": "Pflanzeninstanzen",
+    "plantIdentification": "Pflanze erkennen",
+    "calculations": "Berechnungen",
+    "durchlaeufe": "Durchläufe",
+    "overwintering": "Überwinterung",
+    "propagation": "Vermehrung & Abstammung",
+    "plantingRuns": "Pflanzdurchläufe",
+    "successionPlans": "Staffelanbau",
+    "tanks": "Tanks",
+    "aquaponik": "Aquaponik",
+    "aquaponicSystems": "Aquaponik-Systeme",
+    "umgebungssteuerung": "Umgebungssteuerung",
+    "environmentControl": "Aktorik & Steuerung",
+    "inventar": "Inventar",
+    "equipment": "Betriebsmittel",
+    "duengung": "Düngung",
+    "fertilizers": "Düngemittel",
+    "nutrientPlans": "Nährstoffpläne",
+    "feedingEvents": "Düngeereignisse",
+    "wateringEvents": "Gießvorgänge",
+    "nutrientCalculations": "Nährstoff-Berechnungen",
+    "pflanzenschutz": "Pflanzenschutz",
+    "pestDetection": "Schädling erkennen",
+    "pests": "Schädlinge",
+    "diseases": "Krankheiten",
+    "treatments": "Behandlungen",
+    "ernte": "Ernte",
+    "harvestBatches": "Erntechargen",
+    "postHarvest": "Nacherntebehandlung",
+    "aufgaben": "Aufgaben",
+    "taskQueue": "Aufgabenwarteschlange",
+    "workflows": "Workflows",
+    "activityPlans": "Aktivitätspläne",
+    "mainNavigation": "Hauptnavigation",
+    "pflege": "Pflege",
+    "onboarding": "Einrichtung",
+    "settings": "Einstellungen",
+    "adminSettings": "Administration",
+    "activities": "Tätigkeiten",
+    "import": "Import",
+    "calendar": "Kalender",
+    "wateringLog": "Gießprotokoll",
+    "kiAssistent": "KI-Assistent",
+    "glossary": "Glossar",
+    "phasen": "Phasen",
+    "detail": "Details",
+    "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
+  },
+  "errors": {
+    "network": "Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung.",
+    "networkTimeout": "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie es erneut.",
+    "server": "Serverfehler: Bitte versuchen Sie es später erneut.",
+    "serverWithDetail": "Serverfehler: {{detail}}",
+    "forbidden": "Sie haben keine Berechtigung für diese Aktion.",
+    "conflict": "Konflikt: Die Ressource wurde zwischenzeitlich geändert.",
+    "tooLarge": "Die Datei ist zu groß. Bitte wählen Sie eine kleinere Datei.",
+    "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
+    "validation": "Bitte überprüfen Sie Ihre Eingaben.",
+    "validationWithDetail": "Validierungsfehler: {{detail}}",
+    "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
+    "unknown": "Ein unbekannter Fehler ist aufgetreten.",
+    "loadFailed": "Die Daten konnten nicht geladen werden.",
+    "optionsLoadFailed": "Auswahloptionen konnten nicht geladen werden.",
+    "tenantsLoadFailed": "Die Mandanten konnten nicht geladen werden.",
+    "onboardingStateLoadFailed": "Der Onboarding-Status konnte nicht geladen werden.",
+    "starterKitsLoadFailed": "Die Starter-Sets konnten nicht geladen werden.",
+    "preferencesLoadFailed": "Die Einstellungen konnten nicht geladen werden."
+  },
+  "entities": {
+    "botanicalFamily": "Botanische Familie",
+    "botanicalFamilies": "Botanische Familien",
+    "species": "Art",
+    "speciesPlural": "Arten",
+    "cultivar": "Sorte",
+    "cultivars": "Sorten",
+    "site": "Standort",
+    "sites": "Standorte",
+    "location": "Bereich",
+    "locations": "Bereiche",
+    "slot": "Stellplatz",
+    "slots": "Stellplätze",
+    "substrate": "Substrat",
+    "substrates": "Substrate",
+    "batch": "Charge",
+    "batches": "Chargen",
+    "plantInstance": "Pflanze",
+    "plantInstances": "Pflanzen",
+    "phase": "Phase",
+    "phases": "Phasen",
+    "lifecycle": "Lebenszyklus",
+    "profile": "Profil",
+    "plantingRun": "Pflanzdurchlauf",
+    "plantingRuns": "Pflanzdurchläufe",
+    "tank": "Tank",
+    "tanks": "Tanks",
+    "fertilizer": "Düngemittel",
+    "fertilizers": "Düngemittel",
+    "nutrientPlan": "Nährstoffplan",
+    "nutrientPlans": "Nährstoffpläne",
+    "feedingEvent": "Düngeereignis",
+    "feedingEvents": "Düngeereignisse",
+    "wateringEvent": "Gießvorgang",
+    "wateringEvents": "Gießvorgänge",
+    "wateringLog": "Gießprotokoll",
+    "wateringLogs": "Gießprotokolle",
+    "pest": "Schadling",
+    "pests": "Schadlinge",
+    "disease": "Krankheit",
+    "diseases": "Krankheiten",
+    "treatment": "Behandlung",
+    "treatments": "Behandlungen",
+    "inspection": "Inspektion",
+    "inspections": "Inspektionen",
+    "treatmentApplication": "Behandlungsanwendung",
+    "treatmentApplications": "Behandlungsanwendungen",
+    "harvestBatch": "Erntecharge",
+    "harvestBatches": "Erntechargen"
+  },
+  "ai": {
+    "badge": {
+      "label": "KI-generiert",
+      "tooltipUnknown": "KI-generierte Antwort"
+    },
+    "tenantData": {
+      "label": "Nutzt deine Pflanzendaten",
+      "tooltip": "Diese Antwort wurde auf Basis der Stammwerte deiner Pflanze erzeugt (Art, Phase, Substrat, EC/pH). Es werden keine Namen oder Freitext-Notizen übermittelt.",
+      "link": "Datenschutz-Einstellungen öffnen"
+    },
+    "cloud": {
+      "label": "Cloud-Verarbeitung",
+      "tooltip": "Diese Anfrage wird über einen Cloud-Provider ({{provider}}) verarbeitet — möglicherweise eine Drittland-Datenübermittlung."
+    },
+    "confidence": {
+      "lowLabel": "Allgemeine Information",
+      "lowTooltip": "Diese Antwort basiert auf allgemeiner Datenlage zu {{species}}, nicht auf deiner spezifischen Sorte „{{cultivar}}“. Tenant-eigene Sorten haben keine eigene Wissensbasis.",
+      "genericSpecies": "der Pflanzengattung",
+      "yourCultivar": "deiner Sorte"
+    },
+    "languageMismatch": "Antwort auf Deutsch — die englische Wissensbasis ist noch im Aufbau.",
+    "sources": {
+      "title": "Quellen ({{count}})",
+      "score": "Relevanz {{score}}"
+    },
+    "disclaimer": "KI-Antworten können fehlerhaft sein. Bei kritischen Entscheidungen bitte die Quellen prüfen.",
+    "dailyTip": {
+      "heading": "Tipp des Tages",
+      "dismiss": "Tipp des Tages schließen"
+    },
+    "tips": {
+      "heading": "KI-Pflegehinweise",
+      "refresh": "Aktualisieren",
+      "learnMore": "Mehr erfahren"
+    },
+    "why": {
+      "tooltip": "Warum?",
+      "title": "Warum diese Empfehlung?",
+      "thinking": "KI denkt nach …",
+      "error": "Die Erklärung konnte nicht geladen werden. Bitte versuche es erneut.",
+      "follow": "Dieser Empfehlung folgen",
+      "retry": "Erneut versuchen"
+    },
+    "chat": {
+      "title": "KI-Chat",
+      "empty": "Stelle eine Frage zu deinen Pflanzen — der Assistent kennt deren aktuelle Phase und Messwerte.",
+      "placeholder": "Deine Frage …",
+      "inputLabel": "Nachricht",
+      "send": "Senden",
+      "cancel": "Antwort abbrechen",
+      "aborted": "Antwort abgebrochen.",
+      "thinking": "KI denkt nach …",
+      "error": "Die Antwort konnte nicht geladen werden.",
+      "retry": "Erneut versuchen"
+    },
+    "errors": {
+      "disabled": "Die KI-Funktionen sind für diesen Garten aktuell deaktiviert. Eine Administratorin oder ein Administrator kann sie in den Tenant-Einstellungen aktivieren.",
+      "consentRequired": "Für diese KI-Funktion fehlt deine Einwilligung zur Nutzung deiner Pflanzendaten. Du kannst sie in den Datenschutz-Einstellungen erteilen.",
+      "consentRequiredLink": "Zu den Datenschutz-Einstellungen"
+    }
+  },
+  "components": {
+    "plantInstancePicker": {
+      "searchHelper": "Suche nach Pflanzenname oder Kennung",
+      "noResults": "Keine Pflanze gefunden",
+      "loading": "Pflanzen werden geladen…"
+    }
+  },
+  "tankAlerts": {
+    "ph_out_of_range": "pH {{value}} außerhalb des zulässigen Bereichs ({{limit_min}}–{{limit_max}})",
+    "ph_drift": "pH-Drift von {{value}} seit letztem Wasserwechsel (max. {{limit}})",
+    "ec_high": "EC {{value}} mS/cm überschreitet den Grenzwert (max. {{limit}} mS/cm)",
+    "ec_deviation_alarm": "EC {{value}} mS/cm weicht stark vom Zielwert {{limit}} mS/cm ab",
+    "ec_deviation_warning": "EC {{value}} mS/cm weicht vom Zielwert {{limit}} mS/cm ab",
+    "temperature_warm_critical": "Wassertemperatur {{value}}°C — kritisch warm (max. {{limit}}°C)",
+    "temperature_warm_warning": "Wassertemperatur {{value}}°C — zu warm (max. {{limit}}°C)",
+    "temperature_cold_critical": "Wassertemperatur {{value}}°C — kritisch kalt (min. {{limit}}°C)",
+    "temperature_cold_warning": "Wassertemperatur {{value}}°C — zu kalt (min. {{limit}}°C)",
+    "do_critical": "Gelöstsauerstoff {{value}} mg/L — kritisch niedrig (min. {{limit}} mg/L)",
+    "do_suboptimal": "Gelöstsauerstoff {{value}} mg/L — suboptimal (min. {{limit}} mg/L)",
+    "compound_temp_do": "Warmes Wasser ({{value}}°C) + niedriger Sauerstoff — Wurzelfäule-Risiko",
+    "orp_pathogen_risk": "ORP {{value}} mV — Krankheitserreger-Risiko (min. {{limit}} mV)",
+    "orp_sterilization_low": "ORP {{value}} mV — Sterilisation unzureichend (min. {{limit}} mV)",
+    "fill_level_low": "Füllstand {{value}}% — Nachfüllen erforderlich (min. {{limit}}%)",
+    "algae_risk": "Algenrisiko ({{value}} Risikofaktoren)",
+    "algae_risk_title": "Algenrisiko — folgende Faktoren begünstigen Algenwachstum:",
+    "algae_factor_not_light_proof": "Tank ist nicht lichtdicht — Licht fördert Algenwachstum",
+    "algae_factor_no_lid": "Kein Deckel — offene Oberfläche ermöglicht Sporeneinfall",
+    "algae_factor_warm_water": "Wassertemperatur {{temp}}°C — über 22°C beschleunigt Algenwachstum",
+    "algae_factor_nutrient_rich": "Nährstofflösung im Tank — Nährstoffe sind Algenfutter",
+    "solution_age": "Lösungsalter {{value}} Tage — Wasserwechsel empfohlen",
+    "chlorine_warning": "Chlor {{value}} ppm — kann Mikroorganismen schädigen",
+    "chloramine_warning": "Chloramin {{value}} ppm — Aktivkohle-Behandlung erforderlich",
+    "biofilm_risk": "Biofilm-Risiko — Lösung seit {{value}} Tagen ohne Sterilisation"
+  },
+  "sensorChart": {
+    "noData": "Keine Messdaten vorhanden",
+    "loadError": "Messdaten konnten nicht geladen werden"
+  },
+  "print": {
+    "downloadPdf": "Als PDF herunterladen",
+    "printing": "PDF wird erstellt...",
+    "success": "PDF wurde erfolgreich heruntergeladen",
+    "error": "PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
+    "nutrientPlan": "Nährstoffplan als PDF herunterladen",
+    "careChecklist": "Pflege-Checkliste als PDF herunterladen",
+    "plantLabels": "Pflanzen-Infokarten",
+    "plantLabelsTitle": "Pflanzen-Infokarten drucken",
+    "plantLabelsIntro": "Erstellt druckfertige PDF-Karten für Ihre Pflanzen. Jede Karte enthält einen QR-Code, mit dem Sie die Pflanze direkt in der App öffnen können – praktisch für das Beschriften von Töpfen, Beeten oder Regalen.",
+    "plantLabelsCount_one": "1 Pflanze ausgewählt",
+    "plantLabelsCount_other": "{{count}} Pflanzen ausgewählt",
+    "plantLabelsNone": "Keine Pflanzen vorhanden. Bitte zuerst Pflanzen anlegen.",
+    "fieldsLabel": "Angezeigte Felder",
+    "fieldsIntro": "Wählen Sie die Informationen, die auf jeder Karte erscheinen sollen.",
+    "fieldName": "Pflanzenname",
+    "fieldScientificName": "Wissenschaftlicher Name",
+    "fieldFamily": "Familie",
+    "fieldPlantedDate": "Pflanzdatum",
+    "fieldCurrentPhase": "Aktuelle Wachstumsphase",
+    "fieldLocation": "Standort",
+    "fieldCultivar": "Sorte / Cultivar",
+    "fieldNote": "Kurzhinweis",
+    "fieldQrCode": "QR-Code (immer enthalten)",
+    "fieldQrCodeHelper": "Scannt der QR-Code, öffnet sich die Pflanzenseite direkt in der App — ideal für schnellen Zugriff vor Ort.",
+    "layoutLabel": "Drucklayout",
+    "layoutIntro": "Bestimmt, wie viele Karten pro A4-Seite gedruckt werden.",
+    "layoutSingle": "Einzelkarte (A6, eine Karte pro Seite)",
+    "layoutSingleHelper": "Groß und detailreich — ideal für einzelne Schaupflanzen.",
+    "layoutGrid2x4": "Raster 2×4 (8 Karten pro Seite)",
+    "layoutGrid2x4Helper": "Kompakt — gut für Etikettierungen im Gewächshaus.",
+    "layoutGrid3x3": "Raster 3×3 (9 Karten pro Seite)",
+    "layoutGrid3x3Helper": "Sehr kompakt — optimal für viele Pflanzen auf einmal.",
+    "printLabels": "Infokarten drucken",
+    "printLabelsShort": "Etiketten"
+  },
+  "dashboard": {
+    "manageWidgets": "Widgets verwalten",
+    "coachmark": "Du kannst dein Dashboard anpassen: Widgets hinzufügen, anordnen und in der Größe ändern — über „Bearbeiten“ oder in den Einstellungen.",
+    "empty": {
+      "title": "Dein Dashboard ist leer",
+      "hint": "Füge Widgets aus dem Katalog hinzu, um deine Startseite zu gestalten.",
+      "chooseWidgets": "Widgets auswählen",
+      "restoreDefault": "Standard wiederherstellen"
+    },
+    "widgetError": {
+      "title": "Widget konnte nicht geladen werden",
+      "hint": "Beim Laden dieses Widgets ist ein Fehler aufgetreten."
+    },
+    "manage": "Widgets verwalten",
+    "gate": {
+      "moduleHidden": "Modul ausgeblendet",
+      "lightMode": "Im Light-Modus nicht verfügbar",
+      "aiDisabled": "KI-Funktion — erst nach Registrierung verfügbar"
+    },
+    "categories": {
+      "essentials": "Wesentliches",
+      "insights": "Einblicke",
+      "cultivation": "Anbau",
+      "monitoring": "Monitoring"
+    },
+    "edit": {
+      "enter": "Bearbeiten",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "moveUpOf": "{{widget}} nach oben verschieben",
+      "moveDownOf": "{{widget}} nach unten verschieben",
+      "movedUp": "{{widget}} nach oben verschoben",
+      "movedDown": "{{widget}} nach unten verschoben",
+      "removed": "{{widget}} entfernt",
+      "grew": "{{widget}} vergrößert",
+      "shrank": "{{widget}} verkleinert",
+      "grow": "Größer",
+      "shrink": "Kleiner",
+      "growOf": "{{widget}} vergrößern",
+      "shrinkOf": "{{widget}} verkleinern",
+      "configureOf": "{{widget}} konfigurieren",
+      "configure": "Konfigurieren",
+      "remove": "Entfernen",
+      "widgetMenu": "Menü für {{widget}}",
+      "breakpointSwitcher": "Breakpoint auswählen",
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "mobile": "Mobil",
+      "applyToAll": "Aktuelle Anordnung für alle Breakpoints übernehmen",
+      "applyToAllShort": "Für alle übernehmen"
+    },
+    "config": {
+      "title": "{{widget}} konfigurieren",
+      "noOptions": "Keine Einstellungen verfügbar",
+      "fields": {
+        "location": "Standort",
+        "timeframe_days": "Zeitraum (Tage)"
+      }
+    },
+    "settings": {
+      "title": "Dashboard-Widgets",
+      "subtitle": "Wähle aus, welche Widgets auf deiner Startseite erscheinen, ordne sie an und passe ihre Größe an.",
+      "reset": "Auf Standard zurücksetzen",
+      "arrange": "Anordnen & Größe",
+      "noActive": "Keine aktiven Widgets. Aktiviere unten Widgets aus dem Katalog.",
+      "inactiveModuleHidden": "inaktiv (Modul ausgeblendet)"
+    },
+    "events": {
+      "none": "In den nächsten 7 Tagen steht nichts an.",
+      "untitled": "Unbenannte Aufgabe"
+    },
+    "plantGrid": {
+      "unnamed": "Unbenannte Pflanze",
+      "empty": "Noch keine aktiven Pflanzen.",
+      "noMatches": "Keine Pflanzen entsprechen den Filtern.",
+      "format": {
+        "label": "Kartenformat",
+        "detailed": "Detailliert",
+        "compact": "Kompakt"
+      },
+      "filters": {
+        "phase": "Phase",
+        "location": "Standort",
+        "task": "Aufgaben"
+      },
+      "filterValues": {
+        "noPhase": "Ohne Phase",
+        "noLocation": "Ohne Standort",
+        "hasTask": "Mit offener Aufgabe",
+        "noTask": "Ohne offene Aufgabe"
+      },
+      "card": {
+        "phase": "Phase",
+        "nextDue": "Fällig: {{date}}",
+        "openTask": "Offene Aufgabe",
+        "openTaskAria": "hat eine offene Aufgabe",
+        "reference": "Nr. {{id}}"
+      }
+    },
+    "nav": {
+      "openWidget": "{{widget}} öffnen",
+      "openListNamed": "{{widget}}-Liste öffnen",
+      "openTask": "Aufgabe öffnen: {{task}}",
+      "openPlant": "Pflanze öffnen: {{plant}}",
+      "openSpecies": "Art öffnen: {{species}}",
+      "openLocation": "Standort öffnen: {{location}}",
+      "openPhase": "Phase öffnen: {{phase}}"
+    },
+    "widgets": {
+      "comingSoon": "In Vorbereitung",
+      "quick_actions": {
+        "label": "Schnellzugriff",
+        "description": "Direkte Kacheln zu häufig genutzten Bereichen."
+      },
+      "active_plants_summary": {
+        "label": "Aktive Pflanzen",
+        "description": "Überblick über deine aktiven Pflanzen.",
+        "metrics": {
+          "plants_total": "Pflanzen gesamt",
+          "plants_active": "Aktiv"
+        }
+      },
+      "tasks_today": {
+        "label": "Aufgaben heute",
+        "description": "Heute fällige und überfällige Aufgaben.",
+        "metrics": {
+          "open_tasks_today": "Heute fällig",
+          "overdue_tasks": "Überfällig"
+        }
+      },
+      "care_reminders": {
+        "label": "Pflegeerinnerungen",
+        "description": "Anstehende Pflegeerinnerungen.",
+        "metrics": {
+          "care_reminders_due": "Erinnerungen fällig"
+        }
+      },
+      "daily_tip": {
+        "label": "Tipp des Tages",
+        "description": "Täglicher KI-Pflegetipp für deine Pflanzen."
+      },
+      "weather_forecast": {
+        "label": "Wettervorhersage",
+        "description": "Wetter für deine Outdoor-Standorte.",
+        "emptyHint": "Wetterdaten erscheinen hier, sobald du für einen Outdoor- oder Gewächshaus-Standort eine Wetterquelle eingerichtet hast.",
+        "configureCta": "Standorte öffnen",
+        "loadError": "Die Wettervorhersage konnte gerade nicht geladen werden. Versuch es später noch einmal – deine übrigen Kennzahlen sind davon nicht betroffen.",
+        "siteHeader": "Standort: {{name}}",
+        "tempRange": "min {{min}} °C / max {{max}} °C",
+        "frostTitle": "Frost erwartet",
+        "frostDetail": "Für den {{date}} wird Frost erwartet – Tiefstwerte um {{temp}} °C.",
+        "frostExplainer": "Frost (Temperaturen um oder unter 0 °C) kann frostempfindliche Pflanzen im Freien schädigen. Schütze oder räume sie rechtzeitig ein."
+      },
+      "onboarding_progress": {
+        "label": "Einrichtungsfortschritt",
+        "description": "Dein Fortschritt bei der Ersteinrichtung."
+      },
+      "winter_protection": {
+        "label": "Winterschutz",
+        "description": "Winterhärte-Ampel deiner Pflanzen."
+      },
+      "ipm_alerts": {
+        "label": "Pflanzenschutz-Warnungen",
+        "description": "Aktuelle Schädlings- und Krankheitswarnungen."
+      },
+      "harvest_forecast": {
+        "label": "Ernteprognose",
+        "description": "Voraussichtliche Erntetermine."
+      },
+      "next_calendar_events": {
+        "label": "Nächste Termine",
+        "description": "Deine nächsten Kalendereinträge."
+      },
+      "community_activity": {
+        "label": "Community-Aktivität",
+        "description": "Aktivitäten aus deinen Gemeinschaftsgärten."
+      },
+      "tank_status": {
+        "label": "Tankstatus",
+        "description": "Füllstände deiner Nährlösungstanks.",
+        "metrics": {
+          "tanks_low": "Tanks niedrig"
+        }
+      },
+      "phase_timeline": {
+        "label": "Phasen-Zeitleiste",
+        "description": "Wachstumsphasen deiner Pflanzen im Zeitverlauf."
+      },
+      "plant_grid": {
+        "label": "Pflanzenübersicht",
+        "description": "Kachelübersicht all deiner Pflanzen."
+      }
+    }
+  },
+  "diagnose": {
+    "title": "KI-Diagnose",
+    "subtitle": "Beschreibe die beobachteten Symptome und erhalte die drei wahrscheinlichsten Ursachen – verknüpft mit passenden Schädlingen und Behandlungen. Dies ist ein strukturierter Assistent, keine gesicherte Diagnose.",
+    "stepperAriaLabel": "Fortschritt der KI-Diagnose",
+    "stepIndicator": "Schritt {{current}} von {{total}}: {{label}}",
+    "status": {
+      "analyzing": "Diagnose wird durchgeführt …"
+    },
+    "symptoms": {
+      "causeHintLabel": "Mögliche Ursachen für „{{label}}“ anzeigen"
+    },
+    "steps": {
+      "symptoms": "Symptome",
+      "context": "Kontext",
+      "results": "Ergebnis",
+      "symptomsHelp": "Wähle alle zutreffenden Symptome aus. Je genauer die Auswahl, desto besser die Diagnose.",
+      "contextHelp": "Optional: Füge Anmerkungen hinzu oder nutze die Foto-Diagnose für eine Bilderkennung."
+    },
+    "categories": {
+      "leaf_color_change": "Verfärbung der Blätter",
+      "leaf_shape_change": "Veränderte Blattform",
+      "growth_anomaly": "Wachstumsstörung",
+      "pest_visible": "Sichtbare Schädlinge",
+      "disease_visible": "Sichtbare Krankheit",
+      "flowering_issue": "Blüte- oder Fruchtproblem",
+      "environmental": "Umweltbedingter Stress"
+    },
+    "context": {
+      "notesLabel": "Anmerkungen (optional)",
+      "notesHelp": "Deine Anmerkungen werden aus Datenschutzgründen nicht im Wortlaut an die KI übergeben – nur der Hinweis, dass du Anmerkungen gemacht hast.",
+      "photoHint": "Für eine Bild-basierte Diagnose steht die Foto-Erkennung zur Verfügung.",
+      "photoLink": "Zur Foto-Diagnose"
+    },
+    "actions": {
+      "analyze": "Diagnose starten",
+      "restart": "Neue Diagnose"
+    },
+    "results": {
+      "intro": "Die drei wahrscheinlichsten Ursachen, absteigend nach Konfidenz:",
+      "rank": "#{{rank}}",
+      "confidence": "{{percent}}% Konfidenz",
+      "actions": "Empfohlene Maßnahmen",
+      "pestLink": "Schädling im Detail ansehen",
+      "treatments": "Mögliche Behandlungen",
+      "treatmentKarenz": "{{name}} (Karenz {{days}} Tage)"
+    },
+    "errors": {
+      "loadSymptoms": "Der Symptomkatalog konnte nicht geladen werden.",
+      "analyze": "Die Diagnose konnte nicht durchgeführt werden. Bitte versuche es erneut.",
+      "serviceUnavailable": "Der Wissensassistent ist gerade nicht erreichbar. Bitte versuche es später erneut.",
+      "invalidOutput": "Die KI konnte kein verwertbares Ergebnis liefern. Bitte versuche es erneut.",
+      "noResult": "Zu den gewählten Symptomen konnte keine Diagnose ermittelt werden."
+    }
+  }
+}

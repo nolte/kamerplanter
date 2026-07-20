@@ -1,4 +1,6 @@
+from arango.collection import StandardCollection
 from arango.database import StandardDatabase
+from arango.exceptions import IndexCreateError
 
 # Document collections
 SPECIES = "species"
@@ -1642,6 +1644,42 @@ GRAPH_EDGE_DEFINITIONS = [
 ]
 
 
+#: Fields of the canonical species dedup index (REQ-048 Stufe 1 / SEC-003).
+SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS = ["scientific_name_normalized"]
+
+
+def ensure_species_normalized_index(species_col: StandardCollection) -> None:
+    """Ensure the canonical dedup index on ``scientific_name_normalized``.
+
+    Target state (REQ-048 Stufe 1 / SEC-003, Issue #624): a **unique** persistent
+    index so the database itself enforces normalized-name uniqueness across every
+    species-create path (service, import and seed).
+
+    ``ensure_collections`` runs at startup *before* the migration runner
+    (``run_pending_migrations``), so on an existing volume that still carries
+    un-reconciled normalization duplicates a unique-index creation would fail.
+    This helper therefore degrades gracefully: it creates the unique index when
+    that is safe (a fresh/empty volume, or one already reconciled by v0010/v0025)
+    and otherwise falls back to the non-unique bootstrap index — the v0025
+    migration then de-duplicates every volume and promotes the index to unique.
+    Once promoted, a re-run finds the unique index already present and is a no-op.
+    """
+    for idx in species_col.indexes():
+        if (
+            isinstance(idx, dict)
+            and idx.get("type") == "persistent"
+            and idx.get("fields") == SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS
+            and idx.get("unique")
+        ):
+            return  # already unique — nothing to do
+    try:
+        species_col.add_persistent_index(fields=SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS, unique=True)
+    except IndexCreateError:
+        # Duplicates still present (a pre-v0025 volume) — keep the non-unique
+        # bootstrap index so startup never fails; v0025 reconciles and promotes.
+        species_col.add_persistent_index(fields=SCIENTIFIC_NAME_NORMALIZED_INDEX_FIELDS, unique=False)
+
+
 def ensure_collections(db: StandardDatabase) -> None:
     """Create all collections and the graph if they don't exist."""
     for name in DOCUMENT_COLLECTIONS:
@@ -1655,11 +1693,11 @@ def ensure_collections(db: StandardDatabase) -> None:
     # Create indexes
     species_col = db.collection(SPECIES)
     species_col.add_persistent_index(fields=["scientific_name"], unique=True)
-    # Canonical dedup key (REQ-048 Stufe 1) — non-unique so bootstrap never fails
-    # on volumes that still carry un-reconciled normalization duplicates; the
-    # dedup itself is enforced in the service/engine layer. add_persistent_index
-    # is idempotent by field-set, so this also brings existing volumes to shape.
-    species_col.add_persistent_index(fields=["scientific_name_normalized"], unique=False)
+    # Canonical dedup key (REQ-048 Stufe 1 / SEC-003, Issue #624): a UNIQUE index
+    # so the DB enforces normalized-name uniqueness across every create path. On a
+    # not-yet-reconciled existing volume this degrades to the non-unique bootstrap
+    # index (startup runs before migrations); v0025 then dedups and promotes it.
+    ensure_species_normalized_index(species_col)
 
     families_col = db.collection(BOTANICAL_FAMILIES)
     families_col.add_persistent_index(fields=["name"], unique=True)

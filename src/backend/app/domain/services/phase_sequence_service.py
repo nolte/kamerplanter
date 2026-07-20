@@ -148,6 +148,16 @@ class PhaseSequenceService:
             setattr(seq, field, value)
         return self._repo.update_sequence(key, seq)
 
+    def clone_sequence(self, source_key: str, new_name: str) -> PhaseSequence:
+        """Clone a phase sequence (metadata + ordered entries) into an editable copy.
+
+        The clone is always tenant-owned and editable (``is_system=False``), so users
+        can derive custom lifecycles from read-only system sequences without rebuilding
+        every phase entry by hand. Raises ``NotFoundError`` if the source is missing.
+        """
+        self.get_sequence(source_key)  # ensure the source exists (404 otherwise)
+        return self._repo.clone_sequence(source_key, new_name)
+
     def delete_sequence(self, key: str) -> bool:
         seq = self.get_sequence(key)
         if seq.is_system:

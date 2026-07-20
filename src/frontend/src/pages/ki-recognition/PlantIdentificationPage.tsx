@@ -13,6 +13,7 @@ import ListItemText from '@mui/material/ListItemText';
 import Divider from '@mui/material/Divider';
 import Chip from '@mui/material/Chip';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -20,7 +21,8 @@ import PlantIdentificationDialog, {
   type IdentifiedSpecies,
 } from '@/components/identification/PlantIdentificationDialog';
 import PlantInstanceCreateDialog from '@/pages/pflanzen/PlantInstanceCreateDialog';
-import { LOCAL_EMBEDDING_ADAPTER_KEY } from '@/api/endpoints/identification';
+import { LOCAL_EMBEDDING_ADAPTER_KEY, linkPlantInstance } from '@/api/endpoints/identification';
+import { useNotification } from '@/hooks/useNotification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchIdentificationHistory,
@@ -42,6 +44,7 @@ export default function PlantIdentificationPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const notification = useNotification();
 
   const status = useAppSelector((s) => s.identification.status);
   const statusLoading = useAppSelector((s) => s.identification.statusLoading);
@@ -68,12 +71,25 @@ export default function PlantIdentificationPage() {
   }, []);
 
   const handlePlantCreated = useCallback(
-    (key: string) => {
+    async (key: string) => {
+      const requestKey = resolvedSpecies?.requestKey;
       setResolvedSpecies(null);
+      // Persist the link from the identification record to the created instance
+      // (#630). Best-effort: the plant is already created, so a failed link must
+      // not block the flow — we warn and still refresh history + navigate. When
+      // it succeeds the history surfaces a link to the instance that survives a
+      // reload.
+      if (requestKey) {
+        try {
+          await linkPlantInstance(requestKey, key);
+        } catch {
+          notification.warning(t('pages.plantIdentification.historyLinkFailed'));
+        }
+      }
       dispatch(fetchIdentificationHistory(20));
       navigate(`/pflanzen/plant-instances/${key}`);
     },
-    [dispatch, navigate],
+    [dispatch, navigate, notification, t, resolvedSpecies],
   );
 
   return (
@@ -132,22 +148,39 @@ export default function PlantIdentificationPage() {
                   const top = entry.results[0];
                   const shown = selected ?? top;
                   const isLast = index === history.length - 1;
+                  const instanceKey = entry.plant_instance_key;
+                  // Once a plant instance was created from this result (#630), the
+                  // link to it is the most relevant status — show a clickable chip
+                  // navigating to the instance detail page. Otherwise keep the
+                  // existing "selected" indicator.
+                  const secondaryAction = instanceKey ? (
+                    <Chip
+                      icon={<LocalFloristIcon />}
+                      label={t('pages.plantIdentification.historyOpenInstance')}
+                      size="small"
+                      color="primary"
+                      variant="filled"
+                      clickable
+                      onClick={() => navigate(`/pflanzen/plant-instances/${instanceKey}`)}
+                      aria-label={t('pages.plantIdentification.historyOpenInstance')}
+                      data-testid="identification-history-instance-link"
+                      sx={{ height: { xs: 40, sm: 32 } }}
+                    />
+                  ) : selected ? (
+                    <Chip
+                      label={t('pages.plantIdentification.historySelected')}
+                      size="small"
+                      color="success"
+                      variant="outlined"
+                    />
+                  ) : undefined;
                   return (
                     <Box key={entry.key ?? `${entry.adapter_key}-${entry.created_at}`}>
                       <ListItem
                         disableGutters
                         data-testid="identification-history-item"
-                        secondaryAction={
-                          selected ? (
-                            <Chip
-                              label={t('pages.plantIdentification.historySelected')}
-                              size="small"
-                              color="success"
-                              variant="outlined"
-                            />
-                          ) : undefined
-                        }
-                        sx={{ pr: selected ? 14 : 0 }}
+                        secondaryAction={secondaryAction}
+                        sx={{ pr: secondaryAction ? 16 : 0 }}
                       >
                         <ListItemText
                           primary={
@@ -162,9 +195,22 @@ export default function PlantIdentificationPage() {
                             )
                           }
                           secondary={
-                            entry.created_at
-                              ? new Date(entry.created_at).toLocaleString()
-                              : undefined
+                            <>
+                              {entry.created_at
+                                ? new Date(entry.created_at).toLocaleString()
+                                : null}
+                              {instanceKey && (
+                                <Typography
+                                  component="span"
+                                  variant="caption"
+                                  color="success.main"
+                                  sx={{ display: 'block' }}
+                                  data-testid="identification-history-instance-created"
+                                >
+                                  {t('pages.plantIdentification.historyInstanceCreated')}
+                                </Typography>
+                              )}
+                            </>
                           }
                         />
                       </ListItem>

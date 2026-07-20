@@ -1,0 +1,210 @@
+{
+  "glossary": {
+    "aktor": {
+      "short": "A device that physically controls something (light, fan, pump, valve)",
+      "long": "An actuator physically carries out commands — it switches a lamp, spins a fan, or opens an irrigation valve. Unlike a sensor (which only measures), an actuator actively changes the environment. Actuators are controlled via Home Assistant, MQTT, or manually.",
+      "beginnerTip": "Think of an actuator as a remote-controlled switch: light, exhaust, heater, pump — anything you can turn on and off.",
+      "category": "allgemein"
+    },
+    "ec": {
+      "short": "Conductivity — how much fertiliser is in the water",
+      "long": "EC measures nutrient concentration in irrigation water. Total EC = tap water EC + fertiliser EC. German tap water sits around 0.3–0.8 mS/cm. For potted plants aim for total EC 1.0–2.0 mS/cm. Hydroponics work with net EC (fertiliser only) tuned to the species.",
+      "beginnerTip": "Without an EC meter: stick to the dosing on the bottle. Slightly less is safer than too much.",
+      "unit": "mS/cm",
+      "typicalRange": "0.5–3.5 mS/cm"
+    },
+    "alkalinity": {
+      "short": "Carbonate hardness of water — buffers against pH changes",
+      "long": "Alkalinity (in ppm CaCO₃) describes how strongly a water resists pH changes. Hard water with high alkalinity needs more acid to lower the pH — this uses up EC budget that would otherwise be available for fertiliser. Soft water (low alkalinity) needs very little acid.",
+      "beginnerTip": "Without a water test: regular tap water is usually 50–150 ppm. A reverse-osmosis filter lowers alkalinity to near 0.",
+      "unit": "ppm CaCO₃",
+      "typicalRange": "0–300 ppm (depends on tap water)"
+    },
+    "ph": {
+      "short": "Acidity of soil or irrigation water",
+      "long": "The pH value tells you how acidic or alkaline a medium is. Scale 0–14: below 7 = acidic, 7 = neutral, above 7 = alkaline. Most plants prefer slightly acidic to neutral soil (pH 5.5–7.0). Blueberries need acidic soil (pH 4.0–5.0).",
+      "beginnerTip": "Standard potting soil is usually fine. Only check the pH if you see problems (yellow leaves despite fertilising).",
+      "unit": "pH",
+      "typicalRange": "5.5–7.0"
+    },
+    "vpd": {
+      "short": "Vapour pressure deficit — how 'thirsty' the air is",
+      "long": "VPD measures how much moisture the air can still absorb. High VPD = dry air = the plant transpires more. Optimal values are species-dependent: tropicals like 0.4–0.8 kPa, vegetative crops 0.8–1.2 kPa, cacti tolerate >1.5 kPa.",
+      "beginnerTip": "Usually not an issue indoors. Mainly relevant inside sealed grow tents.",
+      "unit": "kPa",
+      "typicalRange": "0.4–1.6 kPa"
+    },
+    "ppfd": {
+      "short": "Plant-relevant light — how bright it really is",
+      "long": "PPFD measures the light intensity plants can actually use. Unlike lux (for the human eye) PPFD covers only the photosynthetically active spectrum.",
+      "beginnerTip": "Rule of thumb: south-facing window with direct sun ≈ 200–400. East/west ≈ 100–200. North-facing < 50.",
+      "unit": "µmol/m²/s",
+      "typicalRange": "100–1500 µmol/m²/s"
+    },
+    "npk": {
+      "short": "Nitrogen-phosphorus-potassium — the three macro nutrients",
+      "long": "The three numbers on every fertiliser bottle: N (nitrogen, leafy growth), P (phosphorus, roots & flowers), K (potassium, fruiting & resilience).",
+      "beginnerTip": "For beginners a universal fertiliser is enough — the NPK numbers are printed on the bottle."
+    },
+    "calmag": {
+      "short": "Calcium-magnesium supplement on top of the base feed",
+      "long": "Soft water lacks calcium and magnesium. CalMag compensates and is ALWAYS added BEFORE the base feed (mixing order matters!).",
+      "beginnerTip": "Only needed in hydroponics or with very soft water. Most tap water already has enough."
+    },
+    "gdd": {
+      "short": "Growing-degree days — accumulated heat since planting",
+      "long": "GDD measures how much usable heat a plant has accumulated since the start. Every day above a base temperature (e.g. 10°C) adds degree days. Tomatoes need around 1000–1500 GDD until harvest.",
+      "beginnerTip": "You don't have to calculate this yourself — the system tracks it automatically.",
+      "unit": "GDD"
+    },
+    "dli": {
+      "short": "Daily light integral — how much light per day",
+      "long": "DLI sums up the total light a surface receives over a day. Important for grow planning: herbs need 12–20, tomatoes 20–40 mol/m²/d.",
+      "beginnerTip": "Sunny windowsill in summer ≈ 10–15 mol/m²/d. In winter only 3–5.",
+      "unit": "mol/m²/d",
+      "typicalRange": "5–40 mol/m²/d"
+    },
+    "hardiness_zones": {
+      "short": "Hardiness zones — how much frost the plant can survive",
+      "long": "USDA system with zones 1–13. Germany lies in zones 6–8. A plant rated for zone 7 survives temperatures down to about -15°C.",
+      "beginnerTip": "Only relevant for outdoor plants and overwintering. Not important for purely indoor plants."
+    },
+    "dinov2": {
+      "short": "AI image recognition model by Meta — identifies plants from visual features",
+      "long": "DINOv2 is a self-supervised AI model by Meta that converts images into numerical feature vectors (embeddings). Kamerplanter compares photos with stored reference features of all plant species to identify plants — without any cloud connection.",
+      "beginnerTip": "No configuration needed — DINOv2 runs locally on your server and never sends photos externally.",
+      "category": "allgemein"
+    },
+    "confidence_score": {
+      "short": "Match probability — how certain is the identification?",
+      "long": "The confidence score shows how similar the photo is to the stored reference images of a species. 90% means the system is 90% certain. Results below the minimum threshold are not shown at all; results above the auto-accept threshold are accepted automatically.",
+      "beginnerTip": "If no result is shown, the photo may be blurry or not showing the right plant parts.",
+      "unit": "% (percent)",
+      "typicalRange": "10–100 %",
+      "category": "allgemein"
+    },
+    "embedding_adapter": {
+      "short": "Recognition method — which algorithm processes your plant photo",
+      "long": "An adapter is the software layer that converts a plant photo into comparable numerical values (features). 'local_embedding' means: this happens on your own server using the DINOv2 model, without any external services.",
+      "beginnerTip": "For most installations 'local_embedding' is the right choice.",
+      "category": "allgemein"
+    },
+    "ipm": {
+      "short": "Integrated Pest Management — prevention before chemicals",
+      "long": "Three-tier approach: 1) Prevent (healthy plants, hygiene), 2) Monitor (check regularly), 3) Intervene (beneficials before pesticides). Chemical agents are always the last resort.",
+      "beginnerTip": "Healthy plants get pests less often. Regular inspection is enough for starters."
+    },
+    "karenzzeit": {
+      "short": "Mandatory waiting time between last treatment and harvest",
+      "long": "After applying chemical plant protection products, a minimum period must pass before the harvest may be consumed. The duration is printed on the product label and required by law.",
+      "beginnerTip": "Never harvest when a pre-harvest interval is active. The system will warn you automatically."
+    },
+    "nuetzlinge": {
+      "short": "Natural enemies of pest organisms",
+      "long": "Beneficial organisms (e.g. ladybirds, lacewings, parasitic wasps, predatory mites) feed on or parasitise pests. Their deliberate use is biological pest control and protects people and the environment.",
+      "beginnerTip": "Ladybirds against aphids is the best-known example. In greenhouses, beneficials can be purchased and released."
+    },
+    "ammonia_tan": {
+      "short": "Ammonia/ammonium (TAN) — toxic fish waste that must stay low",
+      "long": "TAN (Total Ammonia Nitrogen) is the sum of toxic free ammonia (NH₃) and non-toxic ammonium (NH₄⁺). Fish excrete it through their gills, and biofilter bacteria convert it to nitrite. High TAN is life-threatening for fish — especially at high pH and high temperature, when more of it exists as toxic free ammonia.",
+      "beginnerTip": "Test regularly, especially during the first weeks (cycling phase) and after heavy feeding. If levels rise, do a partial water change and reduce feeding immediately.",
+      "unit": "mg/L",
+      "typicalRange": "0–0.5 mg/L (0 once cycled)"
+    },
+    "nitrite": {
+      "short": "Nitrite (NO₂⁻) — toxic intermediate step of the nitrogen cycle",
+      "long": "Nitrite forms when biofilter bacteria break down ammonia. It is toxic to fish because it blocks oxygen uptake in the blood. A second group of bacteria converts nitrite further into less toxic nitrate — until that group is established, a nitrite spike is typical during cycling.",
+      "beginnerTip": "A nitrite spike around week 3–5 of cycling is normal. If levels rise, reduce feeding and do a partial water change.",
+      "unit": "mg/L",
+      "typicalRange": "0–0.1 mg/L (0 once cycled)"
+    },
+    "nitrate": {
+      "short": "Nitrate (NO₃⁻) — end product of the nitrogen cycle, plant fertiliser",
+      "long": "Nitrate is the non-toxic end product of the nitrogen cycle and the most important nitrogen nutrient for the plants in the system. Rising nitrate alongside low ammonia and nitrite shows the biofilter is working reliably.",
+      "beginnerTip": "If nitrate keeps rising while ammonia and nitrite stay low, that's a good sign — the cycle is working.",
+      "unit": "mg/L",
+      "typicalRange": "5–150 mg/L (system-dependent)"
+    },
+    "dissolved_oxygen": {
+      "short": "Dissolved oxygen — the oxygen level in the water fish breathe",
+      "long": "Fish and the nitrifying biofilter bacteria need dissolved oxygen in the water. Warm water holds less oxygen than cold water, so aeration matters especially at high temperature and high fish density.",
+      "beginnerTip": "Rule of thumb: above 5 mg/L is usually fine. A visibly bubbling air stone is generally enough oxygen.",
+      "unit": "mg/L",
+      "typicalRange": "5–9 mg/L"
+    },
+    "biofilter_cycling": {
+      "short": "Biofilter cycling — building up the beneficial bacteria culture",
+      "long": "Before fish can be stocked at full density, the biofilter needs to build up a bacteria culture that converts ammonia to nitrite and then to nitrate. This process takes 4–8 weeks. The filter counts as cycled after 7 consecutive days with TAN below 0.25 mg/L and nitrite below 0.1 mg/L.",
+      "beginnerTip": "Stock only a few hardy fish during cycling, or cycle fishless with pure ammonia. Check water values closely during this phase.",
+      "typicalRange": "4–8 weeks"
+    },
+    "curing": {
+      "short": "Curing after drying — lets aroma and potency mature",
+      "long": "During curing the dried harvest sits airtight (usually in jars). Residual moisture equalizes between stem and flower, chlorophyll keeps breaking down, and aroma and potency continue to develop. Jars are opened briefly each day at first so excess moisture can escape ('burping').",
+      "beginnerTip": "Impatience hurts the result: curing a few days longer beats opening the batch too early.",
+      "typicalRange": "2–4 weeks"
+    },
+    "water_activity": {
+      "short": "Water activity (a_w) — free water mold can use",
+      "long": "Water activity measures how much of the water in the batch is actually available to microorganisms (scale 0–1) — unlike raw moisture content in percent. Above a_w 0.65 the mold risk rises sharply, even if the batch already feels dry.",
+      "beginnerTip": "Without a meter, the snap test is a good approximation: if the stem snaps cleanly instead of bending, the batch is usually dry enough.",
+      "unit": "a_w (0–1)",
+      "typicalRange": "0.55–0.65 (safe for storage)"
+    },
+    "inventree": {
+      "short": "External inventory management system for your real-world stock",
+      "long": "InvenTree is a separate, external inventory management system. A \"part\" there is a single article (e.g. a spare pump). Link an equipment item to a part ID and Kamerplanter keeps stock and consumption in sync with InvenTree automatically (stock sync) — you no longer have to update quantities by hand.",
+      "beginnerTip": "The link is optional: you can still create and manage equipment normally without an InvenTree connection.",
+      "category": "allgemein"
+    },
+    "vermehrung": {
+      "short": "Growing new plants from an existing one",
+      "long": "Propagation covers all methods for creating new plants: sowing (seed), cutting/clone (rooting a plant part), division (splitting a root ball), layering (rooting a stem while still attached), offsets (natural side shoots), or grafting (joining two plants).",
+      "beginnerTip": "Cuttings are the easiest way to start: cut a shoot, let it root in water or soil.",
+      "category": "wachstum"
+    },
+    "steckling": {
+      "short": "A cut piece of a plant that grows new roots",
+      "long": "A cutting is a piece of stem, leaf or root separated from the mother plant and rooted on its own. The resulting plant is genetically identical to the mother plant (a clone).",
+      "beginnerTip": "Cut the shoot at an angle, remove the lowest leaves, place it in water or moist substrate — new roots usually appear within 1–3 weeks.",
+      "category": "wachstum"
+    },
+    "veredelung": {
+      "short": "Joining two plants into one — scion onto rootstock",
+      "long": "Grafting joins a shoot from one plant (the scion) onto the root system of another plant (the rootstock). This only works between closely related plants — most reliably within the same genus, sometimes still within the same family.",
+      "beginnerTip": "Classic example: a hardy tomato rootstock plus a high-yield scion for stronger growth and more fruit.",
+      "category": "wachstum"
+    },
+    "abstammung": {
+      "short": "A plant's genetic origin across generations",
+      "long": "Lineage shows which mother plant a plant descended from (ancestors) and which plants descended from it in turn (descendants). The system tracks this through propagation events such as cuttings, clones, sowings or grafts.",
+      "beginnerTip": "Handy for tracing which mother plant a particular cutting came from.",
+      "category": "taxonomie"
+    },
+    "gattung_familie": {
+      "short": "How closely related two plant species are, taxonomically",
+      "long": "Biological taxonomy groups species into genera (e.g. Solanum) and families (e.g. nightshades). The more closely two species are related, the more likely a graft between them succeeds: same genus is usually compatible, same family is often possible, different families are usually not compatible.",
+      "beginnerTip": "Tomato and potato share the same genus (Solanum) — grafting between them is possible (the 'TomTato').",
+      "category": "taxonomie"
+    },
+    "dormancy": {
+      "short": "Winter rest — a natural resting phase in which the plant barely grows",
+      "long": "During dormancy the plant slows its metabolism and largely stops growing — usually triggered by shorter days and falling temperatures. This is how it survives winter. Water much less during this time and do not fertilize; a cool but frost-free spot is ideal.",
+      "beginnerTip": "Normal for many perennials: they look 'asleep' in winter, which is not the same as dying. Just move them somewhere cooler and water sparingly.",
+      "category": "lebenszyklus"
+    },
+    "vernalization": {
+      "short": "The cold stimulus some plants need in order to flower",
+      "long": "Vernalization is a period of low temperatures (often near 0–10 °C for several weeks) that some species must go through before they can form flowers. Without this cold stimulus flowering does not happen. Typical for biennials and many brassicas and alliums.",
+      "beginnerTip": "This is why some plants only flower in their second year — they first need a winter before they bloom.",
+      "category": "lebenszyklus"
+    },
+    "photoperiod": {
+      "short": "Day length — how many hours of light the plant gets per day",
+      "long": "The photoperiod is the daily duration of light. Many plants control their flowering through it: short-day plants flower when days become shorter than a critical length, long-day plants when days are longer. Day-neutral plants flower regardless of day length.",
+      "beginnerTip": "Outdoors the season handles this by itself. It only matters under artificial light, where you set the lighting hours.",
+      "unit": "h/day",
+      "category": "lebenszyklus"
+    }
+  }
+}

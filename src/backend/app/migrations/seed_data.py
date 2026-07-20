@@ -105,74 +105,93 @@ def _load_harvest_indicators() -> list[dict]:
     return data.get("harvest_indicators", [])
 
 
-def _link_indoor_species_to_default_sequence(
-    species_key_map: dict[str, str],
-) -> None:
-    """Create HAS_PHASE_SEQUENCE edges from indoor species to their phase sequence.
+def _enum_value(value: object) -> str | None:
+    """Return ``value.value`` for an enum, the string itself, or ``None``."""
+    if value is None:
+        return None
+    return value.value if hasattr(value, "value") else str(value)
 
-    Attribute-driven (ADR-006 E2, #565): a perennial is bound to a *cyclic* sequence
-    (strawberry → ``perennial_runner``, other polycarpic perennials →
-    ``evergreen_foliage_perennial``) instead of the annual ``indoor_default`` blanket,
-    which terminates after one season. Non-perennial and monocarpic species keep
-    ``indoor_default`` (the latter await the clonal-pup template, a later-phase sweep).
-    Idempotent — skips species that already have an edge.
+
+def link_indoor_species_to_phase_sequence() -> None:
+    """Bind every indoor species without an edge to its precise phase sequence.
+
+    Attribute-driven fine-typing (REQ-003 D9–D12, audit #576 / #616): the CAM-succulent,
+    clonal-monocarp (Kindel), photoperiodic-ornamental and palm/fern/geophyte cohorts are
+    routed onto their biologically precise sequence via
+    :func:`~app.migrations.perennial_binding.resolve_phase_sequence_name`; every remaining
+    perennial lands on ``evergreen_foliage_perennial``; and ``indoor_default`` is only the
+    last-resort blanket for annual/biennial species without a better pattern.
+
+    Iterates **all** species (species.yaml base species *and* plant-info species) so the
+    resolver — not the blanket — decides. Idempotent: species that already carry a
+    HAS_PHASE_SEQUENCE edge (e.g. the explicitly-seeded outdoor lifecycles) are skipped, so
+    the resolver never overrides a more-precise binding and a re-run is a no-op.
     """
     from app.data_access.arango import collections as col
     from app.migrations.perennial_binding import (
         INDOOR_DEFAULT_SEQUENCE,
-        resolve_perennial_sequence_name,
+        resolve_phase_sequence_name,
     )
 
     ps_repo = get_phase_sequence_repo()
     lifecycle_repo = get_lifecycle_repo()
+    species_repo = get_species_repo()
     db = get_db()
 
-    # Resolve the sequence keys once (name -> _key). A perennial target that is not
-    # yet seeded is impossible here (phase_sequences are seeded before species), but
-    # guard anyway and fall back to indoor_default.
-    all_seqs, _ = ps_repo.get_all_sequences(0, 200)
+    # Resolve the sequence keys once (name -> _key). If the phase sequences have not been
+    # seeded yet (fresh install, this seed runs before the phase_sequences seed on the very
+    # first boot), skip — the reconcile step and the next boot pick it up.
+    all_seqs, _ = ps_repo.get_all_sequences(0, 500)
     seq_key_by_name: dict[str, str] = {s.name: (s.key or "") for s in all_seqs}
     indoor_key = seq_key_by_name.get(INDOOR_DEFAULT_SEQUENCE, "")
     if not indoor_key:
         logger.warning("indoor_default_sequence_not_found")
         return
 
+    # Load every species (paginated). ~210 rows — a 1000 page covers it with headroom.
+    all_species, _ = species_repo.get_all(0, 1000)
+
     edge_col = db.collection(col.HAS_PHASE_SEQUENCE)
     linked = 0
-    perennial_linked = 0
+    fine_typed = 0
 
-    for sci_name, sp_key in species_key_map.items():
+    for sp in all_species:
+        sp_key = sp.key or ""
+        if not sp_key:
+            continue
         species_id = f"{col.SPECIES}/{sp_key}"
 
-        # Check if any HAS_PHASE_SEQUENCE edge already exists for this species
+        # Skip species that already have an edge (explicit outdoor lifecycles, prior runs).
         existing = list(
             db.aql.execute(
-                "FOR e IN @@edge_col FILTER e._from == @from_id RETURN 1",
-                bind_vars={
-                    "@edge_col": col.HAS_PHASE_SEQUENCE,
-                    "from_id": species_id,
-                },
+                "FOR e IN @@edge_col FILTER e._from == @from_id LIMIT 1 RETURN 1",
+                bind_vars={"@edge_col": col.HAS_PHASE_SEQUENCE, "from_id": species_id},
             )
         )
         if existing:
             continue
 
-        # Route perennials onto a cyclic sequence; everything else onto indoor_default.
-        target_key = indoor_key
         lifecycle = lifecycle_repo.get_lifecycle_by_species(sp_key)
-        if lifecycle is not None:
-            cycle_type = lifecycle.cycle_type.value if hasattr(lifecycle.cycle_type, "value") else lifecycle.cycle_type
-            flowering = lifecycle.flowering_strategy.value if lifecycle.flowering_strategy is not None else None
-            target_name = resolve_perennial_sequence_name(sci_name, cycle_type, flowering)
-            if target_name and seq_key_by_name.get(target_name):
-                target_key = seq_key_by_name[target_name]
-                perennial_linked += 1
+        target_name = resolve_phase_sequence_name(
+            sp.scientific_name,
+            cycle_type=_enum_value(lifecycle.cycle_type) if lifecycle is not None else None,
+            flowering_strategy=_enum_value(lifecycle.flowering_strategy) if lifecycle is not None else None,
+            photosynthesis_type=_enum_value(sp.photosynthesis_type),
+            photoperiod_type=_enum_value(lifecycle.photoperiod_type) if lifecycle is not None else None,
+            growth_habit=_enum_value(sp.growth_habit),
+        )
+
+        target_key = seq_key_by_name.get(target_name or "", "")
+        if target_key:
+            fine_typed += 1
+        else:
+            target_key = indoor_key  # last-resort blanket
 
         edge_col.insert({"_from": species_id, "_to": f"{col.PHASE_SEQUENCES}/{target_key}"})
         linked += 1
 
     if linked:
-        logger.info("indoor_species_linked_to_phase_sequence", count=linked, perennial=perennial_linked)
+        logger.info("indoor_species_linked_to_phase_sequence", count=linked, fine_typed=fine_typed)
 
 
 def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
@@ -332,7 +351,11 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
         family_name = family_species_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
-        created_sp = species_repo.create(sp)
+        # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
+        # UPSERT so a stored normalized-duplicate (× vs x, casing, whitespace)
+        # missed by the exact-name lookup resolves onto the existing record
+        # instead of minting a second row.
+        created_sp = species_repo.upsert_by_normalized_scientific_name(sp)
         species_key = created_sp.key or ""
         species_key_map[sp.scientific_name] = species_key
         logger.info("species_created", name=sp.scientific_name, key=species_key)
@@ -378,8 +401,10 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
 
             logger.info("phase_created", species=sp.scientific_name, phase=phase_data["name"])
 
-    # ── Link indoor species to indoor_default PhaseSequence ─────────
-    _link_indoor_species_to_default_sequence(species_key_map)
+    # ── Link indoor species to their (attribute-resolved) PhaseSequence ─────
+    # No-op on the very first boot (phase_sequences seed later in the registry);
+    # the post-seed reconcile step and subsequent boots complete the linking.
+    link_indoor_species_to_phase_sequence()
 
     # ── Seed cultivars ───────────────────────────────────────────────
     for sci_name, cv_list in cultivar_data.items():

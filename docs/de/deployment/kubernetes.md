@@ -74,7 +74,26 @@ helm pull oci://ghcr.io/nolte/kamerplanter-helm/kamerplanter --version 0.2.0
     echo $GITHUB_TOKEN | helm registry login ghcr.io --username $GITHUB_USER --password-stdin
     ```
 
-### 2. Values-Datei erstellen
+### 2. Pflicht-Secrets anlegen
+
+!!! danger "Ohne dieses Secret startet kein Backend-Pod"
+    Bevor du das Chart installierst, muss das Kubernetes-Secret `kamerplanter-secrets` existieren. Der Backend-Container liest `ARANGODB_PASSWORD`, `ARANGO_ROOT_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` ausschließlich über `envFrom` aus diesem Secret — **nicht** aus `values.yaml`. Fehlt eines der vier zuletzt genannten Werte (bzw. bleibt `ARANGODB_PASSWORD` beim Literal `rootpassword`), bricht der Backend-Start mit `SystemExit` ab, sobald `DEBUG=false` gesetzt ist (Fail-Fast-Gate, `src/backend/app/main.py`). `ARANGO_ROOT_PASSWORD` muss dabei identisch mit `ARANGODB_PASSWORD` sein — beide gehen an denselben ArangoDB-Container.
+
+```bash
+kubectl create namespace kamerplanter
+
+kubectl create secret generic kamerplanter-secrets \
+  --namespace kamerplanter \
+  --from-literal=ARANGODB_PASSWORD="dein-sicheres-passwort" \
+  --from-literal=ARANGO_ROOT_PASSWORD="dein-sicheres-passwort" \
+  --from-literal=JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+  --from-literal=FERNET_KEY="$(python3 -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
+  --from-literal=ERASURE_TOMBSTONE_SALT="$(openssl rand -hex 32)"
+```
+
+Vollständige Übersicht aller Pflicht-Secrets je aktivierter Funktion (z. B. `INTERNAL_SERVICE_TOKEN` sobald der KI-Assistent oder die Bilderkennung aktiv sind): [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
+### 3. Values-Datei erstellen
 
 Erstelle eine `values-production.yaml` mit deinen Anpassungen:
 
@@ -84,16 +103,17 @@ controllers:
     replicas: 2     # (1)!
     containers:
       main:
+        envFrom:
+          - secret: kamerplanter-secrets    # (2)!
         env:
           ARANGODB_HOST: kamerplanter-arangodb
           ARANGODB_PORT: "8529"
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
-          ARANGODB_PASSWORD: "dein-sicheres-passwort"   # (2)!
           REDIS_URL: redis://kamerplanter-valkey:6379/0
           CORS_ORIGINS: '["https://pflanzen.example.com"]'
           DEBUG: "false"
-          KAMERPLANTER_MODE: light    # (3)!
+          KAMERPLANTER_MODE: full    # (3)!
 
   frontend:
     replicas: 2
@@ -101,8 +121,8 @@ controllers:
   arangodb:
     containers:
       main:
-        env:
-          ARANGO_ROOT_PASSWORD: "dein-sicheres-passwort"  # (4)!
+        envFrom:
+          - secret: kamerplanter-secrets    # (4)!
     statefulset:
       volumeClaimTemplates:
         - name: data
@@ -128,16 +148,16 @@ ingress:
 ```
 
 1. Zwei Replicas für Rolling Updates ohne Downtime.
-2. Verwende ein sicheres Passwort. In Produktion: besser über ein Kubernetes Secret referenzieren.
-3. `light` = ohne Login/Tenant-System. Für Multi-User-Betrieb auf `standard` setzen.
-4. Muss identisch mit `ARANGODB_PASSWORD` sein.
-5. Passe die Größe an deinen Bedarf an. 5 Gi reichen für die meisten Heimanwender.
+2. Zieht `ARANGODB_PASSWORD`, `JWT_SECRET_KEY`, `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` aus dem im vorigen Schritt angelegten Secret — keine Klartext-Passwörter in `values.yaml`.
+3. `light` = ohne Login/Tenant-System, ein Nutzer. `full` (Standard im Chart) = mit JWT-Auth und Mandantenverwaltung. Details: [Betriebsprofile](betriebsprofile.md).
+4. `ARANGO_ROOT_PASSWORD` wird ebenfalls aus `kamerplanter-secrets` injiziert.
+5. Passe die Größe an deinen Bedarf an. Der Chart-Default für die ArangoDB-PVC liegt bei 5Gi.
 6. Dein gewünschter Hostname. Der Ingress-Controller muss darauf konfiguriert sein.
 
-!!! warning "Passwörter in Values-Dateien"
-    Für den produktiven Einsatz solltest du Passwörter **nicht** in der Values-Datei im Klartext speichern. Verwende stattdessen Kubernetes Secrets und referenziere sie über `envFrom` oder ein Secret-Management-Tool wie Sealed Secrets oder External Secrets Operator.
+!!! warning "Passwörter nie in der Values-Datei"
+    `values-production.yaml` referenziert Secrets ausschließlich über `envFrom`/`secretKeyRef` — nie über einen Klartext-Wert in `env:`. Für GitOps-Workflows eignet sich statt manuellem `kubectl create secret` ein Secret-Management-Tool wie Sealed Secrets oder External Secrets Operator (siehe [ArgoCD — Deklaratives Secret-Management](argocd.md#secret-vorbereiten)).
 
-### 3. Helm-Chart installieren
+### 4. Helm-Chart installieren
 
 ```bash
 helm install kamerplanter \
@@ -148,7 +168,7 @@ helm install kamerplanter \
   --values values-production.yaml
 ```
 
-### 4. Deployment prüfen
+### 5. Deployment prüfen
 
 ```bash
 # Pod-Status prüfen
@@ -249,10 +269,18 @@ curl http://localhost:8000/api/v1/health/ready
 ??? question "Ingress funktioniert, aber die Seite lädt nicht"
     Prüfe: (1) Ist ein Ingress-Controller installiert? (2) Zeigt der DNS-Eintrag auf den Cluster? (3) Stimmt der Hostname in der Values-Datei mit dem DNS überein?
 
+??? question "Backend-Pod bleibt in 'CreateContainerConfigError'"
+    Das Secret `kamerplanter-secrets` existiert nicht im Ziel-Namespace, oder ein per `envFrom`/`secretKeyRef` referenzierter Schlüssel fehlt darin. Prüfe: `kubectl get secret kamerplanter-secrets -n kamerplanter` und vergleiche die vorhandenen Schlüssel mit Schritt 2 oben.
+
+??? question "Backend-Pod startet und crasht sofort wieder (CrashLoopBackOff mit 'FATAL: Default secrets detected')"
+    Das Secret existiert, enthält aber einen unveränderten Standardwert — z. B. `ARANGODB_PASSWORD=rootpassword` oder ein leeres `FERNET_KEY`. Die Logzeile benennt die betroffenen Felder direkt: `kubectl logs -l app.kubernetes.io/component=backend -n kamerplanter`. Details zur Prüfung: [Konfigurationsmatrix — Pflicht-Secrets](konfigurationsmatrix.md#pflicht-secrets-je-aktivierter-funktion).
+
 ---
 
 ## Siehe auch
 
+- [Konfigurationsmatrix](konfigurationsmatrix.md) — Vollständige Referenz aller Pflicht-Secrets je Funktion
 - [Helm Charts](helm.md) — Detaillierte Beschreibung der Chart-Struktur und aller Konfigurationsoptionen
+- [ArgoCD](argocd.md) — GitOps-basiertes Deployment mit deklarativem Secret-Management
 - [Docker Compose Schnellstart](docker-quickstart.md) — Einfachere Alternative mit Docker Compose
 - [Docker Compose Dauerbetrieb](docker-dauerbetrieb.md) — Docker-Compose-basierter Dauerbetrieb

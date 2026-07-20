@@ -86,3 +86,38 @@ def test_repeated_variant_creates_do_not_duplicate():
 
     assert len(repo.inserted) == 1
     assert first.key == second.key
+
+
+class _FakeUpdateRepo:
+    """Minimal repo supporting the get_or_raise/update contract for update tests."""
+
+    def __init__(self, existing: Species) -> None:
+        self._existing = existing
+        self.updated: Species | None = None
+
+    def get_or_raise(self, key: str) -> Species:  # noqa: ARG002
+        return self._existing
+
+    def update(self, key: str, species: Species) -> Species:  # noqa: ARG002
+        self.updated = species
+        return species
+
+
+def test_update_preserves_cultivation_flexible_master_data():
+    """ADR-006 E6 (#615): a form update never resets the master-data flag.
+
+    The edit form (SpeciesCreate) does not submit ``cultivation_flexible`` — the
+    incoming Species therefore defaults it to False. The service must carry the
+    stored value across the full-replace update, mirroring the origin/reference-
+    image preservation.
+    """
+    stored = Species(_key="sp-1", scientific_name="Solanum lycopersicum", cultivation_flexible=True)
+    repo = _FakeUpdateRepo(stored)
+    service = SpeciesService(repo, graph_repo=None)  # type: ignore[arg-type]
+
+    incoming = Species(scientific_name="Solanum lycopersicum")  # flag defaults False
+    result = service.update_species("sp-1", incoming)
+
+    assert result.cultivation_flexible is True
+    assert repo.updated is not None
+    assert repo.updated.cultivation_flexible is True

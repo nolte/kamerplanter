@@ -13,6 +13,8 @@ interface TasksState {
   currentTask: TaskItem | null;
   taskQueue: TaskItem[];
   overdueTasks: TaskItem[];
+  completedTasks: TaskItem[];
+  completedTasksLoading: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -24,6 +26,8 @@ const initialState: TasksState = {
   currentTask: null,
   taskQueue: [],
   overdueTasks: [],
+  completedTasks: [],
+  completedTasksLoading: false,
   loading: false,
   error: null,
 };
@@ -110,6 +114,13 @@ export const fetchOverdueTasks = createAsyncThunk(
   },
 );
 
+export const fetchCompletedTasks = createAsyncThunk(
+  'tasks/fetchCompleted',
+  async () => {
+    return api.listTasks(0, 100, { status: 'completed' });
+  },
+);
+
 const tasksSlice = createSlice({
   name: 'tasks',
   initialState,
@@ -176,6 +187,18 @@ const tasksSlice = createSlice({
       // Overdue tasks
       .addCase(fetchOverdueTasks.fulfilled, (state, action) => {
         state.overdueTasks = action.payload;
+      })
+      // Completed tasks (separate loading flag so the queue skeleton is not
+      // triggered when the "show completed" toggle lazily loads this list)
+      .addCase(fetchCompletedTasks.pending, (state) => {
+        state.completedTasksLoading = true;
+      })
+      .addCase(fetchCompletedTasks.fulfilled, (state, action) => {
+        state.completedTasksLoading = false;
+        state.completedTasks = action.payload;
+      })
+      .addCase(fetchCompletedTasks.rejected, (state) => {
+        state.completedTasksLoading = false;
       });
   },
 });

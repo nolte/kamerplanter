@@ -10,6 +10,7 @@ from app.common.exceptions import (
     AdapterNotAvailableError,
     ConsentRequiredError,
     FeatureNotConfiguredError,
+    NotFoundError,
     RateLimitError,
 )
 from app.config.settings import settings
@@ -433,3 +434,77 @@ def test_list_assessment_adapters_light_mode_blocks_external(monkeypatch):
     assert adapters["plantnet"]["requires_consent"] is False  # no consent subsystem in light mode
     # Self-hosted stays available.
     assert adapters["local_embedding"]["available"] is True
+
+
+# ── issue #630 — link created plant instance ──────────────────────────
+
+
+def _link_service(*, identification_repo=None, plant_instance_repo=None):
+    registry, _ = _registry_with_plantnet()
+    return IdentificationService(
+        engine=MagicMock(),
+        identification_repo=identification_repo or MagicMock(),
+        consent_repo=_FakeConsentRepo(True),
+        consent_engine=ConsentEngine(),
+        rate_limiter=MagicMock(),
+        registry=registry,
+        plant_instance_repo=plant_instance_repo,
+    )
+
+
+def _plant(tenant_key: str, key: str = "plant_42") -> MagicMock:
+    plant = MagicMock()
+    plant.tenant_key = tenant_key
+    plant.key = key
+    return plant
+
+
+def test_link_plant_instance_persists_and_returns_keys():
+    identification_repo = MagicMock()
+    identification_repo.get.return_value = MagicMock()  # request exists in tenant
+    identification_repo.set_plant_instance_key.return_value = MagicMock()
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.return_value = _plant("t1")
+    service = _link_service(identification_repo=identification_repo, plant_instance_repo=plant_repo)
+
+    out = service.link_plant_instance("ident_1", "plant_42", tenant_key="t1")
+
+    assert out == {"request_key": "ident_1", "plant_instance_key": "plant_42"}
+    identification_repo.get.assert_called_once_with("ident_1", "t1")
+    identification_repo.set_plant_instance_key.assert_called_once_with("ident_1", "t1", "plant_42")
+
+
+def test_link_plant_instance_unknown_request_returns_404():
+    identification_repo = MagicMock()
+    identification_repo.get.return_value = None  # not in this tenant
+    plant_repo = MagicMock()
+    service = _link_service(identification_repo=identification_repo, plant_instance_repo=plant_repo)
+
+    with pytest.raises(NotFoundError):
+        service.link_plant_instance("ghost", "plant_42", tenant_key="t1")
+    plant_repo.get_by_key.assert_not_called()
+
+
+def test_link_plant_instance_unknown_plant_returns_404():
+    identification_repo = MagicMock()
+    identification_repo.get.return_value = MagicMock()
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.return_value = None
+    service = _link_service(identification_repo=identification_repo, plant_instance_repo=plant_repo)
+
+    with pytest.raises(NotFoundError):
+        service.link_plant_instance("ident_1", "ghost", tenant_key="t1")
+    identification_repo.set_plant_instance_key.assert_not_called()
+
+
+def test_link_plant_instance_foreign_plant_returns_404():
+    """SEC-001 — a plant instance owned by another tenant must not be linkable."""
+    identification_repo = MagicMock()
+    identification_repo.get.return_value = MagicMock()
+    plant_repo = MagicMock()
+    plant_repo.get_by_key.return_value = _plant("other_tenant")
+    service = _link_service(identification_repo=identification_repo, plant_instance_repo=plant_repo)
+
+    with pytest.raises(NotFoundError):
+        service.link_plant_instance("ident_1", "plant_42", tenant_key="t1")
+    identification_repo.set_plant_instance_key.assert_not_called()

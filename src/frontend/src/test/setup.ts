@@ -5,6 +5,11 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
 import { server } from './mocks/server';
 import { setActiveTenantSlug } from '@/api/client';
 import '@/i18n';
+import { loadFeatureNamespacesForTests } from './i18nTestResources';
+
+// #612 — register the code-split feature namespaces synchronously so every
+// `t()` key resolves in tests without awaiting a dynamic import.
+loadFeatureNamespacesForTests();
 
 // Raise Testing-Library's async-utility timeout above the 1000ms default. Under
 // full-suite parallelism the workers contend for CPU, so an async `findBy*` /

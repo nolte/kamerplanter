@@ -104,6 +104,9 @@ class SpeciesResponse(BaseModel):
     support_required: bool = False
     watering_guide: WateringGuide | None = None
     default_nutrient_plan_key: str | None = None
+    # ADR-006 E6: exposes whether the plant-instance create flow may offer the
+    # per-instance cultivation-cycle choice (annual OR perennial) for this species.
+    cultivation_flexible: bool = False
     representative_image_url: str | None = None
     representative_image_attribution: str | None = None
     representative_image_license: str | None = None

@@ -17,7 +17,7 @@
 | Familie | Oxalidaceae | `species.family` → `botanical_families.name` |
 | Gattung | Oxalis | `species.genus` |
 | Ordnung | Oxalidales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte | `species.growth_habit` |
 | Wurzeltyp | bulbous | `species.root_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
@@ -295,7 +295,7 @@ Entfällt — reine Zimmerpflanze.
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,indoor_suitable,balcony_suitable,support_required,nutrient_demand_level
-Oxalis triangularis,"Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock",Oxalidaceae,Oxalis,perennial,day_neutral,herb,bulbous,"8a;8b;9a;9b;10a;10b;11a","Brasilien, Argentinien",yes,0.5-3,10,15-30,20-40,yes,yes,false,light_feeder
+Oxalis triangularis,"Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock",Oxalidaceae,Oxalis,perennial,day_neutral,bulb_geophyte,bulbous,"8a;8b;9a;9b;10a;10b;11a","Brasilien, Argentinien",yes,0.5-3,10,15-30,20-40,yes,yes,false,light_feeder
 ```
 
 ---

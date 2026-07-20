@@ -31,7 +31,8 @@ properties:
     description: >-
       Per-species lifecycle overrides loaded by seed_data.py
       (_load_lifecycle_overrides). Authoritative source for cultivation_cycle_type,
-      flowering_strategy and growth_determinacy — keyed by scientific_name.
+      flowering_strategy, growth_determinacy and cultivation_flexible — keyed by
+      scientific_name.
     additionalProperties:
       type: object
       properties:
@@ -41,6 +42,13 @@ properties:
           $ref: "_defs.schema.yaml#/$defs/flowering_strategy"
         growth_determinacy:
           $ref: "_defs.schema.yaml#/$defs/growth_determinacy"
+        cultivation_flexible:
+          type: boolean
+          description: >-
+            ADR-006 E6 capability flag — the species can be genuinely grown EITHER
+            as an annual OR as a perennial (frost-tender perennial overwintered vs.
+            re-bought, strawberry grown annual). Applied to Species.cultivation_flexible
+            by the seed_cultivation_flexible pass. Additive; defaults False when absent.
       additionalProperties: false
   cultivars:
     type: object

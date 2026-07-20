@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import de from '@/i18n/locales/de/translation.json';
-import en from '@/i18n/locales/en/translation.json';
+import { deFull as de, enFull as en } from '../i18nTestResources';
 
 /**
  * Guards consistency between the hardcoded CHANNEL_KEYS in NotificationSettingsTab

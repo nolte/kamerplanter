@@ -1945,10 +1945,11 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 
 **Testschritte**:
 1. Nutzer navigiert zu `/aufgaben/queue`
-2. Nutzer aktiviert die Option "Erledigte Tasks anzeigen"
+2. Nutzer aktiviert in der Filterleiste den Umschalter "Erledigte Tasks anzeigen"
 
 **Erwartetes Ergebnis**:
-- Die Task `Journey gießen` erscheint mit Status "Erledigt" (grün) und Pflanzenbezug `JOURNEY-006`
+- Eine zusätzliche, grün gekennzeichnete Gruppe "Erledigt" wird unterhalb der aktiven Dringlichkeits-Gruppen eingeblendet
+- Die Task `Journey gießen` erscheint in dieser "Erledigt"-Gruppe mit Pflanzenbezug `JOURNEY-006`
 
 **Nachbedingungen**: Der Abschluss des Care-Tasks ist nachvollziehbar dokumentiert
 

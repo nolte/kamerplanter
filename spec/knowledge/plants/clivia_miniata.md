@@ -17,7 +17,7 @@
 | Familie | Amaryllidaceae | `species.family` → `botanical_families.name` |
 | Gattung | Clivia | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
@@ -364,7 +364,7 @@ Clivia ist ein Schwachzehrer. Zu viel Dünger verhindert die Blütenbildung. Die
 
 ```csv
 scientific_name,common_names,family,genus,cycle_type,photoperiod_type,growth_habit,root_type,hardiness_zones,allelopathy_score,native_habitat,container_suitable,recommended_container_volume_l,min_container_depth_cm,mature_height_cm,mature_width_cm,spacing_cm,indoor_suitable,balcony_suitable,greenhouse_recommended,support_required,photosynthesis_type,shade_tolerance,effective_root_depth_cm,waterlogging_tolerance,salt_tolerance_class,soil_ph_preference
-Clivia miniata,Riemenblume;Klivie;Natal Lily,Amaryllidaceae,Clivia,perennial,day_neutral,herb,rhizomatous,9b;10a;10b;11a;11b,0.0,Südafrika KwaZulu-Natal,yes,10,20,60,60,—,yes,limited,false,false,c3,shade,15-30,sensitive,sensitive,5.5-6.5
+Clivia miniata,Riemenblume;Klivie;Natal Lily,Amaryllidaceae,Clivia,perennial,day_neutral,bulb_geophyte,rhizomatous,9b;10a;10b;11a;11b,0.0,Südafrika KwaZulu-Natal,yes,10,20,60,60,—,yes,limited,false,false,c3,shade,15-30,sensitive,sensitive,5.5-6.5
 ```
 <!-- CSV-Zeile um photosynthesis_type, shade_tolerance, effective_root_depth_cm, waterlogging_tolerance, salt_tolerance_class, soil_ph_preference erweitert — Quelle: Steckbrief-Erweiterung 2026-06 -->
 
