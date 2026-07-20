@@ -2089,8 +2089,8 @@ species:
     base_temp: 5.0
     hardiness_zones: ["3a", "10a"]
     native_habitat: Europe (hybrid)
-    allelopathy_score: 0.1
-    sowing_indoor_weeks_before_last_frost: 8
+    allelopathy_score: -0.4  # Autotoxizitaet/Replant-Problem (Steckbrief §1.1: phenolische Saeuren hemmen Nachbau)
+    sowing_indoor_weeks_before_last_frost: 10  # Samenanzucht Jan/Feb (Steckbrief §1.2: 10--12 Wo. vor letztem Frost)
     sowing_outdoor_after_last_frost_days: 0
     harvest_months: [5, 6, 7, 8, 9]
     frost_sensitivity: moderate
