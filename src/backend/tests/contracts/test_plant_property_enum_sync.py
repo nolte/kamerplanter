@@ -94,7 +94,7 @@ def _ts_union_values(type_name: str) -> set[str]:
 
 
 def _locale_enum_block(locale: str, i18n_key: str) -> dict[str, str]:
-    data = json.loads((_LOCALES / locale / "translation.json").read_text(encoding="utf-8"))
+    data = json.loads((_LOCALES / locale / "enums.json").read_text(encoding="utf-8"))
     return data.get("enums", {}).get(i18n_key, {})
 
 
@@ -139,8 +139,8 @@ class TestPlantPropertyEnumI18n:
         de = _locale_enum_block("de", i18n_key)
         en = _locale_enum_block("en", i18n_key)
         for member in enum:
-            assert member.value in de, f"enums.{i18n_key}.{member.value} missing in de/translation.json"
-            assert member.value in en, f"enums.{i18n_key}.{member.value} missing in en/translation.json"
+            assert member.value in de, f"enums.{i18n_key}.{member.value} missing in de/enums.json"
+            assert member.value in en, f"enums.{i18n_key}.{member.value} missing in en/enums.json"
 
     def test_gate_detects_injected_i18n_gap(self) -> None:
         # Proof the gate bites: dropping a key from a copy of the de block makes the
