@@ -15,9 +15,14 @@
 # for Gemini (narrative + a trailing "Avoid:" negative clause). FLUX has NO
 # negative-prompt channel — a literal "Avoid: text, numbers…" makes FLUX MORE
 # likely to render text. The inline prompts here are FLUX-normalised: the scene
-# is front-loaded, the avoidance is expressed as positive phrasing, and each
-# Light/Dark block is fully self-contained (the docs' Dark sections are only an
-# outline-line diff and are not directly generatable).
+# is front-loaded and the avoidance is expressed as positive phrasing.
+#
+# LIGHT-ONLY illustrations: transparent KAMI illustrations serve both light and
+# dark UI (the dark-green outline reads on either), and FLUX renders a "dark"
+# variant as a near-duplicate of the light one (same outline on a plain ground),
+# so the per-illustration `*-dark` jobs were dropped — one canonical transparent
+# asset per motif. (The logo/app-icons, which do keep a dark variant, are
+# brand-sourced and are not render jobs here at all.)
 #
 # NOTE ON SIZE: the Cloudflare/FLUX backend ignores width/height and always
 # returns a ~1024x1024 square. `width`/`height` below are honoured only by the
@@ -75,34 +80,6 @@ jobs:
       conversion, every element at least 3px. Centered on a plain flat empty background, square
       1:1 with 14% padding, character only, no lettering or numerals anywhere, no watermark.
 
-  - id: empty-state-dark
-    gap: G-12
-    doc: spec/design/illustration-kami-empty-state.md
-    variant: dark
-    emotion: "Neugierig/Suchend (§4.2)"
-    pose: "Blaetter leicht nach vorn geneigt, ein Arm am Kinn oder Lupe haltend; Fragezeichen ueber einem Blatt"
-    size: "<=180px"
-    out: src/frontend/src/assets/brand/illustrations/states/state-kami-empty-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      centered, looking around inquisitively as if searching an empty list. Kami has a
-      Curious/Searching expression: leaves tilted slightly forward and sideways, one eye slightly
-      larger than the other with curiosity, small "oh" mouth or gentle smile. One arm at chin or
-      holding a small magnifying glass. A small simple question mark shape floats above one leaf.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20. Magnifying glass: gray handle #9e9e9e, clear glass circle.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
-      1:1 with 14% padding, character only, no lettering or numerals anywhere, no watermark.
-
   # --- G-17 loading (illustration-kami-loading.md) --------------------------
   - id: loading-light
     gap: G-17
@@ -133,35 +110,6 @@ jobs:
       conversion, every element at least 3px. Centered on a plain flat empty background, square
       1:1 with 14% padding, character and three dots only, no lettering or numerals, no watermark.
 
-  - id: loading-dark
-    gap: G-17
-    doc: spec/design/illustration-kami-loading.md
-    variant: dark
-    emotion: "Neugierig/Suchend (§4.2)"
-    pose: "Blaetter leicht nach vorn, ein Arm am Kinn (wartend); optional 3 Prozess-Punkte daneben"
-    size: "<=180px"
-    out: src/frontend/src/assets/brand/illustrations/states/state-kami-loading-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      centered, waiting patiently while something loads. Kami has a Curious/Searching expression:
-      leaves tilted slightly forward and sideways, one eye slightly larger than the other with
-      curiosity, small "oh" mouth or gentle smile. One arm at chin in a watching, waiting pose.
-      Three small simple dots in a row float beside Kami suggesting an ongoing process, no spinner
-      ring and no motion lines.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20. Dots: soft green #a5d6a7.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
-      1:1 with 14% padding, character and three dots only, no lettering or numerals, no watermark.
-
   # --- G-10 success/celebration (illustration-kami-erfolg-celebration.md) ---
   - id: celebration-light
     gap: G-10
@@ -189,34 +137,6 @@ jobs:
       Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
       inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
       conversion, every element at least 3px. Centered on a plain flat empty background, square
-      1:1 with 12% padding, character and sparkle stars only, no lettering or numerals, no watermark.
-
-  - id: celebration-dark
-    gap: G-10
-    doc: spec/design/illustration-kami-erfolg-celebration.md
-    variant: dark
-    emotion: "Triumphierend/Feiernd (§4.2)"
-    pose: "Ein Arm Siegerfaust nach oben, anderer an der Huefte (Power-Pose), 2-3 Glitzer-Sterne"
-    size: "320x240px, skalierbar <=180px"
-    out: src/frontend/src/assets/brand/illustrations/states/state-kami-celebration-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      centered, celebrating a success. Kami has a Triumphant/Celebrating expression: leaves
-      standing straight and tall, eyes sparkling with star-shaped white highlights, big confident
-      victory grin. One arm raised in a fist-pump victory pose, other arm on hip in a power stance.
-      Two or three small four-pointed sparkle stars in pale yellow #fff9c4 float nearby.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      star-shaped highlights, mouth #1b5e20.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
       1:1 with 12% padding, character and sparkle stars only, no lettering or numerals, no watermark.
 
   # --- G-03 onboarding/login welcome hero (illustration-kami-onboarding-willkommen.md)
@@ -250,36 +170,6 @@ jobs:
       conversion, every element at least 3px. Character on a plain flat empty background with 10%
       padding, character only, no lettering or numerals anywhere, no watermark.
 
-  - id: onboarding-willkommen-dark
-    gap: G-03
-    doc: spec/design/illustration-kami-onboarding-willkommen.md
-    variant: dark
-    emotion: "Einladend/Willkommen (§4.2)"
-    pose: "Ein Arm winkend (angehoben, Hand offen), anderer locker; Blaetter aufrecht/lebendig; Freiraum rechts"
-    size: "320x240px (4:3), skalierbar 640x480"
-    width: 1024
-    height: 768
-    out: src/frontend/src/assets/brand/illustrations/onboarding/illustration-kami-willkommen-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, landscape composition.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot
-      stands centered-left, greeting the viewer. Generous free space to the right. Kami has a
-      Welcoming/Inviting expression: leaves perked upward and lively, large bright wide eyes with
-      highlight glints, broad warm smile. One arm extended and waving in greeting, other arm
-      relaxed at side. Open, inviting body language.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Character on a plain flat dark background with 10%
-      padding, character only, no lettering or numerals anywhere, no watermark.
-
   # --- G-09 dashboard welcome + widget-empty (illustration-kami-dashboard-willkommen.md)
   - id: dashboard-welcome-light
     gap: G-09
@@ -310,35 +200,6 @@ jobs:
       conversion, every element at least 3px. Character on a plain flat empty background with 10%
       padding, character only, no lettering or numerals anywhere, no watermark.
 
-  - id: dashboard-welcome-dark
-    gap: G-09
-    doc: spec/design/illustration-kami-dashboard-willkommen.md
-    variant: dark
-    emotion: "Gluecklich/Begeistert (§4.2)"
-    pose: "Aufrecht, beide Arme ausgebreitet praesentierend; Augen als happy Halbmonde (^^)"
-    size: "320x240px (4:3)"
-    width: 1024
-    height: 768
-    out: src/frontend/src/assets/brand/illustrations/states/state-kami-dashboard-welcome-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, landscape composition.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      standing centered, presenting the dashboard with pride. Kami has a Joyful/Delighted
-      expression: leaves spread outward energetically, eyes closed in happy anime-style crescents,
-      wide open bright smile. Both arms spread outward in a proud presenting gesture.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes as happy closed crescents,
-      mouth #1b5e20.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Character on a plain flat dark background with 10%
-      padding, character only, no lettering or numerals anywhere, no watermark.
-
   - id: dashboard-empty-light
     gap: G-09
     doc: spec/design/illustration-kami-dashboard-willkommen.md
@@ -366,35 +227,6 @@ jobs:
       Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
       inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
       conversion, every element at least 3px. Centered on a plain flat empty background, square
-      1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
-
-  - id: dashboard-empty-dark
-    gap: G-09
-    doc: spec/design/illustration-kami-dashboard-willkommen.md
-    variant: dark
-    emotion: "Neugierig/Suchend (§4.2)"
-    pose: "Ein Arm am Kinn, anderer zeigt auf leeres Widget-Rechteck; Fragezeichen"
-    size: "<=180px"
-    out: src/frontend/src/assets/brand/illustrations/states/state-kami-dashboard-empty-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      centered, looking curiously at an empty dashboard widget. Kami has a Curious/Searching
-      expression: leaves tilted slightly forward and sideways, one eye slightly larger than the
-      other with curiosity, small "oh" mouth or gentle smile. One arm at chin, the other gesturing
-      toward a small empty rounded rectangle beside Kami — an empty widget card outline in light
-      gray #e0e0e0 with no fill. A small question mark floats above one leaf.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes black with white
-      highlight glints, mouth #1b5e20. Empty widget card: thin outline #e0e0e0, no fill.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
       1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
 
   # --- G-11 post-harvest phases drying + curing (timeline-kami-phase-post-harvest.md)
@@ -427,35 +259,6 @@ jobs:
       conversion, every element at least 3px. Centered on a plain flat empty background, square
       1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
 
-  - id: phase-drying-dark
-    gap: G-11
-    doc: spec/design/timeline-kami-phase-post-harvest.md
-    variant: dark
-    emotion: "Friedlich/Geniesserisch (§4.2)"
-    pose: "Neben Trockengestell wartend, ein Arm beruehrt haengendes Buendel"
-    size: "256x256px, skalierbar 64x64"
-    out: src/frontend/src/assets/brand/illustrations/phases/timeline-kami-phase-drying-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      standing patiently next to a simple drying rack — a horizontal line from which two or three
-      harvested bundles hang to dry, simplified golden-brown clusters. Kami has a Peaceful/Serene
-      expression: leaves relaxed and gently spread outward, eyes half-closed in a dreamy content
-      manner, soft gentle smile. Arms relaxed, one arm gently touching a hanging bundle. Overall
-      feeling of calm satisfaction and patient waiting.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes half-closed crescents,
-      mouth #1b5e20. Hanging bundles: golden-brown #ffa726 (shadow #f57c00), thin line rack #9e9e9e.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
-      1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
-
   - id: phase-curing-light
     gap: G-11
     doc: spec/design/timeline-kami-phase-post-harvest.md
@@ -486,36 +289,6 @@ jobs:
       conversion, every element at least 3px. Centered on a plain flat empty background, square
       1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
 
-  - id: phase-curing-dark
-    gap: G-11
-    doc: spec/design/timeline-kami-phase-post-harvest.md
-    variant: dark
-    emotion: "Friedlich/Geniesserisch (§4.2)"
-    pose: "Ruhig neben Vorratsglas mit Deckel, ein Arm ruht auf dem Deckel"
-    size: "256x256px, skalierbar 64x64"
-    out: src/frontend/src/assets/brand/illustrations/phases/timeline-kami-phase-curing-dark.svg
-    prompt: |
-      A cute comic-style mascot illustration for a plant management app, square 1:1 format.
-
-      Scene: A small anthropomorphic green seedling character (Kami) in a terracotta flower pot,
-      standing calmly next to a simple storage jar with a lid, about the same height as Kami,
-      holding simplified golden-brown contents visible through a clear glass body. Kami has a
-      Peaceful/Serene expression: leaves relaxed and gently spread outward, eyes half-closed in a
-      dreamy content manner, soft gentle smile. Arms relaxed, one arm gently resting on the jar lid.
-      Overall feeling of calm satisfaction.
-
-      Kami: leaves #66bb6a (highlight #98ee99, shadow #2e7d32), stem #43a047,
-      pot #8d6e63 (stripe #a1887f, shadow #6d4c41), soil #795548. Eyes half-closed crescents,
-      mouth #1b5e20. Jar: clear glass body with light gray rim #bdbdbd and lid #9e9e9e,
-      golden-brown contents #ffa726.
-
-      Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps.
-
-      Style: flat vector illustration, cute cartoon, professional. Flat solid colors, subtle soft
-      inner shading 10-15% darker near form edges. Minimal detail, clean shapes suitable for SVG
-      conversion, every element at least 3px. Centered on a plain flat dark background, square
-      1:1 with 14% padding, no lettering or numerals anywhere, no watermark.
-
   # --- G-01/G-02 PWA app-icons + logo: SOURCED FROM brand/ (NOT FLUX) ---
   # The app icon and logo are hand-crafted brand marks that already exist as
   # brand/icon@2x.png and brand/logo@2x.png (512x512, transparent, face-on-pot).
@@ -540,13 +313,6 @@ jobs:
     motif_heading: "1. Aquaponik"
     emotion: "Energetic/Powerful (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-aquaponik.svg
-  - id: feature-aquaponik-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "1. Aquaponik"
-    emotion: "Energetic/Powerful (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-aquaponik-dark.svg
   - id: feature-environment-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -554,13 +320,6 @@ jobs:
     motif_heading: "2. Umgebungssteuerung"
     emotion: "Focused/Determined (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-environment.svg
-  - id: feature-environment-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "2. Umgebungssteuerung"
-    emotion: "Focused/Determined (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-environment-dark.svg
   - id: feature-ki-assistent-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -568,13 +327,6 @@ jobs:
     motif_heading: "3. KI-Assistent"
     emotion: "Happy (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ki-assistent.svg
-  - id: feature-ki-assistent-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "3. KI-Assistent"
-    emotion: "Happy (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ki-assistent-dark.svg
   - id: feature-ki-diagnose-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -582,13 +334,6 @@ jobs:
     motif_heading: "4. KI-Diagnose"
     emotion: "Curious/Searching (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ki-diagnose.svg
-  - id: feature-ki-diagnose-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "4. KI-Diagnose"
-    emotion: "Curious/Searching (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ki-diagnose-dark.svg
   - id: feature-ki-recognition-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -596,13 +341,6 @@ jobs:
     motif_heading: "5. KI-Erkennung"
     emotion: "Curious/Searching (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ki-recognition.svg
-  - id: feature-ki-recognition-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "5. KI-Erkennung"
-    emotion: "Curious/Searching (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ki-recognition-dark.svg
   - id: feature-post-harvest-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -610,13 +348,6 @@ jobs:
     motif_heading: "6. Post-Harvest"
     emotion: "Peaceful/Serene (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-post-harvest.svg
-  - id: feature-post-harvest-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "6. Post-Harvest"
-    emotion: "Peaceful/Serene (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-post-harvest-dark.svg
   - id: feature-propagation-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -624,13 +355,6 @@ jobs:
     motif_heading: "7. Vermehrung"
     emotion: "Energetic/Powerful (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-propagation.svg
-  - id: feature-propagation-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "7. Vermehrung"
-    emotion: "Energetic/Powerful (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-propagation-dark.svg
   - id: feature-ueberwinterung-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -638,13 +362,6 @@ jobs:
     motif_heading: "8. Ueberwinterung"
     emotion: "Peaceful/Serene (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ueberwinterung.svg
-  - id: feature-ueberwinterung-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "8. Ueberwinterung"
-    emotion: "Peaceful/Serene (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-ueberwinterung-dark.svg
   - id: feature-inventree-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -652,13 +369,6 @@ jobs:
     motif_heading: "9. InvenTree"
     emotion: "Happy (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-inventree.svg
-  - id: feature-inventree-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "9. InvenTree"
-    emotion: "Happy (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-inventree-dark.svg
   - id: feature-glossar-light
     gap: G-06
     doc: spec/design/feature-kami-fachmodule.md
@@ -666,14 +376,6 @@ jobs:
     motif_heading: "10. Glossar"
     emotion: "Happy (§4.2)"
     out: src/frontend/src/assets/brand/illustrations/features/feature-kami-glossar.svg
-  - id: feature-glossar-dark
-    gap: G-06
-    doc: spec/design/feature-kami-fachmodule.md
-    variant: dark
-    motif_heading: "10. Glossar"
-    emotion: "Happy (§4.2)"
-    out: src/frontend/src/assets/brand/illustrations/features/feature-kami-glossar-dark.svg
-
   # G-05 Tank-Fuellstand-Serie (illustration-kami-tank-fuellstaende.md)
   - id: tank-fill-000-light
     gap: G-05
@@ -682,13 +384,6 @@ jobs:
     motif_heading: "Prompt 1 — Fuellstand 0%"
     emotion: "panicked, distressed (§4.2)"
     out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-000.svg
-  - id: tank-fill-000-dark
-    gap: G-05
-    doc: spec/design/illustration-kami-tank-fuellstaende.md
-    variant: dark
-    motif_heading: "Prompt 1 — Fuellstand 0%"
-    emotion: "panicked, distressed (§4.2)"
-    out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-000-dark.svg
   - id: tank-fill-020-light
     gap: G-05
     doc: spec/design/illustration-kami-tank-fuellstaende.md
@@ -696,13 +391,6 @@ jobs:
     motif_heading: "Prompt 2 — Fuellstand 20%"
     emotion: "worried, concerned (§4.2)"
     out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-020.svg
-  - id: tank-fill-020-dark
-    gap: G-05
-    doc: spec/design/illustration-kami-tank-fuellstaende.md
-    variant: dark
-    motif_heading: "Prompt 2 — Fuellstand 20%"
-    emotion: "worried, concerned (§4.2)"
-    out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-020-dark.svg
   - id: tank-fill-040-light
     gap: G-05
     doc: spec/design/illustration-kami-tank-fuellstaende.md
@@ -710,13 +398,6 @@ jobs:
     motif_heading: "Prompt 3 — Fuellstand 40%"
     emotion: "slightly skeptical, thinking (§4.2)"
     out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-040.svg
-  - id: tank-fill-040-dark
-    gap: G-05
-    doc: spec/design/illustration-kami-tank-fuellstaende.md
-    variant: dark
-    motif_heading: "Prompt 3 — Fuellstand 40%"
-    emotion: "slightly skeptical, thinking (§4.2)"
-    out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-040-dark.svg
   - id: tank-fill-060-light
     gap: G-05
     doc: spec/design/illustration-kami-tank-fuellstaende.md
@@ -724,13 +405,6 @@ jobs:
     motif_heading: "Prompt 4 — Fuellstand 60%"
     emotion: "calm, content (§4.2)"
     out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-060.svg
-  - id: tank-fill-060-dark
-    gap: G-05
-    doc: spec/design/illustration-kami-tank-fuellstaende.md
-    variant: dark
-    motif_heading: "Prompt 4 — Fuellstand 60%"
-    emotion: "calm, content (§4.2)"
-    out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-060-dark.svg
   - id: tank-fill-080-light
     gap: G-05
     doc: spec/design/illustration-kami-tank-fuellstaende.md
@@ -738,13 +412,6 @@ jobs:
     motif_heading: "Prompt 5 — Fuellstand 80%"
     emotion: "happy, satisfied (§4.2)"
     out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-080.svg
-  - id: tank-fill-080-dark
-    gap: G-05
-    doc: spec/design/illustration-kami-tank-fuellstaende.md
-    variant: dark
-    motif_heading: "Prompt 5 — Fuellstand 80%"
-    emotion: "happy, satisfied (§4.2)"
-    out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-080-dark.svg
   - id: tank-fill-100-light
     gap: G-05
     doc: spec/design/illustration-kami-tank-fuellstaende.md
@@ -752,14 +419,6 @@ jobs:
     motif_heading: "Prompt 6 — Fuellstand 100%"
     emotion: "triumphant, proud (§4.2)"
     out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-100.svg
-  - id: tank-fill-100-dark
-    gap: G-05
-    doc: spec/design/illustration-kami-tank-fuellstaende.md
-    variant: dark
-    motif_heading: "Prompt 6 — Fuellstand 100%"
-    emotion: "triumphant, proud (§4.2)"
-    out: src/frontend/src/assets/illustrations/tank/kami-tank-fill-100-dark.svg
-
   # G-04 Sidebar-Nav-Icon-Serie (nav-icons-kami-sidebar.md) — Light primaer;
   # Dark = Outline-Swap #c8e6c9 (per-Icon dark jobs sind Follow-on, gleiche Mechanik).
   - id: nav-dashboard-light

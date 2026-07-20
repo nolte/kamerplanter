@@ -198,6 +198,12 @@ def resolve_prompt(job: dict, anchor: str = "") -> str:
     # inline or doc-referenced — states the load-bearing invariant that FLUX most
     # often gets wrong: the face + arms are on the pot, the leaves are plain.
     anchor = (anchor or "").strip()
+    if anchor and job.get("variant") == "dark":
+        # Dark-mode variant: the outline flips to the light-green Dark palette (§3.2),
+        # matching flux_normalize's swap on the doc body.
+        anchor = anchor.replace(
+            "dark-green #1b5e20 outline", "light-green #c8e6c9 outline"
+        )
     if not anchor:
         return body
     combined = f"{anchor}\n\n{body}"

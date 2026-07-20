@@ -135,13 +135,17 @@ The manifest's `# G-01/G-02` section documents this; those four ids
 
 ## Manifest coverage
 
+Illustrations are **light-only** (51 jobs total): a transparent KAMI reads on both
+light and dark UI, and FLUX renders a "dark" variant as a near-duplicate, so the
+per-illustration `*-dark` jobs were dropped — one canonical transparent asset per
+motif.
+
 - **Batch 1 (inline FLUX prompts):** the #593 single/small-motif *illustration* docs —
   empty-state, loading, celebration, onboarding, dashboard (welcome+empty),
   post-harvest (drying+curing). Logo/app-icons are brand-sourced (see above).
-- **Batch 2 (59 jobs, `doc:`+`motif_heading:` references, auto FLUX-normalised):**
-  features (G-06, 10×light+dark), tank fill-levels (G-05, 6×light+dark),
-  sidebar nav-icons (G-04, 27×light; per-icon dark is the same mechanic, add
-  `variant: dark` entries when needed).
+- **Batch 2 (`doc:`+`motif_heading:` references, auto FLUX-normalised):**
+  features (G-06), tank fill-levels (G-05), sidebar nav-icons (G-04).
 
+Every prompt is prepended with `defaults.anatomy_anchor` (face-on-pot invariant).
 Add a job by appending to the manifest; no code change needed. `render.py status`
 validates the manifest (unique ids, resolvable prompt source) on every run.
