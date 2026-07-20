@@ -46,11 +46,13 @@ describe('aiStatusSlice', () => {
     expect(store.getState().aiStatus.available).toBe(false);
   });
 
-  it('treats an unreachable probe as unavailable', async () => {
+  it('leaves availability unknown on probe failure', async () => {
+    // /ai/status is ungated and answers 200 in both flag states, so a rejection
+    // is transient (network/timeout/5xx) — it must NOT be read as "feature off".
     mockedApi.getAiStatus.mockRejectedValue(new Error('network'));
     const store = makeStore();
     await store.dispatch(fetchAiStatus());
-    expect(store.getState().aiStatus.available).toBe(false);
+    expect(store.getState().aiStatus.available).toBeNull();
     expect(store.getState().aiStatus.loading).toBe(false);
   });
 });

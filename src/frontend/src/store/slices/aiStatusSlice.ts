@@ -43,9 +43,11 @@ const aiStatusSlice = createSlice({
       })
       .addCase(fetchAiStatus.rejected, (state) => {
         state.loading = false;
-        // Treat an unreachable probe as "unavailable" — a 404/network error means
-        // the feature is off (the guarded routes 404 when the flag is off).
-        state.available = false;
+        // A failed probe is inconclusive, NOT "feature off": /ai/status is ungated
+        // and answers 200 in both flag states, so a rejection only ever stems from
+        // a transient fault (network/timeout/5xx/cold-start). Leaving `available`
+        // as `null` (unknown) keeps the nav entry visible — only a definitive
+        // `fulfilled` payload of `{ available: false }` gates it (fail-open).
       });
   },
 });

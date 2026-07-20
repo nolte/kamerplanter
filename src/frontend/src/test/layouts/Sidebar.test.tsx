@@ -188,4 +188,17 @@ describe('Sidebar — KI-Assistent gated on the AI feature flag (issue #685)', (
     expect(screen.getByTestId('nav-/ki-assistent')).toBeInTheDocument();
     expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
   });
+
+  it('keeps the KI-Assistent entry visible after a failed AI probe (fail-open)', () => {
+    // A rejected probe (network/timeout/5xx) leaves availability unknown (null),
+    // so the nav entry must stay visible — a transient fault must never hide a
+    // working feature. Only a definitive available=false gates the entry.
+    const store = createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true);
+    store.dispatch(fetchAiStatus.rejected(new Error('network'), 'req', undefined));
+    expect(store.getState().aiStatus.available).toBeNull();
+
+    renderWithProviders(<Sidebar open />, { store });
+    expect(screen.getByTestId('nav-/ki-assistent')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
+  });
 });
