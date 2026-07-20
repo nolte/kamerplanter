@@ -2128,12 +2128,12 @@ lifecycle_configs:
 
   "Gardenia jasminoides":
     cycle_type: perennial
-    photoperiod_type: short_day  # W-006/P-002: facultative short-day plant for flower induction
+    photoperiod_type: short_day  # #676/NCT-1: short-day ornamental cohort (v0027 -> photoperiodic_ornamental)
     typical_lifespan_years: null
     dormancy_required: false
     vernalization_required: false
     vernalization_min_days: null
-    critical_day_length_hours: null
+    critical_day_length_hours: 12.0  # #676: short-day ornamental cohort day-length convention
 
   "Goeppertia lancifolia":
     cycle_type: perennial

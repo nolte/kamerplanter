@@ -211,6 +211,7 @@ lifecycle_configs:
   "Dahlia x cultorum":
     cycle_type: perennial
     photoperiod_type: short_day
+    critical_day_length_hours: 12.0  # #676: inherits parent Dahlia pinnata (tuberisation threshold ~12 h)
 
 # ==============================================================================
 # S4  GROWTH PHASES
