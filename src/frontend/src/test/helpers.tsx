@@ -14,6 +14,7 @@ import plantInstancesReducer from '@/store/slices/plantInstancesSlice';
 import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
 import authReducer from '@/store/slices/authSlice';
 import identificationReducer from '@/store/slices/identificationSlice';
+import aiStatusReducer from '@/store/slices/aiStatusSlice';
 import pestDetectionReducer from '@/store/slices/pestDetectionSlice';
 import ipmReducer from '@/store/slices/ipmSlice';
 import tenantsReducer from '@/store/slices/tenantSlice';
@@ -36,6 +37,7 @@ const rootReducer = combineReducers({
   userPreferences: userPreferencesReducer,
   auth: authReducer,
   identification: identificationReducer,
+  aiStatus: aiStatusReducer,
   pestDetection: pestDetectionReducer,
   ipm: ipmReducer,
   tenants: tenantsReducer,

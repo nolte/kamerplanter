@@ -73,7 +73,11 @@
       "questionPlaceholder": "e.g. What is VPD and why does it matter?",
       "questionHelp": "Pure knowledge questions unrelated to your specific plants. Submit with Ctrl/Cmd + Enter.",
       "ask": "Ask",
-      "error": "The answer could not be loaded. Please try again later."
+      "error": "The answer could not be loaded. Please try again later.",
+      "notConfigured": {
+        "title": "AI Assistant unavailable",
+        "description": "AI features are not enabled on this instance. Contact your administrator if you would like to use them."
+      }
     },
     "environmentControl": {
       "title": "Environment Control",
