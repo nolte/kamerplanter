@@ -29,6 +29,7 @@ import {
 import EmptyState from '@/components/common/EmptyState';
 import WeatherProvenanceBadge from '@/components/weather/WeatherProvenanceBadge';
 import { useSiteClimateNormals } from '@/hooks/useSiteClimateNormals';
+import { useMonthLabels } from '@/hooks/useMonthLabels';
 import type { ClimateNormal } from '@/api/types';
 
 interface Props {
@@ -44,15 +45,6 @@ interface MonthRow {
   solar: number | null;
 }
 
-/** Localised short month labels (Jan…Dez / Jan…Dec) from the active app locale. */
-function useMonthLabels(): string[] {
-  const { i18n } = useTranslation();
-  return useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(i18n.language, { month: 'short' });
-    return Array.from({ length: 12 }, (_, idx) => fmt.format(new Date(2001, idx, 1)));
-  }, [i18n.language]);
-}
-
 function at(series: number[], idx: number): number | null {
   return idx < series.length ? series[idx] : null;
 }
@@ -66,7 +58,7 @@ function at(series: number[], idx: number): number | null {
 export default function SiteClimateSection({ siteKey }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
-  const months = useMonthLabels();
+  const months = useMonthLabels('short');
   const { loading, error, normals, refetch } = useSiteClimateNormals(siteKey);
 
   // One record per source; the NASA POWER (reanalysis) record is the REQ-041
