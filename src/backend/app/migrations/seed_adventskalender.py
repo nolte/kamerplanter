@@ -29,11 +29,69 @@ from app.domain.models.botanical_family import BotanicalFamily, PhRange
 from app.domain.models.ipm import Disease, Pest, Treatment
 from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
-from app.domain.models.species import GrowingPeriod, Species
+from app.domain.models.species import Species
 from app.migrations.cultivar_seed import build_cultivar
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
+
+
+# ── Model-driven Species field carry (issue #679 / NCT-7) ──────────────────────
+# Species attributes are carried into the model straight from the seed YAML,
+# driven by ``Species.model_fields`` instead of a hand-maintained positive
+# whitelist. A whitelist silently drops every YAML attribute it does not list —
+# exactly the #453 (``harvest_pattern`` / ``harvested_part``) failure class. The
+# blacklist below lists only the fields that must NEVER be authored in the seed
+# data: persistence identity, the server-derived dedup key, relational keys, the
+# reference-image pipeline fields and server-managed provenance/timestamps. Every
+# other Species field the model declares is picked up automatically once it
+# appears in the YAML — including nested models (``growing_periods``,
+# ``toxicity``, ``soil_ph_preference`` …), which Pydantic coerces from the raw
+# dict/list values. Enum-typed fields are coerced from their string values by
+# Pydantic as well.
+_SPECIES_CARRY_BLACKLIST: frozenset[str] = frozenset(
+    {
+        "key",  # persistence identity (_key alias)
+        "scientific_name",  # required — always set explicitly
+        "scientific_name_normalized",  # server-derived dedup key (REQ-048)
+        "family_key",  # relational — resolved from the family map at seed time
+        "default_nutrient_plan_key",  # relational key resolved elsewhere
+        "origin",  # server-managed data provenance
+        "representative_image_url",  # reference-image acquisition pipeline (REQ-029-A)
+        "representative_image_attribution",
+        "representative_image_license",
+        "created_at",  # persistence timestamp
+        "updated_at",  # persistence timestamp
+    }
+)
+
+
+def _species_carry_fields() -> frozenset[str]:
+    """Species field names carried verbatim from the seed YAML.
+
+    Derived from ``Species.model_fields`` minus :data:`_SPECIES_CARRY_BLACKLIST`,
+    so a newly added Species attribute is imported automatically as soon as it
+    appears in the seed YAML — no positive whitelist that would silently drop an
+    unlisted attribute (the #453 / NCT-7 failure class).
+    """
+    return frozenset(Species.model_fields) - _SPECIES_CARRY_BLACKLIST
+
+
+def _warn_on_unknown_species_fields(entry: dict[str, Any]) -> None:
+    """Surface drift between the seed YAML and the Species model.
+
+    Logs a warning when a ``new_species`` entry carries a key the ``Species``
+    model does not declare — a renamed/removed field or a YAML typo would
+    otherwise vanish without a trace. Known fields are carried automatically;
+    only genuinely unknown keys are reported.
+    """
+    unknown = set(entry) - set(Species.model_fields)
+    if unknown:
+        logger.warning(
+            "seed_species_unknown_fields",
+            scientific_name=entry.get("scientific_name", "<unnamed>"),
+            unknown_fields=sorted(unknown),
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -73,60 +131,28 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
 
 
 def _build_species(data: dict[str, Any]) -> list[Species]:
-    """Construct Species models from YAML data."""
+    """Construct Species models from YAML data (model-driven field carry).
+
+    Every Species attribute present in the YAML entry is carried into the model,
+    derived from ``Species.model_fields`` (see :func:`_species_carry_fields`)
+    rather than a hand-maintained whitelist — so no attribute the model knows is
+    silently dropped on import (issue #679 / #453). Nested models
+    (``growing_periods``, ``toxicity``, ``soil_ph_preference`` …) and enum-typed
+    fields are coerced from their raw dict/list/string values by Pydantic. ``None``
+    values are omitted so the model's own field defaults apply.
+    """
+    carry_fields = _species_carry_fields()
     species_list: list[Species] = []
     for entry in data.get("new_species", []):
-        growing_periods = None
-        if entry.get("growing_periods"):
-            growing_periods = [
-                GrowingPeriod(
-                    label=gp["label"],
-                    direct_sow_months=gp.get("direct_sow_months"),
-                    harvest_months=gp.get("harvest_months"),
-                )
-                for gp in entry["growing_periods"]
-            ]
+        _warn_on_unknown_species_fields(entry)
 
-        # Build kwargs, omitting None values to let model defaults apply
-        kwargs: dict[str, Any] = {
-            "scientific_name": entry["scientific_name"],
-        }
-        # Optional fields — only set if present and not None
-        optional_fields = [
-            "common_names",
-            "genus",
-            "growth_habit",
-            "root_type",
-            "hardiness_zones",
-            "native_habitat",
-            "allelopathy_score",
-            "base_temp",
-            "frost_sensitivity",
-            "allows_harvest",
-            "harvest_pattern",
-            "harvested_part",
-            "sowing_indoor_weeks_before_last_frost",
-            "sowing_outdoor_after_last_frost_days",
-            "direct_sow_months",
-            "harvest_months",
-            "bloom_months",
-            "bloom_from_year",
-            "container_suitable",
-            "recommended_container_volume_l",
-            "min_container_depth_cm",
-            "mature_height_cm",
-            "mature_width_cm",
-            "spacing_cm",
-            "indoor_suitable",
-            "balcony_suitable",
-            "greenhouse_recommended",
-            "support_required",
-        ]
-        for field in optional_fields:
-            if field in entry and entry[field] is not None:
-                kwargs[field] = entry[field]
-        if growing_periods:
-            kwargs["growing_periods"] = growing_periods
+        # scientific_name is required; every other known field is carried when
+        # present and not None (so model defaults still apply for missing ones).
+        kwargs: dict[str, Any] = {"scientific_name": entry["scientific_name"]}
+        for field in carry_fields:
+            value = entry.get(field)
+            if value is not None:
+                kwargs[field] = value
 
         species_list.append(Species(**kwargs))
     return species_list
