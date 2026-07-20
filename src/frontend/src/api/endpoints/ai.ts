@@ -4,6 +4,7 @@ import type {
   AiConversationSummary,
   AiExplainRequest,
   AiResponse,
+  AiStatus,
   AiTipCard,
   AiTipListResponse,
 } from '../types';
@@ -154,5 +155,16 @@ export async function streamChatMessage(
 /** Light-mode public knowledge question — no auth, no tenant context (§5.3). */
 export async function publicAsk(question: string, language: 'de' | 'en' = 'de'): Promise<AiResponse> {
   const { data } = await client.post<AiResponse>('/public/ai/ask', { question, language });
+  return data;
+}
+
+/**
+ * GET /ai/status — public availability probe (issue #685).
+ *
+ * Reports whether AI features are enabled cluster-wide so the frontend can hide
+ * the KI-Assistent nav entry and degrade its page. No auth/tenant context.
+ */
+export async function getAiStatus(): Promise<AiStatus> {
+  const { data } = await client.get<AiStatus>('/ai/status');
   return data;
 }

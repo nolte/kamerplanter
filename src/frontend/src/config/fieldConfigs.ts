@@ -32,6 +32,7 @@ export const speciesFieldConfig: Record<string, FieldMeta> = {
   bearing_start_year_max: { level: 'intermediate' },
   // expert
   root_type: { level: 'expert' },
+  photosynthesis_type: { level: 'expert' },
   // expert — Phase A advanced plant properties (WP-7 tiering)
   climacteric: { level: 'expert' },
   dtm_reference: { level: 'expert' },

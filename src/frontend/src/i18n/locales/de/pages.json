@@ -73,7 +73,11 @@
       "questionPlaceholder": "z. B. Was ist VPD und warum ist es wichtig?",
       "questionHelp": "Reine Wissensfragen ohne Bezug zu deinen konkreten Pflanzen. Mit Strg/Cmd + Enter absenden.",
       "ask": "Frage stellen",
-      "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut."
+      "error": "Die Antwort konnte nicht geladen werden. Bitte versuche es später erneut.",
+      "notConfigured": {
+        "title": "KI-Assistent nicht verfügbar",
+        "description": "Die KI-Funktionen sind auf dieser Instanz nicht aktiviert. Wende dich an die Administration, wenn du sie nutzen möchtest."
+      }
     },
     "environmentControl": {
       "title": "Umgebungssteuerung",
@@ -1134,6 +1138,8 @@
       "genusHelper": "Botanische Gattung, erster Teil des wissenschaftlichen Namens (z. B. 'Solanum')",
       "growthHabit": "Wuchsform",
       "growthHabitHelper": "Typische Wuchsform der Art (u. a. Kraut, Strauch, Baum, Ranke, Gras, Sukkulente, Zwiebel-/Knollengeophyt, Farn, Epiphyt)",
+      "photosynthesisType": "Photosynthese-Typ",
+      "photosynthesisTypeHelper": "Photosynthese-Stoffwechselweg als Modifikator für VPD-/Bewässerungslogik. CAM kehrt die Stomata-Logik (nachtaktiv) um. Optional.",
       "rootType": "Wurzeltyp",
       "rootTypeHelper": "Wurzelsystem: Faserig, Pfahlwurzel, Knollig oder Zwiebel",
       "propagationMethods": "Vermehrungsart",
@@ -1987,6 +1993,8 @@
       "cultivationCycleTypeHelper": "Wie die Art im Anbau geführt wird — kann vom botanischen Lebenszyklus abweichen (z. B. mehrjährig botanisch, aber einjährig kultiviert)",
       "floweringStrategy": "Blühstrategie",
       "floweringStrategyHelper": "Monokarp: blüht einmal und stirbt danach. Polykarp: blüht über mehrere Jahre wiederholt.",
+      "growthDeterminacy": "Wuchs-Determiniertheit",
+      "growthDeterminacyHelper": "Determiniert: linearer Weg zu einer Endphase. Indeterminiert: verbleibt in einer stabilen Produktivphase mit gleichzeitigem Wachstum, Blüte und Frucht (Durchpflückernte).",
       "lifespanYears": "Lebensdauer (Jahre)",
       "lifespanYearsHelper": "Nur bei mehrjährigen Pflanzen (Perennial) relevant",
       "sectionPhotoperiod": "Photoperiode",

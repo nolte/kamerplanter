@@ -35,6 +35,8 @@ export type ClimactericClass = 'climacteric' | 'non_climacteric' | 'atypical';
 export type DtmReference = 'direct_seed' | 'transplant';
 export type SeedType = 'open_pollinated' | 'f1_hybrid' | 'f2' | 'landrace' | 'clone';
 export type FloweringStrategy = 'monocarpic' | 'polycarpic';
+export type PhotosynthesisType = 'c3' | 'c4' | 'cam';
+export type GrowthDeterminacy = 'determinate' | 'indeterminate' | 'semi_determinate';
 export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous' | 'corm';
 export type PropagationMethod =
   | 'seed'
@@ -300,6 +302,9 @@ export interface Species {
   hardiness_zones: string[];
   native_habitat: string;
   growth_habit: GrowthHabit;
+  /** REQ-001 v4.2 — photosynthesis pathway (WUE/transpiration modifier). Optional
+   * for backward compatibility with pre-field API responses. */
+  photosynthesis_type?: PhotosynthesisType | null;
   root_type: RootType;
   allelopathy_score: number;
   base_temp: number;
@@ -409,6 +414,7 @@ export interface SpeciesCreate {
   hardiness_zones?: string[];
   native_habitat?: string;
   growth_habit?: GrowthHabit;
+  photosynthesis_type?: PhotosynthesisType | null;
   root_type?: RootType;
   allelopathy_score?: number;
   base_temp?: number;
@@ -902,6 +908,9 @@ export interface LifecycleConfig {
   cycle_type: CycleType;
   cultivation_cycle_type: CycleType | null;
   flowering_strategy: FloweringStrategy | null;
+  /** REQ-003 E4 — growth determinacy (orthogonal to lifespan/flowering). Optional
+   * for backward compatibility with pre-field API responses. */
+  growth_determinacy?: GrowthDeterminacy | null;
   typical_lifespan_years: number | null;
   dormancy_required: boolean;
   vernalization_required: boolean;
@@ -918,6 +927,7 @@ export interface LifecycleConfigCreate {
   cycle_type?: CycleType;
   cultivation_cycle_type?: CycleType | null;
   flowering_strategy?: FloweringStrategy | null;
+  growth_determinacy?: GrowthDeterminacy | null;
   typical_lifespan_years?: number | null;
   dormancy_required?: boolean;
   vernalization_required?: boolean;
@@ -5403,6 +5413,16 @@ export interface AiSourceRef {
 }
 
 /** The common KI answer envelope rendered by `<AIResponse>` (§5.5). */
+/**
+ * Issue #685 — public KI-Assistent availability payload.
+ *
+ * Mirrors the backend operator flag (`AI_FEATURES_ENABLED`). Used to hide the
+ * KI-Assistent nav entry and degrade its page when AI is off cluster-wide.
+ */
+export interface AiStatus {
+  available: boolean;
+}
+
 export interface AiResponse {
   answer_text: string;
   sources: AiSourceRef[];

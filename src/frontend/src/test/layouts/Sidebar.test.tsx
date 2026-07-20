@@ -4,10 +4,12 @@ import type { ModuleVisibilityState } from '@/api/types';
 
 import Sidebar from '@/layouts/Sidebar';
 import { findModuleByPath, moduleCatalog, type ModuleKey } from '@/config/moduleCatalog';
+import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 import {
   createStoreWithExpertise,
   createStoreWithModuleOverrides,
   renderWithProviders,
+  type TestStore,
 } from '../helpers';
 
 /** Every non-core module explicitly enabled — surfaces the full sidebar. */
@@ -153,5 +155,50 @@ describe('Sidebar — newly-controllable modules (REQ-042 #551)', () => {
     });
     expect(screen.queryByTestId('nav-/ernte/nachernte')).toBeNull();
     expect(screen.getByTestId('nav-/ernte/batches')).toBeInTheDocument();
+  });
+});
+
+describe('Sidebar — KI-Assistent gated on the AI feature flag (issue #685)', () => {
+  /** Store with every module enabled plus a resolved AI availability status. */
+  function storeWithAiStatus(available: boolean | null): TestStore {
+    const store = createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true);
+    if (available !== null) {
+      store.dispatch(fetchAiStatus.fulfilled({ available }, 'req', undefined));
+    }
+    return store;
+  }
+
+  it('shows the KI-Assistent entry when AI features are available', () => {
+    renderWithProviders(<Sidebar open />, { store: storeWithAiStatus(true) });
+    expect(screen.getByTestId('nav-/ki-assistent')).toBeInTheDocument();
+    // Glossar is decoupled from the AI flag (issue #684) and stays visible.
+    expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
+  });
+
+  it('hides the KI-Assistent entry when AI features are disabled', () => {
+    renderWithProviders(<Sidebar open />, { store: storeWithAiStatus(false) });
+    expect(screen.queryByTestId('nav-/ki-assistent')).toBeNull();
+    // Glossar must remain visible even when the AI flag is off (issue #684).
+    expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
+  });
+
+  it('keeps the KI-Assistent entry visible while the AI probe is pending', () => {
+    // available === null (unknown) must not hide a potentially-working feature.
+    renderWithProviders(<Sidebar open />, { store: storeWithAiStatus(null) });
+    expect(screen.getByTestId('nav-/ki-assistent')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
+  });
+
+  it('keeps the KI-Assistent entry visible after a failed AI probe (fail-open)', () => {
+    // A rejected probe (network/timeout/5xx) leaves availability unknown (null),
+    // so the nav entry must stay visible — a transient fault must never hide a
+    // working feature. Only a definitive available=false gates the entry.
+    const store = createStoreWithModuleOverrides('expert', ALL_MODULES_ENABLED, true);
+    store.dispatch(fetchAiStatus.rejected(new Error('network'), 'req', undefined));
+    expect(store.getState().aiStatus.available).toBeNull();
+
+    renderWithProviders(<Sidebar open />, { store });
+    expect(screen.getByTestId('nav-/ki-assistent')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-/glossar')).toBeInTheDocument();
   });
 });
