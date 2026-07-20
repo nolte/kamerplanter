@@ -200,7 +200,7 @@ new_species:
 lifecycle_configs:
   "Streptocarpus ionanthus":
     cycle_type: perennial
-    photoperiod_type: long_day
+    photoperiod_type: day_neutral
 
   "Syngonium podophyllum":
     cycle_type: perennial

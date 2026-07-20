@@ -173,48 +173,7 @@ ALLOWED_DISCREPANCIES: tuple[AllowedDiscrepancy, ...] = (
         ),
         source="crassula_ovata.md §2.2; seed routing via photosynthesis_type=cam",
     ),
-    # -- photoperiod_type: seed value likely stale (SEED-FIX PENDING) --------- #
-    AllowedDiscrepancy(
-        scientific_name="Nymphaea alba",
-        attribute="photoperiod_type",
-        steckbrief_value="day_neutral",
-        seed_value="long_day",
-        reason=(
-            "SEED-FIX PENDING: the Steckbrief was sourced-corrected from long_day to "
-            "day_neutral (bloom is water-temperature driven, not photoperiodic); the "
-            "seed still carries the stale long_day. A seed correction to day_neutral is "
-            "resolver-inert (neither value triggers the short_day rule) but is deferred "
-            "for botanical confirmation. Allowlisted, not endorsed."
-        ),
-        source="nymphaea_alba.md §1.1 KORREKTUR (Steckbrief-Erweiterung 2026-06)",
-    ),
-    AllowedDiscrepancy(
-        scientific_name="Brassica oleracea var. sabellica",
-        attribute="photoperiod_type",
-        steckbrief_value="day_neutral",
-        seed_value="long_day",
-        reason=(
-            "SEED-FIX PENDING: kale bolts in year two by vernalization, not day length; "
-            "the Steckbrief records day_neutral per the corpus convention for "
-            "vernalization-driven species, while the seed carries long_day. Seed "
-            "correction to day_neutral is resolver-inert but deferred for confirmation."
-        ),
-        source="brassica_oleracea_var_sabellica.md §1.1; PMC8866342 (vernalization/FLC)",
-    ),
-    AllowedDiscrepancy(
-        scientific_name="Streptocarpus ionanthus",
-        attribute="photoperiod_type",
-        steckbrief_value="day_neutral",
-        seed_value="long_day",
-        reason=(
-            "SEED-FIX PENDING: African violet is day-neutral for flower development; "
-            "the Steckbrief was sourced-corrected from long_day to day_neutral, but the "
-            "seed lifecycle_config still carries the stale long_day. Seed correction is "
-            "resolver-inert and deferred for confirmation. (Steckbrief file: "
-            "saintpaulia_ionantha.md; seed key uses the current name Streptocarpus.)"
-        ),
-        source="saintpaulia_ionantha.md §1.1 KORREKTUR (Steckbrief-Erweiterung 2026-06)",
-    ),
+    # -- photoperiod_type: documented long-day nuance vs simplified seed ------ #
     AllowedDiscrepancy(
         scientific_name="Petunia x hybrida",
         attribute="photoperiod_type",
