@@ -190,19 +190,6 @@ ALLOWED_DISCREPANCIES: tuple[AllowedDiscrepancy, ...] = (
     ),
     # -- photosynthesis_type: documented CAM vs seed c3 (SEED-FIX PENDING) ---- #
     AllowedDiscrepancy(
-        scientific_name="Dendrobium nobile",
-        attribute="photosynthesis_type",
-        steckbrief_value="cam",
-        seed_value="c3",
-        reason=(
-            "SEED-FIX PENDING: the Steckbrief documents CAM for Dendrobium (sourced) "
-            "while the seed carries c3. Correcting the seed to cam would re-route the "
-            "lifecycle resolver toward cam_succulent_rest, so the change is deferred for "
-            "botanical/behavioural confirmation. Allowlisted transparently, not endorsed."
-        ),
-        source="dendrobium_nobile.md §1.1; Zhang et al. 2019 J. Exp. Bot. 70(22):6611",
-    ),
-    AllowedDiscrepancy(
         scientific_name="Platycerium bifurcatum",
         attribute="photosynthesis_type",
         steckbrief_value="cam",

@@ -1347,7 +1347,7 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: light_feeder
-    photosynthesis_type: c3
+    photosynthesis_type: cam
     shade_tolerance: partial_shade
     waterlogging_tolerance: sensitive
     salt_tolerance_class: sensitive
