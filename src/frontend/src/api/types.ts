@@ -5413,6 +5413,16 @@ export interface AiSourceRef {
 }
 
 /** The common KI answer envelope rendered by `<AIResponse>` (§5.5). */
+/**
+ * Issue #685 — public KI-Assistent availability payload.
+ *
+ * Mirrors the backend operator flag (`AI_FEATURES_ENABLED`). Used to hide the
+ * KI-Assistent nav entry and degrade its page when AI is off cluster-wide.
+ */
+export interface AiStatus {
+  available: boolean;
+}
+
 export interface AiResponse {
   answer_text: string;
   sources: AiSourceRef[];

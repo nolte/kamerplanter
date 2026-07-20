@@ -53,7 +53,7 @@ import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setSidebarOpen } from '@/store/slices/uiSlice';
 import type { ExperienceLevel } from '@/api/types';
 
@@ -80,6 +80,9 @@ export default function Sidebar({ open }: SidebarProps) {
   const location = useLocation();
   const { isNavVisible, level } = useExpertiseLevel();
   const { findModuleByPath, overrides, isSmartHomeEnabled } = useModuleVisibility();
+  // Issue #685 — cluster-wide AI feature flag. `null` = unknown (probe pending):
+  // keep the entry visible until we positively learn AI is off.
+  const aiAvailable = useAppSelector((s) => s.aiStatus.available);
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -91,6 +94,11 @@ export default function Sidebar({ open }: SidebarProps) {
   const isItemVisible = (path: string): boolean => {
     // REQ-042: personal module overrides take precedence over the level filter.
     const owner = findModuleByPath(path);
+    // Issue #685: the KI-Assistent entry reflects the server-side AI feature flag.
+    // Hide it only once the probe positively reports the feature is off, so a
+    // pending/failed probe (available === null) never hides a working feature.
+    // Glossar keeps its own module (decoupled from the AI flag, issue #684).
+    if (owner?.key === 'ai_assistant' && aiAvailable === false) return false;
     // Issue #587: the smart-home gate wins over override + level so sensor/actuator
     // nav entries (e.g. Umgebungssteuerung) stay hidden until the user opts in.
     if (owner?.requiresSmartHome && !isSmartHomeEnabled) return false;

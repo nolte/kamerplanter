@@ -26,6 +26,7 @@ import importReducer from './slices/importSlice';
 import calendarReducer from './slices/calendarSlice';
 import wateringLogsReducer from './slices/wateringLogsSlice';
 import identificationReducer from './slices/identificationSlice';
+import aiStatusReducer from './slices/aiStatusSlice';
 import pestDetectionReducer from './slices/pestDetectionSlice';
 import overwinteringProfilesReducer from './slices/overwinteringProfilesSlice';
 import seasonReducer from './slices/seasonSlice';
@@ -60,6 +61,7 @@ export const store = configureStore({
     calendar: calendarReducer,
     wateringLogs: wateringLogsReducer,
     identification: identificationReducer,
+    aiStatus: aiStatusReducer,
     pestDetection: pestDetectionReducer,
     overwinteringProfiles: overwinteringProfilesReducer,
     season: seasonReducer,
