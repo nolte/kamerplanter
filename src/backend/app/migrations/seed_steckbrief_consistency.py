@@ -17,14 +17,23 @@ cohorts (v0027), so they are authoritative. When a Steckbrief disagrees, the
 Steckbrief is the side that must be corrected -- never the seed -- unless the
 disagreement is a *deliberate, documented* one (see ``ALLOWED_DISCREPANCIES``).
 
-Five lifecycle-driving attributes are compared between the KA-field-anchored
-tables in every ``spec/knowledge/plants/*.md`` and the seed YAMLs:
+Five lifecycle-driving attributes are wired for comparison between the
+KA-field-anchored tables in every ``spec/knowledge/plants/*.md`` and the seed
+YAMLs:
 
     growth_habit         species.yaml:species[] / plant_info*.yaml:new_species[]
     photosynthesis_type  species.yaml:species[] / plant_info*.yaml:new_species[]
     photoperiod_type     plant_info*.yaml:lifecycle_configs[<name>]
     flowering_strategy   species.yaml:lifecycle_overrides[<name>] / lifecycle_configs
     growth_determinacy   species.yaml:lifecycle_overrides[<name>] / lifecycle_configs
+
+A comparison only fires when *both* sides carry a value. ``growth_determinacy``
+is wired but currently **latent**: no Steckbrief yet exposes the
+``lifecycle_configs.growth_determinacy`` anchor (0/210), so the seed side is
+never compared for it today. The check activates automatically -- and would
+catch a drift -- the moment a Steckbrief starts carrying that anchor; the anchor
+is kept in place now so no wiring change is needed then (no over-claim of
+current coverage).
 
 Parsing is anchored on the backtick KA-field reference in the third table
 column (e.g. ``| Photoperiode | day_neutral | ``lifecycle_configs.photoperiod_type`` |``)
@@ -366,6 +375,10 @@ def parse_steckbrief(path: Path) -> dict[str, str]:
         cells = _row_cells(line)
         if cells and len(cells) >= 2:
             name = _HTML_COMMENT.sub("", cells[1]).strip()
+            # Drop any synonym / parenthetical suffix, e.g.
+            # "Salvia rosmarinus (Syn. Rosmarinus officinalis)" -> "Salvia rosmarinus",
+            # so the name matches the plain seed key (analogous to _clean_value).
+            name = re.split(r"\s*\(", name, maxsplit=1)[0].strip()
             if name:
                 result["scientific_name"] = _normalize_name(name)
         break

@@ -247,3 +247,119 @@ def test_clean_value_handles_missing_markers() -> None:
     assert _clean_value("polycarpic (mehrjährig wiederholt blühend)") == "polycarpic"
     assert _clean_value("`bulb_geophyte` (krautartig)") == "bulb_geophyte"
     assert _clean_value("short_day") == "short_day"
+
+
+# --------------------------------------------------------------------------- #
+# Fix 1: synonym / parenthetical name suffix is stripped before matching
+# --------------------------------------------------------------------------- #
+
+
+def test_parse_strips_synonym_parenthesis_from_name(tmp_path: Path) -> None:
+    # "Salvia rosmarinus (Syn. Rosmarinus officinalis)" must normalize to the
+    # bare seed key "Salvia rosmarinus" -- otherwise a real drift is silently
+    # swallowed as "unmatched". Regression guard for Issue #680 pre-merge review.
+    path = tmp_path / "rosmarinus.md"
+    path.write_text(
+        textwrap.dedent(
+            """\
+            | Wissenschaftlicher Name | Salvia rosmarinus (Syn. Rosmarinus officinalis) | `species.scientific_name` |
+            | Wuchsform | shrub | `species.growth_habit` |
+            """
+        ),
+        encoding="utf-8",
+    )
+    parsed = parse_steckbrief(path)
+    assert parsed["scientific_name"] == "Salvia rosmarinus"
+
+
+def test_synonym_parenthesis_name_matches_seed_and_surfaces_drift(tmp_path: Path) -> None:
+    # End-to-end proof: a Steckbrief whose name carries a "(Syn. ...)" suffix
+    # now matches the plain seed key and its drift is caught (not dropped as
+    # unmatched).
+    plants = tmp_path / "plants"
+    seed = tmp_path / "seed_data"
+    plants.mkdir(parents=True, exist_ok=True)
+    (plants / "rosmarinus.md").write_text(
+        textwrap.dedent(
+            """\
+            | Wissenschaftlicher Name | Salvia rosmarinus (Syn. Rosmarinus officinalis) | `species.scientific_name` |
+            | Wuchsform | shrub | `species.growth_habit` |
+            """
+        ),
+        encoding="utf-8",
+    )
+    _write_species_seed(seed, "Salvia rosmarinus", growth_habit="subshrub")
+
+    drifts, unmatched = find_drifts(plants, load_seed_attributes(seed))
+
+    assert not unmatched
+    assert len(drifts) == 1
+    assert drifts[0].scientific_name == "Salvia rosmarinus"
+    assert drifts[0].attribute == "growth_habit"
+    assert drifts[0].steckbrief_value == "shrub"
+    assert drifts[0].seed_value == "subshrub"
+
+
+# --------------------------------------------------------------------------- #
+# Fix 2: growth_determinacy is wired but currently latent (no Steckbrief anchor)
+# --------------------------------------------------------------------------- #
+
+
+def test_growth_determinacy_is_latent_in_real_corpus() -> None:
+    # Documents the current state: no committed Steckbrief carries the
+    # growth_determinacy anchor, so the column is compared for 0 species today.
+    # If a Steckbrief starts carrying it, this assertion flips and the wiring
+    # (proven live by the test below) takes over -- update this test then.
+    from pathlib import Path as _Path
+
+    from app.migrations.seed_steckbrief_consistency import (
+        ATTR_ANCHORS,
+        _plants_dir,
+        parse_steckbrief,
+        repo_root,
+    )
+
+    anchor_attr = "growth_determinacy"
+    assert anchor_attr in ATTR_ANCHORS
+    carriers = [
+        p.name for p in sorted(_plants_dir(repo_root()).glob("*.md")) if anchor_attr in parse_steckbrief(_Path(p))
+    ]
+    assert carriers == [], f"growth_determinacy no longer latent: {carriers}"
+
+
+def test_growth_determinacy_drift_is_caught_when_a_steckbrief_carries_it(tmp_path: Path) -> None:
+    # Proves the wiring is not dead: the moment a Steckbrief exposes the
+    # growth_determinacy anchor, a mismatch against the seed lifecycle_config is
+    # detected exactly like the active attributes.
+    plants = tmp_path / "plants"
+    seed = tmp_path / "seed_data"
+    plants.mkdir(parents=True, exist_ok=True)
+    (plants / "foo.md").write_text(
+        textwrap.dedent(
+            """\
+            | Wissenschaftlicher Name | Foo bar | `species.scientific_name` |
+            | Determinität | indeterminate | `lifecycle_configs.growth_determinacy` |
+            """
+        ),
+        encoding="utf-8",
+    )
+    seed.mkdir(parents=True, exist_ok=True)
+    (seed / "species.yaml").write_text("species: []\n", encoding="utf-8")
+    (seed / "plant_info_test.yaml").write_text(
+        textwrap.dedent(
+            """\
+            lifecycle_configs:
+              Foo bar:
+                growth_determinacy: determinate
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    drifts, unmatched = find_drifts(plants, load_seed_attributes(seed))
+
+    assert not unmatched
+    assert len(drifts) == 1
+    assert drifts[0].attribute == "growth_determinacy"
+    assert drifts[0].steckbrief_value == "indeterminate"
+    assert drifts[0].seed_value == "determinate"

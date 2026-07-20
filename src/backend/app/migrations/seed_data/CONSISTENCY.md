@@ -16,17 +16,26 @@ einem Konflikt gewinnt der Seed; der Steckbrief wird angeglichen.
 
 ## Erzwungen durch
 
-`app/migrations/seed_steckbrief_consistency.py` gleicht fünf Attribute zwischen
-den KA-Feld-verankerten Tabellen der Steckbriefe und den Seed-YAMLs ab und
-**bricht bei Drift** (Exit-Code ≠ 0):
+`app/migrations/seed_steckbrief_consistency.py` verdrahtet fünf Attribute zum
+Abgleich zwischen den KA-Feld-verankerten Tabellen der Steckbriefe und den
+Seed-YAMLs und **bricht bei Drift** (Exit-Code ≠ 0):
 
-| Attribut | Seed-Quelle |
-|----------|-------------|
-| `growth_habit` | `species.yaml:species[]`, `plant_info*.yaml:new_species[]` |
-| `photosynthesis_type` | `species.yaml:species[]`, `plant_info*.yaml:new_species[]` |
-| `photoperiod_type` | `plant_info*.yaml:lifecycle_configs[<name>]` |
-| `flowering_strategy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` |
-| `growth_determinacy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` |
+| Attribut | Seed-Quelle | Status |
+|----------|-------------|--------|
+| `growth_habit` | `species.yaml:species[]`, `plant_info*.yaml:new_species[]` | aktiv |
+| `photosynthesis_type` | `species.yaml:species[]`, `plant_info*.yaml:new_species[]` | aktiv |
+| `photoperiod_type` | `plant_info*.yaml:lifecycle_configs[<name>]` | aktiv |
+| `flowering_strategy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` | aktiv |
+| `growth_determinacy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` | latent¹ |
+
+Ein Abgleich greift nur, wenn **beide** Seiten einen Wert führen.
+
+> ¹ **`growth_determinacy` ist derzeit latent:** Kein Steckbrief führt bislang
+> den Anker `` `lifecycle_configs.growth_determinacy` `` (0/210), daher wird die
+> Seed-Seite dafür heute nie verglichen. Die Verdrahtung bleibt bestehen, damit
+> die Prüfung **automatisch greift**, sobald ein Steckbrief das Feld führt —
+> ohne dann eine Anpassung des Validators zu erfordern. Es wird also keine volle
+> Abdeckung für dieses Attribut behauptet.
 
 Ausführung:
 
