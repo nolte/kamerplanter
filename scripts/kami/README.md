@@ -142,9 +142,13 @@ motif.
 
 - **Batch 1 (inline FLUX prompts):** the #593 single/small-motif *illustration* docs —
   empty-state, loading, celebration, onboarding, dashboard (welcome+empty),
-  post-harvest (drying+curing). Logo/app-icons are brand-sourced (see above).
-- **Batch 2 (`doc:`+`motif_heading:` references, auto FLUX-normalised):**
-  features (G-06), tank fill-levels (G-05), sidebar nav-icons (G-04).
+  phase (drying+curing). Logo/app-icons are brand-sourced (see above).
+- **Batch 2 (`doc:`+`motif_heading:` references):** feature illustrations (G-06).
+
+**Not FLUX jobs** (motif doesn't fit a text-to-image model): the **sidebar nav-icons**
+(G-04) need simple glyphs at ~24px, not KAMI scenes — the app keeps its MUI icons; and
+**tank fill-levels** (G-05) are a numeric state that FLUX renders as literal "40%/60%"
+text — better authored as a parametric SVG with a programmatic fill. Both were dropped.
 
 Every prompt is prepended with `defaults.anatomy_anchor` (face-on-pot invariant).
 Add a job by appending to the manifest; no code change needed. `render.py status`
