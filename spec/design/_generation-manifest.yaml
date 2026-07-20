@@ -30,6 +30,19 @@ defaults:
   base_seed: 4200                 # attempt N uses seed base_seed+N -> real variety on regen
   max_attempts: 3                 # after N rejects a job goes to `blocked` (needs a human)
   render_dir: .render/kami        # PNGs + render-state.json land here (gitignored)
+  # Prepended by render.py to EVERY job prompt (inline + doc-referenced). Encodes
+  # the one anatomy invariant FLUX most often violates (see KAMI reference §2):
+  # face + arms on the pot, leaves are plain foliage. Editing this reshapes the
+  # whole render set without touching individual prompts.
+  anatomy_anchor: |
+    Character identity (Kami mascot): Kami is a friendly TERRACOTTA FLOWER POT with
+    a face. Two large round black eyes, each with a small white highlight glint, and
+    one small simple upward-curved smile sit ON THE POT BODY (centered on the pot's
+    front, below the rim). Two thin dark-green stick-arms reach out from the left and
+    right sides of the pot. Out of the pot grows a thin green stem carrying exactly two
+    plain teardrop leaves with a central vein; the leaves are plain foliage with NO
+    eyes and NO face. Never draw a face on the plant or between the leaves. No blush
+    cheeks. One consistent bold dark-green #1b5e20 outline, flat cartoon style.
 
 # ---------------------------------------------------------------------------
 # Batch 1 — the 8 new #593 single/small-motif docs, fully FLUX-normalised.
