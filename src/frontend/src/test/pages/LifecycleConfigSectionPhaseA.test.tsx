@@ -98,6 +98,38 @@ describe('LifecycleConfigSection — Phase A fields', () => {
     );
   });
 
+  it('carries a newly selected growth_determinacy value into the submit payload', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
+      store: createStoreWithExpertise('expert'),
+    });
+
+    const gd = within(await screen.findByTestId('form-field-growth_determinacy')).getByRole(
+      'combobox',
+    );
+    await user.click(gd);
+    await user.click(
+      await screen.findByRole('option', { name: i18n.t('enums.growthDeterminacy.indeterminate') }),
+    );
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(updateLifecycleConfig).toHaveBeenCalled());
+    expect(updateLifecycleConfig).toHaveBeenCalledWith(
+      'sp-1',
+      'lc-1',
+      expect.objectContaining({ growth_determinacy: 'indeterminate' }),
+    );
+  });
+
+  it('hides the expert-only growth_determinacy field from a beginner', async () => {
+    renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
+      store: createStoreWithExpertise('beginner'),
+    });
+
+    await screen.findByTestId('form-field-cycle_type');
+    expect(screen.queryByTestId('form-field-growth_determinacy')).toBeNull();
+  });
+
   it('normalises a cleared optional lifecycle select to null on submit', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {

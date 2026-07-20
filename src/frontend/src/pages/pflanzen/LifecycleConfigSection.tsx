@@ -29,11 +29,15 @@ const CYCLE_TYPES = ['annual', 'biennial', 'perennial'] as const;
 /** Flowering-strategy enum values — mirrors FloweringStrategy in api/types.ts (REQ-003). */
 const FLOWERING_STRATEGIES = ['monocarpic', 'polycarpic'] as const;
 
+/** Growth-determinacy enum values — mirrors GrowthDeterminacy in api/types.ts (REQ-003 E4). */
+const GROWTH_DETERMINACIES = ['determinate', 'indeterminate', 'semi_determinate'] as const;
+
 const schema = z.object({
   cycle_type: z.enum(CYCLE_TYPES),
   // Empty string = "no selection" from the MUI select; normalised to null on submit.
   cultivation_cycle_type: z.enum(CYCLE_TYPES).or(z.literal('')).nullable(),
   flowering_strategy: z.enum(FLOWERING_STRATEGIES).or(z.literal('')).nullable(),
+  growth_determinacy: z.enum(GROWTH_DETERMINACIES).or(z.literal('')).nullable(),
   typical_lifespan_years: z.number().nullable(),
   dormancy_required: z.boolean(),
   vernalization_required: z.boolean(),
@@ -72,6 +76,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
       cycle_type: 'annual',
       cultivation_cycle_type: null,
       flowering_strategy: null,
+      growth_determinacy: null,
       typical_lifespan_years: null,
       dormancy_required: false,
       vernalization_required: false,
@@ -103,6 +108,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           cycle_type: lc.cycle_type,
           cultivation_cycle_type: lc.cultivation_cycle_type ?? null,
           flowering_strategy: lc.flowering_strategy ?? null,
+          growth_determinacy: lc.growth_determinacy ?? null,
           typical_lifespan_years: lc.typical_lifespan_years,
           dormancy_required: lc.dormancy_required,
           vernalization_required: lc.vernalization_required,
@@ -123,6 +129,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
         ...data,
         cultivation_cycle_type: data.cultivation_cycle_type || null,
         flowering_strategy: data.flowering_strategy || null,
+        growth_determinacy: data.growth_determinacy || null,
       };
       let result: LifecycleConfig;
       if (exists && lifecycle) {
@@ -209,6 +216,26 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                     ...FLOWERING_STRATEGIES.map((v) => ({
                       value: v,
                       label: t(`enums.floweringStrategy.${v}`),
+                    })),
+                  ]}
+                />
+              </ExpertiseFieldWrapper>
+            </FormRow>
+            {/* Growth determinacy (REQ-003 E4) — orthogonal to lifespan/flowering.
+              Determinate species follow a linear path to a terminal phase; indeterminate
+              species stay in a stable productive phase with concurrent veg/flower/fruit. */}
+            <FormRow>
+              <ExpertiseFieldWrapper minLevel="expert">
+                <FormSelectField
+                  name="growth_determinacy"
+                  control={control}
+                  label={t('pages.lifecycle.growthDeterminacy')}
+                  helperText={t('pages.lifecycle.growthDeterminacyHelper')}
+                  options={[
+                    { value: '', label: '—' },
+                    ...GROWTH_DETERMINACIES.map((v) => ({
+                      value: v,
+                      label: t(`enums.growthDeterminacy.${v}`),
                     })),
                   ]}
                 />
