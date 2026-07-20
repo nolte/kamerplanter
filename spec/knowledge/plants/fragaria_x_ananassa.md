@@ -23,7 +23,7 @@
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Photoperiode | day_neutral (sortenabhaengig: June-bearing = short_day, Everbearing/Day-neutral = day_neutral) | `lifecycle_configs.photoperiod_type` |
 | USDA Zonen | 3a; 3b; 4a; 4b; 5a; 5b; 6a; 6b; 7a; 7b; 8a; 8b; 9a; 9b; 10a; 10b | `species.hardiness_zones` |
-| Frostempfindlichkeit | half_hardy | `species.frost_sensitivity` |
+| Frostempfindlichkeit | moderate <!-- KORREKTUR: 'half_hardy' ist kein gueltiger FrostTolerance-Enum-Wert (sensitive/moderate/hardy/very_hardy); an Seed angeglichen. Pflanze winterhart mit Schutz, Blueten frostempfindlich -> moderate --> | `species.frost_sensitivity` |
 | Winterhaerte-Detail | Pflanze winterhart bis ca. -15 bis -20 degC (sortenabhaengig). Blueten frostempfindlich -- Spaetfroeste ab -2 degC schaedigen offene Blueten. Wurzelstock uebersteht mitteleuropaeische Winter mit Mulchschutz zuverlaessig. Wirtschaftliche Nutzung 3--4 Jahre, danach Neupflanzung empfohlen. | `species.hardiness_detail` |
 | Heimat | Hybride -- entstanden im 18. Jahrhundert in Europa aus Kreuzung von Fragaria virginiana (Nordamerika) und Fragaria chiloensis (Suedamerika/Chile) | `species.native_habitat` |
 | Allelopathie-Score | -0.4 | `species.allelopathy_score` |
