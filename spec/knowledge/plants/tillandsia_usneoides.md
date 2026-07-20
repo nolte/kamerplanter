@@ -17,7 +17,7 @@
 | Familie | Bromeliaceae | `species.family` → `botanical_families.name` |
 | Gattung | Tillandsia | `species.genus` |
 | Ordnung | Poales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | epiphyte <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | — (nicht art-spezifisch belegt; Gattungs-Monokarpie für _T. usneoides_ nicht gesichert, growing-phase-auditor 2026-07) | `lifecycle_configs.flowering_strategy` |

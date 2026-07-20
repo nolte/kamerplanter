@@ -33,7 +33,7 @@
 | Familie | Asteraceae | `species.family` → `botanical_families.name` |
 | Gattung | Dahlia | `species.genus` |
 | Ordnung | Asterales | `botanical_families.order` |
-| Wuchsform | `herb` (krautartig, aus Knollenwurzel austreibend) | `species.growth_habit` |
+| Wuchsform | `bulb_geophyte` (krautartig, aus Knollenwurzel austreibend) <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | `tuberous` (Knollenwurzeln als Speicherorgane, die winterlich ausgegraben werden) | `species.root_type` |
 | Lebenszyklus | `perennial` (botanisch mehrjährig durch Knollen; in Mitteleuropa kulturell als Sommerblüher behandelt — Knollen müssen frostfrei überwintert werden) | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |

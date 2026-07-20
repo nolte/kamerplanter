@@ -17,7 +17,7 @@
 | Familie | Acanthaceae | `species.family` → `botanical_families.name` |
 | Gattung | Fittonia | `species.genus` |
 | Ordnung | Lamiales | `botanical_families.order` |
-| Wuchsform | groundcover | `species.growth_habit` |
+| Wuchsform | herb <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher groundcover) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |

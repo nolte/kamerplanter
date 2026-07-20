@@ -17,7 +17,7 @@
 | Familie | Amaryllidaceae | `species.family` → `botanical_families.name` |
 | Gattung | Allium | `species.genus` |
 | Ordnung | Asparagales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | bulb_geophyte <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | bulbous | `species.root_type` |
 | Lebenszyklus | biennial (als Gemüse einjährig kultiviert) | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | monocarpic (blüht einmal, dann Absterben) | `lifecycle_configs.flowering_strategy` |

@@ -17,7 +17,7 @@
 | Familie | Apocynaceae | `species.family` → `botanical_families.name` |
 | Gattung | Ceropegia | `species.genus` |
 | Ordnung | Gentianales | `botanical_families.order` |
-| Wuchsform | vine | `species.growth_habit` |
+| Wuchsform | succulent <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher vine) --> | `species.growth_habit` |
 | Wurzeltyp | tuberous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |

@@ -17,7 +17,7 @@
 | Familie | Nymphaeaceae | `species.family` → `botanical_families.name` |
 | Gattung | Nymphaea | `species.genus` |
 | Ordnung | Nymphaeales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | aquatic <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
