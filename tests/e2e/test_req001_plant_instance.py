@@ -30,6 +30,10 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from .pages.plant_instance_detail_page import PlantInstanceDetailPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('plant',)
+
 
 # -- Fixtures -----------------------------------------------------------------
 

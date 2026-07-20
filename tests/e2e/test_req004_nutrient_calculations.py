@@ -41,6 +41,10 @@ from selenium.webdriver.common.by import By
 
 from .pages.nutrient_calculations_page import NutrientCalculationsPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('nutrient',)
+
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
