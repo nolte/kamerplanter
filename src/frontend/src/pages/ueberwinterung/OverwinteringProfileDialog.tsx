@@ -14,6 +14,7 @@ import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormMonthField from '@/components/form/FormMonthField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -379,15 +380,11 @@ export default function OverwinteringProfileDialog({
             />
           </FormRow>
           <FormRow>
-            <FormNumberField
+            <FormMonthField
               name="winter_action_month"
               control={control}
               label={t('pages.overwintering.winterActionMonth')}
               required
-              min={1}
-              max={12}
-              step={1}
-              inputMode="numeric"
               helperText={t('pages.overwintering.winterActionMonthHelper')}
             />
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
@@ -422,14 +419,11 @@ export default function OverwinteringProfileDialog({
                 })),
               ]}
             />
-            <FormNumberField
+            <FormMonthField
               name="spring_action_month"
               control={control}
               label={t('pages.overwintering.springActionMonth')}
-              min={1}
-              max={12}
-              step={1}
-              inputMode="numeric"
+              includeEmpty
               helperText={t('pages.overwintering.springActionMonthHelper')}
             />
           </FormRow>

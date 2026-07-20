@@ -52,10 +52,39 @@ def _perennial_lc() -> LifecycleConfig:
 class TestEnterDormancy:
     def test_perennial_is_driven_to_dormancy(self) -> None:
         phase_service = MagicMock()
+        phase_service.find_phase_key_by_role.return_value = "e-dormancy"
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
+
+        assert coupler.enter_dormancy(_plant()) is True
+        phase_service.transition_phase.assert_called_once_with(
+            "plant-1", "e-dormancy", reason="season_winter_dormancy", force=True, trigger=TransitionTrigger.AUTO
+        )
+
+    def test_role_typed_rest_phase_is_coupled(self) -> None:
+        """#677 / NCT-2: a #616 fine-typed rest phase (e.g. ``winter_rest`` on a
+        ``cam_succulent_rest`` sequence) is resolved by ROLE, not the literal ``dormancy``."""
+        phase_service = MagicMock()
+        # No literal ``dormancy`` phase exists — only the role-typed ``winter_rest``.
+        phase_service.find_phase_key_by_role.return_value = "e-winter-rest"
+        phase_service.find_phase_key_by_name.return_value = None
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
+
+        assert coupler.enter_dormancy(_plant()) is True
+        phase_service.find_phase_key_by_role.assert_called_once_with("sp-1", "dormancy")
+        phase_service.transition_phase.assert_called_once_with(
+            "plant-1", "e-winter-rest", reason="season_winter_dormancy", force=True, trigger=TransitionTrigger.AUTO
+        )
+
+    def test_legacy_literal_dormancy_fallback(self) -> None:
+        """Legacy sequences without a role-typed rest phase fall back to the literal
+        ``dormancy`` name lookup."""
+        phase_service = MagicMock()
+        phase_service.find_phase_key_by_role.return_value = None  # no role-typed rest phase
         phase_service.find_phase_key_by_name.return_value = "e-dormancy"
         coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
 
         assert coupler.enter_dormancy(_plant()) is True
+        phase_service.find_phase_key_by_name.assert_called_once_with("sp-1", "dormancy")
         phase_service.transition_phase.assert_called_once_with(
             "plant-1", "e-dormancy", reason="season_winter_dormancy", force=True, trigger=TransitionTrigger.AUTO
         )
@@ -73,7 +102,8 @@ class TestEnterDormancy:
 
     def test_evergreen_without_dormancy_phase_is_untouched(self) -> None:
         phase_service = MagicMock()
-        phase_service.find_phase_key_by_name.return_value = None  # no dormancy phase
+        phase_service.find_phase_key_by_role.return_value = None  # no rest-role phase
+        phase_service.find_phase_key_by_name.return_value = None  # no literal dormancy phase
         coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
 
         assert coupler.enter_dormancy(_plant()) is False
@@ -81,7 +111,7 @@ class TestEnterDormancy:
 
     def test_already_dormant_is_idempotent(self) -> None:
         phase_service = MagicMock()
-        phase_service.find_phase_key_by_name.return_value = "e-dormancy"
+        phase_service.find_phase_key_by_role.return_value = "e-dormancy"
         coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(_perennial_lc()))
 
         assert coupler.enter_dormancy(_plant(current_phase_key="e-dormancy")) is False
@@ -143,7 +173,7 @@ class TestInstanceOverride:
 
     def test_perennial_override_on_annual_species_is_driven_to_dormancy(self) -> None:
         phase_service = MagicMock()
-        phase_service.find_phase_key_by_name.return_value = "e-dormancy"
+        phase_service.find_phase_key_by_role.return_value = "e-dormancy"
         annual = LifecycleConfig(species_key="sp-1", cycle_type=CycleType.ANNUAL)
         coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(annual))
 
