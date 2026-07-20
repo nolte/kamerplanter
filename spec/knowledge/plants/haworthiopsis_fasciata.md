@@ -23,7 +23,7 @@
 | GDD-Basistemperatur Wuchsphase (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-GDD-Basiswert für Haworthiopsis auffindbar --> | `species.base_temp` |
 | Kritische Tageslänge (critical day length, h) | day_neutral (tagneutrale CAM-Sukkulente, keine kritische Tageslänge) | `lifecycle_configs.critical_day_length_hours` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | succulent <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |

@@ -18,7 +18,7 @@
 | Familie | Crassulaceae | `species.family` → `botanical_families.name` |
 | Gattung | Kalanchoe | `species.genus` |
 | Ordnung | Saxifragales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | succulent <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | monocarpic (Einzelrosette/Haupttrieb blüht einmalig und stirbt danach ab; Art selbst bleibt perennierend, da sie sich vor/während der Blüte bereits klonal über Bulbillen fortgesetzt hat — korrigiert 2026-07, war zuvor fälschlich "polycarpic" trotz widersprechender Fließtext-Aussagen in §1.1/§1.2/§2.1/§7 desselben Dokuments) | `lifecycle_configs.flowering_strategy` |

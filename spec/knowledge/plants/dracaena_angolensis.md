@@ -22,7 +22,7 @@
 | Photosynthese-Typ (photosynthesis type) | cam | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: kein belegter Wuchs-/Phänologie-Basiswert für Dracaena angolensis auffindbar --> | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | succulent <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |

@@ -47,6 +47,17 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
+      - name: Steckbrief ↔ seed consistency (#680)
+        # Fail the build on any non-allowlisted drift of a lifecycle-driving
+        # attribute (growth_habit / photoperiod_type / photosynthesis_type /
+        # flowering_strategy / growth_determinacy) between a Steckbrief
+        # (spec/knowledge/plants/*.md) and the seed YAMLs. Seed = source of truth,
+        # Steckbrief = documentation that must follow it (Issue #680, audit UR-2).
+        # The validator walks up to the repo root itself, so the job's
+        # src/backend working directory is fine. Also enforced on the required
+        # `static` gate via a pre-commit hook.
+        run: python app/migrations/seed_steckbrief_consistency.py --verbose
+
       - name: Unit tests
         run: pytest tests/unit/ -v --tb=short
 

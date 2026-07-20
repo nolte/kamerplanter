@@ -18,7 +18,7 @@
 | Familie | Geraniaceae | `species.family` → `botanical_families.name` |
 | Gattung | Pelargonium | `species.genus` |
 | Ordnung | Geraniales | `botanical_families.order` |
-| Wuchsform | shrub | `species.growth_habit` |
+| Wuchsform | subshrub <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher shrub) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |

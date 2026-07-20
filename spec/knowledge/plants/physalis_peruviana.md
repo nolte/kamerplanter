@@ -17,7 +17,7 @@
 | Familie | Solanaceae | `species.family` -> `botanical_families.name` |
 | Gattung | Physalis | `species.genus` |
 | Ordnung | Solanales | `botanical_families.order` |
-| Wuchsform | shrub | `species.growth_habit` |
+| Wuchsform | herb <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher shrub) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus (botanisch) | perennial | `lifecycle_configs.cycle_type` |
 <!-- Quelle: growing-phase-auditor 2026-07 -- cycle_type ist strikt enum-wertig (Literal['annual','biennial','perennial'], REQ-001 SS LifecycleConfig) und darf keinen gemischten Text ("perennial (in Heimat); annual...") enthalten. Botanisch ist Physalis peruviana ein zaertlicher, halb-ausdauernder Kleinstrauch / tender perennial subshrub (PFAF, CABI Compendium, Purdue NewCrop, Fischer & Melgarejo 2020 -- bereits Quelle 8 dieses Dokuments), in Mitteleuropa jedoch wegen Frostempfindlichkeit einjaehrig kultiviert. Siehe cultivation_cycle_type unten fuer die Kulturpraxis-Ueberschreibung. -->

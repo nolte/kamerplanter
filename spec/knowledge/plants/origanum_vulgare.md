@@ -17,7 +17,7 @@
 | Familie | Lamiaceae | `species.family` → `botanical_families.name` |
 | Gattung | Origanum | `species.genus` |
 | Ordnung | Lamiales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | subshrub <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | rhizomatous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 <!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
