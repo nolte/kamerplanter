@@ -24,6 +24,7 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.common.exceptions import ConsentRequiredError, NotFoundError, ValidationError
+from app.config.settings import settings
 from app.data_access.external.knowledge_service_adapter import KnowledgeServiceUnavailableError
 from app.domain.guards.consent_guard import AI_CLOUD_PROCESSING, ConsentGuard
 from app.domain.interfaces.knowledge_service import IKnowledgeService
@@ -108,6 +109,15 @@ class GlossaryService:
         term = self._terms.get_by_slug(canonical)
         if term is None:  # pragma: no cover - resolve guarantees existence
             raise NotFoundError("GlossaryTerm", slug)
+
+        # RAG-call boundary (#684): only the on-demand, expertise-adapted RAG
+        # explanation requires the operator flag. With AI off we skip the cloud
+        # gate, the cache and the Knowledge-Service call entirely and serve the
+        # curated editorial fallback (``is_fallback=true``) — the term stays
+        # explainable without any AI/RAG stack. The term list is unaffected
+        # (``list_terms`` never touches the flag).
+        if not settings.ai_features_enabled:
+            return self._fallback_answer(term, language, expertise_level, tenant_key=tenant_key, user_key=user_key)
 
         uses_cloud = self._enforce_cloud_gate(tenant_key=tenant_key, user_key=user_key, allow_cloud=allow_cloud)
 
@@ -262,6 +272,27 @@ class GlossaryService:
             generated_at=now,
             valid_until=now + _CACHE_TTL,
         )
+
+    def _fallback_answer(
+        self,
+        term: GlossaryTerm,
+        language: str,
+        expertise_level: str,
+        *,
+        tenant_key: str | None,
+        user_key: str | None,
+    ) -> GlossaryTermAnswer:
+        """Serve the editorial fallback without any RAG call (AI flag off, #684).
+
+        Skips the cloud gate and the cache: the fallback text is curated and
+        static, so there is nothing to gate or cache. The served answer is still
+        audited (PII-free) for parity with the RAG path.
+        """
+        entry = self._fallback_entry(term, language, expertise_level, datetime.now(UTC))
+        self._audit_ok(
+            term, language, expertise_level, entry, uses_cloud=False, tenant_key=tenant_key, user_key=user_key
+        )
+        return self._to_answer(term, entry, language, expertise_level, uses_cloud=False)
 
     def _fallback_entry(
         self, term: GlossaryTerm, language: str, expertise_level: str, now: datetime

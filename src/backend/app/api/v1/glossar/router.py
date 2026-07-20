@@ -6,6 +6,14 @@ use **no** tenant data: the Knowledge-Service call runs strictly with
 ``context=null`` (§3.1). The tenant context is only used to enforce the REQ-031
 cloud-processing consent gate when the tenant's default provider is a cloud LLM
 (§6).
+
+The router is intentionally **not** gated by ``require_ai_feature_flag``: the
+term list and the editorial fallback text need no AI/RAG stack and must stay
+usable when ``ai_features_enabled`` is off (default). Only the on-demand RAG
+explanation requires the operator flag, which is enforced inside
+:class:`~app.domain.services.glossary_service.GlossaryService` at the RAG-call
+boundary (#684). With the flag off, ``/term/{slug}`` degrades to the curated
+fallback text (``is_fallback=true``) instead of returning 404.
 """
 
 from __future__ import annotations
@@ -13,7 +21,6 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.v1.glossar.deps import get_glossary_service
-from app.api.v1.ki_assistent.deps import require_ai_feature_flag
 from app.common.auth import get_current_tenant
 from app.domain.models.glossary_term import (
     ExpertiseLevel,
@@ -27,7 +34,6 @@ from app.domain.services.glossary_service import GlossaryService
 router = APIRouter(
     prefix="/glossary",
     tags=["glossary"],
-    dependencies=[Depends(require_ai_feature_flag)],
 )
 
 
