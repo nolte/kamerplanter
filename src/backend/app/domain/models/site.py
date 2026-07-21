@@ -80,6 +80,11 @@ class Location(BaseModel):
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
     tank_key: str | None = None
+    #: Frost exposure override (Issue #706, additive — defaults keep legacy
+    #: locations valid). ``None`` inherits frost exposure from the parent site
+    #: type (current behaviour, no backfill); ``True`` forces the location to be
+    #: treated as frost-exposed; ``False`` forces it as protected/indoor.
+    frost_exposed: bool | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
