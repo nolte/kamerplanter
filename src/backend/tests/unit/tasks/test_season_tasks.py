@@ -69,7 +69,11 @@ class TestEvaluateSeasonStates:
         result = module.evaluate_season_states()
 
         assert result == {"status": "ok", "evaluated": 2, "transitions": 1, "errors": 0}
-        site_repo.find_site_docs_by_types.assert_called_once_with(["outdoor", "greenhouse"])
+        # #706: balcony sites are frost-exposed and must be evaluated too
+        # (OVERWINTERING_SITE_TYPES). Compare as a set — frozenset order varies.
+        site_repo.find_site_docs_by_types.assert_called_once()
+        (called_types,) = site_repo.find_site_docs_by_types.call_args[0]
+        assert set(called_types) == {"outdoor", "greenhouse", "balcony"}
 
     def test_none_state_is_not_evaluated(self, task_module, monkeypatch):
         module, deps = task_module
