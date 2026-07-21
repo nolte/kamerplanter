@@ -1566,6 +1566,8 @@
       "lightsOff": "Lights Off",
       "lightsOffHelper": "Lights-off time (HH:MM)",
       "useDynamicSunrise": "Dynamic sunrise calculation",
+      "frostExposure": "Frost exposure",
+      "frostExposureHelper": "Determines whether overwintering logic applies to plants in this location – independent of the site type. Useful when the location differs from its site, e.g. a frost-exposed balcony belonging to an indoor apartment. \"Inherit from site\" takes over the setting of the parent site.",
       "tank": "Tank",
       "assignedTank": "Assigned Tank",
       "noTank": "No tank assigned",

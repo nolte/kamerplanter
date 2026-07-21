@@ -1566,6 +1566,8 @@
       "lightsOff": "Licht Aus",
       "lightsOffHelper": "Uhrzeit Licht-Aus (HH:MM)",
       "useDynamicSunrise": "Dynamische Sonnenstandberechnung",
+      "frostExposure": "Frostexposition",
+      "frostExposureHelper": "Legt fest, ob für Pflanzen an diesem Bereich die Überwinterungslogik greift – unabhängig vom Typ des Standorts. Nützlich, wenn der Bereich vom Standort abweicht, z. B. ein frostexponierter Balkon, der zu einer Innen-Wohnung gehört. „Vom Standort erben“ übernimmt die Einstellung des übergeordneten Standorts.",
       "tank": "Tank",
       "assignedTank": "Zugewiesener Tank",
       "noTank": "Kein Tank zugewiesen",

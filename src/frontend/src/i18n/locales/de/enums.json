@@ -354,6 +354,11 @@
       "cmh": "CMH",
       "mixed": "Gemischt"
     },
+    "frostExposure": {
+      "inherit": "Vom Standort erben",
+      "exposed": "Außenbereich – frostexponiert",
+      "protected": "Innen – geschützt"
+    },
     "irrigationSystem": {
       "manual": "Manuell",
       "drip": "Tropf",
