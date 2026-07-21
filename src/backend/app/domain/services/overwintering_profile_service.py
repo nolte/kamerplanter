@@ -8,7 +8,6 @@ the dashboard hardiness overview.
 from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import (
-    OVERWINTERING_SITE_TYPES,
     FrostTolerance,
     GrowthHabit,
     HardinessRating,
@@ -20,6 +19,7 @@ from app.common.enums import (
 from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import OverwinteringProfileKey
+from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.winter_hardiness_engine import (
     derive_winter_path,
     evaluate_winter_hardiness,
@@ -40,6 +40,8 @@ from app.domain.models.overwintering_profile import (
     WinterHardinessOverviewEntry,
 )
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
+from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.site import Location
 
 _ENTITY = "OverwinteringProfile"
 
@@ -251,7 +253,10 @@ class OverwinteringProfileService:
         # Fail-safe tenant guard: a foreign/unknown site is never treated as eligible.
         if site is None or site.tenant_key != tenant_key:
             return None, False
-        site_overwinterable = site.type in OVERWINTERING_SITE_TYPES
+        # Issue #706: location-first frost exposure — a per-location override wins,
+        # ``None`` inherits from the site type (unchanged behaviour).
+        location = self._load_plant_location(plant, tenant_key)
+        site_overwinterable = resolve_frost_exposure(location, site)
         if not plant.species_key:
             return None, site_overwinterable
         species = self._species_repo.get_by_key(plant.species_key)
@@ -263,6 +268,23 @@ class OverwinteringProfileService:
         site_zone = getattr(site, "hardiness_zone", None) or site.climate_zone or None
         light = evaluate_winter_hardiness(species.frost_sensitivity, species_zone, site_zone)
         return light, site_overwinterable
+
+    def _load_plant_location(self, plant: PlantInstance, tenant_key: str) -> Location | None:
+        """Load the plant's :class:`Location` for the frost-exposure resolver (#706).
+
+        Returns ``None`` — so the resolver falls back to the site type — when the plant
+        carries no ``location_key``, the site repository is unwired, or the location is
+        unknown / owned by another tenant. The tenant guard mirrors
+        :meth:`_verify_winter_quarter_ownership`: ``get_location_by_key`` reads a raw
+        document, so a foreign-tenant override must never be honoured (fail-safe:
+        inherit from the site type instead of trusting a foreign ``frost_exposed``).
+        """
+        if not plant.location_key or self._site_repo is None:
+            return None
+        location = self._site_repo.get_location_by_key(plant.location_key)
+        if location is None or location.tenant_key != tenant_key:
+            return None
+        return location
 
     def override_plant_profile(self, plant_key: str, tenant_key: str, updates: dict) -> OverwinteringProfile:
         """Override individual fields of the plant's profile (sets ``user_overridden``).
@@ -836,7 +858,12 @@ class OverwinteringProfileService:
         if plant is None or plant.tenant_key != tenant_key or not plant.site_key:
             raise self._not_frost_exposed_error()
         site = self._site_repo.get_site_by_key(plant.site_key)
-        if site is None or site.tenant_key != tenant_key or site.type not in OVERWINTERING_SITE_TYPES:
+        if site is None or site.tenant_key != tenant_key:
+            raise self._not_frost_exposed_error()
+        # Issue #706: a per-location ``frost_exposed`` override wins over the site type
+        # (negated single resolver — no duplicated frost logic).
+        location = self._load_plant_location(plant, tenant_key)
+        if not resolve_frost_exposure(location, site):
             raise self._not_frost_exposed_error()
 
     @staticmethod
