@@ -126,4 +126,12 @@ No `project/requirements/` artefact meets `τ_high`. **Operator override recorde
 
 ## Dispatch log
 
-<!-- appended during operation 5 -->
+- 2026-07-21 P1 dispatched to fullstack-developer — `Location.frost_exposed: bool|None` added; round-trips via CRUD; no migration (None inherits). Commit 854ea56fb.
+- 2026-07-21 P2 dispatched to fullstack-developer — `resolve_frost_exposure` engine + wired overwintering/plant_instance/season_state; tenant-guarded location loads. Commit 79cfacdc1.
+- 2026-07-21 P3 dispatched to fullstack-developer — three batch tasks route through `WEATHER_RELEVANT_SITE_TYPES`; balcony no longer skipped. Commit 2a63b9b39.
+- 2026-07-21 P4 dispatched to fullstack-developer — tri-state frost-exposure select in location create/edit UI, DE/EN. Commit a3284be06.
+- 2026-07-21 UI review dispatched to frontend-usability-optimizer — field regrouped, helper text tightened, panel desc extended. Commit 17ad2cf36.
+- 2026-07-21 Security review dispatched to nolte-engineering:code-security-reviewer — agent stalled (watchdog); orchestrator completed the critical thread: found the location tenant-guard was inert (locations persist tenant_key=""). Fix dispatched to fullstack-developer — guard re-anchored on `location.site_key == plant.site_key`. Commit 0549d6588.
+- 2026-07-21 P5 dispatched to unit-test-runner — 14 resolver + 4 service (incl. AC-1 regression anchor) + frozenset + 4 frontend cases; backend 42/42, frontend 11/11 green. Commit ef68129aa.
+- 2026-07-21 P6 dispatched to mkdocs-documentation — DE/EN docs for the location frost flag (in progress).
+- Pending verify: quality-gate, security-review skill on final diff, pull-request-create (Closes #706).
