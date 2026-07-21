@@ -476,17 +476,21 @@ class PlantInstanceService:
         """Load the plant's :class:`Location` for the frost-exposure resolver (#706).
 
         Returns ``None`` — so the resolver falls back to the site type — when the plant
-        carries no ``location_key`` or the location is unknown / owned by another
-        tenant. ``get_location_by_key`` reads a raw document, so the ``tenant_key``
-        re-check keeps a foreign-tenant ``frost_exposed`` override from ever leaking
-        into this tenant's winter decision (defence in depth alongside the router).
+        carries no ``location_key``, the location is unknown, or it does not belong to
+        the plant's own site. Ownership is anchored on the SITE, not on
+        ``location.tenant_key``: ``Location`` documents are persisted with an empty
+        ``tenant_key`` and are tenant-verified through their parent site (see
+        ``_verify_location_tenant`` in the router). Since the plant and its site are
+        already tenant-verified, requiring ``location.site_key == plant.site_key``
+        keeps a location under a foreign/other site from ever contributing its
+        ``frost_exposed`` override (fail-safe: inherit from the site type instead).
         """
-        if not plant.location_key:
+        if not plant.location_key or not plant.site_key:
             return None
         location = self._site_repo.get_location_by_key(plant.location_key)
         if location is None:
             return None
-        if plant.tenant_key and location.tenant_key != plant.tenant_key:
+        if not location.site_key or location.site_key != plant.site_key:
             return None
         return location
 
