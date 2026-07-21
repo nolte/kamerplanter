@@ -1,3 +1,8 @@
+// KAMI brand illustrations.
+// Imported as URL strings (no svgr) and consumed via <img src={…}>.
+// Legacy motifs stay on their existing vtracer SVGs; the new face-on-pot
+// illustrations are vectorised (vtracer) to SVG as well.
+
 // Features
 export { default as kamiDashboard } from './features/feature-kami-dashboard.svg';
 export { default as kamiCare } from './features/feature-kami-care.svg';
@@ -11,6 +16,16 @@ export { default as kamiIpm } from './features/feature-kami-ipm.svg';
 export { default as kamiHarvest } from './features/feature-kami-harvest.svg';
 export { default as kamiPlantingRuns } from './features/feature-kami-planting-runs.svg';
 export { default as kamiTanks } from './features/feature-kami-tanks.svg';
+export { default as kamiAquaponik } from './features/feature-kami-aquaponik.svg';
+export { default as kamiEnvironment } from './features/feature-kami-environment.svg';
+export { default as kamiGlossar } from './features/feature-kami-glossar.svg';
+export { default as kamiInventree } from './features/feature-kami-inventree.svg';
+export { default as kamiKiAssistent } from './features/feature-kami-ki-assistent.svg';
+export { default as kamiKiDiagnose } from './features/feature-kami-ki-diagnose.svg';
+export { default as kamiKiRecognition } from './features/feature-kami-ki-recognition.svg';
+export { default as kamiPostHarvest } from './features/feature-kami-post-harvest.svg';
+export { default as kamiPropagation } from './features/feature-kami-propagation.svg';
+export { default as kamiUeberwinterung } from './features/feature-kami-ueberwinterung.svg';
 
 // Phases
 export { default as kamiPhaseGermination } from './phases/timeline-kami-phase-germination.svg';
@@ -27,3 +42,15 @@ export { default as kamiPhaseFlushing } from './phases/timeline-kami-phase-flush
 export { default as kamiPhaseLeafPhase } from './phases/timeline-kami-phase-leaf-phase.svg';
 export { default as kamiPhaseSenescence } from './phases/timeline-kami-phase-senescence.svg';
 export { default as kamiPhaseShortDayInduction } from './phases/timeline-kami-phase-short-day-induction.svg';
+export { default as kamiPhaseCuring } from './phases/timeline-kami-phase-curing.svg';
+export { default as kamiPhaseDrying } from './phases/timeline-kami-phase-drying.svg';
+
+// States
+export { default as kamiStateCelebration } from './states/state-kami-celebration.svg';
+export { default as kamiStateDashboardEmpty } from './states/state-kami-dashboard-empty.svg';
+export { default as kamiStateDashboardWelcome } from './states/state-kami-dashboard-welcome.svg';
+export { default as kamiStateEmpty } from './states/state-kami-empty.svg';
+export { default as kamiStateLoading } from './states/state-kami-loading.svg';
+
+// Onboarding
+export { default as kamiOnboardingWelcome } from './onboarding/illustration-kami-willkommen.svg';
