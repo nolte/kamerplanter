@@ -19,6 +19,7 @@ import {
   kamiPhaseFlowering, kamiPhaseFlushing, kamiPhaseHarvest, kamiPhaseLeafPhase,
   kamiPhaseRipening, kamiPhaseJuvenile, kamiPhaseClimbing, kamiPhaseMature,
   kamiPhaseDormancy, kamiPhaseSenescence, kamiPhaseShortDayInduction,
+  kamiPhaseCuring, kamiPhaseDrying,
 } from '@/assets/brand/illustrations';
 
 const PHASE_IMAGES: Record<string, string> = {
@@ -37,6 +38,8 @@ const PHASE_IMAGES: Record<string, string> = {
   senescence: kamiPhaseSenescence,
   leaf_phase: kamiPhaseLeafPhase,
   short_day_induction: kamiPhaseShortDayInduction,
+  drying: kamiPhaseDrying,
+  curing: kamiPhaseCuring,
 };
 
 interface Props {
