@@ -5,8 +5,9 @@ issue: 706
 classification: "feature-request"
 secondary-classes: ["refactor"]
 route: "direct"
-status: draft
+status: pr-open
 created: "2026-07-21"
+pr: "https://github.com/nolte/kamerplanter/pull/709"
 ---
 
 # Issue Orchestration — Pre-analysis
@@ -134,4 +135,6 @@ No `project/requirements/` artefact meets `τ_high`. **Operator override recorde
 - 2026-07-21 Security review dispatched to nolte-engineering:code-security-reviewer — agent stalled (watchdog); orchestrator completed the critical thread: found the location tenant-guard was inert (locations persist tenant_key=""). Fix dispatched to fullstack-developer — guard re-anchored on `location.site_key == plant.site_key`. Commit 0549d6588.
 - 2026-07-21 P5 dispatched to unit-test-runner — 14 resolver + 4 service (incl. AC-1 regression anchor) + frozenset + 4 frontend cases; backend 42/42, frontend 11/11 green. Commit ef68129aa.
 - 2026-07-21 P6 dispatched to mkdocs-documentation — DE/EN docs for the location frost flag (in progress).
-- Pending verify: quality-gate, security-review skill on final diff, pull-request-create (Closes #706).
+- 2026-07-21 Verify: backend 4615 passed / frontend 3386 passed (only pre-existing env-dep collection errors excluded); mkdocs --strict exit 0. Fixed two pre-existing task tests that encoded the old outdoor/greenhouse-only behaviour + found & fixed the season_tasks balcony drift. Commit e3c714d10.
+- 2026-07-22 Security verify (diff-scoped, re-run after the first agent stalled) to nolte-engineering:code-security-reviewer — cross-tenant isolation, None/boolean, AQL injection, guard regression all clean, no findings.
+- 2026-07-22 pull-request-create — Draft PR #709 opened (Closes #706).
