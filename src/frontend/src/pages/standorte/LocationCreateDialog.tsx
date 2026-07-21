@@ -144,6 +144,18 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
               label: lt.name,
             }))}
           />
+          {/* Placed right after location type: frost exposure is a physical/context
+              property of the location, not a lighting or irrigation setting. */}
+          <FormSelectField
+            name="frost_exposure"
+            control={control}
+            label={t('pages.locations.frostExposure')}
+            helperText={t('pages.locations.frostExposureHelper')}
+            options={FROST_EXPOSURE_OPTIONS.map((v) => ({
+              value: v,
+              label: t(`enums.frostExposure.${v}`),
+            }))}
+          />
           <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} helperText={t('pages.locations.areaHelper')} min={0} />
           <FormSelectField
             name="light_type"
@@ -161,16 +173,6 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
             options={['manual', 'drip', 'hydro', 'mist', 'nft', 'ebb_flow'].map((v) => ({
               value: v,
               label: t(`enums.irrigationSystem.${v}`),
-            }))}
-          />
-          <FormSelectField
-            name="frost_exposure"
-            control={control}
-            label={t('pages.locations.frostExposure')}
-            helperText={t('pages.locations.frostExposureHelper')}
-            options={FROST_EXPOSURE_OPTIONS.map((v) => ({
-              value: v,
-              label: t(`enums.frostExposure.${v}`),
             }))}
           />
 
