@@ -1,12 +1,12 @@
 # Saison-Automatik: Wann kommt der Winter?
 
-Für alle deine Freiland-, Gewächshaus- und Balkon-Standorte erkennt Kamerplanter selbstständig, wann sich der Winter ankündigt, wann die Winterruhe beginnt und wann es Zeit ist, deine Pflanzen im Frühling wieder zurückzuholen. Du musst dafür nichts einstellen — das System nutzt automatisch die beste verfügbare Datenquelle für deinen Standort. <!-- REQ-047 -->
+Für alle deine Freiland-, Gewächshaus- und Balkon-Standorte — sowie jeden anderen Standort mit mindestens einer manuell als frostexponiert eingestuften Location — erkennt Kamerplanter selbstständig, wann sich der Winter ankündigt, wann die Winterruhe beginnt und wann es Zeit ist, deine Pflanzen im Frühling wieder zurückzuholen. Du musst dafür nichts einstellen — das System nutzt automatisch die beste verfügbare Datenquelle für deinen Standort. <!-- REQ-047 -->
 
 ---
 
 ## Voraussetzungen
 
-- Mindestens ein Standort vom Typ **Außenbereich** (Freiland), **Gewächshaus** oder **Balkon** — für reine Innenraum-Standorte (Innenbereich, Fensterbrett, Growzelt) gibt es keine Saison-Automatik; dort gilt weiterhin die einfache, hemisphären-basierte Winter-Gießanpassung aus den [Pflegeerinnerungen](care-reminders.md#saisonale-anpassung).
+- Mindestens ein Standort vom Typ **Außenbereich** (Freiland), **Gewächshaus** oder **Balkon** — oder ein Standort eines anderen Typs, an dem mindestens eine Location manuell auf **„Außenbereich – frostexponiert"** eingestellt ist (siehe [Frostexposition einer Location festlegen](locations-substrates.md#frostexposition-einer-location-festlegen)). Für einen Standort ganz ohne frostexponierte Location — etwa ein reiner Innenbereich-Standort ohne Übersteuerung — gibt es keine Saison-Automatik; dort gilt weiterhin die einfache, hemisphären-basierte Winter-Gießanpassung aus den [Pflegeerinnerungen](care-reminders.md#saisonale-anpassung).
 - Keine weitere Einrichtung nötig — die Auswertung läuft täglich automatisch im Hintergrund.
 
 ---
@@ -36,6 +36,9 @@ stateDiagram-v2
     Ein einzelner milder Tag im Januar holt eine Pflanze nicht aus der Winterruhe zurück — das System braucht mehrere aufeinanderfolgende milde Tage, bevor es in die nächste Stufe wechselt. So verhindert Kamerplanter, dass ein kurzer Wärmeeinbruch eine verfrühte Frühjahrsmaßnahme auslöst.
 
 Du siehst den aktuellen Zustand jedes Standorts direkt im Dashboard-Widget **Winterschutz** (siehe [Dashboard personalisieren](dashboard-personalization.md)) sowie — für die einzelne Pflanze — im Abschnitt [Überwinterung](overwintering.md).
+
+!!! note "Gemischter Standort: Nur die frostexponierte Location ist betroffen"
+    Hast du für eine einzelne Location eines ansonsten als Innenbereich, Fensterbrett oder Growzelt angelegten Standorts die Frostexposition auf **„Außenbereich – frostexponiert"** übersteuert, durchläuft der gesamte Standort die vier Jahreszeiten-Stufen wie ein Freiland-Standort. Der Winterruhe-Pflegeplan (reduziertes Gießen, Erinnerungen) betrifft dabei aber ausschließlich die Pflanzen an dieser frostexponierten Location — Pflanzen an den übrigen, geschützten Locations desselben Standorts werden **nicht** in Winterruhe versetzt. Mehr zur Einstufung unter [Frostexposition einer Location festlegen](locations-substrates.md#frostexposition-einer-location-festlegen). <!-- REQ-047 -->
 
 ---
 
@@ -106,7 +109,10 @@ Erreicht ein Standort die Stufe „Frühjahrs-Rückholung", erscheint für jede 
 ## Häufige Fragen
 
 ??? question "Muss ich für jede Pflanze selbst einstellen, wann der Winter beginnt?"
-    Nein. Die Saison-Automatik läuft pro Standort und wirkt automatisch auf alle Pflanzen an diesem Standort. Du musst nichts einrichten — Details zum pflanzenbezogenen Ergebnis findest du unter [Überwinterung](overwintering.md).
+    Nein. Die Saison-Automatik läuft pro Standort, wirkt sich aber nur auf die Pflanzen an frostexponierten Locations dieses Standorts aus — Pflanzen an geschützten Locations desselben Standorts bleiben unberührt (siehe [Frostexposition einer Location festlegen](locations-substrates.md#frostexposition-einer-location-festlegen)). Du musst nichts einrichten — Details zum pflanzenbezogenen Ergebnis findest du unter [Überwinterung](overwintering.md).
+
+??? question "Ich habe eine Location meines Innenbereich-Standorts als frostexponiert markiert — bekommen die Pflanzen dort jetzt auch Winterschutz-Erinnerungen?"
+    Ja. Sobald mindestens eine Location eines Standorts als „Außenbereich – frostexponiert" eingestuft ist, durchläuft der gesamte Standort die Jahreszeiten-Stufen — inklusive Winterruhe-Pflegeplan und Erinnerungen für die Pflanzen an dieser Location. Pflanzen an den übrigen, geschützten Locations desselben Standorts werden dabei weiterhin nicht in Winterruhe versetzt.
 
 ??? question "Was passiert, wenn meine Wetterquelle einmal ausfällt?"
     Kamerplanter fällt in diesem Fall automatisch auf die nächstbeste Quelle zurück — die hinterlegten Frost-Termine deines Standorts, oder notfalls die grobe Kalender-Schätzung. Die Saison-Automatik bleibt in jedem Fall funktionsfähig, auch ganz ohne Wetteranbindung.
@@ -122,6 +128,7 @@ Erreicht ein Standort die Stufe „Frühjahrs-Rückholung", erscheint für jede 
 ## Siehe auch
 
 - [Überwinterung](overwintering.md) — der automatisch erstellte Plan je Pflanze
+- [Standorte und Substrate — Frostexposition einer Location festlegen](locations-substrates.md#frostexposition-einer-location-festlegen) — wie du die Frostexposition einzelner Locations übersteuerst
 - [Pflegeerinnerungen](care-reminders.md) — Gieß- und Pflegepläne allgemein
 - [Wetterquellen](weather-sources.md) — Live-Wetterdaten je Standort einrichten
 - [Klimazonen & Winterhärte](../guides/climate-zones.md) — wie die Winterhärte-Ampel entsteht

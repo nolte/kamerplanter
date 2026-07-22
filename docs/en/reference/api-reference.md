@@ -616,7 +616,7 @@ The authoritative ancestry relationship is additionally stored as a `descended_f
 
 ## Season & Overwintering Automation
 
-These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction as soon as a plant is assigned to an outdoor, greenhouse, or balcony site (`OVERWINTERING_SITE_TYPES`) — on plant creation, on a site change, and additionally as a safety net from the daily season evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
+These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction as soon as a plant is assigned to a frost-exposed location — by default, a location on an outdoor, greenhouse, or balcony site (`OVERWINTERING_SITE_TYPES`), or a location with a manual frost-exposure override on a site of another type (see [Setting Frost Exposure for a Location](../user-guide/locations-substrates.md#setting-frost-exposure-for-a-location)) — on plant creation, on a site change, and additionally as a safety net from the daily season evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
 
 All endpoints are under the tenant-scoped path `/api/v1/t/{tenant_slug}/` and require a valid JWT token.
 
@@ -654,7 +654,7 @@ If no season state exists yet for the site, the endpoint evaluates it lazily and
 | HTTP Status | Meaning |
 |-------------|---------|
 | `404` | Site not found or does not belong to the tenant |
-| `409` | Site is not of type `outdoor`, `greenhouse`, or `balcony` — only these frost-exposed site types run a season state |
+| `409` | Site has no frost exposure: neither is its type `outdoor`, `greenhouse`, or `balcony`, nor is at least one of its locations manually marked frost-exposed — only frost-exposed sites run a season state |
 
 ### Season Overview Across All Sites
 
@@ -662,7 +662,7 @@ If no season state exists yet for the site, the endpoint evaluates it lazily and
 GET /api/v1/t/{tenant_slug}/season/overview
 ```
 
-Returns `{"states": [ ... ]}` with one `SeasonStateResponse` object (see above) per outdoor, greenhouse, or balcony site of the tenant. Feeds the "Winter Protection" dashboard widget (see [Personalizing the Dashboard](../user-guide/dashboard-personalization.md)).
+Returns `{"states": [ ... ]}` with one `SeasonStateResponse` object (see above) per frost-exposed site of the tenant — that is, sites of type outdoor, greenhouse, or balcony, plus sites of other types with at least one location manually marked frost-exposed. Feeds the "Winter Protection" dashboard widget (see [Personalizing the Dashboard](../user-guide/dashboard-personalization.md)).
 
 ### Read a Plant's Overwintering Profile
 

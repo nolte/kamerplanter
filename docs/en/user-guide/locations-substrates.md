@@ -170,7 +170,7 @@ The form for creating or editing a location offers three options:
 | Outdoor – frost-exposed | The location counts as frost-exposed regardless of the site type. |
 | Indoor – protected | The location counts as protected, even if the parent site is set up as Outdoor, Greenhouse, or Balcony. |
 
-A location's frost exposure determines whether plants at that location receive an [overwintering plan](overwintering.md). <!-- REQ-047 -->
+A location's frost exposure determines both whether plants at that location receive an [overwintering plan](overwintering.md) and whether they're covered by [season automation](season-automation.md) — winter approach, dormancy care, and spring reactivation. Both follow the same classification consistently: a location that counts as frost-exposed gets the full automation, even if it sits on an otherwise indoor site; a location classified as protected is never put into winter dormancy, even if other locations on the same site are frost-exposed. <!-- REQ-047 -->
 
 !!! example "A balcony underneath a heated apartment"
     If your balcony sits underneath another, heated apartment, it is often noticeably warmer than a free-standing balcony. Kamerplanter still marks it as frost-exposed by default, since the site is set up with type "Balcony". If you want to override this for just this one location, open it and select **"Indoor – protected"** under **Frost exposure** — plants at this location then no longer receive an overwintering plan, even though other areas of the same site remain frost-exposed. Conversely, you can mark a particularly exposed location (e.g. a free-standing window sill in an unheated stairwell) as frost-exposed even when the parent site is set up as Indoor.
@@ -299,4 +299,6 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 - [Fertilization](fertilization.md)
 - [Growth Phases](growth-phases.md)
 - [Weather Sources per Location](weather-sources.md)
+- [Season Automation](season-automation.md) — how a location's frost exposure drives the season automation
+- [Overwintering](overwintering.md) — the automatically created overwintering plan per plant
 - [Plant Identification by Photo](plant-identification.md#assigning-a-location-optional) — assign a site, area, and slot directly when creating a plant

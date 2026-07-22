@@ -108,4 +108,8 @@ No `project/requirements/` artefact. **Operator override recorded**: #713 was au
 
 ## Dispatch log
 
-<!-- appended during operation 5 -->
+- 2026-07-22 P1 dispatched to fullstack-developer — location-aware season eval: repo query (== true) + union site selection + `_site_has_frost_exposure` gate + per-plant gating (site-anchored `_load_plant_location`). 158 legacy tests green. Commit bcc8ed26b.
+- 2026-07-22 Security review dispatched to nolte-engineering:code-security-reviewer — cross-tenant isolation (double-scoped `find_by_field`, sites evaluated in own tenant context, site_key-anchored location), AQL parametrisation, strict is-True/is-not-None, guard regression — all clean, no findings.
+- 2026-07-22 P2 dispatched to unit-test-runner — +32 cases covering all 8 ACs; 190/190 green. Commit <P2>.
+- 2026-07-22 P3 dispatched to mkdocs-documentation — DE/EN season-automation + locations-substrates + api-reference (fixed a stale 409 description); mkdocs --strict exit 0.
+- Pending verify: full backend suite as quality gate, pull-request-create (Closes #713).
