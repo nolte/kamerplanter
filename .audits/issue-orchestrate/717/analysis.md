@@ -81,4 +81,7 @@ No `project/requirements/` artefact. **Operator override recorded**: #717 author
 
 ## Dispatch log
 
-<!-- appended during operation 5 -->
+- 2026-07-22 P1 dispatched to fullstack-developer — router-level `service.get_site(location.site_key, tenant_key=ctx.tenant_key)` in update_location (mirrors create; NotFoundError→404 before persist). 51 location tests green. Commit 92c767a53.
+- 2026-07-22 Security verify dispatched to nolte-engineering:code-security-reviewer — gap closed, guard runs before the only write path; all other location site_key write paths (create/delete/slots) checked clean; no bypass/injection; no regression on legitimate same-tenant moves. Noted a parallel pre-existing IDOR in PlantInstance update (`plant_instances/tenant_router.py:128` / `plant_instance_service.update_plant:405`) — out of scope, separate follow-up.
+- 2026-07-22 P2 dispatched to unit-test-runner — 6 router cases incl. the core security assertion (foreign site_key → 404 AND update_location.assert_not_called()); green. Commit <P2>.
+- Pending verify: security-review skill on diff, full backend suite as quality gate, pull-request-create (Closes #717).
