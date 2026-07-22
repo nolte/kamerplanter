@@ -35,6 +35,42 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
         )
         return [self._from_doc(doc) for doc in cursor]
 
+    def find_site_docs_by_keys(self, keys: list[str]) -> list[dict]:
+        """Return normalised site docs for the given ``_key`` list across all tenants.
+
+        Companion to :meth:`find_site_docs_by_types`: yields already
+        ``_from_doc``-normalised dicts (not ``Site`` models) so the cross-tenant season
+        task can union them with the type-based selection and construct each ``Site``
+        defensively (one schema-drift document must not abort the batch, REQ-047 AC-18).
+        An empty ``keys`` list short-circuits without a query.
+        """
+        if not keys:
+            return []
+        cursor = self._db.aql.execute(
+            "FOR s IN @@col FILTER s._key IN @keys RETURN s",
+            bind_vars={"@col": self._collection_name, "keys": keys},
+        )
+        return [self._from_doc(doc) for doc in cursor]
+
+    def find_site_keys_with_frost_exposed_location(self) -> list[str]:
+        """Return the distinct ``site_key``s that own ≥1 frost-exposed location.
+
+        Selects only locations whose :attr:`Location.frost_exposed` override is
+        explicitly ``true`` (Issue #706/#713) — never ``!= null`` — so a ``false``
+        override on an indoor site does NOT pull that site into the season evaluation.
+        Parametrised via ``bind_vars`` (no string interpolation); keeps the AQL in the
+        data-access layer (NFR-001).
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR l IN @@col
+                FILTER l.frost_exposed == true AND l.site_key != null AND l.site_key != ""
+                RETURN DISTINCT l.site_key
+            """,
+            bind_vars={"@col": col.LOCATIONS},
+        )
+        return [key for key in cursor if key]
+
     def get_site_by_key(self, key: SiteKey) -> Site | None:
         return super().get_by_key(key)
 
