@@ -616,7 +616,7 @@ Die maßgebliche Abstammungsbeziehung ist zusätzlich als Graph-Kante `descended
 
 ## Saison- & Überwinterungs-Automatik
 
-Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beides entsteht ohne Nutzerinteraktion, sobald eine Pflanze einem Freiland-, Gewächshaus- oder Balkon-Standort (`OVERWINTERING_SITE_TYPES`) zugeordnet wird — beim Anlegen der Pflanze, bei einem Standortwechsel, sowie zusätzlich als Sicherheitsnetz aus der täglichen Saison-Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->
+Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beides entsteht ohne Nutzerinteraktion, sobald eine Pflanze an einer frostexponierten Location zugeordnet wird — standardmäßig einer Location auf einem Freiland-, Gewächshaus- oder Balkon-Standort (`OVERWINTERING_SITE_TYPES`), oder einer Location mit einer manuellen Frostexpositions-Übersteuerung auf einem andersartigen Standort (siehe [Frostexposition einer Location festlegen](../user-guide/locations-substrates.md#frostexposition-einer-location-festlegen)) — beim Anlegen der Pflanze, bei einem Standortwechsel, sowie zusätzlich als Sicherheitsnetz aus der täglichen Saison-Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->
 
 Alle Endpunkte liegen unter dem mandantenspezifischen Pfad `/api/v1/t/{tenant_slug}/` und erfordern ein gültiges JWT-Token.
 
@@ -654,7 +654,7 @@ Existiert für den Standort noch kein Saison-Zustand, wertet der Endpunkt ihn la
 | HTTP-Status | Bedeutung |
 |-------------|----------|
 | `404` | Standort nicht gefunden oder gehört nicht zum Mandanten |
-| `409` | Standort ist nicht vom Typ `outdoor`, `greenhouse` oder `balcony` — nur diese frostexponierten Standort-Typen führen einen Saison-Zustand |
+| `409` | Standort hat keine Frostexposition: Weder ist sein Typ `outdoor`, `greenhouse` oder `balcony`, noch ist mindestens eine seiner Locations manuell als frostexponiert markiert — nur frostexponierte Standorte führen einen Saison-Zustand |
 
 ### Saison-Übersicht über alle Standorte
 
@@ -662,7 +662,7 @@ Existiert für den Standort noch kein Saison-Zustand, wertet der Endpunkt ihn la
 GET /api/v1/t/{tenant_slug}/season/overview
 ```
 
-Liefert `{"states": [ ... ]}` mit einem `SeasonStateResponse`-Objekt (siehe oben) je Freiland-, Gewächshaus- oder Balkon-Standort des Mandanten. Speist das Dashboard-Widget „Winterschutz" (siehe [Dashboard personalisieren](../user-guide/dashboard-personalization.md)).
+Liefert `{"states": [ ... ]}` mit einem `SeasonStateResponse`-Objekt (siehe oben) je frostexponiertem Standort des Mandanten — das sind Standorte vom Typ Freiland, Gewächshaus oder Balkon sowie andersartige Standorte mit mindestens einer manuell als frostexponiert markierten Location. Speist das Dashboard-Widget „Winterschutz" (siehe [Dashboard personalisieren](../user-guide/dashboard-personalization.md)).
 
 ### Überwinterungsprofil einer Pflanze lesen
 
