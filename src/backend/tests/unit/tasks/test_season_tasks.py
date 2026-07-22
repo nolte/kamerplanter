@@ -194,3 +194,93 @@ class TestEvaluateQuarterClimate:
         result = module.evaluate_quarter_climate()
 
         assert result == {"status": "ok", "evaluated": 2, "warnings": 0, "errors": 1}
+
+    def test_ac6_union_frost_exposed_locations_with_type_selected_sites(self, task_module, monkeypatch):
+        """AC-6: Site selection includes both type-based and frost-exposed-location sites.
+
+        The task unions type-selected sites (outdoor/greenhouse/balcony) with any site
+        that owns ≥1 frost_exposed=true location, so a mixed indoor site with a
+        frost-exposed corner is evaluated. A site in both sets is de-duplicated by _key.
+        """
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
+
+        # Type-based: 2 outdoor sites
+        type_docs = [
+            {"_key": "s1", "name": "Beet A", "type": "outdoor"},
+            {"_key": "s2", "name": "Beet B", "type": "outdoor"},
+        ]
+        # Frost-exposed locations: s2 (already in type_docs) + s3 (indoor with frost-exposed location)
+        frost_location_keys = ["s2", "s3"]
+        frost_docs = [
+            {"_key": "s2", "name": "Beet B", "type": "outdoor"},  # Duplicate
+            {"_key": "s3", "name": "Indoor Garden", "type": "indoor"},  # New
+        ]
+
+        site_repo = MagicMock()
+        site_repo.find_site_docs_by_types.return_value = type_docs
+        site_repo.find_site_keys_with_frost_exposed_location.return_value = frost_location_keys
+        site_repo.find_site_docs_by_keys.return_value = frost_docs
+        deps.get_site_repo.return_value = site_repo
+
+        service = MagicMock()
+        # s1 evaluated, s2 evaluated (despite duplication), s3 evaluated
+        service.evaluate_site_detailed.side_effect = [
+            (_state("s1"), False),
+            (_state("s2"), False),
+            (_state("s3"), True),  # This one transitioned
+        ]
+        deps.get_season_state_service.return_value = service
+
+        result = module.evaluate_season_states()
+
+        # All 3 unique sites should be evaluated
+        assert result == {"status": "ok", "evaluated": 3, "transitions": 1, "errors": 0}
+        # find_site_docs_by_keys should be called with frost_location_keys
+        site_repo.find_site_docs_by_keys.assert_called_once()
+        called_keys = site_repo.find_site_docs_by_keys.call_args[0][0]
+        assert set(called_keys) == {"s2", "s3"}
+
+    def test_ac6_empty_frost_location_sites_still_evals_type_sites(self, task_module, monkeypatch):
+        """AC-6: When no sites have frost-exposed locations, type-based sites are still evaluated."""
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
+
+        type_docs = [
+            {"_key": "s1", "name": "Beet A", "type": "outdoor"},
+        ]
+
+        site_repo = MagicMock()
+        site_repo.find_site_docs_by_types.return_value = type_docs
+        site_repo.find_site_keys_with_frost_exposed_location.return_value = []
+        site_repo.find_site_docs_by_keys.return_value = []
+        deps.get_site_repo.return_value = site_repo
+
+        service = MagicMock()
+        service.evaluate_site_detailed.return_value = (_state("s1"), False)
+        deps.get_season_state_service.return_value = service
+
+        result = module.evaluate_season_states()
+
+        assert result == {"status": "ok", "evaluated": 1, "transitions": 0, "errors": 0}
+        # find_site_docs_by_keys is called with empty list, which short-circuits
+        site_repo.find_site_docs_by_keys.assert_called_once_with([])
+
+    def test_ac6_no_short_circuit_when_frost_keys_empty(self, task_module, monkeypatch):
+        """Verify find_site_docs_by_keys is still called even when frost_location_keys is empty."""
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "season_state_eval_enabled", True, raising=False)
+
+        site_repo = MagicMock()
+        site_repo.find_site_docs_by_types.return_value = []
+        site_repo.find_site_keys_with_frost_exposed_location.return_value = []
+        site_repo.find_site_docs_by_keys.return_value = []
+        deps.get_site_repo.return_value = site_repo
+
+        service = MagicMock()
+        deps.get_season_state_service.return_value = service
+
+        result = module.evaluate_season_states()
+
+        assert result == {"status": "ok", "evaluated": 0, "transitions": 0, "errors": 0}
+        site_repo.find_site_docs_by_keys.assert_called_once_with([])
