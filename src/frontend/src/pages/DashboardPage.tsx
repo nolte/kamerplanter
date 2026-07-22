@@ -20,6 +20,7 @@ import TabletIcon from '@mui/icons-material/Tablet';
 import SmartphoneIcon from '@mui/icons-material/Smartphone';
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize';
 import PageTitle from '@/components/layout/PageTitle';
+import { kamiStateDashboardWelcome } from '@/assets/brand/illustrations';
 import DashboardReadonlyGrid from '@/components/dashboard/DashboardReadonlyGrid';
 import { DashboardDataProvider } from '@/components/dashboard/DashboardDataContext';
 import WidgetConfigDialog from '@/components/dashboard/WidgetConfigDialog';
@@ -288,6 +289,13 @@ export default function DashboardPage() {
 
       {isEmpty ? (
         <Box sx={{ textAlign: 'center', py: 8 }} data-testid="dashboard-empty-state">
+          <Box
+            component="img"
+            src={kamiStateDashboardWelcome}
+            alt=""
+            aria-hidden="true"
+            sx={{ maxHeight: 180, maxWidth: '100%', objectFit: 'contain', mb: 2, opacity: 0.85 }}
+          />
           <Typography variant="h6" gutterBottom>
             {t('dashboard.empty.title')}
           </Typography>

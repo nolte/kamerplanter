@@ -16,6 +16,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import MobileCard from '@/components/common/MobileCard';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { TabPanel, tabA11yProps } from '@/components/common/TabPanel';
+import { kamiPropagation } from '@/assets/brand/illustrations';
 import { useNotification } from '@/hooks/useNotification';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { usePropagationEvents } from '@/hooks/usePropagationEvents';
@@ -155,6 +156,7 @@ export default function PropagationPage(): ReactElement {
             emptyMessage={t('pages.propagation.emptyTitle')}
             emptyDescription={t('pages.propagation.emptyDescription')}
             emptyActionLabel={t('pages.propagation.createEvent')}
+            emptyIllustration={kamiPropagation}
             onEmptyAction={() => setDialogOpen(true)}
             mobileCardRenderer={(row) => (
               <MobileCard

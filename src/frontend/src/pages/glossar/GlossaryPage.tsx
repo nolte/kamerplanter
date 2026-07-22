@@ -16,6 +16,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import PageTitle from '@/components/layout/PageTitle';
+import { kamiGlossar } from '@/assets/brand/illustrations';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useGlossaryTerm } from '@/hooks/useGlossaryTerm';
 
@@ -104,7 +105,7 @@ export default function GlossaryPage() {
       {error && !loading && <ErrorDisplay error={t('pages.glossary.loadError')} />}
 
       {!loading && !error && terms.length === 0 && (
-        <EmptyState message={t('pages.glossary.empty')} />
+        <EmptyState message={t('pages.glossary.empty')} illustration={kamiGlossar} />
       )}
 
       {/* Detail view for the selected term. */}

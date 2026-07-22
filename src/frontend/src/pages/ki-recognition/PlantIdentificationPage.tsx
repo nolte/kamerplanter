@@ -17,6 +17,7 @@ import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { kamiKiRecognition } from '@/assets/brand/illustrations';
 import PlantIdentificationDialog, {
   type IdentifiedSpecies,
 } from '@/components/identification/PlantIdentificationDialog';
@@ -137,7 +138,10 @@ export default function PlantIdentificationPage() {
             {historyLoading ? (
               <LoadingSkeleton variant="card" />
             ) : history.length === 0 ? (
-              <EmptyState message={t('pages.plantIdentification.historyEmpty')} />
+              <EmptyState
+                message={t('pages.plantIdentification.historyEmpty')}
+                illustration={kamiKiRecognition}
+              />
             ) : (
               <List disablePadding data-testid="identification-history-list">
                 {history.map((entry, index) => {

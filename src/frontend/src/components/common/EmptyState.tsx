@@ -1,8 +1,8 @@
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import InboxIcon from '@mui/icons-material/Inbox';
 import { useTranslation } from 'react-i18next';
+import { kamiStateEmpty } from '@/assets/brand/illustrations';
 
 interface EmptyStateProps {
   message?: string;
@@ -37,17 +37,13 @@ export default function EmptyState({
       }}
       data-testid="empty-state"
     >
-      {illustration ? (
-        <Box
-          component="img"
-          src={illustration}
-          alt=""
-          aria-hidden="true"
-          sx={{ maxHeight: 180, maxWidth: '100%', objectFit: 'contain', mb: 2, opacity: 0.85 }}
-        />
-      ) : (
-        <InboxIcon sx={{ fontSize: 64, mb: 2, opacity: 0.4 }} aria-hidden="true" />
-      )}
+      <Box
+        component="img"
+        src={illustration ?? kamiStateEmpty}
+        alt=""
+        aria-hidden="true"
+        sx={{ maxHeight: 180, maxWidth: '100%', objectFit: 'contain', mb: 2, opacity: 0.85 }}
+      />
       <Typography variant="body1" sx={{ mb: description ? 0.5 : 2, fontWeight: 500 }}>
         {message ?? t('common.noData')}
       </Typography>

@@ -25,6 +25,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import { kamiAquaponik } from '@/assets/brand/illustrations';
 import { useNotification } from '@/hooks/useNotification';
 import { useAquaponicSystems } from '@/hooks/useAquaponicSystems';
 import type { CyclingStatus, WaterQualitySeverity } from '@/api/types';
@@ -126,6 +127,7 @@ export default function AquaponikPage() {
           description={t('pages.aquaponik.emptyDescription')}
           actionLabel={t('pages.aquaponik.createSystem')}
           onAction={() => setSystemDialogOpen(true)}
+          illustration={kamiAquaponik}
         />
       ) : (
         <Grid container spacing={3}>
