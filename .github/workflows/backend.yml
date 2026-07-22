@@ -171,7 +171,7 @@ jobs:
 
   coverage:
     name: Coverage
-    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@877fc02771e50d994343545fd92e187ac46984ce # v1.1.25
+    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
     with:
       python-version: '3.14'
       working-directory: src/backend

@@ -54,7 +54,7 @@ jobs:
 
   coverage:
     name: Coverage
-    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@877fc02771e50d994343545fd92e187ac46984ce # v1.1.25
+    uses: nolte/gh-plumbing/.github/workflows/reusable-nodejs-coverage.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
     with:
       node-version: '22'
       working-directory: src/frontend
