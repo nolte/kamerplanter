@@ -98,4 +98,8 @@ No `project/requirements/` artefact. **Operator override recorded**: #714 author
 
 ## Dispatch log
 
-<!-- appended during operation 5 -->
+- 2026-07-22 P1 dispatched to fullstack-developer — `_LocationRepository.update` (exclude_none=False + keep_none=False, 1202→NotFoundError), mirrors plant_instance pattern; base untouched. 23 site/location tests green. Commit 5630775b9.
+- 2026-07-22 Security check dispatched to nolte-engineering:code-security-reviewer — tenant isolation intact, no field over-clearing, no injection; no PR-introduced findings. Noted a pre-existing, out-of-scope info item: PUT does not re-verify the new body.site_key against the tenant (candidate separate issue).
+- 2026-07-22 P2 dispatched to unit-test-runner — 14 cases (reset-to-null, true↔false, other nullable clears, non-null round-trip, computed-field parity, NotFound, keep_none=False assertion); 969 data-access tests green. Commit <P2>.
+- 2026-07-22 P3 dispatched to mkdocs-documentation — replaced the #706 "known limitation" warning with a tip (DE+EN); mkdocs --strict exit 0.
+- Pending verify: full backend suite as quality gate, pull-request-create (Closes #714).
