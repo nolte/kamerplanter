@@ -158,6 +158,26 @@ Click **Save**. The site appears in the overview.
 !!! info "For technical users"
     The twelve types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
 
+### Setting Frost Exposure for a Location {#setting-frost-exposure-for-a-location}
+
+Whether a plant counts as frost-exposed normally depends on the **type of the parent site**: Outdoor, Greenhouse, and Balcony are automatically treated as frost-exposed, while Indoor, Windowsill, and Grow Tent are not (see [Available site types](#creating-a-new-site)). For each individual location within a site, you can override this classification in the **Frost exposure** field — useful, for example, when a single location differs from the rest of the site.
+
+The form for creating or editing a location offers three options:
+
+| Option | Effect |
+|--------|--------|
+| Inherit from site (default) | Uses the parent site type's classification — matches previous behaviour with no override. |
+| Outdoor – frost-exposed | The location counts as frost-exposed regardless of the site type. |
+| Indoor – protected | The location counts as protected, even if the parent site is set up as Outdoor, Greenhouse, or Balcony. |
+
+A location's frost exposure determines whether plants at that location receive an [overwintering plan](overwintering.md). <!-- REQ-047 -->
+
+!!! example "A balcony underneath a heated apartment"
+    If your balcony sits underneath another, heated apartment, it is often noticeably warmer than a free-standing balcony. Kamerplanter still marks it as frost-exposed by default, since the site is set up with type "Balcony". If you want to override this for just this one location, open it and select **"Indoor – protected"** under **Frost exposure** — plants at this location then no longer receive an overwintering plan, even though other areas of the same site remain frost-exposed. Conversely, you can mark a particularly exposed location (e.g. a free-standing window sill in an unheated stairwell) as frost-exposed even when the parent site is set up as Indoor.
+
+!!! warning "Once set, the classification currently cannot be reset to \"Inherit from site\""
+    Once you have selected and saved "Outdoor – frost-exposed" or "Indoor – protected" for a location, you can switch between these two options again when editing — but switching back to "Inherit from site" is currently not applied on save, even though the option can be selected in the form. If you want to use the site's classification again, deliberately choose the option that matches the site type instead (e.g. "Outdoor – frost-exposed" for a location on an outdoor site). This limitation is known and is planned to be fixed in a future version.
+
 ### Adding a Slot Within a Location
 
 1. Open a location by clicking its name in the tree.

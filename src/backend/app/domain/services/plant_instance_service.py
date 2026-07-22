@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import structlog
 
 from app.common.enums import (
-    OVERWINTERING_SITE_TYPES,
     TerminationCause,
     TerminationType,
     TransitionTrigger,
@@ -18,6 +17,7 @@ from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
+from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
@@ -30,6 +30,7 @@ from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.propagation import PropagationEvent
+from app.domain.models.site import Location
 from app.domain.models.species import Cultivar, Species
 from app.domain.models.survival_stats import (
     PhaseLossCount,
@@ -427,11 +428,16 @@ class PlantInstanceService:
             return
         try:
             site = self._site_repo.get_site_by_key(plant.site_key)
-            if site is None or site.type not in OVERWINTERING_SITE_TYPES:
+            if site is None:
                 return
             # Fail-safe tenant guard: never derive a profile against a site owned by
             # another tenant (defence in depth alongside the router's isolation).
             if plant.tenant_key and site.tenant_key != plant.tenant_key:
+                return
+            # Issue #706: location-first frost exposure — a per-location override wins,
+            # ``None`` inherits from the site type (unchanged outdoor/greenhouse gate).
+            location = self._load_plant_location(plant)
+            if not resolve_frost_exposure(location, site):
                 return
             self._overwintering_materializer.materialize(plant, site)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
@@ -451,7 +457,11 @@ class PlantInstanceService:
             return  # no real move — reject reminders churn on unrelated field edits
         try:
             new_site = self._site_repo.get_site_by_key(new_site_key) if new_site_key else None
-            if new_site is not None and new_site.type in OVERWINTERING_SITE_TYPES:
+            # Issue #706: location-first frost exposure at the target site — a
+            # per-location override wins, ``None`` inherits from the site type.
+            location = self._load_plant_location(plant) if new_site is not None else None
+            target_frost_exposed = new_site is not None and resolve_frost_exposure(location, new_site)
+            if target_frost_exposed:
                 if plant.tenant_key and new_site.tenant_key != plant.tenant_key:
                     return
                 if self._overwintering_materializer is not None:
@@ -461,6 +471,28 @@ class PlantInstanceService:
                 self._overwintering_service.remove_auto_profile_for_plant(plant.key, plant.tenant_key)
         except Exception as exc:  # noqa: BLE001 — best-effort side effect (REQ-047)
             logger.warning("overwintering_move_sync_failed", plant_key=plant.key, error=str(exc))
+
+    def _load_plant_location(self, plant: PlantInstance) -> Location | None:
+        """Load the plant's :class:`Location` for the frost-exposure resolver (#706).
+
+        Returns ``None`` — so the resolver falls back to the site type — when the plant
+        carries no ``location_key``, the location is unknown, or it does not belong to
+        the plant's own site. Ownership is anchored on the SITE, not on
+        ``location.tenant_key``: ``Location`` documents are persisted with an empty
+        ``tenant_key`` and are tenant-verified through their parent site (see
+        ``_verify_location_tenant`` in the router). Since the plant and its site are
+        already tenant-verified, requiring ``location.site_key == plant.site_key``
+        keeps a location under a foreign/other site from ever contributing its
+        ``frost_exposed`` override (fail-safe: inherit from the site type instead).
+        """
+        if not plant.location_key or not plant.site_key:
+            return None
+        location = self._site_repo.get_location_by_key(plant.location_key)
+        if location is None:
+            return None
+        if not location.site_key or location.site_key != plant.site_key:
+            return None
+        return location
 
     def remove_plant(
         self,

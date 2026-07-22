@@ -571,6 +571,7 @@ export interface Location {
   lights_on: string | null;
   lights_off: string | null;
   use_dynamic_sunrise: boolean;
+  frost_exposed: boolean | null;
   tank_key: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -589,6 +590,7 @@ export interface LocationCreate {
   lights_on?: string | null;
   lights_off?: string | null;
   use_dynamic_sunrise?: boolean;
+  frost_exposed?: boolean | null;
   tank_key?: string | null;
 }
 

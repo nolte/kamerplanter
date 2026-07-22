@@ -21,14 +21,11 @@ from datetime import UTC, datetime, timedelta
 import structlog
 
 from app.common.async_bridge import run_async
+from app.common.enums import WEATHER_RELEVANT_SITE_TYPES
 from app.config.settings import settings
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
-
-#: Site types for which climate normals are materialised (REQ-041 — outdoor
-#: growing surfaces; indoor/climate-controlled sites have no use for them).
-_CLIMATE_SITE_TYPES = ("outdoor", "greenhouse")
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
@@ -54,7 +51,7 @@ def fetch_climate_normals(self) -> dict:  # noqa: ANN001 — Celery bound-task s
 
     cursor = db.aql.execute(
         "FOR s IN @@col FILTER s.type IN @types AND s.gps_coordinates != null RETURN s",
-        bind_vars={"@col": col.SITES, "types": list(_CLIMATE_SITE_TYPES)},
+        bind_vars={"@col": col.SITES, "types": [t.value for t in WEATHER_RELEVANT_SITE_TYPES]},
     )
 
     ttl = timedelta(days=settings.nasa_power_climate_ttl_days)

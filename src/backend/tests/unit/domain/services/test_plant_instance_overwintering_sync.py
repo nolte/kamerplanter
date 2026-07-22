@@ -19,7 +19,7 @@ from app.common.enums import FrostTolerance, HardinessRating, SiteType, WinterAc
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.plant_instance import PlantInstance
-from app.domain.models.site import Site
+from app.domain.models.site import Location, Site
 from app.domain.models.species import Species
 from app.domain.services.overwintering_materializer import OverwinteringMaterializer
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
@@ -110,11 +110,15 @@ class FakePlantRepo:
 
 
 class FakeSiteRepo:
-    def __init__(self, sites: dict[str, Site]) -> None:
+    def __init__(self, sites: dict[str, Site], locations: dict[str, Location] | None = None) -> None:
         self.sites = sites
+        self.locations = locations or {}
 
     def get_site_by_key(self, key):
         return self.sites.get(key)
+
+    def get_location_by_key(self, key):
+        return self.locations.get(key)
 
     def get_slot_by_key(self, key):
         return None
@@ -142,7 +146,14 @@ def _site(key: str, site_type: SiteType, tenant: str = TENANT) -> Site:
     return Site(key=key, tenant_key=tenant, name=key, type=site_type, climate_zone="")
 
 
-def _plant(site_key: str | None, *, key: str | None = None, tenant: str = TENANT, name: str = "p") -> PlantInstance:
+def _plant(
+    site_key: str | None,
+    *,
+    key: str | None = None,
+    tenant: str = TENANT,
+    name: str = "p",
+    location_key: str | None = None,
+) -> PlantInstance:
     return PlantInstance(
         _key=key,
         tenant_key=tenant,
@@ -151,6 +162,23 @@ def _plant(site_key: str | None, *, key: str | None = None, tenant: str = TENANT
         planted_on=date(2024, 1, 1),
         site_key=site_key,
         plant_name=name,
+        location_key=location_key,
+    )
+
+
+def _location(
+    key: str,
+    site_key: str,
+    *,
+    frost_exposed: bool | None = None,
+) -> Location:
+    return Location(
+        _key=key,
+        name=key,
+        site_key=site_key,
+        area_m2=10.0,
+        frost_exposed=frost_exposed,
+        tenant_key="",  # Issue #706 guard fix: Location.tenant_key is always empty.
     )
 
 
@@ -171,10 +199,11 @@ def _real_service(
     *,
     frost: FrostTolerance = FrostTolerance.MODERATE,
     zones: list[str] | None = None,
+    locations: dict[str, Location] | None = None,
 ) -> tuple[PlantInstanceService, FakeOverwinteringRepo, FakePlantRepo]:
     ow_repo = FakeOverwinteringRepo()
     plant_repo = FakePlantRepo()
-    site_repo = FakeSiteRepo(sites)
+    site_repo = FakeSiteRepo(sites, locations)
     species_repo = FakeSpeciesRepo(_species(frost, zones))
 
     ow_service = OverwinteringProfileService(
@@ -383,3 +412,115 @@ class TestWithoutOverwinteringCollaborators:
         result = service.update_plant("plant-1", moved)
 
         assert result.site_key == "site-in"
+
+
+# ── Issue #706 (P5): per-Location frost_exposed override ──────────────────
+#
+# Critical regression test for the guard fix: the old code checked
+# location.tenant_key == tenant_key, which always failed because Location.tenant_key
+# is persisted empty (""). The fix anchors ownership on the SITE instead:
+# location.site_key == plant.site_key. This prevents a foreign location from
+# overriding the frost exposure, while preserving the override when it belongs to
+# the plant's site.
+
+
+class TestLocationFrostExposedOverride:
+    """Per-location frost_exposed override (Issue #706).
+
+    A location can override whether a plant at that location is treated as
+    frost-exposed, independent of the site type. This is critical for plants
+    at frost-exposed corners under otherwise indoor sites (e.g. a balcony), or
+    protected niches under outdoor sites.
+    """
+
+    def test_ac1_indoor_site_with_frost_exposed_location_materialises_profile(self) -> None:
+        """AC-1 (regression anchor): Indoor site + location with frost_exposed=True.
+
+        Scenario: A plant is on an indoor site, but the specific location
+        (location.frost_exposed=True) indicates the corner is exposed to frost
+        (e.g. an unheated balcony or terrace under an otherwise indoor structure).
+        The location override must trigger materialisation despite the indoor site.
+
+        Old code failed here: it checked location.tenant_key == tenant_key, which
+        always failed because Location.tenant_key is always empty. The fix checks
+        location.site_key == plant.site_key instead, anchoring ownership on the site.
+        """
+        sites = {"site-in": _site("site-in", SiteType.INDOOR)}
+        locations = {
+            "loc-exposed": _location("loc-exposed", site_key="site-in", frost_exposed=True),
+        }
+        service, ow_repo, plant_repo = _real_service(sites, locations=locations)
+
+        # Plant on indoor site but at a frost-exposed location.
+        plant = _plant("site-in", key="plant-1", location_key="loc-exposed")
+        created = service.create_plant(plant)
+
+        # The location override must cause a profile to be materialised.
+        profile = ow_repo.get_profile_by_plant_key(created.key)
+        assert profile is not None, "Profile must be materialised for frost-exposed location"
+        assert profile.auto_generated is True
+        assert profile.hardiness_rating == HardinessRating.NEEDS_PROTECTION
+
+    def test_ac2_outdoor_site_with_protected_location_does_not_materialise(self) -> None:
+        """AC-2: Outdoor site + location with frost_exposed=False.
+
+        Scenario: A plant is on an outdoor site but at a protected location
+        (e.g. south-facing wall in full sun, sheltered from frost). The location
+        override forces it to be treated as protected despite the outdoor site.
+        """
+        sites = {"site-out": _site("site-out", SiteType.OUTDOOR)}
+        locations = {
+            "loc-protected": _location("loc-protected", site_key="site-out", frost_exposed=False),
+        }
+        service, ow_repo, plant_repo = _real_service(sites, locations=locations)
+
+        plant = _plant("site-out", key="plant-1", location_key="loc-protected")
+        created = service.create_plant(plant)
+
+        # The location override must prevent materialisation.
+        profile = ow_repo.get_profile_by_plant_key(created.key)
+        assert profile is None, "No profile should be materialised for protected location"
+
+    def test_ac3_none_frost_exposed_falls_back_to_site_type(self) -> None:
+        """AC-3: location.frost_exposed=None falls back to site type.
+
+        Scenario: A location has no explicit override (frost_exposed=None), so the
+        old behaviour is preserved: frost exposure is inherited from the site type.
+        """
+        sites = {"site-out": _site("site-out", SiteType.OUTDOOR)}
+        locations = {
+            "loc-inherit": _location("loc-inherit", site_key="site-out", frost_exposed=None),
+        }
+        service, ow_repo, plant_repo = _real_service(sites, locations=locations)
+
+        plant = _plant("site-out", key="plant-1", location_key="loc-inherit")
+        created = service.create_plant(plant)
+
+        # frost_exposed=None falls back to site type (outdoor), so profile is materialised.
+        profile = ow_repo.get_profile_by_plant_key(created.key)
+        assert profile is not None, "Profile must be materialised (site is outdoor, fallback)"
+
+    def test_foreign_location_ignored_falls_back_to_site_type(self) -> None:
+        """Guard safety: location.site_key != plant.site_key is ignored.
+
+        Scenario: A location is intentionally or accidentally pointed at a plant
+        on a different site. The guard prevents the foreign location from affecting
+        the frost exposure (fails safe: inherits from site type).
+        """
+        sites = {
+            "site-out": _site("site-out", SiteType.OUTDOOR),
+            "site-in": _site("site-in", SiteType.INDOOR),
+        }
+        locations = {
+            # This location belongs to site-in, but plant is on site-out.
+            "loc-foreign": _location("loc-foreign", site_key="site-in", frost_exposed=False),
+        }
+        service, ow_repo, plant_repo = _real_service(sites, locations=locations)
+
+        # Plant on outdoor site pointing at a location from an indoor site.
+        plant = _plant("site-out", key="plant-1", location_key="loc-foreign")
+        created = service.create_plant(plant)
+
+        # The foreign location must be ignored; profile is materialised due to site type.
+        profile = ow_repo.get_profile_by_plant_key(created.key)
+        assert profile is not None, "Foreign location override must be ignored (fallback to site type)"

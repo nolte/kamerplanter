@@ -71,9 +71,28 @@ const schema = z.object({
   lights_on: z.string().regex(timeRegex).nullable().optional(),
   lights_off: z.string().regex(timeRegex).nullable().optional(),
   use_dynamic_sunrise: z.boolean(),
+  frost_exposure: z.enum(['inherit', 'exposed', 'protected']),
 });
 
 type FormData = z.infer<typeof schema>;
+
+const FROST_EXPOSURE_OPTIONS = ['inherit', 'exposed', 'protected'] as const;
+
+// Maps the tri-state UI value to the nullable `frost_exposed` API field:
+// inherit → null (inherit from site), exposed → true, protected → false.
+function frostExposureToApi(value: FormData['frost_exposure']): boolean | null {
+  if (value === 'exposed') return true;
+  if (value === 'protected') return false;
+  return null;
+}
+
+// Maps the persisted `frost_exposed` API value back to the tri-state UI value
+// so the current setting is pre-selected when editing.
+function frostExposureFromApi(value: boolean | null | undefined): FormData['frost_exposure'] {
+  if (value === true) return 'exposed';
+  if (value === false) return 'protected';
+  return 'inherit';
+}
 
 export default function LocationDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -126,6 +145,7 @@ export default function LocationDetailPage() {
       lights_on: null,
       lights_off: null,
       use_dynamic_sunrise: false,
+      frost_exposure: 'inherit',
     },
   });
 
@@ -168,6 +188,7 @@ export default function LocationDetailPage() {
         lights_on: loc.lights_on,
         lights_off: loc.lights_off,
         use_dynamic_sunrise: loc.use_dynamic_sunrise,
+        frost_exposure: frostExposureFromApi(loc.frost_exposed),
       });
       const [s, children] = await Promise.all([
         api.listSlots(key),
@@ -276,10 +297,12 @@ export default function LocationDetailPage() {
     if (!key) return;
     try {
       setSaving(true);
+      const { frost_exposure, ...rest } = data;
       await api.updateLocation(key, {
-        ...data,
+        ...rest,
         lights_on: data.lights_on || undefined,
         lights_off: data.lights_off || undefined,
+        frost_exposed: frostExposureToApi(frost_exposure),
       });
       notification.success(t('common.save'));
       load();
@@ -365,6 +388,16 @@ export default function LocationDetailPage() {
               <FormTextField name="name" control={control} label={t('pages.locations.name')} required autoFocus />
               <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} helperText={t('pages.locations.areaHelper')} min={0} />
             </FormRow>
+            <FormSelectField
+              name="frost_exposure"
+              control={control}
+              label={t('pages.locations.frostExposure')}
+              helperText={t('pages.locations.frostExposureHelper')}
+              options={FROST_EXPOSURE_OPTIONS.map((v) => ({
+                value: v,
+                label: t(`enums.frostExposure.${v}`),
+              }))}
+            />
           </CardContent>
         </Card>
 

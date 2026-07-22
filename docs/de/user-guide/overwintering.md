@@ -6,7 +6,7 @@ Für jede deiner Freiland-, Gewächshaus- oder Balkon-Pflanzen, die nicht winter
 
 ## Voraussetzungen
 
-- Die Pflanze steht an einem Standort vom Typ **Außenbereich** (Freiland), **Gewächshaus** oder **Balkon**. Diese drei Typen gelten als frostexponiert; Innenbereich, Fensterbrett und Growzelt dagegen nicht.
+- Die Pflanze steht an einer Location, die als frostexponiert gilt. Das ist standardmäßig der Fall bei einer Location auf einer Site vom Typ **Außenbereich** (Freiland), **Gewächshaus** oder **Balkon**; Innenbereich, Fensterbrett und Growzelt gelten standardmäßig nicht als frostexponiert. Du kannst diese Einstufung aber für jede einzelne Location übersteuern, siehe [Frostexposition einer Location festlegen](locations-substrates.md#frostexposition-einer-location-festlegen).
 - Der Pflanze ist eine Pflanzenart zugeordnet (Stammdaten) — daraus leitet Kamerplanter die Frostempfindlichkeit ab.
 
 ---
