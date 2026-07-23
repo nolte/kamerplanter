@@ -72,12 +72,18 @@ Mehr zur Karenzzeit: [Integrierter Pflanzenschutz (IPM)](pest-management.md)
 | Feld | Beschreibung |
 |------|-------------|
 | Pflanze | Die zu erntende Pflanze |
-| Chargen-ID | Optionale eigene Kennung, z.B. „ERNTE-2026-001" |
+| Chargen-ID | Optionale eigene Kennung, z.B. „ERNTE-2026-001". Leer lassen, um automatisch eine eindeutige ID zu erhalten. |
 | Erntetyp | **Teilernte**, **Endernte** oder **Fortlaufend** |
 | Erntedatum | Datum und Uhrzeit der Ernte (Standard: jetzt) |
 | Nassgewicht (g) | Gewicht des Ernteguts direkt nach dem Schnitt |
 | Erntehelfer | Wer hat geerntet? |
 | Notizen | Beobachtungen, Besonderheiten |
+
+!!! tip "Chargen-ID leer lassen"
+    Lässt du das Feld **Chargen-ID** leer, vergibt Kamerplanter automatisch eine eindeutige Kennung nach dem Muster `HARVEST-<Datum>-<Pflanze>` (z.B. `HARVEST-20260315-tomate-01`). Legst du am selben Tag eine weitere Charge für dieselbe Pflanze an, hängt das System dafür fortlaufend `-2`, `-3` usw. an — so kannst du mehrere Teilernte-Chargen pro Tag anlegen, ohne dir selbst eine Kennung ausdenken zu müssen.
+
+!!! warning "Chargen-ID bereits vergeben"
+    Trägst du selbst eine Chargen-ID ein, die bereits existiert, lehnt Kamerplanter das Anlegen ab: Du siehst einen Hinweis direkt am Feld sowie eine Fehlermeldung, die Charge wird nicht gespeichert. Wähle eine andere Kennung oder lasse das Feld leer, damit die ID automatisch vergeben wird.
 
 **Erntetypen:**
 
@@ -211,6 +217,9 @@ Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte
 
 ??? question "Kann ich eine Teilernte mehrfach durchführen?"
     Ja. Du kannst beliebig viele Teilernte-Chargen für eine Pflanze anlegen, z.B. um zuerst die oberen und später die unteren Blütenstände zu ernten.
+
+??? question "Muss ich für jede Charge eine eigene Chargen-ID vergeben?"
+    Nein. Lässt du das Feld **Chargen-ID** leer, vergibt Kamerplanter automatisch eine eindeutige ID — auch wenn du am selben Tag mehrere Chargen für dieselbe Pflanze anlegst. Eine eigene Kennung ist nur nötig, wenn du eine bestimmte Namenskonvention (z.B. für ein externes System) einhalten willst.
 
 ---
 
