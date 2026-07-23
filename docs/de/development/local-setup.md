@@ -261,5 +261,5 @@ kubectl exec homeassistant-0 -n default -- kill 1
 ## Siehe auch
 
 - [Code-Standards](code-standards.md)
-- [Testen](testing.md)
+- [Testen](testing/index.md)
 - [Debugging](debugging.md)

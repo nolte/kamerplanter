@@ -155,6 +155,13 @@ plugins:
             Lokales Setup: Local Setup
             Code-Standards: Code Standards
             Testen: Testing
+            Teststufen: Test Levels
+            Unit-Tests: Unit Tests
+            Integrationstests: Integration Tests
+            Komponententests: Component Tests
+            E2E-Tests: E2E Tests
+            Fehlersuche & Betrieb: Troubleshooting & Operations
+            Werkzeuge & Abläufe: Tools & Workflows
             Debugging: Debugging
             MCP-Werkzeuge: MCP Tools
             Workflows: Workflows
@@ -347,11 +354,20 @@ nav:
       - de/development/index.md
       - Lokales Setup: de/development/local-setup.md
       - Code-Standards: de/development/code-standards.md
-      - Testen: de/development/testing.md
-      - Debugging: de/development/debugging.md
-      - MCP-Werkzeuge: de/development/mcp-tools.md
-      - Workflows: de/development/workflows.md
-      - Betriebs-Fehlerbehebung: de/development/troubleshooting.md
+      - Testen:
+          - de/development/testing/index.md
+          - Teststufen:
+              - de/development/testing/stufen/index.md
+              - Unit-Tests: de/development/testing/stufen/unit.md
+              - Integrationstests: de/development/testing/stufen/integration.md
+              - Komponententests: de/development/testing/stufen/component.md
+              - E2E-Tests: de/development/testing/stufen/e2e.md
+      - Fehlersuche & Betrieb:
+          - Debugging: de/development/debugging.md
+          - Betriebs-Fehlerbehebung: de/development/troubleshooting.md
+      - Werkzeuge & Abläufe:
+          - MCP-Werkzeuge: de/development/mcp-tools.md
+          - Workflows: de/development/workflows.md
       - API:
           - de/api/index.md
           - Überblick: de/api/overview.md

@@ -292,6 +292,6 @@ npm test              # vitest
 
 ## See also
 
-- [Testing](testing.md)
+- [Testing](testing/index.md)
 - [Local Setup](local-setup.md)
 - [Debugging](debugging.md)
