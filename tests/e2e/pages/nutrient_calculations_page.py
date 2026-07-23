@@ -106,6 +106,57 @@ class NutrientCalculationsPage(BasePage):
         self.scroll_and_click(el)
         self.clear_and_fill(el, value)
 
+    def _select_fertilizer_option_in_card(self, card, fertilizer_key: str = "") -> None:
+        """Select one chip in the card's fertilizer ``Autocomplete`` (multi-select).
+
+        The Mixing Protocol / Mixing Safety cards replaced the free-text
+        fertilizer field with an MUI ``Autocomplete`` (``FertilizerMultiSelect``,
+        ``NutrientCalcFertilizerFields.tsx:116-152``) whose option labels render
+        ``"{product_name} ({brand})"`` rather than the raw ``f.key`` — so typing
+        *fertilizer_key* rarely filters to a matching label. This types the key
+        anyway (a real match is preferred when the label happens to embed it),
+        waits for the ``li[role='option']`` listbox, and falls back to the first
+        available option — any real fertilizer satisfies the backend's
+        ``fertilizer_keys`` ``min_length=1`` requirement.
+        """
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        inputs = card.find_elements(
+            By.CSS_SELECTOR, "input:not([type='number']):not(.MuiSelect-nativeInput)"
+        )
+        if not inputs:
+            raise ValueError("No fertilizer Autocomplete input found in card")
+        el = inputs[0]
+        self.scroll_and_click(el)
+        if fertilizer_key:
+            el.send_keys(fertilizer_key)
+
+        option_locator = (By.CSS_SELECTOR, "li[role='option']")
+        try:
+            WebDriverWait(self.driver, 10).until(
+                lambda d: len(d.find_elements(*option_locator)) > 0
+            )
+        except Exception:
+            # The typed key didn't match any rendered label — clear the filter
+            # to expose the full catalogue instead.
+            if fertilizer_key:
+                el.send_keys(Keys.CONTROL + "a")
+                el.send_keys(Keys.DELETE)
+                WebDriverWait(self.driver, 10).until(
+                    lambda d: len(d.find_elements(*option_locator)) > 0
+                )
+
+        options = self.driver.find_elements(*option_locator)
+        if not options:
+            raise ValueError("No fertilizer options available in Autocomplete listbox")
+        match = next(
+            (o for o in options if fertilizer_key and fertilizer_key in (o.text or "")),
+            options[0],
+        )
+        self.scroll_and_click(match)
+        self.wait_for_element_hidden(option_locator)
+
     def _click_button_in_card(self, card) -> None:
         """Click the contained Button inside a card."""
         btn = card.find_element(By.CSS_SELECTOR, ".MuiButton-contained")
@@ -181,15 +232,9 @@ class NutrientCalculationsPage(BasePage):
         # Number inputs in order: volume, targetEc, targetPh, baseEc, basePh
         for idx, val in enumerate([volume, target_ec, target_ph, base_ec, base_ph]):
             self._fill_number_input_in_card(card, idx, val)
-        # Fertilizer keys text field — exclude the Phase select's hidden native
-        # input (.MuiSelect-nativeInput), which was inserted before this field.
-        text_inputs = card.find_elements(
-            By.CSS_SELECTOR, "input:not([type='number']):not(.MuiSelect-nativeInput)"
-        )
-        if text_inputs:
-            el = text_inputs[0]
-            self.scroll_and_click(el)
-            self.clear_and_fill(el, fertilizer_keys)
+        # Fertilizer keys — MUI Autocomplete multi-select (#666), not free text.
+        if fertilizer_keys:
+            self._select_fertilizer_option_in_card(card, fertilizer_keys)
 
     def click_calculate_mixing_protocol(self) -> None:
         """Click the calculate button in the Mixing Protocol panel."""
@@ -279,9 +324,9 @@ class NutrientCalculationsPage(BasePage):
     # ── Mixing Safety ──────────────────────────────────────────────────
 
     def fill_mixing_safety(self, fertilizer_keys: str) -> None:
-        """Fill the fertilizer keys input in the Mixing Safety panel."""
+        """Select a fertilizer chip in the Mixing Safety panel's Autocomplete."""
         card = self._get_card_by_heading("Mischsicherheit")
-        self._fill_text_input_in_card(card, fertilizer_keys)
+        self._select_fertilizer_option_in_card(card, fertilizer_keys)
 
     def click_validate_mixing_safety(self) -> None:
         """Click the validate button in the Mixing Safety panel."""

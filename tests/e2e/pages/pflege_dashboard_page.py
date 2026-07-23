@@ -502,10 +502,21 @@ class PflegeDashboardPage(BasePage):
         return len(elements) > 0 and elements[0].is_displayed()
 
     def get_fertilizing_active_month_values(self) -> list[int]:
-        """Return the list of currently selected fertilizing active months."""
+        """Return the list of currently selected fertilizing active months.
+
+        Each ToggleButton carries ``data-testid='fertilizing-month-{n}'`` --
+        parse the month number from that suffix rather than ``.text``, which
+        now renders a two-line "MMM\\n{n}" label (CareProfileForm.tsx:513-525)
+        and is no longer a plain ``int()``-parseable string.
+        """
         container = self.driver.find_element(*self.FERTILIZING_ACTIVE_MONTHS)
         buttons = container.find_elements(By.CSS_SELECTOR, "button.Mui-selected")
-        return [int(btn.text) for btn in buttons]
+        months: list[int] = []
+        for btn in buttons:
+            suffix = (btn.get_attribute("data-testid") or "").rsplit("-", 1)[-1]
+            if suffix.isdigit():
+                months.append(int(suffix))
+        return months
 
     def click_fertilizing_month(self, month: int) -> None:
         """Click a specific month toggle button in the fertilizing active months."""
