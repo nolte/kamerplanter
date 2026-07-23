@@ -32,8 +32,8 @@ E2E-Suiten sind nach Anforderung (REQ) organisiert. Thematisch gebündelt:
 | Ort | `tests/e2e/` |
 | Locator | `data-testid`-Attribute (nie CSS-Struktur) |
 
-!!! info "Kein CI-Job — bewusst lokal / auf Abruf"
-    Die E2E-Suite läuft **nicht** automatisch in der CI-Pipeline, sondern lokal bzw. auf Abruf über einen dedizierten Docker-Compose-Stack. Das ist eine bewusste Entscheidung (Laufzeit, Browser-Infrastruktur), keine Lücke.
+!!! info "CI: Smoke-Gate pro PR + Nightly-Volllauf"
+    Die Suite läuft auch in GitHub Actions — mit demselben Docker-Compose-Stack wie lokal: Der Workflow `e2e-smoke` führt das schnelle Smoke-Profil bei pfadgefilterten Pull Requests und Pushes nach `develop` aus (bewusst **kein** Pflicht-Check). Der Workflow `e2e-nightly` fährt nächtlich die vollständige Suite als Matrix über die Compose-Profile `light`, `full`, `mobile`, `tablet` und `full-mobile`; ein roter Lauf öffnet automatisch ein GitHub-Issue mit dem Label `e2e-nightly`. Testprotokoll, Screenshots und Container-Logs hängen als Workflow-Artifacts an jedem Lauf.
 
 ## Ausführen
 
@@ -42,7 +42,9 @@ E2E-Suiten sind nach Anforderung (REQ) organisiert. Thematisch gebündelt:
 pytest tests/e2e/ -v
 
 # Dedizierter, isolierter Docker-Stack (App + Selenium Grid)
-./scripts/run-e2e.sh
+./scripts/run-e2e.sh                    # volle light-Suite
+./scripts/run-e2e.sh --smoke            # Smoke-Suite (~7 min)
+./scripts/run-e2e.sh --profile mobile   # ein einzelnes Compose-Profil
 ```
 
 Reports und Screenshots landen unter `test-reports/<timestamp>/`. Der vollständige Stack, die Fixtures und das Protokoll-Format stehen im [Testkonzept → E2E-Tests](../index.md#e2e-tests-selenium).
