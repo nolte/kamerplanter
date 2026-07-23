@@ -206,6 +206,27 @@ Cultivars are breeding varieties within a species. They inherit base properties 
     - **Breeder** (optional)
     - **Traits** (e.g. disease-resistant, high-yield, compact)
 
+!!! note "More fields on the cultivar detail page"
+    The creation dialog covers only the basic fields. Additional details — including the **Seed Type** (see below) — are maintained afterwards on the cultivar's detail page.
+
+### Seed Type (seed_type)
+
+The **Seed Type** field describes how a cultivar is propagated, and matters most if you plan to save your own seed and sow it again next season — it tells you whether the offspring will come true to type.
+
+| Value | Label | Meaning for saved seed |
+|------|------------|---------------------------|
+| `open_pollinated` | Open-pollinated | Comes true to type — your own saved seed grows the same cultivar again |
+| `f1_hybrid` | F1 hybrid | Does not come true to type — offspring segregate and diverge from the parent plant |
+| `f2` | F2 generation | Second generation after an F1 cross — segregates heavily, traits are inconsistent |
+| `landrace` | Landrace | Comes true to type, usually more genetically variable than modern open-pollinated cultivars |
+| `clone` | Clone (vegetative) | No seed propagation — the cultivar is continued exclusively by vegetative means (e.g. cutting, division) |
+
+!!! tip "Trueness to type when saving your own seed"
+    If you want to save your own seed for next season, pay attention to the seed type: **Open-pollinated** cultivars and **landraces** produce offspring that come true to type. With **F1 hybrids**, the offspring usually diverge noticeably from the parent plant — they generally aren't suitable for seed saving. With **clones**, seed propagation isn't intended in the first place — the cultivar is continued exclusively by vegetative means.
+
+!!! note "Visibility by expertise level"
+    The **Seed Type** field in the cultivar form appears from the **Intermediate** expertise level onward. In Beginner mode it is hidden but can be revealed via **Show all fields**.
+
 ## Botanical Families
 
 Families group related species and form the basis for crop rotation planning. Kamerplanter comes pre-installed with the most common families (Solanaceae, Brassicaceae, Fabaceae, Cucurbitaceae, ...).

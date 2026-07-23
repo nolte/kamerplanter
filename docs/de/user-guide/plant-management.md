@@ -206,6 +206,27 @@ Sorten (Cultivars) sind Zuchtformen innerhalb einer Art. Sie erben die Grundeige
     - **Züchter** (optional)
     - **Merkmale** (z.B. krankheitsresistent, ertragreich, kompakt)
 
+!!! note "Weitere Felder auf der Sorten-Detailseite"
+    Der Anlage-Dialog deckt nur die grundlegenden Felder ab. Ergänzende Angaben — darunter der **Saatgut-Typ** (siehe unten) — pflegst du anschließend auf der Detailseite der Sorte.
+
+### Saatgut-Typ (seed_type)
+
+Das Feld **Saatgut-Typ** beschreibt, wie eine Sorte vermehrt wird, und ist vor allem dann relevant, wenn du eigenes Saatgut ernten und in der nächsten Saison wieder aussäen möchtest — es zeigt an, ob die Nachkommen dabei sortenecht bleiben.
+
+| Wert | Bezeichnung | Bedeutung für den Nachbau |
+|------|------------|---------------------------|
+| `open_pollinated` | Samenfest | Sortenecht — aus eigenem Saatgut wächst wieder dieselbe Sorte |
+| `f1_hybrid` | F1-Hybride | Nicht sortenecht — die Nachkommen spalten sich auf und weichen von der Mutterpflanze ab |
+| `f2` | F2-Generation | Zweite Generation nach einer F1-Kreuzung — spaltet sich stark auf, Eigenschaften sind uneinheitlich |
+| `landrace` | Landsorte | Sortenecht, meist genetisch variabler als moderne samenfeste Sorten |
+| `clone` | Klon (vegetativ) | Keine Samenvermehrung — die Sorte wird ausschließlich vegetativ (z.B. Steckling, Teilung) fortgeführt |
+
+!!! tip "Sortenechtheit bei eigenem Saatgutnachbau"
+    Möchtest du eigenes Saatgut für die nächste Saison gewinnen, achte auf den Saatgut-Typ: **Samenfeste** Sorten und **Landsorten** liefern sortenechte Nachkommen. Bei **F1-Hybriden** weichen die Nachkommen meist deutlich von der Mutterpflanze ab — für den Nachbau eignen sie sich in der Regel nicht. Bei **Klonen** ist eine Vermehrung über Samen ohnehin nicht vorgesehen; die Sorte wird ausschließlich vegetativ fortgeführt.
+
+!!! note "Sichtbarkeit nach Erfahrungsstufe"
+    Das Feld **Saatgut-Typ** erscheint im Sorten-Formular ab der Erfahrungsstufe **Fortgeschrittener**. Im Einsteiger-Modus ist es ausgeblendet, kann aber über **Alle Felder anzeigen** eingeblendet werden.
+
 ## Botanische Familien
 
 Familien gruppieren verwandte Arten und sind die Basis für die Fruchtfolge-Planung. Kamerplanter wird mit den gängigsten Familien vorinstalliert (Solanaceae, Brassicaceae, Fabaceae, Cucurbitaceae, ...).

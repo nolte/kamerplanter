@@ -126,6 +126,14 @@ describe('CultivarDetailPage — Phase A fields', () => {
     expect(within(dtm).getByDisplayValue('transplant')).toBeInTheDocument();
   });
 
+  it('renders the seed_type select pre-filled from the cultivar (intermediate)', async () => {
+    getCultivar.mockResolvedValue(makeCultivar({ seed_type: 'f1_hybrid' }));
+    renderWithProviders(<CultivarDetailPage />, { store: createStoreWithExpertise('intermediate') });
+
+    const seedType = await screen.findByTestId('form-field-seed_type');
+    expect(within(seedType).getByDisplayValue('f1_hybrid')).toBeInTheDocument();
+  });
+
   it('hides the expert-only dtm_reference field from a beginner', async () => {
     renderWithProviders(<CultivarDetailPage />, { store: createStoreWithExpertise('beginner') });
 
@@ -134,5 +142,7 @@ describe('CultivarDetailPage — Phase A fields', () => {
     expect(screen.queryByTestId('form-field-dtm_reference')).toBeNull();
     // intermediate bearing-year fields are also hidden for a beginner
     expect(screen.queryByTestId('form-field-bearing_start_year_min')).toBeNull();
+    // seed_type is intermediate → also hidden for a beginner
+    expect(screen.queryByTestId('form-field-seed_type')).toBeNull();
   });
 });

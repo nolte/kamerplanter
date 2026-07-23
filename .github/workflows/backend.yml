@@ -61,6 +61,14 @@ jobs:
       - name: Unit tests
         run: pytest tests/unit/ -v --tb=short
 
+      - name: Contract tests
+        # Enforce the plant-property contract gates that previously never ran in
+        # CI: the 3-way enum single-source sync (enums.py ↔ _defs.schema.yaml ↔
+        # frontend/src/api/types.ts) and the de/en i18n completeness of those
+        # enums (tests/contracts/test_plant_property_enum_sync.py). These guard
+        # exactly the drift class the plant-property data-model plan addresses.
+        run: pytest tests/contracts/ -v --tb=short
+
   lock-staleness:
     name: Lock staleness
     runs-on: ubuntu-latest

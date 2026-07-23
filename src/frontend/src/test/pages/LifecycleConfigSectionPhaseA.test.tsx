@@ -27,6 +27,8 @@ function makeLifecycle(overrides: Partial<LifecycleConfig> = {}): LifecycleConfi
     cycle_type: 'perennial',
     cultivation_cycle_type: 'annual',
     flowering_strategy: 'polycarpic',
+    // Derived server-side: perennial + cultivated-annual → grown as an annual.
+    grown_as_annual: true,
     typical_lifespan_years: 10,
     dormancy_required: false,
     vernalization_required: false,

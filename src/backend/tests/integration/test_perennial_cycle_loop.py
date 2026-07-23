@@ -278,6 +278,7 @@ def _task_env(monkeypatch):
         phase_service=phase_service,
         phase_repo=phase_repo,
         plant_repo=plant_repo,
+        lifecycle_repo=lifecycle_repo,
         strawberry=strawberry,
         ficus=ficus,
         tomato=tomato,
@@ -390,5 +391,25 @@ class TestInstanceCycleOverride:
         (resolve_effective_cycle species tier) and does NOT loop."""
         trail = _run_year(_task_env, _task_env.tomato)
 
+        assert ("vegetative", 2) not in trail
+        assert self._max_cycle(trail) == 1
+
+    def test_reclassified_tender_perennial_species_does_not_restart(self, _task_env) -> None:
+        """ADR-006 E1 negative proof for the seed reclassification, end-to-end.
+
+        Reclassifying tomato botanically PERENNIAL (to activate grown_as_annual) while its
+        SPECIES cultivation_cycle_type stays ANNUAL — with NO per-instance override — must
+        still terminate at dormancy without looping: the species-tier cultivation cycle wins
+        in resolve_effective_cycle, so the real task/engine never restarts it.
+        """
+        _task_env.lifecycle_repo._by_species["sp-tomato"] = LifecycleConfig(
+            species_key="sp-tomato",
+            cycle_type=CycleType.PERENNIAL,
+            cultivation_cycle_type=CycleType.ANNUAL,
+        )
+
+        trail = _run_year(_task_env, _task_env.tomato)
+
+        assert ("sprouting", 2) not in trail
         assert ("vegetative", 2) not in trail
         assert self._max_cycle(trail) == 1

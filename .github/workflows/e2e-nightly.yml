@@ -1,0 +1,161 @@
+##
+## E2E nightly — full Selenium suite across all compose profiles.
+##
+## Scheduled offset from security-nuclei-nightly (00:00 UTC) so the two
+## long-running nightlies don't compete for runners. A failing night opens
+## a GitHub issue (label: e2e-nightly) unless one is already open
+## (project/requirements/e2e-ci-selenium.md, R3/R6).
+##
+name: e2e-nightly
+
+on:
+  schedule:
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Compose profile to run (all = full matrix)."
+        type: choice
+        default: all
+        options:
+          - all
+          - light
+          - full
+          - mobile
+          - tablet
+          - full-mobile
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: e2e-nightly
+  cancel-in-progress: false
+
+jobs:
+  matrix:
+    name: Resolve profile matrix
+    runs-on: ubuntu-latest
+    outputs:
+      profiles: ${{ steps.resolve.outputs.profiles }}
+    steps:
+      - id: resolve
+        env:
+          PROFILE_INPUT: ${{ inputs.profile || 'all' }}
+        run: |
+          if [ "$PROFILE_INPUT" = "all" ]; then
+            echo 'profiles=["light","full","mobile","tablet","full-mobile"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "profiles=[\"$PROFILE_INPUT\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  e2e:
+    name: E2E (${{ matrix.profile }})
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJSON(needs.matrix.outputs.profiles) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Layer caching: compose delegates builds to buildx bake (COMPOSE_BAKE)
+      # on a container builder, so the gha cache backend declared in the
+      # docker-compose.e2e.ci.yml overlay can import/export layers.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Expose Actions runtime for the gha cache backend
+        uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
+
+      - name: Run E2E suite (${{ matrix.profile }})
+        env:
+          COMPOSE_BAKE: "true"
+          E2E_COMPOSE_OVERLAYS: docker-compose.e2e.ci.yml
+        run: ./scripts/run-e2e.sh --profile "${{ matrix.profile }}"
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## E2E nightly (${{ matrix.profile }})"
+            PROTOCOL=$(find test-reports/e2e -name protokoll.md | head -1)
+            if [ -n "$PROTOCOL" ]; then
+              # Surface the protocol's result overview (## Zusammenfassung) and,
+              # if present, the failed-tests section headers.
+              awk '/^## Zusammenfassung/{f=1; next} f && /^## /{exit} f{print}' "$PROTOCOL"
+              awk '/^## Fehlgeschlagene Tests/{f=1} f && /^## Testergebnisse/{exit} f && /^###? /{print}' "$PROTOCOL"
+              echo ""
+              echo "Full protocol, screenshots and container logs: see the run's \`e2e-nightly-reports-${{ matrix.profile }}\` artifact."
+            else
+              echo "No test protocol was generated (run failed before pytest)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload E2E reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-nightly-reports-${{ matrix.profile }}
+          path: test-reports/e2e/
+          retention-days: 14
+          if-no-files-found: warn
+
+  report:
+    name: Open issue on failure
+    needs: e2e
+    if: always() && contains(needs.e2e.result, 'failure')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update e2e-nightly issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const label = 'e2e-nightly';
+            const { owner, repo } = context.repo;
+
+            // Ensure the label exists before filtering/creating with it.
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: label });
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: 'd73a4a',
+                description: 'Automatic issue from a failing e2e-nightly run',
+              });
+            }
+
+            // Dedup: while an e2e-nightly issue is open, only append the run link.
+            const open = await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label, per_page: 1,
+            });
+            if (open.data.length > 0) {
+              const issue = open.data[0];
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issue.number,
+                body: `Nightly E2E failed again: ${process.env.RUN_URL}`,
+              });
+              core.notice(`Commented on existing issue #${issue.number} — no duplicate opened.`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner, repo,
+              title: '[e2e-nightly] Nightly E2E run failed',
+              labels: [label],
+              body: [
+                `The nightly E2E run failed: ${process.env.RUN_URL}`,
+                '',
+                'The run page shows which profile(s) went red. Each profile uploads',
+                'an `e2e-nightly-reports-<profile>` artifact with the test protocol,',
+                'screenshots and container logs.',
+                '',
+                'Close this issue once the cause is fixed — the next failing night',
+                'will open a fresh one.',
+              ].join('\n'),
+            });

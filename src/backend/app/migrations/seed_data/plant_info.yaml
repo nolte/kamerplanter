@@ -548,7 +548,11 @@ lifecycle_configs:
     critical_day_length_hours: null
 
   "Petunia x hybrida":
-    cycle_type: annual
+    # Tender perennial (ADR-006 E1): botanically perennial, cultivated as an annual
+    # (cultivation_cycle_type=annual in species.yaml/lifecycle_overrides) → grown_as_annual.
+    # Kept in sync with the perennial_species classification so seed_plant_info does not
+    # reset the botanical cycle back to annual.
+    cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: null
     dormancy_required: false
@@ -2162,26 +2166,31 @@ cultivars:
     - name: Embassy
       breeder: null
       days_to_maturity: 90
+      dtm_reference: transplant
       traits: [ornamental]
       seed_type: clone
     - name: Hapet Daydream
       breeder: null
       days_to_maturity: 90
+      dtm_reference: transplant
       traits: [ornamental]
       seed_type: clone
     - name: Great Silence
       breeder: null
       days_to_maturity: 90
+      dtm_reference: transplant
       traits: [ornamental]
       seed_type: clone
     - name: Armateras
       breeder: A.C. Koot
       days_to_maturity: 90
+      dtm_reference: transplant
       traits: [ornamental]
       seed_type: clone
     - name: Lavender Perfection
       breeder: null
       days_to_maturity: 90
+      dtm_reference: transplant
       traits: [ornamental, heat_tolerant]
       seed_type: clone
 
@@ -2248,31 +2257,37 @@ cultivars:
     - name: Prinz
       breeder: null
       days_to_maturity: 190
+      dtm_reference: transplant
       traits: [disease_resistant]
       seed_type: open_pollinated
     - name: Monarch
       breeder: null
       days_to_maturity: 195
+      dtm_reference: transplant
       traits: [disease_resistant]
       seed_type: open_pollinated
     - name: Brilliant
       breeder: null
       days_to_maturity: 185
+      dtm_reference: transplant
       traits: [high_yield]
       seed_type: open_pollinated
     - name: Mars
       breeder: null
       days_to_maturity: 190
+      dtm_reference: transplant
       traits: []
       seed_type: open_pollinated
     - name: Ibis
       breeder: null
       days_to_maturity: 180
+      dtm_reference: transplant
       traits: [early_maturing]
       seed_type: open_pollinated
     - name: Diamant
       breeder: null
       days_to_maturity: 200
+      dtm_reference: transplant
       traits: [high_yield]
       seed_type: open_pollinated
 
@@ -2363,41 +2378,49 @@ cultivars:
     - name: Senga Sengana
       breeder: null
       days_to_maturity: 60
+      dtm_reference: transplant
       traits: [high_yield, heirloom]
       seed_type: clone
     - name: Korona
       breeder: null
       days_to_maturity: 55
+      dtm_reference: transplant
       traits: [high_yield, disease_resistant]
       seed_type: clone
     - name: Elsanta
       breeder: null
       days_to_maturity: 58
+      dtm_reference: transplant
       traits: [high_yield]
       seed_type: clone
     - name: Mieze Schindler  # Benoetigt Bestaeuberpflanze (z.B. Senga Sengana)
       breeder: null
       days_to_maturity: 65
+      dtm_reference: transplant
       traits: [heirloom]
       seed_type: clone
     - name: Ostara
       breeder: null
       days_to_maturity: 50
+      dtm_reference: transplant
       traits: [high_yield]
       seed_type: clone
     - name: Mara des Bois
       breeder: null
       days_to_maturity: 50
+      dtm_reference: transplant
       traits: [high_yield]
       seed_type: clone
     - name: Honeoye
       breeder: null
       days_to_maturity: 55
+      dtm_reference: transplant
       traits: [early_maturing, high_yield]
       seed_type: clone
     - name: Malwina
       breeder: null
       days_to_maturity: 70
+      dtm_reference: transplant
       traits: [late_season, disease_resistant]
       seed_type: clone
 
@@ -2405,36 +2428,43 @@ cultivars:
     - name: Sunrich Orange
       breeder: null
       days_to_maturity: 60
+      dtm_reference: direct_seed
       traits: [ornamental]
       seed_type: f1_hybrid
     - name: Big Smile
       breeder: null
       days_to_maturity: 55
+      dtm_reference: direct_seed
       traits: [compact, ornamental]
       seed_type: f1_hybrid
     - name: Teddy Bear
       breeder: null
       days_to_maturity: 60
+      dtm_reference: direct_seed
       traits: [compact, ornamental]
       seed_type: open_pollinated
     - name: Mammoth Russian
       breeder: null
       days_to_maturity: 80
+      dtm_reference: direct_seed
       traits: [high_yield, heirloom]
       seed_type: open_pollinated
     - name: Velvet Queen
       breeder: null
       days_to_maturity: 70
+      dtm_reference: direct_seed
       traits: [ornamental]
       seed_type: open_pollinated
     - name: Pacino
       breeder: null
       days_to_maturity: 55
+      dtm_reference: direct_seed
       traits: [compact, ornamental]
       seed_type: f1_hybrid
     - name: Sunspot
       breeder: null
       days_to_maturity: 60
+      dtm_reference: direct_seed
       traits: [compact, high_yield]
       seed_type: open_pollinated
 
