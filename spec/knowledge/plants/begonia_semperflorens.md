@@ -24,7 +24,8 @@
 | Photosynthese-Typ | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (°C) | 6 (≈ 43 °F; Hauptwuchs-/Blühphase) | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial (faserwurzelige, frostempfindliche/kurzlebige Staude -- "tender/evergreen perennial"; in Mitteleuropa wegen Frostempfindlichkeit einjaehrig kultiviert, siehe cultivation_cycle_type) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von 'annual' auf botanisch korrektes 'perennial'; 3/3 Quellen (Missouri Botanical Garden, NCSU Extension, RHS) bestaetigen "Tender perennial ... winter hardy to USDA Zones 10-11" bzw. "tender, herbaceous perennial" bzw. "fibrous-rooted, tender perennials grown as annuals"; siehe Quellenverzeichnis Eintraege 20-22. -->
 <!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig und wiederholt blühend; frostempfindlich und daher als einjährige Kultur gezogen (cultivation_cycle_type=annual)) | `lifecycle_configs.flowering_strategy` |
 <!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
@@ -336,3 +337,8 @@ Begonia semperflorens,"Wachsbegonie;Eisbegonie;Immerblühende Begonie;Wax Begoni
 18. [PSU Extension — Hydroponics Nutrient Solution Programs and Recipes](https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes) — Mikronährstoff-Zielkonzentrationen (Mn/Zn/Cu/Mo)
 19. [Science in Hydroponics — Micro and Macro Nutrient Sufficiency Ranges](https://scienceinhydroponics.com/2017/03/hydroponic-micro-and-macro-nutrient-sufficiency-ranges.html) — Mikronährstoff-Zielbereiche
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
+20. [Missouri Botanical Garden — Begonia (Semperflorens Cultorum Group) Plant Finder](https://plantfinder.mobot.org/PlantFinderDetails.aspx?kempercode=a562) — "Tender perennial that is winter hardy to USDA Zones 10-11. In St. Louis, it is grown as an annual"; Type: Herbaceous perennial
+21. [NC State Extension Gardener Plant Toolbox — Begonia, Wax Types](https://plants.ces.ncsu.edu/plants/begonia-wax-types/) — "often used as an annual bedding plant or as a tender, herbaceous perennial grown in containers and brought indoors for the winter"; USDA Plant Hardiness Zone 9a–11b
+22. [RHS — Begonia Semperflorens Cultorum Group](https://www.rhs.org.uk/plants/130495/begonia-semperflorens-cultorum-group-s/details) — "fibrous-rooted, tender perennials grown as annuals" / "fibrous-rooted evergreen perennials, much used for summer bedding"; Härtegrad H1C
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

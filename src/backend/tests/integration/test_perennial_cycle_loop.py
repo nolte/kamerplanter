@@ -150,6 +150,13 @@ class _FakePhaseRepo:
     def get_lifecycle_by_key(self, key: str):
         return None
 
+    def get_lifecycle_by_species(self, species_key: str):
+        # These plants are pure Weg-B (sequence-driven), so the engine's
+        # effective-cycle gate has no LifecycleConfig here and falls through to the
+        # sequence cycle_type / the per-instance override. The task layer already
+        # suppresses annual-grown perennials before the engine is reached.
+        return None
+
     def get_phases_by_lifecycle(self, lifecycle_key: str) -> list:
         return []
 
