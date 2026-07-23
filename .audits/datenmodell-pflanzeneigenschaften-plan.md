@@ -5,7 +5,7 @@ quelle: spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md
 betroffene-reqs: REQ-001, REQ-003, REQ-007, REQ-008, REQ-017, REQ-021
 status: partially-implemented (Phase A+B via #192)
 created: 2026-06-15
-fortsetzung: .audits/plans/04-plant-property-data-model.md
+fortsetzung: abgeschlossen via #453 (Backfill WP-10, Toxizitäts-Badge WP-7, Härtung)
 hinweis: >-
   Phase A (additive Felder/Enums) und die breaking Phase B (propagation_configs)
   sind via #192 umgesetzt; der Feld-Backfill (WP-10 A1-A4), das Toxizitäts-Badge

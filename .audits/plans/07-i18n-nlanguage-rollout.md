@@ -32,8 +32,8 @@ Launch-Sprachen. Der Plan liefert den *Mechanismus*, sodass jede weitere Sprache
 - **Additiv, kein Big-Bang.** Loader und Resolver lesen im Übergangsfenster **beide** Formen
   (`common_name` **und** `common_name_de`), damit keine Migration einen Consumer bricht.
 - **Migrations-Queue-Awareness:** Die Backfill-Migration claimt die nächste freie Version **v0020**
-  (v0019 = `actuator_collections` ist belegt) nach dem claim-at-merge-Prinzip (vgl.
-  `.audits/plans/00-open-issues-parallel-execution-plan.md`); bei Kollision auf v0021 hochziehen.
+  (v0019 = `actuator_collections` ist belegt) nach dem claim-at-merge-Prinzip; bei Kollision auf
+  v0021 hochziehen.
 - **Ein Typ, ein Resolver pro Layer** (DRY): `common/i18n.py` (BE) und `utils/i18n.ts` (FE) sind die
   einzigen Fallback-Implementierungen.
 - **Schreibende Agenten auf geteiltem Tree sequenziell** bzw. in Worktrees (Feedback
