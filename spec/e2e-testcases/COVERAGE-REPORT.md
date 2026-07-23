@@ -8,6 +8,8 @@ analyst: e2e-testcase-extractor
 
 > **Aktualisierung 2026-07-13 (Issue #589):** Ergänzt um explizite **Core-Lifecycle-Journey**-Testgruppen (self-provisioning Happy-Path) in TC-REQ-001, TC-REQ-003, TC-REQ-004, TC-REQ-006 und TC-REQ-022. Der zugehörige Abschnitt ist als § 7 dokumentiert; die betroffenen Übersichtszeilen wurden auf den aktuellen `test_count` der Dokumente gehoben.
 
+> **Aktualisierung 2026-07-23 (Aufgaben/Gießen — Update-Propagation):** Ergänzt um **19 Testfälle** für die Kernanforderung „Nutzer definieren Aufgaben frei; Aktualisierungen (insbesondere Zyklus-/Intervall-Änderungen) propagieren in die Aufgabenliste **und** in die Benachrichtigungen": TC-REQ-006 Gruppe 18 (TC-006-078…085), TC-REQ-022 Abschnitt 28 (TC-022-089…094), TC-REQ-030 Abschnitt 17 (TC-REQ-030-063…067). Die **Listen-Propagation** (Task-Queue, Pflege-Dashboard) und die Care-Task-Reschedule-Kopplung (Issue #622) bilden das **Ist**-Verhalten ab; die **synchrone Benachrichtigungs-Propagation** ist als **Soll-Verhalten** (`soll-verhalten`-Tag) festgeschrieben und dokumentiert eine offene Feature-Lücke (aktuell nur periodischer `dispatch_due_care`-Scan, keine synchrone Kopplung Quelle→Notification; § 4.2-Rückkopplung nicht implementiert).
+
 # E2E-Testfall-Vollständigkeitsanalyse
 
 Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-testcases/` systematisch gegen die 34 Anforderungsdokumente in `spec/req/` und `spec/nfr/`. Grundlage ist die Nutzerperspektive im Browser — alle Lücken beziehen sich auf fehlende UI-Szenarien, nicht auf Backend- oder API-Tests.
@@ -28,7 +30,7 @@ Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-t
 | REQ-003 | Phasensteuerung | 2.3 | 2.3 | 48 | Vollständig |
 | REQ-004 + 004-A | Dünge-Logik + EC-Budget | 3.4 / 1.1 | 3.4 / 1.1 | 91 | Vollständig |
 | REQ-005 | Hybrid-Sensorik | 2.6 | 2.6 | 58 | Vollständig |
-| REQ-006 | Aufgabenplanung | 3.0 | 3.0 | 77 | Vollständig |
+| REQ-006 | Aufgabenplanung | 3.0 | 3.0 | 85 | Vollständig |
 | REQ-007 | Erntemanagement | 2.3 | 2.3 | 42 | Vollständig |
 | REQ-008 | Post-Harvest | 2.2 | 2.2 | 68 | Vollständig |
 | REQ-009 | Dashboard | 2.0 | 2.0 | 42 | Vollständig |
@@ -44,7 +46,7 @@ Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-t
 | REQ-019 | Substratverwaltung | 4.1 | 4.1 | 38 | Vollständig |
 | REQ-020 | Onboarding-Wizard | 1.6 | 1.6 | 52 | Vollständig |
 | REQ-021 | UI-Erfahrungsstufen | **1.2** | **1.1** | 52 | **Teilweise — Version veraltet** |
-| REQ-022 | Pflegeerinnerungen | 2.4 | 2.4 | 88 | Vollständig |
+| REQ-022 | Pflegeerinnerungen | 2.4 | 2.4 | 94 | Vollständig |
 | REQ-023 | Benutzerverwaltung & Auth | 1.8 | 1.8 | 72 | Vollständig |
 | REQ-024 | Mandantenverwaltung | 1.4 | 1.4 | 82 | Vollständig |
 | REQ-025 | Datenschutz / DSGVO | 1.0 | 1.1 | 46 | Vollständig |
@@ -52,7 +54,7 @@ Dieses Dokument vergleicht die vorhandenen E2E-Testfall-Dokumente in `spec/e2e-t
 | REQ-027 | Light-Modus | 1.2 | 1.2 | 52 | Vollständig |
 | REQ-028 | Mischkultur & Companion Planting | 1.0 | 1.0 | 42 | Vollständig |
 | REQ-029 | KI-Bilderkennung (Optional) | 1.0 | 1.0 | 58 | Vollständig |
-| REQ-030 | Benachrichtigungssystem | 1.0 | 1.0 | 62 | Vollständig |
+| REQ-030 | Benachrichtigungssystem | 1.0 | 1.0 | 67 | Vollständig |
 | **REQ-032** | **Druckansichten & Export** | **1.1** | — | **0** | **FEHLEND** |
 | NFR-006 | API-Fehlerbehandlung (UI) | 1.0 | 1.0 | 38 | Vollständig |
 | NFR-007 | Betriebsstabilität / Monitoring | 1.0 | 1.0 | 42 | Vollständig |
@@ -307,7 +309,7 @@ Kernprinzip: **Jeder neue Testfall legt seine Vorbedingungen im Szenario selbst 
 
 | Metrik | Wert |
 |--------|------|
-| Gesamt-Testfälle | 1.654 (Snapshot 2026-04-02) + 13 Core-Lifecycle-Journey (#589) |
+| Gesamt-Testfälle | 1.654 (Snapshot 2026-04-02) + 13 Core-Lifecycle-Journey (#589) + 19 Update-Propagation/Soll-Verhalten (2026-07-23) |
 | REQs vollständig abgedeckt | 28 von 30 im Scope |
 | REQs mit Versionslücken | 2 (REQ-013, REQ-021) |
 | REQs komplett fehlend | 1 (REQ-032) |

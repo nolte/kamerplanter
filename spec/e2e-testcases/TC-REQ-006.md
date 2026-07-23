@@ -2,7 +2,7 @@
 req_id: REQ-006
 title: Modulare Aufgabenplanung & Benutzerdefinierte Workflows
 category: Prozessmanagement
-test_count: 77
+test_count: 85
 coverage_areas:
   - Core-Lifecycle-Journey — Care-Task aus der Aufgabenwarteschlange abschließen (self-provisioning)
   - Task-Queue (Aufgabenliste)
@@ -29,6 +29,8 @@ coverage_areas:
   - Phänologische Ereignisse & Seasonal-Trigger
   - Phänologischer Trigger im Task-Template-Dialog konfigurieren
   - Gießplan-Tasks (Watering-Integration)
+  - Aufgaben-Aktualisierung — Propagation in Aufgabenliste (Zyklus/Fälligkeit ändern)
+  - Aufgaben-Aktualisierung — Propagation in Benachrichtigungen (Soll-Verhalten)
 generated: 2026-04-02
 version: "3.0"
 ---
@@ -1957,6 +1959,225 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 
 ---
 
+## Gruppe 18: Aufgaben-Aktualisierung — Propagation in Aufgabenliste & Benachrichtigungen (Soll-Verhalten)
+
+> **Hinweis (Soll-Verhalten / Feature-Lücke):** Diese Gruppe schreibt das **gewünschte
+> Verhalten** fest: Ändert der Nutzer eine frei definierte Aufgabe — insbesondere ihren
+> **Wiederholungszyklus** (`recurrence_rule`), ihr Fälligkeitsdatum, ihre Zuweisung oder
+> ihren Status — müssen sowohl die **Aufgabenliste** (`/aufgaben/queue`) als auch die
+> zugehörige **Benachrichtigung** (Notification-Center, REQ-030) den neuen Zustand
+> widerspiegeln.
+>
+> Der aktuelle Code erfüllt die **Listen-Propagation** (die Queue liest den Ist-Zustand),
+> aber die **Benachrichtigungs-Propagation nur implizit/zeitverzögert**: Benachrichtigungen
+> entstehen periodisch über den Celery-Beat `notifications.dispatch_due_care`
+> (`app/tasks/notification_tasks.py`, täglich 06:05 UTC) aus dem aktuellen Task-Zustand;
+> es gibt keine synchrone Kopplung Task→Notification. Das Glocken-Badge pollt zudem nur
+> alle 60 s (`NotificationBell.tsx`). Testfälle, die eine **sofortige** Benachrichtigungs-
+> Aktualisierung fordern, sind mit `soll-verhalten` getaggt und dokumentieren einen
+> Implementierungsbedarf (aktuell erwartbar rot).
+
+### TC-006-078: Wiederholungszyklus (Cron) ändern — Aufgabenliste zeigt neue Fälligkeit
+
+**Anforderung**: REQ-006 §1 — Wiederkehrende Aufgaben (Recurrence); Zyklus-Anpassung propagiert in die Liste
+**Priorität**: Critical
+**Kategorie**: Zustandswechsel / Listenansicht
+
+**Vorbedingungen**:
+- Nutzer ist eingeloggt
+- Eine wiederkehrende Aufgabe "Wöchentlich gießen" mit `recurrence_rule` `0 8 * * 1` (jeden Montag) existiert; die nächste Instanz ist auf einen Montag terminiert
+
+**Testschritte**:
+1. Nutzer öffnet die Aufgabe über `/aufgaben/tasks/:key` und wechselt auf den Tab "Bearbeiten"
+2. Nutzer ändert die Wiederholungsregel auf `0 8 * * 3` (jeden Mittwoch) und klickt "Speichern"
+3. Nutzer navigiert zurück zu `/aufgaben/queue`
+
+**Erwartetes Ergebnis**:
+- Snackbar "Gespeichert" erscheint
+- In der Task-Detailseite zeigt der Metadaten-Bereich die neue Regel `0 8 * * 3`
+- In der Aufgabenliste erscheint die nächste Instanz in der Dringlichkeits-Gruppe des neuen Wochentags (Mittwoch); es wird **keine** Instanz mehr für den alten Montags-Termin geführt
+- Der Zustand bleibt nach einem Reload der Queue bestehen
+
+**Nachbedingungen**: Zyklus der Aufgabe ist geändert; die Liste spiegelt den neuen Zyklus
+
+**Tags**: [req-006, recurrence, zyklus-anpassung, task-queue, propagation]
+
+---
+
+### TC-006-079: Fälligkeitsdatum verschieben — Task wechselt die Dringlichkeits-Gruppe
+
+**Anforderung**: REQ-006 §1 — Task bearbeiten (CRUD); §2 AQL — Task-Queue-Gruppierung nach Dringlichkeit
+**Priorität**: High
+**Kategorie**: Zustandswechsel / Listenansicht
+
+**Vorbedingungen**:
+- Eine Aufgabe mit Status `pending` und Fälligkeit "heute" existiert und erscheint in der Gruppe "Heute"
+
+**Testschritte**:
+1. Nutzer öffnet die Aufgabe und wechselt auf den Tab "Bearbeiten"
+2. Nutzer ändert das Fälligkeitsdatum auf "in 5 Tagen" und klickt "Speichern"
+3. Nutzer navigiert zurück zu `/aufgaben/queue`
+
+**Erwartetes Ergebnis**:
+- Die Aufgabe erscheint nicht mehr in der Gruppe "Heute", sondern in "Diese Woche"/"Zukunft"
+- Das relative Fälligkeits-Label der Karte zeigt den neuen Termin (z.B. "in 5 Tagen")
+- Nach einem Reload bleibt die neue Gruppierung bestehen
+
+**Nachbedingungen**: Aufgabe ist verschoben; Liste zeigt die neue Gruppe
+
+**Tags**: [req-006, faelligkeit, verschieben, task-queue, gruppierung, propagation]
+
+---
+
+### TC-006-080: Wiederkehrende Aufgabe abschließen — nächste Zyklus-Instanz erscheint in der Liste
+
+**Anforderung**: REQ-006 §1 — Bei Completion einer wiederkehrenden Task wird automatisch die nächste Instanz erzeugt
+**Priorität**: High
+**Kategorie**: Zustandswechsel / Listenansicht
+
+**Vorbedingungen**:
+- Eine wiederkehrende Aufgabe mit `recurrence_rule` (z.B. alle 7 Tage) und Status `pending` existiert
+- Kein `recurrence_end_date` gesetzt (Zyklus läuft weiter)
+
+**Testschritte**:
+1. Nutzer schließt die Aufgabe in der Queue über den "Abschließen"-Button ab
+2. Nutzer betrachtet die Aufgabenliste (ggf. nach Reload)
+
+**Erwartetes Ergebnis**:
+- Die abgeschlossene Instanz verschwindet aus den aktiven Gruppen
+- Eine **neue** Instanz derselben Aufgabe erscheint automatisch mit dem gemäß Zyklus berechneten nächsten Fälligkeitsdatum (z.B. +7 Tage) in der Gruppe "Diese Woche"/"Zukunft"
+- Die neue Instanz referenziert dieselbe Wiederholungsregel (`parent_recurring_task_key`/`recurs_from`)
+
+**Nachbedingungen**: Zyklus hat die Folge-Instanz materialisiert
+
+**Tags**: [req-006, recurrence, zyklus, folge-instanz, task-queue, propagation]
+
+---
+
+### TC-006-081: Zyklus beenden — nach Abschluss wird keine neue Instanz erzeugt
+
+**Anforderung**: REQ-006 §1 — Nutzer können die Wiederholung jederzeit stoppen (`recurrence_end_date`/Regel entfernen)
+**Priorität**: Medium
+**Kategorie**: Grenzwert / Zustandswechsel
+
+**Vorbedingungen**:
+- Eine wiederkehrende Aufgabe mit Status `pending` existiert
+
+**Testschritte**:
+1. Nutzer öffnet die Aufgabe, Tab "Bearbeiten", entfernt die Wiederholungsregel (oder setzt ein `recurrence_end_date` in der Vergangenheit) und klickt "Speichern"
+2. Nutzer schließt die Aufgabe in der Queue ab
+3. Nutzer betrachtet die Aufgabenliste
+
+**Erwartetes Ergebnis**:
+- Nach dem Abschließen erscheint **keine** neue Instanz der Aufgabe in der Liste
+- Die Metadaten der abgeschlossenen Aufgabe zeigen keinen aktiven Zyklus mehr
+
+**Nachbedingungen**: Zyklus ist beendet; keine Folge-Instanz
+
+**Tags**: [req-006, recurrence, zyklus-ende, task-queue, grenzwert]
+
+---
+
+### TC-006-082: Aufgabe neu zuweisen — "Meine Aufgaben"-Filter und Benachrichtigung folgen der Zuweisung
+
+**Anforderung**: REQ-006 §1 — User-Zuweisung (`assigned_to_user_key`), optionale Notification an zugewiesenen Nutzer; REQ-024 Gemeinschaftsgarten
+**Priorität**: High
+**Kategorie**: Zustandswechsel / Filter / Benachrichtigung
+
+**Vorbedingungen**:
+- Gemeinschaftsgarten-Tenant mit mindestens zwei Mitgliedern (Nutzer A = Admin, Nutzer B = Grower)
+- Eine Aufgabe ist aktuell Nutzer A zugewiesen
+
+**Testschritte**:
+1. Nutzer A öffnet die Aufgabe, Tab "Bearbeiten", ändert die Zuweisung auf Nutzer B und klickt "Speichern"
+2. Nutzer A aktiviert in der Queue den Filter "Meine Aufgaben"
+3. Nutzer B meldet sich an und öffnet `/aufgaben/queue` mit Filter "Meine Aufgaben" sowie das Notification-Center (Glocke)
+
+**Erwartetes Ergebnis**:
+- Für Nutzer A ist die Aufgabe unter "Meine Aufgaben" nicht mehr sichtbar
+- Für Nutzer B erscheint die Aufgabe unter "Meine Aufgaben"
+- **(Soll)** Nutzer B erhält eine Benachrichtigung "Neue Aufgabe zugewiesen: [Name]" im Notification-Center
+- Der Audit-Trail der Aufgabe protokolliert die Neuzuweisung (`assigned`)
+
+**Nachbedingungen**: Aufgabe gehört Nutzer B; Zuweisungs-Benachrichtigung ist zugestellt
+
+**Tags**: [req-006, req-024, req-030, zuweisung, meine-aufgaben, benachrichtigung, soll-verhalten]
+
+---
+
+### TC-006-083: Aufgabe bearbeiten — zugehörige Benachrichtigung wird synchron aktualisiert (Soll)
+
+**Anforderung**: REQ-006 §1 — Task bearbeiten; REQ-030 §1.1 `task.due` — Zustelllücke von REQ-006
+**Priorität**: High
+**Kategorie**: Zustandswechsel / Benachrichtigung
+
+**Vorbedingungen**:
+- Eine fällige Aufgabe "Topping" (Status `pending`, Fälligkeit heute) existiert, für die bereits eine `task.due`-Benachrichtigung im Notification-Center liegt
+
+**Testschritte**:
+1. Nutzer öffnet das Notification-Center und bestätigt, dass die Benachrichtigung "Topping fällig" mit heutigem Termin gelistet ist
+2. Nutzer öffnet die Aufgabe, Tab "Bearbeiten", ändert Name auf "Topping — verschoben" und Fälligkeit auf "in 3 Tagen", klickt "Speichern"
+3. Nutzer öffnet erneut das Notification-Center (ggf. nach Reload)
+
+**Erwartetes Ergebnis**:
+- **(Soll)** Die bestehende Benachrichtigung zeigt den aktualisierten Titel "Topping — verschoben" und den neuen Fälligkeitstermin — **keine** veraltete "heute fällig"-Benachrichtigung bleibt bestehen und **kein** Duplikat wird angelegt
+- Die Aufgabenliste zeigt die Aufgabe in der Gruppe "Diese Woche"/"Zukunft"
+- *Ist-Referenz: aktuell aktualisiert `dispatch_due_care` Benachrichtigungen nur periodisch (06:05 UTC) aus dem Ist-Zustand; eine bereits gesendete Benachrichtigung wird nicht aktiv überschrieben — dieser Testfall dokumentiert die Soll-Kopplung.*
+
+**Nachbedingungen**: Benachrichtigung spiegelt den aktuellen Aufgaben-Zustand
+
+**Tags**: [req-006, req-030, benachrichtigung, update-propagation, soll-verhalten]
+
+---
+
+### TC-006-084: Aufgabe löschen — veraltete Benachrichtigung wird entfernt (Soll)
+
+**Anforderung**: REQ-006 §1 — Task löschen; REQ-030 — keine verwaisten Benachrichtigungen
+**Priorität**: Medium
+**Kategorie**: Zustandswechsel / Benachrichtigung
+
+**Vorbedingungen**:
+- Eine fällige Aufgabe mit einer bereits zugestellten `task.due`-Benachrichtigung existiert
+
+**Testschritte**:
+1. Nutzer öffnet die Aufgabe und löscht sie über den "Löschen"-Button (Bestätigungsdialog → "Löschen")
+2. Nutzer öffnet das Notification-Center (ggf. nach Reload)
+
+**Erwartetes Ergebnis**:
+- Die Aufgabe ist aus der Queue verschwunden
+- **(Soll)** Die zugehörige "fällig"-Benachrichtigung ist nicht mehr im Notification-Center vorhanden bzw. als hinfällig markiert; das Glocken-Badge zählt sie nicht mehr als ungelesen
+- *Ist-Referenz: aktuell bleibt eine bereits erzeugte Benachrichtigung nach Task-Löschung bestehen (nur `mark_read`/`mark_acted` sind manuell) — Soll-Verhalten.*
+
+**Nachbedingungen**: Keine verwaiste Benachrichtigung zur gelöschten Aufgabe
+
+**Tags**: [req-006, req-030, benachrichtigung, loeschen, verwaist, soll-verhalten]
+
+---
+
+### TC-006-085: Aufgabe abschließen — offene Fällig-Benachrichtigung wird als erledigt markiert (Soll)
+
+**Anforderung**: REQ-006 §1 — Task abschließen; REQ-030 §5.2 Actionable Notifications
+**Priorität**: Medium
+**Kategorie**: Zustandswechsel / Benachrichtigung
+
+**Vorbedingungen**:
+- Eine fällige Aufgabe mit einer ungelesenen `task.due`-Benachrichtigung existiert
+
+**Testschritte**:
+1. Nutzer schließt die Aufgabe in der Queue ab
+2. Nutzer öffnet das Notification-Center (ggf. nach Reload)
+
+**Erwartetes Ergebnis**:
+- **(Soll)** Die zugehörige Benachrichtigung ist automatisch als erledigt/gelesen markiert (nicht mehr im ungelesen-Badge gezählt)
+- Es erscheint keine erneute Erinnerung für die bereits abgeschlossene Aufgabe
+- *Ist-Referenz: aktuell markiert der Task-Abschluss die Benachrichtigung nicht automatisch; die in REQ-030 §4.2 skizzierte Rückkopplung ist noch nicht implementiert — Soll-Verhalten.*
+
+**Nachbedingungen**: Erledigte Aufgabe hinterlässt keine offene Benachrichtigung
+
+**Tags**: [req-006, req-030, benachrichtigung, abschliessen, actionable, soll-verhalten]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spezifikationsabschnitt | Testfälle |
@@ -1998,6 +2219,9 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 | §1 Recovery-Timer, Canopy-Metriken (G-004) | TC-006-061, TC-006-062, TC-006-063, TC-006-064 |
 | Mobile-Optimierung | TC-006-070, TC-006-071 |
 | Navigation / Routing | TC-006-072 |
+| §1 Zyklus-/Fälligkeits-Anpassung propagiert in die Aufgabenliste | TC-006-078, TC-006-079, TC-006-080, TC-006-081 |
+| §1 Neuzuweisung propagiert in Filter & Benachrichtigung (Soll) | TC-006-082 |
+| §1 Aufgaben-Update propagiert in Benachrichtigungen (Soll-Verhalten) | TC-006-083, TC-006-084, TC-006-085 |
 
 ---
 
@@ -2013,3 +2237,5 @@ Dieses Dokument enthält alle End-to-End-Testfälle für REQ-006 aus der Perspek
 | TC-006-058–TC-006-059 | REQ-004 (NutrientPlan + WateringSchedule), REQ-013 (PlantingRun) |
 | TC-006-061–TC-006-064 | REQ-013 (PlantInstance), REQ-005 (Canopy-Höhe als Sensorwert) |
 | TC-006-073–TC-006-075 | REQ-002 (Standort/Site für observed_at_site-Edge), REQ-001 (Zeigerpflanzen-Vokabular) |
+| TC-006-082 | REQ-024 (Mitglieder-Zuweisung im Gemeinschaftsgarten), REQ-030 (Zuweisungs-Benachrichtigung) |
+| TC-006-083–TC-006-085 | REQ-030 (`task.due`-Benachrichtigung, Actionable Notifications — Soll-Kopplung Task→Notification) |

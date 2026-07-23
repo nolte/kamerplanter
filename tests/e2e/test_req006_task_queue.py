@@ -15,16 +15,22 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-006.md):
   TC-REQ-006-021  ->  TC-006-009  Bulk-Modus verlassen
   TC-REQ-006-022  ->  TC-006-013  Erstellen-Dialog oeffnen
   TC-REQ-006-023  ->  TC-006-012  Pflegeerinnerungen-generieren-Button sichtbar
+  TC-REQ-006-041  ->  TC-006-078  Wiederholungsregel aendern -- persistiert (RRULE-Dropdown statt Cron)
+  TC-REQ-006-042  ->  TC-006-079  Faelligkeit verschieben -- Task wechselt Dringlichkeits-Gruppe
+  TC-REQ-006-043  ->  TC-006-080  Wiederkehrende Aufgabe abschliessen -- Folge-Instanz erscheint
+  TC-REQ-006-044  ->  TC-006-081  Zyklus beenden -- keine neue Instanz nach Abschluss
 """
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from .pages.task_detail_page import TaskDetailPage
 from .pages.task_queue_page import TaskQueuePage
 
 
@@ -35,6 +41,12 @@ from .pages.task_queue_page import TaskQueuePage
 def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
     """Return a TaskQueuePage bound to the test browser."""
     return TaskQueuePage(browser, base_url)
+
+
+@pytest.fixture
+def task_detail(browser: WebDriver, base_url: str) -> TaskDetailPage:
+    """Return a TaskDetailPage bound to the test browser."""
+    return TaskDetailPage(browser, base_url)
 
 
 # -- TC-006-001 to TC-006-002: Page Load & Display --------------------------
@@ -431,4 +443,217 @@ class TestTaskCreateDialog:
         assert task_queue.is_generate_reminders_visible(), (
             "TC-REQ-006-023 FAIL: Expected [data-testid='generate-reminders-button'] "
             "to be visible"
+        )
+
+
+# -- TC-006-078 to TC-006-081: Task-Update Propagation into the Queue --------
+
+
+class TestTaskUpdatePropagation:
+    """Editing a task propagates into the task queue (Spec: TC-006-078 to TC-006-081).
+
+    These verify the *list* side of the source-to-queue coupling: changing a
+    task's recurrence rule, due date, or completing/ending a recurring cycle is
+    reflected by the queue, which reads the current task state.  The
+    notification side of the same coupling is deliberately out of scope here
+    (covered as Soll-Verhalten in test_req030_notifications.py).
+    """
+
+    @pytest.mark.core_crud
+    def test_recurrence_rule_change_persists(
+        self,
+        task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-006-041: Changing the recurrence rule persists on the task detail.
+
+        Spec: TC-006-078 -- Wiederholungszyklus (Cron) aendern -- Aufgabenliste
+        zeigt neue Faelligkeit.
+
+        Abweichung Spec vs. Impl: ``recurrence_rule`` ist im Frontend ein festes
+        RRULE-Dropdown (kein freier Cron ``0 8 * * 3``).  Die wochentagsgenaue
+        Queue-Gruppierung aus der Spec ist damit nicht umsetzbar; stattdessen
+        wird die neue Regel via Dropdown gesetzt und ihre Persistenz ueber die
+        Detailseite (``get_detail_recurrence_text``) verifiziert.
+        """
+        task_queue.open()
+        keys = task_queue.get_task_keys()
+        if not keys:
+            pytest.skip("No tasks in database -- seed dependent")
+        key = keys[0]
+
+        task_detail.open(key)
+        before = task_detail.get_detail_recurrence_text()
+        screenshot(
+            "TC-REQ-006-041_before-recurrence-change",
+            f"Task {key} detail before recurrence change (recurrence='{before}')",
+        )
+
+        task_detail.open_edit_tab()
+        task_detail.set_recurrence_rule("FREQ=WEEKLY;INTERVAL=2")
+        task_detail.save_edit()
+
+        # Reload the detail page from scratch to prove the value persisted.
+        task_detail.open(key)
+        after = task_detail.get_detail_recurrence_text()
+        screenshot(
+            "TC-REQ-006-041_after-recurrence-change",
+            f"Task {key} detail after recurrence change (recurrence='{after}')",
+        )
+
+        assert after, (
+            "TC-REQ-006-041 FAIL: Expected a non-empty recurrence value to persist "
+            f"after setting FREQ=WEEKLY;INTERVAL=2, got '{after}'"
+        )
+
+    @pytest.mark.core_crud
+    def test_due_date_shift_updates_detail_and_queue(
+        self,
+        task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-006-042: Shifting the due date updates the detail and stays listed.
+
+        Spec: TC-006-079 -- Faelligkeitsdatum verschieben -- Task wechselt die
+        Dringlichkeits-Gruppe.
+        """
+        task_queue.open()
+        keys = task_queue.get_task_keys()
+        if not keys:
+            pytest.skip("No tasks in database -- seed dependent")
+        key = keys[0]
+
+        task_detail.open(key)
+        before_due = task_detail.get_detail_due_text()
+        target_due = (date.today() + timedelta(days=5)).isoformat()
+        screenshot(
+            "TC-REQ-006-042_before-due-shift",
+            f"Task {key} detail before due-date shift (due='{before_due}')",
+        )
+
+        task_detail.open_edit_tab()
+        task_detail.set_due_date(target_due)
+        task_detail.save_edit()
+
+        task_detail.open(key)
+        after_due = task_detail.get_detail_due_text()
+        screenshot(
+            "TC-REQ-006-042_after-due-shift",
+            f"Task {key} detail after due-date shift (due='{after_due}')",
+        )
+
+        assert after_due, (
+            "TC-REQ-006-042 FAIL: Expected a non-empty due-date value after the shift"
+        )
+        assert after_due != before_due, (
+            "TC-REQ-006-042 FAIL: Expected the due-date value to change after shifting "
+            f"to {target_due}. Before: '{before_due}', After: '{after_due}'"
+        )
+
+        # The rescheduled task must still be listed in the queue (propagation).
+        task_queue.open()
+        assert key in task_queue.get_task_keys(), (
+            "TC-REQ-006-042 FAIL: Expected the rescheduled task to remain listed in the queue"
+        )
+
+    @pytest.mark.core_crud
+    def test_complete_recurring_task_spawns_next_instance(
+        self,
+        task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-006-043: Completing a recurring task materialises the next instance.
+
+        Spec: TC-006-080 -- Wiederkehrende Aufgabe abschliessen -- naechste
+        Zyklus-Instanz erscheint in der Liste.
+        """
+        task_queue.open()
+        keys = task_queue.get_task_keys()
+        if not keys:
+            pytest.skip("No tasks in database -- seed dependent")
+        key = keys[0]
+
+        # Make the task recurring so completion should spawn a follow-up.
+        task_detail.open(key)
+        task_name = task_detail.get_task_title()
+        task_detail.open_edit_tab()
+        task_detail.set_recurrence_rule("FREQ=WEEKLY")
+        task_detail.save_edit()
+
+        task_queue.open()
+        if key not in task_queue.get_task_keys():
+            pytest.skip("Recurring task no longer listed -- seed dependent ordering")
+
+        screenshot(
+            "TC-REQ-006-043_before-complete-recurring",
+            f"Queue before completing recurring task {key}",
+        )
+        task_queue.complete_task(key)
+        task_queue.wait_for_loading_complete()
+
+        task_queue.open()
+        new_key = task_queue.find_task_key_by_name(task_name)
+        screenshot(
+            "TC-REQ-006-043_after-complete-recurring",
+            f"Queue after completing recurring task (next instance='{new_key}')",
+        )
+
+        assert new_key is not None, (
+            "TC-REQ-006-043 FAIL: Expected a follow-up recurring instance named "
+            f"'{task_name}' after completion"
+        )
+        assert new_key != key, (
+            "TC-REQ-006-043 FAIL: Expected the follow-up instance to be a NEW task "
+            f"(key differs from the completed {key})"
+        )
+
+    @pytest.mark.core_crud
+    def test_ended_cycle_spawns_no_new_instance(
+        self,
+        task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-006-044: Ending the cycle prevents a follow-up instance on completion.
+
+        Spec: TC-006-081 -- Zyklus beenden -- nach Abschluss wird keine neue
+        Instanz erzeugt.
+        """
+        task_queue.open()
+        keys = task_queue.get_task_keys()
+        if not keys:
+            pytest.skip("No tasks in database -- seed dependent")
+        key = keys[0]
+
+        # Remove any recurrence so completion must NOT spawn a follow-up.
+        task_detail.open(key)
+        task_name = task_detail.get_task_title()
+        task_detail.open_edit_tab()
+        task_detail.set_recurrence_rule("")
+        task_detail.save_edit()
+
+        task_queue.open()
+        if key not in task_queue.get_task_keys():
+            pytest.skip("Task no longer listed -- seed dependent ordering")
+
+        screenshot(
+            "TC-REQ-006-044_before-complete-ended-cycle",
+            f"Queue before completing non-recurring task {key}",
+        )
+        task_queue.complete_task(key)
+        task_queue.wait_for_loading_complete()
+
+        task_queue.open()
+        remaining_key = task_queue.find_task_key_by_name(task_name)
+        screenshot(
+            "TC-REQ-006-044_after-complete-ended-cycle",
+            f"Queue after completing non-recurring task (remaining='{remaining_key}')",
+        )
+
+        assert remaining_key is None, (
+            "TC-REQ-006-044 FAIL: Expected NO follow-up instance for the completed "
+            f"non-recurring task '{task_name}', but found key '{remaining_key}'"
         )

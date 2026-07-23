@@ -2,7 +2,7 @@
 req_id: REQ-030
 title: Multi-Kanal-Benachrichtigungssystem mit Home Assistant als primaerem Zustellkanal
 category: Pflege & Kommunikation
-test_count: 62
+test_count: 67
 coverage_areas:
   - In-App Notification Center (Bell-Icon, Badge, Drawer)
   - Benachrichtigungseinstellungen (AccountSettingsPage Tab "Benachrichtigungen")
@@ -18,6 +18,7 @@ coverage_areas:
   - Daily Summary Konfiguration
   - Feature-Toggle-Logik (kein Kanal aktiv → InApp-Fallback)
   - Erfahrungsstufen-Integration (REQ-021)
+  - Rückkopplung Quell-Aufgabe/Erinnerung → Benachrichtigung (Update/Zyklus/Abschluss/Löschen, Soll-Verhalten)
 generated: 2026-03-21
 version: "1.0"
 ---
@@ -1648,6 +1649,145 @@ REQ-030 schliesst die Zustellluecke von REQ-022 (Pflegeerinnerungen) und REQ-006
 
 ---
 
+## 17. Aktualisierung der Quell-Aufgabe/Erinnerung propagiert in Benachrichtigungen (Soll-Verhalten)
+
+> **Hinweis (Soll-Verhalten / Feature-Lücke):** REQ-030 schließt die Zustelllücke von
+> REQ-006 (Aufgaben) und REQ-022 (Pflegeerinnerungen). Diese Gruppe prüft die **Rück-
+> kopplung**: Ändert sich die **Quelle** einer Benachrichtigung — die Aufgabe wird
+> verschoben, ihr Zyklus angepasst, sie wird abgeschlossen oder gelöscht — muss die
+> zugehörige Benachrichtigung im Notification-Center mitziehen (aktualisiert, als erledigt
+> markiert oder entfernt), ohne Duplikate zu erzeugen.
+>
+> **Ist:** Benachrichtigungen entstehen periodisch/zustandsbasiert
+> (`notifications.dispatch_due_care`, 06:05 UTC) aus dem aktuellen Task-Zustand; es gibt
+> **keine** synchrone Kopplung Quelle→Benachrichtigung. `mark_read`/`mark_acted` stempeln
+> nur `read_at`/`acted_at`; die in REQ-030 § 4.2 skizzierte Rückkopplung
+> (Actionable-Button → CareConfirmation) ist noch nicht implementiert. Das Bell-Badge pollt
+> alle 60 s (`NotificationBell.tsx`) — in E2E ggf. Reload erzwingen. Alle Testfälle dieser
+> Gruppe sind `soll-verhalten` und aktuell erwartbar rot.
+
+---
+
+### TC-REQ-030-063: Quell-Aufgabe verschoben — Benachrichtigung zeigt neue Fälligkeit
+
+**Requirement**: REQ-030 § 1.1 `task.due`; § 5.2 In-App Notification Center (Rückkopplung REQ-006)
+**Priority**: High
+**Category**: Zustandswechsel / Benachrichtigung
+**Preconditions**:
+- Nutzer ist eingeloggt
+- Eine heute fällige Aufgabe existiert; die zugehörige `task.due`-Benachrichtigung ist im Notification-Center gelistet
+
+**Testschritte**:
+1. Nutzer öffnet das Notification-Center und prüft die Benachrichtigung (Titel, Fälligkeit "heute")
+2. Nutzer verschiebt die Aufgabe über `/aufgaben/tasks/:key` (Tab "Bearbeiten") auf ein Datum in 4 Tagen und speichert
+3. Nutzer öffnet erneut das Notification-Center (ggf. nach Reload)
+
+**Erwartete Ergebnisse**:
+- **(Soll)** Die Benachrichtigung zeigt den neuen Fälligkeitstermin bzw. verschwindet aus dem "heute"-Kontext, bis der neue Termin erreicht ist
+- Es existiert **kein** Duplikat; das ungelesen-Badge zählt keine veraltete "heute fällig"-Benachrichtigung mehr
+
+**Nachbedingungen**:
+- Benachrichtigung spiegelt den aktuellen Aufgaben-Termin
+
+**Tags**: [req-030, req-006, task-due, update-propagation, soll-verhalten]
+
+---
+
+### TC-REQ-030-064: Quell-Aufgabe abgeschlossen — Benachrichtigung wird als erledigt markiert
+
+**Requirement**: REQ-030 § 5.2 Actionable Notifications; § 4.2 Rückkopplung (noch offen)
+**Priority**: High
+**Category**: Zustandswechsel / Benachrichtigung
+**Preconditions**:
+- Eine fällige Aufgabe mit ungelesener `task.due`-Benachrichtigung existiert
+
+**Testschritte**:
+1. Nutzer schließt die Aufgabe in der Aufgabenliste ab
+2. Nutzer öffnet das Notification-Center (ggf. nach Reload)
+
+**Erwartete Ergebnisse**:
+- **(Soll)** Die zugehörige Benachrichtigung ist automatisch als erledigt/gelesen markiert und nicht mehr im ungelesen-Badge enthalten
+- Keine erneute Erinnerung für die bereits abgeschlossene Aufgabe
+
+**Nachbedingungen**:
+- Abgeschlossene Aufgabe hinterlässt keine offene Benachrichtigung
+
+**Tags**: [req-030, req-006, actionable, abschliessen, soll-verhalten]
+
+---
+
+### TC-REQ-030-065: Quell-Aufgabe/Erinnerung gelöscht — verwaiste Benachrichtigung wird entfernt
+
+**Requirement**: REQ-030 § 5.2 — keine verwaisten Benachrichtigungen
+**Priority**: Medium
+**Category**: Zustandswechsel / Benachrichtigung
+**Preconditions**:
+- Eine Aufgabe (oder Care-Erinnerung) mit bereits zugestellter Benachrichtigung existiert
+
+**Testschritte**:
+1. Nutzer löscht die Aufgabe (Bestätigungsdialog → "Löschen")
+2. Nutzer öffnet das Notification-Center (ggf. nach Reload)
+
+**Erwartete Ergebnisse**:
+- **(Soll)** Die zur gelöschten Quelle gehörende Benachrichtigung ist entfernt bzw. als hinfällig markiert
+- Ein Klick auf eine ggf. verbleibende Benachrichtigung führt nicht auf eine tote Detailseite (kein 404 durch `action_url` auf gelöschte Ressource)
+
+**Nachbedingungen**:
+- Keine verwaiste Benachrichtigung zur gelöschten Quelle
+
+**Tags**: [req-030, req-006, req-022, verwaist, loeschen, soll-verhalten]
+
+---
+
+### TC-REQ-030-066: Gießzyklus angepasst — care.watering-Benachrichtigung wird neu terminiert (kein Duplikat)
+
+**Requirement**: REQ-030 § 1.1 `care.watering`; Rückkopplung REQ-022 (Issue #622 auf Task-Ebene)
+**Priority**: Medium
+**Category**: Zustandswechsel / Benachrichtigung
+**Preconditions**:
+- Eine Pflanze mit fälliger Gießerinnerung und zugehöriger `care.watering`-Benachrichtigung existiert
+- Idempotenz-Erwartung analog zur Frost-Vorhersage (`group_key`-Deduplizierung, vgl. § 1.1)
+
+**Testschritte**:
+1. Nutzer öffnet das Notification-Center und prüft die Gieß-Benachrichtigung
+2. Nutzer ändert im CareProfileEditDialog das Gießintervall deutlich (z.B. 3 → 14 Tage) und speichert
+3. Nutzer öffnet erneut das Notification-Center (ggf. nach Reload)
+
+**Erwartete Ergebnisse**:
+- **(Soll)** Die Gieß-Benachrichtigung folgt dem neuen Zyklus (nicht mehr sofort fällig); es entsteht **kein** zweiter `care.watering`-Eintrag für denselben Zeitraum
+- Die zugehörige Care-Task in der Aufgabenliste zeigt bereits das neue Fälligkeitsdatum (Ist: #622)
+
+**Nachbedingungen**:
+- Genau eine, korrekt terminierte Gieß-Benachrichtigung
+
+**Tags**: [req-030, req-022, care-watering, zyklus-anpassung, idempotenz, soll-verhalten]
+
+---
+
+### TC-REQ-030-067: Actionable "Erledigt"-Button — schließt Quell-Aufgabe und markiert Benachrichtigung
+
+**Requirement**: REQ-030 § 5.2 Actionable Notifications; § 4.2 Callback → CareConfirmation (noch offen)
+**Priority**: Medium
+**Category**: Zustandswechsel / Benachrichtigung
+**Preconditions**:
+- Eine `care.watering`-Benachrichtigung mit "Erledigt"-Button ist im Notification-Center vorhanden; die zugehörige Care-Task ist `pending`
+
+**Testschritte**:
+1. Nutzer klickt in der Benachrichtigung auf den "Erledigt"-Button
+2. Nutzer prüft die Aufgabenliste/das Pflege-Dashboard und das Notification-Center
+
+**Erwartete Ergebnisse**:
+- **(Soll)** Die zugehörige Care-Task/Erinnerung ist bestätigt (CareConfirmation erstellt) und verschwindet aus dem "fällig"-Bereich
+- Die Benachrichtigung ist als erledigt markiert (`acted_at` gesetzt) und nicht mehr ungelesen
+- *Ist-Referenz: aktuell stempelt `mark_acted` nur `acted_at`, ohne eine CareConfirmation auszulösen — Soll-Verhalten gemäß § 4.2.*
+
+**Nachbedingungen**:
+- Quelle bestätigt und Benachrichtigung erledigt — in einem Schritt
+
+**Tags**: [req-030, req-022, actionable, care-confirmation, soll-verhalten]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spezifikationsabschnitt | Test Cases | Abdeckungsstatus |
@@ -1669,3 +1809,4 @@ REQ-030 schliesst die Zustellluecke von REQ-022 (Pflegeerinnerungen) und REQ-006
 | § 3.11 REST-API (list, read, act, prefs, test) | TC-030-004, 005, 029, 044, 048 | Via UI-Interaktion |
 | i18n DE/EN | TC-030-051, 052 | Beide Sprachen |
 | Edge Cases / Grenzwerte | TC-030-055..060 | Badge 99+, leere URLs, Defaults, langer Text |
+| § 4.2 / § 5.2 Rückkopplung Quelle → Benachrichtigung (Soll-Verhalten) | TC-REQ-030-063..067 | Verschieben, Abschließen, Löschen, Zyklus-Anpassung, Actionable-Erledigt — synchrone Propagation (aktuell Feature-Lücke) |

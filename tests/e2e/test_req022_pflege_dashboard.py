@@ -21,6 +21,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-022.md):
   TC-REQ-022-032  ->  TC-022-012  CareConfirmDialog hat Notiz-Feld
   TC-REQ-022-033  ->  TC-022-016  Snooze-Klick loest Aktion aus
   TC-REQ-022-034  ->  TC-022-016  Snooze zeigt Erfolgs-Snackbar
+  TC-REQ-022-038  ->  TC-022-091  Zyklus-Aenderung waehrend laufender Aufgabe -- in_progress bleibt
 """
 
 from __future__ import annotations
@@ -32,6 +33,8 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.pflege_dashboard_page import PflegeDashboardPage
+from .pages.task_detail_page import TaskDetailPage
+from .pages.task_queue_page import TaskQueuePage
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -41,6 +44,31 @@ from .pages.pflege_dashboard_page import PflegeDashboardPage
 def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
     """Return a PflegeDashboardPage bound to the test browser."""
     return PflegeDashboardPage(browser, base_url)
+
+
+@pytest.fixture
+def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
+    """Return a TaskQueuePage bound to the test browser."""
+    return TaskQueuePage(browser, base_url)
+
+
+@pytest.fixture
+def task_detail(browser: WebDriver, base_url: str) -> TaskDetailPage:
+    """Return a TaskDetailPage bound to the test browser."""
+    return TaskDetailPage(browser, base_url)
+
+
+def _first_care_plant_key(pflege: PflegeDashboardPage) -> str:
+    """Extract the plant_key from the first care card on the dashboard (or skip)."""
+    cards = pflege.get_all_care_cards()
+    if not cards:
+        pytest.skip("No care cards available -- cannot edit a care profile")
+    testid = cards[0].get_attribute("data-testid") or ""
+    suffix = testid.replace("care-card-care-", "")
+    parts = suffix.rsplit("-", 1)
+    if len(parts) < 2:
+        pytest.skip(f"Unexpected card testid format: {testid}")
+    return parts[0]
 
 
 # -- TC-022-001 to TC-022-004: Page Load and Navigation -----------------------
@@ -644,3 +672,74 @@ class TestCareSnoozeAction:
                 "TC-REQ-022-034_snooze-no-snackbar",
                 "No snackbar after snooze (optimistic update)",
             )
+
+
+# -- TC-022-091: In-Progress Task Unaffected by Interval Change (#622) ---------
+
+
+class TestInProgressCycleChange:
+    """A running care task keeps its due date when the interval changes (Spec: TC-022-091).
+
+    Issue #622 reschedules only *pending* watering care tasks; a task already
+    ``in_progress`` is left untouched and only the next cycle materialised after
+    completion follows the new interval.
+    """
+
+    @pytest.mark.core_crud
+    def test_in_progress_task_due_unchanged_by_interval_change(
+        self,
+        pflege: PflegeDashboardPage,
+        task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-038: An in_progress care task keeps its due when the interval changes.
+
+        Spec: TC-022-091 -- Giesszyklus waehrend laufender Aufgabe aendern --
+        in_progress-Task bleibt, naechster Zyklus greift erst danach.
+        """
+        task_queue.open()
+        task_queue.click_filter_care()
+        task_queue.wait_for_loading_complete()
+        care_keys = task_queue.get_task_keys()
+        if not care_keys:
+            pytest.skip("No care tasks in the queue -- seed dependent")
+        key = care_keys[0]
+
+        # Move the care task into the in_progress state via its detail page.
+        task_detail.open(key)
+        if not task_detail.has_start_button():
+            pytest.skip("Care task is not startable -- cannot reach in_progress state")
+        task_detail.click_start()
+        task_detail.wait_for_loading_complete()
+
+        task_detail.open(key)
+        before_due = task_detail.get_detail_due_text()
+        screenshot(
+            "TC-REQ-022-038_in-progress-before",
+            f"In-progress task {key} before interval change (due='{before_due}')",
+        )
+
+        # Change the watering interval on any editable care profile.
+        pflege.open()
+        plant_key = _first_care_plant_key(pflege)
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+        if not pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER):
+            pytest.skip("Watering task not enabled on this profile -- no interval slider")
+        pflege.set_watering_interval(12)
+        pflege.click_save_profile()
+        pflege.wait_for_loading_complete()
+
+        # The running task must keep its original due date.
+        task_detail.open(key)
+        after_due = task_detail.get_detail_due_text()
+        screenshot(
+            "TC-REQ-022-038_in-progress-after",
+            f"In-progress task {key} after interval change (due='{after_due}')",
+        )
+
+        assert after_due == before_due, (
+            "TC-REQ-022-038 FAIL: Expected the in_progress task's due date to remain "
+            f"unchanged by the interval change. Before: '{before_due}', After: '{after_due}'"
+        )
