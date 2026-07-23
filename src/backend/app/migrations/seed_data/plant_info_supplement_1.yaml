@@ -595,14 +595,17 @@ cultivars:
     - name: "Optimara Little Maya"
       traits: [miniature, compact, pink_flowers]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: clone
     - name: "Rob's Sassy Kassy"
       traits: [semi_miniature, chimera, pink_white_stripes]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: clone
     - name: "Ness Golden Chalice"
       traits: [standard, frilled, yellow_toned_white]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: clone
 
   "Syngonium podophyllum":
@@ -624,6 +627,7 @@ cultivars:
       breeder: null
       traits: [ornamental, bee_friendly, cut_flower, bicolor]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: clone
       flower_color: "deep purple-red with white underside"
       flower_diameter_cm: 10
@@ -635,6 +639,7 @@ cultivars:
       breeding_year: 2020
       traits: [ornamental, bee_friendly, fragrant, cut_flower]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: clone
       flower_color: "fuchsia-pink with golden-cream center"
       flower_diameter_cm: 9
@@ -646,6 +651,7 @@ cultivars:
       breeding_year: 2012
       traits: [ornamental, bee_friendly, cut_flower]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: clone
       flower_color: "vibrant pink with yellow center"
       flower_diameter_cm: 14
@@ -656,6 +662,7 @@ cultivars:
       breeder: null
       traits: [ornamental, bee_friendly, fragrant, cut_flower, dinner_plate]
       days_to_maturity: 95
+      dtm_reference: transplant
       seed_type: clone
       flower_color: "lavender-pink to mauve-lilac"
       flower_diameter_cm: 23
