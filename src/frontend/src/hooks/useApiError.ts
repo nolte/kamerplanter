@@ -12,15 +12,17 @@ export function useApiError() {
     (error: unknown, setFieldError?: (name: string, message: string) => void) => {
       // 1. Structured API errors (backend returned our error envelope)
       if (isApiError(error)) {
-        // Map field errors to form
+        // Map structured field errors onto the form (side effect only). This
+        // must NOT swallow the error-code-specific message below: a coded error
+        // such as DUPLICATE_ENTRY carries a `details[].field` too (e.g. the
+        // conflicting `batch_id`), yet the user still needs its specific
+        // "already exists" toast — not a generic "check your input" (issue #744).
+        let mappedFieldError = false;
         if (setFieldError) {
           const fieldErrors = getFieldErrors(error);
           for (const [field, message] of Object.entries(fieldErrors)) {
             setFieldError(field, message);
-          }
-          if (Object.keys(fieldErrors).length > 0) {
-            notification.error(t('errors.validation'));
-            return;
+            mappedFieldError = true;
           }
         }
 
@@ -33,6 +35,10 @@ export function useApiError() {
             notification.error(t('errors.duplicate'));
             break;
           case 'VALIDATION_ERROR': {
+            if (mappedFieldError) {
+              notification.error(t('errors.validation'));
+              break;
+            }
             const vDetail = sanitizeDetail(error.message);
             notification.error(
               vDetail
@@ -45,6 +51,12 @@ export function useApiError() {
             notification.error(t('errors.server'));
             break;
           default:
+            if (mappedFieldError) {
+              // Unknown code but structured field errors were surfaced on the
+              // form: a generic validation toast is the right companion.
+              notification.error(t('errors.validation'));
+              break;
+            }
             // Use status code for unmapped error codes
             switch (error.statusCode) {
               case 403:
