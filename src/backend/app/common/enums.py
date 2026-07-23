@@ -191,10 +191,16 @@ class ClimactericClass(StrEnum):
 
 
 class DtmReference(StrEnum):
-    """Reference point for days_to_maturity (REQ-007, Plan WP-6c)."""
+    """Reference point for days_to_maturity (REQ-007, Plan WP-6c).
+
+    ``FROM_FLIP`` covers photoperiod cannabis, where days_to_maturity is counted
+    from the switch to the flowering photoperiod (the "flip") rather than from
+    sowing or transplant.
+    """
 
     DIRECT_SEED = "direct_seed"
     TRANSPLANT = "transplant"
+    FROM_FLIP = "from_flip"  # from the switch to flowering photoperiod (photoperiod cannabis)
 
 
 class SeedType(StrEnum):

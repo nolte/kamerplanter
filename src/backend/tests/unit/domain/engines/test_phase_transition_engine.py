@@ -296,6 +296,9 @@ class TestPhaseSequenceDrivenTransitions:
         # No GrowthPhase / transition rules exist in the entry key-space.
         self.phase_repo.get_phase_by_key.return_value = None
         self.phase_repo.get_transition_rules.return_value = []
+        # Pure Weg-B species: no LifecycleConfig, so the effective-cycle gate falls
+        # through to the sequence's own cycle_type (ADR-006 E1 cascade).
+        self.phase_repo.get_lifecycle_by_species.return_value = None
 
     def test_forward_transition_succeeds(self) -> None:
         """The core #579 fix: a forward transition between two entries succeeds."""
@@ -365,6 +368,140 @@ class TestPhaseSequenceDrivenTransitions:
 
         warnings = self.engine.validate_transition("plant-1", "e-germ")
 
+        assert any("Perennial cycle restart" in w for w in warnings)
+
+
+class TestCultivationCycleAwareRestart:
+    """P3 latent-risk hardening (#737): the engine's restart gate resolves the
+    EFFECTIVE cycle via ``resolve_effective_cycle`` (ADR-006 E1) instead of the raw
+    botanical ``cycle_type``.
+
+    A botanically perennial species grown as an annual (species-level
+    ``cultivation_cycle_type=annual`` — the tomato cohort after #735) must NOT restart
+    its phase cycle, even when it is artificially handed a repeating sequence and/or a
+    ``cycle_restart`` anchor. The per-instance ``cultivation_cycle_type`` override
+    (ADR-006 E1) still wins over the species cycle in both directions.
+    """
+
+    # ── Path 3: legacy LifecycleConfig fallback (cycle_restart_phase_order) ──
+
+    def _fallback_engine(self, *, cultivation: CycleType | None):
+        phase_repo = MagicMock()
+        plant_repo = MagicMock()
+        engine = PhaseTransitionEngine(phase_repo, plant_repo)
+        senescence = _make_phase("ph-5", "senescence", 5, is_terminal=True)
+        dormancy = _make_phase("ph-1", "dormancy", 1)
+        phase_repo.get_phase_by_key.side_effect = lambda k: {"ph-5": senescence, "ph-1": dormancy}.get(k)
+        # Botanically PERENNIAL with a real restart anchor — the latent trigger.
+        phase_repo.get_lifecycle_by_key.return_value = LifecycleConfig(
+            key="lc-1",
+            cycle_type=CycleType.PERENNIAL,
+            cultivation_cycle_type=cultivation,
+            cycle_restart_phase_order=1,
+        )
+        phase_repo.get_transition_rules.return_value = []
+        return engine, plant_repo
+
+    def test_species_grown_annual_does_not_restart_via_lifecycle(self) -> None:
+        """cultivation_cycle_type=annual suppresses the restart despite a perennial
+        botanical cycle_type AND a set cycle_restart_phase_order."""
+        engine, plant_repo = self._fallback_engine(cultivation=CycleType.ANNUAL)
+        plant = _make_plant(current_phase_key="ph-5")
+        plant_repo.get_by_key.return_value = plant
+
+        with pytest.raises(PhaseTransitionError, match="Backward transition not allowed"):
+            engine.validate_transition("plant-1", "ph-1")
+
+    def test_instance_perennial_override_restarts_annual_grown_species(self) -> None:
+        """A per-instance perennial override (ADR-006 E1) wins over the species
+        cultivation cycle and re-enables the restart."""
+        engine, plant_repo = self._fallback_engine(cultivation=CycleType.ANNUAL)
+        plant = _make_plant(current_phase_key="ph-5")
+        plant.cultivation_cycle_type = CycleType.PERENNIAL
+        plant_repo.get_by_key.return_value = plant
+
+        warnings = engine.validate_transition("plant-1", "ph-1")
+        assert any("Perennial cycle restart" in w for w in warnings)
+
+    def test_genuine_perennial_still_restarts_via_lifecycle(self) -> None:
+        """Positive control: a species with no cultivation override (botanical
+        perennial) keeps restarting."""
+        engine, plant_repo = self._fallback_engine(cultivation=None)
+        plant = _make_plant(current_phase_key="ph-5")
+        plant_repo.get_by_key.return_value = plant
+
+        warnings = engine.validate_transition("plant-1", "ph-1")
+        assert any("Perennial cycle restart" in w for w in warnings)
+
+    # ── Path 1: PhaseSequence-driven entry (repeating seq + cycle_restart anchor) ──
+
+    def _sequence_engine(self, *, cultivation: CycleType | None):
+        phase_repo = MagicMock()
+        plant_repo = MagicMock()
+        phase_seq_repo = MagicMock()
+        engine = PhaseTransitionEngine(phase_repo, plant_repo, phase_seq_repo=phase_seq_repo)
+
+        entries = {
+            "e-germ": PhaseSequenceEntry(
+                _key="e-germ", phase_definition_key="pd-germ", sequence_order=0, phase_sequence_key="seq-1"
+            ),
+            "e-flower": PhaseSequenceEntry(
+                _key="e-flower",
+                phase_definition_key="pd-flower",
+                sequence_order=2,
+                is_terminal=True,
+                phase_sequence_key="seq-1",
+            ),
+        }
+        defs = {
+            "pd-germ": PhaseDefinition(_key="pd-germ", name="germination"),
+            "pd-flower": PhaseDefinition(_key="pd-flower", name="flowering"),
+        }
+        phase_seq_repo.get_entry_by_key.side_effect = entries.get
+        phase_seq_repo.get_definition_by_key.side_effect = defs.get
+        # Artificially repeating PERENNIAL sequence with a restart anchor — the latent trigger.
+        phase_seq_repo.get_sequence_by_key.return_value = PhaseSequence(
+            _key="seq-1",
+            name="Seq",
+            species_key="sp-1",
+            cycle_type=CycleType.PERENNIAL,
+            is_repeating=True,
+            cycle_restart_entry_order=0,
+        )
+        phase_repo.get_phase_by_key.return_value = None
+        phase_repo.get_transition_rules.return_value = []
+        # The species LifecycleConfig carries the cultivation practice (or None = pure Weg-B).
+        phase_repo.get_lifecycle_by_species.return_value = (
+            LifecycleConfig(
+                key="lc-1",
+                species_key="sp-1",
+                cycle_type=CycleType.PERENNIAL,
+                cultivation_cycle_type=cultivation,
+            )
+            if cultivation is not None
+            else None
+        )
+        return engine, plant_repo
+
+    def test_repeating_sequence_suppressed_for_annual_grown_species(self) -> None:
+        """The core negative proof: a repeating PERENNIAL sequence + cycle_restart
+        anchor does NOT restart when the species LifecycleConfig is grown annually."""
+        engine, plant_repo = self._sequence_engine(cultivation=CycleType.ANNUAL)
+        plant = _make_plant(current_phase_key="e-flower")
+        plant_repo.get_by_key.return_value = plant
+
+        with pytest.raises(PhaseTransitionError, match="Backward transition not allowed"):
+            engine.validate_transition("plant-1", "e-germ")
+
+    def test_instance_perennial_override_restarts_annual_grown_sequence(self) -> None:
+        """A per-instance perennial override wins over the annual species cultivation
+        cycle in the sequence path too."""
+        engine, plant_repo = self._sequence_engine(cultivation=CycleType.ANNUAL)
+        plant = _make_plant(current_phase_key="e-flower")
+        plant.cultivation_cycle_type = CycleType.PERENNIAL
+        plant_repo.get_by_key.return_value = plant
+
+        warnings = engine.validate_transition("plant-1", "e-germ")
         assert any("Perennial cycle restart" in w for w in warnings)
 
 

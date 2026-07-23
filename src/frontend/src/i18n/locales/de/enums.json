@@ -264,7 +264,8 @@
     },
     "dtmReference": {
       "direct_seed": "ab Direktsaat",
-      "transplant": "ab Auspflanzung"
+      "transplant": "ab Auspflanzung",
+      "from_flip": "Ab Blühumstellung (Flip)"
     },
     "seedType": {
       "open_pollinated": "Samenfest",
