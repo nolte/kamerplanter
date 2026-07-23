@@ -30,7 +30,7 @@ Die relevanten Befunde konzentrieren sich auf **fünf Themen**:
 | 5 | **Strukturelle Duplikation** | 🟡 Mittel | CRUD-/Mapping-/Fetch-Boilerplate; EC-/Mixing-Logik doppelt (Drift-Risiko) |
 
 Die großen „Scaffold-REQs" (REQ-008/017/018/026/031/033/035/036) sind bewusst im Backlog
-(`.audits/execution-roadmap.md`, Buckets D/E) — **kein neuer Handlungsbedarf**, aber das
+(Buckets D/E) — **kein neuer Handlungsbedarf**, aber das
 Aggregat-Audit „72/72 = 100 %" ist irreführend (misst nur Artefakt-Präsenz, nicht Semantik).
 
 ---
@@ -185,7 +185,7 @@ Aufwand: S = < ½ Tag, M = ½–2 Tage, L = > 2 Tage.
 ### ⏭️ Bewusst im Backlog (kein AP)
 LineageEngine/Propagation (DOM-3/GAP-B7, REQ-017), SuccessionPlan (GAP-B2), OverwinteringProfile
 (GAP-B3), Aktorik (GAP-B4, REQ-018), Post-Harvest (GAP-B6), Mode-Switch (GAP-B10), NFR-011-Downsampling
-(INF-L1/L2), KI-Familie/Aquaponik/InvenTree (GAP-B11..B15) → `.audits/execution-roadmap.md` Buckets D/E.
+(INF-L1/L2), KI-Familie/Aquaponik/InvenTree (GAP-B11..B15) → Backlog-Buckets D/E.
 Bei Umsetzung von REQ-017 **DOM-3 direkt mitnehmen**.
 
 ---
