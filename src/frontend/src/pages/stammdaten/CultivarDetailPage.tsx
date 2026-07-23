@@ -43,7 +43,7 @@ import * as phasesApi from '@/api/endpoints/phases';
 import type { Cultivar, CultivarCreate, GrowthPhase, PlantTrait, Species } from '@/api/types';
 
 /** Days-to-maturity reference enum — mirrors DtmReference in api/types.ts (REQ-007). */
-const DTM_REFERENCES = ['direct_seed', 'transplant'] as const;
+const DTM_REFERENCES = ['direct_seed', 'transplant', 'from_flip'] as const;
 
 /** Seed/propagation-material type — mirrors SeedType in api/types.ts. */
 const SEED_TYPES = ['open_pollinated', 'f1_hybrid', 'f2', 'landrace', 'clone'] as const;

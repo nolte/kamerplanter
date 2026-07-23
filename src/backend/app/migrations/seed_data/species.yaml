@@ -2538,13 +2538,16 @@ cultivars:
     - name: Northern Lights
       breeder: Sensi Seeds
       days_to_maturity: 65
+      dtm_reference: from_flip
       traits: [compact]
     - name: White Widow
       breeder: Green House Seeds
       days_to_maturity: 60
+      dtm_reference: from_flip
       traits: [high_yield]
     - name: OG Kush
       days_to_maturity: 56
+      dtm_reference: from_flip
       traits: [high_yield]
 
   Cucumis sativus:

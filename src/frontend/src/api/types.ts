@@ -32,7 +32,7 @@ export type HarvestedPart =
   | 'stem'
   | 'whole_plant';
 export type ClimactericClass = 'climacteric' | 'non_climacteric' | 'atypical';
-export type DtmReference = 'direct_seed' | 'transplant';
+export type DtmReference = 'direct_seed' | 'transplant' | 'from_flip';
 export type SeedType = 'open_pollinated' | 'f1_hybrid' | 'f2' | 'landrace' | 'clone';
 export type FloweringStrategy = 'monocarpic' | 'polycarpic';
 export type PhotosynthesisType = 'c3' | 'c4' | 'cam';
