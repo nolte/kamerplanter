@@ -43,7 +43,7 @@ pytest tests/e2e/ -v
 
 # Dedicated, isolated Docker stack (app + Selenium Grid)
 ./scripts/run-e2e.sh                    # full light suite
-./scripts/run-e2e.sh --smoke            # smoke suite (~2 min)
+./scripts/run-e2e.sh --smoke            # smoke suite (~7 min)
 ./scripts/run-e2e.sh --profile mobile   # a single compose profile
 ```
 

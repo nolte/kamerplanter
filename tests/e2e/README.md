@@ -84,7 +84,7 @@ per file, plus the legacy `smoke` / `core_crud` / `requires_auth` /
 ### 3. Legacy suites (unchanged)
 
 ```bash
-task test:e2e:smoke       # -m smoke  (fast, ~2 min)
+task test:e2e:smoke       # -m smoke  (188 tests, ~7 min with -n 4)
 docker compose -f docker-compose.e2e.yml --profile core-crud run --rm e2e-core-crud
 ```
 
