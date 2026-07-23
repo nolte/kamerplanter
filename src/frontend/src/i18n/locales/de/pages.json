@@ -3622,6 +3622,7 @@
       "title": "Benachrichtigungen",
       "markAllRead": "Alle gelesen",
       "markDone": "Erledigt",
+      "markDoneError": "Bestätigung konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "empty": "Keine Benachrichtigungen",
       "loadMore": "Mehr laden",
       "justNow": "Gerade eben",

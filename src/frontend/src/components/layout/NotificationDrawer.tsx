@@ -23,6 +23,7 @@ import {
   markActed,
   markAllRead,
 } from '@/api/endpoints/notifications';
+import { useNotification } from '@/hooks/useNotification';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
 
 /**
@@ -85,12 +86,17 @@ export default function NotificationDrawer({
 }: NotificationDrawerProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const notify = useNotification();
 
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  // Keys currently awaiting the `POST …/act` round-trip — drives the per-button
+  // loading state and guards against a second tap while one is in flight
+  // (UI-NFR-008 R-016/R-017 double-submit protection).
+  const [actingKeys, setActingKeys] = useState<Set<string>>(new Set());
 
   const loadNotifications = useCallback(
     async (currentOffset: number, append: boolean) => {
@@ -166,7 +172,16 @@ export default function NotificationDrawer({
     notification: NotificationResponse,
     actionId: string,
   ) => {
+    // A second tap while the round-trip is in flight is a no-op — the button
+    // is already disabled via the `loading` prop, but this guards against
+    // stray re-entrancy (e.g. Enter + click firing together).
+    if (actingKeys.has(notification.key)) return;
+
+    const wasUnread = !notification.read_at;
+    const unreadCountBeforeAction = notifications.filter((n) => !n.read_at).length;
     const nowIso = new Date().toISOString();
+
+    setActingKeys((prev) => new Set(prev).add(notification.key));
     // Optimistic update: mark acted + read immediately so the button disappears
     // and the badge drops without waiting for the round-trip.
     setNotifications((prev) =>
@@ -176,8 +191,8 @@ export default function NotificationDrawer({
           : n,
       ),
     );
-    if (!notification.read_at) {
-      onCountChange(Math.max(0, notifications.filter((n) => !n.read_at).length - 1));
+    if (wasUnread) {
+      onCountChange(Math.max(0, unreadCountBeforeAction - 1));
     }
     try {
       const updated = await markActed(notification.key, actionId);
@@ -185,10 +200,22 @@ export default function NotificationDrawer({
         prev.map((n) => (n.key === notification.key ? updated : n)),
       );
     } catch {
-      // Roll back the optimistic update on failure.
+      // Roll back the optimistic update — including the unread badge, which
+      // was decremented above — and surface the failure so the user knows the
+      // "Done" tap did not actually confirm the source reminder.
       setNotifications((prev) =>
         prev.map((n) => (n.key === notification.key ? notification : n)),
       );
+      if (wasUnread) {
+        onCountChange(unreadCountBeforeAction);
+      }
+      notify.error(t('pages.notifications.markDoneError'));
+    } finally {
+      setActingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(notification.key);
+        return next;
+      });
     }
   };
 
@@ -376,7 +403,13 @@ export default function NotificationDrawer({
                     color="success"
                     startIcon={<CheckCircleOutlineIcon />}
                     onClick={() => void handleDone(notification, actionId)}
+                    loading={actingKeys.has(notification.key)}
+                    aria-busy={actingKeys.has(notification.key)}
                     data-testid={`notification-action-done-${notification.key}`}
+                    // UI-NFR-001 R-011: 44px touch target — `size="small"` alone
+                    // caps the rendered height at ~30px, well under the 48px
+                    // mobile/tablet minimum.
+                    sx={{ minHeight: 44 }}
                   >
                     {t('pages.notifications.markDone')}
                   </Button>

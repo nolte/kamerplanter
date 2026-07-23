@@ -234,6 +234,67 @@ describe('NotificationDrawer', () => {
     await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(0));
   });
 
+  it('does not trigger card navigation when Done is clicked (Issue #439 regression)', async () => {
+    useList([
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        action_url: '/pflege',
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const done = await screen.findByTestId('notification-action-done-care1');
+    await user.click(done);
+
+    // The Done button sits in a `CardActions` sibling of `CardActionArea`, not
+    // nested inside it — clicking it must not also fire the card's own click
+    // handler (which would navigate + close the drawer via the action_url).
+    await waitFor(() =>
+      expect(screen.queryByTestId('notification-action-done-care1')).toBeNull(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the optimistic Done state and restores the unread count on failure', async () => {
+    useList([
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+    ]);
+    server.use(
+      http.post(`${BASE}/:key/act`, () => new HttpResponse(null, { status: 500 })),
+    );
+    const onCountChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
+    );
+
+    const done = await screen.findByTestId('notification-action-done-care1');
+    await user.click(done);
+
+    // Optimistic drop happens immediately …
+    await waitFor(() => expect(onCountChange).toHaveBeenCalledWith(0));
+    // … then the failed round-trip restores both the button and the badge.
+    await waitFor(() =>
+      expect(screen.getByTestId('notification-action-done-care1')).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(1));
+    expect(await screen.findByText('Bestätigung konnte nicht gespeichert werden. Bitte versuche es erneut.')).toBeInTheDocument();
+  });
+
   it('paginates via load-more, appending the next page', async () => {
     const firstPage = Array.from({ length: 20 }, (_, i) =>
       makeNotif({ key: `p1-${i}`, title: `Seite1-${i}`, read_at: '2024-01-01T00:00:00Z' }),

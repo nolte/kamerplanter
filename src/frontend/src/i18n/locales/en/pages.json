@@ -3621,6 +3621,7 @@
       "title": "Notifications",
       "markAllRead": "Mark all read",
       "markDone": "Done",
+      "markDoneError": "Could not save the confirmation. Please try again.",
       "empty": "No notifications",
       "loadMore": "Load more",
       "justNow": "Just now",
