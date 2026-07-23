@@ -953,6 +953,10 @@ export interface LifecycleConfig {
   photoperiod_type: PhotoperiodType;
   critical_day_length_hours: number | null;
   phase_sequence_key: string | null;
+  /** Derived read-only flag — species is cultivated as a (tender) annual
+   * (cultivation_cycle_type === 'annual' while the botanical cycle_type is not).
+   * Computed server-side; never sent on create/update. */
+  grown_as_annual: boolean;
   created_at: string | null;
   updated_at: string | null;
 }

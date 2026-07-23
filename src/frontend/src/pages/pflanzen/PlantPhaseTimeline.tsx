@@ -132,6 +132,9 @@ export default function PlantPhaseTimeline({
             cycle_type: sequence.cycle_type,
             cultivation_cycle_type: null,
             flowering_strategy: null,
+            // Derived server-side flag; a PhaseSequence carries no cultivation
+            // cycle, so this synthetic config is never "grown as an annual".
+            grown_as_annual: false,
             typical_lifespan_years: sequence.typical_lifespan_years,
             dormancy_required: sequence.dormancy_required,
             vernalization_required: sequence.vernalization_required,

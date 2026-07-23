@@ -1375,6 +1375,8 @@
       "traitsHelper": "Sorteneigenschaften (Enter drücken zum Hinzufügen)",
       "patentStatus": "Patentstatus",
       "patentStatusHelper": "Schutzstatus: z. B. 'PVP', 'Patent', 'Open Source', leer = unbekannt",
+      "seedType": "Saatgut-Typ",
+      "seedTypeHelper": "Bestimmt, ob sich aus eigenem Saatgut sortenechte Nachkommen ziehen lassen (samenfest/Landsorte: ja; F1-Hybride: meist nicht; Klon: vegetative Vermehrung ohne Samen).",
       "daysToMaturity": "Tage bis Reife",
       "daysToMaturityHelper": "Typische Tage von Pflanzung bis Ernte (1–365)",
       "dtmReference": "Bezugspunkt Tage bis Reife",
@@ -1391,7 +1393,7 @@
       "sectionIdentification": "Grunddaten",
       "sectionIdentificationDesc": "Name, Züchter und Herkunft der Sorte.",
       "sectionCharacteristics": "Eigenschaften",
-      "sectionCharacteristicsDesc": "Reifezeit, Sorteneigenschaften und Krankheitsresistenzen."
+      "sectionCharacteristicsDesc": "Reifezeit, Saatgut-Typ, Sorteneigenschaften und Krankheitsresistenzen."
     },
     "companionPlanting": {
       "title": "Mischkultur",
@@ -1999,6 +2001,8 @@
       "cycleTypeHelper": "Botanischer Lebenszyklus: Einjährig blüht und stirbt in einer Saison, Zweijährig blüht im zweiten Jahr, Mehrjährig lebt und blüht über viele Jahre.",
       "cultivationCycleType": "Anbau-Zyklustyp",
       "cultivationCycleTypeHelper": "Wie die Art im Anbau geführt wird — kann vom botanischen Lebenszyklus abweichen (z. B. mehrjährig botanisch, aber einjährig kultiviert)",
+      "grownAsAnnual": "Wird als einjährig kultiviert",
+      "grownAsAnnualHelper": "Botanisch mehrjährig, im Anbau aber einjährig geführt (frostempfindliche Art).",
       "floweringStrategy": "Blühstrategie",
       "floweringStrategyHelper": "Monokarp: blüht einmal und stirbt danach. Polykarp: blüht über mehrere Jahre wiederholt.",
       "growthDeterminacy": "Wuchs-Determiniertheit",

@@ -614,6 +614,31 @@ Die maßgebliche Abstammungsbeziehung ist zusätzlich als Graph-Kante `descended
 
 ---
 
+## Lebenszyklus-Konfiguration: Abgeleitetes Feld `grown_as_annual`
+
+Botanisch mehrjährige Arten, die in der Praxis wie einjährige Pflanzen kultiviert werden (klassisches Beispiel: die Tomate), erhalten in der Lebenszyklus-Antwort ein abgeleitetes, rein lesendes Flag. <!-- REQ-001 / REQ-003 -->
+
+### Zusätzliches Feld in der Lebenszyklus-Antwort
+
+```
+GET /api/v1/species/{species_key}/lifecycle
+```
+
+Die `LifecycleResponse` enthält zusätzlich:
+
+| Feld | Typ | Bedeutung |
+|------|-----|----------|
+| `grown_as_annual` | boolean | `true`, wenn `cultivation_cycle_type == "annual"` und gleichzeitig `cycle_type != "annual"` — die Art wird also praktisch einjährig kultiviert, obwohl sie botanisch nicht einjährig ist. |
+
+!!! note "Abgeleitet, nicht persistiert, kein Request-Feld"
+    `grown_as_annual` ist ein serverseitig berechnetes Antwortfeld (`computed_field`): Es wird bei jeder Anfrage neu aus `cycle_type` und `cultivation_cycle_type` ermittelt, ist niemals eigenständig in der Datenbank gespeichert und lässt sich nicht per `POST`/`PUT` setzen — ein im Request-Body mitgesendeter Wert wird ignoriert.
+
+### Siehe auch
+
+- [Wachstumsphasen — Benutzerhandbuch: Botanischer Lebenszyklus vs. Anbau-Zyklustyp](../user-guide/growth-phases.md#botanischer-lebenszyklus-vs-anbau-zyklustyp)
+
+---
+
 ## Saison- & Überwinterungs-Automatik
 
 Diese Endpunkte lesen den automatisch berechneten Saison-Zustand eines Standorts und das automatisch materialisierte Überwinterungsprofil einer Pflanze. Beides entsteht ohne Nutzerinteraktion, sobald eine Pflanze an einer frostexponierten Location zugeordnet wird — standardmäßig einer Location auf einem Freiland-, Gewächshaus- oder Balkon-Standort (`OVERWINTERING_SITE_TYPES`), oder einer Location mit einer manuellen Frostexpositions-Übersteuerung auf einem andersartigen Standort (siehe [Frostexposition einer Location festlegen](../user-guide/locations-substrates.md#frostexposition-einer-location-festlegen)) — beim Anlegen der Pflanze, bei einem Standortwechsel, sowie zusätzlich als Sicherheitsnetz aus der täglichen Saison-Auswertung — siehe [Saison-Automatik](../user-guide/season-automation.md) und [Überwinterung](../user-guide/overwintering.md) im Benutzerhandbuch. <!-- REQ-047 -->

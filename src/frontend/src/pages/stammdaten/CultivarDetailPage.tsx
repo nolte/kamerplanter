@@ -45,14 +45,18 @@ import type { Cultivar, CultivarCreate, GrowthPhase, PlantTrait, Species } from 
 /** Days-to-maturity reference enum — mirrors DtmReference in api/types.ts (REQ-007). */
 const DTM_REFERENCES = ['direct_seed', 'transplant'] as const;
 
+/** Seed/propagation-material type — mirrors SeedType in api/types.ts. */
+const SEED_TYPES = ['open_pollinated', 'f1_hybrid', 'f2', 'landrace', 'clone'] as const;
+
 const schema = z.object({
   name: z.string().min(1),
   breeder: z.string().nullable(),
   breeding_year: z.number().nullable(),
   traits: z.array(z.string()),
   patent_status: z.string(),
-  days_to_maturity: z.number().min(1).max(365).nullable(),
   // Empty string = "no selection" from the MUI select; normalised to null on submit.
+  seed_type: z.enum(SEED_TYPES).or(z.literal('')).nullable(),
+  days_to_maturity: z.number().min(1).max(365).nullable(),
   dtm_reference: z.enum(DTM_REFERENCES).or(z.literal('')).nullable(),
   bearing_start_year_min: z.number().min(1).max(20).nullable(),
   bearing_start_year_max: z.number().min(1).max(20).nullable(),
@@ -103,6 +107,7 @@ export default function CultivarDetailPage() {
       breeding_year: null,
       traits: [],
       patent_status: '',
+      seed_type: null,
       days_to_maturity: null,
       dtm_reference: null,
       bearing_start_year_min: null,
@@ -127,6 +132,7 @@ export default function CultivarDetailPage() {
         breeding_year: c.breeding_year,
         traits: c.traits,
         patent_status: c.patent_status,
+        seed_type: c.seed_type ?? null,
         days_to_maturity: c.days_to_maturity,
         dtm_reference: c.dtm_reference ?? null,
         bearing_start_year_min: c.bearing_start_year_min ?? null,
@@ -195,6 +201,7 @@ export default function CultivarDetailPage() {
       await api.updateCultivar(speciesKey, cultivarKey, {
         ...data,
         traits: data.traits as PlantTrait[],
+        seed_type: data.seed_type || null,
         dtm_reference: data.dtm_reference || null,
       } as Omit<CultivarCreate, 'species_key'>);
       notification.success(t('common.save'));
@@ -383,7 +390,9 @@ export default function CultivarDetailPage() {
                 ]}
               />
             </ExpertiseFieldWrapper>
-            {/* Phase A: bearing-start year range for perennials (intermediate, 1..20). */}
+            {/* Phase A: bearing-start year range for perennials (intermediate, 1..20).
+              Keeps the maturity-timing cluster (days_to_maturity → dtm_reference →
+              bearing_start_year) together before the classification fields below. */}
             <ExpertiseFieldWrapper minLevel="intermediate">
               <FormRow>
                 <FormNumberField
@@ -403,6 +412,26 @@ export default function CultivarDetailPage() {
                   max={20}
                 />
               </FormRow>
+            </ExpertiseFieldWrapper>
+            {/* Seed/propagation-material type (intermediate) — open-pollinated, F1
+              hybrid, F2, landrace or vegetative clone. Empty select → null on submit.
+              Placed with the other classification fields (traits, resistances, patent
+              status) rather than inside the maturity-timing cluster above, since it
+              describes *how* the cultivar is propagated, not *when* it matures. */}
+            <ExpertiseFieldWrapper minLevel="intermediate">
+              <FormSelectField
+                name="seed_type"
+                control={control}
+                label={t('pages.cultivars.seedType')}
+                helperText={t('pages.cultivars.seedTypeHelper')}
+                options={[
+                  { value: '', label: '—' },
+                  ...SEED_TYPES.map((v) => ({
+                    value: v,
+                    label: t(`enums.seedType.${v}`),
+                  })),
+                ]}
+              />
             </ExpertiseFieldWrapper>
             <FormChipInput
               name="traits"
