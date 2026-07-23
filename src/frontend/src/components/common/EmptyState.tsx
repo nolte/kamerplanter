@@ -37,6 +37,21 @@ export default function EmptyState({
       }}
       data-testid="empty-state"
     >
+      {/*
+        Decorative KAMI illustration — alt="" + aria-hidden is correct here
+        since the surrounding message/description already carries the
+        meaning (WCAG 1.1.1 decorative-image exception).
+        maxHeight/opacity 180/0.85 is the shared "primary empty-state anchor"
+        convention (see also DashboardPage's empty dashboard state); smaller
+        supplementary illustrations shown alongside active content use
+        150/0.9 instead (OnboardingWizard, KIAssistentPage, DiagnosePage).
+        Dark-mode note: these vtracer-traced SVGs include some near-black
+        detail fills (e.g. #1b1209/#2e291b) which sit close in value to the
+        dark palette's background.default (#121212). Because the image is
+        purely decorative (no WCAG 1.4.11 obligation), this is a visual nice
+        -to-have, not an a11y bug — flag to the KAMI asset pipeline if a
+        future regen should bake in a lighter outline for dark-mode legibility.
+      */}
       <Box
         component="img"
         src={illustration ?? kamiStateEmpty}

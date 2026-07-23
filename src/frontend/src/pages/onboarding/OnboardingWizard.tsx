@@ -551,6 +551,10 @@ export default function OnboardingWizard() {
       <PageTitle title={t('pages.onboarding.title')} />
 
       {activeStep === 0 && (
+        // Decorative welcome illustration — maxHeight/opacity match the
+        // supplementary-illustration convention used alongside active content
+        // (KIAssistentPage, DiagnosePage). EmptyState's own default (180 /
+        // 0.85) is reserved for the "nothing here yet" empty-state anchor.
         <Box
           component="img"
           src={kamiOnboardingWelcome}
@@ -560,9 +564,10 @@ export default function OnboardingWizard() {
             display: 'block',
             mx: 'auto',
             mb: 2,
-            maxHeight: 160,
+            maxHeight: 150,
             maxWidth: '100%',
             objectFit: 'contain',
+            opacity: 0.9,
           }}
         />
       )}
