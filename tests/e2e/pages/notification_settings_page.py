@@ -1,7 +1,7 @@
 """Page object for the Notification Settings tab (REQ-030).
 
 The notification settings live as a tab inside the AccountSettingsPage at
-``/settings?tab=notifications``.  This page object encapsulates the channel
+``/settings#notifications``.  This page object encapsulates the channel
 toggles, channel-specific configuration fields and the save button rendered
 by ``NotificationSettingsTab.tsx``.
 
@@ -23,13 +23,20 @@ from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class NotificationSettingsPage(BasePage):
-    """Interact with the Notification Settings tab (``/settings?tab=notifications``).
+    """Interact with the Notification Settings tab (``/settings#notifications``).
 
     Locators reference the data-testid attributes defined in
     ``src/frontend/src/pages/auth/NotificationSettingsTab.tsx``.
+
+    Note on the URL format: ``AccountSettingsPage`` deep-links its tabs through
+    ``useTabUrl``, which reads the tab key from the URL *hash* fragment (e.g.
+    ``/settings#notifications``), matching the in-app links (ModuleGuard,
+    DashboardPage, …).  A ``?tab=notifications`` query string is silently
+    ignored and lands on the default (profile) tab, so the save-button anchor
+    never renders.
     """
 
-    PATH = "/settings?tab=notifications"
+    PATH = "/settings#notifications"
 
     # ── Container / structural ──────────────────────────────────────────
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
