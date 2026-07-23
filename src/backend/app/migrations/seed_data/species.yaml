@@ -2495,34 +2495,43 @@ cultivars:
   Solanum lycopersicum:
     - name: San Marzano
       days_to_maturity: 80
+      dtm_reference: transplant
       traits: [heirloom]
     - name: Cherry Tomato Sweet 100
       days_to_maturity: 65
+      dtm_reference: transplant
       traits: [high_yield]
     - name: Beefsteak
       days_to_maturity: 85
+      dtm_reference: transplant
       traits: [heirloom, high_yield]
 
   Capsicum annuum:
     - name: California Wonder
       days_to_maturity: 75
+      dtm_reference: transplant
       traits: [high_yield]
     - name: "Jalapeño"
       days_to_maturity: 70
+      dtm_reference: transplant
       traits: [heat_tolerant]
     - name: Habanero
       days_to_maturity: 90
+      dtm_reference: transplant
       traits: [heat_tolerant]
 
   Lactuca sativa:
     - name: Butterhead
       days_to_maturity: 55
+      dtm_reference: transplant
       traits: [early_maturing]
     - name: Romaine
       days_to_maturity: 70
+      dtm_reference: transplant
       traits: []
     - name: Lollo Rossa
       days_to_maturity: 50
+      dtm_reference: transplant
       traits: [ornamental]
 
   Cannabis sativa:
@@ -2541,45 +2550,57 @@ cultivars:
   Cucumis sativus:
     - name: Marketmore 76
       days_to_maturity: 65
+      dtm_reference: transplant
       traits: [disease_resistant]
     - name: Lemon Cucumber
       days_to_maturity: 60
+      dtm_reference: transplant
       traits: [heirloom]
     - name: Persian
       days_to_maturity: 55
+      dtm_reference: transplant
       traits: [compact]
 
   Brassica oleracea var. italica:
     - name: Calabrese
       days_to_maturity: 65
+      dtm_reference: transplant
       traits: [high_yield]
     - name: Marathon
       days_to_maturity: 70
+      dtm_reference: transplant
       traits: [disease_resistant]
     - name: De Cicco
       days_to_maturity: 50
+      dtm_reference: transplant
       traits: [heirloom, early_maturing]
 
   Daucus carota:
     - name: Nantes
       days_to_maturity: 70
+      dtm_reference: direct_seed
       traits: []
     - name: Danvers 126
       days_to_maturity: 75
+      dtm_reference: direct_seed
       traits: [drought_tolerant]
     - name: Purple Haze
       days_to_maturity: 70
+      dtm_reference: direct_seed
       traits: [ornamental]
 
   Phaseolus vulgaris:
     - name: Provider
       days_to_maturity: 50
+      dtm_reference: direct_seed
       traits: [early_maturing, cold_hardy]
     - name: Blue Lake 274
       days_to_maturity: 58
+      dtm_reference: direct_seed
       traits: [high_yield]
     - name: Kentucky Wonder
       days_to_maturity: 65
+      dtm_reference: direct_seed
       traits: [heirloom]
 
 perennial_species:
