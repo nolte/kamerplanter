@@ -17,7 +17,7 @@
 | Familie | Crassulaceae | `species.family` → `botanical_families.name` |
 | Gattung | Sedum | `species.genus` |
 | Ordnung | Saxifragales | `botanical_families.order` |
-| Wuchsform | vine | `species.growth_habit` |
+| Wuchsform | succulent <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher vine) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |

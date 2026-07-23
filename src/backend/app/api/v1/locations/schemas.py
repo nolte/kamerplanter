@@ -21,6 +21,9 @@ class LocationCreate(BaseModel):
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
     tank_key: str | None = None
+    #: Frost exposure override (Issue #706). ``None`` inherits from the site
+    #: type; ``True``/``False`` force frost-exposed / protected respectively.
+    frost_exposed: bool | None = None
 
 
 class LocationResponse(BaseModel):
@@ -40,6 +43,8 @@ class LocationResponse(BaseModel):
     lights_off: str | None = None
     use_dynamic_sunrise: bool = False
     tank_key: str | None = None
+    #: Frost exposure override (Issue #706); ``None`` inherits from the site type.
+    frost_exposed: bool | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

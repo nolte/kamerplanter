@@ -59,6 +59,24 @@ repos:
         files: ^src/backend/.*\.py$
         types: [python]
 
+  # ── Steckbrief ↔ seed consistency (Issue #680) ─────────────────────────
+  # Fails the required `static` gate when a lifecycle-driving attribute
+  # (growth_habit / photoperiod_type / photosynthesis_type / flowering_strategy
+  # / growth_determinacy) drifts between a Steckbrief (spec/knowledge/plants/*.md)
+  # and the seed YAMLs. Seed = source of truth, Steckbrief = documentation that
+  # must follow it; deliberate divergences are recorded in the validator's
+  # ALLOWED_DISCREPANCIES allowlist. Self-contained (stdlib + PyYAML) so it runs
+  # in this isolated pre-commit venv as well as under pytest.
+  - repo: local
+    hooks:
+      - id: steckbrief-seed-consistency
+        name: Steckbrief ↔ seed consistency (#680)
+        entry: python src/backend/app/migrations/seed_steckbrief_consistency.py
+        language: python
+        additional_dependencies: ['PyYAML>=6.0']
+        always_run: true
+        pass_filenames: false
+
   # ── Frontend (TypeScript/React) ────────────────────────────────────────
   # These hooks require node_modules — run locally only.
   # In CI, frontend linting runs via .github/workflows/frontend.yml (npm ci + eslint + tsc).

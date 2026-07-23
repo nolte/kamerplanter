@@ -18,7 +18,7 @@
 | Familie | Gesneriaceae | `species.family` → `botanical_families.name` |
 | Gattung | Aeschynanthus | `species.genus` |
 | Ordnung | Lamiales | `botanical_families.order` |
-| Wuchsform | vine | `species.growth_habit` |
+| Wuchsform | epiphyte <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher vine) --> | `species.growth_habit` |
 | Wurzeltyp | aerial | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |

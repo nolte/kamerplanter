@@ -17,7 +17,7 @@
 | Familie | Poaceae | `species.family` -> `botanical_families.name` |
 | Gattung | Zea | `species.genus` |
 | Ordnung | Poales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | grass <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
 | Photoperiode | day_neutral (Zuckermais-Sorten; Wildtyp urspruenglich short_day) | `lifecycle_configs.photoperiod_type` |

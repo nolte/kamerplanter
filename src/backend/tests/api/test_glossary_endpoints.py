@@ -142,41 +142,51 @@ def test_public_list_terms(service, monkeypatch) -> None:
     assert resp.json()[0]["category"] == "umwelt"
 
 
-# ── Stage-1 operator kill-switch (SEC-G2) ──────────────────────────
+# ── #684: list + fallback decoupled from the AI feature flag ───────
+#
+# The routers are no longer gated by ``require_ai_feature_flag``. With AI off the
+# term list stays available and ``/term/{slug}`` degrades to the editorial
+# fallback (``is_fallback=true``) inside the service instead of returning 404.
 
 
-def test_public_term_flag_off_returns_404(service, monkeypatch) -> None:
+def test_public_term_flag_off_serves_fallback(service, monkeypatch) -> None:
     monkeypatch.setattr(limiter, "enabled", False)
     monkeypatch.setattr(settings, "ai_features_enabled", False)
+    service.get_term = AsyncMock(return_value=_answer(is_fallback=True))
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/public/glossary/term/vpd")
-    assert resp.status_code == 404
-    service.get_term.assert_not_awaited()
+    assert resp.status_code == 200
+    assert resp.json()["is_fallback"] is True
+    service.get_term.assert_awaited()
 
 
-def test_public_terms_flag_off_returns_404(service, monkeypatch) -> None:
+def test_public_terms_flag_off_still_listed(service, monkeypatch) -> None:
     monkeypatch.setattr(limiter, "enabled", False)
     monkeypatch.setattr(settings, "ai_features_enabled", False)
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/public/glossary/terms")
-    assert resp.status_code == 404
-    service.list_terms.assert_not_called()
+    assert resp.status_code == 200
+    assert resp.json()[0]["slug"] == "vpd"
+    service.list_terms.assert_called_once()
 
 
-def test_tenant_term_flag_off_returns_404(service, monkeypatch) -> None:
+def test_tenant_term_flag_off_serves_fallback(service, monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_features_enabled", False)
+    service.get_term = AsyncMock(return_value=_answer(is_fallback=True))
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/t/home/glossary/term/vpd")
-    assert resp.status_code == 404
-    service.get_term.assert_not_awaited()
+    assert resp.status_code == 200
+    assert resp.json()["is_fallback"] is True
+    service.get_term.assert_awaited()
 
 
-def test_tenant_terms_flag_off_returns_404(service, monkeypatch) -> None:
+def test_tenant_terms_flag_off_still_listed(service, monkeypatch) -> None:
     monkeypatch.setattr(settings, "ai_features_enabled", False)
     client = TestClient(_build_app(service))
     resp = client.get("/api/v1/t/home/glossary/terms")
-    assert resp.status_code == 404
-    service.list_terms.assert_not_called()
+    assert resp.status_code == 200
+    assert resp.json()[0]["slug"] == "vpd"
+    service.list_terms.assert_called_once()
 
 
 # ── Admin path ─────────────────────────────────────────────────────

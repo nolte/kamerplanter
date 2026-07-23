@@ -24,10 +24,10 @@ jobs:
         python-version: ['3.14']
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -47,6 +47,17 @@ jobs:
       - name: Ruff format check
         run: ruff format --check .
 
+      - name: Steckbrief ↔ seed consistency (#680)
+        # Fail the build on any non-allowlisted drift of a lifecycle-driving
+        # attribute (growth_habit / photoperiod_type / photosynthesis_type /
+        # flowering_strategy / growth_determinacy) between a Steckbrief
+        # (spec/knowledge/plants/*.md) and the seed YAMLs. Seed = source of truth,
+        # Steckbrief = documentation that must follow it (Issue #680, audit UR-2).
+        # The validator walks up to the repo root itself, so the job's
+        # src/backend working directory is fine. Also enforced on the required
+        # `static` gate via a pre-commit hook.
+        run: python app/migrations/seed_steckbrief_consistency.py --verbose
+
       - name: Unit tests
         run: pytest tests/unit/ -v --tb=short
 
@@ -54,10 +65,10 @@ jobs:
     name: Lock staleness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
           allow-prereleases: true
@@ -85,10 +96,10 @@ jobs:
     name: Dependency CVE audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
           allow-prereleases: true
@@ -119,10 +130,10 @@ jobs:
     name: License allowlist gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
           allow-prereleases: true
@@ -160,7 +171,7 @@ jobs:
 
   coverage:
     name: Coverage
-    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@877fc02771e50d994343545fd92e187ac46984ce # v1.1.25
+    uses: nolte/gh-plumbing/.github/workflows/reusable-python-coverage.yaml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
     with:
       python-version: '3.14'
       working-directory: src/backend

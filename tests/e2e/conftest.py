@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,6 +21,63 @@ try:
 except ImportError:
     ChromeDriverManager = None  # type: ignore[assignment,misc]
     GeckoDriverManager = None  # type: ignore[assignment,misc]
+
+
+# ── Test identifiability: machine-selectable markers (NFR-008a) ────────────
+# Two selection axes are derived automatically at collection time so that a
+# code/feature change can be mapped to the affected tests without hand-marking
+# 700+ test functions:
+#
+#   1. REQ axis   — a ``req<NNN>`` marker derived from the ``test_req<NNN>_*.py``
+#                   file name (e.g. ``pytest -m req004``).
+#   2. Feature axis — one or more semantic ``FEATURES`` markers a test module
+#                   opts into via a module-level ``FEATURES`` tuple. This axis is
+#                   cross-cutting to REQ IDs (e.g. ``nutrient`` spans several
+#                   ``test_req004_*.py`` files; a core-lifecycle journey spans
+#                   several REQs), enabling ``pytest -m watering``.
+#
+# In addition, the TC-ID declared in each test's docstring is lifted into the
+# machine-readable ``user_properties`` channel (junit ``tc_id`` property) so
+# downstream tooling (e.g. release-regression-scope) can consume it.
+
+# Registered semantic feature markers. A test module opts in with, e.g.:
+#   FEATURES = ("nutrient",)            # single feature
+#   FEATURES = ("watering", "nutrient", "journey")  # cross-cutting journey
+# Declaring a feature outside this set is a hard collection error (typo guard).
+KNOWN_FEATURE_MARKERS: dict[str, str] = {
+    "plant": "plant instance capture & lifecycle (Pflanzenerfassung)",
+    "watering": "watering log / irrigation events (Gießen/Bewässerung)",
+    "nutrient": "fertilizer, nutrient plans, feeding events, EC (Düngen/Dünger)",
+    "harvest": "harvest & post-harvest management (Ernte)",
+    "calendar": "calendar, sowing calendar, season overview (Aussaat/Kalender)",
+    "journey": "core-lifecycle happy-path journey spanning multiple features/REQs",
+}
+
+# ``test_req004_watering_log.py`` -> ``004``
+_REQ_FILE_PATTERN = re.compile(r"test_req(\d{3})_")
+# File names that are core-lifecycle journeys get an implicit ``journey`` marker.
+_JOURNEY_FILE_MARKER = "core_lifecycle_journey"
+# Broad TC-ID scan for the machine-readable ``tc_id`` property. Deliberately
+# wider than protocol_plugin's strict pattern so it also captures the test-local
+# ID shapes in use (e.g. ``TC-REQ-004-W001``, ``TC-REQ-001-PI-005``, ``TC-001-080``).
+_TC_ID_SCAN = re.compile(r"\bTC-(?:REQ-)?\d{3}-[A-Za-z0-9-]*\d[a-z]?\b")
+
+
+def _req_marker_for(path_name: str) -> str | None:
+    """Return the ``req<NNN>`` marker name for a ``test_req<NNN>_*.py`` file."""
+    m = _REQ_FILE_PATTERN.search(path_name)
+    return f"req{m.group(1)}" if m else None
+
+
+def _declared_features(module: object) -> tuple[str, ...]:
+    """Read the module-level ``FEATURES`` (tuple) or ``FEATURE`` (str) opt-in."""
+    features = getattr(module, "FEATURES", None)
+    if features is None:
+        single = getattr(module, "FEATURE", None)
+        features = (single,) if single else ()
+    if isinstance(features, str):
+        features = (features,)
+    return tuple(features)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -99,9 +158,51 @@ def pytest_configure(config: pytest.Config) -> None:
         "requires_desktop: mark test as requiring desktop viewport (skipped on mobile/tablet)",
     )
 
+    # Register the feature-axis markers (semantic, cross-cutting to REQ IDs).
+    for name, description in KNOWN_FEATURE_MARKERS.items():
+        config.addinivalue_line("markers", f"{name}: {description}")
+
+    # Register a ``req<NNN>`` marker for every REQ discovered from the test file
+    # names. Registration must happen here (before collection) because under
+    # ``--strict-markers`` even constructing ``pytest.mark.req004`` validates it.
+    conftest_dir = Path(__file__).parent
+    req_nums = sorted(
+        {
+            m.group(1)
+            for f in conftest_dir.glob("test_req*.py")
+            if (m := _REQ_FILE_PATTERN.search(f.name))
+        }
+    )
+    for num in req_nums:
+        config.addinivalue_line(
+            "markers",
+            f"req{num}: auto-derived REQ axis marker for test_req{num}_*.py "
+            f"(machine-selectable via -m req{num})",
+        )
+
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Auto-skip tests based on app mode, device and resume state."""
+    """Derive selection markers, then auto-skip by app mode, device and resume state."""
+    # ── Selection axes: auto-derive REQ + feature markers (NFR-008a) ───────
+    for item in items:
+        req_marker = _req_marker_for(Path(item.location[0]).name)
+        if req_marker:
+            item.add_marker(getattr(pytest.mark, req_marker))
+
+        module = getattr(item, "module", None)
+        for feature in _declared_features(module):
+            if feature not in KNOWN_FEATURE_MARKERS:
+                raise pytest.UsageError(
+                    f"{item.nodeid}: module declares unknown FEATURES entry "
+                    f"{feature!r}; allowed values are "
+                    f"{sorted(KNOWN_FEATURE_MARKERS)}"
+                )
+            item.add_marker(getattr(pytest.mark, feature))
+
+        # Core-lifecycle journeys span multiple features/REQs — mark implicitly.
+        if _JOURNEY_FILE_MARKER in Path(item.location[0]).name:
+            item.add_marker(pytest.mark.journey)
+
     if config.getoption("--app-mode") == "light":
         skip_light = pytest.mark.skip(reason="requires full auth mode (running in light mode)")
         for item in items:
@@ -129,6 +230,21 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
                 for item in items:
                     if item.nodeid in passed_nodeids:
                         item.add_marker(skip_resume)
+
+
+@pytest.fixture(autouse=True)
+def _record_tc_id(request: pytest.FixtureRequest, record_property: Callable) -> None:
+    """Lift the docstring TC-ID into the machine-readable ``tc_id`` property.
+
+    Makes each test's declared TC-ID (e.g. ``TC-REQ-004-W001``) consumable via
+    the standard junit ``user_properties`` channel, in addition to the bespoke
+    markdown protocol. No-op when the docstring carries no TC-ID.
+    """
+    doc = (getattr(request.function, "__doc__", None) or "").strip()
+    if doc:
+        match = _TC_ID_SCAN.search(doc.splitlines()[0])
+        if match:
+            record_property("tc_id", match.group(0))
 
 
 # ── Device profiles for responsive testing ────────────────────────────────

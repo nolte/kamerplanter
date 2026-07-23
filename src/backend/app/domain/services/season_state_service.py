@@ -15,9 +15,10 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.common.enums import OVERWINTERING_SITE_TYPES, SeasonPhase
+from app.common.enums import SeasonPhase
 from app.common.exceptions import NotFoundError, SeasonStateUnavailableError
 from app.common.tenant_guard import verify_tenant_ownership
+from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.season_state_engine import SeasonStateEngine, SeasonStateTransition
 from app.domain.models.season_state import SeasonState
 from app.domain.services.season_signal_resolver import SeasonSignalResolver, hemisphere_from_site
@@ -27,7 +28,8 @@ if TYPE_CHECKING:
     from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
     from app.domain.interfaces.season_state_repository import ISeasonStateRepository
     from app.domain.interfaces.site_repository import ISiteRepository
-    from app.domain.models.site import Site
+    from app.domain.models.plant_instance import PlantInstance
+    from app.domain.models.site import Location, Site
     from app.domain.services.care_reminder_service import CareReminderService
     from app.domain.services.dormancy_care_activator import DormancyCareActivator
     from app.domain.services.overwintering_materializer import OverwinteringMaterializer
@@ -83,7 +85,14 @@ class SeasonStateService:
         Lets the daily batch task detect (and log) a transition without a second
         ``get_by_site`` read of its own.
         """
-        if site.type not in OVERWINTERING_SITE_TYPES or not site.key:
+        # Site-level gate (Issue #713): the season stays a per-site concept, but a
+        # site now qualifies when its *type* is frost-exposed OR it owns ≥1 location
+        # with an explicit ``frost_exposed == true`` override — so a frost-exposed
+        # corner under an otherwise indoor site still gets a season state. Both gate
+        # stances share :meth:`_site_has_frost_exposure` (no second hardcoded site-type
+        # set). The per-plant ``Location.frost_exposed`` overrides then narrow the
+        # side-effects to the actually-exposed plants (see :meth:`_active_plants`).
+        if not self._site_has_frost_exposure(site) or not site.key:
             return None, False
         if on_date is None:
             on_date = datetime.now(UTC).date()
@@ -175,13 +184,60 @@ class SeasonStateService:
                 persisted.key, persisted.model_copy(update={"dormancy_care_active": False})
             )
 
-    def _active_plants(self, site: Site):
+    def _site_has_frost_exposure(self, site: Site) -> bool:
+        """Whether the site qualifies for a season state (Issue #713).
+
+        ``True`` when the site *type* is frost-exposed (legacy behaviour via
+        ``resolve_frost_exposure(None, site)``) OR the site owns ≥1 location whose
+        ``frost_exposed`` override is explicitly ``True``. A ``False``/``None`` override
+        never adds a site: ``None`` is not collapsed to ``False`` here — it simply does
+        not contribute, so the site-type fallback is what decides. Shared by both gate
+        stances so the "second hardcoded site-type set" never reappears.
+        """
+        if resolve_frost_exposure(None, site):
+            return True
+        if not site.key:
+            return False
+        return any(loc.frost_exposed is True for loc in self._site_repo.get_locations_by_site(site.key))
+
+    def _active_plants(self, site: Site) -> list[PlantInstance]:
+        """Active plants of the site that are actually frost-exposed (Issue #713).
+
+        The side effects (dormancy / winter care / season reminders) must only reach a
+        plant that is itself exposed to outdoor frost. Because a ``frost_exposed=false``
+        location can *exclude* a plant even on an outdoor site — and a
+        ``frost_exposed=true`` location can *include* one on an indoor site — the
+        exposure is resolved per plant (never assumed from the site alone). ``None`` /
+        no location falls through to the site-type classification (bit-for-bit legacy
+        behaviour when no override exists anywhere).
+        """
         plants = self._plant_repo.find_by_field(
             "site_key",
             site.key,
             extra_filters=[("tenant_key", "==", site.tenant_key)],
         )
-        return [p for p in plants if p.removed_on is None]
+        return [
+            p
+            for p in plants
+            if p.removed_on is None and resolve_frost_exposure(self._load_plant_location(p, site), site)
+        ]
+
+    def _load_plant_location(self, plant: PlantInstance, site: Site) -> Location | None:
+        """Load the plant's location for the frost resolver, tenant/site-safe (#706).
+
+        Returns ``None`` — so the resolver falls back to the site type — when the plant
+        carries no ``location_key``/``site_key``, the location is unknown, or it does not
+        belong to the plant's own site. Ownership is anchored on the SITE (already
+        tenant-verified by the caller), not on ``location.tenant_key`` (persisted empty):
+        requiring ``location.site_key == plant.site_key == site.key`` keeps a location
+        under a foreign site from ever contributing its ``frost_exposed`` override.
+        """
+        if not plant.location_key or not plant.site_key or plant.site_key != site.key:
+            return None
+        location = self._site_repo.get_location_by_key(plant.location_key)
+        if location is None or not location.site_key or location.site_key != plant.site_key:
+            return None
+        return location
 
     @staticmethod
     def _safe(fn, *args, plant_key: str | None = None) -> None:
@@ -205,7 +261,9 @@ class SeasonStateService:
         if site is None:
             raise NotFoundError("Site", site_key)
         verify_tenant_ownership(site, tenant_key, "Site")
-        if site.type not in OVERWINTERING_SITE_TYPES:
+        # Site-level gate (see :meth:`evaluate_site_detailed`): available when the site
+        # type is frost-exposed OR the site owns ≥1 frost-exposed location (Issue #713).
+        if not self._site_has_frost_exposure(site):
             raise SeasonStateUnavailableError(site_key)
 
         state = self._repo.get_by_site(site_key, tenant_key)

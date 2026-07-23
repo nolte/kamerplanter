@@ -12,11 +12,23 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from app.common.exceptions import ConsentRequiredError, NotFoundError, ValidationError
+from app.config.settings import settings
 from app.data_access.external.knowledge_service_adapter import KnowledgeServiceUnavailableError
 from app.domain.interfaces.knowledge_service import AskResult, KnowledgeChunk
 from app.domain.models.ai_assistant import AiProviderConfig
 from app.domain.models.glossary_term import GlossaryTerm, GlossaryTermCacheEntry
 from app.domain.services.glossary_service import GlossaryService
+
+
+@pytest.fixture(autouse=True)
+def _enable_ai_flag(monkeypatch):
+    """RAG path tests assume the stage-1 operator flag is on (default is off, #684).
+
+    The flag defaults to ``False``; the RAG explanation only runs when it is on.
+    The AI-off tests below flip it back off explicitly.
+    """
+    monkeypatch.setattr(settings, "ai_features_enabled", True)
+    yield
 
 
 def _term(slug: str = "vpd", **overrides) -> GlossaryTerm:
@@ -374,6 +386,63 @@ async def test_tenant_local_provider_no_consent_no_cloud() -> None:
     answer = await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
     assert answer.uses_cloud_provider is False
     consent.require_consent.assert_not_called()
+
+
+# ── #684: term list + fallback decoupled from the AI feature flag ──
+
+
+def test_list_terms_available_without_ai_flag(monkeypatch) -> None:
+    # The term list carries no AI/RAG dependency and stays available with AI off.
+    monkeypatch.setattr(settings, "ai_features_enabled", False)
+    term = _term()
+    service, term_repo, *_ = _service(term=term, ks_ask=AsyncMock())
+    term_repo.list_active.return_value = [term]
+
+    summaries = service.list_terms()
+    assert summaries[0].slug == "vpd"
+
+
+async def test_get_term_ai_flag_off_serves_editorial_fallback() -> None:
+    # AI off → editorial fallback (is_fallback=true), no 404, no RAG/cache call.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(settings, "ai_features_enabled", False)
+        term = _term()
+        ask = AsyncMock()
+        service, _tr, cache_repo, adapter, _c = _service(term=term, ks_ask=ask)
+
+        answer = await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+
+    adapter.ask.assert_not_awaited()  # RAG generation never runs (#684)
+    cache_repo.find_valid.assert_not_called()  # cache bypassed
+    cache_repo.upsert.assert_not_called()
+    assert answer.is_fallback is True
+    assert answer.answer_text == "VPD Kurzdefinition."
+    assert answer.uses_cloud_provider is False
+    assert answer.uses_tenant_data is False
+
+
+async def test_get_term_ai_flag_off_skips_cloud_consent_gate() -> None:
+    # A cloud default provider must NOT trigger a consent check when AI is off:
+    # no cloud call happens, so no consent is required (fallback path only).
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(settings, "ai_features_enabled", False)
+        term = _term()
+        cloud = AiProviderConfig(
+            _key="claude",
+            tenant_key="home",
+            provider_type="anthropic",
+            display_name="Claude",
+            model_name="claude-3-5",
+            requires_consent=True,
+            is_default=True,
+        )
+        service, _tr, _cr, adapter, consent = _service(term=term, ks_ask=AsyncMock(), provider=cloud)
+
+        answer = await service.get_term("vpd", tenant_key="home", user_key="anna", allow_cloud=True)
+
+    adapter.ask.assert_not_awaited()
+    consent.require_consent.assert_not_called()
+    assert answer.is_fallback is True
 
 
 # ── list_terms + invalidate ────────────────────────────────────────

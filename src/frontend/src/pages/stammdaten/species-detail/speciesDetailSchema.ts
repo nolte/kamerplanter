@@ -44,6 +44,9 @@ export const GROWTH_HABITS = [
   'epiphyte',
 ] as const;
 
+/** Photosynthesis-type enum values — mirrors PhotosynthesisType in api/types.ts (REQ-001 v4.2). */
+export const PHOTOSYNTHESIS_TYPES = ['c3', 'c4', 'cam'] as const;
+
 /** Harvest-pattern enum values — mirrors HarvestPattern in api/types.ts (REQ-007). */
 export const HARVEST_PATTERNS = ['single', 'continuous', 'perennial'] as const;
 
@@ -73,8 +76,9 @@ export const speciesEditSchema = z.object({
   family_key: z.string().nullable(),
   genus: z.string(),
   growth_habit: z.enum(GROWTH_HABITS),
-  root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous', 'corm']),
   // Empty string = "no selection" from the MUI select; normalised to null on submit.
+  photosynthesis_type: z.enum(PHOTOSYNTHESIS_TYPES).or(z.literal('')).nullable(),
+  root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous', 'corm']),
   harvest_pattern: z.enum(HARVEST_PATTERNS).or(z.literal('')).nullable(),
   harvested_part: z.enum(HARVESTED_PARTS).or(z.literal('')).nullable(),
   climacteric: z.enum(CLIMACTERIC_CLASSES).or(z.literal('')).nullable(),
@@ -118,6 +122,7 @@ export const speciesFormDefaults: SpeciesFormData = {
   family_key: null,
   genus: '',
   growth_habit: 'herb',
+  photosynthesis_type: null,
   root_type: 'fibrous',
   harvest_pattern: null,
   harvested_part: null,
@@ -152,6 +157,7 @@ export function speciesToFormValues(current: Species): SpeciesFormData {
     family_key: current.family_key,
     genus: current.genus,
     growth_habit: current.growth_habit,
+    photosynthesis_type: current.photosynthesis_type ?? null,
     root_type: current.root_type,
     harvest_pattern: current.harvest_pattern ?? null,
     harvested_part: current.harvested_part ?? null,

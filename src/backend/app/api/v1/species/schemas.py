@@ -13,7 +13,12 @@ from app.common.enums import (
     RootType,
     Suitability,
 )
-from app.domain.models.species import GrowingPeriod, PropagationConfig, WateringGuide
+from app.domain.models.species import (
+    GrowingPeriod,
+    PhotosynthesisType,
+    PropagationConfig,
+    WateringGuide,
+)
 
 
 class SpeciesCreate(BaseModel):
@@ -24,6 +29,7 @@ class SpeciesCreate(BaseModel):
     hardiness_zones: list[str] = Field(default_factory=list)
     native_habitat: str = ""
     growth_habit: GrowthHabit = GrowthHabit.HERB
+    photosynthesis_type: PhotosynthesisType | None = None
     root_type: RootType = RootType.FIBROUS
     allelopathy_score: float = Field(default=0.0, ge=-1.0, le=1.0)
     base_temp: float = 10.0
@@ -70,6 +76,7 @@ class SpeciesResponse(BaseModel):
     hardiness_zones: list[str]
     native_habitat: str
     growth_habit: GrowthHabit
+    photosynthesis_type: PhotosynthesisType | None = None
     root_type: RootType
     allelopathy_score: float
     base_temp: float

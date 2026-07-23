@@ -30,6 +30,10 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.calendar_page import CalendarPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('calendar',)
+
 
 # -- Fixtures -----------------------------------------------------------------
 

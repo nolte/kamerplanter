@@ -6,7 +6,7 @@ For every outdoor, greenhouse, or balcony plant of yours that isn't winter-hardy
 
 ## Prerequisites
 
-- The plant is located at a site of type **Outdoor**, **Greenhouse**, or **Balcony**. These three types count as frost-exposed; Indoor, Windowsill, and Grow Tent do not.
+- The plant is at a location that counts as frost-exposed. By default, that is the case for a location on a site of type **Outdoor**, **Greenhouse**, or **Balcony**; Indoor, Windowsill, and Grow Tent do not count as frost-exposed by default. You can override this classification for each individual location, see [Setting Frost Exposure for a Location](locations-substrates.md#setting-frost-exposure-for-a-location).
 - The plant has a species assigned (master data) — Kamerplanter derives the frost sensitivity from it.
 
 ---

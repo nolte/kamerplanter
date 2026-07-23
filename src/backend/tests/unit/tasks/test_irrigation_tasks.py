@@ -100,11 +100,16 @@ class TestComputeIrrigationDemand:
         monkeypatch.setattr(module.settings, "irrigation_demand_enabled", False, raising=False)
         assert module.compute_irrigation_demand() == {"status": "skipped", "reason": "irrigation_demand_disabled"}
 
-    def test_only_outdoor_and_greenhouse_sites_are_queried(self, task_module):
+    def test_weather_relevant_sites_including_balcony_are_queried(self, task_module):
+        # #706: balcony is a frost-/weather-exposed site type and must be
+        # queried alongside outdoor/greenhouse (shared WEATHER_RELEVANT_SITE_TYPES).
+        # Compare as a set — frozenset iteration order is not guaranteed.
         module, deps = task_module
         site_repo, _demand = _wire_repos(deps, runs=[])
         module.compute_irrigation_demand()
-        site_repo.find_site_docs_by_types.assert_called_once_with(["outdoor", "greenhouse"])
+        site_repo.find_site_docs_by_types.assert_called_once()
+        (called_types,) = site_repo.find_site_docs_by_types.call_args[0]
+        assert set(called_types) == {"outdoor", "greenhouse", "balcony"}
 
     def test_writes_demand_for_active_run(self, task_module):
         module, deps = task_module

@@ -78,6 +78,7 @@ def update_location(
 ):
     _verify_location_tenant(key, ctx, service)
     location = Location(**body.model_dump())
+    service.get_site(location.site_key, tenant_key=ctx.tenant_key)
     updated = service.update_location(key, location)
     return to_response(updated, LocationResponse)
 

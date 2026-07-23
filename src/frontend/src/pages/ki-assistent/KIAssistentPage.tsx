@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
@@ -9,12 +9,15 @@ import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import ChatIcon from '@mui/icons-material/Chat';
 import PageTitle from '@/components/layout/PageTitle';
+import EmptyState from '@/components/common/EmptyState';
 import AIResponse from '@/components/ai/AIResponse';
 import AiChatDrawer from '@/components/ai/AiChatDrawer';
 import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
 import { aiApi } from '@/api';
 import { kamiKiAssistent } from '@/assets/brand/illustrations';
 import { isLightMode } from '@/config/mode';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 import type { AiResponse as AiResponseData } from '@/api/types';
 
 /**
@@ -26,6 +29,14 @@ import type { AiResponse as AiResponseData } from '@/api/types';
  */
 export default function KIAssistentPage() {
   const { t, i18n } = useTranslation();
+  const dispatch = useAppDispatch();
+  // Issue #685 — degrade to a clear "not configured" state when AI features are
+  // disabled cluster-wide, instead of surfacing the guard's 404 as a generic
+  // error. The probe runs at app start; refresh it here for direct navigation.
+  const aiAvailable = useAppSelector((s) => s.aiStatus.available);
+  useEffect(() => {
+    void dispatch(fetchAiStatus());
+  }, [dispatch]);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState<AiResponseData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,6 +60,18 @@ export default function KIAssistentPage() {
       setLoading(false);
     }
   }, [question, loading, language, t]);
+
+  if (aiAvailable === false) {
+    return (
+      <Box sx={{ p: { xs: 2, sm: 3 } }} data-testid="ki-assistent-page">
+        <PageTitle title={t('pages.kiAssistent.title')} />
+        <EmptyState
+          message={t('pages.kiAssistent.notConfigured.title')}
+          description={t('pages.kiAssistent.notConfigured.description')}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }} data-testid="ki-assistent-page">

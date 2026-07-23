@@ -15,6 +15,10 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.feeding_event_list_page import FeedingEventListPage
 
+# Feature-axis marker(s) for machine-selectable test identification
+# (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
+FEATURES = ('nutrient',)
+
 
 # -- Fixtures ----------------------------------------------------------------
 

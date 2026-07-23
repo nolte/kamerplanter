@@ -151,7 +151,11 @@ if settings.knowledge_service_enabled:
 # The tenant-scoped /ai/* routes live under the tenant_scoped_router.
 from app.api.v1.ki_assistent.global_router import router as ai_global_router  # noqa: E402
 from app.api.v1.ki_assistent.public_router import router as ai_public_router  # noqa: E402
+from app.api.v1.ki_assistent.status_router import router as ai_status_router  # noqa: E402
 
+# Issue #685 — public availability probe. Ungated by the operator flag (it
+# reports it) and mounted in both modes so the frontend can hide the nav entry.
+api_router.include_router(ai_status_router)
 api_router.include_router(ai_public_router)
 if settings.kamerplanter_mode == "full":
     api_router.include_router(ai_global_router)

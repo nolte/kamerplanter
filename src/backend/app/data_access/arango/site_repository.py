@@ -1,10 +1,51 @@
-from arango.database import StandardDatabase
+from datetime import UTC, datetime
 
+from arango.database import StandardDatabase
+from arango.exceptions import DocumentUpdateError
+
+from app.common.exceptions import NotFoundError
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.site import Location, Site, Slot
+
+
+class _LocationRepository(BaseArangoRepository[Location]):
+    """Location view with a null-preserving update (Issue #714, P1).
+
+    A stored ``Location.frost_exposed`` override (``true``/``false``) must be
+    resettable to ``null`` ("inherit from the parent site") via an update. The
+    base :meth:`BaseArangoRepository._update_doc` dumps with
+    ``exclude_none=True`` and ArangoDB merges with ``keepNull=true``, so an
+    explicit ``null`` is dropped from the patch and the stored value survives.
+
+    This override dumps the *full* model (``exclude_none=False``) and passes
+    ``keep_none=False`` so ArangoDB removes a null attribute from the document —
+    the Pydantic default then reads back as ``None`` (= inherit). It mirrors
+    :meth:`ArangoPlantInstanceRepository.update` and keeps the base
+    ``DocumentUpdateError`` → :class:`NotFoundError` mapping (error code 1202).
+    """
+
+    _model_cls = Location
+
+    def update(self, key: str, model: Location) -> Location:
+        # exclude_none=False writes the full model so user-nullable fields
+        # (frost_exposed, tank_key, orientation, …) sent as null are honoured;
+        # keep_none=False tells ArangoDB to drop the null attribute instead of
+        # merging it away (Full-Replace-PUT semantics).
+        data = model.model_dump(by_alias=True, exclude_none=False, mode="json")
+        data.pop("_key", None)
+        data.pop("created_at", None)
+        data.pop("updated_at", None)
+        data["updated_at"] = datetime.now(UTC).isoformat()
+        try:
+            result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=False)
+        except DocumentUpdateError as e:
+            if e.error_code == 1202:  # document not found
+                raise NotFoundError(self._collection_name, key) from e
+            raise
+        return Location(**self._from_doc(result["new"]))
 
 
 class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
@@ -13,7 +54,7 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.SITES)
-        self._locations = BaseArangoRepository[Location](db, col.LOCATIONS, Location)
+        self._locations = _LocationRepository(db, col.LOCATIONS)
         self._slots = BaseArangoRepository[Slot](db, col.SLOTS, Slot)
 
     # ── Site CRUD ─────────────────────────────────────────────────────
@@ -34,6 +75,42 @@ class ArangoSiteRepository(BaseArangoRepository[Site], ISiteRepository):
             bind_vars={"@col": self._collection_name, "types": types},
         )
         return [self._from_doc(doc) for doc in cursor]
+
+    def find_site_docs_by_keys(self, keys: list[str]) -> list[dict]:
+        """Return normalised site docs for the given ``_key`` list across all tenants.
+
+        Companion to :meth:`find_site_docs_by_types`: yields already
+        ``_from_doc``-normalised dicts (not ``Site`` models) so the cross-tenant season
+        task can union them with the type-based selection and construct each ``Site``
+        defensively (one schema-drift document must not abort the batch, REQ-047 AC-18).
+        An empty ``keys`` list short-circuits without a query.
+        """
+        if not keys:
+            return []
+        cursor = self._db.aql.execute(
+            "FOR s IN @@col FILTER s._key IN @keys RETURN s",
+            bind_vars={"@col": self._collection_name, "keys": keys},
+        )
+        return [self._from_doc(doc) for doc in cursor]
+
+    def find_site_keys_with_frost_exposed_location(self) -> list[str]:
+        """Return the distinct ``site_key``s that own ≥1 frost-exposed location.
+
+        Selects only locations whose :attr:`Location.frost_exposed` override is
+        explicitly ``true`` (Issue #706/#713) — never ``!= null`` — so a ``false``
+        override on an indoor site does NOT pull that site into the season evaluation.
+        Parametrised via ``bind_vars`` (no string interpolation); keeps the AQL in the
+        data-access layer (NFR-001).
+        """
+        cursor = self._db.aql.execute(
+            """
+            FOR l IN @@col
+                FILTER l.frost_exposed == true AND l.site_key != null AND l.site_key != ""
+                RETURN DISTINCT l.site_key
+            """,
+            bind_vars={"@col": col.LOCATIONS},
+        )
+        return [key for key in cursor if key]
 
     def get_site_by_key(self, key: SiteKey) -> Site | None:
         return super().get_by_key(key)

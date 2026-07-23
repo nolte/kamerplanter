@@ -31,3 +31,23 @@ class TestWeatherRelevantSiteTypes:
 
     def test_is_frozenset(self) -> None:
         assert isinstance(WEATHER_RELEVANT_SITE_TYPES, frozenset)
+
+
+class TestOverwinteringSiteTypes:
+    """REQ-047 P3: Balcony inclusion in frost-exposed site types."""
+
+    def test_includes_balcony(self) -> None:
+        """Balcony is a frost-exposed outdoor location (SITE #492)."""
+        assert SiteType.BALCONY in OVERWINTERING_SITE_TYPES
+
+    def test_includes_outdoor_and_greenhouse(self) -> None:
+        assert SiteType.OUTDOOR in OVERWINTERING_SITE_TYPES
+        assert SiteType.GREENHOUSE in OVERWINTERING_SITE_TYPES
+
+    def test_excludes_indoor_types(self) -> None:
+        assert SiteType.INDOOR not in OVERWINTERING_SITE_TYPES
+        assert SiteType.WINDOWSILL not in OVERWINTERING_SITE_TYPES
+        assert SiteType.GROW_TENT not in OVERWINTERING_SITE_TYPES
+
+    def test_is_frozenset(self) -> None:
+        assert isinstance(OVERWINTERING_SITE_TYPES, frozenset)

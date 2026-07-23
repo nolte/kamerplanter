@@ -11,6 +11,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
+import FormClimateZoneField from '@/components/form/FormClimateZoneField';
+import FormTimezoneField from '@/components/form/FormTimezoneField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
@@ -151,7 +153,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
             )}
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.climate_zone.level}>
-            <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} helperText={t('pages.sites.climateZoneHelper')} />
+            <FormClimateZoneField name="climate_zone" control={control} label={t('pages.sites.climateZone')} helperText={t('pages.sites.climateZoneHelper')} />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.total_area_m2.level}>
             <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
@@ -162,7 +164,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
           </ExpertiseFieldWrapper>
           {/* expert */}
           <ExpertiseFieldWrapper minLevel={fc.timezone.level}>
-            <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
+            <FormTimezoneField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} required />
           </ExpertiseFieldWrapper>
           {level !== 'expert' && (
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />

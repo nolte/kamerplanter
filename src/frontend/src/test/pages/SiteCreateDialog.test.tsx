@@ -141,7 +141,7 @@ describe('SiteCreateDialog', () => {
     const nameField = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
     await user.type(nameField, 'North Field');
 
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(screen.getByTestId('form-field-type')).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Außenbereich' }));
 
     await user.type(within(screen.getByTestId('form-field-gps_lat')).getByRole('spinbutton'), '52.5');
@@ -195,7 +195,7 @@ describe('SiteCreateDialog', () => {
     expect(screen.getByTestId('site-weather-type-hint')).toBeTruthy();
     expect(screen.queryByTestId('site-balcony-weather-hint')).toBeNull();
 
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(screen.getByTestId('form-field-type')).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Balkon' }));
 
     // Balcony is weather-relevant => disabled hint gone, positive hint shown.
@@ -225,7 +225,7 @@ describe('SiteCreateDialog', () => {
     const nameField = within(await screen.findByTestId('form-field-name')).getByRole('textbox');
     await user.type(nameField, 'South Balcony');
 
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(screen.getByTestId('form-field-type')).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Balkon' }));
 
     await user.type(within(screen.getByTestId('form-field-gps_lat')).getByRole('spinbutton'), '48.1');
@@ -247,7 +247,7 @@ describe('SiteCreateDialog', () => {
     });
 
     await screen.findByTestId('site-create-dialog');
-    await user.click(screen.getByRole('combobox'));
+    await user.click(within(screen.getByTestId('form-field-type')).getByRole('combobox'));
     await user.click(await screen.findByRole('option', { name: 'Fensterbrett' }));
 
     expect(screen.getByTestId('site-weather-type-hint')).toBeTruthy();

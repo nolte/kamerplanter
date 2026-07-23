@@ -158,6 +158,26 @@ Click **Save**. The site appears in the overview.
 !!! info "For technical users"
     The twelve types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
 
+### Setting Frost Exposure for a Location {#setting-frost-exposure-for-a-location}
+
+Whether a plant counts as frost-exposed normally depends on the **type of the parent site**: Outdoor, Greenhouse, and Balcony are automatically treated as frost-exposed, while Indoor, Windowsill, and Grow Tent are not (see [Available site types](#creating-a-new-site)). For each individual location within a site, you can override this classification in the **Frost exposure** field — useful, for example, when a single location differs from the rest of the site.
+
+The form for creating or editing a location offers three options:
+
+| Option | Effect |
+|--------|--------|
+| Inherit from site (default) | Uses the parent site type's classification — matches previous behaviour with no override. |
+| Outdoor – frost-exposed | The location counts as frost-exposed regardless of the site type. |
+| Indoor – protected | The location counts as protected, even if the parent site is set up as Outdoor, Greenhouse, or Balcony. |
+
+A location's frost exposure determines both whether plants at that location receive an [overwintering plan](overwintering.md) and whether they're covered by [season automation](season-automation.md) — winter approach, dormancy care, and spring reactivation. Both follow the same classification consistently: a location that counts as frost-exposed gets the full automation, even if it sits on an otherwise indoor site; a location classified as protected is never put into winter dormancy, even if other locations on the same site are frost-exposed. <!-- REQ-047 -->
+
+!!! example "A balcony underneath a heated apartment"
+    If your balcony sits underneath another, heated apartment, it is often noticeably warmer than a free-standing balcony. Kamerplanter still marks it as frost-exposed by default, since the site is set up with type "Balcony". If you want to override this for just this one location, open it and select **"Indoor – protected"** under **Frost exposure** — plants at this location then no longer receive an overwintering plan, even though other areas of the same site remain frost-exposed. Conversely, you can mark a particularly exposed location (e.g. a free-standing window sill in an unheated stairwell) as frost-exposed even when the parent site is set up as Indoor.
+
+!!! tip "Undoing an override at any time"
+    When editing a location, you can switch freely between all three options at any time — including back to **"Inherit from site"**. This removes the override entirely; the location then automatically follows the parent site type's classification again.
+
 ### Adding a Slot Within a Location
 
 1. Open a location by clicking its name in the tree.
@@ -279,4 +299,6 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 - [Fertilization](fertilization.md)
 - [Growth Phases](growth-phases.md)
 - [Weather Sources per Location](weather-sources.md)
+- [Season Automation](season-automation.md) — how a location's frost exposure drives the season automation
+- [Overwintering](overwintering.md) — the automatically created overwintering plan per plant
 - [Plant Identification by Photo](plant-identification.md#assigning-a-location-optional) — assign a site, area, and slot directly when creating a plant

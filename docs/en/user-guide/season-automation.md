@@ -1,12 +1,12 @@
 # Season Automation: When Does Winter Arrive?
 
-For all your outdoor, greenhouse, and balcony sites, Kamerplanter automatically detects when winter is approaching, when winter dormancy begins, and when it's time to bring your plants back in spring. You don't need to configure anything — the system automatically uses the best available data source for your site. <!-- REQ-047 -->
+For all your outdoor, greenhouse, and balcony sites — as well as any other site with at least one location manually marked as frost-exposed — Kamerplanter automatically detects when winter is approaching, when winter dormancy begins, and when it's time to bring your plants back in spring. You don't need to configure anything — the system automatically uses the best available data source for your site. <!-- REQ-047 -->
 
 ---
 
 ## Prerequisites
 
-- At least one site of type **Outdoor**, **Greenhouse**, or **Balcony** — pure indoor sites (indoor, windowsill, grow tent) have no season automation; the simple, hemisphere-based winter watering adjustment from [Care Reminders](care-reminders.md#seasonal-adjustment) still applies there.
+- At least one site of type **Outdoor**, **Greenhouse**, or **Balcony** — or a site of another type where at least one location is manually set to **"Outdoor – frost-exposed"** (see [Setting Frost Exposure for a Location](locations-substrates.md#setting-frost-exposure-for-a-location)). A site with no frost-exposed location at all — e.g. a pure indoor site with no override — has no season automation; the simple, hemisphere-based winter watering adjustment from [Care Reminders](care-reminders.md#seasonal-adjustment) still applies there.
 - No further setup needed — the evaluation runs automatically in the background every day.
 
 ---
@@ -36,6 +36,9 @@ stateDiagram-v2
     A single mild day in January does not bring a plant back out of winter dormancy — the system needs several consecutive mild days before it switches to the next phase. This prevents a short warm spell from triggering a premature spring action.
 
 You can see the current state of each site directly in the **Winter Protection** dashboard widget (see [Personalizing the Dashboard](dashboard-personalization.md)), as well as — for an individual plant — in the [Overwintering](overwintering.md) section.
+
+!!! note "Mixed site: only the frost-exposed location is affected"
+    If you've overridden the frost exposure of a single location within an otherwise indoor, windowsill, or grow-tent site to **"Outdoor – frost-exposed"**, the entire site goes through the four season phases like an outdoor site. The winter-dormancy care plan (reduced watering, reminders) only reaches the plants at that frost-exposed location, though — plants at the site's other, protected locations are **not** put into winter dormancy. See [Setting Frost Exposure for a Location](locations-substrates.md#setting-frost-exposure-for-a-location) for more on the classification. <!-- REQ-047 -->
 
 ---
 
@@ -106,7 +109,10 @@ When a site reaches the "spring reactivation" phase, a **"Remove winter protecti
 ## Frequently Asked Questions
 
 ??? question "Do I have to set up when winter begins for every plant myself?"
-    No. Season automation runs per site and automatically affects all plants at that site. You don't need to configure anything — for the per-plant result, see [Overwintering](overwintering.md).
+    No. Season automation runs per site, but only affects plants at frost-exposed locations of that site — plants at protected locations on the same site are unaffected (see [Setting Frost Exposure for a Location](locations-substrates.md#setting-frost-exposure-for-a-location)). You don't need to configure anything — for the per-plant result, see [Overwintering](overwintering.md).
+
+??? question "I marked a location of my indoor site as frost-exposed — do the plants there now also get winter-protection reminders?"
+    Yes. As soon as at least one location of a site is classified as "Outdoor – frost-exposed", the entire site goes through the season phases — including the winter-dormancy care plan and reminders for the plants at that location. Plants at the site's other, protected locations continue to not be put into winter dormancy.
 
 ??? question "What happens if my weather source fails?"
     In that case, Kamerplanter automatically falls back to the next-best source — your site's stored frost dates, or, failing that, the rough calendar estimate. Season automation stays functional in every case, even without any weather connection at all.
@@ -122,6 +128,7 @@ When a site reaches the "spring reactivation" phase, a **"Remove winter protecti
 ## See Also
 
 - [Overwintering](overwintering.md) — the automatically created plan per plant
+- [Locations and Substrates — Setting Frost Exposure for a Location](locations-substrates.md#setting-frost-exposure-for-a-location) — how to override the frost exposure of individual locations
 - [Care Reminders](care-reminders.md) — watering and care plans in general
 - [Weather Sources](weather-sources.md) — set up live weather data per site
 - [Climate Zones & Winter Hardiness](../guides/climate-zones.md) — how the winter-hardiness traffic light is derived

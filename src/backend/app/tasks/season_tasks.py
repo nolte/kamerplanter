@@ -1,6 +1,7 @@
 """REQ-047 §3.6 — daily Celery task that advances every site's season state.
 
-For each ``outdoor``/``greenhouse`` site the task resolves the best season signal
+For each frost-exposed site (``OVERWINTERING_SITE_TYPES``: outdoor, greenhouse,
+balcony) the task resolves the best season signal
 (live → climatological → calendar), advances the season state machine and applies
 the per-transition side effects (overwintering materialisation, dormancy-care mode).
 Runs after the weather fetch. Guarded by the ``season_state_eval_enabled``
@@ -10,6 +11,7 @@ duplicates side effects.
 
 import structlog
 
+from app.common.enums import OVERWINTERING_SITE_TYPES
 from app.config.settings import settings
 from app.tasks import celery_app
 
@@ -18,7 +20,7 @@ logger = structlog.get_logger(__name__)
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evaluate_season_states(self) -> dict:  # noqa: ANN001 — Celery bound-task self
-    """Evaluate the season state for every outdoor/greenhouse site."""
+    """Evaluate the season state for every frost-exposed site (incl. balcony)."""
     if not settings.season_state_eval_enabled:
         return {"status": "skipped", "reason": "season_state_eval_disabled"}
 
@@ -30,12 +32,21 @@ def evaluate_season_states(self) -> dict:  # noqa: ANN001 — Celery bound-task 
 
     # Cross-tenant iteration stays in the data-access layer (NFR-001); docs are
     # returned normalised so each Site is constructed defensively below.
-    site_docs = site_repo.find_site_docs_by_types(["outdoor", "greenhouse"])
+    #
+    # Two selections are unioned (Issue #713): the legacy frost-exposed site *types*
+    # (outdoor/greenhouse/balcony) plus any site — including an otherwise indoor one —
+    # that owns ≥1 location with an explicit ``frost_exposed == true`` override. A site
+    # can appear in both, so docs are de-duplicated by ``_key``.
+    site_docs = site_repo.find_site_docs_by_types([t.value for t in OVERWINTERING_SITE_TYPES])
+    frost_location_site_keys = site_repo.find_site_keys_with_frost_exposed_location()
+    docs_by_key: dict[str | None, dict] = {doc.get("_key"): doc for doc in site_docs}
+    for doc in site_repo.find_site_docs_by_keys(frost_location_site_keys):
+        docs_by_key.setdefault(doc.get("_key"), doc)
 
     evaluated = 0
     transitions = 0
     errors = 0
-    for doc in site_docs:
+    for doc in docs_by_key.values():
         # AC-18: constructing the Site (Pydantic) is inside the guard, so a single
         # schema-drift document is logged and skipped instead of aborting the run.
         try:

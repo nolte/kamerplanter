@@ -166,6 +166,26 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 !!! info "Für technische Nutzer"
     Die zwölf oben aufgeführten Typen sind vorinstallierte System-Typen. Kamerplanter unterstützt intern bereits eigene, zusätzliche Location-Typen. Diese Einstellung ist derzeit nur über die API verfügbar — eine eigene Verwaltungsseite in der Oberfläche gibt es noch nicht.
 
+### Frostexposition einer Location festlegen {#frostexposition-einer-location-festlegen}
+
+Ob eine Pflanze als frostexponiert gilt, richtet sich normalerweise nach dem **Typ der übergeordneten Site**: Außenbereich, Gewächshaus und Balkon gelten automatisch als frostexponiert, Innenbereich, Fensterbrett und Growzelt dagegen nicht (siehe [Verfügbare Site-Typen](#eine-neue-site-anlegen)). Für jede einzelne Location innerhalb einer Site kannst du diese Einstufung im Feld **Frostexposition** gezielt übersteuern — das ist z. B. nützlich, wenn eine einzelne Location abweichend vom Rest der Site liegt.
+
+Im Formular zum Anlegen oder Bearbeiten einer Location findest du dazu drei Optionen:
+
+| Option | Wirkung |
+|--------|---------|
+| Vom Standort erben (Standard) | Übernimmt die Einstufung des übergeordneten Site-Typs — entspricht dem bisherigen Verhalten ohne Übersteuerung. |
+| Außenbereich – frostexponiert | Die Location gilt unabhängig vom Site-Typ als frostexponiert. |
+| Innen – geschützt | Die Location gilt als geschützt, selbst wenn die übergeordnete Site als Außenbereich, Gewächshaus oder Balkon angelegt ist. |
+
+Die Frostexposition einer Location bestimmt sowohl, ob Pflanzen an dieser Location einen [Überwinterungsplan](overwintering.md) erhalten, als auch, ob sie von der [Saison-Automatik](season-automation.md) erfasst werden — Winter-Einzug, Dormanz-Pflege und Frühjahrs-Rückholung. Beides folgt konsistent derselben Einstufung: Eine Location, die als frostexponiert gilt, bekommt die volle Automatik, auch wenn sie auf einem ansonsten als Innenbereich angelegten Standort liegt; eine als geschützt eingestufte Location wird nicht in Winterruhe versetzt, selbst wenn andere Locations desselben Standorts frostexponiert sind. <!-- REQ-047 -->
+
+!!! example "Balkon unter einer beheizten Wohnung"
+    Liegt dein Balkon unter einer anderen, beheizten Wohnung, ist er oft spürbar wärmer als ein freistehender Balkon. Trotzdem markiert Kamerplanter ihn standardmäßig als frostexponiert, sobald die Site als Typ „Balkon" angelegt ist. Möchtest du das für diese eine Location übersteuern, öffnest du sie und wählst bei **Frostexposition** die Option **„Innen – geschützt"** — Pflanzen an dieser Location bekommen dann keinen Überwinterungsplan mehr, auch wenn andere Bereiche derselben Site weiterhin als frostexponiert gelten. Umgekehrt kannst du eine besonders exponierte Location (z. B. eine freistehende Fensterbank in einem unbeheizten Treppenhaus) auch dann als frostexponiert markieren, wenn die übergeordnete Site als Innenbereich angelegt wurde.
+
+!!! tip "Übersteuerung jederzeit rückgängig machen"
+    Du kannst beim Bearbeiten einer Location jederzeit zwischen allen drei Optionen wechseln — auch zurück auf **„Vom Standort erben"**. Das entfernt die Übersteuerung vollständig; die Location übernimmt danach wieder automatisch die Einstufung des übergeordneten Site-Typs.
+
 ### Slot innerhalb einer Location anlegen
 
 1. Öffne eine Location durch Klick auf ihren Namen im Baum.
@@ -287,4 +307,6 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 - [Dünge-Logik](fertilization.md)
 - [Wachstumsphasen](growth-phases.md)
 - [Wetterquellen je Standort](weather-sources.md)
+- [Saison-Automatik](season-automation.md) — wie die Frostexposition einer Location die Jahreszeiten-Automatik steuert
+- [Überwinterung](overwintering.md) — der automatisch erstellte Überwinterungsplan je Pflanze
 - [Pflanze per Foto identifizieren](plant-identification.md#standort-zuweisen-optional) — Standort, Bereich und Stellplatz direkt beim Anlegen einer Pflanze zuweisen

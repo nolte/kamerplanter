@@ -134,6 +134,40 @@ class TestResolveForSite:
         site_repo.update_site.assert_not_called()
         zone_repo.assign_site_to_zone.assert_not_called()
 
+    def test_fetch_if_missing_pulls_normals_then_derives(self) -> None:
+        # Repo returns no normals on the first read, then the fetcher "persists"
+        # one and the second read yields it — mirroring the on-demand flow.
+        service, site_repo, climate_repo, _zone = _service(_site(), [])
+        climate_repo.get_by_site.side_effect = [[], [_normal()]]
+        fetcher = MagicMock()
+        service._normals_fetcher = fetcher  # noqa: SLF001 — inject the on-demand fetcher
+
+        result = service.resolve_for_site("site1", "t1", fetch_if_missing=True)
+
+        assert result.hardiness_zone == "7a"
+        fetcher.fetch_for_site.assert_called_once()
+        site_repo.update_site.assert_called_once()
+
+    def test_fetch_if_missing_still_422_when_fetch_yields_nothing(self) -> None:
+        service, site_repo, climate_repo, _zone = _service(_site(), [])
+        climate_repo.get_by_site.return_value = []
+        fetcher = MagicMock()
+        service._normals_fetcher = fetcher  # noqa: SLF001
+
+        with pytest.raises(ValidationError):
+            service.resolve_for_site("site1", "t1", fetch_if_missing=True)
+        fetcher.fetch_for_site.assert_called_once()
+        site_repo.update_site.assert_not_called()
+
+    def test_no_fetch_when_flag_off_even_with_fetcher(self) -> None:
+        service, _repo, _climate, _zone = _service(_site(), [])
+        fetcher = MagicMock()
+        service._normals_fetcher = fetcher  # noqa: SLF001
+
+        with pytest.raises(ValidationError):
+            service.resolve_for_site("site1", "t1")
+        fetcher.fetch_for_site.assert_not_called()
+
     def test_normals_without_minimum_raise_422(self) -> None:
         # A coarse foundation record carrying neither a coldest-month nor monthly min.
         blank = ClimateNormal(site_key="site1", tenant_key="t1", source="nasa-power", fetched_at=datetime.now(tz=UTC))

@@ -15,15 +15,12 @@ the next beat.
 
 import structlog
 
+from app.common.enums import WEATHER_RELEVANT_SITE_TYPES
 from app.common.exceptions import ValidationError
 from app.config.settings import settings
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
-
-#: Only outdoor growing surfaces have a meaningful hardiness zone (indoor sites
-#: are climate-controlled).
-_ZONE_SITE_TYPES = ("outdoor", "greenhouse")
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
@@ -47,7 +44,11 @@ def refresh_site_hardiness_zones(self) -> dict:  # noqa: ANN001 — Celery bound
     cursor = db.aql.execute(
         "FOR s IN @@col FILTER s.type IN @types AND s.gps_coordinates != null "
         "AND (s.hardiness_zone_source != @manual OR s.hardiness_zone == null) RETURN s",
-        bind_vars={"@col": col.SITES, "types": list(_ZONE_SITE_TYPES), "manual": "manual"},
+        bind_vars={
+            "@col": col.SITES,
+            "types": [t.value for t in WEATHER_RELEVANT_SITE_TYPES],
+            "manual": "manual",
+        },
     )
 
     resolved = 0

@@ -33,9 +33,20 @@ const schema = z.object({
   lights_on: timeOrEmpty,
   lights_off: timeOrEmpty,
   use_dynamic_sunrise: z.boolean(),
+  frost_exposure: z.enum(['inherit', 'exposed', 'protected']),
 });
 
 type FormData = z.infer<typeof schema>;
+
+const FROST_EXPOSURE_OPTIONS = ['inherit', 'exposed', 'protected'] as const;
+
+// Maps the tri-state UI value to the nullable `frost_exposed` API field:
+// inherit → null (inherit from site), exposed → true, protected → false.
+function frostExposureToApi(value: FormData['frost_exposure']): boolean | null {
+  if (value === 'exposed') return true;
+  if (value === 'protected') return false;
+  return null;
+}
 
 interface Props {
   siteKey: string;
@@ -66,6 +77,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
       lights_on: null,
       lights_off: null,
       use_dynamic_sunrise: false,
+      frost_exposure: 'inherit',
     },
   });
 
@@ -92,12 +104,14 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
   const onSubmit = async (data: FormData) => {
     try {
       setSaving(true);
+      const { frost_exposure, ...rest } = data;
       await api.createLocation({
-        ...data,
+        ...rest,
         site_key: siteKey,
         parent_location_key: parentLocationKey ?? null,
         lights_on: data.lights_on || undefined,
         lights_off: data.lights_off || undefined,
+        frost_exposed: frostExposureToApi(frost_exposure),
       });
       notification.success(t('common.create'));
       reset();
@@ -128,6 +142,18 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
             options={filteredTypes.map((lt) => ({
               value: lt.key,
               label: lt.name,
+            }))}
+          />
+          {/* Placed right after location type: frost exposure is a physical/context
+              property of the location, not a lighting or irrigation setting. */}
+          <FormSelectField
+            name="frost_exposure"
+            control={control}
+            label={t('pages.locations.frostExposure')}
+            helperText={t('pages.locations.frostExposureHelper')}
+            options={FROST_EXPOSURE_OPTIONS.map((v) => ({
+              value: v,
+              label: t(`enums.frostExposure.${v}`),
             }))}
           />
           <FormNumberField name="area_m2" control={control} label={t('pages.locations.area')} helperText={t('pages.locations.areaHelper')} min={0} />

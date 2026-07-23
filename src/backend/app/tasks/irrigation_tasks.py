@@ -19,6 +19,7 @@ from datetime import UTC, date, datetime
 
 import structlog
 
+from app.common.enums import WEATHER_RELEVANT_SITE_TYPES
 from app.config.settings import settings
 from app.domain.calculators.crop_coefficient import resolve_kc
 from app.domain.calculators.evapotranspiration_calculator import EvapotranspirationCalculator
@@ -26,10 +27,6 @@ from app.domain.models.irrigation_demand import IrrigationDemand
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
-
-#: Site types for which an irrigation demand is materialised (open-air growing
-#: surfaces exposed to weather); indoor sites keep interval-based watering.
-_IRRIGATION_SITE_TYPES = ("outdoor", "greenhouse")
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
@@ -56,7 +53,7 @@ def compute_irrigation_demand(self) -> dict:  # noqa: ANN001 — Celery bound-ta
     demand_repo = get_irrigation_demand_repo()
     calculator = EvapotranspirationCalculator()
 
-    site_docs = site_repo.find_site_docs_by_types(list(_IRRIGATION_SITE_TYPES))
+    site_docs = site_repo.find_site_docs_by_types([t.value for t in WEATHER_RELEVANT_SITE_TYPES])
     today = datetime.now(UTC).date()
     written = 0
     skipped = 0

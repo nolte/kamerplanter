@@ -26,14 +26,35 @@ import { useApiError } from '@/hooks/useApiError';
 import { speciesFieldConfig } from '@/config/fieldConfigs';
 import * as speciesApi from '@/api/endpoints/species';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
-import type { BotanicalFamily } from '@/api/types';
+import type { BotanicalFamily, GrowthHabit, PhotosynthesisType } from '@/api/types';
+
+/** growth_habit enum values — mirrors GrowthHabit in api/types.ts (SSOT: backend GrowthHabit). */
+const GROWTH_HABITS = [
+  'herb',
+  'shrub',
+  'subshrub',
+  'tree',
+  'vine',
+  'groundcover',
+  'grass',
+  'succulent',
+  'bulb_geophyte',
+  'fern',
+  'aquatic',
+  'epiphyte',
+] as const satisfies readonly GrowthHabit[];
+
+/** photosynthesis_type enum values — mirrors PhotosynthesisType in api/types.ts. */
+const PHOTOSYNTHESIS_TYPES = ['c3', 'c4', 'cam'] as const satisfies readonly PhotosynthesisType[];
 
 const schema = z.object({
   scientific_name: z.string().min(1),
   common_names: z.array(z.string()),
   family_key: z.string().nullable(),
   genus: z.string(),
-  growth_habit: z.enum(['herb', 'shrub', 'tree', 'vine', 'groundcover']),
+  growth_habit: z.enum(GROWTH_HABITS),
+  // Empty string = "no selection" from the MUI select; normalised to null on submit.
+  photosynthesis_type: z.enum(PHOTOSYNTHESIS_TYPES).or(z.literal('')).nullable(),
   root_type: z.enum(['fibrous', 'taproot', 'tuberous', 'bulbous']),
   hardiness_zones: z.array(z.string()),
   native_habitat: z.string(),
@@ -87,6 +108,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
       family_key: null,
       genus: '',
       growth_habit: 'herb',
+      photosynthesis_type: null,
       root_type: 'fibrous',
       hardiness_zones: [],
       native_habitat: '',
@@ -120,6 +142,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
       setSaving(true);
       const payload = {
         ...data,
+        photosynthesis_type: data.photosynthesis_type || null,
         container_suitable: data.container_suitable || null,
         indoor_suitable: data.indoor_suitable || null,
         balcony_suitable: data.balcony_suitable || null,
@@ -208,10 +231,25 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
               control={control}
               label={t('pages.species.growthHabit')}
               helperText={t('pages.species.growthHabitHelper')}
-              options={['herb', 'shrub', 'tree', 'vine', 'groundcover'].map((v) => ({
+              options={GROWTH_HABITS.map((v) => ({
                 value: v,
                 label: t(`enums.growthHabit.${v}`),
               }))}
+            />
+          </ExpertiseFieldWrapper>
+          <ExpertiseFieldWrapper minLevel={fc.photosynthesis_type.level}>
+            <FormSelectField
+              name="photosynthesis_type"
+              control={control}
+              label={t('pages.species.photosynthesisType')}
+              helperText={t('pages.species.photosynthesisTypeHelper')}
+              options={[
+                { value: '', label: '—' },
+                ...PHOTOSYNTHESIS_TYPES.map((v) => ({
+                  value: v,
+                  label: t(`enums.photosynthesisType.${v}`),
+                })),
+              ]}
             />
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.root_type.level}>

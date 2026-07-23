@@ -35,6 +35,11 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+# The REQ-003 §D8 engine role that marks a rest / no-feed / minimal-water period. The
+# #616 fine-typed rest phases (``winter_rest``, ``rest_phase``, ``dry_storage`` …) all map
+# to this role via ``phase_role_map`` — see ``PhaseService.find_phase_key_by_role``.
+_DORMANCY_ROLE = "dormancy"
+# Literal fallback phase name for legacy sequences without a role-typed rest phase.
 _DORMANCY_PHASE = "dormancy"
 
 
@@ -54,15 +59,25 @@ class SeasonPhaseCoupler:
     # ── Season-driven growth-phase effects ──────────────────────────────
 
     def enter_dormancy(self, plant: PlantInstance) -> bool:
-        """On ``winter_dormancy``: drive an effectively-perennial plant to ``dormancy``.
+        """On ``winter_dormancy``: drive an effectively-perennial plant into its rest phase.
+
+        The target rest phase is resolved by engine ROLE (REQ-003 §D8), so the #616
+        fine-typed rest phases — ``winter_rest`` / ``rest_phase`` / ``dry_storage`` on
+        e.g. a ``cam_succulent_rest`` sequence — are coupled to the site winter signal,
+        not only a literal ``dormancy`` phase (issue #677 / audit finding NCT-2). Falls
+        back to the literal ``dormancy`` phase for legacy sequences that carry no
+        role-typed rest phase.
 
         Returns ``True`` when the growth phase was moved. A plant that is not
-        effectively perennial, has no ``dormancy`` phase (e.g. an evergreen), or is
-        already dormant is left untouched (returns ``False``).
+        effectively perennial, has no rest phase (e.g. an evergreen), or is already in
+        its rest phase is left untouched (returns ``False``).
         """
         if not self._is_effective_perennial(plant):
             return False
-        target = self._phase_service.find_phase_key_by_name(plant.species_key, _DORMANCY_PHASE)
+        target = self._phase_service.find_phase_key_by_role(plant.species_key, _DORMANCY_ROLE)
+        if target is None:
+            # Legacy fallback: a sequence whose rest phase is not role-typed.
+            target = self._phase_service.find_phase_key_by_name(plant.species_key, _DORMANCY_PHASE)
         if target is None:
             return False
         return self._transition(plant, target, "season_winter_dormancy")

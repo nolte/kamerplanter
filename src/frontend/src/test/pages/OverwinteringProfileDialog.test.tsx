@@ -141,6 +141,42 @@ describe('OverwinteringProfileDialog', () => {
     ).toBeNull();
   });
 
+  it('renders the action month as a localised dropdown, not a numeric input (#683)', async () => {
+    openCreateDialog();
+
+    const monthField = await screen.findByTestId(
+      'form-field-winter_action_month',
+    );
+    // It is a MUI select (combobox), not a numeric text input.
+    expect(within(monthField).getByRole('combobox')).toBeTruthy();
+    expect(monthField.querySelector('input[type="number"]')).toBeNull();
+    // Default winter_action_month = 10 → shows the localised "Oktober".
+    expect(within(monthField).getByText('Oktober')).toBeTruthy();
+
+    const user = userEvent.setup();
+    await user.click(within(monthField).getByRole('combobox'));
+    const listbox = await screen.findByRole('listbox');
+    expect(within(listbox).getAllByRole('option')).toHaveLength(12);
+    expect(within(listbox).getByText('Januar')).toBeTruthy();
+    expect(within(listbox).getByText('Dezember')).toBeTruthy();
+  });
+
+  it('offers the spring month as an optional dropdown with an empty option (#683)', async () => {
+    openCreateDialog();
+
+    const springField = await screen.findByTestId(
+      'form-field-spring_action_month',
+    );
+    const user = userEvent.setup();
+    await user.click(within(springField).getByRole('combobox'));
+    const listbox = await screen.findByRole('listbox');
+    // 12 months plus the leading "– none –" (Keine) option.
+    expect(within(listbox).getAllByRole('option')).toHaveLength(13);
+    expect(
+      within(listbox).getByTestId('form-option-spring_action_month-empty'),
+    ).toBeTruthy();
+  });
+
   it('requires a plant in create mode and does not submit without one (F3)', async () => {
     const user = userEvent.setup();
     const { onSaved } = openCreateDialog();

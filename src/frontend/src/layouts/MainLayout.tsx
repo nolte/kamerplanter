@@ -1,4 +1,4 @@
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -29,6 +29,7 @@ import ThemeToggle from '@/components/layout/ThemeToggle';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
+import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 import { isLightMode } from '@/config/mode';
 import { KioskContext } from '@/kiosk/KioskProvider';
 
@@ -55,6 +56,12 @@ export default function MainLayout() {
   // without a KioskProvider still work (mirrors ThemeContext's pattern).
   const kiosk = useContext(KioskContext);
   const isKiosk = kiosk?.isKiosk ?? false;
+
+  // Issue #685 — probe the cluster-wide AI feature flag once so the sidebar can
+  // hide the KI-Assistent entry and its page can degrade when AI is disabled.
+  useEffect(() => {
+    void dispatch(fetchAiStatus());
+  }, [dispatch]);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [lightModeWarningDismissed, setLightModeWarningDismissed] = useState(

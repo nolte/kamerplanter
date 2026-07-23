@@ -35,6 +35,8 @@ export type ClimactericClass = 'climacteric' | 'non_climacteric' | 'atypical';
 export type DtmReference = 'direct_seed' | 'transplant';
 export type SeedType = 'open_pollinated' | 'f1_hybrid' | 'f2' | 'landrace' | 'clone';
 export type FloweringStrategy = 'monocarpic' | 'polycarpic';
+export type PhotosynthesisType = 'c3' | 'c4' | 'cam';
+export type GrowthDeterminacy = 'determinate' | 'indeterminate' | 'semi_determinate';
 export type RootType = 'fibrous' | 'taproot' | 'tuberous' | 'bulbous' | 'corm';
 export type PropagationMethod =
   | 'seed'
@@ -300,6 +302,9 @@ export interface Species {
   hardiness_zones: string[];
   native_habitat: string;
   growth_habit: GrowthHabit;
+  /** REQ-001 v4.2 — photosynthesis pathway (WUE/transpiration modifier). Optional
+   * for backward compatibility with pre-field API responses. */
+  photosynthesis_type?: PhotosynthesisType | null;
   root_type: RootType;
   allelopathy_score: number;
   base_temp: number;
@@ -409,6 +414,7 @@ export interface SpeciesCreate {
   hardiness_zones?: string[];
   native_habitat?: string;
   growth_habit?: GrowthHabit;
+  photosynthesis_type?: PhotosynthesisType | null;
   root_type?: RootType;
   allelopathy_score?: number;
   base_temp?: number;
@@ -517,6 +523,8 @@ export interface WaterSourceWarning {
   severity: string;
 }
 
+export type HardinessZoneSource = 'manual' | 'derived_gps' | 'derived_postal' | 'frostline_us';
+
 export interface Site {
   key: string;
   name: string;
@@ -530,8 +538,39 @@ export interface Site {
   last_frost_date_avg: string | null;
   first_frost_date_avg: string | null;
   eisheilige_date: string | null;
+  hardiness_zone?: string | null;
+  hardiness_zone_source?: HardinessZoneSource;
+  hardiness_zone_resolved_at?: string | null;
+  mean_annual_minimum_c?: number | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** One canonical USDA hardiness zone (global reference data). */
+export interface HardinessZoneCatalogEntry {
+  zone: string;
+  zone_number: number;
+  subzone: string;
+  temp_min_c: number;
+  temp_max_c: number;
+  temp_min_f: number;
+  temp_max_f: number;
+  description_de: string;
+  representative_regions_de: string[];
+  typical_last_frost_md?: string | null;
+  typical_first_frost_md?: string | null;
+}
+
+/** A site's resolved hardiness zone plus the matching catalog entry (REQ-039/041). */
+export interface SiteHardinessResponse {
+  site_key: string;
+  hardiness_zone: string | null;
+  hardiness_zone_source: HardinessZoneSource;
+  hardiness_zone_resolved_at: string | null;
+  mean_annual_minimum_c: number | null;
+  last_frost_date_avg: string | null;
+  first_frost_date_avg: string | null;
+  zone: HardinessZoneCatalogEntry | null;
 }
 
 export interface SiteCreate {
@@ -565,6 +604,7 @@ export interface Location {
   lights_on: string | null;
   lights_off: string | null;
   use_dynamic_sunrise: boolean;
+  frost_exposed: boolean | null;
   tank_key: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -583,6 +623,7 @@ export interface LocationCreate {
   lights_on?: string | null;
   lights_off?: string | null;
   use_dynamic_sunrise?: boolean;
+  frost_exposed?: boolean | null;
   tank_key?: string | null;
 }
 
@@ -902,6 +943,9 @@ export interface LifecycleConfig {
   cycle_type: CycleType;
   cultivation_cycle_type: CycleType | null;
   flowering_strategy: FloweringStrategy | null;
+  /** REQ-003 E4 — growth determinacy (orthogonal to lifespan/flowering). Optional
+   * for backward compatibility with pre-field API responses. */
+  growth_determinacy?: GrowthDeterminacy | null;
   typical_lifespan_years: number | null;
   dormancy_required: boolean;
   vernalization_required: boolean;
@@ -918,6 +962,7 @@ export interface LifecycleConfigCreate {
   cycle_type?: CycleType;
   cultivation_cycle_type?: CycleType | null;
   flowering_strategy?: FloweringStrategy | null;
+  growth_determinacy?: GrowthDeterminacy | null;
   typical_lifespan_years?: number | null;
   dormancy_required?: boolean;
   vernalization_required?: boolean;
@@ -5403,6 +5448,16 @@ export interface AiSourceRef {
 }
 
 /** The common KI answer envelope rendered by `<AIResponse>` (§5.5). */
+/**
+ * Issue #685 — public KI-Assistent availability payload.
+ *
+ * Mirrors the backend operator flag (`AI_FEATURES_ENABLED`). Used to hide the
+ * KI-Assistent nav entry and degrade its page when AI is off cluster-wide.
+ */
+export interface AiStatus {
+  available: boolean;
+}
+
 export interface AiResponse {
   answer_text: string;
   sources: AiSourceRef[];

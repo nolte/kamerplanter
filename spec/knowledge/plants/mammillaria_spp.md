@@ -17,7 +17,7 @@
 | Familie | Cactaceae | `species.family` → `botanical_families.name` |
 | Gattung | Mammillaria | `species.genus` |
 | Ordnung | Caryophyllales | `botanical_families.order` |
-| Wuchsform | herb | `species.growth_habit` |
+| Wuchsform | succulent <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher herb); Mammillaria sind Kakteen/Sukkulenten --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 <!-- Quelle: Steckbrief-Erweiterung 2026-06 -->
 | Photosynthese-Typ | cam | `species.photosynthesis_type` |

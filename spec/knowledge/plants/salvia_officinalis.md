@@ -17,7 +17,7 @@
 | Familie | Lamiaceae | `species.family` → `botanical_families.name` |
 | Gattung | Salvia | `species.genus` |
 | Ordnung | Lamiales | `botanical_families.order` |
-| Wuchsform | shrub | `species.growth_habit` |
+| Wuchsform | subshrub <!-- KORREKTUR #680: an Seed-SSOT angeglichen (vorher shrub) --> | `species.growth_habit` |
 | Wurzeltyp | fibrous | `species.root_type` |
 | Lebenszyklus | perennial | `lifecycle_configs.cycle_type` |
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
