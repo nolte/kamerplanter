@@ -170,6 +170,9 @@ _AVOID_RE = re.compile(r"\n[ \t]*Avoid:.*\Z", re.IGNORECASE | re.DOTALL)
 _OUTLINE_LIGHT_RE = re.compile(r"Outlines:\s*dark green\s*#1b5e20[^\n]*", re.IGNORECASE)
 _DARK_OUTLINE = "Outlines: light green #c8e6c9, 2.5px outer, 1.5px inner, rounded line caps."
 
+# Cloudflare Workers-AI FLUX rejects prompts longer than ~2048 chars with HTTP 400.
+MAX_PROMPT_CHARS = 2040
+
 
 def flux_normalize(block: str, variant: str | None) -> str:
     block = _AVOID_RE.sub("", block).strip()
@@ -183,13 +186,42 @@ def job_doc(job: dict) -> str | None:
     return job.get("from_doc") or job.get("doc")
 
 
-def resolve_prompt(job: dict) -> str:
+def resolve_prompt(job: dict, anchor: str = "") -> str:
     if job.get("prompt"):
-        return str(job["prompt"]).strip()  # inline blocks are already FLUX-clean
-    rel = job_doc(job)
-    doc = REPO_ROOT / rel if not os.path.isabs(rel) else Path(rel)
-    block = extract_block_after_heading(doc, job["motif_heading"])
-    return flux_normalize(block, job.get("variant"))
+        body = str(job["prompt"]).strip()  # inline blocks are already FLUX-clean
+    else:
+        rel = job_doc(job)
+        doc = REPO_ROOT / rel if not os.path.isabs(rel) else Path(rel)
+        block = extract_block_after_heading(doc, job["motif_heading"])
+        body = flux_normalize(block, job.get("variant"))
+    # Prepend the shared anatomy anchor (defaults.anatomy_anchor) so EVERY job —
+    # inline or doc-referenced — states the load-bearing invariant that FLUX most
+    # often gets wrong: the face + arms are on the pot, the leaves are plain.
+    anchor = (anchor or "").strip()
+    if anchor and job.get("variant") == "dark":
+        # Dark-mode variant: the outline flips to the light-green Dark palette (§3.2),
+        # matching flux_normalize's swap on the doc body.
+        anchor = anchor.replace(
+            "dark-green #1b5e20 outline", "light-green #c8e6c9 outline"
+        )
+    if not anchor:
+        return body
+    combined = f"{anchor}\n\n{body}"
+    # Cloudflare FLUX rejects prompts over ~2048 chars with HTTP 400. The anchor is
+    # load-bearing, so when the anchor + scene body overflow, trim the scene body
+    # (at a sentence/word boundary) rather than dropping the invariant.
+    if len(combined) > MAX_PROMPT_CHARS:
+        budget = MAX_PROMPT_CHARS - len(anchor) - 2
+        trimmed = body[: max(0, budget)]
+        cut = max(trimmed.rfind(". "), trimmed.rfind("\n"), trimmed.rfind(" "))
+        if cut > budget * 0.6:
+            trimmed = trimmed[: cut + 1]
+        sys.stderr.write(
+            f"warning: prompt for {job['id']} exceeded {MAX_PROMPT_CHARS} chars; "
+            "scene body trimmed to fit (anatomy anchor kept).\n"
+        )
+        combined = f"{anchor}\n\n{trimmed.rstrip()}"
+    return combined
 
 
 # --------------------------------------------------------------------------- #
@@ -272,7 +304,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
         out = image_out_path(render_dir, jid, ext)
         seed = base_seed + js["attempts"]  # fresh seed each attempt -> real variety on regen
         try:
-            prompt = resolve_prompt(job)
+            prompt = resolve_prompt(job, defaults.get("anatomy_anchor", ""))
             generate_one(
                 engine, job, prompt, out, provider, seed,
                 int(job.get("width", 1024)), int(job.get("height", 1024)), args.dry_run,

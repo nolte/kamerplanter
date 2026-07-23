@@ -22,6 +22,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { kamiEnvironment } from '@/assets/brand/illustrations';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useActuators } from '@/hooks/useActuators';
@@ -186,6 +187,7 @@ export default function EnvironmentControlPage() {
           description={t('pages.environmentControl.emptyDescription')}
           actionLabel={t('pages.environmentControl.createActuator')}
           onAction={() => setDialogOpen(true)}
+          illustration={kamiEnvironment}
         />
       ) : (
         <>

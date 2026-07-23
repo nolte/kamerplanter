@@ -18,6 +18,7 @@ import {
   type ColumnFilterDef,
 } from '@/components/common/ColumnFilterBar';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { kamiUeberwinterung } from '@/assets/brand/illustrations';
 import MobileCard from '@/components/common/MobileCard';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
@@ -500,6 +501,7 @@ export default function OverwinteringListPage() {
         getRowKey={(r) => r.key}
         emptyMessage={t('pages.overwintering.empty')}
         emptyActionLabel={t('pages.overwintering.create')}
+        emptyIllustration={kamiUeberwinterung}
         onEmptyAction={openCreate}
         tableState={tableState}
         ariaLabel={t('pages.overwintering.title')}

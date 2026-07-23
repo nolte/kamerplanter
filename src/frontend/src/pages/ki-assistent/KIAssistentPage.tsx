@@ -14,6 +14,7 @@ import AIResponse from '@/components/ai/AIResponse';
 import AiChatDrawer from '@/components/ai/AiChatDrawer';
 import { resolveAiErrorMessage } from '@/components/ai/aiErrorMessage';
 import { aiApi } from '@/api';
+import { kamiKiAssistent } from '@/assets/brand/illustrations';
 import { isLightMode } from '@/config/mode';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
@@ -126,6 +127,18 @@ export default function KIAssistentPage() {
               {t('pages.kiAssistent.ask')}
             </Button>
           </Box>
+
+          {!answer && !loading && !error && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1 }}>
+              <Box
+                component="img"
+                src={kamiKiAssistent}
+                alt=""
+                aria-hidden="true"
+                sx={{ maxHeight: 150, maxWidth: '100%', objectFit: 'contain', opacity: 0.9 }}
+              />
+            </Box>
+          )}
 
           {loading && (
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

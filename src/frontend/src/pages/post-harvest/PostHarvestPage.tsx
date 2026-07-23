@@ -9,6 +9,7 @@ import AddIcon from '@mui/icons-material/Add';
 import PageTitle from '@/components/layout/PageTitle';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
+import { kamiPostHarvest } from '@/assets/brand/illustrations';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchPostHarvestBatches } from '@/store/slices/postHarvestSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
@@ -121,6 +122,7 @@ export default function PostHarvestPage() {
         emptyMessage={t('pages.postHarvest.emptyTitle')}
         emptyDescription={t('pages.postHarvest.emptyDescription')}
         emptyActionLabel={t('pages.postHarvest.startDrying')}
+        emptyIllustration={kamiPostHarvest}
         onEmptyAction={() => setStartOpen(true)}
         tableState={tableState}
         ariaLabel={t('pages.postHarvest.title')}

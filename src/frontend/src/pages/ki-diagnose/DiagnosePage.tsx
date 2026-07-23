@@ -4,6 +4,7 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import PageTitle from '@/components/layout/PageTitle';
 import DiagnosisWizard from '@/components/diagnosis/DiagnosisWizard';
+import { kamiKiDiagnose } from '@/assets/brand/illustrations';
 
 /**
  * REQ-036 KI-Diagnose-Assistent — der strukturierte, symptombasierte
@@ -20,6 +21,15 @@ export default function DiagnosePage() {
       <Typography color="text.secondary" sx={{ mb: 2, maxWidth: '72ch' }}>
         {t('diagnose.subtitle')}
       </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+        <Box
+          component="img"
+          src={kamiKiDiagnose}
+          alt=""
+          aria-hidden="true"
+          sx={{ maxHeight: 150, maxWidth: '100%', objectFit: 'contain', opacity: 0.9 }}
+        />
+      </Box>
       {/* 760px caps the reading column so the wizard's short-answer
           controls (checkboxes, notes field, result cards) don't stretch
           into an uncomfortably wide single-line-of-sight on desktop —

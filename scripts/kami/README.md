@@ -116,15 +116,40 @@ specify and is out of this pipeline's scope:
 3. Place under the `out:` path and wire the consumer (barrel `index.ts`,
    `Sidebar.tsx`, `manifest.json`, `KAMI_PHASE_IMAGES`, …).
 
+## Logo & app-icons come from brand/, not FLUX
+
+The app logo and PWA icons are hand-crafted brand marks that already exist under
+`brand/` (`logo@2x.png`, `icon@2x.png` — 512×512, transparent, the canonical
+**face-on-pot** Kami). A text-to-image model cannot reproduce a pixel-exact brand
+mark, so they are **not** FLUX render jobs. Derive them deterministically:
+
+```bash
+# PWA icons (opaque #f5f5f5 background, mascot at 80% maskable safe-zone):
+#   brand/icon@2x.png -> src/frontend/public/icons/icon-{192,512}.png
+# App logo SVG (when needed): vectorise brand/logo@2x.png via
+#   nolte-media:png-to-transparent-svg
+```
+
+The manifest's `# G-01/G-02` section documents this; those four ids
+(`app-icon-512/192`, `app-logo-light/dark`) were removed as render jobs.
+
 ## Manifest coverage
 
-- **Batch 1 (20 jobs, inline FLUX prompts):** the 8 new #593 single/small-motif docs —
-  empty-state, loading, celebration, onboarding, dashboard (welcome+empty),
-  post-harvest (drying+curing), PWA app-icons (512/192) + logo (light+dark).
-- **Batch 2 (59 jobs, `doc:`+`motif_heading:` references, auto FLUX-normalised):**
-  features (G-06, 10×light+dark), tank fill-levels (G-05, 6×light+dark),
-  sidebar nav-icons (G-04, 27×light; per-icon dark is the same mechanic, add
-  `variant: dark` entries when needed).
+Illustrations are **light-only** (51 jobs total): a transparent KAMI reads on both
+light and dark UI, and FLUX renders a "dark" variant as a near-duplicate, so the
+per-illustration `*-dark` jobs were dropped — one canonical transparent asset per
+motif.
 
+- **Batch 1 (inline FLUX prompts):** the #593 single/small-motif *illustration* docs —
+  empty-state, loading, celebration, onboarding, dashboard (welcome+empty),
+  phase (drying+curing). Logo/app-icons are brand-sourced (see above).
+- **Batch 2 (`doc:`+`motif_heading:` references):** feature illustrations (G-06).
+
+**Not FLUX jobs** (motif doesn't fit a text-to-image model): the **sidebar nav-icons**
+(G-04) need simple glyphs at ~24px, not KAMI scenes — the app keeps its MUI icons; and
+**tank fill-levels** (G-05) are a numeric state that FLUX renders as literal "40%/60%"
+text — better authored as a parametric SVG with a programmatic fill. Both were dropped.
+
+Every prompt is prepended with `defaults.anatomy_anchor` (face-on-pot invariant).
 Add a job by appending to the manifest; no code change needed. `render.py status`
 validates the manifest (unique ids, resolvable prompt source) on every run.

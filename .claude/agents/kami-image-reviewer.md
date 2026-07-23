@@ -56,8 +56,10 @@ faelle **kein** Verdikt.
 
 **Kritisch (K) — jede Verletzung ⇒ `rejected`:**
 
-- **K1 Identitaet:** Ein anthropomorpher gruener Setzling/Spross mit Blaettern in einem
-  Terracotta-Topf. Kein anderes Tier/Objekt, kein Mensch, keine fremde Maskottchenform.
+- **K1 Identitaet + Anatomie (§2):** Ein anthropomorpher Terracotta-Topf mit zwei schlichten
+  Blaettern. **Gesicht (Augen + Mund) UND Arme sitzen auf dem TOPFKOERPER** — die Blaetter sind
+  reines Laub OHNE Gesicht/Augen. Ein Gesicht auf der Pflanze bzw. zwischen den Blaettern ⇒
+  `rejected`. Kein anderes Tier/Objekt, kein Mensch, keine fremde Maskottchenform.
 - **K2 Koerperpalette (§3.1):** Blaetter im Gruenbereich `#66bb6a`/`#98ee99`/`#2e7d32`,
   Stiel `#43a047`, Topf Terracotta `#8d6e63`/`#6d4c41`, Erde `#795548`. Keine offensichtlich
   fremden Koerperfarben (z.B. blaue/rote Blaetter, grauer Topf).

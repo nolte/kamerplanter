@@ -18,6 +18,7 @@ import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { kamiOnboardingWelcome } from '@/assets/brand/illustrations';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   fetchOnboardingState,
@@ -548,6 +549,28 @@ export default function OnboardingWizard() {
   return (
     <Box data-testid="onboarding-wizard" sx={{ maxWidth: 960, mx: 'auto', p: { xs: 1.5, sm: 2 } }}>
       <PageTitle title={t('pages.onboarding.title')} />
+
+      {activeStep === 0 && (
+        // Decorative welcome illustration — maxHeight/opacity match the
+        // supplementary-illustration convention used alongside active content
+        // (KIAssistentPage, DiagnosePage). EmptyState's own default (180 /
+        // 0.85) is reserved for the "nothing here yet" empty-state anchor.
+        <Box
+          component="img"
+          src={kamiOnboardingWelcome}
+          alt=""
+          aria-hidden="true"
+          sx={{
+            display: 'block',
+            mx: 'auto',
+            mb: 2,
+            maxHeight: 150,
+            maxWidth: '100%',
+            objectFit: 'contain',
+            opacity: 0.9,
+          }}
+        />
+      )}
 
       {/* Desktop stepper — hidden on mobile to save vertical space */}
       {!isMobile && (

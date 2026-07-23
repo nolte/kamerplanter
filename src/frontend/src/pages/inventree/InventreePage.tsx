@@ -17,6 +17,7 @@ import DataTable from '@/components/common/DataTable';
 import type { Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import HelpTooltip from '@/components/common/HelpTooltip';
+import { kamiInventree } from '@/assets/brand/illustrations';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useEquipment } from '@/hooks/useEquipment';
@@ -215,6 +216,7 @@ export default function InventreePage() {
         emptyMessage={t('pages.inventree.emptyTitle')}
         emptyDescription={t('pages.inventree.emptyDescription')}
         emptyActionLabel={t('pages.inventree.createEquipment')}
+        emptyIllustration={kamiInventree}
         onEmptyAction={handleCreate}
       />
 
