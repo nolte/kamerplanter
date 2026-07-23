@@ -6,6 +6,15 @@ Kamerplanter verfügt über eine umfangreiche Testsuite für Backend und Fronten
 
 ---
 
+## Testkonzept
+
+Kamerplanter testet auf mehreren **Teststufen** — von schnellen, isolierten Unit-Tests bis zu vollständigen End-to-End-Durchläufen im echten Browser. Die Stufen bilden eine klassische Testpyramide: viele schnelle Tests an der Basis, wenige langsame an der Spitze.
+
+!!! tip "Teststufen im Detail"
+    Diese Seite bündelt das praktische Testkonzept entlang der **Werkzeuge** (pytest, vitest, Selenium): Voraussetzungen, Ausführung, Teststruktur und Konventionen. Eine konzeptionelle Übersicht entlang der **Teststufen** (Unit → Integration → Component → E2E) findest du unter [Teststufen](stufen/index.md).
+
+---
+
 ## Backend-Tests (pytest)
 
 ### Voraussetzungen
@@ -538,6 +547,7 @@ Detaillierte Spezifikation des Frameworks: `spec/rag-eval/RAG_EVAL_SPEC.md`
 
 ## Siehe auch
 
-- [Code-Standards](code-standards.md)
-- [Lokales Setup](local-setup.md)
-- [Debugging](debugging.md)
+- [Teststufen](stufen/index.md)
+- [Code-Standards](../code-standards.md)
+- [Lokales Setup](../local-setup.md)
+- [Debugging](../debugging.md)

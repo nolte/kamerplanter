@@ -6,6 +6,15 @@ Kamerplanter has a comprehensive test suite for both backend and frontend. All t
 
 ---
 
+## Testing concept
+
+Kamerplanter tests across several **test levels** — from fast, isolated unit tests to full end-to-end runs in a real browser. The levels form a classic test pyramid: many fast tests at the base, few slow ones at the top.
+
+!!! tip "Test levels in detail"
+    This page bundles the practical testing concept organized by **tooling** (pytest, vitest, Selenium): prerequisites, execution, test structure and conventions. For a conceptual overview organized by **test level** (unit → integration → component → E2E), see [Test Levels](stufen/index.md).
+
+---
+
 ## Backend Tests (pytest)
 
 ### Prerequisites
@@ -538,6 +547,7 @@ Detailed framework specification: `spec/rag-eval/RAG_EVAL_SPEC.md`
 
 ## See also
 
-- [Code Standards](code-standards.md)
-- [Local Setup](local-setup.md)
-- [Debugging](debugging.md)
+- [Test Levels](stufen/index.md)
+- [Code Standards](../code-standards.md)
+- [Local Setup](../local-setup.md)
+- [Debugging](../debugging.md)

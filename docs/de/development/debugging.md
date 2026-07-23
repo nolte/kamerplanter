@@ -216,5 +216,5 @@ Erwartete Antwort (beide): `{"status": "ok"}` mit HTTP 200.
 ## Siehe auch
 
 - [Lokales Setup](local-setup.md)
-- [Testen](testing.md)
+- [Testen](testing/index.md)
 - [Code-Standards](code-standards.md)
