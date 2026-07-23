@@ -3621,6 +3621,7 @@
     "notifications": {
       "title": "Benachrichtigungen",
       "markAllRead": "Alle gelesen",
+      "markDone": "Erledigt",
       "empty": "Keine Benachrichtigungen",
       "loadMore": "Mehr laden",
       "justNow": "Gerade eben",

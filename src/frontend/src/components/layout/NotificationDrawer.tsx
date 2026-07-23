@@ -11,16 +11,30 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardActionArea from '@mui/material/CardActionArea';
+import CardActions from '@mui/material/CardActions';
 import Chip from '@mui/material/Chip';
 import CloseIcon from '@mui/icons-material/Close';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import InboxIcon from '@mui/icons-material/Inbox';
 import {
   getNotifications,
   markRead,
+  markActed,
   markAllRead,
 } from '@/api/endpoints/notifications';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
+
+/**
+ * A notification exposes a one-tap "Done" affordance when it carries an
+ * actionable button and has not been acted on yet — REQ-030 §4.2 (Issue #742).
+ * Clicking it drives the source-confirmation callback (`POST …/act`).
+ */
+function actionableActionId(notification: NotificationResponse): string | null {
+  if (notification.acted_at) return null;
+  const action = notification.actions?.[0];
+  return action ? action.action_id : null;
+}
 
 const DRAWER_WIDTH = 400;
 const PAGE_SIZE = 20;
@@ -145,6 +159,36 @@ export default function NotificationDrawer({
       // Silently ignore
     } finally {
       setMarkingAllRead(false);
+    }
+  };
+
+  const handleDone = async (
+    notification: NotificationResponse,
+    actionId: string,
+  ) => {
+    const nowIso = new Date().toISOString();
+    // Optimistic update: mark acted + read immediately so the button disappears
+    // and the badge drops without waiting for the round-trip.
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.key === notification.key
+          ? { ...n, acted_at: nowIso, read_at: n.read_at ?? nowIso }
+          : n,
+      ),
+    );
+    if (!notification.read_at) {
+      onCountChange(Math.max(0, notifications.filter((n) => !n.read_at).length - 1));
+    }
+    try {
+      const updated = await markActed(notification.key, actionId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.key === notification.key ? updated : n)),
+      );
+    } catch {
+      // Roll back the optimistic update on failure.
+      setNotifications((prev) =>
+        prev.map((n) => (n.key === notification.key ? notification : n)),
+      );
     }
   };
 
@@ -321,6 +365,24 @@ export default function NotificationDrawer({
                 </Typography>
               </CardContent>
             </CardActionArea>
+            {(() => {
+              const actionId = actionableActionId(notification);
+              if (!actionId) return null;
+              return (
+                <CardActions sx={{ pt: 0, px: 2, pb: 1.5, justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="success"
+                    startIcon={<CheckCircleOutlineIcon />}
+                    onClick={() => void handleDone(notification, actionId)}
+                    data-testid={`notification-action-done-${notification.key}`}
+                  >
+                    {t('pages.notifications.markDone')}
+                  </Button>
+                </CardActions>
+              );
+            })()}
           </Card>
         ))}
 

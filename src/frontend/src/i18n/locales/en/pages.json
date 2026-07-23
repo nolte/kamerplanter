@@ -3620,6 +3620,7 @@
     "notifications": {
       "title": "Notifications",
       "markAllRead": "Mark all read",
+      "markDone": "Done",
       "empty": "No notifications",
       "loadMore": "Load more",
       "justNow": "Just now",
