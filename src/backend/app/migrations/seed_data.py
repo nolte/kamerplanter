@@ -128,6 +128,7 @@ def link_indoor_species_to_phase_sequence() -> None:
     the resolver never overrides a more-precise binding and a re-run is a no-op.
     """
     from app.data_access.arango import collections as col
+    from app.domain.engines.cycle_resolver import resolve_effective_cycle
     from app.migrations.perennial_binding import (
         INDOOR_DEFAULT_SEQUENCE,
         resolve_phase_sequence_name,
@@ -172,9 +173,16 @@ def link_indoor_species_to_phase_sequence() -> None:
             continue
 
         lifecycle = lifecycle_repo.get_lifecycle_by_species(sp_key)
+        # Bind on the EFFECTIVE (cultivation-aware) cycle, not the raw botanical one
+        # (ADR-006 E1). A tender perennial (tomato) is botanically ``perennial`` but
+        # cultivated as an annual (``cultivation_cycle_type=annual``); it must land on
+        # ``indoor_default`` (with ripening/harvest), not the harvest-less
+        # ``evergreen_foliage_perennial``. Resolve through the ONE SSOT cascade so the
+        # linker cannot drift from the restart / season-state consumers.
+        effective_cycle = resolve_effective_cycle(None, lifecycle) if lifecycle is not None else None
         target_name = resolve_phase_sequence_name(
             sp.scientific_name,
-            cycle_type=_enum_value(lifecycle.cycle_type) if lifecycle is not None else None,
+            cycle_type=_enum_value(effective_cycle),
             flowering_strategy=_enum_value(lifecycle.flowering_strategy) if lifecycle is not None else None,
             photosynthesis_type=_enum_value(sp.photosynthesis_type),
             photoperiod_type=_enum_value(lifecycle.photoperiod_type) if lifecycle is not None else None,
