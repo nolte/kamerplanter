@@ -97,6 +97,13 @@ or an authoritative user answer.
 - **R9** — Der Testfall-Tabellen-**Generator** (`scripts/docs/gen_testcase_tables.py`)
   SOLL NICHT Teil dieses Arbeitspakets sein, sondern als Folge-PR erfolgen.
   - _dimension_: `scope_boundaries` · _status_: `confirmed` · _source_: Q3 „MVP: nur Nav + Struktur + Prosa (Generator später)"
+- **R10** — Jede Teststufen-Seite SOLL eine **handkuratierte, thematische
+  Übersichtstabelle** („Getestete Bereiche im Überblick") enthalten, die einen
+  Eindruck vermittelt, welche Elemente auf dieser Ebene getestet werden — mit
+  qualitativem Umfang (umfangreich/mittel/fokussiert) statt driftanfälliger
+  Zahlen, faktenbasiert aus dem realen Test-Baum erhoben.
+  - _dimension_: `functional` · _status_: `confirmed` · _source_: Revisit „ich vermisse noch eine übersicht der existierenden testfälle für die jeweilige stufe … welche elemente auf welcher ebene getestet werden" + Zuschnitt-Entscheidung „Kompakt-thematische Tabelle"
+  - _Abgrenzung zu R9:_ statische Tabellen, KEIN Generator — R9 bleibt gültig.
 
 ## Surviving assumptions / open risks
 
@@ -108,5 +115,10 @@ or an authoritative user answer.
 - **Component-Teststufe (R2):** Falls das Projekt real keine dedizierten
   Component-Tests führt, könnte diese Seite dünn/konzeptionell bleiben. Beim
   Schreiben verifizieren; ggf. als „geplant"-Admonition kennzeichnen statt leere Stufe.
-- **`assumed`-Einträge:** keine — alle R1–R9 sind `confirmed`. Restrisiken sind
-  ausschließlich die beiden obigen an-der-Schwelle-Punkte.
+- **`assumed`-Einträge:** keine — alle R1–R10 sind `confirmed`. Restrisiken sind
+  ausschließlich die obigen an-der-Schwelle-Punkte.
+- **Drift der Übersichtstabellen (R10):** Die kuratierten „Getestete Bereiche"-Tabellen
+  sind handgepflegt und können vom realen Test-Baum abweichen, wenn neue Testbereiche
+  entstehen. Bewusst gegen Zahlen-Drift gehärtet (qualitativer Umfang), aber neue
+  fachliche Bereiche müssen manuell nachgetragen werden — der verschobene Generator (R9)
+  wäre die dauerhafte Lösung.
