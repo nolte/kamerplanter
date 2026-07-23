@@ -237,18 +237,62 @@ class TestGrowthPhaseManagement:
         """TC-REQ-001-060: Delete a growth phase.
 
         Spec: TC-001-048 -- Wachstumsphase loeschen.
+
+        Row 0 of a fresh seed is a managed (system) species: its growth phases
+        come from a shared phase-sequence template and hide the delete action
+        (``isManaged`` in ``GrowthPhaseListSection.tsx:98/180``). Self-provision
+        a fresh species with its own lifecycle config and one manually created
+        phase (mirrors ``test_create_growth_phase``) so the phase is a legacy,
+        non-managed ``GrowthPhase`` and the delete button is actually
+        exercisable.
         """
-        _navigate_to_lifecycle_tab(species_list, species_detail)
+        unique = uuid.uuid4().hex[:6]
+        scientific_name = f"Deletus e2e{unique}"
 
-        submit_label = species_detail.get_lifecycle_submit_label()
-        if submit_label == "Erstellen":
-            pytest.skip("No lifecycle config")
+        species_list.open()
+        species_list.click_create()
+        species_list.fill_scientific_name(scientific_name)
+        species_list.set_field("genus", "Deletus")
+        species_list.submit_form()
+        species_list.wait_for_loading_complete()
 
-        if species_detail.get_phase_count() == 0:
-            pytest.skip("No phases to delete")
+        species_list.click_row_by_name(scientific_name)
+        species_list.wait_for_url_contains("/stammdaten/species/")
+        species_detail.wait_for_loading_complete()
+
+        tabs = species_detail.get_tab_labels()
+        lifecycle_tab = next(
+            (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
+        )
+        if lifecycle_tab is None:
+            pytest.skip(f"Lifecycle tab not found among {tabs}")
+        species_detail.click_tab(lifecycle_tab)
+        species_detail.wait_for_loading_complete()
+
+        species_detail.select_lifecycle_option("cycle_type", "Einjährig")
+        species_detail.select_lifecycle_option("photoperiod_type", "Tagneutral")
+        species_detail.click_lifecycle_save()
+        species_detail.wait_for_loading_complete()
+
+        if not species_detail.can_create_growth_phase():
+            pytest.skip("Freshly provisioned species did not expose a phase-create button")
 
         initial_count = species_detail.get_phase_count()
-        screenshot("TC-REQ-001-060_before-delete", f"Growth phases before deletion ({initial_count} phases)")
+        species_detail.click_phase_create()
+        species_detail.fill_phase_form(
+            name=f"e2e_phase_{unique}",
+            display_name=f"E2E Phase {unique}",
+            duration="7",
+            order=str(initial_count),
+        )
+        species_detail.submit_phase_form()
+        species_detail.wait_for_loading_complete()
+
+        provisioned_count = species_detail.get_phase_count()
+        if provisioned_count <= initial_count:
+            pytest.skip("Self-provisioning failed: growth phase was not created")
+
+        screenshot("TC-REQ-001-060_before-delete", f"Growth phases before deletion ({provisioned_count} phases)")
 
         species_detail.delete_phase_at_index(0)
         species_detail.confirm_delete()
@@ -257,8 +301,8 @@ class TestGrowthPhaseManagement:
         screenshot("TC-REQ-001-060_after-delete", "Growth phases after deletion")
 
         new_count = species_detail.get_phase_count()
-        assert new_count < initial_count, (
-            f"TC-REQ-001-060 FAIL: Expected fewer phases after delete: was {initial_count}, now {new_count}"
+        assert new_count < provisioned_count, (
+            f"TC-REQ-001-060 FAIL: Expected fewer phases after delete: was {provisioned_count}, now {new_count}"
         )
 
 

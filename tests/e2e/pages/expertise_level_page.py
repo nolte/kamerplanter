@@ -159,6 +159,42 @@ class ExpertiseLevelPage(BasePage):
         elements = self.driver.find_elements(*locator)
         return len(elements) > 0 and elements[0].is_displayed()
 
+    def wait_for_nav_item_visible(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Poll until a sidebar nav item becomes visible, then return True (or False on timeout).
+
+        Mirrors ``wait_for_form_field_visible``: nav tiering depends on the same
+        async user-preferences fetch (``useExpertiseLevel``), which falls back to
+        the beginner view while ``levelKnown`` is false, so an item that a
+        higher-tier user *will* see can be momentarily absent right after
+        navigation. Polling waits out that load window instead of sampling once.
+        """
+        import time
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if self.is_nav_item_visible(path):
+                return True
+            time.sleep(0.3)
+        return False
+
+    def wait_for_nav_item_hidden(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Poll until a sidebar nav item becomes hidden, then return True (or False on timeout).
+
+        The counterpart to ``wait_for_nav_item_visible``: ``useExpertiseLevel``'s
+        ``isNavVisible`` fails *open* (shows every item) while ``levelKnown`` is
+        still false, so an item that should end up hidden for the current tier
+        can render visible for a moment right after navigation. Polling waits
+        out that load window instead of sampling once.
+        """
+        import time
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self.is_nav_item_visible(path):
+                return True
+            time.sleep(0.3)
+        return not self.is_nav_item_visible(path)
+
     def clear_module_overrides(self) -> None:
         """Drop the E2E per-module visibility override (REQ-042 / REQ-021).
 
@@ -283,7 +319,7 @@ class ExpertiseLevelPage(BasePage):
         # Check if any matching element is displayed (there may be multiple in nested dialogs)
         return any(el.is_displayed() for el in elements)
 
-    def wait_for_form_field_visible(self, field_name: str, timeout: int = 8) -> bool:
+    def wait_for_form_field_visible(self, field_name: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
         """Poll until a form field becomes visible, then return True (or False on timeout).
 
         Expertise-gated fields are hidden during the async user-preferences fetch
