@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
@@ -166,6 +167,44 @@ class BaseArangoRepository[TModel: BaseModel]:
         doc["_key"] = doc.get("_key", doc.get("_id", "").split("/")[-1])
         return doc
 
+    #: Matches the indexed field name in an ArangoDB unique-constraint message,
+    #: e.g. ``... over '["batch_id"]' ...`` or the older ``... over 'batch_id' ...``.
+    _UNIQUE_INDEX_FIELD_RE: ClassVar[re.Pattern[str]] = re.compile(r"over\s+'?\[?\"?(?P<field>[A-Za-z_][A-Za-z0-9_.]*)")
+
+    @classmethod
+    def _extract_unique_field(cls, error_message: str | None) -> str | None:
+        """Extract the conflicting field name from an ArangoDB 1210 error message.
+
+        ArangoDB names the violated unique index in its error message, e.g.::
+
+            unique constraint violated - in index 42 of type persistent
+            over '["batch_id"]'; conflicting key: '...'
+
+        Returns the first indexed field name, or ``None`` when the message does
+        not follow the recognised shape (so callers can fall back gracefully).
+        """
+        if not error_message:
+            return None
+        match = cls._UNIQUE_INDEX_FIELD_RE.search(error_message)
+        return match.group("field") if match else None
+
+    @classmethod
+    def _describe_unique_conflict(cls, error: DocumentInsertError, data: dict[str, Any]) -> tuple[str, str]:
+        """Turn a unique-constraint violation into a ``(field, value)`` pair.
+
+        Extracts the real conflicting field from the ArangoDB error message and
+        pairs it with the value taken from the document being inserted, so the
+        resulting :class:`DuplicateError` names the actual culprit instead of the
+        misleading ``key='duplicate'`` placeholder. Falls back to a non-misleading
+        ``field='<value>'`` when the message cannot be parsed.
+        """
+        field = cls._extract_unique_field(getattr(error, "error_message", None))
+        if field and field in data:
+            return field, str(data[field])
+        if field:
+            return field, ""
+        return "field", ""
+
     def _require_tenant_key(self, tenant_key: str, method: str) -> None:
         """Reject the empty-``tenant_key`` sentinel before issuing a scoped query.
 
@@ -275,7 +314,8 @@ class BaseArangoRepository[TModel: BaseModel]:
             result = self.collection.insert(data, return_new=True)
         except DocumentInsertError as e:
             if e.error_code == 1210:  # unique constraint violated
-                raise DuplicateError(self._collection_name, "key", "duplicate") from e
+                field, value = self._describe_unique_conflict(e, data)
+                raise DuplicateError(self._collection_name, field, value) from e
             raise
         return self._from_doc(result["new"])
 

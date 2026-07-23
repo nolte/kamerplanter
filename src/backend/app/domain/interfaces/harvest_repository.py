@@ -47,6 +47,9 @@ class IHarvestRepository(ABC):
     def create_batch(self, batch: HarvestBatch) -> HarvestBatch: ...
 
     @abstractmethod
+    def batch_id_exists(self, batch_id: str) -> bool: ...
+
+    @abstractmethod
     def update_batch(self, key: HarvestBatchKey, batch: HarvestBatch) -> HarvestBatch: ...
 
     @abstractmethod

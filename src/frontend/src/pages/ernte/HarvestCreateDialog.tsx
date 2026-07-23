@@ -15,6 +15,7 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { isApiError } from '@/api/errors';
 import * as harvestApi from '@/api/endpoints/harvest';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
@@ -56,7 +57,7 @@ export default function HarvestCreateDialog({
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset, setError } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       plant_key: plantKey ?? '',
@@ -110,7 +111,15 @@ export default function HarvestCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      // Surface structured field errors on the form (e.g. a duplicate
+      // batch_id) AND show the code-specific toast (issue #744).
+      handleError(err, (name, message) =>
+        setError(name as keyof FormData, { message }),
+      );
+      if (isApiError(err) && err.errorCode === 'DUPLICATE_ENTRY') {
+        // Localise the field-level hint; the backend reason is English.
+        setError('batch_id', { message: t('pages.harvest.batchIdDuplicate') });
+      }
     } finally {
       setSaving(false);
     }
