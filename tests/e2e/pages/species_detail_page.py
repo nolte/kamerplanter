@@ -8,9 +8,11 @@ tab set and order vary with experience level.
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage
 
@@ -243,8 +245,17 @@ class SpeciesDetailPage(BasePage):
 
     # ── Growth phases (within lifecycle tab) ──────────────────────────
 
-    def has_growth_phase_section(self) -> bool:
-        return len(self.driver.find_elements(*self.PHASE_CREATE_BUTTON)) > 0
+    def has_growth_phase_section(self, timeout: int = 10) -> bool:
+        # The phases section loads asynchronously after the lifecycle form;
+        # poll instead of a single unwaited find_elements, which races the
+        # fetch on slower machines (e.g. CI runners).
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: len(d.find_elements(*self.PHASE_CREATE_BUTTON)) > 0
+            )
+        except TimeoutException:
+            return False
+        return True
 
     def get_phase_count(self) -> int:
         return len(self.driver.find_elements(*self.PHASE_TABLE_ROWS))

@@ -1,9 +1,30 @@
 # E2E test suite — selection & identifiability
 
 Selenium (Remote WebDriver / Grid) + pytest, Page-Object pattern. The suite runs
-locally against the containerised stack (`scripts/run-e2e.sh` / `task test:e2e`),
-**not** in CI — the GitHub runners are too weak, so there is deliberately no E2E
-PR gate.
+locally against the containerised stack (`scripts/run-e2e.sh` / `task test:e2e`)
+**and in CI** (see below).
+
+## CI
+
+Two GitHub Actions workflows wrap the same compose stack as local runs
+(`docker-compose.e2e.yml` stays the single source of truth for the test
+environment; `scripts/run-e2e.sh` is the shared entrypoint):
+
+- **`e2e-smoke.yml`** — the fast smoke profile (`-m smoke`) on path-filtered
+  pull requests, pushes to `develop`, and manual dispatch. **Non-required**
+  check by design: `static` stays the only required check until the flake
+  behaviour of the E2E jobs is known.
+- **`e2e-nightly.yml`** — the full suite, nightly (01:30 UTC) as a matrix over
+  the compose profiles `light`, `full`, `mobile`, `tablet`, `full-mobile`
+  (manual dispatch can select a single profile). A failing night opens a
+  GitHub issue labelled `e2e-nightly`; while one is open, further failures
+  only append a comment.
+
+Both jobs always upload `test-reports/e2e/**` (protocol, screenshots,
+container logs) as workflow artifacts and write a job summary from the
+generated protocol. Image builds are layer-cached via the
+`docker-compose.e2e.ci.yml` overlay (BuildKit `gha` cache backend), which CI
+enables through `E2E_COMPOSE_OVERLAYS` — local runs never load it.
 
 ## Selecting which tests to run after a change
 
