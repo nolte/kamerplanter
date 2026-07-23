@@ -2614,6 +2614,22 @@ perennial_species:
   - Salvia rosmarinus
   - Salvia officinalis
   - Lavandula angustifolia
+  # Tender perennials (ADR-006 E1): botanically PERENNIAL but cultivated as annuals
+  # (each carries cultivation_cycle_type=annual in lifecycle_overrides). Classifying them
+  # botanically perennial makes LifecycleResponse.grown_as_annual fire, while the effective
+  # cycle keeps the restart/overwintering engines and the seed phase-sequence linker
+  # (indoor_default, not evergreen) treating them as annuals. Begonia semperflorens and
+  # Impatiens walleriana are the plant_info-seeded siblings — their botanical perennial
+  # cycle lives in their plant_info lifecycle_configs block, not here.
+  - Capsicum annuum
+  - Ocimum basilicum
+  - Pelargonium zonale
+  - Petunia x hybrida
+  - Physalis peruviana
+  - Solanum lycopersicum
+  - Solanum melongena
+  - Verbena x hybrida
+  - Viola x wittrockiana
 
 # Per-species lifecycle overrides (Plan WP-3/WP-4): cultivation_cycle_type =
 # the practised lifespan when it differs from the botanical cycle_type

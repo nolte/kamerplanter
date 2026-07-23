@@ -190,3 +190,42 @@ class TestInstanceOverride:
         plant = _plant(current_phase_key="e-dormancy", cultivation_cycle_type=CycleType.PERENNIAL)
         assert coupler.restart_cycle(plant) is True
         phase_service.transition_phase.assert_called_once()
+
+
+class TestReclassifiedTenderPerennial:
+    """ADR-006 E1 negative proof for the tomato-cohort reclassification.
+
+    A tender perennial is seeded with a SPECIES-level botanical ``cycle_type=perennial`` and
+    a SPECIES-level ``cultivation_cycle_type=annual`` (no per-instance override). The season
+    coupler must still treat it as an annual — ``_is_effective_perennial`` is False — so the
+    reclassification (which activates ``grown_as_annual``) never drags it into dormancy or a
+    seasonal restart.
+    """
+
+    @staticmethod
+    def _tender_perennial_lc() -> LifecycleConfig:
+        return LifecycleConfig(
+            species_key="sp-1",
+            cycle_type=CycleType.PERENNIAL,
+            cultivation_cycle_type=CycleType.ANNUAL,
+        )
+
+    def test_effective_cycle_is_annual_not_perennial(self) -> None:
+        coupler = SeasonPhaseCoupler(MagicMock(), _lifecycle_repo(self._tender_perennial_lc()))
+        assert coupler._is_effective_perennial(_plant()) is False
+
+    def test_not_driven_to_dormancy(self) -> None:
+        phase_service = MagicMock()
+        phase_service.find_phase_key_by_name.return_value = "e-dormancy"
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(self._tender_perennial_lc()))
+
+        assert coupler.enter_dormancy(_plant()) is False
+        phase_service.transition_phase.assert_not_called()
+
+    def test_not_restarted(self) -> None:
+        phase_service = MagicMock()
+        phase_service.resolve_cycle_restart_phase_key.return_value = "e-sprouting"
+        coupler = SeasonPhaseCoupler(phase_service, _lifecycle_repo(self._tender_perennial_lc()))
+
+        assert coupler.restart_cycle(_plant(current_phase_key="e-dormancy")) is False
+        phase_service.transition_phase.assert_not_called()

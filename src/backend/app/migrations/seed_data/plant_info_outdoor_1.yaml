@@ -1601,7 +1601,11 @@ lifecycle_configs:
 
   # Enriched species lifecycle overrides
   "Capsicum annuum":
-    cycle_type: annual
+    # Tender perennial (ADR-006 E1): botanically perennial, cultivated as an annual
+    # (cultivation_cycle_type=annual in species.yaml/lifecycle_overrides) → grown_as_annual.
+    # Kept in sync with the perennial_species classification so seed_plant_info does not
+    # reset the botanical cycle back to annual.
+    cycle_type: perennial
     photoperiod_type: day_neutral
     dormancy_required: false
     vernalization_required: false
