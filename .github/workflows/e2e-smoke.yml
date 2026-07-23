@@ -1,0 +1,72 @@
+##
+## E2E smoke gate — runs the existing Docker Compose smoke profile
+## (scripts/run-e2e.sh --smoke) inside the runner.
+##
+## Non-required check by design: `static` stays the only required check
+## until the flake behaviour of the E2E jobs is known
+## (project/requirements/e2e-ci-selenium.md, R1/R2).
+##
+name: e2e-smoke
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/e2e/**"
+      - "docker-compose.e2e.yml"
+      - "scripts/run-e2e.sh"
+      - ".github/workflows/e2e-smoke.yml"
+  push:
+    branches: [develop]
+    paths:
+      - "src/**"
+      - "tests/e2e/**"
+      - "docker-compose.e2e.yml"
+      - "scripts/run-e2e.sh"
+      - ".github/workflows/e2e-smoke.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: E2E smoke (compose, light)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run E2E smoke suite
+        run: ./scripts/run-e2e.sh --smoke
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## E2E smoke (light)"
+            PROTOCOL=$(find test-reports/e2e -name protokoll.md | head -1)
+            if [ -n "$PROTOCOL" ]; then
+              # Surface the protocol's result overview (## Zusammenfassung) and,
+              # if present, the failed-tests section headers.
+              awk '/^## Zusammenfassung/{f=1; next} f && /^## /{exit} f{print}' "$PROTOCOL"
+              awk '/^## Fehlgeschlagene Tests/{f=1} f && /^## Testergebnisse/{exit} f && /^###? /{print}' "$PROTOCOL"
+              echo ""
+              echo "Full protocol, screenshots and container logs: see the run's \`e2e-smoke-reports\` artifact."
+            else
+              echo "No test protocol was generated (run failed before pytest)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload E2E reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-smoke-reports
+          path: test-reports/e2e/
+          retention-days: 14
+          if-no-files-found: warn
