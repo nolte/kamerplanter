@@ -137,6 +137,7 @@ TestResult = _pp_mod.TestResult
 # ── Protocol plugin state ─────────────────────────────────────────────────
 _protocol_generator: ProtocolGenerator | None = None  # type: ignore[assignment]
 _protocol_output_dir: Path | None = None
+_is_xdist_worker: bool = False
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -999,22 +1000,56 @@ def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
 
 def _generate_protocol_safe() -> None:
     """Generate the protocol from whatever results exist — safe to call on interrupt."""
+    if _is_xdist_worker:
+        # Workers only append to the shared checkpoint.jsonl; the controller
+        # generates the single protocol after every worker has finished.
+        # A per-worker protokoll.md would hold only that worker's subset and
+        # overwrite the aggregate.
+        return
     if _protocol_generator is not None and _protocol_output_dir is not None:
         try:
+            if not _protocol_generator.results:
+                # Under xdist the controller executes no tests itself — its
+                # results come from the checkpoint the workers appended to.
+                checkpoint = _protocol_output_dir / "checkpoint.jsonl"
+                if checkpoint.exists():
+                    _protocol_generator.results = _load_checkpoint(checkpoint)
             path = _protocol_generator.generate(_protocol_output_dir)
             print(f"\nTestprotokoll geschrieben: {path}")
         except Exception as exc:
             print(f"\nWarnung: Protokoll-Generierung fehlgeschlagen: {exc}")
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node) -> None:  # type: ignore[no-untyped-def]
+    """xdist (controller side): hand the shared protocol dir to each worker.
+
+    Without this every worker creates its own timestamped report dir and
+    writes a fragmentary protokoll.md, while the controller (which executes
+    no tests) writes an empty one.
+    """
+    if _protocol_output_dir is not None:
+        node.workerinput["protocol_output_dir"] = str(_protocol_output_dir)
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Initialize protocol generator if --generate-protocol is active."""
     import atexit
-    global _protocol_generator, _protocol_output_dir
+    global _protocol_generator, _protocol_output_dir, _is_xdist_worker
+
+    workerinput = getattr(session.config, "workerinput", None)
+    _is_xdist_worker = workerinput is not None
 
     if session.config.getoption("--generate-protocol", default=False):
         resume_dir = session.config.getoption("--resume", default=None)
-        if resume_dir:
+        shared_dir = (workerinput or {}).get("protocol_output_dir")
+        if shared_dir:
+            # xdist worker — write checkpoint/screenshots into the
+            # controller's directory instead of a fresh timestamped one.
+            _protocol_output_dir = Path(shared_dir)
+            _protocol_generator = ProtocolGenerator()
+            _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+        elif resume_dir:
             # Resume mode — load checkpoint from a previous interrupted run
             resume_path = Path(resume_dir)
             _protocol_output_dir = resume_path

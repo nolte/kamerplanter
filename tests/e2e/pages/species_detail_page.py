@@ -42,6 +42,9 @@ class SpeciesDetailPage(BasePage):
 
     # Growth phase locators
     PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
+    # Section heading — present for every species with a lifecycle config,
+    # including system/managed species, which hide the create button.
+    PHASE_SECTION_TITLE = (By.XPATH, "//h6[normalize-space()='Wachstumsphasen']")
     PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -246,12 +249,22 @@ class SpeciesDetailPage(BasePage):
     # ── Growth phases (within lifecycle tab) ──────────────────────────
 
     def has_growth_phase_section(self, timeout: int = 10) -> bool:
-        # The phases section loads asynchronously after the lifecycle form;
-        # poll instead of a single unwaited find_elements, which races the
-        # fetch on slower machines (e.g. CI runners).
+        # Anchor on the section heading, not the create button: managed
+        # (system) species render the section read-only without the button.
+        # The section loads asynchronously after the lifecycle form; poll
+        # instead of a single unwaited find_elements, which races the fetch
+        # on slower machines (e.g. CI runners).
+        return self._poll_present(self.PHASE_SECTION_TITLE, timeout)
+
+    def can_create_growth_phase(self, timeout: int = 10) -> bool:
+        # Editable (non-managed) species only — the create button is hidden
+        # for system species even though the section itself is visible.
+        return self._poll_present(self.PHASE_CREATE_BUTTON, timeout)
+
+    def _poll_present(self, locator: tuple[str, str], timeout: int) -> bool:
         try:
             WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(*self.PHASE_CREATE_BUTTON)) > 0
+                lambda d: len(d.find_elements(*locator)) > 0
             )
         except TimeoutException:
             return False

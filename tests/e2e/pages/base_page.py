@@ -133,7 +133,20 @@ class BasePage:
         if not self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
             return  # Already closed
 
-        # Dropdown is open — close it via Escape
+        # After an option click MUI closes the popover on its own — give the
+        # close animation a moment before touching the keyboard. Sending
+        # Escape while the popover is mid-close delivers the key to the
+        # surrounding dialog and closes THAT instead (races on slow machines,
+        # e.g. CI runners).
+        try:
+            WebDriverWait(self.driver, 2).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+            )
+            return
+        except TimeoutException:
+            pass
+
+        # Dropdown is genuinely open (opened without selecting) — close it via Escape
         self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
         try:
             # Wait until ALL option elements are gone from the DOM

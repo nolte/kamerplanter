@@ -169,8 +169,8 @@ class TestGrowthPhaseManagement:
         if submit_label == "Erstellen":
             pytest.skip("No lifecycle config — cannot create phases")
 
-        if not species_detail.has_growth_phase_section():
-            pytest.skip("Growth phase section not visible")
+        if not species_detail.can_create_growth_phase():
+            pytest.skip("Growth phases not editable (no create button — e.g. system species)")
 
         initial_count = species_detail.get_phase_count()
         unique = uuid.uuid4().hex[:4]
