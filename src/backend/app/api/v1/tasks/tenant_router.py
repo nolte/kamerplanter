@@ -465,10 +465,11 @@ def update_task(
     service: TaskService = Depends(get_task_service),
 ):
     task = service.get_task(key, tenant_key=ctx.tenant_key)
+    previous = task.model_copy(deep=True)
     data = body.model_dump(exclude_none=True)
     for field, value in data.items():
         setattr(task, field, value)
-    updated = service._repo.update_task(key, task)
+    updated = service.update_task(key, task, previous=previous)
     return _task_response(updated)
 
 

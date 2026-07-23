@@ -316,6 +316,29 @@ class NotificationService:
         """Count unread notifications for a user."""
         return self._notification_repo.count_unread(user_key, tenant_key)
 
+    def get_notification(
+        self,
+        notification_key: str,
+        tenant_key: str,
+        user_key: str | None = None,
+    ) -> Notification | None:
+        """Fetch one notification, enforcing tenant + owner scoping (fail-closed).
+
+        Returns ``None`` when the notification is absent, belongs to another tenant
+        or (when ``user_key`` is given) to another user — never disclosing the
+        difference, so a foreign key is indistinguishable from a missing one
+        (SEC-B4). Backs the §4.2 actionable callback, which must inspect the
+        notification's source before confirming it.
+        """
+        notif = self._notification_repo.get(notification_key)
+        if notif is None:
+            return None
+        if notif.tenant_key != tenant_key:
+            return None
+        if user_key and notif.user_key and notif.user_key != user_key:
+            return None
+        return notif
+
     def mark_read(self, notification_key: str, tenant_key: str, user_key: str | None = None) -> Notification | None:
         """Mark a notification as read. Returns None if not found or ownership check fails."""
         notif = self._notification_repo.get(notification_key)
