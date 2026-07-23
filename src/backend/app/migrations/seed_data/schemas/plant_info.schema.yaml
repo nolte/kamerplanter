@@ -444,7 +444,7 @@ $defs:
         minimum: 0
       dtm_reference:
         type: [string, "null"]
-        enum: [direct_seed, transplant, null]
+        enum: [direct_seed, transplant, from_flip, null]
         description: "Reference point for days_to_maturity (REQ-007, WP-6)."
       bearing_start_year_min:
         type: [integer, "null"]

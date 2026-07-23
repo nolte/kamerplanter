@@ -275,6 +275,14 @@ class TestPhaseTransitionEngineWithPhaseSequence:
         self.phase_seq_repo.get_entry_by_key.return_value = None
         self.engine = PhaseTransitionEngine(self.phase_repo, self.plant_repo, phase_seq_repo=self.phase_seq_repo)
 
+    def _plant(self, cultivation_cycle_type: CycleType | None = None) -> MagicMock:
+        """A plant whose per-instance override defaults to None (ADR-006 E1) so the
+        resolve_effective_cycle cascade falls through to the species/sequence cycle."""
+        plant = MagicMock()
+        plant.species_key = "sp-1"
+        plant.cultivation_cycle_type = cultivation_cycle_type
+        return plant
+
     def test_perennial_restart_from_phase_sequence(self):
         """Should use PhaseSequence cycle_restart_entry_order for perennial restart check."""
         current_phase = _make_growth_phase(key="gp-terminal", name="harvest", sequence_order=3, lifecycle_key="lc-1")
@@ -293,7 +301,7 @@ class TestPhaseTransitionEngineWithPhaseSequence:
         self.phase_repo.get_lifecycle_by_key.return_value = lc
         self.phase_seq_repo.get_sequence_by_species.return_value = seq
 
-        result = self.engine._is_perennial_cycle_restart("gp-terminal", 1)
+        result = self.engine._is_perennial_cycle_restart(self._plant(), "gp-terminal", 1)
         assert result is True
 
     def test_perennial_restart_fallback_lifecycle(self):
@@ -308,7 +316,7 @@ class TestPhaseTransitionEngineWithPhaseSequence:
         self.phase_repo.get_lifecycle_by_key.return_value = lc
         self.phase_seq_repo.get_sequence_by_species.return_value = None
 
-        result = self.engine._is_perennial_cycle_restart("gp-terminal", 1)
+        result = self.engine._is_perennial_cycle_restart(self._plant(), "gp-terminal", 1)
         assert result is True
 
 

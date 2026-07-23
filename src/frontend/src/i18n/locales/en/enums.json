@@ -264,7 +264,8 @@
     },
     "dtmReference": {
       "direct_seed": "from direct seeding",
-      "transplant": "from transplant"
+      "transplant": "from transplant",
+      "from_flip": "From flip to flowering"
     },
     "seedType": {
       "open_pollinated": "Open-pollinated",

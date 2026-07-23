@@ -23,7 +23,8 @@
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temperature, degC) | 10--12 | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial (kurzlebige/frostzarte Staude, in den Tropen ausdauernd -- "short-lived/tender perennial"; in Mitteleuropa wegen Frostempfindlichkeit einjaehrig kultiviert, siehe cultivation_cycle_type) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von 'annual' auf botanisch korrektes 'perennial'; 3/3 Quellen (PFAF, Missouri Botanical Garden, RHS) bestaetigen "perennial in the tropics ... frost tender ... grown as a half-hardy annual in temperate zones" bzw. "herbaceous annual or short-lived perennial"; siehe Quellenverzeichnis Eintraege 26-28. -->
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig wiederholt blühend) | `lifecycle_configs.flowering_strategy` |
 | Anbau-Zyklustyp (cultivation cycle type) | annual | `lifecycle_configs.cultivation_cycle_type` |
 | Photoperiode | day_neutral (Sweet Basil ist überwiegend tagneutral — Blüte primär reife-/temperaturgesteuert, nicht echte Kurztaginduktion. Hohe Temperaturen und Pflanzenalter lösen die Blüte aus; Rückschnitt/Entspitzen verlängert die vegetative Erntephase) | `lifecycle_configs.photoperiod_type` |
@@ -563,3 +564,8 @@ Cinnamon Basil,Ocimum basilicum 'Cinnamon',,,purple_stems;cinnamon_aroma,60,,ope
 24. AlpHa Measure / Atlas Scientific -- Hydroponic nutrient solution micronutrients: https://alpha-measure.com/hydroponic-nutrient-solution-monitoring-and-optimization/ -- Mikronaehrstoff-Spannen fuer Blattgemuese/Kraeuter in Hydrokultur
 25. Current Gardening -- VPD Calculator for Hydroponics: https://currentgardening.com/gardening-tools/vpd-calculator/ -- VPD-Stressgrenzen (>1.6 kPa Tipburn/Welke)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
+26. PFAF (Plants For A Future) -- Ocimum basilicum: "Ocimum basilicum is a PERENNIAL... Basil is a perennial plant in the tropics, but it is frost tender and needs to be grown as a half-hardy annual in temperate zones"; USDA-Haerte 9--11: https://pfaf.org/user/Plant.aspx?LatinName=Ocimum+basilicum
+27. Missouri Botanical Garden -- Ocimum basilicum Plant Finder: "a herbaceous annual or short-lived perennial native to tropical regions of Africa and Asia": https://plantfinder.mobot.org/PlantFinderDetails.aspx?kempercode=a689
+28. RHS -- Ocimum basilicum 'Thai Sita': "a tender perennial" (grown as an annual in the UK, H1C-Einstufung); RHS-Artprofil "Annual Biennial Herbs" mit Kultivierungshinweis "Grow as an annual": https://www.rhs.org.uk/plants/319211/ocimum-basilicum-thai-sita/details ; https://www.rhs.org.uk/plants/11649/ocimum-basilicum/details
+<!-- /Quelle: growing-phase-auditor 2026-07 -->
