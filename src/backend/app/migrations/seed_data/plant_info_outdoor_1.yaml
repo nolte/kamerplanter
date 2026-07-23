@@ -2189,48 +2189,58 @@ cultivars:
     - name: "Stuttgarter Riesen"
       traits: [heirloom, high_yield]
       days_to_maturity: 120
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Zittauer Gelbe"
       traits: [heirloom, long_storage]
       days_to_maturity: 130
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Red Baron"
       traits: [red_skin, ornamental]
       days_to_maturity: 110
+      dtm_reference: transplant
       seed_type: open_pollinated
 
   "Allium sativum":
     - name: "Thermidrome"
       traits: [large_cloves, hardy]
       days_to_maturity: 240
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Sprint"
       traits: [early_maturing]
       days_to_maturity: 200
+      dtm_reference: direct_seed
       seed_type: open_pollinated
 
   "Asparagus officinalis":
     - name: "Gijnlim"
       traits: [high_yield, early_maturing]
       days_to_maturity: 730
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Backlim"
       traits: [high_yield, disease_resistant]
       days_to_maturity: 730
+      dtm_reference: transplant
       seed_type: open_pollinated
 
   "Brassica oleracea var. sabellica":
     - name: "Winterbor F1"
       traits: [very_hardy, curly_leaf, high_yield]
       days_to_maturity: 65
+      dtm_reference: transplant
       seed_type: f1_hybrid
     - name: "Nero di Toscana"
       traits: [heirloom, dark_leaf, italian_type]
       days_to_maturity: 60
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Redbor F1"
       traits: [ornamental, red_leaf]
       days_to_maturity: 55
+      dtm_reference: transplant
       seed_type: f1_hybrid
 
   "Buxus sempervirens":
@@ -2242,10 +2252,12 @@ cultivars:
     - name: "Erfurter Orangefarbige"
       traits: [heirloom, orange_flower]
       days_to_maturity: 50
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Fiesta Gitana"
       traits: [compact, mixed_colors]
       days_to_maturity: 45
+      dtm_reference: direct_seed
       seed_type: open_pollinated
 
   "Clematis spp.":
@@ -2260,10 +2272,12 @@ cultivars:
     - name: "Magnus"
       traits: [large_flowered]
       days_to_maturity: 120
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "White Swan"
       traits: [white_flower]
       days_to_maturity: 120
+      dtm_reference: transplant
       seed_type: open_pollinated
 
   "Capsicum annuum":
@@ -2272,41 +2286,50 @@ cultivars:
       breeding_year: 1952
       traits: [high_yield, disease_resistant]
       days_to_maturity: 75
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "California Wonder"
       traits: [high_yield, heirloom]
       days_to_maturity: 75
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Hungarian Wax"
       traits: [heat_tolerant, early_maturing]
       days_to_maturity: 65
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Palermo F1"
       breeder: "Enza Zaden"
       traits: [high_yield, disease_resistant]
       days_to_maturity: 85
+      dtm_reference: transplant
       seed_type: f1_hybrid
     - name: "Snackpaprika (Mini)"
       traits: [compact, high_yield, early_maturing]
       days_to_maturity: 60
+      dtm_reference: transplant
       seed_type: f1_hybrid
 
   "Cichorium intybus":
     - name: "Catalogna (Blattzichorie)"
       traits: [large_leaf, italian_type]
       days_to_maturity: 60
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Zuckerhut"
       traits: [compact, mild_flavor, long_storage]
       days_to_maturity: 90
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Rossa di Treviso"
       traits: [red_leaf, italian_type, ornamental]
       days_to_maturity: 85
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Palla Rossa"
       traits: [red_leaf, compact]
       days_to_maturity: 80
+      dtm_reference: transplant
       seed_type: open_pollinated
 
   "Cucumis sativus":
@@ -2315,108 +2338,131 @@ cultivars:
       breeding_year: 1976
       traits: [disease_resistant, high_yield, heirloom]
       days_to_maturity: 65
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Picolino F1"
       traits: [compact, disease_resistant, high_yield]
       days_to_maturity: 50
+      dtm_reference: transplant
       seed_type: f1_hybrid
     - name: "Vorgebirgstraube"
       traits: [heirloom, high_yield]
       days_to_maturity: 55
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Diamant F1"
       traits: [disease_resistant, high_yield]
       days_to_maturity: 58
+      dtm_reference: transplant
       seed_type: f1_hybrid
 
   "Cucurbita maxima":
     - name: "Hokkaido (Red Kuri)"
       traits: [nutty_flavor, compact]
       days_to_maturity: 110
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Atlantic Giant"
       traits: [giant, exhibition]
       days_to_maturity: 120
+      dtm_reference: direct_seed
       seed_type: open_pollinated
 
   "Cucurbita pepo":
     - name: "Black Beauty"
       traits: [dark_green, high_yield, compact]
       days_to_maturity: 50
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Defender F1"
       traits: [disease_resistant, parthenocarp, early_maturing]
       days_to_maturity: 47
+      dtm_reference: direct_seed
       seed_type: f1_hybrid
     - name: "Partenon F1"
       traits: [parthenocarp, disease_resistant]
       days_to_maturity: 47
+      dtm_reference: direct_seed
       seed_type: f1_hybrid
     - name: "Romanesco"
       traits: [ribbed, italian_type, ornamental]
       days_to_maturity: 55
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Tondo di Nizza"
       traits: [round_fruit, compact, italian_type]
       days_to_maturity: 45
+      dtm_reference: direct_seed
       seed_type: open_pollinated
 
   "Daucus carota":
     - name: "Nantes 2"
       traits: [high_yield, heirloom]
       days_to_maturity: 80
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Flakkee"
       traits: [high_yield, long_season]
       days_to_maturity: 130
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Pariser Markt"
       traits: [compact, early_maturing]
       days_to_maturity: 65
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Bolero"
       breeder: "Vilmorin"
       traits: [disease_resistant, high_yield]
       days_to_maturity: 75
+      dtm_reference: direct_seed
       seed_type: f1_hybrid
     - name: "Flyaway"
       traits: [pest_resistant]
       days_to_maturity: 85
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Rodelika"
       breeder: "Bingenheim"
       traits: [high_yield, heirloom]
       days_to_maturity: 100
+      dtm_reference: direct_seed
       seed_type: open_pollinated
 
   "Brassica oleracea var. gongylodes":
     - name: "Superschmelz"
       traits: [giant, long_storage]
       days_to_maturity: 80
+      dtm_reference: transplant
       seed_type: open_pollinated
     - name: "Azur Star"
       traits: [purple_skin, early_maturing]
       days_to_maturity: 55
+      dtm_reference: transplant
       seed_type: open_pollinated
 
   "Brassica oleracea var. italica":
     - name: "Marathon F1"
       traits: [large_head, heat_tolerant]
       days_to_maturity: 70
+      dtm_reference: transplant
       seed_type: f1_hybrid
     - name: "Calabrese"
       traits: [high_yield]
       days_to_maturity: 75
+      dtm_reference: transplant
       seed_type: open_pollinated
 
   "Foeniculum vulgare":
     - name: "Finale"
       traits: [bolt_resistant]
       days_to_maturity: 80
+      dtm_reference: direct_seed
       seed_type: open_pollinated
     - name: "Zefa Fino"
       traits: [compact, bolt_resistant]
       days_to_maturity: 75
+      dtm_reference: direct_seed
       seed_type: open_pollinated
 
 # ==============================================================================

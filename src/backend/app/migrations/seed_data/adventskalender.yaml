@@ -847,151 +847,151 @@ growth_phases:
 
 cultivars:
   "Allium porrum":
-    - {name: "Blaugrüner Winter", breeder: null, days_to_maturity: 180, traits: [cold_hardy, long_season]}
-    - {name: "Carentan 2", breeder: null, days_to_maturity: 170, traits: [cold_hardy, heirloom]}
-    - {name: "Herbstriesen 2", breeder: null, days_to_maturity: 140, traits: [high_yield]}
-    - {name: "Hannibal", breeder: null, days_to_maturity: 100, traits: [early_maturing, high_yield]}
-    - {name: "De Solaise", breeder: null, days_to_maturity: 160, traits: [cold_hardy, heirloom]}
-    - {name: "Lancelot", breeder: null, days_to_maturity: 95, traits: [early_maturing, high_yield]}
+    - {name: "Blaugrüner Winter", breeder: null, days_to_maturity: 180, dtm_reference: transplant, traits: [cold_hardy, long_season]}
+    - {name: "Carentan 2", breeder: null, days_to_maturity: 170, dtm_reference: transplant, traits: [cold_hardy, heirloom]}
+    - {name: "Herbstriesen 2", breeder: null, days_to_maturity: 140, dtm_reference: transplant, traits: [high_yield]}
+    - {name: "Hannibal", breeder: null, days_to_maturity: 100, dtm_reference: transplant, traits: [early_maturing, high_yield]}
+    - {name: "De Solaise", breeder: null, days_to_maturity: 160, dtm_reference: transplant, traits: [cold_hardy, heirloom]}
+    - {name: "Lancelot", breeder: null, days_to_maturity: 95, dtm_reference: transplant, traits: [early_maturing, high_yield]}
 
   "Allium schoenoprasum":
-    - {name: "Staro", breeder: null, days_to_maturity: 75, traits: [compact]}
-    - {name: "Gonzales", breeder: null, days_to_maturity: 80, traits: [compact]}
-    - {name: "Polyvert", breeder: null, days_to_maturity: 60, traits: [high_yield]}
-    - {name: "Middleman", breeder: null, days_to_maturity: 70, traits: []}
-    - {name: "Feinröhriger (Pötschke Historisch)", breeder: null, days_to_maturity: 75, traits: [heirloom]}
+    - {name: "Staro", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [compact]}
+    - {name: "Gonzales", breeder: null, days_to_maturity: 80, dtm_reference: direct_seed, traits: [compact]}
+    - {name: "Polyvert", breeder: null, days_to_maturity: 60, dtm_reference: direct_seed, traits: [high_yield]}
+    - {name: "Middleman", breeder: null, days_to_maturity: 70, dtm_reference: direct_seed, traits: []}
+    - {name: "Feinröhriger (Pötschke Historisch)", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [heirloom]}
 
   "Beta vulgaris subsp. vulgaris":
-    - {name: "Boro F1", breeder: null, days_to_maturity: 55, traits: [high_yield, disease_resistant, f1]}
-    - {name: "Pablo F1", breeder: null, days_to_maturity: 58, traits: [high_yield, disease_resistant, f1]}
-    - {name: "Chioggia", breeder: null, days_to_maturity: 55, traits: [ornamental, heirloom]}
-    - {name: "Detroit Dark Red", breeder: null, days_to_maturity: 60, traits: [heirloom, high_yield]}
-    - {name: "Rote Kugel 2", breeder: null, days_to_maturity: 60, traits: [compact, heirloom]}
-    - {name: "Cylindra", breeder: null, days_to_maturity: 60, traits: [high_yield, heirloom]}
-    - {name: "Burpees Golden", breeder: null, days_to_maturity: 55, traits: [ornamental, heirloom]}
+    - {name: "Boro F1", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [high_yield, disease_resistant, f1]}
+    - {name: "Pablo F1", breeder: null, days_to_maturity: 58, dtm_reference: direct_seed, traits: [high_yield, disease_resistant, f1]}
+    - {name: "Chioggia", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [ornamental, heirloom]}
+    - {name: "Detroit Dark Red", breeder: null, days_to_maturity: 60, dtm_reference: direct_seed, traits: [heirloom, high_yield]}
+    - {name: "Rote Kugel 2", breeder: null, days_to_maturity: 60, dtm_reference: direct_seed, traits: [compact, heirloom]}
+    - {name: "Cylindra", breeder: null, days_to_maturity: 60, dtm_reference: direct_seed, traits: [high_yield, heirloom]}
+    - {name: "Burpees Golden", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [ornamental, heirloom]}
 
   "Brassica oleracea var. gemmifera":
-    - {name: "Groninger", breeder: null, days_to_maturity: 180, traits: [heirloom, long_season]}
-    - {name: "Roodnerf", breeder: null, days_to_maturity: 180, traits: [heirloom, long_season]}
-    - {name: "Crispus F1", breeder: null, days_to_maturity: 150, traits: [disease_resistant, compact, early_maturing, f1]}
-    - {name: "Nautic F1", breeder: null, days_to_maturity: 160, traits: [disease_resistant, high_yield, f1]}
-    - {name: "Igor F1", breeder: null, days_to_maturity: 165, traits: [compact, high_yield, cold_hardy, f1]}
-    - {name: "Hilds Ideal", breeder: null, days_to_maturity: 175, traits: [heirloom]}
+    - {name: "Groninger", breeder: null, days_to_maturity: 180, dtm_reference: transplant, traits: [heirloom, long_season]}
+    - {name: "Roodnerf", breeder: null, days_to_maturity: 180, dtm_reference: transplant, traits: [heirloom, long_season]}
+    - {name: "Crispus F1", breeder: null, days_to_maturity: 150, dtm_reference: transplant, traits: [disease_resistant, compact, early_maturing, f1]}
+    - {name: "Nautic F1", breeder: null, days_to_maturity: 160, dtm_reference: transplant, traits: [disease_resistant, high_yield, f1]}
+    - {name: "Igor F1", breeder: null, days_to_maturity: 165, dtm_reference: transplant, traits: [compact, high_yield, cold_hardy, f1]}
+    - {name: "Hilds Ideal", breeder: null, days_to_maturity: 175, dtm_reference: transplant, traits: [heirloom]}
 
   "Capsicum annuum":
-    - {name: "Yolo Wonder", breeder: null, days_to_maturity: 75, traits: [high_yield, disease_resistant]}
-    - {name: "California Wonder", breeder: null, days_to_maturity: 75, traits: [high_yield, heirloom]}
-    - {name: "Hungarian Wax", breeder: null, days_to_maturity: 65, traits: [heat_tolerant, early_maturing]}
-    - {name: "Palermo F1", breeder: null, days_to_maturity: 85, traits: [high_yield, disease_resistant, f1]}
-    - {name: "Cayenne", breeder: null, days_to_maturity: 90, traits: [heat_tolerant, long_season]}
-    - {name: "Snackpaprika Mini", breeder: null, days_to_maturity: 60, traits: [compact, high_yield, early_maturing]}
+    - {name: "Yolo Wonder", breeder: null, days_to_maturity: 75, dtm_reference: transplant, traits: [high_yield, disease_resistant]}
+    - {name: "California Wonder", breeder: null, days_to_maturity: 75, dtm_reference: transplant, traits: [high_yield, heirloom]}
+    - {name: "Hungarian Wax", breeder: null, days_to_maturity: 65, dtm_reference: transplant, traits: [heat_tolerant, early_maturing]}
+    - {name: "Palermo F1", breeder: null, days_to_maturity: 85, dtm_reference: transplant, traits: [high_yield, disease_resistant, f1]}
+    - {name: "Cayenne", breeder: null, days_to_maturity: 90, dtm_reference: transplant, traits: [heat_tolerant, long_season]}
+    - {name: "Snackpaprika Mini", breeder: null, days_to_maturity: 60, dtm_reference: transplant, traits: [compact, high_yield, early_maturing]}
 
   "Daucus carota":
-    - {name: "Nantes 2", breeder: null, days_to_maturity: 80, traits: [high_yield, heirloom]}
-    - {name: "Flakkee", breeder: null, days_to_maturity: 130, traits: [high_yield, long_season]}
-    - {name: "Pariser Markt", breeder: null, days_to_maturity: 65, traits: [compact, early_maturing]}
-    - {name: "Bolero", breeder: null, days_to_maturity: 75, traits: [disease_resistant, high_yield]}
-    - {name: "Flyaway", breeder: null, days_to_maturity: 85, traits: [pest_resistant]}
-    - {name: "Rodelika", breeder: null, days_to_maturity: 100, traits: [high_yield, heirloom]}
+    - {name: "Nantes 2", breeder: null, days_to_maturity: 80, dtm_reference: direct_seed, traits: [high_yield, heirloom]}
+    - {name: "Flakkee", breeder: null, days_to_maturity: 130, dtm_reference: direct_seed, traits: [high_yield, long_season]}
+    - {name: "Pariser Markt", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [compact, early_maturing]}
+    - {name: "Bolero", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [disease_resistant, high_yield]}
+    - {name: "Flyaway", breeder: null, days_to_maturity: 85, dtm_reference: direct_seed, traits: [pest_resistant]}
+    - {name: "Rodelika", breeder: null, days_to_maturity: 100, dtm_reference: direct_seed, traits: [high_yield, heirloom]}
 
   "Anethum graveolens":
-    - {name: "Tetra-Dill", breeder: null, days_to_maturity: 55, traits: [high_yield, heirloom]}
-    - {name: "Fernleaf", breeder: null, days_to_maturity: 45, traits: [compact, early_maturing]}
-    - {name: "Dukat", breeder: null, days_to_maturity: 50, traits: [high_yield, long_season]}
-    - {name: "Mammut", breeder: null, days_to_maturity: 65, traits: [high_yield, long_season]}
-    - {name: "Hera", breeder: null, days_to_maturity: 55, traits: [long_season]}
-    - {name: "Bouquet", breeder: null, days_to_maturity: 45, traits: [compact, early_maturing]}
+    - {name: "Tetra-Dill", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [high_yield, heirloom]}
+    - {name: "Fernleaf", breeder: null, days_to_maturity: 45, dtm_reference: direct_seed, traits: [compact, early_maturing]}
+    - {name: "Dukat", breeder: null, days_to_maturity: 50, dtm_reference: direct_seed, traits: [high_yield, long_season]}
+    - {name: "Mammut", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [high_yield, long_season]}
+    - {name: "Hera", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [long_season]}
+    - {name: "Bouquet", breeder: null, days_to_maturity: 45, dtm_reference: direct_seed, traits: [compact, early_maturing]}
 
   "Cucumis sativus":
-    - {name: "Marketmore 76", breeder: null, days_to_maturity: 65, traits: [disease_resistant, high_yield, heirloom]}
-    - {name: "Picolino F1", breeder: null, days_to_maturity: 50, traits: [compact, disease_resistant, high_yield, f1]}
-    - {name: "Vorgebirgstraube", breeder: null, days_to_maturity: 55, traits: [heirloom, high_yield]}
-    - {name: "Diamant F1", breeder: null, days_to_maturity: 58, traits: [disease_resistant, high_yield, f1]}
-    - {name: "Chinese Slangen", breeder: null, days_to_maturity: 65, traits: [long_season, heirloom]}
+    - {name: "Marketmore 76", breeder: null, days_to_maturity: 65, dtm_reference: transplant, traits: [disease_resistant, high_yield, heirloom]}
+    - {name: "Picolino F1", breeder: null, days_to_maturity: 50, dtm_reference: transplant, traits: [compact, disease_resistant, high_yield, f1]}
+    - {name: "Vorgebirgstraube", breeder: null, days_to_maturity: 55, dtm_reference: transplant, traits: [heirloom, high_yield]}
+    - {name: "Diamant F1", breeder: null, days_to_maturity: 58, dtm_reference: transplant, traits: [disease_resistant, high_yield, f1]}
+    - {name: "Chinese Slangen", breeder: null, days_to_maturity: 65, dtm_reference: transplant, traits: [long_season, heirloom]}
 
   "Phaseolus vulgaris":
-    - {name: "Provider", breeder: null, days_to_maturity: 50, traits: [disease_resistant, early_maturing, compact]}
-    - {name: "Contender", breeder: null, days_to_maturity: 55, traits: [disease_resistant, high_yield, compact]}
-    - {name: "Blauhilde", breeder: null, days_to_maturity: 65, traits: [ornamental, high_yield, heirloom]}
-    - {name: "Neckarkönigin", breeder: null, days_to_maturity: 65, traits: [high_yield, heirloom]}
-    - {name: "Saxa", breeder: null, days_to_maturity: 50, traits: [early_maturing, compact, heirloom]}
-    - {name: "Kentucky Blue Pole", breeder: null, days_to_maturity: 65, traits: [disease_resistant, high_yield]}
+    - {name: "Provider", breeder: null, days_to_maturity: 50, dtm_reference: direct_seed, traits: [disease_resistant, early_maturing, compact]}
+    - {name: "Contender", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [disease_resistant, high_yield, compact]}
+    - {name: "Blauhilde", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [ornamental, high_yield, heirloom]}
+    - {name: "Neckarkönigin", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [high_yield, heirloom]}
+    - {name: "Saxa", breeder: null, days_to_maturity: 50, dtm_reference: direct_seed, traits: [early_maturing, compact, heirloom]}
+    - {name: "Kentucky Blue Pole", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [disease_resistant, high_yield]}
 
   "Pisum sativum":
-    - {name: "Kelvedon Wonder", breeder: null, days_to_maturity: 65, traits: [early_maturing, compact, heirloom]}
-    - {name: "Ambassador", breeder: null, days_to_maturity: 75, traits: [high_yield]}
-    - {name: "Norli", breeder: null, days_to_maturity: 55, traits: [early_maturing, compact]}
-    - {name: "Oregon Sugar Pod", breeder: null, days_to_maturity: 65, traits: [high_yield]}
-    - {name: "Sugar Snap", breeder: null, days_to_maturity: 70, traits: [high_yield]}
-    - {name: "Ambrosia", breeder: null, days_to_maturity: 60, traits: [early_maturing, high_yield]}
+    - {name: "Kelvedon Wonder", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [early_maturing, compact, heirloom]}
+    - {name: "Ambassador", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [high_yield]}
+    - {name: "Norli", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [early_maturing, compact]}
+    - {name: "Oregon Sugar Pod", breeder: null, days_to_maturity: 65, dtm_reference: direct_seed, traits: [high_yield]}
+    - {name: "Sugar Snap", breeder: null, days_to_maturity: 70, dtm_reference: direct_seed, traits: [high_yield]}
+    - {name: "Ambrosia", breeder: null, days_to_maturity: 60, dtm_reference: direct_seed, traits: [early_maturing, high_yield]}
 
   "Petroselinum crispum":
-    - {name: "Gigante d'Italia", breeder: null, days_to_maturity: 75, traits: [high_yield]}
-    - {name: "Einfache Schnitt", breeder: null, days_to_maturity: 70, traits: [heirloom]}
-    - {name: "Grüne Perle", breeder: null, days_to_maturity: 75, traits: [compact, ornamental]}
-    - {name: "Mooskrause 2", breeder: null, days_to_maturity: 75, traits: [compact, ornamental]}
-    - {name: "Halblange Wurzelpetersilie", breeder: null, days_to_maturity: 90, traits: [heirloom]}
-    - {name: "Festival 68", breeder: null, days_to_maturity: 70, traits: [high_yield, disease_resistant]}
+    - {name: "Gigante d'Italia", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [high_yield]}
+    - {name: "Einfache Schnitt", breeder: null, days_to_maturity: 70, dtm_reference: direct_seed, traits: [heirloom]}
+    - {name: "Grüne Perle", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [compact, ornamental]}
+    - {name: "Mooskrause 2", breeder: null, days_to_maturity: 75, dtm_reference: direct_seed, traits: [compact, ornamental]}
+    - {name: "Halblange Wurzelpetersilie", breeder: null, days_to_maturity: 90, dtm_reference: direct_seed, traits: [heirloom]}
+    - {name: "Festival 68", breeder: null, days_to_maturity: 70, dtm_reference: direct_seed, traits: [high_yield, disease_resistant]}
 
   "Lactuca sativa":
-    - {name: "Maikönig", breeder: null, days_to_maturity: 55, traits: [early_maturing, heirloom]}
-    - {name: "Attractie", breeder: null, days_to_maturity: 60, traits: [high_yield]}
-    - {name: "Kagraner Sommer", breeder: null, days_to_maturity: 65, traits: [heat_tolerant, heirloom]}
-    - {name: "Lollo Rossa", breeder: null, days_to_maturity: 50, traits: [ornamental, heirloom]}
-    - {name: "Lollo Bionda", breeder: null, days_to_maturity: 50, traits: [ornamental, heirloom]}
-    - {name: "Salad Bowl", breeder: null, days_to_maturity: 45, traits: [high_yield, heat_tolerant]}
-    - {name: "Eisberg", breeder: null, days_to_maturity: 70, traits: [compact, high_yield]}
-    - {name: "Grazer Krauthäuptel", breeder: null, days_to_maturity: 60, traits: [heat_tolerant, heirloom]}
+    - {name: "Maikönig", breeder: null, days_to_maturity: 55, dtm_reference: transplant, traits: [early_maturing, heirloom]}
+    - {name: "Attractie", breeder: null, days_to_maturity: 60, dtm_reference: transplant, traits: [high_yield]}
+    - {name: "Kagraner Sommer", breeder: null, days_to_maturity: 65, dtm_reference: transplant, traits: [heat_tolerant, heirloom]}
+    - {name: "Lollo Rossa", breeder: null, days_to_maturity: 50, dtm_reference: transplant, traits: [ornamental, heirloom]}
+    - {name: "Lollo Bionda", breeder: null, days_to_maturity: 50, dtm_reference: transplant, traits: [ornamental, heirloom]}
+    - {name: "Salad Bowl", breeder: null, days_to_maturity: 45, dtm_reference: transplant, traits: [high_yield, heat_tolerant]}
+    - {name: "Eisberg", breeder: null, days_to_maturity: 70, dtm_reference: transplant, traits: [compact, high_yield]}
+    - {name: "Grazer Krauthäuptel", breeder: null, days_to_maturity: 60, dtm_reference: transplant, traits: [heat_tolerant, heirloom]}
 
   "Cichorium intybus":
-    - {name: "Catalogna", breeder: null, days_to_maturity: 60, traits: []}
-    - {name: "Zuckerhut", breeder: null, days_to_maturity: 90, traits: []}
-    - {name: "Rossa di Treviso", breeder: null, days_to_maturity: 85, traits: [ornamental]}
-    - {name: "Palla Rossa", breeder: null, days_to_maturity: 80, traits: []}
-    - {name: "Witloof", breeder: null, days_to_maturity: 120, traits: []}
-    - {name: "Wegwarte (Pötschke Historisch)", breeder: null, days_to_maturity: 90, traits: [heirloom]}
+    - {name: "Catalogna", breeder: null, days_to_maturity: 60, dtm_reference: transplant, traits: []}
+    - {name: "Zuckerhut", breeder: null, days_to_maturity: 90, dtm_reference: transplant, traits: []}
+    - {name: "Rossa di Treviso", breeder: null, days_to_maturity: 85, dtm_reference: transplant, traits: [ornamental]}
+    - {name: "Palla Rossa", breeder: null, days_to_maturity: 80, dtm_reference: transplant, traits: []}
+    - {name: "Witloof", breeder: null, days_to_maturity: 120, dtm_reference: transplant, traits: []}
+    - {name: "Wegwarte (Pötschke Historisch)", breeder: null, days_to_maturity: 90, dtm_reference: transplant, traits: [heirloom]}
 
   "Cucurbita pepo":
-    - {name: "Black Beauty", breeder: null, days_to_maturity: 50, traits: [high_yield, compact]}
-    - {name: "Defender F1", breeder: null, days_to_maturity: 47, traits: [disease_resistant, early_maturing, f1]}
-    - {name: "Partenon F1", breeder: null, days_to_maturity: 47, traits: [disease_resistant, f1]}
-    - {name: "Ismalia F1", breeder: null, days_to_maturity: 50, traits: [disease_resistant, high_yield, f1]}
-    - {name: "Romanesco", breeder: null, days_to_maturity: 55, traits: [ornamental]}
-    - {name: "Tondo di Nizza", breeder: null, days_to_maturity: 45, traits: [compact]}
-    - {name: "Zuboda (Pötschke Historisch)", breeder: null, days_to_maturity: 55, traits: [heirloom, high_yield]}
+    - {name: "Black Beauty", breeder: null, days_to_maturity: 50, dtm_reference: direct_seed, traits: [high_yield, compact]}
+    - {name: "Defender F1", breeder: null, days_to_maturity: 47, dtm_reference: direct_seed, traits: [disease_resistant, early_maturing, f1]}
+    - {name: "Partenon F1", breeder: null, days_to_maturity: 47, dtm_reference: direct_seed, traits: [disease_resistant, f1]}
+    - {name: "Ismalia F1", breeder: null, days_to_maturity: 50, dtm_reference: direct_seed, traits: [disease_resistant, high_yield, f1]}
+    - {name: "Romanesco", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [ornamental]}
+    - {name: "Tondo di Nizza", breeder: null, days_to_maturity: 45, dtm_reference: direct_seed, traits: [compact]}
+    - {name: "Zuboda (Pötschke Historisch)", breeder: null, days_to_maturity: 55, dtm_reference: direct_seed, traits: [heirloom, high_yield]}
 
   "Apium graveolens":
-    - {name: "Prager Riesen", breeder: null, days_to_maturity: 180, traits: []}
-    - {name: "Monarch", breeder: null, days_to_maturity: 190, traits: [disease_resistant]}
-    - {name: "Mars", breeder: null, days_to_maturity: 185, traits: []}
-    - {name: "President", breeder: null, days_to_maturity: 190, traits: [disease_resistant, f1]}
-    - {name: "Diamant", breeder: null, days_to_maturity: 185, traits: []}
+    - {name: "Prager Riesen", breeder: null, days_to_maturity: 180, dtm_reference: transplant, traits: []}
+    - {name: "Monarch", breeder: null, days_to_maturity: 190, dtm_reference: transplant, traits: [disease_resistant]}
+    - {name: "Mars", breeder: null, days_to_maturity: 185, dtm_reference: transplant, traits: []}
+    - {name: "President", breeder: null, days_to_maturity: 190, dtm_reference: transplant, traits: [disease_resistant, f1]}
+    - {name: "Diamant", breeder: null, days_to_maturity: 185, dtm_reference: transplant, traits: []}
 
   "Solanum lycopersicum":
-    - {name: "San Marzano", breeder: null, days_to_maturity: 75, traits: [heirloom]}
-    - {name: "Moneymaker", breeder: null, days_to_maturity: 80, traits: [high_yield]}
-    - {name: "Harzfeuer", breeder: null, days_to_maturity: 65, traits: [early_maturing, cold_hardy]}
-    - {name: "Philovita F1", breeder: null, days_to_maturity: 60, traits: [disease_resistant, f1]}
-    - {name: "Ochsenherz", breeder: null, days_to_maturity: 80, traits: [heirloom]}
-    - {name: "Roma VF", breeder: null, days_to_maturity: 75, traits: [disease_resistant]}
+    - {name: "San Marzano", breeder: null, days_to_maturity: 75, dtm_reference: transplant, traits: [heirloom]}
+    - {name: "Moneymaker", breeder: null, days_to_maturity: 80, dtm_reference: transplant, traits: [high_yield]}
+    - {name: "Harzfeuer", breeder: null, days_to_maturity: 65, dtm_reference: transplant, traits: [early_maturing, cold_hardy]}
+    - {name: "Philovita F1", breeder: null, days_to_maturity: 60, dtm_reference: transplant, traits: [disease_resistant, f1]}
+    - {name: "Ochsenherz", breeder: null, days_to_maturity: 80, dtm_reference: transplant, traits: [heirloom]}
+    - {name: "Roma VF", breeder: null, days_to_maturity: 75, dtm_reference: transplant, traits: [disease_resistant]}
 
   "Ocimum basilicum":
-    - {name: "Genovese", breeder: null, days_to_maturity: 70, traits: []}
-    - {name: "Nufar F1", breeder: null, days_to_maturity: 72, traits: [disease_resistant, f1]}
-    - {name: "Siam Queen", breeder: null, days_to_maturity: 60, traits: []}
-    - {name: "Dark Opal", breeder: null, days_to_maturity: 65, traits: [ornamental]}
-    - {name: "Prospera", breeder: null, days_to_maturity: 75, traits: [disease_resistant, f1]}
-    - {name: "Griechisches Strauchbasilikum", breeder: null, days_to_maturity: 55, traits: [compact]}
+    - {name: "Genovese", breeder: null, days_to_maturity: 70, dtm_reference: transplant, traits: []}
+    - {name: "Nufar F1", breeder: null, days_to_maturity: 72, dtm_reference: transplant, traits: [disease_resistant, f1]}
+    - {name: "Siam Queen", breeder: null, days_to_maturity: 60, dtm_reference: transplant, traits: []}
+    - {name: "Dark Opal", breeder: null, days_to_maturity: 65, dtm_reference: transplant, traits: [ornamental]}
+    - {name: "Prospera", breeder: null, days_to_maturity: 75, dtm_reference: transplant, traits: [disease_resistant, f1]}
+    - {name: "Griechisches Strauchbasilikum", breeder: null, days_to_maturity: 55, dtm_reference: transplant, traits: [compact]}
 
   "Raphanus sativus":
-    - {name: "Cherry Belle", breeder: null, days_to_maturity: 22, traits: [early_maturing]}
-    - {name: "Saxa 3", breeder: null, days_to_maturity: 25, traits: [early_maturing, compact]}
-    - {name: "Riesenbutter", breeder: null, days_to_maturity: 30, traits: []}
-    - {name: "French Breakfast 3", breeder: null, days_to_maturity: 28, traits: []}
-    - {name: "Eiszapfen", breeder: null, days_to_maturity: 35, traits: []}
-    - {name: "Pernot", breeder: null, days_to_maturity: 25, traits: []}
-    - {name: "Sora", breeder: null, days_to_maturity: 24, traits: []}
-    - {name: "Viola", breeder: null, days_to_maturity: 28, traits: [ornamental]}
+    - {name: "Cherry Belle", breeder: null, days_to_maturity: 22, dtm_reference: direct_seed, traits: [early_maturing]}
+    - {name: "Saxa 3", breeder: null, days_to_maturity: 25, dtm_reference: direct_seed, traits: [early_maturing, compact]}
+    - {name: "Riesenbutter", breeder: null, days_to_maturity: 30, dtm_reference: direct_seed, traits: []}
+    - {name: "French Breakfast 3", breeder: null, days_to_maturity: 28, dtm_reference: direct_seed, traits: []}
+    - {name: "Eiszapfen", breeder: null, days_to_maturity: 35, dtm_reference: direct_seed, traits: []}
+    - {name: "Pernot", breeder: null, days_to_maturity: 25, dtm_reference: direct_seed, traits: []}
+    - {name: "Sora", breeder: null, days_to_maturity: 24, dtm_reference: direct_seed, traits: []}
+    - {name: "Viola", breeder: null, days_to_maturity: 28, dtm_reference: direct_seed, traits: [ornamental]}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # §7 Companion Planting Edges
