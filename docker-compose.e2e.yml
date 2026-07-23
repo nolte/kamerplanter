@@ -236,6 +236,9 @@ services:
     profiles: ["smoke"]
     entrypoint:
       - pytest
+      - -n
+      - "4"
+      - --dist=loadfile
       - -m
       - smoke
       - --tb=short

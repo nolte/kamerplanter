@@ -1,0 +1,72 @@
+##
+## CI-only overlay for docker-compose.e2e.yml — GitHub Actions layer caching.
+##
+## Adds BuildKit gha cache import/export to every built image. Applied by the
+## e2e workflows via E2E_COMPOSE_OVERLAYS (see scripts/run-e2e.sh); local runs
+## never load this file. The gha cache backend needs the workflow to expose the
+## Actions runtime env (crazy-max/ghaction-github-runtime) and a buildx
+## container builder with COMPOSE_BAKE=true.
+##
+## Cache scopes are shared per build context: backend & celery-worker (and
+## their -full twins) reuse one scope, as do all e2e test-runner variants.
+##
+
+services:
+  backend:
+    build:
+      cache_from: ["type=gha,scope=e2e-backend"]
+      cache_to: ["type=gha,scope=e2e-backend,mode=max"]
+  celery-worker:
+    build:
+      cache_from: ["type=gha,scope=e2e-backend"]
+      cache_to: ["type=gha,scope=e2e-backend,mode=max"]
+  backend-full:
+    build:
+      cache_from: ["type=gha,scope=e2e-backend"]
+      cache_to: ["type=gha,scope=e2e-backend,mode=max"]
+  celery-worker-full:
+    build:
+      cache_from: ["type=gha,scope=e2e-backend"]
+      cache_to: ["type=gha,scope=e2e-backend,mode=max"]
+
+  frontend:
+    build:
+      cache_from: ["type=gha,scope=e2e-frontend"]
+      cache_to: ["type=gha,scope=e2e-frontend,mode=max"]
+  frontend-full:
+    build:
+      cache_from: ["type=gha,scope=e2e-frontend"]
+      cache_to: ["type=gha,scope=e2e-frontend,mode=max"]
+
+  e2e-tests:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-smoke:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-core-crud:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-tests-full:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-tests-mobile:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-tests-tablet:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-tests-full-mobile:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]
+  e2e-tests-full-tablet:
+    build:
+      cache_from: ["type=gha,scope=e2e-tests"]
+      cache_to: ["type=gha,scope=e2e-tests,mode=max"]

@@ -143,7 +143,7 @@ class TestCompleteWorkflow:
                 screenshot("TC-REQ-001-089_lifecycle-created", "Lifecycle config created")
 
                 # Step 6: Create growth phases
-                if species_detail.has_growth_phase_section():
+                if species_detail.can_create_growth_phase():
                     for i, (name, display) in enumerate([
                         ("germination", "Keimung"),
                         ("vegetative", "Vegetativ"),
