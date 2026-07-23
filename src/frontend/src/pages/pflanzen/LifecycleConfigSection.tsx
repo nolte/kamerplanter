@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
+import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -221,6 +223,26 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                 />
               </ExpertiseFieldWrapper>
             </FormRow>
+            {/* Derived read-only flag (WP-3): botanically non-annual but cultivated as
+              an annual (tender perennial). Computed server-side; reflects the last
+              persisted state, so it may lag unsaved edits to the cycle selects.
+              Placed directly below cycle_type/cultivation_cycle_type since the flag
+              is derived from a mismatch between those two fields. */}
+            {lifecycle?.grown_as_annual && (
+              <Box sx={{ mt: 1 }}>
+                <Tooltip title={t('pages.lifecycle.grownAsAnnualHelper')}>
+                  {/* tabIndex makes the (non-interactive) Chip keyboard-focusable so the
+                    tooltip is reachable via Tab, not just hover/touch (UI-NFR-002). */}
+                  <Chip
+                    label={t('pages.lifecycle.grownAsAnnual')}
+                    color="info"
+                    variant="outlined"
+                    size="small"
+                    tabIndex={0}
+                  />
+                </Tooltip>
+              </Box>
+            )}
             {/* Growth determinacy (REQ-003 E4) — orthogonal to lifespan/flowering.
               Determinate species follow a linear path to a terminal phase; indeterminate
               species stay in a stable productive phase with concurrent veg/flower/fruit. */}

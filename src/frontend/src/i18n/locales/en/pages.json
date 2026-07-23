@@ -1375,6 +1375,8 @@
       "traitsHelper": "Cultivar traits (press Enter to add)",
       "patentStatus": "Patent Status",
       "patentStatusHelper": "Protection status: e.g. 'PVP', 'Patent', 'Open Source', empty = unknown",
+      "seedType": "Seed Type",
+      "seedTypeHelper": "Determines whether saved seed grows true to type (open-pollinated/landrace: yes; F1 hybrid: usually not; clone: propagated vegetatively, without seed).",
       "daysToMaturity": "Days to Maturity",
       "daysToMaturityHelper": "Typical days from planting to harvest (1–365)",
       "dtmReference": "Days-to-Maturity Reference",
@@ -1391,7 +1393,7 @@
       "sectionIdentification": "Identification",
       "sectionIdentificationDesc": "Name, breeder and origin of the cultivar.",
       "sectionCharacteristics": "Characteristics",
-      "sectionCharacteristicsDesc": "Maturity, traits and disease resistances."
+      "sectionCharacteristicsDesc": "Maturity, seed type, traits and disease resistances."
     },
     "companionPlanting": {
       "title": "Companion Planting",
@@ -1999,6 +2001,8 @@
       "cycleTypeHelper": "Botanical lifecycle: Annual flowers and dies within one season, Biennial flowers in its second year, Perennial lives and flowers over many years.",
       "cultivationCycleType": "Cultivation Cycle Type",
       "cultivationCycleTypeHelper": "How the species is grown in cultivation — may differ from the botanical lifespan (e.g. botanically perennial but grown as an annual)",
+      "grownAsAnnual": "Grown as an annual",
+      "grownAsAnnualHelper": "Botanically perennial, but grown as an annual in cultivation (frost-tender species).",
       "floweringStrategy": "Flowering Strategy",
       "floweringStrategyHelper": "Monocarpic: flowers once, then dies. Polycarpic: flowers repeatedly over several years.",
       "growthDeterminacy": "Growth Determinacy",

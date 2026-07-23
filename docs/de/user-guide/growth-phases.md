@@ -251,6 +251,27 @@ Klicke auf **Wachstum wiederaufnehmen**. Kamerplanter setzt den Zyklus zurück i
 
 ---
 
+## Botanischer Lebenszyklus vs. Anbau-Zyklustyp {#botanischer-lebenszyklus-vs-anbau-zyklustyp}
+
+Manche Pflanzenarten sind botanisch mehrjährig, werden im praktischen Anbau aber wie einjährige Pflanzen behandelt — bekanntestes Beispiel ist die Tomate: Botanisch eine ausdauernde Staude, wird sie wegen ihrer Frostempfindlichkeit in gemäßigten Klimazonen fast immer nach einer Saison entsorgt statt überwintert.
+
+Kamerplanter unterscheidet dafür zwei Felder in der Lebenszyklus-Konfiguration einer Art (Detailseite der Art → Tab **Lebenszyklus-Konfiguration**):
+
+- **Zyklustyp** (`cycle_type`) — der **botanische** Lebenszyklus der Art: Einjährig, Zweijährig oder Mehrjährig.
+- **Anbau-Zyklustyp** (`cultivation_cycle_type`) — wie die Art in Kamerplanter **tatsächlich kultiviert** wird. Bleibt das Feld leer, gilt für die Kultur automatisch der botanische Zyklustyp; abweichend gesetzt bildet es Fälle wie die Tomate ab.
+
+### Der Hinweis „Wird als einjährig kultiviert"
+
+Weicht der Anbau-Zyklustyp vom botanischen Zyklustyp ab — konkret: Die Art wird als „Einjährig" kultiviert, obwohl ihr Zyklustyp nicht „Einjährig" ist — zeigt Kamerplanter im Tab **Lebenszyklus-Konfiguration** direkt unterhalb der beiden Zyklustyp-Felder automatisch den Info-Chip **„Wird als einjährig kultiviert"** an.
+
+!!! example "Beispiel: Tomate"
+    Tomate ist botanisch mehrjährig, wird aber praktisch fast immer einjährig kultiviert (frostempfindlich, meist ohne Überwinterung). Für die Tomate zeigt Kamerplanter daher den Chip „Wird als einjährig kultiviert" an.
+
+!!! note "Rein informativ, nicht bearbeitbar"
+    Der Chip ist ein abgeleiteter Hinweis, der ausschließlich aus **Zyklustyp** und **Anbau-Zyklustyp** berechnet wird — er lässt sich nicht selbst anklicken oder bearbeiten und ist unabhängig von deiner Erfahrungsstufe sichtbar, sobald die Abweichung zutrifft. Um den Hinweis verschwinden zu lassen, änderst du stattdessen eines der beiden zugrunde liegenden Felder. <!-- REQ-001 / REQ-003 -->
+
+---
+
 ## Monokarpische Pflanzen: Einmalige Blüte und automatische Kindel-Fortführung {#monokarpische-pflanzen}
 
 Manche Pflanzenarten sind **monokarpisch**: Sie blühen genau einmal in ihrem Leben und sterben danach ab — bekannte Beispiele sind viele Agaven, Bromelien und Guzmanien. In der Lebenszyklus-Konfiguration einer Art ist das als **Blühstrategie „Monokarp (blüht einmal)"** hinterlegt, im Unterschied zu „Polykarp (blüht mehrfach)" bei Pflanzen, die über mehrere Jahre wiederholt blühen.

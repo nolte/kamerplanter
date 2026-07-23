@@ -324,6 +324,7 @@ export const handlers = [
       photoperiod_type: 'day_neutral',
       critical_day_length_hours: null,
       phase_sequence_key: null,
+      grown_as_annual: false,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: null,
     });

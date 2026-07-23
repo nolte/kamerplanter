@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from app.common.enums import CycleType, FloweringStrategy, GrowthDeterminacy, PhotoperiodType
 
@@ -35,3 +35,14 @@ class LifecycleResponse(BaseModel):
     phase_sequence_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def grown_as_annual(self) -> bool:
+        """Species is cultivated as a (tender) annual.
+
+        True when the cultivation cycle is annual while the botanical cycle is
+        not — e.g. tomato: botanically perennial, grown as an annual. Derived
+        read-only; never persisted on the domain model.
+        """
+        return self.cultivation_cycle_type == CycleType.ANNUAL and self.cycle_type != CycleType.ANNUAL
