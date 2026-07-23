@@ -1,6 +1,12 @@
 # AP-21 — Audit-/Backlog-Hygiene (kein Produktivcode)
 
 > Bezug: Befunde **GAP-B1**, **GAP-B17** aus `../code-review-fable5-2026-07.md`. Aufwand: **S**.
+>
+> **Status 2026-07-23 — erledigt durch Entfernung.** Der hier zu pflegende April-Audit-Layer
+> (`.audits/req-coverage-audit.md`, `.audits/execution-roadmap.md`, `.audits/phase-0-drift-findings.md`,
+> `.audits/implementation-plan.md`) wurde als veraltet/irreführend entfernt statt nachgepflegt. Das
+> Aggregat ist bei Bedarf per `.claude/skills/req-coverage-audit/run_audit.py` neu erzeugbar. Die
+> konkreten Schritte unten sind damit gegenstandslos und nur noch als Historie zu lesen.
 
 ## Ziel
 Das Backlog spiegelt den echten Code-Stand wider, sodass die Priorisierung nicht durch
