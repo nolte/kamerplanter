@@ -21,6 +21,7 @@ from app.domain.interfaces.climate_normal_repository import IClimateNormalReposi
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.models.hardiness_zone import HardinessZone
 from app.domain.models.site import Site
+from app.domain.services.climate_normal_fetcher import ClimateNormalFetcher
 
 
 class HardinessZoneService:
@@ -29,10 +30,15 @@ class HardinessZoneService:
         zone_repo: ArangoHardinessZoneRepository,
         site_repo: ISiteRepository,
         climate_normal_repo: IClimateNormalRepository,
+        normals_fetcher: ClimateNormalFetcher | None = None,
     ) -> None:
         self._zone_repo = zone_repo
         self._site_repo = site_repo
         self._climate_normal_repo = climate_normal_repo
+        #: Optional on-demand climate-normals fetcher (REQ-041). When present, a
+        #: ``resolve_for_site(fetch_if_missing=True)`` call fetches the site's
+        #: normals from GPS before giving up with a 422.
+        self._normals_fetcher = normals_fetcher
 
     # ── Catalog ──────────────────────────────────────────────────────────
 
@@ -65,13 +71,21 @@ class HardinessZoneService:
         site = self._load_site(site_key, tenant_key)
         return site, self.catalog_entry(site.hardiness_zone)
 
-    def resolve_for_site(self, site_key: str, tenant_key: str, *, force: bool = False) -> Site:
+    def resolve_for_site(
+        self,
+        site_key: str,
+        tenant_key: str,
+        *,
+        force: bool = False,
+        fetch_if_missing: bool = False,
+    ) -> Site:
         """Derive the site's hardiness zone from its climate normals and persist it.
 
-        A ``manual`` assignment is preserved unless ``force`` is set. Raises
-        :class:`ValidationError` (422) when the site has no climate normals with a
-        usable minimum temperature yet — the caller should fetch climate normals
-        (REQ-041) first.
+        A ``manual`` assignment is preserved unless ``force`` is set. When
+        ``fetch_if_missing`` is set and a fetcher is configured, the site's
+        climate normals are fetched on demand from its GPS coordinates (REQ-041)
+        before giving up. Raises :class:`ValidationError` (422) when no climate
+        normals with a usable minimum temperature can be obtained.
         """
         site = self._load_site(site_key, tenant_key)
 
@@ -79,6 +93,11 @@ class HardinessZoneService:
             return site
 
         derivation = self._derive_zone(site_key, tenant_key)
+        if derivation is None and fetch_if_missing and self._normals_fetcher is not None:
+            # On-demand fetch straight from the site's GPS, then retry the
+            # derivation on the freshly-persisted normals.
+            self._normals_fetcher.fetch_for_site(site)
+            derivation = self._derive_zone(site_key, tenant_key)
         if derivation is None:
             raise ValidationError(
                 "Für diesen Standort liegen noch keine Klimanormale mit verwertbarer "

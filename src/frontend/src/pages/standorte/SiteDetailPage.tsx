@@ -25,11 +25,14 @@ import { useTableLocalState } from '@/hooks/useTableState';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
+import FormClimateZoneField from '@/components/form/FormClimateZoneField';
+import FormTimezoneField from '@/components/form/FormTimezoneField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import WaterSourceSection, { TAP_WATER_DEFAULTS, RO_WATER_DEFAULTS } from '@/components/water/WaterSourceSection';
 import GpsDetectButton from './GpsDetectButton';
+import HardinessZoneDetectButton from './HardinessZoneDetectButton';
 import LocationTreeSection from './LocationTreeSection';
 import SiteRunsSection from './SiteRunsSection';
 import WeatherSourceSection from './WeatherSourceSection';
@@ -258,10 +261,22 @@ export default function SiteDetailPage() {
               </Alert>
             )}
             <FormRow>
-              <FormTextField name="climate_zone" control={control} label={t('pages.sites.climateZone')} />
+              <Box>
+                <FormClimateZoneField name="climate_zone" control={control} label={t('pages.sites.climateZone')} helperText={t('pages.sites.climateZoneHelper')} />
+                {/* Grouped directly under the field it fills in — placing it
+                    below the whole FormRow would visually associate it with
+                    the unrelated area field instead (UI-NFR-008 field grouping). */}
+                {key && (
+                  <HardinessZoneDetectButton
+                    siteKey={key}
+                    gpsPresent={current?.gps_coordinates != null}
+                    onResolved={() => dispatch(fetchSite(key))}
+                  />
+                )}
+              </Box>
               <FormNumberField name="total_area_m2" control={control} label={t('pages.sites.totalArea')} helperText={t('pages.sites.totalAreaHelper')} min={0} />
             </FormRow>
-            <FormTextField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} />
+            <FormTimezoneField name="timezone" control={control} label={t('pages.sites.timezone')} helperText={t('pages.sites.timezoneHelper')} required />
           </CardContent>
         </Card>
 

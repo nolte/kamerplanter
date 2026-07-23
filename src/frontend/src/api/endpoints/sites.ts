@@ -2,6 +2,7 @@ import client, { tenantClient } from '../client';
 import type {
   Site,
   SiteCreate,
+  SiteHardinessResponse,
   Location,
   LocationCreate,
   LocationTreeNode,
@@ -38,6 +39,24 @@ export async function updateSite(key: string, payload: SiteCreate): Promise<Site
 
 export async function deleteSite(key: string): Promise<void> {
   await tenantClient.delete(`${SITES}/${key}`);
+}
+
+/**
+ * Derive the site's USDA hardiness zone (and legacy `climate_zone`) from its GPS
+ * coordinates (REQ-039/041). Climate normals are fetched on demand server-side,
+ * so this works right after coordinates are set. Requires the `grower` role and
+ * returns 422 when no climate normals with a usable minimum can be obtained.
+ */
+export async function resolveSiteHardinessZone(
+  key: string,
+  force = false,
+): Promise<SiteHardinessResponse> {
+  const { data } = await tenantClient.post<SiteHardinessResponse>(
+    `${SITES}/${key}/resolve-hardiness-zone`,
+    null,
+    { params: { force } },
+  );
+  return data;
 }
 
 // Locations
