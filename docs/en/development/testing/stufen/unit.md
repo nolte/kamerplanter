@@ -7,6 +7,17 @@ Unit tests verify a **single function or class in isolation** — without a data
 - **Backend business logic:** pure calculations and engine rules (VPD via Tetens, GDD accumulation, EC budget), adapter logic (GBIF/Perenual enrichment).
 - **Frontend logic without a DOM:** Redux slices (reducers, actions) and custom hooks that are testable as pure functions.
 
+## Tested areas at a glance
+
+| Area | Tested elements | Extent |
+|------|-----------------|--------|
+| Domain logic (backend) | VPD/GDD/EC calculations, phase engine, karenz gate, companion/crop rotation | extensive |
+| Repositories (backend) | ArangoDB access, graph queries | extensive |
+| Migrations | schema migration framework | extensive |
+| Celery tasks | background jobs, retention/anonymization | moderate |
+| Adapters | weather (DWD/Open-Meteo/OWM/NASA), GBIF, Perenual, PlantNet, Home Assistant, notifications | moderate |
+| Frontend | Redux slices, custom hooks | moderate |
+
 ## Tooling & location
 
 | | Backend | Frontend |

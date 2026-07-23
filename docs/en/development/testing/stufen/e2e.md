@@ -7,6 +7,23 @@ End-to-end tests (E2E) verify **complete user workflows in a real browser** — 
 - **End-to-end flows:** e.g. login → create record → save → find again, across all layers.
 - **Real interplay:** real browser, real frontend (nginx), real backend, real database.
 
+## Tested areas at a glance
+
+E2E suites are organized by requirement (REQ). Grouped thematically:
+
+| Area | Example workflows | Extent |
+|------|-------------------|--------|
+| Master data & lifecycle | species/cultivars, phase control, planting run | extensive |
+| Watering & feeding | nutrient solution, feeding, tank management | moderate |
+| Tasks & care | task queue, care dashboard, reminders | moderate |
+| Harvest & post-harvest | harvest readiness, harvest list, post-harvest | moderate |
+| Plant protection | pests/diseases, photo recognition, diagnosis | moderate |
+| Platform | login, tenants, privacy, light mode | extensive |
+| Others | dashboard, calendar, onboarding, companion planting, notifications, AI assistant, print views | moderate |
+
+!!! note "Curated test-case specifications"
+    Detailed, numbered test cases live as Markdown documents under `spec/e2e-testcases/` (`TC-REQ-*`, `TC-NFR-*`) alongside `COVERAGE-REPORT.md`. Per requirement they describe preconditions, steps, and expected results.
+
 ## Tooling & location
 
 | | Value |

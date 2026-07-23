@@ -7,6 +7,14 @@ Integration tests verify the **interplay of several building blocks with real ex
 - **Repository and database access:** that queries, indexes, and the graph (`kamerplanter_graph`) work as expected against a real ArangoDB instance.
 - **API layer:** error handling and status codes of the FastAPI endpoints.
 
+## Tested areas at a glance
+
+| Area | Tested elements | Extent |
+|------|-----------------|--------|
+| API layer (routers) | REST endpoints per domain — dashboard, nutrient, weather, privacy, recognition, tenants, locations, and many more | extensive |
+| Database integration | ArangoDB setup, graph, multi-year season cycle | focused |
+| Tenant isolation | propagation/lineage across tenant boundaries | focused |
+
 ## Tooling & location
 
 | | Value |

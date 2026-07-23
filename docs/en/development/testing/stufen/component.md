@@ -7,6 +7,14 @@ Component tests verify **React components in the rendered DOM** — with all req
 - **Rendering & interaction:** that forms, dialogs, and pages display correctly and react to user actions.
 - **Accessibility:** critical forms and dialogs are checked for accessibility violations with `vitest-axe`.
 
+## Tested areas at a glance
+
+| Area | Tested elements | Extent |
+|------|-----------------|--------|
+| Components | forms, dialogs, and widgets per area: admin, dashboard, diagnosis, pests, tanks, identification, glossary, layout, privacy, AI | extensive |
+| Pages | page components incl. routing and data loading | extensive |
+| Accessibility | critical forms/dialogs (`vitest-axe`) | focused |
+
 ## Tooling & location
 
 | | Value |

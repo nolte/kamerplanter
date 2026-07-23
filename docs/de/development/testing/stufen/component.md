@@ -7,6 +7,14 @@ Component-Tests prüfen **React-Komponenten im gerenderten DOM** — mit allen n
 - **Rendering & Interaktion:** dass Formulare, Dialoge und Seiten korrekt anzeigen und auf Nutzeraktionen reagieren.
 - **Barrierefreiheit:** kritische Formulare und Dialoge werden mit `vitest-axe` auf Accessibility-Verstöße geprüft.
 
+## Getestete Bereiche im Überblick
+
+| Bereich | Getestete Elemente | Umfang |
+|---------|--------------------|--------|
+| Komponenten | Formulare, Dialoge und Widgets je Bereich: Admin, Dashboard, Diagnose, Schädlinge, Tanks, Identifikation, Glossar, Layout, Datenschutz, KI | umfangreich |
+| Seiten | Seiten-Komponenten inkl. Routing und Datenladen | umfangreich |
+| Barrierefreiheit | kritische Formulare/Dialoge (`vitest-axe`) | fokussiert |
+
 ## Werkzeug & Ort
 
 | | Wert |

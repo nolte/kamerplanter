@@ -7,6 +7,14 @@ Integrationstests prüfen das **Zusammenspiel mehrerer Bausteine mit echten exte
 - **Repository- und Datenbank-Zugriff:** dass Queries, Indizes und der Graph (`kamerplanter_graph`) gegen eine echte ArangoDB-Instanz wie erwartet arbeiten.
 - **API-Schicht:** Fehlerbehandlung und Statuscodes der FastAPI-Endpunkte.
 
+## Getestete Bereiche im Überblick
+
+| Bereich | Getestete Elemente | Umfang |
+|---------|--------------------|--------|
+| API-Schicht (Router) | REST-Endpunkte je Domäne — Dashboard, Nährlösung, Wetter, Datenschutz, Erkennung, Mandanten, Standorte u. v. m. | umfangreich |
+| Datenbank-Integration | ArangoDB-Setup, Graph, mehrjähriger Saison-Zyklus | fokussiert |
+| Tenant-Isolation | Vermehrung/Lineage über Mandantengrenzen | fokussiert |
+
 ## Werkzeug & Ort
 
 | | Wert |

@@ -7,6 +7,23 @@ End-to-End-Tests (E2E) prüfen **komplette Nutzer-Workflows im echten Browser** 
 - **Durchgängige Abläufe:** z. B. Login → Datensatz anlegen → speichern → wiederfinden, quer durch alle Schichten.
 - **Reales Zusammenspiel:** echter Browser, echtes Frontend (nginx), echtes Backend, echte Datenbank.
 
+## Getestete Bereiche im Überblick
+
+E2E-Suiten sind nach Anforderung (REQ) organisiert. Thematisch gebündelt:
+
+| Bereich | Beispiel-Workflows | Umfang |
+|---------|--------------------|--------|
+| Stammdaten & Lebenszyklus | Arten/Sorten, Phasensteuerung, Pflanzdurchlauf | umfangreich |
+| Bewässerung & Düngung | Nährlösung, Feeding, Tankmanagement | mittel |
+| Aufgaben & Pflege | Task-Queue, Pflege-Dashboard, Erinnerungen | mittel |
+| Ernte & Nachernte | Erntereife, Ernteliste, Post-Harvest | mittel |
+| Pflanzenschutz | Schädlinge/Krankheiten, Foto-Erkennung, Diagnose | mittel |
+| Plattform | Anmeldung, Mandanten, Datenschutz, Light-Modus | umfangreich |
+| Weitere | Dashboard, Kalender, Onboarding, Mischkultur, Notifications, KI-Assistent, Druckansichten | mittel |
+
+!!! note "Kuratierte Testfall-Spezifikationen"
+    Detaillierte, nummerierte Testfälle liegen als Markdown-Dokumente unter `spec/e2e-testcases/` (`TC-REQ-*`, `TC-NFR-*`) samt `COVERAGE-REPORT.md`. Sie beschreiben je Anforderung Vorbedingungen, Schritte und erwartete Ergebnisse.
+
 ## Werkzeug & Ort
 
 | | Wert |

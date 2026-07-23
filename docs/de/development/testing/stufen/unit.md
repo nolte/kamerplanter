@@ -7,6 +7,17 @@ Unit-Tests prüfen eine **einzelne Funktion oder Klasse in Isolation** — ohne 
 - **Backend-Fachlogik:** reine Berechnungen und Engine-Regeln (VPD nach Tetens, GDD-Akkumulation, EC-Budget), Adapter-Logik (GBIF-/Perenual-Anreicherung).
 - **Frontend-Logik ohne DOM:** Redux-Slices (Reducer, Actions) und Custom Hooks, die als reine Funktionen testbar sind.
 
+## Getestete Bereiche im Überblick
+
+| Bereich | Getestete Elemente | Umfang |
+|---------|--------------------|--------|
+| Domain-Logik (Backend) | VPD-/GDD-/EC-Berechnung, Phasen-Engine, Karenz-Gate, Companion/Fruchtfolge | umfangreich |
+| Repositories (Backend) | ArangoDB-Zugriffe, Graph-Queries | umfangreich |
+| Migrationen | Schema-Migrations-Framework | umfangreich |
+| Celery-Tasks | Hintergrund-Jobs, Retention/Anonymisierung | mittel |
+| Adapter | Wetter (DWD/Open-Meteo/OWM/NASA), GBIF, Perenual, PlantNet, Home Assistant, Notifications | mittel |
+| Frontend | Redux-Slices, Custom Hooks | mittel |
+
 ## Werkzeug & Ort
 
 | | Backend | Frontend |
