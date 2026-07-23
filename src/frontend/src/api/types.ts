@@ -523,6 +523,8 @@ export interface WaterSourceWarning {
   severity: string;
 }
 
+export type HardinessZoneSource = 'manual' | 'derived_gps' | 'derived_postal' | 'frostline_us';
+
 export interface Site {
   key: string;
   name: string;
@@ -536,8 +538,39 @@ export interface Site {
   last_frost_date_avg: string | null;
   first_frost_date_avg: string | null;
   eisheilige_date: string | null;
+  hardiness_zone?: string | null;
+  hardiness_zone_source?: HardinessZoneSource;
+  hardiness_zone_resolved_at?: string | null;
+  mean_annual_minimum_c?: number | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** One canonical USDA hardiness zone (global reference data). */
+export interface HardinessZoneCatalogEntry {
+  zone: string;
+  zone_number: number;
+  subzone: string;
+  temp_min_c: number;
+  temp_max_c: number;
+  temp_min_f: number;
+  temp_max_f: number;
+  description_de: string;
+  representative_regions_de: string[];
+  typical_last_frost_md?: string | null;
+  typical_first_frost_md?: string | null;
+}
+
+/** A site's resolved hardiness zone plus the matching catalog entry (REQ-039/041). */
+export interface SiteHardinessResponse {
+  site_key: string;
+  hardiness_zone: string | null;
+  hardiness_zone_source: HardinessZoneSource;
+  hardiness_zone_resolved_at: string | null;
+  mean_annual_minimum_c: number | null;
+  last_frost_date_avg: string | null;
+  first_frost_date_avg: string | null;
+  zone: HardinessZoneCatalogEntry | null;
 }
 
 export interface SiteCreate {

@@ -169,13 +169,16 @@ def resolve_site_hardiness_zone(
 ):
     """Derive the site's hardiness zone from its REQ-041 climate normals.
 
-    A manually set zone is preserved unless ``force=true``. Returns 422 when the
-    site has no climate normals with a usable minimum temperature yet.
+    Climate normals are fetched on demand from the site's GPS coordinates when
+    not already cached, so this works immediately for a site that just got GPS
+    (no waiting for the monthly climate-normals beat). A manually set zone is
+    preserved unless ``force=true``. Returns 422 when no climate normals with a
+    usable minimum temperature can be obtained (e.g. the site has no GPS).
 
     State-changing (mutates ``Site.hardiness_zone``), so it requires at least the
     ``grower`` role — a ``viewer`` cannot trigger a zone derivation (SEC-001).
     """
-    site = service.resolve_for_site(key, ctx.tenant_key, force=force)
+    site = service.resolve_for_site(key, ctx.tenant_key, force=force, fetch_if_missing=True)
     return _hardiness_response(site, service.catalog_entry(site.hardiness_zone))
 
 

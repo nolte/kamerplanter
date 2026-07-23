@@ -943,12 +943,15 @@ def get_hardiness_zone_repo():
 
 
 def get_hardiness_zone_service():
+    from app.domain.services.climate_normal_fetcher import ClimateNormalFetcher
     from app.domain.services.hardiness_zone_service import HardinessZoneService
 
+    normal_repo = get_climate_normal_repo()
     return HardinessZoneService(
         zone_repo=get_hardiness_zone_repo(),
         site_repo=get_site_repo(),
-        climate_normal_repo=get_climate_normal_repo(),
+        climate_normal_repo=normal_repo,
+        normals_fetcher=ClimateNormalFetcher(normal_repo),
     )
 
 
