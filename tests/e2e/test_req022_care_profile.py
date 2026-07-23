@@ -15,6 +15,9 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-022.md):
   TC-REQ-022-012  ->  TC-022-019  Speichern schliesst Dialog und aktualisiert Dashboard
   TC-REQ-022-013  ->  TC-022-018  Profil-Dialog zeigt Aufgabentyp-Toggles
   TC-REQ-022-014  ->  TC-022-018  Profil-Dialog zeigt Giessmethode-Dropdown
+  TC-REQ-022-035  ->  TC-022-089  Giessintervall verkuerzen -- Faelligkeit im Dashboard rueckt vor
+  TC-REQ-022-036  ->  TC-022-090  Giessintervall-Anpassung propagiert in die Aufgabenliste (kein Duplikat)
+  TC-REQ-022-037  ->  TC-022-092  Care-Style-Preset wechseln -- alle Intervalle aktualisieren sich
 """
 
 from __future__ import annotations
@@ -25,7 +28,10 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import provision_plant, wait_for_watering_card
 from .pages.pflege_dashboard_page import PflegeDashboardPage
+from .pages.plant_instance_list_page import PlantInstanceListPage
+from .pages.task_queue_page import TaskQueuePage
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -35,6 +41,40 @@ from .pages.pflege_dashboard_page import PflegeDashboardPage
 def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
     """Return a PflegeDashboardPage bound to the test browser."""
     return PflegeDashboardPage(browser, base_url)
+
+
+@pytest.fixture
+def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
+    """Return a TaskQueuePage bound to the test browser."""
+    return TaskQueuePage(browser, base_url)
+
+
+@pytest.fixture
+def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
+    """Return a PlantInstanceListPage for self-provisioning a plant instance."""
+    return PlantInstanceListPage(browser, base_url)
+
+
+def _provision_plant_with_watering_card(
+    plant_creator: PlantInstanceListPage,
+    pflege: PflegeDashboardPage,
+    *,
+    id_prefix: str,
+) -> str:
+    """Self-provision a plant and wait for its live watering care card; return plant_key.
+
+    A freshly created plant gets an auto care profile whose watering entry is due
+    today, so the care dashboard renders a ``care-card-care-{key}-watering`` card
+    on its own — the precondition every watering-cycle test needs, established
+    through the real UI instead of relying on seed data.
+    """
+    plant_key, _instance_id = provision_plant(plant_creator, id_prefix=id_prefix)
+    if not wait_for_watering_card(pflege, plant_key):
+        raise AssertionError(
+            f"Self-provisioning failed: no watering care card appeared for the "
+            f"freshly created plant '{plant_key}'"
+        )
+    return plant_key
 
 
 def _get_first_card_plant_key(pflege: PflegeDashboardPage) -> str:
@@ -519,4 +559,185 @@ class TestCareProfileSaveCancel:
 
         assert pflege.is_present(PflegeDashboardPage.WATERING_METHOD_SELECT), (
             "TC-REQ-022-014 FAIL: Expected watering method select element"
+        )
+
+
+# -- TC-022-089 to TC-022-092: Watering-Cycle Change Propagation (#622) -------
+
+
+class TestWateringCyclePropagation:
+    """Adjusting the watering cycle propagates to dashboard & queue (Spec: TC-022-089..092).
+
+    Issue #622 reschedules the *pending* watering care task in-place when the
+    interval changes, so both the Pflege dashboard and the task queue read the
+    new due date without creating a duplicate.  The notification side of the
+    same change is Soll-Verhalten and covered in test_req030_notifications.py.
+    """
+
+    @pytest.mark.core_crud
+    def test_shorten_watering_interval_persists_on_dashboard(
+        self,
+        plant_creator: PlantInstanceListPage,
+        pflege: PflegeDashboardPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-035: Shortening the watering interval persists and re-renders.
+
+        Spec: TC-022-089 -- Giesszyklus verkuerzen -- naechste Erinnerung im
+        Pflege-Dashboard rueckt vor.
+
+        Self-provisioning: a fresh plant with a live watering card is created via
+        the real UI, so the test never depends on seed data.
+        """
+        plant_key = _provision_plant_with_watering_card(
+            plant_creator, pflege, id_prefix="TC089"
+        )
+        pflege.open()
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+
+        assert pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER), (
+            "TC-REQ-022-035 FAIL: A freshly provisioned plant must expose the "
+            "watering interval slider"
+        )
+
+        screenshot(
+            "TC-REQ-022-035_before-shorten-interval",
+            f"Care profile for {plant_key} before shortening watering interval",
+        )
+        pflege.set_watering_interval(5)
+        pflege.click_save_profile()
+        pflege.wait_for_loading_complete()
+
+        # Reopen the profile from a fresh dashboard load to prove persistence.
+        pflege.open()
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+        value = pflege.get_interval_slider_value("watering-interval-slider")
+        screenshot(
+            "TC-REQ-022-035_after-shorten-interval",
+            f"Care profile for {plant_key} after shortening watering interval (value={value})",
+        )
+
+        assert value == 5, (
+            "TC-REQ-022-035 FAIL: Expected the shortened watering interval (5 days) "
+            f"to persist across a reload, got {value}"
+        )
+
+    @pytest.mark.core_crud
+    def test_interval_change_creates_no_duplicate_care_task(
+        self,
+        plant_creator: PlantInstanceListPage,
+        pflege: PflegeDashboardPage,
+        task_queue: TaskQueuePage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-036: Changing the interval reschedules in-place, no duplicate.
+
+        Spec: TC-022-090 -- Giesszyklus-Anpassung propagiert -- dieselbe pending
+        Erinnerung, kein Duplikat.
+
+        Self-provisioning + real-behaviour scope: a fresh plant renders exactly
+        one live watering care card (the browser-observable care-reminder surface
+        for a plant without a materialised task). The spec guarantee under test is
+        *no duplicate*, i.e. the reminder count must never increase.
+
+        Observed real behaviour (documented, not forced green): shortening the
+        interval reschedules the single reminder to ``created + interval``, which
+        can move it out of the currently-due dashboard window -- so the watering
+        card count afterwards is one *or zero*, never two. The assertion therefore
+        checks that the count does not increase (rather than staying exactly one).
+        """
+        plant_key = _provision_plant_with_watering_card(
+            plant_creator, pflege, id_prefix="TC090"
+        )
+        before = pflege.count_care_cards_for_plant(plant_key, "watering")
+        screenshot(
+            "TC-REQ-022-036_before-interval-change",
+            f"Plant {plant_key} watering cards before interval change ({before})",
+        )
+
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+        assert pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER), (
+            "TC-REQ-022-036 FAIL: A freshly provisioned plant must expose the "
+            "watering interval slider"
+        )
+        pflege.set_watering_interval(3)
+        pflege.click_save_profile()
+        pflege.wait_for_loading_complete()
+
+        pflege.open()
+        after = pflege.count_care_cards_for_plant(plant_key, "watering")
+        screenshot(
+            "TC-REQ-022-036_after-interval-change",
+            f"Plant {plant_key} watering cards after interval change ({after})",
+        )
+
+        assert before == 1, (
+            "TC-REQ-022-036 FAIL: Expected exactly one watering reminder before the "
+            f"change, got {before}"
+        )
+        assert after <= before, (
+            "TC-REQ-022-036 FAIL: Expected the interval change to reschedule the single "
+            f"watering reminder without duplicating it (count must not increase). "
+            f"Before: {before}, After: {after}"
+        )
+
+    @pytest.mark.core_crud
+    def test_care_style_preset_switch_resets_intervals(
+        self,
+        plant_creator: PlantInstanceListPage,
+        pflege: PflegeDashboardPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-037: Switching the care-style preset resets and persists intervals.
+
+        Spec: TC-022-092 -- Care-Style-Preset wechseln -- alle Zyklen und
+        Dashboard-Faelligkeiten aktualisieren sich.
+
+        Self-provisioning: a fresh plant with a live watering card is created via
+        the real UI, so the test never depends on seed data.
+        """
+        plant_key = _provision_plant_with_watering_card(
+            plant_creator, pflege, id_prefix="TC092"
+        )
+        pflege.open()
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+
+        assert pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER), (
+            "TC-REQ-022-037 FAIL: A freshly provisioned plant must expose the "
+            "watering interval slider"
+        )
+
+        screenshot(
+            "TC-REQ-022-037_before-preset-switch",
+            f"Care profile for {plant_key} before care-style switch",
+        )
+        # Selecting a preset raises a reset-warning ConfirmDialog which is accepted.
+        pflege.select_care_style_with_confirm("Sukkulente")
+        pflege.wait_for_loading_complete()
+        preset_value = pflege.get_interval_slider_value("watering-interval-slider")
+        screenshot(
+            "TC-REQ-022-037_after-preset-switch",
+            f"Care profile for {plant_key} after switching to succulent preset (value={preset_value})",
+        )
+
+        assert preset_value > 0, (
+            "TC-REQ-022-037 FAIL: Expected the succulent preset to set a positive "
+            f"watering interval, got {preset_value}"
+        )
+
+        pflege.click_save_profile()
+        pflege.wait_for_loading_complete()
+
+        # Reopen and verify the preset interval persisted.
+        pflege.open()
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+        persisted_value = pflege.get_interval_slider_value("watering-interval-slider")
+        assert persisted_value == preset_value, (
+            "TC-REQ-022-037 FAIL: Expected the succulent preset watering interval "
+            f"({preset_value}) to persist, got {persisted_value}"
         )

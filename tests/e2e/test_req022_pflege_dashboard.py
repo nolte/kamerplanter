@@ -21,6 +21,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-022.md):
   TC-REQ-022-032  ->  TC-022-012  CareConfirmDialog hat Notiz-Feld
   TC-REQ-022-033  ->  TC-022-016  Snooze-Klick loest Aktion aus
   TC-REQ-022-034  ->  TC-022-016  Snooze zeigt Erfolgs-Snackbar
+  TC-REQ-022-038  ->  TC-022-091  Zyklus-Aenderung waehrend laufender Aufgabe -- in_progress bleibt
 """
 
 from __future__ import annotations
@@ -31,7 +32,16 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import (
+    create_care_task,
+    provision_plant,
+    unique_suffix,
+    wait_for_watering_card,
+)
 from .pages.pflege_dashboard_page import PflegeDashboardPage
+from .pages.plant_instance_list_page import PlantInstanceListPage
+from .pages.task_detail_page import TaskDetailPage
+from .pages.task_queue_page import TaskQueuePage
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -41,6 +51,24 @@ from .pages.pflege_dashboard_page import PflegeDashboardPage
 def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
     """Return a PflegeDashboardPage bound to the test browser."""
     return PflegeDashboardPage(browser, base_url)
+
+
+@pytest.fixture
+def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
+    """Return a TaskQueuePage bound to the test browser."""
+    return TaskQueuePage(browser, base_url)
+
+
+@pytest.fixture
+def task_detail(browser: WebDriver, base_url: str) -> TaskDetailPage:
+    """Return a TaskDetailPage bound to the test browser."""
+    return TaskDetailPage(browser, base_url)
+
+
+@pytest.fixture
+def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
+    """Return a PlantInstanceListPage for self-provisioning a plant instance."""
+    return PlantInstanceListPage(browser, base_url)
 
 
 # -- TC-022-001 to TC-022-004: Page Load and Navigation -----------------------
@@ -644,3 +672,84 @@ class TestCareSnoozeAction:
                 "TC-REQ-022-034_snooze-no-snackbar",
                 "No snackbar after snooze (optimistic update)",
             )
+
+
+# -- TC-022-091: In-Progress Task Unaffected by Interval Change (#622) ---------
+
+
+class TestInProgressCycleChange:
+    """A running care task keeps its due date when the interval changes (Spec: TC-022-091).
+
+    Issue #622 reschedules only *pending* watering care tasks; a task already
+    ``in_progress`` is left untouched and only the next cycle materialised after
+    completion follows the new interval.
+    """
+
+    @pytest.mark.core_crud
+    def test_in_progress_task_due_unchanged_by_interval_change(
+        self,
+        plant_creator: PlantInstanceListPage,
+        pflege: PflegeDashboardPage,
+        task_queue: TaskQueuePage,
+        task_detail: TaskDetailPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-REQ-022-038: An in_progress care task keeps its due when the interval changes.
+
+        Spec: TC-022-091 -- Giesszyklus waehrend laufender Aufgabe aendern --
+        in_progress-Task bleibt, naechster Zyklus greift erst danach.
+
+        Self-provisioning: a fresh plant (with a live watering care profile) plus
+        an own care task are created via the real UI. The task is started
+        (``in_progress``); changing the plant's watering interval must leave the
+        running task's due date untouched -- only the next cycle follows the new
+        interval.
+        """
+        plant_key, instance_id = provision_plant(plant_creator, id_prefix="TC091")
+        if not wait_for_watering_card(pflege, plant_key):
+            raise AssertionError(
+                f"Self-provisioning failed: no watering care card for plant '{plant_key}'"
+            )
+
+        # Create an own care task for this plant and move it to in_progress.
+        task_name = f"E2E TC091 {unique_suffix()}"
+        key = create_care_task(task_queue, instance_id, task_name)
+
+        task_detail.open(key)
+        assert task_detail.has_start_button(), (
+            "TC-REQ-022-038 FAIL: A freshly created pending care task must be startable"
+        )
+        task_detail.click_start()
+        task_detail.wait_for_loading_complete()
+
+        task_detail.open(key)
+        before_due = task_detail.get_detail_due_text()
+        screenshot(
+            "TC-REQ-022-038_in-progress-before",
+            f"In-progress task {key} before interval change (due='{before_due}')",
+        )
+
+        # Change the watering interval on this plant's care profile.
+        pflege.open()
+        pflege.click_edit_profile_on_card(plant_key)
+        pflege.wait_for_profile_dialog()
+        assert pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER), (
+            "TC-REQ-022-038 FAIL: A freshly provisioned plant must expose the "
+            "watering interval slider"
+        )
+        pflege.set_watering_interval(12)
+        pflege.click_save_profile()
+        pflege.wait_for_loading_complete()
+
+        # The running task must keep its original due date.
+        task_detail.open(key)
+        after_due = task_detail.get_detail_due_text()
+        screenshot(
+            "TC-REQ-022-038_in-progress-after",
+            f"In-progress task {key} after interval change (due='{after_due}')",
+        )
+
+        assert after_due == before_due, (
+            "TC-REQ-022-038 FAIL: Expected the in_progress task's due date to remain "
+            f"unchanged by the interval change. Before: '{before_due}', After: '{after_due}'"
+        )

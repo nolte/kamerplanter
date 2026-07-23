@@ -44,6 +44,10 @@ class PflegeDashboardPage(BasePage):
     CONFIRM_EC_FIELD = (By.CSS_SELECTOR, "[data-testid='confirm-ec-field']")
     CONFIRM_PH_FIELD = (By.CSS_SELECTOR, "[data-testid='confirm-ph-field']")
 
+    # ── Generic ConfirmDialog (e.g. preset-reset confirmation) ─────────
+    GENERIC_CONFIRM_CONFIRM = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
+    GENERIC_CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
+
     # ── CareProfileEditDialog ─────────────────────────────────────────
     PROFILE_DIALOG = (By.CSS_SELECTOR, "[data-testid='care-profile-edit-dialog']")
     CARE_STYLE_SELECT = (By.CSS_SELECTOR, "[data-testid='care-style-select']")
@@ -209,6 +213,22 @@ class PflegeDashboardPage(BasePage):
             By.CSS_SELECTOR, f"[data-testid='{testid}']"
         )
         return len(elements) > 0
+
+    def count_care_cards_for_plant(
+        self, plant_key: str, reminder_type: str | None = None
+    ) -> int:
+        """Return how many care cards a plant currently renders on the dashboard.
+
+        When *reminder_type* is given, counts only cards with the exact
+        ``care-card-care-{plant_key}-{reminder_type}`` testid (a value > 1 would
+        indicate a duplicate reminder for the same period); otherwise counts all
+        care cards for the plant regardless of type.
+        """
+        if reminder_type is not None:
+            selector = f"[data-testid='care-card-care-{plant_key}-{reminder_type}']"
+        else:
+            selector = f"[data-testid^='care-card-care-{plant_key}-']"
+        return len(self.driver.find_elements(By.CSS_SELECTOR, selector))
 
     def get_card_urgency_indicator(self, card: WebElement) -> str:
         """Determine urgency from the card's parent section testid.
@@ -503,6 +523,136 @@ class PflegeDashboardPage(BasePage):
         """Return True if the fertilizing learned interval chip is visible."""
         elements = self.driver.find_elements(*self.FERTILIZING_LEARNED_CHIP)
         return len(elements) > 0
+
+    # ── Interval controls (slider ⇆ custom numeric TextField) ──────────
+
+    def set_interval_slider(self, testid: str, target_value: int) -> None:
+        """Set an interval control identified by *testid* to *target_value*.
+
+        The control has two render modes sharing the same testid:
+
+        1. ``isCustom`` mode: a numeric ``<input type='number'>`` TextField.
+           The value is cleared and re-entered, dispatching a ``change`` event
+           so the React controlled field picks it up.
+        2. Otherwise a MUI ``Slider``: the root carries the testid and the
+           thumb exposes ``role='slider'`` with a hidden ``<input>``.  The value
+           is set on the hidden input via the native setter plus input/change
+           dispatch; if that does not take, a keyboard fallback focuses the
+           thumb and positions it (``Home`` then n×``ArrowRight``).
+
+        The numeric-field probe runs first: if an ``input[type=number]`` exists
+        under the testid it is mode 1, else mode 2.
+        """
+        from selenium.webdriver.common.keys import Keys
+
+        root_sel = f"[data-testid='{testid}']"
+
+        # ── Mode 1: custom numeric TextField ──
+        number_inputs = self.driver.find_elements(
+            By.CSS_SELECTOR, f"{root_sel} input[type='number']"
+        )
+        if number_inputs:
+            el = number_inputs[0]
+            self.clear_and_fill(el, str(target_value))
+            self.driver.execute_script(
+                "arguments[0].dispatchEvent(new Event('change', {bubbles: true}));",
+                el,
+            )
+            return
+
+        # ── Mode 2: MUI Slider ──
+        roots = self.driver.find_elements(By.CSS_SELECTOR, root_sel)
+        if not roots:
+            raise AssertionError(f"Interval control '{testid}' not found")
+        root = roots[0]
+
+        hidden_inputs = root.find_elements(By.CSS_SELECTOR, "input")
+        if hidden_inputs:
+            inp = hidden_inputs[0]
+            self.driver.execute_script(
+                "var el = arguments[0], v = arguments[1];"
+                "var setter = Object.getOwnPropertyDescriptor("
+                "window.HTMLInputElement.prototype, 'value').set;"
+                "setter.call(el, v);"
+                "el.dispatchEvent(new Event('input', {bubbles: true}));"
+                "el.dispatchEvent(new Event('change', {bubbles: true}));",
+                inp,
+                str(target_value),
+            )
+            if str(inp.get_attribute("value")) == str(target_value):
+                return
+
+        # ── Keyboard fallback: focus thumb, home, then step right ──
+        slider_els = root.find_elements(By.CSS_SELECTOR, "[role='slider']")
+        slider_el = slider_els[0] if slider_els else root.find_element(
+            By.CSS_SELECTOR, "input"
+        )
+        self.scroll_and_click(slider_el)
+        try:
+            min_val = int(slider_el.get_attribute("aria-valuemin") or 0)
+        except (TypeError, ValueError):
+            min_val = 0
+        slider_el.send_keys(Keys.HOME)
+        for _ in range(max(0, int(target_value) - min_val)):
+            slider_el.send_keys(Keys.ARROW_RIGHT)
+
+    def set_watering_interval(self, days: int) -> None:
+        """Convenience wrapper: set the watering interval control to *days*."""
+        self.set_interval_slider("watering-interval-slider", days)
+
+    def get_interval_slider_value(self, testid: str) -> int:
+        """Return the current value of an interval control (slider or custom field).
+
+        Reads the numeric field's ``value`` in custom mode, otherwise the
+        slider thumb's ``aria-valuenow`` (falling back to the hidden input's
+        ``value``).
+        """
+        root_sel = f"[data-testid='{testid}']"
+        number_inputs = self.driver.find_elements(
+            By.CSS_SELECTOR, f"{root_sel} input[type='number']"
+        )
+        if number_inputs:
+            return int(number_inputs[0].get_attribute("value") or 0)
+
+        roots = self.driver.find_elements(By.CSS_SELECTOR, root_sel)
+        if not roots:
+            raise AssertionError(f"Interval control '{testid}' not found")
+        root = roots[0]
+
+        slider_els = root.find_elements(By.CSS_SELECTOR, "[role='slider']")
+        if slider_els:
+            now = slider_els[0].get_attribute("aria-valuenow")
+            if now is not None:
+                return int(now)
+        inputs = root.find_elements(By.CSS_SELECTOR, "input")
+        if inputs:
+            return int(inputs[0].get_attribute("value") or 0)
+        raise AssertionError(f"Could not read value of interval control '{testid}'")
+
+    def select_care_style_with_confirm(self, label: str) -> None:
+        """Select a care style by label and accept the preset-reset confirm dialog.
+
+        Opens ``care-style-select`` and clicks the option matching *label*.
+        Selecting a preset may raise a generic ``ConfirmDialog`` warning that
+        stored customizations will be reset; if it appears, its
+        ``confirm-dialog-confirm`` button is clicked.  Unlike ``select_care_style``
+        this does not send a body-level ESCAPE (which would cancel the confirm
+        dialog).
+        """
+        import time
+
+        select_el = self.wait_for_element_clickable(self.CARE_STYLE_SELECT)
+        self.scroll_and_click(select_el)
+        option = self.wait_for_element_clickable(
+            (By.XPATH, f"//li[@role='option' and contains(text(), '{label}')]")
+        )
+        self.scroll_and_click(option)
+        time.sleep(0.3)
+        confirms = self.driver.find_elements(*self.GENERIC_CONFIRM_CONFIRM)
+        if confirms and any(c.is_displayed() for c in confirms):
+            self.scroll_and_click(
+                self.wait_for_element_clickable(self.GENERIC_CONFIRM_CONFIRM)
+            )
 
     # ── Snackbar ──────────────────────────────────────────────────────
 
