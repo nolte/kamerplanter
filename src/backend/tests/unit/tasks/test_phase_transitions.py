@@ -463,6 +463,30 @@ class TestCheckAutoTransitions:
         assert result["transitioned"] == 0
         phase_service.transition_phase.assert_not_called()
 
+    def test_sequence_restart_suppressed_for_tender_perennial_grown_annual(self, _task_module):
+        """A tender perennial (botanical perennial + cultivation annual) must NOT loop.
+
+        ADR-006 E1 negative proof for the tomato-cohort reclassification: making the
+        species botanically ``perennial`` (so grown_as_annual fires) does not resurrect the
+        seasonal restart, because the restart gate resolves the EFFECTIVE cycle (annual) via
+        ``resolve_effective_cycle`` and hands it to ``should_restart_cycle``.
+        """
+        module, deps = _task_module
+        deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)
+        deps.get_lifecycle_repo.return_value.get_lifecycle_by_species.return_value = SimpleNamespace(
+            cultivation_cycle_type=CycleType.ANNUAL,
+            cycle_type=CycleType.PERENNIAL,
+            max_seasons=None,
+            flowering_strategy=None,
+            growth_determinacy=None,
+        )
+        deps.get_phase_service.return_value = phase_service = self._seq_phase_service(is_terminal=True, is_restart=True)
+
+        result = module.check_auto_transitions()
+
+        assert result["transitioned"] == 0
+        phase_service.transition_phase.assert_not_called()
+
     def test_sequence_not_due_does_not_fire(self, _task_module):
         module, deps = _task_module
         deps.get_plant_repo.return_value.get_all.return_value = ([_plant()], 1)

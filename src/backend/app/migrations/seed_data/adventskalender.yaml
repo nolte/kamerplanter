@@ -370,7 +370,10 @@ species_enrichment:
 lifecycle_configs:
   # ANNUAL species
   "Capsicum annuum":
-    cycle_type: annual
+    # Tender perennial (ADR-006 E1): botanically perennial, cultivated as an annual
+    # (cultivation_cycle_type=annual in species.yaml/lifecycle_overrides) → grown_as_annual.
+    # Kept in sync with the perennial_species classification across all seed sources.
+    cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: null
     dormancy_required: false
@@ -415,7 +418,10 @@ lifecycle_configs:
     critical_day_length_hours: null
 
   "Solanum lycopersicum":
-    cycle_type: annual
+    # Tender perennial (ADR-006 E1): botanically perennial, cultivated as an annual
+    # (cultivation_cycle_type=annual in species.yaml/lifecycle_overrides) → grown_as_annual.
+    # Kept in sync with the perennial_species classification across all seed sources.
+    cycle_type: perennial
     photoperiod_type: day_neutral
     typical_lifespan_years: null
     dormancy_required: false
@@ -424,7 +430,10 @@ lifecycle_configs:
     critical_day_length_hours: null
 
   "Ocimum basilicum":
-    cycle_type: annual
+    # Tender perennial (ADR-006 E1): botanically perennial, cultivated as an annual
+    # (cultivation_cycle_type=annual in species.yaml/lifecycle_overrides) → grown_as_annual.
+    # Kept in sync with the perennial_species classification across all seed sources.
+    cycle_type: perennial
     photoperiod_type: day_neutral  # BOT: basil is day-neutral for vegetative growth
     typical_lifespan_years: null
     dormancy_required: false
