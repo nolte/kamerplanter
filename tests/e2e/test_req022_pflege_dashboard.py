@@ -32,7 +32,14 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import (
+    create_care_task,
+    provision_plant,
+    unique_suffix,
+    wait_for_watering_card,
+)
 from .pages.pflege_dashboard_page import PflegeDashboardPage
+from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_detail_page import TaskDetailPage
 from .pages.task_queue_page import TaskQueuePage
 
@@ -58,17 +65,10 @@ def task_detail(browser: WebDriver, base_url: str) -> TaskDetailPage:
     return TaskDetailPage(browser, base_url)
 
 
-def _first_care_plant_key(pflege: PflegeDashboardPage) -> str:
-    """Extract the plant_key from the first care card on the dashboard (or skip)."""
-    cards = pflege.get_all_care_cards()
-    if not cards:
-        pytest.skip("No care cards available -- cannot edit a care profile")
-    testid = cards[0].get_attribute("data-testid") or ""
-    suffix = testid.replace("care-card-care-", "")
-    parts = suffix.rsplit("-", 1)
-    if len(parts) < 2:
-        pytest.skip(f"Unexpected card testid format: {testid}")
-    return parts[0]
+@pytest.fixture
+def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
+    """Return a PlantInstanceListPage for self-provisioning a plant instance."""
+    return PlantInstanceListPage(browser, base_url)
 
 
 # -- TC-022-001 to TC-022-004: Page Load and Navigation -----------------------
@@ -688,6 +688,7 @@ class TestInProgressCycleChange:
     @pytest.mark.core_crud
     def test_in_progress_task_due_unchanged_by_interval_change(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
@@ -697,19 +698,27 @@ class TestInProgressCycleChange:
 
         Spec: TC-022-091 -- Giesszyklus waehrend laufender Aufgabe aendern --
         in_progress-Task bleibt, naechster Zyklus greift erst danach.
-        """
-        task_queue.open()
-        task_queue.click_filter_care()
-        task_queue.wait_for_loading_complete()
-        care_keys = task_queue.get_task_keys()
-        if not care_keys:
-            pytest.skip("No care tasks in the queue -- seed dependent")
-        key = care_keys[0]
 
-        # Move the care task into the in_progress state via its detail page.
+        Self-provisioning: a fresh plant (with a live watering care profile) plus
+        an own care task are created via the real UI. The task is started
+        (``in_progress``); changing the plant's watering interval must leave the
+        running task's due date untouched -- only the next cycle follows the new
+        interval.
+        """
+        plant_key, instance_id = provision_plant(plant_creator, id_prefix="TC091")
+        if not wait_for_watering_card(pflege, plant_key):
+            raise AssertionError(
+                f"Self-provisioning failed: no watering care card for plant '{plant_key}'"
+            )
+
+        # Create an own care task for this plant and move it to in_progress.
+        task_name = f"E2E TC091 {unique_suffix()}"
+        key = create_care_task(task_queue, instance_id, task_name)
+
         task_detail.open(key)
-        if not task_detail.has_start_button():
-            pytest.skip("Care task is not startable -- cannot reach in_progress state")
+        assert task_detail.has_start_button(), (
+            "TC-REQ-022-038 FAIL: A freshly created pending care task must be startable"
+        )
         task_detail.click_start()
         task_detail.wait_for_loading_complete()
 
@@ -720,13 +729,14 @@ class TestInProgressCycleChange:
             f"In-progress task {key} before interval change (due='{before_due}')",
         )
 
-        # Change the watering interval on any editable care profile.
+        # Change the watering interval on this plant's care profile.
         pflege.open()
-        plant_key = _first_care_plant_key(pflege)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
-        if not pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER):
-            pytest.skip("Watering task not enabled on this profile -- no interval slider")
+        assert pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER), (
+            "TC-REQ-022-038 FAIL: A freshly provisioned plant must expose the "
+            "watering interval slider"
+        )
         pflege.set_watering_interval(12)
         pflege.click_save_profile()
         pflege.wait_for_loading_complete()

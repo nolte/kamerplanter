@@ -30,6 +30,8 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._journey_helpers import create_care_task, provision_plant, unique_suffix
+from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_detail_page import TaskDetailPage
 from .pages.task_queue_page import TaskQueuePage
 
@@ -47,6 +49,31 @@ def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
 def task_detail(browser: WebDriver, base_url: str) -> TaskDetailPage:
     """Return a TaskDetailPage bound to the test browser."""
     return TaskDetailPage(browser, base_url)
+
+
+@pytest.fixture
+def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
+    """Return a PlantInstanceListPage for self-provisioning a plant instance."""
+    return PlantInstanceListPage(browser, base_url)
+
+
+def _provision_plant_and_care_task(
+    plant_creator: PlantInstanceListPage,
+    task_queue: TaskQueuePage,
+    *,
+    id_prefix: str,
+) -> tuple[str, str, str]:
+    """Self-provision a plant + due-today care task; return ``(task_key, task_name, instance_id)``.
+
+    Both preconditions are created through the real UI (plant create dialog +
+    task create dialog), so the update-propagation tests never depend on seed
+    data and never skip at runtime. The instance id is returned so a test can
+    scope the queue to exactly this plant.
+    """
+    _plant_key, instance_id = provision_plant(plant_creator, id_prefix=id_prefix)
+    task_name = f"E2E {id_prefix} {unique_suffix()}"
+    task_key = create_care_task(task_queue, instance_id, task_name)
+    return task_key, task_name, instance_id
 
 
 # -- TC-006-001 to TC-006-002: Page Load & Display --------------------------
@@ -462,6 +489,7 @@ class TestTaskUpdatePropagation:
     @pytest.mark.core_crud
     def test_recurrence_rule_change_persists(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
@@ -471,17 +499,18 @@ class TestTaskUpdatePropagation:
         Spec: TC-006-078 -- Wiederholungszyklus (Cron) aendern -- Aufgabenliste
         zeigt neue Faelligkeit.
 
+        Self-provisioning: a fresh plant and a due-today care task are created
+        through the real UI, so the test never depends on seed data.
+
         Abweichung Spec vs. Impl: ``recurrence_rule`` ist im Frontend ein festes
         RRULE-Dropdown (kein freier Cron ``0 8 * * 3``).  Die wochentagsgenaue
         Queue-Gruppierung aus der Spec ist damit nicht umsetzbar; stattdessen
         wird die neue Regel via Dropdown gesetzt und ihre Persistenz ueber die
         Detailseite (``get_detail_recurrence_text``) verifiziert.
         """
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        key, _task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC078"
+        )
 
         task_detail.open(key)
         before = task_detail.get_detail_recurrence_text()
@@ -506,31 +535,43 @@ class TestTaskUpdatePropagation:
             "TC-REQ-006-041 FAIL: Expected a non-empty recurrence value to persist "
             f"after setting FREQ=WEEKLY;INTERVAL=2, got '{after}'"
         )
+        assert after != before, (
+            "TC-REQ-006-041 FAIL: Expected the recurrence value to change from the "
+            f"initial (non-recurring) state. Before: '{before}', After: '{after}'"
+        )
 
     @pytest.mark.core_crud
     def test_due_date_shift_updates_detail_and_queue(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-042: Shifting the due date updates the detail and stays listed.
+        """TC-REQ-006-042: Shifting the due date moves the task out of the 'today' group.
 
         Spec: TC-006-079 -- Faelligkeitsdatum verschieben -- Task wechselt die
         Dringlichkeits-Gruppe.
+
+        Self-provisioning: a due-today care task is created via the UI (so it
+        starts in the 'today' urgency group); shifting its due date +5 days must
+        move it into the 'thisWeek'/'future' group while it stays listed.
         """
+        key, task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC079"
+        )
+
+        # A due-today task starts in the 'today' urgency group.
         task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        section_before = task_queue.get_task_section(key)
 
         task_detail.open(key)
         before_due = task_detail.get_detail_due_text()
         target_due = (date.today() + timedelta(days=5)).isoformat()
         screenshot(
             "TC-REQ-006-042_before-due-shift",
-            f"Task {key} detail before due-date shift (due='{before_due}')",
+            f"Task {key} detail before due-date shift "
+            f"(due='{before_due}', section='{section_before}')",
         )
 
         task_detail.open_edit_tab()
@@ -539,9 +580,16 @@ class TestTaskUpdatePropagation:
 
         task_detail.open(key)
         after_due = task_detail.get_detail_due_text()
+
+        # The rescheduled task must still be listed, in a later urgency group.
+        # Poll (reloading) so a slow refetch cannot read the queue before the
+        # moved card re-renders in its new section.
+        listed_after = task_queue.wait_for_task_by_name(task_name) is not None
+        section_after = task_queue.get_task_section(key)
         screenshot(
             "TC-REQ-006-042_after-due-shift",
-            f"Task {key} detail after due-date shift (due='{after_due}')",
+            f"Task {key} detail after due-date shift "
+            f"(due='{after_due}', section='{section_after}')",
         )
 
         assert after_due, (
@@ -551,16 +599,19 @@ class TestTaskUpdatePropagation:
             "TC-REQ-006-042 FAIL: Expected the due-date value to change after shifting "
             f"to {target_due}. Before: '{before_due}', After: '{after_due}'"
         )
-
-        # The rescheduled task must still be listed in the queue (propagation).
-        task_queue.open()
-        assert key in task_queue.get_task_keys(), (
+        assert listed_after, (
             "TC-REQ-006-042 FAIL: Expected the rescheduled task to remain listed in the queue"
+        )
+        assert section_after in ("thisWeek", "future"), (
+            "TC-REQ-006-042 FAIL: Expected the task to move out of 'today' into the "
+            f"'thisWeek'/'future' group after a +5d shift. Before: '{section_before}', "
+            f"After: '{section_after}'"
         )
 
     @pytest.mark.core_crud
     def test_complete_recurring_task_spawns_next_instance(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
@@ -569,23 +620,26 @@ class TestTaskUpdatePropagation:
 
         Spec: TC-006-080 -- Wiederkehrende Aufgabe abschliessen -- naechste
         Zyklus-Instanz erscheint in der Liste.
+
+        Self-provisioning: a fresh plant + care task is made recurring
+        (FREQ=WEEKLY) and completed; the follow-up instance carrying the same
+        name must appear as a NEW task key. Assertion targets the real,
+        browser-observable queue state (no forced pass).
         """
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        key, task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC080"
+        )
 
         # Make the task recurring so completion should spawn a follow-up.
         task_detail.open(key)
-        task_name = task_detail.get_task_title()
         task_detail.open_edit_tab()
         task_detail.set_recurrence_rule("FREQ=WEEKLY")
         task_detail.save_edit()
 
         task_queue.open()
-        if key not in task_queue.get_task_keys():
-            pytest.skip("Recurring task no longer listed -- seed dependent ordering")
+        assert key in task_queue.get_task_keys(), (
+            "TC-REQ-006-043 FAIL: Recurring task should still be listed before completion"
+        )
 
         screenshot(
             "TC-REQ-006-043_before-complete-recurring",
@@ -594,8 +648,9 @@ class TestTaskUpdatePropagation:
         task_queue.complete_task(key)
         task_queue.wait_for_loading_complete()
 
-        task_queue.open()
-        new_key = task_queue.find_task_key_by_name(task_name)
+        # The follow-up instance materialises + refetches asynchronously; poll
+        # (reloading) until the new future-dated instance is listed.
+        new_key = task_queue.wait_for_task_by_name(task_name, timeout=30.0)
         screenshot(
             "TC-REQ-006-043_after-complete-recurring",
             f"Queue after completing recurring task (next instance='{new_key}')",
@@ -613,6 +668,7 @@ class TestTaskUpdatePropagation:
     @pytest.mark.core_crud
     def test_ended_cycle_spawns_no_new_instance(
         self,
+        plant_creator: PlantInstanceListPage,
         task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
@@ -621,27 +677,34 @@ class TestTaskUpdatePropagation:
 
         Spec: TC-006-081 -- Zyklus beenden -- nach Abschluss wird keine neue
         Instanz erzeugt.
-        """
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
 
-        # Remove any recurrence so completion must NOT spawn a follow-up.
+        Self-provisioning: a fresh plant + care task is first made recurring
+        (FREQ=WEEKLY), then its recurrence is removed (ended cycle); completing
+        it must NOT spawn a follow-up instance.
+        """
+        key, task_name, _instance_id = _provision_plant_and_care_task(
+            plant_creator, task_queue, id_prefix="TC081"
+        )
+
+        # Start a cycle, then end it: recurrence set then cleared.
         task_detail.open(key)
-        task_name = task_detail.get_task_title()
+        task_detail.open_edit_tab()
+        task_detail.set_recurrence_rule("FREQ=WEEKLY")
+        task_detail.save_edit()
+
+        task_detail.open(key)
         task_detail.open_edit_tab()
         task_detail.set_recurrence_rule("")
         task_detail.save_edit()
 
         task_queue.open()
-        if key not in task_queue.get_task_keys():
-            pytest.skip("Task no longer listed -- seed dependent ordering")
+        assert key in task_queue.get_task_keys(), (
+            "TC-REQ-006-044 FAIL: Task should still be listed after ending its cycle"
+        )
 
         screenshot(
             "TC-REQ-006-044_before-complete-ended-cycle",
-            f"Queue before completing non-recurring task {key}",
+            f"Queue before completing ended-cycle task {key}",
         )
         task_queue.complete_task(key)
         task_queue.wait_for_loading_complete()
@@ -650,10 +713,10 @@ class TestTaskUpdatePropagation:
         remaining_key = task_queue.find_task_key_by_name(task_name)
         screenshot(
             "TC-REQ-006-044_after-complete-ended-cycle",
-            f"Queue after completing non-recurring task (remaining='{remaining_key}')",
+            f"Queue after completing ended-cycle task (remaining='{remaining_key}')",
         )
 
         assert remaining_key is None, (
             "TC-REQ-006-044 FAIL: Expected NO follow-up instance for the completed "
-            f"non-recurring task '{task_name}', but found key '{remaining_key}'"
+            f"ended-cycle task '{task_name}', but found key '{remaining_key}'"
         )

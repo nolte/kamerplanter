@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -38,6 +40,7 @@ class TaskQueuePage(BasePage):
     FILTER_CARE = (By.CSS_SELECTOR, "[data-testid='filter-care']")
     FILTER_CATEGORY = (By.CSS_SELECTOR, "[data-testid='filter-category']")
     FILTER_PLANT = (By.CSS_SELECTOR, "[data-testid='filter-plant']")
+    FILTER_PLANT_INPUT = (By.CSS_SELECTOR, "[data-testid='filter-plant'] input")
 
     # ── Task cards ─────────────────────────────────────────────────────
     TASK_CARD = (By.CSS_SELECTOR, "[data-testid='task-card']")
@@ -150,6 +153,28 @@ class TaskQueuePage(BasePage):
                 sections.append(name)
         return sections
 
+    def get_task_section(self, key: str) -> str | None:
+        """Return the urgency section a task card currently sits in, or ``None``.
+
+        Returns one of ``'overdue'``, ``'today'``, ``'thisWeek'``, ``'future'``
+        by walking up from the ``task-card-{key}`` element to its enclosing
+        ``task-section-*`` ancestor. ``None`` if the card is not on the page.
+        """
+        cards = self.driver.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='task-card-{key}']"
+        )
+        if not cards:
+            return None
+        try:
+            section = cards[0].find_element(
+                By.XPATH,
+                "ancestor::*[@data-testid][starts-with(@data-testid, 'task-section-')]",
+            )
+        except Exception:
+            return None
+        testid = section.get_attribute("data-testid") or ""
+        return testid.replace("task-section-", "") or None
+
     def get_section_task_count(self, section: str) -> int:
         """Return the number of task cards inside a section."""
         section_el = self.driver.find_elements(
@@ -176,6 +201,19 @@ class TaskQueuePage(BasePage):
     def has_category_filter(self) -> bool:
         """Check whether the category filter dropdown is present."""
         return len(self.driver.find_elements(*self.FILTER_CATEGORY)) > 0
+
+    def filter_by_plant(self, text: str) -> bool:
+        """Scope the queue to a single plant via the ``filter-plant`` autocomplete.
+
+        Types *text* (a plant's unique instance id) into the plant filter and
+        picks the first matching option, so the queue renders only that plant's
+        cards. This makes card lookups robust regardless of how many unrelated
+        tasks exist in the tenant. Returns True once a plant was selected.
+        """
+        if not self._select_autocomplete_option(self.FILTER_PLANT_INPUT, text):
+            return False
+        self.wait_for_loading_complete()
+        return True
 
     def select_category_filter(self, category_text: str) -> None:
         """Open the category filter and select an option."""
@@ -296,19 +334,51 @@ class TaskQueuePage(BasePage):
         )
 
     def select_task_plant_by_text(self, text: str) -> bool:
-        """Type *text* into the plant autocomplete and pick the matching option."""
+        """Type *text* into the plant autocomplete and pick the option matching it.
+
+        Waits for the async autocomplete listbox to populate, then selects the
+        option whose visible label contains *text* (the plant label embeds the
+        unique instance id). Falling back to blindly clicking the first option
+        is deliberately avoided: the type-to-filter can lag, so the first option
+        may be an unrelated plant. Returns True once the matching option was
+        selected.
+        """
+        return self._select_autocomplete_option(self.FORM_ENTITY_KEY_INPUT, text)
+
+    def _select_autocomplete_option(
+        self, input_locator: tuple[str, str], text: str
+    ) -> bool:
+        """Type *text* into an autocomplete and click the option that contains it.
+
+        Uses real ``send_keys`` typing (not a JS value setter): a MUI Autocomplete
+        only opens its popup and applies its client-side filter in response to
+        genuine keyboard input. Polls the listbox until an option whose text
+        contains *text* appears (so a lagging filter can never select the wrong
+        entry), clicks it and waits for the popup to close. Returns True on match.
+        """
         import time
 
-        input_el = self.wait_for_element_clickable(self.FORM_ENTITY_KEY_INPUT)
+        from selenium.webdriver.common.keys import Keys
+
+        input_el = self.wait_for_element_clickable(input_locator)
         input_el.click()
-        self.clear_and_fill(input_el, text)
-        time.sleep(0.4)
-        options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        if options:
-            options[0].click()
-            time.sleep(0.2)
-            return True
-        return False
+        input_el.send_keys(Keys.CONTROL + "a")
+        input_el.send_keys(Keys.DELETE)
+        input_el.send_keys(text)
+
+        deadline = time.time() + DEFAULT_TIMEOUT
+        match: WebElement | None = None
+        while time.time() < deadline:
+            options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
+            match = next((o for o in options if text in (o.text or "")), None)
+            if match is not None:
+                break
+            time.sleep(0.3)
+        if match is None:
+            return False
+        self.scroll_and_click(match)
+        self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
+        return True
 
     def submit_task_form(self) -> None:
         """Submit the create-task form."""
@@ -337,6 +407,32 @@ class TaskQueuePage(BasePage):
     def has_task_with_name(self, name: str) -> bool:
         """Return True if any task card text contains *name*."""
         return self.find_task_key_by_name(name) is not None
+
+    def wait_for_task_by_name(
+        self,
+        name: str,
+        timeout: float = DEFAULT_TIMEOUT,
+        plant_filter: str | None = None,
+    ) -> str | None:
+        """Poll the queue (reloading each time) until a task named *name* appears.
+
+        Handles eventual consistency: a mutation such as completing a recurring
+        task materialises the follow-up instance and the queue refetches
+        asynchronously, so a single read can miss it. When *plant_filter* (a
+        plant instance id) is given, the queue is scoped to that plant on every
+        reload so the lookup stays fast and reliable irrespective of how many
+        unrelated tasks the tenant holds. Returns the task key or ``None``.
+        """
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            self.open()
+            if plant_filter is not None:
+                self.filter_by_plant(plant_filter)
+            key = self.find_task_key_by_name(name)
+            if key is not None:
+                return key
+            time.sleep(1.0)
+        return None
 
     # ── Generate reminders ─────────────────────────────────────────────
 

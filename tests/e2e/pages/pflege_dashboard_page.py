@@ -214,6 +214,22 @@ class PflegeDashboardPage(BasePage):
         )
         return len(elements) > 0
 
+    def count_care_cards_for_plant(
+        self, plant_key: str, reminder_type: str | None = None
+    ) -> int:
+        """Return how many care cards a plant currently renders on the dashboard.
+
+        When *reminder_type* is given, counts only cards with the exact
+        ``care-card-care-{plant_key}-{reminder_type}`` testid (a value > 1 would
+        indicate a duplicate reminder for the same period); otherwise counts all
+        care cards for the plant regardless of type.
+        """
+        if reminder_type is not None:
+            selector = f"[data-testid='care-card-care-{plant_key}-{reminder_type}']"
+        else:
+            selector = f"[data-testid^='care-card-care-{plant_key}-']"
+        return len(self.driver.find_elements(By.CSS_SELECTOR, selector))
+
     def get_card_urgency_indicator(self, card: WebElement) -> str:
         """Determine urgency from the card's parent section testid.
 
