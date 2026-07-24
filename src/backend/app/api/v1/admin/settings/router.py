@@ -20,6 +20,7 @@ from app.api.v1.admin.settings.schemas import (
 from app.common.auth import get_current_user, require_platform_admin
 from app.common.dependencies import get_ha_client, get_system_settings_service
 from app.common.exceptions import ValidationError
+from app.common.openapi_responses import AUTH_RESPONSES
 from app.common.url_safety import validate_ha_url, validate_storage_endpoint_url
 from app.config.settings import settings
 from app.data_access.storage.registry import build_storage_test_adapter
@@ -28,7 +29,7 @@ from app.domain.services.system_settings_service import SystemSettingsService
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
+router = APIRouter(prefix="/admin/settings", tags=["admin-settings"], responses=AUTH_RESPONSES)
 
 
 def _build_storage_response(service: SystemSettingsService) -> StorageSettingsResponse:
@@ -81,6 +82,7 @@ def get_settings(
     _current_user: User = Depends(get_current_user),
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
+    """Return the effective system settings (Home Assistant + plant identification)."""
     return _build_response(service)
 
 
@@ -106,6 +108,7 @@ def update_ha_settings(
     _current_user: User = Depends(get_current_user),
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
+    """Update the Home Assistant connection settings."""
     service.update_ha_settings(
         ha_url=body.ha_url,
         ha_access_token=body.ha_access_token,
@@ -164,6 +167,7 @@ def delete_ha_settings(
     _current_user: User = Depends(get_current_user),
     service: SystemSettingsService = Depends(get_system_settings_service),
 ):
+    """Remove the stored Home Assistant settings, falling back to env values."""
     service.delete_ha_settings()
     _sync_ha_notification_channel()
 

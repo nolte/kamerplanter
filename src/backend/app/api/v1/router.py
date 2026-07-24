@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 from app.api.v1.activities.router import router as activities_router
 from app.api.v1.activity_plans.router import router as activity_plans_router
@@ -38,16 +39,35 @@ from app.api.v1.substrates.router import router as substrates_router
 from app.api.v1.tenant_scoped.router import tenant_scoped_router
 from app.api.v1.tenants.router import router as tenants_router
 from app.api.v1.users.router import router as users_router
+from app.common.openapi_responses import VALIDATION_RESPONSE
 from app.config.settings import settings
 
-api_router = APIRouter(prefix="/api/v1")
+# The 422 envelope is documented globally: every operation is behind the same
+# RequestValidationError handler, and the envelope replaces FastAPI's default
+# HTTPValidationError schema (spec/project/api-documentation/).
+api_router = APIRouter(prefix="/api/v1", responses=VALIDATION_RESPONSE)
 
 
 # ── REQ-027 Mode endpoint ───────────────────────────────────────────
 mode_router = APIRouter(tags=["mode"])
 
 
-@mode_router.get("/mode")
+class ModeFeatures(BaseModel):
+    """Feature flags derived from the active deployment mode."""
+
+    auth: bool
+    multi_tenant: bool
+    privacy_consent: bool
+
+
+class ModeResponse(BaseModel):
+    """Current deployment mode and its feature flags (REQ-027)."""
+
+    mode: str
+    features: ModeFeatures
+
+
+@mode_router.get("/mode", response_model=ModeResponse)
 def get_mode():
     """Return current deployment mode and feature flags."""
     is_full = settings.kamerplanter_mode == "full"

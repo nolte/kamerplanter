@@ -3,7 +3,9 @@
 All endpoints are mounted under /api/v1/t/{tenant_slug}/notifications/.
 """
 
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.v1.notifications.schemas import (
     ChannelStatusResponse,
@@ -24,6 +26,7 @@ from app.common.auth import get_current_tenant
 from app.common.dependencies import get_care_reminder_service, get_notification_service
 from app.common.enums import ReminderType
 from app.common.exceptions import NotFoundError
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.notification import NotificationPreferences
@@ -34,7 +37,7 @@ from app.domain.services.notification_service import NotificationService
 #: Actionable ``action_id`` values that confirm the source care reminder (§4.2).
 _CARE_CONFIRM_ACTIONS: frozenset[str] = frozenset({"confirm", "confirm_watering", "done"})
 
-router = APIRouter(prefix="/notifications", tags=["notifications"])
+router = APIRouter(prefix="/notifications", tags=["notifications"], responses=NOT_FOUND_RESPONSE)
 
 
 def _notification_response(n) -> NotificationResponse:
@@ -69,7 +72,7 @@ def _notification_response(n) -> NotificationResponse:
 @router.get("", response_model=NotificationListResponse)
 def list_notifications(
     pagination: PaginationParams = Depends(get_pagination),
-    unread_only: bool = Query(False),
+    unread_only: bool = Query(False, description="If true, return only unread notifications."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
 ) -> NotificationListResponse:
@@ -116,7 +119,7 @@ def count_unread(
     response_model=NotificationResponse,
 )
 def mark_read(
-    notification_key: str,
+    notification_key: Annotated[str, Path(description="Document key of the notification.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
 ) -> NotificationResponse:
@@ -138,8 +141,8 @@ def mark_read(
     response_model=NotificationResponse,
 )
 def mark_acted(
-    notification_key: str,
-    action_id: str = Query(..., min_length=1),
+    notification_key: Annotated[str, Path(description="Document key of the notification.")],
+    action_id: str = Query(..., min_length=1, description="Identifier of the actionable button that was tapped."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
     care_service: CareReminderService = Depends(get_care_reminder_service),

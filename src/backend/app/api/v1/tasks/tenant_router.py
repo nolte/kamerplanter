@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query, Response
 
 from app.api.mapping import to_response
 from app.api.v1.tasks.schemas import (
@@ -7,7 +9,9 @@ from app.api.v1.tasks.schemas import (
     BatchResponse,
     BatchResultItem,
     BatchStatusRequest,
+    CareReminderGenerationResult,
     HSTValidateRequest,
+    HSTValidationResponse,
     PhaseReorderRequest,
     TaskAuditEntryResponse,
     TaskCloneRequest,
@@ -23,6 +27,7 @@ from app.api.v1.tasks.schemas import (
     TaskTemplateUpdate,
     TaskUpdate,
     WorkflowAddTaskRequest,
+    WorkflowExecutionListItem,
     WorkflowExecutionResponse,
     WorkflowInstantiateRequest,
     WorkflowPhaseCreate,
@@ -35,12 +40,13 @@ from app.api.v1.tasks.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_task_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.task_service import TaskService
 
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+router = APIRouter(prefix="/tasks", tags=["tasks"], responses=NOT_FOUND_RESPONSE)
 
 
 def _wf_response(wt: WorkflowTemplate) -> WorkflowTemplateResponse:
@@ -82,11 +88,12 @@ _ACTIVITY_TO_TASK_CATEGORY: dict[str, str] = {
 @router.get("/workflows", response_model=list[WorkflowTemplateResponse])
 def list_workflows(
     pagination: PaginationParams = Depends(get_pagination),
-    species_key: str | None = Query(None),
-    target_entity_type: str | None = Query(None),
+    species_key: str | None = Query(None, description="Filter workflow templates by species key."),
+    target_entity_type: str | None = Query(None, description="Filter by target entity type."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List the tenant's workflow templates with usage stats (paginated)."""
     templates, _ = service.list_workflow_templates(
         pagination.offset,
         pagination.limit,
@@ -112,6 +119,7 @@ def create_workflow(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Create a workflow template for the tenant."""
     wt = WorkflowTemplate(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_workflow_template(wt)
     return _wf_response(created)
@@ -119,20 +127,22 @@ def create_workflow(
 
 @router.get("/workflows/{key}", response_model=WorkflowTemplateResponse)
 def get_workflow(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Return a single workflow template by key."""
     return _wf_response(service.get_workflow_template(key, tenant_key=ctx.tenant_key))
 
 
 @router.put("/workflows/{key}", response_model=WorkflowTemplateResponse)
 def update_workflow(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow template.")],
     body: WorkflowTemplateUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Update a workflow template."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_workflow_template(key, data)
@@ -141,10 +151,11 @@ def update_workflow(
 
 @router.delete("/workflows/{key}", status_code=204)
 def delete_workflow(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Delete a workflow template."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     service.delete_workflow_template(key)
     return Response(status_code=204)
@@ -152,33 +163,36 @@ def delete_workflow(
 
 @router.post("/workflows/{key}/duplicate", response_model=WorkflowTemplateResponse, status_code=201)
 def duplicate_workflow(
-    key: str,
-    name: str = Query(..., min_length=1, max_length=200),
+    key: Annotated[str, Path(description="Document key of the workflow template to duplicate.")],
+    name: str = Query(..., min_length=1, max_length=200, description="Name for the duplicated workflow template."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Duplicate a workflow template under a new name."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     duplicated = service.duplicate_workflow_template(key, name, tenant_key=ctx.tenant_key)
     return _wf_response(duplicated)
 
 
-@router.get("/workflows/{key}/executions")
+@router.get("/workflows/{key}/executions", response_model=list[WorkflowExecutionListItem])
 def list_workflow_executions(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List a workflow template's executions with enriched entity info."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     return service.get_executions_for_template(key)
 
 
 @router.post("/workflows/{key}/instantiate", response_model=WorkflowExecutionResponse, status_code=201)
 def instantiate_workflow(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow template.")],
     body: WorkflowInstantiateRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Instantiate a workflow template for a target entity."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     execution = service.instantiate_workflow(
         key,
@@ -193,21 +207,23 @@ def instantiate_workflow(
 
 @router.get("/workflows/{wf_key}/phases", response_model=list[WorkflowPhaseResponse])
 def list_workflow_phases(
-    wf_key: str,
+    wf_key: Annotated[str, Path(description="Document key of the workflow template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List the phases of a workflow template."""
     service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
     return [_phase_response(p) for p in service.get_workflow_phases(wf_key)]
 
 
 @router.post("/workflows/{wf_key}/phases", response_model=WorkflowPhaseResponse, status_code=201)
 def create_workflow_phase(
-    wf_key: str,
+    wf_key: Annotated[str, Path(description="Document key of the workflow template.")],
     body: WorkflowPhaseCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Create a phase within a workflow template."""
     service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
     phase = WorkflowPhase(**body.model_dump(), workflow_template_key=wf_key)
     return _phase_response(service.create_workflow_phase(phase))
@@ -218,6 +234,7 @@ def list_phase_suggestions(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List suggested workflow phases for building templates."""
     return service.get_phase_suggestions()
 
 
@@ -227,16 +244,18 @@ def reorder_phases(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Reorder a workflow template's phases."""
     return [_phase_response(p) for p in service.reorder_workflow_phases([item.model_dump() for item in body.phases])]
 
 
 @router.put("/phases/{key}", response_model=WorkflowPhaseResponse)
 def update_workflow_phase(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow phase.")],
     body: WorkflowPhaseUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Update a workflow phase."""
     phase = service.get_workflow_phase(key)
     service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
     return _phase_response(service.update_workflow_phase(key, body.model_dump(exclude_none=True)))
@@ -244,10 +263,11 @@ def update_workflow_phase(
 
 @router.delete("/phases/{key}", status_code=204)
 def delete_workflow_phase(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow phase.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Delete a workflow phase."""
     phase = service.get_workflow_phase(key)
     service.get_workflow_template(phase.workflow_template_key, tenant_key=ctx.tenant_key)
     service.delete_workflow_phase(key)
@@ -259,10 +279,11 @@ def delete_workflow_phase(
 
 @router.get("/workflows/{wf_key}/templates", response_model=list[TaskTemplateResponse])
 def list_task_templates(
-    wf_key: str,
+    wf_key: Annotated[str, Path(description="Document key of the workflow template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List the task templates of a workflow template."""
     service.get_workflow_template(wf_key, tenant_key=ctx.tenant_key)
     templates = service.get_task_templates(wf_key)
     return [_tt_response(tt) for tt in templates]
@@ -274,6 +295,7 @@ def create_task_template(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Create a task template."""
     data = body.model_dump()
     cat = data.get("category", "")
     if cat in _ACTIVITY_TO_TASK_CATEGORY:
@@ -285,20 +307,22 @@ def create_task_template(
 
 @router.get("/templates/{key}", response_model=TaskTemplateResponse)
 def get_task_template(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Return a single task template by key."""
     return _tt_response(service.get_task_template(key))
 
 
 @router.put("/templates/{key}", response_model=TaskTemplateResponse)
 def update_task_template(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task template.")],
     body: TaskTemplateUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Update a task template."""
     data = body.model_dump(exclude_none=True)
     updated = service.update_task_template(key, data)
     return _tt_response(updated)
@@ -306,10 +330,11 @@ def update_task_template(
 
 @router.delete("/templates/{key}", status_code=204)
 def delete_task_template(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task template.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Delete a task template."""
     service.delete_task_template(key)
     return Response(status_code=204)
 
@@ -320,13 +345,14 @@ def delete_task_template(
 @router.get("", response_model=list[TaskResponse])
 def list_tasks(
     pagination: PaginationParams = Depends(get_pagination),
-    status: str | None = None,
-    category: str | None = None,
-    entity_type: str | None = None,
-    entity_key: str | None = None,
+    status: str | None = Query(default=None, description="Filter by task status."),
+    category: str | None = Query(default=None, description="Filter by task category."),
+    entity_type: str | None = Query(default=None, description="Filter by linked entity type."),
+    entity_key: str | None = Query(default=None, description="Filter by linked entity key."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List the tenant's tasks (paginated), optionally filtered."""
     filters: dict[str, str] = {}
     if status:
         filters["status"] = status
@@ -346,6 +372,7 @@ def create_task(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Create a task for the tenant."""
     task = Task(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_task(task, actor_user_key=ctx.user_key)
     return _task_response(created)
@@ -353,15 +380,16 @@ def create_task(
 
 @router.get("/queue", response_model=list[TaskResponse])
 def get_task_queue(
-    plant_key: str | None = None,
+    plant_key: str | None = Query(default=None, description="Restrict the queue to a single plant instance."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Return the prioritized task queue, optionally scoped to one plant."""
     tasks = service.get_task_queue(plant_key)
     return [_task_response(t) for t in tasks]
 
 
-@router.post("/generate-care-reminders")
+@router.post("/generate-care-reminders", response_model=CareReminderGenerationResult)
 def generate_care_reminders_now(
     ctx: TenantContext = Depends(get_current_tenant),
 ):
@@ -383,27 +411,30 @@ def get_overdue_tasks(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List the tenant's overdue tasks."""
     tasks = service.get_overdue_tasks()
     return [_task_response(t) for t in tasks]
 
 
 @router.get("/plants/{plant_key}", response_model=list[TaskResponse])
 def get_tasks_for_plant(
-    plant_key: str,
-    status: str | None = None,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
+    status: str | None = Query(default=None, description="Filter by task status."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List the tasks of a plant instance, optionally filtered by status."""
     tasks = service.get_tasks_for_plant(plant_key, status)
     return [_task_response(t) for t in tasks]
 
 
-@router.post("/validate-hst")
+@router.post("/validate-hst", response_model=HSTValidationResponse)
 def validate_hst(
     body: HSTValidateRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Validate whether a High-Stress-Training task is allowed in the current phase."""
     return service.validate_hst(body.task_name, body.current_phase, body.recent_hst_tasks, body.species_name)
 
 
@@ -413,6 +444,7 @@ def batch_status_change(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Apply a status change to a batch of tasks."""
     succeeded, failed = service.batch_status_change(body.task_keys, body.action, body.completion_notes)
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
@@ -423,6 +455,7 @@ def batch_delete(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Delete a batch of tasks."""
     succeeded, failed = service.batch_delete(body.task_keys)
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
@@ -433,25 +466,28 @@ def batch_assign(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Assign a batch of tasks to a user."""
     succeeded, failed = service.batch_assign(body.task_keys, body.assigned_to_user_key)
     return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
 
 
 @router.get("/{key}", response_model=TaskResponse)
 def get_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Return a single task by key."""
     return _task_response(service.get_task(key, tenant_key=ctx.tenant_key))
 
 
 @router.delete("/{key}", status_code=204)
 def delete_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Delete a task."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     service.delete_task(key)
     return Response(status_code=204)
@@ -459,11 +495,12 @@ def delete_task(
 
 @router.put("/{key}", response_model=TaskResponse)
 def update_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Update a task."""
     task = service.get_task(key, tenant_key=ctx.tenant_key)
     previous = task.model_copy(deep=True)
     data = body.model_dump(exclude_none=True)
@@ -475,21 +512,23 @@ def update_task(
 
 @router.post("/{key}/start", response_model=TaskResponse)
 def start_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Mark a task as started."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     return _task_response(service.start_task(key))
 
 
 @router.post("/{key}/complete", response_model=TaskResponse)
 def complete_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskCompleteRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Complete a task, propagating care-reminder confirmations where applicable."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     completed = service.complete_task(
         key,
@@ -546,10 +585,11 @@ def complete_task(
 
 @router.post("/{key}/skip", response_model=TaskResponse)
 def skip_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Skip a task, propagating care-reminder confirmations where applicable."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     skipped = service.skip_task(key)
     if skipped.category == "care_reminder" and skipped.entity_type == "plant_instance" and skipped.entity_key:
@@ -585,11 +625,12 @@ def skip_task(
 
 @router.post("/{key}/clone", response_model=TaskResponse, status_code=201)
 def clone_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task to clone.")],
     body: TaskCloneRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Clone a task, optionally onto another entity and with a due-date offset."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     cloned = service.clone_task(
         key,
@@ -602,21 +643,23 @@ def clone_task(
 
 @router.post("/{key}/reopen", response_model=TaskResponse)
 def reopen_task(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task to reopen.")],
     body: TaskReopenRequest | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Reopen a completed or skipped task."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     return _task_response(service.reopen_task(key))
 
 
 @router.get("/{task_key}/comments", response_model=list[TaskCommentResponse])
 def list_task_comments(
-    task_key: str,
+    task_key: Annotated[str, Path(description="Document key of the task.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """List a task's comments."""
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     comments = service.list_comments(task_key)
     return [to_response(c, TaskCommentResponse) for c in comments]
@@ -624,11 +667,12 @@ def list_task_comments(
 
 @router.post("/{task_key}/comments", response_model=TaskCommentResponse, status_code=201)
 def create_task_comment(
-    task_key: str,
+    task_key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskCommentCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Add a comment to a task."""
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     comment = service.create_comment(task_key, body.comment_text, created_by=ctx.user_key)
     return to_response(comment, TaskCommentResponse)
@@ -636,12 +680,13 @@ def create_task_comment(
 
 @router.put("/{task_key}/comments/{comment_key}", response_model=TaskCommentResponse)
 def update_task_comment(
-    task_key: str,
-    comment_key: str,
+    task_key: Annotated[str, Path(description="Document key of the task.")],
+    comment_key: Annotated[str, Path(description="Document key of the comment.")],
     body: TaskCommentUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Update a task comment."""
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     comment = service.update_comment(task_key, comment_key, body.comment_text)
     return to_response(comment, TaskCommentResponse)
@@ -649,11 +694,12 @@ def update_task_comment(
 
 @router.delete("/{task_key}/comments/{comment_key}", status_code=204)
 def delete_task_comment(
-    task_key: str,
-    comment_key: str,
+    task_key: Annotated[str, Path(description="Document key of the task.")],
+    comment_key: Annotated[str, Path(description="Document key of the comment.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Delete a task comment."""
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     service.delete_comment(task_key, comment_key)
     return Response(status_code=204)
@@ -661,10 +707,11 @@ def delete_task_comment(
 
 @router.get("/{task_key}/history", response_model=list[TaskAuditEntryResponse])
 def get_task_history(
-    task_key: str,
+    task_key: Annotated[str, Path(description="Document key of the task.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Return a task's audit history."""
     service.get_task(task_key, tenant_key=ctx.tenant_key)
     entries = service.get_task_history(task_key)
     return [to_response(e, TaskAuditEntryResponse) for e in entries]
@@ -672,20 +719,22 @@ def get_task_history(
 
 @router.get("/executions/{key}", response_model=WorkflowExecutionResponse)
 def get_workflow_execution(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow execution.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Return a single workflow execution by key."""
     return _we_response(service.get_workflow_execution(key))
 
 
 @router.post("/executions/{key}/tasks", response_model=TaskResponse, status_code=201)
 def add_task_to_workflow(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the workflow execution.")],
     body: WorkflowAddTaskRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
 ):
+    """Add an ad-hoc task to a running workflow execution."""
     task = Task(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.add_task_to_workflow_execution(key, task)
     return _task_response(created)

@@ -114,3 +114,11 @@ class PreparationResponse(BaseModel):
     preparation_steps: list[PreparationStep] = Field(default_factory=list)
     estimated_prep_time_hours: float = 0
     ready_date: date | None = None
+
+
+class BatchSlotAssignmentResponse(BaseModel):
+    """Acknowledgement returned after a substrate batch is assigned to a slot."""
+
+    status: str
+    batch_key: str
+    slot_key: str

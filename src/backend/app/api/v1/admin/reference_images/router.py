@@ -6,8 +6,10 @@ Acquisition itself runs asynchronously via Celery; these endpoints dispatch the
 tasks and expose the coverage report.
 """
 
+from typing import Annotated
+
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.reference_images.schemas import (
     AcquireResponse,
@@ -21,11 +23,16 @@ from app.api.v1.admin.reference_images.schemas import (
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_reference_image_repo, get_species_repo
 from app.common.exceptions import NotFoundError
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.data_access.external.inference_service_client import InferenceServiceClient
 from app.domain.models.user import User
 
-router = APIRouter(prefix="/admin/reference-images", tags=["admin-reference-images"])
+router = APIRouter(
+    prefix="/admin/reference-images",
+    tags=["admin-reference-images"],
+    responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 
 
 @router.post("/acquire", response_model=AcquireResponse, status_code=202)
@@ -39,7 +46,7 @@ def acquire_all(_user: User = Depends(require_platform_admin)) -> AcquireRespons
 
 @router.post("/acquire/{species_key}", response_model=AcquireResponse, status_code=202)
 def acquire_species(
-    species_key: str,
+    species_key: Annotated[str, Path(description="Document key of the species.")],
     _user: User = Depends(require_platform_admin),
 ) -> AcquireResponse:
     """Dispatch (re-)acquisition for a single species."""
@@ -69,7 +76,7 @@ def get_coverage(_user: User = Depends(require_platform_admin)) -> CoverageRepor
 
 @router.get("/{species_key}/images", response_model=CurationImageList)
 def list_curation_images(
-    species_key: str,
+    species_key: Annotated[str, Path(description="Document key of the species.")],
     _user: User = Depends(require_platform_admin),
 ) -> CurationImageList:
     """List ALL reference images for a species (incl. deselected) for curation."""
@@ -112,8 +119,8 @@ def list_curation_images(
 
 @router.patch("/{species_key}/images/{image_id}", response_model=SetImageActiveResponse)
 def set_image_active(
-    species_key: str,
-    image_id: int,
+    species_key: Annotated[str, Path(description="Document key of the species.")],
+    image_id: Annotated[int, Path(description="Identifier of the reference image.")],
     body: SetImageActiveRequest,
     _user: User = Depends(require_platform_admin),
 ) -> SetImageActiveResponse:

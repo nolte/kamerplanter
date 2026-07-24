@@ -12,12 +12,14 @@ from app.api.v1.ki_assistent.deps import require_ai_feature_flag
 from app.api.v1.ki_assistent.schemas import HealthResponse
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_ai_assistant_service
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.domain.services.ai_assistant_service import AiAssistantService
 
 router = APIRouter(
     prefix="/ai",
     tags=["ki-assistent-admin"],
     dependencies=[Depends(require_ai_feature_flag), Depends(require_platform_admin)],
+    responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE},
 )
 
 

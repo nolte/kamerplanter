@@ -22,23 +22,26 @@ as the tenant attachment endpoint.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Response
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.attachments.response_headers import harden_download_headers
 from app.common.auth import get_current_user
 from app.common.dependencies import get_pest_image_service
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.models.user import User
 from app.domain.services.pest_image_service import PestImageService
 
-router = APIRouter(prefix="/ipm/pest-images", tags=["ipm"])
+router = APIRouter(prefix="/ipm/pest-images", tags=["ipm"], responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE})
 
 
 @router.get("/{contribution_id}")
 async def get_promoted_pest_image(
-    contribution_id: str,
+    contribution_id: Annotated[str, Path(description="Key of the promoted pest-image contribution.")],
     _user: User = Depends(get_current_user),
     service: PestImageService = Depends(get_pest_image_service),
 ):
@@ -63,8 +66,8 @@ async def get_promoted_pest_image(
 
 @router.get("/{contribution_id}/thumbnails/{size}")
 async def get_promoted_pest_image_thumbnail(
-    contribution_id: str,
-    size: int,
+    contribution_id: Annotated[str, Path(description="Key of the promoted pest-image contribution.")],
+    size: Annotated[int, Path(description="Requested thumbnail edge length in pixels.")],
     _user: User = Depends(get_current_user),
     service: PestImageService = Depends(get_pest_image_service),
 ):

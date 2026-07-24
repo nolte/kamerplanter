@@ -4,6 +4,7 @@ from app.api.v1.calculations.schemas import (
     GDDRequest,
     GDDResponse,
     PhotoperiodTransitionRequest,
+    PhotoperiodTransitionResponse,
     SlotCapacityRequest,
     SlotCapacityResponse,
     SunTimesRangeRequest,
@@ -29,6 +30,7 @@ router = APIRouter(prefix="/calculations", tags=["calculations"])
 
 @router.post("/vpd", response_model=VPDResponse)
 def calc_vpd(body: VPDRequest):
+    """Compute the vapour-pressure deficit and classify it for the given phase."""
     vpd = calculate_vpd(body.temp_c, body.humidity_percent)
     status, recommendation = classify_vpd(vpd, body.phase)
     return VPDResponse(vpd_kpa=round(vpd, 4), status=status, recommendation=recommendation)
@@ -36,12 +38,14 @@ def calc_vpd(body: VPDRequest):
 
 @router.post("/gdd", response_model=GDDResponse)
 def calc_gdd(body: GDDRequest):
+    """Accumulate growing degree days from a series of daily temperatures."""
     gdd = calculate_accumulated_gdd(body.daily_temps, body.base_temp_c)
     return GDDResponse(accumulated_gdd=round(gdd, 2), days_counted=len(body.daily_temps))
 
 
-@router.post("/photoperiod-transition")
+@router.post("/photoperiod-transition", response_model=PhotoperiodTransitionResponse)
 def calc_photoperiod(body: PhotoperiodTransitionRequest):
+    """Build a gradual photoperiod-transition schedule with the resulting DLI per day."""
     schedule = calculate_transition_schedule(
         body.current_hours, body.target_hours, body.transition_days, body.lights_on_time
     )
@@ -52,18 +56,21 @@ def calc_photoperiod(body: PhotoperiodTransitionRequest):
 
 @router.post("/sun-times", response_model=SunTimesResponse)
 def calc_sun_times(body: SunTimesRequest):
+    """Compute sunrise, sunset and twilight times for a location and date."""
     result = calculate_sun_times(body.latitude, body.longitude, body.date, body.timezone)
     return SunTimesResponse(**result)
 
 
 @router.post("/sun-times-range", response_model=list[SunTimesResponse])
 def calc_sun_times_range(body: SunTimesRangeRequest):
+    """Compute sun times for each day across a date range."""
     results = calculate_sun_times_range(body.latitude, body.longitude, body.start_date, body.end_date, body.timezone)
     return [SunTimesResponse(**r) for r in results]
 
 
 @router.post("/slot-capacity", response_model=SlotCapacityResponse)
 def calc_slot_capacity(body: SlotCapacityRequest):
+    """Compute maximum and optimal plant capacity for a growing area."""
     max_cap = calculate_max_capacity(body.area_m2, body.plant_spacing_cm)
     opt_range = calculate_optimal_range(body.area_m2, body.plant_spacing_cm)
     ppm2 = calculate_plants_per_m2(body.plant_spacing_cm)
@@ -72,6 +79,7 @@ def calc_slot_capacity(body: SlotCapacityRequest):
 
 @router.post("/vernalization", response_model=VernalizationResponse)
 def calc_vernalization(body: VernalizationRequest):
+    """Compute vernalization progress from accumulated cold days."""
     from app.domain.engines.vernalization_tracker import VernalizationTracker
 
     tracker = VernalizationTracker()

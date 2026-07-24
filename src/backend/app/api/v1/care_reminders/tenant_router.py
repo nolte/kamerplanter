@@ -11,7 +11,9 @@ router = APIRouter(prefix="/care-reminders", tags=["care-reminders"])
 
 @router.get("/dashboard", response_model=list[CareDashboardEntryResponse])
 def get_care_dashboard(
-    hemisphere: str = Query("north", pattern="^(north|south)$"),
+    hemisphere: str = Query(
+        "north", pattern="^(north|south)$", description="Hemisphere used for seasonal care timing (north or south)."
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):

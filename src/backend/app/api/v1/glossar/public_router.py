@@ -14,7 +14,9 @@ flag off ``/term/{slug}`` returns the curated fallback (``is_fallback=true``).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.v1.auth.router import limiter
 from app.api.v1.glossar.deps import get_glossary_service
@@ -39,8 +41,8 @@ _TERMS_RATE_LIMIT = "10/minute"
 @limiter.limit(_TERMS_RATE_LIMIT)
 def public_list_terms(
     request: Request,
-    category: str | None = None,
-    language: Language = "de",
+    category: str | None = Query(None, description="Filter terms by category."),
+    language: Language = Query("de", description="Language of the returned term labels (de or en)."),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> list[GlossaryTermSummary]:
     """List active glossary terms without auth (§3.2)."""
@@ -51,9 +53,9 @@ def public_list_terms(
 @limiter.limit(_TERM_RATE_LIMIT)
 async def public_get_term(
     request: Request,
-    slug: str,
-    expertise: ExpertiseLevel = "beginner",
-    language: Language = "de",
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
+    expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
+    language: Language = Query("de", description="Language of the returned explanation (de or en)."),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> GlossaryTermAnswer:
     """Explain one term without auth (local provider only, §3.2, §6)."""

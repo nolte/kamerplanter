@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.care_reminders.schemas import (
@@ -11,10 +13,16 @@ from app.api.v1.care_reminders.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType
+from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.domain.models.user import User
 from app.domain.services.care_reminder_service import CareReminderService
 
-router = APIRouter(prefix="/care-reminders", tags=["care-reminders"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/care-reminders",
+    tags=["care-reminders"],
+    dependencies=[Depends(get_current_user)],
+    responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE},
+)
 
 
 def _profile_to_response(p) -> CareProfileResponse:
@@ -27,22 +35,24 @@ def _confirmation_to_response(c) -> CareConfirmationResponse:
 
 @router.get("/plants/{plant_key}/profile", response_model=CareProfileResponse)
 def get_or_create_profile(
-    plant_key: str,
-    species_name: str | None = Query(None),
-    botanical_family: str | None = Query(None),
+    plant_key: Annotated[str, Path(description="Document key of the plant.")],
+    species_name: str | None = Query(None, description="Species name used to seed a new profile's presets."),
+    botanical_family: str | None = Query(None, description="Botanical family used to seed a new profile's presets."),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
+    """Return the plant's care profile, creating it from presets if absent."""
     profile = service.get_or_create_profile(plant_key, species_name, botanical_family)
     return _profile_to_response(profile)
 
 
 @router.patch("/plants/{plant_key}/profile", response_model=CareProfileResponse)
 def update_profile(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: CareProfileUpdate,
     user: User = Depends(get_current_user),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
+    """Update the plant's care profile with the supplied fields."""
     updates = body.model_dump(exclude_none=True)
     updated = service.update_profile(plant_key, updates, user_key=user.key or "")
     return _profile_to_response(updated)
@@ -50,11 +60,12 @@ def update_profile(
 
 @router.post("/plants/{plant_key}/confirm", response_model=CareConfirmationResponse, status_code=201)
 def confirm_reminder(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: ConfirmRequest,
     user: User = Depends(get_current_user),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
+    """Confirm a due care reminder and record the performed care."""
     fertilizers = [f.model_dump() for f in body.fertilizers_used] if body.fertilizers_used else None
     confirmation = service.confirm_reminder(
         plant_key,
@@ -71,31 +82,34 @@ def confirm_reminder(
 
 @router.post("/plants/{plant_key}/snooze", response_model=CareConfirmationResponse, status_code=201)
 def snooze_reminder(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant.")],
     body: SnoozeRequest,
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
+    """Snooze a due care reminder for the requested number of days."""
     confirmation = service.snooze_reminder(plant_key, body.reminder_type, body.snooze_days)
     return _confirmation_to_response(confirmation)
 
 
 @router.get("/plants/{plant_key}/history", response_model=list[CareConfirmationResponse])
 def get_confirmation_history(
-    plant_key: str,
-    reminder_type: ReminderType | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    plant_key: Annotated[str, Path(description="Document key of the plant.")],
+    reminder_type: ReminderType | None = Query(None, description="Filter the history by reminder type."),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of confirmations to return."),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
+    """List the plant's care-confirmation history, optionally filtered by type."""
     history = service.get_confirmation_history(plant_key, reminder_type, limit)
     return [_confirmation_to_response(c) for c in history]
 
 
 @router.post("/plants/{plant_key}/reset-profile", response_model=CareProfileResponse)
 def reset_profile(
-    plant_key: str,
-    species_name: str | None = Query(None),
-    botanical_family: str | None = Query(None),
+    plant_key: Annotated[str, Path(description="Document key of the plant.")],
+    species_name: str | None = Query(None, description="Species name used to re-seed the profile's presets."),
+    botanical_family: str | None = Query(None, description="Botanical family used to re-seed the profile's presets."),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
+    """Reset the plant's care profile back to its preset defaults."""
     profile = service.reset_profile(plant_key, species_name, botanical_family)
     return _profile_to_response(profile)

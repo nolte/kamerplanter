@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.overwintering_profiles.schemas import (
@@ -19,6 +21,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import GrowthHabit, RootType
 from app.common.exceptions import NotFoundError
+from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
@@ -29,7 +32,7 @@ from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 
-router = APIRouter(prefix="/overwintering-profiles", tags=["overwintering-profiles"])
+router = APIRouter(prefix="/overwintering-profiles", tags=["overwintering-profiles"], responses=CRUD_RESPONSES)
 
 #: Root types / growth habits that identify a tuber/bulb/corm geophyte, which is
 #: dug up and stored over winter rather than moved indoors (REQ-022 §Knollen-/
@@ -51,6 +54,7 @@ def list_overwintering_profiles(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> list[OverwinteringProfileResponse]:
+    """List the tenant's overwintering profiles (paginated)."""
     items, _total = service.list_profiles(ctx.tenant_key, pagination.offset, pagination.limit)
     return [_profile_response(p) for p in items]
 
@@ -60,6 +64,7 @@ def get_hardiness_overview(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> WinterHardinessOverviewResponse:
+    """Return the tenant's winter-hardiness traffic-light overview."""
     overview = service.get_hardiness_overview(ctx.tenant_key)
     return WinterHardinessOverviewResponse(**overview.model_dump())
 
@@ -70,6 +75,7 @@ def create_overwintering_profile(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
+    """Create an overwintering profile for the tenant."""
     profile = OverwinteringProfile(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_profile(profile, ctx.tenant_key)
     return _profile_response(created)
@@ -84,6 +90,7 @@ def auto_generate_overwintering_profile(
     site_repo: ArangoSiteRepository = Depends(get_site_repo),
     plant_repo: ArangoPlantInstanceRepository = Depends(get_plant_repo),
 ) -> OverwinteringProfileResponse:
+    """Auto-generate an overwintering profile from species, site and frost data."""
     frost_sensitivity = body.frost_sensitivity
     species_zone = body.species_zone
     site_zone = body.site_zone
@@ -154,11 +161,12 @@ def link_shared_template(
 
 @router.get("/shared-template", response_model=OverwinteringTemplateResponse)
 def get_shared_template(
-    plant_key: str | None = None,
-    planting_run_key: str | None = None,
+    plant_key: str | None = Query(default=None, description="Plant instance whose linked template to return."),
+    planting_run_key: str | None = Query(default=None, description="Planting run whose linked template to return."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringTemplateResponse:
+    """Return the reusable species template linked to a plant or planting run."""
     template = service.get_shared_template_for_subject(
         ctx.tenant_key, plant_key=plant_key, planting_run_key=planting_run_key
     )
@@ -169,31 +177,34 @@ def get_shared_template(
 
 @router.delete("/shared-template", status_code=204)
 def unlink_shared_template(
-    plant_key: str | None = None,
-    planting_run_key: str | None = None,
+    plant_key: str | None = Query(default=None, description="Plant instance to unlink from its template."),
+    planting_run_key: str | None = Query(default=None, description="Planting run to unlink from its template."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> None:
+    """Detach a plant or planting run from its shared species template."""
     service.unlink_shared_template(ctx.tenant_key, plant_key=plant_key, planting_run_key=planting_run_key)
 
 
 @router.get("/{key}", response_model=OverwinteringProfileResponse)
 def get_overwintering_profile(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the overwintering profile.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
+    """Return a single overwintering profile by key."""
     profile = service.get_profile(key, ctx.tenant_key)
     return _profile_response(profile)
 
 
 @router.put("/{key}", response_model=OverwinteringProfileResponse)
 def update_overwintering_profile(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the overwintering profile.")],
     body: OverwinteringProfileUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
+    """Update an overwintering profile."""
     updates = body.model_dump(exclude_unset=True)
     updated = service.update_profile(key, ctx.tenant_key, updates)
     return _profile_response(updated)
@@ -201,8 +212,9 @@ def update_overwintering_profile(
 
 @router.delete("/{key}", status_code=204)
 def delete_overwintering_profile(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the overwintering profile.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> None:
+    """Delete an overwintering profile."""
     service.delete_profile(key, ctx.tenant_key)

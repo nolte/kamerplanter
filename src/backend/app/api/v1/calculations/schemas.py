@@ -77,3 +77,19 @@ class VernalizationResponse(BaseModel):
     progress_percent: float
     days_remaining: int
     is_complete: bool
+
+
+class PhotoperiodTransitionStep(BaseModel):
+    """One day of the gradual photoperiod-transition schedule."""
+
+    day: int
+    photoperiod_hours: float
+    lights_on: str
+    lights_off: str
+    dli: float
+
+
+class PhotoperiodTransitionResponse(BaseModel):
+    """Day-by-day photoperiod-transition schedule with the resulting DLI."""
+
+    schedule: list[PhotoperiodTransitionStep]

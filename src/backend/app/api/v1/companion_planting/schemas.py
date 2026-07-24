@@ -33,3 +33,27 @@ class IncompatibleSpeciesResponse(BaseModel):
 class SpeciesCompanionCounts(BaseModel):
     compatible: int = 0
     incompatible: int = 0
+
+
+class CompanionEdgeCreatedResponse(BaseModel):
+    """Acknowledgement returned after a companion edge is written."""
+
+    status: str
+
+
+class CompanionRecommendationMatch(BaseModel):
+    """One recommended companion species (species- or family-level match)."""
+
+    species_key: str
+    scientific_name: str | None = None
+    score: float
+    match_level: str
+    # Only present on family-level fallback matches (species-level matches omit it).
+    benefit_type: str | None = None
+
+
+class CompanionRecommendationsResponse(BaseModel):
+    """Companion recommendations with the level at which they were resolved."""
+
+    matches: list[CompanionRecommendationMatch]
+    match_level: str

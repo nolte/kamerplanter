@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.substrates.schemas import (
     BatchCreate,
     BatchResponse,
+    BatchSlotAssignmentResponse,
     MixComponentResponse,
     PreparationResponse,
     PreparationStep,
@@ -14,11 +17,17 @@ from app.api.v1.substrates.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_substrate_service
+from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.substrate import MixComponent, Substrate, SubstrateBatch
 from app.domain.services.substrate_service import SubstrateService
 
-router = APIRouter(prefix="/substrates", tags=["substrates"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/substrates",
+    tags=["substrates"],
+    dependencies=[Depends(get_current_user)],
+    responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES},
+)
 
 
 @router.get("", response_model=list[SubstrateResponse])
@@ -26,37 +35,53 @@ def list_substrates(
     pagination: PaginationParams = Depends(get_pagination),
     service: SubstrateService = Depends(get_substrate_service),
 ):
+    """List the substrate catalogue (paginated)."""
     items, total = service.list_substrates(pagination.offset, pagination.limit)
     return [to_response(s, SubstrateResponse) for s in items]
 
 
 @router.post("", response_model=SubstrateResponse, status_code=201)
 def create_substrate(body: SubstrateCreate, service: SubstrateService = Depends(get_substrate_service)):
+    """Create a substrate master record."""
     substrate = Substrate(**body.model_dump())
     created = service.create_substrate(substrate)
     return to_response(created, SubstrateResponse)
 
 
 @router.get("/{key}", response_model=SubstrateResponse)
-def get_substrate(key: str, service: SubstrateService = Depends(get_substrate_service)):
+def get_substrate(
+    key: Annotated[str, Path(description="Document key of the substrate.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Return a single substrate by key."""
     s = service.get_substrate(key)
     return to_response(s, SubstrateResponse)
 
 
 @router.put("/{key}", response_model=SubstrateResponse)
-def update_substrate(key: str, body: SubstrateCreate, service: SubstrateService = Depends(get_substrate_service)):
+def update_substrate(
+    key: Annotated[str, Path(description="Document key of the substrate.")],
+    body: SubstrateCreate,
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Update a substrate master record."""
     substrate = Substrate(**body.model_dump())
     updated = service.update_substrate(key, substrate)
     return to_response(updated, SubstrateResponse)
 
 
 @router.delete("/{key}", status_code=204)
-def delete_substrate(key: str, service: SubstrateService = Depends(get_substrate_service)):
+def delete_substrate(
+    key: Annotated[str, Path(description="Document key of the substrate.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Delete a substrate master record."""
     service.delete_substrate(key)
 
 
 @router.post("/mix", response_model=SubstrateResponse, status_code=201)
 def create_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(get_substrate_service)):
+    """Create and persist a substrate mix from weighted components."""
     components = [MixComponent(substrate_key=c.substrate_key, fraction=c.fraction) for c in body.components]
     created = service.create_mix(components, name_de=body.name_de, name_en=body.name_en)
     return to_response(created, SubstrateResponse)
@@ -64,6 +89,7 @@ def create_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(ge
 
 @router.post("/preview-mix", response_model=SubstrateResponse)
 def preview_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(get_substrate_service)):
+    """Compute the resulting properties of a substrate mix without persisting it."""
     components = [MixComponent(substrate_key=c.substrate_key, fraction=c.fraction) for c in body.components]
     props = service.preview_mix(components)
     return SubstrateResponse(
@@ -91,38 +117,60 @@ def preview_mix(body: SubstrateMixRequest, service: SubstrateService = Depends(g
 
 
 @router.get("/{substrate_key}/batches", response_model=list[BatchResponse])
-def list_batches(substrate_key: str, service: SubstrateService = Depends(get_substrate_service)):
+def list_batches(
+    substrate_key: Annotated[str, Path(description="Document key of the substrate.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """List the mixed batches of a substrate."""
     batches = service.list_batches(substrate_key)
     return [to_response(b, BatchResponse) for b in batches]
 
 
 @router.post("/batches", response_model=BatchResponse, status_code=201)
 def create_batch(body: BatchCreate, service: SubstrateService = Depends(get_substrate_service)):
+    """Create a substrate batch."""
     batch = SubstrateBatch(**body.model_dump())
     created = service.create_batch(batch)
     return to_response(created, BatchResponse)
 
 
 @router.get("/batches/{key}", response_model=BatchResponse)
-def get_batch(key: str, service: SubstrateService = Depends(get_substrate_service)):
+def get_batch(
+    key: Annotated[str, Path(description="Document key of the substrate batch.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Return a single substrate batch by key."""
     b = service.get_batch(key)
     return to_response(b, BatchResponse)
 
 
 @router.put("/batches/{key}", response_model=BatchResponse)
-def update_batch(key: str, body: BatchCreate, service: SubstrateService = Depends(get_substrate_service)):
+def update_batch(
+    key: Annotated[str, Path(description="Document key of the substrate batch.")],
+    body: BatchCreate,
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Update a substrate batch."""
     batch = SubstrateBatch(**body.model_dump())
     updated = service.update_batch(key, batch)
     return to_response(updated, BatchResponse)
 
 
 @router.delete("/batches/{key}", status_code=204)
-def delete_batch(key: str, service: SubstrateService = Depends(get_substrate_service)):
+def delete_batch(
+    key: Annotated[str, Path(description="Document key of the substrate batch.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Delete a substrate batch."""
     service.delete_batch(key)
 
 
 @router.post("/batches/{key}/check-reusability", response_model=ReusabilityResponse)
-def check_reusability(key: str, service: SubstrateService = Depends(get_substrate_service)):
+def check_reusability(
+    key: Annotated[str, Path(description="Document key of the substrate batch.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Assess whether a substrate batch can be reused and which treatments it needs."""
     can_reuse, issues, prep_steps, prep_time, ready_date = service.check_reusability(key)
     return ReusabilityResponse(
         can_reuse=can_reuse,
@@ -134,7 +182,11 @@ def check_reusability(key: str, service: SubstrateService = Depends(get_substrat
 
 
 @router.post("/batches/{key}/prepare-reuse", response_model=PreparationResponse)
-def prepare_reuse(key: str, service: SubstrateService = Depends(get_substrate_service)):
+def prepare_reuse(
+    key: Annotated[str, Path(description="Document key of the substrate batch.")],
+    service: SubstrateService = Depends(get_substrate_service),
+):
+    """Run the reuse preparation for a substrate batch and return its steps."""
     result = service.prepare_reuse(key)
     return PreparationResponse(
         can_reuse=result["can_reuse"],
@@ -145,11 +197,16 @@ def prepare_reuse(key: str, service: SubstrateService = Depends(get_substrate_se
     )
 
 
-@router.post("/batches/{batch_key}/assign-slot/{slot_key}", status_code=201)
+@router.post(
+    "/batches/{batch_key}/assign-slot/{slot_key}",
+    response_model=BatchSlotAssignmentResponse,
+    status_code=201,
+)
 def assign_batch_to_slot(
-    batch_key: str,
-    slot_key: str,
+    batch_key: Annotated[str, Path(description="Document key of the substrate batch.")],
+    slot_key: Annotated[str, Path(description="Document key of the slot to assign the batch to.")],
     service: SubstrateService = Depends(get_substrate_service),
 ):
+    """Assign a substrate batch to a slot."""
     service.assign_batch_to_slot(batch_key, slot_key)
     return {"status": "assigned", "batch_key": batch_key, "slot_key": slot_key}

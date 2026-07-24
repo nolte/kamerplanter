@@ -16,14 +16,15 @@ services.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Path
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.mcp.deps import get_dispatcher, get_mcp_principal
 from app.common.exceptions import KamerplanterError
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.core.permissions import has_mcp_permission
 from app.mcp_server.dispatcher import ToolDispatcher
 from app.mcp_server.principal import McpPrincipal
@@ -31,7 +32,7 @@ from app.mcp_server.registry import load_tools
 
 logger = structlog.get_logger(__name__)
 
-router = APIRouter(prefix="/mcp", tags=["mcp"])
+router = APIRouter(prefix="/mcp", tags=["mcp"], responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE})
 
 _PROTOCOL_VERSION = "2024-11-05"
 _SERVER_INFO = {"name": "kamerplanter-mcp", "version": "1.0"}
@@ -51,8 +52,8 @@ def list_mcp_tools(principal: McpPrincipal = Depends(get_mcp_principal)) -> dict
 
 @router.post("/tools/{tool_name}")
 async def call_mcp_tool(
-    tool_name: str,
-    arguments: dict[str, Any] = Body(default_factory=dict),
+    tool_name: Annotated[str, Path(description="Name of the MCP tool to invoke.")],
+    arguments: dict[str, Any] = Body(default_factory=dict, description="Arguments passed to the tool."),
     principal: McpPrincipal = Depends(get_mcp_principal),
     dispatcher: ToolDispatcher = Depends(get_dispatcher),
 ) -> dict[str, Any]:
@@ -73,7 +74,7 @@ def _rpc_result(request_id: Any, result: Any) -> dict[str, Any]:
 
 @router.post("/rpc")
 async def mcp_rpc(
-    payload: dict[str, Any] = Body(...),
+    payload: dict[str, Any] = Body(..., description="MCP JSON-RPC 2.0 request envelope."),
     principal: McpPrincipal = Depends(get_mcp_principal),
     dispatcher: ToolDispatcher = Depends(get_dispatcher),
 ) -> dict[str, Any]:
