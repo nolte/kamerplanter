@@ -347,7 +347,7 @@ def create_task(
     service: TaskService = Depends(get_task_service),
 ):
     task = Task(**body.model_dump(), tenant_key=ctx.tenant_key)
-    created = service.create_task(task)
+    created = service.create_task(task, actor_user_key=ctx.user_key)
     return _task_response(created)
 
 
@@ -469,7 +469,7 @@ def update_task(
     data = body.model_dump(exclude_none=True)
     for field, value in data.items():
         setattr(task, field, value)
-    updated = service.update_task(key, task, previous=previous)
+    updated = service.update_task(key, task, previous=previous, actor_user_key=ctx.user_key)
     return _task_response(updated)
 
 

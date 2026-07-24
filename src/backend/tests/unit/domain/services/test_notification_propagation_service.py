@@ -111,6 +111,18 @@ class TestTaskDueSync:
         assert rows[0].user_key == "user-a"
         assert "2026-07-24" in rows[0].body
 
+    def test_title_prefers_german_name_to_mirror_ui(self, service, repo):
+        # The UI renders name_de under the German default locale, so the in-app
+        # notification title must use it too (an English title would never match
+        # what the user sees on the task detail page).
+        service.sync_task_due_notification(
+            _task(name="Water indoor plants", name_de="Zimmerpflanzen gießen"),
+            recipient_user_key="owner",
+        )
+        rows = repo.all_rows()
+        assert len(rows) == 1
+        assert rows[0].title == "Zimmerpflanzen gießen"
+
     def test_moving_due_updates_in_place_no_duplicate(self, service, repo):
         service.sync_task_due_notification(_task())
         moved = _task(due_date=datetime(2026, 7, 28, tzinfo=UTC), name="Prune apple tree -- moved")
@@ -121,13 +133,43 @@ class TestTaskDueSync:
         assert "2026-07-28" in rows[0].body
         assert rows[0].title == "Prune apple tree -- moved"
 
-    def test_unassigned_task_creates_no_notification(self, service, repo):
+    def test_unassigned_task_without_actor_creates_no_notification(self, service, repo):
+        # No assignee and no acting owner → no resolvable recipient → no notification.
         service.sync_task_due_notification(_task(assigned_to_user_key=None))
         assert repo.all_rows() == []
 
-    def test_care_reminder_task_is_skipped(self, service, repo):
-        service.sync_task_due_notification(_task(category="care_reminder"))
+    def test_actor_owns_due_notification_over_assignee(self, service, repo):
+        # The acting owner (editor) receives the due notification, not the assignee.
+        service.sync_task_due_notification(_task(assigned_to_user_key="assignee"), recipient_user_key="owner")
+        rows = repo.all_rows()
+        assert len(rows) == 1
+        assert rows[0].user_key == "owner"
+
+    def test_unassigned_task_with_actor_notifies_owner(self, service, repo):
+        # An unassigned task still notifies its acting owner (threaded from the API).
+        service.sync_task_due_notification(_task(assigned_to_user_key=None), recipient_user_key="owner")
+        rows = repo.all_rows()
+        assert len(rows) == 1
+        assert rows[0].user_key == "owner"
+        assert rows[0].notification_type == "task.due"
+
+    def test_plant_scoped_care_reminder_task_is_skipped(self, service, repo):
+        # A plant-scoped care task is owned by the care path → skipped here.
+        service.sync_task_due_notification(
+            _task(category="care_reminder", entity_key="plant1"), recipient_user_key="owner"
+        )
         assert repo.all_rows() == []
+
+    def test_standalone_care_task_gets_due_notification(self, service, repo):
+        # A standalone care task (no plant) has no care-path counterpart → notify.
+        service.sync_task_due_notification(
+            _task(category="care_reminder", entity_key=None, entity_type=None),
+            recipient_user_key="owner",
+        )
+        rows = repo.all_rows()
+        assert len(rows) == 1
+        assert rows[0].notification_type == "task.due"
+        assert rows[0].user_key == "owner"
 
     def test_empty_tenant_is_noop(self, service, repo):
         service.sync_task_due_notification(_task(tenant_key=""))
@@ -147,10 +189,10 @@ class TestTaskDueSync:
 
 
 class TestTaskReassign:
-    def test_new_assignee_gets_assignment_and_old_removed(self, service, repo):
-        # Assigned to user-a first.
-        service.sync_task_due_notification(_task(assigned_to_user_key="user-a"))
-        # Reassign to user-b.
+    def test_new_assignee_gets_assignment_and_owner_keeps_due(self, service, repo):
+        # The owner ("owner") holds the due notification ...
+        service.sync_task_due_notification(_task(assigned_to_user_key="user-a"), recipient_user_key="owner")
+        # ... reassigning from user-a to user-b delivers an assignment to user-b.
         reassigned = _task(assigned_to_user_key="user-b")
         service.on_task_reassigned(reassigned, previous_user_key="user-a")
 
@@ -160,23 +202,26 @@ class TestTaskReassign:
         assert assigned[0].user_key == "user-b"
         assert "assigned" in assigned[0].body.lower()
 
-        # user-a's stale due notification is gone.
-        due_for_a = [n for n in rows if n.notification_type == "task.due" and n.user_key == "user-a"]
-        assert due_for_a == []
-        # user-b now owns the due notification.
-        due_for_b = [n for n in rows if n.notification_type == "task.due" and n.user_key == "user-b"]
-        assert len(due_for_b) == 1
+        # The owner's due notification is untouched by the reassignment.
+        due = [n for n in rows if n.notification_type == "task.due"]
+        assert len(due) == 1
+        assert due[0].user_key == "owner"
 
     def test_same_assignee_is_noop(self, service, repo):
         service.on_task_reassigned(_task(assigned_to_user_key="user-a"), previous_user_key="user-a")
         assert repo.all_rows() == []
 
-    def test_reassign_to_none_removes_previous(self, service, repo):
-        service.sync_task_due_notification(_task(assigned_to_user_key="user-a"))
+    def test_reassign_to_none_removes_previous_assignment_only(self, service, repo):
+        service.sync_task_due_notification(_task(assigned_to_user_key="user-a"), recipient_user_key="owner")
+        service.on_task_reassigned(_task(assigned_to_user_key="user-a"), previous_user_key=None)
+        # Unassigning drops the assignment notification ...
         service.on_task_reassigned(_task(assigned_to_user_key=None), previous_user_key="user-a")
         rows = repo.all_rows()
-        assert all(n.user_key != "user-a" for n in rows)
         assert [n for n in rows if n.notification_type == "task.assigned"] == []
+        # ... but the owner's due notification survives.
+        due = [n for n in rows if n.notification_type == "task.due"]
+        assert len(due) == 1
+        assert due[0].user_key == "owner"
 
 
 # ── Rule 3: task deleted → orphaned notification removed ────────────────────

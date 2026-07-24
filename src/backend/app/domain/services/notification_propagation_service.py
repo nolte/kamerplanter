@@ -72,6 +72,17 @@ def _due_label(due_date: datetime | None) -> str:
     return due_date.date().isoformat()
 
 
+def _task_display_name(task: Task) -> str:
+    """Return the task's display name, German-first to mirror the UI.
+
+    The task detail page and queue render ``name_de`` under the German default
+    locale (REQ-021), so the in-app notification must carry the same label — an
+    English ``name`` in the notification title would otherwise never match what
+    the user sees on screen.
+    """
+    return task.name_de or task.name
+
+
 class NotificationPropagationService:
     """Keep in-app notifications in sync with their source task/care reminder."""
 
@@ -80,36 +91,42 @@ class NotificationPropagationService:
 
     # ── Task hooks ────────────────────────────────────────────────────
 
-    def sync_task_due_notification(self, task: Task) -> None:
+    def sync_task_due_notification(self, task: Task, *, recipient_user_key: str = "") -> None:
         """Upsert the task's single ``task.due`` in-app notification (idempotent).
 
-        A ``pending``/``in_progress`` task with a due date and an assignee gets
-        exactly one live notification reflecting its current title and due date; any
-        other state (completed, unassigned, date-less) marks the existing
-        notification done instead. Care-reminder tasks are skipped here — they are
-        driven by the care path (:meth:`sync_care_notification`) so the two never
-        double-notify.
+        A ``pending``/``in_progress`` task with a due date gets exactly one live
+        notification reflecting its current title and due date; any other state
+        (completed, date-less, no resolvable recipient) marks the existing
+        notification done instead.
+
+        The recipient is the **acting owner** — the user creating or editing the
+        task (``recipient_user_key``, threaded from the API context) — falling back
+        to the task's assignee when no actor is supplied (e.g. background paths).
+        Anchoring the due notification on the owner (not the assignee) means a
+        reassignment does not strip the owner of their in-app reminder: the new
+        assignee additionally receives a dedicated ``task.assigned`` notification via
+        :meth:`on_task_reassigned`.
+
+        Only *plant-scoped* care-reminder tasks are skipped here — those are driven
+        by the care path (:meth:`sync_care_notification`) so the two never
+        double-notify. A standalone care task (no ``entity_key``) has no care-path
+        counterpart, so it is treated like any other task.
         """
-        if task.category == "care_reminder":
+        if task.category == "care_reminder" and task.entity_key:
             return
         if not task.tenant_key or not task.key:
             return
 
+        recipient = recipient_user_key or (task.assigned_to_user_key or "")
         group_key = _task_due_group_key(task.key)
-        try:
-            existing = self._repo.list_by_group_key(group_key, task.tenant_key)
-        except Exception:
-            logger.warning("notification_propagation_lookup_failed", group_key=group_key)
-            return
+        existing = self._safe_lookup(group_key, task.tenant_key)
 
-        actionable = (
-            task.status in _ACTIONABLE_TASK_STATUSES and task.due_date is not None and bool(task.assigned_to_user_key)
-        )
+        actionable = task.status in _ACTIONABLE_TASK_STATUSES and task.due_date is not None and bool(recipient)
         if not actionable:
             self._mark_group_done(existing)
             return
 
-        title = task.name
+        title = _task_display_name(task)
         body = self._task_due_body(task)
         data = {
             "task_key": task.key,
@@ -122,7 +139,7 @@ class NotificationPropagationService:
         if existing:
             self._update_single(
                 existing,
-                user_key=task.assigned_to_user_key or "",
+                user_key=recipient,
                 title=title,
                 body=body,
                 data=data,
@@ -132,7 +149,7 @@ class NotificationPropagationService:
         self._create(
             Notification(
                 tenant_key=task.tenant_key,
-                user_key=task.assigned_to_user_key or "",
+                user_key=recipient,
                 notification_type="task.due",
                 title=title,
                 body=body,
@@ -144,12 +161,14 @@ class NotificationPropagationService:
         )
 
     def on_task_reassigned(self, task: Task, *, previous_user_key: str | None) -> None:
-        """Move the task's notifications to the newly assigned member.
+        """Deliver an assignment notification to the newly assigned member.
 
-        The previous assignee's ``task.due``/``task.assigned`` notifications are
-        removed (they no longer own the task) and a fresh assignment notification is
-        delivered to the new assignee, alongside a re-synced ``task.due`` entry.
-        A no-op reassignment (same user) does nothing.
+        The previous assignee's ``task.assigned`` notification is removed (it no
+        longer applies) and a fresh one is delivered to the new assignee. The
+        task's ``task.due`` notification stays with its owner and is refreshed
+        separately by the create/update path, so a reassignment never strips the
+        owner of their in-app reminder. A no-op reassignment (same user) does
+        nothing.
         """
         new_user_key = task.assigned_to_user_key or ""
         if (previous_user_key or "") == new_user_key:
@@ -157,9 +176,9 @@ class NotificationPropagationService:
         if not task.tenant_key or not task.key:
             return
 
-        # Drop the previous assignee's notifications for this task (no orphan).
-        for gk in (_task_due_group_key(task.key), _task_assigned_group_key(task.key)):
-            self._delete_group_for_user(gk, task.tenant_key, previous_user_key)
+        assigned_group = _task_assigned_group_key(task.key)
+        # Drop the previous assignee's assignment notification (no orphan).
+        self._delete_group_for_user(assigned_group, task.tenant_key, previous_user_key or "")
 
         if not new_user_key:
             return
@@ -171,33 +190,30 @@ class NotificationPropagationService:
             "entity_type": task.entity_type,
             "action_url": f"/aufgaben/tasks/{task.key}",
         }
-        assigned_group = _task_assigned_group_key(task.key)
         existing_assigned = self._safe_lookup(assigned_group, task.tenant_key)
-        assignment = Notification(
-            tenant_key=task.tenant_key,
-            user_key=new_user_key,
-            notification_type="task.assigned",
-            title=task.name,
-            body=self._task_assigned_body(task),
-            urgency=NotificationUrgency.NORMAL,
-            data=data,
-            group_key=assigned_group,
-            status=NotificationStatus.DELIVERED,
-        )
         if existing_assigned:
             self._update_single(
                 existing_assigned,
                 user_key=new_user_key,
-                title=assignment.title,
-                body=assignment.body,
+                title=_task_display_name(task),
+                body=self._task_assigned_body(task),
                 data=data,
                 reset_read=True,
             )
         else:
-            self._create(assignment)
-
-        # Keep the due notification in sync for the new owner.
-        self.sync_task_due_notification(task)
+            self._create(
+                Notification(
+                    tenant_key=task.tenant_key,
+                    user_key=new_user_key,
+                    notification_type="task.assigned",
+                    title=task.name,
+                    body=self._task_assigned_body(task),
+                    urgency=NotificationUrgency.NORMAL,
+                    data=data,
+                    group_key=assigned_group,
+                    status=NotificationStatus.DELIVERED,
+                )
+            )
 
     def on_task_completed(self, task: Task) -> None:
         """Mark the task's open due/assignment notifications done (badge drops).

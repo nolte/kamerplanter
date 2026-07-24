@@ -315,27 +315,27 @@ class TaskService:
             verify_tenant_ownership(task, tenant_key, "Task")
         return task
 
-    def create_task(self, task: Task) -> Task:
+    def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
         created = self._repo.create_task(task)
-        self._propagate(lambda p: p.sync_task_due_notification(created))
+        self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
         if created.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(created, previous_user_key=None))
         return created
 
-    def update_task(self, key: str, task: Task, *, previous: Task | None = None) -> Task:
+    def update_task(self, key: str, task: Task, *, previous: Task | None = None, actor_user_key: str = "") -> Task:
         """Persist a task edit and propagate it into the notification centre (#742).
 
         A due-date/title edit refreshes the task's ``task.due`` notification in
-        place; a change of assignee moves the notifications to the new member. The
-        ``previous`` snapshot (pre-edit task) lets the coupling detect a
-        reassignment; omit it and only the due-notification is re-synced.
+        place (owned by ``actor_user_key`` — the editing user threaded from the API
+        context); a change of assignee additionally delivers a fresh assignment
+        notification to the new member. The ``previous`` snapshot (pre-edit task)
+        lets the coupling detect a reassignment.
         """
         updated = self._repo.update_task(key, task)
+        self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
         prev_assignee = previous.assigned_to_user_key if previous is not None else None
         if prev_assignee != updated.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
-        else:
-            self._propagate(lambda p: p.sync_task_due_notification(updated))
         return updated
 
     def delete_task(self, key: str) -> bool:
