@@ -1,11 +1,11 @@
 name: API Docs
 
-# OpenAPI document gate (spec/project/api-documentation/):
-#  - drift: the checked-in snapshot (src/backend/openapi.json) must match a
-#    fresh export from the FastAPI app (code-first re-export diff);
-#  - lint: spectral validates the snapshot against .spectral.yaml.
-# Non-required lane (repo convention: `static` is the only required gate);
-# treat failures here as documentation drift to fix with `task openapi:export`.
+# OpenAPI document gate (spec/project/api-documentation/): the document is a
+# build artifact, never checked in. This lane re-exports it from the FastAPI
+# app on every backend change, lints it with spectral (.spectral.yaml), and
+# uploads it as a workflow artifact. The release build attaches the same
+# export as a release asset (issue #765).
+# Non-required lane (repo convention: `static` is the only required gate).
 
 on:
   push:
@@ -26,8 +26,8 @@ defaults:
     working-directory: src/backend
 
 jobs:
-  openapi-drift:
-    name: OpenAPI snapshot drift
+  openapi-export-lint:
+    name: OpenAPI export + lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,15 +45,16 @@ jobs:
           pip install --require-hashes -r requirements.txt
           pip install --no-deps -e .
 
-      - name: Check snapshot freshness
-        run: python -m scripts.export_openapi --out openapi.json --check
-
-  openapi-lint:
-    name: OpenAPI spectral lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Export OpenAPI document
+        run: python -m scripts.export_openapi --out openapi.json
 
       - name: Spectral lint
         # ubuntu-latest ships Node; fail on error-severity findings only.
         run: npx --yes @stoplight/spectral-cli@6 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openapi
+          path: src/backend/openapi.json
+          if-no-files-found: error
