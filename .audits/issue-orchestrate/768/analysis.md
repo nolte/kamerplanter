@@ -301,6 +301,30 @@ Keine. Die drei entscheidungsrelevanten Punkte (Profil-Scope, Security-Pass,
 PR-Endzustand) sind am 2026-07-25 vom Operator beantwortet und oben unter
 *Scope* protokolliert.
 
+## Prozess-Nebenbefund (gehört in den PR-Body und den Issue-Kommentar)
+
+Der Check `e2e-smoke` ist **non-required** und hat TC-004-092 über den Merge von
+#763 hinweggetragen — der Fall war **nie** grün, weder auf develop noch hier.
+Der Produktfix schließt diese Lücke nicht: ein non-required E2E-Gate kann jeden
+weiteren nie-grünen Fall genauso durchlassen. Kandidat für ein Folge-Issue
+(Required-Status für `e2e-smoke`, sobald die Suite stabil ×2 grün ist — genau
+das ist die Vorbedingung, die dieser Branch herstellt).
+
 ## Dispatch log
 
-<!-- <YYYY-MM-DD> P<k> dispatched to <subagent_type> — <result one-liner> -->
+- 2026-07-25 P1 dispatched to `nolte-engineering:test-result-analyzer` —
+  **real defect (backend implementation bug)**, deterministisch, vorbestehend.
+  Root cause: `_complete_pending_care_task` setzt `completed_at=jetzt`
+  (`care_reminder_service.py:597-623`), danach trifft
+  `ensure_next_watering_task` → `find_open_care_task(include_completed_today=True)`
+  (`:986` / `task_repository.py:433`) genau diese eben geschlossene Aufgabe und
+  erzeugt den Nachfolger nie. Drei Caller teilen den Defekt
+  (`advance_watering_task_after_log`, `confirm_reminder`,
+  Task-Queue-Brücke `tenant_router.py:534→582`; letztere bricht zu 100 %).
+  Der E2E-Test ist spec-konform (`spec/e2e-testcases/TC-REQ-004.md:2352`/`:2356`,
+  `spec/req/REQ-022_Pflegeerinnerungen.md:159`) und darf nicht abgeschwächt
+  werden. Die absichernden Unit-Tests stubbten ein Repository-Verhalten, das die
+  echte AQL nicht hat (`test_watering_log_care_advance.py:115`).
+- 2026-07-25 P1 dispatched to `nolte-engineering:fullstack-developer` — Fix
+  (Flag-Variante + Due-Guard + Extraktion der Router-Komposition, plus
+  zustandsbehaftetes Fake-Repo in den Unit-Tests). Ergebnis: siehe unten.
