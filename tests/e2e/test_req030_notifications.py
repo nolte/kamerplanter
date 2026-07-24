@@ -115,6 +115,30 @@ def _drawer_notification_texts(notif_center: NotificationCenterPage) -> list[str
     return [notif_center.get_notification_text(k) for k in notif_center.get_notification_keys()]
 
 
+def _poll_own_notifications_done(
+    notif_center: NotificationCenterPage, task_name: str, timeout: float = 12.0
+) -> list[str]:
+    """Reload + poll until every own notification is done (or timeout).
+
+    The propagation is synchronous server-side, but the drawer only refetches
+    on a fresh open — a drawer left open (or a toggle race) reads the stale
+    pre-mutation list. Reload the page per attempt so every read is a fresh
+    fetch, and accept either disappearance or an 'Erledigt' marking.
+    """
+    import time as _t
+
+    deadline = _t.time() + timeout
+    own: list[str] = []
+    while _t.time() < deadline:
+        notif_center.driver.refresh()
+        texts = _drawer_notification_texts(notif_center)
+        own = [t for t in texts if task_name in t]
+        if not own or all("Erledigt" in t for t in own):
+            return own
+        _t.sleep(1.0)
+    return own
+
+
 def _first_care_ids(pflege: PflegeDashboardPage) -> tuple[str, str]:
     """Return (plant_key, reminder_type) of the first care card, or skip."""
     cards = pflege.get_all_care_cards()
@@ -559,9 +583,7 @@ class TestTaskUpdateNotificationFeedback:
         task_queue.complete_task(task_key)
         task_queue.wait_for_loading_complete()
 
-        notif_center.open_drawer()
-        texts_after = _drawer_notification_texts(notif_center)
-        own_after = [t for t in texts_after if task_name in t]
+        own_after = _poll_own_notifications_done(notif_center, task_name)
         screenshot(
             "TC-REQ-030-007_after-complete",
             "Notification centre after completing the task",
@@ -755,6 +777,8 @@ class TestNotificationSourcePropagation:
         login_page: LoginPage,
         task_queue: TaskQueuePage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-011: Completing a task marks its notification done.
@@ -763,35 +787,36 @@ class TestNotificationSourcePropagation:
         als erledigt/gelesen markiert.
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        # Self-provisioned task due today (e2e-test-stability §A); asserts are
+        # scoped to its own notification instead of the global unread badge.
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url, due_in_days=0)
 
         notif_center.open_drawer()
-        initial_badge = notif_center.get_unread_badge_count()
+        texts_before = _drawer_notification_texts(notif_center)
+        if not any(task_name in t for t in texts_before):
+            pytest.fail(
+                "TC-REQ-030-011 precondition: expected a due-notification for "
+                f"the fresh task '{task_name}', got: {texts_before}"
+            )
         notif_center.close_drawer()
         screenshot(
             "TC-REQ-030-011_before-complete",
-            f"Notification centre before completing task {key} (badge={initial_badge})",
+            f"Notification centre before completing task {task_key}",
         )
 
         task_queue.open()
-        task_queue.complete_task(key)
+        task_queue.complete_task(task_key)
         task_queue.wait_for_loading_complete()
 
-        notif_center.open_drawer()
-        new_badge = notif_center.get_unread_badge_count()
+        own_after = _poll_own_notifications_done(notif_center, task_name)
         screenshot(
             "TC-REQ-030-011_after-complete",
-            f"Notification centre after completing task (badge={new_badge})",
+            "Notification centre after completing the task",
         )
 
-        assert new_badge < initial_badge, (
-            "TC-REQ-030-011 FAIL (Soll): Expected completing the source task to mark its "
-            f"notification read (unread badge {initial_badge} -> should decrease), "
-            f"got {new_badge}"
+        assert not own_after or all("Erledigt" in t for t in own_after), (
+            "TC-REQ-030-011 FAIL (Soll): Expected completing the source task to mark "
+            f"its notification done/read, got: {own_after}"
         )
 
     @pytest.mark.requires_auth
