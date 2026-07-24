@@ -221,6 +221,39 @@ async def _read_upload(image: UploadFile) -> bytes:
     return data
 
 
+async def _resolve_vector(image: UploadFile | None, embedding: str | None) -> list[float]:
+    """Resolve an embedding vector for a reference upsert (shared trust boundary).
+
+    Accepts EITHER an uploaded ``image`` (embedded here) OR a precomputed
+    ``embedding`` (JSON array of floats). The single source of truth for the
+    /reference and /pest/reference endpoints:
+
+    - image path -> embed the bytes, mapping ``ModelNotReadyError`` to 503;
+    - embedding path -> parse the JSON array (malformed input -> 400) and
+      validate its length against ``settings.model_dim`` (mismatch -> 400);
+    - neither supplied -> 400.
+    """
+    if image is not None:
+        embedder = _require_embedder()
+        data = await _read_upload(image)
+        try:
+            return embedder.embed(data).tolist()
+        except ModelNotReadyError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if embedding is not None:
+        try:
+            vector = [float(v) for v in json.loads(embedding)]
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="embedding must be a JSON array of floats.") from exc
+        if len(vector) != settings.model_dim:
+            raise HTTPException(
+                status_code=400,
+                detail=f"embedding dim {len(vector)} != model dim {settings.model_dim}.",
+            )
+        return vector
+    raise HTTPException(status_code=400, detail="Provide either an image or a precomputed embedding.")
+
+
 # -- health / introspection ------------------------------------------------
 
 
@@ -372,25 +405,7 @@ async def upsert_reference(
     """
     repo = _require_repo()
 
-    if image is not None:
-        embedder = _require_embedder()
-        data = await _read_upload(image)
-        try:
-            vector = embedder.embed(data).tolist()
-        except ModelNotReadyError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-    elif embedding is not None:
-        try:
-            vector = [float(v) for v in json.loads(embedding)]
-        except (json.JSONDecodeError, TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail="embedding must be a JSON array of floats.") from exc
-        if len(vector) != settings.model_dim:
-            raise HTTPException(
-                status_code=400,
-                detail=f"embedding dim {len(vector)} != model dim {settings.model_dim}.",
-            )
-    else:
-        raise HTTPException(status_code=400, detail="Provide either an image or a precomputed embedding.")
+    vector = await _resolve_vector(image, embedding)
 
     repo.upsert_reference(
         species_key=species_key,
@@ -567,25 +582,7 @@ async def upsert_pest_reference(
     """
     pest_repo = _require_pest_repo()
 
-    if image is not None:
-        embedder = _require_embedder()
-        data = await _read_upload(image)
-        try:
-            vector = embedder.embed(data).tolist()
-        except ModelNotReadyError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
-    elif embedding is not None:
-        try:
-            vector = [float(v) for v in json.loads(embedding)]
-        except (json.JSONDecodeError, TypeError, ValueError) as exc:
-            raise HTTPException(status_code=400, detail="embedding must be a JSON array of floats.") from exc
-        if len(vector) != settings.model_dim:
-            raise HTTPException(
-                status_code=400,
-                detail=f"embedding dim {len(vector)} != model dim {settings.model_dim}.",
-            )
-    else:
-        raise HTTPException(status_code=400, detail="Provide either an image or a precomputed embedding.")
+    vector = await _resolve_vector(image, embedding)
 
     pest_repo.upsert_prototype(
         label=label,
@@ -677,10 +674,10 @@ def disease_ready() -> dict:
 def disease_status() -> DiseaseStatusResponse:
     """Report classifier availability without failing (admin/status card source)."""
     enabled = _disease_classifier is not None
-    ready = enabled and _disease_classifier.is_ready()
-    class_count = _disease_classifier.class_count if ready else 0
+    ready = _disease_classifier is not None and _disease_classifier.is_ready()
+    class_count = _disease_classifier.class_count if (_disease_classifier is not None and ready) else 0
     detail = None
-    if enabled and not ready and _disease_classifier.load_error:
+    if _disease_classifier is not None and not ready and _disease_classifier.load_error:
         detail = _disease_classifier.load_error
     phenotype_available = _phenotype_engine is not None and _phenotype_engine.is_available()
     return DiseaseStatusResponse(
@@ -728,7 +725,15 @@ async def classify_disease(
     if phenotype and _phenotype_engine is not None and _phenotype_engine.is_available():
         try:
             metrics = _phenotype_engine.measure(data)
-            phenotype_item = PhenotypeMetricsItem(**metrics.as_dict())
+            phenotype_item = PhenotypeMetricsItem(
+                leaf_area_px=metrics.leaf_area_px,
+                green_index=metrics.green_index,
+                discolored_area_ratio=metrics.discolored_area_ratio,
+                necrotic_area_ratio=metrics.necrotic_area_ratio,
+                solidity=metrics.solidity,
+                hue_circular_mean_deg=metrics.hue_circular_mean_deg,
+                plantcv_version=metrics.plantcv_version,
+            )
         except PhenotypeUnavailableError:
             phenotype_item = None
         except Exception as exc:  # noqa: BLE001 -- phenotype is best-effort, never fatal

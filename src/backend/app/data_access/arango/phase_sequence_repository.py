@@ -2,6 +2,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.query_builder import escape_aql_like
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.models.phase_sequence import (
     PhaseDefinition,
@@ -29,7 +30,7 @@ class ArangoPhaseSequenceRepository(IPhaseSequenceRepository, BaseArangoReposito
         bind_vars: dict = {}
         if name_filter:
             filter_parts.append("LIKE(doc.name, @name_filter, true)")
-            bind_vars["name_filter"] = f"%{name_filter}%"
+            bind_vars["name_filter"] = f"%{escape_aql_like(name_filter)}%"
 
         filt = ("FILTER " + " AND ".join(filter_parts)) if filter_parts else ""
         query = f"FOR doc IN {col.PHASE_DEFINITIONS} {filt} SORT doc.name LIMIT @offset, @limit RETURN doc"

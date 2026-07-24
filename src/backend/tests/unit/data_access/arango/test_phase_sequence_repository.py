@@ -71,6 +71,15 @@ class TestGetAllDefinitions:
         assert bind_vars["offset"] == 5
         assert bind_vars["limit"] == 20
 
+    def test_name_filter_escapes_like_wildcards(self, repo, mock_db):
+        mock_db.aql.execute.side_effect = [iter([]), iter([0])]
+
+        repo.get_all_definitions(offset=0, limit=10, name_filter="a%b_c\\d")
+
+        list_call = mock_db.aql.execute.call_args_list[0]
+        bind_vars = list_call.kwargs["bind_vars"]
+        assert bind_vars["name_filter"] == "%a\\%b\\_c\\\\d%"
+
     def test_count_query_excludes_pagination_bind_vars(self, repo, mock_db):
         mock_db.aql.execute.side_effect = [iter([]), iter([0])]
 

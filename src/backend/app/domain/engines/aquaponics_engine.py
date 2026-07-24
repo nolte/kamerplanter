@@ -48,6 +48,8 @@ FREE_AMMONIA_SAFE_MGL = 0.02
 FREE_AMMONIA_WARN_MGL = 0.01
 #: Consecutive stable days required for ``cycling -> cycled`` (REQ-026 §1).
 CYCLING_STABLE_DAYS_REQUIRED = 7
+#: Carbonate hardness below this (°dH) risks a pH crash under active feeding (REQ-026 §1).
+KH_CRASH_THRESHOLD_DH = 4.0
 #: Grow-bed substrate mapping per system type (drives EC-suitability checks).
 _SYSTEM_SUBSTRATE = {
     AquaponicSystemType.MEDIA_BED: "clay_pebbles",
@@ -160,6 +162,18 @@ class HealthAlert(BaseModel):
     message_de: str
     message_en: str
     recommended_action: str
+
+
+def _kh_crash_warning(value: float, message_de: str, message_en: str) -> WaterQualityEvaluation:
+    """Build the shared KH pH-crash warning at :data:`KH_CRASH_THRESHOLD_DH`."""
+    return WaterQualityEvaluation(
+        parameter="kh",
+        value=value,
+        limit=KH_CRASH_THRESHOLD_DH,
+        severity="warning",
+        message_de=message_de,
+        message_en=message_en,
+    )
 
 
 class NitrogenCycleEngine:
@@ -340,13 +354,10 @@ class NitrogenCycleEngine:
 
     def _evaluate_hardness(self, water_test: WaterTest) -> list[WaterQualityEvaluation]:
         results: list[WaterQualityEvaluation] = []
-        if water_test.kh_dh is not None and water_test.kh_dh < 4:
+        if water_test.kh_dh is not None and water_test.kh_dh < KH_CRASH_THRESHOLD_DH:
             results.append(
-                WaterQualityEvaluation(
-                    parameter="kh",
-                    value=water_test.kh_dh,
-                    limit=4.0,
-                    severity="warning",
+                _kh_crash_warning(
+                    water_test.kh_dh,
                     message_de=f"Karbonathärte {water_test.kh_dh}°dH unter 4°dH — pH-Crash-Gefahr, nachpuffern.",
                     message_en=f"Carbonate hardness {water_test.kh_dh}°dH below 4°dH — pH-crash risk, re-buffer.",
                 )
@@ -435,12 +446,9 @@ class NitrogenCycleEngine:
 
     def check_alkalinity_crash_risk(self, kh_dh: float, daily_feed_g: float) -> WaterQualityEvaluation | None:
         """Warn when carbonate hardness is too low for the active feeding load."""
-        if kh_dh < 4 and daily_feed_g > 0:
-            return WaterQualityEvaluation(
-                parameter="kh",
-                value=kh_dh,
-                limit=4.0,
-                severity="warning",
+        if kh_dh < KH_CRASH_THRESHOLD_DH and daily_feed_g > 0:
+            return _kh_crash_warning(
+                kh_dh,
                 message_de=f"Karbonathärte {kh_dh}°dH bei aktiver Fütterung — pH-Crash-Risiko, nachpuffern.",
                 message_en=f"Carbonate hardness {kh_dh}°dH under active feeding — pH-crash risk, re-buffer.",
             )
@@ -450,14 +458,6 @@ class NitrogenCycleEngine:
 class StockingDensityCalculator:
     """Stocking-density and fish/plant balance calculations."""
 
-    FEED_PER_M2: dict[str, float] = {
-        "media_bed": 80,
-        "dwc": 100,
-        "nft": 60,
-        "hybrid": 90,
-        "wicking_bed": 50,
-    }
-
     def calculate_max_fish(self, tank_volume_l: float, species: FishSpecies) -> int:
         """Maximum fish count at market weight and the hobby stocking density."""
         avg_weight_g = species.market_weight_g or 200.0
@@ -466,9 +466,7 @@ class StockingDensityCalculator:
         max_biomass_kg = tank_volume_l / 1000 * species.max_stocking_density_kg_per_1000l
         return int(max_biomass_kg * 1000 / avg_weight_g)
 
-    def calculate_fish_plant_ratio(
-        self, daily_feed_g: float, grow_area_m2: float, system_type: AquaponicSystemType
-    ) -> float:
+    def calculate_fish_plant_ratio(self, daily_feed_g: float, grow_area_m2: float) -> float:
         """Feed per grow-bed area (g/m²/day)."""
         if grow_area_m2 <= 0:
             return 0.0
@@ -484,7 +482,7 @@ class StockingDensityCalculator:
         density = round(fish_stock.total_biomass_kg / (tank_volume_l / 1000), 2) if tank_volume_l > 0 else 0.0
         max_density = species.max_stocking_density_kg_per_1000l
         utilization = round(density / max_density * 100, 1) if max_density > 0 else 0.0
-        ratio = self.calculate_fish_plant_ratio(system.daily_feed_target_g, system.grow_area_m2, system.system_type)
+        ratio = self.calculate_fish_plant_ratio(system.daily_feed_target_g, system.grow_area_m2)
         if utilization > 100:
             status: Literal["ok", "warning", "overstocked"] = "overstocked"
             message = (
@@ -864,8 +862,12 @@ class FishHealthMonitor:
     def __init__(self, nitrogen_engine: NitrogenCycleEngine | None = None) -> None:
         self._nitrogen = nitrogen_engine or NitrogenCycleEngine()
 
-    def calculate_mortality_rate(self, fish_stock: FishStock, period_days: int = 7) -> float:
-        """Cumulative mortality fraction relative to the initial stock."""
+    def calculate_mortality_rate(self, fish_stock: FishStock) -> float:
+        """Cumulative mortality fraction relative to the initial stock.
+
+        This is the lifetime ratio ``mortality_count / initial_count`` since the
+        cohort was stocked; it is not windowed to a rolling period.
+        """
         if fish_stock.initial_count <= 0:
             return 0.0
         return round(fish_stock.mortality_count / fish_stock.initial_count, 4)

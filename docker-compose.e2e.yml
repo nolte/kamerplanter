@@ -188,6 +188,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-default.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
 
@@ -214,6 +215,7 @@ services:
       - core_crud
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-core-crud.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
 
@@ -243,6 +245,7 @@ services:
       - smoke
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-smoke.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
 
@@ -372,6 +375,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-full.xml
       - --base-url=http://frontend-full:8080
       - --app-mode=full
 
@@ -416,6 +420,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-mobile.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
       - --device=mobile
@@ -445,6 +450,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-tablet.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
       - --device=tablet
@@ -474,6 +480,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-full-mobile.xml
       - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=mobile
@@ -503,6 +510,7 @@ services:
       - --dist=loadfile
       - --tb=short
       - --generate-protocol
+      - --junitxml=test-reports/e2e/junit-full-tablet.xml
       - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=tablet
