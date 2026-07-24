@@ -1,0 +1,60 @@
+name: API Docs
+
+# OpenAPI document gate (spec/project/api-documentation/): the document is a
+# build artifact, never checked in. This lane re-exports it from the FastAPI
+# app on every backend change, lints it with spectral (.spectral.yaml), and
+# uploads it as a workflow artifact. The release build attaches the same
+# export as a release asset (issue #765).
+# Non-required lane (repo convention: `static` is the only required gate).
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'src/backend/**'
+      - '.spectral.yaml'
+      - '.github/workflows/api-docs.yml'
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'src/backend/**'
+      - '.spectral.yaml'
+      - '.github/workflows/api-docs.yml'
+
+defaults:
+  run:
+    working-directory: src/backend
+
+jobs:
+  openapi-export-lint:
+    name: OpenAPI export + lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Install dependencies
+        # Pinned, hash-verified lock — same install truth as backend.yml.
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.txt
+          pip install --no-deps -e .
+
+      - name: Export OpenAPI document
+        run: python -m scripts.export_openapi --out openapi.json
+
+      - name: Spectral lint
+        # ubuntu-latest ships Node; fail on error-severity findings only.
+        run: npx --yes @stoplight/spectral-cli@6 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: openapi
+          path: src/backend/openapi.json
+          if-no-files-found: error

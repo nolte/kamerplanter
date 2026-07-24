@@ -89,6 +89,17 @@ tasks:
     cmds:
       - python -m pytest tests/ {{.CLI_ARGS}}
 
+  openapi:export:
+    desc: |
+      Export the OpenAPI document (src/backend/openapi.json, gitignored) from
+      the FastAPI app — no running stack required. The document is a build
+      artifact, never checked in: the api-docs CI lane re-exports and lints it
+      per backend change, and the release build attaches it as a release
+      asset (spec/project/api-documentation/).
+    dir: src/backend
+    cmds:
+      - python -m scripts.export_openapi --out openapi.json {{.CLI_ARGS}}
+
   deps:compile:
     desc: |
       Recompile the backend dependency locks (requirements.txt +

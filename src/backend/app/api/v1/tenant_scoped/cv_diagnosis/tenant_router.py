@@ -11,8 +11,9 @@ Karenz gate is not engaged. Cross-tenant access fails closed with 404 (no oracle
 """
 
 import io
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
 
 from app.api.v1.tenant_scoped.cv_diagnosis.schemas import (
@@ -29,12 +30,13 @@ from app.common.exceptions import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.cv_diagnosis_service import CvDiagnosisService
 from app.domain.services.image_processing import is_supported_image
 
-router = APIRouter(prefix="/cv-diagnosis", tags=["cv-diagnosis"])
+router = APIRouter(prefix="/cv-diagnosis", tags=["cv-diagnosis"], responses=NOT_FOUND_RESPONSE)
 
 _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB bounded-read chunk
@@ -134,7 +136,7 @@ async def diagnose(
 
 @router.post("/diagnose/{request_key}/confirm", response_model=ConfirmDiagnosisResponse, status_code=201)
 def confirm_diagnosis(
-    request_key: str,
+    request_key: Annotated[str, Path(description="Document key of the diagnosis request.")],
     body: ConfirmDiagnosisRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: CvDiagnosisService = Depends(get_cv_diagnosis_service),
@@ -154,7 +156,7 @@ def confirm_diagnosis(
 
 @router.get("/history", response_model=list[CvDiagnosisResponse])
 def diagnosis_history(
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of history entries to return."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: CvDiagnosisService = Depends(get_cv_diagnosis_service),
 ) -> list[CvDiagnosisResponse]:

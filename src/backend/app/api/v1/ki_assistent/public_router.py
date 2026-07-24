@@ -18,6 +18,7 @@ from app.api.v1.ki_assistent.schemas import (
     SourceRefSchema,
 )
 from app.common.dependencies import get_ai_assistant_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.domain.services.ai_assistant_service import AiAssistantService
 
@@ -25,6 +26,7 @@ router = APIRouter(
     prefix="/public/ai",
     tags=["ki-assistent-public"],
     dependencies=[Depends(require_ai_feature_flag)],
+    responses=NOT_FOUND_RESPONSE,
 )
 
 _PUBLIC_RATE_LIMIT = f"{settings.ai_public_rate_limit_per_min}/minute"

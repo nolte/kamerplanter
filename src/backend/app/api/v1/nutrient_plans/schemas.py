@@ -321,3 +321,9 @@ class CalculateDosagesResponse(BaseModel):
     warnings: list[str]
     reference_ec_ms: float | None = None
     substrate_correction_applied: bool = False
+
+
+class ChannelFertilizerAssignedResponse(BaseModel):
+    """Acknowledgement returned when a fertilizer is assigned to a delivery channel."""
+
+    status: str = Field(description="Assignment outcome marker; always ``assigned`` on success.")

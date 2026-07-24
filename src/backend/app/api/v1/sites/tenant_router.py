@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse, SiteHardinessResponse
@@ -14,6 +16,7 @@ from app.common.dependencies import (
     get_tank_service,
 )
 from app.common.enums import TenantRole
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.hardiness_zone import HardinessZone
 from app.domain.models.sensor import Sensor
@@ -25,7 +28,7 @@ from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
 from app.domain.services.tank_service import TankService
 
-router = APIRouter(prefix="/sites", tags=["sites"])
+router = APIRouter(prefix="/sites", tags=["sites"], responses=NOT_FOUND_RESPONSE)
 
 
 def _site_response(site: Site, service: SiteService) -> SiteResponse:
@@ -90,16 +93,18 @@ def list_sites(
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """List the tenant's sites (paginated)."""
     items, _total = service.list_sites(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_site_response(s, service) for s in items]
 
 
 @router.get("/{key}", response_model=SiteResponse)
 def get_site(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Return a single site by key."""
     s = service.get_site(key, tenant_key=ctx.tenant_key)
     return _site_response(s, service)
 
@@ -110,6 +115,7 @@ def create_site(
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Create a site for the tenant."""
     site = Site(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_site(site)
     return _site_response(created, service)
@@ -117,11 +123,12 @@ def create_site(
 
 @router.put("/{key}", response_model=SiteResponse)
 def update_site(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     body: SiteCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Update a site, preserving its resolved hardiness zone unless overridden."""
     existing = service.get_site(key, tenant_key=ctx.tenant_key)
     site = Site(**body.model_dump(), tenant_key=ctx.tenant_key)
     # REQ-039: ``SiteCreate`` carries no hardiness provenance fields. When the
@@ -141,17 +148,18 @@ def update_site(
 
 @router.delete("/{key}", status_code=204)
 def delete_site(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Delete a site."""
     service.get_site(key, tenant_key=ctx.tenant_key)
     service.delete_site(key)
 
 
 @router.get("/{key}/hardiness", response_model=SiteHardinessResponse)
 def get_site_hardiness(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: HardinessZoneService = Depends(get_hardiness_zone_service),
 ):
@@ -162,8 +170,8 @@ def get_site_hardiness(
 
 @router.post("/{key}/resolve-hardiness-zone", response_model=SiteHardinessResponse)
 def resolve_site_hardiness_zone(
-    key: str,
-    force: bool = False,
+    key: Annotated[str, Path(description="Document key of the site.")],
+    force: bool = Query(False, description="Re-derive even when a manual zone is already set."),
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: HardinessZoneService = Depends(get_hardiness_zone_service),
 ):
@@ -184,12 +192,13 @@ def resolve_site_hardiness_zone(
 
 @router.get("/{key}/location-tree", response_model=list[LocationTreeNode])
 def get_location_tree(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     tank_service: TankService = Depends(get_tank_service),
 ):
+    """Return the site's location hierarchy with slot, plant and tank counts."""
     service.get_site(key, tenant_key=ctx.tenant_key)
     all_locations = service.get_location_tree(key)
     location_keys = {loc.key or "" for loc in all_locations}
@@ -223,11 +232,12 @@ def get_location_tree(
 
 @router.get("/{key}/sensors", response_model=list[SensorResponse])
 def get_site_sensors(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     site_service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """List the sensors attached to a site."""
     site_service.get_site(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_site(key)
     return [to_response(s, SensorResponse) for s in sensors]
@@ -235,12 +245,13 @@ def get_site_sensors(
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
 def create_site_sensor(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     body: SensorCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     site_service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """Attach a sensor to a site."""
     site_service.get_site(key, tenant_key=ctx.tenant_key)
     sensor = Sensor(
         name=body.name,
@@ -255,11 +266,12 @@ def create_site_sensor(
 
 @router.get("/{key}/sensors/live", response_model=LiveStateResponse)
 def get_site_sensors_live(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     site_service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """Return the live sensor readings for a site."""
     site_service.get_site(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_site(key)
     result = sensor_service.get_live_state_for_sensors(sensors)

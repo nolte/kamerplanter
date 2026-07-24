@@ -219,3 +219,48 @@ class AreaDosingResponse(BaseModel):
     items: list[AreaDosingItemResponse] = []
     warnings: list[str] = []
     instructions: list[str] = []
+
+
+# ── Flushing / runoff / mixing-safety response schemas ────────────────
+
+
+class FlushScheduleStep(BaseModel):
+    """One day of a pre-harvest flushing schedule."""
+
+    day: int = Field(description="Day index within the flush window (1-based).")
+    absolute_day: int = Field(description="Day index counted from the plan start.")
+    target_ec_ms: float = Field(description="Target solution EC for the day, in mS/cm.")
+    action: str = Field(description="Human-readable flushing action for the day.")
+    dosage_percent: int = Field(description="Nutrient strength for the day, in percent of full dose.")
+
+
+class FlushingResponse(BaseModel):
+    """Recommended pre-harvest flushing protocol."""
+
+    substrate_type: str = Field(description="Substrate the protocol was computed for.")
+    recommended_flush_days: int = Field(description="Recommended flush duration, in days.")
+    flush_start_day: int = Field(description="Day (relative to now) on which flushing should start.")
+    current_ec_ms: float = Field(description="Current solution EC used as the starting point, in mS/cm.")
+    schedule: list[FlushScheduleStep] = Field(description="Per-day flushing schedule.")
+
+
+class RunoffAnalysisResponse(BaseModel):
+    """Drain-to-waste runoff analysis result."""
+
+    ec_delta: float = Field(description="Runoff EC minus input EC, in mS/cm.")
+    ec_status: str = Field(description="EC classification (OK, WARNING, SALT_BUILDUP, UNDERFED).")
+    ec_message: str = Field(description="Human-readable EC assessment.")
+    ph_delta: float = Field(description="Runoff pH minus input pH.")
+    ph_status: str = Field(description="pH classification (OK, DRIFT).")
+    ph_message: str = Field(description="Human-readable pH assessment.")
+    runoff_percent: float = Field(description="Runoff volume as a percentage of the input volume.")
+    volume_status: str = Field(description="Runoff-volume classification (OK, LOW, HIGH).")
+    volume_message: str = Field(description="Human-readable runoff-volume assessment.")
+    overall_health: str = Field(description="Overall runoff health rating (GOOD, FAIR, POOR).")
+
+
+class MixingSafetyResponse(BaseModel):
+    """Fertilizer mixing-safety validation result."""
+
+    safe: bool = Field(description="Whether the combination is free of mixing-safety warnings.")
+    warnings: list[str] = Field(description="Mixing-safety warnings for the combination (empty when safe).")

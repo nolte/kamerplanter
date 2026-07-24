@@ -19,7 +19,9 @@ operator/admin, so the same dependency works in BOTH modes and the router is
 registered once for both.
 """
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.weather_providers.schemas import (
     WeatherProviderInfo,
@@ -30,6 +32,7 @@ from app.api.v1.admin.weather_providers.schemas import (
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_weather_settings_service
 from app.common.exceptions import ValidationError
+from app.common.openapi_responses import AUTH_RESPONSES
 from app.common.url_safety import validate_server_side_url
 from app.data_access.external.weather_attributions import WEATHER_ATTRIBUTIONS
 from app.domain.models.user import User
@@ -38,7 +41,7 @@ from app.domain.services.weather_settings_service import (
     WeatherSettingsService,
 )
 
-router = APIRouter(prefix="/admin/weather-providers", tags=["admin-weather"])
+router = APIRouter(prefix="/admin/weather-providers", tags=["admin-weather"], responses=AUTH_RESPONSES)
 
 
 def _build_response(service: WeatherSettingsService) -> WeatherProvidersResponse:
@@ -107,7 +110,7 @@ def update_weather_providers(
 
 @router.post("/{source_name}/test", response_model=WeatherProviderTestResponse)
 async def test_weather_provider(
-    source_name: str,
+    source_name: Annotated[str, Path(description="Weather provider identifier (open_meteo, dwd or openweathermap).")],
     _user: User = Depends(require_platform_admin),
     service: WeatherSettingsService = Depends(get_weather_settings_service),
 ):

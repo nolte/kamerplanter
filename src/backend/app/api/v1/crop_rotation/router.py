@@ -1,15 +1,28 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
 
-from app.api.v1.crop_rotation.schemas import RotationSuccessorResponse, RotationSuccessorSet
+from fastapi import APIRouter, Depends, Path
+
+from app.api.v1.crop_rotation.schemas import (
+    RotationSuccessorCreatedResponse,
+    RotationSuccessorResponse,
+    RotationSuccessorSet,
+)
 from app.common.auth import get_current_user
 from app.common.dependencies import get_graph_repo
+from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 
-router = APIRouter(prefix="/crop-rotation", tags=["crop-rotation"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/crop-rotation",
+    tags=["crop-rotation"],
+    dependencies=[Depends(get_current_user)],
+    responses=UNAUTHORIZED_RESPONSE,
+)
 
 
 @router.get("/counts", response_model=dict[str, int])
 def get_rotation_successor_counts(graph: ArangoGraphRepository = Depends(get_graph_repo)) -> dict[str, int]:
+    """Return per-family rotation-successor counts for the whole catalogue."""
     # Whole-catalogue aggregate keyed by family_key: one batch AQL request feeds
     # the per-family successor-count chips in the "Von Familie" dropdown (no N+1).
     # Family rotation data is global reference data — no tenant scoping needed.
@@ -17,7 +30,11 @@ def get_rotation_successor_counts(graph: ArangoGraphRepository = Depends(get_gra
 
 
 @router.get("/families/{family_key}/successors", response_model=list[RotationSuccessorResponse])
-def get_rotation_successors(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+def get_rotation_successors(
+    family_key: Annotated[str, Path(description="Document key of the botanical family.")],
+    graph: ArangoGraphRepository = Depends(get_graph_repo),
+):
+    """List the botanical families that may follow the given family in crop rotation."""
     raw = graph.get_rotation_successors(family_key)
     # The graph vertex already carries the full family document (common_name_de/_en,
     # rotation_category); pass those through verbatim so the presentation layer can
@@ -38,8 +55,9 @@ def get_rotation_successors(family_key: str, graph: ArangoGraphRepository = Depe
     ]
 
 
-@router.post("/successors", status_code=201)
+@router.post("/successors", status_code=201, response_model=RotationSuccessorCreatedResponse)
 def set_rotation_successor(body: RotationSuccessorSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+    """Create or update a rotation-successor edge between two botanical families."""
     graph.set_rotation_successor(
         body.from_family_key,
         body.to_family_key,

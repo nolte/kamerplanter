@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.species.schemas import (
@@ -11,13 +13,19 @@ from app.api.v1.species.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_family_repo, get_species_service
 from app.common.enums import DataOrigin
+from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.config.settings import settings
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.external.inference_service_client import InferenceServiceClient
 from app.domain.models.species import Species
 from app.domain.services.species_service import SpeciesService
 
-router = APIRouter(prefix="/species", tags=["species"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/species",
+    tags=["species"],
+    dependencies=[Depends(get_current_user)],
+    responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES},
+)
 
 
 def _species_response(s: Species, family_repo: ArangoBotanicalFamilyRepository) -> SpeciesResponse:
@@ -31,11 +39,12 @@ def _species_response(s: Species, family_repo: ArangoBotanicalFamilyRepository) 
 
 @router.get("", response_model=SpeciesListResponse)
 def list_species(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=1000),
+    offset: int = Query(0, ge=0, description="Number of species to skip (pagination offset)."),
+    limit: int = Query(50, ge=1, le=1000, description="Maximum number of species to return."),
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
 ):
+    """List the species catalogue (paginated)."""
     items, total = service.list_species(offset, limit)
     # Build family name cache to avoid N+1 queries
     family_keys = {s.family_key for s in items if s.family_key}
@@ -54,17 +63,18 @@ def list_species(
 
 @router.get("/{key}", response_model=SpeciesResponse)
 def get_species(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the species.")],
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
 ):
+    """Return a single species by key."""
     s = service.get_species(key)
     return _species_response(s, family_repo)
 
 
 @router.get("/{key}/reference-images", response_model=SpeciesReferenceImagesResponse)
 def get_species_reference_images(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the species.")],
     service: SpeciesService = Depends(get_species_service),
 ):
     """Reference-image gallery for a species (REQ-029-A §4).
@@ -96,6 +106,7 @@ def create_species(
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
 ):
+    """Create a tenant-owned species master record."""
     # User-created master data is tenant-owned (editable); seeded species default
     # to 'system' (read-only). Provenance is server-set, never from the form body.
     species = Species(**body.model_dump(), origin=DataOrigin.TENANT)
@@ -105,16 +116,21 @@ def create_species(
 
 @router.put("/{key}", response_model=SpeciesResponse)
 def update_species(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the species.")],
     body: SpeciesCreate,
     service: SpeciesService = Depends(get_species_service),
     family_repo: ArangoBotanicalFamilyRepository = Depends(get_family_repo),
 ):
+    """Update an existing species master record."""
     species = Species(**body.model_dump())
     updated = service.update_species(key, species)
     return _species_response(updated, family_repo)
 
 
 @router.delete("/{key}", status_code=204)
-def delete_species(key: str, service: SpeciesService = Depends(get_species_service)):
+def delete_species(
+    key: Annotated[str, Path(description="Document key of the species.")],
+    service: SpeciesService = Depends(get_species_service),
+):
+    """Delete a species master record."""
     service.delete_species(key)

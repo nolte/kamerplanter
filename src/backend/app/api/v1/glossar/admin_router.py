@@ -7,13 +7,16 @@ existing references (REQ-006/022/009 slugs) never dangle.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.api.v1.glossar.deps import get_glossary_service
 from app.api.v1.glossar.schemas import CacheInvalidateResponse, GlossaryTermUpsertRequest
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_glossary_term_repo
 from app.common.exceptions import NotFoundError
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.data_access.arango.glossary_repository import ArangoGlossaryTermRepository
 from app.domain.models.glossary_term import GlossaryTerm
 from app.domain.services.glossary_service import GlossaryService
@@ -22,6 +25,7 @@ router = APIRouter(
     prefix="/admin/glossary",
     tags=["glossary-admin"],
     dependencies=[Depends(require_platform_admin)],
+    responses=AUTH_CRUD_RESPONSES,
 )
 
 
@@ -43,7 +47,7 @@ def _to_term(body: GlossaryTermUpsertRequest) -> GlossaryTerm:
 
 @router.get("/terms", response_model=list[GlossaryTerm])
 def list_terms_admin(
-    category: str | None = None,
+    category: str | None = Query(None, description="Filter terms by category."),
     repo: ArangoGlossaryTermRepository = Depends(get_glossary_term_repo),
 ) -> list[GlossaryTerm]:
     """List every term, including soft-deleted ones (§3.3)."""
@@ -61,7 +65,7 @@ def create_term_admin(
 
 @router.put("/term/{slug}", response_model=GlossaryTerm)
 def update_term_admin(
-    slug: str,
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     body: GlossaryTermUpsertRequest,
     repo: ArangoGlossaryTermRepository = Depends(get_glossary_term_repo),
     service: GlossaryService = Depends(get_glossary_service),
@@ -74,7 +78,7 @@ def update_term_admin(
 
 @router.delete("/term/{slug}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_term_admin(
-    slug: str,
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     repo: ArangoGlossaryTermRepository = Depends(get_glossary_term_repo),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> None:
@@ -86,7 +90,7 @@ def delete_term_admin(
 
 @router.post("/term/{slug}/cache/invalidate", response_model=CacheInvalidateResponse)
 def invalidate_term_cache(
-    slug: str,
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
     service: GlossaryService = Depends(get_glossary_service),
 ) -> CacheInvalidateResponse:
     """Invalidate the cache for one term (e.g. after a KB reingest, §3.3)."""

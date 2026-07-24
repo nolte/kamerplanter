@@ -22,6 +22,7 @@ def get_preferences(
     ctx: TenantContext = Depends(get_current_tenant),
     service: UserPreferenceService = Depends(get_user_preference_service),
 ):
+    """Return the current user's (tenant-independent) preferences."""
     pref = service.get_preferences(ctx.user_key)
     return to_response(pref, UserPreferenceResponse)
 
@@ -32,6 +33,7 @@ def update_preferences(
     ctx: TenantContext = Depends(get_current_tenant),
     service: UserPreferenceService = Depends(get_user_preference_service),
 ):
+    """Update the current user's preferences (supports dashboard-layout reset)."""
     # REQ-045 reset semantics: dump with exclude_unset so a deliberately-sent
     # ``dashboard_layout: null`` (reset to default) is not swallowed, then keep
     # the historical exclude_none behaviour for every other field.

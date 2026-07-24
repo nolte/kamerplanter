@@ -1,23 +1,35 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.family_relationships.schemas import (
+    FamilyCompatibleResponse,
     FamilyCompatibleSet,
+    FamilyIncompatibleResponse,
     FamilyIncompatibleSet,
+    FamilyPestRiskResponse,
+    FamilyRelationshipCreatedResponse,
     PestRiskSet,
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_graph_repo
+from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 
 router = APIRouter(
     prefix="/family-relationships",
     tags=["family-relationships"],
     dependencies=[Depends(get_current_user)],
+    responses=UNAUTHORIZED_RESPONSE,
 )
 
 
-@router.get("/families/{family_key}/pest-risks")
-def get_pest_risks(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+@router.get("/families/{family_key}/pest-risks", response_model=list[FamilyPestRiskResponse])
+def get_pest_risks(
+    family_key: Annotated[str, Path(description="Document key of the botanical family.")],
+    graph: ArangoGraphRepository = Depends(get_graph_repo),
+):
+    """List the families that share pest/disease risk with the given family."""
     raw = graph.get_pest_risks(family_key)
     return [
         {
@@ -31,8 +43,9 @@ def get_pest_risks(family_key: str, graph: ArangoGraphRepository = Depends(get_g
     ]
 
 
-@router.post("/pest-risk", status_code=201)
+@router.post("/pest-risk", status_code=201, response_model=FamilyRelationshipCreatedResponse)
 def set_pest_risk(body: PestRiskSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+    """Create or update a shared pest/disease-risk edge between two families."""
     graph.set_pest_risk(
         body.a_family_key,
         body.b_family_key,
@@ -43,8 +56,12 @@ def set_pest_risk(body: PestRiskSet, graph: ArangoGraphRepository = Depends(get_
     return {"status": "created"}
 
 
-@router.get("/families/{family_key}/compatible")
-def get_family_compatible(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+@router.get("/families/{family_key}/compatible", response_model=list[FamilyCompatibleResponse])
+def get_family_compatible(
+    family_key: Annotated[str, Path(description="Document key of the botanical family.")],
+    graph: ArangoGraphRepository = Depends(get_graph_repo),
+):
+    """List the families that are beneficial companions of the given family."""
     raw = graph.get_family_compatible(family_key)
     return [
         {
@@ -58,8 +75,9 @@ def get_family_compatible(family_key: str, graph: ArangoGraphRepository = Depend
     ]
 
 
-@router.post("/compatible", status_code=201)
+@router.post("/compatible", status_code=201, response_model=FamilyRelationshipCreatedResponse)
 def set_family_compatible(body: FamilyCompatibleSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+    """Create or update a beneficial-companion edge between two families."""
     graph.set_family_compatible(
         body.a_family_key,
         body.b_family_key,
@@ -70,8 +88,12 @@ def set_family_compatible(body: FamilyCompatibleSet, graph: ArangoGraphRepositor
     return {"status": "created"}
 
 
-@router.get("/families/{family_key}/incompatible")
-def get_family_incompatible(family_key: str, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+@router.get("/families/{family_key}/incompatible", response_model=list[FamilyIncompatibleResponse])
+def get_family_incompatible(
+    family_key: Annotated[str, Path(description="Document key of the botanical family.")],
+    graph: ArangoGraphRepository = Depends(get_graph_repo),
+):
+    """List the families that are incompatible neighbours of the given family."""
     raw = graph.get_family_incompatible(family_key)
     return [
         {
@@ -84,8 +106,9 @@ def get_family_incompatible(family_key: str, graph: ArangoGraphRepository = Depe
     ]
 
 
-@router.post("/incompatible", status_code=201)
+@router.post("/incompatible", status_code=201, response_model=FamilyRelationshipCreatedResponse)
 def set_family_incompatible(body: FamilyIncompatibleSet, graph: ArangoGraphRepository = Depends(get_graph_repo)):
+    """Create or update an incompatible-neighbour edge between two families."""
     graph.set_family_incompatible(
         body.a_family_key,
         body.b_family_key,

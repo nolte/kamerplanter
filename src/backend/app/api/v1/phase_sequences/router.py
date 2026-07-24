@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query, Response
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query, Response
 
 from app.api.mapping import to_response
 from app.api.v1.phase_sequences.schemas import (
@@ -13,10 +15,12 @@ from app.api.v1.phase_sequences.schemas import (
     PhaseSequenceEntryResponse,
     PhaseSequenceEntryUpdate,
     PhaseSequenceResponse,
+    PhaseSequenceSpeciesResponse,
     PhaseSequenceUpdate,
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_phase_sequence_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.phase_sequence import (
     PhaseDefinition,
@@ -26,7 +30,7 @@ from app.domain.models.phase_sequence import (
 from app.domain.models.user import User
 from app.domain.services.phase_sequence_service import PhaseSequenceService
 
-router = APIRouter(tags=["phase-sequences"])
+router = APIRouter(tags=["phase-sequences"], responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE})
 
 
 # ── Helper functions ──
@@ -74,7 +78,7 @@ def _simple_entry_response(entry: PhaseSequenceEntry) -> PhaseSequenceEntryRespo
 
 @router.get("/species/{species_key}/phase-sequence", response_model=PhaseSequenceResponse | None)
 def get_species_phase_sequence(
-    species_key: str,
+    species_key: Annotated[str, Path(description="Document key of the species.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
@@ -93,10 +97,11 @@ def get_species_phase_sequence(
 @router.get("/phase-definitions", response_model=list[PhaseDefinitionResponse])
 def list_phase_definitions(
     pagination: PaginationParams = Depends(get_pagination),
-    name: str | None = Query(None),
+    name: str | None = Query(None, description="Filter phase definitions by name (substring match)."),
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """List phase definitions (paginated), optionally filtered by name."""
     definitions, _ = service.list_definitions(pagination.offset, pagination.limit, name_filter=name)
     result = []
     for defn in definitions:
@@ -115,6 +120,7 @@ def create_phase_definition(
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Create a new phase definition."""
     defn = PhaseDefinition(**body.model_dump())
     created = service.create_definition(defn)
     return _def_response(created)
@@ -125,10 +131,11 @@ def create_phase_definition(
     response_model=PhaseDefinitionResponse,
 )
 def get_phase_definition(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase definition.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Return a single phase definition by key."""
     defn = service.get_definition(key)
     usage = service._repo.get_definition_usage_count(key)
     return _def_response(defn, usage_count=usage)
@@ -139,7 +146,7 @@ def get_phase_definition(
     response_model=list[PhaseSequenceResponse],
 )
 def list_sequences_for_definition(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase definition.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
@@ -153,7 +160,7 @@ def list_sequences_for_definition(
     response_model=list[PhaseDefinitionSpeciesResponse],
 )
 def list_species_for_definition(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase definition.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
@@ -170,11 +177,12 @@ def list_species_for_definition(
     response_model=PhaseDefinitionResponse,
 )
 def update_phase_definition(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase definition.")],
     body: PhaseDefinitionUpdate,
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Update an existing phase definition."""
     data = body.model_dump(exclude_none=True)
     updated = service.update_definition(key, data)
     usage = service._repo.get_definition_usage_count(key)
@@ -183,10 +191,11 @@ def update_phase_definition(
 
 @router.delete("/phase-definitions/{key}", status_code=204)
 def delete_phase_definition(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase definition.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Delete a phase definition."""
     service.delete_definition(key)
     return Response(status_code=204)
 
@@ -200,6 +209,7 @@ def list_phase_sequences(
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """List phase sequences (paginated), each with its resolved entries."""
     sequences, _ = service.list_sequences(pagination.offset, pagination.limit)
     result = []
     for seq in sequences:
@@ -219,6 +229,7 @@ def create_phase_sequence(
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Create a new phase sequence."""
     seq = PhaseSequence(**body.model_dump())
     created = service.create_sequence(seq)
     return to_response(created, PhaseSequenceResponse)
@@ -230,7 +241,7 @@ def create_phase_sequence(
     status_code=201,
 )
 def clone_phase_sequence(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase sequence to clone.")],
     body: PhaseSequenceCloneRequest,
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
@@ -242,15 +253,15 @@ def clone_phase_sequence(
     return to_response(cloned, PhaseSequenceResponse, entries=entries)
 
 
-@router.get("/phase-sequences/{key}/species")
+@router.get("/phase-sequences/{key}/species", response_model=list[PhaseSequenceSpeciesResponse])
 def list_species_for_sequence(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase sequence.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
     """List all species that use this phase sequence."""
     service.get_sequence(key)  # ensure exists
-    return service._repo.get_species_for_sequence(key)
+    return [PhaseSequenceSpeciesResponse(**row) for row in service._repo.get_species_for_sequence(key)]
 
 
 @router.get(
@@ -258,10 +269,11 @@ def list_species_for_sequence(
     response_model=PhaseSequenceResponse,
 )
 def get_phase_sequence(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase sequence.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Return a single phase sequence by key, with its resolved entries."""
     full = service.get_full_sequence(key)
     entries = [_entry_response(e) for e in full.get("entries", [])]
     return PhaseSequenceResponse(
@@ -287,11 +299,12 @@ def get_phase_sequence(
     response_model=PhaseSequenceResponse,
 )
 def update_phase_sequence(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase sequence.")],
     body: PhaseSequenceUpdate,
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Update a phase sequence and return it with its resolved entries."""
     data = body.model_dump(exclude_none=True)
     service.update_sequence(key, data)
     full = service.get_full_sequence(key)
@@ -302,10 +315,11 @@ def update_phase_sequence(
 
 @router.delete("/phase-sequences/{key}", status_code=204)
 def delete_phase_sequence(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the phase sequence.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Delete a phase sequence."""
     service.delete_sequence(key)
     return Response(status_code=204)
 
@@ -318,10 +332,11 @@ def delete_phase_sequence(
     response_model=list[PhaseSequenceEntryResponse],
 )
 def list_entries(
-    seq_key: str,
+    seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """List a phase sequence's entries with their resolved phase definitions."""
     # Return entries with resolved definitions via get_full_sequence
     full = service.get_full_sequence(seq_key)
     return [_entry_response(e) for e in full.get("entries", [])]
@@ -333,11 +348,12 @@ def list_entries(
     status_code=201,
 )
 def create_entry(
-    seq_key: str,
+    seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     body: PhaseSequenceEntryCreate,
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Add an entry to a phase sequence."""
     entry = PhaseSequenceEntry(
         phase_sequence_key=seq_key,
         **body.model_dump(),
@@ -351,12 +367,13 @@ def create_entry(
     response_model=PhaseSequenceEntryResponse,
 )
 def update_entry(
-    seq_key: str,
-    key: str,
+    seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
+    key: Annotated[str, Path(description="Document key of the phase-sequence entry.")],
     body: PhaseSequenceEntryUpdate,
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Update a phase-sequence entry."""
     # Verify entry belongs to sequence
     entry = service.get_entry(key)
     if entry.phase_sequence_key != seq_key:
@@ -373,11 +390,12 @@ def update_entry(
     status_code=204,
 )
 def delete_entry(
-    seq_key: str,
-    key: str,
+    seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
+    key: Annotated[str, Path(description="Document key of the phase-sequence entry.")],
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Delete a phase-sequence entry."""
     # Verify entry belongs to sequence
     entry = service.get_entry(key)
     if entry.phase_sequence_key != seq_key:
@@ -393,11 +411,12 @@ def delete_entry(
     response_model=list[PhaseSequenceEntryResponse],
 )
 def reorder_entries(
-    seq_key: str,
+    seq_key: Annotated[str, Path(description="Document key of the phase sequence.")],
     body: EntryReorderRequest,
     _user: User = Depends(get_current_user),
     service: PhaseSequenceService = Depends(get_phase_sequence_service),
 ):
+    """Reorder the entries of a phase sequence."""
     orders = [item.model_dump() for item in body.entries]
     entries = service.reorder_entries(seq_key, orders)
     return [_simple_entry_response(e) for e in entries]

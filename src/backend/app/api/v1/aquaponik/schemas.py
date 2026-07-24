@@ -352,3 +352,53 @@ class CompatiblePlantsResponse(BaseModel):
     temperature_zone: str
     compatible: list[CompatiblePlantEntry]
     incompatible: list[CompatiblePlantEntry]
+
+
+class BiomassHistoryResponse(BaseModel):
+    """Current biomass snapshot for a fish stock."""
+
+    stock_key: str | None = None
+    current_biomass_kg: float
+    count: int
+    avg_weight_g: float
+    last_weighed_at: date | None = None
+
+
+class MortalityRateResponse(BaseModel):
+    """Cumulative mortality figures for a fish stock."""
+
+    stock_key: str | None = None
+    mortality_count: int
+    initial_count: int
+    mortality_rate: float
+    mortality_rate_percent: float
+
+
+class NitrogenCyclePoint(BaseModel):
+    """One water-test measurement in the nitrogen-cycle chart series."""
+
+    tested_at: datetime | None = None
+    ammonia_tan_mgl: float
+    free_ammonia_mgl: float
+    nitrite_mgl: float
+    nitrate_mgl: float
+    ph: float
+    temperature_c: float
+
+
+class FcrAnalysisResponse(BaseModel):
+    """Feed-conversion-ratio analysis for an aquaponic system."""
+
+    total_feed_kg: float
+    biomass_gain_kg: float
+    fcr: float | None = None
+    feeding_count: int
+
+
+class SafetyStatusResponse(BaseModel):
+    """Aggregated safety status: water quality plus stocking validation."""
+
+    system_key: str | None = None
+    cycling_status: str
+    water_quality: list[dict]
+    stocking: dict | None = None

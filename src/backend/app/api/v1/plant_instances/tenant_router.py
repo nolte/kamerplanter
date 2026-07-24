@@ -1,14 +1,18 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.plant_instances.schemas import (
     ActiveChannelResponse,
     AssignNutrientPlanRequest,
+    AssignNutrientPlanStatusResponse,
     CultivarSummary,
     PlantCreate,
     PlantInstanceInPhaseResponse,
     PlantInstancesInPhaseResponse,
     PlantResponse,
+    PlantRunSummaryResponse,
     RemovePlantRequest,
     SpeciesSummary,
     SurvivalStatsResponse,
@@ -17,6 +21,7 @@ from app.api.v1.plant_instances.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
@@ -24,7 +29,7 @@ from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
 
-router = APIRouter(prefix="/plant-instances", tags=["plant-instances"])
+router = APIRouter(prefix="/plant-instances", tags=["plant-instances"], responses=NOT_FOUND_RESPONSE)
 
 
 def _to_response(p: PlantInstance, service: PlantInstanceService) -> PlantResponse:
@@ -52,6 +57,7 @@ def list_plants(
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
+    """List the tenant's plant instances (paginated)."""
     items, _total = service.list_plants(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_to_response(p, service) for p in items]
 
@@ -75,7 +81,7 @@ def get_survival_stats(
     response_model=PlantInstancesInPhaseResponse,
 )
 def list_plants_in_phase_definition(
-    phase_definition_key: str,
+    phase_definition_key: Annotated[str, Path(description="Document key of the phase definition.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
@@ -93,10 +99,11 @@ def list_plants_in_phase_definition(
 
 @router.get("/{key}", response_model=PlantResponse)
 def get_plant(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
+    """Return a single plant instance by key."""
     p = service.get_plant(key, tenant_key=ctx.tenant_key)
     return _to_response(p, service)
 
@@ -107,6 +114,7 @@ def create_plant(
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
+    """Create a plant instance for the tenant."""
     plant = PlantInstance(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_plant(plant)
     return _to_response(created, service)
@@ -114,11 +122,12 @@ def create_plant(
 
 @router.put("/{key}", response_model=PlantResponse)
 def update_plant(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: PlantCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
+    """Update the user-editable fields of a plant instance."""
     existing = service.get_plant(key, tenant_key=ctx.tenant_key)
     # Merge: keep server-managed fields from existing, apply user-editable fields from body
     update_data = body.model_dump()
@@ -142,11 +151,12 @@ def update_plant(
 
 @router.post("/{key}/remove", response_model=PlantResponse)
 def remove_plant(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: RemovePlantRequest | None = None,
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
+    """Mark a plant instance as removed, recording the termination reason."""
     removed = service.remove_plant(
         key,
         termination_type=body.termination_type if body else None,
@@ -158,35 +168,38 @@ def remove_plant(
 
 @router.post("/slots/{slot_key}/validate-planting", response_model=ValidatePlantingResponse)
 def validate_planting(
-    slot_key: str,
+    slot_key: Annotated[str, Path(description="Document key of the slot to plant into.")],
     body: ValidatePlantingRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
+    """Validate whether a species may be planted into a slot."""
     result = service.validate_planting(slot_key, body.species_key)
     return ValidatePlantingResponse(**result)
 
 
-@router.post("/{key}/nutrient-plan", status_code=201)
+@router.post("/{key}/nutrient-plan", response_model=AssignNutrientPlanStatusResponse, status_code=201)
 def assign_nutrient_plan(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: AssignNutrientPlanRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
-):
+) -> AssignNutrientPlanStatusResponse:
+    """Assign a nutrient plan to a plant instance."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     plan_service.assign_to_plant(key, body.plan_key, body.assigned_by)
-    return {"status": "assigned"}
+    return AssignNutrientPlanStatusResponse(status="assigned")
 
 
 @router.get("/{key}/nutrient-plan")
 def get_nutrient_plan(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
+    """Return the nutrient plan assigned to a plant instance, or ``null``."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     plan = plan_service.get_plant_plan(key)
     if plan is None:
@@ -196,23 +209,25 @@ def get_nutrient_plan(
 
 @router.delete("/{key}/nutrient-plan", status_code=204)
 def remove_nutrient_plan(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
+    """Remove the nutrient plan assigned to a plant instance."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     plan_service.remove_plant_plan(key)
 
 
 @router.get("/{key}/current-dosages")
 def get_current_dosages(
-    key: str,
-    current_week: int = Query(ge=1),
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    current_week: int = Query(ge=1, description="1-based week within the current phase to compute dosages for."),
     ctx: TenantContext = Depends(get_current_tenant),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
+    """Return the current per-channel dosages for a plant instance's active plan."""
     plant = plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     phase_name = plant_service.resolve_phase_name(plant.current_phase_key or "")
     result = plan_service.get_current_dosages(key, phase_name, current_week)
@@ -223,12 +238,13 @@ def get_current_dosages(
 
 @router.get("/{key}/active-channels", response_model=list[ActiveChannelResponse])
 def get_active_channels(
-    key: str,
-    current_week: int = Query(ge=1),
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    current_week: int = Query(ge=1, description="1-based week within the current phase to evaluate."),
     ctx: TenantContext = Depends(get_current_tenant),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     plan_service: NutrientPlanService = Depends(get_nutrient_plan_service),
 ):
+    """List the active nutrient channels for a plant instance in the given week."""
     plant = plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     plan = plan_service.get_plant_plan(key)
     if plan is None or plan.key is None:
@@ -238,20 +254,21 @@ def get_active_channels(
     return channels
 
 
-@router.get("/{key}/planting-runs")
+@router.get("/{key}/planting-runs", response_model=list[PlantRunSummaryResponse])
 def get_plant_runs(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
     run_service: PlantingRunService = Depends(get_planting_run_service),
-):
+) -> list[PlantRunSummaryResponse]:
+    """List the planting runs a plant instance belongs to."""
     plant_service.get_plant(key, tenant_key=ctx.tenant_key)
     runs = run_service.get_runs_for_plant(key)
     return [
-        {
-            "key": r.key,
-            "name": r.name,
-            "status": r.status.value if hasattr(r.status, "value") else r.status,
-        }
+        PlantRunSummaryResponse(
+            key=r.key or "",
+            name=r.name,
+            status=r.status.value if hasattr(r.status, "value") else r.status,
+        )
         for r in runs
     ]

@@ -12,12 +12,14 @@ from app.api.v1.knowledge.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_knowledge_client
+from app.common.openapi_responses import AUTH_RESPONSES
 from app.data_access.external.knowledge_service_client import KnowledgeServiceClient
 
 router = APIRouter(
     prefix="/knowledge",
     tags=["knowledge"],
     dependencies=[Depends(get_current_user)],
+    responses=AUTH_RESPONSES,
 )
 
 

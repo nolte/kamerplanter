@@ -24,3 +24,9 @@ class RotationSuccessorResponse(BaseModel):
     wait_years: int = 1
     benefit_score: float = 0.0
     benefit_reason: str = ""
+
+
+class RotationSuccessorCreatedResponse(BaseModel):
+    """Acknowledgement returned after a rotation-successor edge is written."""
+
+    status: str
