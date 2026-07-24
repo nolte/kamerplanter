@@ -31,41 +31,26 @@ class PhaseTransitionEngine:
         self._phase_seq_repo = phase_seq_repo
         self._resolver = PhaseKeyResolver(phase_repo, phase_seq_repo)
 
-    def _instance_cycle_override(self, plant: PlantInstance) -> CycleType | None:
-        """ADR-006 E1 — the plant's per-instance cycle override, via the central cascade.
-
-        Only the INSTANCE tier of :func:`resolve_effective_cycle` is needed here: the
-        species tiers (cultivation / botanical ``cycle_type``) are already read from the
-        PhaseSequence / LifecycleConfig inside :meth:`_is_perennial_cycle_restart`. So we
-        pass ``lifecycle=None, phase_sequence=None`` and get exactly the instance override
-        (``None`` when the grower did not decide per plant → the species cycle governs).
-        Routing through the single cascade function keeps it the one source of truth
-        without a redundant species-repo lookup in the engine.
-        """
-        return resolve_effective_cycle(plant, None, None)
-
-    @staticmethod
-    def _cycle_is_perennial(botanical: CycleType, instance_override: CycleType | None) -> bool:
-        """Whether the plant is perennial for restart purposes — the per-instance
-        override (ADR-006 E1) wins when set, else the species botanical cycle."""
-        if instance_override is not None:
-            return instance_override == CycleType.PERENNIAL
-        return botanical == CycleType.PERENNIAL
-
     def _is_perennial_cycle_restart(
         self,
+        plant: PlantInstance,
         current_phase_key: str,
         target_sequence_order: int,
-        instance_override: CycleType | None = None,
     ) -> bool:
         """Check if transition is a valid perennial cycle restart.
 
         A cycle restart is allowed when the current phase is terminal, the plant is
         effectively perennial, and the target phase matches the configured
-        cycle_restart_phase_order. ``instance_override`` (ADR-006 E1) is the plant's
-        per-instance ``cultivation_cycle_type``; when set it overrides the species
-        botanical cycle for the annual-vs-perennial gate (so an annual-grown instance
-        never restarts and a perennial-grown instance on an annual species can).
+        cycle-restart order. The annual-vs-perennial gate runs through the single
+        :func:`resolve_effective_cycle` cascade (ADR-006 E1) — the same one used by
+        the auto-transition restart gate (``app/tasks/phase_transitions.py``) and the
+        REQ-047 season coupler — instead of the raw botanical ``cycle_type``. That
+        makes the engine honour BOTH the per-instance ``cultivation_cycle_type``
+        override AND the species-level ``cultivation_cycle_type`` (a botanically
+        perennial species grown as an annual, e.g. the tomato cohort after #735, must
+        not restart even if it later gains a repeating sequence or a
+        ``cycle_restart`` anchor). ``resolve_effective_cycle`` already consults the
+        instance tier first, so the override precedence is applied exactly once.
 
         Resolves the current phase across both key-spaces (#579): a PhaseSequence
         entry carries its owning sequence directly (``sequence_key``); a legacy
@@ -78,11 +63,15 @@ class PhaseTransitionEngine:
 
         # PhaseSequence-driven phase: the entry owns its sequence directly, so the
         # restart decision reads the sequence's cycle metadata without a detour
-        # through LifecycleConfig (#579).
+        # through LifecycleConfig (#579). The species LifecycleConfig is still resolved
+        # so the effective-cycle gate can see a species-level ``cultivation_cycle_type``
+        # (a botanically perennial species grown annually); ``None`` for a pure Weg-B
+        # species without a LifecycleConfig, where the sequence's cycle_type governs.
         if current_phase.source == "phase_sequence" and self._phase_seq_repo and current_phase.sequence_key:
             seq = self._phase_seq_repo.get_sequence_by_key(current_phase.sequence_key)
             if seq:
-                if not self._cycle_is_perennial(seq.cycle_type, instance_override):
+                lifecycle = self._phase_repo.get_lifecycle_by_species(plant.species_key) if plant.species_key else None
+                if resolve_effective_cycle(plant, lifecycle, seq) != CycleType.PERENNIAL:
                     return False
                 if seq.cycle_restart_entry_order is not None:
                     return target_sequence_order == seq.cycle_restart_entry_order
@@ -94,7 +83,7 @@ class PhaseTransitionEngine:
             if lifecycle and lifecycle.species_key:
                 seq = self._phase_seq_repo.get_sequence_by_species(lifecycle.species_key)
                 if seq:
-                    if not self._cycle_is_perennial(seq.cycle_type, instance_override):
+                    if resolve_effective_cycle(plant, lifecycle, seq) != CycleType.PERENNIAL:
                         return False
                     if seq.cycle_restart_entry_order is not None:
                         return target_sequence_order == seq.cycle_restart_entry_order
@@ -105,7 +94,7 @@ class PhaseTransitionEngine:
         if lifecycle is None:
             return False
 
-        if not self._cycle_is_perennial(lifecycle.cycle_type, instance_override):
+        if resolve_effective_cycle(plant, lifecycle, None) != CycleType.PERENNIAL:
             return False
 
         if lifecycle.cycle_restart_phase_order is None:
@@ -152,9 +141,9 @@ class PhaseTransitionEngine:
             if target_phase.sequence_order < current_phase.sequence_order:
                 # Allow perennial cycle restarts without force
                 if self._is_perennial_cycle_restart(
+                    plant,
                     plant.current_phase_key or "",
                     target_phase.sequence_order,
-                    self._instance_cycle_override(plant),
                 ):
                     warnings.append(f"Perennial cycle restart: {current_phase.name} → {target_phase.name}")
                 elif self._is_reversion(plant.current_phase_key, target_phase_key):
@@ -205,9 +194,9 @@ class PhaseTransitionEngine:
         current_cycle_number = max((h.cycle_number for h in history), default=1)
 
         is_cycle_restart = plant.current_phase_key and self._is_perennial_cycle_restart(
+            plant,
             plant.current_phase_key,
             target_phase.sequence_order,
-            self._instance_cycle_override(plant),
         )
         new_cycle_number = current_cycle_number + 1 if is_cycle_restart else current_cycle_number
 

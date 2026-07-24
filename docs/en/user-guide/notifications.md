@@ -37,6 +37,36 @@ Each card has a colored left border indicating urgency:
 
 ---
 
+## Always Up to Date: Notifications Follow Their Source {#always-up-to-date}
+
+If the underlying task or care reminder changes, the matching notification in the center follows along automatically — you never have to clean it up yourself:
+
+- **Rescheduled** — move a task to a new date, and its notification immediately shows the new due date.
+- **Reassigned** — reassign a task to another member, and that person receives a new assignment notification; your own due notification for that task disappears in the process.
+- **Deleted** — delete a task, and its notification disappears from the center too.
+- **Completed** — complete a task, and its notification is automatically marked done and no longer counts toward the unread badge.
+- **Watering interval changed** — change the interval of a care reminder (e.g. watering), and the existing reminder notification updates with the new date; no second, duplicate reminder is created for the same plant and reminder type.
+- **Care confirmed** — confirm a care task (e.g. via the care overview), and its notification is likewise marked done immediately.
+
+!!! note "Only the in-app center reacts immediately"
+    This synchronization applies to the in-app notification center. Messages already delivered through an external channel (Home Assistant, email, browser push, Apprise) are not recalled or re-sent afterward — only the display in the center and the unread badge follow the change immediately. <!-- REQ-030 -->
+
+### Done Directly From the Notification
+
+Care notifications (e.g. a watering reminder) additionally show a **Done** button on the card in the notification center. Clicking it:
+
+1. confirms the underlying care task — the same as confirming it through the care overview,
+2. marks the notification itself as read and done, so it immediately disappears from the unread badge.
+
+This saves you the detour through the care overview: you confirm directly from the notification, in a single step.
+
+!!! tip "A failure is automatically rolled back"
+    If the confirmation fails (e.g. due to a connection problem), Kamerplanter automatically rolls back the marking and shows an error message — the **Done** button then stays visible so you can try again.
+
+Plain task-due or task-assignment notifications without a care link do not currently show the **Done** button; you still confirm those through the task list.
+
+---
+
 ## The Four Delivery Channels
 
 Open **Settings → Notifications** to enable channels. Each channel can be toggled independently. If multiple channels are enabled at the same time, every notification is delivered to **all** enabled channels in parallel (there is no fallback to a "next" channel on failure — if one channel fails, the others still receive the message).

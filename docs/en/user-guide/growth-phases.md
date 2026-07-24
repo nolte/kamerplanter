@@ -251,6 +251,27 @@ Click **Resume Growth**. Kamerplanter resets the cycle to the vegetative phase (
 
 ---
 
+## Botanical Life Cycle vs. Cultivation Cycle Type {#botanischer-lebenszyklus-vs-anbau-zyklustyp}
+
+Some plant species are botanically perennial but are treated like annuals in practical cultivation — the best-known example is the tomato: botanically a long-lived perennial, it is almost always discarded after one season instead of overwintered in temperate climates, because of its frost sensitivity.
+
+For this, Kamerplanter distinguishes two fields in a species' lifecycle configuration (species detail page → **Lifecycle Configuration** tab):
+
+- **Cycle Type** (`cycle_type`) — the species' **botanical** life cycle: Annual, Biennial, or Perennial.
+- **Cultivation Cycle Type** (`cultivation_cycle_type`) — how the species is **actually cultivated** in Kamerplanter. If left empty, cultivation automatically follows the botanical cycle type; set differently, it captures cases like the tomato.
+
+### The "Grown as an annual" Hint
+
+When the cultivation cycle type differs from the botanical cycle type — specifically: the species is cultivated as "Annual" even though its cycle type is not "Annual" — Kamerplanter automatically displays the info chip **"Grown as an annual"** in the **Lifecycle Configuration** tab, directly below the two cycle-type fields.
+
+!!! example "Example: Tomato"
+    Tomato is botanically perennial but is almost always cultivated as an annual in practice (frost-tender, usually not overwintered). Kamerplanter therefore shows the "Grown as an annual" chip for the tomato.
+
+!!! note "Purely informational, not editable"
+    The chip is a derived hint computed solely from **Cycle Type** and **Cultivation Cycle Type** — it can't be clicked or edited itself, and it is visible regardless of your experience level whenever the mismatch applies. To make the hint disappear, change one of the two underlying fields instead. <!-- REQ-001 / REQ-003 -->
+
+---
+
 ## Monocarpic Plants: Flowering Once and Automatic Pup Continuation {#monokarpische-pflanzen}
 
 Some plant species are **monocarpic**: they flower exactly once in their lifetime and then die — well-known examples include many agaves, bromeliads, and guzmanias. In a species' lifecycle configuration this is recorded as the reproductive strategy **"Monocarpic (flowers once)"**, as opposed to **"Polycarpic (flowers repeatedly)"** for plants that flower repeatedly over several years.

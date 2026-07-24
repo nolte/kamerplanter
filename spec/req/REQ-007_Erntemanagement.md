@@ -7,13 +7,14 @@ Kategorie: Erntezyklus
 Fokus: Beides
 Technologie: Python, ArangoDB, Computer Vision (optional)
 Status: Entwurf
-Version: 2.5 (Phase A: Erntemuster, geernteter Teil, Klimakterik, DTM-Bezugspunkt)
+Version: 2.6 (Phase A: Erntemuster, geernteter Teil, Klimakterik, DTM-Bezugspunkt inkl. `from_flip`)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.6 | 2026-07-23 | **DTM-Bezugspunkt `from_flip` (Issue #737, WP-P2):** Neuer `dtm_reference`-Enum-Wert `from_flip` — bei Photoperioden-Cannabis zählt `days_to_maturity` ab der Umstellung auf die Blüte-Photoperiode (dem „Flip"), nicht ab Aussaat oder Auspflanzung. Ergänzt in `common/enums.py`, `plant_info.schema.yaml`, Frontend-Typen/i18n; die drei `Cannabis sativa`-Cultivare (Northern Lights, White Widow, OG Kush) tragen ihn im Seed. Additiv, non-breaking. |
 | 2.5 | 2026-06-15 | **Phase A — Ernte-Stammdaten (Plan WP-6):** Neue Species-Felder `harvest_pattern` (`single`/`continuous`/`perennial` — Lebens-Muster, getrennt vom per-Event-`HarvestType`), `harvested_part` (orthogonal zum Muster), `climacteric` (`climacteric`/`non_climacteric`/`atypical` — Nachreife/Lagerung, dritter Wert für echte Grenzfälle). Neue Cultivar-Felder `dtm_reference` (`direct_seed`/`transplant` — entschärft DTM-Mehrdeutigkeit) und Ertragsbeginn-Korridor `bearing_start_year_min/max`. Alle optional, non-breaking. Quelle: `spec/knowledge/PFLANZEN-EIGENSCHAFTEN-REFERENZ.md` §4. |
 | 2.4 | 2026-04-27 | **ADR-001 (W-009 Karenz-Detach):** `karenz_check_passed`-Feld nutzt jetzt explizit `SafetyIntervalValidator.collect_relevant_treatments()` aus REQ-010 §3, der für detachte PlantInstances geerbte Run-Treatments einbezieht. Direkter Karenz-Bypass über Detach ist ausgeschlossen. |
 | 2.3 | (vorher) | Ernte-Fenster-Vorhersage integriert. |

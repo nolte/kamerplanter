@@ -316,10 +316,12 @@ class TestExperienceLevelPersistence:
             "Dashboard after reload, intermediate nav expected",
         )
 
-        assert expertise_page.is_nav_item_visible("/standorte/sites"), (
+        # Single-shot checks race the same async user-preferences fetch as
+        # TC-REQ-021-008/009 -- poll for the settled state instead.
+        assert expertise_page.wait_for_nav_item_visible("/standorte/sites"), (
             "TC-REQ-021-007 FAIL: Expected '/standorte/sites' visible after reload with intermediate"
         )
-        assert not expertise_page.is_nav_item_visible("/pflanzenschutz/pests"), (
+        assert expertise_page.wait_for_nav_item_hidden("/pflanzenschutz/pests"), (
             "TC-REQ-021-007 FAIL: Expected '/pflanzenschutz/pests' hidden for intermediate"
         )
 
@@ -372,26 +374,29 @@ class TestNavigationTiering:
             "TC-REQ-021-008 FAIL: Expected '/aufgaben/queue' visible for beginner"
         )
 
-        # Intermediate/expert items should be hidden
-        assert not expertise_page.is_nav_item_visible("/standorte/sites"), (
+        # Intermediate/expert items should be hidden. ``isNavVisible`` fails
+        # *open* while the user-preferences fetch is in flight (``levelKnown``
+        # false), so a single-shot check can catch that transient window --
+        # poll for the settled hidden state instead (same race as TC-REQ-021-009).
+        assert expertise_page.wait_for_nav_item_hidden("/standorte/sites"), (
             "TC-REQ-021-008 FAIL: Expected '/standorte/sites' hidden for beginner"
         )
-        assert not expertise_page.is_nav_item_visible("/kalender"), (
+        assert expertise_page.wait_for_nav_item_hidden("/kalender"), (
             "TC-REQ-021-008 FAIL: Expected '/kalender' hidden for beginner"
         )
-        assert not expertise_page.is_nav_item_visible("/stammdaten/species"), (
+        assert expertise_page.wait_for_nav_item_hidden("/stammdaten/species"), (
             "TC-REQ-021-008 FAIL: Expected '/stammdaten/species' hidden for beginner"
         )
-        assert not expertise_page.is_nav_item_visible("/duengung/fertilizers"), (
+        assert expertise_page.wait_for_nav_item_hidden("/duengung/fertilizers"), (
             "TC-REQ-021-008 FAIL: Expected '/duengung/fertilizers' hidden for beginner"
         )
-        assert not expertise_page.is_nav_item_visible("/pflanzenschutz/pests"), (
+        assert expertise_page.wait_for_nav_item_hidden("/pflanzenschutz/pests"), (
             "TC-REQ-021-008 FAIL: Expected '/pflanzenschutz/pests' hidden for beginner"
         )
-        assert not expertise_page.is_nav_item_visible("/ernte/batches"), (
+        assert expertise_page.wait_for_nav_item_hidden("/ernte/batches"), (
             "TC-REQ-021-008 FAIL: Expected '/ernte/batches' hidden for beginner"
         )
-        assert not expertise_page.is_nav_item_visible("/durchlaeufe/planting-runs"), (
+        assert expertise_page.wait_for_nav_item_hidden("/durchlaeufe/planting-runs"), (
             "TC-REQ-021-008 FAIL: Expected '/durchlaeufe/planting-runs' hidden for beginner"
         )
 
@@ -417,28 +422,31 @@ class TestNavigationTiering:
             "Sidebar in intermediate mode with additional sections",
         )
 
-        assert expertise_page.is_nav_item_visible("/dashboard"), (
+        # Flaky as single-shot checks: the sidebar briefly renders the beginner
+        # tier while ``useExpertiseLevel``'s user-preferences fetch is still in
+        # flight (levelKnown == false). Poll instead of sampling once.
+        assert expertise_page.wait_for_nav_item_visible("/dashboard"), (
             "TC-REQ-021-009 FAIL: Expected '/dashboard' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/pflanzen/plant-instances"), (
+        assert expertise_page.wait_for_nav_item_visible("/pflanzen/plant-instances"), (
             "TC-REQ-021-009 FAIL: Expected '/pflanzen/plant-instances' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/kalender"), (
+        assert expertise_page.wait_for_nav_item_visible("/kalender"), (
             "TC-REQ-021-009 FAIL: Expected '/kalender' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/standorte/sites"), (
+        assert expertise_page.wait_for_nav_item_visible("/standorte/sites"), (
             "TC-REQ-021-009 FAIL: Expected '/standorte/sites' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/stammdaten/species"), (
+        assert expertise_page.wait_for_nav_item_visible("/stammdaten/species"), (
             "TC-REQ-021-009 FAIL: Expected '/stammdaten/species' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/stammdaten/botanical-families"), (
+        assert expertise_page.wait_for_nav_item_visible("/stammdaten/botanical-families"), (
             "TC-REQ-021-009 FAIL: Expected '/stammdaten/botanical-families' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/duengung/fertilizers"), (
+        assert expertise_page.wait_for_nav_item_visible("/duengung/fertilizers"), (
             "TC-REQ-021-009 FAIL: Expected '/duengung/fertilizers' visible for intermediate"
         )
-        assert expertise_page.is_nav_item_visible("/duengung/plans"), (
+        assert expertise_page.wait_for_nav_item_visible("/duengung/plans"), (
             "TC-REQ-021-009 FAIL: Expected '/duengung/plans' visible for intermediate"
         )
 
@@ -594,16 +602,18 @@ class TestSpeciesFieldVisibility:
             "Species create dialog as intermediate -- intermediate fields visible",
         )
 
-        assert expertise_page.is_form_field_visible("scientific_name"), (
+        # Flaky as single-shot checks (same async user-preferences race as
+        # TC-REQ-021-009) -- poll instead of sampling once.
+        assert expertise_page.wait_for_form_field_visible("scientific_name"), (
             "TC-REQ-021-013 FAIL: Expected 'scientific_name' visible for intermediate"
         )
-        assert expertise_page.is_form_field_visible("common_names"), (
+        assert expertise_page.wait_for_form_field_visible("common_names"), (
             "TC-REQ-021-013 FAIL: Expected 'common_names' visible for intermediate"
         )
-        assert expertise_page.is_form_field_visible("family_key"), (
+        assert expertise_page.wait_for_form_field_visible("family_key"), (
             "TC-REQ-021-013 FAIL: Expected 'family_key' visible for intermediate"
         )
-        assert expertise_page.is_form_field_visible("genus"), (
+        assert expertise_page.wait_for_form_field_visible("genus"), (
             "TC-REQ-021-013 FAIL: Expected 'genus' visible for intermediate"
         )
         assert not expertise_page.is_form_field_visible("root_type"), (
@@ -637,16 +647,18 @@ class TestSpeciesFieldVisibility:
             "Species create dialog as expert -- all fields visible",
         )
 
-        assert expertise_page.is_form_field_visible("scientific_name"), (
+        # Flaky as single-shot checks (same async user-preferences race as
+        # TC-REQ-021-009) -- poll instead of sampling once.
+        assert expertise_page.wait_for_form_field_visible("scientific_name"), (
             "TC-REQ-021-014 FAIL: Expected 'scientific_name' visible for expert"
         )
-        assert expertise_page.is_form_field_visible("root_type"), (
+        assert expertise_page.wait_for_form_field_visible("root_type"), (
             "TC-REQ-021-014 FAIL: Expected 'root_type' visible for expert"
         )
-        assert expertise_page.is_form_field_visible("allelopathy_score"), (
+        assert expertise_page.wait_for_form_field_visible("allelopathy_score"), (
             "TC-REQ-021-014 FAIL: Expected 'allelopathy_score' visible for expert"
         )
-        assert expertise_page.is_form_field_visible("hardiness_zones"), (
+        assert expertise_page.wait_for_form_field_visible("hardiness_zones"), (
             "TC-REQ-021-014 FAIL: Expected 'hardiness_zones' visible for expert"
         )
 

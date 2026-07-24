@@ -30,6 +30,7 @@ export const speciesFieldConfig: Record<string, FieldMeta> = {
   cultivation_cycle_type: { level: 'intermediate' },
   bearing_start_year_min: { level: 'intermediate' },
   bearing_start_year_max: { level: 'intermediate' },
+  seed_type: { level: 'intermediate' },
   // expert
   root_type: { level: 'expert' },
   photosynthesis_type: { level: 'expert' },

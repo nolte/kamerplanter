@@ -182,6 +182,26 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         )
         return next(cursor, None) is not None
 
+    def list_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
+        """Return every notification carrying ``(group_key, tenant_key)`` (newest first).
+
+        Strictly tenant-scoped (SEC-B4): the ``tenant_key`` is bound into the filter
+        so a source→notification mutation (Issue #742) can never reach another
+        tenant's rows. Index-backed by the ``(group_key, tenant_key)`` persistent
+        index (Issue #409, F2).
+        """
+        query = (
+            f"FOR doc IN {NOTIFICATIONS} "
+            f"FILTER doc.group_key == @group_key AND doc.tenant_key == @tenant_key "
+            f"SORT doc.created_at DESC "
+            f"RETURN doc"
+        )
+        cursor = self._db.aql.execute(
+            query,
+            bind_vars={"group_key": group_key, "tenant_key": tenant_key},
+        )
+        return [self._to_notification(doc) for doc in cursor]
+
     def find_notified_user_keys(self, group_key: str, tenant_key: str) -> set[str]:
         """Return the ``user_key`` set already notified for ``(group_key, tenant_key)``.
 

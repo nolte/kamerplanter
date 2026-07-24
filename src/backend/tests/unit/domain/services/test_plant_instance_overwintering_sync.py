@@ -15,7 +15,10 @@ the precise call / no-call contract (no site change, unwired collaborators).
 from datetime import date
 from unittest.mock import MagicMock
 
+import pytest
+
 from app.common.enums import FrostTolerance, HardinessRating, SiteType, WinterAction
+from app.common.exceptions import NotFoundError
 from app.domain.interfaces.overwintering_profile_repository import IOverwinteringProfileRepository
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.plant_instance import PlantInstance
@@ -309,13 +312,14 @@ class TestCreateEagerMaterialisation:
 
         materializer.materialize.assert_not_called()
 
-    def test_foreign_tenant_site_is_not_materialised(self) -> None:
-        # Fail-safe tenant guard: a site owned by another tenant must not derive a
-        # profile even if it is outdoor.
+    def test_foreign_tenant_site_is_rejected_and_not_materialised(self) -> None:
+        # SEC (#719): creating a plant on a site owned by another tenant is rejected
+        # outright (IDOR guard) — so no profile is ever derived either.
         service, materializer, _ow_service, _pr, _sr = _mock_service()
         service._site_repo.sites["site-foreign"] = _site("site-foreign", SiteType.OUTDOOR, tenant=FOREIGN)
 
-        service.create_plant(_plant("site-foreign"))
+        with pytest.raises(NotFoundError):
+            service.create_plant(_plant("site-foreign"))
 
         materializer.materialize.assert_not_called()
 
@@ -393,7 +397,15 @@ class TestUpdateMoveSync:
 class TestWithoutOverwinteringCollaborators:
     def _plain_service(self) -> tuple[PlantInstanceService, FakePlantRepo]:
         plant_repo = FakePlantRepo()
-        site_repo = FakeSiteRepo({"site-out": _site("site-out", SiteType.OUTDOOR)})
+        # Both sites belong to the caller's tenant so the #719 site-ownership guard
+        # admits the move; this class exercises robustness with unwired overwintering
+        # collaborators, not the tenant guard.
+        site_repo = FakeSiteRepo(
+            {
+                "site-out": _site("site-out", SiteType.OUTDOOR),
+                "site-in": _site("site-in", SiteType.INDOOR),
+            }
+        )
         service = PlantInstanceService(plant_repo, site_repo, MagicMock(), MagicMock())
         return service, plant_repo
 

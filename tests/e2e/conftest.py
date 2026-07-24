@@ -137,6 +137,7 @@ TestResult = _pp_mod.TestResult
 # ── Protocol plugin state ─────────────────────────────────────────────────
 _protocol_generator: ProtocolGenerator | None = None  # type: ignore[assignment]
 _protocol_output_dir: Path | None = None
+_is_xdist_worker: bool = False
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -399,6 +400,44 @@ def _api_patch(url: str, data: dict, auth_token: str | None = None) -> tuple[int
             return e.code, {}
 
 
+def _api_delete(url: str, auth_token: str | None = None) -> int:
+    """Send a DELETE with optional Bearer auth; return the status code."""
+    import urllib.error
+    import urllib.request
+
+    headers = {"Content-Type": "application/json"}
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
+    req = urllib.request.Request(url, headers=headers, method="DELETE")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+def _reset_e2e_tasks(api: str, auth_token: str | None) -> None:
+    """Delete leftover ``E2E:``-prefixed tasks so each session starts clean.
+
+    The task seeds are re-created unconditionally every session; without this
+    reset, mutated survivors from earlier runs (renamed, reassigned, or created
+    before a notification-coupling change and therefore missing their in-app
+    notification) accumulate in the queue and make ``keys[0]`` non-deterministic
+    for the REQ-030 source→notification feedback tests. Only deletable statuses
+    (pending/skipped/cancelled/dormant) are removed; completed tasks stay for
+    history and never surface in the live queue anyway.
+    """
+    _post, _get = _api_helpers(auth_token)
+    status, tasks = _get(f"{api}/tasks?limit=500")
+    if status != 200 or not isinstance(tasks, list):
+        return
+    for task in tasks:
+        name = task.get("name") or ""
+        key = task.get("key")
+        if key and name.startswith("E2E:"):
+            _api_delete(f"{api}/tasks/{key}", auth_token)
+
+
 def _register_and_login(api_base: str) -> tuple[str, str]:
     """Register the demo user (idempotent) and login to get a JWT token.
 
@@ -510,6 +549,10 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 })
 
         # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
+        # Remove leftover E2E tasks first so the queue baseline is deterministic
+        # (see _reset_e2e_tasks — required by the REQ-030 feedback tests).
+        _reset_e2e_tasks(api, result.get("access_token"))
+
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
         _now = _dt.now(_tz.utc)
@@ -999,22 +1042,56 @@ def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
 
 def _generate_protocol_safe() -> None:
     """Generate the protocol from whatever results exist — safe to call on interrupt."""
+    if _is_xdist_worker:
+        # Workers only append to the shared checkpoint.jsonl; the controller
+        # generates the single protocol after every worker has finished.
+        # A per-worker protokoll.md would hold only that worker's subset and
+        # overwrite the aggregate.
+        return
     if _protocol_generator is not None and _protocol_output_dir is not None:
         try:
+            if not _protocol_generator.results:
+                # Under xdist the controller executes no tests itself — its
+                # results come from the checkpoint the workers appended to.
+                checkpoint = _protocol_output_dir / "checkpoint.jsonl"
+                if checkpoint.exists():
+                    _protocol_generator.results = _load_checkpoint(checkpoint)
             path = _protocol_generator.generate(_protocol_output_dir)
             print(f"\nTestprotokoll geschrieben: {path}")
         except Exception as exc:
             print(f"\nWarnung: Protokoll-Generierung fehlgeschlagen: {exc}")
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node) -> None:  # type: ignore[no-untyped-def]
+    """xdist (controller side): hand the shared protocol dir to each worker.
+
+    Without this every worker creates its own timestamped report dir and
+    writes a fragmentary protokoll.md, while the controller (which executes
+    no tests) writes an empty one.
+    """
+    if _protocol_output_dir is not None:
+        node.workerinput["protocol_output_dir"] = str(_protocol_output_dir)
+
+
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Initialize protocol generator if --generate-protocol is active."""
     import atexit
-    global _protocol_generator, _protocol_output_dir
+    global _protocol_generator, _protocol_output_dir, _is_xdist_worker
+
+    workerinput = getattr(session.config, "workerinput", None)
+    _is_xdist_worker = workerinput is not None
 
     if session.config.getoption("--generate-protocol", default=False):
         resume_dir = session.config.getoption("--resume", default=None)
-        if resume_dir:
+        shared_dir = (workerinput or {}).get("protocol_output_dir")
+        if shared_dir:
+            # xdist worker — write checkpoint/screenshots into the
+            # controller's directory instead of a fresh timestamped one.
+            _protocol_output_dir = Path(shared_dir)
+            _protocol_generator = ProtocolGenerator()
+            _protocol_generator.start_time = datetime.now(tz=timezone.utc)
+        elif resume_dir:
             # Resume mode — load checkpoint from a previous interrupted run
             resume_path = Path(resume_dir)
             _protocol_output_dir = resume_path

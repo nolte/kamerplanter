@@ -24,7 +24,8 @@
 | Photosynthese-Typ (photosynthesis type) | c3 | `species.photosynthesis_type` |
 | GDD-Basistemperatur (base temp, °C) | <!-- DATEN FEHLEN: Impatiens walleriana folgt nicht dem typischen linearen Blühraten-/Temperaturmodell der Beetpflanzen (Days-to-flower sinkt 14→26 °C nicht monoton, Quelle [9]); kein belegter Wuchs-GDD-Basiswert auffindbar — kein Keim-/Kardinalwert umetikettiert --> | `species.base_temp` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
-| Lebenszyklus | annual | `lifecycle_configs.cycle_type` |
+| Lebenszyklus (botanisch) | perennial (frostempfindliche/kurzlebige Staude -- "tender perennial"; in Mitteleuropa wegen Frostempfindlichkeit einjaehrig kultiviert, siehe cultivation_cycle_type) | `lifecycle_configs.cycle_type` |
+<!-- Quelle: growing-phase-auditor 2026-07 -- Korrektur von 'annual' auf botanisch korrektes 'perennial'; 3/3 Quellen (Missouri Botanical Garden, RHS, NCSU Extension) bestaetigen "tender perennial ... Winter hardy to USDA Zones 10-11" bzw. "technically herbaceous perennial plants in tropical zones, but ... frequently grown as annuals"; siehe Quellenverzeichnis Eintraege 16-18. -->
 <!-- Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
 | Blühstrategie (flowering strategy) | polycarpic (mehrjährig und wiederholt blühend; frostempfindlich und daher als einjährige Kultur gezogen (cultivation_cycle_type=annual)) | `lifecycle_configs.flowering_strategy` |
 <!-- /Quelle: growing-phase-auditor (WP-10 flowering-strategy backfill #453) -->
@@ -332,3 +333,8 @@ Impatiens walleriana,"Fleißiges Lieschen;Springkraut;Busy Lizzie;Touch-me-not",
 14. [Koppert — Phytoseiulus persimilis](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Spinnmilben, Ausbringraten/Bedingungen (Nützlings-Hersteller)
 15. [UMass Amherst — Biological Control: Greenhouse Pests and their Natural Enemies](https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/biological-control-greenhouse-pests-their-natural-enemies) — Nützling-Wirt-Zuordnung, Ausbringraten (University Extension)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: growing-phase-auditor 2026-07 -- botanischer Lebenszyklus (perennial vs. annual Kulturpraxis) -->
+16. [Missouri Botanical Garden — Impatiens walleriana Plant Finder](https://plantfinder.mobot.org/PlantFinderDetails.aspx?kempercode=a586) — "a bushy, succulent-stemmed tender perennial ... Winter hardy to USDA Zones 10-11"; in St. Louis als Beet-Einjährige/Zimmerpflanze kultiviert
+17. [NC State Extension Gardener Plant Toolbox — Impatiens walleriana](https://plants.ces.ncsu.edu/plants/impatiens-walleriana/) — "technically herbaceous perennial plants in tropical zones, but they are frequently grown as annuals"; USDA Plant Hardiness Zone 10a–11b (University Extension)
+18. [RHS — Impatiens walleriana](https://www.rhs.org.uk/plants/95402/impatiens-walleriana/details) — "tender herbaceous perennial plant but mostly grown as annual bedding"; Härtegrad H1B
+<!-- /Quelle: growing-phase-auditor 2026-07 -->

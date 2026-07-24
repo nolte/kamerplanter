@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, datetime
+from uuid import uuid4
 
 from app.common.datetimes import ensure_aware_utc, now_utc
 from app.common.enums import TerminationType
@@ -117,7 +118,12 @@ class HarvestService:
         return batch
 
     def create_harvest_batch(self, plant_key: str, batch: HarvestBatch) -> HarvestBatch:
-        """Create a harvest batch -- enforces Karenz-Gate."""
+        """Create a harvest batch -- enforces Karenz-Gate.
+
+        When the caller leaves ``batch_id`` blank a deterministic, collision-free
+        identifier is generated so a second batch for the same plant on the same
+        day no longer trips the unique ``batch_id`` index (issue #744).
+        """
         batch.plant_key = plant_key
         harvest_date = ensure_aware_utc(batch.harvest_date) or now_utc()
 
@@ -130,7 +136,29 @@ class HarvestService:
                 first_blocker["days_remaining"],
             )
 
+        if not batch.batch_id.strip():
+            batch.batch_id = self._generate_batch_id(plant_key, harvest_date)
+
         return self._repo.create_batch(batch)
+
+    def _generate_batch_id(self, plant_key: str, harvest_date: datetime) -> str:
+        """Build a deterministic, collision-free ``batch_id`` for a blank input.
+
+        Base form is ``HARVEST-<YYYYMMDD>-<plant_key>``. If a batch for the same
+        plant already exists on that day, a numeric suffix (``-2``, ``-3`` …) is
+        appended until a free identifier is found; an exhausted range falls back
+        to a short random suffix. The unique ``batch_id`` index stays the
+        authoritative backstop against concurrent races.
+        """
+        day = harvest_date.strftime("%Y%m%d")
+        base = f"HARVEST-{day}-{plant_key or 'unassigned'}"
+        if not self._repo.batch_id_exists(base):
+            return base
+        for suffix in range(2, 1000):
+            candidate = f"{base}-{suffix}"
+            if not self._repo.batch_id_exists(candidate):
+                return candidate
+        return f"{base}-{uuid4().hex[:8]}"
 
     def update_batch(self, key: str, data: dict) -> HarvestBatch:
         existing = self.get_batch(key)

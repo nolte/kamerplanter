@@ -2,7 +2,7 @@
 req_id: REQ-022
 title: Einfache Pflegeerinnerungen fuer Zimmerpflanzen & Ueberwinterungsmanagement
 category: Pflege & Erinnerungen
-test_count: 88
+test_count: 94
 coverage_areas:
   - Core-Lifecycle-Journey — Care-Reminder aus dem Pflege-Dashboard abschließen (self-provisioning)
   - PflegeDashboardPage (/pflege) — Kartenansicht aller faelliger Erinnerungen
@@ -33,6 +33,8 @@ coverage_areas:
   - Knollen-Zyklus-Status-Anzeige (6 Statuses, Statuswechsel per Action-Button)
   - Winterschutz-ReminderCard Anleitungstext und Bestaetigung
   - Fruehlings-Erinnerungskarte Anleitungstext (Auswintern ab Datum)
+  - Gießzyklus-Anpassung — Propagation in Pflege-Dashboard und Aufgabenliste (#622)
+  - Gießzyklus-Anpassung — Propagation in Benachrichtigungen (Soll-Verhalten)
 generated: 2026-04-02
 version: "2.4"
 ---
@@ -2419,6 +2421,177 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 
 ---
 
+## 28. Gießzyklus-Anpassung — Propagation in Pflege-Dashboard, Aufgabenliste & Benachrichtigungen (Soll-Verhalten)
+
+> **Hinweis (Ist- vs. Soll-Verhalten):** Passt der Nutzer den **Gießzyklus** (Gießintervall,
+> Winter-Multiplikator oder Care-Style-Preset) im CareProfileEditDialog an, muss die neue
+> Fälligkeit an allen Stellen ankommen, an denen der Nutzer Erinnerungen sieht:
+> im **Pflege-Dashboard** (`/pflege`), in der **Aufgabenliste** (`/aufgaben/queue`) und in
+> der zugehörigen **Benachrichtigung** (REQ-030).
+>
+> **Ist:** Die Propagation auf **Task-Ebene** ist real umgesetzt (Issue #622): Eine
+> Intervalländerung terminiert die **pending** Gieß-Care-Task in-place neu
+> (`care_reminder_service._reschedule_pending_care_task` → `task_repo.update_task`);
+> eine bereits **laufende** (`in_progress`) Task bleibt unangetastet. Pflege-Dashboard und
+> Aufgabenliste lesen diesen aktualisierten Zustand.
+> **Soll (noch offen):** Die zugehörige **Benachrichtigung** wird dabei nicht synchron
+> umterminiert — sie entsteht erst beim nächsten periodischen `dispatch_due_care`-Lauf
+> (06:05 UTC). Testfälle, die eine sofortige Benachrichtigungs-Anpassung fordern, sind mit
+> `soll-verhalten` getaggt.
+
+---
+
+### TC-022-089: Gießzyklus verkürzen — nächste Erinnerung im Pflege-Dashboard rückt vor
+
+**Requirement**: REQ-022 § 5.2 — CareProfileEditDialog (Gießintervall-Slider); Issue #622 Reschedule
+**Priority**: High
+**Category**: Zustandswechsel / Pflege-Dashboard
+
+**Vorbedingungen**:
+- Nutzer ist angemeldet
+- Pflanze `ZYKLUS-022` mit CareProfile, Gießintervall aktuell 10 Tage; die letzte Gießbestätigung liegt 4 Tage zurück (nächste Fälligkeit also in ~6 Tagen, Gruppe "Zukunft")
+
+**Testschritte**:
+1. Nutzer öffnet den CareProfileEditDialog der Pflanze `ZYKLUS-022`
+2. Nutzer verschiebt den Slider "Gießintervall (Tage)" von 10 auf 5 und klickt "Speichern"
+3. Nutzer navigiert zu `/pflege`
+
+**Erwartetes Ergebnis**:
+- Snackbar bestätigt das Speichern; der Slider zeigt "5 Tage"
+- Die Gieß-ReminderCard für `ZYKLUS-022` ist nun fällig (letzte Aktion vor 4 Tagen + 5 Tage Intervall → ab morgen/heute) und erscheint mit entsprechendem Dringlichkeits-Badge weiter oben im Dashboard
+- Der Zustand bleibt nach einem Reload bestehen
+
+**Nachbedingungen**: Gießzyklus ist verkürzt; Dashboard zeigt die vorgezogene Fälligkeit
+
+**Tags**: [req-022, care-profile, giessintervall, zyklus-anpassung, pflege-dashboard, propagation]
+
+---
+
+### TC-022-090: Gießzyklus-Anpassung propagiert in die Aufgabenliste (/aufgaben/queue)
+
+**Requirement**: REQ-022 § 3 — CareConfirmation-Interop; Issue #622 `_reschedule_pending_care_task`; REQ-006 § 1 Aufgabenliste
+**Priority**: High
+**Category**: Zustandswechsel / Listenansicht
+
+**Vorbedingungen**:
+- Pflanze `ZYKLUS-022` mit einer **pending** Gieß-Care-Task, die in der Aufgabenliste `/aufgaben/queue` (Quellen-Filter "Pflege") mit einem bestimmten Fälligkeitsdatum sichtbar ist
+- Gießintervall aktuell 7 Tage
+
+**Testschritte**:
+1. Nutzer notiert das aktuelle Fälligkeitsdatum der Gieß-Aufgabe in der Queue
+2. Nutzer öffnet den CareProfileEditDialog, ändert das Gießintervall auf 3 Tage und speichert
+3. Nutzer navigiert zurück zu `/aufgaben/queue` (ggf. Reload)
+
+**Erwartetes Ergebnis**:
+- Dieselbe pending Gieß-Aufgabe (kein Duplikat) zeigt nun das gemäß neuem 3-Tage-Zyklus berechnete, frühere Fälligkeitsdatum
+- Die Aufgabe ist ggf. in eine dringlichere Gruppe ("Heute"/"Diese Woche") umgruppiert
+- Es entsteht **keine** zweite Gieß-Aufgabe für denselben Zeitraum
+
+**Nachbedingungen**: Die Aufgabenliste spiegelt den angepassten Gießzyklus
+
+**Tags**: [req-022, req-006, care-profile, zyklus-anpassung, task-queue, reschedule, propagation]
+
+---
+
+### TC-022-091: Gießzyklus während laufender Aufgabe ändern — in_progress-Task bleibt, nächster Zyklus greift danach
+
+**Requirement**: REQ-022 § 3 — Reschedule nur für pending Tasks (in_progress unangetastet)
+**Priority**: Medium
+**Category**: Grenzwert / Zustandswechsel
+
+**Vorbedingungen**:
+- Pflanze `ZYKLUS-022` mit einer Gieß-Care-Task im Status `in_progress`
+- Gießintervall aktuell 5 Tage
+
+**Testschritte**:
+1. Nutzer öffnet den CareProfileEditDialog, ändert das Gießintervall auf 12 Tage und speichert
+2. Nutzer betrachtet die laufende Aufgabe in `/aufgaben/queue`
+3. Nutzer schließt die laufende Aufgabe ab und betrachtet die nächste Fälligkeit
+
+**Erwartetes Ergebnis**:
+- Die laufende (`in_progress`) Aufgabe behält ihr ursprüngliches Fälligkeitsdatum (wird nicht rückwirkend umterminiert)
+- Erst die **nach Abschluss** materialisierte nächste Gieß-Fälligkeit folgt dem neuen 12-Tage-Zyklus
+- Kein Datenverlust an der laufenden Aufgabe
+
+**Nachbedingungen**: Laufende Aufgabe unverändert; Folge-Zyklus angepasst
+
+**Tags**: [req-022, care-profile, zyklus-anpassung, in-progress, grenzwert, reschedule]
+
+---
+
+### TC-022-092: Care-Style-Preset wechseln — alle Zyklen und Dashboard-Fälligkeiten aktualisieren sich
+
+**Requirement**: REQ-022 § 5.2 — Care-Style-Wechsel (Bestätigungs-Dialog, Reset aller Intervalle)
+**Priority**: Medium
+**Category**: Zustandswechsel / Pflege-Dashboard
+
+**Vorbedingungen**:
+- Pflanze `ZYKLUS-022` mit Care-Style "Standard" und individuell angepassten Intervallen
+
+**Testschritte**:
+1. Nutzer öffnet den CareProfileEditDialog und wählt einen anderen Care-Style (z.B. "Sukkulente")
+2. Nutzer bestätigt den Warnhinweis, dass alle Intervalle auf die Preset-Werte gesetzt werden
+3. Nutzer speichert und navigiert zu `/pflege`
+
+**Erwartetes Ergebnis**:
+- Alle Intervall-Slider (Gießen, Düngen, etc.) zeigen die Preset-Werte des neuen Care-Styles
+- Die fälligen Gieß-/Dünge-ReminderCards für `ZYKLUS-022` sind gemäß den neuen (längeren) Zyklen neu terminiert; ggf. verschwindet eine bislang fällige Gießerinnerung aus dem "fällig"-Bereich
+- Der Zustand bleibt nach einem Reload bestehen
+
+**Nachbedingungen**: Alle Pflege-Zyklen der Pflanze folgen dem neuen Preset
+
+**Tags**: [req-022, care-profile, care-style, preset, zyklus-anpassung, pflege-dashboard]
+
+---
+
+### TC-022-093: Gießzyklus-Anpassung — fällige Benachrichtigung wird synchron auf neuen Termin verschoben (Soll)
+
+**Requirement**: REQ-022 § 5.2 — Intervall-Anpassung; REQ-030 § 1.1 `care.watering` — Zustelllücke von REQ-022
+**Priority**: Medium
+**Category**: Zustandswechsel / Benachrichtigung
+
+**Vorbedingungen**:
+- Pflanze `ZYKLUS-022` mit einer heute fälligen Gießerinnerung, für die bereits eine `care.watering`-Benachrichtigung im Notification-Center liegt
+
+**Testschritte**:
+1. Nutzer öffnet das Notification-Center und bestätigt die heute fällige Gieß-Benachrichtigung
+2. Nutzer öffnet den CareProfileEditDialog, verlängert das Gießintervall deutlich (z.B. 3 → 14 Tage) und speichert
+3. Nutzer öffnet erneut das Notification-Center (ggf. nach Reload)
+
+**Erwartetes Ergebnis**:
+- **(Soll)** Die Gieß-Benachrichtigung ist nicht mehr als "heute fällig" gelistet, sondern folgt dem neuen 14-Tage-Zyklus (bzw. verschwindet, bis der neue Termin erreicht ist); **kein** Duplikat entsteht
+- *Ist-Referenz: aktuell wird nur die Care-Task synchron neu terminiert (#622); die Benachrichtigung folgt erst beim nächsten `dispatch_due_care`-Lauf — Soll-Verhalten.*
+
+**Nachbedingungen**: Benachrichtigung spiegelt den angepassten Gießzyklus
+
+**Tags**: [req-022, req-030, benachrichtigung, zyklus-anpassung, soll-verhalten]
+
+---
+
+### TC-022-094: Erinnerung bestätigen — zugehörige Benachrichtigung wird als erledigt markiert (Soll)
+
+**Requirement**: REQ-022 § 1 — Ein-Tap-Bestätigung; REQ-030 § 5.2 Actionable Notifications
+**Priority**: Medium
+**Category**: Zustandswechsel / Benachrichtigung
+
+**Vorbedingungen**:
+- Pflanze `ZYKLUS-022` mit einer fälligen Gießerinnerung und einer zugehörigen ungelesenen `care.watering`-Benachrichtigung im Notification-Center
+
+**Testschritte**:
+1. Nutzer bestätigt die Gießerinnerung im Pflege-Dashboard per Ein-Tap ("Gegossen")
+2. Nutzer öffnet das Notification-Center (ggf. nach Reload)
+
+**Erwartetes Ergebnis**:
+- **(Soll)** Die zugehörige Gieß-Benachrichtigung ist automatisch als erledigt/gelesen markiert und wird nicht mehr im ungelesen-Badge gezählt
+- Es erscheint keine erneute Erinnerung für die bereits bestätigte Gießung im aktuellen Zyklus
+- *Ist-Referenz: aktuell schließt die CareConfirmation die zugehörige Benachrichtigung nicht automatisch; `mark_read`/`mark_acted` sind rein manuell — Soll-Verhalten.*
+
+**Nachbedingungen**: Bestätigte Erinnerung hinterlässt keine offene Benachrichtigung
+
+**Tags**: [req-022, req-030, benachrichtigung, bestaetigung, actionable, soll-verhalten]
+
+---
+
 ## Abdeckungsmatrix
 
 | Spec-Abschnitt | Beschreibung | Testfall-IDs |
@@ -2454,3 +2627,5 @@ prominenten Ein-Tap-Bestaetigen-Button und einen dezenten Snooze-Link.
 | § 6 Akzeptanzkriterien — Adaptive Learning Toggle | An/Aus schalten | TC-022-025 |
 | § 7 Authentifizierung | Zugriffsschutz, Session-Ablauf | TC-022-057, TC-022-058 |
 | Grenzwerte Formvalidierung | Slider-Grenzen, min Aktivmonat | TC-022-054, TC-022-055, TC-022-056 |
+| § 5.2 Gießzyklus-Anpassung propagiert in Pflege-Dashboard & Aufgabenliste (#622) | Intervall/Preset ändern → Dashboard + Queue zeigen neue Fälligkeit; in_progress unangetastet | TC-022-089, TC-022-090, TC-022-091, TC-022-092 |
+| § 5.2 Gießzyklus-/Bestätigungs-Propagation in Benachrichtigungen (Soll-Verhalten) | Intervalländerung/Bestätigung → Benachrichtigung folgt synchron | TC-022-093, TC-022-094 |

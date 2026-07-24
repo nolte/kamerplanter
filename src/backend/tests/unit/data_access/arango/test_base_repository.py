@@ -12,9 +12,10 @@ the typed methods raise ``TypeError`` instead of silently returning dicts.
 from unittest.mock import MagicMock
 
 import pytest
+from arango.exceptions import DocumentInsertError
 from pydantic import BaseModel
 
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import DuplicateError, NotFoundError
 from app.data_access.arango.base_repository import BaseArangoRepository
 
 
@@ -390,6 +391,67 @@ class TestFindByField:
         mock_db.aql.execute.return_value = iter([])
 
         assert repo.find_one_by_field("slug", "missing") is None
+
+
+# ── unique-constraint violation → DuplicateError (issue #744) ────────────────
+
+
+def _insert_error(error_message: str | None) -> DocumentInsertError:
+    """Build a bare ``DocumentInsertError`` (error 1210) without a live response."""
+    err = DocumentInsertError.__new__(DocumentInsertError)
+    err.error_code = 1210
+    err.error_message = error_message
+    return err
+
+
+class TestUniqueConflictExtraction:
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "unique constraint violated - in index 42 of type persistent over '[\"batch_id\"]'; conflicting key: 99",
+            "unique constraint violated - in index 42 of type persistent over 'batch_id'; conflicting key: 99",
+            'unique constraint violated ... over ["batch_id"] ...',
+        ],
+    )
+    def test_extracts_field_name_from_arango_message(self, message):
+        assert BaseArangoRepository._extract_unique_field(message) == "batch_id"
+
+    def test_returns_none_for_unparseable_message(self):
+        assert BaseArangoRepository._extract_unique_field("boom") is None
+        assert BaseArangoRepository._extract_unique_field(None) is None
+
+    def test_describe_pairs_field_with_document_value(self):
+        err = _insert_error("... over '[\"batch_id\"]' ...")
+        field, value = BaseArangoRepository._describe_unique_conflict(err, {"batch_id": "H-1"})
+        assert (field, value) == ("batch_id", "H-1")
+
+    def test_describe_falls_back_to_non_misleading_placeholder(self):
+        err = _insert_error("something opaque")
+        assert BaseArangoRepository._describe_unique_conflict(err, {"batch_id": "H-1"}) == ("field", "")
+
+    def test_insert_raises_duplicate_error_naming_the_real_field(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        mock_db.collection.return_value.insert.side_effect = _insert_error(
+            "unique constraint violated - in index 42 of type persistent over '[\"name\"]'; conflicting key: 7"
+        )
+
+        with pytest.raises(DuplicateError) as exc:
+            repo.create(Widget(name="Hammer"))
+
+        # No more misleading key='duplicate' — the real field/value are surfaced.
+        assert "name='Hammer'" in exc.value.message
+        assert exc.value.details[0]["field"] == "name"
+        assert exc.value.error_code == "DUPLICATE_ENTRY"
+
+    def test_insert_reraises_non_unique_errors(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        other = DocumentInsertError.__new__(DocumentInsertError)
+        other.error_code = 1234
+        other.error_message = "unrelated"
+        mock_db.collection.return_value.insert.side_effect = other
+
+        with pytest.raises(DocumentInsertError):
+            repo.create(Widget(name="Hammer"))
 
 
 # ── delete_edges (DUP-B10) ───────────────────────────────────────────────────

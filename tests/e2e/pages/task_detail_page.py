@@ -40,6 +40,23 @@ class TaskDetailPage(BasePage):
     # ── Snackbar (notistack) ───────────────────────────────────────────
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")
 
+    # ── Edit-tab form fields (rendered inside the last "Bearbeiten" tab) ──
+    FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
+    FORM_DUE_DATE = (By.CSS_SELECTOR, "[data-testid='form-field-due_date'] input")
+    FORM_ASSIGNED_TO = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-assigned_to_user_key'] input",
+    )
+    FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+
+    # ── Detail-tab MetaItem labels (no dedicated testid; matched by text) ──
+    _RECURRENCE_LABELS = ("Wiederholung", "Recurrence")
+    _DUE_DATE_LABELS = ("Fälligkeitsdatum", "Due Date")
+    _ASSIGNED_LABELS = ("Zugewiesen an", "Assigned To")
+
+    # ── Delete button (no data-testid; MUI error-coloured button) ─────────
+    _DELETE_LABELS = ("Löschen", "Delete")
+
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
 
@@ -173,3 +190,147 @@ class TaskDetailPage(BasePage):
     def has_snackbar(self) -> bool:
         """Check if a snackbar is currently visible."""
         return len(self.driver.find_elements(*self.SNACKBAR)) > 0
+
+    # ── Edit tab ───────────────────────────────────────────────────────
+
+    def open_edit_tab(self) -> None:
+        """Open the 'Bearbeiten' (edit) tab.
+
+        The edit tab (i18n label ``common.edit``) is always rendered as the
+        last tab regardless of the task's actionable state, so it is targeted
+        by its trailing index via the existing ``click_tab_by_index`` logic.
+        """
+        self.click_tab_by_index(self.get_tab_count() - 1)
+        self.wait_for_element_visible(self.FORM_NAME)
+
+    def set_name(self, value: str) -> None:
+        """Clear and refill the task name field in the edit tab."""
+        el = self.wait_for_element_clickable(self.FORM_NAME)
+        self.clear_and_fill(el, value)
+
+    def set_due_date(self, value: str) -> None:
+        """Set the due-date field (native ``<input type='date'>``) to an ISO date.
+
+        Accepts an ISO ``YYYY-MM-DD`` string.  A native date input's ``.value``
+        is always ISO, but typing the ISO string with send_keys fills the
+        *localized* DD.MM.YYYY segments left-to-right and produces a garbage
+        date under de-DE.  Assign the value directly via the native setter and
+        dispatch input/change so the React controlled field picks it up
+        (mirrors ``TaskQueuePage.set_due_date_today``).
+        """
+        el = self.wait_for_element_clickable(self.FORM_DUE_DATE)
+        self.driver.execute_script(
+            "var el = arguments[0], v = arguments[1];"
+            "var setter = Object.getOwnPropertyDescriptor("
+            "window.HTMLInputElement.prototype, 'value').set;"
+            "setter.call(el, v);"
+            "el.dispatchEvent(new Event('input', {bubbles: true}));"
+            "el.dispatchEvent(new Event('change', {bubbles: true}));",
+            el,
+            value,
+        )
+
+    def set_priority(self, value: str) -> None:
+        """Open the priority FormSelectField and pick the option by enum value."""
+        self.choose_select_value("priority", value)
+
+    def set_category(self, value: str) -> None:
+        """Open the category FormSelectField and pick the option by enum value."""
+        self.choose_select_value("category", value)
+
+    def set_recurrence_rule(self, value: str) -> None:
+        """Open the recurrence FormSelectField and pick the option by its value.
+
+        Valid values (dropdown-only, no free-form cron): ``''`` (none),
+        ``'FREQ=DAILY'``, ``'FREQ=WEEKLY'``, ``'FREQ=WEEKLY;INTERVAL=2'`` and
+        ``'FREQ=MONTHLY'``.  The empty value maps to the option testid
+        ``form-option-recurrence_rule-`` and ``data-value=''``.
+        """
+        self.choose_select_value("recurrence_rule", value)
+
+    def set_assigned_to(self, value: str) -> None:
+        """Clear and refill the free-text 'assigned to' field."""
+        el = self.wait_for_element_clickable(self.FORM_ASSIGNED_TO)
+        self.clear_and_fill(el, value)
+
+    def save_edit(self) -> None:
+        """Submit the edit form and wait for confirmation.
+
+        Clicks the ``form-submit-button``; on success a notistack snackbar is
+        shown and the page reloads back into the details view.  Waits briefly
+        for the snackbar as a completion signal (best effort — a missing
+        snackbar does not raise).
+        """
+        self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
+        try:
+            self.wait_for_snackbar(timeout=5)
+        except Exception:
+            pass
+
+    # ── Detail-tab value readback ──────────────────────────────────────
+
+    def _get_detail_meta_text(self, label_variants: tuple[str, ...]) -> str:
+        """Return a MetaItem value from the details tab, matched by its label.
+
+        The details grid renders each field as a ``MetaItem``: a
+        ``MuiTypography-caption`` label followed by the value node, without a
+        dedicated testid.  This locates the caption whose text matches one of
+        the (localized) label variants and returns the surrounding container's
+        text with the label line stripped.  Returns ``''`` when the field is
+        not rendered (values render conditionally).
+        """
+        for label in label_variants:
+            els = self.driver.find_elements(
+                By.XPATH,
+                "//*[@data-testid='task-detail-page']"
+                "//*[contains(@class, 'MuiTypography-caption')"
+                f" and normalize-space()='{label}']",
+            )
+            if els:
+                container = els[0].find_element(By.XPATH, "./..")
+                text = container.text.strip()
+                if text.startswith(label):
+                    text = text[len(label):]
+                return text.strip()
+        return ""
+
+    def get_detail_recurrence_text(self) -> str:
+        """Return the recurrence value shown on the details tab (or '')."""
+        return self._get_detail_meta_text(self._RECURRENCE_LABELS)
+
+    def get_detail_due_text(self) -> str:
+        """Return the due-date value shown on the details tab (or '')."""
+        return self._get_detail_meta_text(self._DUE_DATE_LABELS)
+
+    def get_detail_assigned_text(self) -> str:
+        """Return the 'assigned to' value shown on the details tab (or '')."""
+        return self._get_detail_meta_text(self._ASSIGNED_LABELS)
+
+    # ── Delete ─────────────────────────────────────────────────────────
+
+    def delete_task(self) -> None:
+        """Delete the task via the header delete button and confirm dialog.
+
+        The header delete button carries no data-testid; it is the MUI
+        ``color='error'`` button in the detail header (i18n text
+        ``common.delete``).  It is located robustly by its error colour class
+        combined with its label text, then the generic ``ConfirmDialog`` is
+        accepted via ``confirm-dialog-confirm``.
+        """
+        text_predicate = " or ".join(
+            f"normalize-space()='{label}'" for label in self._DELETE_LABELS
+        )
+        button = self.wait_for_element_clickable(
+            (
+                By.XPATH,
+                "//*[@data-testid='task-detail-page']//button["
+                "(contains(@class, 'MuiButton-colorError')"
+                " or contains(@class, 'MuiButton-outlinedError'))"
+                f" and ({text_predicate})]",
+            )
+        )
+        self.scroll_and_click(button)
+        self.wait_for_element_visible(self.CONFIRM_DIALOG)
+        self.scroll_and_click(
+            self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM)
+        )

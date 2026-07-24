@@ -8,9 +8,11 @@ tab set and order vary with experience level.
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage
 
@@ -40,6 +42,9 @@ class SpeciesDetailPage(BasePage):
 
     # Growth phase locators
     PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
+    # Section heading — present for every species with a lifecycle config,
+    # including system/managed species, which hide the create button.
+    PHASE_SECTION_TITLE = (By.XPATH, "//h6[normalize-space()='Wachstumsphasen']")
     PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -243,8 +248,27 @@ class SpeciesDetailPage(BasePage):
 
     # ── Growth phases (within lifecycle tab) ──────────────────────────
 
-    def has_growth_phase_section(self) -> bool:
-        return len(self.driver.find_elements(*self.PHASE_CREATE_BUTTON)) > 0
+    def has_growth_phase_section(self, timeout: int = 10) -> bool:
+        # Anchor on the section heading, not the create button: managed
+        # (system) species render the section read-only without the button.
+        # The section loads asynchronously after the lifecycle form; poll
+        # instead of a single unwaited find_elements, which races the fetch
+        # on slower machines (e.g. CI runners).
+        return self._poll_present(self.PHASE_SECTION_TITLE, timeout)
+
+    def can_create_growth_phase(self, timeout: int = 10) -> bool:
+        # Editable (non-managed) species only — the create button is hidden
+        # for system species even though the section itself is visible.
+        return self._poll_present(self.PHASE_CREATE_BUTTON, timeout)
+
+    def _poll_present(self, locator: tuple[str, str], timeout: int) -> bool:
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: len(d.find_elements(*locator)) > 0
+            )
+        except TimeoutException:
+            return False
+        return True
 
     def get_phase_count(self) -> int:
         return len(self.driver.find_elements(*self.PHASE_TABLE_ROWS))

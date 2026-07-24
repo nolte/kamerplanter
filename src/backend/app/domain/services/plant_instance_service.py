@@ -11,7 +11,7 @@ from app.common.enums import (
     TerminationType,
     TransitionTrigger,
 )
-from app.common.exceptions import ValidationError
+from app.common.exceptions import NotFoundError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
@@ -102,7 +102,33 @@ class PlantInstanceService:
             verify_tenant_ownership(plant, tenant_key, "PlantInstance")
         return plant
 
+    def _verify_site_ownership(self, plant: PlantInstance) -> None:
+        """Re-verify a client-supplied ``site_key`` belongs to the plant's tenant (#719).
+
+        Mirrors the location #717 fix and the create/update asymmetry it closed: a
+        ``site_key`` taken from the request body must never move (or create) a plant
+        onto a site owned by another tenant (IDOR). Unlike ``Location`` documents —
+        which persist an empty ``tenant_key`` and are only tenant-verified through
+        their parent site (#706) — ``Site`` documents carry a real ``tenant_key``, so
+        ownership is anchored directly on the resolved site here and the guard is not
+        inert. Raises :class:`NotFoundError` (via ``get_site_or_raise`` for an unknown
+        site, via ``verify_tenant_ownership`` for a foreign one) so the write path is
+        never reached. Skipped when the plant carries no ``tenant_key`` (internal
+        callers / tests) or no ``site_key`` — matching the ``if tenant_key`` gate used
+        by ``get_plant``/``remove_plant``.
+        """
+        if not plant.tenant_key or not plant.site_key:
+            return
+        site = self._site_repo.get_site_by_key(plant.site_key)
+        if site is None:
+            raise NotFoundError("Site", plant.site_key)
+        verify_tenant_ownership(site, plant.tenant_key, "Site")
+
     def create_plant(self, plant: PlantInstance, skip_validation: bool = False) -> PlantInstance:
+        # SEC (#719): reject a foreign/unknown site_key before any write, mirroring the
+        # location create path — a client must not create a plant on another tenant's site.
+        self._verify_site_ownership(plant)
+
         if not skip_validation and plant.slot_key:
             # Validate rotation
             self._rotation.validate_or_raise(plant.slot_key, plant.species_key)
@@ -408,6 +434,11 @@ class PlantInstanceService:
         # so the DB copy still carries the old site_key.
         existing = self.get_plant(key)
         old_site_key = existing.site_key
+        # SEC (#719): re-verify the (possibly changed) client-supplied site_key against
+        # the plant's tenant before persisting — closes the same IDOR as #717 did for
+        # locations. A foreign/unknown site raises NotFoundError; the write below and
+        # the overwintering sync are never reached.
+        self._verify_site_ownership(plant)
         updated = self._repo.update(key, plant)
         self._sync_overwintering_on_move(updated, old_site_key)
         return updated

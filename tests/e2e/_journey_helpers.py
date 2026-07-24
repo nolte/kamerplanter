@@ -15,7 +15,16 @@ from __future__ import annotations
 
 import time
 
+from selenium.common.exceptions import (
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+    StaleElementReferenceException,
+    TimeoutException,
+)
+
+from .pages.pflege_dashboard_page import PflegeDashboardPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
+from .pages.task_queue_page import TaskQueuePage
 
 
 def unique_suffix() -> str:
@@ -73,3 +82,97 @@ def provision_plant(
     list_page.wait_for_url_contains("/pflanzen/plant-instances/")
     key = list_page.driver.current_url.rstrip("/").rsplit("/", 1)[-1]
     return key, instance_id
+
+
+def create_care_task(
+    task_queue: TaskQueuePage,
+    instance_id: str,
+    task_name: str,
+    *,
+    category: str = "care_reminder",
+    priority: str = "high",
+) -> str:
+    """Create a care task for plant *instance_id* via the queue dialog and return its key.
+
+    Drives the real TaskCreateDialog (category ``care_reminder``, due today,
+    high priority, plant selected by its unique instance id), submits, then
+    locates the new card in the queue by its unique *task_name*.
+
+    Raising (never skipping) on a missing card is deliberate: a self-provisioning
+    test must always establish its own precondition.
+    """
+    # Fill and submit the create dialog. Under heavy parallel load (xdist) the
+    # queue behind the dialog can render slowly enough to delay a dialog field
+    # beyond its wait, or intercept a click; retry the whole dialog several
+    # times before giving up. Each attempt re-navigates (task_queue.open), which
+    # dismisses any half-open dialog from a previous failed attempt.
+    last_exc: Exception | None = None
+    for _attempt in range(4):
+        try:
+            task_queue.open()
+            task_queue.click_create_task()
+            # Confirm the dialog is actually interactive (its first field is
+            # present) before driving the remaining fields — the MUI Dialog can
+            # be in the DOM/visible while its form is still mounting under load.
+            task_queue.wait_for_element_visible(task_queue.FORM_NAME)
+            task_queue.fill_task_name(task_name)
+            task_queue.select_task_category(category)
+            task_queue.set_due_date_today()
+            task_queue.select_task_priority(priority)
+            if not task_queue.select_task_plant_by_text(instance_id):
+                raise AssertionError(
+                    f"Self-provisioning failed: plant '{instance_id}' offered no "
+                    f"option in the task-create plant autocomplete"
+                )
+            task_queue.submit_task_form()
+            task_queue.wait_for_loading_complete()
+            break
+        except (
+            TimeoutException,
+            ElementClickInterceptedException,
+            ElementNotInteractableException,
+            StaleElementReferenceException,
+        ) as exc:
+            last_exc = exc
+            time.sleep(1.5)
+    else:
+        raise AssertionError(
+            f"Self-provisioning failed: could not drive the task-create dialog "
+            f"for '{task_name}' after 4 attempts: {last_exc}"
+        )
+
+    # The queue refetches after the mutation; poll a few reloads so a slow
+    # refetch does not read the list before the new card is materialised.
+    deadline = time.time() + 15.0
+    while time.time() < deadline:
+        task_queue.open()
+        key = task_queue.find_task_key_by_name(task_name)
+        if key is not None:
+            return key
+        time.sleep(1.0)
+    raise AssertionError(
+        f"Self-provisioning failed: care task '{task_name}' did not appear "
+        f"in the queue after creation"
+    )
+
+
+def wait_for_watering_card(
+    pflege: PflegeDashboardPage,
+    plant_key: str,
+    timeout: float = 15.0,
+) -> bool:
+    """Wait for the plant's live watering care card to render on ``/pflege``.
+
+    A freshly provisioned plant gets an auto care profile whose watering entry
+    is due today, so the merged care dashboard renders the
+    ``care-card-care-{plant_key}-watering`` card on its own — no explicit
+    "Generate reminders" click (which would materialise a task and deduplicate
+    the live card away). Returns True once the card appears within *timeout*.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        pflege.open()
+        if pflege.has_care_card(plant_key, "watering"):
+            return True
+        time.sleep(1.0)
+    return False

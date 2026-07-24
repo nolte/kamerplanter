@@ -152,6 +152,43 @@ describe('CultivarDetailPage — actions', () => {
     expect(updateCultivar).toHaveBeenCalledWith('sp-1', 'cv-1', expect.objectContaining({ name: 'Gala' }));
   });
 
+  it('submits the selected seed_type value', async () => {
+    getCultivar.mockResolvedValue(makeCultivar({ seed_type: null }));
+    const user = userEvent.setup();
+    renderWithProviders(<CultivarDetailPage />, { store: createStoreWithExpertise('intermediate') });
+
+    const seedType = await screen.findByTestId('form-field-seed_type');
+    await user.click(within(seedType).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: i18n.t('enums.seedType.f1_hybrid') }));
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(updateCultivar).toHaveBeenCalledOnce());
+    expect(updateCultivar).toHaveBeenCalledWith(
+      'sp-1',
+      'cv-1',
+      expect.objectContaining({ seed_type: 'f1_hybrid' }),
+    );
+  });
+
+  it('normalises an empty seed_type selection to null on submit', async () => {
+    getCultivar.mockResolvedValue(makeCultivar({ seed_type: 'f1_hybrid' }));
+    const user = userEvent.setup();
+    renderWithProviders(<CultivarDetailPage />, { store: createStoreWithExpertise('intermediate') });
+
+    const seedType = await screen.findByTestId('form-field-seed_type');
+    await user.click(within(seedType).getByRole('combobox'));
+    // The empty "—" option clears the selection.
+    await user.click(await screen.findByRole('option', { name: '—' }));
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() => expect(updateCultivar).toHaveBeenCalledOnce());
+    expect(updateCultivar).toHaveBeenCalledWith(
+      'sp-1',
+      'cv-1',
+      expect.objectContaining({ seed_type: null }),
+    );
+  });
+
   it('renders the phase-watering overrides table and persists an edited override', async () => {
     getLifecycleConfig.mockResolvedValue({ key: 'lc-1' });
     listGrowthPhases.mockResolvedValue([

@@ -9,6 +9,7 @@ from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
     StaleElementReferenceException,
+    TimeoutException,
 )
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -133,7 +134,20 @@ class BasePage:
         if not self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
             return  # Already closed
 
-        # Dropdown is open — close it via Escape
+        # After an option click MUI closes the popover on its own — give the
+        # close animation a moment before touching the keyboard. Sending
+        # Escape while the popover is mid-close delivers the key to the
+        # surrounding dialog and closes THAT instead (races on slow machines,
+        # e.g. CI runners).
+        try:
+            WebDriverWait(self.driver, 2).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+            )
+            return
+        except TimeoutException:
+            pass
+
+        # Dropdown is genuinely open (opened without selecting) — close it via Escape
         self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
         try:
             # Wait until ALL option elements are gone from the DOM
@@ -176,21 +190,44 @@ class BasePage:
         raise AssertionError(f"Select trigger for field '{field_name}' not found")
 
     def select_option_by_value(self, value: str, field_name: str | None = None) -> None:
-        """Click an open dropdown option by its stable data-value (i18n-independent)."""
+        """Click an open dropdown option by its stable data-value (i18n-independent).
+
+        Waits briefly (bounded) for each candidate selector to become
+        clickable rather than gating on an instant ``is_present`` check --
+        the MUI popover open animation can still be in flight when this runs,
+        so an unwaited check can miss an option that renders a beat later.
+        """
         selectors = []
         if field_name:
             selectors.append(f"[data-testid='form-option-{field_name}-{value}']")
         selectors.append(f"li[role='option'][data-value='{value}']")
         for selector in selectors:
             locator = (By.CSS_SELECTOR, selector)
-            if self.is_present(locator):
-                self.scroll_and_click(self.wait_for_element_clickable(locator))
-                self.close_mui_dropdown()
-                return
+            try:
+                el = self.wait_for_element_clickable(locator, timeout=3)
+            except TimeoutException:
+                continue
+            self.scroll_and_click(el)
+            self.close_mui_dropdown()
+            return
         raise AssertionError(f"Option with value '{value}' not found in the open dropdown")
 
     def choose_select_value(self, field_name: str, value: str) -> None:
-        """Open a FormSelectField and pick the option with the given value."""
+        """Open a FormSelectField and pick the option with the given value.
+
+        Retries once, re-opening the select, if the listbox never appeared or
+        the option click didn't register on the first attempt -- a bounded
+        guard against the MUI popover animation racing the option lookup
+        (observed as a one-off timeout on an otherwise-passing code path,
+        TC-006-J077).
+        """
+        self.open_select(field_name)
+        try:
+            self.select_option_by_value(value, field_name)
+            return
+        except AssertionError:
+            pass
+        self.close_mui_dropdown()
         self.open_select(field_name)
         self.select_option_by_value(value, field_name)
 

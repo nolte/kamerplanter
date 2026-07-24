@@ -284,6 +284,33 @@ class TestExistsByGroupKey:
         assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
 
 
+class TestListByGroupKey:
+    def test_returns_models_scoped_by_group_and_tenant(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([_notif_doc(group_key="task.due:t1")])
+
+        result = repo.list_by_group_key("task.due:t1", "t1")
+
+        assert len(result) == 1
+        assert isinstance(result[0], Notification)
+        call = mock_db.aql.execute.call_args
+        query = call.args[0]
+        assert "doc.group_key == @group_key" in query
+        assert "doc.tenant_key == @tenant_key" in query
+        assert "SORT doc.created_at DESC" in query
+        assert call.kwargs["bind_vars"] == {"group_key": "task.due:t1", "tenant_key": "t1"}
+
+    def test_is_tenant_scoped(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        repo.list_by_group_key("g1", "other-tenant")
+        assert mock_db.aql.execute.call_args.kwargs["bind_vars"]["tenant_key"] == "other-tenant"
+
+    def test_empty_result_is_empty_list(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.list_by_group_key("g1", "t1") == []
+
+
 class TestFindNotifiedUserKeys:
     def test_returns_distinct_user_key_set(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter(["u1", "u2"])

@@ -614,6 +614,31 @@ The authoritative ancestry relationship is additionally stored as a `descended_f
 
 ---
 
+## Lifecycle Configuration: Derived Field `grown_as_annual`
+
+Botanically perennial species that are cultivated in practice like annuals (the classic example: the tomato) get a derived, read-only flag in the lifecycle response. <!-- REQ-001 / REQ-003 -->
+
+### Additional Field in the Lifecycle Response
+
+```
+GET /api/v1/species/{species_key}/lifecycle
+```
+
+`LifecycleResponse` additionally includes:
+
+| Field | Type | Meaning |
+|------|-----|----------|
+| `grown_as_annual` | boolean | `true` when `cultivation_cycle_type == "annual"` while `cycle_type != "annual"` — i.e. the species is cultivated as an annual in practice even though it is not botanically annual. |
+
+!!! note "Derived, not persisted, not a request field"
+    `grown_as_annual` is a server-computed response field (`computed_field`): it is re-derived from `cycle_type` and `cultivation_cycle_type` on every request, is never independently stored in the database, and cannot be set via `POST`/`PUT` — a value sent in the request body is ignored.
+
+### See Also
+
+- [Growth Phases — User Guide: Botanical Life Cycle vs. Cultivation Cycle Type](../user-guide/growth-phases.md#botanischer-lebenszyklus-vs-anbau-zyklustyp)
+
+---
+
 ## Season & Overwintering Automation
 
 These endpoints read the automatically computed season state of a site and the automatically materialised overwintering profile of a plant. Both are derived without user interaction as soon as a plant is assigned to a frost-exposed location — by default, a location on an outdoor, greenhouse, or balcony site (`OVERWINTERING_SITE_TYPES`), or a location with a manual frost-exposure override on a site of another type (see [Setting Frost Exposure for a Location](../user-guide/locations-substrates.md#setting-frost-exposure-for-a-location)) — on plant creation, on a site change, and additionally as a safety net from the daily season evaluation run — see [Season Automation](../user-guide/season-automation.md) and [Overwintering](../user-guide/overwintering.md) in the user guide. <!-- REQ-047 -->
