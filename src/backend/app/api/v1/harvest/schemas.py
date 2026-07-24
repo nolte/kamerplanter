@@ -52,7 +52,7 @@ class ObservationResponse(BaseModel):
 
 
 class HarvestBatchCreate(BaseModel):
-    batch_id: str = ""
+    batch_id: str | None = None
     harvest_type: str = "final"
     wet_weight_g: float | None = None
     estimated_dry_weight_g: float | None = None
@@ -72,7 +72,7 @@ class HarvestBatchUpdate(BaseModel):
 
 class HarvestBatchResponse(BaseModel):
     key: str
-    batch_id: str
+    batch_id: str | None = None
     plant_key: str
     harvest_date: datetime | None = None
     harvest_type: str

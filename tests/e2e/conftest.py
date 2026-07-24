@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -246,6 +246,47 @@ def _record_tc_id(request: pytest.FixtureRequest, record_property: Callable) -> 
         match = _TC_ID_SCAN.search(doc.splitlines()[0])
         if match:
             record_property("tc_id", match.group(0))
+
+
+# ── Global-preference serialization across xdist workers ──────────────────
+# In light mode the experience level is stored server-side on the singleton
+# system user (REQ-021 "serverseitig", REQ-027 "User-Preference am System-User")
+# and is therefore global, mutable state shared by every xdist worker. Tests
+# that mutate it (onboarding wizard step 1, the account-settings toggle) or
+# assert UI gating derived from it (nav tiering, dialog field visibility) must
+# not overlap across workers, or the level flips mid-assertion (finding F-8,
+# .resume/e2e-selenium/robustness-audit.md). ``--dist=loadfile`` already
+# serializes within a file; this advisory file lock serializes the affected
+# files against each other. All workers run in the same container, so an
+# fcntl lock on a shared path is a correct inter-process mutex.
+_GLOBAL_PREFERENCE_MODULES = {
+    "test_req020_onboarding_steps",
+    "test_req020_onboarding_wizard",
+    "test_req021_experience_level",
+}
+
+_GLOBAL_PREFERENCE_LOCK_PATH = "/tmp/kamerplanter-e2e-global-preference.lock"
+
+
+@pytest.fixture(autouse=True)
+def _serialize_global_preference_mutators(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """Hold an inter-worker lock for tests touching the global experience level."""
+    module = getattr(request, "module", None)
+    module_name = getattr(module, "__name__", "").rpartition(".")[-1]
+    if module_name not in _GLOBAL_PREFERENCE_MODULES:
+        yield
+        return
+
+    import fcntl
+
+    with open(_GLOBAL_PREFERENCE_LOCK_PATH, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 # ── Device profiles for responsive testing ────────────────────────────────

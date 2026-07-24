@@ -283,7 +283,9 @@ class SpeciesDetailPage(BasePage):
         return names
 
     def click_phase_create(self) -> None:
-        self.wait_for_element_clickable(self.PHASE_CREATE_BUTTON).click()
+        # scroll_and_click: a still-collapsing notistack snackbar can overlay
+        # the bottom-right button and intercept a plain .click().
+        self.scroll_and_click(self.wait_for_element_clickable(self.PHASE_CREATE_BUTTON))
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def fill_phase_form(self, name: str, display_name: str, duration: str,

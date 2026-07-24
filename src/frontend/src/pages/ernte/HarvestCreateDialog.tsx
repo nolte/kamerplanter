@@ -123,7 +123,7 @@ export default function HarvestCreateDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.harvest.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form noValidate onSubmit={handleSubmit(onSubmit)}>
           {plantKey ? (
             <FormTextField
               name="plant_key"

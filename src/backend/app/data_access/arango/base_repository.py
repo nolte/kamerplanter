@@ -290,6 +290,28 @@ class BaseArangoRepository[TModel: BaseModel]:
             raise
         return self._from_doc(result["new"])
 
+    def _update_doc_fields(self, key: str, fields: dict[str, Any]) -> dict[str, Any]:
+        """Partial in-place update of only ``fields`` (plus ``updated_at``).
+
+        Unlike :meth:`_update_doc`, which rewrites the whole document from a
+        full model dump, this hands ArangoDB only the supplied keys.
+        ``collection.update`` merges them into the stored document, so
+        concurrent updates of *disjoint* fields commute instead of clobbering
+        each other's writes (lost-update guard). ``keep_none=True`` (the
+        python-arango default, asserted explicitly here) keeps an intentional
+        ``None`` — e.g. a REQ-045 dashboard_layout reset — persisted as ``null``
+        rather than silently dropping the key.
+        """
+        data = dict(fields)
+        data["updated_at"] = self._now()
+        try:
+            result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=True)
+        except DocumentUpdateError as e:
+            if e.error_code == 1202:  # document not found
+                raise NotFoundError(self._collection_name, key) from e
+            raise
+        return self._from_doc(result["new"])
+
     def _delete_doc(self, key: str) -> bool:
         try:
             self.collection.delete(key)
@@ -411,6 +433,19 @@ class BaseArangoRepository[TModel: BaseModel]:
 
     def update(self, key: str, model: TModel) -> TModel:
         return self._wrap(self._update_doc(key, model))
+
+    def update_fields(self, key: str, fields: dict[str, Any]) -> TModel:
+        """Partial update, merging only ``fields`` into the document (lost-update safe).
+
+        Companion to :meth:`update` for callers that want ArangoDB to merge a
+        subset of fields in place rather than rewrite the whole document from a
+        full model dump. This lets concurrent PATCHes of disjoint fields commute
+        instead of the last full-document writer winning (lost update). ``None``
+        values are preserved (``keep_none=True``), so an explicit reset survives.
+        Returns the updated document mapped to the bound model (or the raw
+        ``dict`` in raw mode).
+        """
+        return self._wrap(self._update_doc_fields(key, fields))
 
     def delete(self, key: str) -> bool:
         return self._delete_doc(key)

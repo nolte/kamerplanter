@@ -568,7 +568,7 @@ export default function HarvestBatchDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Box component="form" onSubmit={handleQualitySubmit(onSaveQuality)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Box component="form" noValidate onSubmit={handleQualitySubmit(onSaveQuality)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Typography variant="body2" color="text.secondary">
                 {t('pages.harvest.createQualityIntro')}
               </Typography>
@@ -722,7 +722,7 @@ export default function HarvestBatchDetailPage() {
               </CardContent>
             </Card>
           ) : (
-            <Box component="form" onSubmit={handleYieldSubmit(onSaveYield)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Box component="form" noValidate onSubmit={handleYieldSubmit(onSaveYield)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
               <Typography variant="body2" color="text.secondary">
                 {t('pages.harvest.createYieldIntro')}
               </Typography>
@@ -800,7 +800,7 @@ export default function HarvestBatchDetailPage() {
 
       {/* Tab 3: Edit */}
       {tab === 3 && (
-        <Box component="form" onSubmit={handleEditSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box component="form" noValidate onSubmit={handleEditSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.harvest.editIntro')}
           </Typography>

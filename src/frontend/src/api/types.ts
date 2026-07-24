@@ -2935,7 +2935,7 @@ export interface HarvestObservationCreate {
 
 export interface HarvestBatch {
   key: string;
-  batch_id: string;
+  batch_id: string | null;
   plant_key: string;
   harvest_date: string | null;
   harvest_type: HarvestType;

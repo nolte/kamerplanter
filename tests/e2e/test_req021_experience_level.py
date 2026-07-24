@@ -84,18 +84,30 @@ def _set_experience_level(
 
     expertise_page.wait_for_saved_snackbar()
 
-    # The "saved" snackbar is optimistic — it is enqueued right after dispatching
-    # the async PATCH, before the server has durably stored the new level. A
-    # dependent field-visibility assertion that runs before persistence can read
-    # a stale level after the next full-reload navigation. Reload the tab and poll
-    # the active toggle until it reflects the target level (fetchPreferences ran).
+    # The snackbar now confirms durable persistence (the handler awaits the
+    # PATCH), but a click can still be swallowed (e.g. a toggle re-render mid
+    # click). Reload the tab and poll the active toggle until it reflects the
+    # target level (fetchPreferences ran); re-click once per attempt instead of
+    # silently proceeding one tier behind, and fail loudly if it never lands.
     import time
 
-    for _ in range(10):
-        expertise_page.open_experience_tab()
-        if expertise_page.get_active_toggle_level() == target_level:
-            return
-        time.sleep(0.5)
+    for _ in range(3):
+        for _ in range(5):
+            expertise_page.open_experience_tab()
+            if expertise_page.get_active_toggle_level() == target_level:
+                return
+            time.sleep(0.5)
+        expertise_page.click_level(target_level)
+        # A swallowed re-click may not raise the confirm dialog again — accept
+        # it only when it actually appeared instead of blocking on a wait.
+        if is_downgrade and expertise_page.is_confirm_dialog_present():
+            expertise_page.accept_confirm_dialog()
+        expertise_page.wait_for_saved_snackbar()
+    pytest.fail(
+        f"Experience level '{target_level}' was not in effect after 3 "
+        "set attempts (toggle still shows "
+        f"'{expertise_page.get_active_toggle_level()}')"
+    )
 
 
 # -- TC-021-004 to TC-021-009: Experience Level Switcher -----------------------

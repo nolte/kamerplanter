@@ -271,6 +271,56 @@ class TestWrite:
         assert result.name == "Renamed"
         assert coll.update.call_args.args[0]["_key"] == "w1"
 
+    def test_update_fields_sends_only_supplied_keys(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        coll = mock_db.collection.return_value
+        coll.update.return_value = {"new": _doc(name="Renamed")}
+
+        repo.update_fields("w1", {"color": "red"})
+
+        sent = coll.update.call_args.args[0]
+        # Only the supplied field (+ _key + updated_at) is written — no full
+        # model dump, so a concurrent disjoint update is not clobbered.
+        assert sent["_key"] == "w1"
+        assert sent["color"] == "red"
+        assert "updated_at" in sent
+        assert "name" not in sent
+
+    def test_update_fields_uses_partial_merge_with_keep_none(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        coll = mock_db.collection.return_value
+        coll.update.return_value = {"new": _doc(color=None)}
+
+        repo.update_fields("w1", {"color": None})
+
+        # keep_none=True => an explicit None reaches ArangoDB (reset semantics),
+        # return_new=True so the merged document comes back.
+        assert coll.update.call_args.kwargs["keep_none"] is True
+        assert coll.update.call_args.kwargs["return_new"] is True
+        assert coll.update.call_args.args[0]["color"] is None
+
+    def test_update_fields_returns_bound_model(self, mock_db):
+        repo = BoundRepo(mock_db, "widgets")
+        coll = mock_db.collection.return_value
+        coll.update.return_value = {"new": _doc(name="Renamed")}
+
+        result = repo.update_fields("w1", {"name": "Renamed"})
+
+        assert isinstance(result, Widget)
+        assert result.name == "Renamed"
+
+    def test_update_fields_missing_doc_raises_not_found(self, mock_db):
+        from arango.exceptions import DocumentUpdateError
+
+        repo = BoundRepo(mock_db, "widgets")
+        coll = mock_db.collection.return_value
+        err = DocumentUpdateError.__new__(DocumentUpdateError)
+        err.error_code = 1202
+        coll.update.side_effect = err
+
+        with pytest.raises(NotFoundError):
+            repo.update_fields("missing", {"color": "red"})
+
     def test_delete_returns_true(self, mock_db):
         repo = BoundRepo(mock_db, "widgets")
         mock_db.collection.return_value.delete.return_value = True

@@ -1763,7 +1763,10 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     harvest_batches_col = db.collection(HARVEST_BATCHES)
     harvest_batches_col.add_persistent_index(fields=["plant_key"], unique=False)
-    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True)
+    # sparse: batch_id is an optional user-facing lot label; only real values must
+    # be unique. Without sparse, a second unlabelled batch (null/absent) would
+    # collide on the missing key (#740). Migration v0030 promotes existing volumes.
+    harvest_batches_col.add_persistent_index(fields=["batch_id"], unique=True, sparse=True)
 
     # REQ-008 Post-Harvest indexes
     post_harvest_batches_col = db.collection(POST_HARVEST_BATCHES)
@@ -1853,6 +1856,18 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     has_season_state_col = db.collection(HAS_SEASON_STATE)
     has_season_state_col.add_persistent_index(fields=["_from"], unique=True)
+
+    # REQ-020/REQ-021 per-user singleton indexes — exactly one preferences
+    # document and one onboarding state per user_key. Unique and non-sparse:
+    # ``user_key`` is a required, always-populated field on both models
+    # (UserPreference/OnboardingState), so the storage layer rejects the
+    # auto-create race that used to mint duplicate singletons under concurrent
+    # cold reads (v0031 dedup migration repairs legacy volumes).
+    user_preferences_col = db.collection(USER_PREFERENCES)
+    user_preferences_col.add_persistent_index(fields=["user_key"], unique=True)
+
+    onboarding_states_col = db.collection(ONBOARDING_STATES)
+    onboarding_states_col.add_persistent_index(fields=["user_key"], unique=True)
 
     # REQ-020 Onboarding indexes
     starter_kits_col = db.collection(STARTER_KITS)
