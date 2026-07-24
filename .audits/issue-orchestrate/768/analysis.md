@@ -204,6 +204,11 @@ Drei Sachverhalte, die den Ausgangszustand gegenüber der Issue-Beschreibung kor
   undokumentiert: `batch_id` ist in Harvest-API-Antworten jetzt nullable
   (v0030 + None-Normalisierung), und die E-Mail-Verifizierungs-Fehlerseite hat
   einen Login-Ausweg.
+  **Nachtrag aus P1 (2026-07-25)**: zwei weitere Verhaltensänderungen sind zu
+  dokumentieren (REQ-022 Pflegeerinnerungen) — die Folgeaufgabe wird beim
+  Abschluss über die Aufgaben-Warteschlange jetzt tatsächlich erzeugt (vorher
+  brach die Erinnerungskette dort zu 100 % ab), und eine Bestätigung schließt
+  nur noch **fällige** Pflegeaufgaben.
 - **Acceptance criteria**: DE-kanonisch + EN-Spiegel gemäß
   `spec/style-guides/DOCS.md` aktualisiert; `mkdocs build --strict` grün.
 - **Touched files / artifacts**: `docs/de/**`, `docs/en/**`.
@@ -220,9 +225,18 @@ Drei Sachverhalte, die den Ausgangszustand gegenüber der Issue-Beschreibung kor
   `security-review` den erzeugten Diff geprüft; jedes High/Critical-Finding ist
   behoben oder mit Begründung dokumentiert; kein ungeprüftes Finding geht in
   den PR.
+  **Nachtrag aus P1 (2026-07-25)**: zusätzlich gegenzulesen sind die neue
+  öffentliche Service-Methode `record_care_task_completion` in
+  `care_reminder_service.py` (verarbeitet einen tenant-gebundenen Task und
+  stempelt `tenant_key` auf den erzeugten Log) und die Tenant-Kontext-Weitergabe
+  in `api/v1/tasks/tenant_router.py`. Die Tenant-Verifikation selbst
+  (`service.get_task(key, tenant_key=ctx.tenant_key)` vor der Completion) ist
+  unverändert, aber die Logik wurde über eine Schichtgrenze verschoben.
 - **Touched files / artifacts**: `src/backend/app/migrations/v0030*`, `v0031*`,
   `src/backend/app/repositories/base_repository.py`,
-  `src/backend/app/services/auth_service.py`, nginx-CSP-Konfiguration.
+  `src/backend/app/services/auth_service.py`, nginx-CSP-Konfiguration,
+  `src/backend/app/domain/services/care_reminder_service.py`,
+  `src/backend/app/api/v1/tasks/tenant_router.py`.
 - **Specialist**: `nolte-engineering:code-security-reviewer` (Read-only Scope) +
   Harness-Built-in `security-review` (Diff-Verifikation).
 - **Depends on**: P9
