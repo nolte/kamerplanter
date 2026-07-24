@@ -13,7 +13,10 @@ the browser-user perspective mandated by NFR-008a.
 
 from __future__ import annotations
 
+import json as _json
 import time
+import urllib.error as _urlerror
+import urllib.request as _urlrequest
 
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
@@ -154,6 +157,88 @@ def create_care_task(
         f"Self-provisioning failed: care task '{task_name}' did not appear "
         f"in the queue after creation"
     )
+
+
+def _api_request(
+    url: str,
+    method: str,
+    token: str | None = None,
+    data: dict | None = None,
+) -> tuple[int, dict]:
+    """Minimal JSON HTTP helper mirroring conftest's ``_api_helpers`` (optional Bearer).
+
+    Kept self-contained (no conftest import) so the journey helpers stay a leaf
+    module; the shape matches the seed fixture's urllib usage.
+    """
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    body = _json.dumps(data).encode() if data is not None else None
+    req = _urlrequest.Request(url, data=body, headers=headers, method=method)
+    try:
+        with _urlrequest.urlopen(req, timeout=15) as resp:
+            raw = resp.read()
+            return resp.status, (_json.loads(raw) if raw else {})
+    except _urlerror.HTTPError as exc:
+        try:
+            return exc.code, _json.loads(exc.read())
+        except Exception:
+            return exc.code, {}
+
+
+def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> None:
+    """Self-provision the TC-004-092 precondition on the backend for *plant_key*.
+
+    Ensures the plant has a **persisted care profile with**
+    ``auto_create_watering_task`` **and exactly one pending** ``— watering``
+    **task** in its task history — the mandatory precondition for the
+    WateringLog→task coupling (``advance_watering_task_after_log``) to complete
+    the open watering task and schedule the follow-up. Without an open task that
+    coupling is a no-op and the watering only shows in the two log views (the
+    Guard called out in the spec).
+
+    Three steps, each idempotent:
+
+    1. ``GET /care-reminders/plants/{key}/profile`` — the get-or-create route
+       *persists* a default profile (``auto_create_watering_task`` defaults to
+       ``True``) so the generator can see it.
+    2. ``PATCH …/profile`` — assert ``auto_create_watering_task`` is on
+       explicitly (belt-and-suspenders against a future default change).
+    3. ``POST /t/{slug}/tasks/generate-care-reminders`` — materialise exactly one
+       pending ``— watering`` task for the plant (runs the daily producer eagerly
+       in-process).
+
+    Raising (never skipping) on failure is deliberate: the test's whole point is
+    that the cross-view path always runs (NFR-008a self-provisioning).
+    """
+    token = seed.get("access_token")
+    slug = seed.get("tenant_slug", "mein-garten")
+    api = base_url.rstrip("/") + "/api/v1"
+
+    status, _ = _api_request(
+        f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token
+    )
+    if status not in (200, 201):
+        raise AssertionError(
+            f"Self-provisioning failed: could not create a care profile for "
+            f"'{plant_key}' (status={status})"
+        )
+
+    _api_request(
+        f"{api}/care-reminders/plants/{plant_key}/profile",
+        "PATCH",
+        token,
+        {"auto_create_watering_task": True},
+    )
+
+    gen_status, _ = _api_request(
+        f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {}
+    )
+    if gen_status not in (200, 201):
+        raise AssertionError(
+            f"Self-provisioning failed: generate-care-reminders returned "
+            f"status={gen_status} for tenant '{slug}'"
+        )
 
 
 def wait_for_watering_card(
