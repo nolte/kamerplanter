@@ -21,6 +21,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 pytestmark = pytest.mark.requires_auth
 
 from .pages import RegisterPage
+from ._auth_helpers import ensure_logged_out
 
 # -- Demo credentials ---------------------------------------------------------
 DEMO_EMAIL = "demo@kamerplanter.example"
@@ -37,8 +38,7 @@ def register_page(browser: WebDriver, base_url: str) -> RegisterPage:
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     """Clear auth state by deleting cookies."""
-    browser.delete_all_cookies()
-    browser.get(f"{base_url}/login")
+    ensure_logged_out(browser, base_url)
 
 
 # -- TC-023-001: Successful registration ---------------------------------------

@@ -47,6 +47,7 @@ from .pages import (
     TaskQueuePage,
 )
 from .pages.notification_center_page import NotificationCenterPage
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -101,7 +102,7 @@ def pflege(browser: WebDriver, base_url: str) -> PflegeDashboardPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as the demo user.  Mirrors test_req023_account_settings."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")

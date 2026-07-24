@@ -25,12 +25,16 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-021.md):
 
 from __future__ import annotations
 
+import json
+import urllib.request
+import uuid
 from pathlib import Path
 from typing import Callable
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from ._auth_helpers import clear_auth_session
 from .pages.expertise_level_page import ExpertiseLevelPage
 
 
@@ -62,6 +66,87 @@ _EXPERIENCE_LEVEL_XFAIL = pytest.mark.xfail(
 
 
 # -- Helpers -------------------------------------------------------------------
+
+
+def _login_as(browser: WebDriver, base_url: str, email: str, password: str) -> None:
+    """Clear the session (path-independent) and log in via the login form."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    clear_auth_session(browser)
+    browser.get(f"{base_url}/login")
+    wait = WebDriverWait(browser, 15)
+    email_input = wait.until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']"))
+    )
+    email_input.clear()
+    email_input.send_keys(email)
+    password_input = browser.find_element(By.CSS_SELECTOR, "input[type='password']")
+    password_input.clear()
+    password_input.send_keys(password)
+    browser.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
+    wait.until(lambda d: "/login" not in d.current_url)
+
+
+def _api_post(url: str, data: dict, token: str | None = None) -> dict:
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    req = urllib.request.Request(
+        url, data=json.dumps(data).encode(), headers=headers, method="POST"
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read() or b"{}")
+
+
+@pytest.fixture
+def pristine_user_session(
+    browser: WebDriver, base_url: str, request: pytest.FixtureRequest
+) -> object:
+    """Full mode: run the test as a freshly registered user (pristine prefs).
+
+    The session seed PATCHes an all-'enabled' ``module_visibility`` map onto
+    the demo user server-side, and in full mode server overrides win over the
+    experience-level filter — tier-hidden nav items therefore stay visible for
+    demo, breaking nav-tiering assertions. Mutating the demo user's overrides
+    instead would race every parallel worker that relies on them (spec:
+    e2e-test-stability §B), so these tests self-provision an isolated user
+    whose preferences are untouched (beginner level, no overrides). Teardown
+    restores the demo session for subsequent tests on this worker.
+
+    Light mode: no-op — the localStorage override removal already suffices.
+    """
+    if request.config.getoption("--app-mode") != "full":
+        yield None
+        return
+
+    email = f"e2e-tiering-{uuid.uuid4().hex[:10]}@example.com"
+    password = "E2eTiering-12345!"
+    _api_post(
+        f"{base_url}/api/v1/auth/register",
+        {"email": email, "password": password, "display_name": "E2E Tiering"},
+    )
+    login = _api_post(
+        f"{base_url}/api/v1/auth/login", {"email": email, "password": password}
+    )
+    token = login["access_token"]
+    # Skip onboarding so the app doesn't bounce navigation into the wizard.
+    tenants_req = urllib.request.Request(
+        f"{base_url}/api/v1/tenants/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(tenants_req, timeout=15) as resp:
+        tenants = json.loads(resp.read())
+    slug = tenants[0]["slug"]
+    _api_post(f"{base_url}/api/v1/t/{slug}/onboarding/skip", {}, token=token)
+
+    _login_as(browser, base_url, email, password)
+    yield email
+
+    from .conftest import DEMO_EMAIL_FULL, DEMO_PASSWORD
+
+    _login_as(browser, base_url, DEMO_EMAIL_FULL, DEMO_PASSWORD)
 
 
 def _set_experience_level(
@@ -307,6 +392,7 @@ class TestExperienceLevelPersistence:
     @pytest.mark.core_crud
     def test_level_persists_after_page_reload(
         self,
+        pristine_user_session: object,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -356,6 +442,7 @@ class TestNavigationTiering:
     @pytest.mark.core_crud
     def test_beginner_navigation_minimal(
         self,
+        pristine_user_session: object,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -415,6 +502,7 @@ class TestNavigationTiering:
     @pytest.mark.core_crud
     def test_intermediate_navigation_adds_sections(
         self,
+        pristine_user_session: object,
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:

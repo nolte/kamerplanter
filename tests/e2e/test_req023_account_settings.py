@@ -19,6 +19,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import AccountSettingsPage, LoginPage
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -44,7 +45,7 @@ def account_page(browser: WebDriver, base_url: str) -> AccountSettingsPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as demo user if not already authenticated."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")
@@ -272,7 +273,9 @@ class TestAccountSettingsTabs:
 
         expected_tabs = ["Profil", "Sicherheit", "Benachrichtigungen", "Erfahrung"]
         for expected in expected_tabs:
-            assert any(expected in label for label in tab_labels), (
+            # Case-insensitive: MUI tabs render with text-transform uppercase,
+            # and Selenium's element.text returns the rendered (upper-cased) text.
+            assert any(expected.upper() in label.upper() for label in tab_labels), (
                 f"TC-REQ-023-030 FAIL: Expected tab '{expected}' in tab list, got: {tab_labels}"
             )
 

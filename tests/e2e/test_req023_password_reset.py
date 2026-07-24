@@ -19,6 +19,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import PasswordResetConfirmPage, PasswordResetRequestPage
+from ._auth_helpers import ensure_logged_out
 
 pytestmark = pytest.mark.requires_auth
 
@@ -43,8 +44,7 @@ def reset_confirm_page(browser: WebDriver, base_url: str) -> PasswordResetConfir
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     """Clear auth state by deleting cookies."""
-    browser.delete_all_cookies()
-    browser.get(f"{base_url}/login")
+    ensure_logged_out(browser, base_url)
 
 
 # -- TC-023-020: Password reset request with known email -----------------------

@@ -40,6 +40,7 @@ relative counts so re-runs converge.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -588,7 +589,14 @@ class TestPlantGalleryI18n:
             if not gallery.is_gallery_loaded():
                 pytest.skip("Gallery did not load — cannot assert i18n labels")
 
+            # The split i18n bundles (#612) load the EN namespace async after
+            # the language switch; the tab briefly renders the fallback DE
+            # label. Poll instead of sampling once.
+            deadline = time.time() + 8
             label = gallery.get_photos_tab_label()
+            while time.time() < deadline and label.lower() != "photos":
+                time.sleep(0.3)
+                label = gallery.get_photos_tab_label()
             screenshot(
                 "TC-REQ-034-011_gallery-english",
                 "Gallery tab with the UI language set to English",
