@@ -21,3 +21,88 @@ capabilities:
       owns the full grow-management domain end to end (backend, frontend,
       knowledge service, and the Home-Assistant-facing API that kamerplanter-ha
       consumes).
+
+# tech_stack: repo-specific deltas vs the inherited portfolio baseline
+# (portfolio/tech-stack.yml). Schema: spec/portfolio/tech-stack/ §Per-repository block.
+tech_stack:
+  additions:
+    - name: python
+      kind: language
+      group: build-tooling
+      role: Primary implementation language for the backend API, workers, and RAG/inference services.
+      status: active
+      lifecycle: all
+      source_of_truth: src/backend/requirements.txt
+      rationale: >-
+        acknowledged-missing-signal: python is the application runtime here, not a docs-build
+        helper; the closed group enum has no application-runtime bucket, so it is grouped under
+        build-tooling as the closest fit (operator may regroup).
+    - name: fastapi
+      kind: framework
+      group: build-tooling
+      role: Web framework serving the backend HTTP API.
+      status: active
+      lifecycle: runtime
+      source_of_truth: src/backend/requirements.txt
+    - name: celery
+      kind: framework
+      group: build-tooling
+      role: Distributed task queue running the asynchronous backend workers.
+      status: active
+      lifecycle: runtime
+      source_of_truth: src/backend/requirements.txt
+    - name: node
+      kind: runtime
+      group: build-tooling
+      version: "25.9.0"
+      role: JavaScript runtime executing the frontend build and dev server.
+      status: active
+      lifecycle: build
+      source_of_truth: src/frontend/.tool-versions
+    - name: react
+      kind: framework
+      group: build-tooling
+      version: "^19.2.4"
+      role: UI framework for the frontend single-page application.
+      status: active
+      lifecycle: build
+      source_of_truth: src/frontend/package.json
+    - name: vite
+      kind: build
+      group: build-tooling
+      version: "^8.0.3"
+      role: Frontend build tool and dev server.
+      status: active
+      lifecycle: build
+      source_of_truth: src/frontend/package.json
+    - name: typescript
+      kind: language
+      group: build-tooling
+      version: "~6.0.0"
+      role: Typed authoring language for the frontend application.
+      status: active
+      lifecycle: build
+      source_of_truth: src/frontend/package.json
+    - name: docker-image
+      kind: deploy-target
+      group: automation
+      role: Container images packaging the backend and per-service (embedding, reranker, vectordb, knowledge) runtimes.
+      status: active
+      lifecycle: runtime
+      source_of_truth: docker/
+      rationale: "kind deploy-target is operator-curated per tech-stack-discovery; signal is the docker/ Dockerfile set."
+    - name: kubernetes
+      kind: deploy-target
+      group: automation
+      role: Deployment target; the application is delivered as a Helm chart onto Kubernetes.
+      status: active
+      lifecycle: runtime
+      source_of_truth: helm/kamerplanter/Chart.yaml
+      rationale: "kind deploy-target is operator-curated per tech-stack-discovery; signal is the helm/ chart."
+    - name: skaffold
+      kind: build
+      group: build-tooling
+      role: Orchestrates the local build-and-deploy inner loop against a Kubernetes (kind) cluster.
+      status: active
+      lifecycle: development
+      source_of_truth: skaffold.yaml
