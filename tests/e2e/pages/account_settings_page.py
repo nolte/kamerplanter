@@ -20,7 +20,7 @@ class AccountSettingsPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
     TABS = (By.CSS_SELECTOR, ".MuiTabs-root")
     TAB_BUTTONS = (By.CSS_SELECTOR, ".MuiTab-root")
-    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardError")
+    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
 
     # ── Profile tab locators ────────────────────────────────────────────
     DISPLAY_NAME_INPUT = (By.CSS_SELECTOR, "[data-testid='profile-display-name'] input")

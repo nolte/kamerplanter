@@ -146,9 +146,9 @@ def _own_user_key(e2e_seed_data: dict, base_url: str) -> str:
     notification is delivered to ``task.assigned_to_user_key``, not to the
     user performing the reassignment.
     """
-    from .conftest import _api_helpers
+    from .conftest import _api_helpers, _fresh_access_token
 
-    _, get = _api_helpers(e2e_seed_data.get("access_token"))
+    _, get = _api_helpers(_fresh_access_token(e2e_seed_data, base_url))
     status, resp = get(f"{base_url.rstrip('/')}/api/v1/users/me")
     if status != 200 or not isinstance(resp, dict) or not resp.get("key"):
         pytest.fail(
@@ -526,6 +526,8 @@ class TestTaskUpdateNotificationFeedback:
         login_page: LoginPage,
         task_queue: TaskQueuePage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-007: Completing a task auto-marks its due-notification done.
@@ -534,35 +536,40 @@ class TestTaskUpdateNotificationFeedback:
         wird als erledigt markiert (nicht mehr im ungelesen-Badge).
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        # Self-provisioned task (e2e-test-stability §A): due today so the
+        # creation propagates an unread due-notification we can then watch.
+        task_key, task_name = _create_e2e_task(
+            e2e_seed_data, base_url, due_in_days=0
+        )
 
         notif_center.open_drawer()
-        initial_badge = notif_center.get_unread_badge_count()
+        texts_before = _drawer_notification_texts(notif_center)
+        if not any(task_name in t for t in texts_before):
+            pytest.fail(
+                "TC-REQ-030-007 precondition: expected an unread due-notification "
+                f"for the fresh task '{task_name}', got: {texts_before}"
+            )
         notif_center.close_drawer()
         screenshot(
             "TC-REQ-030-007_before-complete",
-            f"Notification centre before completing task {key} (badge={initial_badge})",
+            f"Notification centre before completing task {task_key}",
         )
 
         task_queue.open()
-        task_queue.complete_task(key)
+        task_queue.complete_task(task_key)
         task_queue.wait_for_loading_complete()
 
         notif_center.open_drawer()
-        new_badge = notif_center.get_unread_badge_count()
+        texts_after = _drawer_notification_texts(notif_center)
+        own_after = [t for t in texts_after if task_name in t]
         screenshot(
             "TC-REQ-030-007_after-complete",
-            f"Notification centre after completing task (badge={new_badge})",
+            "Notification centre after completing the task",
         )
 
-        assert new_badge < initial_badge, (
-            "TC-REQ-030-007 FAIL (Soll): Expected completing the task to auto-mark its "
-            f"due-notification read (unread badge {initial_badge} -> should decrease), "
-            f"got {new_badge}"
+        assert not own_after or all("Erledigt" in t for t in own_after), (
+            "TC-REQ-030-007 FAIL (Soll): Expected completing the task to mark its "
+            f"due-notification done/read, got: {own_after}"
         )
 
 
@@ -623,6 +630,8 @@ class TestCareNotificationFeedback:
         login_page: LoginPage,
         pflege: PflegeDashboardPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-009: Confirming a reminder auto-marks its notification done.
@@ -640,7 +649,19 @@ class TestCareNotificationFeedback:
         _ensure_logged_in(login_page)
         pflege.open()
         plant_key, reminder_type = _first_care_ids(pflege)
-        plant_name = pflege.get_card_plant_name(pflege.get_care_card(plant_key, reminder_type))
+        # Resolve the plant's display name via the API: the notification body
+        # carries the plant *name*, while the card's visible subtitle is the
+        # care type (get_card_plant_name returned 'Umtopfen' here).
+        from .conftest import _api_helpers, _fresh_access_token
+
+        _, _get = _api_helpers(_fresh_access_token(e2e_seed_data, base_url))
+        slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+        status, plant = _get(
+            f"{base_url.rstrip('/')}/api/v1/t/{slug}/plant-instances/{plant_key}"
+        )
+        plant_name = (plant.get("name") or "").strip() if status == 200 and isinstance(plant, dict) else ""
+        if not plant_name:
+            pytest.skip(f"Could not resolve plant name for key {plant_key} (status={status})")
 
         notif_center.open_drawer()
         notif_key = _care_notification_key(notif_center, plant_name, reminder_type)
@@ -688,9 +709,10 @@ class TestNotificationSourcePropagation:
     def test_moved_task_notification_shows_new_due(
         self,
         login_page: LoginPage,
-        task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-010: Moving a task updates its notification's due date.
@@ -699,36 +721,32 @@ class TestNotificationSourcePropagation:
         neue Faelligkeit (kein 'heute' mehr, kein Duplikat).
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
-
-        task_detail.open(key)
-        task_name = task_detail.get_task_title()
+        # Self-provisioned task due TODAY, so its fresh due-notification reads
+        # 'heute' before the move (e2e-test-stability §A; asserts scoped to it).
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url, due_in_days=0)
         screenshot(
             "TC-REQ-030-010_before-move",
-            f"Task {key} before moving its due date 4 days out",
+            f"Task {task_key} before moving its due date 4 days out",
         )
 
         target_due = (date.today() + timedelta(days=4)).isoformat()
-        task_detail.open(key)
+        task_detail.open(task_key)
         task_detail.open_edit_tab()
         task_detail.set_due_date(target_due)
         task_detail.save_edit()
 
         texts = _drawer_notification_texts(notif_center)
+        own = [t for t in texts if task_name in t]
         screenshot(
             "TC-REQ-030-010_after-move",
             "Notification centre after moving the task's due date",
         )
 
-        assert any(task_name in t for t in texts) and not any(
-            term in t.lower() for t in texts for term in ("heute", "today")
+        assert own and not any(
+            term in t.lower() for t in own for term in ("heute", "today")
         ), (
-            "TC-REQ-030-010 FAIL (Soll): Expected the task notification to show the new "
-            f"due date (no stale 'heute') for '{task_name}', got: {texts}"
+            "TC-REQ-030-010 FAIL (Soll): Expected the task's own notification to show "
+            f"the new due date (no stale 'heute') for '{task_name}', got: {own or texts}"
         )
 
     @pytest.mark.requires_auth
@@ -831,6 +849,8 @@ class TestNotificationSourcePropagation:
         login_page: LoginPage,
         pflege: PflegeDashboardPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-013: Interval change reschedules the watering notification, no duplicate.
@@ -850,7 +870,19 @@ class TestNotificationSourcePropagation:
             pytest.skip("No care reminders available -- seed dependent")
 
         plant_key, reminder_type = _first_care_ids(pflege)
-        plant_name = pflege.get_card_plant_name(pflege.get_care_card(plant_key, reminder_type))
+        # Resolve the plant's display name via the API: the notification body
+        # carries the plant *name*, while the card's visible subtitle is the
+        # care type (get_card_plant_name returned 'Umtopfen' here).
+        from .conftest import _api_helpers, _fresh_access_token
+
+        _, _get = _api_helpers(_fresh_access_token(e2e_seed_data, base_url))
+        slug = e2e_seed_data.get("tenant_slug", "mein-garten")
+        status, plant = _get(
+            f"{base_url.rstrip('/')}/api/v1/t/{slug}/plant-instances/{plant_key}"
+        )
+        plant_name = (plant.get("name") or "").strip() if status == 200 and isinstance(plant, dict) else ""
+        if not plant_name:
+            pytest.skip(f"Could not resolve plant name for key {plant_key} (status={status})")
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
         if not pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER):

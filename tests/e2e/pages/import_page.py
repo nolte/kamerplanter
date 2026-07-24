@@ -49,7 +49,7 @@ class ImportPage(BasePage):
     # ── Result step (step 2) ───────────────────────────────────────────
     NEW_IMPORT_BUTTON = (By.CSS_SELECTOR, "[data-testid='import-new-button']")
     RESULT_CHIPS = (By.CSS_SELECTOR, "[data-testid='import-step-result'] .MuiChip-root")
-    RESULT_WARNING = (By.CSS_SELECTOR, "[data-testid='import-step-result'] .MuiAlert-standardWarning")
+    RESULT_WARNING = (By.CSS_SELECTOR, "[data-testid='import-step-result'] .MuiAlert-colorWarning")
 
     # ── Generic chip locators ──────────────────────────────────────────
     STATUS_CHIP_VALID = (By.CSS_SELECTOR, ".MuiChip-colorSuccess")

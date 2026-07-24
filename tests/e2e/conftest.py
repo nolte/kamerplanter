@@ -637,13 +637,40 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     return result
 
 
+def _fresh_access_token(e2e_seed_data: dict, base_url: str) -> str | None:
+    """Return a currently-valid access token for API helpers.
+
+    The session-scoped seed token expires after the JWT access TTL (15 min) —
+    long before late-scheduled tests run, so helpers that reuse it fail with
+    'Token has expired'. Full mode: re-login with the demo credentials and
+    cache the token for 10 minutes. Light mode (no seed token): ``None``.
+    """
+    if not e2e_seed_data.get("access_token"):
+        return None
+    import time as _time
+
+    cached = e2e_seed_data.get("_fresh_token")
+    if cached and _time.time() - cached[1] < 600:
+        return cached[0]
+    _post, _ = _api_helpers()
+    status, resp = _post(
+        f"{base_url.rstrip('/')}/api/v1/auth/login",
+        {"email": DEMO_EMAIL_FULL, "password": DEMO_PASSWORD},
+    )
+    token = resp.get("access_token") if status == 200 else None
+    if not token:
+        return e2e_seed_data.get("access_token")
+    e2e_seed_data["_fresh_token"] = (token, _time.time())
+    return token
+
+
 def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None) -> tuple[int, dict]:
     """Make an authenticated POST to a tenant-scoped API endpoint.
 
     Helper for test fixtures that need to call the backend API (e.g. resetting
     onboarding state).  Works in both light and full mode.
     """
-    token = e2e_seed_data.get("access_token")
+    token = _fresh_access_token(e2e_seed_data, base_url)
     slug = e2e_seed_data.get("tenant_slug", "mein-garten")
     _post, _ = _api_helpers(token)
     url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/{path.lstrip('/')}"

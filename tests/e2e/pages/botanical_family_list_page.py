@@ -164,7 +164,7 @@ class BotanicalFamilyListPage(BasePage):
         """Check whether an error Alert/Snackbar (backend validation) is visible."""
         return len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            ".MuiAlert-standardError, .MuiAlert-filledError, .MuiSnackbar-root",
+            ".MuiAlert-colorError, .MuiSnackbar-root",
         )) > 0
 
     # ── Create dialog ──────────────────────────────────────────────────
