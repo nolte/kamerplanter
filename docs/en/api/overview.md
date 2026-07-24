@@ -28,7 +28,7 @@ The OpenAPI document can be reproduced straight from the code — no running dat
 task openapi:export
 ```
 
-The command writes the snapshot to `src/backend/openapi.json`. That snapshot is checked in and CI compares it against a fresh export (drift gate) and lints it with [Spectral](https://github.com/stoplightio/spectral). After changing routers, response models, or app metadata, regenerate the snapshot and commit it. Verify without writing: `task openapi:export -- --check`.
+The command writes the document to `src/backend/openapi.json` (gitignored — it is a build artifact and is never checked in). CI re-exports it on every backend change, lints it with [Spectral](https://github.com/stoplightio/spectral), and publishes it as a workflow artifact; the release build attaches it as a release asset.
 
 ---
 

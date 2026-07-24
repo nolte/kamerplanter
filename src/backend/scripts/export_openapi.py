@@ -3,14 +3,16 @@
 Imports the FastAPI app, renders ``app.openapi()`` deterministically (sorted
 keys, two-space indent, trailing newline) and writes it to ``--out`` or stdout.
 This is the reproducible export command required by
-spec/project/api-documentation/ for a code-first repository; CI re-exports the
-document and diffs it against the checked-in snapshot (src/backend/openapi.json).
+spec/project/api-documentation/ for a code-first repository. The document is a
+build artifact and is never checked in: the api-docs CI lane re-exports and
+lints it per backend change, and the release build attaches it as a release
+asset.
 
 Usage:
     python -m scripts.export_openapi [--out openapi.json] [--check]
 
 ``--check`` exits non-zero when ``--out`` exists and differs from the fresh
-export (drift gate for CI).
+export (useful to verify a previously exported file is still current).
 
 The export also fails when a router uses a tag that is not declared in
 ``app.api.v1.openapi_tags.OPENAPI_TAGS`` — keeping the top-level tag list
