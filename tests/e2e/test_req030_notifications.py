@@ -31,6 +31,7 @@ laufen diese Tests jetzt als regulaere Faelle (kein xfail mehr).
 
 from __future__ import annotations
 
+import uuid
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Callable
@@ -125,6 +126,90 @@ def _first_care_ids(pflege: PflegeDashboardPage) -> tuple[str, str]:
     if len(parts) < 2:
         pytest.skip(f"Unexpected card testid format: {testid}")
     return parts[0], parts[1]
+
+
+# -- Self-provisioning helpers (e2e-test-stability §A) ------------------------
+#
+# The seven tests below used to mutate/assert on ``task_queue.get_task_keys()
+# [0]`` -- a shared session-seeded task raced by every parallel xdist worker
+# (each worker's own session fixture recreates the same-named seeds). Instead
+# each test now provisions its own uniquely named entity and scopes every
+# notification assertion to that entity, per §A/§B of e2e-test-stability.
+
+
+def _own_user_key(e2e_seed_data: dict, base_url: str) -> str:
+    """Return the acting user's own ``user_key`` via ``GET /api/v1/users/me``.
+
+    Used by the reassignment test so 'Zugewiesen an' targets a real,
+    resolvable key (the viewer itself) instead of a foreign literal string the
+    acting user has no visibility into -- Issue #742/#752: the assignment
+    notification is delivered to ``task.assigned_to_user_key``, not to the
+    user performing the reassignment.
+    """
+    from .conftest import _api_helpers
+
+    _, get = _api_helpers(e2e_seed_data.get("access_token"))
+    status, resp = get(f"{base_url.rstrip('/')}/api/v1/users/me")
+    if status != 200 or not isinstance(resp, dict) or not resp.get("key"):
+        pytest.fail(
+            "Could not resolve the acting user's own user_key via "
+            f"GET /api/v1/users/me: status={status}, resp={resp}"
+        )
+    return resp["key"]
+
+
+def _create_e2e_task(
+    e2e_seed_data: dict,
+    base_url: str,
+    *,
+    due_in_days: int = 1,
+    category: str = "maintenance",
+    priority: str = "medium",
+) -> tuple[str, str]:
+    """Create a uniquely named, self-provisioned task via the API.
+
+    Self-Provisioning per e2e-test-stability §A: pattern ``E2E-N030-<hex8>``,
+    collision-free across parallel workers and repeated runs. Returns
+    ``(task_key, task_name)``.
+    """
+    from .conftest import _e2e_api_post
+
+    task_name = f"E2E-N030-{uuid.uuid4().hex[:8]}"
+    due_date = (date.today() + timedelta(days=due_in_days)).isoformat()
+    status, resp = _e2e_api_post(
+        e2e_seed_data,
+        base_url,
+        "tasks",
+        {
+            "name": task_name,
+            "name_de": task_name,
+            "category": category,
+            "priority": priority,
+            "due_date": due_date,
+        },
+    )
+    if status != 201 or not isinstance(resp, dict) or not resp.get("key"):
+        pytest.fail(f"Self-provisioning failed: POST tasks -> {status}: {resp}")
+    return resp["key"], task_name
+
+
+def _care_notification_key(
+    notif_center: NotificationCenterPage, plant_name: str, reminder_type: str
+) -> str | None:
+    """Return the drawer notification key matching this plant + reminder type.
+
+    Care notifications carry the plant's display name as their title and the
+    reminder type inside their body (``NotificationPropagationService.
+    sync_care_notification``); this scopes lookups to the specific plant
+    instead of the shared demo account's global unread badge, which every
+    parallel xdist worker mutates concurrently. Requires the drawer to
+    already be open.
+    """
+    for key in notif_center.get_notification_keys():
+        text = notif_center.get_notification_text(key)
+        if plant_name and plant_name in text and reminder_type in text.lower():
+            return key
+    return None
 
 
 # -- TC-REQ-030-001: Navigate to notification settings tab -------------------
@@ -289,9 +374,10 @@ class TestTaskUpdateNotificationFeedback:
     def test_reassign_task_delivers_assignment_notification(
         self,
         login_page: LoginPage,
-        task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-004: Reassigning a task delivers an assignment notification.
@@ -302,23 +388,23 @@ class TestTaskUpdateNotificationFeedback:
         Abweichung Spec vs. Impl: ein 'Meine Aufgaben'-Filter existiert im
         Frontend nicht; die Neuzuweisung via ``set_assigned_to`` ist setzbar und
         liefert dem neu zugewiesenen Mitglied eine Assignment-Benachrichtigung
-        (Issue #742).
+        (Issue #742). Self-provisioned own task, reassigned to the acting
+        user's own ``user_key`` (Issue #752: the previous version reassigned
+        to the literal string ``"e2e-grower"``, a non-existent user the demo
+        viewer could never see a notification for) -- identical in both app
+        modes, so the assertion no longer depends on the light/full split.
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        own_key = _own_user_key(e2e_seed_data, base_url)
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url)
 
-        task_detail.open(key)
-        task_name = task_detail.get_task_title()
+        task_detail.open(task_key)
         task_detail.open_edit_tab()
-        task_detail.set_assigned_to("e2e-grower")
+        task_detail.set_assigned_to(own_key)
         task_detail.save_edit()
         screenshot(
             "TC-REQ-030-004_after-reassign",
-            f"Task {key} reassigned to another member",
+            f"Task {task_key} reassigned to the acting user",
         )
 
         texts = _drawer_notification_texts(notif_center)
@@ -327,42 +413,44 @@ class TestTaskUpdateNotificationFeedback:
             "Notification centre after reassignment",
         )
 
-        assert any("zugewiesen" in t.lower() or task_name in t for t in texts), (
+        own_matches = [t for t in texts if task_name in t]
+        assert own_matches and any(
+            "zugewiesen" in t.lower() or "assign" in t.lower() for t in own_matches
+        ), (
             "TC-REQ-030-004 FAIL (Soll): Expected an assignment notification for the "
-            f"reassigned task '{task_name}', got: {texts}"
+            f"reassigned task '{task_name}', got matches: {own_matches}"
         )
 
     @pytest.mark.requires_auth
     def test_edit_task_updates_existing_notification(
         self,
         login_page: LoginPage,
-        task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-005: Editing a task updates its existing due-notification in place.
 
         Spec: TC-006-083 -- Aufgabe bearbeiten -- zugehoerige Benachrichtigung
         wird synchron aktualisiert (kein Duplikat, kein veralteter Termin).
+
+        Self-provisioned own task (e2e-test-stability §A) -- a shared seed
+        task could be renamed/reassigned/deleted by the reassign/delete/
+        complete tests on a different xdist worker between this test's read
+        and its assertion.
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
-
-        task_detail.open(key)
-        original_name = task_detail.get_task_title()
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url)
         screenshot(
             "TC-REQ-030-005_before-edit",
-            f"Notification centre / task {key} before edit",
+            f"Task {task_key} before edit",
         )
 
-        new_name = f"{original_name} -- verschoben"
+        new_name = f"{task_name} -- verschoben"
         target_due = (date.today() + timedelta(days=3)).isoformat()
-        task_detail.open(key)
+        task_detail.open(task_key)
         task_detail.open_edit_tab()
         task_detail.set_name(new_name)
         task_detail.set_due_date(target_due)
@@ -374,57 +462,62 @@ class TestTaskUpdateNotificationFeedback:
             "Notification centre after editing task name + due date",
         )
 
-        assert any("verschoben" in t.lower() for t in texts), (
-            "TC-REQ-030-005 FAIL (Soll): Expected the due-notification to reflect the "
-            f"updated title '{new_name}', got: {texts}"
+        own_matches = [t for t in texts if task_name in t]
+        assert own_matches and any("verschoben" in t.lower() for t in own_matches), (
+            "TC-REQ-030-005 FAIL (Soll): Expected the due-notification for "
+            f"'{task_name}' to reflect the updated title '{new_name}', got "
+            f"matches: {own_matches}"
         )
 
     @pytest.mark.requires_auth
     def test_delete_task_removes_stale_notification(
         self,
         login_page: LoginPage,
-        task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-006: Deleting a task removes its stale due-notification.
 
         Spec: TC-006-084 -- Aufgabe loeschen -- veraltete Benachrichtigung wird
         entfernt und nicht mehr als ungelesen gezaehlt.
+
+        Self-provisioned own task (e2e-test-stability §A). The unread-badge
+        assertion is dropped in favour of an item-scoped existence check: the
+        badge is the shared demo account's global unread count, mutated
+        concurrently by every parallel xdist worker's own tests, so an exact
+        delta is not a valid signal (§B) -- the notification disappearing
+        entirely is the strictly stronger, item-scoped proof of removal.
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url)
 
-        task_detail.open(key)
-        task_name = task_detail.get_task_title()
-
-        notif_center.open_drawer()
-        initial_badge = notif_center.get_unread_badge_count()
+        pre_texts = _drawer_notification_texts(notif_center)
+        assert any(task_name in t for t in pre_texts), (
+            f"Setup invariant: expected task '{task_name}' to already have a "
+            f"due-notification before deletion, got: {pre_texts}"
+        )
         notif_center.close_drawer()
         screenshot(
             "TC-REQ-030-006_before-delete",
-            f"Notification centre before deleting task {key} (badge={initial_badge})",
+            f"Notification centre before deleting task {task_key}",
         )
 
-        task_detail.open(key)
+        task_detail.open(task_key)
         task_detail.delete_task()
 
         texts = _drawer_notification_texts(notif_center)
-        new_badge = notif_center.get_unread_badge_count()
         screenshot(
             "TC-REQ-030-006_after-delete",
-            f"Notification centre after deleting task (badge={new_badge})",
+            "Notification centre after deleting task",
         )
 
-        assert not any(task_name in t for t in texts) and new_badge < initial_badge, (
+        assert not any(task_name in t for t in texts), (
             "TC-REQ-030-006 FAIL (Soll): Expected the stale notification for the deleted "
-            f"task '{task_name}' to be removed and the unread badge to decrement "
-            f"({initial_badge} -> {new_badge}), got: {texts}"
+            f"task '{task_name}' to be removed, got matches: "
+            f"{[t for t in texts if task_name in t]}"
         )
 
     @pytest.mark.requires_auth
@@ -536,17 +629,31 @@ class TestCareNotificationFeedback:
 
         Spec: TC-022-094 -- Erinnerung bestaetigen -- zugehoerige Benachrichtigung
         wird als erledigt markiert (nicht mehr im ungelesen-Badge).
+
+        Uses the shared care-reminder seed (read-only lookup, permitted by
+        e2e-test-stability §A) but scopes the done-assertion to that specific
+        plant/reminder-type notification instead of the account-wide unread
+        badge -- the badge is global state shared by every parallel xdist
+        worker (all full-mode tests log in as the same demo user), so an
+        exact before/after delta is not a valid per-test signal (§B).
         """
         _ensure_logged_in(login_page)
         pflege.open()
         plant_key, reminder_type = _first_care_ids(pflege)
+        plant_name = pflege.get_card_plant_name(pflege.get_care_card(plant_key, reminder_type))
 
         notif_center.open_drawer()
-        initial_badge = notif_center.get_unread_badge_count()
+        notif_key = _care_notification_key(notif_center, plant_name, reminder_type)
+        if notif_key is None:
+            pytest.skip(
+                f"No in-app notification found for plant '{plant_name}' / "
+                f"reminder '{reminder_type}' -- seed dependent"
+            )
+        was_unread = notif_center.is_unread(notif_key)
         notif_center.close_drawer()
         screenshot(
             "TC-REQ-030-009_before-confirm",
-            f"Notification centre before confirming reminder (badge={initial_badge})",
+            f"Notification centre before confirming reminder for '{plant_name}'",
         )
 
         pflege.open()
@@ -557,16 +664,17 @@ class TestCareNotificationFeedback:
         pflege.wait_for_loading_complete()
 
         notif_center.open_drawer()
-        new_badge = notif_center.get_unread_badge_count()
+        still_present = notif_center.has_notification(notif_key)
+        now_unread = notif_center.is_unread(notif_key) if still_present else False
         screenshot(
             "TC-REQ-030-009_after-confirm",
-            f"Notification centre after confirming reminder (badge={new_badge})",
+            f"Notification centre after confirming reminder for '{plant_name}'",
         )
 
-        assert new_badge < initial_badge, (
+        assert was_unread and not now_unread, (
             "TC-REQ-030-009 FAIL (Soll): Expected confirming the reminder to auto-mark "
-            f"its notification read (unread badge {initial_badge} -> should decrease), "
-            f"got {new_badge}"
+            f"the '{plant_name}'/{reminder_type} notification '{notif_key}' done "
+            f"(was_unread={was_unread} -> now_unread={now_unread})"
         )
 
 
@@ -672,48 +780,49 @@ class TestNotificationSourcePropagation:
     def test_deleted_source_removes_orphan_notification(
         self,
         login_page: LoginPage,
-        task_queue: TaskQueuePage,
         task_detail: TaskDetailPage,
         notif_center: NotificationCenterPage,
+        base_url: str,
+        e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-030-012: Deleting the source removes its orphaned notification.
 
         Spec: TC-REQ-030-065 -- Quell-Aufgabe/Erinnerung geloescht -- verwaiste
         Benachrichtigung wird entfernt bzw. als hinfaellig markiert.
+
+        Self-provisioned own task (e2e-test-stability §A); the unread-badge
+        assertion is dropped for the same reason as TC-REQ-030-006 -- it is
+        the shared demo account's global count (§B), while the notification's
+        item-scoped disappearance is a strictly stronger proof.
         """
         _ensure_logged_in(login_page)
-        task_queue.open()
-        keys = task_queue.get_task_keys()
-        if not keys:
-            pytest.skip("No tasks in database -- seed dependent")
-        key = keys[0]
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url)
 
-        task_detail.open(key)
-        task_name = task_detail.get_task_title()
-
-        notif_center.open_drawer()
-        initial_badge = notif_center.get_unread_badge_count()
+        pre_texts = _drawer_notification_texts(notif_center)
+        assert any(task_name in t for t in pre_texts), (
+            f"Setup invariant: expected source task '{task_name}' to already have a "
+            f"due-notification before deletion, got: {pre_texts}"
+        )
         notif_center.close_drawer()
         screenshot(
             "TC-REQ-030-012_before-delete",
-            f"Notification centre before deleting source task {key} (badge={initial_badge})",
+            f"Notification centre before deleting source task {task_key}",
         )
 
-        task_detail.open(key)
+        task_detail.open(task_key)
         task_detail.delete_task()
 
         texts = _drawer_notification_texts(notif_center)
-        new_badge = notif_center.get_unread_badge_count()
         screenshot(
             "TC-REQ-030-012_after-delete",
-            f"Notification centre after deleting source task (badge={new_badge})",
+            "Notification centre after deleting source task",
         )
 
-        assert not any(task_name in t for t in texts) and new_badge < initial_badge, (
+        assert not any(task_name in t for t in texts), (
             "TC-REQ-030-012 FAIL (Soll): Expected the orphaned notification for deleted "
-            f"source '{task_name}' to be removed and the unread badge to decrement "
-            f"({initial_badge} -> {new_badge}), got: {texts}"
+            f"source '{task_name}' to be removed, got matches: "
+            f"{[t for t in texts if task_name in t]}"
         )
 
     @pytest.mark.requires_auth
@@ -728,13 +837,20 @@ class TestNotificationSourcePropagation:
 
         Spec: TC-REQ-030-066 -- Giesszyklus angepasst -- care.watering-Benachrichtigung
         wird neu terminiert; genau ein Eintrag (group_key-Deduplizierung).
+
+        Scoped to the edited plant's own notification (e2e-test-stability §B):
+        the previous version counted watering-keyword matches across the
+        entire drawer, so any *other* plant's watering reminder in the shared
+        demo account (or a duplicate produced by a racing worker) inflated
+        the count independently of this test's own action.
         """
         _ensure_logged_in(login_page)
         pflege.open()
         if pflege.get_care_card_count() == 0:
             pytest.skip("No care reminders available -- seed dependent")
 
-        plant_key, _ = _first_care_ids(pflege)
+        plant_key, reminder_type = _first_care_ids(pflege)
+        plant_name = pflege.get_card_plant_name(pflege.get_care_card(plant_key, reminder_type))
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
         if not pflege.is_present(PflegeDashboardPage.WATERING_INTERVAL_SLIDER):
@@ -747,17 +863,19 @@ class TestNotificationSourcePropagation:
         watering_texts = [
             t
             for t in texts
-            if any(term in t.lower() for term in ("gieß", "gie", "water", "wasser"))
+            if plant_name in t
+            and any(term in t.lower() for term in ("gieß", "gie", "water", "wasser"))
         ]
         screenshot(
             "TC-REQ-030-013_after-interval-change",
-            f"Notification centre after interval change ({len(watering_texts)} watering notes)",
+            f"Notification centre after interval change for '{plant_name}' "
+            f"({len(watering_texts)} watering notes)",
         )
 
         assert len(watering_texts) == 1, (
             "TC-REQ-030-013 FAIL (Soll): Expected exactly one rescheduled care.watering "
-            f"notification (no duplicate for the same period), got {len(watering_texts)}: "
-            f"{watering_texts}"
+            f"notification for '{plant_name}' (no duplicate for the same period), got "
+            f"{len(watering_texts)}: {watering_texts}"
         )
 
     @pytest.mark.requires_auth
@@ -798,10 +916,27 @@ class TestNotificationSourcePropagation:
         )
 
         # Soll continuation: clicking it confirms the source and marks the note done.
-        done_buttons[0].click()
+        # Scoped to the actioned item itself (e2e-test-stability §B) instead of the
+        # account-wide unread badge, which every parallel xdist worker mutates
+        # concurrently (all full-mode tests share one demo user).
+        button = done_buttons[0]
+        notif_key = (button.get_attribute("data-testid") or "").replace(
+            "notification-action-done-", ""
+        )
+        button.click()
         notif_center.wait_for_drawer()
-        new_badge = notif_center.get_unread_badge_count()
-        assert new_badge == 0, (
-            "TC-REQ-030-014 FAIL (Soll): Expected the actioned notification to be marked "
-            f"done (acted_at set, unread badge -> 0), got {new_badge}"
+
+        remaining_done_buttons = notif_center.driver.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='notification-action-done-{notif_key}']"
+        )
+        still_unread = (
+            notif_center.is_unread(notif_key)
+            if notif_center.has_notification(notif_key)
+            else False
+        )
+        assert not remaining_done_buttons and not still_unread, (
+            "TC-REQ-030-014 FAIL (Soll): Expected the actioned notification "
+            f"'{notif_key}' to be marked done (acted_at set: Done button gone, "
+            f"no longer unread), got done_button_present="
+            f"{bool(remaining_done_buttons)}, unread={still_unread}"
         )

@@ -457,28 +457,6 @@ def _api_delete(url: str, auth_token: str | None = None) -> int:
         return e.code
 
 
-def _reset_e2e_tasks(api: str, auth_token: str | None) -> None:
-    """Delete leftover ``E2E:``-prefixed tasks so each session starts clean.
-
-    The task seeds are re-created unconditionally every session; without this
-    reset, mutated survivors from earlier runs (renamed, reassigned, or created
-    before a notification-coupling change and therefore missing their in-app
-    notification) accumulate in the queue and make ``keys[0]`` non-deterministic
-    for the REQ-030 source→notification feedback tests. Only deletable statuses
-    (pending/skipped/cancelled/dormant) are removed; completed tasks stay for
-    history and never surface in the live queue anyway.
-    """
-    _post, _get = _api_helpers(auth_token)
-    status, tasks = _get(f"{api}/tasks?limit=500")
-    if status != 200 or not isinstance(tasks, list):
-        return
-    for task in tasks:
-        name = task.get("name") or ""
-        key = task.get("key")
-        if key and name.startswith("E2E:"):
-            _api_delete(f"{api}/tasks/{key}", auth_token)
-
-
 def _register_and_login(api_base: str) -> tuple[str, str]:
     """Register the demo user (idempotent) and login to get a JWT token.
 
@@ -590,10 +568,14 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 })
 
         # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
-        # Remove leftover E2E tasks first so the queue baseline is deterministic
-        # (see _reset_e2e_tasks — required by the REQ-030 feedback tests).
-        _reset_e2e_tasks(api, result.get("access_token"))
-
+        # Find-or-create: this session fixture runs once per xdist worker
+        # (4x by default). An unconditional POST here would race those workers
+        # into recreating the same three named tasks four times, leaving
+        # duplicate "E2E: ..." rows in the queue and making any
+        # ``keys[0]``-based lookup non-deterministic (the original failure
+        # mode behind the REQ-030 source→notification feedback tests).
+        # Checking for an existing pending/in_progress task of the same name
+        # first converges every worker onto a single seeded set instead.
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
         _now = _dt.now(_tz.utc)
@@ -623,7 +605,17 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 "instruction_de": "Seitentriebe der Tomatenpflanzen entfernen",
             },
         ]
+        _tasks_list_status, _existing_tasks = _get(f"{api}/tasks?limit=500")
+        _existing_task_names: set = set()
+        if _tasks_list_status == 200 and isinstance(_existing_tasks, list):
+            _existing_task_names = {
+                t.get("name")
+                for t in _existing_tasks
+                if t.get("status") in ("pending", "in_progress")
+            }
         for task_data in _seed_tasks:
+            if task_data["name"] in _existing_task_names:
+                continue
             status, resp = _post(f"{api}/tasks", task_data)
             if status == 201:
                 result.setdefault("task_keys", []).append(resp.get("key"))

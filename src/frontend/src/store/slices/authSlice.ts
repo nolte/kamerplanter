@@ -9,6 +9,12 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  // True once the one-time auth bootstrap (refresh + profile, or light-mode
+  // profile fetch, or its timeout/error fallback) has completed. Route guards
+  // gate their initial loading skeleton on this — NOT on `isLoading`, which also
+  // toggles during in-flight login/register requests and would otherwise unmount
+  // the login/register page mid-submit. Once true, it never returns to false.
+  initialized: boolean;
 }
 
 const initialState: AuthState = {
@@ -17,6 +23,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: true,
   error: null,
+  initialized: false,
 };
 
 export const loginLocal = createAsyncThunk(
@@ -67,6 +74,10 @@ const authSlice = createSlice({
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
+      // clearAuth is the timeout/error fallback of the auth bootstrap
+      // (AuthProvider.initAuth) as well as the response-interceptor refresh
+      // failure — in every case the bootstrap has concluded.
+      state.initialized = true;
     },
   },
   extraReducers: (builder) => {
@@ -106,12 +117,15 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.user = action.payload;
       state.isAuthenticated = true;
+      // Light-mode bootstrap (AuthProvider.initAuth) completes via fetchProfile.
+      state.initialized = true;
     });
     builder.addCase(fetchProfile.rejected, (state) => {
       state.isLoading = false;
       state.user = null;
       state.isAuthenticated = false;
       state.accessToken = null;
+      state.initialized = true;
     });
 
     // Logout
@@ -125,12 +139,15 @@ const authSlice = createSlice({
     builder.addCase(refreshAccessToken.fulfilled, (state, action) => {
       state.accessToken = action.payload.access_token;
       state.isAuthenticated = true;
+      // JWT-mode bootstrap (AuthProvider.initAuth) begins with a token refresh.
+      state.initialized = true;
     });
     builder.addCase(refreshAccessToken.rejected, (state) => {
       state.isLoading = false;
       state.user = null;
       state.accessToken = null;
       state.isAuthenticated = false;
+      state.initialized = true;
     });
   },
 });
