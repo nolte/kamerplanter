@@ -59,7 +59,7 @@ class AccountSettingsPage(BasePage):
         """
         path = self.PATH
         if tab:
-            path = f"{self.PATH}?tab={tab}"
+            path = f"{self.PATH}#{tab}"
         self.navigate(path)
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()

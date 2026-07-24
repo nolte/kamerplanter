@@ -21,13 +21,18 @@ from app.api.v1.notifications.schemas import (
     VapidPublicKeyResponse,
 )
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_notification_service
+from app.common.dependencies import get_care_reminder_service, get_notification_service
+from app.common.enums import ReminderType
 from app.common.exceptions import NotFoundError
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.notification import NotificationPreferences
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.notification_service import NotificationService
+
+#: Actionable ``action_id`` values that confirm the source care reminder (§4.2).
+_CARE_CONFIRM_ACTIONS: frozenset[str] = frozenset({"confirm", "confirm_watering", "done"})
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -137,14 +142,42 @@ def mark_acted(
     action_id: str = Query(..., min_length=1),
     ctx: TenantContext = Depends(get_current_tenant),
     service: NotificationService = Depends(get_notification_service),
+    care_service: CareReminderService = Depends(get_care_reminder_service),
 ) -> NotificationResponse:
-    """Mark a notification action as performed (actionable button callback)."""
+    """Perform an actionable-button callback (REQ-030 §4.2, Issue #742).
+
+    A one-tap ``Done`` on an actionable care notification both confirms the source
+    reminder (creating a ``CareConfirmation`` and closing the pending care task) and
+    marks the notification acted+read — in a single step. Ownership is verified
+    fail-closed first; a foreign/missing notification yields 404 without disclosing
+    which. Non-care notifications simply stamp acted+read.
+    """
+    notif = service.get_notification(notification_key, ctx.tenant_key, user_key=ctx.user_key)
+    if notif is None:
+        raise NotFoundError(entity="Notification", key=notification_key)
+
+    # §4.2 — confirm the source care reminder for an actionable care notification.
+    if notif.notification_type.startswith("care.") and action_id in _CARE_CONFIRM_ACTIONS:
+        plant_key = notif.data.get("plant_key")
+        raw_reminder_type = notif.data.get("reminder_type")
+        if plant_key and raw_reminder_type:
+            try:
+                reminder_type = ReminderType(raw_reminder_type)
+            except ValueError:
+                reminder_type = None
+            if reminder_type is not None:
+                care_service.confirm_reminder(
+                    plant_key,
+                    reminder_type,
+                    tenant_key=ctx.tenant_key,
+                    user_key=ctx.user_key,
+                )
+
+    # Stamp read + acted so the notification drops out of the unread badge.
+    service.mark_read(notification_key, ctx.tenant_key, user_key=ctx.user_key)
     result = service.mark_acted(notification_key, ctx.tenant_key, action_id, user_key=ctx.user_key)
     if result is None:
-        raise NotFoundError(
-            entity="Notification",
-            key=notification_key,
-        )
+        raise NotFoundError(entity="Notification", key=notification_key)
     return _notification_response(result)
 
 

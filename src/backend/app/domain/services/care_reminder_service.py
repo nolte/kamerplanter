@@ -31,6 +31,7 @@ from app.domain.models.overwintering_profile_template import OverwinteringProfil
 from app.domain.models.species import Species
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
+from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 #: Which winter/spring reminder types a SeasonState transition into a given phase
 #: owns (REQ-047 §3.2). Used to create them the moment the site enters the phase.
@@ -150,11 +151,16 @@ class CareReminderService:
         overwintering_repo: IOverwinteringProfileRepository | None = None,
         overwintering_template_repo: IOverwinteringProfileTemplateRepository | None = None,
         recurrence: RecurrenceEngine | None = None,
+        notification_propagation: NotificationPropagationService | None = None,
     ) -> None:
         self._repo = care_repo
         self._engine = engine
         self._recurrence = recurrence or RecurrenceEngine()
         self._task_repo = task_repo
+        #: Optional REQ-030 §4.2 coupling (Issue #742): a rescheduled/confirmed care
+        #: reminder synchronously updates/closes its in-app notification. Guarded at
+        #: every call site so the core care flow is unaffected when it is absent.
+        self._notifications = notification_propagation
         self._watering_log_repo = watering_log_repo
         self._plant_repo = plant_repo
         self._lifecycle_repo = lifecycle_repo
@@ -185,7 +191,22 @@ class CareReminderService:
             self._repo.create_profile_edge(plant_key, created.key)
         return created
 
-    def update_profile(self, plant_key: str, updates: dict) -> CareProfile:
+    def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
+        """Run a notification-propagation ``action`` when the coupling is wired.
+
+        Best-effort (NFR-007): a notification-centre failure is logged and swallowed
+        so it can never abort the underlying care mutation.
+        """
+        if self._notifications is None:
+            return
+        try:
+            action(self._notifications)
+        except Exception:  # pragma: no cover - defensive; propagation is best-effort
+            import structlog
+
+            structlog.get_logger().warning("care_notification_propagation_failed")
+
+    def update_profile(self, plant_key: str, updates: dict, *, user_key: str = "") -> CareProfile:
         """Persist care-profile edits and re-terminate the affected pending tasks.
 
         Beyond writing the fields, an edit to any task-interval field
@@ -225,11 +246,13 @@ class CareReminderService:
         saved = self._repo.update_profile(profile.key or "", updated)
 
         for reminder_type in changed_reminders:
-            self._reschedule_pending_care_task(saved, reminder_type)
+            self._reschedule_pending_care_task(saved, reminder_type, user_key=user_key)
 
         return saved
 
-    def _reschedule_pending_care_task(self, profile: CareProfile, reminder_type: ReminderType) -> None:
+    def _reschedule_pending_care_task(
+        self, profile: CareProfile, reminder_type: ReminderType, *, user_key: str = ""
+    ) -> None:
         """Re-terminate the plant's pending care task after an interval edit (#622).
 
         Routes through the single tenant-aware dedup helper
@@ -264,6 +287,8 @@ class CareReminderService:
             if instruction is not None:
                 task.instruction = instruction
             self._task_repo.update_task(task.key or "", task)
+            # #742 — the in-app care notification follows the new cycle (single entry).
+            self._propagate_care_reschedule(profile, reminder_type, tenant_key, user_key, due_dt, task.key)
             return
 
         # No pending task to re-terminate. Only the opted-in watering path creates
@@ -271,7 +296,34 @@ class CareReminderService:
         # a duplicate when a task was already completed today.
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
             phase_interval = self._get_phase_watering_interval(plant_key)
-            self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
+            created = self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
+            if created is not None:
+                self._propagate_care_reschedule(
+                    profile, reminder_type, tenant_key, user_key, created.due_date, created.key
+                )
+
+    def _propagate_care_reschedule(
+        self,
+        profile: CareProfile,
+        reminder_type: ReminderType,
+        tenant_key: str,
+        user_key: str,
+        due_date: datetime | None,
+        task_key: str | None,
+    ) -> None:
+        """Upsert the plant's care notification to the new cycle (#742, single entry)."""
+        plant_label = self._resolve_plant_label(profile.plant_key)
+        self._propagate(
+            lambda p: p.sync_care_notification(
+                tenant_key=tenant_key,
+                user_key=user_key,
+                plant_key=profile.plant_key,
+                plant_label=plant_label,
+                reminder_type=reminder_type,
+                due_date=due_date,
+                task_key=task_key,
+            )
+        )
 
     def _compute_care_reschedule(
         self,
@@ -337,6 +389,7 @@ class CareReminderService:
         measured_ec: float | None = None,
         measured_ph: float | None = None,
         tenant_key: str = "",
+        user_key: str = "",
     ) -> CareConfirmation:
         # SEC-001 defense-in-depth (mirrors the #517 shared-guard pattern): when a
         # caller passes its ``tenant_key`` (the MCP path always does), re-verify
@@ -422,10 +475,26 @@ class CareReminderService:
         # Auto-complete matching pending task
         self._complete_pending_care_task(plant_key, reminder_type)
 
+        # #742 — mark the plant's in-app care notification done (badge drops).
+        resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
+        self._propagate(
+            lambda p: p.on_care_confirmed(
+                tenant_key=resolved_tenant,
+                plant_key=plant_key,
+                reminder_type=reminder_type,
+            )
+        )
+
         # Auto-create next watering task if opted in
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
             phase_interval = self._get_phase_watering_interval(plant_key)
-            self.ensure_next_watering_task(profile, created, phase_watering_interval=phase_interval)
+            next_task = self.ensure_next_watering_task(profile, created, phase_watering_interval=phase_interval)
+            # The confirmation closed the current note; if a next watering task was
+            # scheduled, surface it as the fresh, correctly-terminated care note.
+            if next_task is not None:
+                self._propagate_care_reschedule(
+                    profile, reminder_type, resolved_tenant, user_key, next_task.due_date, next_task.key
+                )
 
         return created
 

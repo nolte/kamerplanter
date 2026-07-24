@@ -72,12 +72,18 @@ More on pre-harvest intervals: [Integrated Pest Management (IPM)](pest-managemen
 | Field | Description |
 |-------|-------------|
 | Plant | The plant being harvested |
-| Batch ID | Optional custom identifier, e.g. "HARVEST-2026-001" |
+| Batch ID | Optional custom identifier, e.g. "HARVEST-2026-001". Leave empty to have a unique ID assigned automatically. |
 | Harvest Type | **Partial harvest**, **Full harvest**, or **Continuous** |
 | Harvest Date | Date and time of harvest (default: now) |
 | Fresh Weight (g) | Weight of the harvest directly after cutting |
 | Harvester | Who performed the harvest? |
 | Notes | Observations, anything unusual |
+
+!!! tip "Leaving the Batch ID empty"
+    If you leave the **Batch ID** field empty, Kamerplanter automatically assigns a unique identifier following the pattern `HARVEST-<date>-<plant>` (e.g. `HARVEST-20260315-tomato-01`). If you create another batch for the same plant on the same day, the system appends a running `-2`, `-3`, and so on — so you can record multiple partial harvest batches per day without inventing an identifier yourself.
+
+!!! warning "Batch ID already taken"
+    If you enter a Batch ID yourself that already exists, Kamerplanter rejects the creation: you see a hint directly on the field plus an error message, and the batch is not saved. Choose a different identifier, or leave the field empty so a unique ID is assigned automatically.
 
 **Harvest types:**
 
@@ -211,6 +217,9 @@ Some growers maintain a dark period of 24–48 hours immediately before harvest.
 
 ??? question "Can I perform a partial harvest multiple times?"
     Yes. You can create as many partial harvest batches for one plant as you like, e.g. to harvest the top buds first and the lower ones later.
+
+??? question "Do I have to assign my own Batch ID for every batch?"
+    No. If you leave the **Batch ID** field empty, Kamerplanter automatically assigns a unique ID — even when you create several batches for the same plant on the same day. A custom identifier is only needed if you want to follow a particular naming convention, e.g. for an external system.
 
 ---
 

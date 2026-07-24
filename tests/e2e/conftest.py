@@ -441,6 +441,44 @@ def _api_patch(url: str, data: dict, auth_token: str | None = None) -> tuple[int
             return e.code, {}
 
 
+def _api_delete(url: str, auth_token: str | None = None) -> int:
+    """Send a DELETE with optional Bearer auth; return the status code."""
+    import urllib.error
+    import urllib.request
+
+    headers = {"Content-Type": "application/json"}
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
+    req = urllib.request.Request(url, headers=headers, method="DELETE")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+def _reset_e2e_tasks(api: str, auth_token: str | None) -> None:
+    """Delete leftover ``E2E:``-prefixed tasks so each session starts clean.
+
+    The task seeds are re-created unconditionally every session; without this
+    reset, mutated survivors from earlier runs (renamed, reassigned, or created
+    before a notification-coupling change and therefore missing their in-app
+    notification) accumulate in the queue and make ``keys[0]`` non-deterministic
+    for the REQ-030 source→notification feedback tests. Only deletable statuses
+    (pending/skipped/cancelled/dormant) are removed; completed tasks stay for
+    history and never surface in the live queue anyway.
+    """
+    _post, _get = _api_helpers(auth_token)
+    status, tasks = _get(f"{api}/tasks?limit=500")
+    if status != 200 or not isinstance(tasks, list):
+        return
+    for task in tasks:
+        name = task.get("name") or ""
+        key = task.get("key")
+        if key and name.startswith("E2E:"):
+            _api_delete(f"{api}/tasks/{key}", auth_token)
+
+
 def _register_and_login(api_base: str) -> tuple[str, str]:
     """Register the demo user (idempotent) and login to get a JWT token.
 
@@ -552,6 +590,10 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 })
 
         # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
+        # Remove leftover E2E tasks first so the queue baseline is deterministic
+        # (see _reset_e2e_tasks — required by the REQ-030 feedback tests).
+        _reset_e2e_tasks(api, result.get("access_token"))
+
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
         _now = _dt.now(_tz.utc)

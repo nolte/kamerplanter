@@ -38,6 +38,9 @@ class _FakeHarvestRepo:
         self.created.append(batch)
         return batch
 
+    def batch_id_exists(self, batch_id: str) -> bool:
+        return any(b.batch_id == batch_id for b in self.created)
+
 
 def _build_harvest_service(karenz_periods: list[dict]) -> tuple[HarvestService, _FakeHarvestRepo]:
     ipm_service = IpmService(
@@ -97,3 +100,38 @@ def test_create_harvest_batch_allowed_when_karenz_expired():
 
     assert result.plant_key == "plant-1"
     assert len(harvest_repo.created) == 1
+
+
+def test_blank_batch_id_is_generated_deterministically():
+    """Issue #744: a blank batch_id is auto-filled with a stable base identifier."""
+    service, _ = _build_harvest_service([])
+    harvest_date = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
+    batch = HarvestBatch(plant_key="plant-1", harvest_date=harvest_date)
+
+    result = service.create_harvest_batch("plant-1", batch)
+
+    assert result.batch_id == "HARVEST-20260724-plant-1"
+
+
+def test_second_blank_batch_same_plant_same_day_gets_suffix():
+    """Issue #744: a second same-day batch must not collide -- it gains a -2 suffix."""
+    service, _ = _build_harvest_service([])
+    harvest_date = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
+
+    first = service.create_harvest_batch("plant-1", HarvestBatch(plant_key="plant-1", harvest_date=harvest_date))
+    second = service.create_harvest_batch("plant-1", HarvestBatch(plant_key="plant-1", harvest_date=harvest_date))
+    third = service.create_harvest_batch("plant-1", HarvestBatch(plant_key="plant-1", harvest_date=harvest_date))
+
+    assert first.batch_id == "HARVEST-20260724-plant-1"
+    assert second.batch_id == "HARVEST-20260724-plant-1-2"
+    assert third.batch_id == "HARVEST-20260724-plant-1-3"
+
+
+def test_explicit_batch_id_is_never_overwritten():
+    """A user-provided batch_id is used verbatim -- no generation kicks in."""
+    service, _ = _build_harvest_service([])
+    batch = HarvestBatch(plant_key="plant-1", batch_id="HARVEST-2026-001")
+
+    result = service.create_harvest_batch("plant-1", batch)
+
+    assert result.batch_id == "HARVEST-2026-001"

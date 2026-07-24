@@ -173,6 +173,57 @@ class TestMarkActed:
         assert result is None
 
 
+class TestGetNotification:
+    def test_returns_notification_for_owner(self, service, mock_notification_repo):
+        notif = Notification(
+            key="n1",
+            notification_type="care.watering",
+            title="Test",
+            body="Test",
+            tenant_key="tenant_1",
+            user_key="user_1",
+            status=NotificationStatus.DELIVERED,
+        )
+        mock_notification_repo.get.return_value = notif
+
+        result = service.get_notification("n1", "tenant_1", user_key="user_1")
+
+        assert result is notif
+
+    def test_returns_none_for_wrong_tenant(self, service, mock_notification_repo):
+        notif = Notification(
+            key="n1",
+            notification_type="care.watering",
+            title="Test",
+            body="Test",
+            tenant_key="other_tenant",
+            user_key="user_1",
+            status=NotificationStatus.DELIVERED,
+        )
+        mock_notification_repo.get.return_value = notif
+
+        assert service.get_notification("n1", "tenant_1", user_key="user_1") is None
+
+    def test_returns_none_for_wrong_user(self, service, mock_notification_repo):
+        notif = Notification(
+            key="n1",
+            notification_type="care.watering",
+            title="Test",
+            body="Test",
+            tenant_key="tenant_1",
+            user_key="other_user",
+            status=NotificationStatus.DELIVERED,
+        )
+        mock_notification_repo.get.return_value = notif
+
+        assert service.get_notification("n1", "tenant_1", user_key="user_1") is None
+
+    def test_returns_none_when_missing(self, service, mock_notification_repo):
+        mock_notification_repo.get.return_value = None
+
+        assert service.get_notification("n_missing", "tenant_1", user_key="user_1") is None
+
+
 class TestPreferences:
     def test_get_preferences_defaults(self, service, mock_preference_repo):
         mock_preference_repo.get_by_user.return_value = None
