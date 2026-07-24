@@ -22,6 +22,7 @@ from app.api.v1.diagnose.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_diagnose_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.ai_assistant import AiTenantSettings
 from app.domain.models.diagnosis import DiagnosisCandidate, DiagnosisResult, SymptomCatalogEntry
 from app.domain.models.tenant_context import TenantContext
@@ -31,6 +32,7 @@ router = APIRouter(
     prefix="/diagnosis",
     tags=["diagnose"],
     dependencies=[Depends(require_ai_tenant_enabled)],
+    responses=NOT_FOUND_RESPONSE,
 )
 
 
@@ -82,9 +84,9 @@ def _result_schema(result: DiagnosisResult) -> DiagnosisResultSchema:
 
 @router.get("/symptoms", response_model=SymptomListResponse)
 def list_symptoms(
-    phase: str | None = Query(default=None),
-    category: str | None = Query(default=None),
-    language: str = Query(default="de"),
+    phase: str | None = Query(default=None, description="Filter symptoms by applicable growth phase."),
+    category: str | None = Query(default=None, description="Filter symptoms by category."),
+    language: str = Query(default="de", description="Language of the returned symptom labels (de or en)."),
     service: DiagnoseService = Depends(get_diagnose_service),
 ) -> SymptomListResponse:
     """Return the curated symptom catalogue (optionally filtered by phase/category)."""

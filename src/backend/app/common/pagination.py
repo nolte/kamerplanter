@@ -27,8 +27,8 @@ class PaginatedResponse[T](BaseModel):
 
 
 def get_pagination(
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0, description="Number of items to skip from the start of the result set."),
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of items to return (1-200)."),
 ) -> PaginationParams:
     """FastAPI dependency yielding the shared offset/limit pagination params.
 

@@ -8,7 +8,9 @@ delete stays admin-only. All post-harvest data is tenant-scoped; the service
 enforces ownership on each batch, so no query can cross tenants.
 """
 
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.post_harvest.schemas import (
@@ -33,6 +35,7 @@ from app.common.enums import (
     TenantRole,
 )
 from app.common.exceptions import ValidationError
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.post_harvest import (
     DryingProgress,
@@ -43,7 +46,7 @@ from app.domain.models.post_harvest import (
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.post_harvest_service import PostHarvestService
 
-router = APIRouter(prefix="/post-harvest", tags=["post-harvest"])
+router = APIRouter(prefix="/post-harvest", tags=["post-harvest"], responses=NOT_FOUND_RESPONSE)
 
 
 def _parse_enum[E](enum_cls: type[E], value: str, field: str) -> E:
@@ -72,11 +75,12 @@ def _alert_response(a: MoldAlert) -> MoldAlertResponse:
 
 @router.get("", response_model=list[PostHarvestBatchResponse])
 def list_batches(
-    harvest_batch: str | None = Query(default=None),
+    harvest_batch: str | None = Query(default=None, description="Filter by originating harvest-batch key."),
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """List the tenant's post-harvest batches (paginated), optionally filtered."""
     if harvest_batch:
         batches = service.list_for_batch(harvest_batch, ctx.tenant_key)
     else:
@@ -105,10 +109,11 @@ def start_drying(
 
 @router.get("/{key}", response_model=PostHarvestBatchDetailResponse)
 def get_batch(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """Return a post-harvest batch with its latest drying progress and open alerts."""
     batch = service.get_batch(key, ctx.tenant_key)
     latest = service.get_latest_drying_progress(key, ctx.tenant_key)
     open_alerts = sum(1 for a in service.list_mold_alerts(key, ctx.tenant_key) if a.resolved_at is None)
@@ -121,7 +126,7 @@ def get_batch(
 
 @router.post("/{key}/advance", response_model=PostHarvestBatchResponse)
 def advance_stage(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     body: AdvanceStageRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
@@ -134,11 +139,12 @@ def advance_stage(
 
 @router.post("/{key}/drying-progress", response_model=DryingProgressResponse, status_code=201)
 def record_drying_progress(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     body: DryingProgressCreate,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """Record a drying-progress measurement for a post-harvest batch."""
     created = service.record_drying_progress(
         key,
         ctx.tenant_key,
@@ -153,20 +159,22 @@ def record_drying_progress(
 
 @router.get("/{key}/drying-progress", response_model=list[DryingProgressResponse])
 def list_drying_progress(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """List a post-harvest batch's drying-progress measurements."""
     return [_progress_response(p) for p in service.list_drying_progress(key, ctx.tenant_key)]
 
 
 @router.post("/{key}/observations", response_model=StorageObservationResponse, status_code=201)
 def record_observation(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     body: ObservationCreate,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """Record a storage observation for a post-harvest batch."""
     observation = StorageObservation(
         weight_g=body.weight_g,
         temperature_c=body.temperature_c,
@@ -185,25 +193,27 @@ def record_observation(
 
 @router.get("/{key}/observations", response_model=list[StorageObservationResponse])
 def list_observations(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """List a post-harvest batch's storage observations."""
     return [_observation_response(o) for o in service.list_observations(key, ctx.tenant_key)]
 
 
 @router.get("/{key}/mold-alerts", response_model=list[MoldAlertResponse])
 def list_mold_alerts(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):
+    """List a post-harvest batch's mold alerts."""
     return [_alert_response(a) for a in service.list_mold_alerts(key, ctx.tenant_key)]
 
 
 @router.delete("/{key}", status_code=204)
 def delete_batch(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the post-harvest batch.")],
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: PostHarvestService = Depends(get_post_harvest_service),
 ):

@@ -20,8 +20,10 @@ blocks the response.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import structlog
-from fastapi import APIRouter, Depends, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Path, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.attachments.tenant_router import _parse_content_length, _read_upload_bounded
@@ -42,6 +44,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError
+from app.common.openapi_responses import CRUD_RESPONSES
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.interfaces.attachment_repository import UNSET
@@ -53,7 +56,7 @@ from app.domain.services.plant_photo_service import PlantPhotoService
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/plant-instances/{key}/photos", tags=["plant-photos"])
+router = APIRouter(prefix="/plant-instances/{key}/photos", tags=["plant-photos"], responses=CRUD_RESPONSES)
 
 
 def _assessment_response(assessment: QualityAssessment | None) -> QualityAssessmentResponse | None:
@@ -113,7 +116,7 @@ def _resolved_cover(cover_photo_ref: str | None, photo_ids: list[str]) -> str | 
 
 @router.post("", response_model=PlantPhotoResponse, status_code=201)
 async def upload_plant_photo(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     request: Request,
     file: UploadFile,
     ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
@@ -187,7 +190,7 @@ def _maybe_feed_reference(
 
 @router.get("", response_model=PlantPhotoListResponse)
 def list_plant_photos(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
 ) -> PlantPhotoListResponse:
@@ -204,8 +207,8 @@ def list_plant_photos(
 
 @router.put("/{attachment_id}/cover", response_model=PlantPhotoListResponse)
 def set_cover_photo(
-    key: str,
-    attachment_id: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    attachment_id: Annotated[str, Path(description="Attachment id of the gallery photo.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.UPDATE)),
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
 ) -> PlantPhotoListResponse:
@@ -223,7 +226,7 @@ def set_cover_photo(
 
 @router.get("/assess/adapters", response_model=AssessmentAdaptersResponse)
 def list_assessment_adapters(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     identification_service: IdentificationService = Depends(get_identification_service),
 ) -> AssessmentAdaptersResponse:
@@ -240,8 +243,8 @@ def list_assessment_adapters(
 
 @router.post("/{attachment_id}/assess", response_model=PlantPhotoResponse)
 async def assess_plant_photo(
-    key: str,
-    attachment_id: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    attachment_id: Annotated[str, Path(description="Attachment id of the gallery photo.")],
     body: PlantPhotoAssessRequest,
     ctx: TenantContext = Depends(require_attachment_permission(Action.UPDATE)),
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
@@ -282,8 +285,8 @@ async def assess_plant_photo(
 
 @router.patch("/{attachment_id}", response_model=PlantPhotoResponse)
 def update_plant_photo_metadata(
-    key: str,
-    attachment_id: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    attachment_id: Annotated[str, Path(description="Attachment id of the gallery photo.")],
     body: PlantPhotoMetadataUpdate,
     ctx: TenantContext = Depends(require_attachment_permission(Action.UPDATE)),
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
@@ -313,8 +316,8 @@ def update_plant_photo_metadata(
 
 @router.delete("/{attachment_id}", status_code=204)
 async def delete_plant_photo(
-    key: str,
-    attachment_id: str,
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    attachment_id: Annotated[str, Path(description="Attachment id of the gallery photo.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.DELETE)),
     photo_service: PlantPhotoService = Depends(get_plant_photo_service),
 ) -> Response:

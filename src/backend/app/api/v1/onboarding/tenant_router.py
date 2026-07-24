@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from app.api.mapping import to_response
 from app.api.v1.onboarding.schemas import (
     OnboardingCompleteRequest,
+    OnboardingCompleteResponse,
     OnboardingProgressUpdate,
     OnboardingStateResponse,
 )
@@ -27,16 +28,18 @@ def get_onboarding_state(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
 ):
+    """Return the caller's current onboarding-wizard state."""
     state = service.get_state(ctx.user_key)
     return to_response(state, OnboardingStateResponse)
 
 
-@router.post("/complete")
+@router.post("/complete", response_model=OnboardingCompleteResponse)
 def complete_onboarding(
     body: OnboardingCompleteRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
-):
+) -> OnboardingCompleteResponse:
+    """Finish the onboarding wizard and provision the selected starter entities."""
     plant_configs = (
         [
             PlantConfig(species_key=c.species_key, count=c.count, initial_phase=c.initial_phase)
@@ -45,7 +48,7 @@ def complete_onboarding(
         if body.plant_configs
         else None
     )
-    return service.complete_wizard(
+    result = service.complete_wizard(
         user_key=ctx.user_key,
         tenant_key=ctx.tenant_key,
         kit_id=body.kit_id,
@@ -61,6 +64,7 @@ def complete_onboarding(
         favorite_nutrient_plan_keys=body.favorite_nutrient_plan_keys,
         smart_home_enabled=body.smart_home_enabled,
     )
+    return OnboardingCompleteResponse(**result)
 
 
 @router.post("/skip", response_model=OnboardingStateResponse)
@@ -68,6 +72,7 @@ def skip_onboarding(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
 ):
+    """Skip the onboarding wizard for the caller."""
     state = service.skip_wizard(ctx.user_key)
     return to_response(state, OnboardingStateResponse)
 
@@ -77,6 +82,7 @@ def reset_onboarding(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
 ):
+    """Reset the caller's onboarding wizard back to its initial state."""
     state = service.reset_wizard(ctx.user_key)
     return to_response(state, OnboardingStateResponse)
 
@@ -87,6 +93,7 @@ def update_onboarding_progress(
     ctx: TenantContext = Depends(get_current_tenant),
     service: OnboardingService = Depends(get_onboarding_service),
 ):
+    """Persist partial onboarding-wizard progress for the caller."""
     kwargs = {}
     if body.selected_kit_id is not None:
         kwargs["selected_kit_id"] = body.selected_kit_id

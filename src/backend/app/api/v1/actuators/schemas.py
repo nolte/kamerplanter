@@ -292,3 +292,58 @@ class ApplyProfileRequest(BaseModel):
 
 class EmergencyStopRequest(BaseModel):
     scenario: EmergencyStopScenario
+
+
+class ActuatorStateResponse(BaseModel):
+    """Current state snapshot of an actuator (``GET /actuators/{key}/state``)."""
+
+    actuator_key: str | None = None
+    current_state: str | None = None
+    current_value: float | None = None
+    is_online: bool
+    last_state_change: datetime | None = None
+    has_override: bool
+
+
+class ActuatorEventStatsResponse(BaseModel):
+    """Aggregated control-event statistics for one actuator."""
+
+    actuator_key: str | None = None
+    total_events: int
+    switch_cycles: int
+    failures: int
+    power_watts: float | None = None
+
+
+class OverrideCreatedResponse(BaseModel):
+    """Result of setting a manual override on an actuator."""
+
+    key: str | None = None
+    expires_at: datetime | None = None
+    is_active: bool
+
+
+class RuleTestResponse(BaseModel):
+    """Dry-run result of evaluating a control rule against supplied readings.
+
+    Only the fields relevant to the evaluated branch are populated: ``reason``
+    when no sensor reading was supplied, otherwise the trigger evaluation.
+    """
+
+    would_trigger: bool
+    sensor_parameter: str
+    reason: str | None = None
+    command: str | None = None
+    value: float | None = None
+    current_sensor_value: float | None = None
+    on_threshold: float | None = None
+    off_threshold: float | None = None
+
+
+class EmergencyStopResponse(BaseModel):
+    """Outcome of an emergency-stop scenario dispatch."""
+
+    scenario: str
+    stopped: list[str]
+    forced_on: list[str]
+    failed: list[str]

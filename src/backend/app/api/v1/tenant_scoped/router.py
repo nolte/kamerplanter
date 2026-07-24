@@ -54,10 +54,14 @@ from app.api.v1.tenant_scoped.weather.tenant_router import router as tenant_weat
 from app.api.v1.user_preferences.tenant_router import router as tenant_user_preferences_router
 from app.api.v1.watering_events.tenant_router import router as tenant_watering_events_router
 from app.api.v1.watering_logs.tenant_router import router as tenant_watering_logs_router
+from app.common.openapi_responses import AUTH_RESPONSES
 
+# Every operation below requires authentication and tenant membership, so the
+# 401/403 envelope is documented once for the whole tenant-scoped surface.
 tenant_scoped_router = APIRouter(
     prefix="/t/{tenant_slug}",
     tags=["tenant-scoped"],
+    responses=AUTH_RESPONSES,
 )
 
 # Mount tenant-scoped resource routers

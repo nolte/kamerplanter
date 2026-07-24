@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.tenants.schemas import (
     AcceptInvitationRequest,
@@ -20,12 +22,13 @@ from app.api.v1.tenants.schemas import (
 from app.common.auth import get_current_tenant, get_current_user, require_tenant_role
 from app.common.dependencies import get_tenant_service
 from app.common.enums import TenantRole
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.domain.models.tenant import Tenant
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 
-router = APIRouter(prefix="/tenants", tags=["tenants"])
+router = APIRouter(prefix="/tenants", tags=["tenants"], responses=AUTH_CRUD_RESPONSES)
 
 
 def _tenant_response(t: Tenant) -> TenantResponse:
@@ -122,7 +125,7 @@ def list_members(
     response_model=MessageResponse,
 )
 def change_member_role(
-    membership_key: str,
+    membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: ChangeRoleRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: TenantService = Depends(get_tenant_service),
@@ -137,7 +140,7 @@ def change_member_role(
     response_model=MessageResponse,
 )
 def remove_member(
-    membership_key: str,
+    membership_key: Annotated[str, Path(description="Document key of the membership.")],
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: TenantService = Depends(get_tenant_service),
 ):
@@ -236,7 +239,7 @@ def create_link_invitation(
     response_model=MessageResponse,
 )
 def revoke_invitation(
-    invitation_key: str,
+    invitation_key: Annotated[str, Path(description="Document key of the invitation.")],
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: TenantService = Depends(get_tenant_service),
 ):
@@ -319,7 +322,7 @@ def create_assignment(
     response_model=AssignmentResponse,
 )
 def update_assignment(
-    assignment_key: str,
+    assignment_key: Annotated[str, Path(description="Document key of the location assignment.")],
     body: AssignmentUpdateRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: TenantService = Depends(get_tenant_service),
@@ -344,7 +347,7 @@ def update_assignment(
     response_model=MessageResponse,
 )
 def delete_assignment(
-    assignment_key: str,
+    assignment_key: Annotated[str, Path(description="Document key of the location assignment.")],
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
     service: TenantService = Depends(get_tenant_service),
 ):

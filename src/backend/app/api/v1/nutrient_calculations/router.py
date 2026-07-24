@@ -10,11 +10,14 @@ from app.api.v1.nutrient_calculations.schemas import (
     EcSegmentResponse,
     EffectiveWaterProfileResponse,
     FlushingRequest,
+    FlushingResponse,
     MixingProtocolDosage,
     MixingProtocolRequest,
     MixingProtocolResponse,
     MixingSafetyRequest,
+    MixingSafetyResponse,
     PhAdjustmentResponse,
+    RunoffAnalysisResponse,
     RunoffRequest,
     WaterMixRequest,
     WaterMixResponse,
@@ -25,6 +28,7 @@ from app.api.v1.nutrient_calculations.schemas import (
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import PhaseName, SubstrateType
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.engines.ec_budget_engine import (
     EcBudgetCalculator,
     EcBudgetFertilizerInput,
@@ -41,7 +45,7 @@ from app.domain.models.site import RoWaterProfile, TapWaterProfile
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
-router = APIRouter(prefix="/nutrient-calculations", tags=["nutrient-calculations"])
+router = APIRouter(prefix="/nutrient-calculations", tags=["nutrient-calculations"], responses=NOT_FOUND_RESPONSE)
 
 
 @router.post("/mixing-protocol", response_model=MixingProtocolResponse)
@@ -138,8 +142,9 @@ def area_dosing(
     )
 
 
-@router.post("/flushing")
+@router.post("/flushing", response_model=FlushingResponse)
 def flushing_protocol(body: FlushingRequest):
+    """Compute a pre-harvest flushing schedule for a substrate."""
     substrate = SubstrateType(body.substrate_type)
     protocol = FlushingProtocol()
     return protocol.generate(
@@ -149,8 +154,9 @@ def flushing_protocol(body: FlushingRequest):
     )
 
 
-@router.post("/runoff")
+@router.post("/runoff", response_model=RunoffAnalysisResponse)
 def runoff_analysis(body: RunoffRequest):
+    """Analyse drain-to-waste runoff EC/pH against the input solution."""
     analyzer = RunoffAnalyzer()
     return analyzer.analyze(
         input_ec_ms=body.input_ec_ms,
@@ -162,11 +168,12 @@ def runoff_analysis(body: RunoffRequest):
     )
 
 
-@router.post("/mixing-safety")
+@router.post("/mixing-safety", response_model=MixingSafetyResponse)
 def mixing_safety(
     body: MixingSafetyRequest,
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Validate a fertilizer combination for mixing-order and precipitation safety."""
     fertilizers = []
     for key in body.fertilizer_keys:
         fert = service.get_fertilizer(key)
@@ -178,6 +185,7 @@ def mixing_safety(
 
 @router.post("/water-mix", response_model=WaterMixResponse)
 def water_mix(body: WaterMixRequest):
+    """Blend tap and RO water and report the effective profile plus CalMag correction."""
     tap = TapWaterProfile(
         ec_ms=body.tap_profile.ec_ms,
         ph=body.tap_profile.ph,
@@ -221,6 +229,7 @@ def water_mix(body: WaterMixRequest):
 
 @router.post("/water-mix/reverse", response_model=WaterMixReverseResponse)
 def water_mix_reverse(body: WaterMixReverseRequest):
+    """Solve for the RO share needed to hit a target base-water EC."""
     tap = TapWaterProfile(
         ec_ms=body.tap_profile.ec_ms,
         ph=body.tap_profile.ph,
@@ -249,6 +258,7 @@ def ec_budget(
     body: EcBudgetRequest,
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Run the canonical EC-budget pipeline (REQ-004-A) for a fertilizer selection."""
     substrate = SubstrateType(body.substrate)
     phase = PhaseName(body.phase)
 

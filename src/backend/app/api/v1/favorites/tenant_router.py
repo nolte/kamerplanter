@@ -5,10 +5,13 @@ get_current_tenant enforces membership. Favorites are user-global
 (not per-tenant).
 """
 
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.v1.favorites.schemas import (
     FavoriteCreateRequest,
+    FavoriteRemovedResponse,
     FavoriteResponse,
     NutrientPlanMatchResponse,
 )
@@ -39,6 +42,7 @@ def list_favorites(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
+    """List the calling user's favorites, optionally filtered by entity type."""
     edges = service.list_favorites(ctx.user_key, entity_type=type)
     return [_edge_to_response(e) for e in edges]
 
@@ -49,17 +53,19 @@ def add_favorite(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
+    """Add an entity to the calling user's favorites."""
     edge = service.add_favorite(ctx.user_key, body.target_key, source=body.source)
     return _edge_to_response(edge)
 
 
-@router.delete("/{target_key}")
+@router.delete("/{target_key}", response_model=FavoriteRemovedResponse)
 def remove_favorite(
-    target_key: str,
-    cascade_cleanup: bool = Query(default=True),
+    target_key: Annotated[str, Path(description="Document key of the favorited entity.")],
+    cascade_cleanup: bool = Query(default=True, description="Also remove cascaded favorites (e.g. plan fertilizers)."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
+    """Remove an entity from the calling user's favorites."""
     removed = service.remove_favorite(ctx.user_key, target_key, cascade_cleanup=cascade_cleanup)
     return {"removed": removed}
 
@@ -70,5 +76,6 @@ def get_matching_nutrient_plans(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FavoritesService = Depends(get_favorites_service),
 ):
+    """List favorited nutrient plans matching the supplied species keys."""
     keys = [k.strip() for k in species_keys.split(",") if k.strip()]
     return service.get_matching_nutrient_plans(keys)

@@ -89,6 +89,17 @@ tasks:
     cmds:
       - python -m pytest tests/ {{.CLI_ARGS}}
 
+  openapi:export:
+    desc: |
+      Regenerate the checked-in OpenAPI snapshot (src/backend/openapi.json)
+      from the FastAPI app — no running stack required. CI diffs this snapshot
+      against a fresh export (spec/project/api-documentation/ drift gate), so
+      run this after changing any router, response model, or app metadata and
+      commit the result. Verify without writing: task openapi:export -- --check
+    dir: src/backend
+    cmds:
+      - python -m scripts.export_openapi --out openapi.json {{.CLI_ARGS}}
+
   deps:compile:
     desc: |
       Recompile the backend dependency locks (requirements.txt +

@@ -170,3 +170,17 @@ class ActiveChannelResponse(BaseModel):
 class AssignNutrientPlanRequest(BaseModel):
     plan_key: str
     assigned_by: str = ""
+
+
+class AssignNutrientPlanStatusResponse(BaseModel):
+    """Acknowledgement that a nutrient plan was assigned to a plant instance."""
+
+    status: str = Field(description="Assignment status marker (always ``assigned``).")
+
+
+class PlantRunSummaryResponse(BaseModel):
+    """A compact reference to a planting run a plant instance belongs to."""
+
+    key: str = Field(description="Document key of the planting run.")
+    name: str = Field(description="Human-readable name of the planting run.")
+    status: str = Field(description="Current lifecycle status of the planting run.")

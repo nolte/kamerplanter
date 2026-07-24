@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.platform.schemas import (
     AdminAddMemberRequest,
@@ -18,12 +19,13 @@ from app.api.v1.admin.platform.schemas import (
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_db, get_privacy_service, get_tenant_service
 from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.data_access.arango import collections as col
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 from app.domain.services.tenant_service import TenantService
 
-router = APIRouter(prefix="/admin/platform", tags=["admin-platform"])
+router = APIRouter(prefix="/admin/platform", tags=["admin-platform"], responses=AUTH_CRUD_RESPONSES)
 
 
 @router.get("/stats", response_model=AdminStatsResponse)
@@ -147,7 +149,7 @@ def list_all_users(
 
 @router.patch("/tenants/{key}", response_model=AdminTenantResponse)
 def update_tenant(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminTenantUpdate,
     _user: User = Depends(require_platform_admin),
 ):
@@ -190,7 +192,7 @@ def update_tenant(
 
 @router.patch("/users/{key}", response_model=AdminUserResponse)
 def update_user(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminUserUpdate,
     _user: User = Depends(require_platform_admin),
 ):
@@ -238,7 +240,7 @@ def update_user(
 
 @router.delete("/tenants/{key}", status_code=204)
 def delete_tenant(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tenant.")],
     _user: User = Depends(require_platform_admin),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
@@ -264,7 +266,7 @@ def delete_tenant(
 
 @router.delete("/users/{key}", status_code=204)
 def delete_user(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the user.")],
     current_user: User = Depends(require_platform_admin),
     privacy_service: PrivacyService = Depends(get_privacy_service),
 ):
@@ -364,7 +366,7 @@ def delete_user(
     response_model=list[AdminTenantMemberResponse],
 )
 def list_tenant_members(
-    tenant_key: str,
+    tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     _user: User = Depends(require_platform_admin),
 ):
     """List all members of a tenant. Platform admin only."""
@@ -397,7 +399,7 @@ def list_tenant_members(
     status_code=201,
 )
 def add_tenant_member(
-    tenant_key: str,
+    tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
     body: AdminAddMemberRequest,
     _user: User = Depends(require_platform_admin),
 ):
@@ -471,8 +473,8 @@ def add_tenant_member(
     status_code=204,
 )
 def remove_tenant_member(
-    tenant_key: str,
-    membership_key: str,
+    tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
+    membership_key: Annotated[str, Path(description="Document key of the membership.")],
     _user: User = Depends(require_platform_admin),
 ):
     """Remove a member from a tenant. Platform admin only."""
@@ -503,8 +505,8 @@ def remove_tenant_member(
     response_model=AdminTenantMemberResponse,
 )
 def change_member_role(
-    tenant_key: str,
-    membership_key: str,
+    tenant_key: Annotated[str, Path(description="Document key of the tenant.")],
+    membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: AdminUpdateMemberRoleRequest,
     _user: User = Depends(require_platform_admin),
 ):
@@ -545,7 +547,7 @@ def change_member_role(
     response_model=list[AdminUserMembershipResponse],
 )
 def list_user_memberships(
-    user_key: str,
+    user_key: Annotated[str, Path(description="Document key of the user.")],
     _user: User = Depends(require_platform_admin),
 ):
     """List all tenant memberships of a user. Platform admin only."""
@@ -578,7 +580,7 @@ def list_user_memberships(
     status_code=201,
 )
 def add_user_to_tenant(
-    user_key: str,
+    user_key: Annotated[str, Path(description="Document key of the user.")],
     body: AdminAddUserToTenantRequest,
     _user: User = Depends(require_platform_admin),
 ):
@@ -650,8 +652,8 @@ def add_user_to_tenant(
     status_code=204,
 )
 def remove_user_from_tenant(
-    user_key: str,
-    membership_key: str,
+    user_key: Annotated[str, Path(description="Document key of the user.")],
+    membership_key: Annotated[str, Path(description="Document key of the membership.")],
     _user: User = Depends(require_platform_admin),
 ):
     """Remove a user from a tenant. Platform admin only."""
@@ -681,8 +683,8 @@ def remove_user_from_tenant(
     response_model=AdminUserMembershipResponse,
 )
 def change_user_membership_role(
-    user_key: str,
-    membership_key: str,
+    user_key: Annotated[str, Path(description="Document key of the user.")],
+    membership_key: Annotated[str, Path(description="Document key of the membership.")],
     body: AdminUpdateMemberRoleRequest,
     _user: User = Depends(require_platform_admin),
 ):

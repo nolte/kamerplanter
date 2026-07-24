@@ -16,11 +16,12 @@ from app.api.v1.admin.recognition.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_reference_image_repo, get_species_repo
+from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.config.settings import settings
 from app.data_access.external.inference_service_client import InferenceServiceClient
 from app.domain.models.user import User
 
-router = APIRouter(prefix="/admin/recognition", tags=["admin-recognition"])
+router = APIRouter(prefix="/admin/recognition", tags=["admin-recognition"], responses=UNAUTHORIZED_RESPONSE)
 
 
 @router.get("/status", response_model=RecognitionStatusResponse)
