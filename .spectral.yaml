@@ -1,6 +1,6 @@
 # Spectral ruleset for the OpenAPI lint gate (spec/project/api-documentation/).
-# The document is code-first (FastAPI-generated); the snapshot lives at
-# src/backend/openapi.json and is regenerated with `task openapi:export`.
+# The document is code-first (FastAPI-generated) and never checked in — the
+# api-docs CI lane exports it on the fly (`task openapi:export`) and lints it.
 extends: ["spectral:oas"]
 rules:
   # FastAPI auto-derives operationIds from function names; they are unique and

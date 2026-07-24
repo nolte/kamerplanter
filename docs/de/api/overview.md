@@ -28,7 +28,7 @@ Das OpenAPI-Dokument lässt sich reproduzierbar direkt aus dem Code erzeugen —
 task openapi:export
 ```
 
-Der Befehl schreibt den Snapshot nach `src/backend/openapi.json`. Dieser Snapshot ist eingecheckt und wird in der CI gegen einen frischen Export verglichen (Drift-Gate) sowie mit [Spectral](https://github.com/stoplightio/spectral) gelintet. Nach jeder Änderung an Routern, Response-Modellen oder App-Metadaten muss der Snapshot neu erzeugt und mitcommittet werden. Prüfen ohne Schreiben: `task openapi:export -- --check`.
+Der Befehl schreibt das Dokument nach `src/backend/openapi.json` (gitignored — es ist ein Build-Artefakt und wird nie eingecheckt). Die CI exportiert es bei jeder Backend-Änderung frisch, lintet es mit [Spectral](https://github.com/stoplightio/spectral) und stellt es als Workflow-Artefakt bereit; der Release-Build hängt es als Release-Asset an.
 
 ---
 

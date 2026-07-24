@@ -84,3 +84,7 @@ docker/embedding-service/models/
 
 # KAMI image-render pipeline — generated PNGs + per-run state (scripts/kami/render.py)
 .render/
+
+# Generated OpenAPI document — build/release artifact, never checked in
+# (regenerate on demand with `task openapi:export`)
+src/backend/openapi.json
