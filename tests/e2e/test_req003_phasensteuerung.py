@@ -80,11 +80,23 @@ def _provision_plant_key(plant_list: PlantInstanceListExt) -> str:
 
 
 def _get_first_plant_key(plant_list: PlantInstanceListExt) -> str:
-    """Open the list and return the first plant's key, self-provisioning if empty."""
+    """Open the list and return a stable plant's key, self-provisioning if empty.
+
+    Prefers the first row whose name does NOT carry the ``E2E`` temp-plant
+    marker: journey tests on other xdist workers create and DELETE their own
+    ``E2E:``-prefixed plants, and picking such a row raced its deletion (the
+    detail page then 404s mid-test). Seeded plants are never deleted.
+    """
     plant_list.open()
     if plant_list.get_row_count() == 0:
         return _provision_plant_key(plant_list)
-    plant_list.click_row(0)
+    row_index = 0
+    names = plant_list.get_first_column_texts()
+    for i, name in enumerate(names):
+        if "E2E" not in name:
+            row_index = i
+            break
+    plant_list.click_row(row_index)
     plant_list.wait_for_url_contains("/pflanzen/plant-instances/")
     url = plant_list.driver.current_url
     return url.rstrip("/").rsplit("/", 1)[-1]

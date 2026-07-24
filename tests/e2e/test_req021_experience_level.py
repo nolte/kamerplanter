@@ -154,17 +154,29 @@ def _set_experience_level(
     target_level: str,
 ) -> None:
     """Navigate to the experience tab and set the level, handling confirm dialogs."""
+    import time as _time
+
     expertise_page.open_experience_tab()
+    # The toggle renders the 'beginner' FALLBACK while the preferences fetch
+    # is still in flight — a single immediate read can misreport the current
+    # level, misclassify a downgrade as an upgrade, and leave the resulting
+    # window.confirm unaccepted (blocking the PATCH). Sample until two
+    # consecutive reads agree before trusting the value.
     current = expertise_page.get_active_toggle_level()
+    for _ in range(10):
+        _time.sleep(0.3)
+        again = expertise_page.get_active_toggle_level()
+        if again == current:
+            break
+        current = again
     if current == target_level:
         return
 
-    LEVEL_ORDER = {"beginner": 0, "intermediate": 1, "expert": 2}
-    is_downgrade = LEVEL_ORDER.get(target_level, 0) < LEVEL_ORDER.get(current, 0)
-
     expertise_page.click_level(target_level)
 
-    if is_downgrade:
+    # Accept a downgrade confirm by PRESENCE, not by the computed direction —
+    # robust against any residual misread of the starting level.
+    if expertise_page.is_confirm_dialog_present():
         expertise_page.accept_confirm_dialog()
 
     expertise_page.wait_for_saved_snackbar()
@@ -185,7 +197,7 @@ def _set_experience_level(
         expertise_page.click_level(target_level)
         # A swallowed re-click may not raise the confirm dialog again — accept
         # it only when it actually appeared instead of blocking on a wait.
-        if is_downgrade and expertise_page.is_confirm_dialog_present():
+        if expertise_page.is_confirm_dialog_present():
             expertise_page.accept_confirm_dialog()
         expertise_page.wait_for_saved_snackbar()
     pytest.fail(
