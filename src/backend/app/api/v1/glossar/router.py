@@ -18,7 +18,9 @@ fallback text (``is_fallback=true``) instead of returning 404.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.v1.glossar.deps import get_glossary_service
 from app.common.auth import get_current_tenant
@@ -39,8 +41,8 @@ router = APIRouter(
 
 @router.get("/terms", response_model=list[GlossaryTermSummary])
 def list_terms(
-    category: str | None = None,
-    language: Language = "de",
+    category: str | None = Query(None, description="Filter terms by category."),
+    language: Language = Query("de", description="Language of the returned term labels (de or en)."),
     _ctx: TenantContext = Depends(get_current_tenant),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> list[GlossaryTermSummary]:
@@ -50,9 +52,9 @@ def list_terms(
 
 @router.get("/term/{slug}", response_model=GlossaryTermAnswer)
 async def get_term(
-    slug: str,
-    expertise: ExpertiseLevel = "beginner",
-    language: Language = "de",
+    slug: Annotated[str, Path(description="Slug identifier of the glossary term.")],
+    expertise: ExpertiseLevel = Query("beginner", description="Experience level the explanation targets."),
+    language: Language = Query("de", description="Language of the returned explanation (de or en)."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: GlossaryService = Depends(get_glossary_service),
 ) -> GlossaryTermAnswer:

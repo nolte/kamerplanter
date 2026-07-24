@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.watering_logs.schemas import (
     ResolvedFertilizer,
     ResolvedPlant,
+    RunoffAnalysisResponse,
     WateringConfirmRequest,
     WateringConfirmResponse,
     WateringLogCreate,
@@ -15,12 +18,13 @@ from app.api.v1.watering_logs.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_watering_log_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.watering_log import WateringLog
 from app.domain.services.watering_log_service import WateringLogService
 
-router = APIRouter(tags=["watering-logs"])
+router = APIRouter(tags=["watering-logs"], responses=NOT_FOUND_RESPONSE)
 
 
 def _log_response(
@@ -52,6 +56,7 @@ def create_log(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Create a watering log and return it with resolved names and warnings."""
     log = WateringLog(**body.model_dump(), tenant_key=ctx.tenant_key)
     result = service.create_log(log)
     created = result["log"]
@@ -67,6 +72,7 @@ def list_logs(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """List the tenant's watering logs (paginated)."""
     items, _total = service.list_logs(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     all_plant_keys = list({pk for log in items for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_plant_keys) if all_plant_keys else {}
@@ -77,10 +83,11 @@ def list_logs(
 
 @router.get("/watering-logs/{key}", response_model=WateringLogResponse)
 def get_log(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the watering log.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Return a single watering log by key with resolved names."""
     log = service.get_log(key, tenant_key=ctx.tenant_key)
     name_map = service.resolve_plant_names(log.plant_keys) if log.plant_keys else {}
     fert_keys = list({fu.fertilizer_key for fu in log.fertilizers_used})
@@ -90,11 +97,12 @@ def get_log(
 
 @router.put("/watering-logs/{key}", response_model=WateringLogResponse)
 def update_log(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the watering log.")],
     body: WateringLogUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Update a watering log."""
     service.get_log(key, tenant_key=ctx.tenant_key)
     updated = service.update_log(key, body.model_dump(exclude_unset=True))
     name_map = service.resolve_plant_names(updated.plant_keys) if updated.plant_keys else {}
@@ -105,31 +113,38 @@ def update_log(
 
 @router.delete("/watering-logs/{key}", status_code=204)
 def delete_log(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the watering log.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Delete a watering log."""
     service.get_log(key, tenant_key=ctx.tenant_key)
     service.delete_log(key)
 
 
-@router.get("/watering-logs/{key}/runoff")
+@router.get(
+    "/watering-logs/{key}/runoff",
+    response_model=RunoffAnalysisResponse,
+    response_model_exclude_unset=True,
+)
 def get_runoff_analysis(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the watering log.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Analyse a watering log's drain-to-waste runoff (or report incomplete data)."""
     service.get_log(key, tenant_key=ctx.tenant_key)
     return service.analyze_runoff(key)
 
 
 @router.get("/watering-logs/plant/{plant_key}", response_model=list[WateringLogResponse])
 def get_plant_logs(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """List a plant instance's watering logs (paginated)."""
     logs = service.get_by_plant(plant_key, pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
@@ -140,11 +155,12 @@ def get_plant_logs(
 
 @router.get("/slots/{slot_key}/watering-logs", response_model=list[WateringLogResponse])
 def get_slot_logs(
-    slot_key: str,
+    slot_key: Annotated[str, Path(description="Document key of the slot.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """List a slot's watering logs (paginated)."""
     logs = service.get_by_slot(slot_key, pagination.offset, pagination.limit)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
@@ -155,11 +171,12 @@ def get_slot_logs(
 
 @router.get("/locations/{location_key}/watering-logs", response_model=list[WateringLogResponse])
 def get_location_logs(
-    location_key: str,
+    location_key: Annotated[str, Path(description="Document key of the location.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """List a location's watering logs (paginated)."""
     logs = service.get_by_location(location_key, pagination.offset, pagination.limit)
     all_pks = list({pk for log in logs for pk in log.plant_keys})
     name_map = service.resolve_plant_names(all_pks) if all_pks else {}
@@ -170,10 +187,11 @@ def get_location_logs(
 
 @router.get("/locations/{location_key}/watering-stats", response_model=WateringStatsResponse)
 def get_location_watering_stats(
-    location_key: str,
+    location_key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Return aggregated watering statistics for a location."""
     stats = service.get_stats(location_key)
     return WateringStatsResponse(**stats)
 
@@ -184,6 +202,7 @@ def confirm_watering(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Confirm a scheduled watering task, creating the resulting log."""
     result = service.confirm_watering(
         run_key=body.run_key,
         task_key=body.task_key,
@@ -202,5 +221,6 @@ def quick_confirm_watering(
     ctx: TenantContext = Depends(get_current_tenant),
     service: WateringLogService = Depends(get_watering_log_service),
 ):
+    """Quick-confirm a scheduled watering task with default values."""
     result = service.quick_confirm_watering(body.run_key, body.task_key, tenant_key=ctx.tenant_key)
     return WateringConfirmResponse(**result)

@@ -20,6 +20,16 @@ In Produktionsumgebungen wird die API über Traefik als Ingress-Controller unter
 | `/api/v1/redoc` | ReDoc — lesbare Referenzdokumentation |
 | `/api/v1/openapi.json` | OpenAPI-Schema (JSON) — für Code-Generierung |
 
+### OpenAPI-Schema ohne laufenden Server exportieren
+
+Das OpenAPI-Dokument lässt sich reproduzierbar direkt aus dem Code erzeugen — ganz ohne laufende Datenbank oder Backend:
+
+```bash
+task openapi:export
+```
+
+Der Befehl schreibt den Snapshot nach `src/backend/openapi.json`. Dieser Snapshot ist eingecheckt und wird in der CI gegen einen frischen Export verglichen (Drift-Gate) sowie mit [Spectral](https://github.com/stoplightio/spectral) gelintet. Nach jeder Änderung an Routern, Response-Modellen oder App-Metadaten muss der Snapshot neu erzeugt und mitcommittet werden. Prüfen ohne Schreiben: `task openapi:export -- --check`.
+
 ---
 
 ## Deployment-Modi

@@ -6,8 +6,9 @@ global reference data.
 """
 
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, UploadFile
 
 from app.api.v1.attachments.permissions import require_attachment_permission
 from app.api.v1.ipm.router import _application_response, _inspection_response
@@ -23,6 +24,7 @@ from app.api.v1.ipm.schemas import (
 from app.common.auth import get_current_tenant, is_platform_admin
 from app.common.dependencies import get_ipm_service, get_pest_image_service, get_tenant_service
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, NotFoundError
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action
 from app.domain.models.ipm import Inspection, TreatmentApplication
@@ -37,7 +39,7 @@ from app.domain.services.pest_image_service import (
 )
 from app.domain.services.tenant_service import TenantService
 
-router = APIRouter(prefix="/ipm", tags=["ipm"])
+router = APIRouter(prefix="/ipm", tags=["ipm"], responses=NOT_FOUND_RESPONSE)
 
 # Chunk size for the bounded streaming upload read (1 MiB) — mirrors the
 # attachment router so an oversized body is never fully buffered (SEC-005).
@@ -162,11 +164,12 @@ def _recognition_image_response(view: PestRecognitionImageView, pest_key: str) -
 
 @router.post("/plants/{plant_key}/inspections", response_model=InspectionResponse, status_code=201)
 def create_inspection(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: InspectionCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """Record an IPM inspection for a plant."""
     inspection = Inspection(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_inspection(plant_key, inspection)
     return _inspection_response(created)
@@ -174,11 +177,12 @@ def create_inspection(
 
 @router.get("/plants/{plant_key}/inspections", response_model=list[InspectionResponse])
 def list_inspections(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """List a plant's IPM inspections (paginated)."""
     inspections, _ = service.get_inspections(plant_key, pagination.offset, pagination.limit)
     return [_inspection_response(i) for i in inspections]
 
@@ -189,11 +193,12 @@ def list_inspections(
     status_code=201,
 )
 def create_treatment_application(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: TreatmentApplicationCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """Record a treatment application for a plant."""
     app = TreatmentApplication(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_treatment_application(plant_key, app)
     return _application_response(created)
@@ -201,31 +206,34 @@ def create_treatment_application(
 
 @router.get("/plants/{plant_key}/treatment-applications", response_model=list[TreatmentApplicationResponse])
 def list_treatment_applications(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """List a plant's treatment applications (paginated)."""
     apps, _ = service.get_applications(plant_key, pagination.offset, pagination.limit)
     return [_application_response(a) for a in apps]
 
 
 @router.get("/plants/{plant_key}/karenz", response_model=list[KarenzPeriodResponse])
 def get_karenz_periods(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """List active Karenz (pre-harvest waiting) periods for a plant."""
     return service.get_karenz_periods(plant_key)
 
 
 @router.get("/plants/{plant_key}/harvest-safety", response_model=HarvestSafetyResponse)
 def check_harvest_safety(
-    plant_key: str,
-    planned_date: str | None = None,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
+    planned_date: str | None = Query(default=None, description="Planned harvest date (ISO-8601) to check against."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """Check whether a plant may be harvested given active Karenz periods."""
     pd = datetime.fromisoformat(planned_date) if planned_date else None
     can_harvest, blocking = service.check_harvest_safety(plant_key, pd)
     return HarvestSafetyResponse(can_harvest=can_harvest, blocking_treatments=blocking)
@@ -233,12 +241,13 @@ def check_harvest_safety(
 
 @router.get("/plants/{plant_key}/inspection-schedule")
 def get_inspection_schedule(
-    plant_key: str,
-    current_phase: str = Query("vegetative"),
-    pressure_level: str = Query("none"),
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
+    current_phase: str = Query("vegetative", description="Current growth phase driving the inspection cadence."),
+    pressure_level: str = Query("none", description="Current pest-pressure level driving the inspection cadence."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """Return the recommended inspection schedule for a plant."""
     return service.get_inspection_schedule(plant_key, current_phase, pressure_level)
 
 
@@ -253,10 +262,10 @@ def get_inspection_schedule(
 
 @router.post("/pests/{pest_key}/images", response_model=PestImageResponse, status_code=201)
 async def contribute_pest_image(
-    pest_key: str,
+    pest_key: Annotated[str, Path(description="Document key of the global pest.")],
     request: Request,
     file: UploadFile,
-    caption: str | None = Form(default=None),
+    caption: str | None = Form(default=None, description="Optional caption for the contributed image."),
     ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
     service: PestImageService = Depends(get_pest_image_service),
 ) -> PestImageResponse:
@@ -286,7 +295,7 @@ async def contribute_pest_image(
 
 @router.get("/pests/{pest_key}/images", response_model=list[PestImageResponse])
 def list_pest_images(
-    pest_key: str,
+    pest_key: Annotated[str, Path(description="Document key of the global pest.")],
     # Plain ``False`` default (not ``Query(False)``) so the house-style direct
     # call in unit tests gets a real boolean and the admin gate short-circuits;
     # FastAPI still exposes it as the ``?include_inactive=`` query parameter.
@@ -342,8 +351,8 @@ def list_pest_images(
 
 @router.delete("/pests/{pest_key}/images/{image_id}", status_code=204)
 async def delete_pest_image(
-    pest_key: str,
-    image_id: str,
+    pest_key: Annotated[str, Path(description="Document key of the global pest.")],
+    image_id: Annotated[str, Path(description="Identifier of the pest-image contribution to delete.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.DELETE)),
     service: PestImageService = Depends(get_pest_image_service),
 ) -> Response:

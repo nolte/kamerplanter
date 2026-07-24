@@ -6,15 +6,23 @@ is only ``get_current_user``-gated. Per-site resolution is tenant-scoped and
 lives on the site router.
 """
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_hardiness_zone_service
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.domain.services.hardiness_zone_service import HardinessZoneService
 
-router = APIRouter(prefix="/hardiness-zones", tags=["hardiness-zones"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/hardiness-zones",
+    tags=["hardiness-zones"],
+    dependencies=[Depends(get_current_user)],
+    responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 
 
 @router.get("", response_model=list[HardinessZoneResponse])
@@ -24,6 +32,9 @@ def list_hardiness_zones(service: HardinessZoneService = Depends(get_hardiness_z
 
 
 @router.get("/{zone}", response_model=HardinessZoneResponse)
-def get_hardiness_zone(zone: str, service: HardinessZoneService = Depends(get_hardiness_zone_service)):
+def get_hardiness_zone(
+    zone: Annotated[str, Path(description="Hardiness-zone label, e.g. ``7a``.")],
+    service: HardinessZoneService = Depends(get_hardiness_zone_service),
+):
     """Get a single hardiness zone by its label (e.g. ``7a``)."""
     return to_response(service.get_zone(zone), HardinessZoneResponse)

@@ -28,3 +28,9 @@ class NutrientPlanMatchResponse(BaseModel):
     substrate_type: str | None = None
     fertilizer_count: int = 0
     fertilizers: list[NutrientPlanFertilizerInfo] = []
+
+
+class FavoriteRemovedResponse(BaseModel):
+    """Acknowledgement returned after removing a favorite edge."""
+
+    removed: bool

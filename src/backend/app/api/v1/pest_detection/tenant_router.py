@@ -7,7 +7,9 @@ the image before any inference; the cloud path additionally enforces the
 treatment (§0) — at most an IPM inspection is suggested.
 """
 
-from fastapi import APIRouter, Depends, Form, Query, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Form, Path, Query, UploadFile
 
 from app.api.v1.pest_detection.schemas import (
     CreateInspectionResponse,
@@ -18,10 +20,11 @@ from app.api.v1.pest_detection.schemas import (
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_pest_detection_service
 from app.common.exceptions import UnsupportedMediaTypeError
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.pest_detection_service import PestDetectionService
 
-router = APIRouter(prefix="/pests", tags=["pest-detection"])
+router = APIRouter(prefix="/pests", tags=["pest-detection"], responses=NOT_FOUND_RESPONSE)
 
 _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 
@@ -38,7 +41,7 @@ def pest_detection_status(
 @router.post("/detect", response_model=PestDetectionResponse)
 async def detect_pests_global(
     image: UploadFile,
-    language: str = Form("de"),
+    language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
@@ -69,9 +72,9 @@ async def detect_pests_global(
 
 @router.post("/plants/{plant_key}/detect", response_model=PestDetectionResponse)
 async def detect_pests(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     image: UploadFile,
-    language: str = Form("de"),
+    language: str = Form("de", description="Language code for the returned finding labels and disclaimer."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> PestDetectionResponse:
@@ -98,8 +101,8 @@ async def detect_pests(
 
 @router.get("/plants/{plant_key}/history", response_model=list[PestDetectionResponse])
 def detection_history(
-    plant_key: str,
-    limit: int = Query(20, ge=1, le=100),
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of recent detections to return."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),
 ) -> list[PestDetectionResponse]:
@@ -110,7 +113,7 @@ def detection_history(
 
 @router.post("/detections/{detection_key}/feedback", response_model=PestDetectionResponse)
 def submit_feedback(
-    detection_key: str,
+    detection_key: Annotated[str, Path(description="Document key of the pest detection.")],
     body: FeedbackRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),
@@ -129,7 +132,7 @@ def submit_feedback(
 
 @router.post("/detections/{detection_key}/create-inspection", response_model=CreateInspectionResponse, status_code=201)
 def create_inspection(
-    detection_key: str,
+    detection_key: Annotated[str, Path(description="Document key of the pest detection.")],
     plant_key: str = Query(..., description="Plant instance the inspection belongs to"),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PestDetectionService = Depends(get_pest_detection_service),

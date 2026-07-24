@@ -1,6 +1,8 @@
 """REQ-047 §4.4 — tenant-scoped season & overwintering-automation endpoints."""
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.overwintering_profiles.schemas import (
@@ -13,6 +15,7 @@ from app.common.dependencies import (
     get_overwintering_profile_service,
     get_season_state_service,
 )
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.overwintering_profile import (
     OverwinteringProfile,
     PlantOverwinteringStatus,
@@ -22,7 +25,7 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 from app.domain.services.season_state_service import SeasonStateService
 
-router = APIRouter(tags=["season"])
+router = APIRouter(tags=["season"], responses=NOT_FOUND_RESPONSE)
 
 
 def _season_response(state: SeasonState) -> SeasonStateResponse:
@@ -35,7 +38,7 @@ def _profile_response(profile: OverwinteringProfile) -> OverwinteringProfileResp
 
 @router.get("/sites/{site_key}/season-state", response_model=SeasonStateResponse)
 def get_site_season_state(
-    site_key: str,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SeasonStateService = Depends(get_season_state_service),
 ) -> SeasonStateResponse:
@@ -59,7 +62,7 @@ def get_season_overview(
 
 @router.get("/plants/{plant_key}/overwintering", response_model=OverwinteringProfileResponse)
 def get_plant_overwintering(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:
@@ -70,7 +73,7 @@ def get_plant_overwintering(
 
 @router.get("/plants/{plant_key}/overwintering/status", response_model=PlantOverwinteringStatus)
 def get_plant_overwintering_status(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> PlantOverwinteringStatus:
@@ -87,7 +90,7 @@ def get_plant_overwintering_status(
 
 @router.patch("/plants/{plant_key}/overwintering", response_model=OverwinteringProfileResponse)
 def override_plant_overwintering(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: OverwinteringOverrideRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
@@ -100,7 +103,7 @@ def override_plant_overwintering(
 
 @router.post("/plants/{plant_key}/overwintering/reset", response_model=OverwinteringProfileResponse)
 def reset_plant_overwintering(
-    plant_key: str,
+    plant_key: Annotated[str, Path(description="Document key of the plant instance.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: OverwinteringProfileService = Depends(get_overwintering_profile_service),
 ) -> OverwinteringProfileResponse:

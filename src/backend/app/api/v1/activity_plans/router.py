@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.activity_plans.schemas import (
     ActivityPlanApplyRequest,
@@ -11,9 +13,15 @@ from app.api.v1.activity_plans.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_activity_plan_service, get_task_repo
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.domain.services.activity_plan_service import ActivityPlanService
 
-router = APIRouter(prefix="/activity-plans", tags=["activity-plans"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/activity-plans",
+    tags=["activity-plans"],
+    dependencies=[Depends(get_current_user)],
+    responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 
 
 def _build_response(
@@ -74,6 +82,7 @@ def generate_plan(
     service: ActivityPlanService = Depends(get_activity_plan_service),
     task_repo=Depends(get_task_repo),
 ) -> ActivityPlanResponse:
+    """Generate or fetch the workflow-template activity plan for a species."""
     if body.force_regenerate:
         wt = service.regenerate_for_species(
             species_key=body.species_key,
@@ -96,6 +105,7 @@ def apply_plan(
     body: ActivityPlanApplyRequest,
     service: ActivityPlanService = Depends(get_activity_plan_service),
 ) -> ActivityPlanApplyResponse:
+    """Apply an activity plan to a planting run or a single plant."""
     if body.run_key:
         result = service.apply_plan_to_run(
             body.workflow_template_key,
@@ -125,10 +135,11 @@ def apply_plan(
 
 @router.patch("/templates/{key}", response_model=TaskTemplateResponse)
 def update_task_template(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task template.")],
     body: TaskTemplateUpdateRequest,
     task_repo=Depends(get_task_repo),
 ) -> TaskTemplateResponse:
+    """Update a single task template of a generated activity plan."""
     existing = task_repo.get_task_template_by_key(key)
     if not existing:
         raise NotFoundError("TaskTemplate", key)
@@ -173,9 +184,10 @@ def update_task_template(
 
 @router.delete("/templates/{key}", status_code=204)
 def delete_task_template(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the task template.")],
     task_repo=Depends(get_task_repo),
 ) -> None:
+    """Delete a single task template of a generated activity plan."""
     existing = task_repo.get_task_template_by_key(key)
     if not existing:
         raise NotFoundError("TaskTemplate", key)

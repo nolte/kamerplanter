@@ -1,16 +1,18 @@
 """Print/export API endpoints for generating PDF documents."""
 
 from io import BytesIO
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from fastapi.responses import StreamingResponse
 
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_print_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.print_service import PrintService
 
-router = APIRouter(prefix="/print", tags=["print"])
+router = APIRouter(prefix="/print", tags=["print"], responses=NOT_FOUND_RESPONSE)
 
 ALLOWED_LABEL_FIELDS = {
     "name",
@@ -26,8 +28,8 @@ ALLOWED_LABEL_FIELDS = {
 
 @router.get("/nutrient-plan/{plan_key}")
 def export_nutrient_plan_pdf(
-    plan_key: str,
-    locale: str = Query("de", pattern="^(de|en)$"),
+    plan_key: Annotated[str, Path(description="Document key of the nutrient plan.")],
+    locale: str = Query("de", pattern="^(de|en)$", description="Document language: de or en."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PrintService = Depends(get_print_service),
 ) -> StreamingResponse:
@@ -48,8 +50,10 @@ def export_nutrient_plan_pdf(
 
 @router.get("/care-checklist")
 def export_care_checklist_pdf(
-    date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
-    locale: str = Query("de", pattern="^(de|en)$"),
+    date: str | None = Query(
+        None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Checklist date (YYYY-MM-DD); defaults to today."
+    ),
+    locale: str = Query("de", pattern="^(de|en)$", description="Document language: de or en."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PrintService = Depends(get_print_service),
 ) -> StreamingResponse:
@@ -76,9 +80,11 @@ def export_plant_labels_pdf(
         "name,scientific_name,planted_date",
         description="Comma-separated field names to display on each card",
     ),
-    layout: str = Query("grid_2x4", pattern="^(single|grid_2x4|grid_3x3)$"),
-    qr_size_mm: int = Query(25, ge=20, le=60),
-    locale: str = Query("de", pattern="^(de|en)$"),
+    layout: str = Query(
+        "grid_2x4", pattern="^(single|grid_2x4|grid_3x3)$", description="Card layout: single, grid_2x4 or grid_3x3."
+    ),
+    qr_size_mm: int = Query(25, ge=20, le=60, description="QR-code edge length in millimetres."),
+    locale: str = Query("de", pattern="^(de|en)$", description="Document language: de or en."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PrintService = Depends(get_print_service),
 ) -> StreamingResponse:

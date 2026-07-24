@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.fertilizers.schemas import (
@@ -15,12 +17,13 @@ from app.api.v1.fertilizers.schemas import (
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_fertilizer_service
 from app.common.enums import DataOrigin
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.models.fertilizer import Fertilizer, FertilizerStock
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.fertilizer_service import FertilizerService
 
-router = APIRouter(prefix="/fertilizers", tags=["fertilizers"])
+router = APIRouter(prefix="/fertilizers", tags=["fertilizers"], responses=NOT_FOUND_RESPONSE)
 
 
 def _fert_response(f: Fertilizer) -> FertilizerResponse:
@@ -33,13 +36,14 @@ def _fert_response(f: Fertilizer) -> FertilizerResponse:
 @router.get("", response_model=list[FertilizerResponse])
 def list_fertilizers(
     pagination: PaginationParams = Depends(get_pagination),
-    fertilizer_type: str | None = None,
-    brand: str | None = None,
-    is_organic: bool | None = None,
-    tank_safe: bool | None = None,
+    fertilizer_type: str | None = Query(None, description="Filter by fertilizer type."),
+    brand: str | None = Query(None, description="Filter by brand."),
+    is_organic: bool | None = Query(None, description="Filter by organic flag."),
+    tank_safe: bool | None = Query(None, description="Filter by tank-safe flag."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """List the tenant's fertilizers (shared catalog plus tenant products), filtered."""
     filters: dict = {}
     if fertilizer_type:
         filters["fertilizer_type"] = fertilizer_type
@@ -61,6 +65,7 @@ def create_fertilizer(
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Create a tenant-owned fertilizer product."""
     fert = Fertilizer(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_fertilizer(fert)
     return _fert_response(created)
@@ -68,21 +73,23 @@ def create_fertilizer(
 
 @router.get("/{key}", response_model=FertilizerResponse)
 def get_fertilizer(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Return a single fertilizer by key."""
     f = service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     return _fert_response(f)
 
 
 @router.put("/{key}", response_model=FertilizerResponse)
 def update_fertilizer(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     body: FertilizerUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Update a tenant-owned fertilizer product."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_fertilizer(key, data)
@@ -91,20 +98,22 @@ def update_fertilizer(
 
 @router.delete("/{key}", status_code=204)
 def delete_fertilizer(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Delete a tenant-owned fertilizer product."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     service.delete_fertilizer(key)
 
 
 @router.get("/{key}/stocks", response_model=list[StockResponse])
 def list_stocks(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """List a fertilizer's stock entries."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     stocks = service.get_stocks(key)
     return [to_response(s, StockResponse) for s in stocks]
@@ -112,11 +121,12 @@ def list_stocks(
 
 @router.post("/{key}/stocks", response_model=StockResponse, status_code=201)
 def create_stock(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     body: StockCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Add a stock entry to a fertilizer."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     stock = FertilizerStock(fertilizer_key=key, **body.model_dump())
     created = service.create_stock(key, stock)
@@ -125,12 +135,13 @@ def create_stock(
 
 @router.put("/{key}/stocks/{sk}", response_model=StockResponse)
 def update_stock(
-    key: str,
-    sk: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
+    sk: Annotated[str, Path(description="Document key of the stock entry.")],
     body: StockUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Update a fertilizer stock entry."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_stock(sk, data)
@@ -139,32 +150,35 @@ def update_stock(
 
 @router.delete("/{key}/stocks/{sk}", status_code=204)
 def delete_stock(
-    key: str,
-    sk: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
+    sk: Annotated[str, Path(description="Document key of the stock entry.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Delete a fertilizer stock entry."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     service.delete_stock(sk)
 
 
 @router.get("/{key}/incompatibilities", response_model=list[IncompatibilityResponse])
 def list_incompatibilities(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """List a fertilizer's declared incompatibilities."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     return service.get_incompatibilities(key)
 
 
 @router.post("/{key}/incompatibilities", response_model=IncompatibilityResponse, status_code=201)
 def add_incompatibility(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     body: IncompatibilityCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Declare an incompatibility between this fertilizer and another."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     service.add_incompatibility(key, body.other_key, body.reason, body.severity)
     return IncompatibilityResponse(
@@ -174,20 +188,22 @@ def add_incompatibility(
 
 @router.delete("/{key}/incompatibilities/{other_key}", status_code=204)
 def remove_incompatibility(
-    key: str,
-    other_key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
+    other_key: Annotated[str, Path(description="Document key of the incompatible fertilizer.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """Remove a declared incompatibility between two fertilizers."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     service.remove_incompatibility(key, other_key)
 
 
 @router.get("/{key}/nutrient-plans", response_model=list[NutrientPlanUsageResponse])
 def list_nutrient_plan_usage(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the fertilizer.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: FertilizerService = Depends(get_fertilizer_service),
 ):
+    """List the nutrient plans that use this fertilizer."""
     service.get_fertilizer(key, tenant_key=ctx.tenant_key)
     return service.get_nutrient_plan_usage(key)

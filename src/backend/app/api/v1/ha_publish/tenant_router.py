@@ -5,7 +5,9 @@ Assistant as sensors (opt-in). The ``/enabled-keys`` route is the export-facing
 read a Home Assistant coordinator polls.
 """
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.v1.ha_publish.schemas import (
     HaPublishBulkUpdate,
@@ -28,7 +30,7 @@ def _to_response(entity_type: HaPublishEntityType, entity_key: str, enabled: boo
 
 @router.get("", response_model=list[HaPublishSettingResponse])
 def list_settings(
-    entity_type: HaPublishEntityType | None = None,
+    entity_type: HaPublishEntityType | None = Query(default=None, description="Filter by publishable entity type."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
@@ -39,7 +41,7 @@ def list_settings(
 
 @router.get("/enabled-keys/{entity_type}", response_model=HaPublishEnabledKeysResponse)
 def list_enabled_keys(
-    entity_type: HaPublishEntityType,
+    entity_type: Annotated[HaPublishEntityType, Path(description="Publishable entity type.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
@@ -65,8 +67,8 @@ def bulk_set(
 
 @router.get("/{entity_type}/{entity_key}", response_model=HaPublishSettingResponse)
 def get_status(
-    entity_type: HaPublishEntityType,
-    entity_key: str,
+    entity_type: Annotated[HaPublishEntityType, Path(description="Publishable entity type.")],
+    entity_key: Annotated[str, Path(description="Document key of the entity.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: HaPublishService = Depends(get_ha_publish_service),
 ):
@@ -77,8 +79,8 @@ def get_status(
 
 @router.put("/{entity_type}/{entity_key}", response_model=HaPublishSettingResponse)
 def set_status(
-    entity_type: HaPublishEntityType,
-    entity_key: str,
+    entity_type: Annotated[HaPublishEntityType, Path(description="Publishable entity type.")],
+    entity_key: Annotated[str, Path(description="Document key of the entity.")],
     body: HaPublishSettingUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: HaPublishService = Depends(get_ha_publish_service),

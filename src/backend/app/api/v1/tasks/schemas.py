@@ -388,6 +388,46 @@ class HSTValidateRequest(BaseModel):
     species_name: str = ""
 
 
+class HSTRecoveryStatus(BaseModel):
+    """Recovery window derived from the most recent High-Stress-Training task."""
+
+    last_task: str
+    completed_at: str
+    recovery_end: str
+    recovered: bool
+    days_remaining: int
+
+
+class HSTValidationResponse(BaseModel):
+    """Result of an HST feasibility check for a task in the current phase."""
+
+    can_perform: bool
+    reason: str
+    recovery_status: HSTRecoveryStatus | None = None
+
+
+class CareReminderGenerationResult(BaseModel):
+    """Counts produced by a manual care-reminder generation run."""
+
+    created: int
+    skipped: int
+
+
+class WorkflowExecutionListItem(BaseModel):
+    """A workflow execution enriched with its target entity's display info."""
+
+    key: str
+    entity_key: str
+    entity_type: str
+    entity_name: str
+    plant_removed: bool
+    species_name: str
+    completion_percentage: float
+    on_schedule: bool
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 # ── Workflows ──
 
 

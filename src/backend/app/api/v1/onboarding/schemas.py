@@ -58,3 +58,12 @@ class OnboardingProgressUpdate(BaseModel):
     favorite_species_keys: list[str] | None = None
     favorite_nutrient_plan_keys: list[str] | None = None
     smart_home_enabled: bool | None = None
+
+
+class OnboardingCompleteResponse(BaseModel):
+    """Outcome of finishing the onboarding wizard."""
+
+    status: str = Field(description="Completion status marker (always ``completed``).")
+    created_entities: dict[str, list[str]] = Field(
+        description="Keys of the entities created by the wizard, grouped by entity type.",
+    )

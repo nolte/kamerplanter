@@ -51,3 +51,10 @@ class NutrientProfileResponse(NutrientProfileCreate):
         default="",
         description="Human-readable pH / micronutrient-availability guidance.",
     )
+
+
+class GenerateDefaultProfilesResponse(BaseModel):
+    """The default requirement + nutrient profiles generated for a phase."""
+
+    requirement_profile: RequirementProfileResponse
+    nutrient_profile: NutrientProfileResponse

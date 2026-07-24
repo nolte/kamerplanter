@@ -1,3 +1,4 @@
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,6 +12,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.auth.router import limiter
+from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
 from app.common.dependencies import close_connection, get_connection, get_ha_client
 from app.common.error_handlers import (
@@ -182,11 +184,68 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
+    description=(
+        "REST API of Kamerplanter, an agricultural technology system for plant "
+        "lifecycle management (houseplants, vegetables, herbs, cannabis): master "
+        "data, sites and locations, phase-driven growing logic, fertilization and "
+        "watering, hybrid sensing, tasks, harvest and post-harvest, IPM, "
+        "multi-tenancy and GDPR self-service. Authentication uses Bearer tokens "
+        "(JWT access tokens or `kp_`-prefixed service-account API keys); "
+        "operations marked with an empty security list are deliberately public."
+    ),
+    contact={"name": "Kamerplanter", "url": "https://github.com/nolte/kamerplanter"},
+    license_info={"name": "MIT", "identifier": "MIT"},
+    servers=[
+        {"url": "/", "description": "Current deployment (same origin)"},
+        {"url": "http://localhost:8000", "description": "Local development backend"},
+    ],
+    openapi_tags=OPENAPI_TAGS,
     lifespan=lifespan,
     docs_url="/api/v1/docs",
     redoc_url="/api/v1/redoc",
     openapi_url="/api/v1/openapi.json",
 )
+
+# OpenAPI post-processing (documentation only, spec/project/api-documentation/):
+#  1. FastAPI only emits a `security` requirement on operations whose dependency
+#     tree contains a security scheme (HTTPBearer in app.common.auth). An
+#     operation without any requirement is deliberately public — stamp it with
+#     an explicit `security: []` so document consumers can tell "public by
+#     design" from "forgotten security".
+#  2. A router mounted under a parameterised prefix (e.g. /t/{tenant_slug})
+#     whose operations never consume that path parameter still matches it at
+#     runtime, but FastAPI omits it from the generated parameter list — declare
+#     it so the document satisfies the OpenAPI path-params contract.
+_fastapi_openapi = app.openapi
+_PATH_PARAM_RE = re.compile(r"\{([^}]+)\}")
+
+
+def _openapi_postprocessed() -> dict:
+    schema = _fastapi_openapi()
+    http_methods = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
+    for path, path_item in schema.get("paths", {}).items():
+        template_params = _PATH_PARAM_RE.findall(path)
+        for method, operation in path_item.items():
+            if method not in http_methods:
+                continue
+            if "security" not in operation:
+                operation["security"] = []
+            declared = {p["name"] for p in operation.get("parameters", []) if p.get("in") == "path"}
+            for name in template_params:
+                if name not in declared:
+                    operation.setdefault("parameters", []).append(
+                        {
+                            "name": name,
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string", "title": name.replace("_", " ").title()},
+                            "description": "Path segment matched by the mount prefix.",
+                        }
+                    )
+    return schema
+
+
+app.openapi = _openapi_postprocessed  # type: ignore[method-assign]
 
 # Rate limiting
 app.state.limiter = limiter

@@ -8,8 +8,10 @@ MCP server is disabled (``MCP_SERVER_ENABLED=false``) every endpoint answers HTT
 
 from __future__ import annotations
 
-from fastapi import Depends, Header, Request
+from fastapi import Depends, Request
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials
 
+from app.common.auth import bearer_scheme
 from app.common.dependencies import get_mcp_authenticator, get_mcp_dispatcher
 from app.common.exceptions import NotFoundError, UnauthorizedError
 from app.common.request_ip import resolve_client_ip
@@ -26,11 +28,21 @@ def require_mcp_enabled() -> None:
         raise NotFoundError("MCP server", "disabled")
 
 
+# Security scheme (not a raw Header parameter) so the OpenAPI document shows
+# the X-API-Key alternative alongside the Bearer scheme on MCP operations.
+api_key_scheme = APIKeyHeader(
+    name="X-API-Key",
+    auto_error=False,
+    scheme_name="McpApiKey",
+    description="`kp_`-prefixed service-account API key for MCP clients.",
+)
+
+
 def get_mcp_principal(
     request: Request,
     _enabled: None = Depends(require_mcp_enabled),
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-    authorization: str | None = Header(default=None),
+    x_api_key: str | None = Depends(api_key_scheme),
+    bearer: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     authenticator: McpAuthenticator = Depends(get_mcp_authenticator),
 ) -> McpPrincipal:
     """Authenticate the MCP caller via its service-account API key (§4.3).
@@ -40,8 +52,8 @@ def get_mcp_principal(
     """
 
     raw_key = x_api_key
-    if not raw_key and authorization and authorization.startswith("Bearer "):
-        raw_key = authorization[7:]
+    if not raw_key and bearer is not None and bearer.scheme == "Bearer":
+        raw_key = bearer.credentials
     if not raw_key:
         raise UnauthorizedError("Missing MCP service-account API key (X-API-Key).")
     return authenticator.authenticate(raw_key, client_ip=resolve_client_ip(request))

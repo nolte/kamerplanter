@@ -1,5 +1,7 @@
+from typing import Annotated
+
 import structlog
-from fastapi import APIRouter, Cookie, Depends, Query, Request, Response
+from fastapi import APIRouter, Cookie, Depends, Path, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from slowapi import Limiter
@@ -29,6 +31,7 @@ from app.common.exceptions import (
     UnauthorizedError,
     ValidationError,
 )
+from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.core.permissions import list_mcp_permissions
@@ -40,7 +43,7 @@ from app.mcp_server.auth import McpAuthenticator
 logger = structlog.get_logger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"], responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES})
 
 # AP-7 (FE-S3): the frontend maps these codes to localised messages. The backend
 # NEVER forwards a raw provider error string — only one of these fixed codes.
@@ -86,6 +89,7 @@ def register(
     body: RegisterRequest,
     service: AuthService = Depends(get_auth_service),
 ):
+    """Register a new local account with email and password."""
     profile = service.register_local(body.email, body.password, body.display_name)
     return UserProfileResponse(**profile.model_dump())
 
@@ -98,6 +102,7 @@ def login(
     response: Response,
     service: AuthService = Depends(get_auth_service),
 ):
+    """Authenticate with email and password, issuing access and refresh tokens."""
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
     token_pair, raw_refresh, is_persistent = service.login_local(
@@ -123,6 +128,7 @@ def refresh(
     kp_refresh: str = Depends(get_refresh_token_from_cookie),
     service: AuthService = Depends(get_auth_service),
 ):
+    """Rotate the refresh cookie and issue a fresh access token."""
     verify_csrf(request)
     user_agent = request.headers.get("user-agent")
     ip_address = request.client.host if request.client else None
@@ -143,6 +149,7 @@ def logout(
     kp_refresh: str | None = Cookie(default=None),
     service: AuthService = Depends(get_auth_service),
 ):
+    """Revoke the current refresh token and clear the refresh cookie."""
     verify_csrf(request)
     if kp_refresh:
         service.logout(kp_refresh)
@@ -157,6 +164,7 @@ def logout_all(
     current_user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ):
+    """Revoke all of the current user's active sessions."""
     verify_csrf(request)
     count = service.logout_all(current_user.key or "")
     _clear_refresh_cookie(response)
@@ -168,6 +176,7 @@ def verify_email(
     body: VerifyEmailRequest,
     service: AuthService = Depends(get_auth_service),
 ):
+    """Verify a user's email address from a signed token."""
     profile = service.verify_email(body.token)
     return UserProfileResponse(**profile.model_dump())
 
@@ -179,6 +188,7 @@ def request_password_reset(
     body: PasswordResetRequest,
     service: AuthService = Depends(get_auth_service),
 ):
+    """Send a password-reset link if an account exists for the email."""
     service.request_password_reset(body.email)
     return MessageResponse(message="If the email exists, a reset link has been sent.")
 
@@ -190,6 +200,7 @@ def confirm_password_reset(
     body: PasswordResetConfirm,
     service: AuthService = Depends(get_auth_service),
 ):
+    """Set a new password from a valid password-reset token."""
     service.reset_password(body.token, body.new_password)
     return MessageResponse(message="Password has been reset successfully.")
 
@@ -201,13 +212,14 @@ def confirm_password_reset(
 def list_oauth_providers(
     oidc_repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
 ):
+    """List the enabled OAuth/OIDC providers offered for login."""
     configs = oidc_repo.list_enabled()
     return [OAuthProviderListItem(slug=c.slug, display_name=c.display_name, icon_url=c.icon_url) for c in configs]
 
 
 @router.get("/oauth/{slug}")
 def initiate_oauth(
-    slug: str,
+    slug: Annotated[str, Path(description="Slug of the configured OAuth/OIDC provider.")],
     request: Request,
     service: AuthService = Depends(get_auth_service),
 ):
@@ -221,12 +233,12 @@ def initiate_oauth(
 
 @router.get("/oauth/{slug}/callback")
 def oauth_callback(
-    slug: str,
+    slug: Annotated[str, Path(description="Slug of the configured OAuth/OIDC provider.")],
     request: Request,
     response: Response,
-    code: str | None = Query(default=None),
-    state: str | None = Query(default=None),
-    error: str | None = Query(default=None),
+    code: str | None = Query(default=None, description="Authorization code returned by the provider."),
+    state: str | None = Query(default=None, description="Opaque anti-CSRF state echoed by the provider."),
+    error: str | None = Query(default=None, description="Error code returned when the provider denied the request."),
     service: AuthService = Depends(get_auth_service),
 ):
     """OAuth callback: exchange code, set the refresh cookie, redirect to frontend.
@@ -284,6 +296,7 @@ def create_api_key(
     current_user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ):
+    """Create a new M2M API key for the current user."""
     created = service.create_api_key(current_user.key or "", body.label, body.tenant_scope)
     return ApiKeyCreatedResponse(**created.model_dump())
 
@@ -293,16 +306,18 @@ def list_api_keys(
     current_user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ):
+    """List the current user's M2M API keys (metadata only)."""
     keys = service.list_api_keys(current_user.key or "")
     return [ApiKeySummaryResponse(**k.model_dump()) for k in keys]
 
 
 @router.delete("/api-keys/{key_id}", response_model=MessageResponse)
 def revoke_api_key(
-    key_id: str,
+    key_id: Annotated[str, Path(description="Identifier of the API key to revoke.")],
     current_user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ):
+    """Revoke one of the current user's M2M API keys."""
     service.revoke_api_key(current_user.key or "", key_id)
     return MessageResponse(message="API key revoked.")
 

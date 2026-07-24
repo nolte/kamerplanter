@@ -7,7 +7,9 @@ paths declared here are already tenant-scoped (no ``/t`` prefix). Reads use
 :class:`WeatherSourceService`.
 """
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.tenant_scoped.weather.schemas import (
     AvailableSourceItem,
@@ -29,6 +31,7 @@ from app.api.v1.tenant_scoped.weather.schemas import (
 from app.common.auth import get_current_tenant, require_tenant_role
 from app.common.dependencies import get_sensor_service, get_weather_source_service
 from app.common.enums import TenantRole
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.data_access.external.weather_attributions import WEATHER_ATTRIBUTIONS
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.weather import (
@@ -46,7 +49,7 @@ from app.domain.services.weather_source_service import (
     WeatherTestResult,
 )
 
-router = APIRouter(tags=["weather"])
+router = APIRouter(tags=["weather"], responses=NOT_FOUND_RESPONSE)
 
 
 # ── Response mapping (masking happens here — no secret ever leaves) ────────
@@ -127,7 +130,7 @@ def _test_response(result: WeatherTestResult) -> WeatherTestResponse:
 
 @router.get("/sites/{site_key}/weather-source", response_model=WeatherSourceConfigResponse)
 def get_weather_source(
-    site_key: str,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
@@ -138,7 +141,7 @@ def get_weather_source(
 
 @router.put("/sites/{site_key}/weather-source", response_model=WeatherSourceConfigResponse)
 def put_weather_source(
-    site_key: str,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
     body: WeatherSourceConfigRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: WeatherSourceService = Depends(get_weather_source_service),
@@ -150,7 +153,7 @@ def put_weather_source(
 
 @router.get("/sites/{site_key}/weather-forecast", response_model=SiteWeatherForecastResponse)
 def get_site_weather_forecast(
-    site_key: str,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     sensor_service: SensorService = Depends(get_sensor_service),
     service: WeatherSourceService = Depends(get_weather_source_service),
@@ -193,7 +196,7 @@ def _climate_normal_response(normal: ClimateNormal) -> ClimateNormalResponse:
 
 @router.get("/sites/{site_key}/climate-normals", response_model=SiteClimateResponse)
 def get_site_climate_normals(
-    site_key: str,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: WeatherSourceService = Depends(get_weather_source_service),
 ):
@@ -222,7 +225,7 @@ def list_available_sources(
 
 @router.post("/sites/{site_key}/weather-sources/test", response_model=WeatherTestResponse)
 async def test_weather_source(
-    site_key: str,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
     body: WeatherSourceEntryRequest,
     ctx: TenantContext = Depends(require_tenant_role(TenantRole.GROWER)),
     service: WeatherSourceService = Depends(get_weather_source_service),

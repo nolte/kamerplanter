@@ -16,23 +16,26 @@ rejected as an invalid token.
 
 from __future__ import annotations
 
+from typing import Annotated
+
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Path
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.attachments.response_headers import harden_download_headers
 from app.common.dependencies import get_object_storage
 from app.common.exceptions import InvalidTokenError, NotFoundError
+from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 
 logger = structlog.get_logger()
 
-router = APIRouter(prefix="/attachments/token", tags=["attachments"])
+router = APIRouter(prefix="/attachments/token", tags=["attachments"], responses=UNAUTHORIZED_RESPONSE)
 
 
 @router.get("/{token}")
 async def redeem_token(
-    token: str,
+    token: Annotated[str, Path(description="Backend-signed download token to redeem.")],
     storage: IObjectStorageAdapter = Depends(get_object_storage),
 ):
     """Verify a local-fs signed download token and stream the object."""

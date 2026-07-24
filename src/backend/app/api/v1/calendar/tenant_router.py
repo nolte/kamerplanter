@@ -1,6 +1,7 @@
 from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Path, Query, Request
 
 from app.api.v1.calendar.schemas import (
     CalendarEventSchema,
@@ -19,6 +20,7 @@ from app.api.v1.calendar.schemas import (
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_calendar_service
 from app.common.enums import CalendarEventCategory
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.calendar import (
     CalendarEventsQuery,
     CalendarFeed,
@@ -27,7 +29,7 @@ from app.domain.models.calendar import (
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.calendar_service import CalendarService
 
-router = APIRouter(prefix="/calendar", tags=["calendar"])
+router = APIRouter(prefix="/calendar", tags=["calendar"], responses=NOT_FOUND_RESPONSE)
 
 
 def _feed_response(
@@ -54,11 +56,12 @@ def _feed_response(
 
 @router.get("/events")
 def get_calendar_events(
-    start: date = Query(...),
-    end: date = Query(...),
-    category: str | None = Query(default=None),
+    start: date = Query(..., description="Inclusive start date of the query window."),
+    end: date = Query(..., description="Inclusive end date of the query window."),
+    category: str | None = Query(default=None, description="Comma-separated list of event categories to include."),
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarEventsResponse:
+    """Return calendar events for the tenant within a date window."""
     svc: CalendarService = get_calendar_service()
     categories: list[CalendarEventCategory] = []
     if category:
@@ -99,10 +102,11 @@ def get_calendar_events(
 
 @router.get("/sowing")
 def get_sowing_calendar(
-    site_id: str | None = Query(default=None),
-    year: int = Query(default=None),
+    site_id: str | None = Query(default=None, description="Restrict the calendar to a single site."),
+    year: int = Query(default=None, description="Calendar year; defaults to the current year."),
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> SowingCalendarResponse:
+    """Return the sowing calendar with per-species phase bars for a year."""
     from datetime import date as _date
 
     svc: CalendarService = get_calendar_service()
@@ -140,10 +144,11 @@ def get_sowing_calendar(
 
 @router.get("/season-overview")
 def get_season_overview(
-    site_id: str | None = Query(default=None),
-    year: int = Query(default=None),
+    site_id: str | None = Query(default=None, description="Restrict the overview to a single site."),
+    year: int = Query(default=None, description="Calendar year; defaults to the current year."),
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> SeasonOverviewResponse:
+    """Return a month-by-month season overview with activity counts."""
     from datetime import date as _date
 
     svc: CalendarService = get_calendar_service()
@@ -175,6 +180,7 @@ def create_feed(
     request: Request,
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarFeedResponse:
+    """Create a subscribable iCal feed for the tenant's calendar."""
     svc: CalendarService = get_calendar_service()
     cats = [CalendarEventCategory(c) for c in body.filters.categories]
     feed = CalendarFeed(
@@ -192,6 +198,7 @@ def list_feeds(
     request: Request,
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> list[CalendarFeedResponse]:
+    """List the tenant's calendar feeds."""
     svc: CalendarService = get_calendar_service()
     feeds = svc.list_feeds(ctx.user_key, ctx.tenant_key)
     return [_feed_response(f, request) for f in feeds]
@@ -199,10 +206,11 @@ def list_feeds(
 
 @router.get("/feeds/{key}")
 def get_feed(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the calendar feed.")],
     request: Request,
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarFeedResponse:
+    """Return a single calendar feed by key."""
     svc: CalendarService = get_calendar_service()
     feed = svc.get_feed(key, tenant_key=ctx.tenant_key)
     return _feed_response(feed, request)
@@ -210,11 +218,12 @@ def get_feed(
 
 @router.put("/feeds/{key}")
 def update_feed(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the calendar feed.")],
     body: CalendarFeedUpdateRequest,
     request: Request,
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarFeedResponse:
+    """Update a calendar feed's name, filters or active state."""
     svc: CalendarService = get_calendar_service()
     svc.get_feed(key, tenant_key=ctx.tenant_key)
     cats = [CalendarEventCategory(c) for c in body.filters.categories]
@@ -229,9 +238,10 @@ def update_feed(
 
 @router.delete("/feeds/{key}", status_code=204)
 def delete_feed(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the calendar feed.")],
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> None:
+    """Delete a calendar feed."""
     svc: CalendarService = get_calendar_service()
     svc.get_feed(key, tenant_key=ctx.tenant_key)
     svc.delete_feed(key)
@@ -239,10 +249,11 @@ def delete_feed(
 
 @router.post("/feeds/{key}/regenerate-token")
 def regenerate_token(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the calendar feed.")],
     request: Request,
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> CalendarFeedResponse:
+    """Rotate a calendar feed's access token, invalidating the old iCal URL."""
     svc: CalendarService = get_calendar_service()
     svc.get_feed(key, tenant_key=ctx.tenant_key)
     feed = svc.regenerate_token(key)

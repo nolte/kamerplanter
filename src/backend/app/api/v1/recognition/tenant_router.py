@@ -7,8 +7,9 @@ additionally enforces the ``plant_identification`` consent inside the service
 """
 
 import io
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, Path, Query, Request, UploadFile
 from PIL import Image, UnidentifiedImageError
 
 from app.api.v1.recognition.schemas import (
@@ -29,6 +30,7 @@ from app.common.exceptions import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.domain.interfaces.plant_identification_adapter import PlantOrgan
 from app.domain.models.tenant_context import TenantContext
@@ -36,7 +38,7 @@ from app.domain.services.identification_service import IdentificationService
 from app.domain.services.image_processing import is_supported_image
 from app.domain.services.reference_image_service import ReferenceImageService
 
-router = APIRouter(prefix="/identification", tags=["identification"])
+router = APIRouter(prefix="/identification", tags=["identification"], responses=NOT_FOUND_RESPONSE)
 
 _ALLOWED_CONTENT_TYPES = frozenset({"image/jpeg", "image/png"})
 
@@ -110,7 +112,7 @@ def _validate_reference_image(image_data: bytes, max_bytes: int) -> None:
 async def identify_plant(
     image: UploadFile,
     organ: str = Form("auto", description="leaf, flower, fruit, bark, habit, auto"),
-    language: str = Form("de"),
+    language: str = Form("de", description="Preferred language for the returned suggestions (ISO code)."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IdentificationService = Depends(get_identification_service),
 ) -> IdentifyResponse:
@@ -204,8 +206,8 @@ async def contribute_reference(
 
 @router.post("/{request_key}/select", response_model=SelectResultResponse)
 def select_result(
-    request_key: str,
-    selected_rank: int = Query(..., ge=1, le=10),
+    request_key: Annotated[str, Path(description="Document key of the identification request.")],
+    selected_rank: int = Query(..., ge=1, le=10, description="1-based rank of the chosen suggestion."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IdentificationService = Depends(get_identification_service),
 ) -> SelectResultResponse:
@@ -224,7 +226,7 @@ def select_result(
 
 @router.post("/{request_key}/instance", response_model=LinkInstanceResponse)
 def link_plant_instance(
-    request_key: str,
+    request_key: Annotated[str, Path(description="Document key of the identification request.")],
     payload: LinkInstanceRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: IdentificationService = Depends(get_identification_service),
@@ -246,7 +248,7 @@ def link_plant_instance(
 
 @router.get("/history", response_model=list[HistoryEntryResponse])
 def identification_history(
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of history entries to return."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: IdentificationService = Depends(get_identification_service),
 ) -> list[HistoryEntryResponse]:
