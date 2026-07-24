@@ -26,6 +26,7 @@ from app.schemas import (
 from app.service import KnowledgeService
 from app.vectordb.config import VectorDbConfig
 from app.vectordb.connection import VectorDbConnection
+from app.vectordb.repository import VectorChunk
 from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
@@ -133,6 +134,19 @@ app = FastAPI(
 )
 
 
+def _to_chunk_response(c: VectorChunk) -> KnowledgeChunkResponse:
+    """Project a retrieved :class:`VectorChunk` onto the public response schema."""
+    return KnowledgeChunkResponse(
+        source_key=c.source_key,
+        source_type=c.source_type,
+        title=c.title,
+        content=c.content,
+        score=c.score,
+        metadata=c.metadata,
+        language=c.language,
+    )
+
+
 def _require_service() -> KnowledgeService:
     """Return the singleton KnowledgeService or raise 503."""
     if _service is None:
@@ -173,18 +187,7 @@ def search(
     chunks = service.search(q, top_k=top_k, doc_language=doc_language)
     return SearchResponse(
         query=q,
-        results=[
-            KnowledgeChunkResponse(
-                source_key=c.source_key,
-                source_type=c.source_type,
-                title=c.title,
-                content=c.content,
-                score=c.score,
-                metadata=c.metadata,
-                language=c.language,
-            )
-            for c in chunks
-        ],
+        results=[_to_chunk_response(c) for c in chunks],
         total=len(chunks),
         doc_language=doc_language,
     )
@@ -207,18 +210,7 @@ def ask(body: AskRequest) -> AskResponse:
         question_type=answer.question_type,
         model=answer.model,
         usage=answer.usage,
-        sources=[
-            KnowledgeChunkResponse(
-                source_key=c.source_key,
-                source_type=c.source_type,
-                title=c.title,
-                content=c.content,
-                score=c.score,
-                metadata=c.metadata,
-                language=c.language,
-            )
-            for c in answer.sources
-        ],
+        sources=[_to_chunk_response(c) for c in answer.sources],
     )
 
 

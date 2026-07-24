@@ -58,7 +58,7 @@ def load_image(image_bytes: bytes) -> Image.Image:
     then drops all metadata by converting to a plain RGB image -- this doubles
     as EXIF stripping for any downstream consumer.
     """
-    image = Image.open(io.BytesIO(image_bytes))
+    image: Image.Image = Image.open(io.BytesIO(image_bytes))
     # Apply EXIF orientation, then convert to RGB (strips remaining metadata).
     image = ImageOps.exif_transpose(image)
     return image.convert("RGB")

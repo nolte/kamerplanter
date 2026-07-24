@@ -1,5 +1,7 @@
 """REQ-044 pest few-shot endpoint tests (faked embedder + repo, no model/DB)."""
 
+import json
+
 from app.vectordb.pest_repository import PestMatch
 from tests.conftest import make_image_bytes
 
@@ -126,6 +128,58 @@ class TestPestReference:
             data={"label": "aphid", "category": "pest", "source": "gbif"},
         )
         assert resp.status_code == 400
+
+    def test_upsert_prototype_with_precomputed_embedding(self, client, fake_pest_repo):
+        # Shared `_resolve_vector` embedding path, exercised from the pest entry
+        # point (asymmetrically covered before).
+        vector = [0.0] * 384
+        vector[0] = 1.0
+        resp = client.post(
+            "/pest/reference",
+            data={"label": "aphid", "category": "pest", "source": "gbif", "embedding": json.dumps(vector)},
+        )
+        assert resp.status_code == 200
+        assert fake_pest_repo.rows[0]["embedding"] == vector
+
+    def test_upsert_rejects_wrong_dim_embedding(self, client):
+        resp = client.post(
+            "/pest/reference",
+            data={"label": "aphid", "category": "pest", "source": "gbif", "embedding": json.dumps([0.1, 0.2])},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "embedding dim 2 != model dim 384."
+
+    def test_upsert_rejects_invalid_embedding_json(self, client):
+        resp = client.post(
+            "/pest/reference",
+            data={"label": "aphid", "category": "pest", "source": "gbif", "embedding": "not-json"},
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"] == "embedding must be a JSON array of floats."
+
+    def test_upsert_image_path_503_when_model_not_ready(self, client, monkeypatch):
+        # R-1 regression guard: the image path keeps mapping
+        # ModelNotReadyError -> 503 through the shared helper.
+        from app import main
+
+        class _NotReady:
+            load_error = "boom"
+
+            def is_ready(self) -> bool:
+                return False
+
+            def embed(self, data):
+                from app.embedder import ModelNotReadyError
+
+                raise ModelNotReadyError("not ready")
+
+        monkeypatch.setattr(main, "_embedder", _NotReady())
+        resp = client.post(
+            "/pest/reference",
+            data={"label": "aphid", "category": "pest", "source": "gbif"},
+            files=_image_part(),
+        )
+        assert resp.status_code == 503
 
     def test_delete_by_label(self, client, fake_pest_repo):
         fake_pest_repo.rows = [{"label": "aphid"}, {"label": "aphid"}, {"label": "spider_mite"}]

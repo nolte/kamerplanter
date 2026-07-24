@@ -47,7 +47,11 @@ def run_migrations(
         applied = {row[0] for row in conn.execute(f"SELECT filename FROM {migrations_table}").fetchall()}
         conn.commit()
 
+    # ``ConnectionPool.conninfo`` is typed ``str | Callable[[], str]``; resolve a
+    # factory to its connection string so ``psycopg.connect`` receives a plain str.
     conninfo = pool.conninfo
+    if callable(conninfo):
+        conninfo = conninfo()
     with psycopg.connect(conninfo, autocommit=True) as conn:
         for migration_file in migration_files:
             if migration_file.name in applied:
