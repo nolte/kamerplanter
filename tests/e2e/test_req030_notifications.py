@@ -121,22 +121,33 @@ def _poll_own_notifications_done(
     """Reload + poll until every own notification is done (or timeout).
 
     The propagation is synchronous server-side, but the drawer only refetches
-    on a fresh open — a drawer left open (or a toggle race) reads the stale
-    pre-mutation list. Reload the page per attempt so every read is a fresh
-    fetch, and accept either disappearance or an 'Erledigt' marking.
+    on a fresh open — reload per attempt so every read is a fresh fetch.
+    Done-signal is the card's UNREAD state ("Erledigt" in the card TEXT is the
+    actionable done-BUTTON, i.e. present exactly while the notification is
+    still open — the opposite of a done marker). Returns the still-unread own
+    card texts (empty list = success).
     """
     import time as _t
 
     deadline = _t.time() + timeout
-    own: list[str] = []
+    unread_own: list[str] = []
     while _t.time() < deadline:
         notif_center.driver.refresh()
-        texts = _drawer_notification_texts(notif_center)
-        own = [t for t in texts if task_name in t]
-        if not own or all("Erledigt" in t for t in own):
-            return own
+        notif_center.open_drawer()
+        own_keys = [
+            k
+            for k in notif_center.get_notification_keys()
+            if task_name in notif_center.get_notification_text(k)
+        ]
+        unread_own = [
+            notif_center.get_notification_text(k)
+            for k in own_keys
+            if notif_center.is_unread(k)
+        ]
+        if not unread_own:
+            return []
         _t.sleep(1.0)
-    return own
+    return unread_own
 
 
 def _first_care_ids(pflege: PflegeDashboardPage) -> tuple[str, str]:
@@ -589,9 +600,9 @@ class TestTaskUpdateNotificationFeedback:
             "Notification centre after completing the task",
         )
 
-        assert not own_after or all("Erledigt" in t for t in own_after), (
+        assert not own_after, (
             "TC-REQ-030-007 FAIL (Soll): Expected completing the task to mark its "
-            f"due-notification done/read, got: {own_after}"
+            f"due-notification done/read; still unread: {own_after}"
         )
 
 
@@ -814,9 +825,9 @@ class TestNotificationSourcePropagation:
             "Notification centre after completing the task",
         )
 
-        assert not own_after or all("Erledigt" in t for t in own_after), (
+        assert not own_after, (
             "TC-REQ-030-011 FAIL (Soll): Expected completing the source task to mark "
-            f"its notification done/read, got: {own_after}"
+            f"its notification done/read; still unread: {own_after}"
         )
 
     @pytest.mark.requires_auth
