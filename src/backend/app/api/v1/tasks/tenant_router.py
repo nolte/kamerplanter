@@ -538,55 +538,15 @@ def complete_task(
         body.difficulty_rating,
         body.quality_rating,
     )
+    # The care-state consequences of a completed care-reminder task are domain
+    # logic and live in the service (NFR-001): confirmation + edges, the
+    # watering/fertilizing log and the next watering occurrence. The guard here is
+    # only a presentation-layer short-circuit so no care service is built for a
+    # plain task; the service re-checks it authoritatively.
     if completed.category == "care_reminder" and completed.entity_type == "plant_instance" and completed.entity_key:
-        from datetime import UTC, datetime
-
         from app.common.dependencies import get_care_reminder_service
-        from app.common.enums import ConfirmAction, ReminderType
-        from app.domain.models.care_reminder import CareConfirmation
 
-        care_service = get_care_reminder_service()
-        profile = care_service._repo.get_profile_by_plant_key(completed.entity_key)
-        if profile is not None:
-            rt_match = None
-            for rt in ReminderType:
-                if completed.name and completed.name.endswith(f"\u2014 {rt.value}"):
-                    rt_match = rt
-                    break
-            if rt_match is not None:
-                confirmation = CareConfirmation(
-                    plant_key=completed.entity_key,
-                    care_profile_key=profile.key or "",
-                    reminder_type=rt_match,
-                    action=ConfirmAction.CONFIRMED,
-                    confirmed_at=datetime.now(UTC),
-                    task_key=completed.key,
-                    notes=completed.completion_notes,
-                    interval_at_time=care_service._engine._get_interval_days(profile, rt_match),
-                )
-                created_conf = care_service._repo.create_confirmation(confirmation)
-                if created_conf.key and profile.key:
-                    care_service._repo.create_confirmation_edges(
-                        created_conf.key,
-                        profile.key,
-                        completed.entity_key,
-                    )
-                care_service.complete_care_task_with_log(
-                    completed.key or "",
-                    completed.entity_key,
-                    rt_match,
-                    tenant_key=ctx.tenant_key,
-                )
-            if rt_match == ReminderType.WATERING and profile.auto_create_watering_task:
-                phase_interval = care_service._get_phase_watering_interval(completed.entity_key)
-                care_service.ensure_next_watering_task(
-                    profile,
-                    phase_watering_interval=phase_interval,
-                    # ``complete_task`` above has just stamped ``completed_at=now`` on
-                    # this very task; letting it satisfy the dedup lookup would end the
-                    # plant's reminder chain at every queue completion (#768).
-                    include_completed_today=False,
-                )
+        get_care_reminder_service().record_care_task_completion(completed, tenant_key=ctx.tenant_key)
     return _task_response(completed)
 
 
@@ -603,17 +563,14 @@ def skip_task(
         from datetime import UTC, datetime
 
         from app.common.dependencies import get_care_reminder_service
-        from app.common.enums import ConfirmAction, ReminderType
+        from app.common.enums import ConfirmAction
         from app.domain.models.care_reminder import CareConfirmation
+        from app.domain.services.care_reminder_service import reminder_type_from_task_name
 
         care_service = get_care_reminder_service()
         profile = care_service._repo.get_profile_by_plant_key(skipped.entity_key)
         if profile is not None:
-            rt_match = None
-            for rt in ReminderType:
-                if skipped.name and skipped.name.endswith(f"\u2014 {rt.value}"):
-                    rt_match = rt
-                    break
+            rt_match = reminder_type_from_task_name(skipped.name)
             if rt_match is not None:
                 confirmation = CareConfirmation(
                     plant_key=skipped.entity_key,

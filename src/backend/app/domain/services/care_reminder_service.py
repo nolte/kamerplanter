@@ -66,6 +66,22 @@ def _is_due(due_date: datetime | None) -> bool:
     return due_date.date() <= datetime.now(UTC).date()
 
 
+def reminder_type_from_task_name(name: str | None) -> ReminderType | None:
+    """Resolve a care task's reminder type from its ``"— {type}"`` name suffix.
+
+    The reminder type is not yet a first-class ``Task`` field (audit P5), so the
+    suffix written by :func:`build_care_reminder_task` is its carrier — the same
+    convention :meth:`ITaskRepository.find_open_care_task` matches on. Returns
+    ``None`` for a task whose name carries no known reminder type.
+    """
+    if not name:
+        return None
+    for reminder_type in ReminderType:
+        if name.endswith(f"— {reminder_type.value}"):
+            return reminder_type
+    return None
+
+
 def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
     """Human-readable task instruction for a care-reminder type (shared, REQ-022).
 
@@ -498,15 +514,11 @@ class CareReminderService:
         )
 
         # Auto-create next watering task if opted in
-        if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
-            phase_interval = self._get_phase_watering_interval(plant_key)
-            next_task = self.ensure_next_watering_task(
+        if reminder_type == ReminderType.WATERING:
+            next_task = self._schedule_next_watering_after_completion(
                 profile,
                 created,
-                phase_watering_interval=phase_interval,
-                # A task this call just completed must not satisfy the dedup
-                # lookup, or no follow-up would ever be scheduled (#768).
-                include_completed_today=completed_task is None,
+                completed_task=completed_task,
             )
             # The confirmation closed the current note; if a next watering task was
             # scheduled, surface it as the fresh, correctly-terminated care note.
@@ -556,18 +568,96 @@ class CareReminderService:
         # a task already completed earlier is not reopened/re-completed).
         completed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING)
 
+        return self._schedule_next_watering_after_completion(
+            profile,
+            last_confirmation,
+            completed_task=completed_task,
+        )
+
+    def _schedule_next_watering_after_completion(
+        self,
+        profile: CareProfile,
+        last_confirmation: CareConfirmation | None,
+        *,
+        completed_task: Task | None,
+    ) -> Task | None:
+        """Schedule the follow-up watering task of a complete-then-schedule operation.
+
+        The single place that encodes the #768 rule shared by all three
+        complete-then-schedule paths (dashboard/API confirmation, Gießprotokoll
+        log, task-queue completion): a task **this operation just completed** must
+        not satisfy the dedup lookup, or the follow-up is never scheduled and the
+        plant's reminder chain ends. ``completed_task`` is that task (``None`` when
+        nothing was closed, e.g. a second watering on the same day).
+
+        Respects the profile's ``auto_create_watering_task`` opt-in and returns the
+        newly scheduled task, or ``None``.
+        """
         if not profile.auto_create_watering_task:
             return None
 
-        phase_interval = self._get_phase_watering_interval(plant_key)
+        phase_interval = self._get_phase_watering_interval(profile.plant_key)
         return self.ensure_next_watering_task(
             profile,
             last_confirmation,
             phase_watering_interval=phase_interval,
-            # A task this call just completed must not satisfy the dedup lookup,
-            # or the reminder chain would end here (#768).
             include_completed_today=completed_task is None,
         )
+
+    def record_care_task_completion(
+        self,
+        task: Task,
+        *,
+        tenant_key: str = "",
+    ) -> Task | None:
+        """Mirror a completed care-reminder task into the plant's care state (REQ-022).
+
+        The task-queue completion bridge: when a ``care_reminder`` task on a plant
+        instance is completed from the task queue, the plant's care state must move
+        exactly as it does on the dashboard-confirmation path — a ``CareConfirmation``
+        (plus its graph edges) is written, a watering/fertilizing log is
+        materialised, and for watering the next occurrence is scheduled through the
+        shared :meth:`_schedule_next_watering_after_completion`.
+
+        ``tenant_key`` (the completing request's tenant, #580) is stamped onto the
+        generated log so it surfaces in the global Gießprotokoll view.
+
+        Non-care tasks, non-plant entities and plants without a care profile are
+        no-ops. Returns the newly scheduled follow-up watering task, or ``None``.
+        """
+        if task.category != TaskCategory.CARE_REMINDER or task.entity_type != "plant_instance":
+            return None
+        plant_key = task.entity_key
+        if not plant_key:
+            return None
+
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return None
+
+        reminder_type = reminder_type_from_task_name(task.name)
+        if reminder_type is not None:
+            confirmation = CareConfirmation(
+                plant_key=plant_key,
+                care_profile_key=profile.key or "",
+                reminder_type=reminder_type,
+                action=ConfirmAction.CONFIRMED,
+                confirmed_at=datetime.now(UTC),
+                task_key=task.key,
+                notes=task.completion_notes,
+                interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+            )
+            created = self._repo.create_confirmation(confirmation)
+            if created.key and profile.key:
+                self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+            self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
+
+        if reminder_type != ReminderType.WATERING:
+            return None
+
+        # ``TaskService.complete_task`` has already stamped ``completed_at=now`` on
+        # this very task, so it must not satisfy the follow-up dedup lookup (#768).
+        return self._schedule_next_watering_after_completion(profile, None, completed_task=task)
 
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
         """Look up watering_interval_days from the plant's current growth phase.
