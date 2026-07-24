@@ -30,6 +30,9 @@ on:
 
 permissions:
   contents: read
+  # dorny/test-reporter publishes the parsed JUnit XML as a check run.
+  # No `pull-requests: write` is needed — the action does not post PR comments.
+  checks: write
 
 concurrency:
   group: e2e-smoke-${{ github.ref }}
@@ -57,6 +60,26 @@ jobs:
           COMPOSE_BAKE: "true"
           E2E_COMPOSE_OVERLAYS: docker-compose.e2e.ci.yml
         run: ./scripts/run-e2e.sh --smoke
+
+      # Render the JUnit XML produced by the run into a check run + the job
+      # summary, so concrete per-test failure messages (assertion text + a
+      # short traceback) are visible without digging through raw logs.
+      # `continue-on-error` keeps the (non-required) smoke job from turning red
+      # solely because a fork PR's read-only GITHUB_TOKEN cannot create a check
+      # run; the independent "Job summary" step still surfaces the protocol.
+      - name: Render E2E test report
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: E2E smoke report
+          path: test-reports/e2e/**/junit-*.xml
+          reporter: java-junit
+          list-tests: failed
+          list-suites: failed
+          fail-on-error: false
+          fail-on-empty: false
+          use-actions-summary: true
 
       - name: Job summary
         if: always()
