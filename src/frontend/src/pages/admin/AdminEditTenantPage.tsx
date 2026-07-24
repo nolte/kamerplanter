@@ -142,7 +142,7 @@ export default function AdminEditTenantPage() {
     try {
       await deleteAdminTenant(tenant.key);
       enqueueSnackbar(t('pages.auth.adminTenantDeleted'), { variant: 'success' });
-      navigate('/settings?tab=platform');
+      navigate('/settings#platform');
     } catch (err) {
       enqueueSnackbar(parseApiError(err), { variant: 'error' });
     } finally {
@@ -195,7 +195,7 @@ export default function AdminEditTenantPage() {
   return (
     <Box sx={{ mt: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton onClick={() => navigate('/settings?tab=platform')} data-testid="back-btn">
+        <IconButton onClick={() => navigate('/settings#platform')} data-testid="back-btn">
           <ArrowBackIcon />
         </IconButton>
         <PageTitle title={`${t('pages.auth.editTenantTitle')}: ${tenant.name}`} />

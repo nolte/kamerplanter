@@ -31,9 +31,8 @@ class NotificationSettingsPage(BasePage):
     Note on the URL format: ``AccountSettingsPage`` deep-links its tabs through
     ``useTabUrl``, which reads the tab key from the URL *hash* fragment (e.g.
     ``/settings#notifications``), matching the in-app links (ModuleGuard,
-    DashboardPage, …).  A ``?tab=notifications`` query string is silently
-    ignored and lands on the default (profile) tab, so the save-button anchor
-    never renders.
+    DashboardPage, …).  A query-string form is silently ignored and lands on
+    the default (profile) tab, so the save-button anchor never renders.
     """
 
     PATH = "/settings#notifications"
