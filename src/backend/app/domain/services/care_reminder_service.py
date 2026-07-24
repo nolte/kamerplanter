@@ -54,6 +54,18 @@ _INTERVAL_FIELD_REMINDERS: dict[str, ReminderType] = {
 }
 
 
+def _is_due(due_date: datetime | None) -> bool:
+    """Return whether a care task is due today or overdue (#768).
+
+    A task without a ``due_date`` counts as due — it carries no schedule that
+    could postpone it. Comparison is on the calendar day in UTC, matching the
+    ``LEFT(completed_at, 10)`` day granularity the dedup helper uses.
+    """
+    if due_date is None:
+        return True
+    return due_date.date() <= datetime.now(UTC).date()
+
+
 def care_reminder_instruction(reminder_type: ReminderType, plant_label: str) -> str:
     """Human-readable task instruction for a care-reminder type (shared, REQ-022).
 
@@ -473,7 +485,7 @@ class CareReminderService:
                     )
 
         # Auto-complete matching pending task
-        self._complete_pending_care_task(plant_key, reminder_type)
+        completed_task = self._complete_pending_care_task(plant_key, reminder_type)
 
         # #742 — mark the plant's in-app care notification done (badge drops).
         resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
@@ -488,7 +500,14 @@ class CareReminderService:
         # Auto-create next watering task if opted in
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
             phase_interval = self._get_phase_watering_interval(plant_key)
-            next_task = self.ensure_next_watering_task(profile, created, phase_watering_interval=phase_interval)
+            next_task = self.ensure_next_watering_task(
+                profile,
+                created,
+                phase_watering_interval=phase_interval,
+                # A task this call just completed must not satisfy the dedup
+                # lookup, or no follow-up would ever be scheduled (#768).
+                include_completed_today=completed_task is None,
+            )
             # The confirmation closed the current note; if a next watering task was
             # scheduled, surface it as the fresh, correctly-terminated care note.
             if next_task is not None:
@@ -519,9 +538,10 @@ class CareReminderService:
         route through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`), so logging watering twice can
         neither double-complete an already-closed task nor double-schedule the next
-        one. Returns the newly scheduled watering task, or ``None`` when no profile
-        exists, auto-scheduling is disabled, or a task completed today already
-        satisfies the reminder.
+        one: the second log finds the freshly scheduled follow-up (not yet due, so
+        not completed) still ``PENDING`` and stops. Returns the newly scheduled
+        watering task, or ``None`` when no profile exists, auto-scheduling is
+        disabled, or an equivalent task already satisfies the reminder.
         """
         if tenant_key and self._plant_repo is not None:
             plant = self._plant_repo.get_by_key(plant_key)
@@ -534,7 +554,7 @@ class CareReminderService:
 
         # Close the still-open watering task for the plant's own tenant (idempotent:
         # a task already completed earlier is not reopened/re-completed).
-        self._complete_pending_care_task(plant_key, ReminderType.WATERING)
+        completed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING)
 
         if not profile.auto_create_watering_task:
             return None
@@ -544,6 +564,9 @@ class CareReminderService:
             profile,
             last_confirmation,
             phase_watering_interval=phase_interval,
+            # A task this call just completed must not satisfy the dedup lookup,
+            # or the reminder chain would end here (#768).
+            include_completed_today=completed_task is None,
         )
 
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
@@ -598,17 +621,28 @@ class CareReminderService:
         self,
         plant_key: str,
         reminder_type: ReminderType,
-    ) -> None:
-        """Auto-complete the matching pending care task when confirmed via dashboard.
+    ) -> Task | None:
+        """Auto-complete the matching *due* pending care task; return it (#768).
 
         Routes through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`) so it can only ever complete
         a still-open task belonging to the plant's own tenant (#509). A task that
         was already completed earlier today is intentionally excluded here
         (``include_completed_today=False``): only an open task is completed.
+
+        Only a task that is **due** (``due_date <= today``) is completed. A task
+        scheduled for a later day is the *follow-up* of an earlier confirmation on
+        the same day; closing it would collapse the whole reminder cycle into a
+        single day.
+
+        Returns the task that was completed, or ``None`` when nothing open was due.
+        The caller needs this to decide whether the completed-today branch of the
+        subsequent :meth:`ensure_next_watering_task` lookup must be suppressed:
+        without it that lookup finds the task this call just completed and the
+        follow-up is never scheduled (#768).
         """
         if self._task_repo is None:
-            return
+            return None
         tenant_key = self._resolve_tenant_key(plant_key)
         task = self._task_repo.find_open_care_task(
             plant_key,
@@ -616,11 +650,12 @@ class CareReminderService:
             tenant_key,
             include_completed_today=False,
         )
-        if task is None:
-            return
+        if task is None or not _is_due(task.due_date):
+            return None
         task.status = TaskStatus.COMPLETED.value
         task.completed_at = datetime.now(UTC)
         self._task_repo.update_task(task.key or "", task)
+        return task
 
     def complete_care_task_with_log(
         self,
@@ -960,11 +995,21 @@ class CareReminderService:
         last_confirmation: CareConfirmation | None = None,
         hemisphere: str = "north",
         phase_watering_interval: int | None = None,
+        *,
+        include_completed_today: bool = True,
     ) -> Task | None:
         """Ensure exactly one pending watering task exists for this plant.
 
         Called after watering confirmation and by the daily Celery task.
         Returns the created task or None if one already exists.
+
+        ``include_completed_today`` is forwarded to the single dedup lookup
+        (:meth:`ITaskRepository.find_open_care_task`). It stays ``True`` for the
+        producer paths (daily Celery run, interval edit), where a task completed
+        today legitimately satisfies the reminder and must suppress a duplicate
+        (#509). A caller that has *itself* just completed a task in the same
+        operation passes ``False``: otherwise the lookup returns exactly that task
+        and the follow-up occurrence is never scheduled (#768).
         """
         if self._task_repo is None:
             return None
@@ -982,8 +1027,17 @@ class CareReminderService:
                 plant_tenant_key = plant.tenant_key
 
         # Single tenant-aware dedup: skip when an equivalent watering task is
-        # already open or was completed today.
-        if self._task_repo.find_open_care_task(plant_key, ReminderType.WATERING, plant_tenant_key) is not None:
+        # already open or — unless the caller just completed one itself (#768) —
+        # was completed today.
+        if (
+            self._task_repo.find_open_care_task(
+                plant_key,
+                ReminderType.WATERING,
+                plant_tenant_key,
+                include_completed_today=include_completed_today,
+            )
+            is not None
+        ):
             return None
 
         # Calculate next due date

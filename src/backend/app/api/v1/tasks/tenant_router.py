@@ -579,7 +579,14 @@ def complete_task(
                 )
             if rt_match == ReminderType.WATERING and profile.auto_create_watering_task:
                 phase_interval = care_service._get_phase_watering_interval(completed.entity_key)
-                care_service.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
+                care_service.ensure_next_watering_task(
+                    profile,
+                    phase_watering_interval=phase_interval,
+                    # ``complete_task`` above has just stamped ``completed_at=now`` on
+                    # this very task; letting it satisfy the dedup lookup would end the
+                    # plant's reminder chain at every queue completion (#768).
+                    include_completed_today=False,
+                )
     return _task_response(completed)
 
 
