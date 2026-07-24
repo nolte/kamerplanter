@@ -59,6 +59,39 @@ repos:
         files: ^src/backend/.*\.py$
         types: [python]
 
+  # ── Microservices / shared lib (mypy type baseline, SCR-001) ───────────
+  # The backend declares mypy strict=true but ships no mypy CI step; these
+  # sibling Python packages carried no static type-checker at all. A non-strict
+  # mypy baseline (config in each package's pyproject.toml) now runs in the
+  # required `static` gate. Each hook cd-s into its package like the ruff hooks
+  # and runs in an isolated venv carrying mypy only — the packages' own
+  # [tool.mypy] overrides ignore runtime imports absent from that venv. The
+  # separate backend-mypy CI gap is left as a documented follow-up (not wired
+  # here). pass_filenames is false so mypy sees each package as a whole module.
+  - repo: local
+    hooks:
+      - id: mypy-kp-vectordb
+        name: mypy (kp_vectordb)
+        entry: bash -c 'cd src/libs/kp_vectordb && mypy kp_vectordb'
+        language: python
+        additional_dependencies: ['mypy>=1.13.0']
+        files: ^src/libs/kp_vectordb/kp_vectordb/.*\.py$
+        pass_filenames: false
+      - id: mypy-knowledge-service
+        name: mypy (knowledge-service)
+        entry: bash -c 'cd src/knowledge-service && mypy app'
+        language: python
+        additional_dependencies: ['mypy>=1.13.0']
+        files: ^src/knowledge-service/app/.*\.py$
+        pass_filenames: false
+      - id: mypy-inference-service
+        name: mypy (inference-service)
+        entry: bash -c 'cd src/inference-service && mypy app'
+        language: python
+        additional_dependencies: ['mypy>=1.13.0']
+        files: ^src/inference-service/app/.*\.py$
+        pass_filenames: false
+
   # ── Steckbrief ↔ seed consistency (Issue #680) ─────────────────────────
   # Fails the required `static` gate when a lifecycle-driving attribute
   # (growth_habit / photoperiod_type / photosynthesis_type / flowering_strategy

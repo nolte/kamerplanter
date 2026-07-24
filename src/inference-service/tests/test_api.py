@@ -249,6 +249,29 @@ def test_reference_rejects_invalid_embedding_json(client):
     }
     resp = client.post("/reference", data=data)
     assert resp.status_code == 400
+    assert resp.json()["detail"] == "embedding must be a JSON array of floats."
+
+
+def test_reference_image_path_503_when_model_not_ready(client, monkeypatch):
+    # R-1 regression guard for the shared `_resolve_vector` helper: the
+    # image path must keep mapping ModelNotReadyError -> 503.
+    from app import main
+
+    class _NotReady:
+        load_error = "boom"
+
+        def is_ready(self) -> bool:
+            return False
+
+        def embed(self, data):
+            from app.embedder import ModelNotReadyError
+
+            raise ModelNotReadyError("not ready")
+
+    monkeypatch.setattr(main, "_embedder", _NotReady())
+    data = {"species_key": "x", "scientific_name": "X", "source": "gbif"}
+    resp = client.post("/reference", data=data, files=_image_part())
+    assert resp.status_code == 503
 
 
 # -- delete ----------------------------------------------------------------

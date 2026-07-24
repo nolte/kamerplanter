@@ -14,6 +14,7 @@ from app.common.enums import (
     TemperatureZone,
 )
 from app.domain.engines.aquaponics_engine import (
+    KH_CRASH_THRESHOLD_DH,
     AquaponicsSafetyValidator,
     BiofilterManager,
     FeedingRateCalculator,
@@ -198,6 +199,24 @@ class TestNitrogenCycleEngine:
         assert engine.check_alkalinity_crash_risk(6.0, 50.0) is None
         assert engine.check_alkalinity_crash_risk(3.0, 0.0) is None
 
+    def test_alkalinity_crash_risk_at_constant_boundary(self):
+        engine = NitrogenCycleEngine()
+        # Just below the named threshold warns; at (and above) the threshold does not.
+        below = engine.check_alkalinity_crash_risk(KH_CRASH_THRESHOLD_DH - 0.1, 50.0)
+        assert below is not None
+        assert below.limit == KH_CRASH_THRESHOLD_DH
+        assert engine.check_alkalinity_crash_risk(KH_CRASH_THRESHOLD_DH, 50.0) is None
+
+    def test_kh_hardness_warning_uses_named_threshold(self):
+        engine = NitrogenCycleEngine()
+        wt = _wt(0.1, 0.05, 20, kh_dh=KH_CRASH_THRESHOLD_DH - 0.5)
+        kh = next(e for e in engine.evaluate_water_quality(wt, _tilapia()) if e.parameter == "kh")
+        assert kh.severity == "warning"
+        assert kh.limit == KH_CRASH_THRESHOLD_DH
+        # At the threshold no KH-crash warning is emitted.
+        wt_ok = _wt(0.1, 0.05, 20, kh_dh=KH_CRASH_THRESHOLD_DH)
+        assert not any(e.parameter == "kh" for e in engine.evaluate_water_quality(wt_ok, _tilapia()))
+
 
 class TestFeedingRateCalculator:
     def test_optimal_temperature_full_feed(self):
@@ -277,6 +296,11 @@ class TestStockingDensityCalculator:
     def test_max_fish(self):
         calc = StockingDensityCalculator()
         assert calc.calculate_max_fish(1000, _tilapia()) > 0
+
+    def test_fish_plant_ratio(self):
+        calc = StockingDensityCalculator()
+        assert calc.calculate_fish_plant_ratio(67.5, 4.0) == pytest.approx(16.9, abs=0.1)
+        assert calc.calculate_fish_plant_ratio(67.5, 0.0) == 0.0
 
 
 class TestNutrientDeficiencyAnalyzer:

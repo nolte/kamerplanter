@@ -141,7 +141,7 @@ class PhenotypeEngine:
     @staticmethod
     def _decode_rgb(image_bytes: bytes) -> np.ndarray:
         """Decode bytes into an EXIF-corrected RGB uint8 array."""
-        image = Image.open(io.BytesIO(image_bytes))
+        image: Image.Image = Image.open(io.BytesIO(image_bytes))
         image = ImageOps.exif_transpose(image).convert("RGB")
         return np.asarray(image, dtype=np.uint8)
 

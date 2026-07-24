@@ -33,6 +33,7 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "ruff>=0.8.0",
+    "mypy>=1.13.0",
 ]
 
 [tool.ruff]
@@ -46,3 +47,34 @@ ignore = ["B008", "A003"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+# Non-strict mypy baseline (SCR-001). The backend runs mypy strict=true; this
+# service starts non-strict but still checks the bodies of untyped functions,
+# so type-shape defects surface. strict adoption is a recorded follow-up.
+[tool.mypy]
+python_version = "3.14"
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+# Runtime dependencies ship inline types and are checked for real locally; the
+# isolated pre-commit venv (mypy only) does not install them, so their imports
+# are ignored there rather than reported as missing.
+[[tool.mypy.overrides]]
+module = [
+    "fastapi.*",
+    "numpy.*",
+    "PIL.*",
+    "psycopg.*",
+    "psycopg_pool.*",
+    "pydantic.*",
+    "pydantic_settings.*",
+    "structlog.*",
+]
+ignore_missing_imports = true
+
+# Optional, lazily-imported ML dependencies (REQ-038 phenotype / ONNX runtime)
+# that publish no type stubs; ignored in every environment.
+[[tool.mypy.overrides]]
+module = ["onnxruntime.*", "plantcv.*"]
+ignore_missing_imports = true
