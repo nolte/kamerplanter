@@ -1,17 +1,23 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from app.api.v1.health.schemas import LivenessResponse, ReadinessResponse
 from app.common.dependencies import get_connection, get_object_storage
 
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health/live")
-def liveness():
-    return {"status": "alive"}
+@router.get("/health/live", response_model=LivenessResponse)
+def liveness() -> LivenessResponse:
+    """Liveness probe: reports that the process is up."""
+    return LivenessResponse(status="alive")
 
 
-@router.get("/health/ready")
+@router.get(
+    "/health/ready",
+    response_model=ReadinessResponse,
+    responses={503: {"model": ReadinessResponse, "description": "Database or object storage is unreachable."}},
+)
 async def readiness():
     """Readiness probe (NFR-013 AC-08).
 

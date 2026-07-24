@@ -6,7 +6,9 @@ acquisition job. Platform-admin only; in light mode the sole system user is the
 admin (see require_platform_admin).
 """
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.pests.schemas import (
     PestAcquireResponse,
@@ -25,6 +27,7 @@ from app.common.auth import require_platform_admin
 from app.common.dependencies import get_pest_image_service
 from app.common.enums import PestImageStatus
 from app.common.exceptions import NotFoundError, ValidationError
+from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
 from app.domain.models.pest_taxonomy import PEST_TAXONOMY
@@ -35,7 +38,11 @@ from app.domain.services.pest_image_service import (
     PestImageView,
 )
 
-router = APIRouter(prefix="/admin/pests", tags=["admin-pests"])
+router = APIRouter(
+    prefix="/admin/pests",
+    tags=["admin-pests"],
+    responses={**AUTH_RESPONSES, **NOT_FOUND_RESPONSE},
+)
 
 
 def _moderation_item(view: PestImageView) -> PestContributionModerationItem:
@@ -113,7 +120,10 @@ def start_pest_acquisition(_user: User = Depends(require_platform_admin)) -> Pes
 
 
 @router.get("/{label}/images", response_model=PestCurationImageList)
-def list_pest_images(label: str, _user: User = Depends(require_platform_admin)) -> PestCurationImageList:
+def list_pest_images(
+    label: Annotated[str, Path(description="Taxonomy-class slug of the pest.")],
+    _user: User = Depends(require_platform_admin),
+) -> PestCurationImageList:
     """List the indexed reference images for a class (gallery + curation source)."""
     payload = _client().list_prototypes(label, limit=200, active_only=False)
     images = [PestCurationImage(**img) for img in payload.get("images", [])]
@@ -127,8 +137,8 @@ def list_pest_images(label: str, _user: User = Depends(require_platform_admin)) 
 
 @router.patch("/{label}/images/{image_id}", response_model=SetPestImageActiveResponse)
 def set_pest_image_active(
-    label: str,
-    image_id: int,
+    label: Annotated[str, Path(description="Taxonomy-class slug of the pest.")],
+    image_id: Annotated[int, Path(description="Identifier of the reference image within the class.")],
     body: SetPestImageActiveRequest,
     _user: User = Depends(require_platform_admin),
 ) -> SetPestImageActiveResponse:
@@ -147,7 +157,7 @@ def set_pest_image_active(
 
 @router.get("/{pest_key}/contributions", response_model=PestContributionModerationList)
 def list_pest_contributions(
-    pest_key: str,
+    pest_key: Annotated[str, Path(description="Document key of the pest.")],
     _user: User = Depends(require_platform_admin),
     service: PestImageService = Depends(get_pest_image_service),
 ) -> PestContributionModerationList:
@@ -165,8 +175,8 @@ def list_pest_contributions(
 
 @router.patch("/{pest_key}/contributions/{contribution_id}", response_model=PromotePestContributionResponse)
 def set_pest_contribution_promotion(
-    pest_key: str,
-    contribution_id: str,
+    pest_key: Annotated[str, Path(description="Document key of the pest.")],
+    contribution_id: Annotated[str, Path(description="Document key of the contributed pest image.")],
     body: PromotePestContributionRequest,
     user: User = Depends(require_platform_admin),
     service: PestImageService = Depends(get_pest_image_service),

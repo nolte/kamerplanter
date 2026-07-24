@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.starter_kits.schemas import (
@@ -8,28 +10,31 @@ from app.api.v1.starter_kits.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_starter_kit_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.starter_kit_service import StarterKitService
 
-router = APIRouter(prefix="/starter-kits", tags=["starter-kits"])
+router = APIRouter(prefix="/starter-kits", tags=["starter-kits"], responses=NOT_FOUND_RESPONSE)
 
 
 @router.get("", response_model=list[StarterKitResponse])
 def list_starter_kits_for_tenant(
-    difficulty: str | None = Query(None),
+    difficulty: str | None = Query(None, description="Filter starter kits by difficulty level."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: StarterKitService = Depends(get_starter_kit_service),
 ):
+    """List the starter kits available to the tenant, optionally filtered by difficulty."""
     kits = service.list_kits_for_tenant(ctx.tenant_key, difficulty)
     return [to_response(k, StarterKitResponse) for k in kits]
 
 
 @router.get("/{kit_id}", response_model=StarterKitTenantResponse)
 def get_starter_kit_for_tenant(
-    kit_id: str,
+    kit_id: Annotated[str, Path(description="Identifier of the starter kit.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: StarterKitService = Depends(get_starter_kit_service),
 ):
+    """Return a starter kit with per-species availability for the tenant."""
     detail = service.get_kit_detail_for_tenant(kit_id, ctx.tenant_key)
     kit = detail["kit"]
     return to_response(

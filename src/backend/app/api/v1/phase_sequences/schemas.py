@@ -68,6 +68,14 @@ class PhaseDefinitionSpeciesResponse(BaseModel):
     illustration: str = ""
 
 
+class PhaseSequenceSpeciesResponse(BaseModel):
+    """A species linked to a phase sequence via the HAS_PHASE_SEQUENCE edge."""
+
+    key: str
+    scientific_name: str = ""
+    common_names: list[str] = Field(default_factory=list)
+
+
 # ── PhaseSequence schemas ──
 
 

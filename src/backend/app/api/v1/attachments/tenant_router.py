@@ -20,7 +20,9 @@ Security notes:
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, Query, Request, Response, UploadFile
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.api.v1.attachments.permissions import require_attachment_permission
@@ -36,6 +38,7 @@ from app.api.v1.attachments.schemas import (
 from app.common.dependencies import get_attachment_service
 from app.common.enums import AttachmentCategory
 from app.common.exceptions import FileTooLargeError, InvalidFileTypeError, KamerplanterError, ValidationError
+from app.common.openapi_responses import CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
@@ -43,7 +46,7 @@ from app.domain.models.attachment import Attachment
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.attachment_service import AttachmentService
 
-router = APIRouter(prefix="/attachments", tags=["attachments"])
+router = APIRouter(prefix="/attachments", tags=["attachments"], responses=CRUD_RESPONSES)
 
 # Chunk size for the bounded streaming upload read (1 MiB).
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
@@ -118,7 +121,7 @@ def _parse_category(value: str) -> AttachmentCategory:
 async def upload_attachment(
     request: Request,
     file: UploadFile,
-    category: str = Form(...),
+    category: str = Form(..., description="Attachment category the file belongs to."),
     ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> AttachmentResponse:
@@ -173,7 +176,7 @@ def presign_upload(
 
 @router.get("", response_model=AttachmentListResponse)
 def list_attachments(
-    category: str | None = Query(default=None),
+    category: str | None = Query(default=None, description="Filter the listing by attachment category."),
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
@@ -191,7 +194,7 @@ def list_attachments(
 
 @router.get("/{attachment_id}")
 async def download_attachment(
-    attachment_id: str,
+    attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
 ):
@@ -217,7 +220,7 @@ async def download_attachment(
 
 @router.get("/{attachment_id}/presign-download", response_model=PresignDownloadResponse)
 def presign_download(
-    attachment_id: str,
+    attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> PresignDownloadResponse:
@@ -228,8 +231,8 @@ def presign_download(
 
 @router.get("/{attachment_id}/thumbnails/{size}")
 async def download_thumbnail(
-    attachment_id: str,
-    size: int,
+    attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
+    size: Annotated[int, Path(description="Thumbnail edge size in pixels.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.READ)),
     service: AttachmentService = Depends(get_attachment_service),
 ):
@@ -259,7 +262,7 @@ async def download_thumbnail(
 
 @router.delete("/{attachment_id}", status_code=204)
 async def delete_attachment(
-    attachment_id: str,
+    attachment_id: Annotated[str, Path(description="Identifier of the attachment.")],
     ctx: TenantContext = Depends(require_attachment_permission(Action.DELETE)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> Response:

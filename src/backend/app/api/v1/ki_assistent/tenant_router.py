@@ -8,7 +8,9 @@ enforced inside the service per endpoint class (§1.3).
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 from fastapi.responses import StreamingResponse
 
 from app.api.v1.ki_assistent.deps import require_ai_tenant_enabled
@@ -25,6 +27,7 @@ from app.api.v1.ki_assistent.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_ai_assistant_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.ai_assistant import AiResponse, AiTenantSettings, AiTipCard
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.ai_assistant_service import AiAssistantService
@@ -33,6 +36,7 @@ router = APIRouter(
     prefix="/ai",
     tags=["ki-assistent"],
     dependencies=[Depends(require_ai_tenant_enabled)],
+    responses=NOT_FOUND_RESPONSE,
 )
 
 
@@ -79,9 +83,9 @@ def _response_schema(response: AiResponse) -> AiResponseSchema:
 
 @router.get("/tips", response_model=TipListResponse)
 def get_tips(
-    context_type: str = Query(...),
-    context_key: str = Query(...),
-    language: str = Query("de"),
+    context_type: str = Query(..., description="Context entity type the tips relate to (e.g. plant, location)."),
+    context_key: str = Query(..., description="Document key of the context entity."),
+    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
@@ -99,9 +103,9 @@ def get_tips(
 
 @router.post("/tips/refresh", response_model=TipListResponse)
 def refresh_tips(
-    context_type: str = Query(...),
-    context_key: str = Query(...),
-    language: str = Query("de"),
+    context_type: str = Query(..., description="Context entity type the tips relate to (e.g. plant, location)."),
+    context_key: str = Query(..., description="Document key of the context entity."),
+    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
@@ -120,19 +124,21 @@ def refresh_tips(
 
 @router.post("/tips/{tip_key}/dismiss", status_code=204)
 def dismiss_tip(
-    tip_key: str,
+    tip_key: Annotated[str, Path(description="Document key of the tip card.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> None:
+    """Dismiss a tip card so it is no longer shown."""
     service.dismiss_tip(ctx, tip_key)
 
 
 @router.post("/tips/{tip_key}/acted-on", status_code=204)
 def acted_on_tip(
-    tip_key: str,
+    tip_key: Annotated[str, Path(description="Document key of the tip card.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> None:
+    """Mark a tip card as acted on."""
     service.mark_tip_acted_on(ctx, tip_key)
 
 
@@ -141,7 +147,7 @@ def acted_on_tip(
 
 @router.get("/daily-tip", response_model=TipCardSchema | None)
 def get_daily_tip(
-    language: str = Query("de"),
+    language: str = Query("de", description="Preferred answer language (ISO 639-1)."),
     ctx: TenantContext = Depends(get_current_tenant),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
     service: AiAssistantService = Depends(get_ai_assistant_service),
@@ -156,6 +162,7 @@ def dismiss_daily_tip(
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> None:
+    """Dismiss today's personalised daily tip."""
     service.dismiss_daily_tip(ctx)
 
 
@@ -189,6 +196,7 @@ def list_conversations(
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> list[ConversationSummary]:
+    """List the current user's KI-Assistent conversations."""
     return [
         ConversationSummary(
             key=c.key,
@@ -208,6 +216,7 @@ def create_conversation(
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> ConversationSummary:
+    """Start a new KI-Assistent conversation."""
     conv = service.create_conversation(
         ctx,
         context_type=body.context_type,
@@ -226,7 +235,7 @@ def create_conversation(
 
 @router.post("/conversations/{conversation_key}/messages")
 async def send_message(
-    conversation_key: str,
+    conversation_key: Annotated[str, Path(description="Document key of the conversation.")],
     body: ChatMessageRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     ai_settings: AiTenantSettings = Depends(require_ai_tenant_enabled),
@@ -249,7 +258,7 @@ async def send_message(
 
 @router.delete("/conversations/{conversation_key}", status_code=204)
 def delete_conversation(
-    conversation_key: str,
+    conversation_key: Annotated[str, Path(description="Document key of the conversation.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> None:
@@ -265,6 +274,7 @@ def list_providers(
     ctx: TenantContext = Depends(get_current_tenant),
     service: AiAssistantService = Depends(get_ai_assistant_service),
 ) -> list[ProviderSummary]:
+    """List the AI providers available to this tenant."""
     return [
         ProviderSummary(
             key=p.key,

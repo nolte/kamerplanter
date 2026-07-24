@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Cookie, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Cookie, Depends, Path, Query
 
 from app.api.v1.auth.schemas import (
     AuthProviderResponse,
@@ -10,13 +12,18 @@ from app.api.v1.users.schemas import ChangePasswordRequest, ProfileUpdateRequest
 from app.common.auth import get_current_user
 from app.common.auth import is_platform_admin as _is_platform_admin
 from app.common.dependencies import get_auth_service, get_tenant_service, get_user_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.domain.engines.token_engine import TokenEngine
 from app.domain.models.user import User, UserProfileUpdate
 from app.domain.services.auth_service import AuthService
 from app.domain.services.tenant_service import TenantService
 from app.domain.services.user_service import UserService
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(
+    prefix="/users",
+    tags=["users"],
+    responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE},
+)
 
 
 @router.get("/me", response_model=UserProfileResponse)
@@ -25,6 +32,7 @@ def get_profile(
     service: UserService = Depends(get_user_service),
     tenant_service: TenantService = Depends(get_tenant_service),
 ):
+    """Return the current user's profile plus platform-admin flag."""
     profile = service.get_profile(current_user.key or "")
     return UserProfileResponse(
         **profile.model_dump(),
@@ -38,6 +46,7 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ):
+    """Update the current user's profile."""
     update = UserProfileUpdate(**body.model_dump(exclude_none=True))
     profile = service.update_profile(current_user.key or "", update)
     return UserProfileResponse(**profile.model_dump())
@@ -48,25 +57,27 @@ def list_providers(
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """List the OAuth providers linked to the current user's account."""
     providers = auth_service.list_providers(current_user.key or "")
     return [AuthProviderResponse(**p.model_dump()) for p in providers]
 
 
 @router.delete("/me/providers/{provider_key}", response_model=MessageResponse)
 def unlink_provider(
-    provider_key: str,
+    provider_key: Annotated[str, Path(description="Document key of the linked auth provider.")],
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """Unlink an OAuth provider from the current user's account."""
     auth_service.unlink_provider(current_user.key or "", provider_key)
     return MessageResponse(message="Provider unlinked.")
 
 
 @router.post("/me/providers/{provider_slug}/link", response_model=AuthProviderResponse)
 def link_provider(
-    provider_slug: str,
-    code: str = Query(...),
-    state: str = Query(...),
+    provider_slug: Annotated[str, Path(description="Slug of the OAuth provider to link.")],
+    code: str = Query(..., description="OAuth authorization code returned by the provider."),
+    state: str = Query(..., description="OAuth state value for CSRF validation."),
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
@@ -81,6 +92,7 @@ def change_password(
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """Change the current user's password and revoke all sessions."""
     auth_service.change_password(current_user.key or "", body.current_password, body.new_password)
     return MessageResponse(message="Password changed. All sessions revoked.")
 
@@ -91,6 +103,7 @@ def list_sessions(
     kp_refresh: str | None = Cookie(default=None),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """List the current user's active sessions."""
     current_hash = TokenEngine.hash_token(kp_refresh) if kp_refresh else None
     sessions = auth_service.list_sessions(current_user.key or "", current_hash)
     return [SessionResponse(**s.model_dump()) for s in sessions]
@@ -98,10 +111,11 @@ def list_sessions(
 
 @router.delete("/me/sessions/{session_key}", response_model=MessageResponse)
 def revoke_session(
-    session_key: str,
+    session_key: Annotated[str, Path(description="Document key of the session to revoke.")],
     current_user: User = Depends(get_current_user),
     auth_service: AuthService = Depends(get_auth_service),
 ):
+    """Revoke one of the current user's sessions."""
     auth_service.revoke_session(current_user.key or "", session_key)
     return MessageResponse(message="Session revoked.")
 
@@ -111,5 +125,6 @@ def delete_account(
     current_user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ):
+    """Delete the current user's account."""
     service.delete_account(current_user.key or "")
     return MessageResponse(message="Account deleted.")

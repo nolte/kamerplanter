@@ -1,17 +1,20 @@
-from fastapi import APIRouter, Depends, Query
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.locations.schemas import FrostWarningResponse, LocationCreate, LocationResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_site_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.site_service import SiteService
 
-router = APIRouter(prefix="/locations", tags=["locations"])
+router = APIRouter(prefix="/locations", tags=["locations"], responses=NOT_FOUND_RESPONSE)
 
 
 def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) -> Location:
@@ -23,11 +26,14 @@ def _verify_location_tenant(key: str, ctx: TenantContext, service: SiteService) 
 
 @router.get("", response_model=list[LocationResponse])
 def list_locations(
-    site_key: str = Query(...),
-    parent_location_key: str | None = Query(None),
+    site_key: str = Query(..., description="Document key of the site to list locations for."),
+    parent_location_key: str | None = Query(
+        None, description="If set, list the child locations of this parent instead."
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """List a site's locations, or the children of a parent location."""
     service.get_site(site_key, tenant_key=ctx.tenant_key)
     if parent_location_key:
         items = service.list_location_children(parent_location_key)
@@ -38,20 +44,22 @@ def list_locations(
 
 @router.get("/{key}", response_model=LocationResponse)
 def get_location(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Return a single location by key."""
     loc = _verify_location_tenant(key, ctx, service)
     return to_response(loc, LocationResponse)
 
 
 @router.get("/{key}/children", response_model=list[LocationResponse])
 def list_location_children(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the parent location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """List the child locations of a location."""
     _verify_location_tenant(key, ctx, service)
     items = service.list_location_children(key)
     return [to_response(loc, LocationResponse) for loc in items]
@@ -63,6 +71,7 @@ def create_location(
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Create a location within a site."""
     service.get_site(body.site_key, tenant_key=ctx.tenant_key)
     location = Location(**body.model_dump())
     created = service.create_location(location)
@@ -71,11 +80,12 @@ def create_location(
 
 @router.put("/{key}", response_model=LocationResponse)
 def update_location(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     body: LocationCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Update a location."""
     _verify_location_tenant(key, ctx, service)
     location = Location(**body.model_dump())
     service.get_site(location.site_key, tenant_key=ctx.tenant_key)
@@ -85,10 +95,11 @@ def update_location(
 
 @router.delete("/{key}", status_code=204)
 def delete_location(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
+    """Delete a location."""
     _verify_location_tenant(key, ctx, service)
     service.delete_location(key)
 
@@ -98,11 +109,12 @@ def delete_location(
 
 @router.get("/{key}/sensors", response_model=list[SensorResponse])
 def get_location_sensors(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """List the sensors attached to a location."""
     _verify_location_tenant(key, ctx, service)
     sensors = sensor_service.get_sensors_for_location(key)
     return [to_response(s, SensorResponse) for s in sensors]
@@ -110,12 +122,13 @@ def get_location_sensors(
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
 def create_location_sensor(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     body: SensorCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """Attach a sensor to a location."""
     _verify_location_tenant(key, ctx, service)
     sensor = Sensor(
         name=body.name,
@@ -130,11 +143,12 @@ def create_location_sensor(
 
 @router.get("/{key}/sensors/live", response_model=LiveStateResponse)
 def get_location_sensors_live(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """Return the latest live readings for a location's sensors."""
     _verify_location_tenant(key, ctx, service)
     sensors = sensor_service.get_sensors_for_location(key)
     result = sensor_service.get_live_state_for_sensors(sensors)
@@ -143,7 +157,7 @@ def get_location_sensors_live(
 
 @router.get("/{key}/frost-warning", response_model=FrostWarningResponse)
 def get_location_frost_warning(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
     sensor_service: SensorService = Depends(get_sensor_service),

@@ -1,6 +1,8 @@
 """FastAPI router for REQ-025 privacy & data subject rights endpoints."""
 
-from fastapi import APIRouter, Depends, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Request
 
 from app.api.v1.privacy.schemas import (
     ConsentGrantRequest,
@@ -23,6 +25,7 @@ from app.api.v1.privacy.schemas import (
 )
 from app.common.auth import get_current_user
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE, UNAUTHORIZED_RESPONSE
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
 from app.domain.models.mcp import McpAuditLogEntry
 from app.domain.models.privacy import (
@@ -35,7 +38,7 @@ from app.domain.models.privacy import (
 from app.domain.models.user import User
 from app.domain.services.privacy_service import PrivacyService
 
-router = APIRouter(prefix="/privacy", tags=["privacy"])
+router = APIRouter(prefix="/privacy", tags=["privacy"], responses={**UNAUTHORIZED_RESPONSE, **NOT_FOUND_RESPONSE})
 
 # Public-facing privacy endpoints that must be reachable without auth
 # (REQ-025 §3.6 — DSGVO Art. 13/14 Hinweispflicht). Mounted unconditionally
@@ -131,7 +134,7 @@ def request_data_export(
 
 @router.get("/export/{export_key}", response_model=DataExportResponse)
 def get_export_status(
-    export_key: str,
+    export_key: Annotated[str, Path(description="Document key of the data-export job.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
@@ -142,7 +145,7 @@ def get_export_status(
 
 @router.get("/export/{export_key}/download", response_model=DataExportResponse)
 def download_export(
-    export_key: str,
+    export_key: Annotated[str, Path(description="Document key of the data-export job.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
@@ -196,7 +199,7 @@ def request_erasure(
 
 @router.get("/erasure/{erasure_key}", response_model=ErasureResponse)
 def get_erasure_status(
-    erasure_key: str,
+    erasure_key: Annotated[str, Path(description="Document key of the erasure request.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
@@ -226,7 +229,7 @@ def restrict_processing(
 
 @router.delete("/restrict/{restriction_key}", response_model=RestrictionResponse)
 def lift_restriction(
-    restriction_key: str,
+    restriction_key: Annotated[str, Path(description="Document key of the processing restriction.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):
@@ -304,7 +307,7 @@ def grant_consent(
 
 @router.delete("/consents/{purpose}", response_model=ConsentResponse)
 def revoke_consent(
-    purpose: str,
+    purpose: Annotated[str, Path(description="Processing purpose whose consent to revoke.")],
     current_user: User = Depends(get_current_user),
     service: PrivacyService = Depends(get_privacy_service),
 ):

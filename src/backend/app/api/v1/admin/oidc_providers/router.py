@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.oidc_providers.schemas import (
     OidcProviderCreateRequest,
@@ -9,13 +11,18 @@ from app.api.v1.auth.schemas import MessageResponse
 from app.common.auth import get_current_user
 from app.common.dependencies import get_encryption_engine, get_oauth_engine, get_oidc_config_repo
 from app.common.exceptions import DuplicateError, NotFoundError
+from app.common.openapi_responses import CRUD_RESPONSES, UNAUTHORIZED_RESPONSE
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.engines.oauth_engine import OAuthEngine
 from app.domain.models.oidc_config import OidcProviderConfig
 from app.domain.models.user import User
 
-router = APIRouter(prefix="/admin/oidc-providers", tags=["admin-oidc"])
+router = APIRouter(
+    prefix="/admin/oidc-providers",
+    tags=["admin-oidc"],
+    responses={**UNAUTHORIZED_RESPONSE, **CRUD_RESPONSES},
+)
 
 
 def _response(c: OidcProviderConfig) -> OidcProviderResponse:
@@ -41,6 +48,7 @@ def list_providers(
     _current_user: User = Depends(get_current_user),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
 ):
+    """List all configured OIDC/OAuth providers."""
     return [_response(c) for c in repo.list_all()]
 
 
@@ -51,6 +59,7 @@ def create_provider(
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     encryption: EncryptionEngine = Depends(get_encryption_engine),
 ):
+    """Create a new OIDC/OAuth provider configuration."""
     existing = repo.get_by_slug(body.slug)
     if existing:
         raise DuplicateError("OidcProviderConfig", "slug", body.slug)
@@ -77,10 +86,11 @@ def create_provider(
 
 @router.get("/{key}", response_model=OidcProviderResponse)
 def get_provider(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
     _current_user: User = Depends(get_current_user),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
 ):
+    """Return a single OIDC/OAuth provider configuration by key."""
     config = repo.get_by_key(key)
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
@@ -89,12 +99,13 @@ def get_provider(
 
 @router.put("/{key}", response_model=OidcProviderResponse)
 def update_provider(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
     body: OidcProviderUpdateRequest,
     _current_user: User = Depends(get_current_user),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     encryption: EncryptionEngine = Depends(get_encryption_engine),
 ):
+    """Update an existing OIDC/OAuth provider configuration."""
     config = repo.get_by_key(key)
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
@@ -112,10 +123,11 @@ def update_provider(
 
 @router.delete("/{key}", status_code=204)
 def delete_provider(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
     _current_user: User = Depends(get_current_user),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
 ):
+    """Delete an OIDC/OAuth provider configuration."""
     config = repo.get_by_key(key)
     if config is None:
         raise NotFoundError("OidcProviderConfig", key)
@@ -124,7 +136,7 @@ def delete_provider(
 
 @router.post("/{key}/test", response_model=MessageResponse)
 def test_provider(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the OIDC provider configuration.")],
     _current_user: User = Depends(get_current_user),
     repo: ArangoOidcConfigRepository = Depends(get_oidc_config_repo),
     oauth_engine: OAuthEngine = Depends(get_oauth_engine),

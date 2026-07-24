@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path
 
 from app.api.mapping import to_response
 from app.api.v1.ipm.schemas import (
@@ -21,6 +23,7 @@ from app.api.v1.ipm.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_ipm_service, get_pest_inference_client
 from app.common.enums import DataOrigin
+from app.common.openapi_responses import AUTH_CRUD_RESPONSES
 from app.common.pagination import PaginationParams, get_pagination
 from app.config.settings import settings
 from app.domain.models.beneficial import Beneficial
@@ -33,7 +36,12 @@ from app.domain.models.ipm import (
 )
 from app.domain.services.ipm_service import IpmService
 
-router = APIRouter(prefix="/ipm", tags=["ipm"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/ipm",
+    tags=["ipm"],
+    dependencies=[Depends(get_current_user)],
+    responses=AUTH_CRUD_RESPONSES,
+)
 
 
 def _reference_image_counts() -> dict[str, int]:
@@ -107,6 +115,7 @@ def list_pests(
     pagination: PaginationParams = Depends(get_pagination),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """List catalog pests (paginated)."""
     pests, _ = service.list_pests(pagination.offset, pagination.limit)
     ref_counts = _reference_image_counts()
     return [_pest_response(p, ref_counts) for p in pests]
@@ -114,13 +123,18 @@ def list_pests(
 
 @router.post("/pests", response_model=PestResponse, status_code=201)
 def create_pest(body: PestCreate, service: IpmService = Depends(get_ipm_service)):
+    """Create a new catalog pest."""
     pest = Pest(**body.model_dump())
     created = service.create_pest(pest)
     return _pest_response(created)
 
 
 @router.get("/pests/{key}/detail", response_model=PestDetailResponse)
-def get_pest_detail(key: str, service: IpmService = Depends(get_ipm_service)):
+def get_pest_detail(
+    key: Annotated[str, Path(description="Document key of the pest.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Return a pest with its treatments, beneficials and detection hint."""
     detail = service.get_pest_detail(key)
     return PestDetailResponse(
         pest=_pest_response(detail["pest"], _reference_image_counts()),
@@ -131,19 +145,32 @@ def get_pest_detail(key: str, service: IpmService = Depends(get_ipm_service)):
 
 
 @router.get("/pests/{key}", response_model=PestResponse)
-def get_pest(key: str, service: IpmService = Depends(get_ipm_service)):
+def get_pest(
+    key: Annotated[str, Path(description="Document key of the pest.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Return a single catalog pest by key."""
     return _pest_response(service.get_pest(key), _reference_image_counts())
 
 
 @router.put("/pests/{key}", response_model=PestResponse)
-def update_pest(key: str, body: PestUpdate, service: IpmService = Depends(get_ipm_service)):
+def update_pest(
+    key: Annotated[str, Path(description="Document key of the pest.")],
+    body: PestUpdate,
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Update an existing catalog pest."""
     data = body.model_dump(exclude_none=True)
     updated = service.update_pest(key, data)
     return _pest_response(updated)
 
 
 @router.delete("/pests/{key}", status_code=204)
-def delete_pest(key: str, service: IpmService = Depends(get_ipm_service)):
+def delete_pest(
+    key: Annotated[str, Path(description="Document key of the pest.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Delete a catalog pest."""
     service.delete_pest(key)
 
 
@@ -155,31 +182,46 @@ def list_diseases(
     pagination: PaginationParams = Depends(get_pagination),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """List catalog diseases (paginated)."""
     diseases, _ = service.list_diseases(pagination.offset, pagination.limit)
     return [_disease_response(d) for d in diseases]
 
 
 @router.post("/diseases", response_model=DiseaseResponse, status_code=201)
 def create_disease(body: DiseaseCreate, service: IpmService = Depends(get_ipm_service)):
+    """Create a new catalog disease."""
     disease = Disease(**body.model_dump(), origin=DataOrigin.TENANT)
     created = service.create_disease(disease)
     return _disease_response(created)
 
 
 @router.get("/diseases/{key}", response_model=DiseaseResponse)
-def get_disease(key: str, service: IpmService = Depends(get_ipm_service)):
+def get_disease(
+    key: Annotated[str, Path(description="Document key of the disease.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Return a single catalog disease by key."""
     return _disease_response(service.get_disease(key))
 
 
 @router.put("/diseases/{key}", response_model=DiseaseResponse)
-def update_disease(key: str, body: DiseaseUpdate, service: IpmService = Depends(get_ipm_service)):
+def update_disease(
+    key: Annotated[str, Path(description="Document key of the disease.")],
+    body: DiseaseUpdate,
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Update an existing catalog disease."""
     data = body.model_dump(exclude_none=True)
     updated = service.update_disease(key, data)
     return _disease_response(updated)
 
 
 @router.delete("/diseases/{key}", status_code=204)
-def delete_disease(key: str, service: IpmService = Depends(get_ipm_service)):
+def delete_disease(
+    key: Annotated[str, Path(description="Document key of the disease.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Delete a catalog disease."""
     service.delete_disease(key)
 
 
@@ -191,19 +233,25 @@ def list_treatments(
     pagination: PaginationParams = Depends(get_pagination),
     service: IpmService = Depends(get_ipm_service),
 ):
+    """List catalog treatments (paginated)."""
     treatments, _ = service.list_treatments(pagination.offset, pagination.limit)
     return [_treatment_response(t) for t in treatments]
 
 
 @router.post("/treatments", response_model=TreatmentResponse, status_code=201)
 def create_treatment(body: TreatmentCreate, service: IpmService = Depends(get_ipm_service)):
+    """Create a new catalog treatment."""
     treatment = Treatment(**body.model_dump(), origin=DataOrigin.TENANT)
     created = service.create_treatment(treatment)
     return _treatment_response(created)
 
 
 @router.get("/treatments/{key}/detail", response_model=TreatmentDetailResponse)
-def get_treatment_detail(key: str, service: IpmService = Depends(get_ipm_service)):
+def get_treatment_detail(
+    key: Annotated[str, Path(description="Document key of the treatment.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Return a treatment with its targeted pests and diseases."""
     detail = service.get_treatment_detail(key)
     return TreatmentDetailResponse(
         treatment=_treatment_response(detail["treatment"]),
@@ -224,17 +272,30 @@ def get_treatment_detail(key: str, service: IpmService = Depends(get_ipm_service
 
 
 @router.get("/treatments/{key}", response_model=TreatmentResponse)
-def get_treatment(key: str, service: IpmService = Depends(get_ipm_service)):
+def get_treatment(
+    key: Annotated[str, Path(description="Document key of the treatment.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Return a single catalog treatment by key."""
     return _treatment_response(service.get_treatment(key))
 
 
 @router.put("/treatments/{key}", response_model=TreatmentResponse)
-def update_treatment(key: str, body: TreatmentUpdate, service: IpmService = Depends(get_ipm_service)):
+def update_treatment(
+    key: Annotated[str, Path(description="Document key of the treatment.")],
+    body: TreatmentUpdate,
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Update an existing catalog treatment."""
     data = body.model_dump(exclude_none=True)
     updated = service.update_treatment(key, data)
     return _treatment_response(updated)
 
 
 @router.delete("/treatments/{key}", status_code=204)
-def delete_treatment(key: str, service: IpmService = Depends(get_ipm_service)):
+def delete_treatment(
+    key: Annotated[str, Path(description="Document key of the treatment.")],
+    service: IpmService = Depends(get_ipm_service),
+):
+    """Delete a catalog treatment."""
     service.delete_treatment(key)

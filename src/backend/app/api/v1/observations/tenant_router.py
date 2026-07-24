@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.v1.observations.schemas import (
     AggregatedReadingResponse,
@@ -25,11 +26,12 @@ router = APIRouter(prefix="/observations", tags=["observations"])
     status_code=201,
 )
 def record_sensor_reading(
-    sensor_key: str,
+    sensor_key: Annotated[str, Path(description="Identifier of the sensor the reading belongs to.")],
     body: SensorReadingCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: ObservationService = Depends(get_observation_service),
 ) -> SensorReadingResponse:
+    """Record a single sensor reading for the tenant."""
     reading = SensorReading(
         time=datetime.now(tz=UTC),
         tenant_key=ctx.tenant_key,
@@ -62,11 +64,12 @@ def record_sensor_reading(
     status_code=201,
 )
 def record_sensor_readings_batch(
-    sensor_key: str,
+    sensor_key: Annotated[str, Path(description="Identifier of the sensor the readings belong to.")],
     body: SensorReadingBatchCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: ObservationService = Depends(get_observation_service),
 ) -> BatchInsertResponse:
+    """Record a batch of sensor readings for the tenant in one request."""
     now = datetime.now(tz=UTC)
     readings = [
         SensorReading(
@@ -92,13 +95,16 @@ def record_sensor_readings_batch(
     response_model=ReadingsListResponse,
 )
 def get_sensor_readings(
-    sensor_key: str,
-    start: datetime = Query(...),
-    end: datetime = Query(...),
-    resolution: str = Query("raw", pattern="^(raw|hourly|daily)$"),
+    sensor_key: Annotated[str, Path(description="Identifier of the sensor to read.")],
+    start: datetime = Query(..., description="Inclusive start of the time window (ISO-8601)."),
+    end: datetime = Query(..., description="Inclusive end of the time window (ISO-8601)."),
+    resolution: str = Query(
+        "raw", pattern="^(raw|hourly|daily)$", description="Aggregation resolution: raw, hourly or daily."
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: ObservationService = Depends(get_observation_service),
 ) -> ReadingsListResponse:
+    """Return a sensor's readings for a time window at the requested resolution."""
     raw_items = service.get_readings(sensor_key, start, end, ctx.tenant_key, resolution)
     if raw_items and isinstance(raw_items[0], AggregatedReading):
         items: list[SensorReadingResponse] | list[AggregatedReadingResponse] = [
@@ -136,10 +142,11 @@ def get_sensor_readings(
     response_model=SensorReadingResponse | None,
 )
 def get_latest_sensor_reading(
-    sensor_key: str,
+    sensor_key: Annotated[str, Path(description="Identifier of the sensor to read.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: ObservationService = Depends(get_observation_service),
 ) -> SensorReadingResponse | None:
+    """Return the most recent reading for a sensor, or ``null`` if none exist."""
     reading = service.get_latest_reading(sensor_key, ctx.tenant_key)
     if reading is None:
         return None

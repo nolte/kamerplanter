@@ -257,6 +257,12 @@ class FeedsFromRequest(BaseModel):
     source_tank_key: str
 
 
+class FeedsFromLinkResponse(BaseModel):
+    """Acknowledgement returned after a tank is linked to its source tank."""
+
+    status: str
+
+
 class LocationTankValidationResponse(BaseModel):
     valid: bool
     warnings: list[str] = Field(default_factory=list)

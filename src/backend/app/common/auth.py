@@ -1,6 +1,7 @@
 from collections.abc import Callable
 
-from fastapi import Cookie, Depends, Header, Path
+from fastapi import Cookie, Depends, Path
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.common.dependencies import get_auth_provider, get_tenant_service
 from app.common.enums import TenantRole
@@ -11,25 +12,43 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
 from app.domain.services.tenant_service import TenantService
 
+# Declared as a FastAPI security scheme (not a raw Header parameter) so the
+# generated OpenAPI document carries `components.securitySchemes` and a
+# `security` requirement on every protected operation. `auto_error=False`
+# keeps resolution manual: the auth provider decides how a missing or
+# malformed header fails (light mode resolves to the anonymous system user).
+bearer_scheme = HTTPBearer(
+    auto_error=False,
+    scheme_name="BearerAuth",
+    description="JWT access token or `kp_`-prefixed service-account API key.",
+)
+
+
+def _raw_authorization(credentials: HTTPAuthorizationCredentials | None) -> str | None:
+    """Rebuild the raw Authorization header value the auth providers expect."""
+    if credentials is None:
+        return None
+    return f"{credentials.scheme} {credentials.credentials}"
+
 
 def get_current_user(
-    authorization: str | None = Header(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User:
     """Extract and validate user from Bearer token, API key, or system user."""
-    return auth_provider.resolve_user(authorization)
+    return auth_provider.resolve_user(_raw_authorization(credentials))
 
 
 def get_current_user_optional(
-    authorization: str | None = Header(default=None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     auth_provider: IAuthProvider = Depends(get_auth_provider),
 ) -> User | None:
     """Extract user from Bearer token, or return None if no token."""
-    return auth_provider.resolve_user_optional(authorization)
+    return auth_provider.resolve_user_optional(_raw_authorization(credentials))
 
 
 def get_refresh_token_from_cookie(
-    kp_refresh: str | None = Cookie(default=None),
+    kp_refresh: str | None = Cookie(default=None, description="HttpOnly refresh-token cookie set by the login flow."),
 ) -> str:
     """Extract refresh token from HttpOnly cookie."""
     if not kp_refresh:
@@ -38,7 +57,7 @@ def get_refresh_token_from_cookie(
 
 
 def get_current_tenant(
-    tenant_slug: str = Path(...),
+    tenant_slug: str = Path(description="URL slug of the tenant the request is scoped to (REQ-024)."),
     user: User = Depends(get_current_user),
     tenant_service: TenantService = Depends(get_tenant_service),
 ) -> TenantContext:

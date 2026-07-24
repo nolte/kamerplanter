@@ -1,0 +1,23 @@
+# Spectral ruleset for the OpenAPI lint gate (spec/project/api-documentation/).
+# The document is code-first (FastAPI-generated); the snapshot lives at
+# src/backend/openapi.json and is regenerated with `task openapi:export`.
+extends: ["spectral:oas"]
+rules:
+  # FastAPI auto-derives operationIds from function names; they are unique and
+  # stable but not camelCase — do not fail the gate on their casing.
+  operation-operationId-valid-in-url: warn
+  # The global error envelope is referenced via components; allow unused
+  # components while the surface is still being annotated incrementally.
+  oas3-unused-component: warn
+  # False positive on OpenAPI 3.1 tuple schemas: Pydantic renders tuple[...]
+  # fields as `type: array` + `prefixItems` (valid JSON Schema 2020-12 without
+  # a sibling `items`), which this rule does not recognise.
+  array-items: warn
+  # Downgraded for two pre-existing equivalent-path pairs:
+  # GET /profiles/{nutrients,requirements}/{phase_key} (lookup by phase) vs
+  # PUT .../{key} (update by profile document key) share one path shape with
+  # semantically different identifiers; fixing this requires a breaking API
+  # path change (tracked in the api-documentation remediation report). The
+  # missing-path-parameter class this rule also guards is structurally
+  # prevented by the OpenAPI post-processing in app/main.py.
+  path-params: warn

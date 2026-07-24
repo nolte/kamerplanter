@@ -8,14 +8,20 @@ live updates (Spec §3) lands as a follow-up.
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_dashboard_service
+from app.common.openapi_responses import UNAUTHORIZED_RESPONSE
 from app.domain.services.dashboard_service import DashboardService
 
-router = APIRouter(prefix="/dashboard", tags=["dashboard"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["dashboard"],
+    dependencies=[Depends(get_current_user)],
+    responses=UNAUTHORIZED_RESPONSE,
+)
 
 
 class DashboardCountsResponse(BaseModel):
@@ -37,7 +43,7 @@ class DashboardSummaryResponse(BaseModel):
 
 @router.get("/summary", response_model=DashboardSummaryResponse)
 def get_dashboard_summary(
-    tenant_key: str = "",
+    tenant_key: str = Query(default="", description="Tenant document key whose dashboard summary to build."),
     service: DashboardService = Depends(get_dashboard_service),
 ) -> DashboardSummaryResponse:
     """Return the consolidated dashboard summary for ``tenant_key``."""

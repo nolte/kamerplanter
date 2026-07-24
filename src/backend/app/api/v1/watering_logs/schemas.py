@@ -119,3 +119,24 @@ class WateringConfirmResponse(BaseModel):
     watering_log_key: str
     task_completed: bool
     warnings: list[dict] = Field(default_factory=list)
+
+
+class RunoffAnalysisResponse(BaseModel):
+    """Drain-to-waste runoff analysis, or an ``error`` when runoff data is incomplete.
+
+    All fields are optional so the successful analysis and the ``error`` fallback
+    share one model; the endpoint uses ``response_model_exclude_unset`` so only the
+    keys actually produced are serialized (the JSON stays identical to the raw dict).
+    """
+
+    error: str | None = None
+    ec_delta: float | None = None
+    ec_status: str | None = None
+    ec_message: str | None = None
+    ph_delta: float | None = None
+    ph_status: str | None = None
+    ph_message: str | None = None
+    runoff_percent: float | None = None
+    volume_status: str | None = None
+    volume_message: str | None = None
+    overall_health: str | None = None

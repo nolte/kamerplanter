@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
 from app.api.v1.tanks.schemas import (
@@ -8,6 +10,7 @@ from app.api.v1.tanks.schemas import (
     DueMaintenanceResponse,
     EcDilutionRequest,
     EcDilutionResponse,
+    FeedsFromLinkResponse,
     FeedsFromRequest,
     FillEventResultResponse,
     HAEntitySuggestion,
@@ -30,6 +33,7 @@ from app.api.v1.tanks.schemas import (
 )
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_sensor_service, get_tank_service
+from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.domain.engines.water_mix_engine import WaterMixCalculator
 from app.domain.models.sensor import Sensor
@@ -45,7 +49,7 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.sensor_service import SensorService
 from app.domain.services.tank_service import TankService
 
-router = APIRouter(prefix="/tanks", tags=["tanks"])
+router = APIRouter(prefix="/tanks", tags=["tanks"], responses=NOT_FOUND_RESPONSE)
 
 
 def _tank_response(t: Tank) -> TankResponse:
@@ -61,6 +65,7 @@ def get_all_due_maintenances(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List all due tank maintenances across the tenant."""
     dues = service.get_all_due_maintenances(tenant_key=ctx.tenant_key)
     return [DueMaintenanceResponse(**d) for d in dues]
 
@@ -68,10 +73,11 @@ def get_all_due_maintenances(
 @router.get("", response_model=list[TankResponse])
 def list_tanks(
     pagination: PaginationParams = Depends(get_pagination),
-    tank_type: str | None = None,
+    tank_type: str | None = Query(default=None, description="Filter by tank type."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List the tenant's tanks (paginated), optionally filtered by type."""
     filters: dict[str, str] = {}
     if tank_type:
         filters["tank_type"] = tank_type
@@ -85,6 +91,7 @@ def create_tank(
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Create a tank for the tenant."""
     tank = Tank(**body.model_dump(), tenant_key=ctx.tenant_key)
     created = service.create_tank(tank)
     return _tank_response(created)
@@ -95,26 +102,29 @@ def list_ha_entities(
     ctx: TenantContext = Depends(get_current_tenant),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """List Home Assistant entities suggested for tank sensors."""
     return sensor_service.get_ha_entities()
 
 
 @router.get("/{key}", response_model=TankResponse)
 def get_tank(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Return a single tank by key."""
     t = service.get_tank(key, tenant_key=ctx.tenant_key)
     return _tank_response(t)
 
 
 @router.put("/{key}", response_model=TankResponse)
 def update_tank(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: TankUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Update a tank's configuration."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_tank(key, data)
@@ -123,21 +133,23 @@ def update_tank(
 
 @router.delete("/{key}", status_code=204)
 def delete_tank(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Delete a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     service.delete_tank(key)
 
 
 @router.post("/{key}/states", response_model=TankStateResponse, status_code=201)
 def record_state(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: TankStateCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Record a measured state snapshot for a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     state = TankState(**body.model_dump())
     created = service.record_state(key, state)
@@ -146,11 +158,12 @@ def record_state(
 
 @router.get("/{key}/states", response_model=list[TankStateResponse])
 def get_states(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List a tank's recorded state snapshots (paginated)."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     states = service.get_states(key, pagination.offset, pagination.limit)
     return [to_response(s, TankStateResponse) for s in states]
@@ -158,10 +171,11 @@ def get_states(
 
 @router.get("/{key}/states/latest", response_model=TankStateResponse | None)
 def get_latest_state(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Return a tank's most recent state snapshot, or null if none exists."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     state = service.get_latest_state(key)
     if state is None:
@@ -171,10 +185,11 @@ def get_latest_state(
 
 @router.get("/{key}/alerts", response_model=list[AlertResponse])
 def get_alerts(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List the active alerts for a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     alerts = service.get_alerts(key)
     return [AlertResponse(**a) for a in alerts]
@@ -182,11 +197,12 @@ def get_alerts(
 
 @router.post("/{key}/maintenance", response_model=MaintenanceLogResponse, status_code=201)
 def log_maintenance(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: MaintenanceLogCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Log a completed maintenance action for a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     log = MaintenanceLog(**body.model_dump())
     created = service.log_maintenance(key, log)
@@ -195,11 +211,12 @@ def log_maintenance(
 
 @router.get("/{key}/maintenance", response_model=list[MaintenanceLogResponse])
 def get_maintenance_history(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List a tank's maintenance history (paginated)."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     logs = service.get_maintenance_history(key, pagination.offset, pagination.limit)
     return [to_response(log, MaintenanceLogResponse) for log in logs]
@@ -207,10 +224,11 @@ def get_maintenance_history(
 
 @router.get("/{key}/maintenance/due", response_model=list[DueMaintenanceResponse])
 def get_due_maintenances(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List the due maintenances for a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     dues = service.get_due_maintenances(key)
     return [DueMaintenanceResponse(**d) for d in dues]
@@ -218,11 +236,12 @@ def get_due_maintenances(
 
 @router.post("/{key}/schedules", response_model=MaintenanceScheduleResponse, status_code=201)
 def create_schedule(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: MaintenanceScheduleCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Create a maintenance schedule for a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     schedule = MaintenanceSchedule(**body.model_dump())
     created = service.create_schedule(key, schedule)
@@ -231,10 +250,11 @@ def create_schedule(
 
 @router.get("/{key}/schedules", response_model=list[MaintenanceScheduleResponse])
 def get_schedules(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List a tank's maintenance schedules."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     schedules = service.get_schedules(key)
     return [to_response(s, MaintenanceScheduleResponse) for s in schedules]
@@ -242,12 +262,13 @@ def get_schedules(
 
 @router.put("/{key}/schedules/{skey}", response_model=MaintenanceScheduleResponse)
 def update_schedule(
-    key: str,
-    skey: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
+    skey: Annotated[str, Path(description="Document key of the maintenance schedule.")],
     body: MaintenanceScheduleUpdate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Update a tank's maintenance schedule."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     data = body.model_dump(exclude_none=True)
     updated = service.update_schedule(skey, data)
@@ -256,22 +277,24 @@ def update_schedule(
 
 @router.delete("/{key}/schedules/{skey}", status_code=204)
 def delete_schedule(
-    key: str,
-    skey: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
+    skey: Annotated[str, Path(description="Document key of the maintenance schedule.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Delete a tank's maintenance schedule."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     service.delete_schedule(skey)
 
 
 @router.post("/{key}/fills", response_model=FillEventResultResponse, status_code=201)
 def record_fill_event(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: TankFillEventCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Record a tank fill event and return the resulting state and warnings."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     ferts = [FertilizerSnapshot(**f.model_dump()) for f in body.fertilizers_used]
     event = TankFillEvent(**body.model_dump(exclude={"fertilizers_used"}), fertilizers_used=ferts)
@@ -286,11 +309,12 @@ def record_fill_event(
 
 @router.get("/{key}/fills", response_model=list[TankFillEventResponse])
 def get_fill_events(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List a tank's fill events (paginated)."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     events = service.get_fill_history(key, pagination.offset, pagination.limit)
     return [_fill_event_response(e) for e in events]
@@ -298,10 +322,11 @@ def get_fill_events(
 
 @router.get("/{key}/fills/latest", response_model=TankFillEventResponse | None)
 def get_latest_fill(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Return a tank's most recent fill event, or null if none exists."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     event = service.get_latest_fill(key)
     if event is None:
@@ -311,12 +336,13 @@ def get_latest_fill(
 
 @router.get("/{key}/fills/stats", response_model=TankFillEventStatsResponse)
 def get_fill_stats(
-    key: str,
-    start_date: str | None = None,
-    end_date: str | None = None,
+    key: Annotated[str, Path(description="Document key of the tank.")],
+    start_date: str | None = Query(default=None, description="Inclusive start date (ISO 8601) of the stats window."),
+    end_date: str | None = Query(default=None, description="Inclusive end date (ISO 8601) of the stats window."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Return aggregated fill-event statistics for a tank over a date window."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     stats = service.get_fill_stats(key, start_date, end_date)
     return TankFillEventStatsResponse(**stats)
@@ -324,10 +350,11 @@ def get_fill_stats(
 
 @router.get("/{key}/active-nutrient-plans", response_model=list[ActiveNutrientPlanResponse])
 def get_active_nutrient_plans(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """List the nutrient plans currently fed by a tank."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     results = service.get_active_nutrient_plans(key)
     return [
@@ -349,13 +376,14 @@ def get_active_nutrient_plans(
     ]
 
 
-@router.post("/{key}/feeds-from", status_code=201)
+@router.post("/{key}/feeds-from", response_model=FeedsFromLinkResponse, status_code=201)
 def link_feeds_from(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank being fed.")],
     body: FeedsFromRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Link a tank to the source tank it is fed from."""
     service.get_tank(key, tenant_key=ctx.tenant_key)
     service.link_feeds_from(key, body.source_tank_key)
     return {"status": "linked"}
@@ -363,11 +391,12 @@ def link_feeds_from(
 
 @router.get("/{key}/states/live", response_model=LiveStateResponse)
 def get_live_state(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     tank_service: TankService = Depends(get_tank_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """Return a tank's live sensor readings."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     result = sensor_service.get_live_state(key)
     return LiveStateResponse(**result)
@@ -375,11 +404,12 @@ def get_live_state(
 
 @router.get("/{key}/sensors", response_model=list[SensorResponse])
 def get_sensors(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     ctx: TenantContext = Depends(get_current_tenant),
     tank_service: TankService = Depends(get_tank_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """List the sensors attached to a tank."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     sensors = sensor_service.get_sensors_for_tank(key)
     return [to_response(s, SensorResponse) for s in sensors]
@@ -387,12 +417,13 @@ def get_sensors(
 
 @router.post("/{key}/sensors", response_model=SensorResponse, status_code=201)
 def create_sensor(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: SensorCreate,
     ctx: TenantContext = Depends(get_current_tenant),
     tank_service: TankService = Depends(get_tank_service),
     sensor_service: SensorService = Depends(get_sensor_service),
 ):
+    """Attach a sensor to a tank."""
     tank_service.get_tank(key, tenant_key=ctx.tenant_key)
     sensor = Sensor(**body.model_dump(exclude={"tank_key"}), tank_key=key)
     created = sensor_service.create_sensor(sensor)
@@ -401,11 +432,12 @@ def create_sensor(
 
 @router.post("/{key}/ec-dilution", response_model=EcDilutionResponse)
 def calculate_ec_dilution(
-    key: str,
+    key: Annotated[str, Path(description="Document key of the tank.")],
     body: EcDilutionRequest,
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
+    """Calculate the RO water needed to dilute a tank to a target EC."""
     tank = service.get_tank(key, tenant_key=ctx.tenant_key)
     volume = body.current_volume_liters if body.current_volume_liters is not None else tank.volume_liters
     calculator = WaterMixCalculator()
