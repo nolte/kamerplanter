@@ -16,8 +16,11 @@ interface NotifOverrides {
   title?: string;
   body?: string;
   read_at?: string | null;
+  acted_at?: string | null;
   action_url?: string;
   created_at?: string | null;
+  actions?: { action_id: string; title: string; uri?: string | null }[];
+  notification_type?: string;
 }
 
 function makeNotif(o: NotifOverrides) {
@@ -25,19 +28,19 @@ function makeNotif(o: NotifOverrides) {
     key: o.key,
     tenant_key: 'test-tenant',
     user_key: 'user-1',
-    notification_type: 'care_reminder',
+    notification_type: o.notification_type ?? 'care_reminder',
     title: o.title ?? `Titel ${o.key}`,
     body: o.body ?? `Body ${o.key}`,
     urgency: o.urgency ?? 'normal',
     data: o.action_url ? { action_url: o.action_url } : {},
-    actions: [],
+    actions: o.actions ?? [],
     image_url: null,
     group_key: null,
     channels_sent: [],
     channels_failed: [],
     status: 'delivered',
     read_at: o.read_at ?? null,
-    acted_at: null,
+    acted_at: o.acted_at ?? null,
     escalation_level: 0,
     parent_notification_key: null,
     created_at: o.created_at === undefined ? new Date().toISOString() : o.created_at,
@@ -66,6 +69,20 @@ function useList(items: ReturnType<typeof makeNotif>[]) {
       const read = { ...(found ?? makeNotif({ key: String(params.key) })), read_at: new Date().toISOString() };
       if (found) found.read_at = read.read_at;
       return HttpResponse.json(read);
+    }),
+    http.post(`${BASE}/:key/act`, ({ params }) => {
+      const now = new Date().toISOString();
+      const found = items.find((n) => n.key === params.key);
+      const acted = {
+        ...(found ?? makeNotif({ key: String(params.key) })),
+        acted_at: now,
+        read_at: now,
+      };
+      if (found) {
+        found.acted_at = now;
+        found.read_at = now;
+      }
+      return HttpResponse.json(acted);
     }),
   );
 }
@@ -160,6 +177,122 @@ describe('NotificationDrawer', () => {
     await user.click(await screen.findByTestId('notification-action-n1'));
     // No action_url → drawer stays open.
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('renders a Done button only for actionable, not-yet-acted notifications', async () => {
+    useList([
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+      // Already acted → no Done button.
+      makeNotif({
+        key: 'care2',
+        title: 'Ficus',
+        notification_type: 'care.watering',
+        acted_at: '2024-01-01T00:00:00Z',
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+      // No actions → no Done button.
+      makeNotif({ key: 'plain', title: 'Info', read_at: null }),
+    ]);
+    renderWithProviders(
+      <NotificationDrawer open onClose={noop} onCountChange={noop} />,
+    );
+
+    expect(await screen.findByTestId('notification-action-done-care1')).toBeInTheDocument();
+    expect(screen.queryByTestId('notification-action-done-care2')).toBeNull();
+    expect(screen.queryByTestId('notification-action-done-plain')).toBeNull();
+  });
+
+  it('confirms the source and drops the unread count when Done is clicked', async () => {
+    useList([
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+    ]);
+    const onCountChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
+    );
+
+    const done = await screen.findByTestId('notification-action-done-care1');
+    await user.click(done);
+
+    // Optimistic: the acted notification loses its Done button and the badge drops.
+    await waitFor(() =>
+      expect(screen.queryByTestId('notification-action-done-care1')).toBeNull(),
+    );
+    await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(0));
+  });
+
+  it('does not trigger card navigation when Done is clicked (Issue #439 regression)', async () => {
+    useList([
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        action_url: '/pflege',
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const done = await screen.findByTestId('notification-action-done-care1');
+    await user.click(done);
+
+    // The Done button sits in a `CardActions` sibling of `CardActionArea`, not
+    // nested inside it — clicking it must not also fire the card's own click
+    // handler (which would navigate + close the drawer via the action_url).
+    await waitFor(() =>
+      expect(screen.queryByTestId('notification-action-done-care1')).toBeNull(),
+    );
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('rolls back the optimistic Done state and restores the unread count on failure', async () => {
+    useList([
+      makeNotif({
+        key: 'care1',
+        title: 'Monstera',
+        notification_type: 'care.watering',
+        read_at: null,
+        actions: [{ action_id: 'confirm', title: 'Done', uri: '/pflege' }],
+      }),
+    ]);
+    server.use(
+      http.post(`${BASE}/:key/act`, () => new HttpResponse(null, { status: 500 })),
+    );
+    const onCountChange = vi.fn();
+    const user = userEvent.setup();
+    renderWithProviders(
+      <NotificationDrawer open onClose={noop} onCountChange={onCountChange} />,
+    );
+
+    const done = await screen.findByTestId('notification-action-done-care1');
+    await user.click(done);
+
+    // Optimistic drop happens immediately …
+    await waitFor(() => expect(onCountChange).toHaveBeenCalledWith(0));
+    // … then the failed round-trip restores both the button and the badge.
+    await waitFor(() =>
+      expect(screen.getByTestId('notification-action-done-care1')).toBeInTheDocument(),
+    );
+    await waitFor(() => expect(onCountChange).toHaveBeenLastCalledWith(1));
+    expect(await screen.findByText('Bestätigung konnte nicht gespeichert werden. Bitte versuche es erneut.')).toBeInTheDocument();
   });
 
   it('paginates via load-more, appending the next page', async () => {

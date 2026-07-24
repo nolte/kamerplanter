@@ -512,12 +512,26 @@ def get_recurrence_engine() -> RecurrenceEngine:
     return RecurrenceEngine()
 
 
+def get_notification_propagation_service():
+    """REQ-030 §4.2 in-app source→notification coupling (Issue #742).
+
+    Repository-only, synchronous: the coupling maintains persisted notification
+    rows for the in-app centre. Channel delivery stays on the async engine path.
+    """
+    from app.domain.services.notification_propagation_service import (
+        NotificationPropagationService,
+    )
+
+    return NotificationPropagationService(get_notification_repo())
+
+
 def get_task_service() -> TaskService:
     return TaskService(
         get_task_repo(),
         HSTValidator(),
         DependencyResolver(),
         recurrence=get_recurrence_engine(),
+        notification_propagation=get_notification_propagation_service(),
     )
 
 
@@ -768,6 +782,7 @@ def get_care_reminder_service() -> CareReminderService:
         overwintering_repo=get_overwintering_profile_repo(),
         overwintering_template_repo=get_overwintering_template_repo(),
         recurrence=get_recurrence_engine(),
+        notification_propagation=get_notification_propagation_service(),
     )
 
 

@@ -16,6 +16,7 @@ from app.domain.models.task import (
     WorkflowPhase,
     WorkflowTemplate,
 )
+from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 
 def _as_aware_utc(value: datetime | None) -> datetime | None:
@@ -40,11 +41,17 @@ class TaskService:
         hst_validator: HSTValidator,
         dependency_resolver: DependencyResolver,
         recurrence: RecurrenceEngine | None = None,
+        notification_propagation: NotificationPropagationService | None = None,
     ) -> None:
         self._repo = repo
         self._hst = hst_validator
         self._deps = dependency_resolver
         self._recurrence = recurrence or RecurrenceEngine()
+        #: Optional REQ-030 §4.2 coupling: when wired, task mutations synchronously
+        #: propagate into the in-app notification centre (Issue #742). Left ``None``
+        #: in unit tests that don't exercise the feedback loop — every call site is
+        #: guarded so the core task flow is unaffected when it is absent.
+        self._notifications = notification_propagation
 
     # ── Workflow Templates ──
 
@@ -274,6 +281,23 @@ class TaskService:
 
         return execution
 
+    # ── Notification propagation (REQ-030 §4.2, #742) ──
+
+    def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
+        """Run a notification-propagation ``action`` when the coupling is wired.
+
+        Swallows and logs any propagation error so a notification-centre hiccup can
+        never abort the underlying task mutation (NFR-007 graceful degradation).
+        """
+        if self._notifications is None:
+            return
+        try:
+            action(self._notifications)
+        except Exception:  # pragma: no cover - defensive; propagation is best-effort
+            import structlog
+
+            structlog.get_logger().warning("task_notification_propagation_failed")
+
     # ── Task CRUD ──
 
     def list_tasks(
@@ -291,8 +315,28 @@ class TaskService:
             verify_tenant_ownership(task, tenant_key, "Task")
         return task
 
-    def create_task(self, task: Task) -> Task:
-        return self._repo.create_task(task)
+    def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
+        created = self._repo.create_task(task)
+        self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
+        if created.assigned_to_user_key:
+            self._propagate(lambda p: p.on_task_reassigned(created, previous_user_key=None))
+        return created
+
+    def update_task(self, key: str, task: Task, *, previous: Task | None = None, actor_user_key: str = "") -> Task:
+        """Persist a task edit and propagate it into the notification centre (#742).
+
+        A due-date/title edit refreshes the task's ``task.due`` notification in
+        place (owned by ``actor_user_key`` — the editing user threaded from the API
+        context); a change of assignee additionally delivers a fresh assignment
+        notification to the new member. The ``previous`` snapshot (pre-edit task)
+        lets the coupling detect a reassignment.
+        """
+        updated = self._repo.update_task(key, task)
+        self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
+        prev_assignee = previous.assigned_to_user_key if previous is not None else None
+        if prev_assignee != updated.assigned_to_user_key:
+            self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
+        return updated
 
     def delete_task(self, key: str) -> bool:
         task = self.get_task(key)
@@ -302,7 +346,10 @@ class TaskService:
                 f"Cannot delete task in status '{task.status}'. "
                 f"Only {', '.join(sorted(allowed))} tasks can be deleted.",
             )
-        return self._repo.delete_task(key)
+        deleted = self._repo.delete_task(key)
+        if deleted:
+            self._propagate(lambda p: p.on_task_deleted(task))
+        return deleted
 
     def add_photo_ref(self, key: str, url: str) -> Task:
         task = self.get_task(key)
@@ -360,6 +407,9 @@ class TaskService:
         # Create next recurring task if applicable
         if task.recurrence_rule:
             self._create_next_recurring_task(updated)
+
+        # Mark the task's open due notification done (badge drops, #742).
+        self._propagate(lambda p: p.on_task_completed(updated))
 
         return updated
 
@@ -450,7 +500,9 @@ class TaskService:
             raise ValidationError(f"Cannot skip task in status '{task.status}'.")
         task.status = "skipped"
         task.completed_at = datetime.now(UTC)
-        return self._repo.update_task(key, task)
+        updated = self._repo.update_task(key, task)
+        self._propagate(lambda p: p.on_task_completed(updated))
+        return updated
 
     # ── Clone ──
 
@@ -557,8 +609,13 @@ class TaskService:
         for tk in task_keys:
             try:
                 task = self.get_task(tk)
+                previous_assignee = task.assigned_to_user_key
                 task.assigned_to_user_key = assigned_to_user_key
-                self._repo.update_task(tk, task)
+                updated = self._repo.update_task(tk, task)
+                if previous_assignee != assigned_to_user_key:
+                    self._propagate(
+                        lambda p, u=updated, prev=previous_assignee: p.on_task_reassigned(u, previous_user_key=prev)
+                    )
                 succeeded.append(tk)
             except (NotFoundError, ValidationError) as e:
                 failed.append({"key": tk, "error": str(e)})

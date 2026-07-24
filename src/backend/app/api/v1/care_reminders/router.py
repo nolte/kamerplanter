@@ -11,6 +11,7 @@ from app.api.v1.care_reminders.schemas import (
 from app.common.auth import get_current_user
 from app.common.dependencies import get_care_reminder_service
 from app.common.enums import ReminderType
+from app.domain.models.user import User
 from app.domain.services.care_reminder_service import CareReminderService
 
 router = APIRouter(prefix="/care-reminders", tags=["care-reminders"], dependencies=[Depends(get_current_user)])
@@ -39,10 +40,11 @@ def get_or_create_profile(
 def update_profile(
     plant_key: str,
     body: CareProfileUpdate,
+    user: User = Depends(get_current_user),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     updates = body.model_dump(exclude_none=True)
-    updated = service.update_profile(plant_key, updates)
+    updated = service.update_profile(plant_key, updates, user_key=user.key or "")
     return _profile_to_response(updated)
 
 
@@ -50,6 +52,7 @@ def update_profile(
 def confirm_reminder(
     plant_key: str,
     body: ConfirmRequest,
+    user: User = Depends(get_current_user),
     service: CareReminderService = Depends(get_care_reminder_service),
 ):
     fertilizers = [f.model_dump() for f in body.fertilizers_used] if body.fertilizers_used else None
@@ -61,6 +64,7 @@ def confirm_reminder(
         fertilizers_used=fertilizers,
         measured_ec=body.measured_ec,
         measured_ph=body.measured_ph,
+        user_key=user.key or "",
     )
     return _confirmation_to_response(confirmation)
 

@@ -20,13 +20,13 @@ Scope: Smoke-Coverage des Notification-Settings-Workflows (REQ-030 §5.4) plus
 die Soll-Verhalten-Rueckkopplung Quelle -> Benachrichtigung (REQ-030 §4.2/§5.2).
 Out of scope: Test-Send-Buttons, echte Zustellung.
 
-Hinweis zu den Soll-Tests (TC-REQ-030-004..014): REQ-030 §4.2 fordert, dass eine
-Aenderung der Quelle (Aufgabe/Care-Erinnerung verschoben, abgeschlossen, geloescht
-oder Zyklus angepasst) die zugehoerige Benachrichtigung synchron aktualisiert.
-Aktuell entstehen Benachrichtigungen nur periodisch via ``notifications.
-dispatch_due_care`` (06:05 UTC); es gibt keine synchrone Kopplung Quelle ->
-Benachrichtigung. Diese Tests schreiben den vollstaendigen Soll-Flow und werden
-als ``xfail(strict=False)`` gefuehrt -- ein Fix taucht automatisch als xpass auf.
+Hinweis zu den Rueckkopplungs-Tests (TC-REQ-030-004..014): REQ-030 §4.2 fordert,
+dass eine Aenderung der Quelle (Aufgabe/Care-Erinnerung verschoben, abgeschlossen,
+geloescht oder Zyklus angepasst) die zugehoerige Benachrichtigung synchron
+aktualisiert. Seit Issue #742 ist diese Kopplung implementiert
+(``NotificationPropagationService`` verdrahtet in Task-/Care-Service) und der
+Actionable-"Erledigt"-Button bestaetigt die Quelle in einem Schritt (§4.2), daher
+laufen diese Tests jetzt als regulaere Faelle (kein xfail mehr).
 """
 
 from __future__ import annotations
@@ -50,16 +50,10 @@ from .pages.notification_center_page import NotificationCenterPage
 
 pytestmark = pytest.mark.requires_auth
 
-# Soll-Verhalten: no synchronous coupling source-task/care -> notification exists.
-# Notifications are only produced periodically via ``dispatch_due_care`` (06:05
-# UTC); the REQ-030 §4.2 feedback loop is not implemented. Every test decorated
-# with this constant writes the full desired flow and is expected to fail today.
-_NOTIFICATION_PROPAGATION_XFAIL = pytest.mark.xfail(
-    reason="Soll-Verhalten: keine synchrone Kopplung Quell-Task/Care -> Notification; "
-    "Notifications entstehen nur periodisch via dispatch_due_care (06:05 UTC); "
-    "REQ-030 §4.2-Rueckkopplung nicht implementiert. Siehe TC-REQ-030 Abschnitt 17.",
-    strict=False,
-)
+# Issue #742 — the synchronous source→notification feedback loop (REQ-030 §4.2/
+# §5.2) is now implemented: task/care mutations propagate into the in-app
+# notification centre, and an actionable "Done" button confirms the source in one
+# step. The tests below therefore drive the real flow (no longer xfail).
 
 # -- Demo credentials (full mode -- see conftest.DEMO_EMAIL_FULL) ------------
 DEMO_EMAIL = "demo@kamerplanter.example"
@@ -283,15 +277,13 @@ class TestNotificationEmailChannelEnable:
 
 
 class TestTaskUpdateNotificationFeedback:
-    """Task mutations should propagate into notifications (Soll: TC-006-082..085).
+    """Task mutations propagate into notifications (TC-006-082..085).
 
-    All tests here document the desired REQ-030 §4.2 feedback loop that is not
-    yet implemented; they are marked ``xfail(strict=False)`` and drive the full
-    real flow (open notification centre, mutate the source task, re-inspect the
-    notification centre).
+    These exercise the REQ-030 §4.2 feedback loop implemented in Issue #742: each
+    test drives the full real flow (open notification centre, mutate the source
+    task, re-inspect the notification centre).
     """
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_reassign_task_delivers_assignment_notification(
         self,
@@ -307,8 +299,9 @@ class TestTaskUpdateNotificationFeedback:
         Benachrichtigung folgen der Zuweisung.
 
         Abweichung Spec vs. Impl: ein 'Meine Aufgaben'-Filter existiert im
-        Frontend nicht; die Neuzuweisung via ``set_assigned_to`` ist setzbar,
-        aber der Benachrichtigungs-Teil ist Soll-Verhalten (xfail).
+        Frontend nicht; die Neuzuweisung via ``set_assigned_to`` ist setzbar und
+        liefert dem neu zugewiesenen Mitglied eine Assignment-Benachrichtigung
+        (Issue #742).
         """
         _ensure_logged_in(login_page)
         task_queue.open()
@@ -338,7 +331,6 @@ class TestTaskUpdateNotificationFeedback:
             f"reassigned task '{task_name}', got: {texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_edit_task_updates_existing_notification(
         self,
@@ -386,7 +378,6 @@ class TestTaskUpdateNotificationFeedback:
             f"updated title '{new_name}', got: {texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_delete_task_removes_stale_notification(
         self,
@@ -435,7 +426,6 @@ class TestTaskUpdateNotificationFeedback:
             f"({initial_badge} -> {new_badge}), got: {texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_complete_task_marks_notification_done(
         self,
@@ -488,7 +478,6 @@ class TestTaskUpdateNotificationFeedback:
 class TestCareNotificationFeedback:
     """Care-cycle changes should propagate into notifications (Soll: TC-022-093/094)."""
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_interval_change_reschedules_watering_notification(
         self,
@@ -534,7 +523,6 @@ class TestCareNotificationFeedback:
             f"follow the new 14-day cycle, got: {texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_confirm_reminder_marks_notification_done(
         self,
@@ -587,7 +575,6 @@ class TestCareNotificationFeedback:
 class TestNotificationSourcePropagation:
     """Source-change feedback into the notification centre (Soll: TC-REQ-030-063..067)."""
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_moved_task_notification_shows_new_due(
         self,
@@ -635,7 +622,6 @@ class TestNotificationSourcePropagation:
             f"due date (no stale 'heute') for '{task_name}', got: {texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_completed_task_notification_marked_done(
         self,
@@ -681,7 +667,6 @@ class TestNotificationSourcePropagation:
             f"got {new_badge}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_deleted_source_removes_orphan_notification(
         self,
@@ -730,7 +715,6 @@ class TestNotificationSourcePropagation:
             f"({initial_badge} -> {new_badge}), got: {texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_interval_change_yields_single_rescheduled_notification(
         self,
@@ -775,7 +759,6 @@ class TestNotificationSourcePropagation:
             f"{watering_texts}"
         )
 
-    @_NOTIFICATION_PROPAGATION_XFAIL
     @pytest.mark.requires_auth
     def test_actionable_done_button_confirms_source(
         self,
@@ -789,9 +772,10 @@ class TestNotificationSourcePropagation:
         Spec: TC-REQ-030-067 -- Actionable 'Erledigt'-Button schliesst die Quell-Aufgabe
         (CareConfirmation) und markiert die Benachrichtigung als erledigt.
 
-        Abweichung Spec vs. Impl: ein dedizierter Actionable-'Erledigt'-Button pro
-        Benachrichtigung existiert nicht (nur ``click_notification`` = navigiert) --
-        daher schlaegt die Suche nach dem Button erwartungsgemaess fehl (xfail).
+        Seit Issue #742 rendert der NotificationDrawer pro actionable
+        Care-/Task-Benachrichtigung einen dedizierten 'Erledigt'-Button
+        (``notification-action-done-<key>``), der die Quelle in einem Schritt
+        bestaetigt (CareConfirmation) und die Benachrichtigung als erledigt markiert.
         """
         _ensure_logged_in(login_page)
         pflege.open()

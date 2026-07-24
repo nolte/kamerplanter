@@ -37,6 +37,36 @@ Jede Karte ist links farblich nach Dringlichkeit markiert:
 
 ---
 
+## Immer aktuell: Benachrichtigungen folgen ihrer Quelle {#immer-aktuell}
+
+Ändert sich die zugrunde liegende Aufgabe oder Pflegeerinnerung, zieht die passende Benachrichtigung im Center automatisch nach — ohne dass du sie manuell aufräumen musst:
+
+- **Termin verschoben** — verschiebst du eine Aufgabe auf ein neues Datum, zeigt die zugehörige Benachrichtigung sofort das neue Fälligkeitsdatum.
+- **Neu zugewiesen** — weist du eine Aufgabe einem anderen Mitglied zu, erhält diese Person eine neue Zuweisungs-Benachrichtigung; deine eigene Fällig-Benachrichtigung für diese Aufgabe verschwindet dabei.
+- **Gelöscht** — löschst du eine Aufgabe, verschwindet auch ihre Benachrichtigung aus dem Center.
+- **Erledigt** — schließt du eine Aufgabe ab, gilt die zugehörige Benachrichtigung automatisch als erledigt und zählt nicht mehr im Ungelesen-Zähler.
+- **Gieß-Intervall geändert** — änderst du das Intervall einer Pflegeerinnerung (z. B. Gießen), aktualisiert sich die bestehende Erinnerungs-Benachrichtigung mit dem neuen Termin; es entsteht keine zweite, doppelte Erinnerung für dieselbe Pflanze und denselben Erinnerungstyp.
+- **Pflege bestätigt** — bestätigst du eine Pflegeaufgabe (z. B. über die Pflege-Übersicht), gilt die zugehörige Benachrichtigung ebenfalls sofort als erledigt.
+
+!!! note "Nur das In-App-Center reagiert sofort"
+    Diese Synchronisation betrifft das Benachrichtigungs-Center in der App. Bereits über einen externen Kanal (Home Assistant, E-Mail, Browser-Push, Apprise) zugestellte Nachrichten werden nicht nachträglich zurückgerufen oder erneut verschickt — nur die Anzeige im Center und der Ungelesen-Zähler folgen der Änderung sofort. <!-- REQ-030 -->
+
+### Erledigt direkt aus der Benachrichtigung heraus
+
+Bei Pflege-Benachrichtigungen (z. B. einer Gieß-Erinnerung) zeigt die Karte im Benachrichtigungs-Center zusätzlich eine Schaltfläche **Erledigt**. Ein Klick darauf:
+
+1. bestätigt die zugrunde liegende Pflegeaufgabe — genauso, als hättest du sie über die Pflege-Übersicht bestätigt,
+2. markiert die Benachrichtigung selbst als gelesen und erledigt, sodass sie sofort aus dem Ungelesen-Zähler verschwindet.
+
+Das spart dir den Umweg über die Pflege-Übersicht: Du bestätigst direkt aus der Benachrichtigung heraus, in einem Schritt.
+
+!!! tip "Fehlschlag wird automatisch rückgängig gemacht"
+    Schlägt die Bestätigung fehl (z. B. wegen eines Verbindungsproblems), macht Kamerplanter die Markierung automatisch rückgängig und zeigt eine Fehlermeldung — die Schaltfläche **Erledigt** bleibt dann sichtbar, sodass du es erneut versuchen kannst.
+
+Reine Aufgaben-Fällig- oder Zuweisungs-Benachrichtigungen ohne Pflegebezug zeigen die Schaltfläche **Erledigt** aktuell nicht; du bestätigst sie weiterhin über die Aufgabenliste.
+
+---
+
 ## Die vier Zustellkanäle
 
 Öffne **Einstellungen → Benachrichtigungen**, um Kanäle zu aktivieren. Jeder Kanal lässt sich unabhängig ein- und ausschalten. Sind mehrere Kanäle gleichzeitig aktiviert, wird jede Benachrichtigung an **alle** aktivierten Kanäle parallel zugestellt (kein Fallback auf einen "nächsten" Kanal bei Fehlschlag — schlägt ein Kanal fehl, erhalten die übrigen die Nachricht trotzdem).
