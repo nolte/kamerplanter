@@ -49,9 +49,30 @@ class NotificationCenterPage(BasePage):
         return self
 
     def close_drawer(self) -> None:
-        """Click the drawer's close button and wait for the drawer to hide."""
-        self.wait_for_element_clickable(self.DRAWER_CLOSE).click()
-        self.wait_for_element_hidden(self.DRAWER)
+        """Close the drawer and wait for it to hide.
+
+        The close button sits in the top-right of the drawer header, where the
+        AppBar user avatar overlaps its hit-point, so a plain ``.click()`` can be
+        intercepted. Fall back to the keyboard: a MUI temporary Drawer closes on
+        ``Escape``. This keeps the close robust without touching the layout.
+        """
+        from selenium.common.exceptions import (
+            ElementClickInterceptedException,
+            TimeoutException,
+        )
+        from selenium.webdriver.common.keys import Keys
+
+        try:
+            self.wait_for_element_clickable(self.DRAWER_CLOSE).click()
+        except (ElementClickInterceptedException, TimeoutException):
+            self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
+        try:
+            self.wait_for_element_hidden(self.DRAWER)
+        except TimeoutException:
+            # A late-arriving interception may have swallowed the first attempt —
+            # send Escape once more and require the drawer to be gone.
+            self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
+            self.wait_for_element_hidden(self.DRAWER)
 
     def is_drawer_open(self) -> bool:
         """Return True if the notification drawer is currently visible."""
