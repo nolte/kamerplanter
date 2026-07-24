@@ -17,6 +17,7 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "ruff>=0.8.0",
+    "mypy>=1.13.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -29,6 +30,22 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = ["B008"]
+
+# Non-strict mypy baseline (SCR-001). The backend runs mypy strict=true; this
+# shared lib starts non-strict but still checks the bodies of untyped functions,
+# so type-shape defects surface. strict adoption is a recorded follow-up.
+[tool.mypy]
+python_version = "3.14"
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+# Runtime dependencies ship inline types and are checked for real locally; the
+# isolated pre-commit venv (mypy only) does not install them, so their imports
+# are ignored there rather than reported as missing.
+[[tool.mypy.overrides]]
+module = ["psycopg.*", "psycopg_pool.*", "structlog.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

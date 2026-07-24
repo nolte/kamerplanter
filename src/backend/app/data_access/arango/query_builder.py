@@ -4,6 +4,21 @@ import re
 from typing import Any, ClassVar
 
 
+def escape_aql_like(value: str) -> str:
+    """Escape AQL ``LIKE`` wildcards in a user-supplied search term.
+
+    AQL ``LIKE`` treats ``%`` (any sequence) and ``_`` (single character) as
+    wildcards and ``\\`` as the escape character. A raw user term wrapped in
+    ``%...%`` would otherwise let a caller inject wildcards (or an escape) into
+    the pattern. The backslash is escaped first so it does not double-escape the
+    wildcard escapes added afterwards; the result matches the term literally.
+
+    This is the single source of truth for ``LIKE``-pattern escaping — every
+    repository that wraps user input in a ``LIKE`` pattern must route through it.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 class AQLBuilder:
     """Builds parameterized AQL queries to prevent injection."""
 

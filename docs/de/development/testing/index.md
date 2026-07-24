@@ -370,7 +370,7 @@ pytest tests/e2e/ --base-url http://localhost:8080 -v
 pytest tests/e2e/ --generate-protocol
 ```
 
-Reports und Screenshots werden in `test-reports/<timestamp>/` gespeichert.
+Reports und Screenshots werden in `test-reports/e2e/<timestamp>/` gespeichert.
 
 ### Dedizierte Docker-Umgebung
 
@@ -398,11 +398,12 @@ Der Stack umfasst:
 | `chrome` | Chrome-Node (bis zu 4 parallele Sessions) |
 | `e2e-tests` | Test-Runner-Container |
 
-Reports werden auf dem Host nach `./test-reports/<timestamp>/` geschrieben:
+Reports werden auf dem Host nach `./test-reports/e2e/<timestamp>/` geschrieben:
 
 - `protokoll.md` — Markdown-Testprotokoll mit Ergebnissen und eingebetteten Screenshots
 - `screenshots/` — alle Screenshots (explizite Checkpoints + automatische Failure-Captures)
 - `logs/` — Container-Logs aller Services (Backend, Frontend, Selenium, ArangoDB, ...)
+- `junit-<profil>.xml` — JUnit-XML-Report je Compose-Profil (z. B. `junit-smoke.xml`, `junit-full.xml`); jeder Testfall trägt seine TC-ID als `tc_id`-`user_property`. In CI wird diese Datei zu einem GitHub-Check-Run mit konkreten Fehlermeldungen gerendert — siehe [Teststufen → E2E-Tests](stufen/e2e.md#ci-testberichte).
 
 **Funktionsweise:** Der Test-Runner verbindet sich über Selenium Grid mit Chrome (`SELENIUM_REMOTE_URL`) und erreicht das Frontend über Dockers internes Netzwerk (`E2E_BASE_URL=http://frontend:80`). Die `conftest.py`-Browser-Fixture schaltet automatisch zwischen lokalem und Remote-WebDriver um, basierend auf der Umgebungsvariable `SELENIUM_REMOTE_URL`.
 

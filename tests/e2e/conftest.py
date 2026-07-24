@@ -138,6 +138,7 @@ TestResult = _pp_mod.TestResult
 _protocol_generator: ProtocolGenerator | None = None  # type: ignore[assignment]
 _protocol_output_dir: Path | None = None
 _is_xdist_worker: bool = False
+_junit_report_path: Path | None = None
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -1122,6 +1123,39 @@ def _generate_protocol_safe() -> None:
             print(f"\nWarnung: Protokoll-Generierung fehlgeschlagen: {exc}")
 
 
+def _relocate_junit_report() -> None:
+    """Move the finished JUnit XML into the run's timestamped report dir.
+
+    ``--junitxml`` needs a static path known at pytest-invocation time (it is set
+    in the compose entrypoint), whereas the protocol report directory is created
+    dynamically per run in :func:`pytest_sessionstart`. Relocating the merged XML
+    into that directory lets ``scripts/run-e2e.sh``'s existing
+    ``cp -r <container-report-dir>/*`` move carry it into the run's host report
+    dir alongside ``protokoll.md`` — no extra copy logic required.
+
+    Controller-only: xdist workers never register the built-in junit plugin, so
+    only the controller writes (and therefore relocates) the single merged file.
+    Registered via ``atexit`` so it runs after the junit plugin's
+    ``pytest_sessionfinish`` has written the file.
+    """
+    if _is_xdist_worker:
+        return
+    if _junit_report_path is None or _protocol_output_dir is None:
+        return
+    source = _junit_report_path
+    if not source.exists():
+        return
+    dest = _protocol_output_dir / source.name
+    try:
+        if source.resolve() == dest.resolve():
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(dest))
+        print(f"\nJUnit-Report verschoben: {dest}")
+    except Exception as exc:
+        print(f"\nWarnung: JUnit-Report-Verschiebung fehlgeschlagen: {exc}")
+
+
 @pytest.hookimpl(optionalhook=True)
 def pytest_configure_node(node) -> None:  # type: ignore[no-untyped-def]
     """xdist (controller side): hand the shared protocol dir to each worker.
@@ -1138,6 +1172,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     """Initialize protocol generator if --generate-protocol is active."""
     import atexit
     global _protocol_generator, _protocol_output_dir, _is_xdist_worker
+    global _junit_report_path
 
     workerinput = getattr(session.config, "workerinput", None)
     _is_xdist_worker = workerinput is not None
@@ -1172,6 +1207,15 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
         # Safety net: generate protocol even on unclean exit (Ctrl+C, crash)
         atexit.register(_generate_protocol_safe)
+
+        # --junitxml is written to a static path (compose entrypoint); relocate
+        # the merged XML into the dynamic report dir so run-e2e.sh's cp move
+        # carries it alongside protokoll.md. Controller-only — workers never
+        # register the junit plugin.
+        xmlpath = getattr(session.config.option, "xmlpath", None)
+        if xmlpath and not _is_xdist_worker:
+            _junit_report_path = Path(xmlpath)
+            atexit.register(_relocate_junit_report)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
