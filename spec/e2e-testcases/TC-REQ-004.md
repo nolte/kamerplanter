@@ -2,9 +2,10 @@
 req_id: REQ-004 + REQ-004-A
 title: Dynamische Nährstoff- und Dünge-Engine (inkl. EC-Budget-Kalkulation)
 category: Bewässerung & Düngung
-test_count: 91
+test_count: 92
 coverage_areas:
   - Core-Lifecycle-Journey — Gießen & Düngen (self-provisioning)
+  - Cross-View-Konsistenz eines Gießvorgangs (Gießprotokoll global + Instanz-Tab + Aufgabenverlauf)
   - Düngemittel-Katalog (CRUD, Filterung, Lagerbestand)
   - Nährstoffplan-Verwaltung (CRUD, Phasen-Entries, Klonen, Zuweisung)
   - Multi-Channel Delivery (DeliveryChannel, Validierungsregeln)
@@ -2327,11 +2328,45 @@ version: REQ-004 v3.4, REQ-004-A v1.1
 
 ---
 
+## TC-004-092: Core-Journey — Ein Gießvorgang erscheint konsistent in globalem Gießprotokoll, Instanz-Gießprotokoll und Aufgabenverlauf
+
+**Requirement**: REQ-004 §3 (Gießprotokoll / WateringLog); §7 DoD „Dosierungs-Historie" — Kopplung an REQ-006 (Aufgabenverlauf) und REQ-022 (Pflege-Task-Fortschreibung)
+**Priority**: Critical
+**Category**: Core-Lifecycle-Journey / Cross-View-Konsistenz
+**Preconditions**:
+- Nutzer ist angemeldet
+- Eine Pflanzinstanz (z. B. `JOURNEY-004`) wird im Szenario selbst angelegt (self-provisioning) und besitzt ein **Care-Profile mit automatischer Gießaufgabe** (`auto_create_watering_task`), sodass im Aufgabenverlauf der Pflanze genau **eine ausstehende Aufgabe `JOURNEY-004 — watering`** existiert
+- Vor der Aktion werden die Ausgangszählstände notiert: Anzahl Zeilen im Instanz-Gießprotokoll (`#watering-log`) und Anzahl abgeschlossener `— watering`-Aufgaben im Aufgabenverlauf (`#tasks`)
+
+*Kontext: Ein einzelner Gießvorgang (`WateringLog`) muss laut Datenmodell in drei Ansichten kohärent auftauchen — er wird tenant-gefiltert in der globalen Liste UND in der pflanzenbezogenen Liste angezeigt, und über `advance_watering_task_after_log` schließt derselbe Vorgang die offene Gieß-Aufgabe und legt die Folgeaufgabe an. Dieser Testfall prüft genau diese Kohärenz aus Browser-Sicht.*
+
+**Test Steps**:
+1. Nutzer navigiert zu `/giessprotokoll` und erfasst über „Gießvorgang erfassen" (`data-testid="create-watering-log-button"`) im Dialog (`data-testid="watering-log-create-dialog"`) einen **reinen Gießvorgang** für die Pflanze `JOURNEY-004`: Applikationsmethode „Gießkanne/manuell" (kein Düngemittel/Kanal → Anwendungsart „Gießen (Gießkanne/manuell)"), Volumen `1` L, danach „Speichern"
+2. **View 1 — Globales Gießprotokoll:** Nutzer verbleibt auf `/giessprotokoll` und sucht (Tabellensuche) nach `JOURNEY-004`
+3. **View 2 — Instanz-Gießprotokoll:** Nutzer öffnet die Pflanzen-Detailseite und wechselt auf den Tab „Gießprotokoll" (`/pflanzen/plant-instances/{key}#watering-log`)
+4. **View 3 — Aufgabenverlauf:** Nutzer wechselt auf denselben Detailseiten den Tab „Aufgabenverlauf" (`/pflanzen/plant-instances/{key}#tasks`, Tab `data-testid="tasks-tab"`)
+
+**Expected Results**:
+- **View 1 (global):** In der Gießprotokoll-Liste erscheint genau eine neue Zeile mit Zeitpunkt = heute, der Pflanze `JOURNEY-004` (verlinkter Chip auf `/pflanzen/plant-instances/{key}`) und Anwendungsart „Gießen (Gießkanne/manuell)"
+- **View 2 (`#watering-log`):** Derselbe Vorgang erscheint pflanzenbezogen mit Zeitpunkt = heute, Anwendungsart „Gießen (Gießkanne/manuell)", Volumen `1 L` und leerer Spalte „Ergänzend"; die Zeilenzahl hat sich gegenüber dem Ausgangsstand um **genau 1** erhöht
+- **View 3 (`#tasks`):** Die zuvor ausstehende Aufgabe `JOURNEY-004 — watering` steht nun im Abschnitt „Abgeschlossen & Abgebrochen" mit Status „Abgeschlossen" und Abschlussdatum = heute (die Anzahl abgeschlossener `— watering`-Aufgaben ist um **genau 1** gestiegen); zusätzlich existiert im Abschnitt „Ausstehend & In Bearbeitung" **genau eine** neue ausstehende `— watering`-Aufgabe (Folge-Fälligkeit) — der Overdue/Active/Done-Summary-Balken spiegelt dies wider
+- **Kohärenz:** Zeitpunkt/Datum des Vorgangs sind über View 1 und View 2 identisch (ein und derselbe `WateringLog`), und der Task-Abschluss in View 3 trägt dasselbe Datum
+
+**Postconditions**:
+- Genau **ein** `WateringLog` ist persistiert und in globaler wie pflanzenbezogener Liste sichtbar; die offene Gieß-Aufgabe wurde geschlossen und die Folgeaufgabe erzeugt — der Gießvorgang ist über alle drei Ansichten konsistent nachvollziehbar
+
+**Hinweis (Guard/Abgrenzung)**: Besitzt die Pflanze **kein** Care-Profile, unterbleibt die Task-Kopplung (`advance_watering_task_after_log` findet keine offene Aufgabe) — der Vorgang erscheint dann nur in View 1 und View 2, nicht in View 3. Die Precondition (Care-Profile vorhanden) ist daher zwingend, damit dieser Testfall nicht zur Laufzeit ausweichen (`skip`) muss.
+
+**Tags**: [REQ-004, core-lifecycle-journey, watering-log, cross-view-consistency, giessprotokoll, watering-log-tab, aufgabenverlauf, task-completion, self-provisioning]
+
+---
+
 ## Abdeckungs-Übersicht
 
 | Spec-Abschnitt | Beschreibung | Testfälle |
 |---|---|---|
 | Core-Lifecycle-Journey (Gießen & Düngen, self-provisioning) | Watering-Log erfassen + Detail, FeedingEvent, Pflege-Verifikation | TC-004-089 bis TC-004-091 |
+| Cross-View-Konsistenz eines Gießvorgangs | Ein WateringLog konsistent in globalem Gießprotokoll, Instanz-`#watering-log`-Tab und `#tasks`-Aufgabenverlauf (Task-Abschluss + Folgeaufgabe) | TC-004-092 |
 | REQ-004 §1 (Business Case) | Mischprotokoll, CalMag, organische Düngung, Foliar-Warnung | TC-004-028 bis TC-004-033, TC-004-049 bis TC-004-051, TC-004-088 |
 | REQ-004 §3 (Fertilizer-CRUD) | Erstellen, Filtern, Lagerbestand, Reverse Lookup | TC-004-001 bis TC-004-011 |
 | REQ-004 §3 (NutrientPlan-CRUD) | Plan, Phase-Entry, Dünger-Zuweisung, Klonen, Zuweisung | TC-004-012 bis TC-004-027 |
