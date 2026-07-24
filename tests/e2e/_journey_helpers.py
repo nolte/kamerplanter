@@ -211,7 +211,11 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
     Raising (never skipping) on failure is deliberate: the test's whole point is
     that the cross-view path always runs (NFR-008a self-provisioning).
     """
-    token = seed.get("access_token")
+    # Fresh token: the session-seed JWT expires after 15 min — long before a
+    # late-scheduled test runs (led to 401 self-provisioning failures here).
+    from .conftest import _fresh_access_token
+
+    token = _fresh_access_token(seed, base_url)
     slug = seed.get("tenant_slug", "mein-garten")
     api = base_url.rstrip("/") + "/api/v1"
 
