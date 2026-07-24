@@ -35,6 +35,15 @@ E2E suites are organized by requirement (REQ). Grouped thematically:
 !!! info "CI: smoke gate per PR + nightly full run"
     The suite also runs in GitHub Actions — using the same Docker Compose stack as local runs: the `e2e-smoke` workflow runs the fast smoke profile on path-filtered pull requests and pushes to `develop` (deliberately **not** a required check). The `e2e-nightly` workflow runs the complete suite nightly as a matrix over the compose profiles `light`, `full`, `mobile`, `tablet`, and `full-mobile`; a failing run automatically opens a GitHub issue labelled `e2e-nightly`. Test protocol, screenshots, and container logs are attached to every run as workflow artifacts.
 
+## CI test reports
+
+Every run writes a JUnit XML report (`junit-<profile>.xml`) alongside the protocol and screenshots, carrying each test's TC-ID as a `tc_id` property. In GitHub Actions, the `e2e-smoke` workflow (per pull request) and each profile in the `e2e-nightly` workflow additionally render this report via `dorny/test-reporter` as a GitHub check run and a job-summary table — with the concrete failure message (assertion text plus a short traceback) per failed test, instead of just a green/red overall status.
+
+!!! note "Fork pull requests: no rendered check"
+    On pull requests from forks, the render step cannot create a check run with the restricted `GITHUB_TOKEN` and is skipped (`continue-on-error`). Results are still available in the job summary and the downloaded `junit-*.xml` artifact there.
+
+The rendered check run is a CI convenience — it does not replace the Markdown test protocol (`protokoll.md`) with its embedded screenshots, which remains the human-readable audit trail (NFR-008 §4.4).
+
 ## Running
 
 ```bash
@@ -47,7 +56,7 @@ pytest tests/e2e/ -v
 ./scripts/run-e2e.sh --profile mobile   # a single compose profile
 ```
 
-Reports and screenshots land under `test-reports/<timestamp>/`. The full stack, fixtures, and protocol format are in the [testing concept → E2E Tests](../index.md#e2e-tests-selenium).
+Reports and screenshots land under `test-reports/e2e/<timestamp>/`, including the JUnit XML report — see [CI test reports](#ci-test-reports). The full stack, fixtures, and protocol format are in the [testing concept → E2E Tests](../index.md#e2e-tests-selenium).
 
 ## Conventions
 
