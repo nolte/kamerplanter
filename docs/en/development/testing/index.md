@@ -370,7 +370,7 @@ pytest tests/e2e/ --base-url http://localhost:8080 -v
 pytest tests/e2e/ --generate-protocol
 ```
 
-Reports and screenshots are saved to `test-reports/<timestamp>/`.
+Reports and screenshots are saved to `test-reports/e2e/<timestamp>/`.
 
 ### Dedicated Docker Environment
 
@@ -398,11 +398,12 @@ The stack includes:
 | `chrome` | Chrome node (up to 4 parallel sessions) |
 | `e2e-tests` | Test runner container |
 
-Reports are written to `./test-reports/<timestamp>/` on the host:
+Reports are written to `./test-reports/e2e/<timestamp>/` on the host:
 
 - `protokoll.md` — Markdown test protocol with results and inline screenshots
 - `screenshots/` — all screenshots (explicit checkpoints + automatic failure captures)
 - `logs/` — container logs for all services (backend, frontend, selenium, arangodb, ...)
+- `junit-<profile>.xml` — JUnit XML report per compose profile (e.g. `junit-smoke.xml`, `junit-full.xml`); every test case carries its TC-ID as a `tc_id` `user_property`. In CI this file is rendered into a GitHub check run with concrete failure messages — see [Test Levels → E2E Tests](stufen/e2e.md#ci-test-reports).
 
 **How it works:** The test runner connects to Chrome via Selenium Grid (`SELENIUM_REMOTE_URL`), and reaches the frontend via Docker's internal network (`E2E_BASE_URL=http://frontend:80`). The `conftest.py` browser fixture automatically switches between local and remote WebDriver based on the `SELENIUM_REMOTE_URL` environment variable.
 

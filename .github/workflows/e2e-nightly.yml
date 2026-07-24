@@ -28,6 +28,10 @@ on:
 permissions:
   contents: read
   issues: write
+  # dorny/test-reporter publishes each profile's JUnit XML as a check run;
+  # the failure-issue job reads those check runs back to link the issue at the
+  # per-profile reports. No `pull-requests: write` is needed.
+  checks: write
 
 concurrency:
   group: e2e-nightly
@@ -77,6 +81,24 @@ jobs:
           E2E_COMPOSE_OVERLAYS: docker-compose.e2e.ci.yml
         run: ./scripts/run-e2e.sh --profile "${{ matrix.profile }}"
 
+      # Render this profile's JUnit XML into a per-profile check run + job
+      # summary so concrete per-test failure messages (assertion text + a short
+      # traceback) are visible. The check-run name carries the profile so the
+      # failure-issue job below can link straight at the failing profile.
+      - name: Render E2E test report
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: E2E nightly — ${{ matrix.profile }}
+          path: test-reports/e2e/**/junit-*.xml
+          reporter: java-junit
+          list-tests: failed
+          list-suites: failed
+          fail-on-error: false
+          fail-on-empty: false
+          use-actions-summary: true
+
       - name: Job summary
         if: always()
         run: |
@@ -119,6 +141,24 @@ jobs:
             const label = 'e2e-nightly';
             const { owner, repo } = context.repo;
 
+            // Collect the per-profile rendered check runs (created by
+            // dorny/test-reporter as "E2E nightly — <profile>") so the issue
+            // links straight at the failing tests instead of the raw logs.
+            let reportLinks = '';
+            try {
+              const checks = await github.rest.checks.listForRef({
+                owner, repo, ref: context.sha, per_page: 100,
+              });
+              const links = checks.data.check_runs
+                .filter((c) => c.name.startsWith('E2E nightly'))
+                .map((c) => `- [${c.name}](${c.html_url})`);
+              if (links.length > 0) {
+                reportLinks = ['', 'Rendered per-profile reports:', ...links].join('\n');
+              }
+            } catch (e) {
+              core.warning(`Could not list rendered E2E check runs: ${e.message}`);
+            }
+
             // Ensure the label exists before filtering/creating with it.
             try {
               await github.rest.issues.getLabel({ owner, repo, name: label });
@@ -138,7 +178,7 @@ jobs:
               const issue = open.data[0];
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issue.number,
-                body: `Nightly E2E failed again: ${process.env.RUN_URL}`,
+                body: `Nightly E2E failed again: ${process.env.RUN_URL}${reportLinks}`,
               });
               core.notice(`Commented on existing issue #${issue.number} — no duplicate opened.`);
               return;
@@ -150,10 +190,12 @@ jobs:
               labels: [label],
               body: [
                 `The nightly E2E run failed: ${process.env.RUN_URL}`,
+                reportLinks,
                 '',
-                'The run page shows which profile(s) went red. Each profile uploads',
-                'an `e2e-nightly-reports-<profile>` artifact with the test protocol,',
-                'screenshots and container logs.',
+                'The run page shows which profile(s) went red. Each profile renders',
+                'a check run with the concrete per-test failure messages and uploads',
+                'an `e2e-nightly-reports-<profile>` artifact with the raw JUnit XML,',
+                'test protocol, screenshots and container logs.',
                 '',
                 'Close this issue once the cause is fixed — the next failing night',
                 'will open a fresh one.',

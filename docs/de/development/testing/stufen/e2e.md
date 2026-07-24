@@ -35,6 +35,15 @@ E2E-Suiten sind nach Anforderung (REQ) organisiert. Thematisch gebündelt:
 !!! info "CI: Smoke-Gate pro PR + Nightly-Volllauf"
     Die Suite läuft auch in GitHub Actions — mit demselben Docker-Compose-Stack wie lokal: Der Workflow `e2e-smoke` führt das schnelle Smoke-Profil bei pfadgefilterten Pull Requests und Pushes nach `develop` aus (bewusst **kein** Pflicht-Check). Der Workflow `e2e-nightly` fährt nächtlich die vollständige Suite als Matrix über die Compose-Profile `light`, `full`, `mobile`, `tablet` und `full-mobile`; ein roter Lauf öffnet automatisch ein GitHub-Issue mit dem Label `e2e-nightly`. Testprotokoll, Screenshots und Container-Logs hängen als Workflow-Artifacts an jedem Lauf.
 
+## CI-Testberichte
+
+Jeder Testlauf schreibt zusätzlich zu Protokoll und Screenshots einen JUnit-XML-Report (`junit-<profil>.xml`), der die TC-ID jedes Testfalls als `tc_id`-Property mitführt. In GitHub Actions rendert der Workflow `e2e-smoke` (pro Pull Request) sowie jedes Profil im `e2e-nightly`-Workflow diesen Report zusätzlich per `dorny/test-reporter` als GitHub-Check-Run und als Tabelle in der Job-Summary — mit der konkreten Fehlermeldung (Assertion-Text plus kurzer Traceback) je fehlgeschlagenem Test, statt nur einem grünen/roten Gesamtstatus.
+
+!!! note "Fork-Pull-Requests: kein gerenderter Check"
+    Bei Pull Requests aus Forks kann der Render-Schritt mit dem eingeschränkten `GITHUB_TOKEN` keinen Check-Run anlegen und wird übersprungen (`continue-on-error`). Die Ergebnisse stehen dort trotzdem in der Job-Summary und im heruntergeladenen `junit-*.xml`-Artifact.
+
+Der gerenderte Check-Run ist eine CI-Ergänzung — er ersetzt nicht das Markdown-Testprotokoll (`protokoll.md`) mit den eingebetteten Screenshots, das weiterhin das menschenlesbare Nachweisdokument bleibt (NFR-008 §4.4).
+
 ## Ausführen
 
 ```bash
@@ -47,7 +56,7 @@ pytest tests/e2e/ -v
 ./scripts/run-e2e.sh --profile mobile   # ein einzelnes Compose-Profil
 ```
 
-Reports und Screenshots landen unter `test-reports/<timestamp>/`. Der vollständige Stack, die Fixtures und das Protokoll-Format stehen im [Testkonzept → E2E-Tests](../index.md#e2e-tests-selenium).
+Reports und Screenshots landen unter `test-reports/e2e/<timestamp>/`, darunter auch der JUnit-XML-Report — siehe [CI-Testberichte](#ci-testberichte). Der vollständige Stack, die Fixtures und das Protokoll-Format stehen im [Testkonzept → E2E-Tests](../index.md#e2e-tests-selenium).
 
 ## Konventionen
 

@@ -20,11 +20,44 @@ environment; `scripts/run-e2e.sh` is the shared entrypoint):
   GitHub issue labelled `e2e-nightly`; while one is open, further failures
   only append a comment.
 
-Both jobs always upload `test-reports/e2e/**` (protocol, screenshots,
-container logs) as workflow artifacts and write a job summary from the
-generated protocol. Image builds are layer-cached via the
-`docker-compose.e2e.ci.yml` overlay (BuildKit `gha` cache backend), which CI
-enables through `E2E_COMPOSE_OVERLAYS` — local runs never load it.
+Both jobs always upload `test-reports/e2e/**` (JUnit XML, protocol,
+screenshots, container logs) as workflow artifacts (`e2e-smoke-reports` /
+`e2e-nightly-reports-<profile>`) and write a job summary from the generated
+protocol. Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
+overlay (BuildKit `gha` cache backend), which CI enables through
+`E2E_COMPOSE_OVERLAYS` — local runs never load it.
+
+### JUnit XML + rendered test reports
+
+Every runner service in `docker-compose.e2e.yml` passes pytest
+`--junitxml=junit-<profile>.xml` (`junit-default.xml`, `junit-smoke.xml`,
+`junit-core-crud.xml`, `junit-full.xml`, `junit-mobile.xml`,
+`junit-tablet.xml`, `junit-full-mobile.xml`, `junit-full-tablet.xml`). The
+protocol plugin relocates the finished file — controller-only under the
+xdist-parallel runners (`-n 4 --dist=loadfile`), via an `atexit` hook — into
+the run's timestamped report dir, so it ends up at
+`test-reports/e2e/<timestamp>/junit-<profile>.xml` alongside `protokoll.md`.
+Locally, `scripts/run-e2e.sh` prints the resulting filename in its final
+"Reports:" summary. Each `<testcase>` carries the `tc_id` `user_property`
+described below.
+
+Both CI workflows render that XML with `dorny/test-reporter` into a GitHub
+check run plus a job-summary table with concrete per-test failure messages
+(assertion text + a short traceback) — `e2e-smoke` publishes a single
+"E2E smoke report" check, `e2e-nightly` publishes one
+"E2E nightly — `<profile>`" check per matrix profile (the auto-created
+failure issue links straight to those checks). Both workflows request only
+`checks: write` — no `pull-requests: write`, no `pull_request_target`.
+
+> **Fork PRs:** the render step (`continue-on-error: true`) cannot create a
+> check run with a fork PR's read-only `GITHUB_TOKEN`, so no rendered check
+> appears there. Fall back to the job summary or download the
+> `junit-*.xml` from the run's artifact.
+
+The rendered check run and job summary are a CI convenience layer on top of
+the existing reporting — they do **not** replace the Markdown protocol
+(`protokoll.md`) and screenshots, which stay the human-facing audit trail
+(NFR-008 §4.4).
 
 ## Selecting which tests to run after a change
 

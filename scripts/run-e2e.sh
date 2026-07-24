@@ -109,6 +109,13 @@ echo "Reports: $REPORT_DIR/"
 echo "  - logs/        Container logs (backend, frontend, selenium, ...)"
 echo "  - screenshots/ Selenium screenshots"
 echo "  - protokoll.md Test protocol"
+# The runner writes a single merged JUnit XML (xdist-aware) which the protocol
+# plugin relocates into the container report dir; the cp move above carries it
+# here. Surface it so CI consumers know where the machine-readable report is.
+JUNIT_FILE=$(find "$REPORT_DIR" -maxdepth 1 -type f -name "junit-*.xml" 2>/dev/null | head -1)
+if [ -n "$JUNIT_FILE" ]; then
+    echo "  - $(basename "$JUNIT_FILE")  JUnit XML report (CI-consumable, per-testcase tc_id)"
+fi
 echo ""
 
 exit $EXIT_CODE
