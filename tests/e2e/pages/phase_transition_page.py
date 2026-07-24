@@ -274,9 +274,9 @@ class PlantInstanceDetailExt(BasePage):
         self.scroll_and_click(select_el)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         texts = [o.text for o in options if o.is_displayed()]
-        # Close the dropdown by pressing Escape
-        from selenium.webdriver.common.keys import Keys
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        # Close the dropdown (guarded: waits for auto-close, only ESCapes if
+        # still open, then waits for the popover to actually disappear).
+        self.close_mui_dropdown()
         return texts
 
     def select_target_phase(self, phase_key: str) -> None:

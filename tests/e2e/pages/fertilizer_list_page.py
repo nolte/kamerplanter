@@ -189,9 +189,6 @@ class FertilizerListPage(BasePage):
 
     def select_fertilizer_type(self, value_text: str) -> None:
         """Open the fertilizer type select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-fertilizer_type'] .MuiSelect-select")
         )
@@ -200,19 +197,11 @@ class FertilizerListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def select_ph_effect(self, value_text: str) -> None:
         """Open the pH effect select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-ph_effect'] .MuiSelect-select")
         )
@@ -221,13 +210,8 @@ class FertilizerListPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def submit_create_form(self) -> None:
         """Submit the create form."""

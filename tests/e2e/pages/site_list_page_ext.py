@@ -216,8 +216,6 @@ class SiteListPageExt(BasePage):
 
     def select_type(self, value_text: str) -> None:
         """Open MUI Select for 'type' and pick option by visible text."""
-        import time
-
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
         )
@@ -226,13 +224,8 @@ class SiteListPageExt(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def submit_create_form(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()

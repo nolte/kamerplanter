@@ -255,8 +255,6 @@ class HarvestBatchListPage(BasePage):
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
-        import time
-
         field = self.wait_for_element_clickable(
             (
                 By.CSS_SELECTOR,
@@ -277,13 +275,8 @@ class HarvestBatchListPage(BasePage):
                 )
             )
         option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

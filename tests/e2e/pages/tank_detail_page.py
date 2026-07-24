@@ -220,22 +220,14 @@ class TankDetailPage(BasePage):
 
     def select_maintenance_type(self, label_text: str) -> None:
         """Select a maintenance type by its visible label."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(self.MAINT_FORM_TYPE)
         self.scroll_and_click(field)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def fill_maintenance_performed_by(self, name: str) -> None:
         el = self.wait_for_element_clickable(self.MAINT_FORM_PERFORMED_BY)
@@ -317,9 +309,6 @@ class TankDetailPage(BasePage):
 
     def select_edit_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select in the edit form and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
         )
@@ -328,13 +317,8 @@ class TankDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def toggle_edit_has_lid(self) -> None:
         el = self.wait_for_element_clickable(self.EDIT_FORM_HAS_LID)

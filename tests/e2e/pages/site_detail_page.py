@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -96,9 +95,6 @@ class SiteDetailPage(BasePage):
 
     def select_type(self, value_text: str) -> None:
         """Open the MUI Select for 'type' and pick an option by visible text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
         )
@@ -107,13 +103,8 @@ class SiteDetailPage(BasePage):
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
         option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def submit_form(self) -> None:
         self.wait_for_element_clickable(self.FORM_SUBMIT).click()
