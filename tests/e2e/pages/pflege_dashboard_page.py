@@ -79,7 +79,19 @@ class PflegeDashboardPage(BasePage):
     RESET_PROFILE_BUTTON = (By.CSS_SELECTOR, "[data-testid='reset-profile-button']")
 
     # ── Snackbar ──────────────────────────────────────────────────────
-    SNACKBAR = (By.CSS_SELECTOR, ".MuiSnackbar-root .MuiAlert-message")
+    # Notifications go through notistack (`useNotification`), whose default
+    # renderer emits `#notistack-snackbar` inside `.notistack-MuiContent-<variant>`
+    # -- NOT a MUI `Alert`. The MuiAlert-only selector this used to carry never
+    # matched, which is why the only caller had to wrap it in a try/except.
+    SNACKBAR = (
+        By.CSS_SELECTOR,
+        "#notistack-snackbar, [class*='notistack-MuiContent'], "
+        ".MuiSnackbar-root .MuiAlert-message",
+    )
+    SNACKBAR_ERROR = (
+        By.CSS_SELECTOR,
+        "[class*='notistack-MuiContent-error'], .MuiSnackbar-root .MuiAlert-colorError",
+    )
 
     # ── MUI Dialog (generic) ─────────────────────────────────────────
     MUI_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
@@ -328,10 +340,17 @@ class PflegeDashboardPage(BasePage):
     def click_snooze_on_card(self, plant_key: str, reminder_type: str) -> None:
         """Click the snooze button on a specific care card.
 
-        In TaskQueuePage the action buttons are ordered: edit, confirm, snooze.
-        The snooze button is the 3rd (last) IconButton in the card.
+        Targets the product's ``care-snooze-<id>`` testid; falls back to the
+        card's 3rd/last IconButton (edit, confirm, snooze) only if that testid
+        is missing.
         """
         card = self.get_care_card(plant_key, reminder_type)
+        btns = card.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='care-snooze-care-{plant_key}-{reminder_type}']"
+        )
+        if btns:
+            self.scroll_and_click(btns[0])
+            return
         all_btns = card.find_elements(By.CSS_SELECTOR, "button.MuiIconButton-root")
         if len(all_btns) >= 3:
             self.scroll_and_click(all_btns[2])
@@ -342,6 +361,53 @@ class PflegeDashboardPage(BasePage):
             raise AssertionError(
                 f"Could not find snooze button on care card care-{plant_key}-{reminder_type}"
             )
+
+    #: Urgency groups a card sits in while it still needs attention today.
+    DUE_URGENCY_SECTIONS = ("overdue", "today")
+
+    def get_care_card_urgency_group(
+        self, plant_key: str, reminder_type: str
+    ) -> str | None:
+        """Return the urgency group a care card currently sits in.
+
+        One of ``overdue`` / ``today`` / ``thisWeek`` / ``future`` (the
+        ``task-section-<group>`` testid `TaskQueuePage` emits), or ``None``
+        when the card is no longer on the dashboard at all.
+        """
+        cards = self.driver.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='care-card-care-{plant_key}-{reminder_type}']"
+        )
+        if not cards:
+            return None
+        sections = cards[0].find_elements(
+            By.XPATH,
+            "ancestor::*[@data-testid][starts-with(@data-testid, 'task-section-')]",
+        )
+        if not sections:
+            return None
+        return (sections[0].get_attribute("data-testid") or "").removeprefix(
+            "task-section-"
+        )
+
+    def wait_until_care_card_not_due(
+        self, plant_key: str, reminder_type: str, timeout: int = DEFAULT_TIMEOUT
+    ) -> str | None:
+        """Wait until a care card has left the overdue/due-today sections.
+
+        A successful snooze sets the reminder's due date to *tomorrow*
+        (``care_reminder_engine``: ``confirmed_at + snooze_days``, default 1),
+        so the dashboard refetch that follows the request must re-group the
+        card into ``thisWeek`` -- or drop it from the dashboard entirely. This
+        is the observable post-condition of the snooze; it cannot be satisfied
+        by a request that never left the browser.
+
+        Returns the card's resulting urgency group (``None`` if it is gone).
+        """
+        WebDriverWait(self.driver, timeout).until(
+            lambda _d: self.get_care_card_urgency_group(plant_key, reminder_type)
+            not in self.DUE_URGENCY_SECTIONS
+        )
+        return self.get_care_card_urgency_group(plant_key, reminder_type)
 
     def click_edit_profile_on_card(self, plant_key: str) -> None:
         """Click the edit-profile (pencil) button on a care card.
@@ -670,6 +736,17 @@ class PflegeDashboardPage(BasePage):
         """Return True if any snackbar is currently visible."""
         elements = self.driver.find_elements(*self.SNACKBAR)
         return len(elements) > 0 and elements[0].is_displayed()
+
+    def has_error_snackbar(self) -> bool:
+        """Return True if the visible snackbar reports an error.
+
+        A failed care action routes through ``handleError``, which enqueues the
+        *error* notistack variant; the happy path enqueues info/success. Both
+        render the same message node, so the variant is what distinguishes
+        "it worked" from "the request came back 4xx/5xx".
+        """
+        elements = self.driver.find_elements(*self.SNACKBAR_ERROR)
+        return any(el.is_displayed() for el in elements)
 
     # ── Dialog closed waiter ──────────────────────────────────────────
 

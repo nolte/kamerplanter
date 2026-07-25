@@ -624,6 +624,11 @@ class TestCareSnoozeAction:
         """TC-REQ-022-033: Clicking snooze on a card triggers the snooze action.
 
         Spec: TC-022-016 -- Snooze verschiebt Erinnerungskarte auf 'Demnaechst' (Grau).
+
+        Asserts the *effect* of the snooze, not merely the absence of an error:
+        a snooze sets the reminder due to tomorrow, so the card must leave the
+        overdue/due-today sections. "No error is displayed" alone was also true
+        when the request never left the browser.
         """
         pflege.open()
         screenshot(
@@ -632,15 +637,29 @@ class TestCareSnoozeAction:
         )
 
         plant_key, reminder_type = self._get_first_card_ids(pflege)
+        urgency_before = pflege.get_care_card_urgency_group(plant_key, reminder_type)
 
         pflege.click_snooze_on_card(plant_key, reminder_type)
-        pflege.wait_for_loading_complete()
+
+        # `handleSnooze` only notifies after `careApi.snoozeReminder` resolved,
+        # so the notification is proof that the request was actually issued.
+        snackbar_text = pflege.wait_for_snackbar()
+        assert not pflege.has_error_snackbar(), (
+            f"TC-REQ-022-033 FAIL: Snooze reported an error: '{snackbar_text}'"
+        )
+
+        urgency_after = pflege.wait_until_care_card_not_due(plant_key, reminder_type)
 
         screenshot(
             "TC-REQ-022-033_after-snooze",
             "After snooze action",
         )
 
+        assert urgency_after in (None, "thisWeek", "future"), (
+            f"TC-REQ-022-033 FAIL: Expected the snoozed card to leave the due "
+            f"sections (was '{urgency_before}'), but it is still in "
+            f"'{urgency_after}'"
+        )
         assert not pflege.is_error_displayed(), (
             "TC-REQ-022-033 FAIL: Expected no error after snooze action"
         )
@@ -654,24 +673,28 @@ class TestCareSnoozeAction:
         """TC-REQ-022-034: Snooze action shows a success/info snackbar.
 
         Spec: TC-022-016 -- Snooze Erfolgs-Snackbar.
+
+        The snackbar is required, not optional: `handleSnooze` enqueues it only
+        after the API call resolved. Swallowing its absence (as this test used
+        to) made the test green while the request never left the browser.
         """
         pflege.open()
         plant_key, reminder_type = self._get_first_card_ids(pflege)
 
         pflege.click_snooze_on_card(plant_key, reminder_type)
 
-        try:
-            snackbar_text = pflege.wait_for_snackbar(timeout=5)
-            screenshot(
-                "TC-REQ-022-034_snooze-snackbar",
-                "Snooze snackbar displayed",
-            )
-            assert snackbar_text, "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
-        except Exception:
-            screenshot(
-                "TC-REQ-022-034_snooze-no-snackbar",
-                "No snackbar after snooze (optimistic update)",
-            )
+        snackbar_text = pflege.wait_for_snackbar()
+        screenshot(
+            "TC-REQ-022-034_snooze-snackbar",
+            "Snooze snackbar displayed",
+        )
+        assert snackbar_text, (
+            "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
+        )
+        assert not pflege.has_error_snackbar(), (
+            f"TC-REQ-022-034 FAIL: Expected a success/info snackbar after snooze, "
+            f"got an error snackbar: '{snackbar_text}'"
+        )
 
 
 # -- TC-022-091: In-Progress Task Unaffected by Interval Change (#622) ---------
