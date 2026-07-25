@@ -114,7 +114,66 @@ first, then add the `FEATURES` tuple to the relevant modules.
 per file, plus the legacy `smoke` / `core_crud` / `requires_auth` /
 `requires_desktop`).
 
-### 3. Legacy suites (unchanged)
+### 3. Gherkin tags → markers (pytest-bdd scenarios)
+
+BDD scenarios under `features/` participate in the same selection axes as the
+classic tests. pytest-bdd turns **every** scenario/feature/rule tag into a
+pytest marker at import time and never registers it, which under
+`--strict-markers` is a *collection error* that aborts the whole run — so
+`conftest.py::pytest_configure` scans `features/**/*.feature` and registers the
+tags it finds before collection starts.
+
+Only four tag shapes are accepted; anything else is a hard `UsageError` naming
+the tag and its file (typo guard, same idea as the `FEATURES` guard):
+
+| Tag shape | Example | Meaning |
+|---|---|---|
+| `TC-NNN-NNN` / `TC-REQ-NNN-NNN` | `@TC-004-092` | the test case ID (see TC-ID traceability below) |
+| `reqNNN` | `@req004` | REQ axis |
+| a `KNOWN_FEATURE_MARKERS` key | `@watering` | feature axis |
+| `smoke`, `core_crud`, `requires_auth`, `requires_desktop` | `@smoke` | legacy suites |
+
+**In practice a `.feature` should carry only its `@TC-…` tag.** The REQ axis is
+derived from the step module's `test_req<NNN>_*.py` file name and the feature
+axis from that module's `FEATURES` tuple, so restating either one in Gherkin is
+redundant — it would just create a second place to keep in sync. Python markers
+(`@pytest.mark.smoke`) on the scenario function work as usual.
+
+```bash
+pytest -m TC-004-092      # the scenario itself (unquoted — 'TC-004-092' in quotes matches nothing)
+pytest -m req004          # includes the BDD scenario, from the step module's file name
+pytest -m watering        # includes it, from the step module's FEATURES tuple
+```
+
+#### Checking the `@TC-…` tag actually resolves
+
+`pytest_configure` only guards the tag's *shape* — `@TC-004-092` and
+`@TC-999-999` are equally acceptable to it. Whether the referenced test case
+**exists** is checked by a separate script:
+
+```bash
+task test:e2e:traceability                        # exit 0 / 1, no stack needed
+task test:e2e:traceability -- --list-unimplemented # + the cases with no scenario yet
+python3 scripts/check_bdd_traceability.py --help   # roots are configurable
+```
+
+It parses `features/**/*.feature` and the `## TC-…: <title>` headings in
+`spec/e2e-testcases/*.md`, and exits non-zero on two defects
+(`spec/project/behavior-driven-development/`, where traceability is a hard gate):
+
+| Defect | Meaning |
+|---|---|
+| orphan tag | a `@TC-<id>` no test-case document declares |
+| untagged scenario | a scenario with no TC-ID at all |
+
+The reverse direction is **not** a defect: a declared test case without a
+scenario is simply not automated yet (1 of 2173 today), so it is reported as an
+informational count. The script reuses `protocol_plugin.py::TC_ID_PATTERN`
+rather than restating the ID shape, and needs no third-party package. It is
+deliberately **not** wired into a CI gate — run it locally, or in review, when
+touching `.feature` files.
+
+### 4. Legacy suites (unchanged)
 
 ```bash
 task test:e2e:smoke       # -m smoke  (188 tests, ~7 min with -n 4)
@@ -128,6 +187,23 @@ junit `user_properties` channel as a `tc_id` property
 (`conftest.py::_record_tc_id`), so downstream tooling — and the generated
 markdown protocol — can consume it. This is in addition to the bespoke protocol
 extraction in `protocol_plugin.py`.
+
+**Derivation order — docstring first, Gherkin tag as fallback.** The docstring
+channel is structurally dead for pytest-bdd scenarios: `pytest_bdd.scenario`
+overwrites the scenario function's `__doc__` unconditionally with
+`"<feature>: <scenario>"`. For those tests the ID is read off the `@TC-…`
+**marker** instead (`conftest.py::_tc_id_from_markers`) — markers rather than
+`__scenario__.tags` because markers are stable public pytest API and also carry
+tags declared on an `Examples:` table. Classic tests are untouched by this: they
+carry no TC marker, so their ID keeps coming from the docstring.
+
+The *strict* ID shape is owned by `protocol_plugin.py::TC_ID_PATTERN` and
+imported by `conftest.py`, so the two cannot drift apart. It matches both
+spellings in use — `TC-004-092` and the older `TC-REQ-001-006`. (Until that
+pattern was widened, the protocol's "Testfall-ID" silently never rendered for
+any `TC-NNN-NNN` ID, BDD or classic.) `conftest.py::_TC_ID_SCAN` stays
+deliberately wider for the junit property so it also captures test-local shapes
+such as `TC-REQ-004-W001`.
 
 > Note: the *test-declared* TC-IDs (`…-W001`, `…-PI-005`) currently drift from
 > the spec IDs (`TC-004-NNN`) in `spec/e2e-testcases/`. See the coverage audit

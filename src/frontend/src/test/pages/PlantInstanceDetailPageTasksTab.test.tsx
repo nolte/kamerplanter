@@ -312,6 +312,52 @@ describe('PlantInstanceDetailPage — Tasks tab (#578)', () => {
     expect(screen.queryByTestId('task-skip-done-1')).toBeNull();
   });
 
+  it('exposes the summary bar and its chips under stable test ids (TC-004-092)', async () => {
+    // The Overdue/Active/Done counts are an asserted outcome of the E2E
+    // cross-view journey, which addresses them by these ids — the labels are
+    // translated and the MUI class names framework-generated, so neither is an
+    // addressable hook. Pinning them here keeps the E2E page object from
+    // breaking silently.
+    seedPlant(makePlant());
+    seedTasks(() => [
+      makeTask({ key: 'overdue-1', name: 'Overdue task', status: 'pending', due_date: '2000-01-01' }),
+      // Due far ahead, so exactly one of the two active tasks counts as overdue.
+      makeTask({ key: 'active-1', name: 'Water basil', status: 'pending', due_date: '2999-01-01' }),
+      makeTask({ key: 'done-1', name: 'Old fertilize', status: 'completed', completed_at: '2024-06-05T00:00:00Z' }),
+    ]);
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    await screen.findByTestId('task-summary-bar', {}, QUERY_TIMEOUT);
+    // Trailing count per chip — exactly what the E2E page object parses off it.
+    expect(screen.getByTestId('task-summary-overdue').textContent).toContain(
+      `${i18n.t('pages.plantInstances.taskTabSummaryOverdue')}: 1`,
+    );
+    expect(screen.getByTestId('task-summary-active').textContent).toContain(
+      `${i18n.t('pages.plantInstances.taskTabSummaryActive')}: 2`,
+    );
+    expect(screen.getByTestId('task-summary-done').textContent).toContain(
+      `${i18n.t('pages.plantInstances.taskTabSummaryDone')}: 1`,
+    );
+  });
+
+  it('omits the overdue chip while nothing is overdue (TC-004-092)', async () => {
+    // The E2E page object reads a missing overdue chip as 0; that contract only
+    // holds because the frontend renders the chip solely when a task is overdue.
+    seedPlant(makePlant());
+    seedTasks(() => [
+      makeTask({ key: 'active-1', name: 'Water basil', status: 'pending', due_date: '2999-01-01' }),
+    ]);
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: TASKS_ROUTE });
+
+    await screen.findByTestId('task-summary-bar', {}, QUERY_TIMEOUT);
+    expect(screen.queryByTestId('task-summary-overdue')).toBeNull();
+    expect(screen.getByTestId('task-summary-active').textContent).toContain(
+      `${i18n.t('pages.plantInstances.taskTabSummaryActive')}: 1`,
+    );
+  });
+
   it('shows an error state with retry when the task load fails', async () => {
     seedPlant(makePlant());
     let attempt = 0;

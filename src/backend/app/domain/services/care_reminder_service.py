@@ -473,7 +473,7 @@ class CareReminderService:
                     )
 
         # Auto-complete matching pending task
-        self._complete_pending_care_task(plant_key, reminder_type)
+        closed_task = self._complete_pending_care_task(plant_key, reminder_type)
 
         # #742 — mark the plant's in-app care notification done (badge drops).
         resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
@@ -488,7 +488,12 @@ class CareReminderService:
         # Auto-create next watering task if opted in
         if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
             phase_interval = self._get_phase_watering_interval(plant_key)
-            next_task = self.ensure_next_watering_task(profile, created, phase_watering_interval=phase_interval)
+            next_task = self.ensure_next_watering_task(
+                profile,
+                created,
+                phase_watering_interval=phase_interval,
+                just_completed_task=closed_task,
+            )
             # The confirmation closed the current note; if a next watering task was
             # scheduled, surface it as the fresh, correctly-terminated care note.
             if next_task is not None:
@@ -518,10 +523,13 @@ class CareReminderService:
         untouched (``None``). Both the completion and the next-occurrence check
         route through the single tenant-aware dedup helper
         (:meth:`ITaskRepository.find_open_care_task`), so logging watering twice can
-        neither double-complete an already-closed task nor double-schedule the next
-        one. Returns the newly scheduled watering task, or ``None`` when no profile
-        exists, auto-scheduling is disabled, or a task completed today already
-        satisfies the reminder.
+        neither double-complete an already-closed task nor leave more than one
+        pending watering task behind. The task closed here is handed to
+        :meth:`ensure_next_watering_task` as ``just_completed_task`` so its
+        completed-today recency rule cannot veto the very follow-up this advance
+        exists to create (#761). Returns the newly scheduled watering task, or
+        ``None`` when no profile exists, auto-scheduling is disabled, or another
+        task already satisfies the reminder.
         """
         if tenant_key and self._plant_repo is not None:
             plant = self._plant_repo.get_by_key(plant_key)
@@ -534,7 +542,7 @@ class CareReminderService:
 
         # Close the still-open watering task for the plant's own tenant (idempotent:
         # a task already completed earlier is not reopened/re-completed).
-        self._complete_pending_care_task(plant_key, ReminderType.WATERING)
+        closed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING)
 
         if not profile.auto_create_watering_task:
             return None
@@ -544,6 +552,7 @@ class CareReminderService:
             profile,
             last_confirmation,
             phase_watering_interval=phase_interval,
+            just_completed_task=closed_task,
         )
 
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
@@ -598,7 +607,7 @@ class CareReminderService:
         self,
         plant_key: str,
         reminder_type: ReminderType,
-    ) -> None:
+    ) -> Task | None:
         """Auto-complete the matching pending care task when confirmed via dashboard.
 
         Routes through the single tenant-aware dedup helper
@@ -606,9 +615,14 @@ class CareReminderService:
         a still-open task belonging to the plant's own tenant (#509). A task that
         was already completed earlier today is intentionally excluded here
         (``include_completed_today=False``): only an open task is completed.
+
+        Returns:
+            The task this call closed, or ``None`` when nothing was open. Callers
+            that schedule the follow-up occurrence pass it on as
+            ``just_completed_task`` so the recency rule cannot self-block (#761).
         """
         if self._task_repo is None:
-            return
+            return None
         tenant_key = self._resolve_tenant_key(plant_key)
         task = self._task_repo.find_open_care_task(
             plant_key,
@@ -617,10 +631,11 @@ class CareReminderService:
             include_completed_today=False,
         )
         if task is None:
-            return
+            return None
         task.status = TaskStatus.COMPLETED.value
         task.completed_at = datetime.now(UTC)
         self._task_repo.update_task(task.key or "", task)
+        return task
 
     def complete_care_task_with_log(
         self,
@@ -960,11 +975,29 @@ class CareReminderService:
         last_confirmation: CareConfirmation | None = None,
         hemisphere: str = "north",
         phase_watering_interval: int | None = None,
+        *,
+        just_completed_task: Task | None = None,
     ) -> Task | None:
         """Ensure exactly one pending watering task exists for this plant.
 
         Called after watering confirmation and by the daily Celery task.
-        Returns the created task or None if one already exists.
+
+        Args:
+            profile: The plant's care profile (supplies the watering cadence).
+            last_confirmation: Confirmation the next due date is measured from;
+                looked up when omitted.
+            hemisphere: Hemisphere used for the seasonal interval.
+            phase_watering_interval: Growth-phase override of the interval.
+            just_completed_task: The watering task the *calling operation itself*
+                closed a moment ago (dashboard confirmation, watering log, task
+                queue). Its presence narrows the dedup question to "is another
+                task still open?" — see the guard below (#761). Every caller that
+                did not close a task leaves it ``None`` and keeps the completed-
+                today recency rule (#509).
+
+        Returns:
+            The created task, or ``None`` when another task already satisfies the
+            reminder or no due date can be computed.
         """
         if self._task_repo is None:
             return None
@@ -982,8 +1015,23 @@ class CareReminderService:
                 plant_tenant_key = plant.tenant_key
 
         # Single tenant-aware dedup: skip when an equivalent watering task is
-        # already open or was completed today.
-        if self._task_repo.find_open_care_task(plant_key, ReminderType.WATERING, plant_tenant_key) is not None:
+        # already open or was completed today (#509 recency rule).
+        #
+        # #761 — when the caller closed the satisfying task itself in this very
+        # operation, that recency rule is self-blocking: the "task completed today"
+        # it would find IS the task just closed, so the follow-up the advance exists
+        # to schedule would never be created. In that case the dedup question
+        # narrows to "is another task still OPEN?"; a task completed today no longer
+        # counts, because the occurrence being scheduled is due in the *future*, not
+        # today. Only callers that closed a task opt in — the daily producer and the
+        # interval reschedule keep the recency rule unchanged.
+        existing = self._task_repo.find_open_care_task(
+            plant_key,
+            ReminderType.WATERING,
+            plant_tenant_key,
+            include_completed_today=just_completed_task is None,
+        )
+        if existing is not None:
             return None
 
         # Calculate next due date

@@ -142,6 +142,10 @@ class TestGenerateDueCareReminders:
         call = service.ensure_next_watering_task.call_args
         assert call.args[0].plant_key == "plant_1"
         assert call.kwargs["phase_watering_interval"] is None
+        # The periodic producer closes no task itself, so it keeps the #509 recency
+        # rule: no ``just_completed_task`` opt-out here, or it would re-materialize a
+        # reminder the user already confirmed earlier today (#761).
+        assert "just_completed_task" not in call.kwargs
 
     def test_resolves_phase_interval_from_phase_sequence(self, _mock_dependencies):
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])

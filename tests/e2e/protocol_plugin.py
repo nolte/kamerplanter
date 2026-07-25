@@ -34,8 +34,18 @@ _SPEC_TC_DIR = _REPO_ROOT / "spec" / "e2e-testcases"
 
 # Pattern to extract REQ number from test file names or nodeids
 _REQ_PATTERN = re.compile(r"req[_-]?(\d{3})", re.IGNORECASE)
-# Pattern to extract TC-ID from docstrings like "TC-REQ-001-006: ..."
-_TC_ID_PATTERN = re.compile(r"(TC-REQ-\d{3}-\d{3})")
+# Canonical *strict* TC-ID shape. Two spellings are in use and both must match:
+# the older in-test ``TC-REQ-001-006`` and the spec IDs in
+# ``spec/e2e-testcases/`` / Gherkin tags, which read ``TC-004-092``. Until the
+# ``REQ-``-less form was added here, the "Testfall-ID" line silently never
+# appeared in protokoll.md for the latter.
+# This is the single source of truth for the strict shape: conftest.py imports
+# it (as ``_TC_ID_STRICT``) to validate Gherkin tags and to read TC-IDs off
+# markers, so the two files cannot drift apart again. conftest.py's own
+# ``_TC_ID_SCAN`` stays deliberately wider — it also captures test-local shapes
+# such as ``TC-REQ-004-W001`` that this strict pattern rejects on purpose.
+TC_ID_PATTERN = re.compile(r"(TC-(?:REQ-)?\d{3}-\d{3})")
+_TC_ID_PATTERN = TC_ID_PATTERN  # backwards-compatible alias
 
 
 def _find_req_spec(req_num: str) -> tuple[str, str] | None:
@@ -85,7 +95,7 @@ def _extract_req_num(nodeid: str) -> str | None:
 
 
 def _extract_tc_id(docstring: str) -> str | None:
-    """Extract TC-REQ-XXX-YYY from a test docstring."""
+    """Extract ``TC-REQ-XXX-YYY`` or ``TC-XXX-YYY`` from a test docstring."""
     m = _TC_ID_PATTERN.search(docstring)
     return m.group(1) if m else None
 
@@ -127,6 +137,21 @@ class TestResult:
     message: str = ""
     docstring: str = ""
     screenshots: list[ScreenshotEntry] = field(default_factory=list)
+    # TC-ID from the Gherkin ``@TC-…`` tag, filled by conftest for pytest-bdd
+    # scenarios. Empty for classic tests, whose ID keeps coming from ``docstring``.
+    tc_id: str = ""
+
+
+def _result_tc_id(result: TestResult) -> str | None:
+    """Return a result's TC-ID — from the docstring, else from the Gherkin tag.
+
+    The docstring stays the primary channel, so classic tests behave exactly as
+    before. It is structurally dead for pytest-bdd scenarios, though: pytest-bdd
+    overwrites the wrapper's ``__doc__`` with ``"<feature>: <scenario>"``, so
+    their ID arrives via ``TestResult.tc_id`` instead.
+    """
+    from_doc = _extract_tc_id(result.docstring) if result.docstring else None
+    return from_doc or (result.tc_id or None)
 
 
 @dataclass
@@ -259,7 +284,7 @@ class ProtocolGenerator:
 
                 # Spec references
                 req_num = _extract_req_num(r.nodeid)
-                tc_id = _extract_tc_id(r.docstring) if r.docstring else None
+                tc_id = _result_tc_id(r)
 
                 lines.extend([
                     f"### FAIL `{test_name}`",
@@ -365,7 +390,7 @@ class ProtocolGenerator:
                 test_name = self._test_display_name(r.nodeid)
                 icon = self._outcome_icon(r.outcome)
                 duration = f"{r.duration:.2f}s"
-                tc_id = _extract_tc_id(r.docstring) if r.docstring else None
+                tc_id = _result_tc_id(r)
                 tc_id_str = tc_id or ""
                 # Description: docstring without the TC-ID prefix
                 desc = r.docstring
