@@ -201,7 +201,7 @@ export default function FertilizerListPage() {
       <PageTitle
         title={t('pages.fertilizers.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {hasFavorites && (
               <Tooltip title={t('pages.fertilizers.favFilter')}>
                 <IconButton

@@ -575,7 +575,7 @@ export default function WorkflowDetailPage() {
         title={workflow.name}
         meta={<OriginChip isSystem={workflow.is_system} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-015: copy-as-template for system workflows.
                 AP-12 (FE-L1): the copy endpoint is not implemented yet, so this
                 is an honestly disabled button with an explanatory tooltip — never

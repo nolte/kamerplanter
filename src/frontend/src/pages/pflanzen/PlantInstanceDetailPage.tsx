@@ -1063,7 +1063,10 @@ export default function PlantInstanceDetailPage() {
       <PageTitle
         title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', flexShrink: 0 }}>
+          /* No `flexShrink: 0` here: it would re-freeze the group at
+             max-content width and push the destructive "Pflanze entfernen"
+             button outside a 393px viewport (UI-NFR-001 R-005/R-006). */
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {key && <PestScanButton plantKey={key} />}
             <Button
               startIcon={<LabelIcon />}

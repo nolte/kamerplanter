@@ -172,7 +172,7 @@ export default function NutrientPlanListPage() {
       <PageTitle
         title={t('pages.nutrientPlans.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {hasFavorites && (
               <Tooltip title={t('pages.nutrientPlans.favFilter')}>
                 <IconButton

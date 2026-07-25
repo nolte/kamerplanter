@@ -205,7 +205,7 @@ export default function SpeciesDetailPage() {
         title={current?.scientific_name ?? t('entities.species')}
         meta={<OriginChip origin={speciesOrigin} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {key && (
               <Tooltip title={t('pages.calendar.sowingCalendar.toggleFavorite')}>
                 <IconButton
