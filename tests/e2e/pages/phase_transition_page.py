@@ -169,7 +169,16 @@ class PlantInstanceDetailExt(BasePage):
 
     # ── Phase Transition Dialog (PhaseTransitionDialog.tsx) ────────────
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
+    #: Root of the target-phase ``<TextField select>``. MUI spreads the testid
+    #: onto the FormControl **root** (label + input + helper text), so this is a
+    #: presence/visibility locator only -- never click it: at 393px the helper
+    #: text wraps to two lines, the root grows to 83px and its click centre
+    #: (41.5px) lands 1.5px BELOW the 40px input, on the helper ``<p>``. That
+    #: ``<p>`` is a descendant of the clicked root, so Chrome raises no
+    #: interception and the click is a silent no-op. Open it via
+    #: :meth:`open_target_phase_select`, which resolves the combobox.
     TARGET_PHASE_SELECT = (By.CSS_SELECTOR, "[data-testid='target-phase-select']")
+    TARGET_PHASE_SELECT_TESTID = "target-phase-select"
     TRANSITION_REASON = (By.CSS_SELECTOR, "[data-testid='transition-reason'] input")
     TRANSITION_CANCEL = (By.CSS_SELECTOR, "[data-testid='transition-cancel']")
     TRANSITION_CONFIRM = (By.CSS_SELECTOR, "[data-testid='transition-confirm']")
@@ -281,13 +290,16 @@ class PlantInstanceDetailExt(BasePage):
                 continue
         return False
 
+    def open_target_phase_select(self) -> None:
+        """Open the target-phase dropdown (combobox-scoped, verified, loud)."""
+        self.open_select_by_testid(self.TARGET_PHASE_SELECT_TESTID)
+
     def get_target_phase_options(self) -> list[str]:
         """Return the text of all available phase options in the select.
 
         Opens the MUI Select, collects option texts, then closes without selecting.
         """
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
+        self.open_target_phase_select()
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         texts = [o.text for o in options if o.is_displayed()]
         # Close the dropdown (guarded: waits for auto-close, only ESCapes if
@@ -297,23 +309,24 @@ class PlantInstanceDetailExt(BasePage):
 
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase by its data-value attribute."""
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
+        self.open_target_phase_select()
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
         )
-        option.click()
+        # scroll_and_click, not a raw click: a long phase list scrolls inside
+        # the popover, and `element_to_be_clickable` is satisfied by an option
+        # that is displayed but out of view.
+        self.scroll_and_click(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 
     def select_target_phase_by_text(self, text: str) -> None:
         """Select a target phase by its visible label text."""
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
+        self.open_target_phase_select()
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{text}')]")
         )
-        option.click()
+        self.scroll_and_click(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 
@@ -376,16 +389,10 @@ class PlantInstanceDetailExt(BasePage):
         or backward (earlier index) without hard-coding species-specific
         phase names.
         """
-        from selenium.webdriver.support.ui import WebDriverWait
-
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        self.scroll_and_click(select_el)
-        try:
-            WebDriverWait(self.driver, 5).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
-            )
-        except Exception:
-            pass
+        # open_select_by_testid waits for the dropdown to actually open and
+        # raises when it does not -- so no silent ``except: pass`` around the
+        # option wait, and no empty option list reported as "no phases".
+        self.open_target_phase_select()
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         keys = [o.get_attribute("data-value") or "" for o in options]
         self.close_mui_dropdown()
