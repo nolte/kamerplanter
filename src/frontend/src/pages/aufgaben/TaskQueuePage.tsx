@@ -792,7 +792,10 @@ export default function TaskQueuePage() {
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 0,
+                  // 48x48 targets with a separating gap: three flush 40px
+                  // buttons right next to a large card link is mis-tap geometry
+                  // (UI-NFR-001 R-011 MUST, R-012 SHOULD).
+                  gap: 0.5,
                   pr: 0.5,
                   borderLeft: '1px solid',
                   borderColor: 'divider',
@@ -807,7 +810,7 @@ export default function TaskQueuePage() {
                       disabled={isLoading}
                       data-testid={`start-task-${task.key}`}
                       aria-label={t('pages.tasks.startTask')}
-                      sx={{ minWidth: 40, minHeight: 40 }}
+                      sx={{ minWidth: 48, minHeight: 48 }}
                     >
                       {isLoading ? <CircularProgress size={18} /> : <PlayArrowIcon fontSize="small" />}
                     </IconButton>
@@ -821,7 +824,7 @@ export default function TaskQueuePage() {
                     disabled={isLoading}
                     data-testid={`complete-task-${task.key}`}
                     aria-label={t('pages.tasks.completeTask')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
+                    sx={{ minWidth: 48, minHeight: 48 }}
                   >
                     {isLoading ? <CircularProgress size={18} /> : <CheckIcon fontSize="small" />}
                   </IconButton>
@@ -833,7 +836,7 @@ export default function TaskQueuePage() {
                     disabled={isLoading}
                     data-testid={`skip-task-${task.key}`}
                     aria-label={t('pages.tasks.skipTask')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
+                    sx={{ minWidth: 48, minHeight: 48 }}
                   >
                     {isLoading ? <CircularProgress size={18} /> : <SkipNextIcon fontSize="small" />}
                   </IconButton>
@@ -932,7 +935,9 @@ export default function TaskQueuePage() {
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 0,
+                // See the task card above: 48x48 targets, separated
+                // (UI-NFR-001 R-011 MUST, R-012 SHOULD).
+                gap: 0.5,
                 pr: 0.5,
                 borderLeft: '1px solid',
                 borderColor: 'divider',
@@ -944,7 +949,8 @@ export default function TaskQueuePage() {
                   size="small"
                   onClick={() => handleEditProfile(entry.plant_key)}
                   aria-label={t('pages.pflege.editProfile')}
-                  sx={{ minWidth: 40, minHeight: 40 }}
+                  data-testid={`care-edit-profile-${id}`}
+                  sx={{ minWidth: 48, minHeight: 48 }}
                 >
                   <EditIcon fontSize="small" />
                 </IconButton>
@@ -957,7 +963,8 @@ export default function TaskQueuePage() {
                     onClick={() => handleConfirmClick(entry)}
                     disabled={isLoading}
                     aria-label={t('pages.pflege.confirmAction')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
+                    data-testid={`care-confirm-${id}`}
+                    sx={{ minWidth: 48, minHeight: 48 }}
                   >
                     {isLoading ? <CircularProgress size={18} /> : <CheckCircleIcon fontSize="small" />}
                   </IconButton>
@@ -970,7 +977,8 @@ export default function TaskQueuePage() {
                     onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)}
                     disabled={isLoading}
                     aria-label={t('pages.pflege.snoozeAction')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
+                    data-testid={`care-snooze-${id}`}
+                    sx={{ minWidth: 48, minHeight: 48 }}
                   >
                     {isLoading ? <CircularProgress size={18} /> : <SnoozeIcon fontSize="small" />}
                   </IconButton>

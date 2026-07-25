@@ -244,3 +244,52 @@ describe('TaskQueuePage — loading gate covers the plant list', () => {
     expect(screen.getByTestId('plant-link-task-active')).toBeInTheDocument();
   });
 });
+
+describe('TaskQueuePage — card action touch targets', () => {
+  const careEntry = {
+    plant_key: 'plant-1',
+    plant_name: 'Big Red',
+    species_name: null,
+    reminder_type: 'watering',
+    urgency: 'overdue',
+    due_date: '2024-01-01',
+    care_profile_key: 'cp-1',
+    task_key: null,
+  };
+
+  beforeEach(() => {
+    listTasksCalls = 0;
+    server.use(
+      http.get(`${TASKS}/queue`, () => HttpResponse.json([activeTask])),
+      http.get(`${TASKS}/overdue`, () => HttpResponse.json([])),
+      http.get(`${CARE}/dashboard`, () => HttpResponse.json([careEntry])),
+      http.get(TASKS, () => HttpResponse.json([])),
+    );
+    i18n.changeLanguage('de');
+  });
+
+  afterEach(() => {
+    cleanup();
+    mockNavigate.mockReset();
+  });
+
+  it('gives every card action a 48x48 touch target', async () => {
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    await screen.findByTestId('start-task-task-active');
+    // 40px targets flush against a large card link is mis-tap geometry;
+    // UI-NFR-001 R-011 requires 48x48 for every interactive element.
+    for (const testId of [
+      'start-task-task-active',
+      'complete-task-task-active',
+      'skip-task-task-active',
+      'care-edit-profile-care-plant-1-watering',
+      'care-confirm-care-plant-1-watering',
+      'care-snooze-care-plant-1-watering',
+    ]) {
+      const style = window.getComputedStyle(screen.getByTestId(testId));
+      expect(`${testId}:${style.minWidth}`).toBe(`${testId}:48px`);
+      expect(`${testId}:${style.minHeight}`).toBe(`${testId}:48px`);
+    }
+  });
+});
