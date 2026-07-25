@@ -14,6 +14,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
+from .plant_instance_list_page import PlantInstanceListPage
 
 
 class HarvestReadinessCardPage(BasePage):
@@ -34,6 +35,11 @@ class HarvestReadinessCardPage(BasePage):
     DATA_TABLE_ROW = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
     #: Identifying column of `PlantInstanceListPage`; the row's click target.
     INSTANCE_ID_COLUMN_ID = "instanceId"
+    #: Borrowed from the page object that owns the list route rather than
+    #: re-spelled here: a second literal is exactly how this drifted to the
+    #: non-existent "/pflanzen" (`AppRoutes.tsx` declares only
+    #: "pflanzen/plant-instances", so "/pflanzen" hits the catch-all).
+    PLANT_LIST_PATH = PlantInstanceListPage.PATH
     #: Roots of the two routes this object navigates between. Both are rendered
     #: only once their lazily-imported chunk has resolved, so their presence --
     #: unlike the loading skeleton's absence -- proves the route is mounted.
@@ -62,7 +68,7 @@ class HarvestReadinessCardPage(BasePage):
         (`e2e-test-stability` §A/§E). Waiting for the root makes the empty read
         mean what it says.
         """
-        self.navigate("/pflanzen")
+        self.navigate(self.PLANT_LIST_PATH)
         self.wait_for_element(self.PLANT_LIST_PAGE)
         self.wait_for_loading_complete()
         rows = self.driver.find_elements(*self.DATA_TABLE_ROW)
