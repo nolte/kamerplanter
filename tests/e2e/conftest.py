@@ -8,6 +8,7 @@ import shutil
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -21,6 +22,10 @@ try:
 except ImportError:
     ChromeDriverManager = None  # type: ignore[assignment,misc]
     GeckoDriverManager = None  # type: ignore[assignment,misc]
+
+from .pages.plant_instance_detail_page import PlantInstanceDetailPage
+from .pages.plant_instance_list_page import PlantInstanceListPage
+from .pages.watering_log_list_page import WateringLogListPage
 
 
 # ── Test identifiability: machine-selectable markers (NFR-008a) ────────────
@@ -39,6 +44,15 @@ except ImportError:
 # In addition, the TC-ID declared in each test's docstring is lifted into the
 # machine-readable ``user_properties`` channel (junit ``tc_id`` property) so
 # downstream tooling (e.g. release-regression-scope) can consume it.
+#
+# Both axes and the TC-ID channel work for pytest-bdd scenarios too, but only
+# because of the three adaptations further down: Gherkin tags are registered as
+# markers in pytest_configure, the file-name lookups use ``item.path`` (not
+# ``item.location[0]``, which points into site-packages for a BDD scenario), and
+# the TC-ID falls back to the ``@TC-…`` tag because pytest-bdd overwrites the
+# scenario function's docstring. A ``.feature`` therefore only needs its
+# ``@TC-…`` tag — the REQ axis still comes from the step module's file name and
+# the feature axis from its module-level ``FEATURES`` tuple.
 
 # Registered semantic feature markers. A test module opts in with, e.g.:
 #   FEATURES = ("nutrient",)            # single feature
@@ -133,6 +147,96 @@ _pp_spec.loader.exec_module(_pp_mod)  # type: ignore[union-attr]
 ProtocolGenerator = _pp_mod.ProtocolGenerator
 ScreenshotEntry = _pp_mod.ScreenshotEntry
 TestResult = _pp_mod.TestResult
+# Strict TC-ID shape (``TC-004-092`` / ``TC-REQ-001-006``), owned by
+# protocol_plugin so the protocol and this file cannot drift apart.
+_TC_ID_STRICT = _pp_mod.TC_ID_PATTERN
+
+
+# ── Gherkin tags → registered markers (pytest-bdd) ────────────────────────
+# pytest-bdd turns every scenario/feature/rule tag into a pytest marker at
+# *decoration* time (``pytest_bdd.scenario`` → ``pytest_bdd_apply_tag`` →
+# ``getattr(pytest.mark, tag)``) and never registers it. Decoration happens on
+# module import, i.e. during collection — so under ``--strict-markers`` an
+# unregistered tag is not a failing test but a collection ERROR that aborts the
+# whole run (exit 2) and takes all ~720 classic tests with it. Registering the
+# tags in pytest_configure (which runs before collection) is therefore
+# mandatory, and it is also the only approach that covers tags on an
+# ``Examples:`` table — those bypass the ``pytest_bdd_apply_tag`` hook entirely
+# and call ``getattr(pytest.mark, tag)`` directly, so a hook-based workaround
+# would not see them.
+#
+# Registration is deliberately NOT a blanket "register whatever the .feature
+# says": that would throw away exactly the typo protection ``--strict-markers``
+# exists for. Only the four known tag shapes below are accepted; anything else
+# is a hard UsageError naming the tag and its file, mirroring the FEATURES typo
+# guard in pytest_collection_modifyitems.
+_LEGACY_MARKERS = ("smoke", "core_crud", "requires_auth", "requires_desktop")
+# A Gherkin tag line: only ``@tag`` tokens, nothing else (keeps ``@`` inside
+# step text or docstrings from being mistaken for a tag).
+_TAG_LINE = re.compile(r"^\s*@\S+(?:[ \t]+@\S+)*[ \t]*$")
+_REQ_TAG_PATTERN = re.compile(r"req\d{3}")
+
+
+def _is_known_tag(tag: str) -> bool:
+    """Return whether *tag* matches one of the four accepted tag shapes."""
+    return bool(
+        _TC_ID_STRICT.fullmatch(tag)
+        or _REQ_TAG_PATTERN.fullmatch(tag)
+        or tag in KNOWN_FEATURE_MARKERS
+        or tag in _LEGACY_MARKERS
+    )
+
+
+def _collect_feature_tags(features_dir: Path) -> dict[str, list[str]]:
+    """Map every tag found in ``features/**/*.feature`` to the files declaring it."""
+    tags: dict[str, list[str]] = {}
+    if not features_dir.is_dir():
+        return tags
+    for feature_file in sorted(features_dir.glob("**/*.feature")):
+        for line in feature_file.read_text(encoding="utf-8").splitlines():
+            if not _TAG_LINE.match(line):
+                continue
+            for token in line.split():
+                name = token[1:]
+                if name:
+                    tags.setdefault(name, []).append(feature_file.name)
+    return tags
+
+
+def _tc_id_from_docstring(doc: str | None) -> str | None:
+    """Read the TC-ID off the first line of a test docstring (classic channel)."""
+    text = (doc or "").strip()
+    if not text:
+        return None
+    match = _TC_ID_SCAN.search(text.splitlines()[0])
+    return match.group(0) if match else None
+
+
+def _tc_id_from_markers(node: pytest.Item) -> str | None:
+    """Read the TC-ID off a marker — the pytest-bdd fallback channel.
+
+    ``pytest_bdd.scenario`` overwrites the wrapper's ``__doc__`` unconditionally
+    (and without ``functools.wraps``) with ``"<feature>: <scenario>"``, so the
+    docstring channel is structurally dead for BDD scenarios; the ID lives in the
+    ``@TC-…`` Gherkin tag instead.
+
+    Markers are preferred over ``item.obj.__scenario__.tags`` because markers are
+    stable public pytest API (``__scenario__`` is pytest-bdd internals that
+    already changed shape between 7.x and 8.x) and because they also carry tags
+    declared on an ``Examples:`` table, which never reach the ScenarioTemplate's
+    ``tags`` set.
+    """
+    for mark in node.iter_markers():
+        if _TC_ID_STRICT.fullmatch(mark.name):
+            return mark.name
+    return None
+
+
+def _tc_id_for_item(item: pytest.Item) -> str | None:
+    """Resolve a test's TC-ID: docstring first, Gherkin tag as fallback."""
+    obj = getattr(item, "obj", None)
+    return _tc_id_from_docstring(getattr(obj, "__doc__", None)) or _tc_id_from_markers(item)
+
 
 # ── Protocol plugin state ─────────────────────────────────────────────────
 _protocol_generator: ProtocolGenerator | None = None  # type: ignore[assignment]
@@ -142,7 +246,7 @@ _junit_report_path: Path | None = None
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register custom markers."""
+    """Register custom markers (incl. the Gherkin tags of ``features/``)."""
     config.addinivalue_line(
         "markers",
         "requires_auth: mark test as requiring full auth mode (skipped in light mode)",
@@ -182,12 +286,42 @@ def pytest_configure(config: pytest.Config) -> None:
             f"(machine-selectable via -m req{num})",
         )
 
+    # Register the Gherkin tags of every ``features/**/*.feature`` (see the
+    # _collect_feature_tags block above for why this must happen here). Tags that
+    # coincide with an axis registered above (``req004``, ``watering``, ``smoke``)
+    # need no second line — they are already valid markers.
+    already_registered = (
+        set(KNOWN_FEATURE_MARKERS) | set(_LEGACY_MARKERS) | {f"req{n}" for n in req_nums}
+    )
+    for tag, files in sorted(_collect_feature_tags(conftest_dir / "features").items()):
+        if not _is_known_tag(tag):
+            raise pytest.UsageError(
+                f"features/{files[0]}: unknown Gherkin tag '@{tag}'. Allowed tags are "
+                f"a TC-ID (TC-NNN-NNN / TC-REQ-NNN-NNN), a REQ axis tag (reqNNN), a "
+                f"feature axis tag ({sorted(KNOWN_FEATURE_MARKERS)}) or one of "
+                f"{list(_LEGACY_MARKERS)}."
+            )
+        if tag in already_registered:
+            continue
+        config.addinivalue_line(
+            "markers",
+            f"{tag}: Gherkin tag from {', '.join(sorted(set(files)))} "
+            f"(machine-selectable via -m {tag})",
+        )
+
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """Derive selection markers, then auto-skip by app mode, device and resume state."""
     # ── Selection axes: auto-derive REQ + feature markers (NFR-008a) ───────
+    # Both file-name lookups below use ``item.path`` rather than
+    # ``item.location[0]``: for a pytest-bdd scenario the latter reports the code
+    # object's file, which lives in ``pytest_bdd/scenario.py`` inside
+    # site-packages, so the REQ axis (and the journey marker) would silently
+    # never be applied — no error, just a test missing from ``-m req004``.
+    # ``item.path`` is the collected module's own file for BDD and classic tests
+    # alike.
     for item in items:
-        req_marker = _req_marker_for(Path(item.location[0]).name)
+        req_marker = _req_marker_for(item.path.name)
         if req_marker:
             item.add_marker(getattr(pytest.mark, req_marker))
 
@@ -202,7 +336,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(getattr(pytest.mark, feature))
 
         # Core-lifecycle journeys span multiple features/REQs — mark implicitly.
-        if _JOURNEY_FILE_MARKER in Path(item.location[0]).name:
+        if _JOURNEY_FILE_MARKER in item.path.name:
             item.add_marker(pytest.mark.journey)
 
     if config.getoption("--app-mode") == "light":
@@ -236,17 +370,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 @pytest.fixture(autouse=True)
 def _record_tc_id(request: pytest.FixtureRequest, record_property: Callable) -> None:
-    """Lift the docstring TC-ID into the machine-readable ``tc_id`` property.
+    """Lift the declared TC-ID into the machine-readable ``tc_id`` property.
 
     Makes each test's declared TC-ID (e.g. ``TC-REQ-004-W001``) consumable via
     the standard junit ``user_properties`` channel, in addition to the bespoke
-    markdown protocol. No-op when the docstring carries no TC-ID.
+    markdown protocol. The docstring is the primary channel and behaves exactly
+    as before; a Gherkin ``@TC-…`` tag is the fallback for pytest-bdd scenarios,
+    whose docstring pytest-bdd overwrites (see ``_tc_id_from_markers``). No-op
+    when neither channel yields an ID.
     """
-    doc = (getattr(request.function, "__doc__", None) or "").strip()
-    if doc:
-        match = _TC_ID_SCAN.search(doc.splitlines()[0])
-        if match:
-            record_property("tc_id", match.group(0))
+    tc_id = _tc_id_for_item(request.node)
+    if tc_id:
+        record_property("tc_id", tc_id)
 
 
 # ── Device profiles for responsive testing ────────────────────────────────
@@ -947,6 +1082,81 @@ def screenshot(
         )
 
 
+# ── Shared page-object fixtures ───────────────────────────────────────────
+# The REQ-004 cross-view watering journey exists in two flavours — the classic
+# Selenium test and its pytest-bdd sibling — and both drive the very same page
+# objects. The fixtures live here rather than in ``_journey_helpers.py`` because
+# a fixture is only discoverable through the fixture graph: pytest collects
+# fixtures from conftest files and plugins, never from an imported helper
+# module, and a pytest-bdd step binding can request nothing else. Duplicating
+# them per module (the state BDR-004 flagged) is the only alternative, and that
+# is precisely the drift risk being removed.
+#
+# Adding them here is additive: a module that declares a fixture of the same
+# name still shadows this one (several do, with the richer ``PlantInstanceDetailExt``
+# type), and no module currently requests one of these names without declaring it.
+
+
+@pytest.fixture
+def plant_creator(browser: webdriver.Remote, base_url: str) -> PlantInstanceListPage:
+    """Plant-instance list page — the entry point for self-provisioning a plant."""
+    return PlantInstanceListPage(browser, base_url)
+
+
+@pytest.fixture
+def watering_list(browser: webdriver.Remote, base_url: str) -> WateringLogListPage:
+    """Tenant-wide watering-log list page (``/giessprotokoll``)."""
+    return WateringLogListPage(browser, base_url)
+
+
+@pytest.fixture
+def plant_detail(browser: webdriver.Remote, base_url: str) -> PlantInstanceDetailPage:
+    """Plant-instance detail page, incl. its ``#watering-log`` and ``#tasks`` tabs."""
+    return PlantInstanceDetailPage(browser, base_url)
+
+
+def pytest_bdd_after_step(
+    request: pytest.FixtureRequest,
+    feature: Any,
+    scenario: Any,
+    step: Any,
+    step_func: Callable[..., Any],
+) -> None:
+    """Capture a screenshot checkpoint after each executed When/Then BDD step.
+
+    This MUST live here rather than in a step-binding module: pytest-bdd's
+    custom ``pytest_bdd_*`` hooks are dispatched through pytest's plugin
+    manager, which only collects hook implementations from registered plugins
+    (conftest.py, or anything installed via a ``pytest11`` entry point) — a
+    bare function of the same name defined inside a ``test_*.py`` module is
+    never registered and silently never fires (verified empirically: an
+    identical hook body in the test module never printed, the same body here
+    fires for every step). Only ``when``/``then`` steps are captured — a
+    ``given`` may run before the browser has navigated anywhere meaningful.
+
+    The filter keys on ``step.type``, the *resolved* step type, never on
+    ``step.keyword``. ``keyword`` is the literal Gherkin word as written, so a
+    conjunction (``And``/``But``) carries ``"And"``/``"But"`` there no matter
+    which block it continues; pytest-bdd resolves the block itself and exposes
+    it as ``step.type`` ∈ ``{"given", "when", "then"}``
+    (``pytest_bdd.parser.Parser.parse_steps`` carries ``current_type`` forward
+    across every ``Conjunction`` keyword). Filtering on ``keyword`` therefore
+    screenshotted the ``Given``-block continuation line
+    ``And the plant has 1 watering task due`` — exactly the pre-navigation state
+    this guard exists to skip.
+
+    The TC-ID prefix is derived from the scenario's ``@TC-…`` marker
+    (``_tc_id_from_markers``) rather than hard-coded, so this stays correct as
+    more BDD scenarios are added.
+    """
+    if step.type not in {"when", "then"}:
+        return
+    take = request.getfixturevalue("screenshot")
+    tc_id = _tc_id_from_markers(request.node) or "bdd"
+    slug = re.sub(r"[^a-z0-9]+", "-", step.name.lower()).strip("-")[:60]
+    take(f"{tc_id}_{slug}", step.name)
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: pytest.Item) -> None:
     """Attach the test report to the item node for the screenshot fixture (NFR-008 §3.4).
@@ -977,6 +1187,10 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
                 message=message,
                 docstring=docstring,
                 screenshots=screenshots,
+                # Gherkin-tag channel only. Classic tests carry no TC marker, so
+                # this stays empty for them and protocol_plugin keeps deriving
+                # their ID from ``docstring`` byte-identically to before.
+                tc_id=_tc_id_from_markers(item) or "",
             )
             _protocol_generator.add_result(result)
             # Incremental checkpoint — append to JSONL so partial results
@@ -1003,6 +1217,10 @@ def _write_checkpoint(result: TestResult) -> None:
         "duration": result.duration,
         "message": result.message[:500] if result.message else "",
         "docstring": result.docstring,
+        # Carried explicitly: under xdist the controller rebuilds every result
+        # from this file, and a BDD scenario's TC-ID is not recoverable from its
+        # generated docstring.
+        "tc_id": result.tc_id,
         "screenshots": [
             {"filename": s.filename, "description": s.description}
             for s in result.screenshots
@@ -1029,6 +1247,7 @@ def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
             duration=entry.get("duration", 0.0),
             message=entry.get("message", ""),
             docstring=entry.get("docstring", ""),
+            tc_id=entry.get("tc_id", ""),
             screenshots=[
                 ScreenshotEntry(
                     filename=s["filename"],

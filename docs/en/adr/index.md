@@ -15,3 +15,4 @@ Architecture Decision Records document important architectural decisions — wha
 | [ADR-007](007-cross-encoder-reranking.md) | Cross-Encoder Re-Ranking for RAG Pipeline | Accepted | 2026-04-02 |
 | [ADR-008](008-zeroconf-mdns-auto-discovery.md) | mDNS/Zeroconf for Home Assistant Auto-Discovery | Accepted | 2026-04-24 |
 | [ADR-009](009-versioned-migration-framework.md) | Versioned Database Migration Framework | Accepted | 2026-07-04 |
+| [ADR-010](010-bdd-e2e-architektur-pytest-bdd.md) | BDD Architecture for the E2E Suite (pytest-bdd) | Accepted | 2026-07-25 |

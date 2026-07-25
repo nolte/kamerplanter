@@ -20,18 +20,36 @@ follow-up in View 3 — without it the action would only appear in Views 1+2 (th
 Guard in the spec). The core path therefore always runs; it never
 ``pytest.skip``s for missing seed data, and the unique instance id keeps it
 parallel-safe.
+
+The German date parser, the watering i18n labels and the three page-object
+fixtures this module needs are **not** defined here: they are shared with the
+pytest-bdd sibling (``…_bdd.py``) via ``_journey_helpers`` and ``conftest`` so
+the two flavours cannot drift apart. See BDR-004.
+
+The View-3 expected result "der Overdue/Active/Done-Summary-Balken spiegelt dies
+wider" is asserted as a *delta* against the pre-action counts: the summary bar
+must gain exactly one Done task while its Active count stays put, because the
+watering closes one task and its follow-up immediately takes that slot. An
+absolute count would be wrong here — a fresh care profile also materialises the
+other opted-in reminder types (pest check, repotting), so the plant's active
+tasks are legitimately more than the one ``— watering`` task this journey tracks.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Callable
 
 import pytest
-from selenium.webdriver.remote.webdriver import WebDriver
 
-from ._journey_helpers import provision_plant, provision_watering_care_task
+from ._journey_helpers import (
+    DRENCH_METHOD_LABEL,
+    DRENCH_OPTION_LABEL,
+    TAP_LABEL,
+    parse_de_date,
+    provision_plant,
+    provision_watering_care_task,
+)
 from .pages.plant_instance_detail_page import PlantInstanceDetailPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.watering_log_list_page import WateringLogListPage
@@ -40,49 +58,9 @@ from .pages.watering_log_list_page import WateringLogListPage
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m watering).
 FEATURES = ('watering',)
 
-# German i18n labels (enums.applicationMethod.drench, enums.waterSource.tap).
-DRENCH_OPTION_LABEL = "Gießen"  # dialog option prefix (full: "Gießen (Gießkanne/manuell)")
-DRENCH_METHOD_LABEL = "Gießen (Gießkanne/manuell)"  # rendered table cell text
-TAP_LABEL = "Leitungswasser"
-
-_DE_DATE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
-
-
-def _parse_de_date(text: str | None) -> tuple[int, int, int] | None:
-    """Parse a German ``d.m.Y`` date out of *text*, normalising zero-padding.
-
-    Returns ``(day, month, year)`` or ``None``. Robust to the two different
-    formatters the views use (``formatDateTime`` emits '2-digit' month/day,
-    ``toLocaleString()`` emits numeric) — so coherence can be asserted on the
-    parsed values rather than brittle string equality.
-    """
-    match = _DE_DATE_RE.search(text or "")
-    if not match:
-        return None
-    return int(match.group(1)), int(match.group(2)), int(match.group(3))
-
-
-def _browser_today(driver: WebDriver) -> tuple[int, int, int] | None:
-    """Return today's ``(day, month, year)`` as the browser renders it (de-DE)."""
-    return _parse_de_date(driver.execute_script("return new Date().toLocaleDateString('de-DE');"))
-
-
-# ── Fixtures ─────────────────────────────────────────────────────────────────
-
-
-@pytest.fixture
-def plant_creator(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
-    return PlantInstanceListPage(browser, base_url)
-
-
-@pytest.fixture
-def watering_list(browser: WebDriver, base_url: str) -> WateringLogListPage:
-    return WateringLogListPage(browser, base_url)
-
-
-@pytest.fixture
-def plant_detail(browser: WebDriver, base_url: str) -> PlantInstanceDetailPage:
-    return PlantInstanceDetailPage(browser, base_url)
+# Route the linked plant chip must point at (spec: "verlinkter Chip auf
+# /pflanzen/plant-instances/{key}").
+PLANT_DETAIL_ROUTE = "/pflanzen/plant-instances"
 
 
 # ── Shared act step ──────────────────────────────────────────────────────────
@@ -145,6 +123,7 @@ class TestWateringCrossViewConsistency:
         baseline_completed_watering = plant_detail.count_watering_tasks(
             plant_detail.TASK_DONE_SECTION_LABEL
         )
+        baseline_summary = plant_detail.get_task_summary_counts()
         screenshot("TC-004-092_baseline-tasks", "Task history before the watering")
         assert baseline_pending_watering == 1, (
             "TC-004-092 FAIL: precondition expects exactly one pending "
@@ -167,14 +146,13 @@ class TestWateringCrossViewConsistency:
             "TC-004-092 FAIL (View 1): expected exactly one global watering-log "
             f"row for '{instance_id}', found {watering_list.get_row_count()}"
         )
-        view1_rows = watering_list.driver.find_elements(*watering_list.TABLE_ROWS)
-        view1_logged = watering_list.get_row_cell_text(view1_rows[0], "loggedAt")
-        view1_method = watering_list.get_row_cell_text(view1_rows[0], "applicationMethod")
-        view1_plants = watering_list.get_row_cell_text(view1_rows[0], "plants")
+        view1_logged = watering_list.get_row_cell(0, "loggedAt")
+        view1_method = watering_list.get_row_cell(0, "applicationMethod")
+        view1_plants = watering_list.get_row_cell(0, "plants")
         screenshot("TC-004-092_view1-global", "View 1 — global watering log filtered to the plant")
 
-        today = _browser_today(watering_list.driver)
-        assert _parse_de_date(view1_logged) == today, (
+        today = watering_list.get_browser_today()
+        assert parse_de_date(view1_logged) == today, (
             "TC-004-092 FAIL (View 1): global-log timestamp is not today "
             f"(cell={view1_logged!r}, today={today})"
         )
@@ -187,6 +165,15 @@ class TestWateringCrossViewConsistency:
             f"'{instance_id}', found {view1_plants!r}"
         )
 
+        # The spec demands a *linked* chip ("verlinkter Chip auf
+        # /pflanzen/plant-instances/{key}"), not merely the id as text.
+        expected_href = f"{PLANT_DETAIL_ROUTE}/{key}"
+        view1_plant_links = watering_list.get_row_plant_links(0)
+        assert any(href.endswith(expected_href) for _, href in view1_plant_links), (
+            "TC-004-092 FAIL (View 1): the plant chip must be a link to "
+            f"'{expected_href}', found {view1_plant_links!r}"
+        )
+
         # ── View 2: instance Gießprotokoll (#watering-log) ───────────────────
         plant_detail.open_watering_log_tab(key)
         assert plant_detail.get_watering_log_row_count() == baseline_instance_logs + 1, (
@@ -194,14 +181,13 @@ class TestWateringCrossViewConsistency:
             f"risen by exactly 1 (baseline {baseline_instance_logs}, now "
             f"{plant_detail.get_watering_log_row_count()})"
         )
-        view2_rows = plant_detail.get_watering_log_rows()
-        view2_logged = plant_detail.get_row_cell_text(view2_rows[0], "loggedAt")
-        view2_method = plant_detail.get_row_cell_text(view2_rows[0], "applicationMethod")
-        view2_volume = plant_detail.get_row_cell_text(view2_rows[0], "volume")
-        view2_supplemental = plant_detail.get_row_cell_text(view2_rows[0], "isSupplemental")
+        view2_logged = plant_detail.get_watering_log_row_cell(0, "loggedAt")
+        view2_method = plant_detail.get_watering_log_row_cell(0, "applicationMethod")
+        view2_volume = plant_detail.get_watering_log_row_cell(0, "volume")
+        view2_supplemental = plant_detail.get_watering_log_row_cell(0, "isSupplemental")
         screenshot("TC-004-092_view2-instance", "View 2 — instance watering-log tab")
 
-        assert _parse_de_date(view2_logged) == today, (
+        assert parse_de_date(view2_logged) == today, (
             "TC-004-092 FAIL (View 2): instance-log timestamp is not today "
             f"(cell={view2_logged!r}, today={today})"
         )
@@ -218,7 +204,7 @@ class TestWateringCrossViewConsistency:
         )
 
         # Coherence: Views 1 and 2 render the SAME WateringLog (same day).
-        assert _parse_de_date(view1_logged) == _parse_de_date(view2_logged), (
+        assert parse_de_date(view1_logged) == parse_de_date(view2_logged), (
             "TC-004-092 FAIL (coherence): the global and instance logs disagree on "
             f"the watering date (View 1={view1_logged!r}, View 2={view2_logged!r})"
         )
@@ -241,11 +227,26 @@ class TestWateringCrossViewConsistency:
             f"have risen by exactly 1 (baseline {baseline_completed_watering}, now "
             f"{completed_watering}) — the open watering task must move to 'Abgeschlossen'"
         )
-        assert _parse_de_date(completed_at) == today, (
+        assert parse_de_date(completed_at) == today, (
             "TC-004-092 FAIL (View 3): the completed watering task must carry "
             f"today's completion date (cell={completed_at!r}, today={today})"
         )
         assert pending_watering == 1, (
             "TC-004-092 FAIL (View 3): exactly one new pending '— watering' "
             f"follow-up task must exist, found {pending_watering}"
+        )
+
+        # The Overdue/Active/Done summary bar above the two tables must mirror
+        # that very transition: one task moved into 'Abgeschlossen', and the
+        # follow-up took the freed slot in 'Ausstehend'.
+        summary = plant_detail.get_task_summary_counts()
+        assert summary["done"] == baseline_summary["done"] + 1, (
+            "TC-004-092 FAIL (View 3): the summary bar's Done count should have "
+            f"risen by exactly 1 (baseline {baseline_summary['done']}, now "
+            f"{summary['done']})"
+        )
+        assert summary["active"] == baseline_summary["active"], (
+            "TC-004-092 FAIL (View 3): the summary bar's Active count must be "
+            "unchanged — the completed watering task is replaced by its follow-up "
+            f"(baseline {baseline_summary['active']}, now {summary['active']})"
         )

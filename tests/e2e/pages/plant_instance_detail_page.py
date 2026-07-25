@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -37,6 +39,18 @@ class PlantInstanceDetailPage(BasePage):
         "[data-testid='create-watering-log-button']",
     )
     TASK_CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='plant-task-create-button']")
+
+    # Overdue/Active/Done summary bar above the two task tables. Each chip
+    # renders "<translated label>: <count>", so only the trailing integer is
+    # read — the prefix is i18n text and must never be matched on.
+    TASK_SUMMARY_BAR = (By.CSS_SELECTOR, "[data-testid='task-summary-bar']")
+    TASK_SUMMARY_CHIPS = {
+        "overdue": (By.CSS_SELECTOR, "[data-testid='task-summary-overdue']"),
+        "active": (By.CSS_SELECTOR, "[data-testid='task-summary-active']"),
+        "done": (By.CSS_SELECTOR, "[data-testid='task-summary-done']"),
+    }
+    # Trailing integer of a summary chip, e.g. "Überfällig: 2" / "Overdue: 2".
+    _SUMMARY_COUNT_RE = re.compile(r"(\d+)\s*$")
     LOADING_SKELETON = (By.CSS_SELECTOR, "[data-testid='loading-skeleton']")
     DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
@@ -115,6 +129,24 @@ class PlantInstanceDetailPage(BasePage):
         """Return the watering-log tab DataTable rows (newest first by loggedAt)."""
         return self.driver.find_elements(*self.DATA_TABLE_ROWS)
 
+    def get_watering_log_row_cell(self, index: int, col_id: str) -> str:
+        """Return the *col_id* cell text of watering-log row *index* (0 = newest).
+
+        Addresses the cell by column id rather than by position, mirroring
+        :meth:`WateringLogListPage.get_row_cell` for the instance-scoped
+        ``#watering-log`` tab.
+
+        Raises ``IndexError`` when *index* is out of range — a missing row is a
+        different failure than an empty cell, and a silent ``""`` would surface
+        downstream as a confusing value mismatch.
+        """
+        rows = self.get_watering_log_rows()
+        if not -len(rows) <= index < len(rows):
+            raise IndexError(
+                f"Watering-log row index {index} out of range (tab has {len(rows)} rows)"
+            )
+        return self.get_row_cell_text(rows[index], col_id)
+
     def get_task_rows(self, section_label: str) -> list[WebElement]:
         """Return the DataTable rows for a task-history section, scoped by aria-label.
 
@@ -142,6 +174,47 @@ class PlantInstanceDetailPage(BasePage):
             if self.get_row_cell_text(row, "name").strip().endswith(self.WATERING_TASK_SUFFIX):
                 return self.get_row_cell_text(row, col_id)
         return ""
+
+    def get_task_summary_counts(self) -> dict[str, int]:
+        """Return the Overdue/Active/Done counts of the task-tab summary bar.
+
+        Reads the trailing integer off each ``task-summary-*`` chip, so the
+        translated label prefix ("Überfällig"/"Overdue", …) is irrelevant and the
+        method works in either UI language.
+
+        The overdue chip is rendered only while at least one task is overdue, so
+        a missing chip is reported as ``0`` rather than as an absent key — the
+        frontend expresses "nothing overdue" by omitting it.
+
+        Returns:
+            ``{"overdue": int, "active": int, "done": int}``.
+
+        Raises:
+            AssertionError: If the summary bar is not on screen (the tasks tab
+                is not open, or it is showing its empty state), or if a chip's
+                text carries no trailing count — both are page-state failures a
+                silent ``0`` would disguise as an unmet expectation.
+        """
+        self.wait_for_element_visible(self.TASK_SUMMARY_BAR)
+        counts: dict[str, int] = {}
+        for name, locator in self.TASK_SUMMARY_CHIPS.items():
+            elements = self.driver.find_elements(*locator)
+            if not elements:
+                if name == "overdue":
+                    counts[name] = 0
+                    continue
+                raise AssertionError(
+                    f"Task summary chip '{name}' is missing from the summary bar"
+                )
+            text = elements[0].text
+            match = self._SUMMARY_COUNT_RE.search(text)
+            if match is None:
+                raise AssertionError(
+                    f"Task summary chip '{name}' carries no trailing count "
+                    f"(text={text!r})"
+                )
+            counts[name] = int(match.group(1))
+        return counts
 
     def get_current_phase(self) -> str:
         """Return the text of the current-phase Chip."""
