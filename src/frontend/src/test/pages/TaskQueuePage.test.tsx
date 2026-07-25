@@ -125,3 +125,50 @@ describe('TaskQueuePage — completed-tasks toggle (#606)', () => {
     await waitFor(() => expect(listTasksCalls).toBeGreaterThan(0));
   });
 });
+
+describe('TaskQueuePage — task card navigation target', () => {
+  const plantTask = makeTask({
+    key: 'task-active',
+    entity_type: 'plant_instance',
+    entity_key: 'plant-1',
+  });
+
+  beforeEach(() => {
+    listTasksCalls = 0;
+    server.use(
+      http.get(`${TASKS}/queue`, () => HttpResponse.json([plantTask])),
+      http.get(`${TASKS}/overdue`, () => HttpResponse.json([])),
+      http.get(`${CARE}/dashboard`, () => HttpResponse.json([])),
+      http.get(TASKS, () => HttpResponse.json([])),
+    );
+    i18n.changeLanguage('de');
+  });
+
+  afterEach(() => {
+    cleanup();
+    mockNavigate.mockReset();
+  });
+
+  it('keeps the plant link outside the card action area', async () => {
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    const plantLink = await screen.findByTestId('plant-link-task-active');
+    const actionArea = screen.getByTestId('task-card-task-active');
+
+    // Interactive nesting is what made the card's tap target ambiguous: with the
+    // link inside the action area, the geometric centre of a reflowed mobile
+    // card landed on the link and opened the plant instead of the task.
+    expect(actionArea.contains(plantLink)).toBe(false);
+    expect(within(actionArea).queryByRole('link')).toBeNull();
+    expect(plantLink).toHaveAttribute('href', '/pflanzen/plant-instances/plant-1');
+  });
+
+  it('navigates to the task detail when the card itself is activated', async () => {
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    await screen.findByTestId('plant-link-task-active');
+    await userEvent.click(screen.getByTestId('task-card-task-active'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/aufgaben/tasks/task-active');
+  });
+});

@@ -701,21 +701,6 @@ export default function TaskQueuePage() {
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                      {plantName && task.entity_key && task.entity_type === 'plant_instance' && (
-                        <Link
-                          component={RouterLink}
-                          to={`/pflanzen/plant-instances/${task.entity_key}`}
-                          variant="caption"
-                          color="text.secondary"
-                          underline="hover"
-                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                          data-testid={`plant-link-${task.key}`}
-                        >
-                          <LocalFloristIcon sx={{ fontSize: 14 }} />
-                          {plantName}
-                        </Link>
-                      )}
                       <Typography variant="caption" color="text.disabled">
                         {t(`enums.taskCategory.${task.category}`)}
                         {' · '}
@@ -761,6 +746,36 @@ export default function TaskQueuePage() {
                   </Stack>
                 </Box>
               </CardActionArea>
+
+              {/* Plant shortcut — a SIBLING of the card's action area, never a
+                  descendant of it. A link nested inside the card button was
+                  invalid interactive nesting (it broke keyboard and screen-reader
+                  semantics) and made the card's own tap target ambiguous: on a
+                  narrow viewport the card reflows tall enough that its geometric
+                  centre fell on the link, so tapping the middle of a task card
+                  opened the plant instead of the task. */}
+              {plantName && task.entity_key && task.entity_type === 'plant_instance' && (
+                <Box sx={{ display: 'flex', px: 2, pb: 1 }}>
+                  <Link
+                    component={RouterLink}
+                    to={`/pflanzen/plant-instances/${task.entity_key}`}
+                    variant="caption"
+                    color="text.secondary"
+                    underline="hover"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      minHeight: 32,
+                      minWidth: 0,
+                    }}
+                    data-testid={`plant-link-${task.key}`}
+                  >
+                    <LocalFloristIcon sx={{ fontSize: 14 }} />
+                    {plantName}
+                  </Link>
+                </Box>
+              )}
             </Box>
 
             {!bulkMode && isActionable && (
