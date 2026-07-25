@@ -988,6 +988,7 @@ export default function CalendarPage() {
               startIcon={<FilterListIcon />}
               onClick={() => setFiltersExpanded((prev) => !prev)}
               sx={{ mb: 1 }}
+              data-testid="calendar-category-filter-toggle"
             >
               {t('pages.calendar.categories')} ({selectedCategories.size}/{ALL_CATEGORIES.length})
             </Button>
