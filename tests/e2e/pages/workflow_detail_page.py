@@ -105,7 +105,7 @@ class WorkflowDetailPage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 

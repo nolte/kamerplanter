@@ -386,11 +386,11 @@ class PflegeDashboardPage(BasePage):
 
     def submit_confirm_dialog(self) -> None:
         """Click the submit button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_SUBMIT).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_SUBMIT)
 
     def cancel_confirm_dialog(self) -> None:
         """Click the cancel button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CANCEL)
 
     # ── CareProfileEditDialog interactions ────────────────────────────
 
@@ -424,15 +424,15 @@ class PflegeDashboardPage(BasePage):
 
     def click_save_profile(self) -> None:
         """Click the save button in the profile dialog."""
-        self.wait_for_element_clickable(self.SAVE_PROFILE_BUTTON).click()
+        self.wait_and_click(self.SAVE_PROFILE_BUTTON)
 
     def click_cancel_profile(self) -> None:
         """Click the cancel button in the profile dialog."""
-        self.wait_for_element_clickable(self.CANCEL_BUTTON).click()
+        self.wait_and_click(self.CANCEL_BUTTON)
 
     def click_reset_profile(self) -> None:
         """Click the reset-to-defaults button in the profile dialog."""
-        self.wait_for_element_clickable(self.RESET_PROFILE_BUTTON).click()
+        self.wait_and_click(self.RESET_PROFILE_BUTTON)
 
     def expand_advanced_accordion(self) -> None:
         """Expand the "Erweitert" (Advanced) accordion in the profile dialog, if present."""

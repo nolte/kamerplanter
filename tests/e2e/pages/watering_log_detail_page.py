@@ -91,7 +91,7 @@ class WateringLogDetailPage(BasePage):
 
     def click_analyze_runoff(self) -> None:
         """Click the analyze-runoff button."""
-        self.wait_for_element_clickable(self.ANALYZE_RUNOFF_BUTTON).click()
+        self.wait_and_click(self.ANALYZE_RUNOFF_BUTTON)
 
     def has_runoff_analysis_result(self) -> bool:
         """Return True if the runoff analysis result alert is visible."""
@@ -101,16 +101,16 @@ class WateringLogDetailPage(BasePage):
 
     def click_delete(self) -> None:
         """Click the delete button and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
         """Confirm the deletion in the dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Cancel the deletion dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_visible(self) -> bool:
         """Return True if the delete ConfirmDialog is visible."""

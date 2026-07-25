@@ -156,7 +156,7 @@ class PlantInstanceDetailPage(BasePage):
 
     def initiate_phase_transition(self) -> None:
         """Click the transition button to open the dialog."""
-        self.wait_for_element_clickable(self.TRANSITION_BUTTON).click()
+        self.wait_and_click(self.TRANSITION_BUTTON)
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def select_target_phase(self, phase_key: str) -> None:
@@ -175,10 +175,10 @@ class PlantInstanceDetailPage(BasePage):
         reason_input.send_keys(reason)
 
     def confirm_transition(self) -> None:
-        self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
+        self.wait_and_click(self.TRANSITION_CONFIRM)
 
     def cancel_transition(self) -> None:
-        self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_and_click(self.TRANSITION_CANCEL)
 
     def get_phase_history_count(self) -> int:
         """Return the number of rows in the phase history table."""

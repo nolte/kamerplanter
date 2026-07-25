@@ -248,19 +248,19 @@ class TaskQueuePage(BasePage):
 
     def click_select_all(self) -> None:
         """Click the 'Select all' button in bulk action bar."""
-        self.wait_for_element_clickable(self.SELECT_ALL_BUTTON).click()
+        self.wait_and_click(self.SELECT_ALL_BUTTON)
 
     def click_bulk_complete(self) -> None:
         """Click the bulk complete button."""
-        self.wait_for_element_clickable(self.BULK_COMPLETE_BUTTON).click()
+        self.wait_and_click(self.BULK_COMPLETE_BUTTON)
 
     def click_bulk_skip(self) -> None:
         """Click the bulk skip button."""
-        self.wait_for_element_clickable(self.BULK_SKIP_BUTTON).click()
+        self.wait_and_click(self.BULK_SKIP_BUTTON)
 
     def click_bulk_delete(self) -> None:
         """Click the bulk delete button."""
-        self.wait_for_element_clickable(self.BULK_DELETE_BUTTON).click()
+        self.wait_and_click(self.BULK_DELETE_BUTTON)
 
     def is_bulk_action_bar_visible(self) -> bool:
         """Check if the bulk action bar is displayed."""
@@ -438,7 +438,7 @@ class TaskQueuePage(BasePage):
 
     def click_generate_reminders(self) -> None:
         """Click the generate care reminders button."""
-        self.wait_for_element_clickable(self.GENERATE_REMINDERS_BUTTON).click()
+        self.wait_and_click(self.GENERATE_REMINDERS_BUTTON)
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 
@@ -448,11 +448,11 @@ class TaskQueuePage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     def confirm_dialog_cancel(self) -> None:
         """Click the cancel button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CANCEL)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 

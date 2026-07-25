@@ -65,7 +65,7 @@ class SensorCreateDialogPage(BasePage):
         return bool(elements) and elements[0].is_displayed()
 
     def close_via_cancel(self) -> None:
-        self.wait_for_element_clickable(self.CANCEL_BUTTON).click()
+        self.wait_and_click(self.CANCEL_BUTTON)
         self.wait_for_element_hidden(self.DIALOG)
 
     # ── Form interactions ─────────────────────────────────────────────────
@@ -97,7 +97,7 @@ class SensorCreateDialogPage(BasePage):
         return bool(self.driver.find_elements(*locator))
 
     def submit(self) -> None:
-        self.wait_for_element_clickable(self.SUBMIT_BUTTON).click()
+        self.wait_and_click(self.SUBMIT_BUTTON)
 
     # ── Trigger button state (on the parent page) ──────────────────────────
 

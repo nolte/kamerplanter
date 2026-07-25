@@ -169,7 +169,7 @@ class PlantPhotoGalleryPage(BasePage):
         if add_buttons and add_buttons[0].is_displayed():
             add_buttons[0].click()
         else:
-            self.wait_for_element_clickable(self.EMPTY_STATE_ACTION).click()
+            self.wait_and_click(self.EMPTY_STATE_ACTION)
         self.wait_for_element_visible(self.UPLOAD_DIALOG)
         self.wait_for_element_visible(self.CAPTURE_PANEL)
 
@@ -242,7 +242,7 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.UPLOAD_PREVIEW)) > 0
 
     def cancel_upload(self) -> None:
-        self.wait_for_element_clickable(self.UPLOAD_CANCEL).click()
+        self.wait_and_click(self.UPLOAD_CANCEL)
         self.wait_for_element_hidden(self.UPLOAD_DIALOG)
 
     # ── Lightbox ────────────────────────────────────────────────────────
@@ -304,11 +304,11 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_DELETE).click()
+        self.wait_and_click(self.CONFIRM_DELETE)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG, timeout=20)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     # ── Snackbar ────────────────────────────────────────────────────────

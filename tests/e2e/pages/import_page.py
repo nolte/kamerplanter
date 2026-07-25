@@ -284,7 +284,7 @@ class ImportPage(BasePage):
 
     def click_download_template(self) -> None:
         """Click the download template button."""
-        self.wait_for_element_clickable(self.DOWNLOAD_TEMPLATE_BUTTON).click()
+        self.wait_and_click(self.DOWNLOAD_TEMPLATE_BUTTON)
 
     # ── Error alert ─────────────────────────────────────────────────────
 

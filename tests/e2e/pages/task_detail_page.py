@@ -124,7 +124,7 @@ class TaskDetailPage(BasePage):
 
     def click_start(self) -> None:
         """Click the 'Start task' button."""
-        self.wait_for_element_clickable(self.START_BUTTON).click()
+        self.wait_and_click(self.START_BUTTON)
 
     def has_skip_button(self) -> bool:
         """Check if the skip button is visible."""
@@ -132,7 +132,7 @@ class TaskDetailPage(BasePage):
 
     def click_skip(self) -> None:
         """Click the 'Skip task' button."""
-        self.wait_for_element_clickable(self.SKIP_BUTTON).click()
+        self.wait_and_click(self.SKIP_BUTTON)
 
     def has_reopen_button(self) -> bool:
         """Check if the reopen button is visible."""
@@ -140,7 +140,7 @@ class TaskDetailPage(BasePage):
 
     def click_reopen(self) -> None:
         """Click the 'Reopen task' button."""
-        self.wait_for_element_clickable(self.REOPEN_BUTTON).click()
+        self.wait_and_click(self.REOPEN_BUTTON)
 
     def has_clone_button(self) -> bool:
         """Check if the clone button is visible."""
@@ -148,7 +148,7 @@ class TaskDetailPage(BasePage):
 
     def click_clone(self) -> None:
         """Click the 'Clone task' button."""
-        self.wait_for_element_clickable(self.CLONE_BUTTON).click()
+        self.wait_and_click(self.CLONE_BUTTON)
 
     def has_complete_submit(self) -> bool:
         """Check if the complete submit button is present."""
@@ -156,7 +156,7 @@ class TaskDetailPage(BasePage):
 
     def click_complete_submit(self) -> None:
         """Click the 'Complete' submit button in the complete tab."""
-        self.wait_for_element_clickable(self.COMPLETE_SUBMIT).click()
+        self.wait_and_click(self.COMPLETE_SUBMIT)
 
     # ── Plant link ─────────────────────────────────────────────────────
 
@@ -176,7 +176,7 @@ class TaskDetailPage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 

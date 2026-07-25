@@ -180,7 +180,7 @@ class NotificationCenterPage(BasePage):
 
     def mark_all_read(self) -> None:
         """Click the 'mark all read' button in the drawer header."""
-        self.wait_for_element_clickable(self.MARK_ALL_READ).click()
+        self.wait_and_click(self.MARK_ALL_READ)
 
     def has_load_more(self) -> bool:
         """Return True if the 'load more' button is currently rendered."""

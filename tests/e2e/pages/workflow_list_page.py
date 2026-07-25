@@ -136,11 +136,11 @@ class WorkflowListPage(BasePage):
 
     def click_instantiate_button(self) -> None:
         """Click the 'Apply' / 'Instantiate' button in the dialog."""
-        self.wait_for_element_clickable(self.INSTANTIATE_BUTTON).click()
+        self.wait_and_click(self.INSTANTIATE_BUTTON)
 
     def cancel_instantiate_dialog(self) -> None:
         """Cancel the instantiate dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL_BUTTON).click()
+        self.wait_and_click(self.FORM_CANCEL_BUTTON)
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 
@@ -150,7 +150,7 @@ class WorkflowListPage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 

@@ -110,10 +110,10 @@ class LocationDetailPage(BasePage):
         self.close_mui_dropdown()
 
     def submit_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # ── Delete flow ────────────────────────────────────────────────────
 
@@ -126,10 +126,10 @@ class LocationDetailPage(BasePage):
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_OK).click()
+        self.wait_and_click(self.CONFIRM_OK)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
@@ -148,4 +148,4 @@ class LocationDetailPage(BasePage):
         return bool(elements) and elements[0].is_displayed()
 
     def click_create_watering(self) -> None:
-        self.wait_for_element_clickable(self.CREATE_WATERING_BUTTON).click()
+        self.wait_and_click(self.CREATE_WATERING_BUTTON)

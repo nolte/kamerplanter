@@ -252,7 +252,7 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_phase_transition(self) -> None:
         """Click the 'Phasenübergang' button and wait for the dialog to open."""
-        self.wait_for_element_clickable(self.TRANSITION_BUTTON).click()
+        self.wait_and_click(self.TRANSITION_BUTTON)
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def is_transition_dialog_open(self) -> bool:
@@ -314,11 +314,11 @@ class PlantInstanceDetailExt(BasePage):
 
     def confirm_transition(self) -> None:
         """Click the 'Bestätigen' button to execute the phase transition."""
-        self.wait_for_element_clickable(self.TRANSITION_CONFIRM).click()
+        self.wait_and_click(self.TRANSITION_CONFIRM)
 
     def cancel_transition(self) -> None:
         """Click the 'Abbrechen' button and wait for the transition dialog to close."""
-        self.wait_for_element_clickable(self.TRANSITION_CANCEL).click()
+        self.wait_and_click(self.TRANSITION_CANCEL)
         self.wait_for_element_hidden(self.TRANSITION_DIALOG)
 
     def is_confirm_button_enabled(self) -> bool:
@@ -329,14 +329,14 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_remove(self) -> None:
         """Click the 'Entfernen' button and wait for the confirm dialog."""
-        self.wait_for_element_clickable(self.REMOVE_BUTTON).click()
+        self.wait_and_click(self.REMOVE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_remove(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_OK).click()
+        self.wait_and_click(self.CONFIRM_OK)
 
     def cancel_remove(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL_BTN).click()
+        self.wait_and_click(self.CONFIRM_CANCEL_BTN)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:

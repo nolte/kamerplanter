@@ -165,26 +165,26 @@ class PlantingRunDetailPage(BasePage):
 
     def click_create_plants(self) -> None:
         """Click 'Create Plants' and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.CREATE_PLANTS_BUTTON).click()
+        self.wait_and_click(self.CREATE_PLANTS_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def click_delete(self) -> None:
         """Click 'Delete' and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def click_batch_remove(self) -> None:
         """Click 'Batch Remove' and wait for the confirmation dialog."""
-        self.wait_for_element_clickable(self.BATCH_REMOVE_BUTTON).click()
+        self.wait_and_click(self.BATCH_REMOVE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_action(self) -> None:
         """Click the 'Confirm' button in the open ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_action(self) -> None:
         """Click the 'Cancel' button in the open ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
         """Return True if the ConfirmDialog is currently visible."""
@@ -194,7 +194,7 @@ class PlantingRunDetailPage(BasePage):
 
     def open_edit_dialog(self) -> None:
         """Click the Edit button and wait for the edit dialog to open."""
-        self.wait_for_element_clickable(self.EDIT_BUTTON).click()
+        self.wait_and_click(self.EDIT_BUTTON)
         self.wait_for_element_visible(self.EDIT_DIALOG)
 
     def is_edit_dialog_open(self) -> bool:
@@ -220,11 +220,11 @@ class PlantingRunDetailPage(BasePage):
 
     def submit_edit_form(self) -> None:
         """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form by clicking Cancel."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_edit_form_name_value(self) -> str:
         """Return the current value in the edit form Name field."""

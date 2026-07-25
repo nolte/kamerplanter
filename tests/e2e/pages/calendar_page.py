@@ -327,7 +327,7 @@ class CalendarPage(BasePage):
 
     def click_create_feed(self) -> None:
         """Click the Create Feed button (opens the dialog)."""
-        self.wait_for_element_clickable(self.CREATE_FEED_BTN).click()
+        self.wait_and_click(self.CREATE_FEED_BTN)
 
     def is_create_feed_dialog_visible(self) -> bool:
         """Return True if the create feed dialog is open."""
@@ -344,11 +344,11 @@ class CalendarPage(BasePage):
 
     def save_feed(self) -> None:
         """Click the Save button in the feed creation dialog."""
-        self.wait_for_element_clickable(self.FEED_SAVE_BTN).click()
+        self.wait_and_click(self.FEED_SAVE_BTN)
 
     def cancel_feed(self) -> None:
         """Click the Cancel button in the feed creation dialog."""
-        self.wait_for_element_clickable(self.FEED_CANCEL_BTN).click()
+        self.wait_and_click(self.FEED_CANCEL_BTN)
 
     def wait_for_create_feed_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the create feed dialog is no longer visible."""
@@ -366,33 +366,27 @@ class CalendarPage(BasePage):
 
     def click_feed_copy(self, feed_key: str) -> None:
         """Click the copy URL button for a feed."""
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='feed-copy-{feed_key}']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-copy-{feed_key}']"))
 
     def click_feed_regenerate(self, feed_key: str) -> None:
         """Click the regenerate token button for a feed."""
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='feed-regenerate-{feed_key}']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-regenerate-{feed_key}']"))
 
     def click_feed_delete(self, feed_key: str) -> None:
         """Click the delete button for a feed."""
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='feed-delete-{feed_key}']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-delete-{feed_key}']"))
 
     # ── Watering confirmation ───────────────────────────────────────────
 
     def click_confirm_watering(self) -> None:
         """Click the confirm watering button in the event popover."""
-        self.wait_for_element_clickable(self.CONFIRM_WATERING_BTN).click()
+        self.wait_and_click(self.CONFIRM_WATERING_BTN)
 
     def click_day_confirm_watering(self, plant_key: str) -> None:
         """Click the confirm watering button for a specific plant in the day popover."""
-        self.wait_for_element_clickable(
+        self.wait_and_click(
             (By.CSS_SELECTOR, f"[data-testid='day-confirm-watering-{plant_key}']")
-        ).click()
+        )
 
     # ── Snackbar / notification ─────────────────────────────────────────
 

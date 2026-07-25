@@ -197,11 +197,11 @@ class FertilizerDetailPage(BasePage):
 
     def submit_edit_form(self) -> None:
         """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Click cancel on the edit form to reset changes."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for the given form field."""
@@ -216,7 +216,7 @@ class FertilizerDetailPage(BasePage):
 
     def click_delete(self) -> None:
         """Click the delete button to open the confirm dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
@@ -226,11 +226,11 @@ class FertilizerDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Click the confirm button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Click the cancel button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     # ── Error state ────────────────────────────────────────────────────
 

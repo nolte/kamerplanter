@@ -186,11 +186,11 @@ class TankDetailPage(BasePage):
 
     def submit_state_form(self) -> None:
         """Submit the TankState create form."""
-        self.wait_for_element_clickable(self.STATE_FORM_SUBMIT).click()
+        self.wait_and_click(self.STATE_FORM_SUBMIT)
 
     def cancel_state_form(self) -> None:
         """Cancel the TankState dialog."""
-        self.wait_for_element_clickable(self.STATE_FORM_CANCEL).click()
+        self.wait_and_click(self.STATE_FORM_CANCEL)
 
     def get_states_row_count(self) -> int:
         """Return the number of state rows in the States table."""
@@ -252,11 +252,11 @@ class TankDetailPage(BasePage):
 
     def submit_maintenance_form(self) -> None:
         """Submit the maintenance log form."""
-        self.wait_for_element_clickable(self.MAINT_FORM_SUBMIT).click()
+        self.wait_and_click(self.MAINT_FORM_SUBMIT)
 
     def cancel_maintenance_form(self) -> None:
         """Cancel the maintenance dialog."""
-        self.wait_for_element_clickable(self.MAINT_FORM_CANCEL).click()
+        self.wait_and_click(self.MAINT_FORM_CANCEL)
 
     def get_maintenance_row_count(self) -> int:
         """Return the number of rows in the maintenance history table."""
@@ -326,11 +326,11 @@ class TankDetailPage(BasePage):
 
     def submit_edit_form(self) -> None:
         """Submit the edit form."""
-        self.wait_for_element_clickable(self.EDIT_FORM_SUBMIT).click()
+        self.wait_and_click(self.EDIT_FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form (resets to last saved values)."""
-        self.wait_for_element_clickable(self.EDIT_FORM_CANCEL).click()
+        self.wait_and_click(self.EDIT_FORM_CANCEL)
 
     # ── Delete ─────────────────────────────────────────────────────────
 
@@ -342,11 +342,11 @@ class TankDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Confirm deletion in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Cancel the delete confirmation dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0

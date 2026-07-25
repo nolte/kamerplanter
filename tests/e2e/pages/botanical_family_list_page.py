@@ -228,10 +228,10 @@ class BotanicalFamilyListPage(BasePage):
         return el.get_attribute("value") or ""
 
     def submit_create_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0

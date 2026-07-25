@@ -398,11 +398,11 @@ class HarvestBatchDetailPage(BasePage):
 
     def submit_form(self) -> None:
         """Click the submit button."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
         """Click the cancel button."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # -- Validation errors --------------------------------------------------
 

@@ -186,6 +186,23 @@ class BasePage:
         except (ElementNotInteractableException, ElementClickInterceptedException):
             self.driver.execute_script("arguments[0].click();", element)
 
+    def wait_and_click(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until *locator* is clickable, scroll it into view, then click it.
+
+        The scroll step is not cosmetic: below the `sm` breakpoint MUI dialogs
+        render ``fullScreen``, so a form's action row is the last child of a
+        scrolling ``DialogContent`` and sits *below the fold*.
+        ``element_to_be_clickable`` is satisfied by a displayed+enabled element
+        regardless of whether it is inside the viewport, so a naked ``.click()``
+        on such a button raises ``ElementNotInteractableException`` (or, once
+        ChromeDriver's own scroll puts it under the fixed AppBar,
+        ``ElementClickInterceptedException``).
+
+        Use this for every submit/cancel-style action; ``scroll_and_click``
+        stays available for callers that already hold the element.
+        """
+        self.scroll_and_click(self.wait_for_element_clickable(locator, timeout=timeout))
+
     # ── Robust form-select / table helpers (prefer dedicated testids) ──────
     # These replace brittle `.MuiSelect-select` clicks, i18n-fragile
     # `contains(text(), label)` option XPaths, and position-based `cells[N]`
@@ -268,6 +285,84 @@ class BasePage:
     # conditionally prepended chip column, ...) rather than the identifying one.
 
     DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    #: Container `DataTable` emits *only* in the mobile card layout.
+    DATA_TABLE_CARDS = (By.CSS_SELECTOR, "[data-testid='data-table-cards']")
+
+    def is_card_layout(self) -> bool:
+        """Return True while a `DataTable` renders its mobile card layout.
+
+        `DataTable` wraps the cards in ``[data-testid='data-table-cards']`` and
+        renders that container in no other branch, so this is a durable signal
+        -- no viewport arithmetic, no breakpoint duplication in the tests.
+        """
+        return len(self.driver.find_elements(*self.DATA_TABLE_CARDS)) > 0
+
+    def require_table_layout(self, what: str) -> None:
+        """Fail loudly when a column-position-based read is attempted on cards.
+
+        Position-based readers (``cells[N]``) have no meaning in the card
+        layout: `MobileCard` renders no ``<td>`` and no per-cell testid, so
+        such a reader silently yields ``[]``/``""`` there -- and an assertion
+        like "the deleted entry is no longer listed" then passes for the wrong
+        reason. Callers that genuinely need column positions must be
+        desktop-only; this guard turns the silent pass into a hard failure.
+        """
+        if self.is_card_layout():
+            raise AssertionError(
+                f"{what} reads DataTable cells by column position, but the mobile "
+                "card layout is active (no <td> cells). Use a layout-tolerant "
+                "reader (get_row_primary_text / get_row_text_fragments) or mark "
+                "the test 'requires_desktop'."
+            )
+
+    def get_row_text_fragments(self, row: WebElement) -> list[str]:
+        """Return a row's readable text fragments in *both* layouts.
+
+        Desktop: one entry per ``<td>``. Mobile card layout: one entry per
+        rendered text line of the card. Intended for membership assertions
+        ("… is/is not listed"), which is what the positional ``get_row_texts``
+        helpers were actually used for.
+        """
+        cells = row.find_elements(By.TAG_NAME, "td")
+        if cells:
+            return [c.text for c in cells]
+        return [line.strip() for line in (row.text or "").splitlines() if line.strip()]
+
+    def get_all_row_text_fragments(self) -> list[list[str]]:
+        """Return :meth:`get_row_text_fragments` for every visible DataTable row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
+        ]
+
+    def get_row_chip_texts(self, row: WebElement) -> list[str]:
+        """Return the chip labels of a row in DOM order (layout-tolerant).
+
+        Both the desktop cells and `MobileCard`'s ``chips`` slot render the
+        same MUI Chips in the same order, so an index into this list is stable
+        across layouts -- unlike an index into the column list.
+        """
+        return [c.text for c in row.find_elements(By.CSS_SELECTOR, ".MuiChip-label")]
+
+    #: MUI Chip palette suffixes, in the order they are probed.
+    CHIP_COLORS = ("success", "warning", "error", "info", "secondary", "primary", "default")
+
+    def get_row_chip_colors(self, row: WebElement) -> list[str]:
+        """Return the MUI palette name of each chip in a row, in DOM order.
+
+        Reads MUI's ``MuiChip-color<Palette>`` class (e.g. ``MuiChip-colorSuccess``
+        -> ``"success"``) and falls back to ``"default"``.
+        """
+        colors: list[str] = []
+        for chip in row.find_elements(By.CSS_SELECTOR, ".MuiChip-root"):
+            cls = chip.get_attribute("class") or ""
+            colors.append(
+                next(
+                    (c for c in self.CHIP_COLORS if f"MuiChip-color{c.capitalize()}" in cls),
+                    "default",
+                )
+            )
+        return colors
 
     def get_row_primary_text(self, row: WebElement, col_id: str) -> str:
         """Return a row's identifying text, addressed by column id in both layouts.

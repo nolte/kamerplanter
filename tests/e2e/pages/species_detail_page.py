@@ -125,17 +125,17 @@ class SpeciesDetailPage(BasePage):
         self.close_mui_dropdown()
 
     def click_save(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def click_delete(self) -> None:
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def has_delete_button(self) -> bool:
         return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
@@ -178,7 +178,7 @@ class SpeciesDetailPage(BasePage):
         # 6-tab) species detail page. Switch to it by label first — robust to
         # tab reordering (cultivars is no longer at a fixed low index).
         self.click_tab_by_label("Sorten")
-        self.wait_for_element_clickable(self.CULTIVAR_CREATE_BUTTON).click()
+        self.wait_and_click(self.CULTIVAR_CREATE_BUTTON)
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
@@ -210,9 +210,7 @@ class SpeciesDetailPage(BasePage):
             el.send_keys(value)
 
     def submit_cultivar_form(self) -> None:
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, "[data-testid='form-submit-button']"))
 
     # ── Lifecycle tab (tab 2) ─────────────────────────────────────────
 
@@ -237,7 +235,7 @@ class SpeciesDetailPage(BasePage):
         self.scroll_and_click(el)
 
     def click_lifecycle_save(self) -> None:
-        self.wait_for_element_clickable(self.LIFECYCLE_FORM_SUBMIT).click()
+        self.wait_and_click(self.LIFECYCLE_FORM_SUBMIT)
 
     # ── Growth phases (within lifecycle tab) ──────────────────────────
 
@@ -299,9 +297,9 @@ class SpeciesDetailPage(BasePage):
     def submit_phase_form(self) -> None:
         # Target the submit button inside the create-dialog (GrowthPhaseDialog)
         # to avoid hitting the lifecycle config form's submit button
-        self.wait_for_element_clickable(
+        self.wait_and_click(
             (By.CSS_SELECTOR, "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']")
-        ).click()
+        )
 
     def click_phase_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)

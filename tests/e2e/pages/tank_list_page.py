@@ -211,11 +211,11 @@ class TankListPage(BasePage):
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
