@@ -70,14 +70,18 @@ class TestInvitationPageLoad:
         """
         _ensure_logged_in(login_page)
         invitation_page.open_with_token("test-token-e2e")
+
+        result = invitation_page.wait_for_result()
         screenshot(
             "TC-REQ-024-030_invitation-page-loaded",
             "InvitationAcceptPage after load with token",
         )
 
         heading = invitation_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-024-030 FAIL: Expected heading text on InvitationAcceptPage"
+        expected = InvitationAcceptPage.RESULT_HEADINGS[result]
+        assert heading in expected, (
+            f"TC-REQ-024-030 FAIL: Expected the invitation result card to show one "
+            f"of {expected} in its '{result}' state, got: '{heading}'"
         )
 
     @pytest.mark.smoke
@@ -149,8 +153,10 @@ class TestInvitationInvalidToken:
         )
 
         heading = invitation_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-024-032 FAIL: Expected error heading text for invalid token"
+        expected = InvitationAcceptPage.RESULT_HEADINGS["error"]
+        assert heading in expected, (
+            f"TC-REQ-024-032 FAIL: Expected the error heading to be one of "
+            f"{expected} for an invalid token, got: '{heading}'"
         )
 
     @pytest.mark.core_crud
