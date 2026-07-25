@@ -647,3 +647,69 @@ describe('TaskDetailPage — delete flow', () => {
     expect(mockNavigate).not.toHaveBeenCalledWith('/aufgaben/queue');
   });
 });
+
+describe('TaskDetailPage — header action group', () => {
+  let spy: TaskSpy;
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    mockNavigate.mockClear();
+    spy = {};
+  });
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('keeps the action group shrinkable and wrapping so no action leaves the viewport', async () => {
+    useTaskHandlers(spy);
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const startButton = screen.getByTestId('start-task-button');
+    const group = startButton.parentElement as HTMLElement;
+
+    // Every header action lives in this one group — including the destructive
+    // one, which was the first to be pushed out of a 393px viewport.
+    for (const testId of ['start-task-button', 'skip-task-button', 'clone-task-button', 'delete-task-button']) {
+      expect(group).toContainElement(screen.getByTestId(testId));
+    }
+
+    // Regression guard: the group used to be `flexShrink: 0`, which sizes a flex
+    // item to its max-content width — the four/five buttons then formed one
+    // unbreakable row and the trailing ones rendered outside the viewport
+    // (UI-NFR-001 R-005/R-006, UI-NFR-021 R-023).
+    const groupStyle = window.getComputedStyle(group);
+    expect(groupStyle.flexShrink).not.toBe('0');
+    expect(groupStyle.flexWrap).toBe('wrap');
+    // Stack's default margin-based spacing collapses once lines wrap, so the
+    // group must use gap-based spacing.
+    expect(groupStyle.gap).not.toBe('');
+    expect(groupStyle.gap).not.toBe('normal');
+  });
+
+  it('exposes the reopen action inside the same wrapping group on a completed task', async () => {
+    useTaskHandlers(spy, { task: makeTask({ status: 'completed' }) });
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const reopenButton = screen.getByTestId('reopen-task-button');
+    const group = reopenButton.parentElement as HTMLElement;
+    expect(group).toContainElement(screen.getByTestId('delete-task-button'));
+    expect(window.getComputedStyle(group).flexWrap).toBe('wrap');
+  });
+
+  it('addresses the delete action by a stable test id, like its siblings', async () => {
+    useTaskHandlers(spy);
+    const user = userEvent.setup();
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    // The delete action was the only header action without a test hook, which
+    // forced consumers to select it by MUI class name plus translated label.
+    const deleteButton = screen.getByTestId('delete-task-button');
+    expect(deleteButton).toHaveAccessibleName(i18n.t('common.delete'));
+
+    await user.click(deleteButton);
+    expect(await screen.findByTestId('confirm-dialog-confirm')).toBeInTheDocument();
+  });
+});

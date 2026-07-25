@@ -627,7 +627,20 @@ export default function TaskDetailPage() {
           </Stack>
         </Box>
 
-        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+        {/* The action group MUST stay shrinkable and wrap: with `flexShrink: 0`
+            a flex item is sized to its max-content width, so up to five buttons
+            (start / skip / reopen / clone / delete) formed one unbreakable row
+            that pushed the trailing — destructive — buttons outside a 393px
+            viewport. Shrinking is bounded by the group's automatic minimum size,
+            so the buttons wrap onto a second line instead of overflowing
+            (UI-NFR-001 R-005/R-006, UI-NFR-021 R-023). `useFlexGap` is required
+            here: Stack's default margin-based spacing breaks once lines wrap. */}
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}
+        >
           {task.status === 'pending' && (
             <Button
               variant="outlined"
@@ -680,6 +693,7 @@ export default function TaskDetailPage() {
             color="error"
             startIcon={<DeleteIcon />}
             onClick={() => setDeleteOpen(true)}
+            data-testid="delete-task-button"
           >
             {t('common.delete')}
           </Button>
