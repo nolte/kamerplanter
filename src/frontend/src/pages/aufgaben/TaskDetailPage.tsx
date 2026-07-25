@@ -1025,6 +1025,7 @@ export default function TaskDetailPage() {
       {tab === 1 && isActionable && (
         <Box
           component="form"
+          noValidate
           onSubmit={handleCompletionSubmit(handleComplete)}
           sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
@@ -1275,6 +1276,14 @@ export default function TaskDetailPage() {
       {tab === editTabIndex && (
         <Box
           component="form"
+          // react-hook-form + zod is the single validation source of truth here.
+          // Without `noValidate` the browser's own constraint validation runs
+          // first (the `required` name, the `min`/`step` of the duration
+          // fields): it aborts the submission *before* any `submit` event, so
+          // zod never runs and no MUI helper text ever renders — the user only
+          // sees a transient native bubble in the browser's locale. Same defect
+          // and same fix as on HarvestBatchDetailPage/HarvestCreateDialog.
+          noValidate
           onSubmit={handleEditSubmit(onSave)}
           sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}
         >

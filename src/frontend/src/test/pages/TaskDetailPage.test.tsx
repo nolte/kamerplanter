@@ -471,6 +471,29 @@ describe('TaskDetailPage — complete & edit tabs', () => {
     expect(spy.completed!.difficulty_rating).toBeNull();
   });
 
+  it('renders the zod error inline when a natively-constrained edit field is invalid', async () => {
+    // Regression guard: the edit form must carry `noValidate`. Without it the
+    // browser's constraint validation (the `required` name field) aborts the
+    // submission before any `submit` event fires — zod never runs, no MUI
+    // helper text renders, and the user is left with a transient native bubble
+    // and a silently unsaved form. jsdom implements the same interactive
+    // validation, so dropping `noValidate` makes this test fail.
+    useTaskHandlers(spy);
+    const user = userEvent.setup();
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1#edit' });
+    await screen.findByTestId('task-detail-page');
+
+    const nameField = await screen.findByTestId('form-field-name');
+    await user.clear(await screen.findByDisplayValue('Water plant'));
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    // zod rejected the empty name and the rejection is visible on the field.
+    await waitFor(() =>
+      expect(nameField.querySelector('.MuiFormHelperText-root.Mui-error')).not.toBeNull(),
+    );
+    expect(spy.put).toBeUndefined();
+  });
+
   it('saves edits from the edit tab once the form is dirty', async () => {
     useTaskHandlers(spy);
     const user = userEvent.setup();
