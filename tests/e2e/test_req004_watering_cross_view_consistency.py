@@ -140,10 +140,10 @@ class TestWateringCrossViewConsistency:
 
         plant_detail.open_tasks_tab(key)
         baseline_pending_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_ACTIVE_SECTION_LABEL
+            plant_detail.TASK_ACTIVE_SECTION
         )
         baseline_completed_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_DONE_SECTION_LABEL
+            plant_detail.TASK_DONE_SECTION
         )
         screenshot("TC-004-092_baseline-tasks", "Task history before the watering")
         assert baseline_pending_watering == 1, (
@@ -226,13 +226,13 @@ class TestWateringCrossViewConsistency:
         # ── View 3: Aufgabenverlauf (#tasks) ─────────────────────────────────
         plant_detail.open_tasks_tab(key)
         completed_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_DONE_SECTION_LABEL
+            plant_detail.TASK_DONE_SECTION
         )
         pending_watering = plant_detail.count_watering_tasks(
-            plant_detail.TASK_ACTIVE_SECTION_LABEL
+            plant_detail.TASK_ACTIVE_SECTION
         )
         completed_at = plant_detail.get_watering_task_cell(
-            plant_detail.TASK_DONE_SECTION_LABEL, "completed_at"
+            plant_detail.TASK_DONE_SECTION, "completed_at"
         )
         screenshot("TC-004-092_view3-tasks", "View 3 — task history after the watering")
 

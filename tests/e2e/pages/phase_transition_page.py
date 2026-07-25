@@ -73,13 +73,17 @@ class PlantInstanceListExt(BasePage):
     def get_phase_column_texts(self) -> list[str]:
         """Return each visible row's current-phase label.
 
-        Addressed by column id: the previous ``cells[3]`` read the *location*
-        column, so TC-REQ-003-005 asserted on the wrong column on the desktop
-        table and on nothing at all in the mobile card layout.
+        Addressed by column id in both layouts: the previous ``cells[3]`` read
+        the *location* column, so TC-REQ-003-005 asserted on the wrong column
+        on the desktop table and on nothing at all in the mobile card layout.
 
-        `MobileCard` exposes no per-field testid, so in the card layout this
-        falls back to the row's first chip -- which is the phase chip whenever
-        the plant has a phase (the planting-run chip only ever follows it).
+        `PlantInstanceListPage` keys its card chips, so the card layout reads
+        ``card-chip-currentPhase`` -- the same column id the desktop cell uses.
+        The previous "the phase chip is the row's *first* chip" heuristic held
+        only as long as the phase chip stayed conditional-but-first; it would
+        have reported the planting-run chip for any plant without a phase.
+        `MobileCard` omits the chip entirely in that case, which this reports
+        as the empty string, exactly as the desktop cell does.
         """
         result: list[str] = []
         for row in self.driver.find_elements(*self.TABLE_ROWS):
@@ -89,8 +93,10 @@ class PlantInstanceListExt(BasePage):
             if cells:
                 result.append(cells[0].text)
                 continue
-            chips = self.get_row_chip_texts(row)
-            result.append(chips[0] if chips else "")
+            chips = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='card-chip-{self.PHASE_COLUMN_ID}']"
+            )
+            result.append(chips[0].text if chips else "")
         return result
 
     def click_row(self, index: int) -> None:

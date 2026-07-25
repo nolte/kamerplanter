@@ -197,16 +197,15 @@ class CalendarPage(BasePage):
     # ── Category filter chips ───────────────────────────────────────────
 
     CATEGORY_FILTER_CHIPS = (By.CSS_SELECTOR, "[data-testid^='category-filter-']")
-    # The "Kategorien (n/m)" disclosure button carries no data-testid of its
-    # own, so it is anchored on the MUI Collapse that wraps the category chips
-    # -- i.e. on the product's own `category-filter-*` testids, not on the
-    # button's (i18n-dependent) label or on a position in the page.
-    # See the report for the requested `calendar-category-filter-toggle` hook.
+    # The "Kategorien (n/m)" disclosure button now carries its own hook, so the
+    # previous anchor -- the MUI Collapse wrapping the chips plus a
+    # preceding-sibling step -- is gone. That construction depended on a MUI
+    # internal class *and* on the button staying the Collapse's immediate
+    # preceding sibling; `CalendarPage` renders the button only at `fullScreen`
+    # width, so a mis-anchored lookup would have failed silently on desktop.
     CATEGORY_FILTER_TOGGLE = (
-        By.XPATH,
-        "//*[contains(@class, 'MuiCollapse-root')]"
-        "[.//*[starts-with(@data-testid, 'category-filter-')]]"
-        "/preceding-sibling::button[1]",
+        By.CSS_SELECTOR,
+        "[data-testid='calendar-category-filter-toggle']",
     )
 
     def get_category_filter_chips(self) -> list[WebElement]:

@@ -114,10 +114,18 @@ class PestListPage(BasePage):
     PEST_TYPE_COLUMN_ID = "pestType"
     DIFFICULTY_COLUMN_ID = "detectionDifficulty"
 
+    #: Recognition-availability column (REQ-044), only rendered while pest
+    #: detection is enabled. Readable through the column helpers below in both
+    #: layouts: the desktop chip sits inside ``cell-recognition`` and carries
+    #: `PestListPage`'s own ``data-testid='recognition-chip'``, the card chip
+    #: is keyed ``card-chip-recognition``.
+    RECOGNITION_COLUMN_ID = "recognition"
+
     def get_chip_texts_in_column(self, col_id: str) -> list[str]:
         """Return the chip labels of column *col_id* across all visible rows.
 
-        Takes a column *id* rather than a column *index*: the pest table's
+        Takes a column *id* rather than a column *index* and resolves it in
+        both layouts (``cell-<id>`` / ``card-chip-<id>``): the pest table's
         column set is conditional (the recognition column only exists while
         pest detection is enabled), and the mobile card layout has no columns
         at all -- an index-based reader silently returned ``[]`` there.

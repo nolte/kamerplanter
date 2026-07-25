@@ -578,19 +578,52 @@ class BasePage:
         raise last_error
 
     def get_row_cell_text(self, row: WebElement, col_id: str) -> str:
-        """Return a DataTable row cell's text addressed by column id (not position)."""
+        """Return a DataTable row cell's text addressed by column id (not position).
+
+        Resolves the *same* column id in both layouts: ``cell-<col_id>`` on the
+        desktop table, else `MobileCard`'s ``card-field-<col_id>`` /
+        ``card-chip-<col_id>``.
+
+        Raises when the row demonstrably *is* a `MobileCard` (it carries a
+        ``card-title``) but keys none of them: returning ``''`` there makes an
+        assertion like "the supplemental column must be empty" pass without
+        ever having read anything.
+        """
         cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
-        return cells[0].text if cells else ""
+        if cells:
+            return cells[0].text
+        field = self.get_card_field(row, col_id)
+        if field is not None:
+            return field
+        chips = row.find_elements(By.CSS_SELECTOR, f"[data-testid='card-chip-{col_id}']")
+        if chips:
+            return chips[0].text
+        if row.find_elements(*self.CARD_TITLE):
+            raise AssertionError(
+                f"Column '{col_id}' is not readable on this MobileCard: it keys "
+                f"neither 'card-field-{col_id}' nor 'card-chip-{col_id}'. Key the "
+                "field/chip in the page's mobileCardRenderer, or read the column "
+                "on a desktop-only test."
+            )
+        return ""
 
     # ── Layout-tolerant DataTable row access ──────────────────────────────
     # `DataTable` emits ``[data-testid='data-table-row']`` in BOTH layouts, but
     # only the desktop table renders ``<td data-testid='cell-<col_id>'>``. Below
     # the table's `mobileBreakpoint` it renders a `MobileCard` inside the same
-    # row container, and `MobileCard` emits no per-cell testids at all -- there
-    # is neither a ``<td>`` nor a ``cell-*`` to read. Position-based `cells[0]`
-    # access is doubly wrong there: it yields `[]` on mobile, and on desktop it
-    # picks whatever column happens to come first (a favourite star, a
-    # conditionally prepended chip column, ...) rather than the identifying one.
+    # row container. Position-based `cells[0]` access is doubly wrong there: it
+    # yields `[]` on mobile, and on desktop it picks whatever column happens to
+    # come first (a favourite star, a conditionally prepended chip column, ...)
+    # rather than the identifying one.
+    #
+    # `MobileCard` now carries its own hooks (UI-NFR-022 R-016):
+    #   ``card-title``            -- always present
+    #   ``card-subtitle``         -- only when the caller sets a subtitle
+    #   ``card-field-<col_id>``   -- only when the caller keys the field
+    #   ``card-chip-<col_id>``    -- only when the caller keys the chip
+    # The last two use exactly the `Column.id` of the column they mirror, so a
+    # single key addresses the same value in both layouts (``cell-<id>`` on the
+    # desktop table, ``card-field-<id>``/``card-chip-<id>`` on the card).
 
     DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
     #: Container `DataTable` emits *only* in the mobile card layout.
@@ -609,11 +642,12 @@ class BasePage:
         """Fail loudly when a column-position-based read is attempted on cards.
 
         Position-based readers (``cells[N]``) have no meaning in the card
-        layout: `MobileCard` renders no ``<td>`` and no per-cell testid, so
-        such a reader silently yields ``[]``/``""`` there -- and an assertion
-        like "the deleted entry is no longer listed" then passes for the wrong
-        reason. Callers that genuinely need column positions must be
-        desktop-only; this guard turns the silent pass into a hard failure.
+        layout: `MobileCard` renders no ``<td>`` -- it addresses values by
+        column id (``card-field-<id>`` / ``card-chip-<id>``), never by
+        position -- so such a reader silently yields ``[]``/``""`` there, and
+        an assertion like "the deleted entry is no longer listed" then passes
+        for the wrong reason. Callers that genuinely need column positions must
+        be desktop-only; this guard turns the silent pass into a hard failure.
         """
         if self.is_card_layout():
             raise AssertionError(
@@ -627,14 +661,30 @@ class BasePage:
         """Return a row's readable text fragments in *both* layouts.
 
         Desktop: one entry per ``<td>``. Mobile card layout: one entry per
-        rendered text line of the card. Intended for membership assertions
-        ("… is/is not listed"), which is what the positional ``get_row_texts``
-        helpers were actually used for.
+        rendered text line of the card, except that the card's title and
+        subtitle are taken from their ``card-title``/``card-subtitle`` hooks
+        via ``textContent`` -- `MobileCard` renders both ``noWrap``, so the
+        *rendered* line drops the ellipsised tail of a long value (e.g. the
+        ``— watering`` suffix of a care-reminder task name).
+
+        Reading the remaining lines from the card's rendered text is deliberate
+        and not a fallback: it is what keeps this reader complete for the many
+        `MobileCard` callers that key no ``card-field-*``/``card-chip-*`` yet.
+        Intended for membership assertions ("… is/is not listed").
         """
         cells = row.find_elements(By.TAG_NAME, "td")
         if cells:
             return [c.text for c in cells]
-        return [line.strip() for line in (row.text or "").splitlines() if line.strip()]
+        lines = [line.strip() for line in (row.text or "").splitlines() if line.strip()]
+        exact = [
+            self._text_content(els[0])
+            for locator in (self.CARD_TITLE, self.CARD_SUBTITLE)
+            if (els := row.find_elements(*locator))
+        ]
+        # `MobileCard` renders title and subtitle as the card's first text
+        # lines (the optional `leading` slot carries a preview image, no text),
+        # so the exact readings replace exactly those leading entries.
+        return exact + lines[len(exact):]
 
     def get_all_row_text_fragments(self) -> list[list[str]]:
         """Return :meth:`get_row_text_fragments` for every visible DataTable row."""
@@ -643,16 +693,14 @@ class BasePage:
             for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
         ]
 
-    # `MobileCard` emits no per-field testid at all: its title is a
-    # ``subtitle2`` Typography and its optional subtitle the ``caption``
-    # Typography immediately following it inside the same header Box. The
-    # `fields` grid also renders captions, so the subtitle is addressed as the
-    # title's *sibling* rather than as "the first caption".
-    CARD_TITLE_XPATH = ".//*[contains(@class, 'MuiTypography-subtitle2')]"
-    CARD_SUBTITLE_XPATH = (
-        ".//*[contains(@class, 'MuiTypography-subtitle2')]"
-        "/following-sibling::*[contains(@class, 'MuiTypography-caption')]"
-    )
+    #: `MobileCard`'s own hooks. ``card-title`` is unconditional, so its
+    #: absence means "this row renders no card" -- never "the title is
+    #: missing". ``card-subtitle`` is emitted only when a subtitle is set.
+    CARD_TITLE = (By.CSS_SELECTOR, "[data-testid='card-title']")
+    CARD_SUBTITLE = (By.CSS_SELECTOR, "[data-testid='card-subtitle']")
+    #: Any keyed card chip, used to tell an *unadopted* page (no keyed chips at
+    #: all) apart from a row whose conditional chip simply is not rendered.
+    CARD_ANY_CHIP = (By.CSS_SELECTOR, "[data-testid^='card-chip-']")
 
     @staticmethod
     def _text_content(element: WebElement) -> str:
@@ -668,59 +716,111 @@ class BasePage:
 
     def get_card_title(self, row: WebElement) -> str:
         """Return the `MobileCard` title of *row*, or ``''`` outside the card layout."""
-        els = row.find_elements(By.XPATH, self.CARD_TITLE_XPATH)
+        els = row.find_elements(*self.CARD_TITLE)
         return self._text_content(els[0]) if els else ""
 
     def get_card_subtitle(self, row: WebElement) -> str:
         """Return the `MobileCard` subtitle of *row*, or ``''`` if it has none."""
-        els = row.find_elements(By.XPATH, self.CARD_SUBTITLE_XPATH)
+        els = row.find_elements(*self.CARD_SUBTITLE)
         return self._text_content(els[0]) if els else ""
 
-    def get_row_chip_texts(self, row: WebElement) -> list[str]:
-        """Return the chip labels of a row in DOM order (layout-tolerant).
+    def get_card_field(self, row: WebElement, col_id: str) -> str | None:
+        """Return the card's ``card-field-<col_id>`` value, or ``None`` if unkeyed.
 
-        Both the desktop cells and `MobileCard`'s ``chips`` slot render the
-        same MUI Chips in the same order, so an index into this list is stable
-        across layouts -- unlike an index into the column list.
+        ``None`` is the "this caller has not keyed that field yet" signal and
+        must be handled by the caller -- returning ``''`` would be
+        indistinguishable from a field that is rendered but empty.
         """
-        return [c.text for c in row.find_elements(By.CSS_SELECTOR, ".MuiChip-label")]
+        els = row.find_elements(By.CSS_SELECTOR, f"[data-testid='card-field-{col_id}']")
+        return self._text_content(els[0]) if els else None
+
+    def get_row_chip_texts(self, row: WebElement) -> list[str]:
+        """Return the labels of a row's *keyed* chips, in DOM order.
+
+        Only keyed chips (``card-chip-<col_id>``) count: the previous
+        ``.MuiChip-label`` sweep returned every chip of the row, including
+        those a caller renders outside the chip slot, so an index into the
+        result addressed a different chip per page and per row. Use
+        :meth:`get_column_chip_texts` when the column is known -- it is exact.
+        """
+        return [c.text for c in row.find_elements(*self.CARD_ANY_CHIP)]
 
     #: MUI Chip palette suffixes, in the order they are probed.
     CHIP_COLORS = ("success", "warning", "error", "info", "secondary", "primary", "default")
 
-    def get_column_chip_texts(self, col_id: str) -> list[str]:
-        """Return the chip labels of column *col_id*, across all visible rows.
+    def _column_chip_scopes(self, row: WebElement, col_id: str) -> list[WebElement]:
+        """Return the elements holding column *col_id*'s chip(s) in either layout.
 
-        Falls back to *every* chip of the row in the mobile card layout, where
-        `MobileCard` renders the same chips the chip-carrying columns render,
-        in the same order, but exposes no per-field testid to address them by.
+        Desktop: the ``cell-<col_id>`` ``<td>``. Card layout: the keyed chip
+        ``card-chip-<col_id>`` -- which `MobileCard` clones the hook straight
+        onto, so the returned element *is* the Chip.
+
+        Fails loudly when the row exposes neither hook: on the desktop table
+        that means the column is not rendered at all, and in the card layout
+        that the page's `MobileCard` caller has not keyed its chips yet. The
+        previous behaviour -- falling back to *every* chip of the row --
+        answered a question about column *A* with the chips of column *B*.
+
+        A row that merely lacks this one conditional chip while carrying other
+        keyed chips is a legitimate empty result, not a failure.
         """
+        cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+        if cells:
+            return cells
+        chips = row.find_elements(By.CSS_SELECTOR, f"[data-testid='card-chip-{col_id}']")
+        if chips:
+            return chips
+        if not row.find_elements(*self.CARD_ANY_CHIP):
+            raise AssertionError(
+                f"Column '{col_id}' is not addressable on this row: it renders "
+                f"neither a 'cell-{col_id}' <td> (desktop table) nor any keyed "
+                "'card-chip-*' (mobile card layout). Either the column is not "
+                "rendered at all, or the page's mobileCardRenderer still passes "
+                "its chips as a plain node instead of a keyed { id, content } list."
+            )
+        return []
+
+    CHIP_ROOT_CSS = ".MuiChip-root"
+
+    def _chip_elements(self, scope: WebElement) -> list[WebElement]:
+        """Return the Chips *scope* holds, or *scope* itself when it is one.
+
+        `MobileCard` clones ``card-chip-<id>`` straight onto the Chip, so a
+        card scope *is* the chip; a desktop ``cell-<id>`` ``<td>`` wraps it.
+        ``.MuiChip-root`` is used here only to separate chips from a cell's
+        other content **inside an already hook-addressed scope** -- never to
+        locate a column, which is what the removed fallbacks did.
+        """
+        if "MuiChip-root" in (scope.get_attribute("class") or ""):
+            return [scope]
+        return scope.find_elements(By.CSS_SELECTOR, self.CHIP_ROOT_CSS)
+
+    def get_column_chip_texts(self, col_id: str) -> list[str]:
+        """Return the chip labels of column *col_id*, across all visible rows."""
         texts: list[str] = []
         for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
-            scope = cells[0] if cells else row
-            texts.extend(c.text for c in scope.find_elements(By.CSS_SELECTOR, ".MuiChip-label"))
+            for scope in self._column_chip_scopes(row, col_id):
+                texts.extend(c.text for c in self._chip_elements(scope))
         return texts
 
     def get_column_chip_colors(self, col_id: str) -> list[str]:
         """Return the MUI palette name of column *col_id*'s chips, across all rows.
 
-        Same layout fallback as :meth:`get_column_chip_texts`.
+        The palette is only ever expressed as MUI's ``MuiChip-color<Palette>``
+        class -- there is no product hook for a chip's colour -- so this reads
+        the class by design. What it no longer does is *find* the chip by
+        class: the scope comes from ``cell-<col_id>`` / ``card-chip-<col_id>``.
         """
         colors: list[str] = []
         for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
-            cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
-            colors.extend(self.get_row_chip_colors(cells[0] if cells else row))
+            for scope in self._column_chip_scopes(row, col_id):
+                colors.extend(self._chip_colors(self._chip_elements(scope)))
         return colors
 
-    def get_row_chip_colors(self, row: WebElement) -> list[str]:
-        """Return the MUI palette name of each chip in a row, in DOM order.
-
-        Reads MUI's ``MuiChip-color<Palette>`` class (e.g. ``MuiChip-colorSuccess``
-        -> ``"success"``) and falls back to ``"default"``.
-        """
+    def _chip_colors(self, chips: list[WebElement]) -> list[str]:
+        """Map each Chip onto its MUI palette name (``MuiChip-colorSuccess`` -> ``success``)."""
         colors: list[str] = []
-        for chip in row.find_elements(By.CSS_SELECTOR, ".MuiChip-root"):
+        for chip in chips:
             cls = chip.get_attribute("class") or ""
             colors.append(
                 next(
@@ -730,19 +830,40 @@ class BasePage:
             )
         return colors
 
+    def get_row_chip_colors(self, row: WebElement) -> list[str]:
+        """Return the MUI palette name of each chip in a row, in DOM order."""
+        return self._chip_colors(self._chip_elements(row))
+
     def get_row_primary_text(self, row: WebElement, col_id: str) -> str:
         """Return a row's identifying text, addressed by column id in both layouts.
 
         Reads ``[data-testid='cell-<col_id>']`` when the desktop table is
-        rendered. In the mobile card layout it falls back to the card's first
-        text line, which is the `MobileCard` ``title`` -- fed from the same
-        field the identifying column renders on every page using this helper.
+        rendered, otherwise the column's ``card-field-<col_id>`` and finally
+        the card's ``card-title`` -- fed from the same field the identifying
+        column renders on every page using this helper. The card title is
+        addressed by its hook rather than as "the first text line", which
+        happened to work only as long as no `leading`/`trailing` slot carried
+        text.
+
+        Fails loudly in the card layout when the row exposes no ``card-title``
+        at all: that is a `MobileCard` that did not render, and returning
+        ``''`` there turns "the deleted entry is gone" into a pass for the
+        wrong reason.
         """
         cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
         if cells:
             return cells[0].text
-        lines = [line.strip() for line in (row.text or "").splitlines() if line.strip()]
-        return lines[0] if lines else ""
+        field = self.get_card_field(row, col_id)
+        if field is not None:
+            return field
+        titles = row.find_elements(*self.CARD_TITLE)
+        if not titles:
+            raise AssertionError(
+                f"Row exposes neither a 'cell-{col_id}' <td> nor a 'card-field-"
+                f"{col_id}' nor a 'card-title' -- it renders no readable "
+                "identifier in either layout."
+            )
+        return self._text_content(titles[0])
 
     def get_column_texts(self, col_id: str) -> list[str]:
         """Return the identifying text of every visible DataTable row."""
