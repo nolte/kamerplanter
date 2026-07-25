@@ -36,6 +36,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from ._auth_helpers import clear_auth_session
 from .pages.expertise_level_page import ExpertiseLevelPage
+from .pages.tank_list_page import TankListPage
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -641,7 +642,10 @@ class TestNavigationTiering:
         """
         _set_experience_level(expertise_page, "beginner")
 
-        expertise_page.navigate_direct("/standorte/tanks")
+        # The tank list's own root is the settle signal: "no error is displayed"
+        # is trivially true while the lazily-imported route is still resolving,
+        # so an unwaited assertion below could not fail.
+        expertise_page.navigate_direct("/standorte/tanks", TankListPage.PAGE)
         screenshot(
             "TC-REQ-021-011_beginner-direct-tanks-url",
             "Tank list page loaded via direct URL as beginner",

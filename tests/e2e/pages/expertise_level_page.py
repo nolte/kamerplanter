@@ -479,6 +479,15 @@ class ExpertiseLevelPage(BasePage):
 
     # ── Direct URL navigation (for testing no-access-control) ────────
 
-    def navigate_direct(self, path: str) -> None:
-        """Navigate to an arbitrary path (for testing direct URL access)."""
+    def navigate_direct(self, path: str, settled: tuple[str, str]) -> None:
+        """Navigate to an arbitrary *path* and wait until *settled* is rendered.
+
+        *settled* is mandatory rather than optional: every caller asserts that
+        the target route rendered *without* an error, and "no error is on
+        screen" is trivially true of a route that has not mounted yet -- a
+        lazily-imported chunk still in flight leaves the app chrome alone in the
+        DOM, so an unwaited negative assertion cannot fail. Naming the route's
+        own root turns that into a real check.
+        """
         self.navigate(path)
+        self.wait_for_element(settled)

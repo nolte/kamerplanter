@@ -12,6 +12,11 @@ class BotanicalFamilyDetailPage(BasePage):
     """Interact with the Botanical Family detail page (``/stammdaten/botanical-families/:key``)."""
 
     # Locators
+    #: The page's own root. Rendered only on the success branch -- the loading
+    #: and error branches return a `LoadingSkeleton` / `ErrorDisplay` *instead*
+    #: of it -- so its presence is the durable "this route settled into content"
+    #: signal, and (root | ERROR_DISPLAY) exhausts the settled states.
+    PAGE = (By.CSS_SELECTOR, "[data-testid='botanical-family-detail-page']")
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
