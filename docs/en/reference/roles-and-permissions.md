@@ -37,15 +37,41 @@ Inside a tenant, every member holds **exactly one** of three roles. They form a 
 | **Grower** | May plant, document and work through tasks — but not administer the garden | Active association member with their own plot |
 | **Viewer** | May read everything, change nothing | Interested relatives, association archive, display screen |
 
-### Role Comparison
+### The Revised Role Model
+
+!!! note "Partially available: role model"
+    A revision of the roles has been decided that will replace the table above. Available today are the three roles Admin, Grower and Viewer. What is still missing: the third domain tier **Leitung** (lead) and the split of administrative rights into **Verwaltung** (management) and **Technik** (technical). Until then, today's Admin role bundles everything that will later be spread across lead, management and technical. <!-- REQ-049 §2.3, §2.4 -->
+
+The future model separates two questions that today sit inside a single ranking: what you may do **in the garden**, and what you may administer **on the garden**.
+
+**Domain roles — out in the garden.** Every member will hold exactly one of these:
+
+| Future role | Will be allowed to | Intended for |
+|-------------|--------------------|--------------|
+| **Viewer** | Read, print, export | Bookkeeping, audit, relatives, display screen |
+| **Grower** | Additionally create, change and document — but **not delete** | Association member, student, seasonal help, trainee |
+| **Lead** | Additionally delete, assign tasks to others, rebuild the location structure, maintain templates | Plot warden, foreman, operations lead |
+
+The line between grower and lead follows reversibility: a grower will be able to correct a mistake by overwriting a value — they will not be able to destroy history.
+
+**Administrative scopes — on the garden.** You will receive these in addition to your domain role, independently of which one you hold:
+
+| Future scope | Will cover | Intended for |
+|--------------|------------|--------------|
+| **Management** | Invite and remove members, change roles, garden settings, attribute plots, service accounts | Board, teacher, owner |
+| **Technical** | Connect Home Assistant and other integrations, configure sensors, run imports | Technical warden, external service provider |
+
+The practical gain: rights become grantable individually instead of only as a bundle. The board manages members without having to touch the sensors; the technically-minded member connects Home Assistant without gaining access to the member list; and a student records measurements without being able to delete a bed by accident.
+
+### Role Comparison — What Applies Today
 
 <!-- Quelle: src/backend/app/core/permissions.py, src/backend/app/common/auth.py -->
 
 | Task | Admin | Grower | Viewer |
 |------|:-----:|:------:|:------:|
 | Read all data in the garden | Yes | Yes | Yes |
-| Create, edit and remove plants | Yes | Yes | No |
-| Create and edit sites, areas and slots | Yes | Yes | No |
+| Create, edit and remove plants | Yes | Yes† | No |
+| Create and edit sites, areas and slots | Yes | Yes† | No |
 | Create planting runs and advance their phases | Yes | Yes | No |
 | Create and complete tasks | Yes | Yes | No |
 | Document harvests and post-harvest data | Yes | Yes | No |
@@ -61,6 +87,8 @@ Inside a tenant, every member holds **exactly one** of three roles. They form a 
 | Leave the garden yourself | Yes* | Yes | Yes |
 
 *As the only admin you cannot leave the garden without first promoting another member to admin — otherwise the garden would be left without administration.
+
+†These two rows change with the revised model: deleting and rebuilding the location structure will be reserved for the lead, while creating and editing stay with the grower. <!-- REQ-049 §2.3 -->
 
 ### Who May Manage Members?
 

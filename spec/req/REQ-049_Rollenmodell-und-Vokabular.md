@@ -284,7 +284,7 @@ Die 31 vorhandenen Abschnitte werden nach diesen Regeln umgeschrieben. Die Zuord
 | Alt | Neu | Bedingung |
 |-----|-----|-----------|
 | `Mitglied` in der Spalte Lesen | **Alle Rollen** | immer |
-| `Mitglied` in der Spalte Schreiben | **Ab Gärtner** | immer |
+| `Mitglied` in der Spalte Schreiben | **Ab Gärtner** — in **beide** neuen Spalten „Anlegen" und „Ändern" | immer |
 | `Mitglied` in der Spalte Löschen | **Nur Leitung** | immer |
 | `Admin` in der Spalte Löschen | **Nur Leitung** | fachliche Ressource |
 | `Admin` bei Integrationen, Sensorkonfiguration, Import, Anreicherung | **Technik** | technische Konfiguration |
@@ -292,6 +292,8 @@ Die 31 vorhandenen Abschnitte werden nach diesen Regeln umgeschrieben. Die Zuord
 | `Admin` bei globalen Stammdaten | **Plattform-Admin** | mandantenübergreifend |
 | `Grower` | **Ab Gärtner** bzw. **Gärtner**, je nach Kontext | immer |
 | `Platform-Admin`, `Tenant-Admin` (REQ-001) | **Plattform-Admin** bzw. **Verwaltung** | immer |
+
+**Aufteilung der alten Spalte „Schreiben".** Das Schema aus §3.3 trennt Anlegen und Ändern; die alten Tabellen tun das nicht. Regel: Beide neuen Spalten erhalten denselben Wert, **außer** die Ressource unterscheidet die beiden Aktionen nachweislich. Ein solcher Fall ist im jeweiligen Dokument in einem Halbsatz zu begründen. Bekannte Fälle: **Pflegeprofile** (kein Anlegen durch Gärtner, aber Bestätigen und Verschieben), **Import-Jobs** (Anlegen ja, nachträgliches Ändern nein) und **globale Kataloge** (nur Lesen, beide Schreibspalten `—`).
 
 ### 3.5 Zuweisungen sind Koordination, keine Rechte
 

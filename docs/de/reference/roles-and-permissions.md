@@ -37,15 +37,41 @@ Innerhalb eines Mandanten hat jedes Mitglied **genau eine** von drei Rollen. Sie
 | **Gärtner** | Darf pflanzen, dokumentieren, Aufgaben abarbeiten — aber den Garten nicht verwalten | Aktives Vereinsmitglied mit eigener Parzelle |
 | **Beobachter** | Darf alles lesen, nichts ändern | Interessierte Angehörige, Vereinsarchiv, Anzeige-Bildschirm |
 
-### Rollenvergleich
+### Das überarbeitete Rollenmodell
+
+!!! note "Teilweise verfügbar: Rollenmodell"
+    Für die Rollen ist eine Überarbeitung beschlossen, die die Tabelle oben ersetzen wird. Verfügbar sind heute die drei Rollen Admin, Gärtner und Beobachter. Was noch fehlt: die dritte fachliche Stufe **Leitung** und die Trennung der administrativen Rechte in **Verwaltung** und **Technik**. Bis dahin bündelt die heutige Admin-Rolle alles, was künftig auf Leitung, Verwaltung und Technik verteilt wird. <!-- REQ-049 §2.3, §2.4 -->
+
+Das künftige Modell trennt zwei Fragen, die heute in einer einzigen Rangfolge stecken: was du **im Garten** tun darfst, und was du **am Garten** verwalten darfst.
+
+**Fachliche Rollen — im Garten unterwegs.** Jedes Mitglied wird genau eine davon haben:
+
+| Künftige Rolle | Wird dürfen | Gedacht für |
+|----------------|-------------|-------------|
+| **Beobachter** | Lesen, drucken, exportieren | Buchhaltung, Prüfung, Angehörige, Anzeige-Bildschirm |
+| **Gärtner** | Zusätzlich anlegen, ändern, dokumentieren — aber **nicht löschen** | Vereinsmitglied, Schüler, Saisonkraft, angelernte Hilfe |
+| **Leitung** | Zusätzlich löschen, Aufgaben an andere zuweisen, die Standortstruktur umbauen, Vorlagen pflegen | Parzellenwart, Meister, Betriebsleitung |
+
+Die Grenze zwischen Gärtner und Leitung verläuft entlang der Umkehrbarkeit: Ein Gärtner wird Fehler korrigieren können, indem er einen Wert überschreibt — Historie vernichten wird er nicht können.
+
+**Administrative Zusatzberechtigungen — am Garten.** Diese wirst du zusätzlich zur fachlichen Rolle erhalten, unabhängig davon, welche du hast:
+
+| Künftige Zusatzberechtigung | Wird umfassen | Gedacht für |
+|-----------------------------|---------------|-------------|
+| **Verwaltung** | Mitglieder einladen und entfernen, Rollen ändern, Garteneinstellungen, Parzellen zuordnen, Dienstkonten | Vorstand, Lehrkraft, Inhaber |
+| **Technik** | Home Assistant und andere Integrationen anbinden, Sensoren konfigurieren, Import ausführen | Technikwart, betreuender Dienstleister |
+
+Der praktische Gewinn: Rechte lassen sich künftig einzeln vergeben statt nur im Paket. Der Vorstand verwaltet Mitglieder, ohne die Sensorik anfassen zu müssen; das technikaffine Mitglied bindet Home Assistant an, ohne Zugriff auf die Mitgliederliste zu bekommen; und ein Schüler dokumentiert Messwerte, ohne versehentlich ein Beet löschen zu können.
+
+### Rollenvergleich — was heute gilt
 
 <!-- Quelle: src/backend/app/core/permissions.py, src/backend/app/common/auth.py -->
 
 | Aufgabe | Admin | Gärtner | Beobachter |
 |---------|:-----:|:-------:|:----------:|
 | Alle Daten des Gartens lesen | Ja | Ja | Ja |
-| Pflanzen anlegen, bearbeiten, entfernen | Ja | Ja | Nein |
-| Standorte, Bereiche und Stellplätze anlegen und bearbeiten | Ja | Ja | Nein |
+| Pflanzen anlegen, bearbeiten, entfernen | Ja | Ja† | Nein |
+| Standorte, Bereiche und Stellplätze anlegen und bearbeiten | Ja | Ja† | Nein |
 | Pflanzdurchläufe anlegen und weiterschalten | Ja | Ja | Nein |
 | Aufgaben erstellen und erledigen | Ja | Ja | Nein |
 | Ernten und Nacherntedaten dokumentieren | Ja | Ja | Nein |
@@ -61,6 +87,8 @@ Innerhalb eines Mandanten hat jedes Mitglied **genau eine** von drei Rollen. Sie
 | Den Garten selbst verlassen | Ja* | Ja | Ja |
 
 *Als einziger Admin kannst du den Garten nicht verlassen, ohne vorher ein anderes Mitglied zum Admin zu machen — sonst bliebe der Garten ohne Verwaltung zurück.
+
+†Diese beiden Zeilen ändern sich mit dem überarbeiteten Modell: Löschen und der Umbau der Standortstruktur werden der Leitung vorbehalten sein, Anlegen und Bearbeiten bleiben beim Gärtner. <!-- REQ-049 §2.3 -->
 
 ### Wer darf Mitglieder verwalten?
 
