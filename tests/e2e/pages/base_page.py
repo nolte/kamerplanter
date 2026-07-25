@@ -88,13 +88,88 @@ class BasePage:
             EC.invisibility_of_element_located(locator)
         )
 
+    #: The Suspense/query loading placeholder every page renders while its data
+    #: (or, for a lazily-imported route, its chunk) is still in flight.
+    LOADING_SKELETON = (By.CSS_SELECTOR, "[data-testid='loading-skeleton']")
+    #: `ErrorDisplay` — the "this entity could not be loaded" branch of a detail
+    #: page. Rendered *instead of* the page root, so it is one of the two
+    #: legitimate settled states of a detail route.
+    ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")
+    #: `ErrorPage` — the whole-route error/not-found surface (404, 500, ...).
+    ERROR_PAGE = (By.CSS_SELECTOR, "[data-testid='error-page']")
+
     def wait_for_loading_complete(self, timeout: int = DEFAULT_TIMEOUT) -> None:
-        """Wait until all ``[data-testid='loading-skeleton']`` elements disappear."""
+        """Wait until no ``[data-testid='loading-skeleton']`` is visible.
+
+        **This is a weak signal and proves nothing about the target content.**
+        It is kept because ~340 call sites pair it with a durable wait that does
+        the real work (typically ``wait_for_element(self.PAGE)`` in a page
+        object's ``open()``); on its own it must not gate a read.
+
+        Two reasons it under-delivers, both observed in this suite:
+
+        * ``invisibility_of_element_located`` is satisfied by an element that is
+          **absent**, and it cannot tell "the skeleton has not mounted yet" from
+          "the skeleton is gone because loading finished". Right after
+          ``navigate()`` the document is loaded but React has not yet reached the
+          suspended route, so no skeleton exists and this returns *immediately* —
+          `e2e-test-stability` §D calls exactly that ("a poll that can never
+          distinguish 'not yet loaded' from 'correctly absent'") an invalid
+          assertion. Observed on TC-REQ-001-005, where the body read back held
+          nothing but the app chrome (``Mein Garten 16 M``) while
+          ``NotFoundPage``'s lazy chunk was still resolving.
+        * It says nothing about *which* branch a page then renders. A detail
+          route settles into a page root **or** an `ErrorDisplay`; the skeleton
+          being gone is common to both and to neither-yet.
+
+        Use :meth:`wait_for_any_present` (or a plain
+        :meth:`wait_for_element` on the content itself) to key the read on the
+        content that must actually be there.
+        """
         WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(
-                (By.CSS_SELECTOR, "[data-testid='loading-skeleton']")
-            )
+            EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )
+
+    def wait_for_any_present(
+        self,
+        locators: tuple[tuple[str, str], ...],
+        what: str,
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> tuple[str, str]:
+        """Wait until at least one of *locators* is in the DOM; return which one.
+
+        The strong sibling of :meth:`wait_for_loading_complete`: it waits for a
+        state that *proves the content exists* rather than for the absence of a
+        placeholder, and it fails loudly — naming every locator it probed — when
+        none appears.
+
+        The disjunction is the point. A route legitimately settles into more
+        than one shape (a detail page's own root **or** an `ErrorDisplay` for an
+        unknown key), so waiting for just one of them would either time out on a
+        valid outcome or, if skipped entirely, read a half-rendered page. This
+        lets a caller name every settled state it accepts and still be gated on
+        one of them having been reached.
+        """
+        matched: list[tuple[str, str]] = []
+
+        def _any(driver: WebDriver) -> bool:
+            for locator in locators:
+                if driver.find_elements(*locator):
+                    matched.append(locator)
+                    return True
+            return False
+
+        try:
+            WebDriverWait(self.driver, timeout).until(_any)
+        except TimeoutException as exc:
+            probed = ", ".join(f"{by}={value!r}" for by, value in locators)
+            raise AssertionError(
+                f"{what}: none of the expected settled states appeared within "
+                f"{timeout}s (probed {probed}). The route is most likely still "
+                "resolving its lazily-imported chunk -- reading the page here "
+                "would assert against the app chrome alone."
+            ) from exc
+        return matched[0]
 
     def wait_for_url_contains(self, fragment: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the current URL contains *fragment*."""
