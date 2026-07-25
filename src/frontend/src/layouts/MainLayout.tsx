@@ -139,6 +139,7 @@ export default function MainLayout() {
             onClick={() => dispatch(toggleSidebar())}
             sx={{ mr: 2 }}
             aria-label={t('common.toggleSidebar')}
+            data-testid="sidebar-toggle"
           >
             <MenuIcon />
           </IconButton>

@@ -433,7 +433,14 @@ export default function CompanionPlantingPage() {
         </Box>
       )}
 
-      <Dialog fullScreen={fullScreen} open={!!dialogType} onClose={() => setDialogType(null)} maxWidth="sm" fullWidth>
+      <Dialog
+        fullScreen={fullScreen}
+        open={!!dialogType}
+        onClose={() => setDialogType(null)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="companion-planting-dialog"
+      >
         <DialogTitle>
           {dialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')

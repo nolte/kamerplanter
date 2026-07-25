@@ -581,7 +581,14 @@ export default function CropRotationPage() {
         />
       )}
 
-      <Dialog fullScreen={fullScreen} open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        fullScreen={fullScreen}
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="crop-rotation-dialog"
+      >
         <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
