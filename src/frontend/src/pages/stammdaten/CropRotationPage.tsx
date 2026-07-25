@@ -510,7 +510,14 @@ export default function CropRotationPage() {
                         flexWrap: 'wrap',
                       }}
                     >
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                      {/* flex-basis 220px instead of 0: with a zero basis the
+                          text column never forces the wrapping row to break, so
+                          the chips kept it on the same line and squeezed it down
+                          to its min-content width — the benefit sentence then
+                          rendered one word per line at a 393px viewport. A real
+                          basis makes the row wrap and hands the text the full
+                          width on mobile (UI-NFR-001 mobile-first). */}
+                      <Box sx={{ flex: '1 1 220px', minWidth: 0 }}>
                         <Typography variant="body2" sx={{ fontWeight: 500 }}>
                           {commonName}
                         </Typography>
