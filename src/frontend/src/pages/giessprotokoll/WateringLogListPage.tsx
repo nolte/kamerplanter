@@ -215,28 +215,53 @@ export default function WateringLogListPage() {
           return (
             <MobileCard
               title={formatDateTime(r.logged_at)}
+              titleId="loggedAt"
               subtitle={plantNames || undefined}
-              chips={
-                <>
-                  <Chip
-                    label={t(`enums.applicationMethod.${r.application_method}`)}
-                    size="small"
-                    variant="outlined"
-                  />
-                  {r.water_source && (
+              subtitleId="plants"
+              // Keyed chip list (not a plain node): every chip mirrors the
+              // column id that addresses the same value on the desktop table,
+              // so a reader asks for `applicationMethod` instead of counting
+              // DOM positions across a conditional water-source chip. The
+              // fertilizer chips share one carrier because the column holds a
+              // list — the same shape as its desktop `<td>`.
+              chips={[
+                {
+                  id: 'applicationMethod',
+                  content: (
                     <Chip
-                      label={t(`enums.waterSource.${r.water_source}`)}
+                      label={t(`enums.applicationMethod.${r.application_method}`)}
                       size="small"
                       variant="outlined"
                     />
-                  )}
-                  {ferts.map((rf, i) => (
-                    <Chip key={i} label={rf.name} size="small" variant="outlined" color="secondary" />
-                  ))}
-                </>
-              }
+                  ),
+                },
+                ...(r.water_source
+                  ? [{
+                    id: 'waterSource',
+                    content: (
+                      <Chip
+                        label={t(`enums.waterSource.${r.water_source}`)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    ),
+                  }]
+                  : []),
+                ...(ferts.length > 0
+                  ? [{
+                    id: 'fertilizers',
+                    content: (
+                      <Box sx={{ display: 'inline-flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {ferts.map((rf, i) => (
+                          <Chip key={i} label={rf.name} size="small" variant="outlined" color="secondary" />
+                        ))}
+                      </Box>
+                    ),
+                  }]
+                  : []),
+              ]}
               fields={[
-                { label: t('pages.wateringLogs.volumeLiters'), value: formatNumberWithUnit(r.volume_liters, 'L') },
+                { id: 'volume', label: t('pages.wateringLogs.volumeLiters'), value: formatNumberWithUnit(r.volume_liters, 'L') },
                 ...(r.ec_before != null || r.ec_after != null
                   ? [{ label: 'EC', value: `${r.ec_before != null ? formatNumberWithUnit(r.ec_before, 'mS/cm') : '—'} / ${r.ec_after != null ? formatNumberWithUnit(r.ec_after, 'mS/cm') : '—'}` }]
                   : []),

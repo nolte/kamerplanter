@@ -24,6 +24,28 @@ describe('MobileCard — test hooks', () => {
     expect(screen.queryByTestId('card-subtitle')).toBeNull();
   });
 
+  it('additionally keys the title and subtitle by the column id they mirror', () => {
+    render(
+      <MobileCard title="25.07.2026, 10:00" titleId="loggedAt" subtitle="TOM-001" subtitleId="plants" />,
+    );
+
+    // Most cards render their identifying values as title/subtitle, where they
+    // used to be reachable only through `card-title`/`card-subtitle` — i.e. not
+    // by the column id that addresses the same value on the desktop table.
+    expect(screen.getByTestId('card-field-loggedAt').textContent).toBe('25.07.2026, 10:00');
+    expect(screen.getByTestId('card-field-plants').textContent).toBe('TOM-001');
+    // The pre-existing hooks stay intact and keep carrying the full value.
+    expect(screen.getByTestId('card-title').textContent).toBe('25.07.2026, 10:00');
+    expect(screen.getByTestId('card-subtitle').textContent).toBe('TOM-001');
+  });
+
+  it('omits the column hook when the caller keys no title/subtitle id', () => {
+    render(<MobileCard title="Tomate" subtitle="TOM-001" />);
+
+    expect(document.querySelector('[data-testid^="card-field-"]')).toBeNull();
+    expect(screen.getByTestId('card-title').textContent).toBe('Tomate');
+  });
+
   it('keys each field by the column id it mirrors', () => {
     render(
       <MobileCard

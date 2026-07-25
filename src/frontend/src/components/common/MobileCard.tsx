@@ -37,6 +37,20 @@ export interface MobileCardChip {
 interface MobileCardProps {
   title: ReactNode;
   subtitle?: ReactNode;
+  /**
+   * Column id the title mirrors. The title keeps its unconditional
+   * `card-title` hook and *additionally* exposes `card-field-<titleId>`, so the
+   * value a card renders as its headline stays addressable by the very column
+   * id that addresses it on the desktop table (`cell-<id>`) — without moving it
+   * into the field grid and changing the card's visual structure.
+   */
+  titleId?: string;
+  /**
+   * Column id the subtitle mirrors; emits `card-field-<subtitleId>` in addition
+   * to `card-subtitle`. Only present when a subtitle is rendered at all — a
+   * caller that must stay readable for an empty value belongs in `fields`.
+   */
+  subtitleId?: string;
   fields?: MobileCardField[];
   trailing?: ReactNode;
   /**
@@ -86,7 +100,32 @@ function renderKeyedChip(chip: MobileCardChip): ReactNode {
   );
 }
 
-export default function MobileCard({ title, subtitle, fields, trailing, chips, leading }: MobileCardProps) {
+/**
+ * Wrap a title/subtitle value in an inline `card-field-<id>` carrier.
+ *
+ * A `<span>` inside the existing `Typography` keeps the rendered layout
+ * byte-for-byte (phrasing content, no box of its own) while giving the value
+ * the same column-keyed hook a field would carry.
+ */
+function withColumnHook(value: ReactNode, id: string | undefined): ReactNode {
+  if (!id) return value;
+  return (
+    <Box component="span" data-testid={`card-field-${id}`}>
+      {value}
+    </Box>
+  );
+}
+
+export default function MobileCard({
+  title,
+  subtitle,
+  titleId,
+  subtitleId,
+  fields,
+  trailing,
+  chips,
+  leading,
+}: MobileCardProps) {
   const keyedChips = isKeyedChipList(chips) ? chips : null;
   const hasChips = keyedChips ? keyedChips.length > 0 : Boolean(chips);
 
@@ -96,7 +135,9 @@ export default function MobileCard({ title, subtitle, fields, trailing, chips, l
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
           {leading && <Box sx={{ flexShrink: 0 }}>{leading}</Box>}
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle2" noWrap data-testid="card-title">{title}</Typography>
+            <Typography variant="subtitle2" noWrap data-testid="card-title">
+              {withColumnHook(title, titleId)}
+            </Typography>
             {subtitle && (
               <Typography
                 variant="caption"
@@ -105,7 +146,7 @@ export default function MobileCard({ title, subtitle, fields, trailing, chips, l
                 sx={{ display: 'block' }}
                 data-testid="card-subtitle"
               >
-                {subtitle}
+                {withColumnHook(subtitle, subtitleId)}
               </Typography>
             )}
           </Box>

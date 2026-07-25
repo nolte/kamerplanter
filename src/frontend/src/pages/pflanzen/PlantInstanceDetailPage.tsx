@@ -2134,13 +2134,26 @@ export default function PlantInstanceDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.logged_at ? new Date(r.logged_at).toLocaleString() : '—'}
+                titleId="loggedAt"
                 subtitle={t(`enums.applicationMethod.${r.application_method}`)}
-                chips={
-                  r.is_supplemental ? <Chip label={t('common.yes')} size="small" color="info" /> : undefined
-                }
+                subtitleId="applicationMethod"
                 fields={[
-                  { label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
-                  ...(r.ec_after != null ? [{ label: t('pages.wateringLogs.ecAfter'), value: String(r.ec_after) }] : []),
+                  { id: 'volume', label: t('pages.wateringLogs.volumeLiters'), value: `${r.volume_liters} L` },
+                  // Emitted unconditionally: as a conditional chip the column
+                  // was simply absent for an ordinary watering, so "the
+                  // supplemental column is empty" was unreadable rather than
+                  // empty. A present-but-empty field says the same thing the
+                  // desktop `<td>` says.
+                  {
+                    id: 'isSupplemental',
+                    label: t('pages.wateringLogs.isSupplemental'),
+                    value: r.is_supplemental
+                      ? <Chip component="span" label={t('common.yes')} size="small" color="info" />
+                      : '',
+                  },
+                  ...(r.ec_after != null
+                    ? [{ id: 'ecAfter', label: t('pages.wateringLogs.ecAfter'), value: String(r.ec_after) }]
+                    : []),
                 ]}
               />
             )}
