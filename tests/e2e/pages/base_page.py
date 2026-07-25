@@ -178,13 +178,64 @@ class BasePage:
         except TimeoutException:
             pass
 
+    #: Controls whose menu/popover opens on ``mousedown`` rather than on
+    #: ``click``: the MUI Select display div (``[role='combobox']`` since v5,
+    #: ``.MuiSelect-select`` as the legacy class hook).
+    MENU_TRIGGER_CSS = "[role='combobox'], .MuiSelect-select"
+
+    def opens_on_mousedown(self, element: WebElement) -> bool:
+        """Return True if *element* is a control that opens on ``mousedown``."""
+        return bool(
+            self.driver.execute_script(
+                "return arguments[0].matches(arguments[1]);",
+                element,
+                self.MENU_TRIGGER_CSS,
+            )
+        )
+
+    def dispatch_menu_trigger_open(self, element: WebElement) -> None:
+        """Dispatch a ``mousedown``/``mouseup`` pair straight onto a menu trigger.
+
+        MUI opens a Select **only** from its ``onMouseDown`` handler -- there is
+        no ``onClick`` opener. A JS ``element.click()`` dispatches a lone
+        ``click`` event, so it can never open one; it merely *reports* success.
+        This sends the pair a real pointer would.
+
+        Deliberately dispatched on the element rather than through
+        ``ActionChains``: ActionChains is coordinate-based and, unlike
+        ``WebElement.click()``, performs no interactability hit-test, so under
+        an overlay it silently delivers the events to the overlay -- the same
+        class of silent-success defect this replaces. Also deliberately without
+        a trailing ``click``: MUI has already opened the menu on ``mousedown``,
+        and a bubbling ``click`` can be read as a click-away.
+        """
+        self.driver.execute_script(
+            "var el = arguments[0];"
+            "['mousedown', 'mouseup'].forEach(function (type) {"
+            "  el.dispatchEvent(new MouseEvent(type, {"
+            "    bubbles: true, cancelable: true, view: window, button: 0,"
+            "  }));"
+            "});",
+            element,
+        )
+
     def scroll_and_click(self, element: WebElement) -> None:
-        """Scroll an element into view and click it, falling back to JS click."""
+        """Scroll an element into view and click it, with a sound JS fallback.
+
+        The fallback is chosen by target: a bare JS ``click()`` is fine for
+        buttons and links, but is a *silent no-op* on a MUI Select trigger
+        (which opens on ``mousedown``), so those get an explicit
+        mousedown/mouseup pair instead — see
+        :meth:`dispatch_menu_trigger_open`.
+        """
         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
         try:
             element.click()
         except (ElementNotInteractableException, ElementClickInterceptedException):
-            self.driver.execute_script("arguments[0].click();", element)
+            if self.opens_on_mousedown(element):
+                self.dispatch_menu_trigger_open(element)
+            else:
+                self.driver.execute_script("arguments[0].click();", element)
 
     def wait_and_click(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until *locator* is clickable, scroll it into view, then click it.
@@ -210,22 +261,101 @@ class BasePage:
     # DataTable. They fall back to the legacy selectors so page objects can be
     # migrated incrementally.
 
-    def open_select(self, field_name: str) -> None:
-        """Open a FormSelectField dropdown via a stable trigger selector.
+    #: Trigger sub-selectors probed inside a select container, in order: the
+    #: ARIA display (stable across MUI versions), then the legacy class hook.
+    SELECT_TRIGGER_SUBSELECTORS = ("[role='combobox']", ".MuiSelect-select")
 
-        Prefers the ARIA `[role='combobox']` display (stable across MUI versions);
-        falls back to the legacy `.MuiSelect-select` class for non-FormSelectField
-        selects that don't expose the combobox role.
+    def is_select_open(self, trigger: WebElement) -> bool:
+        """Return True while *trigger*'s dropdown is open.
+
+        Keyed on the trigger's own ``aria-expanded`` (durable, and true even for
+        a menu that legitimately renders zero options), with the rendered
+        listbox as a second signal for triggers that don't carry the attribute
+        or that went stale on the re-render the open caused.
         """
-        for selector in (
-            f"[data-testid='form-field-{field_name}'] [role='combobox']",
-            f"[data-testid='form-field-{field_name}'] .MuiSelect-select",
-        ):
-            els = self.driver.find_elements(By.CSS_SELECTOR, selector)
-            if els:
-                self.scroll_and_click(els[0])
-                return
-        raise AssertionError(f"Select trigger for field '{field_name}' not found")
+        if self._aria_expanded(trigger) == "true":
+            return True
+        return len(self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+
+    @staticmethod
+    def _aria_expanded(trigger: WebElement) -> str:
+        """Return *trigger*'s ``aria-expanded``, or ``'<stale>'`` if it unmounted."""
+        try:
+            return trigger.get_attribute("aria-expanded") or ""
+        except StaleElementReferenceException:
+            return "<stale>"
+
+    def _settle_listbox(self, timeout: int = 2) -> None:
+        """Give an opened dropdown's options a bounded moment to render.
+
+        ``aria-expanded`` can be observed a beat before the portalled menu's
+        ``li[role='option']`` nodes are queryable, which would make an
+        immediately following ``find_elements`` return ``[]``. Not an error
+        condition: a Select whose option list is legitimately empty stays open
+        with zero options, so callers that require options assert on them.
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+            )
+        except TimeoutException:
+            pass
+
+    def _wait_until_select_open(self, trigger: WebElement, timeout: int = 5) -> bool:
+        """Wait (bounded) until *trigger*'s dropdown is open; return the outcome."""
+        try:
+            WebDriverWait(self.driver, timeout).until(lambda _d: self.is_select_open(trigger))
+            return True
+        except TimeoutException:
+            return False
+
+    def open_select(self, field_name: str) -> None:
+        """Open a FormSelectField dropdown and verify that it actually opened."""
+        self.open_select_in(
+            f"[data-testid='form-field-{field_name}']", f"field '{field_name}'"
+        )
+
+    def open_select_by_testid(self, testid: str) -> None:
+        """Open a MUI Select addressed by the data-testid on its TextField root.
+
+        MUI spreads ``...other`` onto the **root** ``FormControl`` (label +
+        input + helper text), not onto the ``[role='combobox']`` display div, so
+        a click on the root's centre can land on the label or the helper text —
+        a silent no-op, because the ``<p>`` is a descendant of the clicked root
+        and Chrome therefore raises no interception. Resolve the combobox first.
+        """
+        self.open_select_in(f"[data-testid='{testid}']", f"select '{testid}'")
+
+    def open_select_in(self, container: str, what: str) -> None:
+        """Open the MUI Select inside *container*, or fail loudly.
+
+        Fails loudly by design: a helper that reports success without having
+        opened anything pushes the failure to a later, unrelated line (the
+        option lookup) and hides the real cause.
+        """
+        trigger: WebElement | None = None
+        for sub in self.SELECT_TRIGGER_SUBSELECTORS:
+            locator = (By.CSS_SELECTOR, f"{container} {sub}")
+            if self.driver.find_elements(*locator):
+                trigger = self.wait_for_element_clickable(locator)
+                break
+        if trigger is None:
+            raise AssertionError(f"Select trigger for {what} not found")
+
+        self.scroll_and_click(trigger)
+        if self._wait_until_select_open(trigger):
+            self._settle_listbox()
+            return
+        # The click did not open the menu (e.g. it was swallowed while the
+        # trigger was still moving). Retry with the explicit mousedown pair.
+        self.dispatch_menu_trigger_open(trigger)
+        if self._wait_until_select_open(trigger):
+            self._settle_listbox()
+            return
+        raise AssertionError(
+            f"Select for {what} did not open (aria-expanded stayed "
+            f"{self._aria_expanded(trigger)!r} and no li[role='option'] appeared)"
+        )
 
     def select_option_by_value(self, value: str, field_name: str | None = None) -> None:
         """Click an open dropdown option by its stable data-value (i18n-independent).
@@ -257,17 +387,21 @@ class BasePage:
         the option click didn't register on the first attempt -- a bounded
         guard against the MUI popover animation racing the option lookup
         (observed as a one-off timeout on an otherwise-passing code path,
-        TC-006-J077).
+        TC-006-J077). The retry spans the *open* too: ``open_select`` now
+        verifies the dropdown really opened and raises when it did not, so an
+        open that failed must be retried rather than run into the option lookup.
         """
-        self.open_select(field_name)
-        try:
-            self.select_option_by_value(value, field_name)
-            return
-        except AssertionError:
-            pass
-        self.close_mui_dropdown()
-        self.open_select(field_name)
-        self.select_option_by_value(value, field_name)
+        last_error: AssertionError | None = None
+        for _attempt in range(2):
+            try:
+                self.open_select(field_name)
+                self.select_option_by_value(value, field_name)
+                return
+            except AssertionError as exc:
+                last_error = exc
+                self.close_mui_dropdown()
+        assert last_error is not None
+        raise last_error
 
     def get_row_cell_text(self, row: WebElement, col_id: str) -> str:
         """Return a DataTable row cell's text addressed by column id (not position)."""
@@ -334,6 +468,39 @@ class BasePage:
             self.get_row_text_fragments(row)
             for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
         ]
+
+    # `MobileCard` emits no per-field testid at all: its title is a
+    # ``subtitle2`` Typography and its optional subtitle the ``caption``
+    # Typography immediately following it inside the same header Box. The
+    # `fields` grid also renders captions, so the subtitle is addressed as the
+    # title's *sibling* rather than as "the first caption".
+    CARD_TITLE_XPATH = ".//*[contains(@class, 'MuiTypography-subtitle2')]"
+    CARD_SUBTITLE_XPATH = (
+        ".//*[contains(@class, 'MuiTypography-subtitle2')]"
+        "/following-sibling::*[contains(@class, 'MuiTypography-caption')]"
+    )
+
+    @staticmethod
+    def _text_content(element: WebElement) -> str:
+        """Return an element's ``textContent``, not its rendered text.
+
+        `MobileCard` renders title and subtitle as ``<Typography noWrap>``
+        (``overflow: hidden; text-overflow: ellipsis``), so the tail of a long
+        value — e.g. the ``— watering`` suffix of a care-reminder task name —
+        is not part of the element's *rendered* text and ``WebElement.text``
+        drops it. ``textContent`` carries the full string.
+        """
+        return (element.get_attribute("textContent") or "").strip()
+
+    def get_card_title(self, row: WebElement) -> str:
+        """Return the `MobileCard` title of *row*, or ``''`` outside the card layout."""
+        els = row.find_elements(By.XPATH, self.CARD_TITLE_XPATH)
+        return self._text_content(els[0]) if els else ""
+
+    def get_card_subtitle(self, row: WebElement) -> str:
+        """Return the `MobileCard` subtitle of *row*, or ``''`` if it has none."""
+        els = row.find_elements(By.XPATH, self.CARD_SUBTITLE_XPATH)
+        return self._text_content(els[0]) if els else ""
 
     def get_row_chip_texts(self, row: WebElement) -> list[str]:
         """Return the chip labels of a row in DOM order (layout-tolerant).
