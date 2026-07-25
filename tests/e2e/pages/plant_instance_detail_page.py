@@ -238,7 +238,9 @@ class PlantInstanceDetailPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
         )
-        self.scroll_and_click(option)
+        # Coordinate-independent (see BasePage.click_menu_option): the open
+        # `Menu` scrolls its paper to the selected item, moving every option.
+        self.click_menu_option(option)
         self.close_mui_dropdown()
 
     def set_transition_reason(self, reason: str) -> None:

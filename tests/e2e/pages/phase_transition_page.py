@@ -319,10 +319,12 @@ class PlantInstanceDetailExt(BasePage):
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
         )
-        # scroll_and_click, not a raw click: a long phase list scrolls inside
-        # the popover, and `element_to_be_clickable` is satisfied by an option
-        # that is displayed but out of view.
-        self.scroll_and_click(option)
+        # click_menu_option, not a coordinate click: a long phase list scrolls
+        # inside the popover, and `Menu` scrolls that paper to the selected item
+        # on open -- which moves every option after `element_to_be_clickable` is
+        # already satisfied, so a click resolved at coordinates picks a
+        # neighbour.
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 
@@ -332,7 +334,7 @@ class PlantInstanceDetailExt(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{text}')]")
         )
-        self.scroll_and_click(option)
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 

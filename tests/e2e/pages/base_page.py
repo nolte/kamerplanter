@@ -249,6 +249,65 @@ class BasePage:
             element,
         )
 
+    def scroll_into_view(self, element: WebElement) -> None:
+        """Scroll *element* into view, inside **every** scrollable ancestor.
+
+        ``scrollIntoView`` walks the whole ancestor chain, not just the
+        document's scrolling element, which is what makes it the right
+        primitive for content inside an ``overflow: auto`` container (the
+        Sidebar's nav box, a MUI Popover paper).
+        """
+        self.driver.execute_script(
+            "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});",
+            element,
+        )
+
+    def is_displayed_in_scroll_container(self, element: WebElement) -> bool:
+        """Return whether *element* is displayed once scrolled into view.
+
+        Selenium's displayedness check reports ``False`` both for "not
+        rendered" and for "rendered but clipped by a scrollable ancestor", so a
+        bare ``is_displayed()`` on content inside an ``overflow: auto``
+        container silently answers a question about *rendering* with the
+        container's *scroll position*. Scrolling first collapses the two cases
+        onto the one the caller actually asks about.
+
+        A stale element is genuinely gone, hence ``False``.
+        """
+        try:
+            self.scroll_into_view(element)
+            return element.is_displayed()
+        except StaleElementReferenceException:
+            return False
+
+    def click_menu_option(self, element: WebElement) -> None:
+        """Click an open menu's option coordinate-independently.
+
+        A MUI ``MenuItem`` activates from its ``onClick`` handler, so a
+        synthetic ``element.click()`` drives it exactly as a real pointer does.
+        This is **not** in tension with :meth:`dispatch_menu_trigger_open`: a
+        Select *trigger* opens only from ``onMouseDown``, which a JS ``click()``
+        never dispatches, so there the same call would be a silent no-op.
+
+        Coordinate independence is the whole point. A native click resolves the
+        element's centre and *then* dispatches at those coordinates; in between,
+        the menu can still move — and both motion sources are JavaScript layout
+        effects rather than CSS transitions, so no animation or reduced-motion
+        setting removes them:
+
+        * ``Menu`` scrolls its paper to the selected item on open
+          (``handleEntering`` -> ``MenuList`` under the default
+          ``variant='selectedMenu'``). That moves every option while leaving the
+          paper's own ``top``/``left``/``height`` bit-identical.
+        * ``Popover`` clamps a menu that does not fit below its anchor upward.
+
+        Observed on the mobile profile as a uniform, directional two-option
+        offset: clicks aimed at ``FREQ=WEEKLY`` committed ``FREQ=MONTHLY``, and
+        one aimed at the last option committed nothing at all. Dispatching on
+        the already-resolved element cannot miss.
+        """
+        self.driver.execute_script("arguments[0].click();", element)
+
     def scroll_and_click(self, element: WebElement) -> None:
         """Scroll an element into view and click it, with a sound JS fallback.
 
@@ -256,9 +315,11 @@ class BasePage:
         buttons and links, but is a *silent no-op* on a MUI Select trigger
         (which opens on ``mousedown``), so those get an explicit
         mousedown/mouseup pair instead — see
-        :meth:`dispatch_menu_trigger_open`.
+        :meth:`dispatch_menu_trigger_open`. Menu *options* never belong here:
+        they are clicked coordinate-independently via
+        :meth:`click_menu_option`.
         """
-        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+        self.scroll_into_view(element)
         try:
             element.click()
         except (ElementNotInteractableException, ElementClickInterceptedException):
@@ -315,62 +376,24 @@ class BasePage:
         except StaleElementReferenceException:
             return "<stale>"
 
-    #: Reads the geometry of the open menu's paper -- the element `Popover`
-    #: repositions and `Grow` scales. Resolved from the first option's own
-    #: ``.MuiPaper-root`` ancestor rather than from a guessed paper selector,
-    #: so it can never pick up the always-mounted temporary-drawer paper.
-    _MENU_RECT_SCRIPT = (
-        "var opt = document.querySelector(\"li[role='option']\");"
-        "if (!opt) { return null; }"
-        "var paper = opt.closest('.MuiPaper-root') || opt;"
-        "var r = paper.getBoundingClientRect();"
-        "return [Math.round(r.top), Math.round(r.left), Math.round(r.height)];"
-    )
-
-    def _wait_for_menu_position_stable(self, timeout: int = 5) -> None:
-        """Wait until the open menu's paper stopped moving, or fail loudly.
-
-        `Popover` clamps a menu that does not fit below its anchor *upward*,
-        and it does so while `Grow` is still running — i.e. **after** Selenium
-        already considers the options clickable. A click issued in that window
-        lands on whichever option slid into those coordinates, which is how a
-        requested ``FREQ=WEEKLY`` ended up selecting ``FREQ=MONTHLY`` on the
-        mobile profile (852 px viewport, five options, the last field of a long
-        page). Desktop never saw it because at 1080 px the menu fits below the
-        anchor and its position is final from the first frame.
-
-        Two consecutive identical geometry readings are the durable signal that
-        the reposition-and-grow settled. Complements — and does not depend on —
-        the harness-level ``--force-prefers-reduced-motion``.
-        """
-        last: list[list[int] | None] = [None]
-
-        def _stable(driver: WebDriver) -> bool:
-            current = driver.execute_script(self._MENU_RECT_SCRIPT)
-            if current is None:
-                return True  # menu gone / no options — nothing to stabilise
-            previous, last[0] = last[0], current
-            return current == previous
-
-        try:
-            WebDriverWait(self.driver, timeout, poll_frequency=0.1).until(_stable)
-        except TimeoutException as exc:
-            raise AssertionError(
-                f"The open dropdown never stopped moving within {timeout}s "
-                f"(last [top, left, height] = {last[0]}). Clicking an option "
-                "while the popover is still being repositioned selects the "
-                "wrong entry."
-            ) from exc
-
     def _settle_listbox(self, timeout: int = 2) -> None:
-        """Wait until an opened dropdown's options render *and* stopped moving.
+        """Wait until an opened dropdown's options are queryable.
 
         ``aria-expanded`` can be observed a beat before the portalled menu's
         ``li[role='option']`` nodes are queryable, which would make an
         immediately following ``find_elements`` return ``[]``. A Select whose
         option list is legitimately empty is not an error condition -- it stays
         open with zero options, so callers that require options assert on them
-        and this returns without a geometry check.
+        and this returns.
+
+        Deliberately no geometry-settling step: the menu's *position* stopped
+        mattering once options are clicked on the resolved element rather than
+        at resolved coordinates (:meth:`click_menu_option`). The removed guard
+        compared the popover paper's ``top``/``left``/``height`` — which is
+        blind to the dominant motion source, ``Menu`` scrolling *inside* that
+        paper to the selected item, since that leaves the paper's own rect
+        bit-identical. A guard that cannot see the motion it was built to catch
+        only mis-attributes later failures.
         """
         try:
             WebDriverWait(self.driver, timeout).until(
@@ -378,7 +401,6 @@ class BasePage:
             )
         except TimeoutException:
             return
-        self._wait_for_menu_position_stable()
 
     def _wait_until_select_open(self, trigger: WebElement, timeout: int = 5) -> bool:
         """Wait (bounded) until *trigger*'s dropdown is open; return the outcome."""
@@ -467,13 +489,17 @@ class BasePage:
         the MUI popover open animation can still be in flight when this runs,
         so an unwaited check can miss an option that renders a beat later.
 
+        The option is clicked via :meth:`click_menu_option` (a JS click on the
+        already-resolved element), never at resolved coordinates: an open MUI
+        menu still moves under its own layout effects, so a coordinate click
+        lands on whichever option slid into that spot.
+
         Reads the resulting Select value back and raises on a mismatch. Without
         that, this helper returned unconditionally after *dispatching* a click,
-        so a click that landed on a neighbouring option (see
-        :meth:`_wait_for_menu_position_stable`) was reported as a success --
-        and the two-attempt retry in :meth:`choose_select_value` was inert,
-        because nothing ever raised. The expectation is taken from the clicked
-        option's own ``data-value``, not from *value*, because the option
+        so a click that landed on a neighbouring option was reported as a
+        success -- and the two-attempt retry in :meth:`choose_select_value` was
+        inert, because nothing ever raised. The expectation is taken from the
+        clicked option's own ``data-value``, not from *value*, because the option
         testid suffix and the value differ for the empty option
         (``form-option-<field>-none`` / ``-empty`` both commit ``''``).
         """
@@ -489,7 +515,7 @@ class BasePage:
             except TimeoutException:
                 continue
             expected = el.get_attribute("data-value")
-            self.scroll_and_click(el)
+            self.click_menu_option(el)
             self.close_mui_dropdown()
             self._verify_select_committed(trigger, expected, value, field_name)
             return
