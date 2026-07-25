@@ -16,6 +16,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -195,14 +196,57 @@ class CalendarPage(BasePage):
 
     # ── Category filter chips ───────────────────────────────────────────
 
+    CATEGORY_FILTER_CHIPS = (By.CSS_SELECTOR, "[data-testid^='category-filter-']")
+    # The "Kategorien (n/m)" disclosure button carries no data-testid of its
+    # own, so it is anchored on the MUI Collapse that wraps the category chips
+    # -- i.e. on the product's own `category-filter-*` testids, not on the
+    # button's (i18n-dependent) label or on a position in the page.
+    # See the report for the requested `calendar-category-filter-toggle` hook.
+    CATEGORY_FILTER_TOGGLE = (
+        By.XPATH,
+        "//*[contains(@class, 'MuiCollapse-root')]"
+        "[.//*[starts-with(@data-testid, 'category-filter-')]]"
+        "/preceding-sibling::button[1]",
+    )
+
     def get_category_filter_chips(self) -> list[WebElement]:
         """Return all category filter chip elements."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='category-filter-']"
+        return self.driver.find_elements(*self.CATEGORY_FILTER_CHIPS)
+
+    def is_category_filter_expanded(self) -> bool:
+        """Return True while the category chips are actually visible.
+
+        At ``fullScreen`` width `CalendarPage` puts the chips inside a collapsed
+        `Collapse` behind a "Kategorien (n/m)" button (a deliberate mobile
+        affordance). The chips stay in the DOM there, merely clipped to zero
+        height -- so presence alone is no signal and only real visibility is.
+        """
+        chips = self.get_category_filter_chips()
+        return bool(chips) and chips[0].is_displayed()
+
+    def expand_category_filters(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Expand the category filter section if it is collapsed.
+
+        Idempotent and condition-based: returns immediately when the chips are
+        already visible (every width at or above the `Collapse`'s breakpoint),
+        otherwise clicks the disclosure button and waits until they are.
+        """
+        if not self.get_category_filter_chips() or self.is_category_filter_expanded():
+            return
+        toggles = self.driver.find_elements(*self.CATEGORY_FILTER_TOGGLE)
+        if not toggles:
+            raise AssertionError(
+                "Category filter chips are collapsed but no disclosure button was "
+                "found next to their Collapse container"
+            )
+        self.scroll_and_click(toggles[0])
+        WebDriverWait(self.driver, timeout).until(
+            lambda _d: self.is_category_filter_expanded()
         )
 
     def click_category_filter(self, category: str) -> None:
-        """Toggle a specific category filter chip."""
+        """Toggle a specific category filter chip, expanding the section first."""
+        self.expand_category_filters()
         chip = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='category-filter-{category}']")
         )
