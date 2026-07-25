@@ -678,28 +678,16 @@ def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | No
     return _post(url, data or {})
 
 
-def _apply_reduced_motion(options: webdriver.ChromeOptions) -> None:
-    """Make the browser report ``prefers-reduced-motion: reduce`` to the app.
-
-    The application theme already collapses every animation and transition to
-    0.01 ms under that media query (``theme.ts`` ``MuiCssBaseline``), but the
-    harness never asked for it — so the suite drove a UI whose popovers,
-    dialogs and drawers were still mid-animation while Selenium already
-    considered their contents clickable.
-
-    That is not a cosmetic detail. A MUI ``Select`` menu that does not fit
-    below its anchor is clamped *upward* by ``Popover`` during the ``Grow``
-    animation, i.e. **after** the options are interactable: the click then
-    lands on whichever option slid into those coordinates (observed on the
-    mobile profile at 852 px viewport height — ``FREQ=WEEKLY`` was requested
-    and ``Monatlich``/``FREQ=MONTHLY`` was selected). Requesting reduced
-    motion removes the moving-target window for every select, dialog, drawer
-    and snackbar in the suite at once.
-
-    Chrome-only: Firefox has no equivalent switch (``ui.prefersReducedMotion``
-    is a pref, not an option flag), and the reference profiles all run Chrome.
-    """
-    options.add_argument("--force-prefers-reduced-motion")
+# NOTE: deliberately no ``--force-prefers-reduced-motion`` here. It was added to
+# close the MUI option-mis-click race and did not: that race is driven by
+# JavaScript layout effects (``Menu`` scrolling its paper to the selected item,
+# ``Popover`` clamping upward), which no animation setting removes -- it is now
+# closed coordinate-independently in ``BasePage.click_menu_option``. What the
+# flag *did* do was switch the application under test into its reduced-motion
+# branch globally (``theme.ts``: every transition collapsed to 0.01 ms), so the
+# suite stopped measuring the UI real users get -- and it removed the drawer
+# slide that had been masking a latent page-object defect (nav items clipped by
+# the sidebar's scroll container), turning two green tests red.
 
 
 @pytest.fixture(scope="function")
@@ -754,7 +742,6 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
             options.add_argument("--disable-gpu")
             options.add_argument(f"--window-size={win_size}")
             options.add_argument("--lang=de-DE")
-            _apply_reduced_motion(options)
         driver = webdriver.Remote(
             command_executor=remote_url,
             options=options,
@@ -788,7 +775,6 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
         options.add_argument("--disable-gpu")
         options.add_argument("--remote-debugging-port=0")
         options.add_argument(f"--window-size={win_size}")
-        _apply_reduced_motion(options)
         # Support snap-installed Chromium (Ubuntu)
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
