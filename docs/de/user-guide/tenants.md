@@ -96,14 +96,14 @@ Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun d
 |---------|:-----:|:--------:|:----------:|
 | Alles lesen | Ja | Ja | Ja |
 | Pflanzen anlegen/bearbeiten | Ja | Ja | Nein |
-| Standorte anlegen/bearbeiten | Ja | Nein* | Nein |
+| Standorte anlegen/bearbeiten | Ja | Ja | Nein |
 | Aufgaben erstellen | Ja | Ja | Nein |
 | Ernten dokumentieren | Ja | Ja | Nein |
 | Mitglieder einladen | Ja | Nein | Nein |
 | Rollen ändern | Ja | Nein | Nein |
 | Tenant-Einstellungen ändern | Ja | Nein | Nein |
 
-*Gärtner können Standorte bearbeiten, die ihnen zugewiesen sind.
+Die vollständige Rechteübersicht — inklusive Plattform-Rollen, Dienstkonten und der Frage, wer welche Daten zu sehen bekommt — steht unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md).
 
 !!! note "Geplante Gemeinschaftsfunktionen fehlen in dieser Tabelle"
     Pinnwand, Gießrotation und gemeinsame Einkaufsliste sind noch nicht implementiert (siehe [Gemeinschaftsfunktionen](#gemeinschaftsfunktionen) unten) und tauchen deshalb hier nicht als Berechtigung auf.
@@ -117,26 +117,21 @@ Jedes Mitglied hat pro Tenant genau eine Rolle. Die Rolle bestimmt, was es tun d
 
 ---
 
-## Standort-basierte Schreibrechte
+## Parzellen zuordnen
 
-In einem Gemeinschaftsgarten kann nicht jedes Mitglied jede Parzelle bearbeiten. Das **Zuweisungssystem** regelt, wer welche Standorte bearbeiten darf:
+Ein Garten ist eine gemeinsame Arbeitsmenge: Alle Gärtner pflegen alle Pflanzen und Aufgaben. Eine Parzellen-Zuordnung hält deshalb fest, **wer sich kümmert** — sie sperrt niemanden aus.
 
-### Standort einem Mitglied zuweisen
+- **Zugeordnete Parzellen**: Das Mitglied findet „seine" Parzelle schneller wieder; bearbeiten dürfen sie alle Gärtner.
+- **Gemeinschaftsflächen** wie Kompost oder Gewächshaus brauchen gar keine Zuordnung.
+- **Beobachter** lesen alles und ändern nichts — unabhängig von Zuordnungen.
 
-1. Navigiere zu **Standorte** > gewünschter Standort
-2. Klicke auf **Zuweisung bearbeiten**
-3. Wähle das Mitglied aus dem Dropdown
-4. Klicke auf **Speichern**
+Der praktische Vorteil: Fällt jemand kurzfristig aus, springt ein anderes Mitglied ein, ohne dass ein Admin erst etwas umstellen muss.
 
-**Regeln für Standort-Zuweisungen:**
+!!! tip "Etwas wirklich privat halten"
+    Trennung verläuft immer an der Gartengrenze, nie innerhalb eines Gartens. Was nur dich etwas angeht, gehört in deinen persönlichen Garten — oder in einen weiteren Garten, den du jederzeit anlegen kannst.
 
-- **Zugewiesene Standorte**: Nur der zugewiesene Gärtner und Admins dürfen bearbeiten
-- **Nicht zugewiesene Standorte**: Alle Gärtner des Tenants dürfen bearbeiten (Gemeinschaftsflächen)
-- **Beobachter**: Lesen immer alles, unabhängig von Zuweisungen
-- **Admins**: Können immer alles bearbeiten
-
-!!! example "Typischer Gemeinschaftsgarten"
-    Der Gemeinschaftsgarten hat 20 Parzellen (je einer Person zugewiesen), einen Kompostbereich und ein Gewächshaus (beide nicht zugewiesen, also für alle Gärtner bearbeitbar).
+!!! note "Teilweise verfügbar: Parzellen-Zuordnung"
+    Zuordnungen lassen sich bislang nur über die Programmierschnittstelle anlegen — eine Bedienoberfläche dafür gibt es noch nicht. Einzelheiten unter [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md#standort-zuweisungen-innerhalb-eines-gemeinschaftsgartens). <!-- REQ-049 §3.5 -->
 
 ---
 
@@ -212,6 +207,7 @@ Du kannst einen Tenant verlassen, solange du nicht der einzige Admin bist:
 
 ## Siehe auch
 
+- [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md)
 - [Erste Schritte — Onboarding](onboarding.md)
 - [Konto & Anmeldung](account.md)
 - [Standorte & Substrate](locations-substrates.md)

@@ -427,6 +427,7 @@ Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schä
 ## Siehe auch
 
 - [Mandanten & Gärten](tenants.md) — Mandantenverwaltung als Tenant-Admin <!-- REQ-024 -->
+- [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md) — Abgrenzung Plattform-Rolle gegen Garten-Rolle
 - [Datenschutz (DSGVO)](privacy.md) — Betroffenenrechte und DSGVO-Compliance
 - [Authentifizierung](../api/authentication.md) — JWT, OAuth2/OIDC, Service Accounts
 - [Pflanze per Foto identifizieren](plant-identification.md) — Endnutzer-Anleitung

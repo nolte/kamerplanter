@@ -96,14 +96,14 @@ Each member has exactly one role per tenant. The role determines what they are a
 |------|:-----:|:------:|:------:|
 | Read everything | Yes | Yes | Yes |
 | Create/edit plants | Yes | Yes | No |
-| Create/edit locations | Yes | No* | No |
+| Create/edit locations | Yes | Yes | No |
 | Create tasks | Yes | Yes | No |
 | Document harvests | Yes | Yes | No |
 | Invite members | Yes | No | No |
 | Change roles | Yes | No | No |
 | Change tenant settings | Yes | No | No |
 
-*Growers can edit locations assigned to them.
+The full permission overview — including platform roles, service accounts, and the question of who sees which data — is available under [Roles, Tenants & Visibility](../reference/roles-and-permissions.md).
 
 !!! note "Planned community features are missing from this table"
     The bulletin board, watering rotation, and shared shopping list are not yet implemented (see [Community Features](#community-features) below) and therefore do not appear here as a permission.
@@ -117,26 +117,21 @@ Each member has exactly one role per tenant. The role determines what they are a
 
 ---
 
-## Location-Based Write Access
+## Attributing Plots
 
-In a community garden, not every member should be able to edit every plot. The **assignment system** controls who can edit which locations:
+A garden is a shared working set: all growers tend all plants and tasks. A plot attribution therefore records **who looks after it** — it locks nobody out.
 
-### Assigning a Location to a Member
+- **Attributed plots**: The member finds "their" plot faster; editing stays open to all growers.
+- **Communal areas** such as compost or greenhouse need no attribution at all.
+- **Viewers** read everything and change nothing — regardless of attributions.
 
-1. Navigate to **Locations** > desired location
-2. Click **Edit Assignment**
-3. Select the member from the dropdown
-4. Click **Save**
+The practical benefit: when someone drops out at short notice, another member steps in without an admin having to change anything first.
 
-**Rules for location assignments:**
+!!! tip "Keeping something truly private"
+    Separation always runs along the garden boundary, never inside a garden. Whatever concerns only you belongs in your personal garden — or in another garden, which you can create at any time.
 
-- **Assigned locations**: Only the assigned grower and admins may edit
-- **Unassigned locations**: All growers in the tenant may edit (communal areas)
-- **Viewers**: Always read everything, regardless of assignments
-- **Admins**: Can always edit everything
-
-!!! example "Typical community garden"
-    The community garden has 20 plots (each assigned to one person), a compost area and a greenhouse (both unassigned, so editable by all growers).
+!!! note "Partially available: Plot attribution"
+    So far, attributions can only be created via the programming interface — there is no user interface for them yet. Details under [Roles, Tenants & Visibility](../reference/roles-and-permissions.md#location-assignments-inside-a-community-garden). <!-- REQ-049 §3.5 -->
 
 ---
 
@@ -212,6 +207,7 @@ You can leave a tenant as long as you are not the only admin:
 
 ## See Also
 
+- [Roles, Tenants & Visibility](../reference/roles-and-permissions.md)
 - [Getting Started — Onboarding](onboarding.md)
 - [Account & Sign-In](account.md)
 - [Locations & Substrates](locations-substrates.md)
