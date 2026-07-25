@@ -183,6 +183,7 @@ In the **Account** tab of your account settings, the red-highlighted area contai
 
 - [Getting Started — Onboarding](onboarding.md)
 - [Tenants & Gardens](tenants.md)
+- [Roles, Tenants & Visibility](../reference/roles-and-permissions.md)
 - [Modules & Features](module-visibility.md)
 - [Privacy & GDPR](privacy.md)
 - [API Documentation: Authentication](../api/authentication.md)

@@ -390,6 +390,20 @@ Lizenz- & Nutzungsentscheidungen (G1–G4): siehe `spec/analysis/awesome-agricul
 
 ---
 
+## 🔑 REQ-049: Rollenmodell & verbindliches Rechte-Vokabular
+**Fokus:** Zweiachsiges Berechtigungsmodell (fachliche Rolle + administrative Zusatzberechtigung) und das normative Vokabular für alle Rechte-Tabellen · **Löst ab:** Vokabular in REQ-024 §1a und in den 31 SEC-H-001-Abschnitten · **Erweitert:** REQ-024 (Mitgliedschaft), REQ-023 · Quelle: Spec-Audit 2026-07-25
+- **Achse 1 (fachlich, im Garten):** Beobachter → Gärtner → Leitung. Die Grenze zwischen Gärtner und Leitung verläuft entlang der Nicht-Umkehrbarkeit: Gärtner ändern, nur die Leitung löscht.
+- **Achse 2 (administrativ, am Mandanten):** `Verwaltung` (Mitglieder, Einstellungen, Zuweisungen, Dienstkonten) und `Technik` (Integrationen, Sensorkonfiguration, Import, Zugangsschlüssel) — additiv und unabhängig von Achse 1 vergebbar.
+- **Verbindliches Vokabular:** „Alle Rollen" / „Ab Gärtner" / „Nur Leitung" / „Verwaltung" / „Technik" / „Plattform-Admin"; „Mitglied" und unqualifiziertes „Admin" sind verboten — sie waren die Ursache der widersprüchlichen Rechte-Aussagen.
+- **Nachschlagetabelle Aufgabe → Rolle** für Garten, Mandant und Installation.
+
+**Highlights:**
+- Löst den Widerspruch auf, der dem Beobachter in 25 von 27 Rechte-Tabellen Schreibrechte einräumte (bis hin zum Not-Aus der Aktorik).
+- Rollenbedarf aus den Zielgruppen abgeleitet: UZG-003 (Schüler ohne Löschrecht), UZG-005 (Inhaber/Meister/Mitarbeiter), ZG-005 (Anbauer/Manager/Buchhalter).
+- Migration verlustfrei: `admin` → `lead` + beide Zusatzberechtigungen.
+
+---
+
 ## Technologie-Stack
 
 ### Backend

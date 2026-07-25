@@ -183,6 +183,7 @@ Im Tab **Konto** der Kontoeinstellungen findest du im rot markierten Bereich die
 
 - [Erste Schritte — Onboarding](onboarding.md)
 - [Mandanten & Gärten](tenants.md)
+- [Rollen, Mandanten & Sichtbarkeit](../reference/roles-and-permissions.md)
 - [Module & Funktionen](module-visibility.md)
 - [Datenschutz & DSGVO](privacy.md)
 - [API-Dokumentation: Authentifizierung](../api/authentication.md)
