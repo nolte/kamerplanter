@@ -30,7 +30,7 @@ class PlantingRunListPage(BasePage):
     # ── Dialog locators ────────────────────────────────────────────────
     # PlantingRunCreateDialog does not use data-testid="create-dialog" — it uses
     # MUI Dialog with aria role="dialog". We locate it by DialogTitle text via role.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")

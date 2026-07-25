@@ -12,7 +12,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from .base_page import BasePage
+from .base_page import DIALOG_XPATH, BasePage
 
 
 class SiteListPageExt(BasePage):
@@ -45,7 +45,7 @@ class SiteListPageExt(BasePage):
 
     # ── Create dialog (SiteCreateDialog — no explicit data-testid on dialog) ──
     # The Dialog wraps form fields with form-field-* testids
-    CREATE_DIALOG_TITLE = (By.XPATH, "//div[@role='dialog']//h2")
+    CREATE_DIALOG_TITLE = (By.XPATH, f"{DIALOG_XPATH}//h2")
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
     FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-type']")
     FORM_CLIMATE_ZONE = (By.CSS_SELECTOR, "[data-testid='form-field-climate_zone'] input")

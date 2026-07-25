@@ -23,7 +23,7 @@ class WorkflowDetailPage(BasePage):
     TAB_ITEMS = (By.CSS_SELECTOR, "[role='tab']")
 
     # ── Dialogs ────────────────────────────────────────────────────────
-    DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_DIALOG_CONFIRM = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
 

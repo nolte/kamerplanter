@@ -52,7 +52,7 @@ class TaskQueuePage(BasePage):
     TASK_SECTION_FUTURE = (By.CSS_SELECTOR, "[data-testid='task-section-future']")
 
     # ── Create dialog (MUI Dialog) ─────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # ── Snackbar (notistack) ───────────────────────────────────────────
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")

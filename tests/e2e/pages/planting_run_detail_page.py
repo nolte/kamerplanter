@@ -43,12 +43,12 @@ class PlantingRunDetailPage(BasePage):
 
     # ── Edit dialog (opened via edit button) ────────────────────────────
     EDIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='edit-button']")
-    EDIT_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
-    FORM_NAME = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-name'] input")
-    FORM_NOTES = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-notes'] input")
-    FORM_PLANNED_START = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-field-planned_start_date'] input")
-    FORM_SUBMIT = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-submit-button']")
-    FORM_CANCEL = (By.CSS_SELECTOR, "div[role='dialog'] [data-testid='form-cancel-button']")
+    EDIT_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
+    FORM_NAME = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-field-name'] input")
+    FORM_NOTES = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-field-notes'] input")
+    FORM_PLANNED_START = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-field-planned_start_date'] input")
+    FORM_SUBMIT = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']")
+    FORM_CANCEL = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-cancel-button']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

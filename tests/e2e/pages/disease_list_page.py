@@ -30,7 +30,7 @@ class DiseaseListPage(BasePage):
     NO_RESULTS = (By.CSS_SELECTOR, "[data-testid='no-results']")
 
     # -- Create dialog locators -----------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # -- Create form field locators -------------------------------------------
     FORM_SCIENTIFIC_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-scientific_name'] input")
@@ -81,15 +81,16 @@ class DiseaseListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (DiseaseListPage `columns`).
+    NAME_COLUMN_ID = "scientificName"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the scientific name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -235,7 +236,7 @@ class DiseaseListPage(BasePage):
     def submit_create_form(self) -> None:
         """Submit the create form via JS dispatch on the form element."""
         self.driver.execute_script(
-            "var form = document.querySelector(\"div[role='dialog'] form\");"
+            "var form = document.querySelector(\".MuiDialog-root [role='dialog'] form\");"
             "if (form) {"
             "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
             "  form.dispatchEvent(ev);"
@@ -295,7 +296,7 @@ class DiseaseListPage(BasePage):
         Fallback check used when the exact field emitting the error is uncertain.
         """
         return len(self.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
+            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error"
         )) > 0
 
     # -- Internal helpers -----------------------------------------------------

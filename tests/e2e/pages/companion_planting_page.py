@@ -26,13 +26,22 @@ class CompanionPlantingPage(BasePage):
     ADD_COMPATIBLE_BTN = (By.CSS_SELECTOR, "[data-testid='add-compatible-button']")
     ADD_INCOMPATIBLE_BTN = (By.CSS_SELECTOR, "[data-testid='add-incompatible-button']")
 
-    # Dialog locators
-    DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    # Dialog locators -- addressed by the dialog's own data-testid rather than a
+    # bare role='dialog'. Below the `md` breakpoint (mobile AND tablet) the
+    # sidebar Drawer is `temporary` + `keepMounted`, so its paper also carries
+    # role='dialog' and wins the document-order lookup. See base_page.
+    DIALOG = (By.CSS_SELECTOR, "[data-testid='companion-planting-dialog']")
     DIALOG_TARGET_SELECT = (By.CSS_SELECTOR, "[data-testid='target-species-select'] .MuiSelect-select")
     DIALOG_SCORE_INPUT = (By.CSS_SELECTOR, "[data-testid='score-input'] input")
     DIALOG_REASON_INPUT = (By.CSS_SELECTOR, "[data-testid='reason-input'] textarea")
-    DIALOG_CREATE_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Erstellen')]")
-    DIALOG_CANCEL_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Abbrechen')]")
+    DIALOG_CREATE_BTN = (
+        By.XPATH,
+        "//*[@data-testid='companion-planting-dialog']//button[contains(text(), 'Erstellen')]",
+    )
+    DIALOG_CANCEL_BTN = (
+        By.XPATH,
+        "//*[@data-testid='companion-planting-dialog']//button[contains(text(), 'Abbrechen')]",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

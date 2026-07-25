@@ -69,6 +69,10 @@ class SpeciesListPage(BasePage):
         that link column, so it would open the family detail instead. Clicking a
         cell with no nested ``<a>`` (e.g. the scientific-name column) lets the
         click bubble to the row handler and navigate to the species detail.
+
+        Below the DataTable's mobile breakpoint the row is a `MobileCard` with
+        no ``<td>`` cells and no family link, so the loop finds nothing and the
+        row itself is the correct click target.
         """
         for cell in row.find_elements(By.TAG_NAME, "td"):
             if cell.text.strip() and not cell.find_elements(By.TAG_NAME, "a"):
@@ -89,11 +93,18 @@ class SpeciesListPage(BasePage):
         time.sleep(0.5)  # DataTable debounces the search input by 300ms
         self.wait_for_loading_complete()
 
+    #: Column id of the identifying column (SpeciesListPage `columns`).
+    NAME_COLUMN_ID = "scientificName"
+
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose scientific name matches *name*.
 
-        The species table has a star/favorite column at index 0 (empty text),
-        so we search across all cells rather than only the first one.
+        Addressed by column id, not by position: the species table starts with
+        a star/favorite and an image column (both empty text), and below the
+        DataTable's mobile breakpoint the row is a `MobileCard` with no
+        ``<td>`` cells at all -- a ``By.TAG_NAME, 'td'`` scan finds nothing
+        there and would raise "Row with name … not found" on every mobile and
+        tablet run.
 
         The DataTable is client-side sorted (scientific name asc) and paginated
         at 25 rows/page, so a freshly created species can land on a later page
@@ -101,13 +112,10 @@ class SpeciesListPage(BasePage):
         before scanning — mirrors ``provision_plant`` in ``_journey_helpers.py``.
         """
         self.search(name)
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            for cell in cells:
-                if cell.text == name:
-                    self.scroll_and_click(self._row_nav_target(row))
-                    return
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                self.scroll_and_click(self._row_nav_target(row))
+                return
         raise ValueError(f"Row with name '{name}' not found")
 
     def has_empty_state(self) -> bool:

@@ -19,6 +19,27 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_TIMEOUT = 15
 
+# ── Dialog scoping ────────────────────────────────────────────────────────
+# A MUI Dialog's paper carries ``role="dialog"`` -- but so does a *temporary*
+# MUI Drawer's paper. Below the `md` breakpoint (900px, i.e. BOTH the mobile
+# and the tablet profile) the Sidebar renders as `variant="temporary"` with
+# `ModalProps={{ keepMounted: true }}`, so its paper is portalled to
+# ``document.body`` at app mount and stays in the DOM with
+# ``visibility: hidden`` while the drawer is closed.
+#
+# An unscoped ``div[role='dialog']`` therefore resolves to that invisible
+# drawer paper FIRST (document order), and ``visibility_of_element_located``
+# -- which uses ``find_element``, i.e. first match only -- never becomes true.
+# CSS selector *lists* are no protection either: they also match in document
+# order, so a ``[data-testid='x'], div[role='dialog']`` fallback chain still
+# picks the drawer.
+#
+# Always scope dialog lookups to the MuiDialog subtree (or, better, to the
+# dialog's own data-testid). The Drawer root is ``.MuiDrawer-root`` and never
+# carries ``.MuiDialog-root``, so this scoping is exact.
+DIALOG_SELECTOR = ".MuiDialog-root [role='dialog']"
+DIALOG_XPATH = "//*[contains(@class, 'MuiDialog-root')]//*[@role='dialog']"
+
 
 class BasePage:
     """Shared helpers inherited by every page object."""
@@ -236,6 +257,51 @@ class BasePage:
         cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
         return cells[0].text if cells else ""
 
+    # ── Layout-tolerant DataTable row access ──────────────────────────────
+    # `DataTable` emits ``[data-testid='data-table-row']`` in BOTH layouts, but
+    # only the desktop table renders ``<td data-testid='cell-<col_id>'>``. Below
+    # the table's `mobileBreakpoint` it renders a `MobileCard` inside the same
+    # row container, and `MobileCard` emits no per-cell testids at all -- there
+    # is neither a ``<td>`` nor a ``cell-*`` to read. Position-based `cells[0]`
+    # access is doubly wrong there: it yields `[]` on mobile, and on desktop it
+    # picks whatever column happens to come first (a favourite star, a
+    # conditionally prepended chip column, ...) rather than the identifying one.
+
+    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+
+    def get_row_primary_text(self, row: WebElement, col_id: str) -> str:
+        """Return a row's identifying text, addressed by column id in both layouts.
+
+        Reads ``[data-testid='cell-<col_id>']`` when the desktop table is
+        rendered. In the mobile card layout it falls back to the card's first
+        text line, which is the `MobileCard` ``title`` -- fed from the same
+        field the identifying column renders on every page using this helper.
+        """
+        cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+        if cells:
+            return cells[0].text
+        lines = [line.strip() for line in (row.text or "").splitlines() if line.strip()]
+        return lines[0] if lines else ""
+
+    def get_column_texts(self, col_id: str) -> list[str]:
+        """Return the identifying text of every visible DataTable row."""
+        return [
+            self.get_row_primary_text(row, col_id)
+            for row in self.driver.find_elements(*self.DATA_TABLE_ROWS)
+        ]
+
+    def find_row_by_text(self, needle: str) -> WebElement | None:
+        """Return the first DataTable row whose rendered text contains *needle*.
+
+        Layout-tolerant: matches against the row/card text rather than against
+        a positional cell, so it behaves identically for the desktop table and
+        the mobile card list.
+        """
+        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+            if needle in (row.text or ""):
+                return row
+        return None
+
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.
 
@@ -270,6 +336,43 @@ class BasePage:
         element.send_keys(value)
 
     # ── Sidebar navigation ─────────────────────────────────────────────────
+
+    SIDEBAR_ROOT = (By.CSS_SELECTOR, "[data-testid='sidebar']")
+    SIDEBAR_TOGGLE = (By.CSS_SELECTOR, "[data-testid='sidebar-toggle']")
+    SIDEBAR_PAPER = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiDrawer-paper")
+
+    def is_sidebar_open(self) -> bool:
+        """Return True if the sidebar drawer's paper is actually visible."""
+        papers = self.driver.find_elements(*self.SIDEBAR_PAPER)
+        return len(papers) > 0 and papers[0].is_displayed()
+
+    def ensure_sidebar_open(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Open the sidebar drawer if it is closed, and wait until it is visible.
+
+        Viewport-aware and idempotent. Below the `md` breakpoint (900px --
+        i.e. BOTH the mobile and the tablet profile) the Sidebar renders as a
+        *temporary* Drawer with ``ModalProps={{ keepMounted: true }}``, so its
+        nav items stay in the DOM while the drawer is closed, merely hidden via
+        ``visibility: hidden``. `uiSlice` seeds ``sidebarOpen`` from
+        ``window.innerWidth >= 768``, so at 393px the drawer starts closed.
+
+        Any assertion on nav-item *visibility* must therefore open the drawer
+        first -- a presence-only wait on the sidebar stays green and masks the
+        closed drawer. Returns immediately when the paper is already visible
+        (desktop `persistent` variant, or the tablet width where the drawer
+        starts open).
+
+        No-ops when no sidebar is mounted at all (e.g. the login route, which
+        renders outside `MainLayout`) -- "the sidebar is missing" is a distinct
+        condition that the caller's own assertion reports.
+        """
+        if self.is_sidebar_open() or not self.is_present(self.SIDEBAR_ROOT):
+            return
+        toggle = self.wait_for_element_clickable(self.SIDEBAR_TOGGLE, timeout=timeout)
+        self.scroll_and_click(toggle)
+        WebDriverWait(self.driver, timeout).until(
+            EC.visibility_of_element_located(self.SIDEBAR_PAPER)
+        )
 
     def navigate_via_sidebar(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Navigate by clicking a sidebar link, simulating real user behavior.

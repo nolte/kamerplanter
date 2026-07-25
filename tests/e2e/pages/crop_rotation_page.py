@@ -26,12 +26,21 @@ class CropRotationPage(BasePage):
     ADD_SUCCESSOR_BTN = (By.CSS_SELECTOR, "[data-testid='add-successor-button']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
-    # Dialog locators
-    DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    # Dialog locators -- addressed by the dialog's own data-testid rather than a
+    # bare role='dialog'. Below the `md` breakpoint (mobile AND tablet) the
+    # sidebar Drawer is `temporary` + `keepMounted`, so its paper also carries
+    # role='dialog' and wins the document-order lookup. See base_page.
+    DIALOG = (By.CSS_SELECTOR, "[data-testid='crop-rotation-dialog']")
     DIALOG_TARGET_SELECT = (By.CSS_SELECTOR, "[data-testid='to-family-select'] .MuiSelect-select")
     DIALOG_WAIT_YEARS = (By.CSS_SELECTOR, "[data-testid='wait-years-input'] input")
-    DIALOG_CREATE_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Erstellen')]")
-    DIALOG_CANCEL_BTN = (By.XPATH, "//div[@role='dialog']//button[contains(text(), 'Abbrechen')]")
+    DIALOG_CREATE_BTN = (
+        By.XPATH,
+        "//*[@data-testid='crop-rotation-dialog']//button[contains(text(), 'Erstellen')]",
+    )
+    DIALOG_CANCEL_BTN = (
+        By.XPATH,
+        "//*[@data-testid='crop-rotation-dialog']//button[contains(text(), 'Abbrechen')]",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

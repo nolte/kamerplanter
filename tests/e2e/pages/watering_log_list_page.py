@@ -27,7 +27,7 @@ class WateringLogListPage(BasePage):
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # -- Create dialog locators ---------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     PLANT_KEYS_INPUT = (By.CSS_SELECTOR, "[data-testid='plant-keys-input'] input")
     PLANT_KEYS_AUTOCOMPLETE = (By.CSS_SELECTOR, "[data-testid='plant-keys-autocomplete']")
     ADD_FERTILIZER_BUTTON = (By.CSS_SELECTOR, "[data-testid='add-fertilizer-button']")

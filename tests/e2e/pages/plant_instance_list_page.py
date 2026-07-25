@@ -27,7 +27,7 @@ class PlantInstanceListPage(BasePage):
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # ── Create dialog locators ─────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     FORM_SPECIES = (By.CSS_SELECTOR, "[data-testid='form-field-species_key']")
     FORM_SPECIES_INPUT = (By.CSS_SELECTOR, "[data-testid='form-field-species_key'] input")
     FORM_PLANT_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-plant_name'] input")

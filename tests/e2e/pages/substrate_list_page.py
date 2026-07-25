@@ -34,7 +34,7 @@ class SubstrateListPage(BasePage):
     MIX_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-outlined')]")
 
     # ── Create dialog locators ─────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
     FORM_BRAND = (By.CSS_SELECTOR, "[data-testid='form-field-brand'] input")
     FORM_NAME_DE = (By.CSS_SELECTOR, "[data-testid='form-field-name_de'] input")

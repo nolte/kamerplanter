@@ -30,7 +30,7 @@ class PestListPage(BasePage):
     NO_RESULTS = (By.CSS_SELECTOR, "[data-testid='no-results']")
 
     # -- Create dialog locators -----------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # -- Create form field locators -------------------------------------------
     FORM_SCIENTIFIC_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-scientific_name'] input")
@@ -73,15 +73,18 @@ class PestListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (PestListPage `columns`).
+    NAME_COLUMN_ID = "scientificName"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the scientific name of every visible row.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        conditionally rendered recognition-chip column when pest recognition is
+        available, and below the DataTable's mobile breakpoint there is no
+        ``<td>`` at all (MobileCard layout).
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -239,7 +242,7 @@ class PestListPage(BasePage):
         directly ensures react-hook-form's handleSubmit is invoked.
         """
         self.driver.execute_script(
-            "var form = document.querySelector(\"div[role='dialog'] form\");"
+            "var form = document.querySelector(\".MuiDialog-root [role='dialog'] form\");"
             "if (form) {"
             "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
             "  form.dispatchEvent(ev);"
@@ -301,20 +304,20 @@ class PestListPage(BasePage):
         uncertain (e.g. `has_validation_error` looked at the wrong field id).
         """
         return len(self.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
+            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error"
         )) > 0
 
     def field_has_aria_invalid(self, field_name: str) -> bool:
         """Return True if the input for *field_name* carries ``aria-invalid='true'``."""
         return len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            f"div[role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
+            f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
         )) > 0
 
     def has_any_aria_invalid_in_dialog(self) -> bool:
         """Return True if any input in the open dialog carries ``aria-invalid='true'``."""
         return len(self.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] input[aria-invalid='true']"
+            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] input[aria-invalid='true']"
         )) > 0
 
     def get_field_debug_state(self, field_name: str) -> tuple[str, str]:
@@ -323,7 +326,7 @@ class PestListPage(BasePage):
         Returns ``("NOT FOUND: <field_name>", "N/A")`` if the field is absent.
         """
         elements = self.driver.find_elements(
-            By.CSS_SELECTOR, f"div[role='dialog'] [data-testid='form-field-{field_name}'] input"
+            By.CSS_SELECTOR, f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input"
         )
         if not elements:
             return f"NOT FOUND: form-field-{field_name}", "N/A"

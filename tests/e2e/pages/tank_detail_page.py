@@ -34,7 +34,7 @@ class TankDetailPage(BasePage):
     STATES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── TankStateCreateDialog ──────────────────────────────────────────
-    STATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    STATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     STATE_FORM_PH = (By.CSS_SELECTOR, "[data-testid='form-field-ph'] input")
     STATE_FORM_EC = (By.CSS_SELECTOR, "[data-testid='form-field-ec_ms'] input")
     STATE_FORM_TEMP = (By.CSS_SELECTOR, "[data-testid='form-field-water_temp_celsius'] input")
@@ -50,7 +50,7 @@ class TankDetailPage(BasePage):
     MAINTENANCE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── MaintenanceLogDialog ───────────────────────────────────────────
-    MAINTENANCE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    MAINTENANCE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     MAINT_FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-maintenance_type'] .MuiSelect-select")
     MAINT_FORM_PERFORMED_BY = (By.CSS_SELECTOR, "[data-testid='form-field-performed_by'] input")
     MAINT_FORM_DURATION = (By.CSS_SELECTOR, "[data-testid='form-field-duration_minutes'] input")

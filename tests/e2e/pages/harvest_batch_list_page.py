@@ -28,7 +28,7 @@ class HarvestBatchListPage(BasePage):
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
 
     # -- Create dialog locators ---------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # -- Create form field locators -----------------------------------------
     FORM_PLANT_KEY = (
@@ -313,19 +313,19 @@ class HarvestBatchListPage(BasePage):
         # Check for explicit error helper text
         if len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiFormHelperText-root.Mui-error",
+            ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
         )) > 0:
             return True
         # Check for MUI form controls in error state (e.g. Select without helper text)
         if len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiFormControl-root.Mui-error",
+            ".MuiDialog-root [role='dialog'] .MuiFormControl-root.Mui-error",
         )) > 0:
             return True
         # Check for MUI InputBase in error state
         if len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiInputBase-root.Mui-error",
+            ".MuiDialog-root [role='dialog'] .MuiInputBase-root.Mui-error",
         )) > 0:
             return True
         return False
@@ -336,7 +336,7 @@ class HarvestBatchListPage(BasePage):
 
         return len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] [aria-invalid='true']",
+            ".MuiDialog-root [role='dialog'] [aria-invalid='true']",
         )) > 0
 
     def wait_briefly_for_client_validation(self, seconds: float = 0.5) -> None:

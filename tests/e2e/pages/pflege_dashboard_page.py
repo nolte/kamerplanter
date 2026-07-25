@@ -82,7 +82,7 @@ class PflegeDashboardPage(BasePage):
     SNACKBAR = (By.CSS_SELECTOR, ".MuiSnackbar-root .MuiAlert-message")
 
     # ── MUI Dialog (generic) ─────────────────────────────────────────
-    MUI_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    MUI_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

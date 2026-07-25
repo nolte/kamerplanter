@@ -8,7 +8,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .base_page import DEFAULT_TIMEOUT, BasePage
+from .base_page import DEFAULT_TIMEOUT, DIALOG_SELECTOR, BasePage
 
 
 class ExpertiseLevelPage(BasePage):
@@ -53,8 +53,16 @@ class ExpertiseLevelPage(BasePage):
     # ── Create dialog ────────────────────────────────────────────────
     # SpeciesCreateDialog has data-testid='species-create-dialog'.
     # PlantingRunCreateDialog has no custom testid, only role='dialog'.
-    # Use a fallback chain.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='species-create-dialog'], div[role='dialog']")
+    #
+    # The former fallback chain "[data-testid='species-create-dialog'],
+    # div[role='dialog']" was NOT protection: a CSS selector list matches in
+    # document order, not in listed order, so below the `md` breakpoint the
+    # keepMounted sidebar Drawer paper (which also carries role='dialog') still
+    # won. Both alternatives are scoped to the MuiDialog subtree instead.
+    CREATE_DIALOG = (
+        By.CSS_SELECTOR,
+        f"[data-testid='species-create-dialog'], {DIALOG_SELECTOR}",
+    )
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
 
     # ── Species list page ────────────────────────────────────────────
@@ -145,16 +153,26 @@ class ExpertiseLevelPage(BasePage):
 
     def get_sidebar_nav_item_labels(self) -> list[str]:
         """Return all visible sidebar navigation item labels (excluding section headers)."""
+        self.ensure_sidebar_open()
         items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
         return [item.text.strip() for item in items if item.is_displayed() and item.text.strip()]
 
     def get_sidebar_section_headers(self) -> list[str]:
         """Return all visible sidebar section header texts."""
+        self.ensure_sidebar_open()
         headers = self.driver.find_elements(*self.SIDEBAR_SECTION_HEADERS)
         return [h.text.strip() for h in headers if h.is_displayed() and h.text.strip()]
 
     def is_nav_item_visible(self, path: str) -> bool:
-        """Check if a sidebar nav item with the given path data-testid is visible."""
+        """Check if a sidebar nav item with the given path data-testid is visible.
+
+        Opens the drawer first. Below the `md` breakpoint (mobile AND tablet)
+        the sidebar is a *temporary*, `keepMounted` Drawer that `uiSlice` seeds
+        closed at narrow widths, so every nav item -- ``/dashboard`` included --
+        reads as not displayed while it is shut. Without this the assertion
+        measures the drawer's open state, not experience-level nav tiering.
+        """
+        self.ensure_sidebar_open()
         locator = (By.CSS_SELECTOR, f"[data-testid='nav-{path}']")
         elements = self.driver.find_elements(*locator)
         return len(elements) > 0 and elements[0].is_displayed()
@@ -211,6 +229,7 @@ class ExpertiseLevelPage(BasePage):
 
     def count_sidebar_nav_items(self) -> int:
         """Count visible sidebar navigation items (ListItemButton elements)."""
+        self.ensure_sidebar_open()
         items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
         return sum(1 for item in items if item.is_displayed())
 
@@ -250,7 +269,7 @@ class ExpertiseLevelPage(BasePage):
         time.sleep(0.3)  # Wait for React re-render
 
         # Search within dialog first, then fallback to page-wide search
-        containers = self.driver.find_elements(By.CSS_SELECTOR, "div[role='dialog']")
+        containers = self.driver.find_elements(By.CSS_SELECTOR, DIALOG_SELECTOR)
         if not containers:
             containers = [self.driver.find_element(By.TAG_NAME, "body")]
 
@@ -368,7 +387,7 @@ class ExpertiseLevelPage(BasePage):
         self.scroll_and_click(btn)
         # PlantingRunCreateDialog uses MUI Dialog without custom data-testid
         self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "div[role='dialog']")
+            (By.CSS_SELECTOR, DIALOG_SELECTOR)
         )
 
     def close_create_dialog(self) -> None:
@@ -380,14 +399,14 @@ class ExpertiseLevelPage(BasePage):
         # Wait for any dialog to close
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
             EC.invisibility_of_element_located(
-                (By.CSS_SELECTOR, "div[role='dialog']")
+                (By.CSS_SELECTOR, DIALOG_SELECTOR)
             )
         )
 
     def is_create_dialog_open(self) -> bool:
         """Check if a create dialog is currently open."""
         # Check for both data-testid and role-based selectors
-        for sel in ["[data-testid='species-create-dialog']", "div[role='dialog']"]:
+        for sel in ["[data-testid='species-create-dialog']", DIALOG_SELECTOR]:
             elements = self.driver.find_elements(By.CSS_SELECTOR, sel)
             if elements and elements[0].is_displayed():
                 return True

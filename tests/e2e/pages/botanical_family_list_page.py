@@ -85,15 +85,16 @@ class BotanicalFamilyListPage(BasePage):
             result.append([c.text for c in cells])
         return result
 
+    #: Column id of the identifying column (BotanicalFamilyListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return text of the first column (Name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the family name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def click_row(self, index: int) -> None:
         rows = self.driver.find_elements(*self.TABLE_ROWS)
@@ -101,11 +102,13 @@ class BotanicalFamilyListPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
+        """Click the row whose name column matches *name*.
+
+        Addressed by column id, not by position, so it works for both the
+        desktop table and the mobile card layout.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
                 self.scroll_and_click(row)
                 return
         raise ValueError(f"Row with name '{name}' not found")
