@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -152,30 +154,89 @@ class ExpertiseLevelPage(BasePage):
     # ── Sidebar / Navigation tiering ─────────────────────────────────
 
     def get_sidebar_nav_item_labels(self) -> list[str]:
-        """Return all visible sidebar navigation item labels (excluding section headers)."""
+        """Return the labels of every nav item the sidebar renders for this tier.
+
+        Scroll-container-aware (see :meth:`is_nav_item_visible`): an item below
+        the nav box's fold is rendered but clipped, and a bare ``is_displayed()``
+        would drop it -- answering "which items does this experience level
+        show?" with "which items happen to fit".
+        """
         self.ensure_sidebar_open()
-        items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
-        return [item.text.strip() for item in items if item.is_displayed() and item.text.strip()]
+        labels: list[str] = []
+        for item in self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS):
+            if not self.is_displayed_in_scroll_container(item):
+                continue
+            text = item.text.strip()
+            if text:
+                labels.append(text)
+        return labels
 
     def get_sidebar_section_headers(self) -> list[str]:
-        """Return all visible sidebar section header texts."""
-        self.ensure_sidebar_open()
-        headers = self.driver.find_elements(*self.SIDEBAR_SECTION_HEADERS)
-        return [h.text.strip() for h in headers if h.is_displayed() and h.text.strip()]
+        """Return the texts of every section header the sidebar renders for this tier.
 
-    def is_nav_item_visible(self, path: str) -> bool:
-        """Check if a sidebar nav item with the given path data-testid is visible.
+        Scroll-container-aware for the same reason as
+        :meth:`get_sidebar_nav_item_labels` -- and more exposed to it, since the
+        later sections are exactly the ones sitting below the fold.
+        """
+        self.ensure_sidebar_open()
+        headers: list[str] = []
+        for header in self.driver.find_elements(*self.SIDEBAR_SECTION_HEADERS):
+            if not self.is_displayed_in_scroll_container(header):
+                continue
+            text = header.text.strip()
+            if text:
+                headers.append(text)
+        return headers
+
+    #: Bound for the settle poll in :meth:`is_nav_item_visible`. Short by
+    #: design: the tier-load window is polled by the ``wait_for_nav_item_*``
+    #: wrappers, this only rides out a re-render between lookup and read.
+    NAV_ITEM_SETTLE_TIMEOUT = 2.0
+
+    def is_nav_item_visible(self, path: str, timeout: float = NAV_ITEM_SETTLE_TIMEOUT) -> bool:
+        """Check whether the sidebar renders the nav item for *path* in this tier.
 
         Opens the drawer first. Below the `md` breakpoint (mobile AND tablet)
         the sidebar is a *temporary*, `keepMounted` Drawer that `uiSlice` seeds
         closed at narrow widths, so every nav item -- ``/dashboard`` included --
         reads as not displayed while it is shut. Without this the assertion
         measures the drawer's open state, not experience-level nav tiering.
+
+        Two further mechanics this must not conflate with "hidden for this
+        tier", because `Sidebar` expresses tiering by *not rendering* an item
+        (``isItemVisible`` returns ``null``) -- so "not in the DOM" is the only
+        truthful hidden signal:
+
+        * The drawer's nav is a scroll container (``Sidebar.tsx``: ``<Box
+          component="nav" sx={{ overflow: 'auto', flex: 1 }}>``). An item far
+          down the expert-tier list -- ``/pflanzenschutz/pests`` sits roughly
+          400 px below the fold -- is rendered but clipped, and Selenium reports
+          ``is_displayed() == False`` for an element hidden by an ancestor's
+          overflow. Hence the scroll-into-view before the read.
+        * The read is polled rather than single-shot. The drawer's ~225 ms slide
+          used to act as an implicit settle barrier between
+          ``visibility_of_element_located(SIDEBAR_PAPER)`` and the immediately
+          following read; that is an accident of animation timing, not a
+          synchronisation primitive, and it vanished the moment the harness
+          asked the app for reduced motion. A durable condition-based poll does
+          not depend on how long an animation happens to take.
+
+        A missing element returns ``False`` at once: that is already a settled
+        answer, and polling it would make every ``wait_for_nav_item_hidden``
+        call pay this timeout.
         """
         self.ensure_sidebar_open()
         locator = (By.CSS_SELECTOR, f"[data-testid='nav-{path}']")
-        elements = self.driver.find_elements(*locator)
-        return len(elements) > 0 and elements[0].is_displayed()
+        deadline = time.time() + timeout
+        while True:
+            elements = self.driver.find_elements(*locator)
+            if not elements:
+                return False
+            if self.is_displayed_in_scroll_container(elements[0]):
+                return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(0.1)  # poll interval for the explicit visibility condition
 
     def wait_for_nav_item_visible(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
         """Poll until a sidebar nav item becomes visible, then return True (or False on timeout).
@@ -186,8 +247,6 @@ class ExpertiseLevelPage(BasePage):
         higher-tier user *will* see can be momentarily absent right after
         navigation. Polling waits out that load window instead of sampling once.
         """
-        import time
-
         deadline = time.time() + timeout
         while time.time() < deadline:
             if self.is_nav_item_visible(path):
@@ -204,8 +263,6 @@ class ExpertiseLevelPage(BasePage):
         can render visible for a moment right after navigation. Polling waits
         out that load window instead of sampling once.
         """
-        import time
-
         deadline = time.time() + timeout
         while time.time() < deadline:
             if not self.is_nav_item_visible(path):
@@ -228,10 +285,18 @@ class ExpertiseLevelPage(BasePage):
         )
 
     def count_sidebar_nav_items(self) -> int:
-        """Count visible sidebar navigation items (ListItemButton elements)."""
+        """Count the nav items the sidebar renders for this tier (ListItemButtons).
+
+        Scroll-container-aware (see :meth:`is_nav_item_visible`): counting only
+        the items that fit inside the nav box's viewport would make the count a
+        function of the drawer height rather than of the experience level.
+        """
         self.ensure_sidebar_open()
-        items = self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
-        return sum(1 for item in items if item.is_displayed())
+        return sum(
+            1
+            for item in self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
+            if self.is_displayed_in_scroll_container(item)
+        )
 
     # ── Confirm dialog (window.confirm for downgrade) ────────────────
 
