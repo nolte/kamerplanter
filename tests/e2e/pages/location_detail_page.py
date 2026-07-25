@@ -110,7 +110,8 @@ class LocationDetailPage(BasePage):
         self.close_mui_dropdown()
 
     def submit_form(self) -> None:
-        self.wait_and_click(self.FORM_SUBMIT)
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
         self.wait_and_click(self.FORM_CANCEL)

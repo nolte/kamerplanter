@@ -306,7 +306,74 @@ class BasePage:
         one aimed at the last option committed nothing at all. Dispatching on
         the already-resolved element cannot miss.
         """
+        self._dispatch_click(element)
+
+    def _dispatch_click(self, element: WebElement) -> None:
+        """Dispatch a synthetic ``click`` straight onto the resolved *element*.
+
+        The one place this suite's coordinate-independent clicks go through, so
+        the soundness argument lives in exactly one docstring per activation
+        model (:meth:`click_menu_option`, :meth:`click_coordinate_free`) instead
+        of being re-derived at every call site.
+        """
         self.driver.execute_script("arguments[0].click();", element)
+
+    def click_coordinate_free(self, element: WebElement) -> None:
+        """Click a ``click``-activated control without going through coordinates.
+
+        Use this for the submit/confirm button of a long in-page form. A native
+        ``WebElement.click()`` resolves the element's in-view centre point and
+        only *then* dispatches at those coordinates, and on a 393x852 viewport a
+        form's action row sits at the very bottom of a page far taller than the
+        viewport: ``scrollIntoView({block: 'center'})`` cannot centre it (the
+        document is already scrolled to its maximum), so the button ends up
+        within a few pixels of the fold, where any residual scrolling between
+        the interactability check and the dispatch is enough to put the
+        resolved point off the button. Nothing raises when that happens -- the
+        hit-test passed, the events went out, and no ``submit`` event was ever
+        produced.
+
+        Observed on the mobile profile as the whole ``TestTaskUpdatePropagation``
+        class failing with a still-dirty form, an enabled submit button and no
+        field errors (run ``20260725_113337``), while every desktop profile
+        wrote its eight ``PUT /tasks/{key}`` 200s.
+
+        Sound for a ``<button type='submit'>``: ``HTMLElement.click()`` runs the
+        element's default activation behaviour, i.e. it submits the owning form
+        exactly as a pointer does. Explicitly **not** sound for a MUI Select
+        trigger, which opens only from ``onMouseDown`` -- a lone ``click`` there
+        is a silent no-op, so those are rejected here and must go through
+        :meth:`dispatch_menu_trigger_open` / :meth:`open_select_in`.
+
+        A disabled control is rejected for the same reason: the browser drops
+        the default action, so the call would report success without having
+        done anything.
+        """
+        if self.opens_on_mousedown(element):
+            raise AssertionError(
+                "click_coordinate_free() was called on a control that opens on "
+                "mousedown (a MUI Select trigger). A synthetic click cannot open "
+                "it and would silently report success -- use open_select() / "
+                "open_select_by_testid() instead."
+            )
+        self.scroll_into_view(element)
+        if not element.is_enabled():
+            raise AssertionError(
+                "click_coordinate_free() was called on a disabled control: the "
+                "browser suppresses its default action, so the click would be a "
+                "silent no-op. Wait for the control to become enabled first."
+            )
+        self._dispatch_click(element)
+
+    def wait_and_click_coordinate_free(
+        self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
+    ) -> None:
+        """Wait until *locator* is clickable, then click it coordinate-free.
+
+        The counterpart of :meth:`wait_and_click` for form submits; see
+        :meth:`click_coordinate_free` for why coordinates are the hazard there.
+        """
+        self.click_coordinate_free(self.wait_for_element_clickable(locator, timeout=timeout))
 
     def scroll_and_click(self, element: WebElement) -> None:
         """Scroll an element into view and click it, with a sound JS fallback.
@@ -326,7 +393,7 @@ class BasePage:
             if self.opens_on_mousedown(element):
                 self.dispatch_menu_trigger_open(element)
             else:
-                self.driver.execute_script("arguments[0].click();", element)
+                self._dispatch_click(element)
 
     def wait_and_click(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until *locator* is clickable, scroll it into view, then click it.
@@ -342,6 +409,11 @@ class BasePage:
 
         Use this for every submit/cancel-style action; ``scroll_and_click``
         stays available for callers that already hold the element.
+
+        Exception: the submit button of a **long in-page form** (a detail page's
+        edit tab, not a dialog) is scroll-clamped against the bottom of the
+        document, where the coordinate dispatch this helper ends in silently
+        misses. Those go through :meth:`wait_and_click_coordinate_free`.
         """
         self.scroll_and_click(self.wait_for_element_clickable(locator, timeout=timeout))
 

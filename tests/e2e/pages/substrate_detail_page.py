@@ -209,8 +209,8 @@ class SubstrateDetailPage(BasePage):
         self.scroll_and_click(el)
 
     def submit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_and_click(self.FORM_SUBMIT)
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
         """Cancel the edit form (navigates back)."""

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -257,33 +257,93 @@ class TaskDetailPage(BasePage):
     #: Inline validation errors MUI renders under a rejected field.
     FORM_FIELD_ERRORS = (By.CSS_SELECTOR, ".MuiFormHelperText-root.Mui-error")
 
+    #: Budget for the "did the submit register?" post-condition. Generous on
+    #: purpose: each negative poll pays the session's implicit wait for the
+    #: absent snackbar, so this must cover more than one iteration.
+    SUBMIT_REGISTERED_TIMEOUT = 8
+
+    def _get_field_errors(self) -> list[str]:
+        """Return the inline validation errors currently rendered on the form."""
+        return [
+            e.text for e in self.driver.find_elements(*self.FORM_FIELD_ERRORS) if e.text
+        ]
+
+    def _submit_registered(self) -> bool:
+        """Return whether the click actually handed the form over to ``onSave``.
+
+        ``FormActions`` renders the submit button as
+        ``disabled={loading || disabled}``, and the edit tab feeds it
+        ``loading={saving}`` / ``disabled={!isDirty}``. So *every* state that
+        follows a registered submit disables the button -- the in-flight PUT
+        (``saving``), and the ``resetEdit()`` that ``load()`` performs afterwards
+        (``!isDirty``) -- while a click that never reached the button leaves it
+        enabled on a still-dirty form. A form that unmounted (the reload's
+        loading state) or a stale reference likewise means the submit ran.
+
+        A visible snackbar also counts: on a *rejected* save the error handler
+        toasts and the form goes dirty-and-enabled again, which the button state
+        alone cannot tell apart from a swallowed click. It is probed *last*
+        because the absence of a snackbar costs the full implicit wait, while
+        the button state is a present-element read and therefore instant.
+        """
+        buttons = self.driver.find_elements(*self.FORM_SUBMIT)
+        if not buttons:
+            return True
+        try:
+            if not buttons[0].is_enabled():
+                return True
+        except StaleElementReferenceException:
+            return True
+        return self.has_snackbar()
+
     def save_edit(self) -> None:
         """Submit the edit form and wait for the save to be confirmed.
 
-        Clicks the ``form-submit-button``; ``onSave`` reports every outcome
-        through a notistack snackbar (success message, or the error handler's),
-        so the absence of one means the form never submitted at all — a failed
-        react-hook-form validation, or a click that did not reach the button.
+        The submit is clicked coordinate-free
+        (:meth:`BasePage.click_coordinate_free`). This form's action row is the
+        last child of a page roughly two viewports tall on the mobile profile,
+        so it is scroll-clamped against the bottom of the document and a
+        coordinate dispatch lands next to it without raising -- the whole
+        ``TestTaskUpdatePropagation`` class failed that way (run
+        ``20260725_113337``: still-dirty form, enabled submit, no field errors,
+        no ``PUT /api/v1/t/{slug}/tasks/{key}`` in the backend log) while every
+        desktop profile passed.
 
-        Fails loudly on that: the previous ``except Exception: pass`` made a
+        Then two post-conditions, in order of increasing strength:
+
+        1. the submit *registered* -- otherwise the click was swallowed or
+           react-hook-form rejected the input, which is a different defect from
+           a missing snackbar and now says so by name;
+        2. ``onSave`` reported an outcome through notistack -- it toasts on every
+           branch (success message, or the error handler's), so the absence of a
+           snackbar means the request never resolved into user-visible feedback.
+
+        Both fail loudly. The predecessor's ``except Exception: pass`` made a
         non-submitting form look like a successful save and pushed the failure
-        into a later, misleading "the value did not change" assertion (observed
-        as TC-REQ-006-042, mobile profile, with zero ``PUT
-        /api/v1/t/{slug}/tasks/{key}`` in the backend log for the whole run).
+        into a later, misleading "the value did not change" assertion.
         """
-        self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
+        try:
+            WebDriverWait(self.driver, self.SUBMIT_REGISTERED_TIMEOUT).until(
+                lambda _d: self._submit_registered()
+            )
+        except TimeoutException:
+            raise AssertionError(
+                "Task edit form: the click on form-submit-button did not register "
+                "— the button is still enabled, i.e. the form is still dirty and "
+                "no save is in flight. Either the click never reached the button, "
+                "or react-hook-form rejected the input "
+                f"(field_errors={self._get_field_errors()})"
+            ) from None
         try:
             self.wait_for_snackbar(timeout=10)
         except TimeoutException:
             submit = self.driver.find_elements(*self.FORM_SUBMIT)
-            errors = [
-                e.text for e in self.driver.find_elements(*self.FORM_FIELD_ERRORS) if e.text
-            ]
             raise AssertionError(
-                "Task edit form: no snackbar appeared after clicking "
-                "form-submit-button — the form did not submit "
+                "Task edit form: the submit registered but no snackbar appeared "
+                "within 10s — onSave reported neither success nor an error "
                 f"(submit_enabled={submit[0].is_enabled() if submit else None}, "
-                f"field_errors={errors})"
+                f"field_errors={self._get_field_errors()})"
             ) from None
 
     # ── Detail-tab value readback ──────────────────────────────────────
