@@ -967,6 +967,7 @@ export default function CalendarPage() {
           onChange={(_e, val) => setViewMode(val as ViewMode)}
           variant="scrollable"
           scrollButtons="auto"
+          allowScrollButtonsMobile
           aria-label={t('pages.calendar.title')}
           sx={{ minHeight: 40 }}
         >

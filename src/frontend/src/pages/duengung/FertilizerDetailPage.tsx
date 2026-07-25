@@ -584,6 +584,7 @@ export default function FertilizerDetailPage() {
         sx={{ mb: 2 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={fertilizer.product_name}
       >
         <Tab label={t('pages.fertilizers.tabDetails')} data-testid="tab-details" />

@@ -551,6 +551,7 @@ export default function TankDetailPage() {
         sx={{ mb: 2 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('pages.tanks.tabsAriaLabel')}
       >
         <Tab label={t('pages.tanks.tabDetails')} />

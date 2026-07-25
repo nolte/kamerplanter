@@ -283,7 +283,15 @@ export default function HarvestBatchDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={batch.batch_id || t('pages.harvest.batchFallbackTitle')}
+      >
         <Tab label={t('pages.harvest.tabDetails')} />
         <Tab label={t('pages.harvest.tabQuality')} />
         <Tab label={t('pages.harvest.tabYield')} />

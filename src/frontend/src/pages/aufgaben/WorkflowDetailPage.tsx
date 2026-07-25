@@ -597,7 +597,15 @@ export default function WorkflowDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={workflow.name}
+      >
         <Tab label={t('pages.tasks.tabDetails')} />
         <Tab label={t('pages.tasks.taskTemplates')} />
         <Tab label={t('common.edit')} />

@@ -1105,7 +1105,14 @@ export default function PlantInstanceDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }} variant="scrollable" scrollButtons="auto">
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 3 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+      >
         <Tab label={t('pages.plantInstances.info')} />
         <Tab label={t('pages.plantingRuns.tabPhases')} data-testid="phases-tab" />
         <Tab label={t('entities.nutrientPlan')} />

@@ -255,6 +255,7 @@ export default function SpeciesDetailPage() {
         sx={{ mb: 3 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('pages.species.tabsAriaLabel')}
       >
         <Tab label={t('pages.species.overviewTab')} {...tabA11yProps('species', overviewIdx)} />

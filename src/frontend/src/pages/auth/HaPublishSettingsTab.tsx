@@ -588,6 +588,7 @@ export default function HaPublishSettingsTab() {
         sx={{ mb: 2 }}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('haPublish.manage.subTabsAriaLabel')}
       >
         <Tab
