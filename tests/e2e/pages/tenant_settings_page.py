@@ -19,20 +19,25 @@ class TenantSettingsPage(BasePage):
     TAB_MEMBERS = (By.CSS_SELECTOR, ".MuiTabs-root button:first-child")
     TAB_INVITATIONS = (By.CSS_SELECTOR, ".MuiTabs-root button:nth-child(2)")
 
-    # -- Members tab locators ----------------------------------------------
-    MEMBERS_TABLE = (By.CSS_SELECTOR, "table[aria-label]")
-    MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "table[aria-label] tbody tr")
+    # -- Members / invitations tables --------------------------------------
+    # Both tabs render a `DataTable`, and only one tab is mounted at a time, so
+    # the durable ``data-table``/``data-table-row`` testids are an exact scope
+    # without an aria-label. They also survive the layout switch: the members
+    # table passes a ``mobileCardRenderer``, so below `DataTable`'s ``sm``
+    # breakpoint it renders `MobileCard`s with no ``<table>`` and no
+    # ``<tbody><tr>`` at all — where ``table[aria-label] tbody tr`` silently
+    # counted zero members instead of failing.
+    MEMBERS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
+    MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
     MEMBER_ROLE_CHIP = (By.CSS_SELECTOR, ".MuiChip-root")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
-    # Mobile view
-    MEMBER_MOBILE_CARDS = (By.CSS_SELECTOR, ".MuiCard-root")
 
     # -- Invitations tab locators ------------------------------------------
     INVITE_EMAIL_FIELD = (By.CSS_SELECTOR, "[data-testid='invite-email-field'] input")
     SEND_INVITATION_BTN = (By.CSS_SELECTOR, "[data-testid='send-invitation-btn']")
     CREATE_LINK_BTN = (By.CSS_SELECTOR, "[data-testid='create-link-btn']")
-    INVITATIONS_TABLE = (By.CSS_SELECTOR, "table[aria-label]")
-    INVITATIONS_TABLE_ROWS = (By.CSS_SELECTOR, "table[aria-label] tbody tr")
+    INVITATIONS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
+    INVITATIONS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # -- Snackbar ----------------------------------------------------------
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")

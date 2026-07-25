@@ -51,7 +51,13 @@ class PlantInstanceDetailPage(BasePage):
 
     # Transition dialog
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
+    #: Presence/visibility locator only — the testid sits on the ``TextField``
+    #: FormControl root (label + input + helper text), whose click centre falls
+    #: outside the input once the helper text wraps to two lines (393px). Open
+    #: the dropdown via ``open_select_by_testid`` instead. See the twin note in
+    #: ``phase_transition_page.PlantInstanceDetailExt``.
     TARGET_PHASE_SELECT = (By.CSS_SELECTOR, "[data-testid='target-phase-select']")
+    TARGET_PHASE_SELECT_TESTID = "target-phase-select"
     TRANSITION_REASON = (By.CSS_SELECTOR, "[data-testid='transition-reason'] input")
     TRANSITION_CANCEL = (By.CSS_SELECTOR, "[data-testid='transition-cancel']")
     TRANSITION_CONFIRM = (By.CSS_SELECTOR, "[data-testid='transition-confirm']")
@@ -116,31 +122,86 @@ class PlantInstanceDetailPage(BasePage):
         return self.driver.find_elements(*self.DATA_TABLE_ROWS)
 
     def get_task_rows(self, section_label: str) -> list[WebElement]:
-        """Return the DataTable rows for a task-history section, scoped by aria-label.
+        """Return the DataTable rows for a task-history section, layout-tolerantly.
 
         *section_label* is one of :attr:`TASK_ACTIVE_SECTION_LABEL` /
         :attr:`TASK_DONE_SECTION_LABEL`. Returns ``[]`` when the section is not
-        rendered (a section with zero tasks is omitted from the DOM).
+        rendered — which is exact rather than silent: both the section heading
+        and the DataTable are only mounted while the section holds ≥1 task.
+
+        Below `DataTable`'s ``mobileBreakpoint`` (``sm`` = 600px, i.e. the
+        mobile profile) the tasks tab renders `MobileCard`s: there is no
+        ``<table>``, hence no ``aria-label`` to scope by, and the previous
+        ``table[aria-label='…']`` scope silently yielded ``[]`` for every
+        section. Fall back to the section's own heading, which is fed from the
+        *same* i18n string as the aria-label and sits as the DataTable's
+        preceding sibling in both layouts.
         """
-        return self.driver.find_elements(
+        rows = self.driver.find_elements(
             By.CSS_SELECTOR,
             f"table[aria-label='{section_label}'] [data-testid='data-table-row']",
         )
+        if rows:
+            return rows
+        return self.driver.find_elements(
+            By.XPATH,
+            f"//*[normalize-space(text())=\"{section_label}\"]"
+            "/following-sibling::*[@data-testid='data-table']"
+            "//*[@data-testid='data-table-row']",
+        )
+
+    #: `MobileCard` slot that carries each section's subtitle, per the tasks-tab
+    #: ``mobileCardRenderer`` (PlantInstanceDetailPage.tsx): the active cards
+    #: subtitle the relative due date, the archived ones the completion date.
+    TASK_CARD_SUBTITLE_COLUMN = {
+        TASK_ACTIVE_SECTION_LABEL: "due_date",
+        TASK_DONE_SECTION_LABEL: "completed_at",
+    }
+
+    def get_task_field(self, row: WebElement, section_label: str, col_id: str) -> str:
+        """Return a task row's *col_id* value in both the table and card layout.
+
+        Desktop reads ``[data-testid='cell-<col_id>']``; a cell that exists but
+        renders empty is read via ``textContent``, because `DataTable` keeps
+        ``hideBelowBreakpoint`` columns (``category``, ``completed_at``,
+        ``priority``) mounted with ``display: none`` below ``md``.
+
+        In the card layout there is no ``<td>`` and no per-field testid, so
+        only the two `MobileCard` slots the renderer actually fills can be
+        read; any other column raises rather than returning a silent ``''``.
+        """
+        cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+        if cells:
+            return (cells[0].text or self._text_content(cells[0])).strip()
+        if col_id == "name":
+            return self.get_card_title(row)
+        if col_id == self.TASK_CARD_SUBTITLE_COLUMN.get(section_label):
+            return self.get_card_subtitle(row)
+        raise AssertionError(
+            f"Task column '{col_id}' is not readable in the mobile card layout "
+            f"(section '{section_label}' renders only the task name and "
+            f"'{self.TASK_CARD_SUBTITLE_COLUMN.get(section_label)}'); the card "
+            "exposes no per-field testid to address it by."
+        )
+
+    def _is_watering_task(self, row: WebElement, section_label: str) -> bool:
+        """Return True if *row* is a ``— watering`` care-reminder task."""
+        name = self.get_task_field(row, section_label, "name")
+        return name.endswith(self.WATERING_TASK_SUFFIX)
 
     def count_watering_tasks(self, section_label: str) -> int:
         """Count rows whose name ends with ``— watering`` in a task-history section."""
-        rows = self.get_task_rows(section_label)
         return sum(
             1
-            for row in rows
-            if self.get_row_cell_text(row, "name").strip().endswith(self.WATERING_TASK_SUFFIX)
+            for row in self.get_task_rows(section_label)
+            if self._is_watering_task(row, section_label)
         )
 
     def get_watering_task_cell(self, section_label: str, col_id: str) -> str:
-        """Return *col_id*'s cell text for the first ``— watering`` row in a section."""
+        """Return *col_id*'s value for the first ``— watering`` row in a section."""
         for row in self.get_task_rows(section_label):
-            if self.get_row_cell_text(row, "name").strip().endswith(self.WATERING_TASK_SUFFIX):
-                return self.get_row_cell_text(row, col_id)
+            if self._is_watering_task(row, section_label):
+                return self.get_task_field(row, section_label, col_id)
         return ""
 
     def get_current_phase(self) -> str:
@@ -161,13 +222,12 @@ class PlantInstanceDetailPage(BasePage):
 
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase from the dropdown in the transition dialog."""
-        select_el = self.wait_for_element_clickable(self.TARGET_PHASE_SELECT)
-        # MUI Select: click to open, then find the menu item
-        select_el.click()
+        self.open_select_by_testid(self.TARGET_PHASE_SELECT_TESTID)
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
         )
-        option.click()
+        self.scroll_and_click(option)
+        self.close_mui_dropdown()
 
     def set_transition_reason(self, reason: str) -> None:
         reason_input = self.wait_for_element_clickable(self.TRANSITION_REASON)
