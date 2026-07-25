@@ -198,6 +198,7 @@ plugins:
             Pflanzenprobleme lösen: Plant Health Troubleshooting
             Glossar: Glossary
             Referenz: Reference
+            Rollen & Berechtigungen: Roles & Permissions
             API-Referenz: API Reference
             Datenbankschema: Database Schema
             Umgebungsvariablen: Environment Variables
@@ -408,6 +409,7 @@ nav:
   - Referenz:
       - de/reference/index.md
       - Glossar: de/reference/glossary.md
+      - Rollen & Berechtigungen: de/reference/roles-and-permissions.md
       - API-Referenz: de/reference/api-reference.md
       - Datenbankschema: de/reference/database-schema.md
       - Umgebungsvariablen: de/reference/environment-variables.md
