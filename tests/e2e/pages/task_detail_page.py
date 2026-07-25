@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -253,19 +254,37 @@ class TaskDetailPage(BasePage):
         el = self.wait_for_element_clickable(self.FORM_ASSIGNED_TO)
         self.clear_and_fill(el, value)
 
-    def save_edit(self) -> None:
-        """Submit the edit form and wait for confirmation.
+    #: Inline validation errors MUI renders under a rejected field.
+    FORM_FIELD_ERRORS = (By.CSS_SELECTOR, ".MuiFormHelperText-root.Mui-error")
 
-        Clicks the ``form-submit-button``; on success a notistack snackbar is
-        shown and the page reloads back into the details view.  Waits briefly
-        for the snackbar as a completion signal (best effort — a missing
-        snackbar does not raise).
+    def save_edit(self) -> None:
+        """Submit the edit form and wait for the save to be confirmed.
+
+        Clicks the ``form-submit-button``; ``onSave`` reports every outcome
+        through a notistack snackbar (success message, or the error handler's),
+        so the absence of one means the form never submitted at all — a failed
+        react-hook-form validation, or a click that did not reach the button.
+
+        Fails loudly on that: the previous ``except Exception: pass`` made a
+        non-submitting form look like a successful save and pushed the failure
+        into a later, misleading "the value did not change" assertion (observed
+        as TC-REQ-006-042, mobile profile, with zero ``PUT
+        /api/v1/t/{slug}/tasks/{key}`` in the backend log for the whole run).
         """
         self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
         try:
-            self.wait_for_snackbar(timeout=5)
-        except Exception:
-            pass
+            self.wait_for_snackbar(timeout=10)
+        except TimeoutException:
+            submit = self.driver.find_elements(*self.FORM_SUBMIT)
+            errors = [
+                e.text for e in self.driver.find_elements(*self.FORM_FIELD_ERRORS) if e.text
+            ]
+            raise AssertionError(
+                "Task edit form: no snackbar appeared after clicking "
+                "form-submit-button — the form did not submit "
+                f"(submit_enabled={submit[0].is_enabled() if submit else None}, "
+                f"field_errors={errors})"
+            ) from None
 
     # ── Detail-tab value readback ──────────────────────────────────────
 
