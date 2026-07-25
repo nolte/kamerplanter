@@ -198,13 +198,11 @@ class TankDetailPage(BasePage):
         return len(rows)
 
     def get_states_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible state row."""
-        rows = self.driver.find_elements(*self.STATES_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible state row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.STATES_ROWS)
+        ]
 
     # ── Maintenance tab (tab=2) ────────────────────────────────────────
 
@@ -264,13 +262,11 @@ class TankDetailPage(BasePage):
         return len(rows)
 
     def get_maintenance_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible maintenance row."""
-        rows = self.driver.find_elements(*self.MAINTENANCE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible maintenance row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.MAINTENANCE_ROWS)
+        ]
 
     # ── Schedules tab (tab=3) ──────────────────────────────────────────
 

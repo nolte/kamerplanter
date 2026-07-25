@@ -52,15 +52,19 @@ class PlantInstanceListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (PlantInstanceListPage `columns`).
+    INSTANCE_ID_COLUMN_ID = "instanceId"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (Name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return each visible row's identifying text.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        cover-photo column (empty text), so ``cells[0]`` yielded empty strings
+        on the desktop table -- and an empty list in the mobile card layout,
+        where there is no ``<td>`` at all. In the card layout this resolves to
+        the card title (the plant's display name).
+        """
+        return self.get_column_texts(self.INSTANCE_ID_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""

@@ -62,15 +62,16 @@ class TankListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (TankListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the Name column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the tank name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -84,23 +85,20 @@ class TankListPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
+        """Click the row whose name column matches *name*.
+
+        Addressed by column id, not by position, so it resolves in both the
+        desktop table and the mobile card layout.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
                 self.scroll_and_click(row)
                 return
         raise ValueError(f"Row with name '{name}' not found in tanks table")
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""

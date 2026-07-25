@@ -42,22 +42,29 @@ class SpeciesListPage(BasePage):
         return len(self.driver.find_elements(*self.TABLE_ROWS))
 
     def get_first_column_texts(self) -> list[str]:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the scientific name of every visible row.
+
+        Addressed by column id, not by position: the species table leads with a
+        favourite-star and an image column (both empty text), so ``cells[0]``
+        returned a list of empty strings even on the desktop table -- and an
+        empty list in the mobile card layout.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return text content of every visible row as a list of cell texts."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result: list[list[str]] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return every visible row's cell texts, in column order.
+
+        Column-position based on purpose: the only caller (TC-REQ-001-094)
+        inspects specific enum columns, which the mobile card layout does not
+        render as addressable cells. Guarded so it fails loudly there instead
+        of returning ``[]`` and passing the "no raw English enum" assertion
+        vacuously; that caller is marked ``requires_desktop``.
+        """
+        self.require_table_layout("SpeciesListPage.get_row_texts")
+        return [
+            [c.text for c in row.find_elements(By.TAG_NAME, "td")]
+            for row in self.driver.find_elements(*self.TABLE_ROWS)
+        ]
 
     @staticmethod
     def _row_nav_target(row: WebElement) -> WebElement:

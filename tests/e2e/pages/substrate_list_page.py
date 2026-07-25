@@ -72,15 +72,17 @@ class SubstrateListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (SubstrateListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the substrate name of every visible row.
+
+        Addressed by column id, not by position: the substrate table leads with
+        a favourite-star and a type column, and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -88,13 +90,13 @@ class SubstrateListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row.
+
+        Layout-tolerant: TC-REQ-019-025 asserts a deleted substrate is *absent*
+        from this list, which the ``<td>``-only reader satisfied trivially in
+        the mobile card layout by returning nothing at all.
+        """
+        return self.get_all_row_text_fragments()
 
     def click_row(self, index: int = 0) -> None:
         """Click the row at *index*."""

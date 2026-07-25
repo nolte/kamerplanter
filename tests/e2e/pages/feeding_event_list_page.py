@@ -72,15 +72,17 @@ class FeedingEventListPage(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column id of the identifying column (FeedingEventListPage `columns`) --
+    #: also what the mobile card renders as its title.
+    PLANT_COLUMN_ID = "plantKey"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return text of the first column for all visible rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return each visible row's identifying (plant) text.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.PLANT_COLUMN_ID)
 
     def click_row(self, index: int) -> None:
         """Click the table row at the given index."""

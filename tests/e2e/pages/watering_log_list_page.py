@@ -87,13 +87,8 @@ class WateringLogListPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
 
     # -- Search and filter --------------------------------------------------
 

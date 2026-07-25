@@ -92,23 +92,19 @@ class HarvestBatchListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
+
+    #: Column id of the identifying column (HarvestBatchListPage `columns`).
+    BATCH_ID_COLUMN_ID = "batchId"
 
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the batch id of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.BATCH_ID_COLUMN_ID)
 
     def click_row(self, index: int = 0) -> None:
         """Click the row at *index*."""
@@ -172,28 +168,36 @@ class HarvestBatchListPage(BasePage):
 
     # -- Quality grade chips ------------------------------------------------
 
+    #: Column id carrying the quality-grade chip (HarvestBatchListPage `columns`).
+    QUALITY_GRADE_COLUMN_ID = "qualityGrade"
+
     def get_quality_chips(self) -> list[dict[str, str]]:
-        """Return label and MUI color class for quality-grade chips in the table.
+        """Return label and MUI color classes of the table's grade-carrying chips.
 
         Each entry is ``{"label": "A+", "classes": "MuiChip-colorSuccess ..."}``.
+
+        Addressed by column id on the desktop table. The mobile card layout has
+        no ``<td>`` and renders the harvest-type and quality-grade chips side by
+        side in one unlabelled `chips` slot, so every row chip is returned there;
+        the caller matches grades by label, and a non-grade label simply does not
+        match. Reading "the last cell" instead returned ``[]`` on mobile, which
+        made the colour-coding assertion vacuously pass.
         """
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        chips = []
-        for row in rows:
-            # Quality grade is in the last column
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if not cells:
-                continue
-            last_cell = cells[-1]
-            chip_els = last_cell.find_elements(By.CSS_SELECTOR, ".MuiChip-root")
+        chips: list[dict[str, str]] = []
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            cells = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='cell-{self.QUALITY_GRADE_COLUMN_ID}']"
+            )
+            scope = cells[0] if cells else row
+            chip_els = scope.find_elements(By.CSS_SELECTOR, ".MuiChip-root")
             if chip_els:
-                chip = chip_els[0]
-                chips.append({
-                    "label": chip.text,
-                    "classes": chip.get_attribute("class") or "",
-                })
-            else:
-                chips.append({"label": last_cell.text, "classes": ""})
+                chips.extend(
+                    {"label": chip.text, "classes": chip.get_attribute("class") or ""}
+                    for chip in chip_els
+                )
+            elif cells:
+                # Desktop cell without a chip -- the batch has no quality grade.
+                chips.append({"label": scope.text, "classes": ""})
         return chips
 
     # -- Create dialog ------------------------------------------------------

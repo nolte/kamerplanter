@@ -154,14 +154,21 @@ class SpeciesDetailPage(BasePage):
     def get_cultivar_count(self) -> int:
         return len(self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS))
 
+    #: Column id of the cultivar table's identifying column (CultivarListSection).
+    CULTIVAR_NAME_COLUMN_ID = "name"
+    #: Row-scoped delete action, emitted per cultivar key in BOTH layouts.
+    CULTIVAR_DELETE_ACTION = (By.CSS_SELECTOR, "[data-testid^='cultivar-delete-']")
+
     def get_cultivar_names(self) -> list[str]:
-        rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
-        names = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                names.append(cells[0].text)
-        return names
+        """Return the name of every listed cultivar.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint `CultivarListSection` renders `MobileCard`s with no ``<td>``
+        at all, so a ``By.TAG_NAME, 'td'`` scan returned an empty list there and
+        an "is the new cultivar listed?" assertion failed for the wrong reason
+        (TC-REQ-001-J079).
+        """
+        return self.get_column_texts(self.CULTIVAR_NAME_COLUMN_ID)
 
     def get_trait_chip_texts(self) -> list[str]:
         """Return the text of all MUI Chip labels currently rendered (e.g. cultivar traits)."""
@@ -186,12 +193,23 @@ class SpeciesDetailPage(BasePage):
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
     def delete_cultivar_at_index(self, index: int) -> None:
-        """Click the delete icon in the actions column of a cultivar row."""
+        """Click the delete action of the cultivar row at *index*.
+
+        Targets the product's own ``cultivar-delete-<key>`` testid (row-scoped,
+        so the key need not be known here) instead of "the first button with an
+        aria-label" -- the latter is position-dependent and, in the mobile card
+        layout, would pick whatever button the card happens to render first.
+        """
         rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
-        if index < len(rows):
-            delete_btn = rows[index].find_element(By.CSS_SELECTOR, "button[aria-label]")
-            self.scroll_and_click(delete_btn)
-            self.wait_for_element_visible(self.CONFIRM_DIALOG)
+        if index >= len(rows):
+            raise ValueError(
+                f"Cultivar row {index} requested, but only {len(rows)} rows are listed"
+            )
+        buttons = rows[index].find_elements(*self.CULTIVAR_DELETE_ACTION)
+        if not buttons:
+            raise ValueError(f"No cultivar-delete action found in cultivar row {index}")
+        self.scroll_and_click(buttons[0])
+        self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     # ── Cultivar create dialog ─────────────────────────────────────────
 
@@ -264,14 +282,19 @@ class SpeciesDetailPage(BasePage):
     def get_phase_count(self) -> int:
         return len(self.driver.find_elements(*self.PHASE_TABLE_ROWS))
 
+    #: Column id of the growth-phase table's identifying column
+    #: (GrowthPhaseListSection -- renders `displayName`).
+    PHASE_NAME_COLUMN_ID = "name"
+    #: Row-scoped delete action, emitted per phase key in BOTH layouts.
+    PHASE_DELETE_ACTION = (By.CSS_SELECTOR, "[data-testid^='phase-delete-']")
+
     def get_phase_names(self) -> list[str]:
-        rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
-        names = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 2:
-                names.append(cells[1].text)  # display_name column
-        return names
+        """Return the display name of every listed growth phase.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        sequence-order column, and the mobile card layout has no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.PHASE_NAME_COLUMN_ID)
 
     def click_phase_create(self) -> None:
         # scroll_and_click: a still-collapsing notistack snackbar can overlay
@@ -307,20 +330,29 @@ class SpeciesDetailPage(BasePage):
             self.scroll_and_click(rows[index])
 
     def delete_phase_at_index(self, index: int) -> None:
-        import time
+        """Click the delete action of the growth-phase row at *index*.
 
+        Targets the product's own ``phase-delete-<key>`` testid (row-scoped, so
+        the key need not be known here). The previous "last MuiIconButton in the
+        row" heuristic failed outright in the mobile card layout ("No IconButton
+        found in phase row 0"), because the desktop actions column is not
+        rendered there at all -- `GrowthPhaseListSection` now supplies the same
+        actions via the card's ``trailing`` slot.
+
+        The action stops event propagation, so a normal click does not also
+        trigger the row's edit handler; the dialog wait is the condition that
+        confirms the click landed (no settle sleep).
+        """
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
-        if index < len(rows):
-            # The delete button is the MUI IconButton (not the text "Profil" Button).
-            # Use JS click directly to avoid triggering the row's onClick handler.
-            icon_buttons = rows[index].find_elements(
-                By.CSS_SELECTOR, "button.MuiIconButton-root"
+        if index >= len(rows):
+            raise ValueError(
+                f"Phase row {index} requested, but only {len(rows)} rows are listed"
             )
-            if not icon_buttons:
-                raise ValueError(f"No IconButton found in phase row {index}")
-            self.driver.execute_script(
-                "arguments[0].scrollIntoView({block: 'center'}); arguments[0].click();",
-                icon_buttons[-1],
+        buttons = rows[index].find_elements(*self.PHASE_DELETE_ACTION)
+        if not buttons:
+            raise ValueError(
+                f"No phase-delete action found in phase row {index} -- the phase list "
+                "is read-only (managed by a phase sequence) or the row failed to render"
             )
-            time.sleep(0.5)  # Allow React state to settle before checking dialog
-            self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)
+        self.scroll_and_click(buttons[0])
+        self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)

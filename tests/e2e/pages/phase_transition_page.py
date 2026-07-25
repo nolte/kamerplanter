@@ -53,28 +53,44 @@ class PlantInstanceListExt(BasePage):
     def has_empty_state(self) -> bool:
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
-    def get_first_column_texts(self) -> list[str]:
-        """Return the Instance-ID column for all visible rows.
+    #: Column id of the identifying column (PlantInstanceListPage `columns`).
+    INSTANCE_ID_COLUMN_ID = "instanceId"
+    #: Column id carrying the current-phase chip.
+    PHASE_COLUMN_ID = "currentPhase"
 
-        A leading cover-photo column (empty text) was inserted at index 0, so the
-        Instance-ID is now the second column (index 1).
+    def get_first_column_texts(self) -> list[str]:
+        """Return each visible row's identifying text.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        cover-photo column (empty text) and the mobile card layout has no
+        ``<td>`` at all. In the card layout this resolves to the card title,
+        i.e. the plant's display name (the instance id is only the subtitle when
+        it differs) -- both callers use it as an identifying string, not as an
+        exact instance id.
         """
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result: list[str] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 2:
-                result.append(cells[1].text)
-        return result
+        return self.get_column_texts(self.INSTANCE_ID_COLUMN_ID)
 
     def get_phase_column_texts(self) -> list[str]:
-        """Return the current-phase chip text for all visible rows (column index 3)."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
+        """Return each visible row's current-phase label.
+
+        Addressed by column id: the previous ``cells[3]`` read the *location*
+        column, so TC-REQ-003-005 asserted on the wrong column on the desktop
+        table and on nothing at all in the mobile card layout.
+
+        `MobileCard` exposes no per-field testid, so in the card layout this
+        falls back to the row's first chip -- which is the phase chip whenever
+        the plant has a phase (the planting-run chip only ever follows it).
+        """
         result: list[str] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) >= 4:
-                result.append(cells[3].text)
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            cells = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='cell-{self.PHASE_COLUMN_ID}']"
+            )
+            if cells:
+                result.append(cells[0].text)
+                continue
+            chips = self.get_row_chip_texts(row)
+            result.append(chips[0] if chips else "")
         return result
 
     def click_row(self, index: int) -> None:

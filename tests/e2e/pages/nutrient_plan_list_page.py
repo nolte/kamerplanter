@@ -52,15 +52,17 @@ class NutrientPlanListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (NutrientPlanListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (plan name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the plan name of every visible row.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        favourite-star column (empty text), and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""

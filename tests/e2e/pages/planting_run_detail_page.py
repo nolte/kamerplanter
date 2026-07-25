@@ -126,13 +126,11 @@ class PlantingRunDetailPage(BasePage):
         return len(rows)
 
     def get_plant_rows_text(self) -> list[list[str]]:
-        """Return all cell texts for every visible plant row."""
-        rows = self.driver.find_elements(*self.PLANTS_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible plant row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.PLANTS_ROWS)
+        ]
 
     def is_no_plants_message_visible(self) -> bool:
         """Return True if the 'no plants yet' message is displayed (tab=1, before batch create)."""

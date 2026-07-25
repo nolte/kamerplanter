@@ -347,6 +347,31 @@ class BasePage:
     #: MUI Chip palette suffixes, in the order they are probed.
     CHIP_COLORS = ("success", "warning", "error", "info", "secondary", "primary", "default")
 
+    def get_column_chip_texts(self, col_id: str) -> list[str]:
+        """Return the chip labels of column *col_id*, across all visible rows.
+
+        Falls back to *every* chip of the row in the mobile card layout, where
+        `MobileCard` renders the same chips the chip-carrying columns render,
+        in the same order, but exposes no per-field testid to address them by.
+        """
+        texts: list[str] = []
+        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+            cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+            scope = cells[0] if cells else row
+            texts.extend(c.text for c in scope.find_elements(By.CSS_SELECTOR, ".MuiChip-label"))
+        return texts
+
+    def get_column_chip_colors(self, col_id: str) -> list[str]:
+        """Return the MUI palette name of column *col_id*'s chips, across all rows.
+
+        Same layout fallback as :meth:`get_column_chip_texts`.
+        """
+        colors: list[str] = []
+        for row in self.driver.find_elements(*self.DATA_TABLE_ROWS):
+            cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+            colors.extend(self.get_row_chip_colors(cells[0] if cells else row))
+        return colors
+
     def get_row_chip_colors(self, row: WebElement) -> list[str]:
         """Return the MUI palette name of each chip in a row, in DOM order.
 

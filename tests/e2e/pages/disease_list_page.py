@@ -98,13 +98,8 @@ class DiseaseListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
 
     def click_row(self, index: int = 0) -> None:
         """Click the row at *index*."""
@@ -121,35 +116,21 @@ class DiseaseListPage(BasePage):
                 return
         raise ValueError(f"Column header '{header_text}' not found")
 
-    def get_chip_colors_in_column(self, col_index: int) -> list[str]:
-        """Return the MUI chip color names for a given column index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        colors = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) > col_index:
-                chips = cells[col_index].find_elements(By.CSS_SELECTOR, ".MuiChip-root")
-                for chip in chips:
-                    cls = chip.get_attribute("class") or ""
-                    for color in ("success", "warning", "error", "info", "secondary", "primary", "default"):
-                        if f"MuiChip-color{color.capitalize()}" in cls:
-                            colors.append(color)
-                            break
-                    else:
-                        colors.append("default")
-        return colors
+    #: Chip-carrying column id (DiseaseListPage `columns`).
+    PATHOGEN_TYPE_COLUMN_ID = "pathogenType"
 
-    def get_chip_texts_in_column(self, col_index: int) -> list[str]:
-        """Return the chip label texts for a given column index across all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) > col_index:
-                chips = cells[col_index].find_elements(By.CSS_SELECTOR, ".MuiChip-label")
-                for chip in chips:
-                    texts.append(chip.text)
-        return texts
+    def get_chip_colors_in_column(self, col_id: str) -> list[str]:
+        """Return the MUI palette name of column *col_id*'s chips (e.g. 'success').
+
+        Takes a column *id* rather than a column *index*: the mobile card
+        layout has no columns, so an index-based reader silently returned
+        ``[]`` there.
+        """
+        return self.get_column_chip_colors(col_id)
+
+    def get_chip_texts_in_column(self, col_id: str) -> list[str]:
+        """Return the chip labels of column *col_id* across all visible rows."""
+        return self.get_column_chip_texts(col_id)
 
     # -- Search and filter ----------------------------------------------------
 

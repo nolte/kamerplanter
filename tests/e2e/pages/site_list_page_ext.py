@@ -95,15 +95,30 @@ class SiteListPageExt(BasePage):
         cards = self.driver.find_elements(*self.SITE_CARDS)
         return len(cards)
 
+    #: Column id of the identifying column, should this page ever render a DataTable.
+    NAME_COLUMN_ID = "name"
+    #: Site name inside an accordion card (the layout this page actually uses).
+    SITE_NAME = (By.CSS_SELECTOR, "[data-testid^='site-name-']")
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (Name) for each visible row."""
+        """Return the name of each visible site.
+
+        `SiteListPage` renders accordion `site-card-<key>` cards, not a
+        DataTable, so the ``<td>`` scan this used to do returned an empty list
+        on *every* viewport -- callers silently fell back to a dummy search
+        term. Reads the DataTable rows when present (mirroring
+        :meth:`get_row_count`) and the cards' ``site-name-<key>`` otherwise.
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result: list[str] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                result.append(cells[0].text)
-        return result
+        if rows:
+            return [
+                self.get_row_primary_text(row, self.NAME_COLUMN_ID) for row in rows
+            ]
+        return [
+            el.text
+            for el in self.driver.find_elements(*self.SITE_NAME)
+            if el.text.strip()
+        ]
 
     def get_column_headers(self) -> list[str]:
         headers = self.driver.find_elements(
@@ -134,12 +149,20 @@ class SiteListPageExt(BasePage):
             self.scroll_and_click(name_el)
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the table row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
+        """Open the site called *name*, in either layout.
+
+        Addressed by column id for the DataTable and by the card's
+        ``site-name-<key>`` link for the accordion layout this page actually
+        renders -- the previous ``cells[0]`` scan found nothing in either
+        the card layout or the mobile card layout and always raised.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
                 self.scroll_and_click(row)
+                return
+        for el in self.driver.find_elements(*self.SITE_NAME):
+            if el.text.strip() == name:
+                self.scroll_and_click(el)
                 return
         raise ValueError(f"Row with name '{name}' not found")
 
