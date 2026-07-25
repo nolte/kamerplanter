@@ -60,14 +60,19 @@ Pflicht-Features, Support-Erwartung, Sicherheitsanforderungen.
 | **DSGVO-Rolle des Betreibers** | Verantwortlicher (Art. 4 Nr. 7) | Verantwortlicher (Art. 4 Nr. 7) | Haushaltsausnahme (Art. 2 Abs. 2 lit. c) |
 | **Consent-Management (REQ-025)** | Pflicht | Pflicht | Entfällt |
 | **Betroffenenrechte-Self-Service** | Pflicht, mit SLA | Pflicht, ohne SLA | Entfällt |
-| **Mandantentrennung sicherheitskritisch?** | Ja — Datenleck zwischen Fremden | Ja — auch innerhalb einer Gemeinschaft | Nein |
+| **Mandantentrennung sicherheitskritisch?** | Ja — Datenleck zwischen Fremden | Ja, sobald eine Gemeinschaft mehrere Mandanten führt — *innerhalb* eines Mandanten teilen alle Gärtner die Fachdaten bewusst (REQ-049 P1/P2) | Nein |
 | **RBAC-Durchsetzung sicherheitskritisch?** | Ja | **Ja** — Beobachter dürfen nicht schreiben, Gärtner nicht löschen, Technik nicht verwalten | Nein |
-| **Öffentlich aus dem Internet erreichbar?** | Ja | Meist ja | Nein (LAN/VPN) |
-| **Cloud-KI-Provider zulässig?** | Ja, mit Transparenz- und Transferpflichten | Betreiberentscheidung, Mitglieder müssen informiert werden | Ja, aber im `light`-Modus **gesperrt** (REQ-027 §6.1) |
+| **Öffentlich aus dem Internet erreichbar?** | Ja | Meist ja | Regulär nein (LAN/VPN); bei Fernzugriff `full`-Modus statt `light` — siehe BM-003 §1 |
+| **Cloud-KI-Provider zulässig?** | Ja, mit Transparenz- und Transferpflichten | Betreiberentscheidung, Mitglieder müssen informiert werden | Im `light`-Modus **nur lokale Modelle** (Startup-Guard, REQ-027 §6.1); im `full`-Modus zulässig |
 | **Backup/Update-Verantwortung** | Anbieter, vertraglich | Betreiber, ohne Vertrag — häufigster Ausfallgrund | Nutzer selbst, Datenverlust ist sein Risiko |
 | **Support-Erwartung der Endnutzer** | Hoch (bezahlte Leistung) | Mittel (Erwartung an „den, der's aufgesetzt hat") | Keine (Selbsthilfe, Doku, Community) |
 | **Datenverlust-Toleranz** | Sehr gering | Gering | Mittel |
-| **Zielgruppen** | UZG-001, ZG-003, ZG-002 | ZG-004, ZG-005, UZG-003, UZG-002 | ZG-001, ZG-002, ZG-003, ZG-006, UZG-001, UZG-004 |
+| **Zielgruppen** (primär adressiert) | UZG-001, ZG-003, ZG-002, UZG-002 | ZG-004, ZG-005, UZG-003, UZG-002, UZG-005 | ZG-001, ZG-002, ZG-003, ZG-006, UZG-004, UZG-006 |
+
+**UZG-001 (Casual Hobby-Nutzer) steht bewusst nur bei BM-001.** Diese Gruppe
+betreibt keine eigene Instanz — sie ist über die Self-Hosting-Modelle nicht
+erreichbar. Das ist der stärkste Einzelgrund, der für BM-001 spricht, und in
+BM-001 §8 sowie BM-003 §3 ausgeführt.
 
 ---
 
@@ -78,7 +83,7 @@ flowchart TD
     A["Wer nutzt die Instanz?"] --> B{"Nur ich bzw.<br/>mein Haushalt?"}
     B -- ja --> C{"Aus dem Internet<br/>erreichbar?"}
     C -- nein --> D["BM-003<br/>Self-Hosted Einzelnutzer<br/>light-Modus möglich"]
-    C -- ja --> E["BM-003 mit full-Modus<br/>Haushaltsausnahme wackelt —<br/>Auth ist Pflicht"]
+    C -- ja --> E["BM-003 mit full-Modus<br/>Haushaltsausnahme trägt nur<br/>ohne öffentlichen Zugang —<br/>Auth ist Pflicht"]
     B -- nein --> F{"Kennen sich die Nutzer<br/>und gehören zur selben<br/>Organisation?"}
     F -- ja --> G["BM-002<br/>Self-Hosted Mehrnutzer<br/>full-Modus zwingend"]
     F -- nein --> H["BM-001<br/>Öffentlicher Managed Service<br/>full-Modus + volle DSGVO-Pflichten"]
