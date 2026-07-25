@@ -87,11 +87,17 @@ class PlantingRunListPage(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through: `name` renders `r.name` as plain
+    #: text, is the first column and carries no `hideBelowBreakpoint`. Not the
+    #: row centre — that is a viewport-dependent bet on which cell the row's
+    #: midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index* to navigate to its detail page."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the planting run at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "planting run row"
+        )
 
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose name column matches *name*.
@@ -101,7 +107,7 @@ class PlantingRunListPage(BasePage):
         """
         for row in self.driver.find_elements(*self.TABLE_ROWS):
             if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
-                self.scroll_and_click(row)
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row with name '{name}' not found in planting runs table")
 

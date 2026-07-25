@@ -66,8 +66,7 @@ class WateringLogDetailPage(BasePage):
     def click_tab(self, index: int) -> None:
         """Click the tab at *index*."""
         tabs = self.driver.find_elements(*self.TABS)
-        if index < len(tabs):
-            self.scroll_and_click(tabs[index])
+        self.scroll_and_click(self.require_index(tabs, index, "watering log detail tab"))
 
     def click_details_tab(self) -> None:
         """Click the Details tab."""

@@ -71,18 +71,38 @@ class WorkflowListPage(BasePage):
         """Return the number of visible workflow cards."""
         return len(self.get_workflow_cards())
 
+    #: The navigating region of a workflow card. The `Card` root carries the
+    #: `workflow-card-<key>` hook but only its `CardActionArea` navigates; the
+    #: `CardActions` row below it holds the apply / duplicate / delete
+    #: `IconButton`s. Clicking the card's geometric centre therefore bets on
+    #: the action row staying below the midpoint. Scoped to the card, so this
+    #: is not an unscoped structural selector (`e2e-test-stability` §G); the
+    #: product exposes no dedicated hook on the action area.
+    CARD_ACTION_AREA = (By.CSS_SELECTOR, ".MuiCardActionArea-root")
+
+    def _card_nav_target(self, card: WebElement) -> WebElement:
+        """Return the card's navigating `CardActionArea`, or fail loudly."""
+        areas = card.find_elements(*self.CARD_ACTION_AREA)
+        if not areas:
+            raise AssertionError(
+                "Workflow card exposes no .MuiCardActionArea-root, so it has no "
+                "unambiguous navigation target; clicking the card itself could "
+                "hit the apply/duplicate/delete action row instead."
+            )
+        return areas[0]
+
     def click_card(self, index: int = 0) -> None:
-        """Click a workflow card by index."""
+        """Open the workflow at *index* via its card action area."""
         cards = self.get_workflow_cards()
-        if index < len(cards):
-            self.scroll_and_click(cards[index])
+        card = self.require_index(cards, index, "workflow card")
+        self.scroll_and_click(self._card_nav_target(card))
 
     def click_card_by_name(self, name: str) -> None:
-        """Click a workflow card whose text content contains *name*."""
+        """Open the workflow card whose text content contains *name*."""
         cards = self.get_workflow_cards()
         for card in cards:
             if name in card.text:
-                self.scroll_and_click(card)
+                self.scroll_and_click(self._card_nav_target(card))
                 return
         raise ValueError(f"Card with name '{name}' not found in workflow list")
 

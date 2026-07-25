@@ -46,7 +46,13 @@ class SiteListPage(BasePage):
     def click_create(self) -> None:
         self.wait_for_element_clickable(self.CREATE_BUTTON).click()
 
+    #: Column the row is activated through, should this page ever render a
+    #: `DataTable`; see `SiteListPageExt` for the accordion-card layout it
+    #: actually renders today.
+    ROW_CLICK_COLUMN_ID = "name"
+
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            rows[index].click()
+        """Open the site at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "site row"
+        )

@@ -138,15 +138,26 @@ class SiteListPageExt(BasePage):
         raise ValueError(f"Column header '{header_text}' not found")
 
     def click_row(self, index: int) -> None:
+        """Open the site at *index*, in either layout.
+
+        Fails loudly when *index* does not exist, instead of returning as if
+        the click had happened: `SiteListPage` renders accordion cards rather
+        than a `DataTable`, so the previous ``if rows and index < len(rows)`` /
+        ``if cards and index < len(cards)`` pair had *two* silent exits, and a
+        caller that landed in neither branch went on to assert against the list
+        page it never left.
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if rows and index < len(rows):
-            self.scroll_and_click(rows[index])
+        if rows:
+            self.click_row_via_column(
+                self.require_index(rows, index, "site row"), self.NAME_COLUMN_ID
+            )
             return
-        # Fallback: card-based layout — click the site name link inside the card
+        # Card-based layout — click the site name link inside the card.
         cards = self.driver.find_elements(*self.SITE_CARDS)
-        if cards and index < len(cards):
-            name_el = cards[index].find_element(By.CSS_SELECTOR, "[data-testid^='site-name-']")
-            self.scroll_and_click(name_el)
+        card = self.require_index(cards, index, "site card")
+        name_el = card.find_element(By.CSS_SELECTOR, "[data-testid^='site-name-']")
+        self.scroll_and_click(name_el)
 
     def click_row_by_name(self, name: str) -> None:
         """Open the site called *name*, in either layout.
@@ -158,7 +169,7 @@ class SiteListPageExt(BasePage):
         """
         for row in self.driver.find_elements(*self.TABLE_ROWS):
             if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
-                self.scroll_and_click(row)
+                self.click_row_via_column(row, self.NAME_COLUMN_ID)
                 return
         for el in self.driver.find_elements(*self.SITE_NAME):
             if el.text.strip() == name:

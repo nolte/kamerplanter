@@ -86,8 +86,7 @@ class AccountSettingsPage(BasePage):
     def click_tab_by_index(self, index: int) -> None:
         """Click a tab by its zero-based index."""
         tabs = self.driver.find_elements(*self.TAB_BUTTONS)
-        if index < len(tabs):
-            self.scroll_and_click(tabs[index])
+        self.scroll_and_click(self.require_index(tabs, index, "account settings tab"))
 
     # ── Profile tab ─────────────────────────────────────────────────────
 

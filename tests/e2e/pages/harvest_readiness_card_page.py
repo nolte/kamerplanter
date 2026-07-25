@@ -32,6 +32,8 @@ class HarvestReadinessCardPage(BasePage):
         "[data-testid='harvest-readiness-card'] table tbody tr",
     )
     DATA_TABLE_ROW = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    #: Identifying column of `PlantInstanceListPage`; the row's click target.
+    INSTANCE_ID_COLUMN_ID = "instanceId"
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -51,7 +53,10 @@ class HarvestReadinessCardPage(BasePage):
         rows = self.driver.find_elements(*self.DATA_TABLE_ROW)
         if not rows:
             return False
-        self.scroll_and_click(rows[0])
+        # Via the inert instance-id cell, not the row centre: the plant-instance
+        # row carries `location` and `plantingRun` links plus an actions button,
+        # all of which `stopPropagation`.
+        self.click_row_via_column(rows[0], self.INSTANCE_ID_COLUMN_ID)
         self.wait_for_loading_complete()
         return True
 

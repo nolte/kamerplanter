@@ -101,11 +101,17 @@ class DiseaseListPage(BasePage):
         """Return the readable text fragments of every visible row."""
         return self.get_all_row_text_fragments()
 
+    #: Column the row is activated through: `scientificName` renders
+    #: `r.scientific_name` as plain text, is the first column and carries no
+    #: `hideBelowBreakpoint`. Not the row centre — that is a viewport-dependent
+    #: bet on which cell the row's midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the disease at *index* via its inert scientific-name cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "disease row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""

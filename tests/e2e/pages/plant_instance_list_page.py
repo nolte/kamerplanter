@@ -73,11 +73,17 @@ class PlantInstanceListPage(BasePage):
         )
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the row carries a `location` link, a `plantingRun` link and an actions
+    #: button, all of which `stopPropagation`. `instanceId` renders
+    #: `r.instance_id` and carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = INSTANCE_ID_COLUMN_ID
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the plant instance at *index* via its inert id cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "plant instance row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""

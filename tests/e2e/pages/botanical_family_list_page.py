@@ -102,10 +102,17 @@ class BotanicalFamilyListPage(BasePage):
         """
         return self.get_column_texts(self.NAME_COLUMN_ID)
 
+    #: Column the row is activated through: `name` renders `r.name` as plain
+    #: text, is the first column and carries no `hideBelowBreakpoint`. Not the
+    #: row centre — that is a viewport-dependent bet on which cell the row's
+    #: midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the botanical family at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "botanical family row"
+        )
 
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose name column matches *name*.
@@ -115,7 +122,7 @@ class BotanicalFamilyListPage(BasePage):
         """
         for row in self.driver.find_elements(*self.TABLE_ROWS):
             if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
-                self.scroll_and_click(row)
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row with name '{name}' not found")
 
@@ -284,8 +291,8 @@ class BotanicalFamilyListPage(BasePage):
     def focus_row_and_press_enter(self, index: int) -> None:
         """Tab to a row and press Enter."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            rows[index].send_keys(Keys.ENTER)
+        row = self.require_index(rows, index, "botanical family row")
+        row.send_keys(Keys.ENTER)
 
     # ── Pagination ─────────────────────────────────────────────────────
 

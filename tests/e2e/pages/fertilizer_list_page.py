@@ -75,11 +75,18 @@ class FertilizerListPage(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` that
+    #: `stopPropagation`s, so a centre click can toggle a favourite instead of
+    #: opening the fertilizer. `product_name` renders `r.product_name` and
+    #: carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the fertilizer at *index* via its inert `product_name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "fertilizer row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""

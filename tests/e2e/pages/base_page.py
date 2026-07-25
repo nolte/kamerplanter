@@ -982,6 +982,148 @@ class BasePage:
                 return row
         return None
 
+    # ── Guarded row/card activation ───────────────────────────────────────
+    # Two defects that kept re-entering the suite as per-page copies:
+    #
+    #   1. ``self.scroll_and_click(rows[index])`` clicks the row's *geometric
+    #      centre*. A `DataTable` row is a click target as a whole, but its
+    #      cells routinely contain their own interactive nodes -- a plant chip
+    #      rendered as a `RouterLink`, a favourite `IconButton`, an actions
+    #      menu -- and every one of them calls ``e.stopPropagation()``, so the
+    #      row's own ``onRowClick`` never fires. Whether the centre lands on
+    #      such a node is pure geometry: at 1920px the row is wide enough that
+    #      it misses, at 820px it hits. Observed on the tablet profile as
+    #      TC-REQ-004-J090 landing on the *plant* detail page instead of the
+    #      watering-log detail (run ``20260725_173409``) -- the click did
+    #      navigate, just to the chip's target.
+    #   2. ``if index < len(rows): ...`` with no ``else`` turns an out-of-range
+    #      index into a silent no-op that reports success; the assertion that
+    #      follows then tests the page the test never left.
+    #
+    # Both are fixed once, here: address the row through one named, inert
+    # column, and fail loudly on an index that does not exist.
+
+    def require_index(
+        self, items: list[WebElement], index: int, what: str
+    ) -> WebElement:
+        """Return ``items[index]``, or fail loudly naming index and count.
+
+        The loud failure is the point: a guarded interaction that quietly does
+        nothing when the index is out of range cannot fail, so the assertion
+        after it silently asserts against the previous page.
+        """
+        if not 0 <= index < len(items):
+            raise AssertionError(
+                f"{what}: index {index} is out of range -- {len(items)} "
+                "element(s) are rendered. Doing nothing here would report "
+                "success and leave the following assertion testing the page "
+                "the test never left."
+            )
+        return items[index]
+
+    #: Descendants that swallow a row click. `DataTable` puts ``onRowClick`` on
+    #: the row, but a link/button inside a cell handles the click first and
+    #: (in every current caller) calls ``stopPropagation``, so the row handler
+    #: never runs. A cell containing one of these is not a usable click target.
+    ROW_CLICK_SWALLOWERS = (
+        "a[href], button, [role='button'], [role='link'], "
+        "input, select, textarea, .MuiChip-clickable"
+    )
+
+    def _swallows_row_click(self, element: WebElement) -> bool:
+        """Return True if *element* is, or contains, a row-click swallower."""
+        return bool(
+            self.driver.execute_script(
+                "var el = arguments[0], sel = arguments[1];"
+                "return el.matches(sel) || el.querySelector(sel) !== null;",
+                element,
+                self.ROW_CLICK_SWALLOWERS,
+            )
+        )
+
+    def resolve_row_click_target(self, row: WebElement, col_id: str) -> WebElement:
+        """Return the inert element through which *row* is activated.
+
+        Resolves the *same* column id in both layouts, exactly as
+        :meth:`get_row_primary_text` does its reading: ``cell-<col_id>`` on the
+        desktop table, else `MobileCard`'s ``card-field-<col_id>``, else the
+        card's unconditional ``card-title``. The click then bubbles to the
+        row's own ``onRowClick`` from a point that is not a function of the
+        viewport width.
+
+        Fails loudly rather than falling back to the row element, on all three
+        conditions that would otherwise reintroduce the geometry bet:
+
+        * the column is not rendered at all (wrong column id for this table),
+        * it is rendered but not displayed (a ``hideBelowBreakpoint`` column at
+          a narrow viewport -- a JS click would still *fire* on a
+          ``display: none`` ``<td>`` and report success, which is exactly the
+          unsound-fallback class `e2e-test-stability` §G forbids),
+        * it contains an interactive node, i.e. the caller picked a column that
+          swallows the row click on some rows.
+        """
+        cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
+        source = f"cell-{col_id}"
+        if not cells:
+            cells = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='card-field-{col_id}']"
+            )
+            source = f"card-field-{col_id}"
+        if not cells:
+            cells = row.find_elements(*self.CARD_TITLE)
+            source = "card-title"
+        if not cells:
+            raise AssertionError(
+                f"Row exposes neither a 'cell-{col_id}' <td> (desktop table) "
+                f"nor a 'card-field-{col_id}' nor a 'card-title' (mobile card "
+                "layout), so there is no column-addressed click target. Name a "
+                "column this table actually renders."
+            )
+        target = next((c for c in cells if c.is_displayed()), None)
+        if target is None:
+            raise AssertionError(
+                f"The click target '{source}' exists but is not displayed. "
+                "Most likely the column carries `hideBelowBreakpoint` and this "
+                "viewport hides it; pick a column rendered at every breakpoint."
+            )
+        if self._swallows_row_click(target):
+            raise AssertionError(
+                f"The click target '{source}' is, or contains, an interactive "
+                "node (link, button or clickable chip). Those call "
+                "stopPropagation, so the row's own onRowClick would never "
+                "fire -- pick a column that renders inert content."
+            )
+        return target
+
+    def click_row_via_column(self, row: WebElement, col_id: str) -> None:
+        """Activate *row* by clicking its inert *col_id* cell.
+
+        Use instead of clicking the row element: see the section comment above
+        for why the row's geometric centre is a viewport-dependent bet.
+
+        `scroll_and_click`'s JS fallback is sound for this target class. The
+        resolved cell/field has no default activation behaviour of its own --
+        the only thing that must happen is that a bubbling ``click`` reaches
+        the row's React ``onRowClick``, which ``HTMLElement.click()`` produces
+        exactly as a pointer does. It matters in the card layout, where a
+        ``noWrap`` title can render wider than its clipping parent and the
+        native click point can therefore fall outside it; Chrome then raises
+        `ElementClickInterceptedException` and the fallback dispatches on the
+        already-resolved element instead of guessing at coordinates.
+        """
+        self.scroll_and_click(self.resolve_row_click_target(row, col_id))
+
+    def click_data_table_row(
+        self,
+        index: int,
+        col_id: str,
+        rows_locator: tuple[str, str] | None = None,
+        what: str = "DataTable row",
+    ) -> None:
+        """Activate the *index*-th `DataTable` row through its *col_id* cell."""
+        rows = self.driver.find_elements(*(rows_locator or self.DATA_TABLE_ROWS))
+        self.click_row_via_column(self.require_index(rows, index, what), col_id)
+
     def clear_and_fill(self, element: WebElement, value: str) -> None:
         """Reliably clear an input element and type a new value.
 

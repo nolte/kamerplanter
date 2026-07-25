@@ -167,12 +167,10 @@ class SiteDetailPage(BasePage):
         an onClick handler that navigates to ``/standorte/locations/{key}``.
         """
         items = self.driver.find_elements(*self.LOCATION_TREE_ITEMS)
-        if index < len(items):
-            # The clickable name is a Typography inside the TreeItem label
-            name_el = items[index].find_element(
-                By.CSS_SELECTOR, ".MuiTypography-body2"
-            )
-            self.scroll_and_click(name_el)
+        item = self.require_index(items, index, "location tree item")
+        # The clickable name is a Typography inside the TreeItem label
+        name_el = item.find_element(By.CSS_SELECTOR, ".MuiTypography-body2")
+        self.scroll_and_click(name_el)
 
     def is_location_section_visible(self) -> bool:
         """Check if the LocationTreeSection is rendered (create button present)."""

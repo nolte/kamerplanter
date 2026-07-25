@@ -133,8 +133,8 @@ class NutrientPlanDetailPage(BasePage):
             By.CSS_SELECTOR,
             "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']"
         )
-        if index < len(expand_btns):
-            self.scroll_and_click(expand_btns[index].find_element(By.XPATH, "./.."))
+        icon = self.require_index(expand_btns, index, "nutrient plan entry expander")
+        self.scroll_and_click(icon.find_element(By.XPATH, "./.."))
 
     # ── Tab 1: Validation ──────────────────────────────────────────────
 

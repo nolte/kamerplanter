@@ -99,10 +99,17 @@ class PlantInstanceListExt(BasePage):
             result.append(chips[0].text if chips else "")
         return result
 
+    #: Column the row is activated through -- see `PlantInstanceListPage`: the
+    #: row carries location/planting-run links and an actions button, all of
+    #: which `stopPropagation`, so the row's geometric centre is not a safe
+    #: target. `instanceId` is inert at every breakpoint.
+    ROW_CLICK_COLUMN_ID = INSTANCE_ID_COLUMN_ID
+
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the plant instance at *index* via its inert id cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "plant instance row"
+        )
 
     def search(self, term: str) -> None:
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)

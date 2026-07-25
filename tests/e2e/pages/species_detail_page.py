@@ -67,8 +67,7 @@ class SpeciesDetailPage(BasePage):
 
     def click_tab(self, index: int) -> None:
         tabs = self.driver.find_elements(*self.TABS)
-        if index < len(tabs):
-            self.scroll_and_click(tabs[index])
+        self.scroll_and_click(self.require_index(tabs, index, "species detail tab"))
 
     def click_tab_by_label(self, label: str) -> None:
         import time
@@ -176,9 +175,19 @@ class SpeciesDetailPage(BasePage):
         return [c.text for c in chips]
 
     def click_cultivar_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the cultivar at *index* via its inert `name` cell.
+
+        Not the row centre: `CultivarListSection` renders an `actions` column
+        whose delete `IconButton` calls `stopPropagation`, so where the row's
+        midpoint lands decides whether the row navigates or a delete dialog
+        opens.
+        """
+        self.click_data_table_row(
+            index,
+            self.CULTIVAR_NAME_COLUMN_ID,
+            self.CULTIVAR_TABLE_ROWS,
+            "cultivar row",
+        )
 
     def click_cultivar_create(self) -> None:
         # The cultivar create button lives under the "Sorten" tab of the (now
@@ -325,9 +334,18 @@ class SpeciesDetailPage(BasePage):
         )
 
     def click_phase_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the growth phase at *index* via its inert `name` cell.
+
+        Not the row centre: `GrowthPhaseListSection` renders an `actions`
+        column holding an edit and a *delete* `IconButton`, both of which
+        `stopPropagation`.
+        """
+        self.click_data_table_row(
+            index,
+            self.PHASE_NAME_COLUMN_ID,
+            self.PHASE_TABLE_ROWS,
+            "growth phase row",
+        )
 
     def delete_phase_at_index(self, index: int) -> None:
         """Click the delete action of the growth-phase row at *index*.

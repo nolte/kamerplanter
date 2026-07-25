@@ -98,18 +98,25 @@ class SubstrateListPage(BasePage):
         """
         return self.get_all_row_text_fragments()
 
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` that
+    #: `stopPropagation`s, so a centre click can toggle a favourite instead of
+    #: opening the substrate. `name` renders plain text and carries no
+    #: `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the substrate at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "substrate row"
+        )
 
     def click_row_by_text(self, text: str) -> None:
-        """Click the row containing *text* in any cell."""
+        """Open the substrate whose row contains *text*, via its `name` cell."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         for row in rows:
             if text in row.text:
-                self.scroll_and_click(row)
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row containing '{text}' not found in substrate table")
 

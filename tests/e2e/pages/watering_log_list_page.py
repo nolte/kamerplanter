@@ -80,11 +80,23 @@ class WateringLogListPage(BasePage):
         )
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through. `loggedAt` is the identifying
+    #: column: it is the first column, carries no `hideBelowBreakpoint`, is not
+    #: in the page's `optionalColumnChecks` (so it is never dropped), renders a
+    #: plain formatted timestamp, and `MobileCard` keys it as `titleId`, so the
+    #: same id addresses it in the card layout too.
+    #:
+    #: Explicitly NOT the `plants` column: it renders one `Chip` per plant as a
+    #: `RouterLink` with `onClick={(e) => e.stopPropagation()}`, and clicking
+    #: the row's *centre* landed on that chip at 820px — the row navigated to
+    #: the plant instead of the watering log (TC-REQ-004-J090, tablet profile).
+    LOGGED_AT_COLUMN_ID = "loggedAt"
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the watering log at *index* via its inert `loggedAt` cell."""
+        self.click_data_table_row(
+            index, self.LOGGED_AT_COLUMN_ID, self.TABLE_ROWS, "watering log row"
+        )
 
     def get_row_texts(self) -> list[list[str]]:
         """Return the readable text fragments of every visible row."""

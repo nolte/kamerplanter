@@ -84,11 +84,18 @@ class FeedingEventListPage(BasePage):
         """
         return self.get_column_texts(self.PLANT_COLUMN_ID)
 
+    #: Column the row is activated through. Deliberately NOT `PLANT_COLUMN_ID`:
+    #: that column renders a `Chip component={RouterLink} clickable` with
+    #: `onClick={(e) => e.stopPropagation()}`, so a click landing on it opens
+    #: the plant instead of the feeding event. `timestamp` is the first column,
+    #: carries no `hideBelowBreakpoint` and renders a plain locale timestamp.
+    ROW_CLICK_COLUMN_ID = "timestamp"
+
     def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the feeding event at *index* via its inert `timestamp` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "feeding event row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""

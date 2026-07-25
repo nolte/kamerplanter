@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -66,30 +65,19 @@ class SpeciesListPage(BasePage):
             for row in self.driver.find_elements(*self.TABLE_ROWS)
         ]
 
-    @staticmethod
-    def _row_nav_target(row: WebElement) -> WebElement:
-        """Return a link-free cell of *row* that triggers row navigation.
-
-        The row navigates to the species detail via ``onRowClick``, but the
-        "Familie" cell holds a ``stopPropagation`` link to the botanical-family
-        detail. A whole-row click lands near the row centre, which now overlaps
-        that link column, so it would open the family detail instead. Clicking a
-        cell with no nested ``<a>`` (e.g. the scientific-name column) lets the
-        click bubble to the row handler and navigate to the species detail.
-
-        Below the DataTable's mobile breakpoint the row is a `MobileCard` with
-        no ``<td>`` cells and no family link, so the loop finds nothing and the
-        row itself is the correct click target.
-        """
-        for cell in row.find_elements(By.TAG_NAME, "td"):
-            if cell.text.strip() and not cell.find_elements(By.TAG_NAME, "a"):
-                return cell
-        return row
-
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(self._row_nav_target(rows[index]))
+        """Open the species at *index* via its inert scientific-name cell.
+
+        The row navigates via ``onRowClick``, but the "Familie" cell holds a
+        ``stopPropagation`` link to the botanical-family detail and the first
+        column is a favourite `IconButton` — so the row's geometric centre is
+        not a safe target. This replaces the previous "first ``<td>`` with text
+        and no ``<a>``" scan, which silently fell back to the row element when
+        it found nothing (mobile card layout) and so re-armed exactly that bet.
+        """
+        self.click_data_table_row(
+            index, self.NAME_COLUMN_ID, self.TABLE_ROWS, "species row"
+        )
 
     def search(self, query: str) -> None:
         """Filter the table via the DataTable search box (debounced 300ms)."""
@@ -121,7 +109,7 @@ class SpeciesListPage(BasePage):
         self.search(name)
         for row in self.driver.find_elements(*self.TABLE_ROWS):
             if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
-                self.scroll_and_click(self._row_nav_target(row))
+                self.click_row_via_column(row, self.NAME_COLUMN_ID)
                 return
         raise ValueError(f"Row with name '{name}' not found")
 

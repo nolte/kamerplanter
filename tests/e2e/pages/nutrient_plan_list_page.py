@@ -69,11 +69,18 @@ class NutrientPlanListPage(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` and its last an
+    #: actions button, both `stopPropagation`, so a centre click can silently
+    #: toggle a favourite instead of opening the plan. `name` renders `r.name`
+    #: and carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the nutrient plan at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "nutrient plan row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by text to trigger sorting."""
@@ -89,9 +96,9 @@ class NutrientPlanListPage(BasePage):
     def click_clone_on_row(self, index: int) -> None:
         """Click the clone icon button on a given row."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            clone_btn = rows[index].find_element(By.CSS_SELECTOR, "button[title]")
-            self.scroll_and_click(clone_btn)
+        row = self.require_index(rows, index, "nutrient plan row")
+        clone_btn = row.find_element(By.CSS_SELECTOR, "button[title]")
+        self.scroll_and_click(clone_btn)
 
     # ── Search and filter ──────────────────────────────────────────────
 
