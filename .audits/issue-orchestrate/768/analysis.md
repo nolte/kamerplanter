@@ -133,6 +133,34 @@ Drei Sachverhalte, die den Ausgangszustand gegenüber der Issue-Beschreibung kor
 - **Specialist**: wie P2.
 - **Depends on**: P2
 
+### P3b — Mobile-Produktdefekte (aus der P3-Triage nachgezogen)
+
+- **Problem statement**: Die P3-Baseline hat neben den Test-Bugs echte
+  Produktdefekte freigelegt. Zwei blockieren Tests, drei nicht — alle verletzen
+  MUSS-Anforderungen aus `spec/ui-nfr/`.
+  - **D** (blockiert TC-REQ-006-001): `TaskDetailPage.tsx:689` rendert 5 Tabs
+    ohne `variant="scrollable"` → „HISTORIE"/„BEARBEITEN" sind auf 393 px
+    unerreichbar. Repo-weit 18 `<Tabs>`, nur 3 scrollbar → ~15 weitere Kandidaten.
+  - **A4** (blockiert TC-REQ-006-009/-036): Klick auf die Task-Karte landet mobil
+    auf der Pflanzen-Detailseite; verschachtelte interaktive Elemente
+    (`TaskQueuePage.tsx:672-763`, `plant-link-*` mit `stopPropagation` innerhalb
+    der `CardActionArea`).
+  - **F-1 (Critical, kein Test)**: Pflanzeninstanz-Detailseite überläuft mobil
+    horizontal um 129 px (Dokument 522 CSS px bei 393 px Viewport); die
+    Aktionszeile im Seitenkopf bricht nicht um, „Pflanze entfernen" ist
+    angeschnitten. Verletzt UI-NFR-001 R-005, UI-NFR-021 R-023 und R-024.
+  - **F-2 / F-3 (kein Test)**: abgeschnittenes Karten-Header-Label auf der
+    Mischkultur-Seite; Ein-Wort-pro-Zeile-Umbruch in der Fruchtfolge-Tabelle.
+- **Acceptance criteria**: TC-REQ-006-001, -009 und -036 sind ohne
+  Test-Abschwächung grün; kein horizontaler Überlauf mehr auf der
+  Pflanzeninstanz-Detailseite bei 393 px; Frontend-Lint und vitest grün.
+- **Touched files / artifacts**: `src/frontend/src/pages/aufgaben/TaskDetailPage.tsx`,
+  `src/frontend/src/pages/aufgaben/TaskQueuePage.tsx`, Plant-Instance-Detail-Header,
+  weitere `<Tabs>`-Instanzen.
+- **Specialist**: `nolte-engineering:fullstack-developer` (D, A4 — testblockierend);
+  F-1/F-2/F-3 nach P8 verlagert (`nolte-engineering:frontend-usability-optimizer`).
+- **Depends on**: P3-Testfix-Dispatch (Gruppen A/B/C)
+
 ### P4 — `tablet`-Profil grün ×2
 
 - **Problem statement**: Nie gelaufen. Gleiche Viewport-Fehlerfläche wie P3,
