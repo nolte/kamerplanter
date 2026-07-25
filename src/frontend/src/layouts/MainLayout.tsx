@@ -235,7 +235,17 @@ export default function MainLayout() {
         sx={{
           flexGrow: 1,
           transition: 'margin 225ms cubic-bezier(0, 0, 0.2, 1)',
-          width: '100%',
+          // UI-NFR-001 R-005/R-006 — this main area is the flex sibling of the
+          // persistent drawer (240px, flexShrink: 0) at >= md. It used to carry
+          // `width: '100%'`, which is both its flex basis *and*, via the
+          // specified size suggestion of `min-width: auto`, a floor it could not
+          // shrink below. Beside the drawer the row therefore measured
+          // viewport + 240px and the whole document overflowed horizontally by
+          // exactly the sidebar width (measured at 820px: document 1060px, the
+          // primary action off-screen). `minWidth: 0` lifts the automatic
+          // minimum size so the item may shrink into the space the drawer
+          // leaves; `flexGrow: 1` alone then sizes it to that space.
+          minWidth: 0,
           px: 2,
           py: 1,
           '&:focus': { outline: 'none' },
