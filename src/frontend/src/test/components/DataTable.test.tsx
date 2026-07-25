@@ -283,6 +283,32 @@ describe('DataTable', () => {
     expect(screen.getByRole('table').getAttribute('aria-label')).toBe('Test Table');
   });
 
+  it('marks the table root with the section identifier', () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        sectionTestId="test-section"
+      />,
+    );
+    const root = screen.getByTestId('data-table');
+    expect(root.getAttribute('data-table-section')).toBe('test-section');
+    // The existing root hook is a contract for every page object — it stays.
+    expect(root.getAttribute('data-testid')).toBe('data-table');
+  });
+
+  it('omits the section attribute when no sectionTestId is given', () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+      />,
+    );
+    expect(screen.getByTestId('data-table').hasAttribute('data-table-section')).toBe(false);
+  });
+
   it('sorts rows ascending by default comparator', () => {
     const tableState = makeTableState({
       sort: { column: 'name', direction: 'asc' },
@@ -747,6 +773,26 @@ describe('DataTable', () => {
       expect(onClick).toHaveBeenCalledWith(rows[1]);
       fireEvent.keyDown(cards[2], { key: 'ArrowUp' });
       expect(onClick).toHaveBeenCalledTimes(2);
+    });
+
+    it('exposes the section identifier in the card layout too', () => {
+      enableMobile();
+      render(
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.id}
+          ariaLabel="Aktive Aufgaben"
+          sectionTestId="test-section"
+          mobileCardRenderer={(r: TestRow) => <span>card-{r.name}</span>}
+        />,
+      );
+      // `ariaLabel` only ever reached the desktop <Table>, so two DataTables on
+      // the same page were indistinguishable once the cards took over.
+      expect(screen.getByTestId('data-table').getAttribute('data-table-section')).toBe(
+        'test-section',
+      );
+      expect(screen.getByTestId('data-table-cards')).toBeTruthy();
     });
 
     it('renders mobile cards without an onRowClick handler', () => {
