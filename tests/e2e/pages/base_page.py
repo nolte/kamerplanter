@@ -147,36 +147,66 @@ class BasePage:
 
     # ── Interactions ─────────────────────────────────────────────────────
 
+    OPTIONS = (By.CSS_SELECTOR, "li[role='option']")
+    LISTBOX = (By.CSS_SELECTOR, "[role='listbox']")
+
+    def _wait_options_gone(self, timeout: float) -> bool:
+        """Wait (bounded) until no ``li[role='option']`` is left; return the outcome."""
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                lambda d: len(d.find_elements(*self.OPTIONS)) == 0
+            )
+            return True
+        except TimeoutException:
+            return False
+
     def close_mui_dropdown(self, timeout: int = 5) -> None:
-        """Close any open MUI Select dropdown and wait until it is removed from the DOM."""
-        from selenium.common.exceptions import TimeoutException
+        """Close any open MUI Select dropdown, or fail loudly if it stays open.
+
+        Fails loudly by design: an open popover is a full-screen click-away
+        overlay, so returning while it is still up pushes the failure onto the
+        *next* interaction, which then reports "button not clickable" for a
+        cause that is nowhere near it (observed in
+        ``FAILURE_test_ended_cycle_spawns_no_new_instance.png``). The previous
+        ``except TimeoutException: pass`` swallowed exactly that.
+
+        The Escape key goes to the listbox rather than to ``<body>``: a blind
+        body-level Escape is delivered to whatever modal currently has focus,
+        so it closes the *surrounding dialog* when the popover happens to have
+        closed itself in the meantime.
+        """
         from selenium.webdriver.common.keys import Keys
 
-        if not self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
+        if not self.driver.find_elements(*self.OPTIONS):
             return  # Already closed
 
         # After an option click MUI closes the popover on its own — give the
-        # close animation a moment before touching the keyboard. Sending
-        # Escape while the popover is mid-close delivers the key to the
-        # surrounding dialog and closes THAT instead (races on slow machines,
-        # e.g. CI runners).
-        try:
-            WebDriverWait(self.driver, 2).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
-            )
+        # close a bounded moment before touching the keyboard at all.
+        if self._wait_options_gone(2):
             return
-        except TimeoutException:
-            pass
 
-        # Dropdown is genuinely open (opened without selecting) — close it via Escape
-        self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+        # Dropdown is genuinely open (opened without selecting) — close it via
+        # Escape on the menu itself, which is where MUI's key handler sits.
+        target = next(iter(self.driver.find_elements(*self.LISTBOX)), None)
+        if target is None:
+            target = next(iter(self.driver.find_elements(*self.OPTIONS)), None)
+        if target is None:
+            return  # raced to closed between the two lookups
         try:
-            # Wait until ALL option elements are gone from the DOM
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
+            target.send_keys(Keys.ESCAPE)
+        except (
+            ElementNotInteractableException,
+            StaleElementReferenceException,
+        ):
+            self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
+
+        if not self._wait_options_gone(timeout):
+            raise AssertionError(
+                f"MUI dropdown did not close within {timeout}s — "
+                f"{len(self.driver.find_elements(*self.OPTIONS))} option(s) are "
+                "still in the DOM. Its click-away overlay will intercept every "
+                "following click."
             )
-        except TimeoutException:
-            pass
 
     #: Controls whose menu/popover opens on ``mousedown`` rather than on
     #: ``click``: the MUI Select display div (``[role='combobox']`` since v5,
@@ -285,21 +315,70 @@ class BasePage:
         except StaleElementReferenceException:
             return "<stale>"
 
+    #: Reads the geometry of the open menu's paper -- the element `Popover`
+    #: repositions and `Grow` scales. Resolved from the first option's own
+    #: ``.MuiPaper-root`` ancestor rather than from a guessed paper selector,
+    #: so it can never pick up the always-mounted temporary-drawer paper.
+    _MENU_RECT_SCRIPT = (
+        "var opt = document.querySelector(\"li[role='option']\");"
+        "if (!opt) { return null; }"
+        "var paper = opt.closest('.MuiPaper-root') || opt;"
+        "var r = paper.getBoundingClientRect();"
+        "return [Math.round(r.top), Math.round(r.left), Math.round(r.height)];"
+    )
+
+    def _wait_for_menu_position_stable(self, timeout: int = 5) -> None:
+        """Wait until the open menu's paper stopped moving, or fail loudly.
+
+        `Popover` clamps a menu that does not fit below its anchor *upward*,
+        and it does so while `Grow` is still running — i.e. **after** Selenium
+        already considers the options clickable. A click issued in that window
+        lands on whichever option slid into those coordinates, which is how a
+        requested ``FREQ=WEEKLY`` ended up selecting ``FREQ=MONTHLY`` on the
+        mobile profile (852 px viewport, five options, the last field of a long
+        page). Desktop never saw it because at 1080 px the menu fits below the
+        anchor and its position is final from the first frame.
+
+        Two consecutive identical geometry readings are the durable signal that
+        the reposition-and-grow settled. Complements — and does not depend on —
+        the harness-level ``--force-prefers-reduced-motion``.
+        """
+        last: list[list[int] | None] = [None]
+
+        def _stable(driver: WebDriver) -> bool:
+            current = driver.execute_script(self._MENU_RECT_SCRIPT)
+            if current is None:
+                return True  # menu gone / no options — nothing to stabilise
+            previous, last[0] = last[0], current
+            return current == previous
+
+        try:
+            WebDriverWait(self.driver, timeout, poll_frequency=0.1).until(_stable)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"The open dropdown never stopped moving within {timeout}s "
+                f"(last [top, left, height] = {last[0]}). Clicking an option "
+                "while the popover is still being repositioned selects the "
+                "wrong entry."
+            ) from exc
+
     def _settle_listbox(self, timeout: int = 2) -> None:
-        """Give an opened dropdown's options a bounded moment to render.
+        """Wait until an opened dropdown's options render *and* stopped moving.
 
         ``aria-expanded`` can be observed a beat before the portalled menu's
         ``li[role='option']`` nodes are queryable, which would make an
-        immediately following ``find_elements`` return ``[]``. Not an error
-        condition: a Select whose option list is legitimately empty stays open
-        with zero options, so callers that require options assert on them.
+        immediately following ``find_elements`` return ``[]``. A Select whose
+        option list is legitimately empty is not an error condition -- it stays
+        open with zero options, so callers that require options assert on them
+        and this returns without a geometry check.
         """
         try:
             WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) > 0
+                lambda d: len(d.find_elements(*self.OPTIONS)) > 0
             )
         except TimeoutException:
-            pass
+            return
+        self._wait_for_menu_position_stable()
 
     def _wait_until_select_open(self, trigger: WebElement, timeout: int = 5) -> bool:
         """Wait (bounded) until *trigger*'s dropdown is open; return the outcome."""
@@ -357,14 +436,48 @@ class BasePage:
             f"{self._aria_expanded(trigger)!r} and no li[role='option'] appeared)"
         )
 
+    #: The Select display div of the dropdown that is currently open. Captured
+    #: *before* the option click so the resulting value can be read back even
+    #: when the caller gave no field name.
+    OPEN_SELECT_TRIGGER = (
+        By.CSS_SELECTOR,
+        "[role='combobox'][aria-expanded='true'], .MuiSelect-select[aria-expanded='true']",
+    )
+
+    #: Reads the committed value of a MUI Select: its hidden
+    #: ``.MuiSelect-nativeInput`` inside the same ``.MuiInputBase-root``.
+    _SELECT_VALUE_FROM_TRIGGER = (
+        "var el = arguments[0];"
+        "var base = el.closest('.MuiInputBase-root') || el.parentElement;"
+        "var input = base ? base.querySelector('input, select, textarea') : null;"
+        "return input ? input.value : null;"
+    )
+    _SELECT_VALUE_FROM_CONTAINER = (
+        "var root = document.querySelector(arguments[0]);"
+        "if (!root) { return null; }"
+        "var input = root.querySelector('input, select, textarea');"
+        "return input ? input.value : null;"
+    )
+
     def select_option_by_value(self, value: str, field_name: str | None = None) -> None:
-        """Click an open dropdown option by its stable data-value (i18n-independent).
+        """Click an open dropdown option by its data-value and verify the effect.
 
         Waits briefly (bounded) for each candidate selector to become
         clickable rather than gating on an instant ``is_present`` check --
         the MUI popover open animation can still be in flight when this runs,
         so an unwaited check can miss an option that renders a beat later.
+
+        Reads the resulting Select value back and raises on a mismatch. Without
+        that, this helper returned unconditionally after *dispatching* a click,
+        so a click that landed on a neighbouring option (see
+        :meth:`_wait_for_menu_position_stable`) was reported as a success --
+        and the two-attempt retry in :meth:`choose_select_value` was inert,
+        because nothing ever raised. The expectation is taken from the clicked
+        option's own ``data-value``, not from *value*, because the option
+        testid suffix and the value differ for the empty option
+        (``form-option-<field>-none`` / ``-empty`` both commit ``''``).
         """
+        trigger = next(iter(self.driver.find_elements(*self.OPEN_SELECT_TRIGGER)), None)
         selectors = []
         if field_name:
             selectors.append(f"[data-testid='form-option-{field_name}-{value}']")
@@ -375,10 +488,62 @@ class BasePage:
                 el = self.wait_for_element_clickable(locator, timeout=3)
             except TimeoutException:
                 continue
+            expected = el.get_attribute("data-value")
             self.scroll_and_click(el)
             self.close_mui_dropdown()
+            self._verify_select_committed(trigger, expected, value, field_name)
             return
         raise AssertionError(f"Option with value '{value}' not found in the open dropdown")
+
+    def _read_select_value(
+        self, trigger: WebElement | None, field_name: str | None
+    ) -> str | None:
+        """Return the committed value of the Select that was just operated on."""
+        if field_name:
+            value = self.driver.execute_script(
+                self._SELECT_VALUE_FROM_CONTAINER,
+                f"[data-testid='form-field-{field_name}']",
+            )
+            if value is not None:
+                return str(value)
+        if trigger is None:
+            return None
+        try:
+            value = self.driver.execute_script(self._SELECT_VALUE_FROM_TRIGGER, trigger)
+        except StaleElementReferenceException:
+            return None
+        return None if value is None else str(value)
+
+    def _verify_select_committed(
+        self,
+        trigger: WebElement | None,
+        expected: str | None,
+        requested: str,
+        field_name: str | None,
+    ) -> None:
+        """Raise unless the clicked option actually became the Select's value."""
+        what = f"field '{field_name}'" if field_name else "the open select"
+        if expected is None:
+            raise AssertionError(
+                f"The option clicked for {what} (requested '{requested}') carries "
+                "no data-value, so the selection cannot be verified. Address a "
+                "MUI MenuItem rendered inside a Select."
+            )
+        actual = self._read_select_value(trigger, field_name)
+        if actual is None:
+            raise AssertionError(
+                f"Cannot read back the value of {what} after selecting "
+                f"'{requested}': no native input was found for it. Verifying the "
+                "click is mandatory — an unverified option click silently "
+                "selects a neighbouring entry when the popover is still moving."
+            )
+        # Multi-selects commit a comma-joined list.
+        if actual != expected and expected not in actual.split(","):
+            raise AssertionError(
+                f"Selecting '{requested}' on {what} did not take effect: expected "
+                f"the value {expected!r}, but the field holds {actual!r}. The "
+                "click most likely landed on a neighbouring option."
+            )
 
     def choose_select_value(self, field_name: str, value: str) -> None:
         """Open a FormSelectField and pick the option with the given value.
@@ -387,10 +552,14 @@ class BasePage:
         the option click didn't register on the first attempt -- a bounded
         guard against the MUI popover animation racing the option lookup
         (observed as a one-off timeout on an otherwise-passing code path,
-        TC-006-J077). The retry spans the *open* too: ``open_select`` now
-        verifies the dropdown really opened and raises when it did not, so an
-        open that failed must be retried rather than run into the option lookup.
+        TC-006-J077). The retry spans the *open* too: ``open_select`` verifies
+        the dropdown really opened and raises when it did not, and
+        ``select_option_by_value`` verifies the clicked option really became
+        the value -- so this retry only became reachable once those two started
+        raising, rather than reporting success unconditionally.
         """
+        from contextlib import suppress
+
         last_error: AssertionError | None = None
         for _attempt in range(2):
             try:
@@ -399,7 +568,12 @@ class BasePage:
                 return
             except AssertionError as exc:
                 last_error = exc
-                self.close_mui_dropdown()
+                # Recovery only: a stuck popover here is a *symptom* of the
+                # failure being carried in `last_error`, which is the one worth
+                # reporting. `close_mui_dropdown` stays loud for every other
+                # caller.
+                with suppress(AssertionError):
+                    self.close_mui_dropdown()
         assert last_error is not None
         raise last_error
 
