@@ -346,28 +346,36 @@ export default function PlantInstanceListPage() {
         leading={<PlantCoverPreview plantInstanceKey={r.key} size={48} />}
         title={displayName}
         subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
-        chips={
-          <>
-            {r.current_phase ? (
-              <Chip
-                label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
-                size="small"
-                color={phaseColorMap[r.current_phase] ?? 'default'}
-              />
-            ) : null}
-            {runInfo && (
-              <Chip
-                label={runInfo.runName}
-                size="small"
-                color="secondary"
-                variant="outlined"
-              />
-            )}
-          </>
-        }
+        chips={[
+          ...(r.current_phase
+            ? [{
+                id: 'currentPhase',
+                content: (
+                  <Chip
+                    label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+                    size="small"
+                    color={phaseColorMap[r.current_phase] ?? 'default'}
+                  />
+                ),
+              }]
+            : []),
+          ...(runInfo
+            ? [{
+                id: 'plantingRun',
+                content: (
+                  <Chip
+                    label={runInfo.runName}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                  />
+                ),
+              }]
+            : []),
+        ]}
         fields={[
-          ...(location ? [{ label: t('entities.location'), value: location.name }] : []),
-          ...(r.planted_on ? [{ label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []),
+          ...(location ? [{ id: 'location', label: t('entities.location'), value: location.name }] : []),
+          ...(r.planted_on ? [{ id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []),
         ]}
       />
     );

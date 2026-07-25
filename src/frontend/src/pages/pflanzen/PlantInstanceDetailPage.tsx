@@ -2394,23 +2394,31 @@ export default function PlantInstanceDetailPage() {
                         title={row.name}
                         subtitle={formatRelativeDueDate(row.due_date)}
                         trailing={renderTaskActions(row)}
-                        chips={
-                          <>
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
-                              color={taskStatusColor(row.status)}
-                              variant="filled"
-                            />
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
-                              variant="outlined"
-                            />
-                          </>
-                        }
+                        chips={[
+                          {
+                            id: 'status',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
+                                color={taskStatusColor(row.status)}
+                                variant="filled"
+                              />
+                            ),
+                          },
+                          {
+                            id: 'category',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                        ]}
                         fields={[
-                          { label: t('pages.tasks.priority'), value: t(`enums.taskPriority.${row.priority}`, { defaultValue: row.priority }) },
+                          { id: 'priority', label: t('pages.tasks.priority'), value: t(`enums.taskPriority.${row.priority}`, { defaultValue: row.priority }) },
                         ]}
                       />
                     )}
@@ -2485,21 +2493,29 @@ export default function PlantInstanceDetailPage() {
                         subtitle={row.completed_at
                           ? new Date(row.completed_at).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US')
                           : undefined}
-                        chips={
-                          <>
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
-                              color={taskStatusColor(row.status)}
-                              variant="outlined"
-                            />
-                            <Chip
-                              size="small"
-                              label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
-                              variant="outlined"
-                            />
-                          </>
-                        }
+                        chips={[
+                          {
+                            id: 'status',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskStatus.${row.status}`, { defaultValue: row.status })}
+                                color={taskStatusColor(row.status)}
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                          {
+                            id: 'category',
+                            content: (
+                              <Chip
+                                size="small"
+                                label={t(`enums.taskCategory.${row.category}`, { defaultValue: row.category })}
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                        ]}
                       />
                     )}
                   />
