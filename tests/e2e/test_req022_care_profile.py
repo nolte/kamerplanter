@@ -77,16 +77,40 @@ def _provision_plant_with_watering_card(
     return plant_key
 
 
-def _get_first_card_plant_key(pflege: PflegeDashboardPage) -> str:
-    """Extract the plant_key from the first care card on the dashboard."""
+def _care_card_plant_key(
+    pflege: PflegeDashboardPage,
+    plant_creator: PlantInstanceListPage,
+    *,
+    id_prefix: str = "TC022P",
+) -> str:
+    """Return a plant key that has a care card, self-provisioning one if needed.
+
+    NFR-008a: a test establishes its own precondition instead of skipping.
+    This file used to self-skip 14 cases with "No care cards available --
+    cannot test profile editing" whenever it ran without another test having
+    created a care-bearing plant first (e.g. running the file in isolation, or
+    a shard where no such test landed) -- coverage silently disappeared.
+
+    Existing cards are reused when the dashboard has any: these cases open the
+    care-profile dialog for inspection, so they do not depend on *which* card
+    they get. Only when the dashboard is empty is a plant created through the
+    real UI, which materialises a watering card on its own.
+    """
     cards = pflege.get_all_care_cards()
     if not cards:
-        pytest.skip("No care cards available -- cannot test profile editing")
+        plant_key = _provision_plant_with_watering_card(
+            plant_creator, pflege, id_prefix=id_prefix
+        )
+        pflege.open()
+        return plant_key
     testid = cards[0].get_attribute("data-testid") or ""
     suffix = testid.replace("care-card-care-", "")
     parts = suffix.rsplit("-", 1)
     if len(parts) < 2:
-        pytest.skip(f"Unexpected card testid format: {testid}")
+        raise AssertionError(
+            f"Unexpected care-card testid format: '{testid}' "
+            "(expected care-card-care-<plant_key>-<reminder_type>)"
+        )
     return parts[0]
 
 
@@ -99,6 +123,7 @@ class TestCareProfileEditDialogOpen:
     @pytest.mark.core_crud
     def test_edit_profile_button_opens_dialog(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -112,7 +137,7 @@ class TestCareProfileEditDialogOpen:
             "Pflege dashboard before clicking edit profile",
         )
 
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -128,6 +153,7 @@ class TestCareProfileEditDialogOpen:
     @pytest.mark.core_crud
     def test_profile_dialog_shows_care_style_select(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -136,7 +162,7 @@ class TestCareProfileEditDialogOpen:
         Spec: TC-022-018 -- CareProfileEditDialog zeigt Pflegestil-Dropdown.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -152,6 +178,7 @@ class TestCareProfileEditDialogOpen:
     @pytest.mark.core_crud
     def test_profile_dialog_has_save_cancel_reset_buttons(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -160,7 +187,7 @@ class TestCareProfileEditDialogOpen:
         Spec: TC-022-018 -- CareProfileEditDialog hat Speichern, Abbrechen, Reset Buttons.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -189,6 +216,7 @@ class TestCareProfileSliders:
     @pytest.mark.core_crud
     def test_watering_interval_slider_present(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -197,7 +225,7 @@ class TestCareProfileSliders:
         Spec: TC-022-019 -- Giessintervall-Slider aendern und speichern.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -213,6 +241,7 @@ class TestCareProfileSliders:
     @pytest.mark.core_crud
     def test_fertilizing_active_months_displayed(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -221,7 +250,7 @@ class TestCareProfileSliders:
         Spec: TC-022-021 -- Aktive Duengemonate per Monats-Chips konfigurieren.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -237,6 +266,7 @@ class TestCareProfileSliders:
     @pytest.mark.core_crud
     def test_fertilizing_month_click_toggles_selection(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -245,7 +275,7 @@ class TestCareProfileSliders:
         Spec: TC-022-021 -- Aktive Duengemonate per Monats-Chips konfigurieren.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -280,6 +310,7 @@ class TestCareProfileConditionalFields:
     @pytest.mark.core_crud
     def test_humidity_check_toggle_controls_interval_visibility(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -288,7 +319,7 @@ class TestCareProfileConditionalFields:
         Spec: TC-022-024 -- Luftfeuchte-Check Toggle aktiviert bedingt Intervall-Slider.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -320,6 +351,7 @@ class TestCareProfileConditionalFields:
     @pytest.mark.core_crud
     def test_location_check_toggle_controls_months_visibility(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -328,7 +360,7 @@ class TestCareProfileConditionalFields:
         Spec: TC-022-022 / TC-022-023 -- Standort-Check deaktivieren/aktivieren.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -360,6 +392,7 @@ class TestCareProfileConditionalFields:
     @pytest.mark.core_crud
     def test_adaptive_learning_toggle(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -368,7 +401,7 @@ class TestCareProfileConditionalFields:
         Spec: TC-022-025 -- Adaptive-Learning Toggle deaktivieren.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -405,6 +438,7 @@ class TestCareStyleChange:
     @pytest.mark.core_crud
     def test_care_style_dropdown_lists_all_styles(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -413,7 +447,7 @@ class TestCareStyleChange:
         Spec: TC-022-027 -- Care-Style-Wechsel zeigt Bestaetigung und setzt alle Intervalle zurueck.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -446,6 +480,7 @@ class TestCareProfileSaveCancel:
     @pytest.mark.core_crud
     def test_cancel_closes_dialog_without_saving(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -454,7 +489,7 @@ class TestCareProfileSaveCancel:
         Spec: TC-022-018 -- CareProfileEditDialog -- Abbrechen schliesst Dialog.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -478,6 +513,7 @@ class TestCareProfileSaveCancel:
     @pytest.mark.core_crud
     def test_save_closes_dialog_and_refreshes_dashboard(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -486,7 +522,7 @@ class TestCareProfileSaveCancel:
         Spec: TC-022-019 -- Giessintervall-Slider aendern und speichern.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -510,6 +546,7 @@ class TestCareProfileSaveCancel:
     @pytest.mark.core_crud
     def test_task_type_toggles_are_present(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -518,7 +555,7 @@ class TestCareProfileSaveCancel:
         Spec: TC-022-018 -- CareProfileEditDialog zeigt Aufgabentyp-Toggles.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
@@ -540,6 +577,7 @@ class TestCareProfileSaveCancel:
     @pytest.mark.core_crud
     def test_watering_method_select_present(
         self,
+        plant_creator: PlantInstanceListPage,
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
@@ -548,7 +586,7 @@ class TestCareProfileSaveCancel:
         Spec: TC-022-018 -- CareProfileEditDialog zeigt Giessmethode-Dropdown.
         """
         pflege.open()
-        plant_key = _get_first_card_plant_key(pflege)
+        plant_key = _care_card_plant_key(pflege, plant_creator)
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
 
