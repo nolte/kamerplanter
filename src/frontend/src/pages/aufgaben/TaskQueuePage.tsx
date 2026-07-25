@@ -207,6 +207,11 @@ export default function TaskQueuePage() {
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterPlantKey, setFilterPlantKey] = useState<string | null>(null);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
+  // Part of the loading gate: the plant list feeds `plantNameMap`, which decides
+  // whether a task card renders its plant-shortcut row. Without it the cards
+  // painted first and grew a row per plant-linked task afterwards — a late
+  // layout shift under the user's finger.
+  const [plantsLoading, setPlantsLoading] = useState(true);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -229,7 +234,11 @@ export default function TaskQueuePage() {
     dispatch(fetchTaskQueue());
     dispatch(fetchOverdueTasks());
     dispatch(fetchDashboard());
-    plantApi.listPlantInstances(0, 200).then(setPlants).catch(() => {});
+    plantApi
+      .listPlantInstances(0, 200)
+      .then(setPlants)
+      .catch(() => {})
+      .finally(() => setPlantsLoading(false));
   }, [dispatch]);
 
   // Lazily load completed tasks only when the user reveals them.
@@ -1117,7 +1126,14 @@ export default function TaskQueuePage() {
 
   // ── Loading ──────────────────────────────────────────────────────────
 
-  const loading = tasksLoading || careLoading;
+  // The gate MUST cover every source the card list is built from. The plant
+  // list was missing: the skeleton cleared as soon as tasks and care reminders
+  // had arrived, then `plantNameMap` filled in and every plant-linked card grew
+  // its shortcut row, reflowing the list after the user already saw it. Taps
+  // aimed at a card's action row then landed on the container that had moved
+  // into place — no handler fires and no error is reported, which is exactly
+  // the class of defect a loading indicator exists to prevent.
+  const loading = tasksLoading || careLoading || plantsLoading;
   if (loading) return <LoadingSkeleton variant="form" />;
 
   const totalItems =

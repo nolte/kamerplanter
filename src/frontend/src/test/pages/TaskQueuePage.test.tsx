@@ -1,7 +1,7 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { http, HttpResponse, delay } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
@@ -170,5 +170,77 @@ describe('TaskQueuePage — task card navigation target', () => {
     await userEvent.click(screen.getByTestId('task-card-task-active'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/aufgaben/tasks/task-active');
+  });
+});
+
+describe('TaskQueuePage — loading gate covers the plant list', () => {
+  const plantTask = makeTask({
+    key: 'task-active',
+    entity_type: 'plant_instance',
+    entity_key: 'plant-1',
+  });
+
+  beforeEach(() => {
+    listTasksCalls = 0;
+    server.use(
+      http.get(`${TASKS}/queue`, () => HttpResponse.json([plantTask])),
+      http.get(`${TASKS}/overdue`, () => HttpResponse.json([])),
+      http.get(`${CARE}/dashboard`, () => HttpResponse.json([])),
+      http.get(TASKS, () => HttpResponse.json([])),
+      // The plant list is the slowest of the four mount requests — exactly the
+      // situation the production defect needed to surface.
+      http.get('/api/v1/t/:tenant/plant-instances', async () => {
+        await delay(500);
+        return HttpResponse.json([
+          {
+            key: 'plant-1',
+            instance_id: 'TOM-001',
+            species_key: 'sp-1',
+            cultivar_key: null,
+            slot_key: null,
+            substrate_batch_key: null,
+            plant_name: 'Big Red',
+            planted_on: '2024-03-15',
+            removed_on: null,
+            current_phase: 'vegetative',
+            current_phase_key: null,
+            current_phase_started_at: null,
+            created_at: '2024-03-15T00:00:00Z',
+            updated_at: null,
+          },
+        ]);
+      }),
+    );
+    i18n.changeLanguage('de');
+  });
+
+  afterEach(() => {
+    cleanup();
+    mockNavigate.mockReset();
+  });
+
+  it('keeps the skeleton up until the plant names have arrived', async () => {
+    const { store } = renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    // Tasks and care reminders have settled …
+    await waitFor(() => {
+      expect(store.getState().tasks.loading).toBe(false);
+      expect(store.getState().careReminders.loading).toBe(false);
+    });
+
+    // … but the plant list has not, and it decides whether a card renders its
+    // plant-shortcut row. Clearing the indicator here used to paint the cards
+    // and then reflow them, so taps aimed at a card's action row landed on the
+    // container that had moved into place.
+    expect(screen.getByTestId('loading-skeleton')).toBeInTheDocument();
+    expect(screen.queryByTestId('task-card-task-active')).toBeNull();
+  });
+
+  it('paints the plant shortcut with the very first card render', async () => {
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    // The moment the card exists the shortcut must exist too — no late row.
+    await screen.findByTestId('task-card-task-active', {}, { timeout: 5000 });
+    expect(screen.getByTestId('plant-link-task-active')).toBeInTheDocument();
   });
 });
