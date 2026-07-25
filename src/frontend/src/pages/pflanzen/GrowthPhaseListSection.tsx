@@ -185,16 +185,51 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
       searchable: false,
       render: (r: PhaseRow) => (
         <Box>
-          <Button size="small" onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedPhase(r); }}>
+          <Button
+            size="small"
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedPhase(r); }}
+            data-testid={`phase-profile-${r.key}`}
+          >
             {t('entities.profile')}
           </Button>
-          <IconButton size="small" aria-label={t('common.delete')} onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}>
+          <IconButton
+            size="small"
+            aria-label={t('common.delete')}
+            onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}
+            data-testid={`phase-delete-${r.key}`}
+          >
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>
       ),
     } as Column<PhaseRow>] : []),
   ];
+
+  /** Row actions for the mobile card view — same set as the desktop actions
+   *  column. Without them there is no way to open a phase profile or delete a
+   *  phase below the `sm` breakpoint (UI-NFR-010: a mobile card MUST offer the
+   *  same row actions as the table it replaces). Touch targets follow
+   *  UI-NFR-001 R-011 (48x48). */
+  const renderRowActions = (r: PhaseRow) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Button
+        size="small"
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSelectedPhase(r); }}
+        sx={{ minHeight: 48 }}
+        data-testid={`phase-profile-${r.key}`}
+      >
+        {t('entities.profile')}
+      </Button>
+      <IconButton
+        aria-label={t('common.delete')}
+        onClick={(e: React.MouseEvent) => { e.stopPropagation(); setDeleteTarget(r); }}
+        sx={{ minWidth: 48, minHeight: 48 }}
+        data-testid={`phase-delete-${r.key}`}
+      >
+        <DeleteIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
 
   return (
     <Box sx={{ mt: 3 }}>
@@ -240,6 +275,7 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
               { label: t('pages.growthPhases.stressTolerance'), value: t(`enums.stressTolerance.${r.stressTolerance}`) },
               ...(r.wateringIntervalDays != null ? [{ label: t('pages.growthPhases.wateringInterval'), value: `${r.wateringIntervalDays}d` }] : []),
             ]}
+            trailing={!isManaged ? renderRowActions(r) : undefined}
           />
         )}
       />
