@@ -686,7 +686,18 @@ export default function TaskDetailPage() {
         </Stack>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      {/* Scrollable + mobile scroll buttons: five tabs never fit a 393px viewport,
+          and a fixed tab bar would clip the trailing tabs out of reach entirely
+          (UI-NFR-001 mobile-first). */}
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={t('pages.tasks.title')}
+      >
         <Tab label={t('pages.tasks.tabDetails')} />
         {isActionable && <Tab label={t('pages.tasks.tabComplete')} />}
         <Tab label={t('pages.tasks.tabComments')} />

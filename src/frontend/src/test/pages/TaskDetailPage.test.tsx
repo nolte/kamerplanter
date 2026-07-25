@@ -228,6 +228,30 @@ describe('TaskDetailPage — rendering & views', () => {
     expect(await screen.findByTestId('plant-link')).toHaveTextContent('Big Red');
   });
 
+  it('renders every tab in a scrollable tab bar so none is clipped on mobile', async () => {
+    useTaskHandlers(spy);
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const tablist = screen.getByRole('tablist', { name: i18n.t('pages.tasks.title') });
+    // All five tabs of an actionable task are present, including the trailing
+    // ones that a fixed-width tab bar clipped out of the 393px viewport.
+    expect(within(tablist).getAllByRole('tab')).toHaveLength(5);
+    for (const label of [
+      i18n.t('pages.tasks.tabDetails'),
+      i18n.t('pages.tasks.tabComplete'),
+      i18n.t('pages.tasks.tabComments'),
+      i18n.t('pages.tasks.tabHistory'),
+      i18n.t('common.edit'),
+    ]) {
+      expect(within(tablist).getByRole('tab', { name: label })).toBeInTheDocument();
+    }
+    // The bar scrolls horizontally instead of clipping — the regression guard
+    // for the mobile reachability defect.
+    const scroller = tablist.closest('.MuiTabs-root')?.querySelector('.MuiTabs-scroller');
+    expect(scroller?.className).toContain('MuiTabs-scrollableX');
+  });
+
   it('resolves a legacy care-instruction key to a readable label', async () => {
     useTaskHandlers(spy, {
       task: makeTask({ instruction: 'care:watering:5', instruction_de: '', category: 'care_reminder' }),
