@@ -317,11 +317,18 @@ class PflegeDashboardPage(BasePage):
     def click_confirm_on_card(self, plant_key: str, reminder_type: str) -> None:
         """Click the confirm (check-circle) button on a specific care card.
 
-        In TaskQueuePage the action buttons are ordered: edit, confirm, snooze.
-        The confirm button is identified by its CheckCircleIcon (2nd button).
+        Targets the product's ``care-confirm-<id>`` testid; falls back to the
+        success-coloured IconButton and then to positional order (edit,
+        confirm, snooze) only if that testid is missing.
         """
         card = self.get_care_card(plant_key, reminder_type)
-        # Find the confirm button via its CheckCircleIcon SVG data-testid
+        btns = card.find_elements(
+            By.CSS_SELECTOR, f"[data-testid='care-confirm-care-{plant_key}-{reminder_type}']"
+        )
+        if btns:
+            self.scroll_and_click(btns[0])
+            return
+        # Fallback: find the confirm button via its success colour
         btns = card.find_elements(
             By.CSS_SELECTOR, "button.MuiIconButton-root[color='success'], button.MuiIconButton-colorSuccess"
         )
@@ -412,8 +419,9 @@ class PflegeDashboardPage(BasePage):
     def click_edit_profile_on_card(self, plant_key: str) -> None:
         """Click the edit-profile (pencil) button on a care card.
 
-        In TaskQueuePage the edit button is the 1st IconButton in the card.
-        We find any care card for this plant_key and click the first button.
+        Targets the product's ``care-edit-profile-<id>`` testid on any care card
+        for this plant; falls back to the card's first IconButton (edit,
+        confirm, snooze order) only if that testid is missing.
         """
         # Find a care card for this plant_key (any reminder type)
         cards = self.driver.find_elements(
@@ -422,6 +430,12 @@ class PflegeDashboardPage(BasePage):
         if not cards:
             raise AssertionError(f"No care card found for plant_key={plant_key}")
         card = cards[0]
+        btns = card.find_elements(
+            By.CSS_SELECTOR, f"[data-testid^='care-edit-profile-care-{plant_key}-']"
+        )
+        if btns:
+            self.scroll_and_click(btns[0])
+            return
         all_btns = card.find_elements(By.CSS_SELECTOR, "button.MuiIconButton-root")
         if all_btns:
             self.scroll_and_click(all_btns[0])
