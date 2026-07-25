@@ -24,6 +24,7 @@ class TaskDetailPage(BasePage):
     SKIP_BUTTON = (By.CSS_SELECTOR, "[data-testid='skip-task-button']")
     REOPEN_BUTTON = (By.CSS_SELECTOR, "[data-testid='reopen-task-button']")
     CLONE_BUTTON = (By.CSS_SELECTOR, "[data-testid='clone-task-button']")
+    DELETE_BUTTON = (By.CSS_SELECTOR, "[data-testid='delete-task-button']")
     COMPLETE_SUBMIT = (By.CSS_SELECTOR, "[data-testid='complete-task-submit']")
 
     # ── Navigation links ───────────────────────────────────────────────
@@ -54,9 +55,6 @@ class TaskDetailPage(BasePage):
     _RECURRENCE_LABELS = ("Wiederholung", "Recurrence")
     _DUE_DATE_LABELS = ("Fälligkeitsdatum", "Due Date")
     _ASSIGNED_LABELS = ("Zugewiesen an", "Assigned To")
-
-    # ── Delete button (no data-testid; MUI error-coloured button) ─────────
-    _DELETE_LABELS = ("Löschen", "Delete")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -390,25 +388,14 @@ class TaskDetailPage(BasePage):
     def delete_task(self) -> None:
         """Delete the task via the header delete button and confirm dialog.
 
-        The header delete button carries no data-testid; it is the MUI
-        ``color='error'`` button in the detail header (i18n text
-        ``common.delete``).  It is located robustly by its error colour class
-        combined with its label text, then the generic ``ConfirmDialog`` is
-        accepted via ``confirm-dialog-confirm``.
+        Addressed by its own hook (``delete-task-button``,
+        `TaskDetailPage.tsx:696`), like its siblings in the same action group.
+        This replaces a hand-rolled XPath that coupled to *both* MUI's
+        colour classes (``MuiButton-colorError``/``MuiButton-outlinedError``)
+        and the translated label -- so a variant change or a copy edit in
+        either locale silently stopped resolving the button.
         """
-        text_predicate = " or ".join(
-            f"normalize-space()='{label}'" for label in self._DELETE_LABELS
-        )
-        button = self.wait_for_element_clickable(
-            (
-                By.XPATH,
-                "//*[@data-testid='task-detail-page']//button["
-                "(contains(@class, 'MuiButton-colorError')"
-                " or contains(@class, 'MuiButton-outlinedError'))"
-                f" and ({text_predicate})]",
-            )
-        )
-        self.scroll_and_click(button)
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
         self.scroll_and_click(
             self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM)
