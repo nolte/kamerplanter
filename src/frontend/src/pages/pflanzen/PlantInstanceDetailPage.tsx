@@ -2300,7 +2300,7 @@ export default function PlantInstanceDetailPage() {
 
               {/* Active tasks section */}
               {activeTasks.length > 0 && (
-                <Box sx={{ mb: 3 }}>
+                <Box sx={{ mb: 3 }} data-testid="plant-tasks-active-section">
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                     {t('pages.plantInstances.taskTabActiveSection')}
                   </Typography>
@@ -2387,6 +2387,7 @@ export default function PlantInstanceDetailPage() {
                     onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
                     tableState={taskTableState}
                     ariaLabel={t('pages.plantInstances.taskTabActiveSection')}
+                    sectionTestId="plant-tasks-active"
                     searchable
                     mobileCardRenderer={(row) => (
                       <MobileCard
@@ -2419,7 +2420,7 @@ export default function PlantInstanceDetailPage() {
 
               {/* Archived tasks section */}
               {archivedTasks.length > 0 && (
-                <Box>
+                <Box data-testid="plant-tasks-done-section">
                   <Divider sx={{ mb: 2 }} />
                   <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
                     {t('pages.plantInstances.taskTabDoneSection')}
@@ -2476,6 +2477,7 @@ export default function PlantInstanceDetailPage() {
                     getRowKey={(row) => row.key}
                     onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
                     ariaLabel={t('pages.plantInstances.taskTabDoneSection')}
+                    sectionTestId="plant-tasks-done"
                     searchable
                     mobileCardRenderer={(row) => (
                       <MobileCard
