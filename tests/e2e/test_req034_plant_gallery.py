@@ -586,9 +586,18 @@ class TestPlantGalleryI18n:
             # plant page (no document reload), so i18next never re-reads the
             # locale — force a full reload to apply the language switch.
             gallery.driver.refresh()
-            gallery.wait_for_loading_complete()
-            if not gallery.is_gallery_loaded():
-                pytest.skip("Gallery did not load — cannot assert i18n labels")
+            # A full reload restarts the route, so the skeleton has not mounted
+            # yet the instant `refresh()` returns: `wait_for_loading_complete()`
+            # returned immediately, `is_gallery_loaded()` was `False` because the
+            # gallery simply had not rendered yet, and the test *skipped* --
+            # a silent coverage hole rather than a pass (`e2e-test-stability`
+            # §A/§D). Gate on the gallery container actually being present, and
+            # let a genuine error branch fail loudly instead of skipping.
+            gallery.wait_for_content(
+                PlantPhotoGalleryPage.GALLERY,
+                "TC-REQ-034-011 gallery after the locale reload",
+                timeout=20,
+            )
 
             # The split i18n bundles (#612) load the EN namespace async after
             # the language switch; the tab briefly renders the fallback DE

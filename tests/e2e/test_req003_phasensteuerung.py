@@ -493,13 +493,29 @@ class TestPlantInstanceDetailPage:
         """TC-REQ-003-017: Navigating to unknown plant instance key shows error display.
 
         Spec: TC-003-023 -- Phasentransition -- Kein Lifecycle zugeordnet (Unknown Key).
+
+        Gated on a settled *branch* instead of on the absence of a skeleton: no
+        skeleton has mounted in the instant after ``navigate()``, so
+        ``wait_for_loading_complete()`` returned straight away and
+        ``is_error_shown()`` read the app chrome while the route's lazy chunk was
+        still resolving (`e2e-test-stability` §D). Declaring the page root as a
+        branch also makes the inverse defect legible: a nonexistent key that
+        renders the detail page now fails naming that branch.
         """
-        plant_detail.navigate("/pflanzen/plant-instances/nonexistent-key-99999")
-        plant_detail.wait_for_loading_complete()
+        state = plant_detail.navigate_direct(
+            "/pflanzen/plant-instances/nonexistent-key-99999",
+            PlantInstanceDetailExt.PAGE,
+            what="TC-REQ-003-017 unknown plant instance key",
+        )
         screenshot(
             "TC-REQ-003-017_unknown-plant-error", "Error display for unknown plant instance key"
         )
 
+        plant_detail.require_branch(
+            state,
+            PlantInstanceDetailExt.BRANCH_ERROR,
+            "TC-REQ-003-017 unknown plant instance key",
+        )
         assert plant_detail.is_error_shown(), (
             "TC-REQ-003-017 FAIL: An error display should appear for an unknown plant instance key"
         )

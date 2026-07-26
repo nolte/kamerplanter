@@ -71,6 +71,46 @@ the existing reporting — they do **not** replace the Markdown protocol
 (`protokoll.md`) and screenshots, which stay the human-facing audit trail
 (NFR-008 §4.4).
 
+## Waiting: how a test knows the page is there
+
+`BasePage.wait_for_loading_complete()` waits for the **absence** of
+`[data-testid='loading-skeleton']`. That is a weak signal and, on its own, not a
+valid assertion: an absence poll cannot tell "the skeleton has not mounted yet"
+from "the skeleton is gone because loading finished", so right after a
+`navigate()` it returns *immediately* while the route's lazily-imported chunk is
+still resolving (`e2e-test-stability` §D). It is kept only because ~340 call
+sites pair it with a durable wait that does the real work.
+
+Use the branch-aware helpers instead. They key on the **presence** of the content
+the caller is about to read, and they report **which** settled state the route
+reached, so a test asserts an outcome instead of accepting any of them:
+
+| Helper | Use it for |
+|---|---|
+| `wait_for_content(page, what)` | the everyday case: "navigate, then read the page". Fails loudly, quoting the app's own error text, when an error surface won instead |
+| `wait_for_page_settled(page, what)` | the test legitimately accepts several outcomes and wants to branch on `state.branch` |
+| `wait_for_settled({name: locator, …}, what)` | any other disjunction (a tab panel's table **or** its `EmptyState`) |
+| `navigate_direct(path, settled)` | a deliberately invalid key, where no `open()` accepts the path. The settle locator is a **mandatory** parameter |
+| `require_branch(state, expected, what)` | make the accepted outcome explicit at the point of the read |
+| `wait_for_skeleton_gone(what)` | the *legal* skeleton-absence poll — only after a settled branch is present, which is what makes the absence falsifiable |
+
+`wait_for_settled` returns a `SettledState` carrying `branch` (the winner),
+`locator`, and `present` (every branch found). Resolution is by **declared
+order**, and that ordering is the contract: `{content: PAGE, error:
+ERROR_DISPLAY}` says "if the page root is there, that is the outcome I am
+reading". Branch probing is one `execute_script` round-trip rather than N
+`find_elements` calls, because the session's 3 s implicit wait applies to every
+*empty* `find_elements` and would otherwise cost N×3 s per poll cycle.
+
+**Structural rule:** a `navigate()` call outside an `open()`-shaped method is a
+review finding — it returns once the document is loaded, which for this SPA is
+before the route exists. `tests/e2e_selftest/test_navigation_contract.py` holds a
+shrink-only allowlist of the sites that still violate it.
+
+Browser-free unit tests for all of the above live in `tests/e2e_selftest/`
+(`task test:e2e:selftest`) — deliberately outside this directory so they need no
+stack and do not change this suite's collected count.
+
 ## Selecting which tests to run after a change
 
 Tests are **machine-selectable** along two independent axes plus the legacy
