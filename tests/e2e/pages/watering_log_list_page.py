@@ -366,17 +366,27 @@ class WateringLogListPage(BasePage):
         self.scroll_and_click(btn)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open a `FormSelectField` and pick the option carrying *value_text*.
+
+        Routed through the shared, verified helpers. The predecessor opened the
+        Select with a coordinate click on ``.MuiSelect-select`` (MUI opens a
+        Select from ``onMouseDown`` only, so a swallowed click opened nothing),
+        resolved the option through an **unscoped** ``//li[@role='option']``
+        XPath matched on its *translated* label with ``contains()`` — which
+        prefix-matches, so a label that is the prefix of another picks the wrong
+        entry — and verified nothing afterwards.
+
+        ``open_select`` raises unless the menu is verifiably open, and
+        ``select_option_by_label`` resolves the label to the option's own
+        ``data-value`` and delegates to ``select_option_by_value``, which
+        dispatches on the resolved element and reads the committed value back.
+        The label stays the caller's vocabulary (the watering journeys pass the
+        rendered German enum labels), but an exact match now wins over a
+        substring match irrespective of DOM order, so "Gießen" can no longer be
+        answered by whichever option happens to contain it first.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
