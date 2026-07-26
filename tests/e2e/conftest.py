@@ -631,9 +631,14 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     except Exception as exc:
         result["error"] = str(exc)
 
+    # The result dict carries the demo account's live JWT in full mode — never
+    # write it to a report file that a broadened artifact upload could publish
+    # (SEC-006).
+    from ._seed_log import format_seed_log
+
     seed_log = Path("test-reports/e2e_seed_data.log")
     seed_log.parent.mkdir(parents=True, exist_ok=True)
-    seed_log.write_text(f"api={api}\nmode={app_mode}\nresult={result}\n")
+    seed_log.write_text(format_seed_log(api, app_mode, result))
 
     return result
 
