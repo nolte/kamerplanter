@@ -113,7 +113,11 @@ jobs:
         if: always()
         run: |
           {
-            if find test-reports/e2e -name 'junit-*.xml' 2>/dev/null | grep -q .; then
+            # `-print -quit` instead of piping into `grep -q`: under a shell
+            # with `pipefail` (which `shell: bash` would add) an early `grep`
+            # exit can leave `find` killed by SIGPIPE, flipping this test to
+            # false and printing "no report" under a perfectly green run.
+            if [ -n "$(find test-reports/e2e -name 'junit-*.xml' -print -quit 2>/dev/null)" ]; then
               echo "**E2E nightly (${{ matrix.profile }})** — full protocol, screenshots and container logs:"
               echo "see the run's \`e2e-nightly-reports-${{ matrix.profile }}\` artifact."
             else
