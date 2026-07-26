@@ -19,10 +19,24 @@ class WateringLogListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-watering-log-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    # Linked plant chips inside the ``plants`` cell (Chip mounted on a RouterLink
-    # → a real anchor). Addressed via the column's own test id plus the anchor
-    # element, never via a MUI class.
-    PLANT_CHIP_LINKS = (By.CSS_SELECTOR, "[data-testid='cell-plants'] a[href]")
+    # Linked plant chips of a row (Chip mounted on a RouterLink → a real
+    # anchor). Addressed by the *per-plant* hook the product emits in both
+    # layouts, `plant-link-<plant key>`, rather than by the container that
+    # happens to hold it: `cell-plants` exists only in the desktop table, so
+    # scoping to it made this reader return ``[]`` below `DataTable`'s `sm`
+    # breakpoint — the mobile / full-mobile profiles (TC-004-092). Keying on the
+    # thing being read is also what `spec/project/e2e-test-stability/` §G asks
+    # for: key-based access into a responsive collection, one hook per plant, so
+    # a specific plant stays addressable without counting chip positions.
+    PLANT_CHIP_LINKS = (By.CSS_SELECTOR, "a[data-testid^='plant-link-']")
+    # The `plants` group carrier, emitted unconditionally in both layouts
+    # (desktop ``<td>`` / `MobileCard` chip). Its absence means the row is not
+    # readable at all — which must fail loudly rather than read as "no plants".
+    PLANT_GROUP = (
+        By.CSS_SELECTOR,
+        "[data-testid='cell-plants'], [data-testid='card-field-plants'],"
+        " [data-testid='card-chip-plants']",
+    )
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -124,12 +138,16 @@ class WateringLogListPage(BasePage):
         """Return ``(label, href)`` for each linked plant chip in the row at *index*.
 
         The ``plants`` column renders every resolved plant as a chip mounted on a
-        router link, so a correctly linked chip is an ``<a href=…>`` inside the
-        cell — plain semantic HTML, not a framework-generated class.
+        router link, so a correctly linked chip is an ``<a href=…>`` carrying the
+        plant's own ``plant-link-<key>`` hook — the same hook in the desktop
+        table and in the `MobileCard`, which is why this reader is addressed by
+        it rather than by a layout-specific container.
 
         Returns the pairs rather than a verdict: the page object reports state,
         the caller decides what the state has to be. An empty list means the
-        chips rendered without a link (or no plant is attached at all).
+        chips rendered without a link (or no plant is attached at all) — a
+        statement this method is only allowed to make once it has seen the row's
+        ``plants`` group; a row that keys none is unreadable and raises.
 
         Raises ``IndexError`` when *index* is out of range, mirroring
         :meth:`get_row_cell`.
@@ -139,7 +157,16 @@ class WateringLogListPage(BasePage):
             raise IndexError(
                 f"Watering-log row index {index} out of range (table has {len(rows)} rows)"
             )
-        anchors = rows[index].find_elements(*self.PLANT_CHIP_LINKS)
+        row = rows[index]
+        if not row.find_elements(*self.PLANT_GROUP):
+            raise AssertionError(
+                f"The 'plants' group of watering-log row {index} is not readable: "
+                "the row keys neither 'cell-plants' (desktop table) nor "
+                "'card-field-plants'/'card-chip-plants' (MobileCard). Returning an "
+                "empty link list here would report 'no linked plant' for a row that "
+                "was never read."
+            )
+        anchors = row.find_elements(*self.PLANT_CHIP_LINKS)
         return [(a.text.strip(), a.get_attribute("href") or "") for a in anchors]
 
     def get_row_texts(self) -> list[list[str]]:
