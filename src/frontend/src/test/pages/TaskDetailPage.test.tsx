@@ -660,6 +660,25 @@ describe('TaskDetailPage — header action group', () => {
     i18n.changeLanguage('en');
   });
 
+  it('lets the status/category/priority chip row wrap', async () => {
+    useTaskHandlers(spy);
+    renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });
+    await screen.findByTestId('task-detail-page');
+
+    const statusChip = screen.getByText(i18n.t('enums.taskStatus.pending'));
+    const chipRow = statusChip.closest('.MuiChip-root')?.parentElement as HTMLElement;
+    expect(chipRow).toContainElement(screen.getByText(i18n.t('enums.taskCategory.maintenance')));
+
+    // Three German labels measure ~340px against a 393px viewport; without
+    // wrapping the row overflows the page (UI-NFR-001 R-005/R-006).
+    const rowStyle = window.getComputedStyle(chipRow);
+    expect(rowStyle.flexWrap).toBe('wrap');
+    // Stack's margin-based spacing collapses once a line breaks, so the row
+    // must use gap-based spacing.
+    expect(rowStyle.gap).not.toBe('');
+    expect(rowStyle.gap).not.toBe('normal');
+  });
+
   it('keeps the action group shrinkable and wrapping so no action leaves the viewport', async () => {
     useTaskHandlers(spy);
     renderWithProviders(<TaskDetailPage />, { route: '/aufgaben/task-1' });

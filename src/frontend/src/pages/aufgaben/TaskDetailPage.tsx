@@ -605,9 +605,22 @@ export default function TaskDetailPage() {
           flexWrap: 'wrap',
         }}
       >
-        <Box>
+        {/* `minWidth: 0` lets the title column shrink below its max-content
+            width; without it the chip row sets the column's automatic minimum
+            size and the header cannot reflow at all. */}
+        <Box sx={{ minWidth: 0 }}>
           <PageTitle title={(i18n.language === 'de' && task.name_de) ? task.name_de : task.name} />
-          <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+          {/* Status / category / priority. The three German labels measure
+              ~340px against a 393px viewport, so the row MUST be allowed to
+              wrap (UI-NFR-001 R-005/R-006). `useFlexGap` is required with
+              `flexWrap`: Stack's default margin-based spacing collapses to the
+              wrong side once a line breaks. */}
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            sx={{ mt: 0.5, flexWrap: 'wrap' }}
+          >
             <Chip
               label={t(`enums.taskStatus.${task.status}`)}
               size="small"
