@@ -236,14 +236,14 @@ class TreatmentListPage(BasePage):
         el.send_keys(text)
 
     def submit_create_form(self) -> None:
-        """Submit the create form via JS dispatch on the form element."""
-        self.driver.execute_script(
-            "var form = document.querySelector(\".MuiDialog-root [role='dialog'] form\");"
-            "if (form) {"
-            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
-            "  form.dispatchEvent(ev);"
-            "}"
-        )
+        """Submit the create form by clicking its submit button.
+
+        Routed through the actual button -- see ``PestListPage.submit_create_form``
+        for why the previous raw ``dispatchEvent('submit')`` on the dialog's
+        ``form`` (guarded by an ``if (form) { … }`` with no ``else``) was a
+        silent no-op on a missing form and bypassed the button entirely.
+        """
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""

@@ -226,19 +226,24 @@ class PestListPage(BasePage):
         el.send_keys(text)
 
     def submit_create_form(self) -> None:
-        """Submit the create form via JS dispatch on the form element.
+        """Submit the create form by clicking its submit button.
 
-        Clicking the submit button in Selenium Grid does not reliably trigger the
-        native form submit event in React 19 + MUI v7.  Dispatching the event
-        directly ensures react-hook-form's handleSubmit is invoked.
+        The predecessor bypassed the button entirely, dispatching a raw
+        ``submit`` Event straight onto ``.MuiDialog-root [role='dialog'] form``
+        -- guarded by ``if (form) { … }`` with no ``else``, so a form that was
+        not found made this a *silent no-op reporting success* (`e2e-test-
+        stability` §D), and a broken or permanently-disabled submit button
+        would never be noticed, since the button was never touched.
+
+        ``wait_and_click_coordinate_free`` clicks the *actual* button via a JS
+        ``click()`` dispatched on the resolved element rather than at native
+        pointer coordinates -- sound for a ``<button type='submit'>`` (see
+        ``BasePage.click_coordinate_free``), so it still reliably triggers
+        react-hook-form's ``handleSubmit`` under Selenium Grid, and it raises
+        loudly (``TimeoutException``) if the button never becomes clickable,
+        and again if it is disabled.
         """
-        self.driver.execute_script(
-            "var form = document.querySelector(\".MuiDialog-root [role='dialog'] form\");"
-            "if (form) {"
-            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
-            "  form.dispatchEvent(ev);"
-            "}"
-        )
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""
