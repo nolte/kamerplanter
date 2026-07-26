@@ -24,6 +24,9 @@ class SpeciesDetailPage(BasePage):
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
     READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='species-readonly-banner']")
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
+    # This is genuinely the *in-page* "Bearbeiten" tab's submit button (no
+    # dialog wraps this tab), left unscoped on purpose: it is the element
+    # LIFECYCLE_FORM_SUBMIT below used to collide with (see #778 A5).
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
@@ -41,7 +44,15 @@ class SpeciesDetailPage(BasePage):
     )
 
     # Lifecycle tab locators
-    LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the growth-phase dialog: MUI portals it to the end of <body>,
+    # so an unscoped `[data-testid='form-submit-button']` resolves to
+    # whichever button with that testid comes FIRST in document order -- the
+    # in-page "Bearbeiten" tab's own FORM_SUBMIT above, not this dialog's.
+    # See #778 A5.
+    LIFECYCLE_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']",
+    )
 
     # Growth phase locators
     PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
@@ -245,7 +256,19 @@ class SpeciesDetailPage(BasePage):
             el.send_keys(value)
 
     def submit_cultivar_form(self) -> None:
-        self.wait_and_click((By.CSS_SELECTOR, "[data-testid='form-submit-button']"))
+        """Submit the cultivar-create dialog.
+
+        Scoped to the cultivar dialog -- the same ``[data-testid='form-
+        submit-button']`` this used to address unscoped also matches the
+        in-page "Bearbeiten" tab's FORM_SUBMIT and the growth-phase dialog's
+        LIFECYCLE_FORM_SUBMIT (see #778 A5).
+        """
+        self.wait_and_click(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='cultivar-create-dialog'] [data-testid='form-submit-button']",
+            )
+        )
 
     # ── Lifecycle tab (tab 2) ─────────────────────────────────────────
 

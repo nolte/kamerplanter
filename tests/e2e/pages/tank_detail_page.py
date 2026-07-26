@@ -44,7 +44,15 @@ class TankDetailPage(BasePage):
     )
     STATE_FORM_FILL_LITERS = (By.CSS_SELECTOR, "[data-testid='form-field-fill_level_liters'] input")
     STATE_FORM_TDS = (By.CSS_SELECTOR, "[data-testid='form-field-tds_ppm'] input")
-    STATE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the dialog: MUI portals a Dialog to the end of <body>, so an
+    # unscoped `[data-testid='form-submit-button']` resolves to whichever
+    # button with that testid comes FIRST in document order -- the in-page
+    # Edit tab's own submit button (Tab 5, below), not this dialog's. See #778
+    # A5.
+    STATE_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']",
+    )
     STATE_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
     # ── Tab 2 – Maintenance ────────────────────────────────────────────
@@ -62,7 +70,11 @@ class TankDetailPage(BasePage):
     MAINT_FORM_DURATION = (By.CSS_SELECTOR, "[data-testid='form-field-duration_minutes'] input")
     MAINT_FORM_PRODUCTS = (By.CSS_SELECTOR, "[data-testid='form-field-products_used'] input")
     MAINT_FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
-    MAINT_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the dialog -- see STATE_FORM_SUBMIT above for the rationale.
+    MAINT_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']",
+    )
     MAINT_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
     # ── Tab 3 – Schedules ─────────────────────────────────────────────
@@ -82,6 +94,9 @@ class TankDetailPage(BasePage):
     EDIT_FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
     EDIT_FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
     EDIT_FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
+    # This is genuinely the *in-page* submit button (no dialog wraps this tab),
+    # left unscoped on purpose: it is the element STATE_FORM_SUBMIT and
+    # MAINT_FORM_SUBMIT above used to collide with (see #778 A5).
     EDIT_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     EDIT_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
