@@ -355,13 +355,31 @@ class TaskQueuePage(BasePage):
         genuine keyboard input. Polls the listbox until an option whose text
         contains *text* appears (so a lagging filter can never select the wrong
         entry), clicks it and waits for the popup to close. Returns True on match.
+
+        The input is scrolled to the middle of the viewport before it is clicked
+        (``scroll_and_click``, not a bare ``input_el.click()``). Without that,
+        ChromeDriver performs its *own* minimal scroll, which parks the element
+        at the bottom edge of the viewport -- and below the ``sm`` breakpoint
+        `FormActions` renders ``position: sticky; bottom: 0``, so the pinned
+        submit row sits exactly there and receives the click::
+
+            element click intercepted: Element <input ... MuiAutocomplete-input>
+            is not clickable at point (180, 803). Other element would receive
+            the click: <button ... data-testid="form-submit-button">
+
+        Observed on the 393x852 mobile and full-mobile profiles across six tests
+        (TestTaskUpdatePropagation plus the two REQ-006 core journeys) and on
+        neither tablet profile, whose 820px width leaves the row unpinned.
+        Centring the target moves it ~400px clear of the sticky band; the
+        interception fallback in ``scroll_and_click`` covers the remainder
+        instead of propagating out of the helper.
         """
         import time
 
         from selenium.webdriver.common.keys import Keys
 
         input_el = self.wait_for_element_clickable(input_locator)
-        input_el.click()
+        self.scroll_and_click(input_el)
         input_el.send_keys(Keys.CONTROL + "a")
         input_el.send_keys(Keys.DELETE)
         input_el.send_keys(text)
@@ -376,7 +394,13 @@ class TaskQueuePage(BasePage):
             time.sleep(0.3)
         if match is None:
             return False
-        self.scroll_and_click(match)
+        # An option of an open popover is clicked on the resolved element, never
+        # at resolved coordinates: the Autocomplete popper repositions itself
+        # while the filtered list shrinks, so a coordinate dispatch lands on
+        # whichever option slid into that spot. `li[role='option']` activates
+        # from its own `onClick`, so a dispatched click drives it (base_page:
+        # click_menu_option).
+        self.click_menu_option(match)
         self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
         return True
 
