@@ -4,6 +4,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
+import { useStickyBarScrollPadding } from '@/hooks/useStickyBarScrollPadding';
 
 interface FormActionsProps {
   onCancel: () => void;
@@ -28,9 +29,16 @@ export default function FormActions({
   // keeps "Speichern"/"Abbrechen" reachable without restructuring ~40 dialogs
   // into `DialogActions`, and does the same for long in-page edit forms.
   const isPinned = useMediaQuery(theme.breakpoints.down('sm'));
+  // Issue #768 — a pinned bar floats over the bottom band of its own scroll
+  // container, so a field the browser scrolls to that edge (Tab, an anchor,
+  // WebDriver's click preparation) ends up behind it. The hook reserves the
+  // band on whichever ancestor scrolls, measured from this row's real height,
+  // and stays inert on wider viewports where the row is not pinned.
+  const stickyBarRef = useStickyBarScrollPadding(isPinned, Number.parseFloat(theme.spacing(1)));
 
   return (
     <Box
+      ref={stickyBarRef}
       data-testid="form-actions"
       sx={{
         display: 'flex',
