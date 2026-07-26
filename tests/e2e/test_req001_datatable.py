@@ -19,7 +19,7 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
-from .pages import BotanicalFamilyListPage, SpeciesListPage
+from .pages import BotanicalFamilyDetailPage, BotanicalFamilyListPage, SpeciesListPage
 
 
 @pytest.fixture
@@ -161,6 +161,14 @@ class TestDataTableLoadingStates:
 
         Verifies the detail page loads correctly. The skeleton state is
         transient and difficult to capture in standard E2E tests.
+
+        Note what the *name* of this test promises versus what it can assert: the
+        skeleton is not observable here, so the falsifiable claim is "the detail
+        route settles into its page root, and no skeleton is left when it does".
+        That is precisely what `wait_for_content` gates on -- the previous
+        ``wait_for_loading_complete()`` asserted the *absence* of the very thing
+        the test is named after, which is satisfied before the route has started
+        loading at all.
         """
         family_list.open()
 
@@ -169,7 +177,9 @@ class TestDataTableLoadingStates:
 
         family_list.click_row(0)
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        family_list.wait_for_loading_complete()
+        family_list.wait_for_content(
+            BotanicalFamilyDetailPage.PAGE, "TC-REQ-001-084 family detail page"
+        )
         screenshot("TC-REQ-001-084_detail-loaded", "Family detail page loaded (skeleton resolved)")
 
         # The detail page should render with form elements

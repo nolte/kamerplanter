@@ -893,12 +893,30 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-030: Navigating to unknown location key shows error display."""
+        """TC-REQ-002-030: Navigating to unknown location key shows error display.
+
+        Gated on the *presence* of a settled branch rather than on the absence of
+        a skeleton: right after ``navigate()`` no skeleton has mounted yet, so
+        ``wait_for_loading_complete()`` returned immediately and
+        ``is_error_shown()`` sampled a DOM that still held nothing but the app
+        chrome (`e2e-test-stability` §D). The branch map also makes the *wrong*
+        outcome legible -- a route that renders the location page for a
+        nonexistent key now fails naming the branch it reached instead of
+        reporting a missing error display.
+        """
         capture = request.node._screenshot_capture
-        location_detail.navigate("/standorte/locations/nonexistent-loc-99999")
-        location_detail.wait_for_loading_complete()
+        state = location_detail.navigate_direct(
+            "/standorte/locations/nonexistent-loc-99999",
+            LocationDetailPage.PAGE_TITLE,
+            what="TC-REQ-002-030 unknown location key",
+        )
         capture("TC-REQ-002-030_unknown-location-error")
 
+        location_detail.require_branch(
+            state,
+            LocationDetailPage.BRANCH_ERROR,
+            "TC-REQ-002-030 unknown location key",
+        )
         assert location_detail.is_error_shown(), (
             "TC-REQ-002-030 FAIL: An error display should appear for an unknown location key"
         )

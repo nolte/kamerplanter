@@ -95,7 +95,14 @@ class TestSeedDataFabaceae:
             pytest.skip("Fabaceae not found in list")
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        detail_page.wait_for_loading_complete()
+        # The URL changes the moment the router commits; the detail route's own
+        # chunk and first fetch are still in flight. `wait_for_loading_complete()`
+        # returned instantly here because no skeleton had mounted yet, so the
+        # switch/select reads below sampled an empty form
+        # (`e2e-test-stability` §D).
+        detail_page.wait_for_content(
+            BotanicalFamilyDetailPage.PAGE, "TC-REQ-001-086 Fabaceae detail page"
+        )
         screenshot(
             "TC-REQ-001-086_fabaceae-detail",
             "Fabaceae detail page with nitrogen_fixing and nutrient demand",
@@ -135,7 +142,10 @@ class TestSeedDataCannabaceae:
             pytest.skip("Cannabaceae not found in list")
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        detail_page.wait_for_loading_complete()
+        # See TC-REQ-001-086: the URL commit is not the route having rendered.
+        detail_page.wait_for_content(
+            BotanicalFamilyDetailPage.PAGE, "TC-REQ-001-087 Cannabaceae detail page"
+        )
         screenshot(
             "TC-REQ-001-087_cannabaceae-detail", "Cannabaceae detail page with seed data attributes"
         )
