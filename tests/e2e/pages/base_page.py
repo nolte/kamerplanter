@@ -694,7 +694,15 @@ class BasePage:
         """
         target = " ".join(label.split())
         options = self.driver.find_elements(*self.OPTIONS)
-        rendered = [" ".join((o.text or "").split()) for o in options]
+        # ``textContent``, not ``.text``: WebElement.text yields only *rendered*
+        # text, so an option scrolled outside the popover's visible area reads
+        # back as "". MUI scrolls an open Select to its selected item, which
+        # pushes the leading entries out of view -- observed on the tablet
+        # profile as ``Rendered options: ['', '', 'Osmosewasser', ...]`` for a
+        # dropdown whose first entry was the one being asked for.
+        rendered = [
+            " ".join((o.get_attribute("textContent") or "").split()) for o in options
+        ]
         exact = [o for o, text in zip(options, rendered) if text == target]
         partial = [
             o
