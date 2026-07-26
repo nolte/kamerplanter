@@ -208,13 +208,13 @@ class TaskQueuePage(BasePage):
         return True
 
     def select_category_filter(self, category_text: str) -> None:
-        """Open the category filter and select an option."""
-        dropdown = self.wait_for_element_clickable(self.FILTER_CATEGORY)
-        self.scroll_and_click(dropdown)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{category_text}')]")
-        )
-        self.click_menu_option(option)
+        """Open the category filter and select an option.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select_by_testid("filter-category")
+        self.select_option_by_label(category_text)
 
     # ── Bulk mode ──────────────────────────────────────────────────────
 

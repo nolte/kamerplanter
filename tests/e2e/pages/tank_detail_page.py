@@ -85,8 +85,11 @@ class TankDetailPage(BasePage):
     EDIT_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     EDIT_FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 
-    # Alert banner rendered with MUI Alert
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Alert banner rendered with MUI Alert. Scoped to the page root: an
+    # unscoped ``.MuiAlert-root`` also matches MainLayout's light-mode warning
+    # banner, which renders as a sibling of this page's root, not a
+    # descendant. See #778 A11.
+    ALERTS = (By.CSS_SELECTOR, "[data-testid='tank-detail-page'] .MuiAlert-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -225,15 +228,13 @@ class TankDetailPage(BasePage):
         return len(self.driver.find_elements(*self.MAINTENANCE_DIALOG)) > 0
 
     def select_maintenance_type(self, label_text: str) -> None:
-        """Select a maintenance type by its visible label."""
-        field = self.wait_for_element_clickable(self.MAINT_FORM_TYPE)
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Select a maintenance type by its visible label.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("maintenance_type")
+        self.select_option_by_label(label_text)
 
     def fill_maintenance_performed_by(self, name: str) -> None:
         el = self.wait_for_element_clickable(self.MAINT_FORM_PERFORMED_BY)
@@ -312,17 +313,13 @@ class TankDetailPage(BasePage):
         el.send_keys(notes)
 
     def select_edit_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select in the edit form and pick an option."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open an MUI Select in the edit form and pick an option.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def toggle_edit_has_lid(self) -> None:
         el = self.wait_for_element_clickable(self.EDIT_FORM_HAS_LID)

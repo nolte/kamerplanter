@@ -337,14 +337,13 @@ class PlantInstanceDetailExt(BasePage):
         self.close_mui_dropdown()
 
     def select_target_phase_by_text(self, text: str) -> None:
-        """Select a target phase by its visible label text."""
+        """Select a target phase by its visible label text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
         self.open_target_phase_select()
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        self.select_option_by_label(text)
 
     def set_transition_reason(self, reason: str) -> None:
         # The reason field is pre-populated with 'manual' by default; el.clear()

@@ -82,15 +82,14 @@ class SensorCreateDialogPage(BasePage):
 
         Uses partial text match so callers can pass either the enum key
         (``ph``) or the localised label fragment (``pH``, ``Temperatur``).
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        ``select_option_by_label`` preserves the same case-sensitive
+        substring match the previous XPath ``contains(text(), …)`` ran.
         """
-        select_el = self.wait_for_element_clickable(self.METRIC_TYPE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        self.open_select("metric_type")
+        self.select_option_by_label(value_text)
 
     def has_field(self, locator: tuple[str, str]) -> bool:
         """Return True iff a form field exists in the DOM (visibility ignored)."""

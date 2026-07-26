@@ -312,22 +312,12 @@ class TreatmentListPage(BasePage):
     def _select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text.
 
-        Uses ``close_mui_dropdown`` (which checks for an open popover before
-        sending Escape) instead of an unconditional ``body.send_keys(ESCAPE)``.
-        Once MUI auto-closes the popover after the option click, an
-        unconditional Escape would fall through to the surrounding Dialog and
-        close it, breaking subsequent ``fill_*`` calls in the same test.
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        ``select_option_by_label`` already closes the popover via
+        ``close_mui_dropdown`` internally (the same guarded-Escape mechanism
+        this used to call directly), so the surrounding Dialog is never at
+        risk of being closed by a stray Escape.
         """
-        import time
-
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        time.sleep(0.3)
-        self.close_mui_dropdown()
-        time.sleep(0.3)
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)

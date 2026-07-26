@@ -266,17 +266,17 @@ class BotanicalFamilyListPage(BasePage):
     # ── MUI Select helpers ─────────────────────────────────────────────
 
     def select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers: ``open_select``
+        raises unless the menu is verifiably open, and ``select_option_by_label``
+        resolves *value_text* against the option's own ``data-value`` (via
+        ``textContent``, not the unscoped ``contains(text(), …)`` XPath this used
+        to run, which only sees an option's first text node and can match any
+        listbox in the DOM) and reads the committed value back.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def toggle_switch(self, field_testid: str) -> None:
         """Toggle a MUI Switch by its field testid."""

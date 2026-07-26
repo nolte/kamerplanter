@@ -190,15 +190,14 @@ class FeedingEventListPage(BasePage):
         # the internal class.
         self.wait_for_loading_complete()
         self.open_select("plant_key")
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
-        )
-        # Dispatched on the resolved option, never at resolved coordinates: an
-        # open MUI menu still moves under its own layout effects (Menu scrolls
-        # its paper to the selected item, Popover clamps a menu that does not
-        # fit), so a coordinate click commits whichever option slid into place.
-        self.click_menu_option(option)
-        self.close_mui_dropdown()
+        # ``select_option_by_label`` resolves via the option's own
+        # ``data-value``/``textContent`` (whitespace-normalised, exact-or-
+        # substring) rather than the unscoped ``contains(., …)`` XPath this
+        # used to run, which only sees the *first* text node of a nested
+        # element and misses an option scrolled out of the popover's visible
+        # area. It also dispatches the click on the resolved element and
+        # verifies the value actually committed.
+        self.select_option_by_label(option_text)
 
     def select_application_method(self, option_text: str) -> None:
         """Open the application_method select and pick an option whose label contains text."""
@@ -206,12 +205,7 @@ class FeedingEventListPage(BasePage):
         # this field, otherwise its closing overlay blocks the interaction.
         self.close_mui_dropdown()
         self.open_select("application_method")
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
-        )
-        # Coordinate-independent for the same reason as in ``select_plant``.
-        self.click_menu_option(option)
-        self.close_mui_dropdown()
+        self.select_option_by_label(option_text)
 
     def fill_volume(self, value: float) -> None:
         """Fill the volume_applied_liters field."""
