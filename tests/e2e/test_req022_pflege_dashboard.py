@@ -698,6 +698,38 @@ class TestCareSnoozeAction:
 
 
 # -- TC-022-091: In-Progress Task Unaffected by Interval Change (#622) ---------
+#
+# Expected failure: cross-test interference on the shared task queue.
+#
+#: A foreign test starts the task this one created, so the arrange assertion
+#: ("a freshly created pending care task must be startable") finds the task
+#: already ``in_progress``. The mutator is
+#: ``test_req006_task_queue.py::TestTaskQueueQuickActions::test_start_task_from_queue``,
+#: which starts ``get_task_keys()[0]`` -- the head of the shared ``mein-garten``
+#: queue -- and ``create_care_task`` puts this test's task into exactly that
+#: position. Under ``--dist=loadfile`` the two files land on different xdist
+#: workers, so the foreign start can fall between this test's create and its own
+#: ``click_start()``; which profile loses the race is a scheduling accident,
+#: which is why the failure wanders between profiles.
+xfail_queue_head_started_by_foreign_test = pytest.mark.xfail(
+    reason=(
+        "Another test starts the care task this one created: "
+        "test_req006_task_queue.py::TestTaskQueueQuickActions::test_start_task_from_queue "
+        "starts get_task_keys()[0], the head of the shared 'mein-garten' queue, and "
+        "create_care_task creates this test's task due today, which sorts into that "
+        "head position (urgency group 'today', ordered by due date). With "
+        "--dist=loadfile the two files run on different xdist workers, so the foreign "
+        "start can land between this test's create and its own click_start(), and the "
+        "arrange assertion at has_start_button() fails because the task is already "
+        "in_progress. Evidence: the failure screenshot shows this test's own task "
+        "'E2E TC091 ...' as 'In Bearbeitung' before click_start() was reached, and the "
+        "backend log counts more POST /tasks/{key}/start calls than legitimate "
+        "starters. Finding: issue #791. "
+        "REVISIT: remove once TC-REQ-022-038 passes through a full "
+        "green-confirmation window across all profiles (e2e-test-stability §E)."
+    ),
+    strict=False,
+)
 
 
 class TestInProgressCycleChange:
@@ -708,6 +740,7 @@ class TestInProgressCycleChange:
     completion follows the new interval.
     """
 
+    @xfail_queue_head_started_by_foreign_test
     @pytest.mark.core_crud
     def test_in_progress_task_due_unchanged_by_interval_change(
         self,
