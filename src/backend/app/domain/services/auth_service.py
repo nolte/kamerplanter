@@ -452,7 +452,22 @@ class AuthService:
             raise ValidationError("; ".join(errors))
 
         user.password_hash = self._password_engine.hash_password(new_password)
-        self._user_repo.update_fields(user_key, {"password_hash": user.password_hash})
+        # A password change also consumes any outstanding reset token (SEC-011).
+        # Without this, a reset token requested before the change stays valid for
+        # its full hour, so whoever holds it — the very reason the owner rotated
+        # the password — can take the account back over afterwards. Mirrors what
+        # ``reset_password`` already clears, and relies on ``update_fields``
+        # persisting an explicit ``None`` (``keep_none=True``).
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        self._user_repo.update_fields(
+            user_key,
+            {
+                "password_hash": user.password_hash,
+                "password_reset_token": None,
+                "password_reset_expires": None,
+            },
+        )
 
         # If this is the first local password, create LOCAL auth provider
         if not self._has_local_provider(user_key):
