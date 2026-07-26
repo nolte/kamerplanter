@@ -55,3 +55,13 @@ Jedes Zielgruppen-Dokument folgt einer einheitlichen Struktur:
 - **Sprachliche Anpassung:** Fachbegriffe (Abschnitt 8) fuer zielgruppen-gerechte UI-Texte und Hilfe
 - **Anforderungs-Reviews:** Kernbeduerfnisse (Abschnitt 3) fuer Vollstaendigkeitspruefung
 - **Priorisierung:** Abdeckungsgrad und Potenzial fuer Product-Backlog-Priorisierung
+
+## Ergaenzende Sicht: Betriebsmodelle
+
+Die Dokumente hier beschreiben, **wer die Endnutzer inhaltlich sind** (nach
+Anbau-Typ und Erfahrungsgrad). Die orthogonale Frage — **wer die Instanz fuer
+wen betreibt und welche Verantwortung daraus folgt** — beantwortet
+[spec/betriebsmodelle/](../betriebsmodelle/README.md) mit BM-001 (oeffentlicher
+Managed Service), BM-002 (self-hosted Mehrnutzer) und BM-003 (self-hosted
+Einzelnutzer). Jede Zielgruppe hier kann je nach Betriebsmodell voellig
+unterschiedliche Anforderungen an Rechte, Datenschutz und Support stellen.

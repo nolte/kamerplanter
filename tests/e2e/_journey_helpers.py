@@ -9,6 +9,13 @@ PlantInstanceCreateDialog" step so each journey can arrange a fresh plant and
 then act/assert on it. Creation goes through the actual create dialog (not the
 backend API) so the arrange step itself exercises the production UI, matching
 the browser-user perspective mandated by NFR-008a.
+
+Beyond provisioning, the module also owns the small pieces of *result
+normalisation* and *domain vocabulary* that more than one journey needs (date
+parsing, the German watering i18n labels). Those are deliberately not page
+objects: they touch no driver, no selector and no wait — they only turn a
+rendered string into a comparable value, or name a domain option a page object
+resolves for itself.
 """
 
 from __future__ import annotations
@@ -17,6 +24,7 @@ import json as _json
 import time
 import urllib.error as _urlerror
 import urllib.request as _urlrequest
+from datetime import date, timedelta
 
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
@@ -25,9 +33,78 @@ from selenium.common.exceptions import (
     TimeoutException,
 )
 
+from .pages.base_page import DE_DATE_RE
 from .pages.pflege_dashboard_page import PflegeDashboardPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.task_queue_page import TaskQueuePage
+
+# ── Watering domain vocabulary (REQ-004) ─────────────────────────────────────
+# German i18n labels (``enums.applicationMethod.drench``,
+# ``enums.waterSource.tap``) shared by every watering journey. They are domain
+# vocabulary, not selectors — a page object resolves them against the rendered
+# options — which is why they live here rather than in any single test module.
+DRENCH_OPTION_LABEL = "Gießen"  # dialog option prefix (full: "Gießen (Gießkanne/manuell)")
+DRENCH_METHOD_LABEL = "Gießen (Gießkanne/manuell)"  # rendered table cell text
+TAP_LABEL = "Leitungswasser"
+
+# Symbolic day tokens a scenario may use instead of a literal date, expressed as
+# an offset in days from the browser's own "today".
+_DAY_TOKEN_OFFSETS = {"today": 0, "yesterday": -1, "tomorrow": 1}
+
+
+def parse_de_date(text: str | None) -> tuple[int, int, int] | None:
+    """Normalise a German ``d.m.Y`` date out of *text* into ``(day, month, year)``.
+
+    Two different frontend formatters render these cells (``formatDateTime``
+    emits '2-digit' parts, ``toLocaleString()`` emits numeric ones), so the
+    comparison has to happen on parsed values rather than on the raw strings.
+    Returns ``None`` when *text* holds no German date at all.
+
+    This is result normalisation, not user-interface plumbing, which is why it
+    belongs to the shared journey support rather than to a page object. The
+    pattern itself is :data:`pages.base_page.DE_DATE_RE`, the same one
+    ``BasePage.get_browser_today`` uses, so the parse and the reference value can
+    never diverge.
+    """
+    match = DE_DATE_RE.search(text or "")
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2)), int(match.group(3))
+
+
+def resolve_day_token(token: str, today: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Resolve a scenario's day *token* against the browser's *today*.
+
+    Accepts the symbolic tokens ``today``/``yesterday``/``tomorrow`` and a
+    literal German ``d.m.Y`` date. Keeping the vocabulary this small is
+    deliberate: it is what a declarative scenario needs to state *which* day it
+    expects without hard-coding one, and nothing more.
+
+    Args:
+        token: The day as written in the scenario, e.g. ``"today"``.
+        today: The browser's current ``(day, month, year)``, from
+            ``BasePage.get_browser_today``.
+
+    Returns:
+        The resolved ``(day, month, year)``.
+
+    Raises:
+        ValueError: If *token* is neither a known symbolic token nor a German
+            ``d.m.Y`` date — a silent fallback would turn a scenario typo into a
+            passing test.
+    """
+    key = token.strip().lower()
+    offset = _DAY_TOKEN_OFFSETS.get(key)
+    if offset is not None:
+        anchor = date(today[2], today[1], today[0]) + timedelta(days=offset)
+        return anchor.day, anchor.month, anchor.year
+    literal = parse_de_date(token)
+    if literal is None:
+        raise ValueError(
+            f"Unknown day token {token!r}: expected one of "
+            f"{sorted(_DAY_TOKEN_OFFSETS)} or a German d.m.Y date"
+        )
+    return literal
 
 
 def unique_suffix() -> str:

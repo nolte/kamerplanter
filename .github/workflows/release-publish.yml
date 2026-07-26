@@ -28,7 +28,133 @@ on:
 # stays load-bearing.
 
 jobs:
+  # OpenAPI document as a release asset (issue #765).
+  #
+  # Why here and not in the reusable: the reusable publish workflow exposes no
+  # generic asset hook — its only asset input (`asset-filename`) is
+  # HACS-specific — and it is externally managed, so the upload has to live in
+  # the caller. It re-implements the reusable's own checkout contract instead:
+  # `ref: develop`, so the export comes from exactly the tree that is being
+  # released, no matter which ref the workflow_dispatch was fired from.
+  #
+  # Why `needs:` orders it before the flip: `publish` flips the draft to
+  # published, and that release:published event immediately cascades to
+  # release-cd-refresh-master and release-cd-deliver-docs. Uploading afterwards
+  # would leave a window in which the release is public but missing the
+  # document that docs/<lang>/api/overview.md, Taskfile.yaml and the
+  # export_openapi module docstring all promise. So the asset lands on the
+  # still-draft release first. `gh release upload` resolves the release object
+  # by tag name and handles drafts (the tag itself only becomes a git ref at
+  # publish time) — the same resolution the reusable's "Resolve draft" step
+  # relies on. The explicit verification step exists so that if that assumption
+  # ever breaks, the job fails loudly instead of shipping an incomplete release.
+  #
+  # dry_run: the export still runs (a broken export must surface during a dry
+  # run), only upload and verification are skipped via a visible step-level
+  # `if:`. Deliberately no `continue-on-error` anywhere — a failed export or
+  # upload blocks the release; that is the better outcome.
+  #
+  # Credentials: the App token is minted inside the reusable and is not
+  # available to the caller's own jobs, so `gh` runs on GITHUB_TOKEN, which the
+  # job-level `contents: write` (not inherited from the reusable) covers.
+  openapi-asset:
+    name: Attach OpenAPI document
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # Job-level concurrency, deliberately NOT workflow-level and deliberately
+    # NOT the group name `release-publish`: the reusable declares that group for
+    # its own job, and a caller run holding it while the reusable job it calls
+    # queues on the same group would block itself. An own group per tag serialises
+    # two parallel dispatches of the same tag (both would export and upload)
+    # without touching the reusable's group. `cancel-in-progress: false` so an
+    # upload in flight is never cut off half-way.
+    concurrency:
+      group: release-publish-openapi-asset-${{ inputs.tag }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+          allow-prereleases: true
+
+      - name: Install dependencies
+        # Pinned, hash-verified lock — same install truth as api-docs.yml.
+        working-directory: src/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements.txt
+          pip install --no-deps -e .
+
+      - name: Export OpenAPI document
+        working-directory: src/backend
+        run: python -m scripts.export_openapi --out openapi.json
+
+      - name: Resolve the release for the requested tag
+        # Diagnostics only, deliberately narrow in scope: this job now fails
+        # before the reusable's own `Resolve draft` step ever runs, so a typo in
+        # `tag` would otherwise surface as a raw `gh` error without the list of
+        # open drafts that used to make the mistake obvious. This step brings
+        # exactly that list back — nothing more. Do NOT grow it into a copy of
+        # the reusable's validation: the `target_commitish` check against
+        # origin/develop and the "exactly one draft" rule stay the reusable's
+        # responsibility, or the two implementations drift apart.
+        #
+        # Same `if:` as upload and verify: a dry run uploads nothing and so needs
+        # no draft, and it goes on to `publish`, where the reusable emits its own
+        # fuller diagnostics. Both paths keep good error messages.
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --json tagName >/dev/null; then
+            echo "::error::No release with tag '$TAG'. Open drafts:"
+            gh release list --limit 50 --json tagName,isDraft \
+              --jq '.[] | select(.isDraft) | "  - " + .tagName' || true
+            exit 1
+          fi
+          echo "Resolved release $TAG."
+
+      - name: Upload OpenAPI document to the draft release
+        if: ${{ !inputs.dry_run }}
+        working-directory: src/backend
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # Stable, unversioned asset name: consumers can always fetch
+          # .../releases/latest/download/openapi.json.
+          gh release upload "$TAG" openapi.json --clobber
+
+      - name: Verify the OpenAPI asset is attached
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --json assets \
+            | jq -e '[.assets[].name] | index("openapi.json") != null' >/dev/null; then
+            echo "::error::openapi.json is not attached to release $TAG — the upload did not take effect." >&2
+            exit 1
+          fi
+          echo "Verified: openapi.json is attached to release $TAG."
+
   publish:
+    # Gate the draft -> published flip on the asset being in place; see the
+    # comment block on openapi-asset above.
+    needs: openapi-asset
     uses: nolte/gh-plumbing/.github/workflows/reusable-release-publish.yml@bab4f9d29740b56609bda43fe82d3a730e6b5899 # v1.1.26
     with:
       tag: ${{ inputs.tag }}

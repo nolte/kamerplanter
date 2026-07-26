@@ -7,11 +7,14 @@ tenant-aware CARE helpers. These tests wire a real ``CareReminderService`` (so t
 shared ``_complete_pending_care_task`` / ``ensure_next_watering_task`` path is
 exercised for real) with capturing mock repositories.
 
-The task-state assertions run against the **stateful** :class:`FakeTaskRepo`
-(#768): the previous stateless stub answered the follow-up lookup with ``None``
-even though the completion had just marked a task completed *today*, which is
-precisely the repository behaviour the real AQL does have — so the missing
-follow-up task (E2E TC-004-092) was invisible at unit level.
+The care-dedup lookup is answered by the **stateful** :class:`FakeTaskRepo`, which
+models the real AQL predicate of ``ArangoTaskRepository.find_open_care_task``
+including its recency rule. Hand-wiring that lookup per
+``include_completed_today`` value is how #761/#768 hid here: the stateless stub
+claimed the ``True`` lookup finds nothing while the ``False`` lookup finds the open
+task — impossible, because ``True`` matches a superset of ``False``. Against real
+repository state the completion is visible to the very next lookup, so the missing
+follow-up task (E2E TC-004-092) becomes observable at unit level.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -64,6 +67,14 @@ def _open_watering_task(due_offset_days: int = 0) -> Task:
     )
 
 
+def _watering_task_completed_today() -> Task:
+    """The same task, already closed a couple of hours ago (recency rule input)."""
+    task = _open_watering_task()
+    task.status = TaskStatus.COMPLETED
+    task.completed_at = datetime.now(UTC) - timedelta(hours=2)
+    return task
+
+
 def _plant(tenant_key: str = TENANT) -> MagicMock:
     plant = MagicMock()
     plant.key = PLANT_KEY
@@ -77,14 +88,27 @@ def _plant(tenant_key: str = TENANT) -> MagicMock:
 
 def _build(
     *,
-    task_repo,
+    tasks: list[Task] | None = None,
     plant_tenant: str = TENANT,
     auto_create: bool = True,
-) -> tuple[WateringLogService, MagicMock]:
+) -> tuple[WateringLogService, MagicMock, MagicMock, FakeTaskRepo]:
+    """Wire the service stack over a faithful, stateful care-task store.
+
+    ``task_repo`` stays a ``MagicMock`` so call-level assertions (``assert_not_
+    called``, ``call_args_list``) keep working, but every call is delegated to
+    ``care_tasks`` — the in-memory model of the real repository — so no test can
+    assert an answer the production query would never give.
+    """
     care_repo = MagicMock()
     care_repo.get_profile_by_plant_key.return_value = _profile(auto_create)
     care_repo.create_confirmation.side_effect = lambda c: CareConfirmation(**{**c.model_dump(), "_key": "conf-1"})
     care_repo.get_last_confirmation.return_value = None
+
+    care_tasks = FakeTaskRepo(tasks)
+    task_repo = MagicMock()
+    task_repo.find_open_care_task.side_effect = care_tasks.find_open_care_task
+    task_repo.update_task.side_effect = care_tasks.update_task
+    task_repo.create_task.side_effect = care_tasks.create_task
 
     plant_repo = MagicMock()
     plant_repo.get_by_key.return_value = _plant(plant_tenant)
@@ -109,20 +133,12 @@ def _build(
         care_service=care_service,
         plant_repo=plant_repo,
     )
-    return service, care_repo
+    return service, task_repo, care_repo, care_tasks
 
 
-def _build_with_mock_repo(
-    *,
-    find_open_side_effect,
-    plant_tenant: str = TENANT,
-) -> tuple[WateringLogService, MagicMock, MagicMock]:
-    """Variant with a mock task repo, for the paths that must never touch it."""
-    task_repo = MagicMock()
-    task_repo.find_open_care_task.side_effect = find_open_side_effect
-    task_repo.create_task.side_effect = lambda t: t
-    service, care_repo = _build(task_repo=task_repo, plant_tenant=plant_tenant)
-    return service, task_repo, care_repo
+def _forbid_lookup(task_repo: MagicMock, reason: str) -> None:
+    """Fail loudly (not silently) if the care-dedup lookup is reached at all."""
+    task_repo.find_open_care_task.side_effect = AssertionError(reason)
 
 
 def _log() -> WateringLog:
@@ -138,13 +154,14 @@ def _log() -> WateringLog:
 def test_create_log_completes_open_task_and_schedules_next() -> None:
     """Logging watering completes the open watering task and creates the next one.
 
-    Regression for #768: the follow-up lookup runs against a repository that has
-    *already seen* the completion, so it must be told to ignore the
-    completed-today branch — otherwise it returns the task this very call closed
-    and no follow-up is ever scheduled (E2E TC-004-092).
+    The store starts with the plant's still-open watering task, exactly as the E2E
+    TC-004-092 fixture does. Both shared lookups are answered by the faithful
+    repository model, so the assertion covers the real behaviour: the open task is
+    closed and — this is what #761/#768 broke — exactly one pending follow-up
+    remains, even though the task the guard sees was completed *today* (by this
+    very call).
     """
-    task_repo = FakeTaskRepo([_open_watering_task()])
-    service, care_repo = _build(task_repo=task_repo)
+    service, task_repo, care_repo, care_tasks = _build(tasks=[_open_watering_task()])
 
     result = service.create_log(_log())
 
@@ -152,12 +169,13 @@ def test_create_log_completes_open_task_and_schedules_next() -> None:
     care_repo.create_confirmation.assert_called_once()
 
     # The open watering task was completed (not left pending).
-    completed = task_repo.completed_care_tasks(ReminderType.WATERING)
+    completed = care_tasks.completed_care_tasks(ReminderType.WATERING)
     assert [task.key for task in completed] == ["task-open"]
     assert completed[0].completed_at is not None
 
-    # The next watering occurrence was scheduled — exactly one, correctly terminated.
-    scheduled = task_repo.open_care_tasks(ReminderType.WATERING)
+    # The next watering occurrence was scheduled — exactly one, correctly dated.
+    task_repo.create_task.assert_called_once()
+    scheduled = care_tasks.open_care_tasks(ReminderType.WATERING)
     assert len(scheduled) == 1
     assert scheduled[0].key != "task-open"
     assert scheduled[0].category == TaskCategory.CARE_REMINDER
@@ -166,7 +184,7 @@ def test_create_log_completes_open_task_and_schedules_next() -> None:
     assert scheduled[0].due_date == _today() + timedelta(days=INTERVAL_DAYS)
 
     # Every dedup lookup was scoped to the plant's own tenant (#509 guard).
-    assert {lookup["tenant_key"] for lookup in task_repo.lookups} == {TENANT}
+    assert {lookup["tenant_key"] for lookup in care_tasks.lookups} == {TENANT}
 
 
 def test_create_log_is_idempotent_when_already_watered_today() -> None:
@@ -174,20 +192,35 @@ def test_create_log_is_idempotent_when_already_watered_today() -> None:
 
     Run against real repository state: the first log closes the open task and
     schedules the follow-up; the second finds only that follow-up, which is not
-    yet due — so it is left untouched and no third task appears (#768).
+    yet due — so it is left untouched and no third task appears (#761/#768).
     """
-    task_repo = FakeTaskRepo([_open_watering_task()])
-    service, _ = _build(task_repo=task_repo)
+    service, _, _, care_tasks = _build(tasks=[_open_watering_task()])
 
     service.create_log(_log())
     service.create_log(_log())
 
-    pending = task_repo.open_care_tasks(ReminderType.WATERING)
-    completed = task_repo.completed_care_tasks(ReminderType.WATERING)
+    pending = care_tasks.open_care_tasks(ReminderType.WATERING)
+    completed = care_tasks.completed_care_tasks(ReminderType.WATERING)
     assert len(pending) == 1, "the follow-up must stay a single pending task"
     assert len(completed) == 1, "only the originally due task may be completed"
     assert pending[0].due_date == _today() + timedelta(days=INTERVAL_DAYS)
-    assert len(task_repo.store) == 2
+    assert len(care_tasks.store) == 2
+
+
+def test_create_log_after_another_path_closed_the_task_today_is_a_no_op() -> None:
+    """Logging watering when the task was already closed today changes nothing.
+
+    Nothing is open and a task completed today satisfies the reminder, so the
+    advance path closed no task of its own and therefore keeps the #509 recency
+    rule: no re-completion, and no follow-up conjured out of another path's
+    completion.
+    """
+    service, task_repo, _, _ = _build(tasks=[_watering_task_completed_today()])
+
+    service.create_log(_log())
+
+    task_repo.update_task.assert_not_called()  # nothing open to complete
+    task_repo.create_task.assert_not_called()  # completed-today blocks re-scheduling
 
 
 def test_create_log_does_not_touch_foreign_tenant_plant() -> None:
@@ -199,14 +232,8 @@ def test_create_log_does_not_touch_foreign_tenant_plant() -> None:
     into tenant B's care graph, and no watering task is advanced. Tenant isolation
     must not rely on plant_key-unguessability.
     """
-
-    def find_open(*_args, **_kwargs):  # pragma: no cover - must not be reached
-        raise AssertionError("find_open_care_task must not run for a foreign-tenant plant")
-
-    service, task_repo, care_repo = _build_with_mock_repo(
-        find_open_side_effect=find_open,
-        plant_tenant="tenant-B",
-    )
+    service, task_repo, care_repo, _ = _build(tasks=[_open_watering_task()], plant_tenant="tenant-B")
+    _forbid_lookup(task_repo, "find_open_care_task must not run for a foreign-tenant plant")
 
     service.create_log(_log())
 
@@ -226,11 +253,8 @@ def test_create_log_missing_plant_writes_no_confirmation() -> None:
     Fail-closed: an unresolvable plant_key is skipped just like a foreign one, so a
     dangling key can never create an orphan ``CareConfirmation``.
     """
-
-    def find_open(*_args, **_kwargs):  # pragma: no cover - must not be reached
-        raise AssertionError("find_open_care_task must not run for a missing plant")
-
-    service, task_repo, care_repo = _build_with_mock_repo(find_open_side_effect=find_open)
+    service, task_repo, care_repo, _ = _build(tasks=[_open_watering_task()])
+    _forbid_lookup(task_repo, "find_open_care_task must not run for a missing plant")
     service._plant_repo.get_by_key.return_value = None  # type: ignore[union-attr]
 
     result = service.create_log(_log())
@@ -243,14 +267,15 @@ def test_create_log_missing_plant_writes_no_confirmation() -> None:
 
 def test_create_log_without_auto_create_still_closes_open_task() -> None:
     """With auto-scheduling disabled the open task is closed but no next one is made."""
-    task_repo = FakeTaskRepo([_open_watering_task()])
-    service, _ = _build(task_repo=task_repo, auto_create=False)
+    service, task_repo, _, care_tasks = _build(tasks=[_open_watering_task()], auto_create=False)
 
     service.create_log(_log())
 
-    assert [task.key for task in task_repo.completed_care_tasks(ReminderType.WATERING)] == ["task-open"]
-    assert task_repo.open_care_tasks(ReminderType.WATERING) == []
-    assert task_repo.created == []
+    task_repo.update_task.assert_called_once()
+    task_repo.create_task.assert_not_called()
+    assert [task.key for task in care_tasks.completed_care_tasks(ReminderType.WATERING)] == ["task-open"]
+    assert care_tasks.open_care_tasks(ReminderType.WATERING) == []
+    assert care_tasks.created == []
 
 
 def test_create_log_does_not_close_a_task_due_later() -> None:
@@ -259,24 +284,20 @@ def test_create_log_does_not_close_a_task_due_later() -> None:
     Only a *due* task represents the reminder the log satisfies; closing a future
     occurrence would collapse the whole cycle into a single day.
     """
-    task_repo = FakeTaskRepo([_open_watering_task(due_offset_days=3)])
-    service, _ = _build(task_repo=task_repo)
+    service, _, _, care_tasks = _build(tasks=[_open_watering_task(due_offset_days=3)])
 
     service.create_log(_log())
 
-    assert task_repo.completed_care_tasks(ReminderType.WATERING) == []
-    assert [task.key for task in task_repo.open_care_tasks(ReminderType.WATERING)] == ["task-open"]
-    assert task_repo.created == []
+    assert care_tasks.completed_care_tasks(ReminderType.WATERING) == []
+    assert [task.key for task in care_tasks.open_care_tasks(ReminderType.WATERING)] == ["task-open"]
+    assert care_tasks.created == []
 
 
 @pytest.mark.parametrize("plant_keys", [[], ["_compat"]])
 def test_create_log_without_real_plants_skips_advancement(plant_keys) -> None:
     """A compat/empty log (no real plant) creates the log but advances no task."""
-
-    def find_open(*_args, **_kwargs):  # pragma: no cover - must not be reached
-        raise AssertionError("no plant → no care advancement")
-
-    service, task_repo, care_repo = _build_with_mock_repo(find_open_side_effect=find_open)
+    service, task_repo, care_repo, _ = _build(tasks=[_open_watering_task()])
+    _forbid_lookup(task_repo, "no plant → no care advancement")
     log = WateringLog(
         tenant_key=TENANT,
         logged_at=datetime.now(UTC),

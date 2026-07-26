@@ -2263,8 +2263,13 @@ export default function PlantInstanceDetailPage() {
               {plantTasksLoading && (
                 <LinearProgress sx={{ mb: 1.5 }} data-testid="tasks-refetch-progress" />
               )}
-              {/* Summary stats bar */}
+              {/* Summary stats bar. The counts are an asserted outcome of
+                  TC-004-092 (View 3), so the bar and each chip carry a stable
+                  test id — the labels themselves are translated and the MUI
+                  class names are framework-generated, neither of which is an
+                  addressable hook. */}
               <Box
+                data-testid="task-summary-bar"
                 sx={{
                   display: 'flex',
                   gap: 1.5,
@@ -2285,6 +2290,7 @@ export default function PlantInstanceDetailPage() {
                     size="small"
                     color="error"
                     variant="outlined"
+                    data-testid="task-summary-overdue"
                   />
                 )}
                 <Chip
@@ -2292,12 +2298,14 @@ export default function PlantInstanceDetailPage() {
                   size="small"
                   color={activeTasks.length > 0 ? 'warning' : 'default'}
                   variant="outlined"
+                  data-testid="task-summary-active"
                 />
                 <Chip
                   label={`${t('pages.plantInstances.taskTabSummaryDone')}: ${archivedTasks.length}`}
                   size="small"
                   color="default"
                   variant="outlined"
+                  data-testid="task-summary-done"
                 />
                 <Button
                   variant="outlined"

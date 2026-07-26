@@ -164,6 +164,17 @@ tasks:
     cmds:
       - ./scripts/run-e2e.sh --smoke {{.CLI_ARGS}}
 
+  test:e2e:traceability:
+    desc: |
+      Verify BDD scenario traceability: every Gherkin scenario under
+      tests/e2e/features/ must carry a @TC-<id> tag that resolves to a test case
+      declared in spec/e2e-testcases/. Fails on orphan tags and untagged
+      scenarios; declared cases without a scenario are informational only.
+      No stack and no dependencies needed (stdlib Python).
+      Pass --list-unimplemented to also list the not-yet-automated cases.
+    cmds:
+      - python3 scripts/check_bdd_traceability.py {{.CLI_ARGS}}
+
   # ── Documentation ───────────────────────────────────────────
 
   docs:catalog:

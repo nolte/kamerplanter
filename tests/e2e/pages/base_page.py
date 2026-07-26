@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
@@ -18,6 +19,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_TIMEOUT = 15
+
+# German ``d.m.Y`` date, tolerant of zero-padded and numeric parts alike.
+DE_DATE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
 
 # ── Dialog scoping ────────────────────────────────────────────────────────
 # A MUI Dialog's paper carries ``role="dialog"`` -- but so does a *temporary*
@@ -1339,6 +1343,32 @@ class BasePage:
         if toggles and toggles[0].is_displayed():
             self.scroll_and_click(toggles[0])
             time.sleep(0.3)
+
+    # ── Browser environment ───────────────────────────────────────────────
+
+    def get_browser_today(self) -> tuple[int, int, int]:
+        """Return today's ``(day, month, year)`` as the *browser* renders it (de-DE).
+
+        Resolved inside the browser (``toLocaleDateString('de-DE')``) rather than
+        from the test runner's ``datetime``: browser and runner can sit in
+        different timezones in the containerised stack, and a date cell rendered
+        by the frontend must be compared against the browser's own notion of
+        today. Zero-padding is normalised away, so the result compares equal to a
+        parsed cell value regardless of which formatter produced it.
+
+        Raises ``ValueError`` if the browser returns something that is not a
+        German ``d.m.Y`` date — that would mean the page ran under a different
+        locale and any comparison against it would be meaningless.
+        """
+        rendered = self.driver.execute_script(
+            "return new Date().toLocaleDateString('de-DE');"
+        )
+        match = DE_DATE_RE.search(rendered or "")
+        if not match:
+            raise ValueError(
+                f"Browser did not return a German d.m.Y date for today (got {rendered!r})"
+            )
+        return int(match.group(1)), int(match.group(2)), int(match.group(3))
 
     # ── Screenshots ───────────────────────────────────────────────────────
 

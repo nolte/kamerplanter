@@ -427,6 +427,7 @@ Moderation lives in the admin area, in the **"Contributed pest images"** card:
 ## See Also
 
 - [Tenants & Gardens](tenants.md) — Tenant management as tenant-admin <!-- REQ-024 -->
+- [Roles, Tenants & Visibility](../reference/roles-and-permissions.md) — Platform role versus garden role
 - [Privacy (GDPR)](privacy.md) — Data subject rights and GDPR compliance
 - [Authentication](../api/authentication.md) — JWT, OAuth2/OIDC, service accounts
 - [Identify Plant by Photo](plant-identification.md) — End-user guide

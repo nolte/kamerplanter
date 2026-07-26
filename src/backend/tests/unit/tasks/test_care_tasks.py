@@ -142,6 +142,10 @@ class TestGenerateDueCareReminders:
         call = service.ensure_next_watering_task.call_args
         assert call.args[0].plant_key == "plant_1"
         assert call.kwargs["phase_watering_interval"] is None
+        # The periodic producer closes no task itself, so it keeps the #509 recency
+        # rule: no ``just_completed_task`` opt-out here, or it would re-materialize a
+        # reminder the user already confirmed earlier today (#761).
+        assert "just_completed_task" not in call.kwargs
 
     def test_producer_keeps_the_completed_today_dedup(self, _mock_dependencies):
         """#768 guard — the nightly producer must NOT suppress the completed-today branch.

@@ -1,21 +1,32 @@
-"""Stateful in-memory task repository for care-reminder behaviour tests (#768).
+"""Stateful in-memory task repository for care-reminder behaviour tests (#761/#768).
 
 The care paths compose *complete-then-schedule*: they close the plant's open care
 task and then ask the single dedup helper
 (:meth:`ITaskRepository.find_open_care_task`) whether a follow-up is still
 needed. With a stateless mock that composition looks correct while the real AQL
-returns the very task that was just completed — which is how #768 shipped: the
-follow-up watering task was never created.
+returns the very task that was just completed — which is how #761/#768 shipped:
+the follow-up watering task was never created. Hand-wiring that lookup per
+``include_completed_today`` value made the defect *unrepresentable* in a test: the
+mock answered ``None`` for the ``True`` lookup while answering the ``False``
+lookup with an open task — an impossible pair, because the two form a **superset
+relation** in the real AQL (whatever the ``False`` lookup matches, the ``True``
+lookup matches as well).
 
 :class:`FakeTaskRepo` therefore models the repository's *state*: a completion is
 visible to the very next lookup, exactly as in ArangoDB. It mirrors the AQL
-predicate of ``ArangoTaskRepository.find_open_care_task``:
+predicate of ``ArangoTaskRepository.find_open_care_task`` — pinned by
+``tests/unit/data_access/arango/test_find_open_care_task_repo.py``:
 
 * tenant-scoped (``tenant_key``), entity-scoped (``entity_key``),
 * care-reminder category with the ``"— {reminder_type}"`` name suffix,
 * satisfied by ``PENDING``/``IN_PROGRESS`` — or, when
-  ``include_completed_today``, by a task completed today,
+  ``include_completed_today``, by a task completed today (the recency rule),
 * newest first (``due_date`` DESC, then insertion order DESC).
+
+The recency rule is evaluated against the **UTC** clock, the same clock the
+service stamps ``completed_at`` with, so tests are independent of the runner's
+local timezone (in deployment the container clock is UTC, where the query's
+``date.today()`` and UTC coincide).
 """
 
 from __future__ import annotations
@@ -79,7 +90,7 @@ class FakeTaskRepo:
                     include_completed_today
                     and task.status == TaskStatus.COMPLETED.value
                     and task.completed_at is not None
-                    and task.completed_at.date() >= today
+                    and task.completed_at.astimezone(UTC).date() >= today
                 )
             )
         ]

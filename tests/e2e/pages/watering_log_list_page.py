@@ -19,6 +19,10 @@ class WateringLogListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-watering-log-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    # Linked plant chips inside the ``plants`` cell (Chip mounted on a RouterLink
+    # → a real anchor). Addressed via the column's own test id plus the anchor
+    # element, never via a MUI class.
+    PLANT_CHIP_LINKS = (By.CSS_SELECTOR, "[data-testid='cell-plants'] a[href]")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -97,6 +101,46 @@ class WateringLogListPage(BasePage):
         self.click_data_table_row(
             index, self.LOGGED_AT_COLUMN_ID, self.TABLE_ROWS, "watering log row"
         )
+
+    def get_row_cell(self, index: int, col_id: str) -> str:
+        """Return the text of the *col_id* cell in the row at *index*.
+
+        Addresses the cell by column id rather than by position, so column
+        reordering does not break callers.
+
+        Raises ``IndexError`` when *index* is out of range. A missing row is a
+        different failure than an empty cell, and returning ``""`` silently
+        would surface it downstream as a confusing value mismatch instead of
+        "the row you asked for is not there".
+        """
+        rows = self.driver.find_elements(*self.TABLE_ROWS)
+        if not -len(rows) <= index < len(rows):
+            raise IndexError(
+                f"Watering-log row index {index} out of range (table has {len(rows)} rows)"
+            )
+        return self.get_row_cell_text(rows[index], col_id)
+
+    def get_row_plant_links(self, index: int) -> list[tuple[str, str]]:
+        """Return ``(label, href)`` for each linked plant chip in the row at *index*.
+
+        The ``plants`` column renders every resolved plant as a chip mounted on a
+        router link, so a correctly linked chip is an ``<a href=…>`` inside the
+        cell — plain semantic HTML, not a framework-generated class.
+
+        Returns the pairs rather than a verdict: the page object reports state,
+        the caller decides what the state has to be. An empty list means the
+        chips rendered without a link (or no plant is attached at all).
+
+        Raises ``IndexError`` when *index* is out of range, mirroring
+        :meth:`get_row_cell`.
+        """
+        rows = self.driver.find_elements(*self.TABLE_ROWS)
+        if not -len(rows) <= index < len(rows):
+            raise IndexError(
+                f"Watering-log row index {index} out of range (table has {len(rows)} rows)"
+            )
+        anchors = rows[index].find_elements(*self.PLANT_CHIP_LINKS)
+        return [(a.text.strip(), a.get_attribute("href") or "") for a in anchors]
 
     def get_row_texts(self) -> list[list[str]]:
         """Return the readable text fragments of every visible row."""
