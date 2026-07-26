@@ -1,6 +1,8 @@
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 
 interface FormActionsProps {
@@ -17,9 +19,36 @@ export default function FormActions({
   disabled = false,
 }: FormActionsProps) {
   const { t } = useTranslation();
+  const theme = useTheme();
+  // Below `sm` every dialog in this app renders `fullScreen`, and this row is
+  // the last child of a scrolling `DialogContent` — on a long form (the task
+  // create dialog, the plant instance dialog) the primary action then sits
+  // ~900px below the fold, with nothing on screen indicating the form can be
+  // submitted at all. Pinning the row to the bottom of its scroll container
+  // keeps "Speichern"/"Abbrechen" reachable without restructuring ~40 dialogs
+  // into `DialogActions`, and does the same for long in-page edit forms.
+  const isPinned = useMediaQuery(theme.breakpoints.down('sm'));
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+    <Box
+      data-testid="form-actions"
+      sx={{
+        display: 'flex',
+        gap: 2,
+        mt: 3,
+        ...(isPinned
+          ? {
+              position: 'sticky',
+              bottom: 0,
+              zIndex: 1,
+              py: 1.5,
+              bgcolor: 'background.paper',
+              borderTop: '1px solid',
+              borderColor: 'divider',
+            }
+          : {}),
+      }}
+    >
       <Button variant="outlined" onClick={onCancel} disabled={loading} data-testid="form-cancel-button">
         {t('common.cancel')}
       </Button>
