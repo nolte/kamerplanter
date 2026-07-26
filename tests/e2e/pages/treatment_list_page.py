@@ -323,7 +323,7 @@ class TreatmentListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         time.sleep(0.3)
         self.close_mui_dropdown()
         time.sleep(0.3)

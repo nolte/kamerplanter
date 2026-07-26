@@ -215,7 +215,7 @@ class WateringLogListPage(BasePage):
             options = self.driver.find_elements(*option_locator)
 
         if options:
-            options[0].click()
+            self.click_menu_option(options[0])
             self.wait_for_element_hidden(option_locator)
             return True
         return False
@@ -303,7 +303,7 @@ class WateringLogListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 

@@ -128,7 +128,7 @@ class ImportPage(BasePage):
                 (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
             )
         )
-        option.click()
+        self.click_menu_option(option)
         # MUI auto-closes the popover on option click. Use the guarded
         # ``close_mui_dropdown`` helper instead of an unconditional Escape so
         # the keystroke does not fall through and dismiss a surrounding modal.
@@ -169,7 +169,7 @@ class ImportPage(BasePage):
                 (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
             )
         )
-        option.click()
+        self.click_menu_option(option)
         # MUI auto-closes the popover on option click. Guarded close_mui_dropdown
         # avoids a stray Escape that would race the option's onChange handler
         # and revert the selection to the previous default.

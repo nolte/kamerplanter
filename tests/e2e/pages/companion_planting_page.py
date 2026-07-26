@@ -72,7 +72,7 @@ class CompanionPlantingPage(BasePage):
         # never contain the multi-line label the caller passes back from
         # get_species_options().
         option = self._find_option(species_name)
-        self.scroll_and_click(option)
+        self.click_menu_option(option)
         WebDriverWait(self.driver, 5).until(
             lambda d: len(d.find_elements(By.CSS_SELECTOR, "li[role='option']")) == 0
         )
@@ -198,6 +198,11 @@ class CompanionPlantingPage(BasePage):
     def get_dialog_target_options(self) -> list[str]:
         self.close_mui_dropdown()
         self.open_select_by_testid(self.DIALOG_TARGET_SELECT_TESTID)
+        # Keeps the predecessor's 10s budget for the options to render, and its
+        # loud failure when none ever do: `open_select_in` deliberately tolerates
+        # a legitimately empty listbox (2s), which would turn a slow render into
+        # an empty read and let the caller skip for the wrong reason.
+        self.wait_for_element_visible(self.OPTIONS, timeout=10)
         options = self.driver.find_elements(*self.OPTIONS)
         texts = [o.text for o in options if o.text]
         self.close_mui_dropdown()

@@ -285,7 +285,7 @@ class HarvestBatchListPage(BasePage):
                     f"//li[@role='option' and contains(text(), '{value_text}')]",
                 )
             )
-        option.click()
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 

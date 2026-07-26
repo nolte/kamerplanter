@@ -270,9 +270,17 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.SET_COVER_BUTTONS)) > 0
 
     def set_cover_for_index(self, index: int = 0) -> None:
-        """Click the 'set cover' icon on the photo at *index*."""
+        """Click the 'set cover' icon on the photo at *index*.
+
+        Coordinate-free: the action bar packs 40px IconButtons 2px apart over a
+        card whose thumb opens the lightbox, and every one of them
+        ``stopPropagation``s (`PlantPhotoGallery.tsx:339-352`). A coordinate
+        dispatch that misses therefore activates a *neighbouring* action or the
+        card, and raises nothing either way. A disabled button (``isBusy``) now
+        fails loudly instead of swallowing the click.
+        """
         buttons = self.driver.find_elements(*self.SET_COVER_BUTTONS)
-        self.scroll_and_click(buttons[index])
+        self.click_coordinate_free(buttons[index])
 
     def has_cover_badge(self) -> bool:
         return len(self.driver.find_elements(*self.COVER_BADGE)) > 0
@@ -296,8 +304,14 @@ class PlantPhotoGalleryPage(BasePage):
     # ── Delete flow ─────────────────────────────────────────────────────
 
     def click_delete_for_index(self, index: int = 0) -> None:
+        """Click the delete icon on the photo at *index* (coordinate-free).
+
+        Same reasoning as :meth:`set_cover_for_index` -- and here a coordinate
+        miss onto a neighbouring action would be actively harmful, since the bar
+        also holds 'set cover' and 'assess quality'.
+        """
         buttons = self.driver.find_elements(*self.DELETE_BUTTONS)
-        self.scroll_and_click(buttons[index])
+        self.click_coordinate_free(buttons[index])
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:

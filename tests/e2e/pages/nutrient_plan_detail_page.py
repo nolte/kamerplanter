@@ -134,7 +134,11 @@ class NutrientPlanDetailPage(BasePage):
             "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']"
         )
         icon = self.require_index(expand_btns, index, "nutrient plan entry expander")
-        self.scroll_and_click(icon.find_element(By.XPATH, "./.."))
+        # Coordinate-free: the target is resolved indirectly (the icon's parent
+        # button) and sits in a row of same-sized icon buttons, so a coordinate
+        # miss activates a neighbour without raising. The button activates from
+        # its own `onClick`, which a dispatched click drives.
+        self.click_coordinate_free(icon.find_element(By.XPATH, "./.."))
 
     # ── Tab 1: Validation ──────────────────────────────────────────────
 

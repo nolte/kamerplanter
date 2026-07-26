@@ -164,7 +164,7 @@ class PlantInstanceListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "li[role='option']")
         )
-        option.click()
+        self.click_menu_option(option)
         self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
 
     def fill_plant_name(self, name: str) -> None:
@@ -201,7 +201,7 @@ class PlantInstanceListPage(BasePage):
         self.scroll_and_click(field)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
         if options:
-            options[index].click()
+            self.click_menu_option(options[index])
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 

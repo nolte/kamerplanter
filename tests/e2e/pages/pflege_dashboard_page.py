@@ -498,7 +498,7 @@ class PflegeDashboardPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{style_label}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 
@@ -729,7 +729,7 @@ class PflegeDashboardPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{label}')]")
         )
-        self.scroll_and_click(option)
+        self.click_menu_option(option)
         time.sleep(0.3)
         confirms = self.driver.find_elements(*self.GENERIC_CONFIRM_CONFIRM)
         if confirms and any(c.is_displayed() for c in confirms):

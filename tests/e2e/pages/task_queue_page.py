@@ -222,7 +222,7 @@ class TaskQueuePage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{category_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
 
     # ── Bulk mode ──────────────────────────────────────────────────────
 

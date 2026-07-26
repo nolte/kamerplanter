@@ -224,7 +224,7 @@ class PlantingRunListPage(BasePage):
         if not species_options:
             return None
         label = species_options[0].text
-        species_options[0].click()
+        self.click_menu_option(species_options[0])
         return label
 
     def fill_quantity(self, quantity: int) -> None:
@@ -242,7 +242,7 @@ class PlantingRunListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
 

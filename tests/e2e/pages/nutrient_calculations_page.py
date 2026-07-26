@@ -154,7 +154,7 @@ class NutrientCalculationsPage(BasePage):
             (o for o in options if fertilizer_key and fertilizer_key in (o.text or "")),
             options[0],
         )
-        self.scroll_and_click(match)
+        self.click_menu_option(match)
         self.wait_for_element_hidden(option_locator)
 
     def _click_button_in_card(self, card) -> None:

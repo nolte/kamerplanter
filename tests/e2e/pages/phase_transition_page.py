@@ -475,5 +475,13 @@ class PlantInstanceDetailExt(BasePage):
         self.clear_and_fill(el, name)
 
     def submit_edit(self) -> None:
-        """Submit the edit form (Speichern)."""
-        self.scroll_and_click(self.wait_for_element_clickable(self.EDIT_SUBMIT))
+        """Submit the edit form (Speichern), coordinate-free.
+
+        The plant-instance edit tab is a long *in-page* form, not a dialog, so
+        its action row is scroll-clamped against the bottom of the document --
+        the documented exception in `BasePage.wait_and_click`, where a
+        coordinate dispatch lands next to the button and nothing raises (the
+        same mechanism that took out `TaskDetailPage.save_edit` on the mobile
+        profile, run 20260725_113337).
+        """
+        self.wait_and_click_coordinate_free(self.EDIT_SUBMIT)

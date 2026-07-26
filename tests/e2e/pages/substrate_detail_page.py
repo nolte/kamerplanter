@@ -288,5 +288,5 @@ class SubstrateDetailPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         self.close_mui_dropdown()
