@@ -20,15 +20,19 @@ In Produktionsumgebungen wird die API über Traefik als Ingress-Controller unter
 | `/api/v1/redoc` | ReDoc — lesbare Referenzdokumentation |
 | `/api/v1/openapi.json` | OpenAPI-Schema (JSON) — für Code-Generierung |
 
-### OpenAPI-Schema ohne laufenden Server exportieren
+### OpenAPI-Schema beziehen
 
-Das OpenAPI-Dokument lässt sich reproduzierbar direkt aus dem Code erzeugen — ganz ohne laufende Datenbank oder Backend:
+Das OpenAPI-Dokument lässt sich auf drei Wegen beziehen — welcher passt, hängt davon ab, wer es benötigt und wofür:
 
-```bash
-task openapi:export
-```
+| Weg | Adressat | Bezugsort |
+|-----|----------|-----------|
+| Lokal aus dem Code erzeugen | Entwickler mit lokalem Checkout | `task openapi:export` — schreibt das Dokument reproduzierbar nach `src/backend/openapi.json`, ganz ohne laufende Datenbank oder Backend (gitignored — es ist ein Build-Artefakt und wird nie eingecheckt) |
+| Workflow-Artefakt der CI | Personen mit Zugriff auf die GitHub-Actions-Läufe | Bei jeder Backend-Änderung frisch exportiert, mit [Spectral](https://github.com/stoplightio/spectral) gelintet und als Artefakt der `api-docs`-Lane bereitgestellt |
+| Release-Asset | Externe Konsumenten ohne Checkout, etwa für Client-Code-Generierung | `https://github.com/nolte/kamerplanter/releases/latest/download/openapi.json` — der empfohlene Weg |
 
-Der Befehl schreibt das Dokument nach `src/backend/openapi.json` (gitignored — es ist ein Build-Artefakt und wird nie eingecheckt). Die CI exportiert es bei jeder Backend-Änderung frisch, lintet es mit [Spectral](https://github.com/stoplightio/spectral) und stellt es als Workflow-Artefakt bereit; der Release-Build hängt es als Release-Asset an.
+Jeder veröffentlichte Release hängt das aktuelle OpenAPI-Dokument unter dem stabilen, versionslosen Namen `openapi.json` an. Diese Namensgebung ist bewusst gewählt: Nur so bleibt der Dauerlink `releases/latest/download/openapi.json` funktionsfähig und zeigt immer auf die zuletzt veröffentlichte Version.
+
+Wer sich stattdessen auf eine bestimmte Version festlegen möchte, lädt das Asset von der [Release-Übersicht](https://github.com/nolte/kamerplanter/releases) des gewünschten Tags herunter — Releases, die vor der Einführung dieses Assets veröffentlicht wurden, enthalten es allerdings nicht.
 
 ---
 

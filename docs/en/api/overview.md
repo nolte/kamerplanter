@@ -20,15 +20,19 @@ In production environments, the API is exposed through Traefik as the ingress co
 | `/api/v1/redoc` | ReDoc — readable reference documentation |
 | `/api/v1/openapi.json` | OpenAPI schema (JSON) — for code generation |
 
-### Exporting the OpenAPI schema without a running server
+### Getting the OpenAPI schema
 
-The OpenAPI document can be reproduced straight from the code — no running database or backend required:
+There are three ways to get the OpenAPI document — which one fits depends on who needs it and what for:
 
-```bash
-task openapi:export
-```
+| Path | Audience | Source |
+|------|----------|--------|
+| Generate locally from the code | Developers with a local checkout | `task openapi:export` — reproducibly writes the document to `src/backend/openapi.json`, no running database or backend required (gitignored — it is a build artifact and is never checked in) |
+| CI workflow artifact | People with access to the GitHub Actions runs | Re-exported on every backend change, linted with [Spectral](https://github.com/stoplightio/spectral), and published as an artifact of the `api-docs` lane |
+| Release asset | External consumers without a checkout, e.g. for client code generation | `https://github.com/nolte/kamerplanter/releases/latest/download/openapi.json` — the recommended path |
 
-The command writes the document to `src/backend/openapi.json` (gitignored — it is a build artifact and is never checked in). CI re-exports it on every backend change, lints it with [Spectral](https://github.com/stoplightio/spectral), and publishes it as a workflow artifact; the release build attaches it as a release asset.
+Every published release attaches the current OpenAPI document under the stable, version-less name `openapi.json`. This naming is a deliberate choice: it is the only way the permanent link `releases/latest/download/openapi.json` keeps working and always resolves to the most recently published version.
+
+To pin to a specific version instead, download the asset from the [releases overview](https://github.com/nolte/kamerplanter/releases) of the desired tag — releases published before this asset was introduced do not include it.
 
 ---
 
