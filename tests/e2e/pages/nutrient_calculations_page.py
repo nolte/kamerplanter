@@ -45,7 +45,13 @@ class NutrientCalculationsPage(BasePage):
 
     CALCULATE_BUTTONS = (By.CSS_SELECTOR, ".MuiCard-root .MuiButton-contained")
 
-    # Result areas — Alert elements inside each card
+    # Result areas — Alert elements inside each card. Currently unused (no
+    # call site references ``self.ALERTS``); left unscoped rather than
+    # page-root-scoped like its siblings (#778 A11) because this page
+    # documented above as having no wrapper data-testid at all, so a
+    # collision-safe fix here would need either a page wrapper hook or a
+    # per-alert one added to the product -- deferred until a caller actually
+    # needs it.
     ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
 
     # Data tables rendered by the mixing-protocol results

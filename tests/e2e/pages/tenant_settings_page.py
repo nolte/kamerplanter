@@ -29,6 +29,15 @@ class TenantSettingsPage(BasePage):
     # counted zero members instead of failing.
     MEMBERS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    # Deliberately scoped *within* a row (see get_member_role_chips), not to
+    # the page: the members table currently renders exactly one Chip per row
+    # (the role), so this is unambiguous today. It is still class-based rather
+    # than a keyed `card-chip-role` hook, so a second per-row chip would make
+    # ``get_member_role_chips`` pick whichever renders first -- a proper fix
+    # would key the chip in `mobileCardRenderer` (a product rendering change
+    # with mobile-layout implications) and migrate to
+    # ``BasePage.get_column_chip_texts("role")``. Left as a follow-up; see
+    # #778 A11.
     MEMBER_ROLE_CHIP = (By.CSS_SELECTOR, ".MuiChip-root")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
@@ -115,7 +124,7 @@ class TenantSettingsPage(BasePage):
         rows = self.driver.find_elements(*self.MEMBERS_TABLE_ROWS)
         chips = []
         for row in rows:
-            chip_els = row.find_elements(By.CSS_SELECTOR, ".MuiChip-root")
+            chip_els = row.find_elements(*self.MEMBER_ROLE_CHIP)
             if chip_els:
                 chips.append(chip_els[0].text)
         return chips

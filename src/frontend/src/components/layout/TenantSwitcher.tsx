@@ -70,6 +70,7 @@ export default function TenantSwitcher() {
         onClose={handleClose}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+        slotProps={{ paper: { 'data-testid': 'tenant-switcher-menu' } }}
       >
         {myTenants.map((tenant) => (
           <MenuItem

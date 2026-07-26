@@ -52,7 +52,10 @@ class SubstrateDetailPage(BasePage):
     BATCH_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── Alert banner ───────────────────────────────────────────────────
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Scoped to the page root: an unscoped ``.MuiAlert-root`` also matches
+    # MainLayout's light-mode warning banner, which renders as a sibling of
+    # this page's root, not a descendant. See #778 A11.
+    ALERTS = (By.CSS_SELECTOR, "[data-testid='substrate-detail-page'] .MuiAlert-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
