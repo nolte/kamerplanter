@@ -37,3 +37,19 @@ branches:
           - static / Static CI Tests
           - E2E smoke (compose, light)
       enforce_admins: true
+      # `restrictions: null` is load-bearing, not a tidy-up. The commons declare
+      # `restrictions.apps: [nolte-portfolio-app]` for develop, but GitHub only
+      # accepts push restrictions on ORGANISATION-owned repositories; on a
+      # personal account the branch-protection PUT is rejected outright. The
+      # Probot Settings App then drops the ENTIRE protection update — not just
+      # the unsupported field — so every context declared above would be
+      # silently ignored. That is exactly what happened after #793 merged:
+      # `E2E smoke (compose, light)` never became required, and the same drift
+      # is visible in nolte/gh-plumbing itself (two contexts declared, one
+      # live). nolte/claude-shared overrides `restrictions: null` and does get
+      # its contexts applied — that contrast is the evidence for this line.
+      #
+      # Verify after any change to this block:
+      #   gh api repos/nolte/kamerplanter/branches/develop/protection \
+      #     --jq '.required_status_checks.contexts'
+      restrictions: null

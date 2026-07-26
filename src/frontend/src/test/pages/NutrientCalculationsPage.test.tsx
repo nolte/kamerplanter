@@ -15,14 +15,28 @@ function cardForHeading(name: RegExp): HTMLElement {
   return card;
 }
 
-/** Clears a controlled numeric/text field and types a fresh value. */
+/**
+ * Clears a controlled numeric/text field and enters a fresh value.
+ *
+ * Uses paste rather than `user.type` on purpose. This page keeps every panel's
+ * form state at page level, so a single keystroke re-renders all panels; typing
+ * an n-character value costs n full page renders, and the 27 field entries in
+ * this file made it the slowest test file in the suite (#778, H4). Pasting
+ * enters the value in one input event — the same `onChange` contract the
+ * component sees from a real paste. Measured interleaved under v8 coverage:
+ * ~7% off the whole file and ~11% off the heaviest test. Intermediate
+ * keystroke states ("1", "1.") are not asserted anywhere, and the page has no
+ * key handlers, so nothing is lost.
+ *
+ * `user.clear` focuses the field, so the subsequent paste lands in it.
+ */
 async function retype(
   user: ReturnType<typeof userEvent.setup>,
   field: HTMLElement,
   value: string,
 ): Promise<void> {
   await user.clear(field);
-  await user.type(field, value);
+  await user.paste(value);
 }
 
 /** Opens a MUI Autocomplete input and clicks the option matching `optionName`. */
@@ -608,9 +622,16 @@ describe('NutrientCalculationsPage — water mixer + EC budget (expert)', () => 
         { key: 'bloom' },
       ],
     });
-    // Comprehensive expert EC-budget flow (many fields); give headroom so it
-    // stays green under coverage instrumentation on a slow/loaded CI runner.
-  }, 60000);
+    // Comprehensive expert EC-budget flow: ~35 interactions across every field
+    // of the panel, which makes it the longest test in the suite. Measured on
+    // an idle 8-core box: 6.2s plain, 10-11s with v8 coverage instrumentation
+    // (~1.8x), and 47s with coverage while the box ran another test suite
+    // (~4x on top). That last case is what blew the previous 60s budget in CI
+    // (#778, H4) — load, not a defect. This raised budget is a mitigation, not
+    // a fix: the cost is inherent to the page keeping every panel's form state
+    // at page level, so each interaction re-renders all panels. Fixing that
+    // means memoising the panels in NutrientCalculationsPage itself.
+  }, 120000);
 
   it('renders the living-soil bypass notice instead of the EC bar', async () => {
     server.use(
