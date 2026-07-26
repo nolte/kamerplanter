@@ -134,7 +134,10 @@ class TestTaskNavigation:
             "Plant detail page reached via task plant link",
         )
 
-        assert "/pflanzen/" in task_detail.driver.current_url or "/plants/" in task_detail.driver.current_url, (
+        assert (
+            "/pflanzen/" in task_detail.driver.current_url
+            or "/plants/" in task_detail.driver.current_url
+        ), (
             f"TC-REQ-006-037 FAIL: Expected URL to navigate to plant detail, "
             f"got: {task_detail.driver.current_url}"
         )
@@ -209,8 +212,7 @@ class TestWorkflowNavigation:
         )
 
         assert task_queue.is_page_visible(), (
-            "TC-REQ-006-039 FAIL: Expected task queue page to render after "
-            "direct URL navigation"
+            "TC-REQ-006-039 FAIL: Expected task queue page to render after direct URL navigation"
         )
 
     @pytest.mark.smoke
@@ -231,6 +233,5 @@ class TestWorkflowNavigation:
 
         current_url = workflow_list.driver.current_url
         assert "/aufgaben/workflows" in current_url, (
-            f"TC-REQ-006-040 FAIL: Expected URL to contain /aufgaben/workflows, "
-            f"got: {current_url}"
+            f"TC-REQ-006-040 FAIL: Expected URL to contain /aufgaben/workflows, got: {current_url}"
         )

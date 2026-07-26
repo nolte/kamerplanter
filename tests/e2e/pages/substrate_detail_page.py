@@ -95,9 +95,7 @@ class SubstrateDetailPage(BasePage):
         """Return the current pH base value."""
         return self.get_field_value("ph_base")
 
-    def wait_for_field_value(
-        self, field_name: str, expected_value: str, timeout: int = 15
-    ) -> str:
+    def wait_for_field_value(self, field_name: str, expected_value: str, timeout: int = 15) -> str:
         """Wait until field *field_name* holds *expected_value* (post-save reload).
 
         Returns the field's value once the condition is met.
@@ -106,8 +104,7 @@ class SubstrateDetailPage(BasePage):
 
         locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
         WebDriverWait(self.driver, timeout).until(
-            lambda d: (d.find_element(*locator).get_attribute("value") or "")
-            == expected_value
+            lambda d: (d.find_element(*locator).get_attribute("value") or "") == expected_value
         )
         return self.get_field_value(field_name)
 
@@ -257,8 +254,7 @@ class SubstrateDetailPage(BasePage):
         error_locator = (By.CSS_SELECTOR, "[data-testid='error-display']")
         WebDriverWait(self.driver, timeout).until(
             lambda d: (
-                len(d.find_elements(*error_locator)) > 0
-                or len(d.find_elements(*self.PAGE)) > 0
+                len(d.find_elements(*error_locator)) > 0 or len(d.find_elements(*self.PAGE)) > 0
             )
         )
 

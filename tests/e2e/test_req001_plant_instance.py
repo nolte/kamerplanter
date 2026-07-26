@@ -31,10 +31,11 @@ from .pages.plant_instance_list_page import PlantInstanceListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('plant',)
+FEATURES = ("plant",)
 
 
 # -- Fixtures -----------------------------------------------------------------
+
 
 @pytest.fixture
 def plant_list(browser: WebDriver, base_url: str) -> PlantInstanceListPage:
@@ -49,6 +50,7 @@ def plant_detail(browser: WebDriver, base_url: str) -> PlantInstanceDetailPage:
 
 
 # -- TC-REQ-001-PI-001 to TC-REQ-001-PI-003: List Page -----------------------
+
 
 class TestPlantInstanceListPage:
     """Plant instance list display and interactions (REQ-001)."""
@@ -94,9 +96,7 @@ class TestPlantInstanceListPage:
 
         headers = plant_list.get_column_headers()
         if len(headers) == 0:
-            pytest.skip(
-                "No plant instances in database — empty state shown instead of DataTable"
-            )
+            pytest.skip("No plant instances in database — empty state shown instead of DataTable")
         assert len(headers) >= 2, (
             f"TC-REQ-001-PI-002 FAIL: Expected at least 2 column headers, got: {headers}"
         )
@@ -142,12 +142,11 @@ class TestPlantInstanceListPage:
             pytest.skip("No rows — showing count not displayed for empty table")
 
         count_text = plant_list.get_showing_count_text()
-        assert count_text, (
-            "TC-REQ-001-PI-003b FAIL: Expected non-empty showing count text"
-        )
+        assert count_text, "TC-REQ-001-PI-003b FAIL: Expected non-empty showing count text"
 
 
 # -- TC-REQ-001-PI-004 to TC-REQ-001-PI-007: Create Dialog -------------------
+
 
 class TestPlantInstanceCreateDialog:
     """Plant instance create dialog operations (REQ-001)."""
@@ -217,9 +216,7 @@ class TestPlantInstanceCreateDialog:
 
         # instance_id should have been auto-generated
         instance_id = plant_list.get_instance_id_value()
-        assert instance_id, (
-            "TC-REQ-001-PI-005 FAIL: Expected instance_id to be auto-generated"
-        )
+        assert instance_id, "TC-REQ-001-PI-005 FAIL: Expected instance_id to be auto-generated"
 
         plant_list.submit_create_form()
         plant_list.wait_for_loading_complete()
@@ -296,12 +293,12 @@ class TestPlantInstanceCreateDialog:
         )
         final_count = plant_list.get_row_count()
         assert final_count == initial_count, (
-            f"TC-REQ-001-PI-007 FAIL: Expected row count to stay {initial_count}, "
-            f"got {final_count}"
+            f"TC-REQ-001-PI-007 FAIL: Expected row count to stay {initial_count}, got {final_count}"
         )
 
 
 # -- TC-REQ-001-PI-008 to TC-REQ-001-PI-011: Detail Page ---------------------
+
 
 class TestPlantInstanceDetailPage:
     """Plant instance detail page rendering (REQ-001, REQ-003)."""
@@ -391,9 +388,7 @@ class TestPlantInstanceDetailPage:
             "Plant instance detail showing current phase",
         )
 
-        assert phase_text, (
-            "TC-REQ-001-PI-010 FAIL: Expected non-empty current phase text"
-        )
+        assert phase_text, "TC-REQ-001-PI-010 FAIL: Expected non-empty current phase text"
 
     @pytest.mark.core_crud
     def test_phases_tab_shows_phase_history(
@@ -415,24 +410,21 @@ class TestPlantInstanceDetailPage:
         plant_list.wait_for_url_contains("/pflanzen/plant-instances/")
 
         # Click on the Phases tab (index 1 in the tab bar)
-        phases_tab = plant_detail.wait_for_element_clickable(
-            PlantInstanceDetailPage.PHASES_TAB
-        )
+        phases_tab = plant_detail.wait_for_element_clickable(PlantInstanceDetailPage.PHASES_TAB)
         plant_detail.scroll_and_click(phases_tab)
         screenshot(
             "TC-REQ-001-PI-011_phases-tab",
             "Plant instance phases tab with history",
         )
 
-        phases_content = plant_detail.wait_for_element(
-            PlantInstanceDetailPage.PHASES_TAB_CONTENT
-        )
+        phases_content = plant_detail.wait_for_element(PlantInstanceDetailPage.PHASES_TAB_CONTENT)
         assert phases_content.is_displayed(), (
             "TC-REQ-001-PI-011 FAIL: Expected phases tab content to be visible"
         )
 
 
 # -- TC-REQ-001-PI-012 to TC-REQ-001-PI-014: Search, Sort, Error -------------
+
 
 class TestPlantInstanceSearchAndSort:
     """Plant instance search, sort, and error handling (REQ-001, NFR-006)."""

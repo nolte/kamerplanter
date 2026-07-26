@@ -416,7 +416,9 @@ class TestPestCreateDialog:
 
         pest_list.submit_create_form()
         pest_list.wait_for_dialog_closed()
-        screenshot("TC-REQ-010-013_after-optional-create", "Pest list after creating with null lifecycle")
+        screenshot(
+            "TC-REQ-010-013_after-optional-create", "Pest list after creating with null lifecycle"
+        )
 
         assert not pest_list.is_create_dialog_open(), (
             "TC-REQ-010-013 FAIL: Expected dialog to close"

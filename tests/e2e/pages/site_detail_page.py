@@ -32,7 +32,10 @@ class SiteDetailPage(BasePage):
 
     # ── Delete flow ────────────────────────────────────────────────────
     # The delete button does not have data-testid — select by icon/color pattern
-    DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton') and .//svg[contains(@class, 'MuiSvgIcon')]][@color='error' or contains(., 'Löschen') or contains(., 'Delete')]")
+    DELETE_BUTTON = (
+        By.XPATH,
+        "//button[contains(@class, 'MuiButton') and .//svg[contains(@class, 'MuiSvgIcon')]][@color='error' or contains(., 'Löschen') or contains(., 'Delete')]",
+    )
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_OK = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
@@ -56,6 +59,7 @@ class SiteDetailPage(BasePage):
     def _wait_for_skeleton_gone(self, timeout: int = 15) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )
@@ -74,7 +78,9 @@ class SiteDetailPage(BasePage):
         if bool(error_page) and error_page[0].is_displayed():
             return True
         # Also check for router error page
-        router_error = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='router-error-page']")
+        router_error = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid='router-error-page']"
+        )
         return bool(router_error) and router_error[0].is_displayed()
 
     # ── Form interactions ──────────────────────────────────────────────

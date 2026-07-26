@@ -94,10 +94,7 @@ class PlantInstanceDetailPage(BasePage):
 
         self.navigate(f"{self.PATH_PREFIX}/{key}")
         WebDriverWait(self.driver, 15).until(
-            lambda d: (
-                d.find_elements(*self.PAGE)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -178,8 +175,7 @@ class PlantInstanceDetailPage(BasePage):
         """
         return self.driver.find_elements(
             By.CSS_SELECTOR,
-            f"{self.SECTION_TABLE_CSS.format(section=section)} "
-            "[data-testid='data-table-row']",
+            f"{self.SECTION_TABLE_CSS.format(section=section)} [data-testid='data-table-row']",
         )
 
     #: `MobileCard` slot that carries each section's subtitle, per the tasks-tab
@@ -216,9 +212,7 @@ class PlantInstanceDetailPage(BasePage):
         field = self.get_card_field(row, col_id)
         if field is not None:
             return field
-        chips = row.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='card-chip-{col_id}']"
-        )
+        chips = row.find_elements(By.CSS_SELECTOR, f"[data-testid='card-chip-{col_id}']")
         if chips:
             return chips[0].text.strip()
         raise AssertionError(
@@ -235,11 +229,7 @@ class PlantInstanceDetailPage(BasePage):
 
     def count_watering_tasks(self, section: str) -> int:
         """Count rows whose name ends with ``— watering`` in a task-history section."""
-        return sum(
-            1
-            for row in self.get_task_rows(section)
-            if self._is_watering_task(row, section)
-        )
+        return sum(1 for row in self.get_task_rows(section) if self._is_watering_task(row, section))
 
     def get_watering_task_cell(self, section: str, col_id: str) -> str:
         """Return *col_id*'s value for the first ``— watering`` row in a section."""
@@ -276,15 +266,12 @@ class PlantInstanceDetailPage(BasePage):
                 if name == "overdue":
                     counts[name] = 0
                     continue
-                raise AssertionError(
-                    f"Task summary chip '{name}' is missing from the summary bar"
-                )
+                raise AssertionError(f"Task summary chip '{name}' is missing from the summary bar")
             text = elements[0].text
             match = self._SUMMARY_COUNT_RE.search(text)
             if match is None:
                 raise AssertionError(
-                    f"Task summary chip '{name}' carries no trailing count "
-                    f"(text={text!r})"
+                    f"Task summary chip '{name}' carries no trailing count (text={text!r})"
                 )
             counts[name] = int(match.group(1))
         return counts
@@ -308,9 +295,7 @@ class PlantInstanceDetailPage(BasePage):
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase from the dropdown in the transition dialog."""
         self.open_select_by_testid(self.TARGET_PHASE_SELECT_TESTID)
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
-        )
+        option = self.wait_for_element_clickable((By.CSS_SELECTOR, f"li[data-value='{phase_key}']"))
         # Coordinate-independent (see BasePage.click_menu_option): the open
         # `Menu` scrolls its paper to the selected item, moving every option.
         self.click_menu_option(option)

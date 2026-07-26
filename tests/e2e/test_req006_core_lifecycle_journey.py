@@ -54,9 +54,7 @@ def task_queue(browser: WebDriver, base_url: str) -> TaskQueuePage:
 # ── Shared arrange step ──────────────────────────────────────────────────────
 
 
-def _create_care_task(
-    task_queue: TaskQueuePage, instance_id: str, task_name: str
-) -> None:
+def _create_care_task(task_queue: TaskQueuePage, instance_id: str, task_name: str) -> None:
     """Create a care task for the plant *instance_id* via the queue dialog."""
     task_queue.open()
     task_queue.click_create_task()
@@ -91,8 +89,7 @@ class TestCoreJourneyCreateAndCompleteTask:
         task_name = f"Journey gießen {unique_suffix()}"
 
         _create_care_task(task_queue, instance_id, task_name)
-        screenshot("TC-REQ-006-J076_task-created",
-                   f"Task queue after creating '{task_name}'")
+        screenshot("TC-REQ-006-J076_task-created", f"Task queue after creating '{task_name}'")
 
         task_key = task_queue.find_task_key_by_name(task_name)
         assert task_key is not None, (
@@ -101,8 +98,7 @@ class TestCoreJourneyCreateAndCompleteTask:
 
         task_queue.complete_task(task_key)
         time.sleep(1.0)
-        screenshot("TC-REQ-006-J076_task-completed",
-                   "Task queue after completing the care task")
+        screenshot("TC-REQ-006-J076_task-completed", "Task queue after completing the care task")
 
         # The completed task leaves the active groups (overdue/today/week).
         task_queue.open()
@@ -146,8 +142,10 @@ class TestCoreJourneyCompletedTaskDocumented:
         # The plant's Tasks tab lists open AND completed tasks (#578/#599).
         plant_detail.open(key)
         plant_detail.open_tasks_tab()
-        screenshot("TC-REQ-006-J077_plant-tasks-tab",
-                   f"Plant {instance_id} Tasks tab showing the completed task")
+        screenshot(
+            "TC-REQ-006-J077_plant-tasks-tab",
+            f"Plant {instance_id} Tasks tab showing the completed task",
+        )
         assert task_name in plant_detail.get_body_text(), (
             f"TC-REQ-006-J077 FAIL: Completed task '{task_name}' should stay documented "
             f"on the plant instance Tasks tab"

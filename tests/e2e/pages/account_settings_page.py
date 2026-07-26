@@ -174,9 +174,7 @@ class AccountSettingsPage(BasePage):
 
     def get_unlink_buttons(self) -> list[WebElement]:
         """Return all unlink-provider buttons."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='unlink-provider-']"
-        )
+        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='unlink-provider-']")
 
     # ── Snackbar helpers ────────────────────────────────────────────────
 

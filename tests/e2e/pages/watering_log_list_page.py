@@ -93,9 +93,7 @@ class WateringLogListPage(BasePage):
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     #: Column the row is activated through. `loggedAt` is the identifying
@@ -262,9 +260,7 @@ class WateringLogListPage(BasePage):
         # Type a space to trigger the dropdown, then clear it
         input_el.send_keys(" ")
         try:
-            WebDriverWait(self.driver, 5).until(
-                lambda d: len(d.find_elements(*option_locator)) > 0
-            )
+            WebDriverWait(self.driver, 5).until(lambda d: len(d.find_elements(*option_locator)) > 0)
         except Exception:
             pass  # options may not populate for an empty catalog
         input_el.clear()

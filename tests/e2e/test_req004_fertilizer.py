@@ -40,7 +40,7 @@ from .pages.fertilizer_detail_page import FertilizerDetailPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('nutrient',)
+FEATURES = ("nutrient",)
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
@@ -73,8 +73,9 @@ class TestFertilizerListPage:
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
         fertilizer_list.open()
-        screenshot("TC-REQ-004-001_fertilizer-list-loaded",
-                   "Fertilizer list page after initial load")
+        screenshot(
+            "TC-REQ-004-001_fertilizer-list-loaded", "Fertilizer list page after initial load"
+        )
 
         assert fertilizer_list.get_row_count() >= 0, (
             "TC-REQ-004-001 FAIL: Fertilizer table should be present and row count >= 0"
@@ -90,17 +91,16 @@ class TestFertilizerListPage:
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
         fertilizer_list.open()
-        screenshot("TC-REQ-004-002_fertilizer-list-columns",
-                   "Fertilizer list showing column headers")
+        screenshot(
+            "TC-REQ-004-002_fertilizer-list-columns", "Fertilizer list showing column headers"
+        )
 
         headers = fertilizer_list.get_column_headers()
         assert len(headers) > 0, (
             f"TC-REQ-004-002 FAIL: Expected column headers in fertilizer table, got none. Headers: {headers}"
         )
         header_text = " ".join(headers).lower()
-        assert any(
-            keyword in header_text for keyword in ["produkt", "product", "npk", "ec"]
-        ), (
+        assert any(keyword in header_text for keyword in ["produkt", "product", "npk", "ec"]), (
             f"TC-REQ-004-002 FAIL: Expected product name, NPK or EC columns in table headers, got: {headers}"
         )
 
@@ -113,8 +113,7 @@ class TestFertilizerListPage:
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
         fertilizer_list.open()
-        screenshot("TC-REQ-004-003_fertilizer-seed-data",
-                   "Fertilizer list showing seed data rows")
+        screenshot("TC-REQ-004-003_fertilizer-seed-data", "Fertilizer list showing seed data rows")
 
         row_count = fertilizer_list.get_row_count()
         assert row_count > 0, (
@@ -137,8 +136,10 @@ class TestFertilizerListPage:
         fertilizer_list.search("xxxx_nonexistent_product_yyyy")
         fertilizer_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-004_fertilizer-search-no-match",
-                   "Fertilizer list after searching for non-existent product")
+        screenshot(
+            "TC-REQ-004-004_fertilizer-search-no-match",
+            "Fertilizer list after searching for non-existent product",
+        )
 
         filtered_count = fertilizer_list.get_row_count()
         assert filtered_count <= initial_count, (
@@ -161,8 +162,9 @@ class TestFertilizerListPage:
         fertilizer_list.search("base")
         fertilizer_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-005_fertilizer-search-chip",
-                   "Fertilizer list after searching for 'base'")
+        screenshot(
+            "TC-REQ-004-005_fertilizer-search-chip", "Fertilizer list after searching for 'base'"
+        )
 
         # FertilizerListPage uses searchable={false} on DataTable, so
         # search-chip is never rendered.  Accept that the search input works
@@ -197,8 +199,10 @@ class TestFertilizerListPage:
         fertilizer_list.click_column_header(headers[0])
         fertilizer_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-006_fertilizer-sorted",
-                   "Fertilizer list after clicking column header to sort")
+        screenshot(
+            "TC-REQ-004-006_fertilizer-sorted",
+            "Fertilizer list after clicking column header to sort",
+        )
 
         # FertilizerListPage uses searchable={false}, so the sort-chip is
         # never rendered.  Verify that sorting was applied by checking
@@ -223,16 +227,13 @@ class TestFertilizerListPage:
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
         fertilizer_list.open()
-        screenshot("TC-REQ-004-007_fertilizer-showing-count",
-                   "Fertilizer list showing count label")
+        screenshot("TC-REQ-004-007_fertilizer-showing-count", "Fertilizer list showing count label")
 
         showing_text = fertilizer_list.get_showing_count_text()
         assert showing_text, (
             f"TC-REQ-004-007 FAIL: Expected showing count text to be non-empty, got: '{showing_text}'"
         )
-        assert any(
-            keyword in showing_text for keyword in ["Zeigt", "von", "of", "showing"]
-        ), (
+        assert any(keyword in showing_text for keyword in ["Zeigt", "von", "of", "showing"]), (
             f"TC-REQ-004-007 FAIL: Expected showing count to contain 'Zeigt'/'von'/'of', got: '{showing_text}'"
         )
 
@@ -248,14 +249,14 @@ class TestFertilizerListPage:
         if fertilizer_list.get_row_count() == 0:
             pytest.skip("No fertilizers in database — skipping navigation test")
 
-        screenshot("TC-REQ-004-008_before-row-click",
-                   "Fertilizer list before clicking first row")
+        screenshot("TC-REQ-004-008_before-row-click", "Fertilizer list before clicking first row")
 
         fertilizer_list.click_row(0)
         fertilizer_list.wait_for_url_contains("/duengung/fertilizers/")
 
-        screenshot("TC-REQ-004-008_after-row-click",
-                   "Fertilizer detail page after row click navigation")
+        screenshot(
+            "TC-REQ-004-008_after-row-click", "Fertilizer detail page after row click navigation"
+        )
 
         current_url = fertilizer_list.driver.current_url
         assert "/duengung/fertilizers/" in current_url, (
@@ -279,12 +280,14 @@ class TestFertilizerCreateDialog:
         """
         fertilizer_list.open()
 
-        screenshot("TC-REQ-004-013_before-create-click",
-                   "Fertilizer list before clicking create button")
+        screenshot(
+            "TC-REQ-004-013_before-create-click", "Fertilizer list before clicking create button"
+        )
 
         fertilizer_list.click_create()
-        screenshot("TC-REQ-004-013_create-dialog-open",
-                   "Fertilizer create dialog open with form fields")
+        screenshot(
+            "TC-REQ-004-013_create-dialog-open", "Fertilizer create dialog open with form fields"
+        )
 
         assert fertilizer_list.is_create_dialog_open(), (
             "TC-REQ-004-013 FAIL: Create dialog should be visible after clicking the create button"
@@ -305,16 +308,19 @@ class TestFertilizerCreateDialog:
         unique = uuid.uuid4().hex[:8]
         product_name = f"E2E-TestFertilizer-{unique}"
 
-        screenshot("TC-REQ-004-014_create-dialog-filled",
-                   "Create dialog with minimal product name filled")
+        screenshot(
+            "TC-REQ-004-014_create-dialog-filled", "Create dialog with minimal product name filled"
+        )
 
         fertilizer_list.fill_product_name(product_name)
         fertilizer_list.submit_create_form()
 
         fertilizer_list.wait_for_loading_complete()
         fertilizer_list.open()  # re-navigate to refresh list
-        screenshot("TC-REQ-004-014_after-create",
-                   "Fertilizer list after creating fertilizer with minimal fields")
+        screenshot(
+            "TC-REQ-004-014_after-create",
+            "Fertilizer list after creating fertilizer with minimal fields",
+        )
 
         new_count = fertilizer_list.get_row_count()
         assert new_count >= initial_count, (
@@ -353,15 +359,18 @@ class TestFertilizerCreateDialog:
             fertilizer_list.fill_notes("E2E test fertilizer — full data")
         except Exception:
             pass  # Field may not be visible due to scrolling
-        screenshot("TC-REQ-004-015_create-dialog-full-fields",
-                   "Create dialog with all major fields filled")
+        screenshot(
+            "TC-REQ-004-015_create-dialog-full-fields", "Create dialog with all major fields filled"
+        )
 
         fertilizer_list.submit_create_form()
         fertilizer_list.wait_for_loading_complete()
 
         fertilizer_list.open()
-        screenshot("TC-REQ-004-015_after-create-full",
-                   "Fertilizer list after creating fertilizer with full data")
+        screenshot(
+            "TC-REQ-004-015_after-create-full",
+            "Fertilizer list after creating fertilizer with full data",
+        )
 
         # Verify new entry appears in list
         new_count = fertilizer_list.get_row_count()
@@ -384,8 +393,10 @@ class TestFertilizerCreateDialog:
         fertilizer_list.submit_create_form()
         fertilizer_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-016_validation-empty-name",
-                   "Create dialog showing validation error for empty product name")
+        screenshot(
+            "TC-REQ-004-016_validation-empty-name",
+            "Create dialog showing validation error for empty product name",
+        )
 
         # Dialog should remain open
         assert fertilizer_list.is_create_dialog_open(), (
@@ -406,8 +417,9 @@ class TestFertilizerCreateDialog:
         fertilizer_list.click_create()
         fertilizer_list.fill_product_name("CancelledFertilizer")
 
-        screenshot("TC-REQ-004-017_before-cancel",
-                   "Create dialog with product name before cancelling")
+        screenshot(
+            "TC-REQ-004-017_before-cancel", "Create dialog with product name before cancelling"
+        )
 
         fertilizer_list.cancel_create_form()
         # Wait for MUI dialog close animation
@@ -415,8 +427,7 @@ class TestFertilizerCreateDialog:
             if not fertilizer_list.is_create_dialog_open():
                 break
             fertilizer_list.wait_for_loading_complete()
-        screenshot("TC-REQ-004-017_after-cancel",
-                   "Fertilizer list after cancelling create dialog")
+        screenshot("TC-REQ-004-017_after-cancel", "Fertilizer list after cancelling create dialog")
 
         assert not fertilizer_list.is_create_dialog_open(), (
             "TC-REQ-004-017 FAIL: Create dialog should be closed after clicking cancel"
@@ -441,8 +452,10 @@ class TestFertilizerCreateDialog:
         fertilizer_list.open()
         fertilizer_list.click_create()
 
-        screenshot("TC-REQ-004-018_create-dialog-type-field",
-                   "Create dialog showing fertilizer type select field")
+        screenshot(
+            "TC-REQ-004-018_create-dialog-type-field",
+            "Create dialog showing fertilizer type select field",
+        )
 
         assert fertilizer_list.has_form_field("fertilizer_type"), (
             "TC-REQ-004-018 FAIL: Expected a 'fertilizer_type' select field in the create dialog"
@@ -459,8 +472,9 @@ class TestFertilizerCreateDialog:
         fertilizer_list.open()
         fertilizer_list.click_create()
 
-        screenshot("TC-REQ-004-019_create-dialog-npk-fields",
-                   "Create dialog showing N, P, K input fields")
+        screenshot(
+            "TC-REQ-004-019_create-dialog-npk-fields", "Create dialog showing N, P, K input fields"
+        )
 
         for field_name in ["npk_n", "npk_p", "npk_k"]:
             assert fertilizer_list.has_form_field(field_name), (
@@ -475,9 +489,7 @@ class TestFertilizerDetailPage:
     """Fertilizer detail page tabs and editing (Spec: TC-004-008, TC-004-010)."""
 
     @pytest.fixture(autouse=True)
-    def _ensure_fertilizer_exists(
-        self, fertilizer_list: FertilizerListPage
-    ) -> None:
+    def _ensure_fertilizer_exists(self, fertilizer_list: FertilizerListPage) -> None:
         """Pre-condition: ensure at least one fertilizer exists for detail tests."""
         fertilizer_list.open()
         if fertilizer_list.get_row_count() == 0:
@@ -509,12 +521,15 @@ class TestFertilizerDetailPage:
         self._navigate_to_first_fertilizer(fertilizer_list)
 
         from .pages.fertilizer_detail_page import FertilizerDetailPage
+
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
 
-        screenshot("TC-REQ-004-023_fertilizer-detail-loaded",
-                   "Fertilizer detail page with product name as title")
+        screenshot(
+            "TC-REQ-004-023_fertilizer-detail-loaded",
+            "Fertilizer detail page with product name as title",
+        )
 
         title = detail.get_page_title_text()
         assert title, (
@@ -538,8 +553,7 @@ class TestFertilizerDetailPage:
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
 
-        screenshot("TC-REQ-004-024_fertilizer-detail-tabs",
-                   "Fertilizer detail page showing tabs")
+        screenshot("TC-REQ-004-024_fertilizer-detail-tabs", "Fertilizer detail page showing tabs")
 
         tab_count = detail.get_tab_count()
         assert tab_count >= 3, (
@@ -559,13 +573,16 @@ class TestFertilizerDetailPage:
         self._navigate_to_first_fertilizer(fertilizer_list)
 
         from .pages.fertilizer_detail_page import FertilizerDetailPage
+
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
         detail.click_tab_details()
 
-        screenshot("TC-REQ-004-025_fertilizer-tab-details",
-                   "Fertilizer details tab showing product properties")
+        screenshot(
+            "TC-REQ-004-025_fertilizer-tab-details",
+            "Fertilizer details tab showing product properties",
+        )
 
         labels = detail.get_all_detail_labels()
         assert len(labels) > 0, (
@@ -585,13 +602,13 @@ class TestFertilizerDetailPage:
         self._navigate_to_first_fertilizer(fertilizer_list)
 
         from .pages.fertilizer_detail_page import FertilizerDetailPage
+
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
         detail.click_tab_stock()
 
-        screenshot("TC-REQ-004-026_fertilizer-tab-stock",
-                   "Fertilizer stock tab content")
+        screenshot("TC-REQ-004-026_fertilizer-tab-stock", "Fertilizer stock tab content")
 
         # Either a data table or an empty state should be present
         assert detail.has_stock_table_or_empty_state(), (
@@ -611,6 +628,7 @@ class TestFertilizerDetailPage:
         self._navigate_to_first_fertilizer(fertilizer_list)
 
         from .pages.fertilizer_detail_page import FertilizerDetailPage
+
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
@@ -619,8 +637,10 @@ class TestFertilizerDetailPage:
         title = detail.get_page_title_text()
 
         detail.click_tab_edit()
-        screenshot("TC-REQ-004-027_fertilizer-tab-edit-prefilled",
-                   "Fertilizer edit tab with pre-filled product name")
+        screenshot(
+            "TC-REQ-004-027_fertilizer-tab-edit-prefilled",
+            "Fertilizer edit tab with pre-filled product name",
+        )
 
         name_value = detail.get_product_name_field_value()
         assert name_value, (
@@ -640,6 +660,7 @@ class TestFertilizerDetailPage:
         self._navigate_to_first_fertilizer(fertilizer_list)
 
         from .pages.fertilizer_detail_page import FertilizerDetailPage
+
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
@@ -650,8 +671,10 @@ class TestFertilizerDetailPage:
             )
         detail.click_tab_edit()
 
-        screenshot("TC-REQ-004-028_fertilizer-edit-save-disabled",
-                   "Fertilizer edit tab with save button disabled")
+        screenshot(
+            "TC-REQ-004-028_fertilizer-edit-save-disabled",
+            "Fertilizer edit tab with save button disabled",
+        )
 
         submit_enabled = detail.is_submit_button_enabled()
         assert not submit_enabled, (
@@ -671,6 +694,7 @@ class TestFertilizerDetailPage:
         self._navigate_to_first_fertilizer(fertilizer_list)
 
         from .pages.fertilizer_detail_page import FertilizerDetailPage
+
         detail = FertilizerDetailPage(fertilizer_list.driver, fertilizer_list.base_url)
         detail.wait_for_element(detail.PAGE)
         detail.wait_for_loading_complete()
@@ -684,8 +708,10 @@ class TestFertilizerDetailPage:
         # Modify the brand field to trigger isDirty
         detail.fill_brand(f"EditedBrand-{uuid.uuid4().hex[:4]}")
 
-        screenshot("TC-REQ-004-029_fertilizer-edit-save-enabled",
-                   "Fertilizer edit tab with save button enabled after modification")
+        screenshot(
+            "TC-REQ-004-029_fertilizer-edit-save-enabled",
+            "Fertilizer edit tab with save button enabled after modification",
+        )
 
         submit_enabled = detail.is_submit_button_enabled()
         assert submit_enabled, (
@@ -704,8 +730,10 @@ class TestFertilizerDetailPage:
         """
         fertilizer_detail.navigate("/duengung/fertilizers/nonexistent-key-99999")
 
-        screenshot("TC-REQ-004-030_fertilizer-not-found-error",
-                   "Error display for non-existent fertilizer key")
+        screenshot(
+            "TC-REQ-004-030_fertilizer-not-found-error",
+            "Error display for non-existent fertilizer key",
+        )
 
         # Wait for either the detail page or an error state
         fertilizer_detail.wait_for_error_or_page()

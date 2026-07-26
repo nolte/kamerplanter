@@ -48,6 +48,7 @@ from .pages.tank_list_page import TankListPage
 
 # -- Fixtures -----------------------------------------------------------------
 
+
 @pytest.fixture
 def tank_list(browser: WebDriver, base_url: str) -> TankListPage:
     """Return a TankListPage bound to the test browser."""
@@ -61,6 +62,7 @@ def tank_detail(browser: WebDriver, base_url: str) -> TankDetailPage:
 
 
 # -- TC-REQ-014-001 to TC-REQ-014-008: List Page ------------------------------
+
 
 class TestTankListPage:
     """Tank list display and interactions (Spec: TC-014-001, TC-014-003, TC-014-004)."""
@@ -246,12 +248,11 @@ class TestTankListPage:
             pytest.skip("No rows — showing count not displayed for empty table")
 
         count_text = tank_list.get_showing_count_text()
-        assert count_text, (
-            "TC-REQ-014-008 FAIL: Expected non-empty showing count text"
-        )
+        assert count_text, "TC-REQ-014-008 FAIL: Expected non-empty showing count text"
 
 
 # -- TC-REQ-014-010 to TC-REQ-014-015: Create Dialog --------------------------
+
 
 class TestTankCreateDialog:
     """Tank create dialog operations (Spec: TC-014-005, TC-014-006, TC-014-007, TC-014-009)."""
@@ -435,6 +436,7 @@ class TestTankCreateDialog:
 
 # -- TC-REQ-014-016 to TC-REQ-014-020: Detail Page ----------------------------
 
+
 class TestTankDetailPage:
     """Tank detail page rendering (Spec: TC-014-010, TC-014-011)."""
 
@@ -512,7 +514,9 @@ class TestTankDetailPage:
             tank_detail.click_tab(tab_index)
             tank_detail.wait_for_loading_complete()
             active = tank_detail.get_active_tab_index()
-            screenshot(f"TC-REQ-014-018_tab-{tab_index}-active", f"Tank detail tab {tab_index} active")
+            screenshot(
+                f"TC-REQ-014-018_tab-{tab_index}-active", f"Tank detail tab {tab_index} active"
+            )
             assert active == tab_index, (
                 f"TC-REQ-014-018 FAIL: Expected tab {tab_index} to be active, got {active}"
             )
@@ -569,12 +573,18 @@ class TestTankDetailPage:
         screenshot("TC-REQ-014-020_details-tab", "Tank details tab content")
 
         card_text = tank_detail.get_detail_cards_text()
-        assert card_text, (
-            "TC-REQ-014-020 FAIL: Expected non-empty card text in tank details tab"
-        )
-        tank_type_labels = ["Nährstoff", "Bewässerung", "Reservoir", "Rezirkulation",
-                            "Stammlösung", "nutrient", "irrigation", "recirculation",
-                            "stock_solution"]
+        assert card_text, "TC-REQ-014-020 FAIL: Expected non-empty card text in tank details tab"
+        tank_type_labels = [
+            "Nährstoff",
+            "Bewässerung",
+            "Reservoir",
+            "Rezirkulation",
+            "Stammlösung",
+            "nutrient",
+            "irrigation",
+            "recirculation",
+            "stock_solution",
+        ]
         has_type_label = any(label in card_text for label in tank_type_labels)
         assert has_type_label, (
             f"TC-REQ-014-020 FAIL: Expected at least one tank type label in details, "
@@ -583,6 +593,7 @@ class TestTankDetailPage:
 
 
 # -- TC-REQ-014-023 to TC-REQ-014-025: Tank State Recording -------------------
+
 
 class TestTankStateRecording:
     """TankState recording operations (Spec: TC-014-019)."""
@@ -701,6 +712,7 @@ class TestTankStateRecording:
 
 # -- TC-REQ-014-026 to TC-REQ-014-028: Maintenance Log ------------------------
 
+
 class TestMaintenanceLog:
     """Maintenance log operations (Spec: TC-014-024)."""
 
@@ -818,6 +830,7 @@ class TestMaintenanceLog:
 
 # -- TC-REQ-014-029: Schedules Tab --------------------------------------------
 
+
 class TestTankSchedulesTab:
     """Tank Schedules tab rendering (Spec: TC-014-026)."""
 
@@ -851,6 +864,7 @@ class TestTankSchedulesTab:
 
 # -- TC-REQ-014-030 to TC-REQ-014-031: Edit Form ------------------------------
 
+
 class TestTankEditForm:
     """Tank edit form operations (Spec: TC-014-037)."""
 
@@ -879,9 +893,7 @@ class TestTankEditForm:
         screenshot("TC-REQ-014-030_edit-tab-open", "Tank edit tab with pre-filled form")
 
         name_value = tank_detail.get_edit_name_value()
-        assert name_value, (
-            "TC-REQ-014-030 FAIL: Expected edit form Name field to be pre-filled"
-        )
+        assert name_value, "TC-REQ-014-030 FAIL: Expected edit form Name field to be pre-filled"
         assert name_value == page_title, (
             f"TC-REQ-014-030 FAIL: Expected Name '{name_value}' to match page title '{page_title}'"
         )
@@ -923,6 +935,7 @@ class TestTankEditForm:
 
 
 # -- TC-REQ-014-032: Delete Flow ----------------------------------------------
+
 
 class TestTankDeleteFlow:
     """Tank delete flow (Spec: TC-014-040)."""
@@ -968,6 +981,7 @@ class TestTankDeleteFlow:
 
 
 # -- TC-REQ-014-033: Error Handling --------------------------------------------
+
 
 class TestTankErrorHandling:
     """Tank error states (Spec: TC-014-070)."""

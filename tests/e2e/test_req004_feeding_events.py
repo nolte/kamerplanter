@@ -17,7 +17,7 @@ from .pages.feeding_event_list_page import FeedingEventListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('nutrient',)
+FEATURES = ("nutrient",)
 
 
 # -- Fixtures ----------------------------------------------------------------
@@ -275,8 +275,12 @@ class TestFeedingEventCreateDialog:
             "Create dialog showing EC and pH measurement fields",
         )
 
-        for field_name in ["measured_ec_before", "measured_ec_after",
-                           "measured_ph_before", "measured_ph_after"]:
+        for field_name in [
+            "measured_ec_before",
+            "measured_ec_after",
+            "measured_ph_before",
+            "measured_ph_after",
+        ]:
             assert feeding_list.has_form_field(field_name), (
                 f"TC-REQ-004-052 FAIL: Expected a '{field_name}' field in the create dialog"
             )

@@ -64,7 +64,7 @@ from .pages.watering_log_list_page import WateringLogListPage
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m watering). Must sit after
 # the last import so ruff's E402 stays satisfied.
-FEATURES = ('watering',)
+FEATURES = ("watering",)
 
 FEATURE_FILE = "features/watering_cross_view_consistency.feature"
 SCENARIO_NAME = "A single watering is reflected consistently in every view"
@@ -192,11 +192,7 @@ def plant_has_completed_watering_tasks(
 # ── When ─────────────────────────────────────────────────────────────────────
 
 
-@when(
-    parsers.re(
-        r"the gardener records a plain watering of (?P<litres>\d+) litres? for the plant"
-    )
-)
+@when(parsers.re(r"the gardener records a plain watering of (?P<litres>\d+) litres? for the plant"))
 def record_plain_watering(
     litres: str,
     context: dict[str, Any],
@@ -333,8 +329,7 @@ def instance_log_gained_entries(
             f"{DRENCH_METHOD_LABEL!r}, found {method!r}"
         )
         assert cell_volume.strip().startswith(str(volume)) and "L" in cell_volume, (
-            f"TC-004-092 FAIL (View 2): expected a '{volume} L' volume, "
-            f"found {cell_volume!r}"
+            f"TC-004-092 FAIL (View 2): expected a '{volume} L' volume, found {cell_volume!r}"
         )
         assert supplemental.strip() == "", (
             f"TC-004-092 FAIL (View 2): the 'Ergänzend' column must be empty for a "
@@ -345,20 +340,14 @@ def instance_log_gained_entries(
 @then("both watering logs agree on the day the plant was watered")
 def both_logs_agree_on_the_day(context: dict[str, Any]) -> None:
     """Coherence — Views 1 and 2 render one and the same ``WateringLog``."""
-    assert parse_de_date(context["view1_logged_at"]) == parse_de_date(
-        context["view2_logged_at"]
-    ), (
+    assert parse_de_date(context["view1_logged_at"]) == parse_de_date(context["view2_logged_at"]), (
         f"TC-004-092 FAIL (coherence): the global and instance logs disagree on the "
         f"watering date (View 1={context['view1_logged_at']!r}, "
         f"View 2={context['view2_logged_at']!r})"
     )
 
 
-@then(
-    parsers.re(
-        r"(?P<count>\d+) watering tasks? (?:has|have) been completed, dated (?P<day>.+)"
-    )
-)
+@then(parsers.re(r"(?P<count>\d+) watering tasks? (?:has|have) been completed, dated (?P<day>.+)"))
 def watering_tasks_have_been_completed(
     count: str,
     day: str,

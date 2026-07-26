@@ -64,33 +64,25 @@ class BasePage:
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is present in the DOM and return it."""
-        return WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(locator)
-        )
+        return WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(locator))
 
     def wait_for_element_visible(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is visible and return it."""
-        return WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(locator)
-        )
+        return WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(locator))
 
     def wait_for_element_clickable(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> WebElement:
         """Wait until an element is clickable and return it."""
-        return WebDriverWait(self.driver, timeout).until(
-            EC.element_to_be_clickable(locator)
-        )
+        return WebDriverWait(self.driver, timeout).until(EC.element_to_be_clickable(locator))
 
     def wait_for_element_hidden(
         self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT
     ) -> None:
         """Wait until an element is no longer visible (e.g. MUI Dialog fade-out)."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.invisibility_of_element_located(locator)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.invisibility_of_element_located(locator))
 
     #: The Suspense/query loading placeholder every page renders while its data
     #: (or, for a lazily-imported route, its chunk) is still in flight.
@@ -198,7 +190,9 @@ class BasePage:
         deadline = time.time() + timeout
         while True:
             try:
-                el = self.wait_for_element_visible(locator, timeout=min(5, max(1, int(deadline - time.time()))))
+                el = self.wait_for_element_visible(
+                    locator, timeout=min(5, max(1, int(deadline - time.time())))
+                )
                 return el.text
             except StaleElementReferenceException:
                 if time.time() >= deadline:
@@ -211,9 +205,7 @@ class BasePage:
 
     def is_error_displayed(self) -> bool:
         """Check whether ``[data-testid='error-display']`` is visible."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='error-display']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def has_alert_notification(self) -> bool:
@@ -468,7 +460,7 @@ class BasePage:
         self.scroll_into_view(element)
         try:
             element.click()
-        except (ElementNotInteractableException, ElementClickInterceptedException):
+        except ElementNotInteractableException, ElementClickInterceptedException:
             if self.opens_on_mousedown(element):
                 self.dispatch_menu_trigger_open(element)
             else:
@@ -563,9 +555,7 @@ class BasePage:
 
     def open_select(self, field_name: str) -> None:
         """Open a FormSelectField dropdown and verify that it actually opened."""
-        self.open_select_in(
-            f"[data-testid='form-field-{field_name}']", f"field '{field_name}'"
-        )
+        self.open_select_in(f"[data-testid='form-field-{field_name}']", f"field '{field_name}'")
 
     def open_select_by_testid(self, testid: str) -> None:
         """Open a MUI Select addressed by the data-testid on its TextField root.
@@ -700,9 +690,7 @@ class BasePage:
         # pushes the leading entries out of view -- observed on the tablet
         # profile as ``Rendered options: ['', '', 'Osmosewasser', ...]`` for a
         # dropdown whose first entry was the one being asked for.
-        rendered = [
-            " ".join((o.get_attribute("textContent") or "").split()) for o in options
-        ]
+        rendered = [" ".join((o.get_attribute("textContent") or "").split()) for o in options]
         exact = [o for o, text in zip(options, rendered) if text == target]
         partial = [
             o
@@ -720,13 +708,10 @@ class BasePage:
             self.select_option_by_value(value)
             return
         raise AssertionError(
-            f"No option matching '{label}' in the open dropdown. Rendered "
-            f"options: {rendered}"
+            f"No option matching '{label}' in the open dropdown. Rendered options: {rendered}"
         )
 
-    def _read_select_value(
-        self, trigger: WebElement | None, field_name: str | None
-    ) -> str | None:
+    def _read_select_value(self, trigger: WebElement | None, field_name: str | None) -> str | None:
         """Return the committed value of the Select that was just operated on."""
         if field_name:
             value = self.driver.execute_script(
@@ -913,7 +898,7 @@ class BasePage:
         # `MobileCard` renders title and subtitle as the card's first text
         # lines (the optional `leading` slot carries a preview image, no text),
         # so the exact readings replace exactly those leading entries.
-        return exact + lines[len(exact):]
+        return exact + lines[len(exact) :]
 
     def get_all_row_text_fragments(self) -> list[list[str]]:
         """Return :meth:`get_row_text_fragments` for every visible DataTable row."""
@@ -1134,9 +1119,7 @@ class BasePage:
     # Both are fixed once, here: address the row through one named, inert
     # column, and fail loudly on an index that does not exist.
 
-    def require_index(
-        self, items: list[WebElement], index: int, what: str
-    ) -> WebElement:
+    def require_index(self, items: list[WebElement], index: int, what: str) -> WebElement:
         """Return ``items[index]``, or fail loudly naming index and count.
 
         The loud failure is the point: a guarded interaction that quietly does
@@ -1196,9 +1179,7 @@ class BasePage:
         cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='cell-{col_id}']")
         source = f"cell-{col_id}"
         if not cells:
-            cells = row.find_elements(
-                By.CSS_SELECTOR, f"[data-testid='card-field-{col_id}']"
-            )
+            cells = row.find_elements(By.CSS_SELECTOR, f"[data-testid='card-field-{col_id}']")
             source = f"card-field-{col_id}"
         if not cells:
             cells = row.find_elements(*self.CARD_TITLE)
@@ -1368,9 +1349,7 @@ class BasePage:
         German ``d.m.Y`` date — that would mean the page ran under a different
         locale and any comparison against it would be meaningless.
         """
-        rendered = self.driver.execute_script(
-            "return new Date().toLocaleDateString('de-DE');"
-        )
+        rendered = self.driver.execute_script("return new Date().toLocaleDateString('de-DE');")
         match = DE_DATE_RE.search(rendered or "")
         if not match:
             raise ValueError(

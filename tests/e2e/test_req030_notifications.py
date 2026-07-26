@@ -140,9 +140,7 @@ def _poll_own_notifications_done(
             if task_name in notif_center.get_notification_text(k)
         ]
         unread_own = [
-            notif_center.get_notification_text(k)
-            for k in own_keys
-            if notif_center.is_unread(k)
+            notif_center.get_notification_text(k) for k in own_keys if notif_center.is_unread(k)
         ]
         if not unread_own:
             return []
@@ -573,9 +571,7 @@ class TestTaskUpdateNotificationFeedback:
         _ensure_logged_in(login_page)
         # Self-provisioned task (e2e-test-stability §A): due today so the
         # creation propagates an unread due-notification we can then watch.
-        task_key, task_name = _create_e2e_task(
-            e2e_seed_data, base_url, due_in_days=0
-        )
+        task_key, task_name = _create_e2e_task(e2e_seed_data, base_url, due_in_days=0)
 
         notif_center.open_drawer()
         texts_before = _drawer_notification_texts(notif_center)
@@ -650,8 +646,7 @@ class TestCareNotificationFeedback:
         )
 
         assert any(
-            any(term in t.lower() for term in ("gieß", "gie", "water", "wasser"))
-            for t in texts
+            any(term in t.lower() for term in ("gieß", "gie", "water", "wasser")) for t in texts
         ), (
             "TC-REQ-030-008 FAIL (Soll): Expected the care.watering notification to "
             f"follow the new 14-day cycle, got: {texts}"
@@ -689,10 +684,10 @@ class TestCareNotificationFeedback:
 
         _, _get = _api_helpers(_fresh_access_token(e2e_seed_data, base_url))
         slug = e2e_seed_data.get("tenant_slug", "mein-garten")
-        status, plant = _get(
-            f"{base_url.rstrip('/')}/api/v1/t/{slug}/plant-instances/{plant_key}"
+        status, plant = _get(f"{base_url.rstrip('/')}/api/v1/t/{slug}/plant-instances/{plant_key}")
+        plant_name = (
+            (plant.get("name") or "").strip() if status == 200 and isinstance(plant, dict) else ""
         )
-        plant_name = (plant.get("name") or "").strip() if status == 200 and isinstance(plant, dict) else ""
         if not plant_name:
             pytest.skip(f"Could not resolve plant name for key {plant_key} (status={status})")
 
@@ -775,9 +770,7 @@ class TestNotificationSourcePropagation:
             "Notification centre after moving the task's due date",
         )
 
-        assert own and not any(
-            term in t.lower() for t in own for term in ("heute", "today")
-        ), (
+        assert own and not any(term in t.lower() for t in own for term in ("heute", "today")), (
             "TC-REQ-030-010 FAIL (Soll): Expected the task's own notification to show "
             f"the new due date (no stale 'heute') for '{task_name}', got: {own or texts}"
         )
@@ -913,10 +906,10 @@ class TestNotificationSourcePropagation:
 
         _, _get = _api_helpers(_fresh_access_token(e2e_seed_data, base_url))
         slug = e2e_seed_data.get("tenant_slug", "mein-garten")
-        status, plant = _get(
-            f"{base_url.rstrip('/')}/api/v1/t/{slug}/plant-instances/{plant_key}"
+        status, plant = _get(f"{base_url.rstrip('/')}/api/v1/t/{slug}/plant-instances/{plant_key}")
+        plant_name = (
+            (plant.get("name") or "").strip() if status == 200 and isinstance(plant, dict) else ""
         )
-        plant_name = (plant.get("name") or "").strip() if status == 200 and isinstance(plant, dict) else ""
         if not plant_name:
             pytest.skip(f"Could not resolve plant name for key {plant_key} (status={status})")
         pflege.click_edit_profile_on_card(plant_key)
@@ -998,9 +991,7 @@ class TestNotificationSourcePropagation:
             By.CSS_SELECTOR, f"[data-testid='notification-action-done-{notif_key}']"
         )
         still_unread = (
-            notif_center.is_unread(notif_key)
-            if notif_center.has_notification(notif_key)
-            else False
+            notif_center.is_unread(notif_key) if notif_center.has_notification(notif_key) else False
         )
         assert not remaining_done_buttons and not still_unread, (
             "TC-REQ-030-014 FAIL (Soll): Expected the actioned notification "

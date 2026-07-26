@@ -22,7 +22,7 @@ from .pages.calendar_page import CalendarPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('calendar',)
+FEATURES = ("calendar",)
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -73,9 +73,7 @@ class TestSeasonOverviewLoad:
             screenshot("TC-REQ-015-060_season-empty", "Season overview showing empty state")
             pytest.skip("Season overview has empty state; no month cards to verify")
 
-        assert len(cards) == 12, (
-            f"TC-REQ-015-060 FAIL: Expected 12 month cards, got {len(cards)}"
-        )
+        assert len(cards) == 12, f"TC-REQ-015-060 FAIL: Expected 12 month cards, got {len(cards)}"
 
     @pytest.mark.smoke
     def test_season_view_shows_site_select(
@@ -136,7 +134,9 @@ class TestSeasonOverviewCardContent:
         Spec: TC-015-061 -- Saisonuebersicht — Aktueller Monat hervorgehoben.
         """
         _open_season_view(calendar)
-        screenshot("TC-REQ-015-063_current-month-highlight", "Season view current month highlighted")
+        screenshot(
+            "TC-REQ-015-063_current-month-highlight", "Season view current month highlighted"
+        )
 
         highlighted = calendar.get_highlighted_season_card()
         if highlighted is None:
@@ -165,16 +165,12 @@ class TestSeasonOverviewCardContent:
             pytest.skip("No season month cards present")
 
         first_card = cards[0]
-        title_els = first_card.find_elements(
-            By.CSS_SELECTOR, ".MuiTypography-subtitle1"
-        )
+        title_els = first_card.find_elements(By.CSS_SELECTOR, ".MuiTypography-subtitle1")
         assert len(title_els) > 0, (
             "TC-REQ-015-064 FAIL: Expected a subtitle1 Typography element with month name"
         )
         month_text = title_els[0].text.strip()
-        assert len(month_text) > 0, (
-            "TC-REQ-015-064 FAIL: Expected month name text to be non-empty"
-        )
+        assert len(month_text) > 0, "TC-REQ-015-064 FAIL: Expected month name text to be non-empty"
 
 
 # -- Season overview interaction -----------------------------------------------
@@ -201,9 +197,7 @@ class TestSeasonOverviewInteraction:
 
         screenshot("TC-REQ-015-065_before-card-click", "Before clicking a month card")
 
-        action_areas = cards[0].find_elements(
-            By.CSS_SELECTOR, ".MuiCardActionArea-root"
-        )
+        action_areas = cards[0].find_elements(By.CSS_SELECTOR, ".MuiCardActionArea-root")
         if len(action_areas) == 0:
             pytest.skip("No CardActionArea found in month card")
 

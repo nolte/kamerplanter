@@ -100,8 +100,10 @@ class TestCoreJourneyConfirmWateringReminder:
         key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-022")
 
         appeared = _wait_for_watering_card(pflege, key)
-        screenshot("TC-REQ-022-J087_reminder-card",
-                   f"Care dashboard with watering reminder for {instance_id}")
+        screenshot(
+            "TC-REQ-022-J087_reminder-card",
+            f"Care dashboard with watering reminder for {instance_id}",
+        )
         assert appeared, (
             f"TC-REQ-022-J087 FAIL: A watering care reminder for plant '{instance_id}' "
             f"(key={key}) should appear after reminder generation"
@@ -113,8 +115,9 @@ class TestCoreJourneyConfirmWateringReminder:
         if pflege.is_confirm_dialog_open():
             pflege.submit_confirm_dialog()
         time.sleep(1.0)
-        screenshot("TC-REQ-022-J087_after-confirm",
-                   "Care dashboard after confirming the watering reminder")
+        screenshot(
+            "TC-REQ-022-J087_after-confirm", "Care dashboard after confirming the watering reminder"
+        )
 
         pflege.open()
         assert not pflege.has_care_card(key, "watering"), (
@@ -155,8 +158,10 @@ class TestCoreJourneyReminderPersistsConfirmed:
 
         # Reload the dashboard — the confirmation must persist server-side.
         pflege.open()
-        screenshot("TC-REQ-022-J088_after-reload",
-                   f"Care dashboard after reload — reminder for {instance_id} not due")
+        screenshot(
+            "TC-REQ-022-J088_after-reload",
+            f"Care dashboard after reload — reminder for {instance_id} not due",
+        )
         assert not pflege.has_care_card(key, "watering"), (
             f"TC-REQ-022-J088 FAIL: After reload the watering reminder for '{instance_id}' "
             f"should remain confirmed (not due)"

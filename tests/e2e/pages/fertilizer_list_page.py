@@ -31,7 +31,10 @@ class FertilizerListPage(BasePage):
     FORM_NPK_N = (By.CSS_SELECTOR, "[data-testid='form-field-npk_n'] input")
     FORM_NPK_P = (By.CSS_SELECTOR, "[data-testid='form-field-npk_p'] input")
     FORM_NPK_K = (By.CSS_SELECTOR, "[data-testid='form-field-npk_k'] input")
-    FORM_EC_CONTRIBUTION = (By.CSS_SELECTOR, "[data-testid='form-field-ec_contribution_per_ml'] input")
+    FORM_EC_CONTRIBUTION = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-ec_contribution_per_ml'] input",
+    )
     FORM_MIXING_PRIORITY = (By.CSS_SELECTOR, "[data-testid='form-field-mixing_priority'] input")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -144,9 +147,14 @@ class FertilizerListPage(BasePage):
 
     def has_form_field(self, field_name: str) -> bool:
         """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
+                )
+            )
+            > 0
+        )
 
     # ── Create dialog ──────────────────────────────────────────────────
 

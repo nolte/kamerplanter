@@ -32,7 +32,7 @@ from .pages.watering_log_list_page import WateringLogListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('watering', 'nutrient')
+FEATURES = ("watering", "nutrient")
 
 # German i18n option labels (enums.applicationMethod.drench, enums.waterSource.tap).
 DRENCH_LABEL = "Gießen"
@@ -70,9 +70,7 @@ def feeding_list(browser: WebDriver, base_url: str) -> FeedingEventListPage:
 # ── Shared arrange step ──────────────────────────────────────────────────────
 
 
-def _log_watering(
-    watering_list: WateringLogListPage, instance_id: str, volume: float = 2
-) -> None:
+def _log_watering(watering_list: WateringLogListPage, instance_id: str, volume: float = 2) -> None:
     """Create a watering log for the plant identified by *instance_id*."""
     watering_list.open()
     watering_list.click_create()
@@ -107,8 +105,9 @@ class TestCoreJourneyLogWatering:
         _key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-004")
 
         _log_watering(watering_list, instance_id, volume=2)
-        screenshot("TC-REQ-004-J089_watering-logged",
-                   f"Watering log list after logging for {instance_id}")
+        screenshot(
+            "TC-REQ-004-J089_watering-logged", f"Watering log list after logging for {instance_id}"
+        )
 
         watering_list.open()
         assert watering_list.has_table(), (
@@ -149,8 +148,7 @@ class TestCoreJourneyWateringDetailAndCare:
         watering_list.click_row(0)
         watering_list.wait_for_url_contains("/giessprotokoll/")
         watering_detail.wait_for_element(watering_detail.PAGE)
-        screenshot("TC-REQ-004-J090_watering-detail",
-                   "Watering log detail page")
+        screenshot("TC-REQ-004-J090_watering-detail", "Watering log detail page")
 
         body = watering_detail.get_body_text()
         assert "2" in body, (
@@ -159,8 +157,7 @@ class TestCoreJourneyWateringDetailAndCare:
 
         # The plant's detail page reflects the watering (care surface present).
         plant_detail.open(key)
-        screenshot("TC-REQ-004-J090_plant-care",
-                   f"Plant {instance_id} detail after watering")
+        screenshot("TC-REQ-004-J090_plant-care", f"Plant {instance_id} detail after watering")
         assert plant_detail.is_plant_info_card_visible(), (
             "TC-REQ-004-J090 FAIL: Plant detail should render the info card"
         )
@@ -204,12 +201,10 @@ class TestCoreJourneyRecordFeeding:
         feeding_list.fill_ec_after(1.1)
         feeding_list.fill_ph_before(6.0)
         feeding_list.fill_ph_after(6.1)
-        screenshot("TC-REQ-004-J091_feeding-form",
-                   f"Feeding event form filled for {instance_id}")
+        screenshot("TC-REQ-004-J091_feeding-form", f"Feeding event form filled for {instance_id}")
         feeding_list.submit_create_form()
         feeding_list.wait_for_loading_complete()
-        screenshot("TC-REQ-004-J091_feeding-created",
-                   "Feeding event list after recording")
+        screenshot("TC-REQ-004-J091_feeding-created", "Feeding event list after recording")
 
         feeding_list.open()
         assert feeding_list.has_table(), (

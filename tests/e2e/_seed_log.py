@@ -21,7 +21,14 @@ REDACTED = "<redacted>"
 #: Substrings that mark a key as secret-bearing. Matched case-insensitively on
 #: the key name, so a future ``refresh_token``/``api_key``/``password`` entry is
 #: covered without touching this module again.
-_SECRET_KEY_MARKERS: tuple[str, ...] = ("token", "secret", "password", "api_key", "apikey", "credential")
+_SECRET_KEY_MARKERS: tuple[str, ...] = (
+    "token",
+    "secret",
+    "password",
+    "api_key",
+    "apikey",
+    "credential",
+)
 
 
 def _is_secret_key(key: Any) -> bool:
@@ -38,7 +45,8 @@ def redact_secrets(value: Any) -> Any:
     """
     if isinstance(value, dict):
         return {
-            key: (REDACTED if _is_secret_key(key) and item else redact_secrets(item)) for key, item in value.items()
+            key: (REDACTED if _is_secret_key(key) and item else redact_secrets(item))
+            for key, item in value.items()
         }
     if isinstance(value, list):
         return [redact_secrets(item) for item in value]

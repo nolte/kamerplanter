@@ -41,6 +41,7 @@ from .pages.planting_run_list_page import PlantingRunListPage
 
 # -- Fixtures -----------------------------------------------------------------
 
+
 @pytest.fixture
 def run_list(browser: WebDriver, base_url: str) -> PlantingRunListPage:
     """Return a PlantingRunListPage bound to the test browser."""
@@ -54,6 +55,7 @@ def run_detail(browser: WebDriver, base_url: str) -> PlantingRunDetailPage:
 
 
 # -- TC-REQ-013-001 to TC-REQ-013-008: List Page ------------------------------
+
 
 class TestPlantingRunListPage:
     """PlantingRun list display and interactions (Spec: TC-013-001, TC-013-003, TC-013-004)."""
@@ -159,7 +161,9 @@ class TestPlantingRunListPage:
 
         run_list.search("ZZZ_NONEXISTENT_RUN_9999")
         run_list.wait_for_loading_complete()
-        screenshot("TC-REQ-013-005_after-search-no-results", "PlantingRun list after search — no results")
+        screenshot(
+            "TC-REQ-013-005_after-search-no-results", "PlantingRun list after search — no results"
+        )
 
         filtered_count = run_list.get_row_count()
         assert filtered_count <= initial_count, (
@@ -246,6 +250,7 @@ class TestPlantingRunListPage:
 
 # -- TC-REQ-013-010 to TC-REQ-013-014: Create Dialog --------------------------
 
+
 class TestPlantingRunCreateDialog:
     """PlantingRun create dialog operations (Spec: TC-013-005, TC-013-012, TC-013-014)."""
 
@@ -260,7 +265,9 @@ class TestPlantingRunCreateDialog:
         Spec: TC-013-005 -- Erstellen-Dialog oeffnet sich.
         """
         run_list.open()
-        screenshot("TC-REQ-013-010_before-open-dialog", "PlantingRun list before opening create dialog")
+        screenshot(
+            "TC-REQ-013-010_before-open-dialog", "PlantingRun list before opening create dialog"
+        )
 
         run_list.click_create()
         screenshot("TC-REQ-013-010_create-dialog-open", "PlantingRun create dialog opened")
@@ -397,6 +404,7 @@ class TestPlantingRunCreateDialog:
 
 # -- TC-REQ-013-015 to TC-REQ-013-020: Detail Page ----------------------------
 
+
 class TestPlantingRunDetailPage:
     """PlantingRun detail page operations (Spec: TC-013-020, TC-013-026, TC-013-050)."""
 
@@ -515,9 +523,7 @@ class TestPlantingRunDetailPage:
         assert status, (
             f"TC-REQ-013-018 FAIL: Expected a non-empty status chip text, got: '{status}'"
         )
-        assert len(status) > 0, (
-            "TC-REQ-013-018 FAIL: Status chip should display a non-empty label"
-        )
+        assert len(status) > 0, "TC-REQ-013-018 FAIL: Status chip should display a non-empty label"
 
     @pytest.mark.core_crud
     def test_planned_run_shows_create_plants_and_delete_buttons(
@@ -541,7 +547,9 @@ class TestPlantingRunDetailPage:
 
         status = run_detail.get_status()
         if "Geplant" not in status and "planned" not in status.lower():
-            pytest.skip(f"First run is not in 'planned' status (status='{status}') — skip state-machine test")
+            pytest.skip(
+                f"First run is not in 'planned' status (status='{status}') — skip state-machine test"
+            )
 
         assert run_detail.is_create_plants_button_visible(), (
             "TC-REQ-013-019 FAIL: Expected create-plants-button to be visible for planned run"
@@ -576,7 +584,9 @@ class TestPlantingRunDetailPage:
         if "Geplant" not in status and "planned" not in status.lower():
             pytest.skip(f"First run is not in 'planned' status ('{status}') — skip this test")
 
-        screenshot("TC-REQ-013-020_before-create-plants", "Detail page before clicking Create Plants")
+        screenshot(
+            "TC-REQ-013-020_before-create-plants", "Detail page before clicking Create Plants"
+        )
 
         run_detail.click_create_plants()
         screenshot("TC-REQ-013-020_confirm-dialog-open", "Confirm dialog open for Create Plants")

@@ -26,7 +26,10 @@ class RegisterPage(BasePage):
     LOGIN_LINK = (By.CSS_SELECTOR, "a[href='/login']")
     PASSWORD_HELPER_TEXT = (By.CSS_SELECTOR, ".MuiFormHelperText-root")
     # Snackbar for success messages (notistack)
-    SNACKBAR_SUCCESS = (By.CSS_SELECTOR, ".notistack-SnackbarContainer .SnackbarItem-variantSuccess, #notistack-snackbar")
+    SNACKBAR_SUCCESS = (
+        By.CSS_SELECTOR,
+        ".notistack-SnackbarContainer .SnackbarItem-variantSuccess, #notistack-snackbar",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

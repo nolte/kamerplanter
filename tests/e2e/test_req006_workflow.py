@@ -87,8 +87,7 @@ class TestWorkflowTemplateListPage:
         card_count = workflow_list.get_card_count()
         # Cards should render (zero is valid if no workflows exist)
         assert card_count >= 0, (
-            f"TC-REQ-006-025 FAIL: Expected non-negative card count, "
-            f"got: {card_count}"
+            f"TC-REQ-006-025 FAIL: Expected non-negative card count, got: {card_count}"
         )
 
     @pytest.mark.core_crud
@@ -108,8 +107,7 @@ class TestWorkflowTemplateListPage:
         )
 
         assert workflow_list.has_create_button(), (
-            "TC-REQ-006-027 FAIL: Expected [data-testid='create-workflow-button'] "
-            "to be visible"
+            "TC-REQ-006-027 FAIL: Expected [data-testid='create-workflow-button'] to be visible"
         )
 
     @pytest.mark.core_crud
@@ -198,8 +196,7 @@ class TestWorkflowInstantiate:
         )
 
         assert workflow_list.is_dialog_open(), (
-            "TC-REQ-006-031 FAIL: Expected dialog to be open after clicking "
-            "create workflow button"
+            "TC-REQ-006-031 FAIL: Expected dialog to be open after clicking create workflow button"
         )
 
 
@@ -263,8 +260,7 @@ class TestWorkflowDetailPage:
 
         # Now verify the detail page
         assert workflow_detail.is_page_visible(), (
-            "TC-REQ-006-033 FAIL: Expected [data-testid='workflow-detail-page'] "
-            "to be visible"
+            "TC-REQ-006-033 FAIL: Expected [data-testid='workflow-detail-page'] to be visible"
         )
 
         screenshot(
@@ -315,8 +311,7 @@ class TestWorkflowDetailPage:
 
             active = workflow_detail.get_active_tab_label()
             assert active == label, (
-                f"TC-REQ-006-034 FAIL: Expected active tab to be '{label}', "
-                f"got '{active}'"
+                f"TC-REQ-006-034 FAIL: Expected active tab to be '{label}', got '{active}'"
             )
 
     @pytest.mark.core_crud
@@ -344,7 +339,4 @@ class TestWorkflowDetailPage:
             f"Workflow detail page title: {title}",
         )
 
-        assert title, (
-            "TC-REQ-006-035 FAIL: Expected workflow title to be non-empty "
-            "on detail page"
-        )
+        assert title, "TC-REQ-006-035 FAIL: Expected workflow title to be non-empty on detail page"

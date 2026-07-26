@@ -106,9 +106,7 @@ class LoginPage(BasePage):
         MUI renders the actual <input> as hidden — click the visible
         FormControlLabel instead.
         """
-        label = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, ".MuiFormControlLabel-root")
-        )
+        label = self.wait_for_element_clickable((By.CSS_SELECTOR, ".MuiFormControlLabel-root"))
         self.scroll_and_click(label)
 
     def click_login(self) -> None:

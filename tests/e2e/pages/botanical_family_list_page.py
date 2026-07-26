@@ -65,9 +65,7 @@ class BotanicalFamilyListPage(BasePage):
 
     def get_form_field_count(self) -> int:
         """Return the number of ``form-field-*`` elements rendered on the current page."""
-        return len(
-            self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='form-field-']")
-        )
+        return len(self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='form-field-']"))
 
     # ── Table interactions ─────────────────────────────────────────────
 
@@ -177,10 +175,15 @@ class BotanicalFamilyListPage(BasePage):
 
     def has_error_snackbar(self) -> bool:
         """Check whether an error Alert/Snackbar (backend validation) is visible."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            ".MuiAlert-colorError, .MuiSnackbar-root",
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiAlert-colorError, .MuiSnackbar-root",
+                )
+            )
+            > 0
+        )
 
     # ── Create dialog ──────────────────────────────────────────────────
 
@@ -250,7 +253,10 @@ class BotanicalFamilyListPage(BasePage):
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
-        locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error")
+        locator = (
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
+        )
         elements = self.driver.find_elements(*locator)
         return elements[0].text if elements else ""
 
@@ -298,7 +304,5 @@ class BotanicalFamilyListPage(BasePage):
     def get_rows_per_page_options(self) -> list[str]:
         """Return available page size options (MUI TablePagination)."""
         # MUI pagination select
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiTablePagination-select option"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, ".MuiTablePagination-select option")
         return [e.text for e in elements]

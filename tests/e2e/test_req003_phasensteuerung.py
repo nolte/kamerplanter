@@ -126,8 +126,9 @@ class TestPlantInstanceListPage:
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
         plant_list.open()
-        screenshot("TC-REQ-003-001_plant-list-page-load",
-                   "Plant instance list page after initial load")
+        screenshot(
+            "TC-REQ-003-001_plant-list-page-load", "Plant instance list page after initial load"
+        )
 
         title = plant_list.get_page_title()
         assert title, (
@@ -143,8 +144,9 @@ class TestPlantInstanceListPage:
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
         plant_list.open()
-        screenshot("TC-REQ-003-002_plant-list-data-table",
-                   "Plant instance list DataTable or empty state")
+        screenshot(
+            "TC-REQ-003-002_plant-list-data-table", "Plant instance list DataTable or empty state"
+        )
 
         # DataTable is always rendered (even when empty) as a Paper wrapper
         if not plant_list.has_table():
@@ -153,9 +155,7 @@ class TestPlantInstanceListPage:
                 "TC-REQ-003-002 FAIL: Expected DataTable or EmptyState on plant list"
             )
         else:
-            assert plant_list.is_table_visible(), (
-                "TC-REQ-003-002 FAIL: DataTable should be visible"
-            )
+            assert plant_list.is_table_visible(), "TC-REQ-003-002 FAIL: DataTable should be visible"
 
     @pytest.mark.requires_desktop
     @pytest.mark.smoke
@@ -167,8 +167,7 @@ class TestPlantInstanceListPage:
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
         plant_list.open()
-        screenshot("TC-REQ-003-003_plant-list-column-headers",
-                   "Plant instance list column headers")
+        screenshot("TC-REQ-003-003_plant-list-column-headers", "Plant instance list column headers")
 
         # Check that DataTable exists before inspecting headers
         if not plant_list.has_table():
@@ -180,10 +179,7 @@ class TestPlantInstanceListPage:
 
         # The current-phase column label comes from i18n key pages.plantInstances.currentPhase
         # DE translation: "Aktuelle Phase"
-        has_phase_col = any(
-            "phase" in h.lower() or "Phase" in h
-            for h in headers
-        )
+        has_phase_col = any("phase" in h.lower() or "Phase" in h for h in headers)
         assert has_phase_col, (
             f"TC-REQ-003-003 FAIL: Expected a column related to 'Phase' in headers, got {headers}"
         )
@@ -197,8 +193,10 @@ class TestPlantInstanceListPage:
         Spec: TC-003-033 -- Pflanzinstanz erstellen mit Spezies-Zuordnung.
         """
         plant_list.open()
-        screenshot("TC-REQ-003-004_plant-list-create-button",
-                   "Plant instance list with create button visible")
+        screenshot(
+            "TC-REQ-003-004_plant-list-create-button",
+            "Plant instance list with create button visible",
+        )
 
         btn = plant_list.wait_for_element_clickable(plant_list.CREATE_BUTTON)
         assert btn.is_displayed(), (
@@ -214,8 +212,9 @@ class TestPlantInstanceListPage:
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
         plant_list.open()
-        screenshot("TC-REQ-003-005_plant-list-phase-chips",
-                   "Plant instance list rows with phase chips")
+        screenshot(
+            "TC-REQ-003-005_plant-list-phase-chips", "Plant instance list rows with phase chips"
+        )
 
         _ensure_plants(plant_list)
 
@@ -239,12 +238,10 @@ class TestPlantInstanceListPage:
         first_ids = plant_list.get_first_column_texts()
         search_term = first_ids[0][:4] if first_ids else "PLANT"
 
-        screenshot("TC-REQ-003-006_before-search",
-                   "Plant instance list before search")
+        screenshot("TC-REQ-003-006_before-search", "Plant instance list before search")
         plant_list.search(search_term)
         plant_list.wait_for_loading_complete()
-        screenshot("TC-REQ-003-006_after-search",
-                   "Plant instance list after search filter applied")
+        screenshot("TC-REQ-003-006_after-search", "Plant instance list after search filter applied")
 
         assert plant_list.has_search_chip(), (
             f"TC-REQ-003-006 FAIL: Expected search chip after searching for '{search_term}'"
@@ -264,12 +261,12 @@ class TestPlantInstanceListPage:
         if not headers:
             pytest.skip("No column headers found")
 
-        screenshot("TC-REQ-003-007_before-sort",
-                   "Plant instance list before sorting")
+        screenshot("TC-REQ-003-007_before-sort", "Plant instance list before sorting")
         plant_list.click_column_header(headers[0])
         plant_list.wait_for_loading_complete()
-        screenshot("TC-REQ-003-007_after-sort",
-                   "Plant instance list after clicking column header to sort")
+        screenshot(
+            "TC-REQ-003-007_after-sort", "Plant instance list after clicking column header to sort"
+        )
 
         assert plant_list.has_sort_chip(), (
             "TC-REQ-003-007 FAIL: Expected a sort chip after clicking column header"
@@ -286,12 +283,15 @@ class TestPlantInstanceListPage:
         plant_list.open()
         _ensure_plants(plant_list)
 
-        screenshot("TC-REQ-003-008_before-row-click",
-                   "Plant instance list before clicking first row")
+        screenshot(
+            "TC-REQ-003-008_before-row-click", "Plant instance list before clicking first row"
+        )
         plant_list.click_row(0)
         plant_list.wait_for_url_contains("/pflanzen/plant-instances/")
-        screenshot("TC-REQ-003-008_after-row-click",
-                   "Plant instance detail page after row click navigation")
+        screenshot(
+            "TC-REQ-003-008_after-row-click",
+            "Plant instance detail page after row click navigation",
+        )
 
         current_url = plant_list.driver.current_url
         assert "/pflanzen/plant-instances/" in current_url, (
@@ -310,8 +310,7 @@ class TestPlantInstanceListPage:
         # The showing-count element is only rendered when the DataTable has
         # items — self-provision a plant so the footer always renders (#589).
         _ensure_plants(plant_list)
-        screenshot("TC-REQ-003-009_showing-count",
-                   "Plant instance list showing-count footer")
+        screenshot("TC-REQ-003-009_showing-count", "Plant instance list showing-count footer")
 
         count_text = plant_list.get_showing_count_text()
         assert count_text, (
@@ -344,8 +343,7 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-010_plant-detail-page-load",
-                   "Plant instance detail page after load")
+        screenshot("TC-REQ-003-010_plant-detail-page-load", "Plant instance detail page after load")
 
         title = plant_detail.get_title()
         assert title, (
@@ -369,8 +367,9 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-011_plant-info-card",
-                   "Plant instance detail page with plant info card")
+        screenshot(
+            "TC-REQ-003-011_plant-info-card", "Plant instance detail page with plant info card"
+        )
 
         assert plant_detail.is_plant_info_card_visible(), (
             "TC-REQ-003-011 FAIL: [data-testid='plant-info-card'] should be visible on detail page"
@@ -390,8 +389,9 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-012_phase-info-card",
-                   "Plant instance detail page with phase info card")
+        screenshot(
+            "TC-REQ-003-012_phase-info-card", "Plant instance detail page with phase info card"
+        )
 
         assert plant_detail.is_phase_info_card_visible(), (
             "TC-REQ-003-012 FAIL: [data-testid='phase-info-card'] should be visible on detail page"
@@ -411,8 +411,9 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-013_current-phase-chip",
-                   "Plant detail page showing current phase chip")
+        screenshot(
+            "TC-REQ-003-013_current-phase-chip", "Plant detail page showing current phase chip"
+        )
 
         phase_text = plant_detail.get_current_phase()
         assert phase_text, (
@@ -433,8 +434,9 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-014_transition-button",
-                   "Plant detail page with transition button visible")
+        screenshot(
+            "TC-REQ-003-014_transition-button", "Plant detail page with transition button visible"
+        )
 
         btn = plant_detail.wait_for_element(plant_detail.TRANSITION_BUTTON)
         assert btn.is_displayed(), (
@@ -455,8 +457,7 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-015_remove-button",
-                   "Plant detail page with remove button visible")
+        screenshot("TC-REQ-003-015_remove-button", "Plant detail page with remove button visible")
 
         btn = plant_detail.wait_for_element(plant_detail.REMOVE_BUTTON)
         assert btn.is_displayed(), (
@@ -477,14 +478,11 @@ class TestPlantInstanceDetailPage:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-016_phase-history",
-                   "Plant detail page phase history section")
+        screenshot("TC-REQ-003-016_phase-history", "Plant detail page phase history section")
 
         if plant_detail.has_phase_history():
             count = plant_detail.get_phase_history_count()
-            assert count > 0, (
-                "TC-REQ-003-016 FAIL: Phase history section is present but has 0 rows"
-            )
+            assert count > 0, "TC-REQ-003-016 FAIL: Phase history section is present but has 0 rows"
 
     @pytest.mark.core_crud
     def test_plant_detail_unknown_key_shows_error(
@@ -498,8 +496,9 @@ class TestPlantInstanceDetailPage:
         """
         plant_detail.navigate("/pflanzen/plant-instances/nonexistent-key-99999")
         plant_detail.wait_for_loading_complete()
-        screenshot("TC-REQ-003-017_unknown-plant-error",
-                   "Error display for unknown plant instance key")
+        screenshot(
+            "TC-REQ-003-017_unknown-plant-error", "Error display for unknown plant instance key"
+        )
 
         assert plant_detail.is_error_shown(), (
             "TC-REQ-003-017 FAIL: An error display should appear for an unknown plant instance key"
@@ -535,11 +534,12 @@ class TestPhaseTransitionDialog:
             key = _provision_plant_key(plant_list)
             plant_detail.open(key)
 
-        screenshot("TC-REQ-003-018_before-open-transition-dialog",
-                   "Plant detail page before opening transition dialog")
+        screenshot(
+            "TC-REQ-003-018_before-open-transition-dialog",
+            "Plant detail page before opening transition dialog",
+        )
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-018_transition-dialog-open",
-                   "Phase transition dialog open")
+        screenshot("TC-REQ-003-018_transition-dialog-open", "Phase transition dialog open")
 
         assert plant_detail.is_transition_dialog_open(), (
             "TC-REQ-003-018 FAIL: [data-testid='phase-transition-dialog'] should be visible after clicking transition button"
@@ -569,8 +569,10 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-019_transition-dialog-target-select",
-                   "Phase transition dialog with target phase select visible")
+        screenshot(
+            "TC-REQ-003-019_transition-dialog-target-select",
+            "Phase transition dialog with target phase select visible",
+        )
 
         select_el = plant_detail.wait_for_element_visible(plant_detail.TARGET_PHASE_SELECT)
         assert select_el.is_displayed(), (
@@ -600,8 +602,10 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-020_transition-reason-field",
-                   "Phase transition dialog with reason field visible")
+        screenshot(
+            "TC-REQ-003-020_transition-reason-field",
+            "Phase transition dialog with reason field visible",
+        )
 
         reason_el = plant_detail.wait_for_element_visible(plant_detail.TRANSITION_REASON)
         assert reason_el.is_displayed(), (
@@ -631,8 +635,10 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-021_transition-reason-default",
-                   "Phase transition dialog showing default reason value")
+        screenshot(
+            "TC-REQ-003-021_transition-reason-default",
+            "Phase transition dialog showing default reason value",
+        )
 
         reason_value = plant_detail.get_transition_reason_value()
         assert reason_value == "manual", (
@@ -662,8 +668,10 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-022_confirm-button-state-no-selection",
-                   "Transition dialog with confirm button disabled — no phase selected")
+        screenshot(
+            "TC-REQ-003-022_confirm-button-state-no-selection",
+            "Transition dialog with confirm button disabled — no phase selected",
+        )
 
         # Without selecting a phase, the confirm button should be disabled
         assert not plant_detail.is_confirm_button_enabled(), (
@@ -693,12 +701,15 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-023_dialog-open-before-cancel",
-                   "Transition dialog open before cancel")
+        screenshot(
+            "TC-REQ-003-023_dialog-open-before-cancel", "Transition dialog open before cancel"
+        )
 
         plant_detail.cancel_transition()
-        screenshot("TC-REQ-003-023_dialog-after-cancel",
-                   "Plant detail page after cancelling transition dialog")
+        screenshot(
+            "TC-REQ-003-023_dialog-after-cancel",
+            "Plant detail page after cancelling transition dialog",
+        )
 
         assert not plant_detail.is_transition_dialog_open(), (
             "TC-REQ-003-023 FAIL: Transition dialog should be closed after clicking Abbrechen"
@@ -725,13 +736,16 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         initial_phase = plant_detail.get_current_phase()
-        screenshot("TC-REQ-003-024_before-transition-dialog",
-                   "Plant detail page before opening transition dialog")
+        screenshot(
+            "TC-REQ-003-024_before-transition-dialog",
+            "Plant detail page before opening transition dialog",
+        )
 
         plant_detail.initiate_phase_transition()
         plant_detail.cancel_transition()
-        screenshot("TC-REQ-003-024_after-cancel",
-                   "Plant detail page after cancelling — phase unchanged")
+        screenshot(
+            "TC-REQ-003-024_after-cancel", "Plant detail page after cancelling — phase unchanged"
+        )
 
         current_phase = plant_detail.get_current_phase()
         assert current_phase == initial_phase, (
@@ -759,13 +773,16 @@ class TestPhaseTransitionDialog:
             plant_detail.open(key)
 
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-025_before-editing-reason",
-                   "Transition dialog before editing reason field")
+        screenshot(
+            "TC-REQ-003-025_before-editing-reason", "Transition dialog before editing reason field"
+        )
 
         custom_reason = "e2e_test_reason_custom"
         plant_detail.set_transition_reason(custom_reason)
-        screenshot("TC-REQ-003-025_after-editing-reason",
-                   "Transition dialog after editing reason to custom value")
+        screenshot(
+            "TC-REQ-003-025_after-editing-reason",
+            "Transition dialog after editing reason to custom value",
+        )
 
         value = plant_detail.get_transition_reason_value()
         assert value == custom_reason, (
@@ -816,8 +833,10 @@ class TestPhaseStateMachineEdgeCases:
         if removed_key is None:
             pytest.skip("No removed plant instances found in database")
 
-        screenshot("TC-REQ-003-026_removed-plant-detail",
-                   "Removed plant detail page with disabled transition button")
+        screenshot(
+            "TC-REQ-003-026_removed-plant-detail",
+            "Removed plant detail page with disabled transition button",
+        )
 
         btn = plant_detail.wait_for_element(plant_detail.TRANSITION_BUTTON)
         assert not btn.is_enabled() or btn.get_attribute("disabled") is not None, (
@@ -855,8 +874,10 @@ class TestPhaseStateMachineEdgeCases:
         if removed_key is None:
             pytest.skip("No removed plant instances found")
 
-        screenshot("TC-REQ-003-027_removed-plant-remove-button",
-                   "Removed plant detail page with disabled remove button")
+        screenshot(
+            "TC-REQ-003-027_removed-plant-remove-button",
+            "Removed plant detail page with disabled remove button",
+        )
 
         btn = plant_detail.wait_for_element(plant_detail.REMOVE_BUTTON)
         assert not btn.is_enabled() or btn.get_attribute("disabled") is not None, (
@@ -880,19 +901,20 @@ class TestPhaseStateMachineEdgeCases:
         if not plant_detail.is_remove_button_enabled():
             pytest.skip("Remove button is disabled — plant already removed")
 
-        screenshot("TC-REQ-003-028_before-remove",
-                   "Plant detail page before clicking remove button")
+        screenshot(
+            "TC-REQ-003-028_before-remove", "Plant detail page before clicking remove button"
+        )
         plant_detail.initiate_remove()
-        screenshot("TC-REQ-003-028_remove-dialog-open",
-                   "Remove confirmation dialog open")
+        screenshot("TC-REQ-003-028_remove-dialog-open", "Remove confirmation dialog open")
 
         assert plant_detail.is_confirm_dialog_visible(), (
             "TC-REQ-003-028 FAIL: Confirm dialog should be visible after clicking Entfernen"
         )
 
         plant_detail.cancel_remove()
-        screenshot("TC-REQ-003-028_after-cancel-remove",
-                   "Plant detail page after cancelling remove dialog")
+        screenshot(
+            "TC-REQ-003-028_after-cancel-remove", "Plant detail page after cancelling remove dialog"
+        )
 
         assert not plant_detail.is_confirm_dialog_visible(), (
             "TC-REQ-003-028 FAIL: Confirm dialog should close after clicking Abbrechen"
@@ -932,8 +954,10 @@ class TestPhaseStateMachineEdgeCases:
 
         plant_detail.open(enabled_key)
         plant_detail.initiate_phase_transition()
-        screenshot("TC-REQ-003-029_transition-dialog-phase-options",
-                   "Transition dialog showing phase options from lifecycle config")
+        screenshot(
+            "TC-REQ-003-029_transition-dialog-phase-options",
+            "Transition dialog showing phase options from lifecycle config",
+        )
 
         # Check the select element is present — options may be empty if lifecycle
         # is not configured; the test documents the expected behaviour.
@@ -958,8 +982,7 @@ class TestPhaseStateMachineEdgeCases:
         key = _get_first_plant_key(plant_list)
 
         plant_detail.open(key)
-        screenshot("TC-REQ-003-030_plant-detail-url",
-                   "Plant instance detail page URL verification")
+        screenshot("TC-REQ-003-030_plant-detail-url", "Plant instance detail page URL verification")
 
         current_url = plant_detail.driver.current_url
         expected_segment = f"/pflanzen/plant-instances/{key}"
@@ -1001,8 +1024,9 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-003F")
         plant_detail.open(key)
         initial_phase = plant_detail.get_current_phase()
-        screenshot("TC-REQ-003-J046_initial",
-                   f"Self-provisioned plant {instance_id} at start phase")
+        screenshot(
+            "TC-REQ-003-J046_initial", f"Self-provisioned plant {instance_id} at start phase"
+        )
 
         plant_detail.initiate_phase_transition()
         option_keys = plant_detail.get_target_phase_option_keys()
@@ -1015,8 +1039,7 @@ class TestCoreLifecycleJourneyPhaseTransitions:
             option_keys[len(option_keys) // 2], reason="Keimung abgeschlossen"
         )
         plant_detail.wait_for_transition_dialog_closed()
-        screenshot("TC-REQ-003-J046_after-step1",
-                   "Plant after first forward phase transition")
+        screenshot("TC-REQ-003-J046_after-step1", "Plant after first forward phase transition")
 
         # Forward step 2 — advance to the final phase. Only attempt this for a
         # lifecycle with >= 3 phases: for a 2-phase species step 1 (index
@@ -1030,8 +1053,7 @@ class TestCoreLifecycleJourneyPhaseTransitions:
             option_keys2 = plant_detail.get_target_phase_option_keys()
             plant_detail.transition_to_phase_key(option_keys2[-1], reason="Weiter getrieben")
             plant_detail.wait_for_transition_dialog_closed()
-            screenshot("TC-REQ-003-J046_after-step2",
-                       "Plant after second forward phase transition")
+            screenshot("TC-REQ-003-J046_after-step2", "Plant after second forward phase transition")
 
         final_phase = plant_detail.get_current_phase()
         assert final_phase and final_phase != initial_phase, (
@@ -1075,9 +1097,11 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         plant_detail.select_target_phase(option_keys[0])
         plant_detail.confirm_transition()
         import time
+
         time.sleep(1.0)
-        screenshot("TC-REQ-003-J047_backward-rejected",
-                   "Backward transition rejected — dialog stays open")
+        screenshot(
+            "TC-REQ-003-J047_backward-rejected", "Backward transition rejected — dialog stays open"
+        )
         assert plant_detail.is_transition_dialog_open(), (
             "TC-REQ-003-J047 FAIL: Backward transition without correction mode should "
             "keep the dialog open (rejected)"
@@ -1091,8 +1115,9 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         plant_detail.select_target_phase(option_keys[0])
         plant_detail.confirm_transition()
         plant_detail.wait_for_transition_dialog_closed()
-        screenshot("TC-REQ-003-J047_corrected",
-                   f"Plant {instance_id} corrected back to earlier phase")
+        screenshot(
+            "TC-REQ-003-J047_corrected", f"Plant {instance_id} corrected back to earlier phase"
+        )
         assert not plant_detail.is_transition_dialog_open(), (
             "TC-REQ-003-J047 FAIL: Correction transition should close the dialog on success"
         )
@@ -1109,20 +1134,19 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         Spec: TC-003-048 -- Ist-Stand-Start (flowering) → harvest (self-provisioning).
         """
         # phase_index=-2 selects a late start phase (Ist-Stand-Erfassung).
-        key, instance_id = provision_plant(
-            plant_creator, id_prefix="JOURNEY-003I", phase_index=-2
-        )
+        key, instance_id = provision_plant(plant_creator, id_prefix="JOURNEY-003I", phase_index=-2)
         plant_detail.open(key)
         start_phase = plant_detail.get_current_phase()
-        screenshot("TC-REQ-003-J048_ist-stand-start",
-                   f"Plant {instance_id} started at Ist-Stand phase '{start_phase}'")
+        screenshot(
+            "TC-REQ-003-J048_ist-stand-start",
+            f"Plant {instance_id} started at Ist-Stand phase '{start_phase}'",
+        )
 
         plant_detail.initiate_phase_transition()
         option_keys = plant_detail.get_target_phase_option_keys()
         plant_detail.transition_to_phase_key(option_keys[-1], reason="Ernte erreicht")
         plant_detail.wait_for_transition_dialog_closed()
-        screenshot("TC-REQ-003-J048_harvest",
-                   "Plant advanced to the final (harvest) phase")
+        screenshot("TC-REQ-003-J048_harvest", "Plant advanced to the final (harvest) phase")
 
         final_phase = plant_detail.get_current_phase()
         assert final_phase and final_phase != start_phase, (

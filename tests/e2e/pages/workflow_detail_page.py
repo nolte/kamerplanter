@@ -51,15 +51,17 @@ class WorkflowDetailPage(BasePage):
         for _ in range(3):
             try:
                 el = self.wait_for_element(
-                    (By.CSS_SELECTOR, "[data-testid='workflow-detail-page'] [data-testid='page-title']")
+                    (
+                        By.CSS_SELECTOR,
+                        "[data-testid='workflow-detail-page'] [data-testid='page-title']",
+                    )
                 )
                 return el.text
             except StaleElementReferenceException:
                 import time
+
                 time.sleep(0.5)
-        el = self.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='page-title']")
-        )
+        el = self.wait_for_element((By.CSS_SELECTOR, "[data-testid='page-title']"))
         return el.text
 
     # ── Tabs ───────────────────────────────────────────────────────────
@@ -71,9 +73,7 @@ class WorkflowDetailPage(BasePage):
 
     def get_active_tab_label(self) -> str:
         """Return the text of the currently active tab."""
-        active = self.driver.find_element(
-            By.CSS_SELECTOR, "[role='tab'][aria-selected='true']"
-        )
+        active = self.driver.find_element(By.CSS_SELECTOR, "[role='tab'][aria-selected='true']")
         return active.text
 
     def click_tab(self, label: str) -> None:

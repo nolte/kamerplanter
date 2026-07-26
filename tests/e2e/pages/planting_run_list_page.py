@@ -38,14 +38,23 @@ class PlantingRunListPage(BasePage):
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
     FORM_RUN_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-run_type'] .MuiSelect-select")
     FORM_SITE_KEY = (By.CSS_SELECTOR, "[data-testid='form-field-site_key'] .MuiSelect-select")
-    FORM_LOCATION_KEY = (By.CSS_SELECTOR, "[data-testid='form-field-location_key'] .MuiSelect-select")
+    FORM_LOCATION_KEY = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-location_key'] .MuiSelect-select",
+    )
     FORM_PLANNED_START = (By.CSS_SELECTOR, "[data-testid='form-field-planned_start_date'] input")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] input")
     # Entry row fields — zero-indexed entry
-    FORM_ENTRY_SPECIES = (By.CSS_SELECTOR, "[data-testid='form-field-entries.0.species_key'] .MuiSelect-select")
+    FORM_ENTRY_SPECIES = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-entries.0.species_key'] .MuiSelect-select",
+    )
     FORM_ENTRY_QUANTITY = (By.CSS_SELECTOR, "[data-testid='form-field-entries.0.quantity'] input")
     FORM_ENTRY_ID_PREFIX = (By.CSS_SELECTOR, "[data-testid='form-field-entries.0.id_prefix'] input")
-    FORM_ENTRY_ROLE = (By.CSS_SELECTOR, "[data-testid='form-field-entries.0.role'] .MuiSelect-select")
+    FORM_ENTRY_ROLE = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-entries.0.role'] .MuiSelect-select",
+    )
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
 

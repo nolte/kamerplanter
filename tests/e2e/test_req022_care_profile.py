@@ -98,9 +98,7 @@ def _care_card_plant_key(
     """
     cards = pflege.get_all_care_cards()
     if not cards:
-        plant_key = _provision_plant_with_watering_card(
-            plant_creator, pflege, id_prefix=id_prefix
-        )
+        plant_key = _provision_plant_with_watering_card(plant_creator, pflege, id_prefix=id_prefix)
         pflege.open()
         return plant_key
     testid = cards[0].get_attribute("data-testid") or ""
@@ -627,9 +625,7 @@ class TestWateringCyclePropagation:
         Self-provisioning: a fresh plant with a live watering card is created via
         the real UI, so the test never depends on seed data.
         """
-        plant_key = _provision_plant_with_watering_card(
-            plant_creator, pflege, id_prefix="TC089"
-        )
+        plant_key = _provision_plant_with_watering_card(plant_creator, pflege, id_prefix="TC089")
         pflege.open()
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()
@@ -686,9 +682,7 @@ class TestWateringCyclePropagation:
         card count afterwards is one *or zero*, never two. The assertion therefore
         checks that the count does not increase (rather than staying exactly one).
         """
-        plant_key = _provision_plant_with_watering_card(
-            plant_creator, pflege, id_prefix="TC090"
-        )
+        plant_key = _provision_plant_with_watering_card(plant_creator, pflege, id_prefix="TC090")
         before = pflege.count_care_cards_for_plant(plant_key, "watering")
         screenshot(
             "TC-REQ-022-036_before-interval-change",
@@ -737,9 +731,7 @@ class TestWateringCyclePropagation:
         Self-provisioning: a fresh plant with a live watering card is created via
         the real UI, so the test never depends on seed data.
         """
-        plant_key = _provision_plant_with_watering_card(
-            plant_creator, pflege, id_prefix="TC092"
-        )
+        plant_key = _provision_plant_with_watering_card(plant_creator, pflege, id_prefix="TC092")
         pflege.open()
         pflege.click_edit_profile_on_card(plant_key)
         pflege.wait_for_profile_dialog()

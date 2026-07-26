@@ -48,7 +48,10 @@ class TestSpeciesListPage:
         Spec: TC-001-019 — Species-Liste laden und Grundspalten prüfen.
         """
         species_list.open()
-        screenshot("TC-REQ-001-029_species-list-loaded", "Species list page after initial load — DataTable with seed data visible")
+        screenshot(
+            "TC-REQ-001-029_species-list-loaded",
+            "Species list page after initial load — DataTable with seed data visible",
+        )
 
         headers = species_list.get_column_headers()
         assert any("Wissenschaftlicher Name" in h for h in headers), (
@@ -73,7 +76,9 @@ class TestSpeciesListPage:
         screenshot("TC-REQ-001-031_before-row-click", "Species list before clicking first row")
         species_list.click_row(0)
         species_list.wait_for_url_contains("/stammdaten/species/")
-        screenshot("TC-REQ-001-031_after-row-click", "Species detail page after row click navigation")
+        screenshot(
+            "TC-REQ-001-031_after-row-click", "Species detail page after row click navigation"
+        )
 
         assert "/stammdaten/species/" in species_list.driver.current_url
 
@@ -93,7 +98,10 @@ class TestSpeciesCreateDialog:
         screenshot("TC-REQ-001-033_before-create", "Species list page before opening create dialog")
 
         species_list.click_create()
-        screenshot("TC-REQ-001-033_create-dialog-open", "Species create dialog with form fields visible (all fields expanded)")
+        screenshot(
+            "TC-REQ-001-033_create-dialog-open",
+            "Species create dialog with form fields visible (all fields expanded)",
+        )
 
         assert species_list.is_create_dialog_open(), "Create dialog should be open"
 
@@ -112,11 +120,17 @@ class TestSpeciesCreateDialog:
         scientific_name = f"Testus e2e{unique}"
         species_list.fill_scientific_name(scientific_name)
         species_list.set_field("genus", "Testus")
-        screenshot("TC-REQ-001-034_form-filled", f"Create dialog with scientific_name='{scientific_name}' and genus='Testus' filled in")
+        screenshot(
+            "TC-REQ-001-034_form-filled",
+            f"Create dialog with scientific_name='{scientific_name}' and genus='Testus' filled in",
+        )
 
         species_list.submit_form()
         species_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-034_after-create", "Species list after successful creation — dialog closed, list refreshed")
+        screenshot(
+            "TC-REQ-001-034_after-create",
+            "Species list after successful creation — dialog closed, list refreshed",
+        )
 
     @pytest.mark.core_crud
     def test_validation_empty_scientific_name(
@@ -131,7 +145,10 @@ class TestSpeciesCreateDialog:
         species_list.fill_scientific_name("")
         species_list.submit_form()
 
-        screenshot("TC-REQ-001-035_validation-error", "Create dialog after submitting empty scientific_name — validation error expected")
+        screenshot(
+            "TC-REQ-001-035_validation-error",
+            "Create dialog after submitting empty scientific_name — validation error expected",
+        )
         assert species_list.is_create_dialog_open(), "Dialog should remain open"
 
     @pytest.mark.core_crud
@@ -147,11 +164,17 @@ class TestSpeciesCreateDialog:
 
         unique = uuid.uuid4().hex[:6]
         species_list.fill_scientific_name(f"Orphana speciesii{unique}")
-        screenshot("TC-REQ-001-037_no-family-filled", "Create dialog with scientific_name filled but no family selected")
+        screenshot(
+            "TC-REQ-001-037_no-family-filled",
+            "Create dialog with scientific_name filled but no family selected",
+        )
 
         species_list.submit_form()
         species_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-037_after-create-no-family", "Species list after creating species without family")
+        screenshot(
+            "TC-REQ-001-037_after-create-no-family",
+            "Species list after creating species without family",
+        )
 
 
 class TestSpeciesDetailPage:
@@ -159,7 +182,9 @@ class TestSpeciesDetailPage:
 
     @pytest.mark.core_crud
     def test_display_species_detail_with_tabs(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-038: Display species detail page with tabs.
@@ -174,7 +199,10 @@ class TestSpeciesDetailPage:
         species_list.wait_for_url_contains("/stammdaten/species/")
 
         title = species_detail.get_title()
-        screenshot("TC-REQ-001-038_species-detail-tabs", f"Species detail page for '{title}' — tabs and delete button visible")
+        screenshot(
+            "TC-REQ-001-038_species-detail-tabs",
+            f"Species detail page for '{title}' — tabs and delete button visible",
+        )
 
         assert title, "Page title should show species name"
         tabs = species_detail.get_tab_labels()
@@ -182,7 +210,9 @@ class TestSpeciesDetailPage:
         assert len(tabs_upper) >= 6, f"Expected at least 6 tabs, got {tabs}"
         assert any("BEARBEITEN" in t for t in tabs_upper), f"Expected 'Bearbeiten' tab, got {tabs}"
         assert any("SORTEN" in t for t in tabs_upper), f"Expected 'Sorten' tab, got {tabs}"
-        assert any("LEBENSZYKLUS" in t for t in tabs_upper), f"Expected 'Lebenszyklus' tab, got {tabs}"
+        assert any("LEBENSZYKLUS" in t for t in tabs_upper), (
+            f"Expected 'Lebenszyklus' tab, got {tabs}"
+        )
         # The Mischkultur (companion-planting) and Fruchtfolge (crop-rotation)
         # tabs are expert-only (isFieldVisible('expert')); a light-mode tenant
         # defaults to BEGINNER, so they are intentionally hidden here. Their
@@ -198,7 +228,9 @@ class TestSpeciesDetailPage:
 
     @pytest.mark.core_crud
     def test_edit_species_data(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-039: Edit species data on the 'Bearbeiten' tab.
@@ -221,18 +253,26 @@ class TestSpeciesDetailPage:
 
         unique = uuid.uuid4().hex[:6]
         species_detail.set_field("description", f"E2E-Updated {unique}")
-        screenshot("TC-REQ-001-039_field-modified", f"Description field changed to 'E2E-Updated {unique}'")
+        screenshot(
+            "TC-REQ-001-039_field-modified", f"Description field changed to 'E2E-Updated {unique}'"
+        )
 
         species_detail.click_save()
         species_detail.wait_for_loading_complete()
-        screenshot("TC-REQ-001-039_after-save", "Species detail after saving — success feedback expected")
+        screenshot(
+            "TC-REQ-001-039_after-save", "Species detail after saving — success feedback expected"
+        )
 
         assert "/stammdaten/species/" in species_detail.driver.current_url
 
     @pytest.mark.core_crud
     def test_delete_species_with_confirmation(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
-        screenshot: Callable[..., Path], browser: WebDriver, base_url: str,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
+        screenshot: Callable[..., Path],
+        browser: WebDriver,
+        base_url: str,
     ) -> None:
         """TC-REQ-001-040: Delete a species with confirmation.
 
@@ -245,7 +285,10 @@ class TestSpeciesDetailPage:
         species_list.fill_scientific_name(f"Deletus testii{unique}")
         species_list.submit_form()
         species_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-040_species-created", f"Species 'Deletus testii{unique}' created for deletion test")
+        screenshot(
+            "TC-REQ-001-040_species-created",
+            f"Species 'Deletus testii{unique}' created for deletion test",
+        )
 
         # Navigate to its detail
         try:
@@ -254,11 +297,18 @@ class TestSpeciesDetailPage:
             pytest.skip("Species not found after creation")
 
         species_list.wait_for_url_contains("/stammdaten/species/")
-        screenshot("TC-REQ-001-040_detail-before-delete", "Species detail page before clicking delete")
+        screenshot(
+            "TC-REQ-001-040_detail-before-delete", "Species detail page before clicking delete"
+        )
 
         species_detail.click_delete()
-        screenshot("TC-REQ-001-040_confirm-dialog", "Delete confirmation dialog open — Abbrechen/Loeschen buttons visible")
+        screenshot(
+            "TC-REQ-001-040_confirm-dialog",
+            "Delete confirmation dialog open — Abbrechen/Loeschen buttons visible",
+        )
 
         species_detail.confirm_delete()
         species_detail.wait_for_url_contains("/stammdaten/species")
-        screenshot("TC-REQ-001-040_after-delete", "Species list after deletion — species should be gone")
+        screenshot(
+            "TC-REQ-001-040_after-delete", "Species list after deletion — species should be gone"
+        )

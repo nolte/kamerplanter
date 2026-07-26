@@ -124,7 +124,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--resume",
         default=None,
         help="Resume a previous interrupted test run from checkpoint. "
-             "Pass the test-reports/e2e/<timestamp>/ directory path.",
+        "Pass the test-reports/e2e/<timestamp>/ directory path.",
     )
     parser.addoption(
         "--device",
@@ -551,10 +551,26 @@ def _api_helpers(auth_token: str | None = None):
 # (dashboard/plants/locations/settings/onboarding) are validated-away by the
 # backend, so listing them is harmless — we only send the toggleable set.
 _E2E_TOGGLEABLE_MODULES = (
-    "care", "calendar", "watering", "tasks", "nutrition", "tanks", "aquaponics",
-    "substrates", "calculators", "ipm", "harvest", "post_harvest", "runs",
-    "propagation", "master_data", "companion", "sensors", "automation",
-    "smart_home", "ai",
+    "care",
+    "calendar",
+    "watering",
+    "tasks",
+    "nutrition",
+    "tanks",
+    "aquaponics",
+    "substrates",
+    "calculators",
+    "ipm",
+    "harvest",
+    "post_harvest",
+    "runs",
+    "propagation",
+    "master_data",
+    "companion",
+    "sensors",
+    "automation",
+    "smart_home",
+    "ai",
 )
 
 
@@ -604,17 +620,23 @@ def _register_and_login(api_base: str) -> tuple[str, str]:
     _post, _get = _api_helpers()
 
     # Register — idempotent: returns 201 for new, 201 for existing (SEC-H-009)
-    _post(f"{api_base}/api/v1/auth/register", {
-        "email": DEMO_EMAIL_FULL,
-        "password": DEMO_PASSWORD,
-        "display_name": DEMO_DISPLAY_NAME,
-    })
+    _post(
+        f"{api_base}/api/v1/auth/register",
+        {
+            "email": DEMO_EMAIL_FULL,
+            "password": DEMO_PASSWORD,
+            "display_name": DEMO_DISPLAY_NAME,
+        },
+    )
 
     # Login to get JWT
-    status, resp = _post(f"{api_base}/api/v1/auth/login", {
-        "email": DEMO_EMAIL_FULL,
-        "password": DEMO_PASSWORD,
-    })
+    status, resp = _post(
+        f"{api_base}/api/v1/auth/login",
+        {
+            "email": DEMO_EMAIL_FULL,
+            "password": DEMO_PASSWORD,
+        },
+    )
     if status != 200 or "access_token" not in resp:
         raise RuntimeError(f"E2E seed login failed: status={status}, resp={resp}")
 
@@ -682,29 +704,38 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
             if tree_status == 200 and isinstance(tree, list) and tree:
                 result["location_key"] = tree[0]["key"]
         else:
-            status, site = _post(f"{api}/sites", {
-                "name": SITE_NAME,
-                "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
-                "climate_zone": "8a",
-                "total_area_m2": 45,
-                "timezone": "Europe/Berlin",
-            })
+            status, site = _post(
+                f"{api}/sites",
+                {
+                    "name": SITE_NAME,
+                    "description": "Automatisch angelegt fuer E2E-Tests — Balkon und Wohnzimmer",
+                    "climate_zone": "8a",
+                    "total_area_m2": 45,
+                    "timezone": "Europe/Berlin",
+                },
+            )
             if status == 201:
                 result["site_key"] = site["key"]
-                loc_status, loc = _post(f"{api}/locations", {
-                    "name": LOCATION_NAME,
-                    "site_key": site["key"],
-                    "location_type_key": "room",
-                    "area_m2": 18,
-                })
+                loc_status, loc = _post(
+                    f"{api}/locations",
+                    {
+                        "name": LOCATION_NAME,
+                        "site_key": site["key"],
+                        "location_type_key": "room",
+                        "area_m2": 18,
+                    },
+                )
                 if loc_status == 201:
                     result["location_key"] = loc["key"]
-                _post(f"{api}/locations", {
-                    "name": SLOT_LOCATION_NAME,
-                    "site_key": site["key"],
-                    "location_type_key": "greenhouse",
-                    "area_m2": 12,
-                })
+                _post(
+                    f"{api}/locations",
+                    {
+                        "name": SLOT_LOCATION_NAME,
+                        "site_key": site["key"],
+                        "location_type_key": "greenhouse",
+                        "area_m2": 12,
+                    },
+                )
 
         # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
         # Find-or-create: this session fixture runs once per xdist worker
@@ -808,7 +839,9 @@ def _fresh_access_token(e2e_seed_data: dict, base_url: str) -> str | None:
     return token
 
 
-def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None) -> tuple[int, dict]:
+def _e2e_api_post(
+    e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None
+) -> tuple[int, dict]:
     """Make an authenticated POST to a tenant-scoped API endpoint.
 
     Helper for test fixtures that need to call the backend API (e.g. resetting
@@ -834,7 +867,9 @@ def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | No
 
 
 @pytest.fixture(scope="function")
-def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict) -> webdriver.Remote:
+def browser(
+    request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile: dict
+) -> webdriver.Remote:
     """Create a fresh headless browser session per test (NFR-008 §3.1).
 
     Depends on ``e2e_seed_data`` to ensure the demo user exists before
@@ -922,10 +957,7 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
         chromium_snap = shutil.which("chromium-browser") or shutil.which("chromium")
         if chromium_snap and not shutil.which("google-chrome"):
             options.binary_location = chromium_snap
-        chromedriver_path = (
-            shutil.which("chromedriver")
-            or shutil.which("chromium.chromedriver")
-        )
+        chromedriver_path = shutil.which("chromedriver") or shutil.which("chromium.chromedriver")
         if chromedriver_path:
             service = ChromeService(chromedriver_path)
         elif ChromeDriverManager is not None:
@@ -937,19 +969,28 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
     # ── Apply device emulation via CDP (Chrome only) ──────────────────
     if dev["name"] != "desktop":
         try:
-            driver.execute_cdp_cmd("Emulation.setDeviceMetricsOverride", {
-                "width": dev["width"],
-                "height": dev["height"],
-                "deviceScaleFactor": dev["deviceScaleFactor"],
-                "mobile": dev["mobile"],
-            })
+            driver.execute_cdp_cmd(
+                "Emulation.setDeviceMetricsOverride",
+                {
+                    "width": dev["width"],
+                    "height": dev["height"],
+                    "deviceScaleFactor": dev["deviceScaleFactor"],
+                    "mobile": dev["mobile"],
+                },
+            )
             if dev["userAgent"]:
-                driver.execute_cdp_cmd("Emulation.setUserAgentOverride", {
-                    "userAgent": dev["userAgent"],
-                })
-            driver.execute_cdp_cmd("Emulation.setTouchEmulationEnabled", {
-                "enabled": True,
-            })
+                driver.execute_cdp_cmd(
+                    "Emulation.setUserAgentOverride",
+                    {
+                        "userAgent": dev["userAgent"],
+                    },
+                )
+            driver.execute_cdp_cmd(
+                "Emulation.setTouchEmulationEnabled",
+                {
+                    "enabled": True,
+                },
+            )
         except Exception:
             # CDP not available (Firefox, older grids) — viewport size is
             # already set via window-size argument, so tests still run at
@@ -975,9 +1016,7 @@ def browser(request: pytest.FixtureRequest, e2e_seed_data: dict, device_profile:
     # first so that localStorage is bound to the correct domain.
     url = os.environ.get("E2E_BASE_URL") or request.config.getoption("--base-url")
     driver.get(url)
-    driver.execute_script(
-        "window.localStorage.setItem('kamerplanter-lang', 'de');"
-    )
+    driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'de');")
 
     # ── Enable all toggleable modules (REQ-042 ModuleGuard) ──────────────
     # In light mode the frontend treats localStorage key 'kp-module-visibility'
@@ -1018,9 +1057,9 @@ def _browser_login(driver: webdriver.Remote, base_url: str) -> None:
     driver.get(f"{base_url}/login")
     wait = WebDriverWait(driver, 15)
 
-    email_input = wait.until(EC.presence_of_element_located(
-        (By.CSS_SELECTOR, "input[type='email']")
-    ))
+    email_input = wait.until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='email']"))
+    )
     email_input.clear()
     email_input.send_keys(DEMO_EMAIL_FULL)
 
@@ -1075,9 +1114,7 @@ def screenshot_dir(request: pytest.FixtureRequest) -> Path:
     protocol plugin so that screenshots and the Markdown report live in the
     same timestamped folder.  Otherwise a standalone directory is created.
     """
-    protocol_dir: Path | None = getattr(
-        request.config, "_protocol_output_dir", None
-    )
+    protocol_dir: Path | None = getattr(request.config, "_protocol_output_dir", None)
     if protocol_dir is not None:
         path = protocol_dir / "screenshots"
     else:
@@ -1130,6 +1167,7 @@ def screenshot(
             capture = request.node._screenshot_capture
             capture("req014_001_tank_list")
     """
+
     def _capture(name: str, description: str = "") -> Path:
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
@@ -1274,9 +1312,7 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             docstring = ""
             if item.obj and item.obj.__doc__:
                 docstring = item.obj.__doc__.strip().split("\n")[0]
-            screenshots: list[ScreenshotEntry] = getattr(
-                item, "_protocol_screenshots", []
-            )
+            screenshots: list[ScreenshotEntry] = getattr(item, "_protocol_screenshots", [])
             result = TestResult(
                 nodeid=item.nodeid,
                 outcome=outcome_str,
@@ -1304,6 +1340,7 @@ def _write_checkpoint(result: TestResult) -> None:
     2. Resume a test run (``--resume``)
     """
     import json
+
     if _protocol_output_dir is None:
         return
     checkpoint = _protocol_output_dir / "checkpoint.jsonl"
@@ -1319,8 +1356,7 @@ def _write_checkpoint(result: TestResult) -> None:
         # generated docstring.
         "tc_id": result.tc_id,
         "screenshots": [
-            {"filename": s.filename, "description": s.description}
-            for s in result.screenshots
+            {"filename": s.filename, "description": s.description} for s in result.screenshots
         ],
     }
     with checkpoint.open("a", encoding="utf-8") as f:
@@ -1330,6 +1366,7 @@ def _write_checkpoint(result: TestResult) -> None:
 def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
     """Load results from a JSONL checkpoint file."""
     import json
+
     results: list[TestResult] = []
     if not checkpoint_path.exists():
         return results
@@ -1338,22 +1375,24 @@ def _load_checkpoint(checkpoint_path: Path) -> list[TestResult]:
         if not line:
             continue
         entry = json.loads(line)
-        results.append(TestResult(
-            nodeid=entry["nodeid"],
-            outcome=entry["outcome"],
-            duration=entry.get("duration", 0.0),
-            message=entry.get("message", ""),
-            docstring=entry.get("docstring", ""),
-            tc_id=entry.get("tc_id", ""),
-            screenshots=[
-                ScreenshotEntry(
-                    filename=s["filename"],
-                    description=s["description"],
-                    test_nodeid=entry["nodeid"],
-                )
-                for s in entry.get("screenshots", [])
-            ],
-        ))
+        results.append(
+            TestResult(
+                nodeid=entry["nodeid"],
+                outcome=entry["outcome"],
+                duration=entry.get("duration", 0.0),
+                message=entry.get("message", ""),
+                docstring=entry.get("docstring", ""),
+                tc_id=entry.get("tc_id", ""),
+                screenshots=[
+                    ScreenshotEntry(
+                        filename=s["filename"],
+                        description=s["description"],
+                        test_nodeid=entry["nodeid"],
+                    )
+                    for s in entry.get("screenshots", [])
+                ],
+            )
+        )
     return results
 
 
@@ -1427,6 +1466,7 @@ def pytest_configure_node(node) -> None:  # type: ignore[no-untyped-def]
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Initialize protocol generator if --generate-protocol is active."""
     import atexit
+
     global _protocol_generator, _protocol_output_dir, _is_xdist_worker
     global _junit_report_path
 

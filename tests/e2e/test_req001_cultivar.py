@@ -45,7 +45,10 @@ def _navigate_to_first_species_cultivar_tab(
     species_detail.click_tab_by_label("Sorten")
     species_detail.wait_for_loading_complete()
     if screenshot:
-        screenshot("cultivar-tab-loaded", "Species detail 'Sorten' tab — cultivar list or empty state visible")
+        screenshot(
+            "cultivar-tab-loaded",
+            "Species detail 'Sorten' tab — cultivar list or empty state visible",
+        )
 
 
 class TestCultivarListSection:
@@ -54,7 +57,9 @@ class TestCultivarListSection:
     @pytest.mark.smoke
     @pytest.mark.core_crud
     def test_display_cultivars_tab(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-042: Display cultivars tab for a species.
@@ -64,12 +69,16 @@ class TestCultivarListSection:
         _navigate_to_first_species_cultivar_tab(species_list, species_detail, screenshot)
 
         count = species_detail.get_cultivar_count()
-        screenshot("TC-REQ-001-042_cultivar-count", f"Cultivar tab rendered — {count} cultivars found")
+        screenshot(
+            "TC-REQ-001-042_cultivar-count", f"Cultivar tab rendered — {count} cultivars found"
+        )
         assert count >= 0, "Cultivar section should render"
 
     @pytest.mark.core_crud
     def test_click_cultivar_row_navigates_to_detail(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-043: Click on a cultivar row navigates to cultivar detail page.
@@ -81,11 +90,15 @@ class TestCultivarListSection:
         if species_detail.get_cultivar_count() == 0:
             pytest.skip("No cultivars for this species")
 
-        screenshot("TC-REQ-001-043_before-row-click", "Cultivar tab before clicking first cultivar row")
+        screenshot(
+            "TC-REQ-001-043_before-row-click", "Cultivar tab before clicking first cultivar row"
+        )
         species_detail.click_cultivar_row(0)
         species_detail.wait_for_url_contains("/cultivars/")
         species_detail.wait_for_loading_complete()
-        screenshot("TC-REQ-001-043_cultivar-detail", "Cultivar detail page after row click navigation")
+        screenshot(
+            "TC-REQ-001-043_cultivar-detail", "Cultivar detail page after row click navigation"
+        )
 
         assert "/cultivars/" in species_detail.driver.current_url
 
@@ -95,7 +108,9 @@ class TestCultivarCreateDialog:
 
     @pytest.mark.core_crud
     def test_create_cultivar_with_all_fields(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-045: Create a cultivar with all fields.
@@ -113,15 +128,23 @@ class TestCultivarCreateDialog:
             breeding_year="2020",
             days_to_maturity="80",
         )
-        screenshot("TC-REQ-001-045_form-filled", f"Cultivar create dialog filled — name='{cultivar_name}', breeder='E2E-Breeder', year=2020, maturity=80d")
+        screenshot(
+            "TC-REQ-001-045_form-filled",
+            f"Cultivar create dialog filled — name='{cultivar_name}', breeder='E2E-Breeder', year=2020, maturity=80d",
+        )
 
         species_detail.submit_cultivar_form()
         species_detail.wait_for_loading_complete()
-        screenshot("TC-REQ-001-045_after-create", "Cultivar tab after successful creation — new cultivar should appear in list")
+        screenshot(
+            "TC-REQ-001-045_after-create",
+            "Cultivar tab after successful creation — new cultivar should appear in list",
+        )
 
     @pytest.mark.core_crud
     def test_validation_empty_cultivar_name(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-046: Validation error — empty cultivar name.
@@ -134,14 +157,19 @@ class TestCultivarCreateDialog:
         species_detail.fill_cultivar_form("")
         species_detail.submit_cultivar_form()
 
-        screenshot("TC-REQ-001-046_validation-error", "Cultivar create dialog after submitting empty name — validation error expected, dialog stays open")
+        screenshot(
+            "TC-REQ-001-046_validation-error",
+            "Cultivar create dialog after submitting empty name — validation error expected, dialog stays open",
+        )
         assert species_detail.is_create_dialog_open(), (
             "TC-REQ-001-046 FAIL: Dialog should remain open after validation error"
         )
 
     @pytest.mark.core_crud
     def test_days_to_maturity_boundary(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-047: Days to maturity boundary values (1-365).
@@ -156,8 +184,14 @@ class TestCultivarCreateDialog:
             f"Boundary-{unique}",
             days_to_maturity="1",
         )
-        screenshot("TC-REQ-001-047_boundary-value", "Cultivar create dialog with days_to_maturity=1 (minimum boundary)")
+        screenshot(
+            "TC-REQ-001-047_boundary-value",
+            "Cultivar create dialog with days_to_maturity=1 (minimum boundary)",
+        )
 
         species_detail.submit_cultivar_form()
         species_detail.wait_for_loading_complete()
-        screenshot("TC-REQ-001-047_after-boundary-create", "Cultivar tab after creating cultivar with boundary value")
+        screenshot(
+            "TC-REQ-001-047_after-boundary-create",
+            "Cultivar tab after creating cultivar with boundary value",
+        )

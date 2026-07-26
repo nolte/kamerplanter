@@ -35,7 +35,10 @@ class SpeciesDetailPage(BasePage):
     # The Cultivar tab opens CultivarCreateDialog (cultivar-create-dialog),
     # the Lifecycle tab opens GrowthPhaseDialog (growth-phase-dialog).
     # Both are modal: at most one is open at a time.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='cultivar-create-dialog'], [data-testid='growth-phase-dialog']")
+    CREATE_DIALOG = (
+        By.CSS_SELECTOR,
+        "[data-testid='cultivar-create-dialog'], [data-testid='growth-phase-dialog']",
+    )
 
     # Lifecycle tab locators
     LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -95,7 +98,10 @@ class SpeciesDetailPage(BasePage):
     def set_field(self, field_name: str, value: str) -> None:
         # Try input first, fall back to textarea (multiline fields)
         locator_input = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] input")
-        locator_textarea = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] textarea:not([aria-hidden])")
+        locator_textarea = (
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}'] textarea:not([aria-hidden])",
+        )
         elements = self.driver.find_elements(*locator_input)
         if elements:
             el = self.wait_for_element_clickable(locator_input)
@@ -286,9 +292,7 @@ class SpeciesDetailPage(BasePage):
 
     def _poll_present(self, locator: tuple[str, str], timeout: int) -> bool:
         try:
-            WebDriverWait(self.driver, timeout).until(
-                lambda d: len(d.find_elements(*locator)) > 0
-            )
+            WebDriverWait(self.driver, timeout).until(lambda d: len(d.find_elements(*locator)) > 0)
         except TimeoutException:
             return False
         return True
@@ -316,8 +320,9 @@ class SpeciesDetailPage(BasePage):
         self.scroll_and_click(self.wait_for_element_clickable(self.PHASE_CREATE_BUTTON))
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
-    def fill_phase_form(self, name: str, display_name: str, duration: str,
-                        order: str, **kwargs: str) -> None:
+    def fill_phase_form(
+        self, name: str, display_name: str, duration: str, order: str, **kwargs: str
+    ) -> None:
         self.set_field("name", name)
         self.set_field("display_name", display_name)
         self.set_field("typical_duration_days", duration)
@@ -335,7 +340,10 @@ class SpeciesDetailPage(BasePage):
         # Target the submit button inside the create-dialog (GrowthPhaseDialog)
         # to avoid hitting the lifecycle config form's submit button
         self.wait_and_click(
-            (By.CSS_SELECTOR, "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']")
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']",
+            )
         )
 
     def click_phase_row(self, index: int) -> None:
@@ -381,9 +389,7 @@ class SpeciesDetailPage(BasePage):
         """
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
         if index >= len(rows):
-            raise ValueError(
-                f"Phase row {index} requested, but only {len(rows)} rows are listed"
-            )
+            raise ValueError(f"Phase row {index} requested, but only {len(rows)} rows are listed")
         buttons = rows[index].find_elements(*self.PHASE_DELETE_ACTION)
         if not buttons:
             raise ValueError(

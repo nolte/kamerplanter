@@ -41,10 +41,16 @@ class TestBotanicalFamilyCreateDialog:
         Spec: TC-001-006 -- Neue Botanische Familie erfolgreich erstellen (Dialog-Oeffnung).
         """
         family_list.open()
-        screenshot("TC-REQ-001-013_family-list-loaded", "Botanical family list page before opening create dialog")
+        screenshot(
+            "TC-REQ-001-013_family-list-loaded",
+            "Botanical family list page before opening create dialog",
+        )
 
         family_list.click_create()
-        screenshot("TC-REQ-001-013_create-dialog-open", "Botanical family create dialog with form fields visible")
+        screenshot(
+            "TC-REQ-001-013_create-dialog-open",
+            "Botanical family create dialog with form fields visible",
+        )
 
         assert family_list.is_create_dialog_open(), "Create dialog should be open"
 
@@ -97,7 +103,10 @@ class TestBotanicalFamilyCreateDialog:
         family_list.submit_create_form()
 
         family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-015_validation-error", "Create dialog after submitting name not ending with -aceae")
+        screenshot(
+            "TC-REQ-001-015_validation-error",
+            "Create dialog after submitting name not ending with -aceae",
+        )
 
         assert family_list.is_create_dialog_open(), (
             "TC-REQ-001-015 FAIL: Dialog should remain open after validation error"
@@ -136,7 +145,9 @@ class TestBotanicalFamilyCreateDialog:
 
         unique = uuid.uuid4().hex[:6]
         family_list.fill_name_only(f"Minimalaceae{unique}")
-        screenshot("TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimalaceae{unique}")
+        screenshot(
+            "TC-REQ-001-020_minimal-filled", f"Create dialog with only name Minimalaceae{unique}"
+        )
 
         family_list.submit_create_form()
 
@@ -199,7 +210,10 @@ class TestBotanicalFamilyCreateDialog:
             ph_min="3.0",
             ph_max="9.0",
         )
-        screenshot("TC-REQ-001-022_ph-boundary-filled", f"Create dialog with pH 3.0-9.0 for Boundaryaceae{unique}")
+        screenshot(
+            "TC-REQ-001-022_ph-boundary-filled",
+            f"Create dialog with pH 3.0-9.0 for Boundaryaceae{unique}",
+        )
 
         family_list.submit_create_form()
 
@@ -238,13 +252,18 @@ class TestBotanicalFamilyBackendValidation:
         except Exception:
             pytest.skip("nitrogen_fixing toggle not available in create dialog")
 
-        screenshot("TC-REQ-001-019_before-submit", "Create dialog with nitrogen_fixing + heavy demand")
+        screenshot(
+            "TC-REQ-001-019_before-submit", "Create dialog with nitrogen_fixing + heavy demand"
+        )
         family_list.submit_create_form()
 
         # Wait for backend response
         family_list.wait_for_loading_complete()
 
-        screenshot("TC-REQ-001-019_validation-result", "Result after submitting nitrogen_fixing + heavy demand")
+        screenshot(
+            "TC-REQ-001-019_validation-result",
+            "Result after submitting nitrogen_fixing + heavy demand",
+        )
 
         # Backend validation should either keep dialog open or show an error
         # snackbar. Both are valid outcomes.

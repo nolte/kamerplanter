@@ -48,9 +48,7 @@ class TestCropRotationView:
 
         # After selecting, the successor list should render
         count = rotation_page.get_successor_count()
-        assert count >= 0, (
-            "TC-REQ-001-071 FAIL: Successor list should render"
-        )
+        assert count >= 0, "TC-REQ-001-071 FAIL: Successor list should render"
 
     @pytest.mark.core_crud
     def test_add_rotation_successor(

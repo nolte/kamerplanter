@@ -70,9 +70,7 @@ class TaskDetailPage(BasePage):
 
     def get_task_title(self) -> str:
         """Return the page heading (task name) from the Typography h5/h6."""
-        el = self.wait_for_element(
-            (By.CSS_SELECTOR, "[data-testid='page-title']")
-        )
+        el = self.wait_for_element((By.CSS_SELECTOR, "[data-testid='page-title']"))
         return el.text
 
     def get_page_text(self) -> str:
@@ -89,9 +87,7 @@ class TaskDetailPage(BasePage):
 
     def get_active_tab_label(self) -> str:
         """Return the text of the currently active tab."""
-        active = self.driver.find_element(
-            By.CSS_SELECTOR, "[role='tab'][aria-selected='true']"
-        )
+        active = self.driver.find_element(By.CSS_SELECTOR, "[role='tab'][aria-selected='true']")
         return active.text
 
     def click_tab(self, label: str) -> None:
@@ -262,9 +258,7 @@ class TaskDetailPage(BasePage):
 
     def _get_field_errors(self) -> list[str]:
         """Return the inline validation errors currently rendered on the form."""
-        return [
-            e.text for e in self.driver.find_elements(*self.FORM_FIELD_ERRORS) if e.text
-        ]
+        return [e.text for e in self.driver.find_elements(*self.FORM_FIELD_ERRORS) if e.text]
 
     def _submit_registered(self) -> bool:
         """Return whether the click actually handed the form over to ``onSave``.
@@ -367,7 +361,7 @@ class TaskDetailPage(BasePage):
                 container = els[0].find_element(By.XPATH, "./..")
                 text = container.text.strip()
                 if text.startswith(label):
-                    text = text[len(label):]
+                    text = text[len(label) :]
                 return text.strip()
         return ""
 
@@ -397,6 +391,4 @@ class TaskDetailPage(BasePage):
         """
         self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
-        self.scroll_and_click(
-            self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM)
-        )
+        self.scroll_and_click(self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM))

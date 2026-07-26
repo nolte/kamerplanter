@@ -159,7 +159,9 @@ class TestImportDropdowns:
         import_page.open()
 
         options = import_page.get_duplicate_strategy_options()
-        screenshot("TC-REQ-012-004_duplicate-strategy-options", "Duplicate strategy dropdown opened")
+        screenshot(
+            "TC-REQ-012-004_duplicate-strategy-options", "Duplicate strategy dropdown opened"
+        )
 
         assert len(options) == 3, (
             f"TC-REQ-012-004 FAIL: Expected 3 duplicate strategy options, got {len(options)}: {options}"
@@ -318,9 +320,7 @@ class TestImportUploadAndPreview:
         # Seeded species (e.g. Solanum lycopersicum) appear as DUPLICATE, not VALID.
         invalid_count = import_page.count_invalid_rows()
         total_rows = import_page.get_preview_row_count()
-        assert total_rows > 0, (
-            "TC-REQ-012-009 FAIL: Expected at least one preview row"
-        )
+        assert total_rows > 0, "TC-REQ-012-009 FAIL: Expected at least one preview row"
         assert invalid_count == 0, (
             f"TC-REQ-012-009 FAIL: Expected no invalid rows in preview, but got {invalid_count} out of {total_rows}"
         )
@@ -405,9 +405,7 @@ class TestImportConfirmAndResult:
 
         # Result chips should exist
         chip_texts = import_page.get_result_chip_texts()
-        assert len(chip_texts) > 0, (
-            "TC-REQ-012-011 FAIL: Expected result chips on the result page"
-        )
+        assert len(chip_texts) > 0, "TC-REQ-012-011 FAIL: Expected result chips on the result page"
 
     @pytest.mark.core_crud
     def test_new_import_button_resets_to_step_one(
@@ -539,11 +537,15 @@ class TestImportErrorHandling:
             ["Tomate,Solanaceae,Solanum"],
         )
         import_page.select_file(csv_path)
-        screenshot("TC-REQ-012-015_before-missing-cols-upload", "Before uploading CSV with missing columns")
+        screenshot(
+            "TC-REQ-012-015_before-missing-cols-upload", "Before uploading CSV with missing columns"
+        )
 
         # This may either show an error on step 1 or advance to preview with all invalid rows
         import_page.click_upload_and_wait_error_or_preview()
-        screenshot("TC-REQ-012-015_missing-cols-result", "Result after uploading CSV with missing columns")
+        screenshot(
+            "TC-REQ-012-015_missing-cols-result", "Result after uploading CSV with missing columns"
+        )
 
         # Either an error alert is shown OR all preview rows are invalid
         if import_page.is_error_alert_visible():

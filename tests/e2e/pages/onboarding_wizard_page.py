@@ -150,7 +150,7 @@ class OnboardingWizardPage(BasePage):
                     urllib.request.Request(f"{base}/reset", method="POST", data=b""),
                     timeout=5,
                 )
-            except (urllib.error.URLError, OSError):
+            except urllib.error.URLError, OSError:
                 time.sleep(0.3)  # bounded backoff before retrying the reset POST
                 continue
 
@@ -166,7 +166,7 @@ class OnboardingWizardPage(BasePage):
                     and state.get("wizard_step", 0) == 0
                 ):
                     return
-            except (urllib.error.URLError, OSError, ValueError):
+            except urllib.error.URLError, OSError, ValueError:
                 pass
 
             time.sleep(0.3)  # bounded backoff before re-reading wizard state
@@ -260,9 +260,7 @@ class OnboardingWizardPage(BasePage):
 
     def get_stepper_labels(self) -> list[str]:
         """Return all step labels from the MUI Stepper."""
-        steps = self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiStepper-root .MuiStepLabel-label"
-        )
+        steps = self.driver.find_elements(By.CSS_SELECTOR, ".MuiStepper-root .MuiStepLabel-label")
         return [s.text for s in steps if s.text]
 
     # ── Button queries ─────────────────────────────────────────────────
@@ -424,6 +422,7 @@ class OnboardingWizardPage(BasePage):
     def is_experience_selected(self, level: str) -> bool:
         """Return True if the given experience level card has a primary-coloured border."""
         import time
+
         # bounded: the selection border is applied on the next React render and
         # has no distinct DOM signal to wait on
         time.sleep(0.2)
@@ -697,7 +696,10 @@ class OnboardingWizardPage(BasePage):
 
     def favorite_tile_has_kit_badge(self, species_key: str) -> bool:
         """Return True if a favorite tile has the 'Im Kit' badge (primary chip)."""
-        locator = (By.CSS_SELECTOR, f"[data-testid='favorite-tile-{species_key}'] .MuiChip-colorPrimary")
+        locator = (
+            By.CSS_SELECTOR,
+            f"[data-testid='favorite-tile-{species_key}'] .MuiChip-colorPrimary",
+        )
         return len(self.driver.find_elements(*locator)) > 0
 
     def search_favorites(self, term: str) -> None:
@@ -711,11 +713,10 @@ class OnboardingWizardPage(BasePage):
         # Look for the centered empty box
         empty_boxes = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "[data-testid='onboarding-step-favorites'] > div[style*='text-align: center']"
+            "[data-testid='onboarding-step-favorites'] > div[style*='text-align: center']",
         )
         return len(empty_boxes) > 0 or (
-            len(self.get_favorite_tiles()) == 0
-            and self.is_step_favorites_visible()
+            len(self.get_favorite_tiles()) == 0 and self.is_step_favorites_visible()
         )
 
     # ── Step 4: Site Setup interactions ────────────────────────────────
@@ -839,7 +840,9 @@ class OnboardingWizardPage(BasePage):
 
     def get_existing_site_cards(self) -> list[WebElement]:
         """Return all existing site card elements."""
-        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='site-option-']:not([data-testid='site-option-new'])")
+        return self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid^='site-option-']:not([data-testid='site-option-new'])"
+        )
 
     def is_site_name_field_visible(self) -> bool:
         """Return True if the site name input is visible in the DOM."""
@@ -945,6 +948,7 @@ class OnboardingWizardPage(BasePage):
     def _deselect_all_kits(self) -> None:
         """Deselect any currently selected kit cards (clean state for tests)."""
         import time
+
         selected = self.driver.find_elements(By.CSS_SELECTOR, "[data-selected='true']")
         for kit in selected:
             self.scroll_and_click(kit)

@@ -70,9 +70,7 @@ class TestNavigationAndRouting:
             f"TC-REQ-001-002 FAIL: URL should contain /stammdaten/species, got {browser.current_url}"
         )
         title = page.get_page_title()
-        assert "Arten" in title, (
-            f"TC-REQ-001-002 FAIL: Expected 'Arten', got '{title}'"
-        )
+        assert "Arten" in title, f"TC-REQ-001-002 FAIL: Expected 'Arten', got '{title}'"
 
     @pytest.mark.smoke
     def test_navigate_to_companion_planting(
@@ -90,9 +88,7 @@ class TestNavigationAndRouting:
             f"TC-REQ-001-003 FAIL: URL should contain /stammdaten/companion-planting, got {browser.current_url}"
         )
         title = page.get_page_title()
-        assert "Mischkultur" in title, (
-            f"TC-REQ-001-003 FAIL: Expected 'Mischkultur', got '{title}'"
-        )
+        assert "Mischkultur" in title, f"TC-REQ-001-003 FAIL: Expected 'Mischkultur', got '{title}'"
 
     @pytest.mark.smoke
     def test_navigate_to_crop_rotation(
@@ -110,9 +106,7 @@ class TestNavigationAndRouting:
             f"TC-REQ-001-004 FAIL: URL should contain /stammdaten/crop-rotation, got {browser.current_url}"
         )
         title = page.get_page_title()
-        assert "Fruchtfolge" in title, (
-            f"TC-REQ-001-004 FAIL: Expected 'Fruchtfolge', got '{title}'"
-        )
+        assert "Fruchtfolge" in title, f"TC-REQ-001-004 FAIL: Expected 'Fruchtfolge', got '{title}'"
 
     @pytest.mark.smoke
     def test_nonexistent_route_shows_not_found(

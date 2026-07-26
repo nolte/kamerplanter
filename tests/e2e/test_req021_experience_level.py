@@ -130,9 +130,7 @@ def pristine_user_session(
         f"{base_url}/api/v1/auth/register",
         {"email": email, "password": password, "display_name": "E2E Tiering"},
     )
-    login = _api_post(
-        f"{base_url}/api/v1/auth/login", {"email": email, "password": password}
-    )
+    login = _api_post(f"{base_url}/api/v1/auth/login", {"email": email, "password": password})
     token = login["access_token"]
     # Skip onboarding so the app doesn't bounce navigation into the wizard.
     tenants_req = urllib.request.Request(

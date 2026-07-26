@@ -59,9 +59,7 @@ class TestIpmNavigation:
         screenshot("TC-REQ-010-035_nav-pests", "Direct navigation to pest list")
 
         page_el = pest_list.wait_for_element(PestListPage.PAGE)
-        assert page_el.is_displayed(), (
-            "TC-REQ-010-035 FAIL: Expected pest-list-page to be visible"
-        )
+        assert page_el.is_displayed(), "TC-REQ-010-035 FAIL: Expected pest-list-page to be visible"
         assert "pflanzenschutz/pests" in pest_list.driver.current_url, (
             f"TC-REQ-010-035 FAIL: Expected URL to contain 'pflanzenschutz/pests', "
             f"got {pest_list.driver.current_url}"

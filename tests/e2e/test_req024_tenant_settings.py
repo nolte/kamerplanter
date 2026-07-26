@@ -83,9 +83,7 @@ class TestTenantSettingsPageLoad:
         )
 
         title = settings_page.get_page_title_text()
-        assert title, (
-            "TC-REQ-024-008 FAIL: Expected page title on TenantSettingsPage"
-        )
+        assert title, "TC-REQ-024-008 FAIL: Expected page title on TenantSettingsPage"
 
     @pytest.mark.smoke
     @pytest.mark.requires_auth
@@ -103,9 +101,7 @@ class TestTenantSettingsPageLoad:
         settings_page.open()
 
         tabs = settings_page.get_tab_labels()
-        assert len(tabs) >= 1, (
-            f"TC-REQ-024-009 FAIL: Expected at least 1 tab, got: {tabs}"
-        )
+        assert len(tabs) >= 1, f"TC-REQ-024-009 FAIL: Expected at least 1 tab, got: {tabs}"
         assert settings_page.get_active_tab_index() == 0, (
             "TC-REQ-024-009 FAIL: Expected Members tab (index 0) to be active by default"
         )

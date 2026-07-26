@@ -75,9 +75,7 @@ class SpeciesListPage(BasePage):
         and no ``<a>``" scan, which silently fell back to the row element when
         it found nothing (mobile card layout) and so re-armed exactly that bet.
         """
-        self.click_data_table_row(
-            index, self.NAME_COLUMN_ID, self.TABLE_ROWS, "species row"
-        )
+        self.click_data_table_row(index, self.NAME_COLUMN_ID, self.TABLE_ROWS, "species row")
 
     def search(self, query: str) -> None:
         """Filter the table via the DataTable search box (debounced 300ms)."""
@@ -188,5 +186,8 @@ class SpeciesListPage(BasePage):
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
 
     def has_validation_error(self, field_name: str) -> bool:
-        locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error")
+        locator = (
+            By.CSS_SELECTOR,
+            f"[data-testid='form-field-{field_name}'] .MuiFormHelperText-root.Mui-error",
+        )
         return len(self.driver.find_elements(*locator)) > 0

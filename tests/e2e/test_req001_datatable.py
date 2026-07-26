@@ -124,9 +124,7 @@ class TestDataTablePagination:
         options = family_list.get_rows_per_page_options()
         # MUI TablePagination may render options differently, but page size
         # controls should be present
-        assert len(options) >= 0, (
-            "TC-REQ-001-082 FAIL: Page size options should be available"
-        )
+        assert len(options) >= 0, "TC-REQ-001-082 FAIL: Page size options should be available"
 
 
 class TestDataTableLoadingStates:
@@ -144,7 +142,9 @@ class TestDataTableLoadingStates:
         rather than trying to catch the transient skeleton state.
         """
         family_list.open()
-        screenshot("TC-REQ-001-083_page-loaded", "Family list page loaded (skeleton already resolved)")
+        screenshot(
+            "TC-REQ-001-083_page-loaded", "Family list page loaded (skeleton already resolved)"
+        )
 
         # The page should render successfully after loading
         assert family_list.is_page_visible(), (

@@ -78,9 +78,7 @@ class TestTenantSwitcherDisplay:
         )
 
         name = switcher.get_active_tenant_name()
-        assert name, (
-            "TC-REQ-024-019 FAIL: Expected active tenant name to be displayed"
-        )
+        assert name, "TC-REQ-024-019 FAIL: Expected active tenant name to be displayed"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -157,9 +155,7 @@ class TestTenantSwitcherDisplay:
         )
 
         selected = switcher.get_selected_tenant_name()
-        assert selected, (
-            "TC-REQ-024-022 FAIL: Expected one tenant to be marked as selected"
-        )
+        assert selected, "TC-REQ-024-022 FAIL: Expected one tenant to be marked as selected"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -247,9 +243,7 @@ class TestTenantSwitching:
 
         switcher.switch_to_tenant(target)
 
-        switcher.wait_for_element(
-            switcher.TRIGGER_BUTTON_ALT, timeout=20
-        )
+        switcher.wait_for_element(switcher.TRIGGER_BUTTON_ALT, timeout=20)
         screenshot(
             "TC-REQ-024-025_after-tenant-switch",
             f"After switching to '{target}'",
@@ -281,9 +275,7 @@ class TestTenantSwitching:
         )
 
         switcher.driver.refresh()
-        switcher.wait_for_element(
-            switcher.TRIGGER_BUTTON_ALT, timeout=20
-        )
+        switcher.wait_for_element(switcher.TRIGGER_BUTTON_ALT, timeout=20)
         screenshot(
             "TC-REQ-024-026_after-reload",
             "After page reload",

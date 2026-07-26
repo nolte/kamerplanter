@@ -39,13 +39,13 @@ class TestBotanicalFamilyListPage:
         Spec: TC-001-001 -- Botanische Familienliste wird vollstaendig geladen und angezeigt.
         """
         family_list.open()
-        screenshot("TC-REQ-001-006_family-list-loaded", "Botanical family list page after initial load")
+        screenshot(
+            "TC-REQ-001-006_family-list-loaded", "Botanical family list page after initial load"
+        )
 
         headers = family_list.get_column_headers()
 
-        assert "Name" in headers, (
-            f"TC-REQ-001-006 FAIL: Expected 'Name' column, got {headers}"
-        )
+        assert "Name" in headers, f"TC-REQ-001-006 FAIL: Expected 'Name' column, got {headers}"
         assert any("Name" in h for h in headers), (
             f"TC-REQ-001-006 FAIL: Expected 'Gebraeuchlicher Name' column, got {headers}"
         )
@@ -54,9 +54,7 @@ class TestBotanicalFamilyListPage:
         )
 
         row_count = family_list.get_row_count()
-        assert row_count > 0, (
-            "TC-REQ-001-006 FAIL: Expected at least one family row (seed data)"
-        )
+        assert row_count > 0, "TC-REQ-001-006 FAIL: Expected at least one family row (seed data)"
 
     @pytest.mark.core_crud
     def test_search_families_by_name(

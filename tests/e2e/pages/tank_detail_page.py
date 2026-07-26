@@ -38,7 +38,10 @@ class TankDetailPage(BasePage):
     STATE_FORM_PH = (By.CSS_SELECTOR, "[data-testid='form-field-ph'] input")
     STATE_FORM_EC = (By.CSS_SELECTOR, "[data-testid='form-field-ec_ms'] input")
     STATE_FORM_TEMP = (By.CSS_SELECTOR, "[data-testid='form-field-water_temp_celsius'] input")
-    STATE_FORM_FILL_PERCENT = (By.CSS_SELECTOR, "[data-testid='form-field-fill_level_percent'] input")
+    STATE_FORM_FILL_PERCENT = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-fill_level_percent'] input",
+    )
     STATE_FORM_FILL_LITERS = (By.CSS_SELECTOR, "[data-testid='form-field-fill_level_liters'] input")
     STATE_FORM_TDS = (By.CSS_SELECTOR, "[data-testid='form-field-tds_ppm'] input")
     STATE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -51,7 +54,10 @@ class TankDetailPage(BasePage):
 
     # ── MaintenanceLogDialog ───────────────────────────────────────────
     MAINTENANCE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
-    MAINT_FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-maintenance_type'] .MuiSelect-select")
+    MAINT_FORM_TYPE = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-maintenance_type'] .MuiSelect-select",
+    )
     MAINT_FORM_PERFORMED_BY = (By.CSS_SELECTOR, "[data-testid='form-field-performed_by'] input")
     MAINT_FORM_DURATION = (By.CSS_SELECTOR, "[data-testid='form-field-duration_minutes'] input")
     MAINT_FORM_PRODUCTS = (By.CSS_SELECTOR, "[data-testid='form-field-products_used'] input")
@@ -68,7 +74,10 @@ class TankDetailPage(BasePage):
 
     # ── Tab 5 – Edit form ──────────────────────────────────────────────
     EDIT_FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
-    EDIT_FORM_TANK_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-tank_type'] .MuiSelect-select")
+    EDIT_FORM_TANK_TYPE = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-tank_type'] .MuiSelect-select",
+    )
     EDIT_FORM_VOLUME = (By.CSS_SELECTOR, "[data-testid='form-field-volume_liters'] input")
     EDIT_FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
     EDIT_FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
@@ -200,8 +209,7 @@ class TankDetailPage(BasePage):
     def get_states_row_texts(self) -> list[list[str]]:
         """Return the readable text fragments of every visible state row."""
         return [
-            self.get_row_text_fragments(row)
-            for row in self.driver.find_elements(*self.STATES_ROWS)
+            self.get_row_text_fragments(row) for row in self.driver.find_elements(*self.STATES_ROWS)
         ]
 
     # ── Maintenance tab (tab=2) ────────────────────────────────────────
@@ -351,9 +359,7 @@ class TankDetailPage(BasePage):
 
     def is_error_displayed(self) -> bool:
         """Return True if an error display component is visible."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='error-display']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def is_page_present(self) -> bool:

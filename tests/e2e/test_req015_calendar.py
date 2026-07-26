@@ -32,7 +32,7 @@ from .pages.calendar_page import CalendarPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('calendar',)
+FEATURES = ("calendar",)
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -307,9 +307,7 @@ class TestCalendarCategoryFilter:
         screenshot("TC-REQ-015-010_category-filters", "Category filter chips visible")
 
         chips = calendar.get_category_filter_chips()
-        assert len(chips) > 0, (
-            "TC-REQ-015-010 FAIL: Expected at least one category filter chip"
-        )
+        assert len(chips) > 0, "TC-REQ-015-010 FAIL: Expected at least one category filter chip"
 
     @pytest.mark.core_crud
     def test_category_filter_chip_click_toggles(

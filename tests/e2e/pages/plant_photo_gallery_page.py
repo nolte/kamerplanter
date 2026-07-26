@@ -92,10 +92,7 @@ class PlantPhotoGalleryPage(BasePage):
         """
         self.navigate(f"{DETAIL_PATH_PREFIX}/{key}#photos")
         WebDriverWait(self.driver, 20).until(
-            lambda d: (
-                d.find_elements(*self.GALLERY)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.GALLERY) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -103,10 +100,7 @@ class PlantPhotoGalleryPage(BasePage):
         """Open the plant detail page on its default (info) tab."""
         self.navigate(f"{DETAIL_PATH_PREFIX}/{key}")
         WebDriverWait(self.driver, 20).until(
-            lambda d: (
-                d.find_elements(*self.DETAIL_PAGE)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.DETAIL_PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -286,9 +280,7 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.COVER_BADGE)) > 0
 
     def wait_for_cover_badge(self, timeout: int = 15) -> None:
-        WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.COVER_BADGE)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.COVER_BADGE))
 
     def has_cover_image(self) -> bool:
         return len(self.driver.find_elements(*self.COVER_IMAGE)) > 0
@@ -297,9 +289,7 @@ class PlantPhotoGalleryPage(BasePage):
         return len(self.driver.find_elements(*self.COVER_PLACEHOLDER)) > 0
 
     def wait_for_cover_image(self, timeout: int = 15) -> None:
-        WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.COVER_IMAGE)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.COVER_IMAGE))
 
     # ── Delete flow ─────────────────────────────────────────────────────
 

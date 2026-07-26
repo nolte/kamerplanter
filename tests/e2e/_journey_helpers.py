@@ -312,9 +312,7 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
     slug = seed.get("tenant_slug", "mein-garten")
     api = base_url.rstrip("/") + "/api/v1"
 
-    status, _ = _api_request(
-        f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token
-    )
+    status, _ = _api_request(f"{api}/care-reminders/plants/{plant_key}/profile", "GET", token)
     if status not in (200, 201):
         raise AssertionError(
             f"Self-provisioning failed: could not create a care profile for "
@@ -328,9 +326,7 @@ def provision_watering_care_task(base_url: str, seed: dict, plant_key: str) -> N
         {"auto_create_watering_task": True},
     )
 
-    gen_status, _ = _api_request(
-        f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {}
-    )
+    gen_status, _ = _api_request(f"{api}/t/{slug}/tasks/generate-care-reminders", "POST", token, {})
     if gen_status not in (200, 201):
         raise AssertionError(
             f"Self-provisioning failed: generate-care-reminders returned "

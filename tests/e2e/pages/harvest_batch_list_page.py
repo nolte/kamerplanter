@@ -86,9 +86,7 @@ class HarvestBatchListPage(BasePage):
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
@@ -121,9 +119,7 @@ class HarvestBatchListPage(BasePage):
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         for h in headers:
             if h.text == header_text:
                 self.scroll_and_click(h)
@@ -275,9 +271,7 @@ class HarvestBatchListPage(BasePage):
         self.scroll_and_click(field)
         # If value_text is empty, pick the first available option
         if not value_text:
-            option = self.wait_for_element_clickable(
-                (By.CSS_SELECTOR, "li[role='option']")
-            )
+            option = self.wait_for_element_clickable((By.CSS_SELECTOR, "li[role='option']"))
         else:
             option = self.wait_for_element_clickable(
                 (
@@ -322,22 +316,37 @@ class HarvestBatchListPage(BasePage):
         from selenium.webdriver.common.by import By
 
         # Check for explicit error helper text
-        if len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
-        )) > 0:
+        if (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
+                )
+            )
+            > 0
+        ):
             return True
         # Check for MUI form controls in error state (e.g. Select without helper text)
-        if len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            ".MuiDialog-root [role='dialog'] .MuiFormControl-root.Mui-error",
-        )) > 0:
+        if (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] .MuiFormControl-root.Mui-error",
+                )
+            )
+            > 0
+        ):
             return True
         # Check for MUI InputBase in error state
-        if len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            ".MuiDialog-root [role='dialog'] .MuiInputBase-root.Mui-error",
-        )) > 0:
+        if (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] .MuiInputBase-root.Mui-error",
+                )
+            )
+            > 0
+        ):
             return True
         return False
 
@@ -345,10 +354,15 @@ class HarvestBatchListPage(BasePage):
         """Check for any field with aria-invalid='true' inside the dialog."""
         from selenium.webdriver.common.by import By
 
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            ".MuiDialog-root [role='dialog'] [aria-invalid='true']",
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] [aria-invalid='true']",
+                )
+            )
+            > 0
+        )
 
     def wait_briefly_for_client_validation(self, seconds: float = 0.5) -> None:
         """Give React Hook Form / native HTML5 validation a moment to render.

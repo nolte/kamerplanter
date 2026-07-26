@@ -21,7 +21,7 @@ from .pages.harvest_readiness_card_page import HarvestReadinessCardPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('harvest',)
+FEATURES = ("harvest",)
 
 
 # -- Fixtures ---------------------------------------------------------------
@@ -138,6 +138,5 @@ class TestHarvestReadinessCard:
             pytest.skip("No indicator breakdown table -- indicators may be empty")
 
         assert readiness_card.get_indicator_row_count() > 0, (
-            "TC-REQ-007-032 FAIL: Expected at least one indicator row in "
-            "the breakdown table"
+            "TC-REQ-007-032 FAIL: Expected at least one indicator row in the breakdown table"
         )

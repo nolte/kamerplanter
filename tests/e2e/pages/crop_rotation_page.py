@@ -59,6 +59,7 @@ class CropRotationPage(BasePage):
 
     def select_family(self, family_name: str) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
+
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.FAMILY_SELECT)
         self.scroll_and_click(select)

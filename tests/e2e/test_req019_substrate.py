@@ -113,9 +113,7 @@ class TestSubstrateListPage:
         screenshot("TC-REQ-019-003_create-button", "Create button visible on substrate list")
 
         btn = substrate_list.wait_for_element(SubstrateListPage.CREATE_BUTTON)
-        assert btn.is_displayed(), (
-            "TC-REQ-019-003 FAIL: Expected create button to be visible"
-        )
+        assert btn.is_displayed(), "TC-REQ-019-003 FAIL: Expected create button to be visible"
 
     @pytest.mark.core_crud
     def test_click_row_navigates_to_detail(
@@ -233,9 +231,7 @@ class TestSubstrateListPage:
             pytest.skip("No rows — showing count not displayed for empty table")
 
         count_text = substrate_list.get_showing_count_text()
-        assert count_text, (
-            "TC-REQ-019-008 FAIL: Expected non-empty showing count text"
-        )
+        assert count_text, "TC-REQ-019-008 FAIL: Expected non-empty showing count text"
 
 
 # -- TC-REQ-019-010 to TC-REQ-019-014: Create Dialog --------------------------
@@ -255,7 +251,9 @@ class TestSubstrateCreateDialog:
         Spec: TC-019-007 -- Erstellen-Dialog oeffnet sich.
         """
         substrate_list.open()
-        screenshot("TC-REQ-019-010_before-open-dialog", "Substrate list before opening create dialog")
+        screenshot(
+            "TC-REQ-019-010_before-open-dialog", "Substrate list before opening create dialog"
+        )
 
         substrate_list.click_create()
         screenshot("TC-REQ-019-010_dialog-open", "Substrate create dialog opened")
@@ -409,15 +407,11 @@ class TestSubstrateDetailPage:
         screenshot("TC-REQ-019-020_detail-loaded", "Substrate detail page loaded")
 
         title = substrate_detail.get_title()
-        assert title, (
-            "TC-REQ-019-020 FAIL: Expected non-empty page title on detail page"
-        )
+        assert title, "TC-REQ-019-020 FAIL: Expected non-empty page title on detail page"
 
         # Verify form fields are present
         ph_value = substrate_detail.get_ph_base_value()
-        assert ph_value, (
-            "TC-REQ-019-020 FAIL: Expected pH base field to have a value"
-        )
+        assert ph_value, "TC-REQ-019-020 FAIL: Expected pH base field to have a value"
 
     @pytest.mark.core_crud
     def test_detail_page_shows_section_cards(

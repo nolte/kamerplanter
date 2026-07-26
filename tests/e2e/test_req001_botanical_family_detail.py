@@ -47,7 +47,9 @@ class TestBotanicalFamilyDetailPage:
 
     @pytest.mark.smoke
     def test_display_detail_page_with_populated_form(
-        self, family_list: BotanicalFamilyListPage, detail_page: BotanicalFamilyDetailPage,
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-023: Display detail page with populated form.
@@ -55,7 +57,9 @@ class TestBotanicalFamilyDetailPage:
         Spec: TC-001-005 -- Navigation von Liste zu Detailansicht einer Botanischen Familie.
         """
         _navigate_to_first_family_detail(family_list)
-        screenshot("TC-REQ-001-023_detail-loaded", "Botanical family detail page with populated form")
+        screenshot(
+            "TC-REQ-001-023_detail-loaded", "Botanical family detail page with populated form"
+        )
 
         title = detail_page.get_title()
         assert title, "TC-REQ-001-023 FAIL: Page title should not be empty"
@@ -63,11 +67,15 @@ class TestBotanicalFamilyDetailPage:
         name = detail_page.get_field_value("name")
         assert name, "TC-REQ-001-023 FAIL: Name field should be populated"
 
-        assert detail_page.has_delete_button(), "TC-REQ-001-023 FAIL: Delete button should be visible"
+        assert detail_page.has_delete_button(), (
+            "TC-REQ-001-023 FAIL: Delete button should be visible"
+        )
 
     @pytest.mark.core_crud
     def test_edit_family_and_save(
-        self, family_list: BotanicalFamilyListPage, detail_page: BotanicalFamilyDetailPage,
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-024: Edit a botanical family and save changes.
@@ -79,7 +87,10 @@ class TestBotanicalFamilyDetailPage:
 
         unique = uuid.uuid4().hex[:6]
         detail_page.set_textarea("description", f"E2E-Updated description {unique}")
-        screenshot("TC-REQ-001-024_field-modified", f"Description changed to E2E-Updated description {unique}")
+        screenshot(
+            "TC-REQ-001-024_field-modified",
+            f"Description changed to E2E-Updated description {unique}",
+        )
 
         detail_page.click_save()
 
@@ -93,7 +104,9 @@ class TestBotanicalFamilyDetailPage:
 
     @pytest.mark.core_crud
     def test_cancel_deletion_keeps_family(
-        self, family_list: BotanicalFamilyListPage, detail_page: BotanicalFamilyDetailPage,
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-027: Cancel deletion keeps the family.
@@ -122,8 +135,12 @@ class TestBotanicalFamilyDetailPage:
 
     @pytest.mark.core_crud
     def test_delete_family_with_confirmation(
-        self, family_list: BotanicalFamilyListPage, detail_page: BotanicalFamilyDetailPage,
-        screenshot: Callable[..., Path], browser: WebDriver, base_url: str,
+        self,
+        family_list: BotanicalFamilyListPage,
+        detail_page: BotanicalFamilyDetailPage,
+        screenshot: Callable[..., Path],
+        browser: WebDriver,
+        base_url: str,
     ) -> None:
         """TC-REQ-001-026: Delete a botanical family via confirmation dialog.
 
@@ -137,7 +154,9 @@ class TestBotanicalFamilyDetailPage:
         family_list.fill_create_form(delete_name)
         family_list.submit_create_form()
         family_list.wait_for_loading_complete()
-        screenshot("TC-REQ-001-026_family-created", f"Family {delete_name} created for deletion test")
+        screenshot(
+            "TC-REQ-001-026_family-created", f"Family {delete_name} created for deletion test"
+        )
 
         # Navigate to its detail page
         try:
@@ -146,7 +165,9 @@ class TestBotanicalFamilyDetailPage:
             pytest.skip(f"Family '{delete_name}' not found after creation")
 
         family_list.wait_for_url_contains("/stammdaten/botanical-families/")
-        screenshot("TC-REQ-001-026_detail-before-delete", f"Detail page of {delete_name} before deletion")
+        screenshot(
+            "TC-REQ-001-026_detail-before-delete", f"Detail page of {delete_name} before deletion"
+        )
 
         detail_page.click_delete()
         screenshot("TC-REQ-001-026_confirm-dialog", "Delete confirmation dialog open")
@@ -162,9 +183,7 @@ class TestBotanicalFamilyDetailPage:
         screenshot("TC-REQ-001-026_after-delete", "Family list after deletion")
 
         names = family_list.get_first_column_texts()
-        assert delete_name not in names, (
-            f"TC-REQ-001-026 FAIL: {delete_name} should be deleted"
-        )
+        assert delete_name not in names, f"TC-REQ-001-026 FAIL: {delete_name} should be deleted"
 
     @pytest.mark.smoke
     def test_detail_page_nonexistent_key_shows_error(
@@ -182,7 +201,9 @@ class TestBotanicalFamilyDetailPage:
             (detail_page.ERROR_DISPLAY, detail_page.PAGE),
             "TC-REQ-001-028: botanical-family detail route for a non-existent key",
         )
-        screenshot("TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key")
+        screenshot(
+            "TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key"
+        )
 
         assert detail_page.is_error_displayed() or "nonexistent" not in detail_page.driver.title, (
             "TC-REQ-001-028 FAIL: Should show error display or not-found state"

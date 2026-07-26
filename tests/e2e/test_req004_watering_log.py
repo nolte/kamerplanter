@@ -31,7 +31,7 @@ from .pages.watering_log_list_page import WateringLogListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('watering',)
+FEATURES = ("watering",)
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -141,9 +141,7 @@ class TestWateringLogListPage:
             pytest.skip("No rows — showing count not displayed for empty table")
 
         count_text = watering_list.get_showing_count_text()
-        assert count_text, (
-            "TC-REQ-004-W001c FAIL: Expected non-empty showing count text"
-        )
+        assert count_text, "TC-REQ-004-W001c FAIL: Expected non-empty showing count text"
 
 
 # -- TC-REQ-004-W003 to TC-REQ-004-W006: Create Dialog ------------------------
@@ -257,9 +255,7 @@ class TestWateringLogCreateDialog:
         watering_list.click_create()
 
         # Clear the volume field (default is 1)
-        volume_el = watering_list.wait_for_element_clickable(
-            WateringLogListPage.FORM_VOLUME
-        )
+        volume_el = watering_list.wait_for_element_clickable(WateringLogListPage.FORM_VOLUME)
         watering_list.clear_and_fill(volume_el, "0")
 
         screenshot(
@@ -420,9 +416,7 @@ class TestWateringLogDetailPage:
             "Watering log detail page after row click",
         )
 
-        detail_el = watering_list.wait_for_element(
-            WateringLogDetailPage.PAGE, timeout=15
-        )
+        detail_el = watering_list.wait_for_element(WateringLogDetailPage.PAGE, timeout=15)
         assert detail_el.is_displayed(), (
             "TC-REQ-004-W008 FAIL: Expected watering-log-detail-page to be visible after row click"
         )
@@ -452,9 +446,7 @@ class TestWateringLogDetailPage:
         )
 
         tab_count = watering_detail.get_tab_count()
-        assert tab_count == 2, (
-            f"TC-REQ-004-W009 FAIL: Expected 2 tabs, got {tab_count}"
-        )
+        assert tab_count == 2, f"TC-REQ-004-W009 FAIL: Expected 2 tabs, got {tab_count}"
 
     @pytest.mark.core_crud
     def test_detail_page_shows_measurement_cards(
