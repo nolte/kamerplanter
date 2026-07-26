@@ -17,6 +17,13 @@ type FilterTriple = tuple[str, str, Any]
 
 type SortDirection = Literal["ASC", "DESC"]
 
+#: ArangoDB system attributes a caller-supplied partial-update payload must never
+#: carry: ``_key``/``_id`` would redirect the write onto a different document,
+#: ``_rev`` would forge the revision used for optimistic concurrency, and
+#: ``_from``/``_to`` would re-point an edge. Stripped in
+#: :meth:`BaseArangoRepository._update_doc_fields`.
+_RESERVED_DOC_ATTRIBUTES: frozenset[str] = frozenset({"_key", "_id", "_rev", "_from", "_to"})
+
 
 class BaseArangoRepository[TModel: BaseModel]:
     """Generic, typed ArangoDB CRUD operations for one primary collection.
@@ -341,11 +348,17 @@ class BaseArangoRepository[TModel: BaseModel]:
         python-arango default, asserted explicitly here) keeps an intentional
         ``None`` — e.g. a REQ-045 dashboard_layout reset — persisted as ``null``
         rather than silently dropping the key.
+
+        ArangoDB's system attributes (:data:`_RESERVED_DOC_ATTRIBUTES`) are
+        stripped from ``fields`` and ``_key`` is merged **last**, so a ``_key``
+        smuggled into the caller's dict can never redirect the write onto another
+        document, and ``_id``/``_rev``/``_from``/``_to`` can never be rewritten —
+        the same protection :meth:`_to_doc` gives the full-document path.
         """
-        data = dict(fields)
+        data = {field: value for field, value in fields.items() if field not in _RESERVED_DOC_ATTRIBUTES}
         data["updated_at"] = self._now()
         try:
-            result = self.collection.update({"_key": key, **data}, return_new=True, keep_none=True)
+            result = self.collection.update({**data, "_key": key}, return_new=True, keep_none=True)
         except DocumentUpdateError as e:
             if e.error_code == 1202:  # document not found
                 raise NotFoundError(self._collection_name, key) from e
@@ -484,6 +497,14 @@ class BaseArangoRepository[TModel: BaseModel]:
         values are preserved (``keep_none=True``), so an explicit reset survives.
         Returns the updated document mapped to the bound model (or the raw
         ``dict`` in raw mode).
+
+        **Caller obligation (mass-assignment).** ``fields`` is written into the
+        document as given, so it must be built from an explicit allow-list (a
+        literal dict, a validated schema's ``model_dump``, or a whitelist filter)
+        — never a raw request body. ArangoDB's system attributes
+        (``_key``/``_id``/``_rev``/``_from``/``_to``) are stripped defensively, so
+        a payload can neither redirect the write onto another document nor
+        re-point an edge; every *domain* field it names is still written.
         """
         return self._wrap(self._update_doc_fields(key, fields))
 
