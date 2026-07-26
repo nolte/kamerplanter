@@ -208,6 +208,11 @@ class SpeciesDetailPage(BasePage):
         so the key need not be known here) instead of "the first button with an
         aria-label" -- the latter is position-dependent and, in the mobile card
         layout, would pick whatever button the card happens to render first.
+
+        Clicked coordinate-free for the same reason as
+        :meth:`delete_phase_at_index`: the row itself is clickable, so a
+        coordinate dispatch that misses the IconButton silently activates the
+        row's navigation/edit handler instead of raising.
         """
         rows = self.driver.find_elements(*self.CULTIVAR_TABLE_ROWS)
         if index >= len(rows):
@@ -217,7 +222,7 @@ class SpeciesDetailPage(BasePage):
         buttons = rows[index].find_elements(*self.CULTIVAR_DELETE_ACTION)
         if not buttons:
             raise ValueError(f"No cultivar-delete action found in cultivar row {index}")
-        self.scroll_and_click(buttons[0])
+        self.click_coordinate_free(buttons[0])
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     # ── Cultivar create dialog ─────────────────────────────────────────
@@ -357,9 +362,22 @@ class SpeciesDetailPage(BasePage):
         rendered there at all -- `GrowthPhaseListSection` now supplies the same
         actions via the card's ``trailing`` slot.
 
-        The action stops event propagation, so a normal click does not also
-        trigger the row's edit handler; the dialog wait is the condition that
-        confirms the click landed (no settle sleep).
+        Clicked coordinate-free. ``e.stopPropagation()`` on the button's own
+        ``onClick`` (`GrowthPhaseListSection.tsx:198/225`) only protects a click
+        that actually *lands on* the 40px IconButton -- it says nothing about a
+        coordinate dispatch that misses it and reaches the row instead, where
+        `DataTable`'s ``onRowClick`` (`:259`) opens the *edit* dialog. That is
+        what the failure screenshot of TC-REQ-001-060 shows: the edit dialog,
+        carrying the phase's name, on the light and full profiles. Since both
+        handlers cannot fire from one event, the click never reached the button.
+        A dispatch on the resolved element has no coordinates to miss with, and
+        the IconButton activates from its `onClick` handler, so it is sound.
+
+        The confirm-dialog wait is a post-condition for having hit *this*
+        action -- the edit dialog carries a different testid -- but it is not, as
+        this docstring previously claimed, what "confirms the click landed": a
+        miss leaves it to time out and report the absence of a dialog rather than
+        the wrong-target click that caused it.
         """
         rows = self.driver.find_elements(*self.PHASE_TABLE_ROWS)
         if index >= len(rows):
@@ -372,5 +390,5 @@ class SpeciesDetailPage(BasePage):
                 f"No phase-delete action found in phase row {index} -- the phase list "
                 "is read-only (managed by a phase sequence) or the row failed to render"
             )
-        self.scroll_and_click(buttons[0])
+        self.click_coordinate_free(buttons[0])
         self.wait_for_element_visible(self.CONFIRM_DIALOG, timeout=10)

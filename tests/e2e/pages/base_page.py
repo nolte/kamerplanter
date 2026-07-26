@@ -668,6 +668,50 @@ class BasePage:
             return
         raise AssertionError(f"Option with value '{value}' not found in the open dropdown")
 
+    def select_option_by_label(self, label: str) -> None:
+        """Pick the open dropdown's option whose visible text matches *label*.
+
+        For a MUI ``Select`` whose ``MenuItem``s carry an entity key as their
+        value and a human-readable, translated string as their text (the species
+        and family pickers of the companion-planting / crop-rotation dialogs).
+        The label is resolved to the option's own ``data-value`` here and the
+        actual selection then goes through :meth:`select_option_by_value`, so it
+        inherits both guarantees the hand-rolled predecessors lacked: the click
+        is dispatched on the resolved element (an open MUI popover still
+        repositions, so a coordinate click lands on whichever option slid into
+        the spot) and the committed value is read back.
+
+        Matching is whitespace-normalised, because an option renders its label
+        across two stacked ``Typography`` blocks (``"Name\\nGenus species"``) —
+        which is also why an XPath ``contains(text(), …)`` could not see it: the
+        XPath string-value carries no newline. An exact match wins over a
+        substring match irrespective of DOM order, so a label that is the prefix
+        of another entry cannot shadow the requested one.
+        """
+        target = " ".join(label.split())
+        options = self.driver.find_elements(*self.OPTIONS)
+        rendered = [" ".join((o.text or "").split()) for o in options]
+        exact = [o for o, text in zip(options, rendered) if text == target]
+        partial = [
+            o
+            for o, text in zip(options, rendered)
+            if text and text != target and (target in text or text in target)
+        ]
+        for option in exact + partial:
+            value = option.get_attribute("data-value")
+            if value is None:
+                raise AssertionError(
+                    f"The option matching '{label}' carries no data-value, so the "
+                    "selection could not be verified. Address a MUI MenuItem "
+                    "rendered inside a Select."
+                )
+            self.select_option_by_value(value)
+            return
+        raise AssertionError(
+            f"No option matching '{label}' in the open dropdown. Rendered "
+            f"options: {rendered}"
+        )
+
     def _read_select_value(
         self, trigger: WebElement | None, field_name: str | None
     ) -> str | None:
