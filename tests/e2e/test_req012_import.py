@@ -576,19 +576,24 @@ class TestImportEntityTypeSwitch:
         """
         import_page.open()
 
-        # Find the option text for cultivar by checking the dropdown
+        # Listing the options keeps the "dropdown open" screenshot checkpoint;
+        # the selection itself no longer goes through their translated labels
+        # (and no longer through their *position*, which said nothing about
+        # which entity type was actually picked).
         options = import_page.get_entity_type_options()
         screenshot("TC-REQ-012-016_entity-options-listed", "Entity type options visible")
+        assert len(options) == 3, (
+            f"TC-REQ-012-016 FAIL: Expected the entity type dropdown to offer 3 "
+            f"options, got {len(options)}: {options}"
+        )
 
-        # Select the second option (cultivar)
-        if len(options) >= 2:
-            import_page.select_entity_type(options[1])
-            screenshot("TC-REQ-012-016_entity-cultivar-selected", "Cultivar entity type selected")
+        import_page.select_entity_type("cultivar")
+        screenshot("TC-REQ-012-016_entity-cultivar-selected", "Cultivar entity type selected")
 
-            new_value = import_page.get_entity_type_value()
-            assert new_value == "cultivar", (
-                f"TC-REQ-012-016 FAIL: Expected entity type 'cultivar' after selection, got '{new_value}'"
-            )
+        new_value = import_page.get_entity_type_value()
+        assert new_value == "cultivar", (
+            f"TC-REQ-012-016 FAIL: Expected entity type 'cultivar' after selection, got '{new_value}'"
+        )
 
     @pytest.mark.core_crud
     def test_switch_duplicate_strategy_to_update(
@@ -604,13 +609,15 @@ class TestImportEntityTypeSwitch:
 
         options = import_page.get_duplicate_strategy_options()
         screenshot("TC-REQ-012-017_strategy-options-listed", "Duplicate strategy options visible")
+        assert len(options) == 3, (
+            f"TC-REQ-012-017 FAIL: Expected the duplicate strategy dropdown to offer "
+            f"3 options, got {len(options)}: {options}"
+        )
 
-        # Select the second option (update)
-        if len(options) >= 2:
-            import_page.select_duplicate_strategy(options[1])
-            screenshot("TC-REQ-012-017_strategy-update-selected", "Update strategy selected")
+        import_page.select_duplicate_strategy("update")
+        screenshot("TC-REQ-012-017_strategy-update-selected", "Update strategy selected")
 
-            new_value = import_page.get_duplicate_strategy_value()
-            assert new_value == "update", (
-                f"TC-REQ-012-017 FAIL: Expected strategy 'update' after selection, got '{new_value}'"
-            )
+        new_value = import_page.get_duplicate_strategy_value()
+        assert new_value == "update", (
+            f"TC-REQ-012-017 FAIL: Expected strategy 'update' after selection, got '{new_value}'"
+        )
