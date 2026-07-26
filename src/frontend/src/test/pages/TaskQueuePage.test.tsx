@@ -163,6 +163,19 @@ describe('TaskQueuePage — task card navigation target', () => {
     expect(plantLink).toHaveAttribute('href', '/pflanzen/plant-instances/plant-1');
   });
 
+  it('keeps the action row beside the card content from sm up', async () => {
+    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    const actionArea = await screen.findByTestId('task-card-task-active');
+    const contentColumn = actionArea.parentElement;
+    if (contentColumn === null) throw new Error('card content column not rendered');
+
+    // The compact viewport stacks the action row under the content; every
+    // wider viewport keeps the original one-line card (see
+    // TaskQueuePageCompactCard.test.tsx for the other half of this contract).
+    expect(contentColumn.contains(screen.getByTestId('complete-task-task-active'))).toBe(false);
+  });
+
   it('navigates to the task detail when the card itself is activated', async () => {
     renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
 
