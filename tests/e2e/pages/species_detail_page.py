@@ -44,14 +44,17 @@ class SpeciesDetailPage(BasePage):
     )
 
     # Lifecycle tab locators
-    # Scoped to the growth-phase dialog: MUI portals it to the end of <body>,
-    # so an unscoped `[data-testid='form-submit-button']` resolves to
-    # whichever button with that testid comes FIRST in document order -- the
-    # in-page "Bearbeiten" tab's own FORM_SUBMIT above, not this dialog's.
-    # See #778 A5.
+    # Scoped to the lifecycle tab's own section, not to a dialog: this is the
+    # inline form the tab renders (`LifecycleConfigSection`), and its submit is
+    # what `get_lifecycle_submit_label` reads. The scope is needed because
+    # several `form-submit-button` testids coexist in this page's DOM -- the
+    # edit tab's inline form, this one, and the growth-phase dialog MUI portals
+    # to the end of <body> -- so an unscoped lookup resolves to whichever comes
+    # first in document order (#778 A5). The section marker was added to the
+    # product for this; there was no scope available before.
     LIFECYCLE_FORM_SUBMIT = (
         By.CSS_SELECTOR,
-        "[data-testid='growth-phase-dialog'] [data-testid='form-submit-button']",
+        "[data-testid='lifecycle-config-section'] [data-testid='form-submit-button']",
     )
 
     # Growth phase locators

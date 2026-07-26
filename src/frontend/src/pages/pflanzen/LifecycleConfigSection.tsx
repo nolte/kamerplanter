@@ -152,7 +152,12 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   if (loading) return <LoadingSkeleton variant="form" />;
 
   return (
-    <Box>
+    // The section marker scopes the E2E locator for this tab's own submit
+    // button. Several `form-submit-button` testids coexist in the species
+    // detail page's DOM -- the edit tab's inline form, this one, and the
+    // growth-phase dialog -- so an unscoped lookup resolves to whichever comes
+    // first in document order (#778 A5).
+    <Box data-testid="lifecycle-config-section">
       <UnsavedChangesGuard dirty={isDirty} />
       <Box
         component="form"
