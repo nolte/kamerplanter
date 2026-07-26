@@ -90,6 +90,97 @@ describe('WateringLogListPage — card hooks at mobile width', () => {
     expect(within(card).getByTestId('card-chip-fertilizers').textContent).toContain('Grow A');
   });
 
+  it('renders every plant as a link to its detail page, like the desktop column', async () => {
+    // TC-004-092 (mobile/full-mobile): the plant references were flattened to
+    // the card's plain-text subtitle, so a phone user had no way from the
+    // watering log to the plant — the card's own click target leads to the
+    // *log's* detail page. The spec demands a linked chip in both layouts.
+    seed([
+      makeLog({
+        plant_keys: ['pi-1', 'pi-2'],
+        resolved_plants: [
+          { key: 'pi-1', name: 'BASIL-0001' },
+          { key: 'pi-2', name: 'TOM-0002' },
+        ],
+      }),
+    ]);
+
+    renderWithProviders(<WateringLogListPage />, { route: '/giessprotokoll' });
+
+    const card = (await screen.findAllByTestId('data-table-row', {}, QUERY_TIMEOUT))[0];
+    const plantsGroup = within(card).getByTestId('card-field-plants');
+
+    const links = within(plantsGroup).getAllByRole('link');
+    expect(links.map((a) => a.getAttribute('href'))).toEqual([
+      '/pflanzen/plant-instances/pi-1',
+      '/pflanzen/plant-instances/pi-2',
+    ]);
+    expect(links.map((a) => a.textContent)).toEqual(['BASIL-0001', 'TOM-0002']);
+
+    // Addressable per plant by its business key, not by chip position.
+    expect(within(card).getByTestId('plant-link-pi-1')).toBe(links[0]);
+    expect(within(card).getByTestId('plant-link-pi-2')).toBe(links[1]);
+  });
+
+  it('keys the plant group as both a card field and a card chip', async () => {
+    // The readers resolve `cell-<id>` → `card-field-<id>` → `card-chip-<id>`.
+    // The links moved from the subtitle into the chip row, so the chip hook is
+    // new — but `card-field-plants` must survive the move, since that is the
+    // hook the column-id readers hit first.
+    seed([makeLog()]);
+
+    renderWithProviders(<WateringLogListPage />, { route: '/giessprotokoll' });
+
+    const card = (await screen.findAllByTestId('data-table-row', {}, QUERY_TIMEOUT))[0];
+    const chipGroup = within(card).getByTestId('card-chip-plants');
+
+    expect(chipGroup).toContainElement(within(card).getByTestId('card-field-plants'));
+    expect(within(chipGroup).getByRole('link')).toHaveAttribute(
+      'href',
+      '/pflanzen/plant-instances/pi-1',
+    );
+  });
+
+  it('caps the plant links at three and reports the rest as an overflow chip', async () => {
+    // Mirrors the desktop column: the card is the narrower layout, so it needs
+    // the cap at least as much. Beyond the cap the row click still reaches the
+    // log's detail page, which lists every plant.
+    seed([
+      makeLog({
+        plant_keys: ['pi-1', 'pi-2', 'pi-3', 'pi-4'],
+        resolved_plants: [
+          { key: 'pi-1', name: 'BASIL-0001' },
+          { key: 'pi-2', name: 'TOM-0002' },
+          { key: 'pi-3', name: 'MINT-0003' },
+          { key: 'pi-4', name: 'SAGE-0004' },
+        ],
+      }),
+    ]);
+
+    renderWithProviders(<WateringLogListPage />, { route: '/giessprotokoll' });
+
+    const card = (await screen.findAllByTestId('data-table-row', {}, QUERY_TIMEOUT))[0];
+    const plantsGroup = within(card).getByTestId('card-field-plants');
+
+    expect(within(plantsGroup).getAllByRole('link')).toHaveLength(3);
+    expect(within(card).queryByTestId('plant-link-pi-4')).toBeNull();
+    expect(plantsGroup.textContent).toContain('+1');
+  });
+
+  it('keeps the plant column readable when no plant is attached', async () => {
+    // A present-but-empty carrier says "no plant", the same thing the desktop
+    // `<td>` says. An absent one is indistinguishable from an unkeyed card and
+    // makes the reader raise instead of returning the empty value.
+    seed([makeLog({ plant_keys: [], resolved_plants: [] })]);
+
+    renderWithProviders(<WateringLogListPage />, { route: '/giessprotokoll' });
+
+    const card = (await screen.findAllByTestId('data-table-row', {}, QUERY_TIMEOUT))[0];
+
+    expect(within(card).getByTestId('card-field-plants').textContent).toBe('—');
+    expect(within(card).queryAllByRole('link')).toHaveLength(0);
+  });
+
   it('drops only the absent chips and keeps the remaining hooks stable', async () => {
     seed([makeLog({ water_source: null, resolved_fertilizers: [] })]);
 
