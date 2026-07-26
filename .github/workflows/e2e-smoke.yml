@@ -172,10 +172,22 @@ jobs:
         env:
           REPORT_RENDERED: ${{ steps.report.outcome == 'success' }}
         run: |
+          # Two independent signals decide below, and both must hold.
+          # `steps.report.outcome` is only a proxy: it says the action did not
+          # error, not that a table was actually written. Whether the summary
+          # already has content observes that directly — the file starts empty
+          # and no earlier step writes to it. Sampled here, BEFORE the block is
+          # redirected into that very file (reading and appending in one
+          # pipeline is what shellcheck flags as SC2094).
+          SUMMARY_PREFILLED=no
+          if [ -s "$GITHUB_STEP_SUMMARY" ]; then SUMMARY_PREFILLED=yes; fi
           {
             PROTOCOL=$(find test-reports/e2e -name protokoll.md -print -quit 2>/dev/null)
             JUNIT=$(find test-reports/e2e -name 'junit-*.xml' -print -quit 2>/dev/null)
-            if [ "$REPORT_RENDERED" = "true" ] && [ -n "$JUNIT" ]; then
+            # Whenever either signal is missing, the excerpt below is produced,
+            # so a fork PR loses the artifact pointer at worst, never the
+            # results themselves.
+            if [ "$REPORT_RENDERED" = "true" ] && [ "$SUMMARY_PREFILLED" = "yes" ] && [ -n "$JUNIT" ]; then
               echo "**E2E smoke (light)** — full protocol, screenshots and container logs:"
               echo "see the run's \`e2e-smoke-reports\` artifact."
             elif [ -n "$PROTOCOL" ]; then
