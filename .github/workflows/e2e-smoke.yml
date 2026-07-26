@@ -2,21 +2,22 @@
 ## E2E smoke gate — runs the existing Docker Compose smoke profile
 ## (scripts/run-e2e.sh --smoke) inside the runner.
 ##
-## Non-required check by design: `static` stays the only required check
-## until the flake behaviour of the E2E jobs is known
-## (project/requirements/e2e-ci-selenium.md, R1/R2).
+## REQUIRED check on `develop` (ADR-011,
+## project/requirements/e2e-smoke-merge-gate.md R1/R2/R4). This supersedes R2 of
+## project/requirements/e2e-ci-selenium.md, which kept every E2E check advisory
+## while their flake behaviour was unknown.
+##
+## The `pull_request` trigger deliberately carries NO `paths:` filter. A required
+## check whose workflow is skipped by path filtering never reports and leaves the
+## pull request stuck on "Expected — waiting for status to be reported"; GitHub
+## documents that path filtering must not be used on a required workflow. A job
+## skipped by a job-level `if:` reports Success instead, which is why the
+## selection lives in the `changes` job below.
 ##
 name: e2e-smoke
 
 on:
   pull_request:
-    paths:
-      - "src/**"
-      - "tests/e2e/**"
-      - "docker-compose.e2e.yml"
-      - "docker-compose.e2e.ci.yml"
-      - "scripts/run-e2e.sh"
-      - ".github/workflows/e2e-smoke.yml"
   push:
     branches: [develop]
     paths:
@@ -39,8 +40,84 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Deny-by-default selection: the suite is skipped only when EVERY changed file
+  # is provably unable to affect the deployed application. The predicate is an
+  # allowlist of inert paths, never a diff-size or complexity score — absolute
+  # churn is not a usable risk signal (Nagappan & Ball, ICSE 2005), and the
+  # repository has too little CI history to calibrate a learned selector.
+  #
+  # A missing allowlist entry only costs one unnecessary run (fail-safe); a
+  # runtime path wrongly added to it silently disables the gate (fail-open).
+  # Treat this list as security-relevant and re-check it whenever a new
+  # top-level directory appears.
+  #
+  # Two filters rather than one: under `predicate-quantifier: every` a file must
+  # satisfy ALL patterns of a filter, so a file excluded by `!.github/**` cannot
+  # be re-included by adding a positive pattern to the same filter. The E2E
+  # infrastructure workflows are therefore matched by their own filter, and the
+  # `smoke` job below ORs the two results.
+  changes:
+    name: Detect runtime-relevant changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.filter.outputs.runtime }}
+      e2e_infra: ${{ steps.filter.outputs.e2e_infra }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          # `every` is load-bearing. The default is `some`, which ORs a filter's
+          # patterns together — under it the leading `'**'` matches every file
+          # and the `!` entries subtract nothing, so `runtime` is permanently
+          # true and the suite runs on every pull request. Learned the hard way:
+          # PR #795 changed only .github/settings.yml and still ran the suite.
+          # With `every`, a file must satisfy ALL patterns of a filter, which is
+          # what turns the `!` entries into actual exclusions.
+          predicate-quantifier: 'every'
+          filters: |
+            runtime:
+              - '**'
+              - '!docs/**'
+              - '!spec/**'
+              - '!project/**'
+              - '!.audits/**'
+              - '!.resume/**'
+              - '!.claude/**'
+              - '!styles/**'
+              - '!.github/**'
+              - '!**/*.md'
+              - '!mkdocs.yml'
+              - '!.vale.ini'
+              - '!LICENSE'
+              - '!.gitignore'
+              - '!CODEOWNERS'
+              - '!Taskfile.yaml'
+              - '!.pre-commit-config.yaml'
+            e2e_infra:
+              - '.github/workflows/e2e-*.yml'
+
   smoke:
     name: E2E smoke (compose, light)
+    needs: changes
+    # Fail-safe by construction: the suite is skipped ONLY when `changes`
+    # succeeded AND reported the diff as inert. Anything else runs it.
+    #
+    # `needs.changes.result` is load-bearing and must not be dropped. `always()`
+    # only makes this expression evaluate when the dependency did not succeed —
+    # it does not make it true. Without the `result` clause a FAILED `changes`
+    # job would leave both outputs as empty strings, every comparison would be
+    # false, the job would be skipped, and a skipped job reports the required
+    # check as Success: the gate would go green without the suite ever running.
+    # `result` covers failure, cancelled and skipped, which also makes a separate
+    # event-name clause unnecessary — on non-pull_request events `changes` is
+    # skipped and the suite runs.
+    if: >-
+      always()
+      && (needs.changes.result != 'success'
+          || needs.changes.outputs.runtime == 'true'
+          || needs.changes.outputs.e2e_infra == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

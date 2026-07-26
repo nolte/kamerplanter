@@ -206,6 +206,8 @@ Das Platform-Tenant-Modell (§1.3) wird um die `viewer`-Rolle erweitert:
 
 #### 1a.5 Zuweisungsbasierte Write-Kontrolle — Formale Regeln
 
+> **Abgelöst durch REQ-049 §3.5.** Der Mandant ist die gemeinsame Arbeitsmenge (REQ-049 §2.1 P1): Alle Gärtner pflegen alle Fachdaten des Mandanten, und die Standort-Zuweisung schränkt Schreibrechte nicht ein. `can_write()` reduziert sich damit auf die Rangprüfung der fachlichen Rolle. Dieser Abschnitt bleibt bis zur Nachführung von §1a als Historie stehen und ist **nicht** mehr umzusetzen. `valid_from`/`valid_until` bleiben für die saisonale Darstellung erhalten, wirken aber nicht auf Berechtigungen.
+
 Die informelle Beschreibung "zugewiesene und gemeinschaftliche Ressourcen" wird wie folgt formalisiert:
 
 ```
