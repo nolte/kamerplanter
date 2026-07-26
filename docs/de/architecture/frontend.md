@@ -1,6 +1,6 @@
 # Frontend-Architektur
 
-Das Frontend ist eine Single-Page-Application in React 19 mit TypeScript 5.9 (strict mode). Es kommuniziert ausschließlich über REST-API mit dem Backend — keine direkte Datenbankverbindung. Die Benutzeroberfläche ist zweisprachig (Deutsch/Englisch) und unterstützt Light- und Dark-Theme.
+Das Frontend ist eine Single-Page-Application in React 19 mit TypeScript 6 (strict mode). Es kommuniziert ausschließlich über REST-API mit dem Backend — keine direkte Datenbankverbindung. Die Benutzeroberfläche ist zweisprachig (Deutsch/Englisch) und unterstützt Light- und Dark-Theme.
 
 ---
 
@@ -9,14 +9,16 @@ Das Frontend ist eine Single-Page-Application in React 19 mit TypeScript 5.9 (st
 | Technologie | Version | Aufgabe |
 |------------|---------|---------|
 | React | 19 | UI-Framework |
-| TypeScript | 5.9 (strict) | Typsicherheit |
-| MUI (Material UI) | 7 | Komponentenbibliothek |
+| TypeScript | 6 (strict) | Typsicherheit |
+| MUI (Material UI) | 9 | Komponentenbibliothek |
 | Redux Toolkit | aktuell | State Management |
 | react-router-dom | v7 | Client-seitiges Routing |
 | react-i18next | aktuell | Internationalisierung (DE/EN) |
-| Vite | 6 | Build-Tool, Dev-Server |
+| Vite | 8 | Build-Tool, Dev-Server |
 | Axios | aktuell | HTTP-Client |
 | Vitest | aktuell | Unit-Tests |
+
+<!-- Quelle: src/frontend/package.json -->
 
 ## Verzeichnisstruktur
 
@@ -157,7 +159,7 @@ Alle sichtbaren Texte liegen als i18n-Keys vor. Deutsch ist die Standardsprache.
 
 ## Theme & Branding
 
-MUI 7 mit einem angepassten Theme:
+MUI 9 mit einem angepassten Theme:
 
 - **Primärfarbe**: `#4CAF50` (Lebendiges Grün, UI-NFR-009)
 - **Akzentfarbe**: `#8D6E63` (Erdton/Terracotta)

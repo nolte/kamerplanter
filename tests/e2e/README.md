@@ -4,6 +4,16 @@ Selenium (Remote WebDriver / Grid) + pytest, Page-Object pattern. The suite runs
 locally against the containerised stack (`scripts/run-e2e.sh` / `task test:e2e`)
 **and in CI** (see below).
 
+> **Where the `spec/project/e2e-test-automation` and `spec/project/e2e-test-stability`
+> specs live:** not in this repository. Test files and page objects cite them by
+> those paths, but they are owned by the shared `nolte-engineering` plugin and
+> only exist in its checkout — by default
+> `~/repos/github/claude-shared/spec/project/<name>/de.md` (override the checkout
+> location with `NOLTE_CLAUDE_SHARED`; see the plugin-adoption section of the
+> repository `CLAUDE.md`). Read them from there rather than improvising a
+> baseline. Repository-local specs referenced below (`spec/e2e-testcases/`,
+> `.audits/`) are exactly that: local.
+
 ## CI
 
 Two GitHub Actions workflows wrap the same compose stack as local runs

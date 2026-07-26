@@ -36,9 +36,17 @@ Nach der Registrierung erhältst du eine E-Mail mit einem Bestätigungslink.
 
 1. Öffne die E-Mail und klicke auf den Bestätigungslink
 2. Die Seite zeigt **E-Mail erfolgreich verifiziert** — du kannst dich jetzt anmelden
+3. Klicke auf **Anmelden**, um direkt zur Anmeldeseite zu gelangen
 
 !!! warning "Anmeldung erst nach Bestätigung möglich"
     Solange deine E-Mail-Adresse nicht bestätigt ist, lehnt das System die Anmeldung ab. Der Bestätigungslink ist **24 Stunden** gültig. Prüfe bei Ausbleiben der E-Mail auch deinen Spam-Ordner.
+
+#### Wenn der Bestätigungslink nicht mehr funktioniert
+
+Ist der Link älter als 24 Stunden oder unvollständig kopiert, zeigt die Seite statt der Erfolgsmeldung einen roten Hinweis — etwa **Ungültiger oder abgelaufener Token**. Darunter findest du ebenfalls den Button **Anmelden**, der dich zurück zur Anmeldeseite bringt. Von dort kannst du dich anmelden (sofern deine Adresse bereits über einen früheren Link bestätigt wurde) oder dir über **Passwort vergessen?** wieder eine E-Mail zusenden lassen.
+
+!!! note "Geändertes Verhalten"
+    Bis zu dieser Version war diese Fehlerseite eine Sackgasse: Sie zeigte nur die Fehlermeldung und keinen Weg zurück in die Anwendung — du musstest die Adresse der Anmeldeseite selbst eintippen. <!-- REQ-023 -->
 
 ---
 

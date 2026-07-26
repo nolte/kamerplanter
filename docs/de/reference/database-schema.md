@@ -117,7 +117,7 @@ planned → active → harvesting → completed
 |-----------|-------------|----------------|
 | `harvest_indicators` | Erntereife-Indikatoren je Art | `indicator_type`, `target_value` |
 | `harvest_observations` | Beobachtungen zur Reife | `plant_key`, `observed_at` |
-| `harvest_batches` | Ernte-Chargen | `batch_id` (unique), `plant_key`, `harvested_at`, `wet_weight_g` |
+| `harvest_batches` | Ernte-Chargen | `batch_id` (optional, `null` erlaubt; eindeutig nur für gesetzte Werte), `plant_key`, `harvested_at`, `wet_weight_g` |
 | `quality_assessments` | Qualitätsbewertungen | `overall_score`, `terpene_profile` |
 | `yield_metrics` | Ertragskennzahlen | `dry_weight_g`, `trim_weight_g` |
 
@@ -307,20 +307,25 @@ Kamerplanter legt beim Start automatisch folgende Indizes an:
 
 | Collection | Index-Feld | Typ | Eindeutig |
 |-----------|-----------|-----|----------|
-| `species` | `scientific_name` | Hash | Ja |
-| `botanical_families` | `name` | Hash | Ja |
-| `slots` | `slot_id` | Hash | Ja |
-| `plant_instances` | `instance_id` | Hash | Ja |
-| `users` | `email` | Hash | Ja |
-| `tenants` | `slug` | Hash | Ja |
-| `memberships` | `user_key, tenant_key` | Hash | Ja |
-| `fertilizers` | `product_name, brand` | Hash | Ja |
-| `harvest_batches` | `batch_id` | Hash | Ja |
-| `tanks` | `name` | Hash | Ja |
-| `refresh_tokens` | `token_hash` | Hash | Ja |
-| `calendar_feeds` | `token` | Hash | Ja |
-| `tasks` | `status`, `plant_key` | Hash | Nein |
-| `feeding_events` | `plant_key`, `timestamp` | Hash | Nein |
+| `species` | `scientific_name` | Persistent | Ja |
+| `botanical_families` | `name` | Persistent | Ja |
+| `slots` | `slot_id` | Persistent | Ja |
+| `plant_instances` | `instance_id` | Persistent | Ja |
+| `users` | `email` | Persistent | Ja |
+| `tenants` | `slug` | Persistent | Ja |
+| `memberships` | `user_key, tenant_key` | Persistent | Ja |
+| `fertilizers` | `product_name, brand` | Persistent | Ja |
+| `harvest_batches` | `batch_id` | Persistent (sparse) | Ja |
+| `tanks` | `name` | Persistent | Ja |
+| `refresh_tokens` | `token_hash` | Persistent | Ja |
+| `calendar_feeds` | `token` | Persistent | Ja |
+| `tasks` | `status`, `plant_key` | Persistent | Nein |
+| `feeding_events` | `plant_key`, `timestamp` | Persistent | Nein |
+
+<!-- Quelle: src/backend/app/data_access/arango/collections.py (ensure_indexes) -->
+
+!!! note "Sparse-Indizes"
+    Ein als **sparse** markierter Index berücksichtigt nur Dokumente, in denen das Feld tatsächlich gesetzt ist. Bei `harvest_batches.batch_id` ist das erforderlich, weil die Chargen-ID ein optionales Feld ist: Leere Eingaben werden auf `null` normalisiert, und beliebig viele Chargen dürfen gleichzeitig ohne Chargen-ID existieren, während gesetzte Kennungen weiterhin eindeutig bleiben müssen. Bestandsdaten werden von Migration `v0030` angepasst (leere Zeichenketten → `null`, Index-Neuanlage als `unique + sparse`).
 
 ---
 

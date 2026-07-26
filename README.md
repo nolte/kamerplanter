@@ -35,7 +35,7 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 | Layer | Technology |
 |-------|------------|
 | Backend | Python 3.14+, FastAPI, Celery, Authlib |
-| Frontend | React 19, TypeScript 5.9, MUI 7, Redux Toolkit, Vite 6 |
+| Frontend | React 19, TypeScript 6, MUI 9, Redux Toolkit, Vite 8 |
 | Knowledge Service | FastAPI, pgvector, ONNX embeddings, cross-encoder reranking |
 | Plant Recognition | Pl@ntNet API, self-hosted DINOv2 image matching |
 | Primary DB | ArangoDB 3.11+ (documents + graph) |
