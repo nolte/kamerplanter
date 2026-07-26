@@ -86,20 +86,13 @@ export default function BotanicalFamilyListPage() {
     {
       id: 'name',
       label: t('pages.botanicalFamilies.name'),
-      render: (r) => (
-        <Link
-          component={RouterLink}
-          to={`/stammdaten/botanical-families/${r.key}`}
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          // Same target as the row click, but stopping keydown propagation
-          // too avoids a duplicate history entry when the link is activated
-          // with Enter (see renderSpeciesCountLink for the full rationale).
-          onKeyDown={(e: React.KeyboardEvent) => e.stopPropagation()}
-          sx={{ fontWeight: 500 }}
-        >
-          {r.name}
-        </Link>
-      ),
+      // Deliberately inert. The row click already navigates here, so a link on
+      // the name would duplicate that target while making the cell interactive
+      // — and an interactive cell swallows the row click, because MUI's link
+      // stops propagation. The suite's interaction guard rejects such a cell as
+      // a row-click target outright, which is how this was caught. The species
+      // count below is a link because it goes somewhere the row click does not.
+      render: (r) => r.name,
       searchValue: (r) => r.name,
     },
     {

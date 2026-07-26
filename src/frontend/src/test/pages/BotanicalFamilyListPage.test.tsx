@@ -273,16 +273,16 @@ describe('BotanicalFamilyListPage', () => {
         expect(screen.queryByTestId('family-detail-page')).toBeNull();
       });
 
-      it('navigates to the family detail from the name link', async () => {
-        const user = userEvent.setup();
+      it('keeps the name cell inert so the row click still reaches the detail page', async () => {
+        // The name column must not render a link: the row click already goes to
+        // the family detail, and an interactive cell stops propagation, which
+        // swallows that row click. The E2E interaction guard rejects such a
+        // cell as a row-click target, so a link here breaks the suite.
         renderWithTargetRoutes();
 
-        const [nameLink] = await screen.findAllByRole('link', { name: 'Brassicaceae' });
-        nameLink.focus();
-        await user.keyboard('{Enter}');
-        await user.click(nameLink);
+        await screen.findByText('Brassicaceae');
 
-        expect(await screen.findByTestId('family-detail-page')).toBeTruthy();
+        expect(screen.queryAllByRole('link', { name: 'Brassicaceae' })).toHaveLength(0);
       });
     });
 
