@@ -163,4 +163,25 @@ Keine. Alle Entscheidungspunkte sind im Requirement-Artefakt `confirmed`; die be
 
 ## Dispatch log
 
-<!-- Appended during operation 5 -->
+- 2026-07-26 **P1** generalist remediation — `e2e-smoke.yml` umgebaut: `paths:` am `pull_request`-Trigger entfernt, `changes`-Job mit `dorny/paths-filter@7b450fff` (SHA identisch zu `docker-lint-build.yml`), `smoke` mit `needs`+`if`. actionlint sauber. Filterlogik gegen den 45-PR-Korpus nachgerechnet: 14/14 gezielte Fälle korrekt, 33 % Skip-Quote, alle 15 übersprungenen PRs harmlos (Docs, Specs, Audits, CI-Action-Bumps). **Run- und Skip-Pfad damit belegt**, nicht nur der Run-Pfad.
+- 2026-07-26 **P2** generalist remediation — `.github/settings.yml` um `branches:`-Block ergänzt. Muster von `nolte/gh-plumbing` übernommen, dessen Kommentar belegt, dass die Probot-Settings-App Branch-Einträge **nach `name` merged**; ein Teil-Override lässt geerbte Felder (`restrictions`) intakt und das `master`-Blatt der Commons unberührt. Kontext-Strings zeichengenau aus den Live-Check-Runs übernommen, nicht aus Workflow-Dateinamen. YAML valide, `_extends` erhalten.
+- 2026-07-26 **P4** generalist remediation — R2 in `e2e-ci-selenium.md` als `superseded` markiert, Originalwortlaut per Durchstreichung erhalten, Verweis auf das neue Artefakt und ADR-011 ergänzt. Zusätzlich ein Hinweis zu R1, dessen Trigger-Beschreibung durch den Wegfall des Pfadfilters veraltet ist; R1 selbst unverändert.
+- 2026-07-26 **P5** generalist remediation — Folge-Issue **#792** eröffnet (Merge-Queue-Evaluierung) mit den gemessenen Latenzzahlen, der `automerge`/gh-plumbing-Wechselwirkung als benannter Unbekannter und Rückverweis auf #773 und ADR-011.
+- 2026-07-26 **P3** dispatched to `mkdocs-documentation` — ADR-011 in DE (kanonisch) und EN (Spiegel) à 80 Zeilen, beide Index-Tabellen ergänzt. Ergebnis eigenständig verifiziert: Datei-Set exakt wie beauftragt, keine Streuänderungen, alle Pflichtzahlen vorhanden, sieben verworfene Alternativen mit Ablehnungsgrund. Zwei Nachbesserungen durch den Orchestrator: irreführende Tabellenzeile „Trefferquote" → „Wirkung im 45-PR-Korpus" (zeigte die Lauf-, nicht eine Treffer-Quote), und ein ergänzter Konsequenz-Punkt zur Fail-safe-Eigenschaft des Conditionals.
+- 2026-07-26 **P6** generalist remediation (`quality-gate` nicht dispatchbar) — `pre-commit run --all-files` grün (16 Hooks), `actionlint` via Docker grün, `task docs:build` grün in 36,8 s (die verbleibenden INFO-Zeilen sind vorbestehende Anchor-Links fremder Seiten). `security-review` ausgeführt — **mit einem Fund, siehe unten**.
+
+## Security-Review-Ergebnis (P6.4)
+
+Der harness-eigene `security-review`-Skill lud initial den **primären Checkout** statt des Worktrees und lieferte einen leeren Diff — ein Fehlalarm, kein Clean-Ergebnis. Die Analyse wurde daraufhin gegen den echten Worktree-Diff durchgeführt.
+
+**Ein Fund, Severity Medium, im selbst erzeugten Code:**
+
+Der ursprüngliche `if:`-Ausdruck des `smoke`-Jobs war **fail-open**. `always()` bewirkt nur, dass die Bedingung ausgewertet wird, wenn die Abhängigkeit nicht erfolgreich war — es macht den Ausdruck nicht wahr. Bei einem fehlgeschlagenen `changes`-Job wären beide Outputs leere Strings, alle Vergleiche falsch, der Job übersprungen — und ein übersprungener Job meldet den required Kontext als `Success`. Ein transienter Infrastrukturfehler (Rate-Limit, Netzwerk, Runner-Abbruch) hätte damit das Gate grün gemeldet, ohne dass die Suite lief: exakt der Fehlermodus aus #763, den dieser PR beseitigen soll. Der Kommentar behauptete zudem das Gegenteil.
+
+Behoben durch eine explizite Prüfung auf `needs.changes.result != 'success'`, die `failure`, `cancelled` und `skipped` abdeckt. Die Eigenschaft ist jetzt im Workflow-Kommentar **und** als Konsequenz-Punkt in ADR-011 (DE/EN) dokumentiert.
+
+Drei Punkte unterhalb der Meldeschwelle, protokolliert statt behoben:
+
+- `!spec/**` schließt auch `spec/knowledge/rag/**` aus, das laut `docker-lint-build.yml` in den `knowledge`-Image-Build eingeht. Für das *light*-Profil praktisch folgenlos, aber es ist die im ADR benannte Fail-open-Richtung.
+- `e2e_infra` matcht `.github/workflows/e2e-*.yml`, nicht `.yaml`. Ein künftiger E2E-Workflow mit `.yaml`-Endung löste die Suite nicht aus.
+- Der `changes`-Job erbt `checks: write`, obwohl er nur `contents: read` benötigt. Härtung, keine Schwachstelle.

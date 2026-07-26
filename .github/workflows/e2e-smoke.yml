@@ -92,12 +92,21 @@ jobs:
   smoke:
     name: E2E smoke (compose, light)
     needs: changes
-    # `always()` keeps the gate fail-safe: if the `changes` job itself fails, the
-    # suite runs rather than waving the pull request through. On non-pull_request
-    # events `changes` is skipped and the suite always runs.
+    # Fail-safe by construction: the suite is skipped ONLY when `changes`
+    # succeeded AND reported the diff as inert. Anything else runs it.
+    #
+    # `needs.changes.result` is load-bearing and must not be dropped. `always()`
+    # only makes this expression evaluate when the dependency did not succeed —
+    # it does not make it true. Without the `result` clause a FAILED `changes`
+    # job would leave both outputs as empty strings, every comparison would be
+    # false, the job would be skipped, and a skipped job reports the required
+    # check as Success: the gate would go green without the suite ever running.
+    # `result` covers failure, cancelled and skipped, which also makes a separate
+    # event-name clause unnecessary — on non-pull_request events `changes` is
+    # skipped and the suite runs.
     if: >-
       always()
-      && (github.event_name != 'pull_request'
+      && (needs.changes.result != 'success'
           || needs.changes.outputs.runtime == 'true'
           || needs.changes.outputs.e2e_infra == 'true')
     runs-on: ubuntu-latest
