@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import time
+import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -76,6 +77,16 @@ class SettledState:
     def is_branch(self, name: str) -> bool:
         """Return whether the reached branch is *name*."""
         return self.branch == name
+
+
+class SidebarNavigationFallback(UserWarning):
+    """Emitted when :meth:`BasePage.navigate_via_sidebar` had to navigate by URL.
+
+    A warning rather than silence: the fallback means the suite stopped
+    exercising sidebar navigation for that call and the test still passed. It
+    surfaces in pytest's warnings summary, so a fallback that starts firing is
+    visible without turning every profile red at once.
+    """
 
 
 class BasePage:
@@ -1617,19 +1628,64 @@ class BasePage:
             EC.visibility_of_element_located(self.SIDEBAR_PAPER)
         )
 
-    def navigate_via_sidebar(self, path: str, timeout: int = DEFAULT_TIMEOUT) -> None:
-        """Navigate by clicking a sidebar link, simulating real user behavior.
+    def navigate_via_sidebar(
+        self, path: str, timeout: int = DEFAULT_TIMEOUT, *, strict: bool = False
+    ) -> bool:
+        """Navigate by clicking a sidebar link; return whether the link was used.
 
-        Falls back to direct URL navigation if the sidebar item is not visible
-        (e.g. hidden by expertise level).
+        The point of this helper is to exercise the *drawer* rather than the
+        router, so the two conditions that used to divert it into a silent URL
+        navigation are now handled instead of tripped over:
+
+        * **The drawer was closed.** Below the `md` breakpoint the Sidebar is a
+          `temporary` Drawer with ``keepMounted``, so its items are in the DOM
+          but ``visibility: hidden``, and `uiSlice` seeds ``sidebarOpen`` from
+          ``window.innerWidth >= 768``. Every mobile-profile call therefore took
+          the fallback. :meth:`ensure_sidebar_open` is idempotent and no-ops when
+          no sidebar is mounted at all.
+        * **The item sat below the drawer's scroll fold.** Selenium reports
+          ``is_displayed() == False`` for an element clipped by a scrollable
+          ancestor, and the Sidebar's nav box is ``overflow: auto``, so a
+          perfectly clickable item further down the list answered "not
+          displayed" -- the suite stopped testing sidebar navigation and the test
+          still passed. :meth:`is_displayed_in_scroll_container` scrolls first and
+          so answers the question the caller is actually asking.
+
+        A genuine miss (an item hidden by expertise level or module visibility)
+        still falls back to URL navigation, because that is a legitimate reason
+        for the link not to exist -- but it now *warns* instead of staying
+        silent, and ``strict=True`` turns it into a failure for tests whose
+        subject **is** the drawer.
+
+        Note the behavioural consequence of actually clicking: on mobile and
+        tablet a nav click also closes the temporary drawer, so a caller that
+        asserts on drawer state afterwards must re-open it.
         """
         locator = (By.CSS_SELECTOR, f"[data-testid='nav-{path}']")
-        items = self.driver.find_elements(*locator)
-        if items and items[0].is_displayed():
-            self.scroll_and_click(items[0])
+        self.ensure_sidebar_open(timeout=timeout)
+        item = next(
+            (
+                i
+                for i in self.driver.find_elements(*locator)
+                if self.is_displayed_in_scroll_container(i)
+            ),
+            None,
+        )
+        if item is not None:
+            self.scroll_and_click(item)
             WebDriverWait(self.driver, timeout).until(EC.url_contains(path))
-        else:
-            self.navigate(path)
+            return True
+        message = (
+            f"Sidebar item 'nav-{path}' is not clickable (not rendered, or hidden "
+            "by expertise level / module visibility), so this navigation went "
+            "through the URL instead and exercised the router rather than the "
+            "drawer."
+        )
+        if strict:
+            raise AssertionError(message)
+        warnings.warn(message, SidebarNavigationFallback, stacklevel=2)
+        self.navigate(path)
+        return False
 
     # ── Expertise level helpers ─────────────────────────────────────────────
 
