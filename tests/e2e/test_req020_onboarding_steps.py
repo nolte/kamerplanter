@@ -275,7 +275,9 @@ class TestSiteTypeChange:
         )
 
         initial_type = wizard.get_site_type_value()
-        wizard.select_site_type("Balkon")
+        # Addressed by the enum value the MenuItem carries, not by its German
+        # label: the assertion below still reads the rendered label back.
+        wizard.select_site_type("balcony")
         screenshot(
             "TC-REQ-020-005_after-type-change",
             "Site step after changing to Balkon",

@@ -193,9 +193,11 @@ class FeedingEventListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
         )
-        # scroll_and_click centres the option and JS-clicks if a neighbour would
-        # intercept mid-animation; a raw click here can silently miss.
-        self.scroll_and_click(option)
+        # Dispatched on the resolved option, never at resolved coordinates: an
+        # open MUI menu still moves under its own layout effects (Menu scrolls
+        # its paper to the selected item, Popover clamps a menu that does not
+        # fit), so a coordinate click commits whichever option slid into place.
+        self.click_menu_option(option)
         self.close_mui_dropdown()
 
     def select_application_method(self, option_text: str) -> None:
@@ -207,7 +209,8 @@ class FeedingEventListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
         )
-        self.scroll_and_click(option)
+        # Coordinate-independent for the same reason as in ``select_plant``.
+        self.click_menu_option(option)
         self.close_mui_dropdown()
 
     def fill_volume(self, value: float) -> None:

@@ -1009,14 +1009,26 @@ def screenshot(
 
     yield _capture
 
-    # After test — capture on failure
+    # After test — capture on failure, and on an *expected* failure too.
+    # An xfail(strict=False) that actually fails is reported as ``skipped``
+    # (with ``wasxfail`` set), so the plain ``report.failed`` branch left every
+    # xfail-marked test without a single artefact: no failure screenshot, no
+    # traceback, nothing to triage the marker against. Reconstructing why
+    # TC-REQ-020-032 xfailed took inferring the stop point from which
+    # checkpoint screenshots existed.
     report = getattr(request.node, "_report", None)
-    if report and report.failed:
+    if report is not None:
         test_name = request.node.name.replace("[", "_").replace("]", "_")
-        _capture(
-            f"FAILURE_{test_name}",
-            f"Automatischer Screenshot nach Fehler in {test_name}",
-        )
+        if report.failed:
+            _capture(
+                f"FAILURE_{test_name}",
+                f"Automatischer Screenshot nach Fehler in {test_name}",
+            )
+        elif report.skipped and getattr(report, "wasxfail", None) is not None:
+            _capture(
+                f"XFAIL_{test_name}",
+                f"Automatischer Screenshot nach erwartetem Fehlschlag in {test_name}",
+            )
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -1035,7 +1047,12 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             outcome_str = "passed" if not report.failed else "failed"
             if report.skipped:
                 outcome_str = "skipped"
-            message = str(report.longrepr) if report.failed else ""
+            # ``longrepr`` survives pytest's xfail downgrade (skipping.py only
+            # rewrites ``outcome``), so recording it for an expected failure
+            # puts the actual traceback into ``checkpoint.jsonl`` instead of
+            # discarding the only machine-readable evidence an xfail produces.
+            keep_longrepr = report.failed or getattr(report, "wasxfail", None) is not None
+            message = str(report.longrepr) if keep_longrepr and report.longrepr else ""
             docstring = ""
             if item.obj and item.obj.__doc__:
                 docstring = item.obj.__doc__.strip().split("\n")[0]
