@@ -9,6 +9,13 @@
 ##   ./scripts/run-e2e.sh --profile <name>       # One compose profile:
 ##                                               #   light | smoke | full | mobile |
 ##                                               #   tablet | full-mobile | full-tablet
+##   ./scripts/run-e2e.sh --force                # Start even though another E2E stack is
+##                                               #   already running (same as
+##                                               #   E2E_FORCE_CONCURRENT=1) — see the
+##                                               #   concurrency guard below
+##
+## Exit codes:
+##   0/1 … pytest result   2 … usage error   3 … refused, another E2E stack is running
 ##
 set -uo pipefail
 
@@ -22,13 +29,12 @@ for OVERLAY in ${E2E_COMPOSE_OVERLAYS:-}; do
     COMPOSE_ARGS+=(-f "$OVERLAY")
 done
 
-mkdir -p "$REPORT_DIR/logs"
-
 # Pass host UID/GID so the e2e-tests container writes files as the current user
 export UID GID="$(id -g)"
 
 # Determine run mode
 PROFILE="light"
+FORCE_CONCURRENT="${E2E_FORCE_CONCURRENT:-0}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --smoke)
@@ -39,9 +45,13 @@ while [[ $# -gt 0 ]]; do
             PROFILE="${2:?--profile requires a value}"
             shift 2
             ;;
+        --force)
+            FORCE_CONCURRENT="1"
+            shift
+            ;;
         *)
             echo "Unknown argument: $1" >&2
-            echo "Usage: $0 [--smoke | --profile <light|smoke|full|mobile|tablet|full-mobile|full-tablet>]" >&2
+            echo "Usage: $0 [--smoke | --profile <light|smoke|full|mobile|tablet|full-mobile|full-tablet>] [--force]" >&2
             exit 2
             ;;
     esac
@@ -64,6 +74,102 @@ case "$PROFILE" in
         exit 2
         ;;
 esac
+
+##
+## ── Concurrency guard ────────────────────────────────────────────────────────
+##
+## Refuse to start while another E2E stack from this compose file is running.
+## Two stacks started from the same compose project reuse one Selenium hub and
+## one Chrome node, so both runners compete for a session pool sized for one of
+## them; the losing workers time out and the suite reports hundreds of setup
+## errors that are indistinguishable from real test failures (#778, H2). On top
+## of that, the first run to finish executes "down -v" underneath the other one.
+##
+## The check reads live Docker state instead of a lock file: the stack publishes
+## no host ports, so probing the hub on the host cannot see it, and the compose
+## labels are the only observable truth. That also makes the check crash-safe —
+## it holds no lock that could go stale, and containers left behind by a crashed
+## run are a genuine conflict the operator has to clear anyway.
+##
+find_conflicting_stacks() {
+    local project working_dir config_files name
+    docker ps \
+        --filter "label=com.docker.compose.project.config_files" \
+        --format '{{.Label "com.docker.compose.project"}}|{{.Label "com.docker.compose.project.working_dir"}}|{{.Label "com.docker.compose.project.config_files"}}|{{.Names}}' \
+        2>/dev/null |
+        while IFS='|' read -r project working_dir config_files name; do
+            # config_files is a comma-separated list of absolute paths. Matching
+            # the base compose file also catches stacks that carry an overlay
+            # (E2E_COMPOSE_OVERLAYS), and ignores unrelated compose projects.
+            case ",${config_files}," in
+                *"/${COMPOSE_FILE},"*) printf '%s|%s|%s\n' "$project" "$working_dir" "$name" ;;
+            esac
+        done | sort
+}
+
+# Renders "$1" (output of find_conflicting_stacks) as a grouped, indented list.
+print_conflicting_stacks() {
+    local last_project="" project working_dir name origin
+    while IFS='|' read -r project working_dir name; do
+        if [[ "$project" != "$last_project" ]]; then
+            last_project="$project"
+            if [[ "$working_dir" == "$PWD" ]]; then
+                origin="this working tree"
+            else
+                origin="another working tree"
+            fi
+            echo "  compose project '$project' — $origin: $working_dir" >&2
+        fi
+        echo "      $name" >&2
+    done <<< "$1"
+}
+
+# Prints one "down -v" hint per distinct compose project in "$1".
+print_teardown_hints() {
+    local last_project="" project working_dir name
+    while IFS='|' read -r project working_dir name; do
+        if [[ "$project" != "$last_project" ]]; then
+            last_project="$project"
+            echo "  (cd '$working_dir' && docker compose -f $COMPOSE_FILE down -v)" >&2
+        fi
+    done <<< "$1"
+}
+
+CONFLICTING_STACKS="$(find_conflicting_stacks)"
+if [[ -n "$CONFLICTING_STACKS" ]]; then
+    if [[ "$FORCE_CONCURRENT" == "1" ]]; then
+        echo "=== WARNING: --force overrides the concurrency guard ===" >&2
+        echo "" >&2
+        echo "Another E2E stack is running and this run will NOT be isolated from it:" >&2
+        print_conflicting_stacks "$CONFLICTING_STACKS"
+        echo "" >&2
+        echo "Overridden check: 'another E2E stack from $COMPOSE_FILE is already running'." >&2
+        echo "Nothing else changes — both runs still share the Selenium session pool," >&2
+        echo "and the first run to finish still tears the shared containers down." >&2
+        echo "" >&2
+    else
+        echo "=== REFUSING TO START: another E2E stack is already running ===" >&2
+        echo "" >&2
+        echo "A second stack collides with the one below: from this working tree it reuses" >&2
+        echo "that stack's Selenium hub and Chrome node — one session pool for two runners —" >&2
+        echo "and from any working tree both runs compete for the same host. Either way the" >&2
+        echo "suite reports hundreds of setup errors that look exactly like real failures." >&2
+        echo "" >&2
+        echo "Already running:" >&2
+        print_conflicting_stacks "$CONFLICTING_STACKS"
+        echo "" >&2
+        echo "Stop it first:" >&2
+        print_teardown_hints "$CONFLICTING_STACKS"
+        echo "" >&2
+        echo "If you are certain the detection is wrong (for example the containers above" >&2
+        echo "belong to an unrelated project that merely uses a compose file of the same" >&2
+        echo "name), re-run with --force or E2E_FORCE_CONCURRENT=1. That opt-in overrides" >&2
+        echo "ONLY this concurrency check; it does not isolate the two stacks." >&2
+        exit 3
+    fi
+fi
+
+mkdir -p "$REPORT_DIR/logs"
 
 # full* profiles run against the full-mode app stack, everything else light
 if [[ "$PROFILE" == full* ]]; then
