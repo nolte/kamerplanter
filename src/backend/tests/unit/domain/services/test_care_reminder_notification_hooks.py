@@ -104,6 +104,27 @@ def test_interval_change_upserts_care_notification(service, care_repo, task_repo
     assert kwargs["user_key"] == "user-a"
     assert kwargs["plant_key"] == "plant-1"
     assert kwargs["reminder_type"] == ReminderType.WATERING
+    # Retiming the pending occurrence must not re-badge a note the user already
+    # dealt with (#769); only a newly created task clears the read state.
+    assert kwargs["reset_read"] is False
+
+
+def test_confirmation_follow_up_requests_an_unread_notification(service, care_repo, task_repo, propagation):
+    """#769 — the follow-up task's note must be reopened, or it never badges.
+
+    ``on_care_confirmed`` marks the plant's single ``care.watering`` row read; the
+    follow-up reschedule recycles that same row, so it has to ask for the read
+    state to be cleared.
+    """
+    care_repo.get_profile_by_plant_key.return_value = _profile()
+    task_repo.find_open_care_task.return_value = None
+    task_repo.create_task.side_effect = lambda task: task
+
+    service.confirm_reminder("plant-1", ReminderType.WATERING, tenant_key="tenant-A", user_key="user-a")
+
+    propagation.sync_care_notification.assert_called_once()
+    _, kwargs = propagation.sync_care_notification.call_args
+    assert kwargs["reset_read"] is True
 
 
 def test_no_interval_change_does_not_propagate(service, care_repo, task_repo, propagation):

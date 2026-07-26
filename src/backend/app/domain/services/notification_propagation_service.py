@@ -272,6 +272,7 @@ class NotificationPropagationService:
         reminder_type: ReminderType,
         due_date: datetime | None,
         task_key: str | None = None,
+        reset_read: bool = False,
     ) -> None:
         """Upsert the plant's single ``care.<type>`` notification with the new due.
 
@@ -280,6 +281,16 @@ class NotificationPropagationService:
         than piling up a second ``care.watering`` note for the same period
         (TC-REQ-030-066). The notification carries an actionable ``confirm`` button
         driving the §4.2 one-tap callback.
+
+        Args:
+            reset_read: Whether the reused row announces a care occurrence the user
+                has **not** seen yet — a follow-up task created after a confirmation
+                (#769). Because the single-entry guarantee recycles the row that
+                :meth:`on_care_confirmed` just stamped read, the new occurrence would
+                otherwise stay invisible to the unread list and the badge, which
+                filter strictly on ``read_at == null``. Left ``False`` when the call
+                merely *retimes* the occurrence the user already has, so an edit
+                never resurfaces a note that was deliberately dealt with.
         """
         if not tenant_key or not plant_key:
             return
@@ -305,6 +316,7 @@ class NotificationPropagationService:
                 body=body,
                 data=data,
                 actions=actions,
+                reset_read=reset_read,
             )
             return
 

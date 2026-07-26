@@ -316,7 +316,11 @@ class CareReminderService:
                 task.instruction = instruction
             self._task_repo.update_task(task.key or "", task)
             # #742 — the in-app care notification follows the new cycle (single entry).
-            self._propagate_care_reschedule(profile, reminder_type, tenant_key, user_key, due_dt, task.key)
+            # The occurrence itself is unchanged (only its date moved), so the note is
+            # retimed in place and keeps whatever read state the user gave it (#769).
+            self._propagate_care_reschedule(
+                profile, reminder_type, tenant_key, user_key, due_dt, task.key, announces_new_task=False
+            )
             return
 
         # No pending task to re-terminate. Only the opted-in watering path creates
@@ -326,8 +330,15 @@ class CareReminderService:
             phase_interval = self._get_phase_watering_interval(plant_key)
             created = self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval)
             if created is not None:
+                # A brand-new occurrence, not a retiming — it must reach the badge (#769).
                 self._propagate_care_reschedule(
-                    profile, reminder_type, tenant_key, user_key, created.due_date, created.key
+                    profile,
+                    reminder_type,
+                    tenant_key,
+                    user_key,
+                    created.due_date,
+                    created.key,
+                    announces_new_task=True,
                 )
 
     def _propagate_care_reschedule(
@@ -338,8 +349,22 @@ class CareReminderService:
         user_key: str,
         due_date: datetime | None,
         task_key: str | None,
+        *,
+        announces_new_task: bool,
     ) -> None:
-        """Upsert the plant's care notification to the new cycle (#742, single entry)."""
+        """Upsert the plant's care notification to the new cycle (#742, single entry).
+
+        Args:
+            announces_new_task: Whether this update announces a **newly created**
+                care task rather than retiming the one the user already has. Only
+                then is the row's read state cleared (#769): the single-entry
+                guarantee recycles the row a preceding confirmation stamped read, so
+                a follow-up occurrence would otherwise never reach the unread badge.
+                A pure retiming keeps the read state — resurfacing a note the user
+                deliberately dealt with would be a defect in its own right, and the
+                task path behaves the same way (moving a task's due date via
+                ``sync_task_due_notification`` also leaves the read state alone).
+        """
         plant_label = self._resolve_plant_label(profile.plant_key)
         self._propagate(
             lambda p: p.sync_care_notification(
@@ -350,6 +375,7 @@ class CareReminderService:
                 reminder_type=reminder_type,
                 due_date=due_date,
                 task_key=task_key,
+                reset_read=announces_new_task,
             )
         )
 
@@ -522,9 +548,17 @@ class CareReminderService:
             )
             # The confirmation closed the current note; if a next watering task was
             # scheduled, surface it as the fresh, correctly-terminated care note.
+            # ``on_care_confirmed`` above stamped that very row read, so the follow-up
+            # only reaches the unread badge when the read state is cleared (#769).
             if next_task is not None:
                 self._propagate_care_reschedule(
-                    profile, reminder_type, resolved_tenant, user_key, next_task.due_date, next_task.key
+                    profile,
+                    reminder_type,
+                    resolved_tenant,
+                    user_key,
+                    next_task.due_date,
+                    next_task.key,
+                    announces_new_task=True,
                 )
 
         return created
