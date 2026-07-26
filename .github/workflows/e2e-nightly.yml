@@ -11,6 +11,19 @@
 ## reported through the run status, the per-profile "E2E nightly — <profile>"
 ## check runs, and the uploaded report artifacts.
 ##
+## Covered set (`profile: all`): every profile `scripts/run-e2e.sh` accepts,
+## minus `smoke`. The list is NOT restated here — the `matrix` job parses it
+## out of that script and a drift guard fails the run if the two disagree
+## (see the job for the derivation rationale and the guard's three checks).
+##
+## Why `smoke` is excluded from the nightly matrix: it is a marker subset of
+## the light suite that already runs on every pull request and on every push
+## to develop as the required `E2E smoke (compose, light)` check
+## (.github/workflows/e2e-smoke.yml, project/requirements/e2e-smoke-merge-gate.md).
+## Re-running it nightly would buy no coverage the light profile does not
+## already give. It stays selectable via workflow_dispatch for a one-off
+## re-run of just that subset.
+##
 name: e2e-nightly
 
 on:
@@ -19,16 +32,23 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: "Compose profile to run (all = full matrix)."
+        description: "Compose profile to run (all = full matrix, minus smoke)."
         type: choice
         default: all
+        # Drift-guard anchor. GitHub requires `type: choice` options to be
+        # static YAML, so this is the one place the profile names must be
+        # restated. The `matrix` job parses this flat list back out and fails
+        # the run unless it equals scripts/run-e2e.sh's registry — keep every
+        # entry a plain "- <profile>" line with no inline comments.
         options:
           - all
           - light
-          - full
+          - smoke
           - mobile
           - tablet
+          - full
           - full-mobile
+          - full-tablet
 
 permissions:
   contents: read
@@ -47,16 +67,194 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       profiles: ${{ steps.resolve.outputs.profiles }}
+    env:
+      REGISTRY_FILE: scripts/run-e2e.sh
+      COMPOSE_FILE: docker-compose.e2e.yml
+      WORKFLOW_FILE: .github/workflows/e2e-nightly.yml
+      # Registry profiles that `profile: all` deliberately skips. See the
+      # file header for the reasoning; the guard below asserts each entry is
+      # a real registry profile, so a rename cannot turn the skip into a
+      # silent no-op that quietly adds a 35-50 min job to every night.
+      NIGHTLY_EXCLUDE: smoke
     steps:
-      - id: resolve
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      ##
+      ## Derivation source: scripts/run-e2e.sh, not docker-compose.e2e.yml.
+      ##
+      ## Every matrix cell is literally an argument to
+      ## `./scripts/run-e2e.sh --profile <cell>`, so that script's
+      ## `case "$PROFILE" in` block — the set of arguments it accepts — is the
+      ## registry, and reading it makes the matrix and the runner incapable of
+      ## disagreeing about what a profile name means.
+      ##
+      ## The compose file cannot play that role: `docker compose -f
+      ## docker-compose.e2e.yml config --profiles` reports core-crud, full,
+      ## full-mobile, full-tablet, mobile, smoke, tablet, timescaledb. It omits
+      ## `light` (that profile's runner, service `e2e-tests`, carries no
+      ## `profiles:` key and is a default service) and adds three names that
+      ## are not `--profile` values. Deriving from it would need a hard-coded
+      ## add plus a hard-coded subtract — exactly the restated literal this
+      ## step exists to remove. Compose is cross-checked in the guard instead.
+      ##
+      - name: Read profile registry from the run script
+        id: registry
+        run: |
+          set -euo pipefail
+
+          # "[$]" matches a literal dollar sign; it keeps the pattern free of
+          # anything shellcheck or a shell could read as an expansion.
+          anchors=$(grep -cE '^case "[$]PROFILE" in$' "$REGISTRY_FILE" || true)
+          if [ "$anchors" != "1" ]; then
+            echo "::error file=$REGISTRY_FILE::Expected exactly one 'case \"\$PROFILE\" in' block, found $anchors. The nightly matrix is derived from it — adjust this parse before changing that block." >&2
+            exit 1
+          fi
+
+          # Case patterns are the indented "<profile>)" tokens inside that
+          # block. The default branch ("*)") does not match, and body lines
+          # (echo/exit/;;) have no ")" directly after their first word.
+          profiles=$(
+            sed -n '/^case "[$]PROFILE" in$/,/^esac$/p' "$REGISTRY_FILE" \
+              | grep -oE '^[[:space:]]+[a-z][a-z0-9|-]*\)' \
+              | tr -d ' )' \
+              | tr '|' '\n'
+          )
+
+          if [ -z "$profiles" ]; then
+            echo "::error file=$REGISTRY_FILE::Parsed no profiles out of the 'case \"\$PROFILE\" in' block." >&2
+            exit 1
+          fi
+          if printf '%s\n' "$profiles" | grep -vqE '^[a-z][a-z0-9-]*$'; then
+            echo "::error file=$REGISTRY_FILE::Parsed an implausible profile name:" >&2
+            printf '%s\n' "$profiles" >&2
+            exit 1
+          fi
+
+          registry=$(printf '%s\n' "$profiles" | tr '\n' ' ' | sed 's/ *$//')
+          echo "profiles=$registry" >> "$GITHUB_OUTPUT"
+          echo "Registry (scripts/run-e2e.sh): $registry"
+
+      ##
+      ## Drift guard — declared scope vs. what actually runs.
+      ##
+      ## Issue #794: full-tablet was in the compose file and in the run script
+      ## but in neither the matrix nor the dispatch list, so a whole profile
+      ## silently never ran in CI. Deriving the matrix (above) closes the
+      ## matrix half; these three checks close the rest, and they run before
+      ## the matrix fans out so a mismatch costs one runner-minute, not six
+      ## jobs. The options check doubles as a parse-integrity check: if the
+      ## `case` parse ever silently drops an entry, the two sets diverge and
+      ## this step goes red instead of the night quietly losing coverage.
+      ##
+      - name: Guard against profile-registry drift
+        env:
+          REGISTRY: ${{ steps.registry.outputs.profiles }}
+          # `light` is the only registry profile with no compose profile of
+          # the same name: its runner is a default compose service.
+          COMPOSE_EXEMPT: light
+          # Compose profiles that are deliberately not run-e2e.sh --profile
+          # values: `timescaledb` is an infrastructure add-on with no test
+          # runner, `core-crud` is a pytest-marker subset of the light suite
+          # kept for local use.
+          COMPOSE_IGNORE: core-crud timescaledb
+        run: |
+          set -euo pipefail
+
+          registry=$(printf '%s\n' "$REGISTRY" | tr ' ' '\n' | sort)
+          failed=0
+
+          # (1) workflow_dispatch choice list == registry.
+          option_anchors=$(grep -cE '^[[:space:]]*options:[[:space:]]*$' "$WORKFLOW_FILE" || true)
+          if [ "$option_anchors" != "1" ]; then
+            echo "::error file=$WORKFLOW_FILE::Expected exactly one 'options:' list, found $option_anchors." >&2
+            exit 1
+          fi
+          options=$(
+            awk '
+              /^[[:space:]]*options:[[:space:]]*$/ { inlist = 1; next }
+              inlist && /^[[:space:]]*-[[:space:]]+[^[:space:]]+[[:space:]]*$/ {
+                sub(/^[[:space:]]*-[[:space:]]+/, ""); sub(/[[:space:]]*$/, ""); print; next
+              }
+              inlist { exit }
+            ' "$WORKFLOW_FILE" | grep -vxF all | sort || true
+          )
+          if [ "$options" != "$registry" ]; then
+            echo "::error file=$WORKFLOW_FILE::The workflow_dispatch choice list and $REGISTRY_FILE disagree. Left = dispatch options, right = registry:" >&2
+            diff -y <(printf '%s\n' "$options") <(printf '%s\n' "$registry") >&2 || true
+            failed=1
+          fi
+
+          # (2) Every registry profile is backed by a compose profile, so a
+          #     matrix cell cannot resolve to a stack that does not exist.
+          compose=$(docker compose -f "$COMPOSE_FILE" config --profiles | sort)
+          for profile in $registry; do
+            if printf '%s\n' "$COMPOSE_EXEMPT" | tr ' ' '\n' | grep -qxF "$profile"; then
+              continue
+            fi
+            if ! printf '%s\n' "$compose" | grep -qxF "$profile"; then
+              echo "::error file=$COMPOSE_FILE::Profile '$profile' is a $REGISTRY_FILE profile but no compose profile of that name exists." >&2
+              failed=1
+            fi
+          done
+
+          # (3) Every compose profile is reachable through the run script —
+          #     this is the direction that hid #794's sibling defects: a new
+          #     viewport profile added to compose alone would never run.
+          for profile in $compose; do
+            if printf '%s\n' "$COMPOSE_IGNORE" | tr ' ' '\n' | grep -qxF "$profile"; then
+              continue
+            fi
+            if ! printf '%s\n' "$registry" | grep -qxF "$profile"; then
+              echo "::error file=$REGISTRY_FILE::Compose profile '$profile' has no '--profile $profile' branch, so nothing in CI can run it. Add it to the run script, or to this job's COMPOSE_IGNORE with a reason." >&2
+              failed=1
+            fi
+          done
+
+          # (4) The nightly exclusions name real profiles.
+          for profile in $NIGHTLY_EXCLUDE; do
+            if ! printf '%s\n' "$registry" | grep -qxF "$profile"; then
+              echo "::error file=$WORKFLOW_FILE::NIGHTLY_EXCLUDE lists '$profile', which is not a $REGISTRY_FILE profile." >&2
+              failed=1
+            fi
+          done
+
+          if [ "$failed" != "0" ]; then
+            exit 1
+          fi
+          echo "No drift: matrix, $REGISTRY_FILE and $COMPOSE_FILE agree."
+
+      - name: Resolve matrix
+        id: resolve
         env:
           PROFILE_INPUT: ${{ inputs.profile || 'all' }}
+          REGISTRY: ${{ steps.registry.outputs.profiles }}
         run: |
+          set -euo pipefail
+
+          registry=$(printf '%s\n' "$REGISTRY" | tr ' ' '\n')
+
           if [ "$PROFILE_INPUT" = "all" ]; then
-            echo 'profiles=["light","full","mobile","tablet","full-mobile"]' >> "$GITHUB_OUTPUT"
+            selected="$registry"
+            read -ra excluded <<< "$NIGHTLY_EXCLUDE"
+            for profile in "${excluded[@]}"; do
+              selected=$(printf '%s\n' "$selected" | grep -vxF "$profile" || true)
+            done
           else
-            echo "profiles=[\"$PROFILE_INPUT\"]" >> "$GITHUB_OUTPUT"
+            if ! printf '%s\n' "$registry" | grep -qxF "$PROFILE_INPUT"; then
+              echo "::error::Unknown profile '$PROFILE_INPUT'. Known profiles: $REGISTRY" >&2
+              exit 1
+            fi
+            selected="$PROFILE_INPUT"
           fi
+
+          if [ -z "$selected" ]; then
+            echo "::error::Resolved an empty profile matrix for input '$PROFILE_INPUT'." >&2
+            exit 1
+          fi
+
+          matrix=$(printf '%s\n' "$selected" | jq -Rc . | jq -sc .)
+          echo "profiles=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Input '$PROFILE_INPUT' resolved to $matrix" >> "$GITHUB_STEP_SUMMARY"
 
   e2e:
     name: E2E (${{ matrix.profile }})
