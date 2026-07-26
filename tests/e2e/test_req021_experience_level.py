@@ -48,22 +48,24 @@ def expertise_page(browser: WebDriver, base_url: str) -> ExpertiseLevelPage:
     return ExpertiseLevelPage(browser, base_url)
 
 
-# Experience-level field-visibility depends on switching the tenant's experience
-# level via the UI and having it durably reflected before a dialog's field-gating
-# is asserted. In light mode this proved unreliable across two fix attempts: the
+# The ``_EXPERIENCE_LEVEL_XFAIL`` this module used to carry (finding F-8: "the
 # level set via the AccountSettings toggle is not consistently in effect at
-# assert time (observed both a stale higher level for a beginner target and a
-# stale beginner level for an intermediate/expert target). Root cause needs live
-# debugging against the running stack (candidate: light-mode singleton-preference
-# timing, the downgrade confirm flow, or the unguarded `isFieldVisible` load
-# window — see .resume/e2e-selenium/robustness-audit.md and finding F-8). Marked
-# xfail(strict=False) so a fix auto-surfaces as xpass. Consider running these in
-# full mode (per-user preferences) instead.
-_EXPERIENCE_LEVEL_XFAIL = pytest.mark.xfail(
-    reason="Light-mode experience-level switch not reliably in effect at assert "
-    "time (finding F-8); needs live debugging / full mode.",
-    strict=False,
-)
+# assert time", root cause never isolated) is gone. The cause was isolated
+# during the full-run stabilization and fixed in three places, all of which this
+# file now depends on:
+#
+#  * the "saved" snackbar was emitted *before* the PATCH resolved, so the test
+#    trusted it and reloaded into the pre-change state (app-side fix);
+#  * the preference document was written read-modify-write over the whole record
+#    and minted duplicate singletons under parallel load (app-side fix);
+#  * ``_set_experience_level`` below now samples the toggle until two reads
+#    agree, accepts the confirm dialog by presence rather than by a computed
+#    direction, and re-reads the level after a reload — failing loudly instead
+#    of silently proceeding one tier behind (``e2e-test-stability`` §D).
+#
+# Cross-worker interference on the light-mode singleton is contained separately
+# by ``conftest._serialize_global_preference_mutators``. All three formerly
+# marked tests xpassed through both runs of all five profiles.
 
 
 # -- Helpers -------------------------------------------------------------------
@@ -787,7 +789,6 @@ class TestSpeciesFieldVisibility:
 class TestShowAllFieldsToggle:
     """Temporary field override via ShowAllFieldsToggle (Spec: TC-021-020 to TC-021-022)."""
 
-    @_EXPERIENCE_LEVEL_XFAIL
     @pytest.mark.core_crud
     def test_show_all_fields_reveals_hidden_fields(
         self,
@@ -976,7 +977,6 @@ class TestPlantingRunFieldVisibility:
 
         expertise_page.close_create_dialog()
 
-    @_EXPERIENCE_LEVEL_XFAIL
     @pytest.mark.core_crud
     def test_intermediate_planting_run_dialog(
         self,
@@ -1008,7 +1008,6 @@ class TestPlantingRunFieldVisibility:
 
         expertise_page.close_create_dialog()
 
-    @_EXPERIENCE_LEVEL_XFAIL
     @pytest.mark.core_crud
     def test_expert_planting_run_dialog_all_fields(
         self,

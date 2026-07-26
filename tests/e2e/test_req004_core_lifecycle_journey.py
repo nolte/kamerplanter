@@ -172,15 +172,16 @@ class TestCoreJourneyWateringDetailAndCare:
 class TestCoreJourneyRecordFeeding:
     """Record a FeedingEvent for a self-provisioned plant."""
 
-    @pytest.mark.xfail(
-        reason="FeedingEventCreateDialog plant-Select trigger is not reliably "
-        "interactable when the journey opens the dialog and selects immediately "
-        "(timeout on the select trigger despite a visible, enabled dialog). "
-        "Root cause not yet isolated (candidate: dialog/loadingPlants render "
-        "timing); marked xfail(strict=False) pending a dedicated investigation. "
-        "The watering journey (TC-REQ-004-J089) covers the analogous path.",
-        strict=False,
-    )
+    # The xfail this carried ("plant-Select trigger is not reliably
+    # interactable ... root cause not yet isolated") is removed: the cause was
+    # the MUI activation model. A Select opens from ``onMouseDown`` only, and
+    # the page object opened it with a native click on ``.MuiSelect-select``; a
+    # swallowed click opened nothing and the subsequent option lookup — not the
+    # trigger — was what timed out, which is why the symptom pointed at the
+    # wrong element. ``BasePage.open_select`` now dispatches an explicit
+    # mousedown/mouseup pair and verifies ``aria-expanded`` before returning.
+    # It has xpassed in every run since that landed (all four narrow profiles,
+    # both runs each); its only xfails predate it.
     @pytest.mark.core_crud
     def test_record_feeding_event(
         self,
