@@ -13,8 +13,6 @@ the parent page itself is the test's responsibility (reuse ``SiteListPage`` or
 
 from __future__ import annotations
 
-import time
-
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -67,7 +65,7 @@ class SensorCreateDialogPage(BasePage):
         return bool(elements) and elements[0].is_displayed()
 
     def close_via_cancel(self) -> None:
-        self.wait_for_element_clickable(self.CANCEL_BUTTON).click()
+        self.wait_and_click(self.CANCEL_BUTTON)
         self.wait_for_element_hidden(self.DIALOG)
 
     # ── Form interactions ─────────────────────────────────────────────────
@@ -85,28 +83,21 @@ class SensorCreateDialogPage(BasePage):
         Uses partial text match so callers can pass either the enum key
         (``ph``) or the localised label fragment (``pH``, ``Temperatur``).
         """
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(self.METRIC_TYPE_SELECT)
         self.scroll_and_click(select_el)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss any lingering MUI Select backdrop / popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def has_field(self, locator: tuple[str, str]) -> bool:
         """Return True iff a form field exists in the DOM (visibility ignored)."""
         return bool(self.driver.find_elements(*locator))
 
     def submit(self) -> None:
-        self.wait_for_element_clickable(self.SUBMIT_BUTTON).click()
+        self.wait_and_click(self.SUBMIT_BUTTON)
 
     # ── Trigger button state (on the parent page) ──────────────────────────
 

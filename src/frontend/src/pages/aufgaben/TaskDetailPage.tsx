@@ -605,9 +605,22 @@ export default function TaskDetailPage() {
           flexWrap: 'wrap',
         }}
       >
-        <Box>
+        {/* `minWidth: 0` lets the title column shrink below its max-content
+            width; without it the chip row sets the column's automatic minimum
+            size and the header cannot reflow at all. */}
+        <Box sx={{ minWidth: 0 }}>
           <PageTitle title={(i18n.language === 'de' && task.name_de) ? task.name_de : task.name} />
-          <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+          {/* Status / category / priority. The three German labels measure
+              ~340px against a 393px viewport, so the row MUST be allowed to
+              wrap (UI-NFR-001 R-005/R-006). `useFlexGap` is required with
+              `flexWrap`: Stack's default margin-based spacing collapses to the
+              wrong side once a line breaks. */}
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            sx={{ mt: 0.5, flexWrap: 'wrap' }}
+          >
             <Chip
               label={t(`enums.taskStatus.${task.status}`)}
               size="small"
@@ -627,7 +640,20 @@ export default function TaskDetailPage() {
           </Stack>
         </Box>
 
-        <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+        {/* The action group MUST stay shrinkable and wrap: with `flexShrink: 0`
+            a flex item is sized to its max-content width, so up to five buttons
+            (start / skip / reopen / clone / delete) formed one unbreakable row
+            that pushed the trailing — destructive — buttons outside a 393px
+            viewport. Shrinking is bounded by the group's automatic minimum size,
+            so the buttons wrap onto a second line instead of overflowing
+            (UI-NFR-001 R-005/R-006, UI-NFR-021 R-023). `useFlexGap` is required
+            here: Stack's default margin-based spacing breaks once lines wrap. */}
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}
+        >
           {task.status === 'pending' && (
             <Button
               variant="outlined"
@@ -680,13 +706,25 @@ export default function TaskDetailPage() {
             color="error"
             startIcon={<DeleteIcon />}
             onClick={() => setDeleteOpen(true)}
+            data-testid="delete-task-button"
           >
             {t('common.delete')}
           </Button>
         </Stack>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      {/* Scrollable + mobile scroll buttons: five tabs never fit a 393px viewport,
+          and a fixed tab bar would clip the trailing tabs out of reach entirely
+          (UI-NFR-001 mobile-first). */}
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={t('pages.tasks.title')}
+      >
         <Tab label={t('pages.tasks.tabDetails')} />
         {isActionable && <Tab label={t('pages.tasks.tabComplete')} />}
         <Tab label={t('pages.tasks.tabComments')} />
@@ -1014,6 +1052,7 @@ export default function TaskDetailPage() {
       {tab === 1 && isActionable && (
         <Box
           component="form"
+          noValidate
           onSubmit={handleCompletionSubmit(handleComplete)}
           sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
@@ -1264,6 +1303,14 @@ export default function TaskDetailPage() {
       {tab === editTabIndex && (
         <Box
           component="form"
+          // react-hook-form + zod is the single validation source of truth here.
+          // Without `noValidate` the browser's own constraint validation runs
+          // first (the `required` name, the `min`/`step` of the duration
+          // fields): it aborts the submission *before* any `submit` event, so
+          // zod never runs and no MUI helper text ever renders — the user only
+          // sees a transient native bubble in the browser's locale. Same defect
+          // and same fix as on HarvestBatchDetailPage/HarvestCreateDialog.
+          noValidate
           onSubmit={handleEditSubmit(onSave)}
           sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: 4 }}
         >

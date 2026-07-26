@@ -32,8 +32,17 @@ class ImportPage(BasePage):
     ACTIVE_STEP_ICON = (By.CSS_SELECTOR, ".MuiStepIcon-root.Mui-active")
 
     # ── Upload step (step 0) ────────────────────────────────────────────
-    ENTITY_TYPE_SELECT = (By.CSS_SELECTOR, "[data-testid='import-entity-type']")
-    DUPLICATE_STRATEGY_SELECT = (By.CSS_SELECTOR, "[data-testid='import-duplicate-strategy']")
+    #: The two Selects are addressed by their bare test id as well: the shared
+    #: select helpers take the id rather than a locator, because MUI puts the
+    #: test id on the `InputBase` root (which also carries the notched
+    #: outline's legend) and they resolve the `[role='combobox']` *inside* it.
+    ENTITY_TYPE_TESTID = "import-entity-type"
+    DUPLICATE_STRATEGY_TESTID = "import-duplicate-strategy"
+    ENTITY_TYPE_SELECT = (By.CSS_SELECTOR, f"[data-testid='{ENTITY_TYPE_TESTID}']")
+    DUPLICATE_STRATEGY_SELECT = (
+        By.CSS_SELECTOR,
+        f"[data-testid='{DUPLICATE_STRATEGY_TESTID}']",
+    )
     FILE_SELECT_BUTTON = (By.CSS_SELECTOR, "[data-testid='import-file-select']")
     FILE_INPUT = (By.CSS_SELECTOR, "[data-testid='import-file-select'] input[type='file']")
     DOWNLOAD_TEMPLATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='import-download-template']")
@@ -49,7 +58,7 @@ class ImportPage(BasePage):
     # ── Result step (step 2) ───────────────────────────────────────────
     NEW_IMPORT_BUTTON = (By.CSS_SELECTOR, "[data-testid='import-new-button']")
     RESULT_CHIPS = (By.CSS_SELECTOR, "[data-testid='import-step-result'] .MuiChip-root")
-    RESULT_WARNING = (By.CSS_SELECTOR, "[data-testid='import-step-result'] .MuiAlert-standardWarning")
+    RESULT_WARNING = (By.CSS_SELECTOR, "[data-testid='import-step-result'] .MuiAlert-colorWarning")
 
     # ── Generic chip locators ──────────────────────────────────────────
     STATUS_CHIP_VALID = (By.CSS_SELECTOR, ".MuiChip-colorSuccess")
@@ -115,38 +124,36 @@ class ImportPage(BasePage):
         """
         self.wait_for_element(self.ENTITY_TYPE_SELECT)
         native = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='import-entity-type'] input.MuiSelect-nativeInput"
+            By.CSS_SELECTOR,
+            f"[data-testid='{self.ENTITY_TYPE_TESTID}'] input.MuiSelect-nativeInput",
         )
         return native.get_attribute("value") or ""
 
-    def select_entity_type(self, value_text: str) -> None:
-        """Open the entity type dropdown and select an option by visible text."""
-        select_el = self.wait_for_element_clickable(self.ENTITY_TYPE_SELECT)
-        self.scroll_and_click(select_el)
-        option = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.element_to_be_clickable(
-                (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-            )
-        )
-        option.click()
-        # MUI auto-closes the popover on option click. Use the guarded
-        # ``close_mui_dropdown`` helper instead of an unconditional Escape so
-        # the keystroke does not fall through and dismiss a surrounding modal.
-        self.close_mui_dropdown()
+    def select_entity_type(self, value: str) -> None:
+        """Select an entity type by its committed value (``'species'``, …).
+
+        Routed through the shared, verified select helpers, like
+        ``OnboardingWizardPage.select_site_type``. The predecessor resolved the
+        option through an unscoped ``//li[@role='option']`` XPath matched on the
+        *translated* label with ``contains()``: unscoped, so any other listbox in
+        the DOM could answer; translated, so the suite broke on a locale change;
+        prefix-matching, so a label that is the prefix of another selects the
+        wrong entry — and an empty label (``o.text`` of a still-invisible option,
+        as fed back from :meth:`get_entity_type_options`) matched *every* option
+        and committed the first one. Nothing read the value back, so all of that
+        reported success and surfaced later as a value mismatch.
+
+        The `MenuItem`s carry the domain value (``value="species"``), so the
+        option is addressed by that ``data-value`` and the committed value is
+        read back by :meth:`BasePage.select_option_by_value`, which raises on a
+        mismatch.
+        """
+        self.open_select_by_testid(self.ENTITY_TYPE_TESTID)
+        self.select_option_by_value(value)
 
     def get_entity_type_options(self) -> list[str]:
         """Open the entity type dropdown and return all option texts."""
-        import time
-
-        select_el = self.wait_for_element_clickable(self.ENTITY_TYPE_SELECT)
-        self.scroll_and_click(select_el)
-        options = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li[role='option']"))
-        )
-        texts = [o.text for o in options]
-        self.close_mui_dropdown()
-        time.sleep(0.5)  # Wait for backdrop to fully dismiss
-        return texts
+        return self._read_open_option_labels(self.ENTITY_TYPE_TESTID)
 
     # ── Duplicate strategy dropdown ─────────────────────────────────────
 
@@ -154,39 +161,59 @@ class ImportPage(BasePage):
         """Return the currently selected duplicate strategy value.
 
         MUI v7 Select renders the value in a ``MuiSelect-nativeInput`` text input.
+
+        Waits for the Select first, mirroring :meth:`get_entity_type_value`: a
+        bare ``find_element`` on a page that is still mounting reports
+        ``NoSuchElement`` for "not there *yet*".
         """
+        self.wait_for_element(self.DUPLICATE_STRATEGY_SELECT)
         native = self.driver.find_element(
-            By.CSS_SELECTOR, "[data-testid='import-duplicate-strategy'] input.MuiSelect-nativeInput"
+            By.CSS_SELECTOR,
+            f"[data-testid='{self.DUPLICATE_STRATEGY_TESTID}'] input.MuiSelect-nativeInput",
         )
         return native.get_attribute("value") or ""
 
-    def select_duplicate_strategy(self, value_text: str) -> None:
-        """Open the duplicate strategy dropdown and select an option."""
-        select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
-        self.scroll_and_click(select_el)
-        option = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.element_to_be_clickable(
-                (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-            )
-        )
-        option.click()
-        # MUI auto-closes the popover on option click. Guarded close_mui_dropdown
-        # avoids a stray Escape that would race the option's onChange handler
-        # and revert the selection to the previous default.
-        self.close_mui_dropdown()
+    def select_duplicate_strategy(self, value: str) -> None:
+        """Select a duplicate strategy by its committed value (``'skip'``, …).
+
+        Same migration, and the same reasons, as :meth:`select_entity_type` —
+        this is the one the ``light`` profile caught (TC-REQ-012-017 selected
+        the update strategy and read ``'skip'`` back).
+        """
+        self.open_select_by_testid(self.DUPLICATE_STRATEGY_TESTID)
+        self.select_option_by_value(value)
 
     def get_duplicate_strategy_options(self) -> list[str]:
         """Open the duplicate strategy dropdown and return all option texts."""
-        import time
+        return self._read_open_option_labels(self.DUPLICATE_STRATEGY_TESTID)
 
-        select_el = self.wait_for_element_clickable(self.DUPLICATE_STRATEGY_SELECT)
-        self.scroll_and_click(select_el)
+    # ── Shared dropdown reader ──────────────────────────────────────────
+
+    def _read_open_option_labels(self, testid: str) -> list[str]:
+        """Open the Select addressed by *testid*, read its option labels, close it.
+
+        ``open_select_by_testid`` verifies the menu really opened (and retries
+        with the ``mousedown`` pair MUI's Select actually listens on) instead of
+        assuming a click worked, and ``close_mui_dropdown`` now raises rather
+        than returning with the popover still up — so the ``time.sleep(0.5)``
+        "wait for the backdrop to dismiss" this replaces has nothing left to
+        wait for: the helper only returns once no ``li[role='option']`` is left
+        in the DOM, and MUI unmounts the whole `Menu`, backdrop included, with
+        them. A blind sleep is forbidden by `e2e-test-stability` §C anyway.
+
+        Labels are read from ``textContent``, not from ``WebElement.text``: the
+        rendered text of an option is ``''`` while the popover is still fading
+        in, and the previous ``presence_of_all_elements_located`` + ``o.text``
+        combination could therefore hand the caller ``['', '', '']`` — an empty
+        read that no assertion in this suite could tell apart from a genuinely
+        blank label.
+        """
+        self.open_select_by_testid(testid)
         options = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "li[role='option']"))
+            EC.presence_of_all_elements_located(self.OPTIONS)
         )
-        texts = [o.text for o in options]
+        texts = [self._text_content(o) for o in options]
         self.close_mui_dropdown()
-        time.sleep(0.5)  # Wait for backdrop to fully dismiss
         return texts
 
     # ── File selection ──────────────────────────────────────────────────
@@ -284,7 +311,7 @@ class ImportPage(BasePage):
 
     def click_download_template(self) -> None:
         """Click the download template button."""
-        self.wait_for_element_clickable(self.DOWNLOAD_TEMPLATE_BUTTON).click()
+        self.wait_and_click(self.DOWNLOAD_TEMPLATE_BUTTON)
 
     # ── Error alert ─────────────────────────────────────────────────────
 

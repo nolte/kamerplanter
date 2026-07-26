@@ -22,6 +22,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import LoginPage
+from ._auth_helpers import ensure_logged_out
 
 pytestmark = pytest.mark.requires_auth
 
@@ -44,8 +45,7 @@ def login_page(browser: WebDriver, base_url: str) -> LoginPage:
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     """Clear auth state by deleting cookies and navigating to login."""
-    browser.delete_all_cookies()
-    browser.get(f"{base_url}/login")
+    ensure_logged_out(browser, base_url)
 
 
 # -- TC-023-009: Successful login ----------------------------------------------

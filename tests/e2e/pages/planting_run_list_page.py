@@ -30,7 +30,7 @@ class PlantingRunListPage(BasePage):
     # ── Dialog locators ────────────────────────────────────────────────
     # PlantingRunCreateDialog does not use data-testid="create-dialog" — it uses
     # MUI Dialog with aria role="dialog". We locate it by DialogTitle text via role.
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
     CONFIRM_CANCEL = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-cancel']")
@@ -67,43 +67,47 @@ class PlantingRunListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (PlantingRunListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first cell (Name column) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the run name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through: `name` renders `r.name` as plain
+    #: text, is the first column and carries no `hideBelowBreakpoint`. Not the
+    #: row centre — that is a viewport-dependent bet on which cell the row's
+    #: midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index* to navigate to its detail page."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the planting run at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "planting run row"
+        )
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
-                self.scroll_and_click(row)
+        """Click the row whose name column matches *name*.
+
+        Addressed by column id, not by position, so it resolves in both the
+        desktop table and the mobile card layout.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row with name '{name}' not found in planting runs table")
 
@@ -220,7 +224,7 @@ class PlantingRunListPage(BasePage):
         if not species_options:
             return None
         label = species_options[0].text
-        species_options[0].click()
+        self.click_menu_option(species_options[0])
         return label
 
     def fill_quantity(self, quantity: int) -> None:
@@ -231,9 +235,6 @@ class PlantingRunListPage(BasePage):
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select dropdown and pick an option by its visible text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
         )
@@ -241,22 +242,17 @@ class PlantingRunListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def submit_create_form(self) -> None:
         """Submit the create form by clicking the Save button."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
@@ -275,8 +271,8 @@ class PlantingRunListPage(BasePage):
 
     def confirm(self) -> None:
         """Click Confirm in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_confirm(self) -> None:
         """Click Cancel in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)

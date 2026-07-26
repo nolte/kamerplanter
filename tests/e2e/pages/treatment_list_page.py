@@ -30,7 +30,7 @@ class TreatmentListPage(BasePage):
     NO_RESULTS = (By.CSS_SELECTOR, "[data-testid='no-results']")
 
     # -- Create dialog locators -----------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # -- Create form field locators -------------------------------------------
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
@@ -82,15 +82,16 @@ class TreatmentListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (TreatmentListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the treatment name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -98,19 +99,20 @@ class TreatmentListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
+
+    #: Column the row is activated through: `name` renders the localised
+    #: treatment name as plain text, is the first column and carries no
+    #: `hideBelowBreakpoint`. Not the row centre — that is a viewport-dependent
+    #: bet on which cell the row's midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the treatment at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "treatment row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
@@ -121,44 +123,34 @@ class TreatmentListPage(BasePage):
                 return
         raise ValueError(f"Column header '{header_text}' not found")
 
-    def get_chip_texts_in_column(self, col_index: int) -> list[str]:
-        """Return the chip label texts for a given column index across all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) > col_index:
-                chips = cells[col_index].find_elements(By.CSS_SELECTOR, ".MuiChip-label")
-                for chip in chips:
-                    texts.append(chip.text)
-        return texts
+    #: Chip-carrying column id (TreatmentListPage `columns`).
+    TREATMENT_TYPE_COLUMN_ID = "treatmentType"
 
-    def get_chip_colors_in_column(self, col_index: int) -> list[str]:
-        """Return the MUI chip color names for a given column index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        colors = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if len(cells) > col_index:
-                chips = cells[col_index].find_elements(By.CSS_SELECTOR, ".MuiChip-root")
-                for chip in chips:
-                    cls = chip.get_attribute("class") or ""
-                    for color in ("success", "warning", "error", "info", "secondary", "primary", "default"):
-                        if f"MuiChip-color{color.capitalize()}" in cls:
-                            colors.append(color)
-                            break
-                    else:
-                        colors.append("default")
-        return colors
+    def get_chip_texts_in_column(self, col_id: str) -> list[str]:
+        """Return the chip labels of column *col_id* across all visible rows.
 
-    def get_cell_text(self, row_index: int, col_index: int) -> str:
-        """Return the text of a specific cell."""
+        Takes a column *id* rather than a column *index*: the mobile card
+        layout has no columns, so an index-based reader silently returned
+        ``[]`` there.
+        """
+        return self.get_column_chip_texts(col_id)
+
+    def get_chip_colors_in_column(self, col_id: str) -> list[str]:
+        """Return the MUI palette name of column *col_id*'s chips (e.g. 'success')."""
+        return self.get_column_chip_colors(col_id)
+
+    def get_cell_text(self, row_index: int, col_id: str) -> str:
+        """Return the text of column *col_id* in the row at *row_index*.
+
+        Addressed by column id, not by position. Guarded against the mobile
+        card layout, which renders no addressable cells at all and would make
+        this return ``""`` for every column.
+        """
+        self.require_table_layout("TreatmentListPage.get_cell_text")
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if row_index < len(rows):
-            cells = rows[row_index].find_elements(By.TAG_NAME, "td")
-            if col_index < len(cells):
-                return cells[col_index].text
-        return ""
+        if row_index >= len(rows):
+            return ""
+        return self.get_row_cell_text(rows[row_index], col_id)
 
     # -- Search and filter ----------------------------------------------------
 
@@ -248,7 +240,7 @@ class TreatmentListPage(BasePage):
     def submit_create_form(self) -> None:
         """Submit the create form via JS dispatch on the form element."""
         self.driver.execute_script(
-            "var form = document.querySelector(\"div[role='dialog'] form\");"
+            "var form = document.querySelector(\".MuiDialog-root [role='dialog'] form\");"
             "if (form) {"
             "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
             "  form.dispatchEvent(ev);"
@@ -308,7 +300,7 @@ class TreatmentListPage(BasePage):
         Fallback check used when the exact field emitting the error is uncertain.
         """
         return len(self.driver.find_elements(
-            By.CSS_SELECTOR, "div[role='dialog'] .MuiFormHelperText-root.Mui-error"
+            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error"
         )) > 0
 
     # -- Internal helpers -----------------------------------------------------
@@ -331,7 +323,7 @@ class TreatmentListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         time.sleep(0.3)
         self.close_mui_dropdown()
         time.sleep(0.3)

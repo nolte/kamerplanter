@@ -17,6 +17,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import EmailVerificationPage
+from ._auth_helpers import ensure_logged_out
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -30,8 +31,7 @@ def verification_page(browser: WebDriver, base_url: str) -> EmailVerificationPag
 
 def _ensure_logged_out(browser: WebDriver, base_url: str) -> None:
     """Clear auth state by deleting cookies."""
-    browser.delete_all_cookies()
-    browser.get(f"{base_url}/login")
+    ensure_logged_out(browser, base_url)
 
 
 # -- TC-023-007 / TC-023-008: Page rendering -----------------------------------

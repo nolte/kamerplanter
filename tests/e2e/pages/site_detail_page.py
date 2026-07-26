@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
@@ -96,9 +95,6 @@ class SiteDetailPage(BasePage):
 
     def select_type(self, value_text: str) -> None:
         """Open the MUI Select for 'type' and pick an option by visible text."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         select_el = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
         )
@@ -106,20 +102,16 @@ class SiteDetailPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def submit_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # ── Delete flow ────────────────────────────────────────────────────
 
@@ -132,10 +124,10 @@ class SiteDetailPage(BasePage):
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_OK).click()
+        self.wait_and_click(self.CONFIRM_OK)
 
     def cancel_delete(self) -> None:
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_visible(self) -> bool:
@@ -175,12 +167,10 @@ class SiteDetailPage(BasePage):
         an onClick handler that navigates to ``/standorte/locations/{key}``.
         """
         items = self.driver.find_elements(*self.LOCATION_TREE_ITEMS)
-        if index < len(items):
-            # The clickable name is a Typography inside the TreeItem label
-            name_el = items[index].find_element(
-                By.CSS_SELECTOR, ".MuiTypography-body2"
-            )
-            self.scroll_and_click(name_el)
+        item = self.require_index(items, index, "location tree item")
+        # The clickable name is a Typography inside the TreeItem label
+        name_el = item.find_element(By.CSS_SELECTOR, ".MuiTypography-body2")
+        self.scroll_and_click(name_el)
 
     def is_location_section_visible(self) -> bool:
         """Check if the LocationTreeSection is rendered (create button present)."""

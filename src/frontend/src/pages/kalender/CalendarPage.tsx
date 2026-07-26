@@ -967,6 +967,7 @@ export default function CalendarPage() {
           onChange={(_e, val) => setViewMode(val as ViewMode)}
           variant="scrollable"
           scrollButtons="auto"
+          allowScrollButtonsMobile
           aria-label={t('pages.calendar.title')}
           sx={{ minHeight: 40 }}
         >
@@ -987,6 +988,7 @@ export default function CalendarPage() {
               startIcon={<FilterListIcon />}
               onClick={() => setFiltersExpanded((prev) => !prev)}
               sx={{ mb: 1 }}
+              data-testid="calendar-category-filter-toggle"
             >
               {t('pages.calendar.categories')} ({selectedCategories.size}/{ALL_CATEGORIES.length})
             </Button>

@@ -16,6 +16,7 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support.ui import WebDriverWait
 
 from .base_page import BasePage, DEFAULT_TIMEOUT
 
@@ -195,14 +196,56 @@ class CalendarPage(BasePage):
 
     # ── Category filter chips ───────────────────────────────────────────
 
+    CATEGORY_FILTER_CHIPS = (By.CSS_SELECTOR, "[data-testid^='category-filter-']")
+    # The "Kategorien (n/m)" disclosure button now carries its own hook, so the
+    # previous anchor -- the MUI Collapse wrapping the chips plus a
+    # preceding-sibling step -- is gone. That construction depended on a MUI
+    # internal class *and* on the button staying the Collapse's immediate
+    # preceding sibling; `CalendarPage` renders the button only at `fullScreen`
+    # width, so a mis-anchored lookup would have failed silently on desktop.
+    CATEGORY_FILTER_TOGGLE = (
+        By.CSS_SELECTOR,
+        "[data-testid='calendar-category-filter-toggle']",
+    )
+
     def get_category_filter_chips(self) -> list[WebElement]:
         """Return all category filter chip elements."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='category-filter-']"
+        return self.driver.find_elements(*self.CATEGORY_FILTER_CHIPS)
+
+    def is_category_filter_expanded(self) -> bool:
+        """Return True while the category chips are actually visible.
+
+        At ``fullScreen`` width `CalendarPage` puts the chips inside a collapsed
+        `Collapse` behind a "Kategorien (n/m)" button (a deliberate mobile
+        affordance). The chips stay in the DOM there, merely clipped to zero
+        height -- so presence alone is no signal and only real visibility is.
+        """
+        chips = self.get_category_filter_chips()
+        return bool(chips) and chips[0].is_displayed()
+
+    def expand_category_filters(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Expand the category filter section if it is collapsed.
+
+        Idempotent and condition-based: returns immediately when the chips are
+        already visible (every width at or above the `Collapse`'s breakpoint),
+        otherwise clicks the disclosure button and waits until they are.
+        """
+        if not self.get_category_filter_chips() or self.is_category_filter_expanded():
+            return
+        toggles = self.driver.find_elements(*self.CATEGORY_FILTER_TOGGLE)
+        if not toggles:
+            raise AssertionError(
+                "Category filter chips are collapsed but no disclosure button was "
+                "found next to their Collapse container"
+            )
+        self.scroll_and_click(toggles[0])
+        WebDriverWait(self.driver, timeout).until(
+            lambda _d: self.is_category_filter_expanded()
         )
 
     def click_category_filter(self, category: str) -> None:
-        """Toggle a specific category filter chip."""
+        """Toggle a specific category filter chip, expanding the section first."""
+        self.expand_category_filters()
         chip = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='category-filter-{category}']")
         )
@@ -327,7 +370,7 @@ class CalendarPage(BasePage):
 
     def click_create_feed(self) -> None:
         """Click the Create Feed button (opens the dialog)."""
-        self.wait_for_element_clickable(self.CREATE_FEED_BTN).click()
+        self.wait_and_click(self.CREATE_FEED_BTN)
 
     def is_create_feed_dialog_visible(self) -> bool:
         """Return True if the create feed dialog is open."""
@@ -344,11 +387,11 @@ class CalendarPage(BasePage):
 
     def save_feed(self) -> None:
         """Click the Save button in the feed creation dialog."""
-        self.wait_for_element_clickable(self.FEED_SAVE_BTN).click()
+        self.wait_and_click(self.FEED_SAVE_BTN)
 
     def cancel_feed(self) -> None:
         """Click the Cancel button in the feed creation dialog."""
-        self.wait_for_element_clickable(self.FEED_CANCEL_BTN).click()
+        self.wait_and_click(self.FEED_CANCEL_BTN)
 
     def wait_for_create_feed_dialog_closed(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the create feed dialog is no longer visible."""
@@ -366,33 +409,27 @@ class CalendarPage(BasePage):
 
     def click_feed_copy(self, feed_key: str) -> None:
         """Click the copy URL button for a feed."""
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='feed-copy-{feed_key}']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-copy-{feed_key}']"))
 
     def click_feed_regenerate(self, feed_key: str) -> None:
         """Click the regenerate token button for a feed."""
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='feed-regenerate-{feed_key}']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-regenerate-{feed_key}']"))
 
     def click_feed_delete(self, feed_key: str) -> None:
         """Click the delete button for a feed."""
-        self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='feed-delete-{feed_key}']")
-        ).click()
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='feed-delete-{feed_key}']"))
 
     # ── Watering confirmation ───────────────────────────────────────────
 
     def click_confirm_watering(self) -> None:
         """Click the confirm watering button in the event popover."""
-        self.wait_for_element_clickable(self.CONFIRM_WATERING_BTN).click()
+        self.wait_and_click(self.CONFIRM_WATERING_BTN)
 
     def click_day_confirm_watering(self, plant_key: str) -> None:
         """Click the confirm watering button for a specific plant in the day popover."""
-        self.wait_for_element_clickable(
+        self.wait_and_click(
             (By.CSS_SELECTOR, f"[data-testid='day-confirm-watering-{plant_key}']")
-        ).click()
+        )
 
     # ── Snackbar / notification ─────────────────────────────────────────
 

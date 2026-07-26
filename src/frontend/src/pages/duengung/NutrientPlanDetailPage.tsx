@@ -128,7 +128,15 @@ export default function NutrientPlanDetailPage() {
         </Alert>
       )}
 
-      <Tabs value={c.tab} onChange={(_, v) => c.setTab(v)} sx={{ mb: 2 }}>
+      <Tabs
+        value={c.tab}
+        onChange={(_, v) => c.setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={plan.name}
+      >
         <Tab label={t('pages.nutrientPlans.tabPhaseEntries')} {...tabA11yProps('nutrientPlan', 0)} />
         <Tab label={t('pages.nutrientPlans.tabValidation')} {...tabA11yProps('nutrientPlan', 1)} />
         <Tab label={t('pages.nutrientPlans.dosageCalc.tabTitle')} {...tabA11yProps('nutrientPlan', 2)} />

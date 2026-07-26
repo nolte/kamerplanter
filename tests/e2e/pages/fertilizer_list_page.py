@@ -58,26 +58,35 @@ class FertilizerListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (FertilizerListPage `columns`).
+    NAME_COLUMN_ID = "product_name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column (product name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the product name of every visible row.
+
+        Addressed by column id, not by position: the leading ``<td>`` is the
+        favourite-star column (empty text), and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` that
+    #: `stopPropagation`s, so a centre click can toggle a favourite instead of
+    #: opening the fertilizer. `product_name` renders `r.product_name` and
+    #: carries no `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
+
     def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the fertilizer at *index* via its inert `product_name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "fertilizer row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
@@ -189,9 +198,6 @@ class FertilizerListPage(BasePage):
 
     def select_fertilizer_type(self, value_text: str) -> None:
         """Open the fertilizer type select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-fertilizer_type'] .MuiSelect-select")
         )
@@ -199,20 +205,12 @@ class FertilizerListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def select_ph_effect(self, value_text: str) -> None:
         """Open the pH effect select and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, "[data-testid='form-field-ph_effect'] .MuiSelect-select")
         )
@@ -220,22 +218,17 @@ class FertilizerListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_product_name_field_value(self) -> str:
         """Return the current value of the product_name input."""

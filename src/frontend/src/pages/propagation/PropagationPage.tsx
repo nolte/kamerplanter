@@ -130,6 +130,9 @@ export default function PropagationPage(): ReactElement {
         value={tab}
         onChange={(_e, v: number) => setTab(v)}
         sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         aria-label={t('pages.propagation.title')}
       >
         <Tab

@@ -117,16 +117,21 @@ export default function DiseaseListPage() {
           <MobileCard
             title={r.scientific_name}
             subtitle={r.common_name}
-            chips={
-              <Chip
-                label={t(`enums.pathogenType.${r.pathogen_type}`)}
-                size="small"
-                color={pathogenTypeColor[r.pathogen_type] ?? 'default'}
-              />
-            }
+            chips={[
+              {
+                id: 'pathogenType',
+                content: (
+                  <Chip
+                    label={t(`enums.pathogenType.${r.pathogen_type}`)}
+                    size="small"
+                    color={pathogenTypeColor[r.pathogen_type] ?? 'default'}
+                  />
+                ),
+              },
+            ]}
             fields={[
               ...(r.incubation_period_days != null
-                ? [{ label: t('pages.ipm.incubationPeriodDays'), value: `${r.incubation_period_days}\u202f${t('pages.ipm.days')}` }]
+                ? [{ id: 'incubationPeriodDays', label: t('pages.ipm.incubationPeriodDays'), value: `${r.incubation_period_days}\u202f${t('pages.ipm.days')}` }]
                 : []),
             ]}
           />

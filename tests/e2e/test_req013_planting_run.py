@@ -726,7 +726,14 @@ class TestPlantingRunErrorHandling:
         Spec: TC-013-052 -- Laden-Ladebalken erscheint bei Seitenaufruf.
         """
         run_detail.navigate("/durchlaeufe/planting-runs/nonexistent-key-99999")
-        run_detail.wait_for_loading_complete()
+        # `PlantingRunDetailPage` renders exactly one of skeleton / ErrorDisplay
+        # / page root, so waiting for the skeleton's absence proves neither of
+        # the two settled states below has been reached -- and right after
+        # navigate() it is satisfied before the lazy route chunk even mounts.
+        run_detail.wait_for_any_present(
+            (run_detail.ERROR_DISPLAY, run_detail.PAGE),
+            "TC-REQ-013-024: planting-run detail route for a non-existent key",
+        )
         screenshot("TC-REQ-013-024_nonexistent-key-error", "Error state for non-existent run key")
 
         error_displayed = run_detail.is_error_displayed()

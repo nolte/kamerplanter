@@ -28,7 +28,7 @@ class HarvestBatchListPage(BasePage):
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
 
     # -- Create dialog locators ---------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
 
     # -- Create form field locators -----------------------------------------
     FORM_PLANT_KEY = (
@@ -92,29 +92,32 @@ class HarvestBatchListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
+
+    #: Column id of the identifying column (HarvestBatchListPage `columns`).
+    BATCH_ID_COLUMN_ID = "batchId"
 
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the batch id of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.BATCH_ID_COLUMN_ID)
+
+    #: Column the row is activated through: `batchId` renders
+    #: ``r.batch_id || '—'`` as plain text, is the first column and carries no
+    #: `hideBelowBreakpoint` (unlike `plantKey`, which is hidden below `md`).
+    #: Not the row centre — that is a viewport-dependent bet on which cell the
+    #: row's midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = BATCH_ID_COLUMN_ID
 
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the harvest batch at *index* via its inert `batchId` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "harvest batch row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
@@ -172,28 +175,36 @@ class HarvestBatchListPage(BasePage):
 
     # -- Quality grade chips ------------------------------------------------
 
+    #: Column id carrying the quality-grade chip (HarvestBatchListPage `columns`).
+    QUALITY_GRADE_COLUMN_ID = "qualityGrade"
+
     def get_quality_chips(self) -> list[dict[str, str]]:
-        """Return label and MUI color class for quality-grade chips in the table.
+        """Return label and MUI color classes of the table's grade-carrying chips.
 
         Each entry is ``{"label": "A+", "classes": "MuiChip-colorSuccess ..."}``.
+
+        Addressed by column id on the desktop table. The mobile card layout has
+        no ``<td>`` and renders the harvest-type and quality-grade chips side by
+        side in one unlabelled `chips` slot, so every row chip is returned there;
+        the caller matches grades by label, and a non-grade label simply does not
+        match. Reading "the last cell" instead returned ``[]`` on mobile, which
+        made the colour-coding assertion vacuously pass.
         """
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        chips = []
-        for row in rows:
-            # Quality grade is in the last column
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if not cells:
-                continue
-            last_cell = cells[-1]
-            chip_els = last_cell.find_elements(By.CSS_SELECTOR, ".MuiChip-root")
+        chips: list[dict[str, str]] = []
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            cells = row.find_elements(
+                By.CSS_SELECTOR, f"[data-testid='cell-{self.QUALITY_GRADE_COLUMN_ID}']"
+            )
+            scope = cells[0] if cells else row
+            chip_els = scope.find_elements(By.CSS_SELECTOR, ".MuiChip-root")
             if chip_els:
-                chip = chip_els[0]
-                chips.append({
-                    "label": chip.text,
-                    "classes": chip.get_attribute("class") or "",
-                })
-            else:
-                chips.append({"label": last_cell.text, "classes": ""})
+                chips.extend(
+                    {"label": chip.text, "classes": chip.get_attribute("class") or ""}
+                    for chip in chip_els
+                )
+            elif cells:
+                # Desktop cell without a chip -- the batch has no quality grade.
+                chips.append({"label": scope.text, "classes": ""})
         return chips
 
     # -- Create dialog ------------------------------------------------------
@@ -255,8 +266,6 @@ class HarvestBatchListPage(BasePage):
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
-        import time
-
         field = self.wait_for_element_clickable(
             (
                 By.CSS_SELECTOR,
@@ -276,14 +285,9 @@ class HarvestBatchListPage(BasePage):
                     f"//li[@role='option' and contains(text(), '{value_text}')]",
                 )
             )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
@@ -320,19 +324,19 @@ class HarvestBatchListPage(BasePage):
         # Check for explicit error helper text
         if len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiFormHelperText-root.Mui-error",
+            ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
         )) > 0:
             return True
         # Check for MUI form controls in error state (e.g. Select without helper text)
         if len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiFormControl-root.Mui-error",
+            ".MuiDialog-root [role='dialog'] .MuiFormControl-root.Mui-error",
         )) > 0:
             return True
         # Check for MUI InputBase in error state
         if len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] .MuiInputBase-root.Mui-error",
+            ".MuiDialog-root [role='dialog'] .MuiInputBase-root.Mui-error",
         )) > 0:
             return True
         return False
@@ -343,7 +347,7 @@ class HarvestBatchListPage(BasePage):
 
         return len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            "div[role='dialog'] [aria-invalid='true']",
+            ".MuiDialog-root [role='dialog'] [aria-invalid='true']",
         )) > 0
 
     def wait_briefly_for_client_validation(self, seconds: float = 0.5) -> None:

@@ -91,12 +91,31 @@ export default function CultivarListSection({ speciesKey }: Props) {
       sortable: false,
       searchable: false,
       render: (r) => (
-        <IconButton size="small" aria-label={t('common.delete')} onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}>
+        <IconButton
+          size="small"
+          aria-label={t('common.delete')}
+          onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+          data-testid={`cultivar-delete-${r.key}`}
+        >
           <DeleteIcon fontSize="small" />
         </IconButton>
       ),
     },
   ];
+
+  /** Row action for the mobile card view — the same delete the desktop actions
+   *  column offers. Without it a cultivar cannot be deleted below the `sm`
+   *  breakpoint at all. Touch target per UI-NFR-001 R-011 (48x48). */
+  const renderRowActions = (r: Cultivar) => (
+    <IconButton
+      aria-label={t('common.delete')}
+      onClick={(e) => { e.stopPropagation(); setDeleteTarget(r); }}
+      sx={{ minWidth: 48, minHeight: 48 }}
+      data-testid={`cultivar-delete-${r.key}`}
+    >
+      <DeleteIcon fontSize="small" />
+    </IconButton>
+  );
 
   return (
     <Box>
@@ -133,6 +152,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
                 ? [{ label: t('pages.cultivars.daysToMaturity'), value: r.days_to_maturity }]
                 : undefined
             }
+            trailing={renderRowActions(r)}
           />
         )}
       />

@@ -20,6 +20,8 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-007.md):
 
 from __future__ import annotations
 
+import time
+import uuid
 from pathlib import Path
 from typing import Callable
 
@@ -49,11 +51,70 @@ def harvest_list(browser: WebDriver, base_url: str) -> HarvestBatchListPage:
     return HarvestBatchListPage(browser, base_url)
 
 
+def _unique_batch_id() -> str:
+    """Return a collision-free Chargen-ID for a dedicated test batch."""
+    return f"E2E-DETAIL-{uuid.uuid4().hex[:8].upper()}"
+
+
+def _create_batch_and_get_key(harvest_list: HarvestBatchListPage) -> str:
+    """Create a dedicated batch via the create dialog and return its key.
+
+    Detail-page tests must not depend on batches created by list tests on
+    other xdist workers or on seed data: a batch created here is guaranteed
+    to exist and to carry no quality assessment or yield metrics yet.
+    """
+    batch_id = _unique_batch_id()
+    harvest_list.open()
+    harvest_list.click_create()
+    # Fill the (autofocused) batch-id text field BEFORE opening the plant
+    # select: the select's menu backdrop can still be mid-dismiss right after
+    # picking an option, which intermittently blocks the next field click.
+    harvest_list.fill_batch_id(batch_id)
+    try:
+        harvest_list.select_plant("")
+    except Exception:
+        pytest.skip("No plants available -- cannot create a harvest batch")
+    harvest_list.submit_create_form()
+
+    # Sample early instead of a blind long wait: dialog-closed wins (success);
+    # a transient error snackbar means the backend blocked the creation
+    # (e.g. Karenz-Gate IPM interval) — mirror TC-REQ-007-028's handling.
+    deadline = time.time() + 12
+    while time.time() < deadline:
+        if not harvest_list.is_create_dialog_open():
+            break
+        if harvest_list.has_any_dialog_error() or harvest_list.is_snackbar_visible():
+            break
+        time.sleep(0.2)
+    if harvest_list.is_create_dialog_open():
+        pytest.skip(
+            "Harvest creation blocked by backend validation "
+            "(likely Karenz-Gate IPM safety interval)"
+        )
+
+    harvest_list.search(batch_id)
+    deadline = time.time() + 10
+    while time.time() < deadline and harvest_list.get_row_count() == 0:
+        time.sleep(0.2)
+    if harvest_list.get_row_count() == 0:
+        pytest.fail(
+            f"Created batch '{batch_id}' did not appear in the harvest list"
+        )
+    harvest_list.click_row(0)
+    harvest_list.wait_for_url_contains("/ernte/")
+    return harvest_list.driver.current_url.rstrip("/").split("/")[-1]
+
+
 def _get_first_batch_key(harvest_list: HarvestBatchListPage) -> str:
-    """Navigate to list, click first row, extract key from URL."""
+    """Navigate to list, click first row, extract key from URL.
+
+    Falls back to creating a dedicated batch when the list is empty, so
+    read-only detail-page tests never skip just because the creation tests
+    happen to run later on another xdist worker.
+    """
     harvest_list.open()
     if harvest_list.get_row_count() == 0:
-        pytest.skip("No harvest batches in database -- cannot test detail page")
+        return _create_batch_and_get_key(harvest_list)
     harvest_list.click_row(0)
     harvest_list.wait_for_url_contains("/ernte/")
     url = harvest_list.driver.current_url
@@ -339,7 +400,7 @@ class TestHarvestQualityAssessment:
 
         Spec: TC-007-023 -- Pflichtfeld 'Bewertet von' fehlt.
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(1)
         harvest_detail.wait_for_loading_complete()
@@ -378,7 +439,7 @@ class TestHarvestQualityAssessment:
 
         Spec: TC-007-022 -- Qualitaetsbewertung erstellen (Happy Path).
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(1)
         harvest_detail.wait_for_loading_complete()
@@ -419,7 +480,7 @@ class TestHarvestQualityAssessment:
 
         Spec: TC-007-025 -- Maengel als Chips hinzufuegen.
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(1)
         harvest_detail.wait_for_loading_complete()
@@ -491,7 +552,7 @@ class TestHarvestYieldMetrics:
 
         Spec: TC-007-028 -- Ertragsmetriken erstellen (Happy Path).
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(2)
         harvest_detail.wait_for_loading_complete()
@@ -532,7 +593,7 @@ class TestHarvestYieldMetrics:
 
         Spec: TC-007-030 -- Verschnitt > 100% zeigt Validierungsfehler.
         """
-        key = _get_first_batch_key(harvest_list)
+        key = _create_batch_and_get_key(harvest_list)
         harvest_detail.open_and_wait(key)
         harvest_detail.click_tab(2)
         harvest_detail.wait_for_loading_complete()

@@ -17,7 +17,7 @@ class PasswordResetRequestPage(BasePage):
     HEADING = (By.CSS_SELECTOR, "h5")
     EMAIL_INPUT = (By.CSS_SELECTOR, "input[type='email']")
     SUBMIT_BUTTON = (By.CSS_SELECTOR, "button[type='submit']")
-    SUCCESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardSuccess")
+    SUCCESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorSuccess")
     BACK_TO_LOGIN_LINK = (By.CSS_SELECTOR, "a[href='/login']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -91,7 +91,7 @@ class PasswordResetConfirmPage(BasePage):
     PASSWORD_INPUT = (By.CSS_SELECTOR, "input[autocomplete='new-password']")
     PASSWORD_FIELDS = (By.CSS_SELECTOR, "input[autocomplete='new-password']")
     SUBMIT_BUTTON = (By.CSS_SELECTOR, "button[type='submit']")
-    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardError")
+    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
     PASSWORD_HELPER_TEXT = (By.CSS_SELECTOR, ".MuiFormHelperText-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:

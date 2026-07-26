@@ -79,6 +79,13 @@ class _NoopCollection:
             # v0025 (#624): the canonical species dedup index is bootstrapped UNIQUE
             # on a fresh volume, so the promotion migration finds it present → no-op.
             {"type": "persistent", "fields": ["scientific_name_normalized"], "unique": True},
+            # v0030 (#740): harvest_batches.batch_id is bootstrapped unique+sparse on a
+            # fresh volume, so the promotion migration finds it present → no-op.
+            {"type": "persistent", "fields": ["batch_id"], "unique": True, "sparse": True},
+            # v0031: user_preferences/onboarding_states.user_key is bootstrapped
+            # unique+sparse on a fresh volume, so the dedup+promotion migration finds
+            # it present → no-op.
+            {"type": "persistent", "fields": ["user_key"], "unique": True, "sparse": True},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db

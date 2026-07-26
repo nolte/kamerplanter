@@ -209,12 +209,12 @@ class SubstrateDetailPage(BasePage):
         self.scroll_and_click(el)
 
     def submit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
         """Cancel the edit form (navigates back)."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     # ── Delete ─────────────────────────────────────────────────────────
 
@@ -226,11 +226,11 @@ class SubstrateDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Confirm deletion in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Cancel the delete confirmation dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
         self.wait_for_element_hidden(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
@@ -288,5 +288,5 @@ class SubstrateDetailPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         self.close_mui_dropdown()

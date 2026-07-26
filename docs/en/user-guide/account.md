@@ -36,9 +36,17 @@ After registering, you receive an email with a confirmation link.
 
 1. Open the email and click the confirmation link
 2. The page shows **Email successfully verified** — you can now sign in
+3. Click **Log in** to go straight to the sign-in page
 
 !!! warning "Sign-in only works after confirmation"
     As long as your email address is unconfirmed, the system rejects sign-in attempts. The confirmation link is valid for **24 hours**. If the email doesn't arrive, check your spam folder.
+
+#### When the Confirmation Link No Longer Works
+
+If the link is older than 24 hours or was copied incompletely, the page shows a red notice instead of the success message — for example **Invalid or expired token**. Below it you will find the same **Log in** button, which takes you back to the sign-in page. From there you can sign in (if your address was already confirmed via an earlier link) or use **Forgot password?** to have another email sent to you.
+
+!!! note "Changed behaviour"
+    Up to this version this error page was a dead end: it showed only the error message and no way back into the application — you had to type the sign-in page's address yourself. <!-- REQ-023 -->
 
 ---
 

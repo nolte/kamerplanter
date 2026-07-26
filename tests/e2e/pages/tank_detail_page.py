@@ -34,7 +34,7 @@ class TankDetailPage(BasePage):
     STATES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── TankStateCreateDialog ──────────────────────────────────────────
-    STATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    STATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     STATE_FORM_PH = (By.CSS_SELECTOR, "[data-testid='form-field-ph'] input")
     STATE_FORM_EC = (By.CSS_SELECTOR, "[data-testid='form-field-ec_ms'] input")
     STATE_FORM_TEMP = (By.CSS_SELECTOR, "[data-testid='form-field-water_temp_celsius'] input")
@@ -50,7 +50,7 @@ class TankDetailPage(BasePage):
     MAINTENANCE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── MaintenanceLogDialog ───────────────────────────────────────────
-    MAINTENANCE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    MAINTENANCE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     MAINT_FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-maintenance_type'] .MuiSelect-select")
     MAINT_FORM_PERFORMED_BY = (By.CSS_SELECTOR, "[data-testid='form-field-performed_by'] input")
     MAINT_FORM_DURATION = (By.CSS_SELECTOR, "[data-testid='form-field-duration_minutes'] input")
@@ -186,11 +186,11 @@ class TankDetailPage(BasePage):
 
     def submit_state_form(self) -> None:
         """Submit the TankState create form."""
-        self.wait_for_element_clickable(self.STATE_FORM_SUBMIT).click()
+        self.wait_and_click(self.STATE_FORM_SUBMIT)
 
     def cancel_state_form(self) -> None:
         """Cancel the TankState dialog."""
-        self.wait_for_element_clickable(self.STATE_FORM_CANCEL).click()
+        self.wait_and_click(self.STATE_FORM_CANCEL)
 
     def get_states_row_count(self) -> int:
         """Return the number of state rows in the States table."""
@@ -198,13 +198,11 @@ class TankDetailPage(BasePage):
         return len(rows)
 
     def get_states_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible state row."""
-        rows = self.driver.find_elements(*self.STATES_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible state row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.STATES_ROWS)
+        ]
 
     # ── Maintenance tab (tab=2) ────────────────────────────────────────
 
@@ -220,22 +218,14 @@ class TankDetailPage(BasePage):
 
     def select_maintenance_type(self, label_text: str) -> None:
         """Select a maintenance type by its visible label."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(self.MAINT_FORM_TYPE)
         self.scroll_and_click(field)
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{label_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def fill_maintenance_performed_by(self, name: str) -> None:
         el = self.wait_for_element_clickable(self.MAINT_FORM_PERFORMED_BY)
@@ -260,11 +250,11 @@ class TankDetailPage(BasePage):
 
     def submit_maintenance_form(self) -> None:
         """Submit the maintenance log form."""
-        self.wait_for_element_clickable(self.MAINT_FORM_SUBMIT).click()
+        self.wait_and_click(self.MAINT_FORM_SUBMIT)
 
     def cancel_maintenance_form(self) -> None:
         """Cancel the maintenance dialog."""
-        self.wait_for_element_clickable(self.MAINT_FORM_CANCEL).click()
+        self.wait_and_click(self.MAINT_FORM_CANCEL)
 
     def get_maintenance_row_count(self) -> int:
         """Return the number of rows in the maintenance history table."""
@@ -272,13 +262,11 @@ class TankDetailPage(BasePage):
         return len(rows)
 
     def get_maintenance_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible maintenance row."""
-        rows = self.driver.find_elements(*self.MAINTENANCE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible maintenance row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.MAINTENANCE_ROWS)
+        ]
 
     # ── Schedules tab (tab=3) ──────────────────────────────────────────
 
@@ -317,9 +305,6 @@ class TankDetailPage(BasePage):
 
     def select_edit_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select in the edit form and pick an option."""
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
         )
@@ -327,26 +312,21 @@ class TankDetailPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def toggle_edit_has_lid(self) -> None:
         el = self.wait_for_element_clickable(self.EDIT_FORM_HAS_LID)
         self.scroll_and_click(el)
 
     def submit_edit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.EDIT_FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.EDIT_FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form (resets to last saved values)."""
-        self.wait_for_element_clickable(self.EDIT_FORM_CANCEL).click()
+        self.wait_and_click(self.EDIT_FORM_CANCEL)
 
     # ── Delete ─────────────────────────────────────────────────────────
 
@@ -358,11 +338,11 @@ class TankDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Confirm deletion in the ConfirmDialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Cancel the delete confirmation dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     def is_confirm_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CONFIRM_DIALOG)) > 0

@@ -123,7 +123,14 @@ class TestNavigationAndRouting:
         Spec: TC-001-068, TC-001-069 -- Ungueltige URL zeigt Fehlermeldung.
         """
         page.navigate("/stammdaten/nonexistent")
-        page.wait_for_loading_complete()
+        # NOT wait_for_loading_complete(): the catch-all route renders
+        # `NotFoundPage` behind a `Suspense`, and the skeleton-invisibility wait
+        # is satisfied *before* that fallback has even mounted (it cannot tell
+        # "not started" from "finished"). Reading the body there returns the app
+        # chrome alone -- the failure this replaces was
+        # "Expected 'not found' text, got: Mein Garten 16 M".
+        # `ErrorPage` is the durable signal: `NotFoundPage` renders nothing else.
+        page.wait_for_element(page.ERROR_PAGE)
         screenshot("TC-REQ-001-005_not-found", "Not found page for non-existent route")
 
         body = browser.find_element(By.TAG_NAME, "body").text

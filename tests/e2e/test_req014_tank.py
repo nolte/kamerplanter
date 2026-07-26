@@ -983,7 +983,14 @@ class TestTankErrorHandling:
         Spec: TC-014-070 -- Netzwerkfehler bei Tank-Laden zeigt Fehlerzustand.
         """
         tank_detail.navigate("/standorte/tanks/nonexistent-key-99999")
-        tank_detail.wait_for_loading_complete()
+        # `TankDetailPage` renders exactly one of skeleton / ErrorDisplay / page
+        # root, so the skeleton's absence proves neither of the two settled
+        # states below -- and right after navigate() it is satisfied before the
+        # lazy route chunk even mounts.
+        tank_detail.wait_for_any_present(
+            (tank_detail.ERROR_DISPLAY, tank_detail.PAGE),
+            "TC-REQ-014-033: tank detail route for a non-existent key",
+        )
         screenshot("TC-REQ-014-033_nonexistent-key-error", "Error state for non-existent tank key")
 
         error_displayed = tank_detail.is_error_displayed()

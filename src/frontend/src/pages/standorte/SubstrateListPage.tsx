@@ -95,7 +95,7 @@ export default function SubstrateListPage() {
       <PageTitle
         title={t('pages.substrates.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {hasFavorites && (
               <Tooltip title={t('pages.plantInstances.substrateFavFilter')}>
                 <IconButton

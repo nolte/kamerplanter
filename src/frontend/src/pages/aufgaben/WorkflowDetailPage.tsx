@@ -575,7 +575,7 @@ export default function WorkflowDetailPage() {
         title={workflow.name}
         meta={<OriginChip isSystem={workflow.is_system} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-015: copy-as-template for system workflows.
                 AP-12 (FE-L1): the copy endpoint is not implemented yet, so this
                 is an honestly disabled button with an explanatory tooltip — never
@@ -597,7 +597,15 @@ export default function WorkflowDetailPage() {
         }
       />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        sx={{ mb: 2 }}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
+        aria-label={workflow.name}
+      >
         <Tab label={t('pages.tasks.tabDetails')} />
         <Tab label={t('pages.tasks.taskTemplates')} />
         <Tab label={t('common.edit')} />

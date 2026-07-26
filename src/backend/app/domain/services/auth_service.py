@@ -43,6 +43,12 @@ from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
 
+
+def _iso(value):  # noqa: ANN001, ANN202 — datetime | None -> str | None
+    """Serialize an optional datetime for a partial update doc (JSON mode)."""
+    return value.isoformat() if value is not None else None
+
+
 _API_KEY_PREFIX = "kp_"
 
 
@@ -172,7 +178,16 @@ class AuthService:
             user.failed_login_attempts += 1
             user.locked_until = self._throttle_engine.calculate_lockout(user.failed_login_attempts)
             if user.key:
-                self._user_repo.update(user.key, user)
+                # Partial update: a full-document write would clobber any
+                # concurrent change to the user (e.g. a profile edit) with
+                # this request's stale read — classic lost update.
+                self._user_repo.update_fields(
+                    user.key,
+                    {
+                        "failed_login_attempts": user.failed_login_attempts,
+                        "locked_until": _iso(user.locked_until),
+                    },
+                )
             raise UnauthorizedError("Invalid email or password.")
 
         # Check email verification (only when required)
@@ -184,7 +199,17 @@ class AuthService:
         user.locked_until = None
         user.last_login_at = datetime.now(UTC)
         if user.key:
-            self._user_repo.update(user.key, user)
+            # Partial update (lost-update guard): a concurrent login used to
+            # write its stale full user snapshot back and silently revert
+            # e.g. a display-name change saved moments earlier.
+            self._user_repo.update_fields(
+                user.key,
+                {
+                    "failed_login_attempts": 0,
+                    "locked_until": None,
+                    "last_login_at": _iso(user.last_login_at),
+                },
+            )
 
         return self._create_tokens(user, user_agent, ip_address, is_persistent=remember_me)
 
@@ -254,7 +279,14 @@ class AuthService:
         user.email_verification_token = None
         user.email_verification_expires = None
         if user.key:
-            updated = self._user_repo.update(user.key, user)
+            updated = self._user_repo.update_fields(
+                user.key,
+                {
+                    "email_verified": True,
+                    "email_verification_token": None,
+                    "email_verification_expires": None,
+                },
+            )
             logger.info("email_verified", email=user.email)
             return self._to_profile(updated)
         raise InvalidTokenError("verification token")
@@ -271,7 +303,13 @@ class AuthService:
         user.password_reset_token = token
         user.password_reset_expires = datetime.now(UTC) + timedelta(hours=1)
         if user.key:
-            self._user_repo.update(user.key, user)
+            self._user_repo.update_fields(
+                user.key,
+                {
+                    "password_reset_token": token,
+                    "password_reset_expires": _iso(user.password_reset_expires),
+                },
+            )
 
         self._email_service.send_password_reset_email(
             to_email=email,
@@ -311,7 +349,16 @@ class AuthService:
         user.failed_login_attempts = 0
         user.locked_until = None
         if user.key:
-            self._user_repo.update(user.key, user)
+            self._user_repo.update_fields(
+                user.key,
+                {
+                    "password_hash": user.password_hash,
+                    "password_reset_token": None,
+                    "password_reset_expires": None,
+                    "failed_login_attempts": 0,
+                    "locked_until": None,
+                },
+            )
             # Revoke all sessions for security
             self._refresh_token_repo.revoke_all_for_user(user.key)
             logger.info("password_reset", email=user.email)
@@ -405,7 +452,22 @@ class AuthService:
             raise ValidationError("; ".join(errors))
 
         user.password_hash = self._password_engine.hash_password(new_password)
-        self._user_repo.update(user_key, user)
+        # A password change also consumes any outstanding reset token (SEC-011).
+        # Without this, a reset token requested before the change stays valid for
+        # its full hour, so whoever holds it — the very reason the owner rotated
+        # the password — can take the account back over afterwards. Mirrors what
+        # ``reset_password`` already clears, and relies on ``update_fields``
+        # persisting an explicit ``None`` (``keep_none=True``).
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        self._user_repo.update_fields(
+            user_key,
+            {
+                "password_hash": user.password_hash,
+                "password_reset_token": None,
+                "password_reset_expires": None,
+            },
+        )
 
         # If this is the first local password, create LOCAL auth provider
         if not self._has_local_provider(user_key):
@@ -530,7 +592,7 @@ class AuthService:
 
         user.last_login_at = datetime.now(UTC)
         if user.key:
-            self._user_repo.update(user.key, user)
+            self._user_repo.update_fields(user.key, {"last_login_at": _iso(user.last_login_at)})
 
         logger.info("oauth_login", provider=provider_slug, email=oauth_user.email)
         return self._create_tokens(user, user_agent, ip_address, is_persistent=True)

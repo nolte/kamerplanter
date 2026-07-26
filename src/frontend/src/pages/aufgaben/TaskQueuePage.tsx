@@ -24,6 +24,8 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
@@ -196,6 +198,13 @@ export default function TaskQueuePage() {
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
+  const theme = useTheme();
+  // Below `sm` the three 48px action targets, their 8px separations and the
+  // border consume ~165px of a 361px card, which left the task name roughly
+  // 50px of the content column — it was truncated to a few characters. On that
+  // viewport the action row therefore moves *below* the card content and spans
+  // the full width (UI-NFR-001 R-002 mobile-first, R-011/R-012 touch targets).
+  const isCompactCard = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Task state
   const { taskQueue, loading: tasksLoading, completedTasks, completedTasksLoading } = useAppSelector(
@@ -207,6 +216,11 @@ export default function TaskQueuePage() {
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterPlantKey, setFilterPlantKey] = useState<string | null>(null);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
+  // Part of the loading gate: the plant list feeds `plantNameMap`, which decides
+  // whether a task card renders its plant-shortcut row. Without it the cards
+  // painted first and grew a row per plant-linked task afterwards — a late
+  // layout shift under the user's finger.
+  const [plantsLoading, setPlantsLoading] = useState(true);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [showCompleted, setShowCompleted] = useState(false);
 
@@ -229,7 +243,11 @@ export default function TaskQueuePage() {
     dispatch(fetchTaskQueue());
     dispatch(fetchOverdueTasks());
     dispatch(fetchDashboard());
-    plantApi.listPlantInstances(0, 200).then(setPlants).catch(() => {});
+    plantApi
+      .listPlantInstances(0, 200)
+      .then(setPlants)
+      .catch(() => {})
+      .finally(() => setPlantsLoading(false));
   }, [dispatch]);
 
   // Lazily load completed tasks only when the user reveals them.
@@ -622,6 +640,68 @@ export default function TaskQueuePage() {
       const isActionable = isPending || isInProgress;
       const displayName = (i18n.language === 'de' && task.name_de) ? task.name_de : task.name;
 
+      // One action row, rendered in one of two places: beside the content from
+      // `sm` up, below it (full card width, top border instead of left border)
+      // on the compact viewport. Same buttons, same test ids either way.
+      const actionRow =
+        !bulkMode && isActionable ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              // 48x48 targets separated by the 8px minimum: three flush 40px
+              // buttons right next to a large card link is mis-tap geometry
+              // (UI-NFR-001 R-011 MUST, R-012 SHOULD).
+              gap: 1,
+              borderColor: 'divider',
+              ...(isCompactCard
+                ? { justifyContent: 'flex-end', px: 0.5, borderTop: '1px solid' }
+                : { pr: 0.5, borderLeft: '1px solid' }),
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isPending && (
+              <Tooltip title={t('pages.tasks.startTask')}>
+                <IconButton
+                  size="small"
+                  onClick={() => handleStart(task.key)}
+                  disabled={isLoading}
+                  data-testid={`start-task-${task.key}`}
+                  aria-label={t('pages.tasks.startTask')}
+                  sx={{ minWidth: 48, minHeight: 48 }}
+                >
+                  {isLoading ? <CircularProgress size={18} /> : <PlayArrowIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t('pages.tasks.completeTask')}>
+              <IconButton
+                size="small"
+                color="success"
+                onClick={() => handleComplete(task.key)}
+                disabled={isLoading}
+                data-testid={`complete-task-${task.key}`}
+                aria-label={t('pages.tasks.completeTask')}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
+                {isLoading ? <CircularProgress size={18} /> : <CheckIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('pages.tasks.skipTask')}>
+              <IconButton
+                size="small"
+                onClick={() => handleSkip(task.key)}
+                disabled={isLoading}
+                data-testid={`skip-task-${task.key}`}
+                aria-label={t('pages.tasks.skipTask')}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
+                {isLoading ? <CircularProgress size={18} /> : <SkipNextIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        ) : null;
+
       return (
         <Card
           key={task.key}
@@ -701,21 +781,6 @@ export default function TaskQueuePage() {
                       )}
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                      {plantName && task.entity_key && task.entity_type === 'plant_instance' && (
-                        <Link
-                          component={RouterLink}
-                          to={`/pflanzen/plant-instances/${task.entity_key}`}
-                          variant="caption"
-                          color="text.secondary"
-                          underline="hover"
-                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                          sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-                          data-testid={`plant-link-${task.key}`}
-                        >
-                          <LocalFloristIcon sx={{ fontSize: 14 }} />
-                          {plantName}
-                        </Link>
-                      )}
                       <Typography variant="caption" color="text.disabled">
                         {t(`enums.taskCategory.${task.category}`)}
                         {' · '}
@@ -761,72 +826,116 @@ export default function TaskQueuePage() {
                   </Stack>
                 </Box>
               </CardActionArea>
+
+              {/* Plant shortcut — a SIBLING of the card's action area, never a
+                  descendant of it. A link nested inside the card button was
+                  invalid interactive nesting (it broke keyboard and screen-reader
+                  semantics) and made the card's own tap target ambiguous: on a
+                  narrow viewport the card reflows tall enough that its geometric
+                  centre fell on the link, so tapping the middle of a task card
+                  opened the plant instead of the task. */}
+              {plantName && task.entity_key && task.entity_type === 'plant_instance' && (
+                // `pb` is spent on the link's own target height instead of on
+                // padding, so honouring the 48px minimum costs the card 8px of
+                // height rather than 16px.
+                <Box sx={{ display: 'flex', px: 2, pb: 0.5 }}>
+                  <Link
+                    component={RouterLink}
+                    to={`/pflanzen/plant-instances/${task.entity_key}`}
+                    variant="caption"
+                    color="text.secondary"
+                    underline="hover"
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      // UI-NFR-001 R-011 (MUST): a 32px-tall link is below the
+                      // touch-target minimum, and this one sits directly under
+                      // the card's own action area — the two most likely
+                      // mis-taps on the page are neighbours.
+                      minHeight: 48,
+                      minWidth: 0,
+                    }}
+                    data-testid={`plant-link-${task.key}`}
+                  >
+                    <LocalFloristIcon sx={{ fontSize: 14 }} />
+                    {plantName}
+                  </Link>
+                </Box>
+              )}
+              {isCompactCard && actionRow}
             </Box>
 
-            {!bulkMode && isActionable && (
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 0,
-                  pr: 0.5,
-                  borderLeft: '1px solid',
-                  borderColor: 'divider',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isPending && (
-                  <Tooltip title={t('pages.tasks.startTask')}>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleStart(task.key)}
-                      disabled={isLoading}
-                      data-testid={`start-task-${task.key}`}
-                      aria-label={t('pages.tasks.startTask')}
-                      sx={{ minWidth: 40, minHeight: 40 }}
-                    >
-                      {isLoading ? <CircularProgress size={18} /> : <PlayArrowIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
-                )}
-                <Tooltip title={t('pages.tasks.completeTask')}>
-                  <IconButton
-                    size="small"
-                    color="success"
-                    onClick={() => handleComplete(task.key)}
-                    disabled={isLoading}
-                    data-testid={`complete-task-${task.key}`}
-                    aria-label={t('pages.tasks.completeTask')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
-                  >
-                    {isLoading ? <CircularProgress size={18} /> : <CheckIcon fontSize="small" />}
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={t('pages.tasks.skipTask')}>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleSkip(task.key)}
-                    disabled={isLoading}
-                    data-testid={`skip-task-${task.key}`}
-                    aria-label={t('pages.tasks.skipTask')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
-                  >
-                    {isLoading ? <CircularProgress size={18} /> : <SkipNextIcon fontSize="small" />}
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            )}
+            {!isCompactCard && actionRow}
           </Box>
         </Card>
       );
     },
-    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection],
+    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection, isCompactCard],
   );
 
   const renderCareCard = useCallback(
     (entry: CareDashboardEntry, urgency: UrgencyGroup) => {
       const id = `care-${entry.plant_key}-${entry.reminder_type}`;
       const isLoading = careActionLoading === id;
+
+      // See renderTaskCard: one action row, placed beside the content from
+      // `sm` up and below it on the compact viewport.
+      const actionRow = (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            borderColor: 'divider',
+            ...(isCompactCard
+              ? { justifyContent: 'flex-end', px: 0.5, borderTop: '1px solid' }
+              : { pr: 0.5, borderLeft: '1px solid' }),
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Tooltip title={t('pages.pflege.editProfile')}>
+            <IconButton
+              size="small"
+              onClick={() => handleEditProfile(entry.plant_key)}
+              aria-label={t('pages.pflege.editProfile')}
+              data-testid={`care-edit-profile-${id}`}
+              sx={{ minWidth: 48, minHeight: 48 }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={t('pages.pflege.confirmAction')}>
+            <span>
+              <IconButton
+                size="small"
+                color="success"
+                onClick={() => handleConfirmClick(entry)}
+                disabled={isLoading}
+                aria-label={t('pages.pflege.confirmAction')}
+                data-testid={`care-confirm-${id}`}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
+                {isLoading ? <CircularProgress size={18} /> : <CheckCircleIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={t('pages.pflege.snoozeAction')}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)}
+                disabled={isLoading}
+                aria-label={t('pages.pflege.snoozeAction')}
+                data-testid={`care-snooze-${id}`}
+                sx={{ minWidth: 48, minHeight: 48 }}
+              >
+                {isLoading ? <CircularProgress size={18} /> : <SnoozeIcon fontSize="small" />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
+      );
 
       return (
         <Card
@@ -852,12 +961,13 @@ export default function TaskQueuePage() {
               }}
             />
 
+            <Box sx={{ flex: 1, minWidth: 0 }}>
             {/* Reminder type icon — tappable area links to plant detail */}
             <CardActionArea
               component={RouterLink}
               to={`/pflanzen/plant-instances/${entry.plant_key}`}
               aria-label={t('pages.tasks.careCardPlantLink', { plant: entry.plant_name })}
-              sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', px: 2, py: 1.5, gap: 2, minHeight: 56 }}
+              sx={{ width: '100%', display: 'flex', alignItems: 'center', px: 2, py: 1.5, gap: 2, minHeight: 56 }}
             >
               <Box sx={{ color: urgencySectionColor[urgency], flexShrink: 0 }}>
                 {getReminderIcon(entry.reminder_type)}
@@ -902,62 +1012,15 @@ export default function TaskQueuePage() {
                 </Typography>
               )}
             </CardActionArea>
-
-            {/* Actions */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0,
-                pr: 0.5,
-                borderLeft: '1px solid',
-                borderColor: 'divider',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Tooltip title={t('pages.pflege.editProfile')}>
-                <IconButton
-                  size="small"
-                  onClick={() => handleEditProfile(entry.plant_key)}
-                  aria-label={t('pages.pflege.editProfile')}
-                  sx={{ minWidth: 40, minHeight: 40 }}
-                >
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={t('pages.pflege.confirmAction')}>
-                <span>
-                  <IconButton
-                    size="small"
-                    color="success"
-                    onClick={() => handleConfirmClick(entry)}
-                    disabled={isLoading}
-                    aria-label={t('pages.pflege.confirmAction')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
-                  >
-                    {isLoading ? <CircularProgress size={18} /> : <CheckCircleIcon fontSize="small" />}
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Tooltip title={t('pages.pflege.snoozeAction')}>
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleSnooze(entry.plant_key, entry.reminder_type)}
-                    disabled={isLoading}
-                    aria-label={t('pages.pflege.snoozeAction')}
-                    sx={{ minWidth: 40, minHeight: 40 }}
-                  >
-                    {isLoading ? <CircularProgress size={18} /> : <SnoozeIcon fontSize="small" />}
-                  </IconButton>
-                </span>
-              </Tooltip>
+            {isCompactCard && actionRow}
             </Box>
+
+            {!isCompactCard && actionRow}
           </Box>
         </Card>
       );
     },
-    [careActionLoading, handleConfirmClick, handleSnooze, handleEditProfile, t],
+    [careActionLoading, handleConfirmClick, handleSnooze, handleEditProfile, t, isCompactCard],
   );
 
   const renderItem = useCallback(
@@ -1102,7 +1165,14 @@ export default function TaskQueuePage() {
 
   // ── Loading ──────────────────────────────────────────────────────────
 
-  const loading = tasksLoading || careLoading;
+  // The gate MUST cover every source the card list is built from. The plant
+  // list was missing: the skeleton cleared as soon as tasks and care reminders
+  // had arrived, then `plantNameMap` filled in and every plant-linked card grew
+  // its shortcut row, reflowing the list after the user already saw it. Taps
+  // aimed at a card's action row then landed on the container that had moved
+  // into place — no handler fires and no error is reported, which is exactly
+  // the class of defect a loading indicator exists to prevent.
+  const loading = tasksLoading || careLoading || plantsLoading;
   if (loading) return <LoadingSkeleton variant="form" />;
 
   const totalItems =

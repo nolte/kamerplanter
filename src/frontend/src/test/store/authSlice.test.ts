@@ -16,13 +16,14 @@ function createStore() {
 }
 
 describe('authSlice', () => {
-  it('has the unauthenticated initial state with loading enabled', () => {
+  it('has the unauthenticated, uninitialized initial state with loading enabled', () => {
     const state = reducer(undefined, { type: 'unknown' });
     expect(state.user).toBeNull();
     expect(state.accessToken).toBeNull();
     expect(state.isAuthenticated).toBe(false);
     expect(state.isLoading).toBe(true);
     expect(state.error).toBeNull();
+    expect(state.initialized).toBe(false);
   });
 
   it('clearError removes a stored error message', () => {
@@ -38,25 +39,34 @@ describe('authSlice', () => {
     expect(state.isAuthenticated).toBe(true);
   });
 
-  it('clearAuth wipes user, token and authenticated flag', () => {
+  it('clearAuth wipes user, token and authenticated flag and marks bootstrap done', () => {
     const authed = {
       user: { key: 'u1' } as never,
       accessToken: 'jwt-abc',
       isAuthenticated: true,
       isLoading: false,
       error: null,
+      initialized: false,
     };
     const state = reducer(authed, clearAuth());
     expect(state.user).toBeNull();
     expect(state.accessToken).toBeNull();
     expect(state.isAuthenticated).toBe(false);
+    // clearAuth is the bootstrap timeout/error fallback, so it concludes init.
+    expect(state.initialized).toBe(true);
   });
 
-  it('loginLocal.pending sets loading and clears prior error', () => {
-    const withError = { ...reducer(undefined, { type: 'unknown' }), error: 'old' };
+  it('loginLocal.pending sets loading, clears prior error and does not touch initialized', () => {
+    const withError = {
+      ...reducer(undefined, { type: 'unknown' }),
+      error: 'old',
+      initialized: true,
+    };
     const state = reducer(withError, { type: loginLocal.pending.type });
     expect(state.isLoading).toBe(true);
     expect(state.error).toBeNull();
+    // A login in flight must NOT re-trigger the route-guard bootstrap skeleton.
+    expect(state.initialized).toBe(true);
   });
 
   it('loginLocal.fulfilled stores the access token and authenticates', () => {
@@ -69,13 +79,18 @@ describe('authSlice', () => {
     expect(state.isLoading).toBe(false);
   });
 
-  it('loginLocal.rejected stores the parsed error and stops loading', () => {
-    const state = reducer(undefined, {
-      type: loginLocal.rejected.type,
-      error: { message: 'Invalid credentials' },
-    });
+  it('loginLocal.rejected stores the parsed error, stops loading and leaves initialized untouched', () => {
+    const state = reducer(
+      { ...reducer(undefined, { type: 'unknown' }), initialized: true },
+      {
+        type: loginLocal.rejected.type,
+        error: { message: 'Invalid credentials' },
+      },
+    );
     expect(state.isLoading).toBe(false);
     expect(state.error).toBe('Invalid credentials');
+    // The page must stay mounted so this error renders — bootstrap stays done.
+    expect(state.initialized).toBe(true);
   });
 
   it('registerLocal.pending sets loading and clears prior error', () => {
@@ -103,7 +118,7 @@ describe('authSlice', () => {
     expect(state.error).toBe('Email already used');
   });
 
-  it('fetchProfile.fulfilled stores the user and authenticates', () => {
+  it('fetchProfile.fulfilled stores the user, authenticates and completes bootstrap', () => {
     const user = { key: 'u1', email: 'a@b.de' };
     const state = reducer(undefined, {
       type: fetchProfile.fulfilled.type,
@@ -112,59 +127,85 @@ describe('authSlice', () => {
     expect(state.user).toEqual(user);
     expect(state.isAuthenticated).toBe(true);
     expect(state.isLoading).toBe(false);
+    // Light-mode bootstrap concludes via fetchProfile.
+    expect(state.initialized).toBe(true);
   });
 
-  it('fetchProfile.rejected clears the session', () => {
+  it('fetchProfile.rejected clears the session and completes bootstrap', () => {
     const authed = {
       user: { key: 'u1' } as never,
       accessToken: 'jwt',
       isAuthenticated: true,
       isLoading: true,
       error: null,
+      initialized: false,
     };
     const state = reducer(authed, { type: fetchProfile.rejected.type });
     expect(state.user).toBeNull();
     expect(state.isAuthenticated).toBe(false);
     expect(state.accessToken).toBeNull();
     expect(state.isLoading).toBe(false);
+    expect(state.initialized).toBe(true);
   });
 
-  it('logoutUser.fulfilled clears the session', () => {
+  it('logoutUser.fulfilled clears the session and keeps bootstrap done', () => {
     const authed = {
       user: { key: 'u1' } as never,
       accessToken: 'jwt',
       isAuthenticated: true,
       isLoading: false,
       error: null,
+      initialized: true,
     };
     const state = reducer(authed, { type: logoutUser.fulfilled.type });
     expect(state.user).toBeNull();
     expect(state.accessToken).toBeNull();
     expect(state.isAuthenticated).toBe(false);
+    expect(state.initialized).toBe(true);
   });
 
-  it('refreshAccessToken.fulfilled stores the rotated token and authenticates', () => {
+  it('refreshAccessToken.fulfilled stores the rotated token, authenticates and completes bootstrap', () => {
     const state = reducer(undefined, {
       type: refreshAccessToken.fulfilled.type,
       payload: { access_token: 'jwt-rotated' },
     });
     expect(state.accessToken).toBe('jwt-rotated');
     expect(state.isAuthenticated).toBe(true);
+    // JWT-mode bootstrap begins with a token refresh.
+    expect(state.initialized).toBe(true);
   });
 
-  it('refreshAccessToken.rejected clears the session', () => {
+  it('refreshAccessToken.rejected clears the session and completes bootstrap', () => {
     const authed = {
       user: { key: 'u1' } as never,
       accessToken: 'jwt',
       isAuthenticated: true,
       isLoading: true,
       error: null,
+      initialized: false,
     };
     const state = reducer(authed, { type: refreshAccessToken.rejected.type });
     expect(state.user).toBeNull();
     expect(state.accessToken).toBeNull();
     expect(state.isAuthenticated).toBe(false);
     expect(state.isLoading).toBe(false);
+    expect(state.initialized).toBe(true);
+  });
+
+  it('never resets initialized back to false once the bootstrap has completed', () => {
+    // Simulate a completed bootstrap followed by a full login-fail-retry cycle.
+    let state = reducer(undefined, { type: refreshAccessToken.rejected.type });
+    expect(state.initialized).toBe(true);
+
+    state = reducer(state, { type: loginLocal.pending.type });
+    expect(state.initialized).toBe(true);
+    state = reducer(state, {
+      type: loginLocal.rejected.type,
+      error: { message: 'nope' },
+    });
+    expect(state.initialized).toBe(true);
+    state = reducer(state, { type: registerLocal.pending.type });
+    expect(state.initialized).toBe(true);
   });
 
   it('updates state through the store when dispatching plain action creators', () => {

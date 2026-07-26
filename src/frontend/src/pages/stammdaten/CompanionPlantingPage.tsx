@@ -55,6 +55,20 @@ function speciesOptionLabel(species: Species): string {
   return common ?? scientific ?? '';
 }
 
+/**
+ * Card header that wraps its action button onto its own line when title and
+ * action no longer fit side by side. MUI's default header keeps both on one
+ * flex line and the Card clips the overflow, which truncated the German
+ * "Inkompatibilität hinzufügen" label mid-word at a 393px viewport
+ * (UI-NFR-001 mobile-first).
+ */
+const cardHeaderSx = {
+  pb: 0,
+  flexWrap: 'wrap',
+  rowGap: 1,
+  '& .MuiCardHeader-action': { alignSelf: 'center', m: 0 },
+} as const;
+
 export default function CompanionPlantingPage() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -289,7 +303,7 @@ export default function CompanionPlantingPage() {
                   {t('pages.companionPlanting.addCompatible')}
                 </Button>
               }
-              sx={{ pb: 0 }}
+              sx={cardHeaderSx}
             />
             <CardContent>
               {compatible.length === 0 ? (
@@ -363,7 +377,7 @@ export default function CompanionPlantingPage() {
                   {t('pages.companionPlanting.addIncompatible')}
                 </Button>
               }
-              sx={{ pb: 0 }}
+              sx={cardHeaderSx}
             />
             <CardContent>
               {incompatible.length === 0 ? (
@@ -433,7 +447,14 @@ export default function CompanionPlantingPage() {
         </Box>
       )}
 
-      <Dialog fullScreen={fullScreen} open={!!dialogType} onClose={() => setDialogType(null)} maxWidth="sm" fullWidth>
+      <Dialog
+        fullScreen={fullScreen}
+        open={!!dialogType}
+        onClose={() => setDialogType(null)}
+        maxWidth="sm"
+        fullWidth
+        data-testid="companion-planting-dialog"
+      >
         <DialogTitle>
           {dialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')

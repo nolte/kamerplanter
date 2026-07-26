@@ -77,36 +77,52 @@ class BotanicalFamilyListPage(BasePage):
         return len(rows)
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return text content of all visible rows as list of cell texts."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return every visible row's cell texts, in column order.
+
+        Column-position based on purpose: the only caller (TC-REQ-001-093)
+        inspects specific enum columns by index, which the mobile card layout
+        does not render as addressable cells. Guarded so it fails loudly there
+        instead of returning ``[]`` and passing the "no raw English enum"
+        assertion vacuously; that caller is marked ``requires_desktop``.
+        """
+        self.require_table_layout("BotanicalFamilyListPage.get_row_texts")
+        return [
+            [c.text for c in row.find_elements(By.TAG_NAME, "td")]
+            for row in self.driver.find_elements(*self.TABLE_ROWS)
+        ]
+
+    #: Column id of the identifying column (BotanicalFamilyListPage `columns`).
+    NAME_COLUMN_ID = "name"
 
     def get_first_column_texts(self) -> list[str]:
-        """Return text of the first column (Name) for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the family name of every visible row.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
+
+    #: Column the row is activated through: `name` renders `r.name` as plain
+    #: text, is the first column and carries no `hideBelowBreakpoint`. Not the
+    #: row centre — that is a viewport-dependent bet on which cell the row's
+    #: midpoint happens to hit.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the botanical family at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "botanical family row"
+        )
 
     def click_row_by_name(self, name: str) -> None:
-        """Click the row whose first cell matches *name*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells and cells[0].text == name:
-                self.scroll_and_click(row)
+        """Click the row whose name column matches *name*.
+
+        Addressed by column id, not by position, so it works for both the
+        desktop table and the mobile card layout.
+        """
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row with name '{name}' not found")
 
@@ -164,7 +180,7 @@ class BotanicalFamilyListPage(BasePage):
         """Check whether an error Alert/Snackbar (backend validation) is visible."""
         return len(self.driver.find_elements(
             By.CSS_SELECTOR,
-            ".MuiAlert-standardError, .MuiAlert-filledError, .MuiSnackbar-root",
+            ".MuiAlert-colorError, .MuiSnackbar-root",
         )) > 0
 
     # ── Create dialog ──────────────────────────────────────────────────
@@ -225,10 +241,10 @@ class BotanicalFamilyListPage(BasePage):
         return el.get_attribute("value") or ""
 
     def submit_create_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
@@ -246,8 +262,6 @@ class BotanicalFamilyListPage(BasePage):
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text."""
-        import time
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
         )
@@ -255,14 +269,9 @@ class BotanicalFamilyListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def toggle_switch(self, field_testid: str) -> None:
         """Toggle a MUI Switch by its field testid."""
@@ -282,8 +291,8 @@ class BotanicalFamilyListPage(BasePage):
     def focus_row_and_press_enter(self, index: int) -> None:
         """Tab to a row and press Enter."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            rows[index].send_keys(Keys.ENTER)
+        row = self.require_index(rows, index, "botanical family row")
+        row.send_keys(Keys.ENTER)
 
     # ── Pagination ─────────────────────────────────────────────────────
 

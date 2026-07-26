@@ -133,8 +133,12 @@ class NutrientPlanDetailPage(BasePage):
             By.CSS_SELECTOR,
             "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']"
         )
-        if index < len(expand_btns):
-            self.scroll_and_click(expand_btns[index].find_element(By.XPATH, "./.."))
+        icon = self.require_index(expand_btns, index, "nutrient plan entry expander")
+        # Coordinate-free: the target is resolved indirectly (the icon's parent
+        # button) and sits in a row of same-sized icon buttons, so a coordinate
+        # miss activates a neighbour without raising. The button activates from
+        # its own `onClick`, which a dispatched click drives.
+        self.click_coordinate_free(icon.find_element(By.XPATH, "./.."))
 
     # ── Tab 1: Validation ──────────────────────────────────────────────
 
@@ -202,12 +206,12 @@ class NutrientPlanDetailPage(BasePage):
         return el.is_enabled()
 
     def submit_edit_form(self) -> None:
-        """Submit the edit form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        """Submit the in-page edit form (coordinate-free; see BasePage)."""
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def cancel_edit_form(self) -> None:
         """Click cancel to reset the edit form."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def toggle_is_template(self) -> None:
         """Toggle the is_template switch in the edit form."""
@@ -227,7 +231,7 @@ class NutrientPlanDetailPage(BasePage):
 
     def click_delete(self) -> None:
         """Click the delete button to open the confirm dialog."""
-        self.wait_for_element_clickable(self.DELETE_BUTTON).click()
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def is_confirm_dialog_open(self) -> bool:
@@ -237,11 +241,11 @@ class NutrientPlanDetailPage(BasePage):
 
     def confirm_delete(self) -> None:
         """Click the confirm button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_BUTTON).click()
+        self.wait_and_click(self.CONFIRM_BUTTON)
 
     def cancel_delete(self) -> None:
         """Click the cancel button in the delete dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_CANCEL).click()
+        self.wait_and_click(self.CONFIRM_CANCEL)
 
     # ── Error state ────────────────────────────────────────────────────
 

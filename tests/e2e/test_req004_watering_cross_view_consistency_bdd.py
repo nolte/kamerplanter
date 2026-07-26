@@ -161,7 +161,7 @@ def plant_has_watering_tasks_due(
     """
     expected = int(count)
     plant_detail.open_tasks_tab(context["key"])
-    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION_LABEL)
+    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
     if pending != expected:
         raise RuntimeError(
             f"TC-004-092 SETUP: expected {expected} pending '— watering' task(s) "
@@ -180,7 +180,7 @@ def plant_has_completed_watering_tasks(
     """Guard the completed-task precondition and record it as a baseline."""
     expected = int(count)
     plant_detail.open_tasks_tab(context["key"])
-    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION_LABEL)
+    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION)
     if completed != expected:
         raise RuntimeError(
             f"TC-004-092 SETUP: expected {expected} completed '— watering' task(s) "
@@ -368,9 +368,9 @@ def watering_tasks_have_been_completed(
     """View 3 — the ``#tasks`` history closed the task the watering satisfied."""
     gained = int(count)
     plant_detail.open_tasks_tab(context["key"])
-    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION_LABEL)
+    completed = plant_detail.count_watering_tasks(plant_detail.TASK_DONE_SECTION)
     completed_at = plant_detail.get_watering_task_cell(
-        plant_detail.TASK_DONE_SECTION_LABEL, "completed_at"
+        plant_detail.TASK_DONE_SECTION, "completed_at"
     )
     expected = context["baseline_completed"] + gained
     assert completed == expected, (
@@ -393,7 +393,7 @@ def follow_up_watering_tasks_are_due(
 ) -> None:
     """View 3 — the coupling scheduled the next watering."""
     expected = int(count)
-    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION_LABEL)
+    pending = plant_detail.count_watering_tasks(plant_detail.TASK_ACTIVE_SECTION)
     assert pending == expected, (
         f"TC-004-092 FAIL (View 3): exactly {expected} new pending '— watering' "
         f"follow-up task(s) must exist, found {pending}"

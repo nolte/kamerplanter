@@ -19,10 +19,24 @@ class WateringLogListPage(BasePage):
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-watering-log-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
     TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
-    # Linked plant chips inside the ``plants`` cell (Chip mounted on a RouterLink
-    # → a real anchor). Addressed via the column's own test id plus the anchor
-    # element, never via a MUI class.
-    PLANT_CHIP_LINKS = (By.CSS_SELECTOR, "[data-testid='cell-plants'] a[href]")
+    # Linked plant chips of a row (Chip mounted on a RouterLink → a real
+    # anchor). Addressed by the *per-plant* hook the product emits in both
+    # layouts, `plant-link-<plant key>`, rather than by the container that
+    # happens to hold it: `cell-plants` exists only in the desktop table, so
+    # scoping to it made this reader return ``[]`` below `DataTable`'s `sm`
+    # breakpoint — the mobile / full-mobile profiles (TC-004-092). Keying on the
+    # thing being read is also what `spec/project/e2e-test-stability/` §G asks
+    # for: key-based access into a responsive collection, one hook per plant, so
+    # a specific plant stays addressable without counting chip positions.
+    PLANT_CHIP_LINKS = (By.CSS_SELECTOR, "a[data-testid^='plant-link-']")
+    # The `plants` group carrier, emitted unconditionally in both layouts
+    # (desktop ``<td>`` / `MobileCard` chip). Its absence means the row is not
+    # readable at all — which must fail loudly rather than read as "no plants".
+    PLANT_GROUP = (
+        By.CSS_SELECTOR,
+        "[data-testid='cell-plants'], [data-testid='card-field-plants'],"
+        " [data-testid='card-chip-plants']",
+    )
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -31,7 +45,7 @@ class WateringLogListPage(BasePage):
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
 
     # -- Create dialog locators ---------------------------------------------
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     PLANT_KEYS_INPUT = (By.CSS_SELECTOR, "[data-testid='plant-keys-input'] input")
     PLANT_KEYS_AUTOCOMPLETE = (By.CSS_SELECTOR, "[data-testid='plant-keys-autocomplete']")
     ADD_FERTILIZER_BUTTON = (By.CSS_SELECTOR, "[data-testid='add-fertilizer-button']")
@@ -84,11 +98,23 @@ class WateringLogListPage(BasePage):
         )
         return [h.text for h in headers if h.text]
 
+    #: Column the row is activated through. `loggedAt` is the identifying
+    #: column: it is the first column, carries no `hideBelowBreakpoint`, is not
+    #: in the page's `optionalColumnChecks` (so it is never dropped), renders a
+    #: plain formatted timestamp, and `MobileCard` keys it as `titleId`, so the
+    #: same id addresses it in the card layout too.
+    #:
+    #: Explicitly NOT the `plants` column: it renders one `Chip` per plant as a
+    #: `RouterLink` with `onClick={(e) => e.stopPropagation()}`, and clicking
+    #: the row's *centre* landed on that chip at 820px — the row navigated to
+    #: the plant instead of the watering log (TC-REQ-004-J090, tablet profile).
+    LOGGED_AT_COLUMN_ID = "loggedAt"
+
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the watering log at *index* via its inert `loggedAt` cell."""
+        self.click_data_table_row(
+            index, self.LOGGED_AT_COLUMN_ID, self.TABLE_ROWS, "watering log row"
+        )
 
     def get_row_cell(self, index: int, col_id: str) -> str:
         """Return the text of the *col_id* cell in the row at *index*.
@@ -112,12 +138,16 @@ class WateringLogListPage(BasePage):
         """Return ``(label, href)`` for each linked plant chip in the row at *index*.
 
         The ``plants`` column renders every resolved plant as a chip mounted on a
-        router link, so a correctly linked chip is an ``<a href=…>`` inside the
-        cell — plain semantic HTML, not a framework-generated class.
+        router link, so a correctly linked chip is an ``<a href=…>`` carrying the
+        plant's own ``plant-link-<key>`` hook — the same hook in the desktop
+        table and in the `MobileCard`, which is why this reader is addressed by
+        it rather than by a layout-specific container.
 
         Returns the pairs rather than a verdict: the page object reports state,
         the caller decides what the state has to be. An empty list means the
-        chips rendered without a link (or no plant is attached at all).
+        chips rendered without a link (or no plant is attached at all) — a
+        statement this method is only allowed to make once it has seen the row's
+        ``plants`` group; a row that keys none is unreadable and raises.
 
         Raises ``IndexError`` when *index* is out of range, mirroring
         :meth:`get_row_cell`.
@@ -127,17 +157,21 @@ class WateringLogListPage(BasePage):
             raise IndexError(
                 f"Watering-log row index {index} out of range (table has {len(rows)} rows)"
             )
-        anchors = rows[index].find_elements(*self.PLANT_CHIP_LINKS)
+        row = rows[index]
+        if not row.find_elements(*self.PLANT_GROUP):
+            raise AssertionError(
+                f"The 'plants' group of watering-log row {index} is not readable: "
+                "the row keys neither 'cell-plants' (desktop table) nor "
+                "'card-field-plants'/'card-chip-plants' (MobileCard). Returning an "
+                "empty link list here would report 'no linked plant' for a row that "
+                "was never read."
+            )
+        anchors = row.find_elements(*self.PLANT_CHIP_LINKS)
         return [(a.text.strip(), a.get_attribute("href") or "") for a in anchors]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row."""
+        return self.get_all_row_text_fragments()
 
     # -- Search and filter --------------------------------------------------
 
@@ -252,7 +286,7 @@ class WateringLogListPage(BasePage):
             options = self.driver.find_elements(*option_locator)
 
         if options:
-            options[0].click()
+            self.click_menu_option(options[0])
             self.wait_for_element_hidden(option_locator)
             return True
         return False
@@ -332,17 +366,27 @@ class WateringLogListPage(BasePage):
         self.scroll_and_click(btn)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        option.click()
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open a `FormSelectField` and pick the option carrying *value_text*.
+
+        Routed through the shared, verified helpers. The predecessor opened the
+        Select with a coordinate click on ``.MuiSelect-select`` (MUI opens a
+        Select from ``onMouseDown`` only, so a swallowed click opened nothing),
+        resolved the option through an **unscoped** ``//li[@role='option']``
+        XPath matched on its *translated* label with ``contains()`` — which
+        prefix-matches, so a label that is the prefix of another picks the wrong
+        entry — and verified nothing afterwards.
+
+        ``open_select`` raises unless the menu is verifiably open, and
+        ``select_option_by_label`` resolves the label to the option's own
+        ``data-value`` and delegates to ``select_option_by_value``, which
+        dispatches on the resolved element and reads the committed value back.
+        The label stays the caller's vocabulary (the watering journeys pass the
+        rendered German enum labels), but an exact match now wins over a
+        substring match irrespective of DOM order, so "Gießen" can no longer be
+        answered by whichever option happens to contain it first.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

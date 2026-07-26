@@ -147,6 +147,27 @@ class TestGenerateDueCareReminders:
         # reminder the user already confirmed earlier today (#761).
         assert "just_completed_task" not in call.kwargs
 
+    def test_producer_keeps_the_completed_today_dedup(self, _mock_dependencies):
+        """#768 guard — the nightly producer must NOT suppress the completed-today branch.
+
+        The complete-then-schedule callers pass ``include_completed_today=False``
+        because they have just closed a task themselves in the same operation. The
+        producer closes nothing, so it must keep the default: a watering task
+        completed earlier today still satisfies the reminder. Inheriting the flag
+        here would mint a duplicate watering task every night for every plant that
+        was watered that day (regression against #509).
+        """
+        service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
+
+        from app.tasks.care_tasks import generate_due_care_reminders
+
+        generate_due_care_reminders()
+
+        call = service.ensure_next_watering_task.call_args
+        assert call.kwargs.get("include_completed_today", True) is True
+        # ...and it is not smuggled in positionally either.
+        assert len(call.args) == 1
+
     def test_resolves_phase_interval_from_phase_sequence(self, _mock_dependencies):
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
 

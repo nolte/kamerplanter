@@ -1,8 +1,10 @@
 import structlog
 
+from app.common.exceptions import DuplicateError
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.models.user_preference import DashboardLayout, UserPreference
 from app.domain.services.dashboard_widget_catalog import WIDGET_BY_KEY
+from app.domain.services.singleton_document import pick_singleton
 
 logger = structlog.get_logger()
 
@@ -76,12 +78,23 @@ class UserPreferenceService:
         self._repo = BaseArangoRepository(db, col.USER_PREFERENCES, raw=True)
 
     def get_preferences(self, user_key: str) -> UserPreference:
+        from app.data_access.arango import collections as col
+
         docs = self._repo.find_by_field("user_key", user_key)
         if docs:
-            return UserPreference(**docs[0])
-        # Auto-create defaults
+            return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
+        # Auto-create defaults. Two concurrent cold reads both find the
+        # collection empty and both try to insert; the unique index on
+        # ``user_key`` makes the loser's insert raise DuplicateError. Re-read and
+        # return the winner's document instead of surfacing a 409 (upsert
+        # semantics) — this is the auto-create race that used to mint duplicate
+        # singletons under parallel load.
         pref = UserPreference(user_key=user_key)
-        doc = self._repo.create(pref)
+        try:
+            doc = self._repo.create(pref)
+        except DuplicateError:
+            docs = self._repo.find_by_field("user_key", user_key)
+            return UserPreference(**pick_singleton(docs, collection=col.USER_PREFERENCES, user_key=user_key))
         return UserPreference(**doc)
 
     def update_preferences(self, user_key: str, updates: dict) -> UserPreference:
@@ -100,6 +113,26 @@ class UserPreferenceService:
         pref = self.get_preferences(user_key)
         data = pref.model_dump()
         data.update(updates)
-        updated = UserPreference(**data)
-        doc = self._repo.update(pref.key or "", updated)
+        # Validate the *merged* model so field-level sanitisation/coercion
+        # (e.g. _drop_core_overrides, enum parsing) still applies to the
+        # submitted values.
+        validated = UserPreference(**data)
+        # Persist only a *partial* update-doc containing exactly the keys this
+        # PATCH touched, taking their sanitised values from the validated model.
+        # Writing the full document back would clobber a concurrent PATCH of a
+        # disjoint field (lost update, reproduced under xdist parallel load):
+        # two clients both read the whole record, each re-writes its own stale
+        # full snapshot, and the later writer wins for *every* field. ArangoDB's
+        # partial update merges disjoint keys, so parallel PATCHes commute.
+        serialized = validated.model_dump(mode="json")
+        fields = {field_name: serialized[field_name] for field_name in updates}
+        # Audit trail: which keys each PATCH touched (values only for the
+        # level, the field most sensitive to concurrent-writer surprises).
+        logger.info(
+            "user_preferences_updated",
+            user_key=user_key,
+            keys=sorted(fields),
+            experience_level=fields.get("experience_level"),
+        )
+        doc = self._repo.update_fields(pref.key or "", fields)
         return UserPreference(**doc)

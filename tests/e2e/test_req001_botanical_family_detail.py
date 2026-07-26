@@ -175,7 +175,13 @@ class TestBotanicalFamilyDetailPage:
         Spec: TC-001-068 -- Ungueltige URL — Botanische Familie nicht gefunden zeigt Fehlermeldung.
         """
         detail_page.navigate("/stammdaten/botanical-families/nonexistent123")
-        detail_page.wait_for_loading_complete()
+        # The skeleton-absence wait is satisfied before the lazy route chunk
+        # mounts, so it cannot gate the read below; (ErrorDisplay | page root)
+        # exhausts the route's settled states.
+        detail_page.wait_for_any_present(
+            (detail_page.ERROR_DISPLAY, detail_page.PAGE),
+            "TC-REQ-001-028: botanical-family detail route for a non-existent key",
+        )
         screenshot("TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key")
 
         assert detail_page.is_error_displayed() or "nonexistent" not in detail_page.driver.title, (

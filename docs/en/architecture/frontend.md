@@ -1,6 +1,6 @@
 # Frontend Architecture
 
-The frontend is a single-page application in React 19 with TypeScript 5.9 (strict mode). It communicates exclusively via REST API with the backend — no direct database connection. The user interface is bilingual (German/English) and supports light and dark themes.
+The frontend is a single-page application in React 19 with TypeScript 6 (strict mode). It communicates exclusively via REST API with the backend — no direct database connection. The user interface is bilingual (German/English) and supports light and dark themes.
 
 ---
 
@@ -9,14 +9,16 @@ The frontend is a single-page application in React 19 with TypeScript 5.9 (stric
 | Technology | Version | Role |
 |-----------|---------|------|
 | React | 19 | UI framework |
-| TypeScript | 5.9 (strict) | Type safety |
-| MUI (Material UI) | 7 | Component library |
+| TypeScript | 6 (strict) | Type safety |
+| MUI (Material UI) | 9 | Component library |
 | Redux Toolkit | current | State management |
 | react-router-dom | v7 | Client-side routing |
 | react-i18next | current | Internationalization (DE/EN) |
-| Vite | 6 | Build tool, dev server |
+| Vite | 8 | Build tool, dev server |
 | Axios | current | HTTP client |
 | Vitest | current | Unit tests |
+
+<!-- Quelle: src/frontend/package.json -->
 
 ## Directory Structure
 
@@ -157,7 +159,7 @@ All visible texts use i18n keys. German is the default language. Key schema:
 
 ## Theme & Branding
 
-MUI 7 with a customized theme:
+MUI 9 with a customized theme:
 
 - **Primary color**: `#4CAF50` (Vibrant Green, UI-NFR-009)
 - **Accent color**: `#8D6E63` (Earth tone/Terracotta)

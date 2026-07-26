@@ -20,6 +20,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import LoginPage, TenantCreatePage, TenantSwitcherPage
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -52,7 +53,7 @@ def switcher(browser: WebDriver, base_url: str) -> TenantSwitcherPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as demo user if not already authenticated."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")

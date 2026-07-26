@@ -268,7 +268,7 @@ export default function CultivarDetailPage() {
         title={cultivar?.name ?? t('entities.cultivar')}
         meta={<OriginChip origin={cultivarOrigin} />}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-012: hide delete button for system data */}
             {!isDeletionProtected && (
               <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>

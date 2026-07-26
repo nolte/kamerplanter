@@ -40,6 +40,7 @@ relative counts so re-runs converge.
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -585,10 +586,22 @@ class TestPlantGalleryI18n:
         )
         try:
             gallery.open(key)
+            # gallery.open() may only change the URL hash of the already-open
+            # plant page (no document reload), so i18next never re-reads the
+            # locale — force a full reload to apply the language switch.
+            gallery.driver.refresh()
+            gallery.wait_for_loading_complete()
             if not gallery.is_gallery_loaded():
                 pytest.skip("Gallery did not load — cannot assert i18n labels")
 
+            # The split i18n bundles (#612) load the EN namespace async after
+            # the language switch; the tab briefly renders the fallback DE
+            # label. Poll instead of sampling once.
+            deadline = time.time() + 8
             label = gallery.get_photos_tab_label()
+            while time.time() < deadline and label.lower() != "photos":
+                time.sleep(0.3)
+                label = gallery.get_photos_tab_label()
             screenshot(
                 "TC-REQ-034-011_gallery-english",
                 "Gallery tab with the UI language set to English",

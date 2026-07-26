@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -42,43 +41,43 @@ class SpeciesListPage(BasePage):
         return len(self.driver.find_elements(*self.TABLE_ROWS))
 
     def get_first_column_texts(self) -> list[str]:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the scientific name of every visible row.
+
+        Addressed by column id, not by position: the species table leads with a
+        favourite-star and an image column (both empty text), so ``cells[0]``
+        returned a list of empty strings even on the desktop table -- and an
+        empty list in the mobile card layout.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return text content of every visible row as a list of cell texts."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result: list[list[str]] = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return every visible row's cell texts, in column order.
 
-    @staticmethod
-    def _row_nav_target(row: WebElement) -> WebElement:
-        """Return a link-free cell of *row* that triggers row navigation.
-
-        The row navigates to the species detail via ``onRowClick``, but the
-        "Familie" cell holds a ``stopPropagation`` link to the botanical-family
-        detail. A whole-row click lands near the row centre, which now overlaps
-        that link column, so it would open the family detail instead. Clicking a
-        cell with no nested ``<a>`` (e.g. the scientific-name column) lets the
-        click bubble to the row handler and navigate to the species detail.
+        Column-position based on purpose: the only caller (TC-REQ-001-094)
+        inspects specific enum columns, which the mobile card layout does not
+        render as addressable cells. Guarded so it fails loudly there instead
+        of returning ``[]`` and passing the "no raw English enum" assertion
+        vacuously; that caller is marked ``requires_desktop``.
         """
-        for cell in row.find_elements(By.TAG_NAME, "td"):
-            if cell.text.strip() and not cell.find_elements(By.TAG_NAME, "a"):
-                return cell
-        return row
+        self.require_table_layout("SpeciesListPage.get_row_texts")
+        return [
+            [c.text for c in row.find_elements(By.TAG_NAME, "td")]
+            for row in self.driver.find_elements(*self.TABLE_ROWS)
+        ]
 
     def click_row(self, index: int) -> None:
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(self._row_nav_target(rows[index]))
+        """Open the species at *index* via its inert scientific-name cell.
+
+        The row navigates via ``onRowClick``, but the "Familie" cell holds a
+        ``stopPropagation`` link to the botanical-family detail and the first
+        column is a favourite `IconButton` — so the row's geometric centre is
+        not a safe target. This replaces the previous "first ``<td>`` with text
+        and no ``<a>``" scan, which silently fell back to the row element when
+        it found nothing (mobile card layout) and so re-armed exactly that bet.
+        """
+        self.click_data_table_row(
+            index, self.NAME_COLUMN_ID, self.TABLE_ROWS, "species row"
+        )
 
     def search(self, query: str) -> None:
         """Filter the table via the DataTable search box (debounced 300ms)."""
@@ -89,11 +88,18 @@ class SpeciesListPage(BasePage):
         time.sleep(0.5)  # DataTable debounces the search input by 300ms
         self.wait_for_loading_complete()
 
+    #: Column id of the identifying column (SpeciesListPage `columns`).
+    NAME_COLUMN_ID = "scientificName"
+
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose scientific name matches *name*.
 
-        The species table has a star/favorite column at index 0 (empty text),
-        so we search across all cells rather than only the first one.
+        Addressed by column id, not by position: the species table starts with
+        a star/favorite and an image column (both empty text), and below the
+        DataTable's mobile breakpoint the row is a `MobileCard` with no
+        ``<td>`` cells at all -- a ``By.TAG_NAME, 'td'`` scan finds nothing
+        there and would raise "Row with name … not found" on every mobile and
+        tablet run.
 
         The DataTable is client-side sorted (scientific name asc) and paginated
         at 25 rows/page, so a freshly created species can land on a later page
@@ -101,13 +107,10 @@ class SpeciesListPage(BasePage):
         before scanning — mirrors ``provision_plant`` in ``_journey_helpers.py``.
         """
         self.search(name)
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            for cell in cells:
-                if cell.text == name:
-                    self.scroll_and_click(self._row_nav_target(row))
-                    return
+        for row in self.driver.find_elements(*self.TABLE_ROWS):
+            if self.get_row_primary_text(row, self.NAME_COLUMN_ID) == name:
+                self.click_row_via_column(row, self.NAME_COLUMN_ID)
+                return
         raise ValueError(f"Row with name '{name}' not found")
 
     def has_empty_state(self) -> bool:
@@ -155,9 +158,6 @@ class SpeciesListPage(BasePage):
         return [o.text for o in options]
 
     def select_option(self, field_name: str, value_text: str) -> None:
-        import time
-        from selenium.webdriver.common.keys import Keys
-
         field = self.wait_for_element_clickable(
             (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
         )
@@ -165,14 +165,9 @@ class SpeciesListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
-        # Dismiss MUI Select backdrop/popover to unblock subsequent interactions
-        time.sleep(0.3)
-        try:
-            self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
-        except Exception:
-            pass
-        time.sleep(0.3)
+        self.click_menu_option(option)
+        # MUI auto-closes on option click; ensure the popover is fully gone
+        self.close_mui_dropdown()
 
     def add_chip(self, field_name: str, value: str) -> None:
         from selenium.webdriver.common.keys import Keys
@@ -184,10 +179,10 @@ class SpeciesListPage(BasePage):
         el.send_keys(Keys.ENTER)
 
     def submit_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0

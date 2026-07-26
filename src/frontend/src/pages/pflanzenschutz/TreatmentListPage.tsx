@@ -135,17 +135,22 @@ export default function TreatmentListPage() {
           <MobileCard
             title={r.name}
             subtitle={r.active_ingredient ?? undefined}
-            chips={
-              <Chip
-                label={t(`enums.treatmentType.${r.treatment_type}`)}
-                size="small"
-                color={treatmentTypeColor[r.treatment_type] ?? 'default'}
-              />
-            }
+            chips={[
+              {
+                id: 'treatmentType',
+                content: (
+                  <Chip
+                    label={t(`enums.treatmentType.${r.treatment_type}`)}
+                    size="small"
+                    color={treatmentTypeColor[r.treatment_type] ?? 'default'}
+                  />
+                ),
+              },
+            ]}
             fields={[
-              { label: t('pages.ipm.applicationMethod'), value: t(`enums.ipmApplicationMethod.${r.application_method}`) },
+              { id: 'applicationMethod', label: t('pages.ipm.applicationMethod'), value: t(`enums.ipmApplicationMethod.${r.application_method}`) },
               ...(r.safety_interval_days > 0
-                ? [{ label: t('pages.ipm.safetyIntervalDays'), value: `${r.safety_interval_days}\u202f${t('pages.ipm.days')}` }]
+                ? [{ id: 'safetyIntervalDays', label: t('pages.ipm.safetyIntervalDays'), value: `${r.safety_interval_days}\u202f${t('pages.ipm.days')}` }]
                 : []),
             ]}
           />

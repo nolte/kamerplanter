@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -387,6 +387,47 @@ def _record_tc_id(request: pytest.FixtureRequest, record_property: Callable) -> 
         record_property("tc_id", tc_id)
 
 
+# ── Global-preference serialization across xdist workers ──────────────────
+# In light mode the experience level is stored server-side on the singleton
+# system user (REQ-021 "serverseitig", REQ-027 "User-Preference am System-User")
+# and is therefore global, mutable state shared by every xdist worker. Tests
+# that mutate it (onboarding wizard step 1, the account-settings toggle) or
+# assert UI gating derived from it (nav tiering, dialog field visibility) must
+# not overlap across workers, or the level flips mid-assertion (finding F-8,
+# .resume/e2e-selenium/robustness-audit.md). ``--dist=loadfile`` already
+# serializes within a file; this advisory file lock serializes the affected
+# files against each other. All workers run in the same container, so an
+# fcntl lock on a shared path is a correct inter-process mutex.
+_GLOBAL_PREFERENCE_MODULES = {
+    "test_req020_onboarding_steps",
+    "test_req020_onboarding_wizard",
+    "test_req021_experience_level",
+}
+
+_GLOBAL_PREFERENCE_LOCK_PATH = "/tmp/kamerplanter-e2e-global-preference.lock"
+
+
+@pytest.fixture(autouse=True)
+def _serialize_global_preference_mutators(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """Hold an inter-worker lock for tests touching the global experience level."""
+    module = getattr(request, "module", None)
+    module_name = getattr(module, "__name__", "").rpartition(".")[-1]
+    if module_name not in _GLOBAL_PREFERENCE_MODULES:
+        yield
+        return
+
+    import fcntl
+
+    with open(_GLOBAL_PREFERENCE_LOCK_PATH, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+
+
 # ── Device profiles for responsive testing ────────────────────────────────
 # Each profile defines viewport dimensions, device scale factor, touch support,
 # and a user-agent string.  Used by the ``browser`` fixture to configure
@@ -555,28 +596,6 @@ def _api_delete(url: str, auth_token: str | None = None) -> int:
         return e.code
 
 
-def _reset_e2e_tasks(api: str, auth_token: str | None) -> None:
-    """Delete leftover ``E2E:``-prefixed tasks so each session starts clean.
-
-    The task seeds are re-created unconditionally every session; without this
-    reset, mutated survivors from earlier runs (renamed, reassigned, or created
-    before a notification-coupling change and therefore missing their in-app
-    notification) accumulate in the queue and make ``keys[0]`` non-deterministic
-    for the REQ-030 source→notification feedback tests. Only deletable statuses
-    (pending/skipped/cancelled/dormant) are removed; completed tasks stay for
-    history and never surface in the live queue anyway.
-    """
-    _post, _get = _api_helpers(auth_token)
-    status, tasks = _get(f"{api}/tasks?limit=500")
-    if status != 200 or not isinstance(tasks, list):
-        return
-    for task in tasks:
-        name = task.get("name") or ""
-        key = task.get("key")
-        if key and name.startswith("E2E:"):
-            _api_delete(f"{api}/tasks/{key}", auth_token)
-
-
 def _register_and_login(api_base: str) -> tuple[str, str]:
     """Register the demo user (idempotent) and login to get a JWT token.
 
@@ -688,10 +707,14 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 })
 
         # ── Seed tasks for task-queue tests (REQ-006) ────────────────────
-        # Remove leftover E2E tasks first so the queue baseline is deterministic
-        # (see _reset_e2e_tasks — required by the REQ-030 feedback tests).
-        _reset_e2e_tasks(api, result.get("access_token"))
-
+        # Find-or-create: this session fixture runs once per xdist worker
+        # (4x by default). An unconditional POST here would race those workers
+        # into recreating the same three named tasks four times, leaving
+        # duplicate "E2E: ..." rows in the queue and making any
+        # ``keys[0]``-based lookup non-deterministic (the original failure
+        # mode behind the REQ-030 source→notification feedback tests).
+        # Checking for an existing pending/in_progress task of the same name
+        # first converges every worker onto a single seeded set instead.
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
         _now = _dt.now(_tz.utc)
@@ -721,7 +744,17 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
                 "instruction_de": "Seitentriebe der Tomatenpflanzen entfernen",
             },
         ]
+        _tasks_list_status, _existing_tasks = _get(f"{api}/tasks?limit=500")
+        _existing_task_names: set = set()
+        if _tasks_list_status == 200 and isinstance(_existing_tasks, list):
+            _existing_task_names = {
+                t.get("name")
+                for t in _existing_tasks
+                if t.get("status") in ("pending", "in_progress")
+            }
         for task_data in _seed_tasks:
+            if task_data["name"] in _existing_task_names:
+                continue
             status, resp = _post(f"{api}/tasks", task_data)
             if status == 201:
                 result.setdefault("task_keys", []).append(resp.get("key"))
@@ -736,11 +769,43 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     except Exception as exc:
         result["error"] = str(exc)
 
+    # The result dict carries the demo account's live JWT in full mode — never
+    # write it to a report file that a broadened artifact upload could publish
+    # (SEC-006).
+    from ._seed_log import format_seed_log
+
     seed_log = Path("test-reports/e2e_seed_data.log")
     seed_log.parent.mkdir(parents=True, exist_ok=True)
-    seed_log.write_text(f"api={api}\nmode={app_mode}\nresult={result}\n")
+    seed_log.write_text(format_seed_log(api, app_mode, result))
 
     return result
+
+
+def _fresh_access_token(e2e_seed_data: dict, base_url: str) -> str | None:
+    """Return a currently-valid access token for API helpers.
+
+    The session-scoped seed token expires after the JWT access TTL (15 min) —
+    long before late-scheduled tests run, so helpers that reuse it fail with
+    'Token has expired'. Full mode: re-login with the demo credentials and
+    cache the token for 10 minutes. Light mode (no seed token): ``None``.
+    """
+    if not e2e_seed_data.get("access_token"):
+        return None
+    import time as _time
+
+    cached = e2e_seed_data.get("_fresh_token")
+    if cached and _time.time() - cached[1] < 600:
+        return cached[0]
+    _post, _ = _api_helpers()
+    status, resp = _post(
+        f"{base_url.rstrip('/')}/api/v1/auth/login",
+        {"email": DEMO_EMAIL_FULL, "password": DEMO_PASSWORD},
+    )
+    token = resp.get("access_token") if status == 200 else None
+    if not token:
+        return e2e_seed_data.get("access_token")
+    e2e_seed_data["_fresh_token"] = (token, _time.time())
+    return token
 
 
 def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | None = None) -> tuple[int, dict]:
@@ -749,11 +814,23 @@ def _e2e_api_post(e2e_seed_data: dict, base_url: str, path: str, data: dict | No
     Helper for test fixtures that need to call the backend API (e.g. resetting
     onboarding state).  Works in both light and full mode.
     """
-    token = e2e_seed_data.get("access_token")
+    token = _fresh_access_token(e2e_seed_data, base_url)
     slug = e2e_seed_data.get("tenant_slug", "mein-garten")
     _post, _ = _api_helpers(token)
     url = f"{base_url.rstrip('/')}/api/v1/t/{slug}/{path.lstrip('/')}"
     return _post(url, data or {})
+
+
+# NOTE: deliberately no ``--force-prefers-reduced-motion`` here. It was added to
+# close the MUI option-mis-click race and did not: that race is driven by
+# JavaScript layout effects (``Menu`` scrolling its paper to the selected item,
+# ``Popover`` clamping upward), which no animation setting removes -- it is now
+# closed coordinate-independently in ``BasePage.click_menu_option``. What the
+# flag *did* do was switch the application under test into its reduced-motion
+# branch globally (``theme.ts``: every transition collapsed to 0.01 ms), so the
+# suite stopped measuring the UI real users get -- and it removed the drawer
+# slide that had been masking a latent page-object defect (nav items clipped by
+# the sidebar's scroll container), turning two green tests red.
 
 
 @pytest.fixture(scope="function")
@@ -1075,14 +1152,26 @@ def screenshot(
 
     yield _capture
 
-    # After test — capture on failure
+    # After test — capture on failure, and on an *expected* failure too.
+    # An xfail(strict=False) that actually fails is reported as ``skipped``
+    # (with ``wasxfail`` set), so the plain ``report.failed`` branch left every
+    # xfail-marked test without a single artefact: no failure screenshot, no
+    # traceback, nothing to triage the marker against. Reconstructing why
+    # TC-REQ-020-032 xfailed took inferring the stop point from which
+    # checkpoint screenshots existed.
     report = getattr(request.node, "_report", None)
-    if report and report.failed:
+    if report is not None:
         test_name = request.node.name.replace("[", "_").replace("]", "_")
-        _capture(
-            f"FAILURE_{test_name}",
-            f"Automatischer Screenshot nach Fehler in {test_name}",
-        )
+        if report.failed:
+            _capture(
+                f"FAILURE_{test_name}",
+                f"Automatischer Screenshot nach Fehler in {test_name}",
+            )
+        elif report.skipped and getattr(report, "wasxfail", None) is not None:
+            _capture(
+                f"XFAIL_{test_name}",
+                f"Automatischer Screenshot nach erwartetem Fehlschlag in {test_name}",
+            )
 
 
 # ── Shared page-object fixtures ───────────────────────────────────────────
@@ -1176,7 +1265,12 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             outcome_str = "passed" if not report.failed else "failed"
             if report.skipped:
                 outcome_str = "skipped"
-            message = str(report.longrepr) if report.failed else ""
+            # ``longrepr`` survives pytest's xfail downgrade (skipping.py only
+            # rewrites ``outcome``), so recording it for an expected failure
+            # puts the actual traceback into ``checkpoint.jsonl`` instead of
+            # discarding the only machine-readable evidence an xfail produces.
+            keep_longrepr = report.failed or getattr(report, "wasxfail", None) is not None
+            message = str(report.longrepr) if keep_longrepr and report.longrepr else ""
             docstring = ""
             if item.obj and item.obj.__doc__:
                 docstring = item.obj.__doc__.strip().split("\n")[0]

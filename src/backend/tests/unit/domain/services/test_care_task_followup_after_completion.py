@@ -10,7 +10,7 @@ the guard vetoed the follow-up and the plant was left with no pending watering
 task at all.
 
 These tests exercise the service against
-:class:`~tests.unit.domain.services.care_task_repo_fake.FakeCareTaskRepo`, which
+:class:`~tests.unit.domain.services.care_task_fakes.FakeTaskRepo`, which
 models the real AQL predicate, so they fail against the pre-fix behaviour. The
 counterpart tests below pin that the recency rule is *unchanged* for every caller
 that did not itself close a task (the daily Celery producer, the interval
@@ -30,7 +30,7 @@ from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 from app.domain.models.task import Task
 from app.domain.services.care_reminder_service import CareReminderService
-from tests.unit.domain.services.care_task_repo_fake import FakeCareTaskRepo
+from tests.unit.domain.services.care_task_fakes import FakeTaskRepo
 
 PLANT_KEY = "plant-1"
 TENANT = "tenant-A"
@@ -70,7 +70,7 @@ def _completed_today_task(key: str = "task-earlier") -> Task:
     return task
 
 
-def _service(repo: FakeCareTaskRepo, *, auto_create: bool = True) -> CareReminderService:
+def _service(repo: FakeTaskRepo, *, auto_create: bool = True) -> CareReminderService:
     care_repo = MagicMock()
     care_repo.get_profile_by_plant_key.return_value = _profile(auto_create)
     care_repo.get_last_confirmation.return_value = None
@@ -105,7 +105,7 @@ def _confirmation(when: datetime | None = None) -> CareConfirmation:
 
 def test_watering_log_advance_schedules_exactly_one_follow_up() -> None:
     """TC-004-092 at unit level: the due task closes and one follow-up appears."""
-    repo = FakeCareTaskRepo([_due_watering_task()])
+    repo = FakeTaskRepo([_due_watering_task()])
     service = _service(repo)
     confirmed_at = datetime.now(UTC)
 
@@ -117,7 +117,7 @@ def test_watering_log_advance_schedules_exactly_one_follow_up() -> None:
     assert closed.status == TaskStatus.COMPLETED
     assert closed.completed_at is not None
     # … and exactly one pending follow-up exists, due one interval later.
-    pending = repo.pending_care_tasks(ReminderType.WATERING)
+    pending = repo.open_care_tasks(ReminderType.WATERING)
     assert len(pending) == 1
     assert pending[0].key == created.key
     assert created.due_date is not None
@@ -127,12 +127,12 @@ def test_watering_log_advance_schedules_exactly_one_follow_up() -> None:
 
 def test_dashboard_confirmation_schedules_the_follow_up() -> None:
     """The dashboard confirm path had the same shape and is fixed with it."""
-    repo = FakeCareTaskRepo([_due_watering_task()])
+    repo = FakeTaskRepo([_due_watering_task()])
     service = _service(repo)
 
     service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
 
-    assert len(repo.pending_care_tasks(ReminderType.WATERING)) == 1
+    assert len(repo.open_care_tasks(ReminderType.WATERING)) == 1
     assert next(task for task in repo.store if task.key == "task-due").status == TaskStatus.COMPLETED
 
 
@@ -144,33 +144,33 @@ def test_task_queue_completion_bridge_schedules_the_follow_up() -> None:
     recency rule from vetoing it.
     """
     completed = _completed_today_task("task-queue")
-    repo = FakeCareTaskRepo([completed])
+    repo = FakeTaskRepo([completed])
     service = _service(repo)
 
     created = service.ensure_next_watering_task(_profile(), just_completed_task=completed)
 
     assert created is not None
-    assert len(repo.pending_care_tasks(ReminderType.WATERING)) == 1
+    assert len(repo.open_care_tasks(ReminderType.WATERING)) == 1
 
 
 def test_second_log_the_same_day_keeps_exactly_one_pending_task() -> None:
     """Logging watering twice a day never accumulates pending watering tasks."""
-    repo = FakeCareTaskRepo([_due_watering_task()])
+    repo = FakeTaskRepo([_due_watering_task()])
     service = _service(repo)
 
     service.advance_watering_task_after_log(PLANT_KEY, _confirmation(), tenant_key=TENANT)
     service.advance_watering_task_after_log(PLANT_KEY, _confirmation(), tenant_key=TENANT)
 
-    assert len(repo.pending_care_tasks(ReminderType.WATERING)) == 1
+    assert len(repo.open_care_tasks(ReminderType.WATERING)) == 1
 
 
 def test_advance_without_auto_create_closes_but_schedules_nothing() -> None:
     """Opting out of auto-scheduling still closes the task and creates none."""
-    repo = FakeCareTaskRepo([_due_watering_task()])
+    repo = FakeTaskRepo([_due_watering_task()])
     service = _service(repo, auto_create=False)
 
     assert service.advance_watering_task_after_log(PLANT_KEY, _confirmation(), tenant_key=TENANT) is None
-    assert repo.pending_care_tasks(ReminderType.WATERING) == []
+    assert repo.open_care_tasks(ReminderType.WATERING) == []
     assert next(task for task in repo.store if task.key == "task-due").status == TaskStatus.COMPLETED
 
 
@@ -185,13 +185,13 @@ def test_recency_rule_still_blocks_callers_that_closed_nothing() -> None:
     completed today as satisfying the reminder — this test fails if the
     ``include_completed_today`` flag is ever flipped globally to "fix" #761.
     """
-    repo = FakeCareTaskRepo([_completed_today_task()])
+    repo = FakeTaskRepo([_completed_today_task()])
     service = _service(repo)
 
     created = service.ensure_next_watering_task(_profile())
 
     assert created is None
-    assert repo.pending_care_tasks(ReminderType.WATERING) == []
+    assert repo.open_care_tasks(ReminderType.WATERING) == []
     assert [lookup["include_completed_today"] for lookup in repo.lookups] == [True]
 
 
@@ -202,13 +202,13 @@ def test_advance_is_a_no_op_when_a_foreign_path_closed_the_task_today() -> None:
     neither reopens nor duplicates anything: the advance path opts into the
     narrowed lookup only when it actually closed a task itself.
     """
-    repo = FakeCareTaskRepo([_completed_today_task()])
+    repo = FakeTaskRepo([_completed_today_task()])
     service = _service(repo)
 
     created = service.advance_watering_task_after_log(PLANT_KEY, _confirmation(), tenant_key=TENANT)
 
     assert created is None
-    assert repo.pending_care_tasks(ReminderType.WATERING) == []
+    assert repo.open_care_tasks(ReminderType.WATERING) == []
     assert repo.lookups[-1]["include_completed_today"] is True
 
 
@@ -216,13 +216,13 @@ def test_follow_up_defers_to_another_still_open_task() -> None:
     """Even after closing one task, a still-open one blocks a second follow-up."""
     still_open = _due_watering_task("task-other")
     still_open.due_date = datetime.now(UTC) + timedelta(days=3)
-    repo = FakeCareTaskRepo([still_open])
+    repo = FakeTaskRepo([still_open])
     service = _service(repo)
 
     created = service.ensure_next_watering_task(_profile(), just_completed_task=_completed_today_task())
 
     assert created is None
-    assert [task.key for task in repo.pending_care_tasks(ReminderType.WATERING)] == ["task-other"]
+    assert [task.key for task in repo.open_care_tasks(ReminderType.WATERING)] == ["task-other"]
 
 
 @pytest.mark.parametrize(
@@ -231,7 +231,7 @@ def test_follow_up_defers_to_another_still_open_task() -> None:
 )
 def test_lookup_flag_is_chosen_per_caller(just_completed: Task | None, expected_flag: bool) -> None:
     """The narrowed lookup is opt-in and never leaks into the default path."""
-    repo = FakeCareTaskRepo()
+    repo = FakeTaskRepo()
     service = _service(repo)
 
     service.ensure_next_watering_task(_profile(), just_completed_task=just_completed)

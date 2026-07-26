@@ -63,7 +63,28 @@ export default function PageTitle({ title, action, meta, sx }: PageTitleProps) {
           </Box>
         )}
       </Box>
-      {action && <Box sx={{ flexShrink: 0 }}>{action}</Box>}
+      {/* Right side: action zone. It MUST stay shrinkable — a flex item with
+          `flexShrink: 0` is sized to its max-content width, so any
+          `flexWrap: 'wrap'` inside the action group never took effect and a
+          multi-button header pushed the whole document past the viewport width
+          (measured 918px at a 393px viewport on the task queue). Shrinking is
+          bounded by the group's automatic minimum size (min-content), so the
+          buttons wrap instead of overflowing — UI-NFR-001 R-005/R-006,
+          UI-NFR-021 R-023. */}
+      {action && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            flexWrap: 'wrap',
+            gap: 1,
+          }}
+          data-testid="page-title-actions"
+        >
+          {action}
+        </Box>
+      )}
     </Box>
   );
 }

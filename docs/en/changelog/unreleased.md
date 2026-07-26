@@ -49,10 +49,15 @@ Changes not yet published in a release.
 ### Frontend
 
 - Plant instances are displayed everywhere with a speaking name (e.g. `BASIL-001 (Basil – Genovese)`) instead of only the technical instance ID; the instance ID is preserved as secondary information
+- Tasks: the forms in the **Edit** and **Complete** tabs now render validation errors as helper text directly on the affected field instead of a short-lived native browser bubble (`noValidate`)
+- Account: the email verification page now offers a **Log in** button in the error case as well (invalid or expired link) — previously that page was a dead end
 
 ### Backend
 
 - Plant-instance and planting-run plant responses now embed `species` and `cultivar` summaries (denormalization), so the frontend can build readable names without extra requests
+- Harvest: `batch_id` is nullable in API responses (`string | null`) instead of an empty string; the uniqueness index on `harvest_batches.batch_id` is `unique + sparse`. Existing data is migrated by `v0030`
+- Care reminders: completing a due watering task creates the follow-up task immediately — previously it only appeared with the nightly planning run
+- Care reminders: a confirmation now only closes care tasks that are due today or earlier; a follow-up task already scheduled is left in place
 
 ## In Development
 

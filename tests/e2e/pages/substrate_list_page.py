@@ -34,7 +34,7 @@ class SubstrateListPage(BasePage):
     MIX_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-outlined')]")
 
     # ── Create dialog locators ─────────────────────────────────────────
-    CREATE_DIALOG = (By.CSS_SELECTOR, "div[role='dialog']")
+    CREATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
     FORM_TYPE = (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
     FORM_BRAND = (By.CSS_SELECTOR, "[data-testid='form-field-brand'] input")
     FORM_NAME_DE = (By.CSS_SELECTOR, "[data-testid='form-field-name_de'] input")
@@ -72,15 +72,17 @@ class SubstrateListPage(BasePage):
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the identifying column (SubstrateListPage `columns`).
+    NAME_COLUMN_ID = "name"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return the text of the first column for all rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return the substrate name of every visible row.
+
+        Addressed by column id, not by position: the substrate table leads with
+        a favourite-star and a type column, and below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.NAME_COLUMN_ID)
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
@@ -88,26 +90,33 @@ class SubstrateListPage(BasePage):
         return [h.text for h in headers if h.text]
 
     def get_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible row."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible row.
+
+        Layout-tolerant: TC-REQ-019-025 asserts a deleted substrate is *absent*
+        from this list, which the ``<td>``-only reader satisfied trivially in
+        the mobile card layout by returning nothing at all.
+        """
+        return self.get_all_row_text_fragments()
+
+    #: Column the row is activated through. Deliberately not the row centre:
+    #: the table's first column is a favourite `IconButton` that
+    #: `stopPropagation`s, so a centre click can toggle a favourite instead of
+    #: opening the substrate. `name` renders plain text and carries no
+    #: `hideBelowBreakpoint`.
+    ROW_CLICK_COLUMN_ID = NAME_COLUMN_ID
 
     def click_row(self, index: int = 0) -> None:
-        """Click the row at *index*."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the substrate at *index* via its inert `name` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "substrate row"
+        )
 
     def click_row_by_text(self, text: str) -> None:
-        """Click the row containing *text* in any cell."""
+        """Open the substrate whose row contains *text*, via its `name` cell."""
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         for row in rows:
             if text in row.text:
-                self.scroll_and_click(row)
+                self.click_row_via_column(row, self.ROW_CLICK_COLUMN_ID)
                 return
         raise ValueError(f"Row containing '{text}' not found in substrate table")
 
@@ -248,11 +257,11 @@ class SubstrateListPage(BasePage):
 
     def submit_create_form(self) -> None:
         """Submit the create form."""
-        self.wait_for_element_clickable(self.FORM_SUBMIT).click()
+        self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_for_element_clickable(self.FORM_CANCEL).click()
+        self.wait_and_click(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""
@@ -278,7 +287,7 @@ class SubstrateListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
         )
-        option.click()
+        self.click_menu_option(option)
         self.close_mui_dropdown()
 
     def get_type_options(self) -> list[str]:

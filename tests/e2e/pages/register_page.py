@@ -22,7 +22,7 @@ class RegisterPage(BasePage):
     PASSWORD_FIELDS = (By.CSS_SELECTOR, "input[autocomplete='new-password']")
     SUBMIT_BUTTON = (By.CSS_SELECTOR, "button[type='submit']")
     LOADING_INDICATOR = (By.CSS_SELECTOR, "button[type='submit'] .MuiCircularProgress-root")
-    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-standardError")
+    ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
     LOGIN_LINK = (By.CSS_SELECTOR, "a[href='/login']")
     PASSWORD_HELPER_TEXT = (By.CSS_SELECTOR, ".MuiFormHelperText-root")
     # Snackbar for success messages (notistack)

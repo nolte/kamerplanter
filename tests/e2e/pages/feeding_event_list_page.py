@@ -72,21 +72,30 @@ class FeedingEventListPage(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
+    #: Column id of the identifying column (FeedingEventListPage `columns`) --
+    #: also what the mobile card renders as its title.
+    PLANT_COLUMN_ID = "plantKey"
+
     def get_first_column_texts(self) -> list[str]:
-        """Return text of the first column for all visible rows."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        texts = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                texts.append(cells[0].text)
-        return texts
+        """Return each visible row's identifying (plant) text.
+
+        Addressed by column id, not by position: below the DataTable's mobile
+        breakpoint the rows are `MobileCard`s with no ``<td>`` at all.
+        """
+        return self.get_column_texts(self.PLANT_COLUMN_ID)
+
+    #: Column the row is activated through. Deliberately NOT `PLANT_COLUMN_ID`:
+    #: that column renders a `Chip component={RouterLink} clickable` with
+    #: `onClick={(e) => e.stopPropagation()}`, so a click landing on it opens
+    #: the plant instead of the feeding event. `timestamp` is the first column,
+    #: carries no `hideBelowBreakpoint` and renders a plain locale timestamp.
+    ROW_CLICK_COLUMN_ID = "timestamp"
 
     def click_row(self, index: int) -> None:
-        """Click the table row at the given index."""
-        rows = self.driver.find_elements(*self.TABLE_ROWS)
-        if index < len(rows):
-            self.scroll_and_click(rows[index])
+        """Open the feeding event at *index* via its inert `timestamp` cell."""
+        self.click_data_table_row(
+            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "feeding event row"
+        )
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
@@ -184,9 +193,11 @@ class FeedingEventListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
         )
-        # scroll_and_click centres the option and JS-clicks if a neighbour would
-        # intercept mid-animation; a raw click here can silently miss.
-        self.scroll_and_click(option)
+        # Dispatched on the resolved option, never at resolved coordinates: an
+        # open MUI menu still moves under its own layout effects (Menu scrolls
+        # its paper to the selected item, Popover clamps a menu that does not
+        # fit), so a coordinate click commits whichever option slid into place.
+        self.click_menu_option(option)
         self.close_mui_dropdown()
 
     def select_application_method(self, option_text: str) -> None:
@@ -198,7 +209,8 @@ class FeedingEventListPage(BasePage):
         option = self.wait_for_element_clickable(
             (By.XPATH, f"//li[@role='option' and contains(., '{option_text}')]")
         )
-        self.scroll_and_click(option)
+        # Coordinate-independent for the same reason as in ``select_plant``.
+        self.click_menu_option(option)
         self.close_mui_dropdown()
 
     def fill_volume(self, value: float) -> None:

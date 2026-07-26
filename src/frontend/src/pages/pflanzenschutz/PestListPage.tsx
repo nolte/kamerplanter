@@ -248,32 +248,45 @@ export default function PestListPage() {
           <MobileCard
             title={r.scientific_name}
             subtitle={l(r, 'common_name')}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.pestType.${r.pest_type}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={t(`enums.detectionDifficulty.${r.detection_difficulty}`)}
-                  size="small"
-                  color={difficultyColor[r.detection_difficulty] ?? 'default'}
-                />
-                {recognitionEnabled && r.has_reference_images && (
+            chips={[
+              {
+                id: 'pestType',
+                content: (
                   <Chip
-                    icon={<CameraAltOutlinedIcon />}
-                    label={t('pages.ipm.recognitionAvailable')}
+                    label={t(`enums.pestType.${r.pest_type}`)}
                     size="small"
-                    color="info"
                     variant="outlined"
                   />
-                )}
-              </>
-            }
+                ),
+              },
+              {
+                id: 'detectionDifficulty',
+                content: (
+                  <Chip
+                    label={t(`enums.detectionDifficulty.${r.detection_difficulty}`)}
+                    size="small"
+                    color={difficultyColor[r.detection_difficulty] ?? 'default'}
+                  />
+                ),
+              },
+              ...(recognitionEnabled && r.has_reference_images
+                ? [{
+                    id: 'recognition',
+                    content: (
+                      <Chip
+                        icon={<CameraAltOutlinedIcon />}
+                        label={t('pages.ipm.recognitionAvailable')}
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                      />
+                    ),
+                  }]
+                : []),
+            ]}
             fields={[
               ...(r.lifecycle_days != null
-                ? [{ label: t('pages.ipm.lifecycleDays'), value: `${r.lifecycle_days}\u202f${t('pages.ipm.days')}` }]
+                ? [{ id: 'lifecycleDays', label: t('pages.ipm.lifecycleDays'), value: `${r.lifecycle_days}\u202f${t('pages.ipm.days')}` }]
                 : []),
             ]}
           />

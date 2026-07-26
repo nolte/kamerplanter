@@ -37,6 +37,26 @@ Jede Pflegekarte bietet drei Aktionen:
 !!! tip "Adaptives Lernen"
     Wenn du eine Pflanze konsequent 8 statt 7 Tage nach der letzten Bestätigung gießt, passt das System das Intervall nach 3 aufeinanderfolgenden Bestätigungen automatisch an. Der Lerneffekt ist auf ±1 Tag pro Schritt begrenzt und kann das Intervall maximal um ±30 % gegenüber dem Basisintervall verändern.
 
+### Die nächste Gieß-Aufgabe entsteht sofort {#naechste-giess-aufgabe}
+
+Schließt eine Bestätigung eine offene, fällige Gieß-Aufgabe, legt Kamerplanter die nächste Gieß-Aufgabe unmittelbar mit an. Das gilt für alle Wege, auf denen du eine Gießung bestätigen kannst:
+
+- **Erledigt** auf der Pflegekarte in der Aufgaben-Übersicht
+- **Abschließen** auf der Detailseite einer Gieß-Aufgabe bzw. das Häkchen in der Aufgabenliste
+- ein neuer Eintrag im [Gießprotokoll](watering-log.md)
+
+Voraussetzung ist, dass im Pflegeprofil der Schalter **Gießaufgaben automatisch erstellen** aktiv ist.
+
+!!! note "Geändertes Verhalten"
+    Bis zu dieser Version endete die Kette an dieser Stelle: Die Folgeaufgabe wurde nicht angelegt, sondern erst beim nächtlichen Planungslauf nachgezogen. Für den Rest des Tages stand deshalb keine offene Gieß-Aufgabe mehr in der Warteschlange — am auffälligsten beim Abschließen direkt aus der Aufgaben-Warteschlange heraus. Die Pflegekarte selbst war davon nicht betroffen, sie richtet sich nach dem Zeitpunkt deiner letzten Bestätigung. <!-- REQ-022 -->
+
+### Eine Bestätigung schließt nur fällige Pflegeaufgaben
+
+Eine Bestätigung schließt ausschließlich eine Pflegeaufgabe, die **heute oder früher** fällig ist. Eine bereits für einen späteren Tag eingeplante Folgeaufgabe bleibt stehen und wird erst an ihrem eigenen Termin fällig.
+
+!!! example "Beispiel: zweimal am selben Tag gegossen"
+    Du gießt deine Monstera morgens und bestätigst die fällige Erinnerung — Kamerplanter legt die nächste Gieß-Aufgabe für in sieben Tagen an. Gießt du abends nach und erfasst das ebenfalls, bleibt die Aufgabe für in sieben Tagen unangetastet. Bis zu dieser Version wurde sie in diesem Fall mitgeschlossen, wodurch der ganze Pflegezyklus auf einen einzigen Tag zusammenfiel. <!-- REQ-022 -->
+
 ---
 
 ## Pflegeprofile

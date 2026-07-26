@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions as EC
@@ -23,6 +24,7 @@ class TaskDetailPage(BasePage):
     SKIP_BUTTON = (By.CSS_SELECTOR, "[data-testid='skip-task-button']")
     REOPEN_BUTTON = (By.CSS_SELECTOR, "[data-testid='reopen-task-button']")
     CLONE_BUTTON = (By.CSS_SELECTOR, "[data-testid='clone-task-button']")
+    DELETE_BUTTON = (By.CSS_SELECTOR, "[data-testid='delete-task-button']")
     COMPLETE_SUBMIT = (By.CSS_SELECTOR, "[data-testid='complete-task-submit']")
 
     # ── Navigation links ───────────────────────────────────────────────
@@ -53,9 +55,6 @@ class TaskDetailPage(BasePage):
     _RECURRENCE_LABELS = ("Wiederholung", "Recurrence")
     _DUE_DATE_LABELS = ("Fälligkeitsdatum", "Due Date")
     _ASSIGNED_LABELS = ("Zugewiesen an", "Assigned To")
-
-    # ── Delete button (no data-testid; MUI error-coloured button) ─────────
-    _DELETE_LABELS = ("Löschen", "Delete")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -124,7 +123,7 @@ class TaskDetailPage(BasePage):
 
     def click_start(self) -> None:
         """Click the 'Start task' button."""
-        self.wait_for_element_clickable(self.START_BUTTON).click()
+        self.wait_and_click(self.START_BUTTON)
 
     def has_skip_button(self) -> bool:
         """Check if the skip button is visible."""
@@ -132,7 +131,7 @@ class TaskDetailPage(BasePage):
 
     def click_skip(self) -> None:
         """Click the 'Skip task' button."""
-        self.wait_for_element_clickable(self.SKIP_BUTTON).click()
+        self.wait_and_click(self.SKIP_BUTTON)
 
     def has_reopen_button(self) -> bool:
         """Check if the reopen button is visible."""
@@ -140,7 +139,7 @@ class TaskDetailPage(BasePage):
 
     def click_reopen(self) -> None:
         """Click the 'Reopen task' button."""
-        self.wait_for_element_clickable(self.REOPEN_BUTTON).click()
+        self.wait_and_click(self.REOPEN_BUTTON)
 
     def has_clone_button(self) -> bool:
         """Check if the clone button is visible."""
@@ -148,7 +147,7 @@ class TaskDetailPage(BasePage):
 
     def click_clone(self) -> None:
         """Click the 'Clone task' button."""
-        self.wait_for_element_clickable(self.CLONE_BUTTON).click()
+        self.wait_and_click(self.CLONE_BUTTON)
 
     def has_complete_submit(self) -> bool:
         """Check if the complete submit button is present."""
@@ -156,7 +155,7 @@ class TaskDetailPage(BasePage):
 
     def click_complete_submit(self) -> None:
         """Click the 'Complete' submit button in the complete tab."""
-        self.wait_for_element_clickable(self.COMPLETE_SUBMIT).click()
+        self.wait_and_click(self.COMPLETE_SUBMIT)
 
     # ── Plant link ─────────────────────────────────────────────────────
 
@@ -176,7 +175,7 @@ class TaskDetailPage(BasePage):
 
     def confirm_dialog_accept(self) -> None:
         """Click the confirm button in the confirm dialog."""
-        self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM).click()
+        self.wait_and_click(self.CONFIRM_DIALOG_CONFIRM)
 
     # ── Snackbar ───────────────────────────────────────────────────────
 
@@ -253,19 +252,97 @@ class TaskDetailPage(BasePage):
         el = self.wait_for_element_clickable(self.FORM_ASSIGNED_TO)
         self.clear_and_fill(el, value)
 
-    def save_edit(self) -> None:
-        """Submit the edit form and wait for confirmation.
+    #: Inline validation errors MUI renders under a rejected field.
+    FORM_FIELD_ERRORS = (By.CSS_SELECTOR, ".MuiFormHelperText-root.Mui-error")
 
-        Clicks the ``form-submit-button``; on success a notistack snackbar is
-        shown and the page reloads back into the details view.  Waits briefly
-        for the snackbar as a completion signal (best effort — a missing
-        snackbar does not raise).
+    #: Budget for the "did the submit register?" post-condition. Generous on
+    #: purpose: each negative poll pays the session's implicit wait for the
+    #: absent snackbar, so this must cover more than one iteration.
+    SUBMIT_REGISTERED_TIMEOUT = 8
+
+    def _get_field_errors(self) -> list[str]:
+        """Return the inline validation errors currently rendered on the form."""
+        return [
+            e.text for e in self.driver.find_elements(*self.FORM_FIELD_ERRORS) if e.text
+        ]
+
+    def _submit_registered(self) -> bool:
+        """Return whether the click actually handed the form over to ``onSave``.
+
+        ``FormActions`` renders the submit button as
+        ``disabled={loading || disabled}``, and the edit tab feeds it
+        ``loading={saving}`` / ``disabled={!isDirty}``. So *every* state that
+        follows a registered submit disables the button -- the in-flight PUT
+        (``saving``), and the ``resetEdit()`` that ``load()`` performs afterwards
+        (``!isDirty``) -- while a click that never reached the button leaves it
+        enabled on a still-dirty form. A form that unmounted (the reload's
+        loading state) or a stale reference likewise means the submit ran.
+
+        A visible snackbar also counts: on a *rejected* save the error handler
+        toasts and the form goes dirty-and-enabled again, which the button state
+        alone cannot tell apart from a swallowed click. It is probed *last*
+        because the absence of a snackbar costs the full implicit wait, while
+        the button state is a present-element read and therefore instant.
         """
-        self.scroll_and_click(self.wait_for_element_clickable(self.FORM_SUBMIT))
+        buttons = self.driver.find_elements(*self.FORM_SUBMIT)
+        if not buttons:
+            return True
         try:
-            self.wait_for_snackbar(timeout=5)
-        except Exception:
-            pass
+            if not buttons[0].is_enabled():
+                return True
+        except StaleElementReferenceException:
+            return True
+        return self.has_snackbar()
+
+    def save_edit(self) -> None:
+        """Submit the edit form and wait for the save to be confirmed.
+
+        The submit is clicked coordinate-free
+        (:meth:`BasePage.click_coordinate_free`). This form's action row is the
+        last child of a page roughly two viewports tall on the mobile profile,
+        so it is scroll-clamped against the bottom of the document and a
+        coordinate dispatch lands next to it without raising -- the whole
+        ``TestTaskUpdatePropagation`` class failed that way (run
+        ``20260725_113337``: still-dirty form, enabled submit, no field errors,
+        no ``PUT /api/v1/t/{slug}/tasks/{key}`` in the backend log) while every
+        desktop profile passed.
+
+        Then two post-conditions, in order of increasing strength:
+
+        1. the submit *registered* -- otherwise the click was swallowed or
+           react-hook-form rejected the input, which is a different defect from
+           a missing snackbar and now says so by name;
+        2. ``onSave`` reported an outcome through notistack -- it toasts on every
+           branch (success message, or the error handler's), so the absence of a
+           snackbar means the request never resolved into user-visible feedback.
+
+        Both fail loudly. The predecessor's ``except Exception: pass`` made a
+        non-submitting form look like a successful save and pushed the failure
+        into a later, misleading "the value did not change" assertion.
+        """
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
+        try:
+            WebDriverWait(self.driver, self.SUBMIT_REGISTERED_TIMEOUT).until(
+                lambda _d: self._submit_registered()
+            )
+        except TimeoutException:
+            raise AssertionError(
+                "Task edit form: the click on form-submit-button did not register "
+                "— the button is still enabled, i.e. the form is still dirty and "
+                "no save is in flight. Either the click never reached the button, "
+                "or react-hook-form rejected the input "
+                f"(field_errors={self._get_field_errors()})"
+            ) from None
+        try:
+            self.wait_for_snackbar(timeout=10)
+        except TimeoutException:
+            submit = self.driver.find_elements(*self.FORM_SUBMIT)
+            raise AssertionError(
+                "Task edit form: the submit registered but no snackbar appeared "
+                "within 10s — onSave reported neither success nor an error "
+                f"(submit_enabled={submit[0].is_enabled() if submit else None}, "
+                f"field_errors={self._get_field_errors()})"
+            ) from None
 
     # ── Detail-tab value readback ──────────────────────────────────────
 
@@ -311,25 +388,14 @@ class TaskDetailPage(BasePage):
     def delete_task(self) -> None:
         """Delete the task via the header delete button and confirm dialog.
 
-        The header delete button carries no data-testid; it is the MUI
-        ``color='error'`` button in the detail header (i18n text
-        ``common.delete``).  It is located robustly by its error colour class
-        combined with its label text, then the generic ``ConfirmDialog`` is
-        accepted via ``confirm-dialog-confirm``.
+        Addressed by its own hook (``delete-task-button``,
+        `TaskDetailPage.tsx:696`), like its siblings in the same action group.
+        This replaces a hand-rolled XPath that coupled to *both* MUI's
+        colour classes (``MuiButton-colorError``/``MuiButton-outlinedError``)
+        and the translated label -- so a variant change or a copy edit in
+        either locale silently stopped resolving the button.
         """
-        text_predicate = " or ".join(
-            f"normalize-space()='{label}'" for label in self._DELETE_LABELS
-        )
-        button = self.wait_for_element_clickable(
-            (
-                By.XPATH,
-                "//*[@data-testid='task-detail-page']//button["
-                "(contains(@class, 'MuiButton-colorError')"
-                " or contains(@class, 'MuiButton-outlinedError'))"
-                f" and ({text_predicate})]",
-            )
-        )
-        self.scroll_and_click(button)
+        self.wait_and_click(self.DELETE_BUTTON)
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
         self.scroll_and_click(
             self.wait_for_element_clickable(self.CONFIRM_DIALOG_CONFIRM)

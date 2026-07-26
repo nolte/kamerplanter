@@ -43,15 +43,49 @@ def wizard(browser: WebDriver, base_url: str) -> OnboardingWizardPage:
     return OnboardingWizardPage(browser, base_url)
 
 
-# Shared with test_req020_onboarding_wizard.py — see L-10 in the spec analysis
-# bericht. Marks tests that traverse Wizard steps beyond favorites and race
-# with the seed fixture's POST /onboarding/skip on the shared tenant.
-xfail_xdist_tenant_race = pytest.mark.xfail(
+# -- Expected failures --------------------------------------------------------
+#
+# The class-wide ``xfail_xdist_tenant_race`` this file shared with
+# ``test_req020_onboarding_wizard.py`` is gone: its stated cause (the seed
+# fixture's ``POST /onboarding/skip`` racing parallel xdist workers on the
+# shared tenant) is fixed by ``conftest._serialize_global_preference_mutators``,
+# and the tests it covered xpassed through both runs of all five profiles.
+# See that module's header for the full argument.
+#
+# Two tests here still fail, both only on the 393px mobile profile and both for
+# reasons a scheduling race cannot explain.
+
+#: `FavoriteSpeciesStep` mounts ~210 tiles into a two-column grid at ``xs``; a
+#: tile clicked while that grid is still settling moves out from under the
+#: click, which lands on a neighbour. The page object now settles the grid first
+#: and verifies the toggle actually flipped.
+xfail_favorites_tile_toggle_noop = pytest.mark.xfail(
     reason=(
-        "REQ-020 Wizard tests race with the session-scoped seed fixture's "
-        "POST /onboarding/skip on the shared 'mein-garten' tenant when "
-        "running under xdist. See spec/analysis/"
-        "e2e-result-review-feat-audit-bulk-phase-2.md L-10."
+        "Toggling a favorite tile is a no-op on the mobile profile when the "
+        "species grid is still settling: the click lands on a neighbouring "
+        "tile, so aria-pressed never flips. Evidence: the xfailing runs keep "
+        "'after-first-toggle' but never 'after-second-toggle', i.e. the first "
+        "state assertion is what fails. click_favorite_tile() now waits for the "
+        "grid and verifies the flip; REVISIT: remove once mobile passes this "
+        "through a full green-confirmation window (P11)."
+    ),
+    strict=False,
+)
+
+#: The site-type Select was driven by a hand-rolled open-and-click that neither
+#: verified the open nor read the committed value back — the exact silent-success
+#: class ``spec/project/e2e-test-stability`` §G forbids.
+xfail_site_type_select_unverified = pytest.mark.xfail(
+    reason=(
+        "Changing the site type does not commit on the mobile profile: the "
+        "legacy select driver clicked the trigger natively (MUI opens on "
+        "mousedown) and clicked the option at resolved coordinates without "
+        "reading the value back, so a miss was reported as success and only "
+        "surfaced as the assertion below. Evidence: both checkpoint screenshots "
+        "exist, so the failure is the assertion, not the navigation. "
+        "select_site_type() now goes through the verified shared helpers; "
+        "REVISIT: remove once mobile passes this through a full "
+        "green-confirmation window (P11)."
     ),
     strict=False,
 )
@@ -60,7 +94,6 @@ xfail_xdist_tenant_race = pytest.mark.xfail(
 # -- Completed / Skipped Card -------------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestCompletedSkippedCard:
     """Completed/skipped card and restart functionality (Spec: TC-020-002, TC-020-004)."""
 
@@ -149,7 +182,6 @@ class TestCompletedSkippedCard:
 # -- Kit Metadata --------------------------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestKitMetadata:
     """Kit difficulty badge colours (Spec: TC-020-018)."""
 
@@ -183,12 +215,11 @@ class TestKitMetadata:
 # -- Favorite Toggle -----------------------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestFavoriteToggle:
     """Toggle individual species as favorites (Spec: TC-020-021)."""
 
+    @xfail_favorites_tile_toggle_noop
     @pytest.mark.core_crud
-    @xfail_xdist_tenant_race
     def test_toggle_favorite_species(
         self,
         wizard: OnboardingWizardPage,
@@ -250,10 +281,10 @@ class TestFavoriteToggle:
 # -- Site Type Change ----------------------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestSiteTypeChange:
     """Change site type via dropdown (Spec: TC-020-027)."""
 
+    @xfail_site_type_select_unverified
     @pytest.mark.core_crud
     def test_change_site_type_from_dropdown(
         self,
@@ -275,7 +306,9 @@ class TestSiteTypeChange:
         )
 
         initial_type = wizard.get_site_type_value()
-        wizard.select_site_type("Balkon")
+        # Addressed by the enum value the MenuItem carries, not by its German
+        # label: the assertion below still reads the rendered label back.
+        wizard.select_site_type("balcony")
         screenshot(
             "TC-REQ-020-005_after-type-change",
             "Site step after changing to Balkon",
@@ -293,7 +326,6 @@ class TestSiteTypeChange:
 # -- Plant Counter Boundaries --------------------------------------------------
 
 
-@xfail_xdist_tenant_race
 class TestPlantCounterBoundaries:
     """Plant counter max=50 and zero removes phase selector (Spec: TC-020-034, TC-020-035)."""
 

@@ -17,6 +17,7 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import InvitationAcceptPage, LoginPage
+from ._auth_helpers import clear_auth_session
 
 pytestmark = pytest.mark.requires_auth
 
@@ -43,7 +44,7 @@ def invitation_page(browser: WebDriver, base_url: str) -> InvitationAcceptPage:
 
 def _ensure_logged_in(login_page: LoginPage) -> None:
     """Log in as demo user if not already authenticated."""
-    login_page.driver.delete_all_cookies()
+    clear_auth_session(login_page.driver)
     login_page.open()
     login_page.login(DEMO_EMAIL, DEMO_PASSWORD)
     login_page.wait_for_url_contains("/dashboard")
@@ -69,14 +70,18 @@ class TestInvitationPageLoad:
         """
         _ensure_logged_in(login_page)
         invitation_page.open_with_token("test-token-e2e")
+
+        result = invitation_page.wait_for_result()
         screenshot(
             "TC-REQ-024-030_invitation-page-loaded",
             "InvitationAcceptPage after load with token",
         )
 
         heading = invitation_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-024-030 FAIL: Expected heading text on InvitationAcceptPage"
+        expected = InvitationAcceptPage.RESULT_HEADINGS[result]
+        assert heading in expected, (
+            f"TC-REQ-024-030 FAIL: Expected the invitation result card to show one "
+            f"of {expected} in its '{result}' state, got: '{heading}'"
         )
 
     @pytest.mark.smoke
@@ -148,8 +153,10 @@ class TestInvitationInvalidToken:
         )
 
         heading = invitation_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-024-032 FAIL: Expected error heading text for invalid token"
+        expected = InvitationAcceptPage.RESULT_HEADINGS["error"]
+        assert heading in expected, (
+            f"TC-REQ-024-032 FAIL: Expected the error heading to be one of "
+            f"{expected} for an invalid token, got: '{heading}'"
         )
 
     @pytest.mark.core_crud

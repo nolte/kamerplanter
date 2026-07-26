@@ -19,20 +19,25 @@ class TenantSettingsPage(BasePage):
     TAB_MEMBERS = (By.CSS_SELECTOR, ".MuiTabs-root button:first-child")
     TAB_INVITATIONS = (By.CSS_SELECTOR, ".MuiTabs-root button:nth-child(2)")
 
-    # -- Members tab locators ----------------------------------------------
-    MEMBERS_TABLE = (By.CSS_SELECTOR, "table[aria-label]")
-    MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "table[aria-label] tbody tr")
+    # -- Members / invitations tables --------------------------------------
+    # Both tabs render a `DataTable`, and only one tab is mounted at a time, so
+    # the durable ``data-table``/``data-table-row`` testids are an exact scope
+    # without an aria-label. They also survive the layout switch: the members
+    # table passes a ``mobileCardRenderer``, so below `DataTable`'s ``sm``
+    # breakpoint it renders `MobileCard`s with no ``<table>`` and no
+    # ``<tbody><tr>`` at all — where ``table[aria-label] tbody tr`` silently
+    # counted zero members instead of failing.
+    MEMBERS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
+    MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
     MEMBER_ROLE_CHIP = (By.CSS_SELECTOR, ".MuiChip-root")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
-    # Mobile view
-    MEMBER_MOBILE_CARDS = (By.CSS_SELECTOR, ".MuiCard-root")
 
     # -- Invitations tab locators ------------------------------------------
     INVITE_EMAIL_FIELD = (By.CSS_SELECTOR, "[data-testid='invite-email-field'] input")
     SEND_INVITATION_BTN = (By.CSS_SELECTOR, "[data-testid='send-invitation-btn']")
     CREATE_LINK_BTN = (By.CSS_SELECTOR, "[data-testid='create-link-btn']")
-    INVITATIONS_TABLE = (By.CSS_SELECTOR, "table[aria-label]")
-    INVITATIONS_TABLE_ROWS = (By.CSS_SELECTOR, "table[aria-label] tbody tr")
+    INVITATIONS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
+    INVITATIONS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # -- Snackbar ----------------------------------------------------------
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")
@@ -90,15 +95,20 @@ class TenantSettingsPage(BasePage):
         rows = self.driver.find_elements(*self.MEMBERS_TABLE_ROWS)
         return len(rows)
 
+    #: Column id of the members table's identifying column (TenantSettingsPage).
+    MEMBER_NAME_COLUMN_ID = "display_name"
+
     def get_member_names(self) -> list[str]:
-        """Return the display names from the members table."""
-        rows = self.driver.find_elements(*self.MEMBERS_TABLE_ROWS)
-        names = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            if cells:
-                names.append(cells[0].text)
-        return names
+        """Return the display names from the members table.
+
+        Addressed by column id, not by position: the members DataTable renders
+        `MobileCard`s (title = display name) below its mobile breakpoint, where
+        there is no ``<td>`` to read.
+        """
+        return [
+            self.get_row_primary_text(row, self.MEMBER_NAME_COLUMN_ID)
+            for row in self.driver.find_elements(*self.MEMBERS_TABLE_ROWS)
+        ]
 
     def get_member_role_chips(self) -> list[str]:
         """Return the role chip texts from the members table."""
@@ -172,13 +182,11 @@ class TenantSettingsPage(BasePage):
         return len(rows)
 
     def get_invitation_row_texts(self) -> list[list[str]]:
-        """Return all cell texts for every visible invitation row."""
-        rows = self.driver.find_elements(*self.INVITATIONS_TABLE_ROWS)
-        result = []
-        for row in rows:
-            cells = row.find_elements(By.TAG_NAME, "td")
-            result.append([c.text for c in cells])
-        return result
+        """Return the readable text fragments of every visible invitation row."""
+        return [
+            self.get_row_text_fragments(row)
+            for row in self.driver.find_elements(*self.INVITATIONS_TABLE_ROWS)
+        ]
 
     def has_revoke_button_for_invitation(self, inv_key: str) -> bool:
         """Check if a revoke button exists for the given invitation key."""

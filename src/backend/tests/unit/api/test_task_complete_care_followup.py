@@ -28,7 +28,7 @@ from app.domain.models.care_reminder import CareConfirmation, CareProfile
 from app.domain.models.task import Task
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.care_reminder_service import CareReminderService
-from tests.unit.domain.services.care_task_repo_fake import FakeCareTaskRepo
+from tests.unit.domain.services.care_task_fakes import FakeTaskRepo
 
 PLANT_KEY = "plant-1"
 TENANT = "tenant-A"
@@ -67,7 +67,7 @@ class _TaskServiceStub:
 
 
 @pytest.fixture
-def care_stack() -> tuple[CareReminderService, FakeCareTaskRepo]:
+def care_stack() -> tuple[CareReminderService, FakeTaskRepo]:
     care_repo = MagicMock()
     profile = CareProfile(
         key="cp-1",
@@ -91,7 +91,7 @@ def care_stack() -> tuple[CareReminderService, FakeCareTaskRepo]:
         slot_key=None,
     )
 
-    task_store = FakeCareTaskRepo([_completed_watering_task()])
+    task_store = FakeTaskRepo([_completed_watering_task()])
     service = CareReminderService(
         care_repo,
         CareReminderEngine(),
@@ -115,7 +115,7 @@ def test_completing_a_watering_task_schedules_the_next_occurrence(monkeypatch, c
     )
 
     assert response.status == TaskStatus.COMPLETED
-    pending = task_store.pending_care_tasks(ReminderType.WATERING)
+    pending = task_store.open_care_tasks(ReminderType.WATERING)
     assert len(pending) == 1
     assert pending[0].key != TASK_KEY
     assert pending[0].tenant_key == TENANT
