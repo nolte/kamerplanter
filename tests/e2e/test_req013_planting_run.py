@@ -688,7 +688,7 @@ class TestPlantingRunDeleteFlow:
 
         status = run_detail.get_status()
         if "Geplant" not in status and "planned" not in status.lower():
-            pytest.skip(f"First run is not in 'planned' status — delete button not shown")
+            pytest.skip("First run is not in 'planned' status — delete button not shown")
 
         screenshot("TC-REQ-013-023_before-delete", "Detail page before clicking delete")
 

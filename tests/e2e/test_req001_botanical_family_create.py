@@ -219,7 +219,6 @@ class TestBotanicalFamilyBackendValidation:
 
         Spec: TC-001-017 -- Nitrogen-Fixing + Heavy Demand Kombination wird abgelehnt.
         """
-        from selenium.webdriver.common.by import By
 
         family_list.open()
         family_list.click_create()

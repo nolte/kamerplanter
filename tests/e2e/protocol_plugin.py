@@ -20,7 +20,7 @@ import platform
 import re
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 # ── Spec resolution ──────────────────────────────────────────────────────────
@@ -309,10 +309,10 @@ class ProtocolGenerator:
 
                 error_msg = r.message.replace("\n", "\n  ") if r.message else "n/a"
                 lines.extend([
-                    f"- **Fehler:**",
-                    f"  ```",
+                    "- **Fehler:**",
+                    "  ```",
                     f"  {error_msg[:500]}",
-                    f"  ```",
+                    "  ```",
                 ])
                 # Attach failure screenshots
                 failure_shots = [
@@ -373,7 +373,7 @@ class ProtocolGenerator:
                 f"*{cls_total} Tests: {cls_passed} bestanden"
                 + (f", {cls_failed} fehlgeschlagen" if cls_failed else "")
                 + (f", {cls_skipped} übersprungen" if cls_skipped else "")
-                + f"*",
+                + "*",
                 "",
             ])
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Callable
-import time  # kept for debounce waits
 
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
