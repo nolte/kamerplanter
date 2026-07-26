@@ -529,6 +529,67 @@ class CareReminderService:
 
         return created
 
+    def _is_foreign_plant(self, plant_key: str, tenant_key: str) -> bool:
+        """Return whether *plant_key* must not be touched on behalf of *tenant_key*.
+
+        The single cross-tenant write guard of the care paths (SEC-001): a plant
+        that is unknown or belongs to another tenant is *foreign*, and every write
+        derived from it (confirmation + graph edges, watering log, follow-up care
+        task) must be refused. Fails **closed** — an unresolvable plant counts as
+        foreign — and stays silent (``True``, caller returns ``None``) instead of
+        raising, so a foreign key's existence is never disclosed (no cross-tenant
+        oracle, SEC-B4).
+
+        An empty ``tenant_key`` is the system context (Celery producers, MCP): it
+        carries no tenant to verify against, so the check is skipped exactly as it
+        is for a service built without a ``plant_repo``.
+        """
+        if not tenant_key or self._plant_repo is None:
+            return False
+        plant = self._plant_repo.get_by_key(plant_key)
+        return plant is None or plant.tenant_key != tenant_key
+
+    def _resolve_care_task_context(
+        self,
+        task: Task,
+        tenant_key: str,
+    ) -> tuple[str, CareProfile, ReminderType] | None:
+        """Resolve and tenant-verify the plant, profile and reminder type of a care task.
+
+        The single gate both task-queue bridges (:meth:`record_care_task_completion`
+        and :meth:`record_care_task_skip`) pass through, so neither can write into a
+        foreign tenant's care state. Returns ``None`` — a silent no-op for the
+        caller — when any of these does not hold:
+
+        * the task is a ``care_reminder`` on a ``plant_instance`` and names a plant;
+        * the task itself belongs to ``tenant_key`` (defence in depth: the router
+          already verifies it, but the service must not depend on that);
+        * the plant belongs to ``tenant_key`` (:meth:`_is_foreign_plant`) — the
+          check the completion bridge was missing (SEC-001): ``entity_key`` is
+          caller-supplied at task creation and is *not* validated against the
+          creating tenant, so a task in tenant A can point at a plant in tenant B;
+        * the plant has a care profile and the task name carries a known reminder
+          type suffix.
+        """
+        if task.category != TaskCategory.CARE_REMINDER or task.entity_type != "plant_instance":
+            return None
+        plant_key = task.entity_key
+        if not plant_key:
+            return None
+        if tenant_key and task.tenant_key != tenant_key:
+            return None
+        if self._is_foreign_plant(plant_key, tenant_key):
+            return None
+
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return None
+
+        reminder_type = reminder_type_from_task_name(task.name)
+        if reminder_type is None:
+            return None
+        return plant_key, profile, reminder_type
+
     def advance_watering_task_after_log(
         self,
         plant_key: str,
@@ -555,10 +616,8 @@ class CareReminderService:
         watering task, or ``None`` when no profile exists, auto-scheduling is
         disabled, or an equivalent task already satisfies the reminder.
         """
-        if tenant_key and self._plant_repo is not None:
-            plant = self._plant_repo.get_by_key(plant_key)
-            if plant is None or plant.tenant_key != tenant_key:
-                return None
+        if self._is_foreign_plant(plant_key, tenant_key):
+            return None
 
         profile = self._repo.get_profile_by_plant_key(plant_key)
         if profile is None:
@@ -620,37 +679,33 @@ class CareReminderService:
         shared :meth:`_schedule_next_watering_after_completion`.
 
         ``tenant_key`` (the completing request's tenant, #580) is stamped onto the
-        generated log so it surfaces in the global Gießprotokoll view.
+        generated log so it surfaces in the global Gießprotokoll view. It is also
+        the tenant every write is verified against: a task or plant belonging to
+        another tenant is refused (:meth:`_resolve_care_task_context`, SEC-001).
 
-        Non-care tasks, non-plant entities and plants without a care profile are
-        no-ops. Returns the newly scheduled follow-up watering task, or ``None``.
+        Non-care tasks, non-plant entities, foreign tasks/plants and plants without
+        a care profile are no-ops. Returns the newly scheduled follow-up watering
+        task, or ``None``.
         """
-        if task.category != TaskCategory.CARE_REMINDER or task.entity_type != "plant_instance":
+        context = self._resolve_care_task_context(task, tenant_key)
+        if context is None:
             return None
-        plant_key = task.entity_key
-        if not plant_key:
-            return None
+        plant_key, profile, reminder_type = context
 
-        profile = self._repo.get_profile_by_plant_key(plant_key)
-        if profile is None:
-            return None
-
-        reminder_type = reminder_type_from_task_name(task.name)
-        if reminder_type is not None:
-            confirmation = CareConfirmation(
-                plant_key=plant_key,
-                care_profile_key=profile.key or "",
-                reminder_type=reminder_type,
-                action=ConfirmAction.CONFIRMED,
-                confirmed_at=datetime.now(UTC),
-                task_key=task.key,
-                notes=task.completion_notes,
-                interval_at_time=self._engine._get_interval_days(profile, reminder_type),
-            )
-            created = self._repo.create_confirmation(confirmation)
-            if created.key and profile.key:
-                self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
-            self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
+        confirmation = CareConfirmation(
+            plant_key=plant_key,
+            care_profile_key=profile.key or "",
+            reminder_type=reminder_type,
+            action=ConfirmAction.CONFIRMED,
+            confirmed_at=datetime.now(UTC),
+            task_key=task.key,
+            notes=task.completion_notes,
+            interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+        )
+        created = self._repo.create_confirmation(confirmation)
+        if created.key and profile.key:
+            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
 
         if reminder_type != ReminderType.WATERING:
             return None
@@ -658,6 +713,49 @@ class CareReminderService:
         # ``TaskService.complete_task`` has already stamped ``completed_at=now`` on
         # this very task, so it must not satisfy the follow-up dedup lookup (#768).
         return self._schedule_next_watering_after_completion(profile, None, completed_task=task)
+
+    def record_care_task_skip(
+        self,
+        task: Task,
+        *,
+        tenant_key: str = "",
+    ) -> CareConfirmation | None:
+        """Mirror a skipped care-reminder task into the plant's care state (REQ-022).
+
+        The skip sibling of :meth:`record_care_task_completion`: skipping a
+        ``care_reminder`` task from the task queue records a ``SKIPPED``
+        :class:`CareConfirmation` (plus its graph edges) so the plant's care
+        history shows the deliberate omission and the adaptive interval learner
+        sees it. Unlike a completion it materialises no log and schedules no
+        follow-up — a skip is not a care event.
+
+        This composition used to live inline in the API layer, reaching around the
+        service into its repository and engine (NFR-001 violation); that also made
+        it bypass the tenant guard. It now shares the single gate
+        (:meth:`_resolve_care_task_context`), so a task or plant belonging to
+        another tenant is refused (SEC-001).
+
+        Returns the persisted confirmation, or ``None`` when the task is not a
+        tenant-owned care reminder on a profiled plant.
+        """
+        context = self._resolve_care_task_context(task, tenant_key)
+        if context is None:
+            return None
+        plant_key, profile, reminder_type = context
+
+        confirmation = CareConfirmation(
+            plant_key=plant_key,
+            care_profile_key=profile.key or "",
+            reminder_type=reminder_type,
+            action=ConfirmAction.SKIPPED,
+            confirmed_at=datetime.now(UTC),
+            task_key=task.key,
+            interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+        )
+        created = self._repo.create_confirmation(confirmation)
+        if created.key and profile.key:
+            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        return created
 
     def _get_phase_watering_interval(self, plant_key: str) -> int | None:
         """Look up watering_interval_days from the plant's current growth phase.

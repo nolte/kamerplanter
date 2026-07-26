@@ -559,31 +559,15 @@ def skip_task(
     """Skip a task, propagating care-reminder confirmations where applicable."""
     service.get_task(key, tenant_key=ctx.tenant_key)
     skipped = service.skip_task(key)
+    # Mirrors the completion path above: the care-state consequences of a skipped
+    # care-reminder task are domain logic and live in the service (NFR-001), which
+    # also owns the tenant guard on the *plant* the task points at (SEC-001). The
+    # guard here is only a presentation-layer short-circuit so no care service is
+    # built for a plain task; the service re-checks it authoritatively.
     if skipped.category == "care_reminder" and skipped.entity_type == "plant_instance" and skipped.entity_key:
-        from datetime import UTC, datetime
-
         from app.common.dependencies import get_care_reminder_service
-        from app.common.enums import ConfirmAction
-        from app.domain.models.care_reminder import CareConfirmation
-        from app.domain.services.care_reminder_service import reminder_type_from_task_name
 
-        care_service = get_care_reminder_service()
-        profile = care_service._repo.get_profile_by_plant_key(skipped.entity_key)
-        if profile is not None:
-            rt_match = reminder_type_from_task_name(skipped.name)
-            if rt_match is not None:
-                confirmation = CareConfirmation(
-                    plant_key=skipped.entity_key,
-                    care_profile_key=profile.key or "",
-                    reminder_type=rt_match,
-                    action=ConfirmAction.SKIPPED,
-                    confirmed_at=datetime.now(UTC),
-                    task_key=skipped.key,
-                    interval_at_time=care_service._engine._get_interval_days(profile, rt_match),
-                )
-                created_conf = care_service._repo.create_confirmation(confirmation)
-                if created_conf.key and profile.key:
-                    care_service._repo.create_confirmation_edges(created_conf.key, profile.key, skipped.entity_key)
+        get_care_reminder_service().record_care_task_skip(skipped, tenant_key=ctx.tenant_key)
     return _task_response(skipped)
 
 

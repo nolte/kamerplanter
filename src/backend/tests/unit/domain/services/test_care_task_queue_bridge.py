@@ -75,6 +75,7 @@ def _build(
     *,
     task_repo: FakeTaskRepo,
     profile: CareProfile | None,
+    plant_tenant: str = TENANT,
 ) -> tuple[CareReminderService, MagicMock, MagicMock]:
     care_repo = MagicMock()
     care_repo.get_profile_by_plant_key.return_value = profile
@@ -99,7 +100,7 @@ def _build(
     plant.key = PLANT_KEY
     plant.plant_name = "Strawberry"
     plant.instance_id = "FRAGA-1"
-    plant.tenant_key = TENANT
+    plant.tenant_key = plant_tenant
     plant.current_phase_key = None
     plant.slot_key = None
     plant_repo = MagicMock()
@@ -220,6 +221,101 @@ def test_bridge_without_care_profile_writes_nothing() -> None:
     care_repo.create_confirmation.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []
+
+
+def test_completion_refuses_a_task_pointing_at_a_foreign_tenants_plant() -> None:
+    """SEC-001 — the bridge must not write into another tenant's care state.
+
+    ``TaskCreate.entity_key`` is caller-supplied and is not validated against the
+    creating tenant, so a task legitimately owned by tenant A can name a plant of
+    tenant B. Completing it used to write a ``CareConfirmation`` plus graph edges
+    on the victim's plant, a watering log carrying the *attacker's* tenant but the
+    victim's ``plant_keys``, and a follow-up care task in the *victim's* tenant
+    (``ensure_next_watering_task`` resolves the tenant from the plant). Nothing at
+    all may be written.
+    """
+    completed = _queue_completed_task()
+    task_repo = FakeTaskRepo([completed])
+    service, care_repo, log_repo = _build(
+        task_repo=task_repo,
+        profile=_profile(),
+        plant_tenant="tenant-VICTIM",
+    )
+
+    assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
+
+    care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_edges.assert_not_called()
+    log_repo.create.assert_not_called()
+    assert task_repo.created == []
+    assert task_repo.updated == []
+
+
+def test_completion_refuses_a_task_of_another_tenant() -> None:
+    """Defence in depth — the service verifies the task's own tenant too.
+
+    The router already 404s a foreign task before calling in, but the service must
+    not depend on a caller-side check for its isolation guarantee.
+    """
+    completed = _queue_completed_task()
+    completed.tenant_key = "tenant-OTHER"
+    task_repo = FakeTaskRepo([completed])
+    service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
+
+    assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
+
+    care_repo.create_confirmation.assert_not_called()
+    log_repo.create.assert_not_called()
+    assert task_repo.created == []
+
+
+def test_skip_records_a_skipped_confirmation() -> None:
+    """The skip bridge writes the SKIPPED confirmation and its edges — nothing else.
+
+    A skip is not a care event: no watering log is materialised and no follow-up
+    task is scheduled.
+    """
+    skipped = _queue_completed_task()
+    skipped.status = TaskStatus.SKIPPED
+    task_repo = FakeTaskRepo([skipped])
+    service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
+
+    created = service.record_care_task_skip(skipped, tenant_key=TENANT)
+
+    assert created is not None
+    confirmation = care_repo.create_confirmation.call_args[0][0]
+    assert confirmation.action == ConfirmAction.SKIPPED
+    assert confirmation.reminder_type == ReminderType.WATERING
+    assert confirmation.plant_key == PLANT_KEY
+    assert confirmation.care_profile_key == "cp-1"
+    assert confirmation.task_key == "task-open"
+    assert confirmation.interval_at_time == INTERVAL_DAYS
+    care_repo.create_confirmation_edges.assert_called_once_with("conf-1", "cp-1", PLANT_KEY)
+    log_repo.create.assert_not_called()
+    assert task_repo.created == []
+
+
+def test_skip_refuses_a_task_pointing_at_a_foreign_tenants_plant() -> None:
+    """SEC-001 — the skip bridge shares the completion bridge's tenant guard.
+
+    The skip composition used to live in the API layer, reaching around the
+    service into its repository/engine; a guard inside the service would have been
+    bypassed there. Driven through the service it is refused like a completion.
+    """
+    skipped = _queue_completed_task()
+    skipped.status = TaskStatus.SKIPPED
+    task_repo = FakeTaskRepo([skipped])
+    service, care_repo, log_repo = _build(
+        task_repo=task_repo,
+        profile=_profile(),
+        plant_tenant="tenant-VICTIM",
+    )
+
+    assert service.record_care_task_skip(skipped, tenant_key=TENANT) is None
+
+    care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_edges.assert_not_called()
+    log_repo.create.assert_not_called()
 
 
 def test_bridge_ignores_a_care_task_without_a_reminder_type_suffix() -> None:
