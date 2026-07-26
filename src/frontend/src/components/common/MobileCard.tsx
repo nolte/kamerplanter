@@ -83,15 +83,30 @@ function isKeyedChipList(chips: ReactNode | MobileCardChip[]): chips is MobileCa
  * byte-for-byte what the caller wrote. A caller-provided `data-testid` wins —
  * those are an existing contract and must not be overwritten. Non-element
  * content (a string, a fragment) gets an inline-flex span carrier instead.
+ *
+ * A chip that carries a semantic palette colour (`color="error"`, …) also emits
+ * that colour as `data-chip-color`. The colour is *product* information — it is
+ * how the card says "this state is a problem" — and without a product-owned
+ * carrier the only readable form is MUI's `MuiChip-color<Palette>` class, i.e.
+ * a styling implementation detail that renames itself on a library upgrade.
+ * A caller-supplied `data-chip-color` wins, and a chip left on the palette
+ * default emits nothing (it asserts no colour semantics).
  */
 function renderKeyedChip(chip: MobileCardChip): ReactNode {
   const testId = `card-chip-${chip.id}`;
   if (isValidElement(chip.content) && typeof chip.content.type !== 'symbol') {
     const element = chip.content as ReactElement<Record<string, unknown>>;
-    if (element.props['data-testid'] !== undefined) {
-      return cloneElement(element, { key: chip.id });
+    const props: Record<string, unknown> = { key: chip.id };
+    if (element.props['data-testid'] === undefined) {
+      props['data-testid'] = testId;
     }
-    return cloneElement(element, { key: chip.id, 'data-testid': testId });
+    if (
+      element.props['data-chip-color'] === undefined &&
+      typeof element.props.color === 'string'
+    ) {
+      props['data-chip-color'] = element.props.color;
+    }
+    return cloneElement(element, props);
   }
   return (
     <Box key={chip.id} component="span" data-testid={testId} sx={{ display: 'inline-flex' }}>

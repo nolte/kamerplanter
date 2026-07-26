@@ -119,6 +119,41 @@ describe('MobileCard — test hooks', () => {
     expect(screen.queryByTestId('card-chip-recognition')).toBeNull();
   });
 
+  it('exposes a semantic chip colour as a product-owned attribute', () => {
+    render(
+      <MobileCard
+        title="Tomate"
+        chips={[
+          { id: 'status', content: <Chip size="small" label="Überfällig" color="error" /> },
+          { id: 'phase', content: <Chip size="small" label="Vegetativ" /> },
+        ]}
+      />,
+    );
+
+    // Without this hook the only readable carrier of "this state is a problem"
+    // is MUI's own `MuiChip-colorError` class — a styling detail, not a
+    // product contract.
+    expect(screen.getByTestId('card-chip-status').getAttribute('data-chip-color')).toBe('error');
+    // A chip left on the palette default asserts no colour semantics.
+    expect(screen.getByTestId('card-chip-phase').hasAttribute('data-chip-color')).toBe(false);
+  });
+
+  it('does not overwrite a caller-provided chip colour attribute', () => {
+    render(
+      <MobileCard
+        title="Tomate"
+        chips={[
+          {
+            id: 'status',
+            content: <Chip size="small" label="Aktiv" color="error" data-chip-color="warning" />,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('card-chip-status').getAttribute('data-chip-color')).toBe('warning');
+  });
+
   it('carries the hook on a span when the chip content is not an element', () => {
     render(<MobileCard title="Tomate" chips={[{ id: 'status', content: 'aktiv' }]} />);
 
