@@ -182,6 +182,110 @@ describe('BotanicalFamilyListPage', () => {
       expect(screen.getByText('Brassicaceae')).toBeTruthy();
     });
 
+    describe('species-count deep link', () => {
+      // Covers the count cell added with the family_key assignment fix: the count
+      // is a deep link into the pre-filtered species overview, but only when the
+      // family actually has species — and activating it must not also fire the
+      // surrounding row click (which would navigate to the family detail and
+      // leave a phantom history entry).
+      const mixedFamilies = [
+        {
+          key: 'fam-with', name: 'Brassicaceae', common_name_de: 'Kreuzblütler', common_name_en: 'Cabbage family',
+          typical_nutrient_demand: 'heavy', typical_root_depth: 'deep', frost_tolerance: 'hardy',
+          species_count: 12, rotation_category: 'leaf', common_pests: [], created_at: '2024-01-01T00:00:00Z', updated_at: null,
+        },
+        {
+          key: 'fam-without', name: 'Apiaceae', common_name_de: 'Doldenblütler', common_name_en: 'Carrot family',
+          typical_nutrient_demand: 'medium', typical_root_depth: 'medium', frost_tolerance: 'moderate',
+          species_count: 0, rotation_category: 'root', common_pests: [], created_at: '2024-01-02T00:00:00Z', updated_at: null,
+        },
+      ];
+
+      beforeEach(() => {
+        i18n.changeLanguage('de');
+        server.use(http.get('/api/v1/botanical-families', () => HttpResponse.json(mixedFamilies)));
+      });
+
+      /** Renders the page with real target routes so navigation is observable. */
+      function renderWithTargetRoutes() {
+        const testStore = createTestStore();
+        const router = createMemoryRouter(
+          [
+            { path: '/', element: <BotanicalFamilyListPage /> },
+            { path: '/stammdaten/species', element: <div data-testid="species-page" /> },
+            { path: '/stammdaten/botanical-families/:key', element: <div data-testid="family-detail-page" /> },
+          ],
+          { initialEntries: ['/'] },
+        );
+        return render(
+          <Provider store={testStore}>
+            <ThemeContextProvider>
+              <SnackbarProvider>
+                <RouterProvider router={router} />
+              </SnackbarProvider>
+            </ThemeContextProvider>
+          </Provider>,
+        );
+      }
+
+      const countLinkLabel = (family: string, count: number) =>
+        i18n.t('pages.botanicalFamilies.showAllSpeciesFilteredFor', { family, count });
+
+      it('links a non-zero species count to the pre-filtered species overview', async () => {
+        renderWithTargetRoutes();
+
+        const [link] = await screen.findAllByRole('link', { name: countLinkLabel('Brassicaceae', 12) });
+        expect(link.getAttribute('href')).toBe('/stammdaten/species?family=fam-with');
+      });
+
+      it('renders a plain 0 without a link when the family has no species', async () => {
+        renderWithTargetRoutes();
+        await screen.findByText('Apiaceae');
+
+        const links = await screen.findAllByRole('link');
+        // The affordance must never promise a filtered list that comes up empty.
+        expect(links.some((a) => a.getAttribute('href')?.includes('family=fam-without'))).toBe(false);
+        expect(screen.getAllByText('0').length).toBeGreaterThan(0);
+      });
+
+      it('navigates only to the species overview when the count link is clicked', async () => {
+        const user = userEvent.setup();
+        renderWithTargetRoutes();
+
+        const [link] = await screen.findAllByRole('link', { name: countLinkLabel('Brassicaceae', 12) });
+        await user.click(link);
+
+        expect(await screen.findByTestId('species-page')).toBeTruthy();
+        // Without stopPropagation the row click would navigate on top of this.
+        expect(screen.queryByTestId('family-detail-page')).toBeNull();
+      });
+
+      it('does not fall through to the row navigation on keyboard activation', async () => {
+        const user = userEvent.setup();
+        renderWithTargetRoutes();
+
+        const [link] = await screen.findAllByRole('link', { name: countLinkLabel('Brassicaceae', 12) });
+        link.focus();
+        await user.keyboard('{Enter}');
+
+        // The row listens for Enter on keydown without checking event.target, so
+        // only stopPropagation keeps the family detail from winning the race.
+        expect(screen.queryByTestId('family-detail-page')).toBeNull();
+      });
+
+      it('navigates to the family detail from the name link', async () => {
+        const user = userEvent.setup();
+        renderWithTargetRoutes();
+
+        const [nameLink] = await screen.findAllByRole('link', { name: 'Brassicaceae' });
+        nameLink.focus();
+        await user.keyboard('{Enter}');
+        await user.click(nameLink);
+
+        expect(await screen.findByTestId('family-detail-page')).toBeTruthy();
+      });
+    });
+
     describe('mobile viewport', () => {
       afterEach(() => {
         vi.unstubAllGlobals();

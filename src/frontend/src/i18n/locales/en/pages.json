@@ -1099,7 +1099,8 @@
       "speciesCount": "Species",
       "speciesInFamily": "Species in this family",
       "noSpeciesInFamily": "No species have been assigned to this family yet.",
-      "showAllSpeciesFiltered": "Show all species of this family"
+      "showAllSpeciesFiltered": "Show all species of this family",
+      "showAllSpeciesFilteredFor": "Show all species of {{family}} ({{count}})"
     },
     "species": {
       "title": "Species",
