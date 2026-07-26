@@ -27,8 +27,8 @@ siehe `lifecycle_to_phase_sequence_reconcile`.
 (NFR-016 O-1 — erst Migrationen, dann Seeds):
 
 ```python
-run_pending_migrations(db)   # versioniert, getrackt, mit Lock — FATAL bei Fehler
-run_seeds(db)                # Registry, je Seed isoliert — Referenzdaten non-fatal
+run_pending_migrations(db)  # versioniert, getrackt, mit Lock — FATAL bei Fehler
+run_seeds(db)  # Registry, je Seed isoliert — Referenzdaten non-fatal
 ```
 
 ## Eine neue Migration schreiben
