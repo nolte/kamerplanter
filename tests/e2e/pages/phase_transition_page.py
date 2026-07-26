@@ -123,9 +123,7 @@ class PlantInstanceListExt(BasePage):
         return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 
     def click_column_header(self, header_text: str) -> None:
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         for h in headers:
             if h.text == header_text:
                 self.scroll_and_click(h)
@@ -133,9 +131,7 @@ class PlantInstanceListExt(BasePage):
         raise ValueError(f"Column header '{header_text}' not found")
 
     def get_column_headers(self) -> list[str]:
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     def click_reset_filters(self) -> None:
@@ -177,8 +173,14 @@ class PlantInstanceDetailExt(BasePage):
     # container — PhaseHistoryTable now delegates to the shared DataTable, which
     # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows.
     # Scope to the phases-tab-content panel so these don't match other tables.
-    PHASE_HISTORY = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table']")
-    PHASE_HISTORY_ROWS = (By.CSS_SELECTOR, "[data-testid='phases-tab-content'] [data-testid='data-table-row']")
+    PHASE_HISTORY = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='data-table']",
+    )
+    PHASE_HISTORY_ROWS = (
+        By.CSS_SELECTOR,
+        "[data-testid='phases-tab-content'] [data-testid='data-table-row']",
+    )
 
     # ── Phase Transition Dialog (PhaseTransitionDialog.tsx) ────────────
     TRANSITION_DIALOG = (By.CSS_SELECTOR, "[data-testid='phase-transition-dialog']")
@@ -234,6 +236,7 @@ class PlantInstanceDetailExt(BasePage):
     def _wait_for_skeleton_gone(self, timeout: int = 15) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )
@@ -323,9 +326,7 @@ class PlantInstanceDetailExt(BasePage):
     def select_target_phase(self, phase_key: str) -> None:
         """Select a target phase by its data-value attribute."""
         self.open_target_phase_select()
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"li[data-value='{phase_key}']")
-        )
+        option = self.wait_for_element_clickable((By.CSS_SELECTOR, f"li[data-value='{phase_key}']"))
         # click_menu_option, not a coordinate click: a long phase list scrolls
         # inside the popover, and `Menu` scrolls that paper to the selected item
         # on open -- which moves every option after `element_to_be_clickable` is
@@ -449,9 +450,7 @@ class PlantInstanceDetailExt(BasePage):
     def open_phases_tab(self) -> None:
         """Click the 'Phasen' tab and wait for its content."""
         self.wait_for_element_clickable(self.PHASES_TAB).click()
-        self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "[data-testid='phases-tab-content']")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, "[data-testid='phases-tab-content']"))
 
     def open_tasks_tab(self) -> None:
         """Click the 'Aufgaben' (task history) tab."""

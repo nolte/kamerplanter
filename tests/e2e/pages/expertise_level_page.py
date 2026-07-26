@@ -280,9 +280,7 @@ class ExpertiseLevelPage(BasePage):
         remove it first. The next full navigation re-reads localStorage, so the
         sidebar then reflects pure experience-level tiering.
         """
-        self.driver.execute_script(
-            "window.localStorage.removeItem('kp-module-visibility');"
-        )
+        self.driver.execute_script("window.localStorage.removeItem('kp-module-visibility');")
 
     def count_sidebar_nav_items(self) -> int:
         """Count the nav items the sidebar renders for this tier (ListItemButtons).
@@ -302,16 +300,12 @@ class ExpertiseLevelPage(BasePage):
 
     def accept_confirm_dialog(self) -> None:
         """Accept a browser-native window.confirm dialog."""
-        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.alert_is_present()
-        )
+        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.alert_is_present())
         alert.accept()
 
     def dismiss_confirm_dialog(self) -> None:
         """Dismiss (cancel) a browser-native window.confirm dialog."""
-        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.alert_is_present()
-        )
+        alert = WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(EC.alert_is_present())
         alert.dismiss()
 
     def is_confirm_dialog_present(self) -> bool:
@@ -331,6 +325,7 @@ class ExpertiseLevelPage(BasePage):
         Searches within the currently open dialog to avoid matching buttons outside.
         """
         import time
+
         time.sleep(0.3)  # Wait for React re-render
 
         # Search within dialog first, then fallback to page-wide search
@@ -344,10 +339,17 @@ class ExpertiseLevelPage(BasePage):
                 if not btn.is_displayed():
                     continue
                 text = btn.text.strip().lower()
-                if any(kw in text for kw in (
-                    "alle felder", "weniger felder", "show all fields",
-                    "show fewer fields", "all fields", "fewer fields"
-                )):
+                if any(
+                    kw in text
+                    for kw in (
+                        "alle felder",
+                        "weniger felder",
+                        "show all fields",
+                        "show fewer fields",
+                        "all fields",
+                        "fewer fields",
+                    )
+                ):
                     return btn
 
         # Fallback: search by icon presence (ExpandMore/ExpandLess)
@@ -355,7 +357,7 @@ class ExpertiseLevelPage(BasePage):
             buttons = container.find_elements(
                 By.CSS_SELECTOR,
                 "button.MuiButton-root:has(svg[data-testid='ExpandMoreIcon']), "
-                "button.MuiButton-root:has(svg[data-testid='ExpandLessIcon'])"
+                "button.MuiButton-root:has(svg[data-testid='ExpandLessIcon'])",
             )
             for btn in buttons:
                 if btn.is_displayed():
@@ -395,6 +397,7 @@ class ExpertiseLevelPage(BasePage):
         is hidden, so we check element existence AND visibility.
         """
         import time
+
         time.sleep(0.2)  # Brief pause for React re-render after toggle
         locator = (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']")
         elements = self.driver.find_elements(*locator)
@@ -423,9 +426,7 @@ class ExpertiseLevelPage(BasePage):
 
     def get_visible_form_field_names(self) -> list[str]:
         """Return a list of all visible form field names in the current dialog."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='form-field-']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='form-field-']")
         names = []
         for el in elements:
             if el.is_displayed():
@@ -442,18 +443,14 @@ class ExpertiseLevelPage(BasePage):
         btn = self.wait_for_element_clickable(self.SPECIES_CREATE_BUTTON)
         self.scroll_and_click(btn)
         # SpeciesCreateDialog has data-testid='species-create-dialog'
-        self.wait_for_element_visible(
-            (By.CSS_SELECTOR, "[data-testid='species-create-dialog']")
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, "[data-testid='species-create-dialog']"))
 
     def open_planting_run_create_dialog(self) -> None:
         """Open the PlantingRunCreateDialog from the planting run list page."""
         btn = self.wait_for_element_clickable(self.CREATE_BUTTON)
         self.scroll_and_click(btn)
         # PlantingRunCreateDialog uses MUI Dialog without custom data-testid
-        self.wait_for_element_visible(
-            (By.CSS_SELECTOR, DIALOG_SELECTOR)
-        )
+        self.wait_for_element_visible((By.CSS_SELECTOR, DIALOG_SELECTOR))
 
     def close_create_dialog(self) -> None:
         """Close an open create dialog via the cancel button."""
@@ -463,9 +460,7 @@ class ExpertiseLevelPage(BasePage):
         self.scroll_and_click(cancel_btn)
         # Wait for any dialog to close
         WebDriverWait(self.driver, DEFAULT_TIMEOUT).until(
-            EC.invisibility_of_element_located(
-                (By.CSS_SELECTOR, DIALOG_SELECTOR)
-            )
+            EC.invisibility_of_element_located((By.CSS_SELECTOR, DIALOG_SELECTOR))
         )
 
     def is_create_dialog_open(self) -> bool:

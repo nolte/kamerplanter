@@ -29,7 +29,7 @@ from .pages.harvest_batch_list_page import HarvestBatchListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('harvest',)
+FEATURES = ("harvest",)
 
 
 # -- Fixtures ---------------------------------------------------------------
@@ -64,8 +64,7 @@ class TestHarvestBatchListPage:
         )
 
         assert harvest_list.is_page_visible(), (
-            "TC-REQ-007-016 FAIL: Expected [data-testid='harvest-batch-list-page'] "
-            "to be visible"
+            "TC-REQ-007-016 FAIL: Expected [data-testid='harvest-batch-list-page'] to be visible"
         )
 
     @pytest.mark.smoke
@@ -85,9 +84,7 @@ class TestHarvestBatchListPage:
         )
 
         title = harvest_list.get_page_title_text()
-        assert title, (
-            "TC-REQ-007-017 FAIL: Expected page title to be non-empty"
-        )
+        assert title, "TC-REQ-007-017 FAIL: Expected page title to be non-empty"
 
     @pytest.mark.requires_desktop
     @pytest.mark.core_crud
@@ -300,8 +297,7 @@ class TestHarvestCreateDialog:
         )
 
         assert harvest_list.is_create_dialog_open(), (
-            "TC-REQ-007-024 FAIL: Expected create dialog to be open after "
-            "clicking create button"
+            "TC-REQ-007-024 FAIL: Expected create dialog to be open after clicking create button"
         )
 
     @pytest.mark.core_crud
@@ -370,13 +366,9 @@ class TestHarvestCreateDialog:
         # present AND check for any validation indicator (MUI error state,
         # aria-invalid, or native :invalid pseudo-class via attribute).
         assert harvest_list.is_create_dialog_open(), (
-            "TC-REQ-007-026 FAIL: Expected dialog to remain open when "
-            "plant_key is missing"
+            "TC-REQ-007-026 FAIL: Expected dialog to remain open when plant_key is missing"
         )
-        has_error = (
-            harvest_list.has_any_dialog_error()
-            or harvest_list.has_aria_invalid_field()
-        )
+        has_error = harvest_list.has_any_dialog_error() or harvest_list.has_aria_invalid_field()
         # Validation is confirmed by the dialog staying open; error indicators
         # are a bonus check (native HTML5 validation may not add MUI classes).
         if not has_error:
@@ -487,7 +479,11 @@ class TestHarvestCreateDialog:
                 "TC-REQ-007-028_submit-failed",
                 "Create with details did not close -- possible Karenz-Gate IPM interval",
             )
-            if saw_error or harvest_list.is_snackbar_visible() or harvest_list.has_any_dialog_error():
+            if (
+                saw_error
+                or harvest_list.is_snackbar_visible()
+                or harvest_list.has_any_dialog_error()
+            ):
                 pytest.skip(
                     "Harvest creation blocked by backend validation "
                     "(likely Karenz-Gate IPM safety interval)"

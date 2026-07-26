@@ -69,10 +69,22 @@ class PflegeDashboardPage(BasePage):
     FERTILIZING_ACTIVE_MONTHS = (By.CSS_SELECTOR, "[data-testid='fertilizing-active-months']")
 
     # Task type toggle switches
-    AUTO_CREATE_WATERING_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-watering-task-switch']")
-    AUTO_CREATE_FERTILIZING_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-fertilizing-task-switch']")
-    AUTO_CREATE_REPOTTING_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-repotting-task-switch']")
-    AUTO_CREATE_PEST_CHECK_SWITCH = (By.CSS_SELECTOR, "[data-testid='auto-create-pest-check-task-switch']")
+    AUTO_CREATE_WATERING_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-watering-task-switch']",
+    )
+    AUTO_CREATE_FERTILIZING_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-fertilizing-task-switch']",
+    )
+    AUTO_CREATE_REPOTTING_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-repotting-task-switch']",
+    )
+    AUTO_CREATE_PEST_CHECK_SWITCH = (
+        By.CSS_SELECTOR,
+        "[data-testid='auto-create-pest-check-task-switch']",
+    )
 
     SAVE_PROFILE_BUTTON = (By.CSS_SELECTOR, "[data-testid='save-profile-button']")
     CANCEL_BUTTON = (By.CSS_SELECTOR, "[data-testid='cancel-button']")
@@ -85,8 +97,7 @@ class PflegeDashboardPage(BasePage):
     # matched, which is why the only caller had to wrap it in a try/except.
     SNACKBAR = (
         By.CSS_SELECTOR,
-        "#notistack-snackbar, [class*='notistack-MuiContent'], "
-        ".MuiSnackbar-root .MuiAlert-message",
+        "#notistack-snackbar, [class*='notistack-MuiContent'], .MuiSnackbar-root .MuiAlert-message",
     )
     SNACKBAR_ERROR = (
         By.CSS_SELECTOR,
@@ -132,9 +143,7 @@ class PflegeDashboardPage(BasePage):
         page is populated by REQ-006 seed data even when no care reminders
         exist for the tenant.
         """
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='task-card']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='task-card']")
         return any(el.is_displayed() for el in elements)
 
     # ── Urgency sections ──────────────────────────────────────────────
@@ -221,14 +230,10 @@ class PflegeDashboardPage(BasePage):
     def has_care_card(self, plant_key: str, reminder_type: str) -> bool:
         """Return True if a care card for the given plant/type exists."""
         testid = f"care-card-care-{plant_key}-{reminder_type}"
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='{testid}']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
         return len(elements) > 0
 
-    def count_care_cards_for_plant(
-        self, plant_key: str, reminder_type: str | None = None
-    ) -> int:
+    def count_care_cards_for_plant(self, plant_key: str, reminder_type: str | None = None) -> int:
         """Return how many care cards a plant currently renders on the dashboard.
 
         When *reminder_type* is given, counts only cards with the exact
@@ -302,7 +307,9 @@ class PflegeDashboardPage(BasePage):
         if links:
             return links[0].text.strip()
         # Fallback to subtitle typography
-        subs = card.find_elements(By.CSS_SELECTOR, ".MuiTypography-subtitle1, .MuiTypography-subtitle2")
+        subs = card.find_elements(
+            By.CSS_SELECTOR, ".MuiTypography-subtitle1, .MuiTypography-subtitle2"
+        )
         if subs:
             return subs[0].text.strip()
         return ""
@@ -330,7 +337,8 @@ class PflegeDashboardPage(BasePage):
             return
         # Fallback: find the confirm button via its success colour
         btns = card.find_elements(
-            By.CSS_SELECTOR, "button.MuiIconButton-root[color='success'], button.MuiIconButton-colorSuccess"
+            By.CSS_SELECTOR,
+            "button.MuiIconButton-root[color='success'], button.MuiIconButton-colorSuccess",
         )
         if not btns:
             # Fallback: action buttons are ordered edit(0), confirm(1), snooze(2)
@@ -372,9 +380,7 @@ class PflegeDashboardPage(BasePage):
     #: Urgency groups a card sits in while it still needs attention today.
     DUE_URGENCY_SECTIONS = ("overdue", "today")
 
-    def get_care_card_urgency_group(
-        self, plant_key: str, reminder_type: str
-    ) -> str | None:
+    def get_care_card_urgency_group(self, plant_key: str, reminder_type: str) -> str | None:
         """Return the urgency group a care card currently sits in.
 
         One of ``overdue`` / ``today`` / ``thisWeek`` / ``future`` (the
@@ -392,9 +398,7 @@ class PflegeDashboardPage(BasePage):
         )
         if not sections:
             return None
-        return (sections[0].get_attribute("data-testid") or "").removeprefix(
-            "task-section-"
-        )
+        return (sections[0].get_attribute("data-testid") or "").removeprefix("task-section-")
 
     def wait_until_care_card_not_due(
         self, plant_key: str, reminder_type: str, timeout: int = DEFAULT_TIMEOUT
@@ -411,8 +415,10 @@ class PflegeDashboardPage(BasePage):
         Returns the card's resulting urgency group (``None`` if it is gone).
         """
         WebDriverWait(self.driver, timeout).until(
-            lambda _d: self.get_care_card_urgency_group(plant_key, reminder_type)
-            not in self.DUE_URGENCY_SECTIONS
+            lambda _d: (
+                self.get_care_card_urgency_group(plant_key, reminder_type)
+                not in self.DUE_URGENCY_SECTIONS
+            )
         )
         return self.get_care_card_urgency_group(plant_key, reminder_type)
 
@@ -440,17 +446,13 @@ class PflegeDashboardPage(BasePage):
         if all_btns:
             self.scroll_and_click(all_btns[0])
         else:
-            raise AssertionError(
-                f"Could not find edit-profile button on care card for {plant_key}"
-            )
+            raise AssertionError(f"Could not find edit-profile button on care card for {plant_key}")
 
     # ── CareConfirmDialog interactions ────────────────────────────────
 
     def wait_for_confirm_dialog(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the MUI dialog with confirm fields is visible."""
-        WebDriverWait(self.driver, timeout).until(
-            EC.visibility_of_element_located(self.MUI_DIALOG)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(self.MUI_DIALOG))
 
     def is_confirm_dialog_open(self) -> bool:
         """Return True if a MUI dialog is currently open."""
@@ -667,13 +669,11 @@ class PflegeDashboardPage(BasePage):
 
         # ── Keyboard fallback: focus thumb, home, then step right ──
         slider_els = root.find_elements(By.CSS_SELECTOR, "[role='slider']")
-        slider_el = slider_els[0] if slider_els else root.find_element(
-            By.CSS_SELECTOR, "input"
-        )
+        slider_el = slider_els[0] if slider_els else root.find_element(By.CSS_SELECTOR, "input")
         self.scroll_and_click(slider_el)
         try:
             min_val = int(slider_el.get_attribute("aria-valuemin") or 0)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             min_val = 0
         slider_el.send_keys(Keys.HOME)
         for _ in range(max(0, int(target_value) - min_val)):
@@ -733,9 +733,7 @@ class PflegeDashboardPage(BasePage):
         time.sleep(0.3)
         confirms = self.driver.find_elements(*self.GENERIC_CONFIRM_CONFIRM)
         if confirms and any(c.is_displayed() for c in confirms):
-            self.scroll_and_click(
-                self.wait_for_element_clickable(self.GENERIC_CONFIRM_CONFIRM)
-            )
+            self.scroll_and_click(self.wait_for_element_clickable(self.GENERIC_CONFIRM_CONFIRM))
 
     # ── Snackbar ──────────────────────────────────────────────────────
 

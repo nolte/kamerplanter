@@ -81,9 +81,9 @@ class TestBotanicalFamilyEnumTranslations:
         # Only check enum-specific columns (indices 2, 3, 4) to avoid
         # false positives from names, descriptions or other text columns.
         raw_english_enums_by_column: dict[int, set[str]] = {
-            2: {"light", "medium", "heavy"},         # nutrient demand
+            2: {"light", "medium", "heavy"},  # nutrient demand
             3: {"sensitive", "moderate", "very_hardy"},  # frost tolerance
-            4: {"shallow", "deep"},                   # root depth
+            4: {"shallow", "deep"},  # root depth
         }
         # Note: "hardy" is excluded because DE translation is also "Hardy"
         # (same word in both languages). "medium" in column 4 (root depth)
@@ -126,8 +126,15 @@ class TestSpeciesEnumTranslations:
         rows = species_list.get_row_texts()
 
         raw_english_enums = {
-            "herb", "shrub", "tree", "vine", "ground_cover",  # growth habit
-            "fibrous", "taproot", "tuberous", "bulb",  # root type
+            "herb",
+            "shrub",
+            "tree",
+            "vine",
+            "ground_cover",  # growth habit
+            "fibrous",
+            "taproot",
+            "tuberous",
+            "bulb",  # root type
         }
 
         for row in rows:
@@ -145,7 +152,9 @@ class TestCultivarTraitTranslations:
 
     @pytest.mark.smoke
     def test_cultivar_traits_in_german(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-095: Cultivar trait chips show German translations.
@@ -171,8 +180,12 @@ class TestCultivarTraitTranslations:
         chips = species_detail.get_trait_chip_texts()
 
         raw_trait_keys = {
-            "disease_resistant", "high_yield", "compact",
-            "heat_tolerant", "cold_tolerant", "pest_resistant",
+            "disease_resistant",
+            "high_yield",
+            "compact",
+            "heat_tolerant",
+            "cold_tolerant",
+            "pest_resistant",
             "drought_tolerant",
         }
 

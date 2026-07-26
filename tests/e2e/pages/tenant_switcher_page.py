@@ -106,9 +106,7 @@ class TenantSwitcherPage(BasePage):
         """Return the name of the currently selected (active) tenant in the menu."""
         elements = self.driver.find_elements(*self.SELECTED_ITEM)
         if elements:
-            text_els = elements[0].find_elements(
-                By.CSS_SELECTOR, ".MuiListItemText-primary"
-            )
+            text_els = elements[0].find_elements(By.CSS_SELECTOR, ".MuiListItemText-primary")
             if text_els:
                 return text_els[0].text
             return elements[0].text.strip()

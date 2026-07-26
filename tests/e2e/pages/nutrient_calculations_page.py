@@ -78,6 +78,7 @@ class NutrientCalculationsPage(BasePage):
         decimal values (e.g. '2.') trigger NaN state and reset the field.
         """
         from selenium.webdriver.common.keys import Keys
+
         inputs = card.find_elements(By.CSS_SELECTOR, "input[type='number']")
         if input_index >= len(inputs):
             raise IndexError(
@@ -87,7 +88,7 @@ class NutrientCalculationsPage(BasePage):
         self.scroll_and_click(el)
         # Use integer string for whole numbers to avoid decimal parsing issues
         val_str = str(int(value)) if value == int(value) else str(value)
-        el.send_keys(Keys.CONTROL + 'a')
+        el.send_keys(Keys.CONTROL + "a")
         el.send_keys(val_str)
 
     def _fill_text_input_in_card(self, card, value: str) -> None:
@@ -299,7 +300,9 @@ class NutrientCalculationsPage(BasePage):
     ) -> None:
         """Fill all input fields in the Runoff Analysis panel."""
         card = self._get_card_by_heading("Ablauf")
-        for idx, val in enumerate([input_ec, runoff_ec, input_ph, runoff_ph, input_vol, runoff_vol]):
+        for idx, val in enumerate(
+            [input_ec, runoff_ec, input_ph, runoff_ph, input_vol, runoff_vol]
+        ):
             self._fill_number_input_in_card(card, idx, val)
 
     def click_calculate_runoff(self) -> None:

@@ -27,12 +27,18 @@ class NutrientPlanDetailPage(BasePage):
     TAB_EDIT = (By.XPATH, "//button[@role='tab'][4]")
 
     # Tab 0: Phase entries
-    ADD_ENTRY_BUTTON = (By.XPATH, "//button[contains(., 'Eintrag') or contains(., 'Entry') or contains(., 'Phase')]")
+    ADD_ENTRY_BUTTON = (
+        By.XPATH,
+        "//button[contains(., 'Eintrag') or contains(., 'Entry') or contains(., 'Phase')]",
+    )
     ENTRY_CARDS = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root")
     NO_ENTRIES_ALERT = (By.CSS_SELECTOR, ".MuiAlert-root")
 
     # Tab 1: Validation — cards and alerts
-    VALIDATION_SECTION = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root")
+    VALIDATION_SECTION = (
+        By.CSS_SELECTOR,
+        "[data-testid='nutrient-plan-detail-page'] .MuiCard-root",
+    )
     COMPLETENESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-root")
 
     # Tab 2: Edit form
@@ -99,15 +105,17 @@ class NutrientPlanDetailPage(BasePage):
         """Click the button to add a new phase entry."""
         # The add entry button is a contained Button in the phase entries tab
         add_btn = self.wait_for_element_clickable(
-            (By.XPATH, "//button[contains(@class, 'MuiButton-contained') and not(contains(@class, 'MuiButton-colorError'))]")
+            (
+                By.XPATH,
+                "//button[contains(@class, 'MuiButton-contained') and not(contains(@class, 'MuiButton-colorError'))]",
+            )
         )
         self.scroll_and_click(add_btn)
 
     def get_phase_entry_count(self) -> int:
         """Return the number of phase entry cards shown."""
         cards = self.driver.find_elements(
-            By.CSS_SELECTOR,
-            "[data-testid='nutrient-plan-detail-page'] .MuiCard-root"
+            By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root"
         )
         return len(cards)
 
@@ -123,7 +131,7 @@ class NutrientPlanDetailPage(BasePage):
         """Return the text of all phase chips in phase entry cards."""
         chips = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "[data-testid='nutrient-plan-detail-page'] .MuiChip-colorPrimary .MuiChip-label"
+            "[data-testid='nutrient-plan-detail-page'] .MuiChip-colorPrimary .MuiChip-label",
         )
         return [c.text for c in chips if c.text]
 
@@ -131,7 +139,7 @@ class NutrientPlanDetailPage(BasePage):
         """Click the expand toggle on the entry at the given index."""
         expand_btns = self.driver.find_elements(
             By.CSS_SELECTOR,
-            "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']"
+            "[data-testid='nutrient-plan-detail-page'] button svg[data-testid='ExpandMoreIcon']",
         )
         icon = self.require_index(expand_btns, index, "nutrient plan entry expander")
         # Coordinate-free: the target is resolved indirectly (the icon's parent
@@ -146,6 +154,7 @@ class NutrientPlanDetailPage(BasePage):
         """Wait until the circular progress spinner disappears (validation done)."""
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SPINNER)
         )

@@ -84,9 +84,7 @@ class TaskQueuePage(BasePage):
 
     def get_task_card_by_key(self, key: str) -> WebElement:
         """Return the task card element for a specific task key."""
-        return self.wait_for_element(
-            (By.CSS_SELECTOR, f"[data-testid='task-card-{key}']")
-        )
+        return self.wait_for_element((By.CSS_SELECTOR, f"[data-testid='task-card-{key}']"))
 
     def click_task_card(self, key: str) -> None:
         """Click a task card to navigate to its detail page."""
@@ -100,9 +98,7 @@ class TaskQueuePage(BasePage):
 
     def get_task_keys(self) -> list[str]:
         """Return a list of task keys from the visible task-card-{key} elements."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='task-card-']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='task-card-']")
         keys = []
         for el in elements:
             testid = el.get_attribute("data-testid") or ""
@@ -133,9 +129,7 @@ class TaskQueuePage(BasePage):
 
     def skip_task(self, key: str) -> None:
         """Click the skip button on a task card."""
-        btn = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='skip-task-{key}']")
-        )
+        btn = self.wait_for_element_clickable((By.CSS_SELECTOR, f"[data-testid='skip-task-{key}']"))
         self.scroll_and_click(btn)
 
     # ── Urgency sections ───────────────────────────────────────────────
@@ -160,9 +154,7 @@ class TaskQueuePage(BasePage):
         by walking up from the ``task-card-{key}`` element to its enclosing
         ``task-section-*`` ancestor. ``None`` if the card is not on the page.
         """
-        cards = self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='task-card-{key}']"
-        )
+        cards = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='task-card-{key}']")
         if not cards:
             return None
         try:
@@ -345,9 +337,7 @@ class TaskQueuePage(BasePage):
         """
         return self._select_autocomplete_option(self.FORM_ENTITY_KEY_INPUT, text)
 
-    def _select_autocomplete_option(
-        self, input_locator: tuple[str, str], text: str
-    ) -> bool:
+    def _select_autocomplete_option(self, input_locator: tuple[str, str], text: str) -> bool:
         """Type *text* into an autocomplete and click the option that contains it.
 
         Uses real ``send_keys`` typing (not a JS value setter): a MUI Autocomplete
@@ -417,9 +407,7 @@ class TaskQueuePage(BasePage):
         the key so the journey can target the correct complete-button without
         relying on card ordering.
         """
-        cards = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='task-card-']"
-        )
+        cards = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='task-card-']")
         for card in cards:
             testid = card.get_attribute("data-testid") or ""
             if not testid.startswith("task-card-"):

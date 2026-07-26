@@ -45,9 +45,7 @@ def _navigate_to_lifecycle_tab(
     species_list.wait_for_url_contains("/stammdaten/species/")
     species_detail.wait_for_loading_complete()
     tabs = species_detail.get_tab_labels()
-    lifecycle_tab = next(
-        (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
-    )
+    lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
     if lifecycle_tab is None:
         pytest.skip(f"Lifecycle tab not found among {tabs}")
     species_detail.click_tab(lifecycle_tab)
@@ -59,7 +57,9 @@ class TestLifecycleConfigSection:
 
     @pytest.mark.smoke
     def test_display_lifecycle_config_tab(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-051: Display lifecycle config tab.
@@ -77,7 +77,9 @@ class TestLifecycleConfigSection:
 
     @pytest.mark.core_crud
     def test_create_annual_lifecycle_config(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-052: Create a lifecycle config for an annual species.
@@ -92,7 +94,9 @@ class TestLifecycleConfigSection:
 
         species_detail.select_lifecycle_option("cycle_type", "Einjährig")
         species_detail.select_lifecycle_option("photoperiod_type", "Tagneutral")
-        screenshot("TC-REQ-001-052_before-create", "Lifecycle config form filled for annual species")
+        screenshot(
+            "TC-REQ-001-052_before-create", "Lifecycle config form filled for annual species"
+        )
 
         species_detail.click_lifecycle_save()
 
@@ -106,7 +110,9 @@ class TestLifecycleConfigSection:
 
     @pytest.mark.core_crud
     def test_edit_existing_lifecycle_config(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-055: Edit an existing lifecycle config.
@@ -135,7 +141,9 @@ class TestGrowthPhaseManagement:
 
     @pytest.mark.smoke
     def test_growth_phases_section_visible(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-056: Growth phases section appears after lifecycle config creation.
@@ -156,7 +164,9 @@ class TestGrowthPhaseManagement:
 
     @pytest.mark.core_crud
     def test_create_growth_phase(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-057: Create a growth phase via dialog.
@@ -196,7 +206,9 @@ class TestGrowthPhaseManagement:
 
     @pytest.mark.core_crud
     def test_edit_growth_phase(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-059: Edit an existing growth phase.
@@ -231,7 +243,9 @@ class TestGrowthPhaseManagement:
 
     @pytest.mark.core_crud
     def test_delete_growth_phase(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-060: Delete a growth phase.
@@ -261,9 +275,7 @@ class TestGrowthPhaseManagement:
         species_detail.wait_for_loading_complete()
 
         tabs = species_detail.get_tab_labels()
-        lifecycle_tab = next(
-            (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
-        )
+        lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
         if lifecycle_tab is None:
             pytest.skip(f"Lifecycle tab not found among {tabs}")
         species_detail.click_tab(lifecycle_tab)
@@ -292,7 +304,10 @@ class TestGrowthPhaseManagement:
         if provisioned_count <= initial_count:
             pytest.skip("Self-provisioning failed: growth phase was not created")
 
-        screenshot("TC-REQ-001-060_before-delete", f"Growth phases before deletion ({provisioned_count} phases)")
+        screenshot(
+            "TC-REQ-001-060_before-delete",
+            f"Growth phases before deletion ({provisioned_count} phases)",
+        )
 
         species_detail.delete_phase_at_index(0)
         species_detail.confirm_delete()
@@ -311,7 +326,9 @@ class TestGrowthPhaseProfiles:
 
     @pytest.mark.smoke
     def test_view_profiles_for_growth_phase(
-        self, species_list: SpeciesListPage, species_detail: SpeciesDetailPage,
+        self,
+        species_list: SpeciesListPage,
+        species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
         """TC-REQ-001-063: View profiles for a growth phase.
@@ -327,6 +344,4 @@ class TestGrowthPhaseProfiles:
         # Profiles are typically shown via a button or expandable section
         # This test verifies the UI element exists
         phase_count = species_detail.get_phase_count()
-        assert phase_count >= 0, (
-            "TC-REQ-001-063 FAIL: Phase table should render"
-        )
+        assert phase_count >= 0, "TC-REQ-001-063 FAIL: Phase table should render"

@@ -263,9 +263,7 @@ class ImportPage(BasePage):
         """Click upload and wait until the preview step container appears."""
         btn = self.wait_for_element_clickable(self.UPLOAD_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.STEP_PREVIEW)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.STEP_PREVIEW))
         # Preview renders its table after the step container mounts
         try:
             self.wait_for_element(self.PREVIEW_TABLE, timeout=5)
@@ -439,9 +437,7 @@ class ImportPage(BasePage):
         """Click confirm and wait for the result step to appear."""
         btn = self.wait_for_element_clickable(self.CONFIRM_BUTTON)
         self.scroll_and_click(btn)
-        WebDriverWait(self.driver, timeout).until(
-            EC.presence_of_element_located(self.STEP_RESULT)
-        )
+        WebDriverWait(self.driver, timeout).until(EC.presence_of_element_located(self.STEP_RESULT))
         # Result renders its summary chips after the step container mounts
         try:
             self.wait_for_element(self.RESULT_CHIPS, timeout=5)

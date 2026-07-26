@@ -21,8 +21,14 @@ class CompanionPlantingPage(BasePage):
     # (there is no .MuiSelect-select child). The dialog target picker below is
     # still a real MUI <Select> and is driven by testid through the base helpers.
     SPECIES_SELECT = (By.CSS_SELECTOR, "[data-testid='species-select'] input")
-    COMPATIBLE_CARD = (By.XPATH, "//h6[starts-with(normalize-space(text()), 'Kompatible')]/ancestor::div[contains(@class, 'MuiCard-root')]")
-    INCOMPATIBLE_CARD = (By.XPATH, "//h6[starts-with(normalize-space(text()), 'Inkompatible')]/ancestor::div[contains(@class, 'MuiCard-root')]")
+    COMPATIBLE_CARD = (
+        By.XPATH,
+        "//h6[starts-with(normalize-space(text()), 'Kompatible')]/ancestor::div[contains(@class, 'MuiCard-root')]",
+    )
+    INCOMPATIBLE_CARD = (
+        By.XPATH,
+        "//h6[starts-with(normalize-space(text()), 'Inkompatible')]/ancestor::div[contains(@class, 'MuiCard-root')]",
+    )
     ADD_COMPATIBLE_BTN = (By.CSS_SELECTOR, "[data-testid='add-compatible-button']")
     ADD_INCOMPATIBLE_BTN = (By.CSS_SELECTOR, "[data-testid='add-incompatible-button']")
 
@@ -61,6 +67,7 @@ class CompanionPlantingPage(BasePage):
     def select_species(self, species_name: str) -> None:
         """Select a species from the Autocomplete dropdown."""
         from selenium.webdriver.support.ui import WebDriverWait
+
         self.close_mui_dropdown()
         select = self.wait_for_element_clickable(self.SPECIES_SELECT)
         self.scroll_and_click(select)

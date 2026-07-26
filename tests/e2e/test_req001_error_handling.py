@@ -100,7 +100,9 @@ class TestErrorHandling:
             (detail_page.ERROR_DISPLAY, detail_page.PAGE),
             "TC-REQ-001-028: botanical-family detail route for a non-existent key",
         )
-        screenshot("TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key")
+        screenshot(
+            "TC-REQ-001-028_nonexistent-key", "Detail page for non-existent botanical family key"
+        )
 
         assert detail_page.is_error_displayed() or "nonexistent" not in detail_page.driver.title, (
             "TC-REQ-001-028 FAIL: Should show error display or not-found state for non-existent key"

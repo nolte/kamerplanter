@@ -222,9 +222,7 @@ class TestLoginErrors:
             "TC-REQ-023-005 FAIL: Expected error alert after login with wrong password"
         )
         error_msg = login_page.get_error_message()
-        assert error_msg, (
-            "TC-REQ-023-005 FAIL: Expected non-empty error message"
-        )
+        assert error_msg, "TC-REQ-023-005 FAIL: Expected non-empty error message"
         assert "/login" in login_page.driver.current_url, (
             f"TC-REQ-023-005 FAIL: Expected to remain on /login, got: {login_page.driver.current_url}"
         )

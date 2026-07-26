@@ -33,7 +33,7 @@ from .pages.harvest_batch_list_page import HarvestBatchListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('harvest',)
+FEATURES = ("harvest",)
 
 
 # -- Fixtures ---------------------------------------------------------------
@@ -97,9 +97,7 @@ def _create_batch_and_get_key(harvest_list: HarvestBatchListPage) -> str:
     while time.time() < deadline and harvest_list.get_row_count() == 0:
         time.sleep(0.2)
     if harvest_list.get_row_count() == 0:
-        pytest.fail(
-            f"Created batch '{batch_id}' did not appear in the harvest list"
-        )
+        pytest.fail(f"Created batch '{batch_id}' did not appear in the harvest list")
     harvest_list.click_row(0)
     harvest_list.wait_for_url_contains("/ernte/")
     return harvest_list.driver.current_url.rstrip("/").split("/")[-1]
@@ -148,14 +146,10 @@ class TestHarvestBatchDetailPage:
         )
 
         title = harvest_detail.get_page_title_text()
-        assert title, (
-            f"TC-REQ-007-001 FAIL: Expected non-empty page title, got: '{title}'"
-        )
+        assert title, f"TC-REQ-007-001 FAIL: Expected non-empty page title, got: '{title}'"
 
         tabs = harvest_detail.get_tab_labels()
-        assert len(tabs) == 4, (
-            f"TC-REQ-007-001 FAIL: Expected 4 tabs, got {len(tabs)}: {tabs}"
-        )
+        assert len(tabs) == 4, f"TC-REQ-007-001 FAIL: Expected 4 tabs, got {len(tabs)}: {tabs}"
 
     @pytest.mark.smoke
     def test_detail_tab_is_default(
@@ -201,9 +195,7 @@ class TestHarvestBatchDetailPage:
         )
 
         # The table should contain at least some of the expected labels
-        assert table_text, (
-            "TC-REQ-007-003 FAIL: Expected detail table to contain text"
-        )
+        assert table_text, "TC-REQ-007-003 FAIL: Expected detail table to contain text"
 
     @pytest.mark.core_crud
     def test_detail_page_404_for_unknown_key(
@@ -349,10 +341,7 @@ class TestHarvestBatchEdit:
         assert (
             harvest_detail.has_validation_error("wet_weight_g")
             or harvest_detail.is_submit_disabled()
-        ), (
-            "TC-REQ-007-008 FAIL: Expected validation error or disabled submit "
-            "for negative weight"
-        )
+        ), "TC-REQ-007-008 FAIL: Expected validation error or disabled submit for negative weight"
 
 
 # -- TC-007-022 to TC-007-027: Quality Tab (Tab 1) -------------------------
@@ -465,8 +454,7 @@ class TestHarvestQualityAssessment:
 
         # After creation, the form should be replaced by the display table
         assert harvest_detail.is_quality_table_visible(), (
-            "TC-REQ-007-011 FAIL: Expected quality display table after "
-            "successful creation"
+            "TC-REQ-007-011 FAIL: Expected quality display table after successful creation"
         )
 
     @pytest.mark.core_crud
@@ -578,8 +566,7 @@ class TestHarvestYieldMetrics:
         )
 
         assert harvest_detail.is_yield_table_visible(), (
-            "TC-REQ-007-014 FAIL: Expected yield display table after "
-            "successful creation"
+            "TC-REQ-007-014 FAIL: Expected yield display table after successful creation"
         )
 
     @pytest.mark.core_crud
@@ -619,6 +606,5 @@ class TestHarvestYieldMetrics:
         )
 
         assert harvest_detail.has_validation_error("trim_waste_percent"), (
-            "TC-REQ-007-015 FAIL: Expected validation error for "
-            "trim_waste_percent > 100"
+            "TC-REQ-007-015 FAIL: Expected validation error for trim_waste_percent > 100"
         )

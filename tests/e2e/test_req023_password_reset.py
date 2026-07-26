@@ -112,9 +112,11 @@ class TestPasswordResetRequest:
             "TC-REQ-023-017 FAIL: Expected success alert after password reset request"
         )
         success_text = reset_request_page.get_success_alert_text()
-        assert "reset" in success_text.lower() or "link" in success_text.lower() or "konto" in success_text.lower(), (
-            f"TC-REQ-023-017 FAIL: Expected success message about reset link, got: '{success_text}'"
-        )
+        assert (
+            "reset" in success_text.lower()
+            or "link" in success_text.lower()
+            or "konto" in success_text.lower()
+        ), f"TC-REQ-023-017 FAIL: Expected success message about reset link, got: '{success_text}'"
         assert not reset_request_page.is_email_form_visible(), (
             "TC-REQ-023-017 FAIL: Expected email form to be hidden after successful request"
         )

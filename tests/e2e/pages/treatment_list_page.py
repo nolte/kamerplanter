@@ -110,9 +110,7 @@ class TreatmentListPage(BasePage):
 
     def click_row(self, index: int = 0) -> None:
         """Open the treatment at *index* via its inert `name` cell."""
-        self.click_data_table_row(
-            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "treatment row"
-        )
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "treatment row")
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
@@ -299,9 +297,15 @@ class TreatmentListPage(BasePage):
 
         Fallback check used when the exact field emitting the error is uncertain.
         """
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
+                )
+            )
+            > 0
+        )
 
     # -- Internal helpers -----------------------------------------------------
 

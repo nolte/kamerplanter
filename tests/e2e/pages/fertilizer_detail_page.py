@@ -38,7 +38,10 @@ class FertilizerDetailPage(BasePage):
     # Edit tab (Tab 2) — form fields
     FORM_PRODUCT_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-product_name'] input")
     FORM_BRAND = (By.CSS_SELECTOR, "[data-testid='form-field-brand'] input")
-    FORM_EC_CONTRIBUTION = (By.CSS_SELECTOR, "[data-testid='form-field-ec_contribution_per_ml'] input")
+    FORM_EC_CONTRIBUTION = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-ec_contribution_per_ml'] input",
+    )
     FORM_MIXING_PRIORITY = (By.CSS_SELECTOR, "[data-testid='form-field-mixing_priority'] input")
     FORM_SHELF_LIFE = (By.CSS_SELECTOR, "[data-testid='form-field-shelf_life_days'] input")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
@@ -144,9 +147,7 @@ class FertilizerDetailPage(BasePage):
 
     def get_stock_headers(self) -> list[str]:
         """Return column header texts from the stock table."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     # ── Edit tab (Tab 2) ───────────────────────────────────────────────

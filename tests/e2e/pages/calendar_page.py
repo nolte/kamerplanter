@@ -156,15 +156,11 @@ class CalendarPage(BasePage):
 
     def get_day_cell(self, day: int) -> WebElement:
         """Return the day cell element for a specific day number."""
-        return self.wait_for_element(
-            (By.CSS_SELECTOR, f"[data-testid='calendar-day-{day}']")
-        )
+        return self.wait_for_element((By.CSS_SELECTOR, f"[data-testid='calendar-day-{day}']"))
 
     def get_event_dots(self) -> list[WebElement]:
         """Return all event dot elements in the month grid."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='calendar-event-dot-']"
-        )
+        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='calendar-event-dot-']")
 
     def click_event_dot(self, event_id: str) -> None:
         """Click a specific event dot to open the popover."""
@@ -239,9 +235,7 @@ class CalendarPage(BasePage):
                 "found next to their Collapse container"
             )
         self.scroll_and_click(toggles[0])
-        WebDriverWait(self.driver, timeout).until(
-            lambda _d: self.is_category_filter_expanded()
-        )
+        WebDriverWait(self.driver, timeout).until(lambda _d: self.is_category_filter_expanded())
 
     def click_category_filter(self, category: str) -> None:
         """Toggle a specific category filter chip, expanding the section first."""
@@ -316,7 +310,7 @@ class CalendarPage(BasePage):
         rows = self.driver.find_elements(
             By.CSS_SELECTOR,
             "[data-testid='calendar-page'] .MuiCardContent-root [style*='sticky'], "
-            "[data-testid='calendar-page'] .MuiCardContent-root > div > div > div[style*='sticky']"
+            "[data-testid='calendar-page'] .MuiCardContent-root > div > div > div[style*='sticky']",
         )
         # Subtract the header row (first sticky element is the month header placeholder)
         return max(0, len(rows) - 1) if rows else 0
@@ -330,7 +324,8 @@ class CalendarPage(BasePage):
     def get_sowing_legend_items(self) -> list[WebElement]:
         """Return legend items in the sowing calendar view."""
         return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='calendar-page'] .MuiCardContent-root .MuiTypography-caption"
+            By.CSS_SELECTOR,
+            "[data-testid='calendar-page'] .MuiCardContent-root .MuiTypography-caption",
         )
 
     # ── Season overview specifics ───────────────────────────────────────
@@ -349,18 +344,14 @@ class CalendarPage(BasePage):
 
     def get_highlighted_season_card(self) -> WebElement | None:
         """Return the currently highlighted (outlined) month card, or None."""
-        cards = self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiCard-outlined"
-        )
+        cards = self.driver.find_elements(By.CSS_SELECTOR, ".MuiCard-outlined")
         return cards[0] if cards else None
 
     # ── List view ───────────────────────────────────────────────────────
 
     def get_list_events(self) -> list[WebElement]:
         """Return all event items in the list/agenda view."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='calendar-list-event-']"
-        )
+        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='calendar-list-event-']")
 
     # ── Feed management ─────────────────────────────────────────────────
 
@@ -403,9 +394,7 @@ class CalendarPage(BasePage):
 
     def get_feed_items(self) -> list[WebElement]:
         """Return all feed list items."""
-        return self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='feed-item-']"
-        )
+        return self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='feed-item-']")
 
     def click_feed_copy(self, feed_key: str) -> None:
         """Click the copy URL button for a feed."""
@@ -427,9 +416,7 @@ class CalendarPage(BasePage):
 
     def click_day_confirm_watering(self, plant_key: str) -> None:
         """Click the confirm watering button for a specific plant in the day popover."""
-        self.wait_and_click(
-            (By.CSS_SELECTOR, f"[data-testid='day-confirm-watering-{plant_key}']")
-        )
+        self.wait_and_click((By.CSS_SELECTOR, f"[data-testid='day-confirm-watering-{plant_key}']"))
 
     # ── Snackbar / notification ─────────────────────────────────────────
 

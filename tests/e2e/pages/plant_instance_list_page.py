@@ -68,9 +68,7 @@ class PlantInstanceListPage(BasePage):
 
     def get_column_headers(self) -> list[str]:
         """Return all visible column header texts."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     #: Column the row is activated through. Deliberately not the row centre:
@@ -87,9 +85,7 @@ class PlantInstanceListPage(BasePage):
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         for h in headers:
             if h.text == header_text:
                 self.scroll_and_click(h)
@@ -161,9 +157,7 @@ class PlantInstanceListPage(BasePage):
         # that exposes no DOM transition, so allow it to settle before picking
         time.sleep(0.5)
 
-        option = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "li[role='option']")
-        )
+        option = self.wait_for_element_clickable((By.CSS_SELECTOR, "li[role='option']"))
         self.click_menu_option(option)
         self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
 

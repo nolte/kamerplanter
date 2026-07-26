@@ -212,7 +212,9 @@ class TestReminderCardDisplay:
 
         for card in cards:
             name = pflege.get_card_plant_name(card)
-            assert name, f"TC-REQ-022-019 FAIL: Expected non-empty plant name on care card, got: '{name}'"
+            assert name, (
+                f"TC-REQ-022-019 FAIL: Expected non-empty plant name on care card, got: '{name}'"
+            )
 
     @pytest.mark.core_crud
     def test_care_cards_have_urgency_indicator(
@@ -688,9 +690,7 @@ class TestCareSnoozeAction:
             "TC-REQ-022-034_snooze-snackbar",
             "Snooze snackbar displayed",
         )
-        assert snackbar_text, (
-            "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
-        )
+        assert snackbar_text, "TC-REQ-022-034 FAIL: Expected non-empty snackbar text after snooze"
         assert not pflege.has_error_snackbar(), (
             f"TC-REQ-022-034 FAIL: Expected a success/info snackbar after snooze, "
             f"got an error snackbar: '{snackbar_text}'"

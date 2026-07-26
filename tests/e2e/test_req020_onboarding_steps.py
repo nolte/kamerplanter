@@ -24,7 +24,9 @@ from .pages.onboarding_wizard_page import OnboardingWizardPage
 
 
 @pytest.fixture(autouse=True)
-def reset_onboarding_state(request: pytest.FixtureRequest, e2e_seed_data: dict, base_url: str) -> None:
+def reset_onboarding_state(
+    request: pytest.FixtureRequest, e2e_seed_data: dict, base_url: str
+) -> None:
     """Reset onboarding before tests that need a fresh wizard.
 
     TestCompletedSkippedCard is excluded — it needs the completed state and

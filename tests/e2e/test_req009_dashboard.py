@@ -35,12 +35,13 @@ class TestDashboardPage:
         Spec: TC-009-001 -- Dashboard-Seite aufrufen (authentifizierter Nutzer).
         """
         dashboard.open()
-        screenshot("TC-REQ-009-001_dashboard-loaded", "Dashboard page after initial load — title and quick actions visible")
+        screenshot(
+            "TC-REQ-009-001_dashboard-loaded",
+            "Dashboard page after initial load — title and quick actions visible",
+        )
 
         title = dashboard.get_page_title()
-        assert title, (
-            "TC-REQ-009-001 FAIL: Page title should not be empty"
-        )
+        assert title, "TC-REQ-009-001 FAIL: Page title should not be empty"
 
     @pytest.mark.smoke
     def test_welcome_message_visible(
@@ -68,7 +69,9 @@ class TestDashboardPage:
         """
         dashboard.open()
         actions = dashboard.get_quick_actions()
-        screenshot("TC-REQ-009-003_quick-actions", f"Dashboard quick actions — {len(actions)} cards found")
+        screenshot(
+            "TC-REQ-009-003_quick-actions", f"Dashboard quick actions — {len(actions)} cards found"
+        )
 
         assert len(actions) >= 6, (
             f"TC-REQ-009-003 FAIL: Expected at least 6 quick actions, got {len(actions)}: {actions}"

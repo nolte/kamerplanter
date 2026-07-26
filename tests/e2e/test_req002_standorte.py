@@ -49,7 +49,6 @@ import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages import (
-    SiteListPage,
     SiteListPageExt,
     SiteDetailPage,
     LocationDetailPage,
@@ -138,7 +137,10 @@ class TestSiteListPage:
         """
         capture = request.node._screenshot_capture
         site_list.open(via_sidebar=True)
-        capture("TC-REQ-002-001_site-list-page-load", "Site list page after sidebar navigation — page title and DataTable or EmptyState visible")
+        capture(
+            "TC-REQ-002-001_site-list-page-load",
+            "Site list page after sidebar navigation — page title and DataTable or EmptyState visible",
+        )
 
         title = site_list.get_page_title()
         assert title, (
@@ -157,7 +159,10 @@ class TestSiteListPage:
         """
         capture = request.node._screenshot_capture
         site_list.open()
-        capture("TC-REQ-002-002_site-list-data-table", "Site list DataTable component — column headers and rows or empty state")
+        capture(
+            "TC-REQ-002-002_site-list-data-table",
+            "Site list DataTable component — column headers and rows or empty state",
+        )
 
         # DataTable should be present (even if empty, it renders the Paper wrapper)
         if not site_list.has_table():
@@ -186,8 +191,7 @@ class TestSiteListPage:
             # Sites have no seed data — the page should show either an empty
             # state or a DataTable with zero rows.  Both are valid states.
             assert site_list.has_empty_state() or site_list.has_table(), (
-                "TC-REQ-002-003 FAIL: Expected either site rows, empty state, or "
-                "an empty DataTable"
+                "TC-REQ-002-003 FAIL: Expected either site rows, empty state, or an empty DataTable"
             )
 
     @pytest.mark.core_crud
@@ -214,7 +218,10 @@ class TestSiteListPage:
         capture("TC-REQ-002-005_before-create-dialog", "Site list before opening create dialog")
 
         site_list.click_create()
-        capture("TC-REQ-002-005_create-dialog-open", "Site create dialog open — Name field and expertise toggle visible")
+        capture(
+            "TC-REQ-002-005_create-dialog-open",
+            "Site create dialog open — Name field and expertise toggle visible",
+        )
 
         assert site_list.is_create_dialog_open(), (
             "TC-REQ-002-005 FAIL: Create dialog (name input) should be visible after clicking create button"
@@ -265,7 +272,9 @@ class TestSiteListPage:
             "TC-REQ-002-007 FAIL: Create dialog should be closed after clicking 'Abbrechen'"
         )
 
-    @pytest.mark.skip(reason="Site list uses accordion cards — no DataTable search (see TC-002-002 spec update)")
+    @pytest.mark.skip(
+        reason="Site list uses accordion cards — no DataTable search (see TC-002-002 spec update)"
+    )
     def test_site_list_search_filters_rows(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -290,7 +299,9 @@ class TestSiteListPage:
         )
 
     @pytest.mark.requires_desktop
-    @pytest.mark.skip(reason="Site list uses accordion cards — no DataTable sort (see TC-002-002 spec update)")
+    @pytest.mark.skip(
+        reason="Site list uses accordion cards — no DataTable sort (see TC-002-002 spec update)"
+    )
     def test_site_list_sort_by_column(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -311,7 +322,9 @@ class TestSiteListPage:
             "TC-REQ-002-009 FAIL: Expected a sort chip to appear after clicking column header"
         )
 
-    @pytest.mark.skip(reason="Site list uses accordion cards — no DataTable filters (see TC-002-002 spec update)")
+    @pytest.mark.skip(
+        reason="Site list uses accordion cards — no DataTable filters (see TC-002-002 spec update)"
+    )
     def test_site_list_reset_filters(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -350,7 +363,9 @@ class TestSiteListPage:
         if site_list.get_row_count() == 0:
             pytest.skip("No sites in database")
 
-        capture("TC-REQ-002-011_before-row-click", "Site list with rows — about to click first site row")
+        capture(
+            "TC-REQ-002-011_before-row-click", "Site list with rows — about to click first site row"
+        )
         site_list.click_row(0)
         site_list.wait_for_url_contains("/standorte/sites/")
         capture("TC-REQ-002-011_after-row-click", "Site detail page after row click navigation")
@@ -360,7 +375,9 @@ class TestSiteListPage:
             f"TC-REQ-002-011 FAIL: Expected URL to contain '/standorte/sites/', got '{current_url}'"
         )
 
-    @pytest.mark.skip(reason="Site list uses accordion cards — no DataTable pagination (see TC-002-002 spec update)")
+    @pytest.mark.skip(
+        reason="Site list uses accordion cards — no DataTable pagination (see TC-002-002 spec update)"
+    )
     def test_site_list_showing_count_displayed(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
@@ -408,7 +425,10 @@ class TestSiteDetailPage:
             pytest.skip("No sites in database")
 
         site_detail.open(key)
-        capture("TC-REQ-002-013_site-detail-page-load", "Site detail page loaded — name field, form buttons, location sub-table visible")
+        capture(
+            "TC-REQ-002-013_site-detail-page-load",
+            "Site detail page loaded — name field, form buttons, location sub-table visible",
+        )
 
         title = site_detail.get_title()
         assert title, (
@@ -482,11 +502,17 @@ class TestSiteDetailPage:
 
         site_detail.open(key)
         original_name = site_detail.get_name_value()
-        capture("TC-REQ-002-016_before-edit", f"Site detail name field before edit — current value: '{original_name}'")
+        capture(
+            "TC-REQ-002-016_before-edit",
+            f"Site detail name field before edit — current value: '{original_name}'",
+        )
 
         test_suffix = "_e2e_test"
         site_detail.set_name(original_name + test_suffix)
-        capture("TC-REQ-002-016_after-edit", f"Site detail name field after edit — new value: '{original_name + test_suffix}'")
+        capture(
+            "TC-REQ-002-016_after-edit",
+            f"Site detail name field after edit — new value: '{original_name + test_suffix}'",
+        )
 
         new_value = site_detail.get_name_value()
         assert new_value == original_name + test_suffix, (
@@ -564,7 +590,10 @@ class TestSiteDetailPage:
         capture("TC-REQ-002-019_before-delete", "Site detail page before clicking delete button")
 
         site_detail.click_delete()
-        capture("TC-REQ-002-019_delete-confirm-dialog", "Delete confirmation dialog open — Abbrechen/Loeschen buttons visible")
+        capture(
+            "TC-REQ-002-019_delete-confirm-dialog",
+            "Delete confirmation dialog open — Abbrechen/Loeschen buttons visible",
+        )
 
         assert site_detail.is_confirm_dialog_visible(), (
             "TC-REQ-002-019 FAIL: Confirm dialog should be visible after clicking delete"
@@ -646,10 +675,9 @@ class TestSiteDetailPage:
             pass  # Skeleton might never appear if page loads very fast
         # Wait for error display to appear
         from selenium.webdriver.support.ui import WebDriverWait
+
         try:
-            WebDriverWait(site_detail.driver, 10).until(
-                lambda d: site_detail.is_error_shown()
-            )
+            WebDriverWait(site_detail.driver, 10).until(lambda d: site_detail.is_error_shown())
         except Exception:
             pass  # Some implementations redirect instead of showing error
         capture("TC-REQ-002-022_unknown-site-error")
@@ -689,7 +717,10 @@ class TestLocationDetailPage:
             pytest.skip("No locations available")
 
         location_detail.open(loc_key)
-        capture("TC-REQ-002-023_location-detail-page-load", "Location detail page loaded — name field, form buttons, slot sub-table visible")
+        capture(
+            "TC-REQ-002-023_location-detail-page-load",
+            "Location detail page loaded — name field, form buttons, slot sub-table visible",
+        )
 
         title = location_detail.get_title()
         assert title, (
@@ -763,10 +794,16 @@ class TestLocationDetailPage:
 
         location_detail.open(loc_key)
         original_name = location_detail.get_name_value()
-        capture("TC-REQ-002-026_before-edit", f"Location detail name field before edit — current value: '{original_name}'")
+        capture(
+            "TC-REQ-002-026_before-edit",
+            f"Location detail name field before edit — current value: '{original_name}'",
+        )
 
         location_detail.set_name(original_name + "_e2e")
-        capture("TC-REQ-002-026_after-edit", f"Location detail name field after edit — new value: '{original_name}_e2e'")
+        capture(
+            "TC-REQ-002-026_after-edit",
+            f"Location detail name field after edit — new value: '{original_name}_e2e'",
+        )
 
         new_value = location_detail.get_name_value()
         assert new_value == original_name + "_e2e", (
@@ -789,7 +826,9 @@ class TestLocationDetailPage:
             pytest.skip("No locations available")
 
         location_detail.open(loc_key)
-        capture("TC-REQ-002-027_before-delete", "Location detail page before clicking delete button")
+        capture(
+            "TC-REQ-002-027_before-delete", "Location detail page before clicking delete button"
+        )
 
         location_detail.click_delete()
         capture("TC-REQ-002-027_delete-confirm-dialog", "Location delete confirmation dialog open")
@@ -944,9 +983,7 @@ class TestSlotDetailPage:
         capture("TC-REQ-002-032_slot-detail-form")
 
         slot_id_value = slot_detail.get_slot_id_value()
-        assert slot_id_value, (
-            "TC-REQ-002-032 FAIL: The 'slot_id' field should be pre-filled"
-        )
+        assert slot_id_value, "TC-REQ-002-032 FAIL: The 'slot_id' field should be pre-filled"
 
     @pytest.mark.core_crud
     def test_slot_detail_capacity_field_visible(

@@ -107,9 +107,7 @@ class SubstrateListPage(BasePage):
 
     def click_row(self, index: int = 0) -> None:
         """Open the substrate at *index* via its inert `name` cell."""
-        self.click_data_table_row(
-            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "substrate row"
-        )
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "substrate row")
 
     def click_row_by_text(self, text: str) -> None:
         """Open the substrate whose row contains *text*, via its `name` cell."""
@@ -192,8 +190,7 @@ class SubstrateListPage(BasePage):
         from selenium.webdriver.support.ui import WebDriverWait
 
         WebDriverWait(self.driver, timeout).until(
-            lambda d: text
-            not in " ".join(cell for row in self.get_row_texts() for cell in row)
+            lambda d: text not in " ".join(cell for row in self.get_row_texts() for cell in row)
         )
 
     def fill_brand(self, value: str) -> None:

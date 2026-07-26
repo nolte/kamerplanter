@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -55,6 +54,7 @@ class LocationDetailPage(BasePage):
     def _wait_for_skeleton_gone(self, timeout: int = 15) -> None:
         from selenium.webdriver.support.ui import WebDriverWait
         from selenium.webdriver.support import expected_conditions as EC
+
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )

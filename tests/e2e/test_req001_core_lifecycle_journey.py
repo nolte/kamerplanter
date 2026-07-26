@@ -33,7 +33,7 @@ from .pages.species_list_page import SpeciesListPage
 
 # Feature-axis marker(s) for machine-selectable test identification
 # (see conftest.py::KNOWN_FEATURE_MARKERS / pytest -m <feature>).
-FEATURES = ('plant',)
+FEATURES = ("plant",)
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────

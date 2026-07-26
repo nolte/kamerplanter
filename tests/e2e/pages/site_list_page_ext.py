@@ -10,7 +10,6 @@ from __future__ import annotations
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import DIALOG_XPATH, BasePage
 
@@ -74,9 +73,11 @@ class SiteListPageExt(BasePage):
                 self.wait_for_loading_complete()
                 # Wait for content to render (DataTable rows, site cards, or empty state)
                 WebDriverWait(self.driver, 10).until(
-                    lambda d: (d.find_elements(*self.TABLE_ROWS)
-                               or d.find_elements(*self.SITE_CARDS)
-                               or d.find_elements(*self.EMPTY_STATE))
+                    lambda d: (
+                        d.find_elements(*self.TABLE_ROWS)
+                        or d.find_elements(*self.SITE_CARDS)
+                        or d.find_elements(*self.EMPTY_STATE)
+                    )
                 )
                 return self
             except StaleElementReferenceException:
@@ -111,26 +112,16 @@ class SiteListPageExt(BasePage):
         """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         if rows:
-            return [
-                self.get_row_primary_text(row, self.NAME_COLUMN_ID) for row in rows
-            ]
-        return [
-            el.text
-            for el in self.driver.find_elements(*self.SITE_NAME)
-            if el.text.strip()
-        ]
+            return [self.get_row_primary_text(row, self.NAME_COLUMN_ID) for row in rows]
+        return [el.text for el in self.driver.find_elements(*self.SITE_NAME) if el.text.strip()]
 
     def get_column_headers(self) -> list[str]:
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
     def click_column_header(self, header_text: str) -> None:
         """Click a table column header to trigger sorting."""
-        headers = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table'] th"
-        )
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         for h in headers:
             if h.text == header_text:
                 self.scroll_and_click(h)

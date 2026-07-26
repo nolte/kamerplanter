@@ -45,16 +45,16 @@ class TestCompanionPlantingView:
 
         # Select the first available species
         companion_page.select_species(options[0])
-        screenshot("TC-REQ-001-065_species-selected", f"Companion planting after selecting {options[0]}")
+        screenshot(
+            "TC-REQ-001-065_species-selected", f"Companion planting after selecting {options[0]}"
+        )
 
         # After selecting, the compatible and incompatible sections should render
         compatible = companion_page.get_compatible_species()
         incompatible = companion_page.get_incompatible_species()
 
         # At minimum, the page should render without error (lists may be empty)
-        assert isinstance(compatible, list), (
-            "TC-REQ-001-065 FAIL: Compatible list should be a list"
-        )
+        assert isinstance(compatible, list), "TC-REQ-001-065 FAIL: Compatible list should be a list"
         assert isinstance(incompatible, list), (
             "TC-REQ-001-065 FAIL: Incompatible list should be a list"
         )
@@ -74,7 +74,9 @@ class TestCompanionPlantingView:
             pytest.skip("Need at least 2 species for companion planting")
 
         companion_page.select_species(options[0])
-        screenshot("TC-REQ-001-066_before-add", f"Before adding compatible relationship for {options[0]}")
+        screenshot(
+            "TC-REQ-001-066_before-add", f"Before adding compatible relationship for {options[0]}"
+        )
 
         companion_page.click_add_compatible()
 
@@ -89,7 +91,9 @@ class TestCompanionPlantingView:
         companion_page.click_dialog_create()
 
         companion_page.wait_for_loading_complete()
-        screenshot("TC-REQ-001-066_after-create", "Companion planting after adding compatible relationship")
+        screenshot(
+            "TC-REQ-001-066_after-create", "Companion planting after adding compatible relationship"
+        )
 
     @pytest.mark.core_crud
     def test_add_incompatible_species_relationship(
@@ -119,7 +123,10 @@ class TestCompanionPlantingView:
         companion_page.click_dialog_create()
 
         companion_page.wait_for_loading_complete()
-        screenshot("TC-REQ-001-067_after-create", "Companion planting after adding incompatible relationship")
+        screenshot(
+            "TC-REQ-001-067_after-create",
+            "Companion planting after adding incompatible relationship",
+        )
 
     @pytest.mark.smoke
     def test_empty_state_when_no_relationships(

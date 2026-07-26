@@ -268,9 +268,14 @@ class FeedingEventListPage(BasePage):
 
     def has_form_field(self, field_name: str) -> bool:
         """Return True if a ``form-field-{field_name}`` element is present in the dialog."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}']"
+                )
+            )
+            > 0
+        )
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a given form field."""

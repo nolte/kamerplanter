@@ -39,7 +39,10 @@ class TankListPage(BasePage):
     FORM_MATERIAL = (By.CSS_SELECTOR, "[data-testid='form-field-material'] .MuiSelect-select")
     FORM_HAS_LID = (By.CSS_SELECTOR, "[data-testid='form-field-has_lid'] .MuiSwitch-root")
     FORM_HAS_AIR_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_air_pump'] .MuiSwitch-root")
-    FORM_HAS_CIRCULATION_PUMP = (By.CSS_SELECTOR, "[data-testid='form-field-has_circulation_pump'] .MuiSwitch-root")
+    FORM_HAS_CIRCULATION_PUMP = (
+        By.CSS_SELECTOR,
+        "[data-testid='form-field-has_circulation_pump'] .MuiSwitch-root",
+    )
     FORM_HAS_HEATER = (By.CSS_SELECTOR, "[data-testid='form-field-has_heater'] .MuiSwitch-root")
     FORM_NOTES = (By.CSS_SELECTOR, "[data-testid='form-field-notes'] textarea")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
@@ -86,9 +89,7 @@ class TankListPage(BasePage):
 
     def click_row(self, index: int = 0) -> None:
         """Open the tank at *index* via its inert `name` cell."""
-        self.click_data_table_row(
-            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "tank row"
-        )
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "tank row")
 
     def click_row_by_name(self, name: str) -> None:
         """Click the row whose name column matches *name*.

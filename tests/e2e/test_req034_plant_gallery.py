@@ -420,9 +420,7 @@ class TestPlantGalleryLightbox:
         )
 
         gallery.close_lightbox()
-        assert not gallery.is_lightbox_open(), (
-            "TC-REQ-034-006 FAIL: Lightbox did not close"
-        )
+        assert not gallery.is_lightbox_open(), "TC-REQ-034-006 FAIL: Lightbox did not close"
 
         if uploaded_here:
             gallery.click_delete_for_index(0)
@@ -581,9 +579,7 @@ class TestPlantGalleryI18n:
         # Switch the persisted i18n language to English and reload. The app's
         # i18next detector reads the 'kamerplanter-lang' localStorage key
         # (see src/frontend/src/i18n/i18n.ts → lookupLocalStorage).
-        gallery.driver.execute_script(
-            "window.localStorage.setItem('kamerplanter-lang', 'en');"
-        )
+        gallery.driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'en');")
         try:
             gallery.open(key)
             # gallery.open() may only change the URL hash of the already-open
@@ -616,6 +612,4 @@ class TestPlantGalleryI18n:
             )
         finally:
             # Restore the default German locale for session-shared follow-ups.
-            gallery.driver.execute_script(
-                "window.localStorage.setItem('kamerplanter-lang', 'de');"
-            )
+            gallery.driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'de');")

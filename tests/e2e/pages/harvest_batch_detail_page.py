@@ -136,10 +136,7 @@ class HarvestBatchDetailPage(BasePage):
         self.navigate(f"/ernte/batches/{batch_key}")
         # Wait for either the page or an error display
         WebDriverWait(self.driver, 15).until(
-            lambda d: (
-                d.find_elements(*self.PAGE)
-                or d.find_elements(*self.ERROR_DISPLAY)
-            )
+            lambda d: d.find_elements(*self.PAGE) or d.find_elements(*self.ERROR_DISPLAY)
         )
         return self
 
@@ -179,9 +176,7 @@ class HarvestBatchDetailPage(BasePage):
         if index < len(tabs):
             self.scroll_and_click(tabs[index])
         else:
-            raise ValueError(
-                f"Tab index {index} out of range (found {len(tabs)} tabs)"
-            )
+            raise ValueError(f"Tab index {index} out of range (found {len(tabs)} tabs)")
 
     def get_active_tab_index(self) -> int:
         """Return the index of the currently selected tab."""
@@ -283,9 +278,7 @@ class HarvestBatchDetailPage(BasePage):
 
     def get_defect_chips(self) -> list[str]:
         """Return the text of all defect chips visible on the quality tab."""
-        chips = self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiChip-colorError .MuiChip-label"
-        )
+        chips = self.driver.find_elements(By.CSS_SELECTOR, ".MuiChip-colorError .MuiChip-label")
         return [c.text for c in chips]
 
     # -- Tab 2: Yield -------------------------------------------------------

@@ -20,7 +20,7 @@ import platform
 import re
 import subprocess
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 # ── Spec resolution ──────────────────────────────────────────────────────────
@@ -184,9 +184,7 @@ class ProtocolGenerator:
 
     @staticmethod
     def _outcome_icon(outcome: str) -> str:
-        return {"passed": "PASS", "failed": "FAIL", "skipped": "SKIP"}.get(
-            outcome, outcome.upper()
-        )
+        return {"passed": "PASS", "failed": "FAIL", "skipped": "SKIP"}.get(outcome, outcome.upper())
 
     # ── generation ────────────────────────────────────────────────────────
 
@@ -210,42 +208,46 @@ class ProtocolGenerator:
         lines: list[str] = []
 
         # ── Header & Metadata ────────────────────────────────────────────
-        date_str = (
-            f"{self.start_time:%Y-%m-%d %H:%M:%S} UTC" if self.start_time else "n/a"
+        date_str = f"{self.start_time:%Y-%m-%d %H:%M:%S} UTC" if self.start_time else "n/a"
+        lines.extend(
+            [
+                f"# E2E-Testprotokoll — {date_str}",
+                "",
+                "## Metadaten",
+                "",
+                "| Feld | Wert |",
+                "|---|---|",
+                f"| **Datum** | {date_str} |",
+                f"| **Commit** | `{git_commit}` |",
+                f"| **Branch** | {git_branch} |",
+                f"| **Betriebssystem** | {os_info} |",
+                f"| **Browser** | {browser_info} |",
+                f"| **Device** | {device_info} |",
+                f"| **Python** | {python_version} |",
+                "",
+            ]
         )
-        lines.extend([
-            f"# E2E-Testprotokoll — {date_str}",
-            "",
-            "## Metadaten",
-            "",
-            "| Feld | Wert |",
-            "|---|---|",
-            f"| **Datum** | {date_str} |",
-            f"| **Commit** | `{git_commit}` |",
-            f"| **Branch** | {git_branch} |",
-            f"| **Betriebssystem** | {os_info} |",
-            f"| **Browser** | {browser_info} |",
-            f"| **Device** | {device_info} |",
-            f"| **Python** | {python_version} |",
-            "",
-        ])
 
         # ── Summary ──────────────────────────────────────────────────────
-        lines.extend([
-            "## Zusammenfassung",
-            "",
-            "| Gesamt | Bestanden | Fehlgeschlagen | Übersprungen |",
-            "|--------|-----------|----------------|--------------|",
-            f"| {total} | {passed} | {failed} | {skipped} |",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Zusammenfassung",
+                "",
+                "| Gesamt | Bestanden | Fehlgeschlagen | Übersprungen |",
+                "|--------|-----------|----------------|--------------|",
+                f"| {total} | {passed} | {failed} | {skipped} |",
+                "",
+            ]
+        )
 
         if total > 0:
             pass_pct = passed / total * 100
-            lines.extend([
-                f"Erfolgsquote: **{pass_pct:.1f}%** ({passed}/{total})",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"Erfolgsquote: **{pass_pct:.1f}%** ({passed}/{total})",
+                    "",
+                ]
+            )
 
         # ── Covered requirements overview ────────────────────────────────
         req_nums_seen: dict[str, int] = {}
@@ -255,29 +257,31 @@ class ProtocolGenerator:
                 req_nums_seen[rn] = req_nums_seen.get(rn, 0) + 1
 
         if req_nums_seen:
-            lines.extend([
-                "## Abgedeckte Anforderungen",
-                "",
-                "| REQ | Fachliche Anforderung | Testfall-Spezifikation | Tests |",
-                "|-----|----------------------|------------------------|-------|",
-            ])
+            lines.extend(
+                [
+                    "## Abgedeckte Anforderungen",
+                    "",
+                    "| REQ | Fachliche Anforderung | Testfall-Spezifikation | Tests |",
+                    "|-----|----------------------|------------------------|-------|",
+                ]
+            )
             for rn in sorted(req_nums_seen):
                 req_spec = _get_req_spec(rn)
                 tc_spec = _get_tc_spec(rn)
                 req_link = f"[{req_spec[1]}]({req_spec[0]})" if req_spec else "—"
                 tc_link = f"[TC-REQ-{rn}]({tc_spec[0]})" if tc_spec else "—"
-                lines.append(
-                    f"| REQ-{rn} | {req_link} | {tc_link} | {req_nums_seen[rn]} |"
-                )
+                lines.append(f"| REQ-{rn} | {req_link} | {tc_link} | {req_nums_seen[rn]} |")
             lines.append("")
 
         # ── Failed tests detail ──────────────────────────────────────────
         failed_results = [r for r in self.results if r.outcome == "failed"]
         if failed_results:
-            lines.extend([
-                "## Fehlgeschlagene Tests",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Fehlgeschlagene Tests",
+                    "",
+                ]
+            )
             for r in failed_results:
                 test_name = self._test_display_name(r.nodeid)
                 file_path = self._file_display(r.nodeid)
@@ -286,11 +290,13 @@ class ProtocolGenerator:
                 req_num = _extract_req_num(r.nodeid)
                 tc_id = _result_tc_id(r)
 
-                lines.extend([
-                    f"### FAIL `{test_name}`",
-                    "",
-                    f"- **Datei:** `{file_path}`",
-                ])
+                lines.extend(
+                    [
+                        f"### FAIL `{test_name}`",
+                        "",
+                        f"- **Datei:** `{file_path}`",
+                    ]
+                )
                 if r.docstring:
                     lines.append(f"- **Beschreibung:** {r.docstring}")
                 if tc_id:
@@ -303,32 +309,30 @@ class ProtocolGenerator:
                             f"- **Anforderung:** [REQ-{req_num} {req_spec[1]}]({req_spec[0]})"
                         )
                     if tc_spec:
-                        lines.append(
-                            f"- **Testfall-Spec:** [TC-REQ-{req_num}]({tc_spec[0]})"
-                        )
+                        lines.append(f"- **Testfall-Spec:** [TC-REQ-{req_num}]({tc_spec[0]})")
 
                 error_msg = r.message.replace("\n", "\n  ") if r.message else "n/a"
-                lines.extend([
-                    f"- **Fehler:**",
-                    f"  ```",
-                    f"  {error_msg[:500]}",
-                    f"  ```",
-                ])
+                lines.extend(
+                    [
+                        "- **Fehler:**",
+                        "  ```",
+                        f"  {error_msg[:500]}",
+                        "  ```",
+                    ]
+                )
                 # Attach failure screenshots
-                failure_shots = [
-                    s for s in r.screenshots if s.filename.startswith("FAILURE_")
-                ]
+                failure_shots = [s for s in r.screenshots if s.filename.startswith("FAILURE_")]
                 for s in failure_shots:
-                    lines.append(
-                        f"- **Screenshot:** ![{s.description}](screenshots/{s.filename})"
-                    )
+                    lines.append(f"- **Screenshot:** ![{s.description}](screenshots/{s.filename})")
                 lines.append("")
 
         # ── Per-class sections ───────────────────────────────────────────
-        lines.extend([
-            "## Testergebnisse im Detail",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Testergebnisse im Detail",
+                "",
+            ]
+        )
 
         # Group results by test class
         class_groups: dict[str, list[TestResult]] = {}
@@ -347,10 +351,12 @@ class ProtocolGenerator:
 
             # Section header with pass/fail summary
             status_badge = "PASS" if cls_failed == 0 else "FAIL"
-            lines.extend([
-                f"### {cls_name} [{status_badge}]",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"### {cls_name} [{status_badge}]",
+                    "",
+                ]
+            )
 
             # Spec reference block
             if req_num:
@@ -369,23 +375,27 @@ class ProtocolGenerator:
                     lines.extend(ref_parts)
                     lines.append("")
 
-            lines.extend([
-                f"*{cls_total} Tests: {cls_passed} bestanden"
-                + (f", {cls_failed} fehlgeschlagen" if cls_failed else "")
-                + (f", {cls_skipped} übersprungen" if cls_skipped else "")
-                + f"*",
-                "",
-            ])
+            lines.extend(
+                [
+                    f"*{cls_total} Tests: {cls_passed} bestanden"
+                    + (f", {cls_failed} fehlgeschlagen" if cls_failed else "")
+                    + (f", {cls_skipped} übersprungen" if cls_skipped else "")
+                    + "*",
+                    "",
+                ]
+            )
 
             # File path
             file_path = self._file_display(results[0].nodeid)
             lines.extend([f"**Datei:** `{file_path}`", ""])
 
             # Test result table with TC-IDs and descriptions
-            lines.extend([
-                "| Test | TC-ID | Ergebnis | Dauer | Beschreibung |",
-                "|------|-------|----------|-------|--------------|",
-            ])
+            lines.extend(
+                [
+                    "| Test | TC-ID | Ergebnis | Dauer | Beschreibung |",
+                    "|------|-------|----------|-------|--------------|",
+                ]
+            )
             for r in results:
                 test_name = self._test_display_name(r.nodeid)
                 icon = self._outcome_icon(r.outcome)
@@ -396,41 +406,40 @@ class ProtocolGenerator:
                 desc = r.docstring
                 if desc and tc_id:
                     desc = desc.replace(tc_id, "").lstrip(":").lstrip().lstrip("-").strip()
-                desc = (desc[:100] if desc else "")
-                lines.append(
-                    f"| `{test_name}` | {tc_id_str} | {icon} | {duration} | {desc} |"
-                )
+                desc = desc[:100] if desc else ""
+                lines.append(f"| `{test_name}` | {tc_id_str} | {icon} | {duration} | {desc} |")
             lines.append("")
 
             # Inline screenshots for this class
             class_screenshots = [
-                s
-                for r in results
-                for s in r.screenshots
-                if not s.filename.startswith("FAILURE_")
+                s for r in results for s in r.screenshots if not s.filename.startswith("FAILURE_")
             ]
             if class_screenshots:
                 lines.append("**Screenshots:**")
                 lines.append("")
                 for s in class_screenshots:
-                    lines.extend([
-                        f"*{s.description}*",
-                        "",
-                        f"![{s.description}](screenshots/{s.filename})",
-                        "",
-                    ])
+                    lines.extend(
+                        [
+                            f"*{s.description}*",
+                            "",
+                            f"![{s.description}](screenshots/{s.filename})",
+                            "",
+                        ]
+                    )
 
         # ── Screenshot gallery ───────────────────────────────────────────
         screenshot_dir = output_dir / "screenshots"
         if screenshot_dir.is_dir():
             all_screenshots = sorted(screenshot_dir.iterdir())
             if all_screenshots:
-                lines.extend([
-                    "## Screenshot-Übersicht",
-                    "",
-                    "| Nr. | Datei | Beschreibung |",
-                    "|-----|-------|--------------|",
-                ])
+                lines.extend(
+                    [
+                        "## Screenshot-Übersicht",
+                        "",
+                        "| Nr. | Datei | Beschreibung |",
+                        "|-----|-------|--------------|",
+                    ]
+                )
                 # Build a lookup from filename to description
                 desc_map: dict[str, str] = {}
                 for r in self.results:
@@ -440,17 +449,17 @@ class ProtocolGenerator:
                 for i, f in enumerate(all_screenshots, 1):
                     if f.suffix.lower() == ".png":
                         desc = desc_map.get(f.name, f.stem.replace("_", " "))
-                        lines.append(
-                            f"| {i:03d} | ![{f.name}](screenshots/{f.name}) | {desc} |"
-                        )
+                        lines.append(f"| {i:03d} | ![{f.name}](screenshots/{f.name}) | {desc} |")
                 lines.append("")
 
         # ── Footer ───────────────────────────────────────────────────────
-        lines.extend([
-            "---",
-            f"*Protokoll automatisch generiert am {date_str} (NFR-008 §4.4)*",
-            "",
-        ])
+        lines.extend(
+            [
+                "---",
+                f"*Protokoll automatisch generiert am {date_str} (NFR-008 §4.4)*",
+                "",
+            ]
+        )
 
         filepath.write_text("\n".join(lines), encoding="utf-8")
         return filepath

@@ -187,7 +187,7 @@ when touching `.feature` files.
 ### 4. Legacy suites (unchanged)
 
 ```bash
-task test:e2e:smoke       # -m smoke  (188 tests, ~7 min with -n 4)
+task test:e2e:smoke       # -m smoke  (190 tests, ~7 min with -n 4)
 docker compose -f docker-compose.e2e.yml --profile core-crud run --rm e2e-core-crud
 ```
 

@@ -85,9 +85,7 @@ class TestTenantCreatePageLoad:
         )
 
         title = create_page.get_page_title_text()
-        assert title, (
-            "TC-REQ-024-002 FAIL: Expected page title on TenantCreatePage"
-        )
+        assert title, "TC-REQ-024-002 FAIL: Expected page title on TenantCreatePage"
 
     @pytest.mark.smoke
     @pytest.mark.requires_auth
@@ -105,9 +103,7 @@ class TestTenantCreatePageLoad:
         create_page.open()
 
         intro = create_page.get_intro_text()
-        assert intro, (
-            "TC-REQ-024-003 FAIL: Expected intro text on TenantCreatePage"
-        )
+        assert intro, "TC-REQ-024-003 FAIL: Expected intro text on TenantCreatePage"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth

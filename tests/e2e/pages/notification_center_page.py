@@ -64,7 +64,7 @@ class NotificationCenterPage(BasePage):
 
         try:
             self.wait_for_element_clickable(self.DRAWER_CLOSE).click()
-        except (ElementClickInterceptedException, TimeoutException):
+        except ElementClickInterceptedException, TimeoutException:
             self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
         try:
             self.wait_for_element_hidden(self.DRAWER)
@@ -117,7 +117,7 @@ class NotificationCenterPage(BasePage):
     def _key_from_testid(testid: str) -> str:
         """Extract the notification key from a ``notification-card-{key}`` testid."""
         prefix = "notification-card-"
-        return testid[len(prefix):] if testid.startswith(prefix) else testid
+        return testid[len(prefix) :] if testid.startswith(prefix) else testid
 
     def get_notification_keys(self) -> list[str]:
         """Return the keys of all rendered notification cards, in DOM order."""
@@ -130,17 +130,18 @@ class NotificationCenterPage(BasePage):
 
     def has_notification(self, key: str) -> bool:
         """Return True if a notification card for *key* is rendered."""
-        return len(
-            self.driver.find_elements(
-                By.CSS_SELECTOR, f"[data-testid='notification-card-{key}']"
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, f"[data-testid='notification-card-{key}']"
+                )
             )
-        ) > 0
+            > 0
+        )
 
     def get_notification_card(self, key: str) -> WebElement:
         """Return the notification card element for a specific key."""
-        return self.wait_for_element(
-            (By.CSS_SELECTOR, f"[data-testid='notification-card-{key}']")
-        )
+        return self.wait_for_element((By.CSS_SELECTOR, f"[data-testid='notification-card-{key}']"))
 
     def get_notification_text(self, key: str) -> str:
         """Return the visible text of a notification card (title + body + time)."""
@@ -162,7 +163,7 @@ class NotificationCenterPage(BasePage):
         )
         try:
             return float(opacity) >= 0.9
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return True
 
     def click_notification(self, key: str) -> None:

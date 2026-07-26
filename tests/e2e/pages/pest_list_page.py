@@ -103,9 +103,7 @@ class PestListPage(BasePage):
 
     def click_row(self, index: int = 0) -> None:
         """Open the pest at *index* via its inert scientific-name cell."""
-        self.click_data_table_row(
-            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "pest row"
-        )
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "pest row")
 
     def click_column_header(self, header_text: str) -> None:
         """Click a column header by its text to trigger sorting."""
@@ -296,22 +294,38 @@ class PestListPage(BasePage):
         Fallback check for tests where the exact field emitting the error is
         uncertain (e.g. `has_validation_error` looked at the wrong field id).
         """
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    ".MuiDialog-root [role='dialog'] .MuiFormHelperText-root.Mui-error",
+                )
+            )
+            > 0
+        )
 
     def field_has_aria_invalid(self, field_name: str) -> bool:
         """Return True if the input for *field_name* carries ``aria-invalid='true'``."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR,
-            f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR,
+                    f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input[aria-invalid='true']",
+                )
+            )
+            > 0
+        )
 
     def has_any_aria_invalid_in_dialog(self) -> bool:
         """Return True if any input in the open dialog carries ``aria-invalid='true'``."""
-        return len(self.driver.find_elements(
-            By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] input[aria-invalid='true']"
-        )) > 0
+        return (
+            len(
+                self.driver.find_elements(
+                    By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] input[aria-invalid='true']"
+                )
+            )
+            > 0
+        )
 
     def get_field_debug_state(self, field_name: str) -> tuple[str, str]:
         """Return ``(value, aria-invalid)`` for *field_name*'s input — for failure messages.
@@ -319,7 +333,8 @@ class PestListPage(BasePage):
         Returns ``("NOT FOUND: <field_name>", "N/A")`` if the field is absent.
         """
         elements = self.driver.find_elements(
-            By.CSS_SELECTOR, f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input"
+            By.CSS_SELECTOR,
+            f".MuiDialog-root [role='dialog'] [data-testid='form-field-{field_name}'] input",
         )
         if not elements:
             return f"NOT FOUND: form-field-{field_name}", "N/A"

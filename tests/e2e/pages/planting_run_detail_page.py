@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
-from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
 
@@ -44,11 +43,26 @@ class PlantingRunDetailPage(BasePage):
     # ── Edit dialog (opened via edit button) ────────────────────────────
     EDIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='edit-button']")
     EDIT_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
-    FORM_NAME = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-field-name'] input")
-    FORM_NOTES = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-field-notes'] input")
-    FORM_PLANNED_START = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-field-planned_start_date'] input")
-    FORM_SUBMIT = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']")
-    FORM_CANCEL = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] [data-testid='form-cancel-button']")
+    FORM_NAME = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-field-name'] input",
+    )
+    FORM_NOTES = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-field-notes'] input",
+    )
+    FORM_PLANNED_START = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-field-planned_start_date'] input",
+    )
+    FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-submit-button']",
+    )
+    FORM_CANCEL = (
+        By.CSS_SELECTOR,
+        ".MuiDialog-root [role='dialog'] [data-testid='form-cancel-button']",
+    )
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -128,13 +142,14 @@ class PlantingRunDetailPage(BasePage):
     def get_plant_rows_text(self) -> list[list[str]]:
         """Return the readable text fragments of every visible plant row."""
         return [
-            self.get_row_text_fragments(row)
-            for row in self.driver.find_elements(*self.PLANTS_ROWS)
+            self.get_row_text_fragments(row) for row in self.driver.find_elements(*self.PLANTS_ROWS)
         ]
 
     def is_no_plants_message_visible(self) -> bool:
         """Return True if the 'no plants yet' message is displayed (tab=1, before batch create)."""
-        elements = self.driver.find_elements(By.XPATH, "//*[contains(@class, 'MuiTypography-root')]")
+        elements = self.driver.find_elements(
+            By.XPATH, "//*[contains(@class, 'MuiTypography-root')]"
+        )
         for el in elements:
             # The translated key pages.plantingRuns.noPlantsYet renders as a message
             if el.text and len(el.text) > 0 and el.is_displayed():
@@ -233,9 +248,7 @@ class PlantingRunDetailPage(BasePage):
 
     def is_error_displayed(self) -> bool:
         """Return True if an error display component is visible."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='error-display']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='error-display']")
         return len(elements) > 0 and elements[0].is_displayed()
 
     def is_page_rendered(self) -> bool:

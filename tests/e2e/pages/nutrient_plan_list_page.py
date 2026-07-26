@@ -163,7 +163,10 @@ class NutrientPlanListPage(BasePage):
     def select_substrate_type(self, value_text: str) -> None:
         """Open the substrate type select and pick an option."""
         field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-recommended_substrate_type'] .MuiSelect-select")
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='form-field-recommended_substrate_type'] .MuiSelect-select",
+            )
         )
         self.scroll_and_click(field)
         option = self.wait_for_element_clickable(

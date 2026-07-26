@@ -322,9 +322,7 @@ class TestExperienceLevelStep:
         """
         wizard.open()
         wizard.select_experience_level("intermediate")
-        assert wizard.is_smart_home_toggle_visible(), (
-            "Toggle should be visible for intermediate"
-        )
+        assert wizard.is_smart_home_toggle_visible(), "Toggle should be visible for intermediate"
 
         wizard.select_experience_level("beginner")
         screenshot(
@@ -580,12 +578,16 @@ class TestFavoriteSpeciesStep:
 
         count_text = wizard.get_favorite_selected_count_text()
         has_zero = "0" in count_text
-        no_selected_tiles = all(
-            not wizard.is_favorite_tile_selected(
-                (t.get_attribute("data-testid") or "").replace("favorite-tile-", "")
+        no_selected_tiles = (
+            all(
+                not wizard.is_favorite_tile_selected(
+                    (t.get_attribute("data-testid") or "").replace("favorite-tile-", "")
+                )
+                for t in wizard.get_favorite_tiles()[:3]
             )
-            for t in wizard.get_favorite_tiles()[:3]
-        ) if wizard.get_favorite_tiles() else True
+            if wizard.get_favorite_tiles()
+            else True
+        )
         assert has_zero or no_selected_tiles, (
             f"TC-REQ-020-022 FAIL: Expected 0 favorites selected without kit, got text: {count_text}"
         )
@@ -758,9 +760,7 @@ class TestPlantSelectionStep:
             pytest.skip(
                 "No plant config rows visible -- kit species may not have loaded as favorites"
             )
-        assert len(rows) > 0, (
-            f"TC-REQ-020-027 FAIL: Expected plant config rows, got: {len(rows)}"
-        )
+        assert len(rows) > 0, f"TC-REQ-020-027 FAIL: Expected plant config rows, got: {len(rows)}"
 
     # Observed once on mobile (run 20260725_144611): the test stopped before its
     # only screenshot, i.e. somewhere in the four-step navigation chain below,

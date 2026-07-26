@@ -123,9 +123,7 @@ class TestCompleteWorkflow:
 
         # Step 5: Create lifecycle config
         tabs = species_detail.get_tab_labels()
-        lifecycle_tab = next(
-            (i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None
-        )
+        lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
         if lifecycle_tab is not None:
             species_detail.click_tab(lifecycle_tab)
             species_detail.wait_for_loading_complete()
@@ -144,11 +142,13 @@ class TestCompleteWorkflow:
 
                 # Step 6: Create growth phases
                 if species_detail.can_create_growth_phase():
-                    for i, (name, display) in enumerate([
-                        ("germination", "Keimung"),
-                        ("vegetative", "Vegetativ"),
-                        ("harvest", "Ernte"),
-                    ]):
+                    for i, (name, display) in enumerate(
+                        [
+                            ("germination", "Keimung"),
+                            ("vegetative", "Vegetativ"),
+                            ("harvest", "Ernte"),
+                        ]
+                    ):
                         species_detail.click_phase_create()
                         species_detail.fill_phase_form(
                             name=name,
@@ -184,7 +184,10 @@ class TestDropdownIntegrations:
         # Open the family dropdown and check options
         try:
             option_texts = species_list.open_dropdown_and_get_options("family_key")
-            screenshot("TC-REQ-001-090_dropdown-options", "Family dropdown options in species create dialog")
+            screenshot(
+                "TC-REQ-001-090_dropdown-options",
+                "Family dropdown options in species create dialog",
+            )
 
             # Should have at least the 9 seed families plus a "-" option
             assert len(option_texts) >= 9, (
@@ -207,9 +210,7 @@ class TestDropdownIntegrations:
         try:
             companion_page.open()
         except Exception:
-            pytest.skip(
-                "Companion planting page not accessible in light-mode e2e"
-            )
+            pytest.skip("Companion planting page not accessible in light-mode e2e")
 
         screenshot("TC-REQ-001-091_page-loaded", "Companion planting page loaded")
 
@@ -235,9 +236,7 @@ class TestDropdownIntegrations:
         try:
             rotation_page.open()
         except Exception:
-            pytest.skip(
-                "Crop rotation page not accessible in light-mode e2e"
-            )
+            pytest.skip("Crop rotation page not accessible in light-mode e2e")
 
         screenshot("TC-REQ-001-092_page-loaded", "Crop rotation page loaded")
 
