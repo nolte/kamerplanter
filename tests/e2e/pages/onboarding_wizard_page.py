@@ -181,7 +181,7 @@ class OnboardingWizardPage(BasePage):
         # Case 1: completed / skipped card — click Restart directly
         restart_els = self.driver.find_elements(*self.RESTART_BUTTON)
         if restart_els and restart_els[0].is_displayed():
-            self.scroll_and_click(restart_els[0])
+            self.click_restart()
             self.wait_for_element(self.STEP_WELCOME)
             self.wait_for_loading_complete()
             return
@@ -189,7 +189,10 @@ class OnboardingWizardPage(BasePage):
         # Case 2: wizard is active (step 1..N) — Skip → Restart to clear backend state
         skip_els = self.driver.find_elements(*self.SKIP_BUTTON)
         if skip_els and skip_els[0].is_displayed():
-            self.scroll_and_click(skip_els[0])
+            # Via click_skip: this runs on whichever step the previous test left
+            # behind, including the favorites step whose grid puts the button row
+            # thousands of pixels down the document.
+            self.click_skip()
             # Skip redirects to /pflanzen/plant-instances
             try:
                 self.wait_for_url_contains("/pflanzen", timeout=10)
@@ -206,7 +209,7 @@ class OnboardingWizardPage(BasePage):
                 pass
             restart_els2 = self.driver.find_elements(*self.RESTART_BUTTON)
             if restart_els2 and restart_els2[0].is_displayed():
-                self.scroll_and_click(restart_els2[0])
+                self.click_restart()
                 self.wait_for_element(self.STEP_WELCOME)
                 self.wait_for_loading_complete()
             return
@@ -357,35 +360,53 @@ class OnboardingWizardPage(BasePage):
 
     # ── Button interactions ────────────────────────────────────────────
 
+    # ── Button interactions: why coordinate-free ────────────────────────
+    # The wizard's navigation row is the *last* element of a document that the
+    # favorites step makes several thousand pixels tall (~210 species tiles,
+    # two columns wide at `xs`). `scroll_and_click` resolves the button's
+    # in-view centre and only then dispatches at those coordinates, and at the
+    # bottom of a document that is already scrolled to its maximum
+    # `scrollIntoView({block: 'center'})` cannot centre the row -- so the
+    # dispatch lands within a few pixels of the fold and nothing raises. The
+    # W3C hit-test passed, the events went out, `handleNext` never ran.
+    #
+    # Observed after the favorites grid was correctly settled before advancing
+    # (079c973ec): nine REQ-020 tests then stopped on "Schritt 3 von 5:
+    # Favoriten" with an active green Next button and no error state, and
+    # failed in `advance_to_step_site` / `navigate_beginner_to_summary` on
+    # every reflowing profile (mobile, tablet, full-mobile, full-tablet) while
+    # the 1920px desktop passed. The settle wait is not the defect -- it turned
+    # a mid-spinner click into a below-the-fold one, which this closes.
+    #
+    # All four are MUI `Button`s driven by an `onClick` handler
+    # (`OnboardingWizard.tsx:616-727`), and the `isMobile` ternary renders the
+    # `MobileStepper` and the desktop row exclusively, so each testid resolves
+    # to exactly one node. `HTMLElement.click()` runs their handler exactly as
+    # a pointer does -- see `BasePage.click_coordinate_free`.
+
     def click_next(self) -> None:
-        """Click the Next button."""
-        btn = self.wait_for_element_clickable(self.NEXT_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Next button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.NEXT_BUTTON)
 
     def click_back(self) -> None:
-        """Click the Back button."""
-        btn = self.wait_for_element_clickable(self.BACK_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Back button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.BACK_BUTTON)
 
     def click_skip(self) -> None:
-        """Click the Skip Onboarding button."""
-        btn = self.wait_for_element_clickable(self.SKIP_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Skip Onboarding button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.SKIP_BUTTON)
 
     def click_complete(self) -> None:
-        """Click the Complete/Finish button."""
-        btn = self.wait_for_element_clickable(self.COMPLETE_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Complete/Finish button (coordinate-free; see the note above)."""
+        self.wait_and_click_coordinate_free(self.COMPLETE_BUTTON)
 
     def click_restart(self) -> None:
-        """Click the Restart button on the completed card."""
-        btn = self.wait_for_element_clickable(self.RESTART_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Restart button on the completed card (coordinate-free)."""
+        self.wait_and_click_coordinate_free(self.RESTART_BUTTON)
 
     def click_go_dashboard(self) -> None:
-        """Click the Go-to-Dashboard button on the completed card."""
-        btn = self.wait_for_element_clickable(self.GO_DASHBOARD_BUTTON)
-        self.scroll_and_click(btn)
+        """Click the Go-to-Dashboard button on the completed card (coordinate-free)."""
+        self.wait_and_click_coordinate_free(self.GO_DASHBOARD_BUTTON)
 
     # ── Step 1: Experience Level interactions ──────────────────────────
 
