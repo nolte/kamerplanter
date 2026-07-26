@@ -81,7 +81,7 @@ The estimate rests on a **measured**, not guessed, ratio from the review pass: b
 ### Positive
 
 - New test cases with a clear Given/When/Then structure can be authored as readable Gherkin scenarios derivable from the spec, mechanically checked for spec traceability.
-- The traceability check (`scripts/check_bdd_traceability.py`) is usable standalone and already covers a real, previously invisible gap (docstring drift in the classic tests). That drift was closed in issue #771 by a shared SSOT (`tests/e2e/_gherkin.py`) both parsers now consume.
+- The traceability check (`scripts/check_bdd_traceability.py`) is usable standalone and already covers a real, previously invisible gap (docstring drift in the classic tests).
 - Screenshots derived automatically from step text lower the maintenance cost of future scenarios compared to hand-placed `screenshot(...)` calls.
 - The reusability claim is not asserted, it is measured: 9 of 11 bindings are literally reusable after parameterization.
 

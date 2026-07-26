@@ -81,7 +81,7 @@ Die Schätzung stützt sich auf eine **gemessene**, nicht geschätzte Kennzahl a
 ### Positiv
 
 - Neue Testfälle mit klarer Given/When/Then-Struktur können als lesbares, aus der Spec ableitbares Gherkin-Szenario entstehen, maschinell auf Spec-Traceability geprüft.
-- Der Traceability-Check (`scripts/check_bdd_traceability.py`) ist unabhängig nutzbar und deckt schon heute eine reale Lücke ab (Docstring-Drift bei den klassischen Tests), die vorher unsichtbar war. Diese Drift wurde in Issue #771 durch eine gemeinsame SSOT (`tests/e2e/_gherkin.py`) behoben, die beide Parser seither nutzen.
+- Der Traceability-Check (`scripts/check_bdd_traceability.py`) ist unabhängig nutzbar und deckt schon heute eine reale Lücke ab (Docstring-Drift bei den klassischen Tests), die vorher unsichtbar war.
 - Automatisch aus dem Steptext abgeleitete Screenshots senken den Pflegeaufwand künftiger Szenarien gegenüber hand-platzierten `screenshot(...)`-Aufrufen.
 - Die Reusability-These ist nicht behauptet, sondern gemessen: 9 von 11 Bindungen sind nach Parametrisierung wörtlich wiederverwendbar.
 
