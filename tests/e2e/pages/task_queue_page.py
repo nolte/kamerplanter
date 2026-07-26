@@ -458,6 +458,29 @@ class TaskQueuePage(BasePage):
             time.sleep(1.0)
         return None
 
+    def wait_for_task_gone_by_name(
+        self,
+        name: str,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> bool:
+        """Poll the queue (reloading each time) until no task named *name* is listed.
+
+        The queue endpoint returns ``status == 'pending'`` tasks only
+        (``TaskService.get_task_queue`` -> ``get_pending_tasks``), so a completed
+        or skipped task must leave the queue. The refetch that follows a quick
+        action is asynchronous, so a single read can still show the stale card;
+        the reload-poll keys the assertion on a durable, server-confirmed state
+        (e2e-test-stability §D). Returns ``True`` once the card is gone.
+        """
+        deadline = time.time() + timeout
+        while True:
+            self.open()
+            if not self.has_task_with_name(name):
+                return True
+            if time.time() >= deadline:
+                return False
+            time.sleep(1.0)
+
     # ── Generate reminders ─────────────────────────────────────────────
 
     def click_generate_reminders(self) -> None:

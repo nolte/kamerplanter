@@ -109,16 +109,16 @@ def create_care_task(
        The ``due today`` + ``priority="high"`` combination is **load-bearing for
        another test's stability**, not cosmetic. A due-today task lands in the
        queue's ``today`` urgency group, which renders at (or very near) the head
-       of the shared ``mein-garten`` queue, and ``priority="high"`` marks it as
-       the kind of task a quick-action test reaches for first. Every test that
-       grabs "the first task" -- e.g.
-       ``test_req006_task_queue.py::TestTaskQueueQuickActions``, which starts,
-       completes and skips ``get_task_keys()[0]`` -- therefore mutates whatever
-       task this helper created last. That is the cause of the cross-test
-       interference tracked in **issue #791** (TC-REQ-022-038 finds its own task
-       already ``in_progress``). Changing these defaults, the due date, or the
-       queue's ordering shifts that coupling: re-check #791 and the queue-head
-       consumers before you do.
+       of the shared ``mein-garten`` queue. Any test that grabs "the first task"
+       and then *mutates* it therefore mutates whatever task this helper created
+       last. That was the cause of the cross-test interference tracked in
+       **issue #791**: ``test_req006_task_queue.py::TestTaskQueueQuickActions``
+       started, completed and skipped ``get_task_keys()[0]``, so TC-REQ-022-038
+       found its own task already ``in_progress``. Those three tests now
+       self-provision, but the coupling itself still exists for any future
+       queue-head mutator, and changing these defaults, the due date, or the
+       queue's ordering shifts it: re-check #791 and the queue-head consumers
+       (``get_task_keys()``, ``get_first_task_card()``) before you do.
     """
     # Fill and submit the create dialog. Under heavy parallel load (xdist) the
     # queue behind the dialog can render slowly enough to delay a dialog field
