@@ -7,8 +7,11 @@ so the auto-create race can no longer mint duplicate singletons.
 
 Covered:
   * a volume with duplicate singletons in BOTH collections collapses onto the
-    most-recent-``updated_at`` survivor AND the index is promoted to unique;
+    most-recent-``updated_at`` survivor AND the index is promoted to unique+sparse;
   * survivor tie-break falls back to the smallest ``_key`` when timestamps match;
+  * documents WITHOUT a ``user_key`` (missing/``null``/``""``) are never
+    collapsed — AQL groups them as one ``null`` group across different users —
+    and are reported per collection instead (SEC-005);
   * idempotency — a re-run finds no duplicates and the unique index already
     present (``changed == 0``);
   * dry-run writes nothing — neither the losers nor the index are touched;
@@ -72,10 +75,16 @@ class _FakeAql:
         store = self._db.cols.get(collection, {})
 
         if "COLLECT uk = doc.user_key" in query:
+            # AQL collects a *missing* attribute as null — modelled with .get().
             groups: dict[str, list[dict]] = {}
             for doc in store.values():
                 groups.setdefault(doc.get("user_key"), []).append(doc)
+            if 'FILTER uk != null AND uk != ""' in query:
+                groups = {uk: docs for uk, docs in groups.items() if uk not in (None, "")}
             return iter([{"user_key": uk, "docs": list(docs)} for uk, docs in groups.items() if len(docs) > 1])
+
+        if "doc.user_key == null" in query:
+            return iter([key for key, doc in store.items() if doc.get("user_key") in (None, "")])
 
         if "REMOVE key IN" in query:
             for key in bind_vars["keys"]:
@@ -114,8 +123,20 @@ def _non_unique_index(collection: str) -> dict:
 
 
 def _unique_index(collection: str) -> dict:
+    """The migration's target index: unique **and** sparse."""
     return {
         "id": f"{collection}/uk_unique",
+        "type": "persistent",
+        "fields": list(_INDEX_FIELDS),
+        "unique": True,
+        "sparse": True,
+    }
+
+
+def _unique_non_sparse_index(collection: str) -> dict:
+    """A unique but non-sparse index — the shape a pre-fix bootstrap created."""
+    return {
+        "id": f"{collection}/uk_unique_nonsparse",
         "type": "persistent",
         "fields": list(_INDEX_FIELDS),
         "unique": True,
@@ -172,6 +193,89 @@ def _user_key_indexes(db: _FakeDb, collection: str) -> list[dict]:
         for idx in db.collection(collection).indexes()
         if idx.get("type") == "persistent" and idx.get("fields") == list(_INDEX_FIELDS)
     ]
+
+
+def _unassigned_db() -> _FakeDb:
+    """A legacy volume whose documents carry no usable ``user_key``.
+
+    ``up_missing``/``up_null`` predate the field (AQL collects both as ``null``),
+    ``up_blank`` carries the empty-string sentinel — three documents of three
+    *different*, unknowable users. ``u1`` additionally has a real duplicate pair,
+    which must still be collapsed.
+    """
+    return _FakeDb(
+        cols={
+            col.USER_PREFERENCES: {
+                "up_missing": {"_key": "up_missing", "updated_at": "2026-01-01T00:00:00+00:00"},
+                "up_null": {"_key": "up_null", "user_key": None, "updated_at": "2026-02-01T00:00:00+00:00"},
+                "up_blank": {"_key": "up_blank", "user_key": "", "updated_at": "2026-03-01T00:00:00+00:00"},
+                "up_a": {"_key": "up_a", "user_key": "u1", "updated_at": "2026-01-01T00:00:00+00:00"},
+                "up_b": {"_key": "up_b", "user_key": "u1", "updated_at": "2026-06-01T00:00:00+00:00"},
+            },
+            col.ONBOARDING_STATES: {},
+        },
+        indexes={
+            col.USER_PREFERENCES: [_non_unique_index(col.USER_PREFERENCES)],
+            col.ONBOARDING_STATES: [_non_unique_index(col.ONBOARDING_STATES)],
+        },
+    )
+
+
+class TestUnassignedUserKeyDocuments:
+    """SEC-005 — a missing ``user_key`` must not merge documents across users."""
+
+    def test_documents_without_a_user_key_are_never_removed(self):
+        db = _unassigned_db()
+        report = migration.up(db)
+
+        prefs = db.cols[col.USER_PREFERENCES]
+        # All three unattributable documents survive — collapsing them would have
+        # deleted two users' data irreversibly.
+        assert "up_missing" in prefs
+        assert "up_null" in prefs
+        assert "up_blank" in prefs
+        # The real duplicate pair is still collapsed onto the newest survivor.
+        assert "up_b" in prefs
+        assert "up_a" not in prefs
+
+        assert report.scanned == 1
+        assert report.details[col.USER_PREFERENCES]["removed_losers"] == 1
+        assert report.details[col.USER_PREFERENCES]["unassigned_user_key_docs"] == 3
+
+    def test_dry_run_reports_the_unassigned_group_separately(self):
+        db = _unassigned_db()
+        report = migration.up(db, dry_run=True)
+
+        assert report.details[col.USER_PREFERENCES]["duplicate_losers"] == 1
+        assert report.details[col.USER_PREFERENCES]["unassigned_user_key_docs"] == 3
+        assert len(db.cols[col.USER_PREFERENCES]) == 5
+
+    def test_index_is_created_sparse(self):
+        """Sparse, so attribute-less legacy documents cannot block the constraint."""
+        db = _unassigned_db()
+        migration.up(db)
+
+        indexes = _user_key_indexes(db, col.USER_PREFERENCES)
+        assert len(indexes) == 1
+        assert indexes[0]["unique"] is True
+        assert indexes[0]["sparse"] is True
+
+    def test_non_sparse_unique_index_is_promoted(self):
+        """A pre-fix unique but non-sparse index is replaced, not left alongside."""
+        db = _FakeDb(
+            cols={col.USER_PREFERENCES: {}, col.ONBOARDING_STATES: {}},
+            indexes={
+                col.USER_PREFERENCES: [_unique_non_sparse_index(col.USER_PREFERENCES)],
+                col.ONBOARDING_STATES: [_unique_non_sparse_index(col.ONBOARDING_STATES)],
+            },
+        )
+        migration.up(db)
+
+        for collection in _SINGLETON_COLLECTIONS:
+            indexes = _user_key_indexes(db, collection)
+            assert len(indexes) == 1
+            assert indexes[0]["unique"] is True
+            assert indexes[0]["sparse"] is True
 
 
 class TestCollapseAndPromote:
@@ -241,7 +345,7 @@ class TestDryRun:
             indexes = _user_key_indexes(db, collection)
             assert len(indexes) == 1
             assert indexes[0]["unique"] is False
-            assert report.details[collection]["will_create_unique_index"] is True
+            assert report.details[collection]["will_create_sparse_unique_index"] is True
             assert report.details[collection]["will_drop_redundant_indexes"] == 1
 
 
