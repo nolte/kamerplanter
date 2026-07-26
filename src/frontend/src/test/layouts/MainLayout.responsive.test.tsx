@@ -129,6 +129,17 @@ describe('MainLayout — horizontal overflow beside the persistent drawer (UI-NF
     expect(mainStyle.width).not.toBe('100%');
   });
 
+  it('animates the property that actually changes on a drawer toggle', () => {
+    stubViewportWidth(820);
+    renderWithProviders(<MainLayout />, { store: storeWithSidebar(true) });
+
+    // `main` used to declare `transition: margin …` although it never sets a
+    // margin — an inert declaration, while the docked drawer placeholder that
+    // does change jumped 240px → 0 in one frame beside the sliding paper.
+    expect(window.getComputedStyle(mainRegion()).transition).not.toContain('margin');
+    expect(window.getComputedStyle(screen.getByTestId('sidebar')).transition).toContain('width');
+  });
+
   it('leaves the mobile layout untouched — the drawer overlays instead of docking', () => {
     // < md: the drawer is temporary (a Modal, position: fixed), so it is not an
     // in-flow flex sibling and main occupies the full viewport width. This is the
