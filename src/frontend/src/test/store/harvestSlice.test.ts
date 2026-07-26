@@ -28,6 +28,9 @@ const baseState = {
   quality: null,
   yieldMetric: null,
   readiness: null,
+  readinessPlantKey: null,
+  readinessLoading: false,
+  readinessError: null,
   loading: false,
   error: null,
 };
@@ -118,10 +121,62 @@ describe('harvestSlice', () => {
     expect(state.observations).toEqual(observations);
   });
 
+  it('fetchReadiness.pending records the requested plant and clears stale data', () => {
+    const state = reducer(
+      { ...baseState, readiness: { ready: true } as never, readinessPlantKey: 'other', readinessError: 'old' },
+      { type: fetchReadiness.pending.type, meta: { arg: 'pl1' } },
+    );
+    expect(state.readinessLoading).toBe(true);
+    expect(state.readinessError).toBeNull();
+    // The previous plant's assessment must not survive into the new request.
+    expect(state.readiness).toBeNull();
+    expect(state.readinessPlantKey).toBe('pl1');
+  });
+
   it('fetchReadiness.fulfilled stores the readiness assessment', () => {
     const readiness = { ready: true };
-    const state = reducer(undefined, { type: fetchReadiness.fulfilled.type, payload: readiness });
+    const state = reducer(
+      { ...baseState, readinessPlantKey: 'pl1', readinessLoading: true },
+      { type: fetchReadiness.fulfilled.type, payload: readiness, meta: { arg: 'pl1' } },
+    );
     expect(state.readiness).toEqual(readiness);
+    expect(state.readinessLoading).toBe(false);
+  });
+
+  it('fetchReadiness.fulfilled ignores a response superseded by a newer request', () => {
+    const state = reducer(
+      { ...baseState, readinessPlantKey: 'pl2', readinessLoading: true },
+      { type: fetchReadiness.fulfilled.type, payload: { ready: true }, meta: { arg: 'pl1' } },
+    );
+    expect(state.readiness).toBeNull();
+    expect(state.readinessLoading).toBe(true);
+  });
+
+  it('fetchReadiness.rejected stores a readiness-scoped error', () => {
+    const state = reducer(
+      { ...baseState, readinessPlantKey: 'pl1', readinessLoading: true },
+      { type: fetchReadiness.rejected.type, error: { message: 'Readiness fail' }, meta: { arg: 'pl1' } },
+    );
+    expect(state.readinessError).toBe('Readiness fail');
+    expect(state.readinessLoading).toBe(false);
+    // The shared list error must stay untouched.
+    expect(state.error).toBeNull();
+  });
+
+  it('fetchReadiness.rejected falls back to a default message', () => {
+    const state = reducer(
+      { ...baseState, readinessPlantKey: 'pl1' },
+      { type: fetchReadiness.rejected.type, error: {}, meta: { arg: 'pl1' } },
+    );
+    expect(state.readinessError).toBe('errors.loadFailed');
+  });
+
+  it('fetchReadiness.rejected ignores a superseded failure', () => {
+    const state = reducer(
+      { ...baseState, readinessPlantKey: 'pl2' },
+      { type: fetchReadiness.rejected.type, error: { message: 'stale' }, meta: { arg: 'pl1' } },
+    );
+    expect(state.readinessError).toBeNull();
   });
 });
 
@@ -193,5 +248,15 @@ describe('harvestSlice thunks', () => {
     await store.dispatch(fetchReadiness('pl1'));
     expect(mocked.assessReadiness).toHaveBeenCalledWith('pl1');
     expect(store.getState().harvest.readiness).toEqual({ ready: true });
+    expect(store.getState().harvest.readinessPlantKey).toBe('pl1');
+    expect(store.getState().harvest.readinessLoading).toBe(false);
+  });
+
+  it('fetchReadiness surfaces a rejection as the readiness error', async () => {
+    mocked.assessReadiness.mockRejectedValue(new Error('readiness down'));
+    const store = makeHarvestStore();
+    await store.dispatch(fetchReadiness('pl1'));
+    expect(store.getState().harvest.readinessError).toBe('readiness down');
+    expect(store.getState().harvest.readiness).toBeNull();
   });
 });
