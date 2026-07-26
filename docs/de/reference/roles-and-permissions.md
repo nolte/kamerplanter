@@ -50,7 +50,7 @@ Das künftige Modell trennt zwei Fragen, die heute in einer einzigen Rangfolge s
 |----------------|-------------|-------------|
 | **Beobachter** | Lesen, drucken, exportieren | Buchhaltung, Prüfung, Angehörige, Anzeige-Bildschirm |
 | **Gärtner** | Zusätzlich anlegen, ändern, dokumentieren — aber **nicht löschen** | Vereinsmitglied, Schüler, Saisonkraft, angelernte Hilfe |
-| **Leitung** | Zusätzlich löschen, Aufgaben an andere zuweisen, die Standortstruktur umbauen, Vorlagen pflegen | Parzellenwart, Meister, Betriebsleitung |
+| **Leitung** | Zusätzlich löschen, Aufgaben an andere zuweisen, die Standortstruktur anlegen und umbauen, Vorlagen pflegen | Parzellenwart, Meister, Betriebsleitung |
 
 Die Grenze zwischen Gärtner und Leitung verläuft entlang der Umkehrbarkeit: Ein Gärtner wird Fehler korrigieren können, indem er einen Wert überschreibt — Historie vernichten wird er nicht können.
 
@@ -71,7 +71,7 @@ Der praktische Gewinn: Rechte lassen sich künftig einzeln vergeben statt nur im
 |---------|:-----:|:-------:|:----------:|
 | Alle Daten des Gartens lesen | Ja | Ja | Ja |
 | Pflanzen anlegen, bearbeiten, entfernen | Ja | Ja† | Nein |
-| Standorte, Bereiche und Stellplätze anlegen und bearbeiten | Ja | Ja† | Nein |
+| Standorte, Bereiche und Stellplätze anlegen und bearbeiten | Ja | Ja‡ | Nein |
 | Pflanzdurchläufe anlegen und weiterschalten | Ja | Ja | Nein |
 | Aufgaben erstellen und erledigen | Ja | Ja | Nein |
 | Ernten und Nacherntedaten dokumentieren | Ja | Ja | Nein |
@@ -88,7 +88,9 @@ Der praktische Gewinn: Rechte lassen sich künftig einzeln vergeben statt nur im
 
 *Als einziger Admin kannst du den Garten nicht verlassen, ohne vorher ein anderes Mitglied zum Admin zu machen — sonst bliebe der Garten ohne Verwaltung zurück.
 
-†Diese beiden Zeilen ändern sich mit dem überarbeiteten Modell: Löschen und der Umbau der Standortstruktur werden der Leitung vorbehalten sein, Anlegen und Bearbeiten bleiben beim Gärtner. <!-- REQ-049 §2.3 -->
+†Mit dem überarbeiteten Modell wandert bei Pflanzen nur das **Entfernen** zur Leitung; Anlegen und Bearbeiten bleiben beim Gärtner. <!-- REQ-049 §2.3 -->
+
+‡Diese Zeile wandert vollständig zur Leitung: Anlegen und Umbau der Standortstruktur werden dort gebündelt. <!-- REQ-049 §2.3, §4.1 -->
 
 ### Wer darf Mitglieder verwalten?
 

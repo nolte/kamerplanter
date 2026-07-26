@@ -50,7 +50,7 @@ The future model separates two questions that today sit inside a single ranking:
 |-------------|--------------------|--------------|
 | **Viewer** | Read, print, export | Bookkeeping, audit, relatives, display screen |
 | **Grower** | Additionally create, change and document — but **not delete** | Association member, student, seasonal help, trainee |
-| **Lead** | Additionally delete, assign tasks to others, rebuild the location structure, maintain templates | Plot warden, foreman, operations lead |
+| **Lead** | Additionally delete, assign tasks to others, create and rebuild the location structure, maintain templates | Plot warden, foreman, operations lead |
 
 The line between grower and lead follows reversibility: a grower will be able to correct a mistake by overwriting a value — they will not be able to destroy history.
 
@@ -71,7 +71,7 @@ The practical gain: rights become grantable individually instead of only as a bu
 |------|:-----:|:------:|:------:|
 | Read all data in the garden | Yes | Yes | Yes |
 | Create, edit and remove plants | Yes | Yes† | No |
-| Create and edit sites, areas and slots | Yes | Yes† | No |
+| Create and edit sites, areas and slots | Yes | Yes‡ | No |
 | Create planting runs and advance their phases | Yes | Yes | No |
 | Create and complete tasks | Yes | Yes | No |
 | Document harvests and post-harvest data | Yes | Yes | No |
@@ -88,7 +88,9 @@ The practical gain: rights become grantable individually instead of only as a bu
 
 *As the only admin you cannot leave the garden without first promoting another member to admin — otherwise the garden would be left without administration.
 
-†These two rows change with the revised model: deleting and rebuilding the location structure will be reserved for the lead, while creating and editing stay with the grower. <!-- REQ-049 §2.3 -->
+†With the revised model, only **removing** a plant moves to the lead; creating and editing stay with the grower. <!-- REQ-049 §2.3 -->
+
+‡This row moves to the lead in full: creating and rebuilding the location structure are bundled there. <!-- REQ-049 §2.3, §4.1 -->
 
 ### Who May Manage Members?
 
