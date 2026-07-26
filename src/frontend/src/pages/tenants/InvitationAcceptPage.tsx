@@ -60,7 +60,7 @@ export default function InvitationAcceptPage() {
               <Typography variant="h6" gutterBottom>
                 {t('pages.tenants.invitationFailed')}
               </Typography>
-              <Typography color="text.secondary" data-testid="invitation-error-detail">
+              <Typography color="text.secondary" role="alert" data-testid="invitation-error-detail">
                 {error}
               </Typography>
               <Button variant="outlined" onClick={() => navigate('/dashboard')} sx={{ mt: 2 }}>
