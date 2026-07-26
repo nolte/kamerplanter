@@ -49,7 +49,7 @@ describe('notification channel i18n consistency', () => {
   });
 
   it('marks the pwa channel label as device-scoped in both locales', () => {
-    expect(settings(de).channelPwa.toLowerCase()).toContain('geraet');
+    expect(settings(de).channelPwa.toLowerCase()).toContain('gerät');
     expect(settings(en).channelPwa.toLowerCase()).toContain('device');
   });
 });
