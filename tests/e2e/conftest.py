@@ -23,6 +23,7 @@ except ImportError:
     ChromeDriverManager = None  # type: ignore[assignment,misc]
     GeckoDriverManager = None  # type: ignore[assignment,misc]
 
+from ._gherkin import iter_tags as _iter_gherkin_tags
 from .pages.plant_instance_detail_page import PlantInstanceDetailPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
 from .pages.watering_log_list_page import WateringLogListPage
@@ -171,9 +172,6 @@ _TC_ID_STRICT = _pp_mod.TC_ID_PATTERN
 # is a hard UsageError naming the tag and its file, mirroring the FEATURES typo
 # guard in pytest_collection_modifyitems.
 _LEGACY_MARKERS = ("smoke", "core_crud", "requires_auth", "requires_desktop")
-# A Gherkin tag line: only ``@tag`` tokens, nothing else (keeps ``@`` inside
-# step text or docstrings from being mistaken for a tag).
-_TAG_LINE = re.compile(r"^\s*@\S+(?:[ \t]+@\S+)*[ \t]*$")
 _REQ_TAG_PATTERN = re.compile(r"req\d{3}")
 
 
@@ -188,18 +186,23 @@ def _is_known_tag(tag: str) -> bool:
 
 
 def _collect_feature_tags(features_dir: Path) -> dict[str, list[str]]:
-    """Map every tag found in ``features/**/*.feature`` to the files declaring it."""
+    """Map every tag found in ``features/**/*.feature`` to the files declaring it.
+
+    Line classification is delegated to ``_gherkin`` — the single source of truth
+    shared with ``scripts/check_bdd_traceability.py`` — rather than re-matching a
+    local tag regex here. That matters beyond DRY: the naive "does this line look
+    like ``@tag @tag``?" test also fires on a line *inside* a Gherkin docstring,
+    where ``@example`` is prose. The phantom tag then fails ``_is_known_tag``
+    below and turns ``pytest_configure`` into a collection abort (exit 2) that
+    takes all ~720 E2E tests with it — a suite-wide outage caused by a comment.
+    ``iter_tags`` carries the docstring state that keeps that from happening.
+    """
     tags: dict[str, list[str]] = {}
     if not features_dir.is_dir():
         return tags
     for feature_file in sorted(features_dir.glob("**/*.feature")):
-        for line in feature_file.read_text(encoding="utf-8").splitlines():
-            if not _TAG_LINE.match(line):
-                continue
-            for token in line.split():
-                name = token[1:]
-                if name:
-                    tags.setdefault(name, []).append(feature_file.name)
+        for _lineno, name in _iter_gherkin_tags(feature_file.read_text(encoding="utf-8")):
+            tags.setdefault(name, []).append(feature_file.name)
     return tags
 
 
