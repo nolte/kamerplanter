@@ -169,9 +169,10 @@ It parses `features/**/*.feature` and the `## TC-…: <title>` headings in
 The reverse direction is **not** a defect: a declared test case without a
 scenario is simply not automated yet (1 of 2173 today), so it is reported as an
 informational count. The script reuses `protocol_plugin.py::TC_ID_PATTERN`
-rather than restating the ID shape, and needs no third-party package. It is
-deliberately **not** wired into a CI gate — run it locally, or in review, when
-touching `.feature` files.
+for the ID shape and `_gherkin.py` for Gherkin line classification (tag lines,
+docstring state) rather than restating either, and needs no third-party package.
+It is deliberately **not** wired into a CI gate — run it locally, or in review,
+when touching `.feature` files.
 
 ### 4. Legacy suites (unchanged)
 

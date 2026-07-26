@@ -20,16 +20,27 @@ without a scenario is simply not automated yet (one of ~90 REQ-004 cases is a
 BDD scenario today). Those are reported as an informational count only, so the
 check does not fail permanently from day one.
 
-The strict TC-ID shape is not restated here — it is imported from
-``tests/e2e/protocol_plugin.py::TC_ID_PATTERN``, the single source of truth that
-``tests/e2e/conftest.py`` already shares, so the tag validation in the test run
-and the traceability check here cannot drift apart.
+Neither of the two shapes this check depends on is restated here; both are
+loaded from the single source of truth that the test run itself uses, so the
+check and the suite cannot drift apart:
+
+* the strict TC-ID pattern comes from
+  ``tests/e2e/protocol_plugin.py::TC_ID_PATTERN``, which ``tests/e2e/conftest.py``
+  already shares;
+* the classification of a Gherkin source line — tag line, comment, docstring
+  payload, content — comes from ``tests/e2e/_gherkin.py``, which
+  ``tests/e2e/conftest.py`` also uses to register its markers.
 
 Standard library only: it must run anywhere the repository is checked out,
-without installing a Gherkin parser. The line-based parse below covers the
-subset of Gherkin this repository writes (tags, ``Feature``, ``Rule``,
-``Background``, ``Scenario``, ``Scenario Outline``, ``Examples``, docstrings,
-and the ``# language:`` header).
+without installing a Gherkin parser and without the E2E extras. Both SSOT
+modules are therefore loaded *by path* (see :func:`load_tc_id_pattern` and
+:func:`load_gherkin_module`) and neither pulls in Selenium or pytest.
+
+The parse below covers the subset of Gherkin this repository writes (tags,
+``Feature``, ``Rule``, ``Background``, ``Scenario``, ``Scenario Outline``,
+``Examples``, docstrings, and the ``# language:`` header). Only the keyword
+dialect is this script's own business — the shared module deliberately stops
+short of it.
 """
 
 from __future__ import annotations
@@ -39,21 +50,20 @@ import importlib.util
 import re
 import sys
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
+from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FEATURE_ROOTS = ("tests/e2e/features",)
 DEFAULT_SPEC_ROOTS = ("spec/e2e-testcases",)
 PROTOCOL_PLUGIN = REPO_ROOT / "tests" / "e2e" / "protocol_plugin.py"
+GHERKIN_MODULE = REPO_ROOT / "tests" / "e2e" / "_gherkin.py"
 
 EXIT_OK = 0
 EXIT_DEFECTS = 1
 EXIT_USAGE = 2
 
-# A Gherkin tag line: only ``@tag`` tokens, nothing else. Same shape as
-# ``conftest.py::_TAG_LINE`` — it keeps an ``@`` inside step text or a docstring
-# from being mistaken for a tag.
-_TAG_LINE = re.compile(r"^\s*@\S+(?:[ \t]+@\S+)*[ \t]*$")
 _LANGUAGE_HEADER = re.compile(r"^\s*#\s*language\s*:\s*([A-Za-z-]+)\s*$")
 
 # A test case in the spec is a Markdown heading of level 2..6 opening with its
@@ -124,15 +134,49 @@ class _ScenarioDraft:
     tags: list[str] = field(default_factory=list)
 
 
-# ── Canonical TC-ID pattern (single source of truth) ─────────────────────────
+# ── Shared single sources of truth, loaded by path ───────────────────────────
+
+
+def _load_module_by_path(module_name: str, path: Path, purpose: str) -> ModuleType:
+    """Execute a module from an explicit file path and return it.
+
+    ``tests/e2e/`` is not an importable package, so a plain ``import`` is not an
+    option — and pulling the repository root onto ``sys.path`` would risk
+    dragging in the E2E ``conftest.py`` (and with it Selenium) on a checkout
+    that has no E2E extras installed. Loading by path keeps the check runnable
+    on a bare clone; it is the same mechanism ``tests/e2e/conftest.py`` uses.
+
+    Args:
+        module_name: Private name to register the module under. It must not
+            collide with the name the module carries under pytest.
+        path: The ``.py`` file to execute.
+        purpose: What the caller needs the module for, used in the error text.
+
+    Returns:
+        The executed module.
+
+    Raises:
+        TraceabilityError: If the file is missing or cannot be loaded.
+    """
+    if not path.is_file():
+        raise TraceabilityError(f"cannot resolve {purpose}: {path} does not exist")
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise TraceabilityError(f"cannot load {path} as a Python module")
+    module = importlib.util.module_from_spec(spec)
+    # Both modules define dataclasses, and ``@dataclass`` resolves its own module
+    # via ``sys.modules`` — so the module must be registered *before* it runs
+    # (same reason conftest.py registers it).
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def load_tc_id_pattern(plugin_path: Path = PROTOCOL_PLUGIN) -> re.Pattern[str]:
     """Import the canonical strict TC-ID pattern from the e2e protocol plugin.
 
-    ``tests/e2e/`` is not an importable package, so the module is loaded by path
-    — the same mechanism ``tests/e2e/conftest.py`` uses. The plugin imports only
-    standard-library modules at import time, so this is side-effect free.
+    The plugin imports only standard-library modules at import time, so this is
+    side-effect free.
 
     Args:
         plugin_path: Path to ``tests/e2e/protocol_plugin.py``.
@@ -143,25 +187,42 @@ def load_tc_id_pattern(plugin_path: Path = PROTOCOL_PLUGIN) -> re.Pattern[str]:
     Raises:
         TraceabilityError: If the plugin is missing or exposes no pattern.
     """
-    if not plugin_path.is_file():
-        raise TraceabilityError(
-            f"cannot resolve the canonical TC-ID pattern: {plugin_path} does not exist"
-        )
-    module_name = "_bdd_traceability_protocol_plugin"
-    spec = importlib.util.spec_from_file_location(module_name, plugin_path)
-    if spec is None or spec.loader is None:
-        raise TraceabilityError(f"cannot load {plugin_path} as a Python module")
-    module = importlib.util.module_from_spec(spec)
-    # The plugin defines dataclasses, and ``@dataclass`` resolves its own module
-    # via ``sys.modules`` — so the module must be registered *before* it runs
-    # (same reason conftest.py registers it). The name is private to this script,
-    # so it cannot collide with the plugin's own registration under pytest.
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
+    module = _load_module_by_path(
+        "_bdd_traceability_protocol_plugin", plugin_path, "the canonical TC-ID pattern"
+    )
     pattern = getattr(module, "TC_ID_PATTERN", None)
     if not isinstance(pattern, re.Pattern):
         raise TraceabilityError(f"{plugin_path} exposes no TC_ID_PATTERN — cannot validate tags")
     return pattern
+
+
+@lru_cache(maxsize=1)
+def load_gherkin_module(module_path: Path = GHERKIN_MODULE) -> ModuleType:
+    """Import the shared Gherkin line classifier used by the E2E suite.
+
+    ``tests/e2e/_gherkin.py`` owns the tag-line shape and the docstring state
+    machine that this script used to duplicate. It is standard-library only, so
+    loading it costs nothing and drags in no E2E dependency. The result is
+    cached because :func:`parse_feature_file` is called once per ``.feature``.
+
+    Args:
+        module_path: Path to ``tests/e2e/_gherkin.py``.
+
+    Returns:
+        The executed module, exposing ``iter_lines`` and ``GherkinLineKind``.
+
+    Raises:
+        TraceabilityError: If the module is missing or exposes neither symbol.
+    """
+    module = _load_module_by_path(
+        "_bdd_traceability_gherkin", module_path, "the canonical Gherkin line classifier"
+    )
+    missing = [name for name in ("iter_lines", "GherkinLineKind") if not hasattr(module, name)]
+    if missing:
+        raise TraceabilityError(
+            f"{module_path} exposes no {', '.join(missing)} — cannot classify feature lines"
+        )
+    return module
 
 
 # ── Gherkin parsing ──────────────────────────────────────────────────────────
@@ -211,13 +272,26 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
     matching how pytest-bdd turns tags into markers. Tags on an ``Examples:``
     table are attributed to the enclosing scenario outline.
 
+    Line classification — what is a tag line, a comment, or opaque docstring
+    payload — is delegated to the shared ``tests/e2e/_gherkin`` module; only the
+    keyword dialect is interpreted here.
+
     Args:
         path: The ``.feature`` file to read.
         tc_pattern: Canonical strict TC-ID pattern.
 
     Returns:
         The scenarios in source order.
+
+    Raises:
+        TraceabilityError: If the shared Gherkin classifier cannot be loaded.
     """
+    gherkin = load_gherkin_module()
+    kinds = gherkin.GherkinLineKind
+    # Docstring payload may contain anything — a "#", a tag block, a line that
+    # looks like a keyword — and blanks and comments carry no structure either.
+    ignored_kinds = frozenset({kinds.DOCSTRING, kinds.BLANK, kinds.COMMENT})
+
     lines = path.read_text(encoding="utf-8").splitlines()
     dialect = _dialect_for(lines)
 
@@ -226,7 +300,6 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
     feature_tags: tuple[str, ...] = ()
     rule_tags: tuple[str, ...] = ()
     draft: _ScenarioDraft | None = None
-    docstring_delimiter: str | None = None
 
     def close_draft() -> None:
         nonlocal draft
@@ -244,27 +317,15 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
         )
         draft = None
 
-    for lineno, raw in enumerate(lines, start=1):
-        stripped = raw.strip()
-
-        # Gherkin docstrings (""" or ```) may contain anything, including a "#"
-        # or a line that looks like a keyword.
-        if docstring_delimiter is not None:
-            if stripped.startswith(docstring_delimiter):
-                docstring_delimiter = None
-            continue
-        if stripped.startswith('"""') or stripped.startswith("```"):
-            docstring_delimiter = stripped[:3]
+    for line in gherkin.iter_lines(lines):
+        if line.kind in ignored_kinds:
             continue
 
-        if not stripped or stripped.startswith("#"):
+        if line.is_tag:
+            pending_tags.extend(line.tags)
             continue
 
-        if _TAG_LINE.match(raw):
-            pending_tags.extend(token[1:] for token in stripped.split() if len(token) > 1)
-            continue
-
-        keyword = _keyword_of(stripped, dialect)
+        keyword = _keyword_of(line.stripped, dialect)
         if keyword is None:
             # Steps, tables, free-form description: a tag block never survives
             # non-keyword content.
@@ -285,7 +346,7 @@ def parse_feature_file(path: Path, tc_pattern: re.Pattern[str]) -> list[Scenario
             close_draft()
             draft = _ScenarioDraft(
                 name=title,
-                line=lineno,
+                line=line.number,
                 tags=[*feature_tags, *rule_tags, *pending_tags],
             )
         elif kind == "examples" and draft is not None:
