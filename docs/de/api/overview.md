@@ -27,7 +27,7 @@ Das OpenAPI-Dokument lässt sich auf drei Wegen beziehen — welcher passt, hän
 | Weg | Adressat | Bezugsort |
 |-----|----------|-----------|
 | Lokal aus dem Code erzeugen | Entwickler mit lokalem Checkout | `task openapi:export` — schreibt das Dokument reproduzierbar nach `src/backend/openapi.json`, ganz ohne laufende Datenbank oder Backend (gitignored — es ist ein Build-Artefakt und wird nie eingecheckt) |
-| Workflow-Artefakt der CI | Personen mit Zugriff auf die GitHub-Actions-Läufe | Bei jeder Backend-Änderung frisch exportiert, mit [Spectral](https://github.com/stoplightio/spectral) gelintet und als Artefakt der `api-docs`-Lane bereitgestellt |
+| Workflow-Artefakt der CI | Personen mit Zugriff auf die GitHub-Actions-Läufe | Bei jeder Backend-Änderung frisch exportiert und mit [Spectral](https://github.com/stoplightio/spectral) gelintet — Artefakt `openapi` im jeweiligen Lauf der `api-docs`-Lane, Abschnitt „Artifacts" |
 | Release-Asset | Externe Konsumenten ohne Checkout, etwa für Client-Code-Generierung | `https://github.com/nolte/kamerplanter/releases/latest/download/openapi.json` — der empfohlene Weg |
 
 Jeder veröffentlichte Release hängt das aktuelle OpenAPI-Dokument unter dem stabilen, versionslosen Namen `openapi.json` an. Diese Namensgebung ist bewusst gewählt: Nur so bleibt der Dauerlink `releases/latest/download/openapi.json` funktionsfähig und zeigt immer auf die zuletzt veröffentlichte Version.

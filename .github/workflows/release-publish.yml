@@ -46,8 +46,8 @@ jobs:
   # still-draft release first. `gh release upload` resolves the release object
   # by tag name and handles drafts (the tag itself only becomes a git ref at
   # publish time) — the same resolution the reusable's "Resolve draft" step
-  # relies on. The explicit verification step exists so that this assumption
-  # failing ever fails loudly instead of shipping an incomplete release.
+  # relies on. The explicit verification step exists so that if that assumption
+  # ever breaks, the job fails loudly instead of shipping an incomplete release.
   #
   # dry_run: the export still runs (a broken export must surface during a dry
   # run), only upload and verification are skipped via a visible step-level
@@ -62,6 +62,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # Job-level concurrency, deliberately NOT workflow-level and deliberately
+    # NOT the group name `release-publish`: the reusable declares that group for
+    # its own job, and a caller run holding it while the reusable job it calls
+    # queues on the same group would block itself. An own group per tag serialises
+    # two parallel dispatches of the same tag (both would export and upload)
+    # without touching the reusable's group. `cancel-in-progress: false` so an
+    # upload in flight is never cut off half-way.
+    concurrency:
+      group: release-publish-openapi-asset-${{ inputs.tag }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -84,6 +94,34 @@ jobs:
       - name: Export OpenAPI document
         working-directory: src/backend
         run: python -m scripts.export_openapi --out openapi.json
+
+      - name: Resolve the release for the requested tag
+        # Diagnostics only, deliberately narrow in scope: this job now fails
+        # before the reusable's own `Resolve draft` step ever runs, so a typo in
+        # `tag` would otherwise surface as a raw `gh` error without the list of
+        # open drafts that used to make the mistake obvious. This step brings
+        # exactly that list back — nothing more. Do NOT grow it into a copy of
+        # the reusable's validation: the `target_commitish` check against
+        # origin/develop and the "exactly one draft" rule stay the reusable's
+        # responsibility, or the two implementations drift apart.
+        #
+        # Same `if:` as upload and verify: a dry run uploads nothing and so needs
+        # no draft, and it goes on to `publish`, where the reusable emits its own
+        # fuller diagnostics. Both paths keep good error messages.
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --json tagName >/dev/null; then
+            echo "::error::No release with tag '$TAG'. Open drafts:"
+            gh release list --limit 50 --json tagName,isDraft \
+              --jq '.[] | select(.isDraft) | "  - " + .tagName' || true
+            exit 1
+          fi
+          echo "Resolved release $TAG."
 
       - name: Upload OpenAPI document to the draft release
         if: ${{ !inputs.dry_run }}

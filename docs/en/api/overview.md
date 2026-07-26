@@ -27,7 +27,7 @@ There are three ways to get the OpenAPI document — which one fits depends on w
 | Path | Audience | Source |
 |------|----------|--------|
 | Generate locally from the code | Developers with a local checkout | `task openapi:export` — reproducibly writes the document to `src/backend/openapi.json`, no running database or backend required (gitignored — it is a build artifact and is never checked in) |
-| CI workflow artifact | People with access to the GitHub Actions runs | Re-exported on every backend change, linted with [Spectral](https://github.com/stoplightio/spectral), and published as an artifact of the `api-docs` lane |
+| CI workflow artifact | People with access to the GitHub Actions runs | Re-exported on every backend change and linted with [Spectral](https://github.com/stoplightio/spectral) — artifact `openapi` on the corresponding `api-docs` lane run, under "Artifacts" |
 | Release asset | External consumers without a checkout, e.g. for client code generation | `https://github.com/nolte/kamerplanter/releases/latest/download/openapi.json` — the recommended path |
 
 Every published release attaches the current OpenAPI document under the stable, version-less name `openapi.json`. This naming is a deliberate choice: it is the only way the permanent link `releases/latest/download/openapi.json` keeps working and always resolves to the most recently published version.
