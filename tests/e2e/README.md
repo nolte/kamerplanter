@@ -20,10 +20,12 @@ Two GitHub Actions workflows wrap the same compose stack as local runs
 (`docker-compose.e2e.yml` stays the single source of truth for the test
 environment; `scripts/run-e2e.sh` is the shared entrypoint):
 
-- **`e2e-smoke.yml`** — the fast smoke profile (`-m smoke`) on path-filtered
-  pull requests, pushes to `develop`, and manual dispatch. **Non-required**
-  check by design: `static` stays the only required check until the flake
-  behaviour of the E2E jobs is known.
+- **`e2e-smoke.yml`** — the fast smoke profile (`-m smoke`) on every pull
+  request, pushes to `develop`, and manual dispatch. **Required** check on
+  `develop` since ADR-011 / #793, alongside `static / Static CI Tests`. Its
+  `pull_request` trigger deliberately carries no `paths:` filter — a required
+  workflow skipped by path filtering never reports and leaves the pull request
+  stuck; the run/skip decision lives in the workflow's `changes` job instead.
 - **`e2e-nightly.yml`** — the full suite, nightly (01:30 UTC) as a matrix over
   the compose profiles `light`, `full`, `mobile`, `tablet`, `full-mobile`
   (manual dispatch can select a single profile). A failing night files **no**
@@ -32,10 +34,12 @@ environment; `scripts/run-e2e.sh` is the shared entrypoint):
 
 Both jobs always upload `test-reports/e2e/**` (JUnit XML, protocol,
 screenshots, container logs) as workflow artifacts (`e2e-smoke-reports` /
-`e2e-nightly-reports-<profile>`) and write a job summary. In `e2e-nightly`
-that summary is deliberately only a pointer at the artifact — the totals and
-failed test names come from the rendered report below, and were previously
-printed twice. Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
+`e2e-nightly-reports-<profile>`) and write a job summary. That summary is
+deliberately only a pointer at the artifact whenever the rendered report below
+exists — totals and failed test names come from the report, and printing them
+again from `protokoll.md` produced every result twice. `e2e-smoke` still falls
+back to the full protocol excerpt when the rendering did not happen (fork PRs,
+see below). Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
 overlay (BuildKit `gha` cache backend), which CI enables through
 `E2E_COMPOSE_OVERLAYS` — local runs never load it.
 
@@ -63,8 +67,10 @@ only `checks: write` — no `issues: write`, no `pull-requests: write`, no
 
 > **Fork PRs:** the render step (`continue-on-error: true`) cannot create a
 > check run with a fork PR's read-only `GITHUB_TOKEN`, so no rendered check
-> appears there. Fall back to the job summary or download the
-> `junit-*.xml` from the run's artifact.
+> appears there. `e2e-smoke` detects this via `steps.report.outcome` and writes
+> the full protocol excerpt (result overview + failed tests) into the job
+> summary instead, so the results stay visible; the raw `junit-*.xml` is in the
+> run's artifact either way.
 
 The rendered check run and job summary are a CI convenience layer on top of
 the existing reporting — they do **not** replace the Markdown protocol

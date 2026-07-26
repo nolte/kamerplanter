@@ -141,10 +141,13 @@ jobs:
       # Render the JUnit XML produced by the run into a check run + the job
       # summary, so concrete per-test failure messages (assertion text + a
       # short traceback) are visible without digging through raw logs.
-      # `continue-on-error` keeps the (non-required) smoke job from turning red
-      # solely because a fork PR's read-only GITHUB_TOKEN cannot create a check
-      # run; the independent "Job summary" step still surfaces the protocol.
+      # `continue-on-error` keeps this required job from turning red solely
+      # because a fork PR's read-only GITHUB_TOKEN cannot create a check run.
+      # The `id` is load-bearing: the "Job summary" step below reads
+      # `steps.report.outcome` to decide whether the results are already
+      # rendered, or whether it has to surface them from the protocol itself.
       - name: Render E2E test report
+        id: report
         if: always()
         continue-on-error: true
         uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
@@ -158,21 +161,36 @@ jobs:
           fail-on-empty: false
           use-actions-summary: true
 
+      # When the step above rendered the report, it already carries the totals
+      # and the concrete per-test failure messages — restating them from
+      # `protokoll.md` printed every result twice. The protocol excerpt is
+      # therefore only produced when the rendering did NOT happen, which is
+      # exactly the fork-PR case: a read-only GITHUB_TOKEN cannot create the
+      # check run, and this step stays the only place the results show up.
       - name: Job summary
         if: always()
+        env:
+          REPORT_RENDERED: ${{ steps.report.outcome == 'success' }}
         run: |
           {
-            echo "## E2E smoke (light)"
-            PROTOCOL=$(find test-reports/e2e -name protokoll.md | head -1)
-            if [ -n "$PROTOCOL" ]; then
-              # Surface the protocol's result overview (## Zusammenfassung) and,
-              # if present, the failed-tests section headers.
+            PROTOCOL=$(find test-reports/e2e -name protokoll.md -print -quit 2>/dev/null)
+            JUNIT=$(find test-reports/e2e -name 'junit-*.xml' -print -quit 2>/dev/null)
+            if [ "$REPORT_RENDERED" = "true" ] && [ -n "$JUNIT" ]; then
+              echo "**E2E smoke (light)** — full protocol, screenshots and container logs:"
+              echo "see the run's \`e2e-smoke-reports\` artifact."
+            elif [ -n "$PROTOCOL" ]; then
+              # No rendered report (typically a fork PR): surface the protocol's
+              # result overview (## Zusammenfassung) and the failed-tests headers.
+              echo "## E2E smoke (light)"
               awk '/^## Zusammenfassung/{f=1; next} f && /^## /{exit} f{print}' "$PROTOCOL"
               awk '/^## Fehlgeschlagene Tests/{f=1} f && /^## Testergebnisse/{exit} f && /^###? /{print}' "$PROTOCOL"
               echo ""
               echo "Full protocol, screenshots and container logs: see the run's \`e2e-smoke-reports\` artifact."
             else
-              echo "No test protocol was generated (run failed before pytest)."
+              echo "## E2E smoke (light)"
+              echo ""
+              echo "No test protocol was generated (the run failed before pytest)."
+              echo "See the job log and the \`e2e-smoke-reports\` artifact."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
