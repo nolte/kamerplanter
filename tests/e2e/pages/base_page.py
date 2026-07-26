@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 from selenium.common.exceptions import (
@@ -19,6 +21,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 DEFAULT_TIMEOUT = 15
+
+#: A Selenium locator: ``(By.<STRATEGY>, value)``.
+Locator = tuple[str, str]
 
 # German ``d.m.Y`` date, tolerant of zero-padded and numeric parts alike.
 DE_DATE_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
@@ -45,6 +50,34 @@ DIALOG_SELECTOR = ".MuiDialog-root [role='dialog']"
 DIALOG_XPATH = "//*[contains(@class, 'MuiDialog-root')]//*[@role='dialog']"
 
 
+@dataclass(frozen=True)
+class SettledState:
+    """Which of the accepted settled branches a route actually reached.
+
+    Returned by :meth:`BasePage.wait_for_settled` and its wrappers so the reached
+    branch is *queryable* rather than implicit. Waiting for a disjunction without
+    reporting the disjunct is how a test ends up accepting any outcome: a detail
+    route that rendered an `ErrorDisplay` instead of its page root satisfies
+    "one of these appeared" just as well as the happy path, and the assertion
+    that follows then reads an error surface it never meant to accept.
+
+    ``present`` carries *every* branch that was in the DOM at the moment the wait
+    returned, in the order the caller declared them, so a caller can distinguish
+    "only the error branch" from "the page root plus a section-level error".
+    """
+
+    #: The winning branch name -- the first *declared* branch found present.
+    branch: str
+    #: The locator that branch was declared with.
+    locator: Locator
+    #: Every branch found present, in declared order (``branch`` is its head).
+    present: tuple[str, ...]
+
+    def is_branch(self, name: str) -> bool:
+        """Return whether the reached branch is *name*."""
+        return self.branch == name
+
+
 class BasePage:
     """Shared helpers inherited by every page object."""
 
@@ -55,8 +88,45 @@ class BasePage:
     # ── Navigation ────────────────────────────────────────────────────────
 
     def navigate(self, path: str) -> None:
-        """Navigate to *path* relative to the base URL."""
+        """Navigate to *path* relative to the base URL.
+
+        **Low-level: a bare ``navigate()`` outside a page object's ``open()`` is
+        a review finding.** It returns as soon as the document is loaded, which
+        for this SPA means "the app shell exists" -- the route's lazily-imported
+        chunk and its first fetch are both still in flight, so *every* read that
+        follows is a race. Use a page object's ``open()``, or
+        :meth:`navigate_direct` when the target key is deliberately invalid and
+        no ``open()`` accepts it. ``tests/e2e_selftest/test_navigation_contract.py``
+        holds the (shrink-only) list of the sites that still violate this.
+        """
         self.driver.get(f"{self.base_url}{path}")
+
+    def navigate_direct(
+        self,
+        path: str,
+        settled: Locator,
+        *,
+        what: str | None = None,
+        extra: Mapping[str, Locator] | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> SettledState:
+        """Navigate to an arbitrary *path* and wait until the route settled.
+
+        *settled* is mandatory rather than optional: the callers of this helper
+        are the "deliberately invalid key" and "no-access-control" tests, and
+        every one of them asserts that the route rendered a *particular* shape.
+        "No error is on screen" is trivially true of a route that has not
+        mounted yet -- a lazily-imported chunk still in flight leaves the app
+        chrome alone in the DOM, so an unwaited negative assertion cannot fail.
+
+        Returns the reached :class:`SettledState` rather than ``None`` so the
+        caller can assert *which* branch it got (``require_branch``) instead of
+        accepting the page root and the error surface interchangeably.
+        """
+        self.navigate(path)
+        return self.wait_for_page_settled(
+            settled, what or f"route {path}", extra=extra, timeout=timeout
+        )
 
     # ── Waits ─────────────────────────────────────────────────────────────
 
@@ -93,6 +163,19 @@ class BasePage:
     ERROR_DISPLAY = (By.CSS_SELECTOR, "[data-testid='error-display']")
     #: `ErrorPage` — the whole-route error/not-found surface (404, 500, ...).
     ERROR_PAGE = (By.CSS_SELECTOR, "[data-testid='error-page']")
+    #: `EmptyState` — the "this collection has no entries" branch. A legitimate
+    #: settled state of a list route, and emphatically *not* the same thing as
+    #: "not loaded yet", which is why it has to be a *named branch* rather than
+    #: an absence: a reader that treats both as "no rows" cannot fail.
+    EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
+
+    # ── Branch names ──────────────────────────────────────────────────────
+    # Constants rather than bare strings so an assertion on a reached branch
+    # cannot typo the name into a comparison that is silently never true.
+    BRANCH_CONTENT = "content"
+    BRANCH_ERROR = "error-display"
+    BRANCH_ERROR_PAGE = "error-page"
+    BRANCH_EMPTY = "empty-state"
 
     def wait_for_loading_complete(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until no ``[data-testid='loading-skeleton']`` is visible.
@@ -118,54 +201,280 @@ class BasePage:
           route settles into a page root **or** an `ErrorDisplay`; the skeleton
           being gone is common to both and to neither-yet.
 
-        Use :meth:`wait_for_any_present` (or a plain
-        :meth:`wait_for_element` on the content itself) to key the read on the
-        content that must actually be there.
+        Prefer :meth:`wait_for_content` / :meth:`wait_for_page_settled` (or a
+        plain :meth:`wait_for_element` on the content itself) to key the read on
+        the content that must actually be there. :meth:`wait_for_skeleton_gone`
+        is the *meaningful* form of this wait: identical poll, but only legal
+        once a settled branch is already present, which is what makes the
+        absence it observes falsifiable.
         """
         WebDriverWait(self.driver, timeout).until(
             EC.invisibility_of_element_located(self.LOADING_SKELETON)
         )
 
-    def wait_for_any_present(
+    # ── Branch-aware settling ─────────────────────────────────────────────
+    # The strong replacement for `wait_for_loading_complete`. Three properties
+    # the weak wait lacks, per `e2e-test-stability` §D:
+    #
+    #   1. It keys on the **presence** of the content the caller is about to
+    #      read, so it cannot be satisfied before that content exists. An
+    #      absence poll cannot distinguish "not loaded yet" from "correctly
+    #      absent" and is therefore not a valid assertion.
+    #   2. It accepts an explicit **disjunction of named outcomes** -- a route
+    #      legitimately settles into its page root *or* an `ErrorDisplay` *or*
+    #      an `EmptyState` -- and reports **which** one was reached, so a test
+    #      asserts the branch it meant instead of accepting any of them.
+    #   3. It fails loudly, naming every branch it probed and the branch it did
+    #      find, instead of returning and letting the following read report a
+    #      cause that is nowhere near the real one.
+
+    #: Probes every CSS branch selector in ONE driver round-trip and returns the
+    #: indices that matched. Deliberately JS rather than N× ``find_elements``:
+    #: the session runs with a 3 s implicit wait (see ``conftest.py``), which
+    #: applies to every *empty* ``find_elements`` result, so an N-branch probe
+    #: would cost N×3 s per poll cycle and burn the whole timeout budget on two
+    #: cycles. ``execute_script`` is not subject to the implicit wait.
+    _PROBE_CSS_BRANCHES = (
+        "var sels = arguments[0], out = [];"
+        "for (var i = 0; i < sels.length; i++) {"
+        "  if (document.querySelector(sels[i]) !== null) { out.push(i); }"
+        "}"
+        "return out;"
+    )
+
+    def probe_branches(self, branches: Mapping[str, Locator]) -> tuple[str, ...]:
+        """Return the names of every *branches* entry present in the DOM.
+
+        Order follows the caller's declaration order, not DOM order, so the
+        winner picked by :meth:`resolve_settled_branch` is a property of the
+        caller's contract rather than of the page's markup.
+        """
+        names = list(branches)
+        css_idx = [i for i, name in enumerate(names) if branches[name][0] == By.CSS_SELECTOR]
+        found: set[str] = set()
+        if css_idx:
+            matched = self.driver.execute_script(
+                self._PROBE_CSS_BRANCHES, [branches[names[i]][1] for i in css_idx]
+            )
+            found |= {names[css_idx[int(i)]] for i in (matched or [])}
+        for i, name in enumerate(names):
+            if i not in css_idx and self.driver.find_elements(*branches[name]):
+                found.add(name)
+        return tuple(name for name in names if name in found)
+
+    @staticmethod
+    def resolve_settled_branch(
+        branches: Mapping[str, Locator], present: Sequence[str]
+    ) -> SettledState | None:
+        """Pick the winning branch out of the ones *present*, or ``None``.
+
+        Pure: no driver, no clock -- which is what makes the branch contract
+        unit-testable (``tests/e2e_selftest/``) instead of only observable in a
+        full browser run.
+
+        Resolution is by **declared order**, and that is a deliberate contract
+        rather than an implementation detail. Two branches can be present at
+        once -- a detail page root that renders a section-level `ErrorDisplay`
+        inside one of its tabs is the common case -- and a caller that declares
+        ``{content: PAGE, error: ERROR_DISPLAY}`` is saying "if the page root is
+        there, that is the outcome I am reading; the error only wins when the
+        root is *not* there". Reversing the declaration reverses the precedence.
+        """
+        found = tuple(name for name in branches if name in present)
+        if not found:
+            return None
+        return SettledState(branch=found[0], locator=branches[found[0]], present=found)
+
+    def wait_for_settled(
         self,
-        locators: tuple[tuple[str, str], ...],
+        branches: Mapping[str, Locator],
         what: str,
         timeout: int = DEFAULT_TIMEOUT,
-    ) -> tuple[str, str]:
-        """Wait until at least one of *locators* is in the DOM; return which one.
+        *,
+        require_no_skeleton: bool = True,
+    ) -> SettledState:
+        """Wait until one of the named *branches* is present; return which one.
 
-        The strong sibling of :meth:`wait_for_loading_complete`: it waits for a
-        state that *proves the content exists* rather than for the absence of a
-        placeholder, and it fails loudly — naming every locator it probed — when
-        none appears.
+        *branches* maps a branch name onto the locator that proves it. At least
+        one entry is required -- an empty disjunction is a wait that can never
+        be satisfied *and* never be falsified, so it is rejected outright rather
+        than left to time out with a confusing message.
 
-        The disjunction is the point. A route legitimately settles into more
-        than one shape (a detail page's own root **or** an `ErrorDisplay` for an
-        unknown key), so waiting for just one of them would either time out on a
-        valid outcome or, if skipped entirely, read a half-rendered page. This
-        lets a caller name every settled state it accepts and still be gated on
-        one of them having been reached.
+        With ``require_no_skeleton`` (the default) the wait continues, on the
+        remaining budget, until no `LoadingSkeleton` is visible. That second
+        phase is the *legal* use of the skeleton-absence poll: a settled branch
+        is already on screen, so "no skeleton" now means "the data this page
+        renders has arrived" rather than "React has not got here yet". A page
+        root can mount while its own query skeleton is still up -- that is
+        exactly the window a read must not land in.
         """
-        matched: list[tuple[str, str]] = []
+        if not branches:
+            raise ValueError(
+                "wait_for_settled() needs at least one branch. An empty "
+                "disjunction can neither be satisfied nor falsified."
+            )
+        deadline = time.time() + timeout
+        state: list[SettledState] = []
 
-        def _any(driver: WebDriver) -> bool:
-            for locator in locators:
-                if driver.find_elements(*locator):
-                    matched.append(locator)
-                    return True
-            return False
+        def _settled(_driver: WebDriver) -> bool:
+            resolved = self.resolve_settled_branch(branches, self.probe_branches(branches))
+            if resolved is None:
+                return False
+            state.append(resolved)
+            return True
 
         try:
-            WebDriverWait(self.driver, timeout).until(_any)
+            WebDriverWait(self.driver, timeout).until(_settled)
         except TimeoutException as exc:
-            probed = ", ".join(f"{by}={value!r}" for by, value in locators)
+            probed = ", ".join(f"{name}={value!r}" for name, (_by, value) in branches.items())
             raise AssertionError(
                 f"{what}: none of the expected settled states appeared within "
                 f"{timeout}s (probed {probed}). The route is most likely still "
-                "resolving its lazily-imported chunk -- reading the page here "
-                "would assert against the app chrome alone."
+                "resolving its lazily-imported chunk or its first fetch -- "
+                "reading the page here would assert against the app chrome alone."
             ) from exc
-        return matched[0]
+
+        if require_no_skeleton:
+            self.wait_for_skeleton_gone(
+                f"{what} (branch {state[0].branch!r} reached)",
+                timeout=max(1, int(deadline - time.time())),
+            )
+        return state[0]
+
+    def wait_for_skeleton_gone(self, what: str, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until no `LoadingSkeleton` is visible, and fail loudly if one stays.
+
+        Only meaningful **after** a settled branch is known to be present: on its
+        own this is the unfalsifiable poll of
+        :meth:`wait_for_loading_complete`. With the branch already on screen the
+        absence is falsifiable, so a timeout is a real finding ("the page
+        rendered but its data never arrived") and is raised rather than
+        swallowed.
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.invisibility_of_element_located(self.LOADING_SKELETON)
+            )
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"{what}: a loading skeleton is still visible after {timeout}s. "
+                "The page root rendered but a fetch it displays never resolved, "
+                "so any read here would see placeholder content."
+            ) from exc
+
+    def page_branches(
+        self, page: Locator, *, extra: Mapping[str, Locator] | None = None
+    ) -> dict[str, Locator]:
+        """Return the standard settled-branch map of a data-backed route.
+
+        ``content`` first (see :meth:`resolve_settled_branch` on why order is the
+        contract), then the two error surfaces. *extra* is appended, which is
+        where a list route adds ``{BRANCH_EMPTY: self.EMPTY_STATE}``.
+        """
+        branches = {
+            self.BRANCH_CONTENT: page,
+            self.BRANCH_ERROR: self.ERROR_DISPLAY,
+            self.BRANCH_ERROR_PAGE: self.ERROR_PAGE,
+        }
+        branches.update(extra or {})
+        return branches
+
+    def wait_for_page_settled(
+        self,
+        page: Locator,
+        what: str,
+        *,
+        extra: Mapping[str, Locator] | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
+        require_no_skeleton: bool = True,
+    ) -> SettledState:
+        """Wait until *page* **or** one of the error surfaces settled; report which.
+
+        The everyday form of :meth:`wait_for_settled`: use it whenever the test
+        is willing to see either the page or an error and wants to *assert* on
+        the difference (``state.branch``), and :meth:`wait_for_content` when only
+        the page is acceptable.
+        """
+        return self.wait_for_settled(
+            self.page_branches(page, extra=extra),
+            what,
+            timeout=timeout,
+            require_no_skeleton=require_no_skeleton,
+        )
+
+    def wait_for_content(
+        self,
+        page: Locator,
+        what: str,
+        *,
+        extra: Mapping[str, Locator] | None = None,
+        timeout: int = DEFAULT_TIMEOUT,
+        require_no_skeleton: bool = True,
+    ) -> SettledState:
+        """Wait until *page* rendered, failing loudly if an error surface won instead.
+
+        The right gate for the overwhelmingly common "navigate, then read the
+        page" flow. It differs from ``wait_for_element(page)`` in what happens on
+        the unhappy path: a bare element wait times out after the full budget
+        with "element not found", while this reports *what the app actually
+        showed* -- including the `ErrorDisplay`'s own message -- so the cause is
+        in the first failure line instead of in a screenshot nobody opened yet.
+        """
+        state = self.wait_for_page_settled(
+            page,
+            what,
+            extra=extra,
+            timeout=timeout,
+            require_no_skeleton=require_no_skeleton,
+        )
+        self.require_branch(state, self.BRANCH_CONTENT, what)
+        return state
+
+    def require_branch(self, state: SettledState, expected: str, what: str) -> None:
+        """Fail loudly unless *state* reached the *expected* branch.
+
+        Separate from the wait so a test that legitimately accepts several
+        outcomes can still make the accepted one explicit at the point it reads,
+        which is the difference between "I waited for a disjunction" and "I
+        asserted an outcome".
+        """
+        if state.is_branch(expected):
+            return
+        detail = ""
+        if state.branch in (self.BRANCH_ERROR, self.BRANCH_ERROR_PAGE):
+            detail = f" It reads: {self.get_error_text()!r}."
+        raise AssertionError(
+            f"{what}: expected the {expected!r} branch, but the route settled "
+            f"into {state.branch!r} (present: {', '.join(state.present)}).{detail}"
+        )
+
+    ERROR_MESSAGE = (By.CSS_SELECTOR, "[data-testid='error-message']")
+
+    def get_error_text(self) -> str:
+        """Return the rendered text of whichever error surface is on screen, or ``''``."""
+        for locator in (self.ERROR_MESSAGE, self.ERROR_DISPLAY, self.ERROR_PAGE):
+            elements = self.driver.find_elements(*locator)
+            if elements:
+                return (elements[0].get_attribute("textContent") or "").strip()
+        return ""
+
+    def wait_for_any_present(
+        self,
+        locators: tuple[Locator, ...],
+        what: str,
+        timeout: int = DEFAULT_TIMEOUT,
+    ) -> Locator:
+        """Wait until at least one of *locators* is in the DOM; return which one.
+
+        The positional, un-named form of :meth:`wait_for_settled`, kept for the
+        callers that only need "one of these exists". Prefer the named form when
+        the *identity* of the reached state matters -- which is most of the time,
+        because a disjunction whose disjunct is never inspected accepts the
+        error branch as readily as the happy one.
+        """
+        branches = {f"branch-{i}": locator for i, locator in enumerate(locators)}
+        state = self.wait_for_settled(branches, what, timeout=timeout, require_no_skeleton=False)
+        return state.locator
 
     def wait_for_url_contains(self, fragment: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the current URL contains *fragment*."""
