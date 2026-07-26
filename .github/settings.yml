@@ -7,3 +7,33 @@ repository:
   description: Agricultural technology system for plant lifecycle management
   homepage: https://nolte.github.io/kamerplanter
   topics: agriculture, plant-management, fastapi, react, helm, kubernetes
+
+# Merges by `name` into the commons `develop` block; only the fields below are
+# overridden, everything else stays inherited. The commons deliberately ship
+# `contexts: []` and require each consumer to declare its own required checks
+# here — see spec/project/pull-request-workflow §required status checks, which
+# also forbids adding or removing them through the GitHub UI.
+#
+# Context strings are the check-run names exactly as GitHub reports them, not
+# the workflow file names. A job that calls a reusable workflow reports as
+# "<caller-job-id> / <reusable-job-display-name>", which is where
+# `static / Static CI Tests` comes from; a plain job reports its own `name:`.
+# Verify with `gh api repos/nolte/kamerplanter/branches/develop/protection`
+# after this lands on develop — the Probot Settings App syncs from the default
+# branch, so the change only takes effect once merged.
+#
+# `E2E smoke (compose, light)` is required as of ADR-011. Its workflow carries
+# no trigger path filter: the selection happens in a job-level conditional, so a
+# skipped run reports Success instead of leaving the pull request stuck on
+# "Expected — waiting for status to be reported". Rollback, should the gate
+# prove flaky, is a regular pull request against this file
+# (project/requirements/e2e-smoke-merge-gate.md R7) — never a one-off bypass.
+branches:
+  - name: develop
+    protection:
+      required_status_checks:
+        strict: true
+        contexts:
+          - static / Static CI Tests
+          - E2E smoke (compose, light)
+      enforce_admins: true

@@ -16,3 +16,4 @@ Architecture Decision Records document important architectural decisions — wha
 | [ADR-008](008-zeroconf-mdns-auto-discovery.md) | mDNS/Zeroconf for Home Assistant Auto-Discovery | Accepted | 2026-04-24 |
 | [ADR-009](009-versioned-migration-framework.md) | Versioned Database Migration Framework | Accepted | 2026-07-04 |
 | [ADR-010](010-bdd-e2e-architektur-pytest-bdd.md) | BDD Architecture for the E2E Suite (pytest-bdd) | Accepted | 2026-07-25 |
+| [ADR-011](011-e2e-smoke-merge-gate.md) | E2E Smoke as a Merge Gate for develop | Accepted | 2026-07-26 |
