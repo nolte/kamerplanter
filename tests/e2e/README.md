@@ -26,14 +26,16 @@ environment; `scripts/run-e2e.sh` is the shared entrypoint):
   behaviour of the E2E jobs is known.
 - **`e2e-nightly.yml`** — the full suite, nightly (01:30 UTC) as a matrix over
   the compose profiles `light`, `full`, `mobile`, `tablet`, `full-mobile`
-  (manual dispatch can select a single profile). A failing night opens a
-  GitHub issue labelled `e2e-nightly`; while one is open, further failures
-  only append a comment.
+  (manual dispatch can select a single profile). A failing night files **no**
+  GitHub issue: the run status, the per-profile rendered check runs and the
+  uploaded artifacts carry everything the auto-filed issues used to restate.
 
 Both jobs always upload `test-reports/e2e/**` (JUnit XML, protocol,
 screenshots, container logs) as workflow artifacts (`e2e-smoke-reports` /
-`e2e-nightly-reports-<profile>`) and write a job summary from the generated
-protocol. Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
+`e2e-nightly-reports-<profile>`) and write a job summary. In `e2e-nightly`
+that summary is deliberately only a pointer at the artifact — the totals and
+failed test names come from the rendered report below, and were previously
+printed twice. Image builds are layer-cached via the `docker-compose.e2e.ci.yml`
 overlay (BuildKit `gha` cache backend), which CI enables through
 `E2E_COMPOSE_OVERLAYS` — local runs never load it.
 
@@ -55,9 +57,9 @@ Both CI workflows render that XML with `dorny/test-reporter` into a GitHub
 check run plus a job-summary table with concrete per-test failure messages
 (assertion text + a short traceback) — `e2e-smoke` publishes a single
 "E2E smoke report" check, `e2e-nightly` publishes one
-"E2E nightly — `<profile>`" check per matrix profile (the auto-created
-failure issue links straight to those checks). Both workflows request only
-`checks: write` — no `pull-requests: write`, no `pull_request_target`.
+"E2E nightly — `<profile>`" check per matrix profile. Both workflows request
+only `checks: write` — no `issues: write`, no `pull-requests: write`, no
+`pull_request_target`.
 
 > **Fork PRs:** the render step (`continue-on-error: true`) cannot create a
 > check run with a fork PR's read-only `GITHUB_TOKEN`, so no rendered check

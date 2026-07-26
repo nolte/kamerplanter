@@ -33,7 +33,7 @@ E2E-Suiten sind nach Anforderung (REQ) organisiert. Thematisch gebündelt:
 | Locator | `data-testid`-Attribute (nie CSS-Struktur) |
 
 !!! info "CI: Smoke-Gate pro PR + Nightly-Volllauf"
-    Die Suite läuft auch in GitHub Actions — mit demselben Docker-Compose-Stack wie lokal: Der Workflow `e2e-smoke` führt das schnelle Smoke-Profil bei pfadgefilterten Pull Requests und Pushes nach `develop` aus (bewusst **kein** Pflicht-Check). Der Workflow `e2e-nightly` fährt nächtlich die vollständige Suite als Matrix über die Compose-Profile `light`, `full`, `mobile`, `tablet` und `full-mobile`; ein roter Lauf öffnet automatisch ein GitHub-Issue mit dem Label `e2e-nightly`. Testprotokoll, Screenshots und Container-Logs hängen als Workflow-Artifacts an jedem Lauf.
+    Die Suite läuft auch in GitHub Actions — mit demselben Docker-Compose-Stack wie lokal: Der Workflow `e2e-smoke` führt das schnelle Smoke-Profil bei pfadgefilterten Pull Requests und Pushes nach `develop` aus (bewusst **kein** Pflicht-Check). Der Workflow `e2e-nightly` fährt nächtlich die vollständige Suite als Matrix über die Compose-Profile `light`, `full`, `mobile`, `tablet` und `full-mobile`; ein roter Lauf legt **kein** GitHub-Issue mehr an — Lauf-Status, gerenderter Check-Run je Profil und die Artifacts enthalten alles, was das automatische Issue nur wiederholt hat. Testprotokoll, Screenshots und Container-Logs hängen als Workflow-Artifacts an jedem Lauf.
 
 ## CI-Testberichte
 
