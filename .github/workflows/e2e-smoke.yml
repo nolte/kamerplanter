@@ -51,10 +51,11 @@ jobs:
   # Treat this list as security-relevant and re-check it whenever a new
   # top-level directory appears.
   #
-  # Two filters rather than one: paths-filter evaluates a pattern set as
-  # "matches at least one positive AND no negative", so a file excluded by
-  # `!.github/**` cannot be re-included by a later positive pattern. The E2E
-  # infrastructure workflows are therefore matched by their own filter.
+  # Two filters rather than one: under `predicate-quantifier: every` a file must
+  # satisfy ALL patterns of a filter, so a file excluded by `!.github/**` cannot
+  # be re-included by adding a positive pattern to the same filter. The E2E
+  # infrastructure workflows are therefore matched by their own filter, and the
+  # `smoke` job below ORs the two results.
   changes:
     name: Detect runtime-relevant changes
     if: github.event_name == 'pull_request'
@@ -67,6 +68,14 @@ jobs:
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
+          # `every` is load-bearing. The default is `some`, which ORs a filter's
+          # patterns together — under it the leading `'**'` matches every file
+          # and the `!` entries subtract nothing, so `runtime` is permanently
+          # true and the suite runs on every pull request. Learned the hard way:
+          # PR #795 changed only .github/settings.yml and still ran the suite.
+          # With `every`, a file must satisfy ALL patterns of a filter, which is
+          # what turns the `!` entries into actual exclusions.
+          predicate-quantifier: 'every'
           filters: |
             runtime:
               - '**'
