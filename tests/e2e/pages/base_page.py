@@ -1163,14 +1163,34 @@ class BasePage:
     #: Container `DataTable` emits *only* in the mobile card layout.
     DATA_TABLE_CARDS = (By.CSS_SELECTOR, "[data-testid='data-table-cards']")
 
-    def is_card_layout(self) -> bool:
+    def is_card_layout(self, section: str | None = None) -> bool:
         """Return True while a `DataTable` renders its mobile card layout.
 
         `DataTable` wraps the cards in ``[data-testid='data-table-cards']`` and
         renders that container in no other branch, so this is a durable signal
         -- no viewport arithmetic, no breakpoint duplication in the tests.
+
+        Pass *section* on a page that renders more than one table (#778 C3).
+        Without it the answer is page-global, while `DataTable` decides the
+        layout **per instance**: a page with two tables where only one declares
+        a ``mobileCardRenderer`` reports "card layout" for both, so a reader
+        gated on it would skip a table that is in fact still a table. No current
+        caller hits that shape, which is why this was latent rather than firing
+        -- but the pages that grew a second table since (LocationDetail, TankDetail)
+        make it reachable.
+
+        Args:
+            section: The ``data-table-section`` qualifier of one table
+                (UI-NFR-022 §2.5.1). ``None`` keeps the page-global answer.
         """
-        return len(self.driver.find_elements(*self.DATA_TABLE_CARDS)) > 0
+        if section is None:
+            return len(self.driver.find_elements(*self.DATA_TABLE_CARDS)) > 0
+        scoped = (
+            By.CSS_SELECTOR,
+            f"[data-testid='data-table'][data-table-section='{section}'] "
+            "[data-testid='data-table-cards']",
+        )
+        return len(self.driver.find_elements(*scoped)) > 0
 
     def require_table_layout(self, what: str) -> None:
         """Fail loudly when a column-position-based read is attempted on cards.
