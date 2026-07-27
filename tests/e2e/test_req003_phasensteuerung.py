@@ -174,8 +174,14 @@ class TestPlantInstanceListPage:
             pytest.skip("DataTable not rendered — cannot check column headers")
 
         headers = plant_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found — table may be in mobile card view")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-003-003 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         # The current-phase column label comes from i18n key pages.plantInstances.currentPhase
         # DE translation: "Aktuelle Phase"
@@ -258,8 +264,14 @@ class TestPlantInstanceListPage:
         """
         plant_list.open()
         headers = plant_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-003-007 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-003-007_before-sort", "Plant instance list before sorting")
         plant_list.click_column_header(headers[0])

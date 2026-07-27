@@ -106,6 +106,8 @@ class TestBotanicalFamilyListPage:
         """
         family_list.open()
         names_before = family_list.get_first_column_texts()
+        if len(names_before) < 2:
+            pytest.skip("Sorting is only observable with at least two rows")
 
         family_list.click_column_header("Name")
         family_list.wait_for_loading_complete()
@@ -114,6 +116,16 @@ class TestBotanicalFamilyListPage:
 
         assert family_list.has_sort_chip(), (
             "TC-REQ-001-009 FAIL: Expected sort chip after clicking column header"
+        )
+        # The chip alone says nothing about the data: sorting could be entirely
+        # broken and this test stayed green (#802). The page is already sorted
+        # by Name ascending (`defaultSort`), so clicking that header toggles the
+        # direction and the visible order has to change -- either reversed on a
+        # single page, or a different slice once the 50-row page size bites.
+        names_after = family_list.get_first_column_texts()
+        assert names_after != names_before, (
+            "TC-REQ-001-009 FAIL: Clicking the Name header changed nothing about the row order, "
+            f"so no sort was applied: {names_before[:5]}"
         )
 
     @pytest.mark.core_crud

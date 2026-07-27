@@ -172,8 +172,14 @@ class TestPestListPage:
             pytest.skip("No pests in database to sort")
 
         headers = pest_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-010-006 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-010-006_before-sort", "Pest list before sorting")
         pest_list.click_column_header(headers[0])
@@ -375,8 +381,11 @@ class TestPestCreateDialog:
         Spec: TC-010-011 -- Schaedling erstellen — Dialog abbrechen verwirft Eingaben.
         """
         pest_list.open()
-        initial_names = pest_list.get_first_column_texts()
-
+        # Deliberately no before/after list comparison (#802): the suite runs in
+        # parallel against one stack, so another test creating a pest mid-flight
+        # would fail an equality check that has nothing to do with this case.
+        # The targeted "the cancelled name is absent" assertion below is the
+        # parallel-safe form of the same question.
         pest_list.click_create()
         pest_list.fill_scientific_name("TestOrganism")
         pest_list.fill_common_name("Testname")

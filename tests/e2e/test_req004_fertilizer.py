@@ -192,8 +192,14 @@ class TestFertilizerListPage:
             pytest.skip("No fertilizers to sort")
 
         headers = fertilizer_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-004-006 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         rows_before = fertilizer_list.get_first_column_texts()
         fertilizer_list.click_column_header(headers[0])
@@ -204,19 +210,23 @@ class TestFertilizerListPage:
             "Fertilizer list after clicking column header to sort",
         )
 
-        # FertilizerListPage uses searchable={false}, so the sort-chip is
-        # never rendered.  Verify that sorting was applied by checking
-        # the URL contains sort params or that the row order is valid.
-        current_url = fertilizer_list.driver.current_url
+        # FertilizerListPage uses searchable={false}, so no sort chip is
+        # rendered -- the row order itself is the only evidence available.
         rows_after = fertilizer_list.get_first_column_texts()
-        # At minimum, sorting should not break the page — rows should still render
         assert len(rows_after) > 0, (
             "TC-REQ-004-006 FAIL: Expected table rows to still be present after clicking sort"
         )
-        # Either the URL contains sort_by or the rows changed order
-        assert "sort" in current_url.lower() or rows_after is not None, (
-            "TC-REQ-004-006 FAIL: Expected sort to be applied (sort param in URL or row order unchanged)"
-        )
+        # The previous check here was `"sort" in url or rows_after is not None`,
+        # whose right-hand side is true for every possible list -- so it could
+        # not fail, and the captured `rows_before` was never compared to
+        # anything (#802). `headers[0]` is the column the table already sorts by
+        # (`defaultSort: product_name asc`), so clicking it toggles the
+        # direction and the visible order must change.
+        if len(rows_before) >= 2:
+            assert rows_after != rows_before, (
+                "TC-REQ-004-006 FAIL: Clicking the first column header changed nothing about the "
+                f"row order, so no sort was applied: {rows_before[:5]}"
+            )
 
     @pytest.mark.smoke
     def test_fertilizer_list_showing_count(
@@ -432,6 +442,12 @@ class TestFertilizerCreateDialog:
         assert not fertilizer_list.is_create_dialog_open(), (
             "TC-REQ-004-017 FAIL: Create dialog should be closed after clicking cancel"
         )
+        # The case is "Cancel", so the point is that nothing was persisted --
+        # never asserted before #802.
+        assert fertilizer_list.get_row_count() == initial_count, (
+            f"TC-REQ-004-017 FAIL: Cancelling must create nothing, but the row count went from "
+            f"{initial_count} to {fertilizer_list.get_row_count()}"
+        )
 
         # Re-open — form should be reset
         fertilizer_list.click_create()
@@ -645,6 +661,13 @@ class TestFertilizerDetailPage:
         name_value = detail.get_product_name_field_value()
         assert name_value, (
             "TC-REQ-004-027 FAIL: Expected the product_name field to be pre-filled in the edit tab"
+        )
+        # "pre-fills … from loaded data" -- a non-empty field satisfies neither
+        # half of that. It has to carry *this* fertilizer's name, the one the
+        # details tab shows (#802).
+        assert name_value == title, (
+            f"TC-REQ-004-027 FAIL: The edit tab must pre-fill the loaded fertilizer's name "
+            f"'{title}', but the field holds '{name_value}'"
         )
 
     @pytest.mark.core_crud

@@ -182,10 +182,19 @@ class TestInvitationInvalidToken:
 
         assert result == "error", f"TC-REQ-024-032b FAIL: Expected error state, got: '{result}'"
 
-        # Error detail may or may not be present depending on backend response
-        error_detail = invitation_page.get_error_detail()
-        # We only assert the error state is reached; detail text is optional
         assert invitation_page.is_error(), "TC-REQ-024-032b FAIL: Expected error icon to be visible"
+        # The detail text used to be treated as optional, which made this case a
+        # duplicate of TC-REQ-024-032 -- both only proved "an error happened",
+        # while the name and `Spec:` line promise the *detail* is shown. It was
+        # optional because the locator could never match: `ERROR_DETAIL` used
+        # MUI v4 class naming that MUI 9 does not emit, so the call returned ''
+        # unconditionally (#778 A11). With the product hook in place the
+        # assertion the case was always named for can finally be made.
+        error_detail = invitation_page.get_error_detail()
+        assert error_detail.strip(), (
+            "TC-REQ-024-032b FAIL: Expected the error card to render a detail text explaining "
+            "why the invitation failed, but it was empty"
+        )
 
 
 # -- TC-024-025: Successful acceptance and navigation --------------------------

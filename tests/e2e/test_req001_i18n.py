@@ -120,9 +120,16 @@ class TestSpeciesEnumTranslations:
 
         screenshot("TC-REQ-001-094_species-table", "Species table with enum columns")
 
+        # The enum scan below is only meaningful while the two columns it is
+        # named after are actually rendered: drop them from the table and every
+        # assertion still passes, vacuously (#802).
         headers = species_list.get_column_headers()
+        for expected in ("Wuchsform", "Wurzeltyp"):
+            assert any(expected in h for h in headers), (
+                f"TC-REQ-001-094 FAIL: Expected a '{expected}' column so the enum check has "
+                f"something to inspect, got: {headers}"
+            )
 
-        # Find growth habit and root type columns
         rows = species_list.get_row_texts()
 
         raw_english_enums = {

@@ -156,8 +156,14 @@ class TestNutrientPlanListPage:
             pytest.skip("No nutrient plans to sort")
 
         headers = plan_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-004-035 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         plan_list.click_column_header(headers[0])
         plan_list.wait_for_loading_complete()
@@ -579,6 +585,13 @@ class TestNutrientPlanDetailPage:
         name_value = detail.get_name_field_value()
         assert name_value, (
             "TC-REQ-004-057 FAIL: Expected the name field in the edit tab to be pre-filled with the plan name"
+        )
+        # The assertion message already named the plan; only the check was
+        # missing (#802). A non-empty field is not "pre-filled with the plan
+        # name" -- it has to be *this* plan's name.
+        assert name_value == title, (
+            f"TC-REQ-004-057 FAIL: The edit tab must pre-fill the loaded plan's name '{title}', "
+            f"but the field holds '{name_value}'"
         )
 
     @pytest.mark.core_crud

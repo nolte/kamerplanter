@@ -89,8 +89,10 @@ class PlantingRunDetailPage(BasePage):
         """
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
-        # The page-title inside the detail page container
-        el = self.wait_for_element(
+        # The page-title inside the detail page container. The lookup is the
+        # wait -- `get_text_stable` below re-finds the element, so binding the
+        # result served no purpose, but dropping the call would drop the wait.
+        self.wait_for_element(
             (By.CSS_SELECTOR, "[data-testid='planting-run-detail-page'] [data-testid='page-title']")
         )
         return self.get_text_stable(

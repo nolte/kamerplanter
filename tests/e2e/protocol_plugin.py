@@ -184,7 +184,13 @@ class ProtocolGenerator:
 
     @staticmethod
     def _outcome_icon(outcome: str) -> str:
-        return {"passed": "PASS", "failed": "FAIL", "skipped": "SKIP"}.get(outcome, outcome.upper())
+        return {
+            "passed": "PASS",
+            "failed": "FAIL",
+            "skipped": "SKIP",
+            "xfailed": "XFAIL",
+            "xpassed": "XPASS",
+        }.get(outcome, outcome.upper())
 
     # ── generation ────────────────────────────────────────────────────────
 
@@ -196,6 +202,8 @@ class ProtocolGenerator:
         passed = sum(1 for r in self.results if r.outcome == "passed")
         failed = sum(1 for r in self.results if r.outcome == "failed")
         skipped = sum(1 for r in self.results if r.outcome == "skipped")
+        xfailed = sum(1 for r in self.results if r.outcome == "xfailed")
+        xpassed = sum(1 for r in self.results if r.outcome == "xpassed")
         total = len(self.results)
 
         git_commit = _git("rev-parse", "--short", "HEAD")
@@ -229,16 +237,44 @@ class ProtocolGenerator:
         )
 
         # ── Summary ──────────────────────────────────────────────────────
+        # xfail/xpass are reported separately from pass/skip on purpose (#778
+        # A6): a run that is "green" with 34 xpasses is a different fact from
+        # one green with none, and a marker that keeps xpassing is one that
+        # should be removed.
         lines.extend(
             [
                 "## Zusammenfassung",
                 "",
-                "| Gesamt | Bestanden | Fehlgeschlagen | Übersprungen |",
-                "|--------|-----------|----------------|--------------|",
-                f"| {total} | {passed} | {failed} | {skipped} |",
+                "| Gesamt | Bestanden | Fehlgeschlagen | Übersprungen | XFail | XPass |",
+                "|--------|-----------|----------------|--------------|-------|-------|",
+                f"| {total} | {passed} | {failed} | {skipped} | {xfailed} | {xpassed} |",
                 "",
             ]
         )
+
+        # ── Skips per file ───────────────────────────────────────────────
+        # A single total hides the difference between "98 structural light-mode
+        # skips" and "one class stopped running entirely". Broken down per file,
+        # a class that skips in every run becomes a finding instead of noise.
+        if skipped:
+            per_file: dict[str, int] = {}
+            per_file_total: dict[str, int] = {}
+            for r in self.results:
+                key = self._file_display(r.nodeid)
+                per_file_total[key] = per_file_total.get(key, 0) + 1
+                if r.outcome == "skipped":
+                    per_file[key] = per_file.get(key, 0) + 1
+            lines.extend(
+                [
+                    "### Übersprungene Tests je Datei",
+                    "",
+                    "| Datei | Übersprungen | Tests gesamt |",
+                    "|---|---:|---:|",
+                ]
+            )
+            for key, count in sorted(per_file.items(), key=lambda kv: (-kv[1], kv[0])):
+                lines.append(f"| `{key}` | {count} | {per_file_total[key]} |")
+            lines.append("")
 
         if total > 0:
             pass_pct = passed / total * 100

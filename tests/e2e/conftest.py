@@ -1303,6 +1303,15 @@ def pytest_runtest_makereport(item: pytest.Item) -> None:
             outcome_str = "passed" if not report.failed else "failed"
             if report.skipped:
                 outcome_str = "skipped"
+            # xfail and xpass are recorded as their own outcomes rather than
+            # folded into skipped/passed (#778 A6/A7). A profile reported
+            # "green" with 34 xpasses is a different fact from one green with
+            # none: a marker that keeps xpassing is a marker that should be
+            # removed, and that is invisible while it counts as an ordinary
+            # pass. pytest sets ``wasxfail`` for both directions and downgrades
+            # a non-strict expected failure to ``skipped``.
+            if getattr(report, "wasxfail", None) is not None:
+                outcome_str = "xfailed" if report.skipped else "xpassed"
             # ``longrepr`` survives pytest's xfail downgrade (skipping.py only
             # rewrites ``outcome``), so recording it for an expected failure
             # puts the actual traceback into ``checkpoint.jsonl`` instead of

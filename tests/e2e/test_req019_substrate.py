@@ -93,11 +93,14 @@ class TestSubstrateListPage:
         headers = substrate_list.get_column_headers()
         if len(headers) == 0:
             pytest.skip("No substrates in database — empty state shown instead of DataTable")
-        # At minimum, the table should have Typ and pH columns
+        # The docstring enumerates the expected columns; checking only "pH"
+        # meant losing any of the others kept this green (#802). Matched as
+        # substrings so a unit suffix in the header text does not break it.
         header_text = " ".join(headers)
-        assert any("pH" in h for h in headers), (
-            f"TC-REQ-019-002 FAIL: Expected 'pH' column header, got: {headers}"
-        )
+        for expected in ("Typ", "Bezeichnung", "pH", "EC", "Wiederverwendbar"):
+            assert expected in header_text, (
+                f"TC-REQ-019-002 FAIL: Expected a '{expected}' column header, got: {headers}"
+            )
 
     @pytest.mark.smoke
     def test_create_button_is_visible_on_list_page(
@@ -202,8 +205,14 @@ class TestSubstrateListPage:
         """
         substrate_list.open()
         headers = substrate_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-019-007 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-019-007_before-sort", "Substrate list before sorting")
         substrate_list.click_column_header(headers[0])
@@ -345,6 +354,14 @@ class TestSubstrateCreateDialog:
 
         assert not substrate_list.is_create_dialog_open(), (
             "TC-REQ-019-013 FAIL: Expected dialog to close after successful create"
+        )
+        # A closing dialog is not a created substrate: the row has to appear
+        # (#802). Counted rather than compared by name, because the suite runs
+        # in parallel and another test may add rows of its own -- so this asks
+        # only that the list grew, which a failed create would not do.
+        assert substrate_list.get_row_count() > initial_count, (
+            f"TC-REQ-019-013 FAIL: Creating a substrate must add a row, but the count stayed at "
+            f"{initial_count}"
         )
 
     @pytest.mark.core_crud

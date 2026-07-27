@@ -629,6 +629,12 @@ class TestSiteDetailPage:
         assert key in current_url, (
             f"TC-REQ-002-020 FAIL: Should remain on site detail page after cancel, but URL is '{current_url}'"
         )
+        # "without deleting" is half the case name and was never checked: the
+        # site has to still be there, under its own name (#802).
+        assert site_detail.get_title() == title_before, (
+            "TC-REQ-002-020 FAIL: Cancelling the delete dialog must leave the site untouched, "
+            f"but the title changed from '{title_before}' to '{site_detail.get_title()}'"
+        )
 
     @pytest.mark.core_crud
     def test_site_detail_location_row_navigates(

@@ -328,6 +328,21 @@ class SpeciesDetailPage(BasePage):
     PHASE_NAME_COLUMN_ID = "name"
     #: Row-scoped delete action, emitted per phase key in BOTH layouts.
     PHASE_DELETE_ACTION = (By.CSS_SELECTOR, "[data-testid^='phase-delete-']")
+    #: Row-scoped "open profiles" action, emitted per phase key in BOTH layouts
+    #: (`GrowthPhaseListSection.tsx:191/219`). Keyed rather than positional so a
+    #: managed species -- which renders no actions column at all -- is
+    #: distinguishable from "the profile button moved".
+    PHASE_PROFILE_ACTION = (By.CSS_SELECTOR, "[data-testid^='phase-profile-']")
+
+    def get_phase_profile_keys(self) -> list[str]:
+        """Return the phase key behind every visible "open profiles" action."""
+        prefix = "phase-profile-"
+        keys = []
+        for el in self.driver.find_elements(*self.PHASE_PROFILE_ACTION):
+            testid = el.get_attribute("data-testid") or ""
+            if testid.startswith(prefix):
+                keys.append(testid[len(prefix):])
+        return keys
 
     def get_phase_names(self) -> list[str]:
         """Return the display name of every listed growth phase.

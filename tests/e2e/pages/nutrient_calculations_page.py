@@ -45,14 +45,12 @@ class NutrientCalculationsPage(BasePage):
 
     CALCULATE_BUTTONS = (By.CSS_SELECTOR, ".MuiCard-root .MuiButton-contained")
 
-    # Result areas — Alert elements inside each card. Currently unused (no
-    # call site references ``self.ALERTS``); left unscoped rather than
-    # page-root-scoped like its siblings (#778 A11) because this page
-    # documented above as having no wrapper data-testid at all, so a
-    # collision-safe fix here would need either a page wrapper hook or a
-    # per-alert one added to the product -- deferred until a caller actually
-    # needs it.
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # The unscoped ``ALERTS = ('.MuiAlert-root',)`` locator that used to sit
+    # here is gone (#778 A11): it had no call site at all, and an unscoped MUI
+    # class also matches MainLayout's light-mode banner, so keeping it around
+    # only offered a future caller a wrong answer. The two readers that do exist
+    # (`_get_alert_texts_in_card`, `_get_any_result_in_card`) search *within* a
+    # card element and are unaffected.
 
     # Data tables rendered by the mixing-protocol results
     RESULT_TABLES = (By.CSS_SELECTOR, "[data-testid='data-table']")

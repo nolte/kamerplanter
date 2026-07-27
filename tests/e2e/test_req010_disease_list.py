@@ -166,8 +166,14 @@ class TestDiseaseListPage:
             pytest.skip("No diseases to sort")
 
         headers = disease_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-010-019 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-010-019_before-sort", "Disease list before sorting")
         disease_list.click_column_header(headers[0])
