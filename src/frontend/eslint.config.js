@@ -42,6 +42,17 @@ export default tseslint.config(
           message:
             'Use <Form> from @/components/form/Form instead of component="form". It sets noValidate, without which native validation bypasses zod (#825).',
         },
+        {
+          // The two selectors above only test that a `noValidate` attribute is
+          // *present*, so `noValidate={false}` satisfied them while leaving the
+          // form exactly as broken. Caught by review of this PR: a guard whose
+          // stated job is to make the bad state unreachable should not have an
+          // opt-out that reads like compliance.
+          selector:
+            "JSXAttribute[name.name='noValidate'][value.expression.value=false]",
+          message:
+            'noValidate={false} re-enables native validation, which aborts submission before zod runs (#825). Drop the attribute and use <Form>.',
+        },
       ],
       // React Compiler diagnostics (eslint-plugin-react-hooks >=7.1) flag a
       // large number of pre-existing patterns across the codebase. Demote
