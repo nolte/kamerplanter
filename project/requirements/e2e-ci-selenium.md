@@ -10,6 +10,14 @@ or an authoritative operator answer.
 
 ## Bounded context
 
+> **Stand 2026-07-26:** Dieser Abschnitt und die Gap-Matrix darunter sind das
+> Protokoll der Elicitation vom 2026-07-23 und bleiben als Zeitdokument stehen.
+> Zwei ihrer Annahmen sind inzwischen abgelöst: E2E ist **nicht** mehr
+> ausschließlich advisory (`E2E smoke (compose, light)` ist seit ADR-011 /
+> Issue #773 required check auf `develop`, siehe R2), und die Nightly-Triage
+> läuft **nicht** mehr über automatisch geöffnete Issues (siehe R6). Maßgeblich
+> ist immer der Requirements-Abschnitt, nicht dieser Kontext.
+
 - **What:** Die bestehende Selenium-E2E-Suite (`tests/e2e/`, 75 Module, Compose-Infrastruktur `docker-compose.e2e.yml` + `scripts/run-e2e.sh`) in GitHub Actions ausführbar machen — zweistufig: schneller **Smoke-Job** pro PR/develop-Push als Machbarkeits-Gate und ein **Nightly-Job** für den vollen Durchlauf. Hebt die bisher bewusste Entscheidung „E2E nur lokal, kein CI-Job" kontrolliert auf.
 - **For whom:** Entwickler/PR-Autoren (frühes Smoke-Signal), der Operator (Nightly-Triage über automatisch geöffnete Issues), der CI-Scheduler.
 - **Explicitly out of scope (operator-geklärt 2026-07-23):**
@@ -57,7 +65,7 @@ or an authoritative operator answer.
 - **R7** — WHILE dieses Vorhaben umgesetzt wird, the Testsemantik SHALL NOT „nebenbei" geändert werden (Smoke-Auswahl = bestehendes Compose-`smoke`-Profil unverändert); the Doku (`tests/e2e/README.md` + Docs-Teststufen-Seite E2E, DE/EN) SHALL um den CI-Abschnitt ergänzt werden; Workflow-Dateien/Code Englisch (NFR-003), Doku Deutsch.
   - _dimension_: `scope_boundaries` · _status_: `confirmed` · _source_: Q3-Antwort „Compose-smoke-Profil unverändert" + Teach-back (5)
 
-**Definition of Done (für dieses Requirement):** `e2e-smoke.yml` läuft grün im Runner (per `workflow_dispatch` auf dem Feature-Branch belegt), Caching aktiv mit dokumentierten Vorher/Nachher-Zeiten, Artifacts + Job-Summary in beiden Workflows, `e2e-nightly.yml` mit 5-Profil-Matrix + Issue-on-Failure vorhanden und dispatch-verifiziert, Doku aktualisiert, Quality-Gate grün, PR nach develop offen. **NICHT** Teil von „Done": E2E als required check, inhaltliche Test-Rewrites, Fixes fachlicher App-Regressionen.
+**Definition of Done (für dieses Requirement):** `e2e-smoke.yml` läuft grün im Runner (per `workflow_dispatch` auf dem Feature-Branch belegt), Caching aktiv mit dokumentierten Vorher/Nachher-Zeiten, Artifacts + Job-Summary in beiden Workflows, `e2e-nightly.yml` mit 5-Profil-Matrix + ~~Issue-on-Failure~~ (mit R6 entfallen — 2026-07-26) vorhanden und dispatch-verifiziert, Doku aktualisiert, Quality-Gate grün, PR nach develop offen. **NICHT** Teil von „Done": E2E als required check, inhaltliche Test-Rewrites, Fixes fachlicher App-Regressionen.
 
 ## Surviving assumptions / open risks
 
