@@ -98,7 +98,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.ipm.treatmentCreateIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form noValidate onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="name"
             control={control}
