@@ -578,7 +578,9 @@ export default function SpeciesListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
+            titleId="scientificName"
             subtitle={r.common_names.join(', ') || undefined}
+            subtitleId="commonNames"
             trailing={
               <SpeciesThumbnail
                 imageUrl={r.representative_image_url}
@@ -588,19 +590,49 @@ export default function SpeciesListPage() {
                 size={44}
               />
             }
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.growthHabit.${r.growth_habit}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip label={t(`enums.rootType.${r.root_type}`)} size="small" variant="outlined" />
-              </>
+            // The favourite toggle has a dedicated column on the desktop table
+            // but no place on the card: `trailing` holds the thumbnail. Below
+            // `sm` the action was therefore unreachable entirely (#778 A1
+            // comment). `actions` is the slot for exactly this.
+            actions={
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFavorite(r.key);
+                }}
+                color={isFavorite(r.key) ? 'warning' : 'default'}
+                aria-label={t('pages.calendar.sowingCalendar.toggleFavorite')}
+                data-testid={`card-favorite-${r.key}`}
+              >
+                {isFavorite(r.key) ? (
+                  <StarIcon fontSize="small" />
+                ) : (
+                  <StarBorderIcon fontSize="small" />
+                )}
+              </IconButton>
             }
+            chips={[
+              {
+                id: 'growthHabit',
+                content: (
+                  <Chip
+                    label={t(`enums.growthHabit.${r.growth_habit}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+              {
+                id: 'rootType',
+                content: (
+                  <Chip label={t(`enums.rootType.${r.root_type}`)} size="small" variant="outlined" />
+                ),
+              },
+            ]}
             fields={[
-              { label: t('pages.species.genus'), value: r.genus },
-              { label: t('pages.species.activePlants'), value: activeCountMap.get(r.key) ?? 0 },
+              { id: 'genus', label: t('pages.species.genus'), value: r.genus },
+              { id: 'activePlants', label: t('pages.species.activePlants'), value: activeCountMap.get(r.key) ?? 0 },
             ]}
           />
         )}

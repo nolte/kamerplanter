@@ -73,20 +73,29 @@ export default function PlantingRunPlantsTab({
             return (
               <MobileCard
                 title={displayName}
+                titleId="plantName"
                 subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
+                subtitleId="instanceId"
                 chips={
-                  r.current_phase ? (
-                    <Chip
-                      label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
-                      size="small"
-                      color="primary"
-                    />
-                  ) : null
+                  r.current_phase
+                    ? [
+                        {
+                          id: 'currentPhase',
+                          content: (
+                            <Chip
+                              label={t(`enums.phaseName.${r.current_phase}`, { defaultValue: r.current_phase })}
+                              size="small"
+                              color="primary"
+                            />
+                          ),
+                        },
+                      ]
+                    : []
                 }
                 fields={[
-                  ...(r.planted_on ? [{ label: t('pages.plantInstances.plantedOn'), value: r.planted_on }] : []),
-                  ...(r.removed_on ? [{ label: t('pages.plantInstances.removedOn'), value: r.removed_on }] : []),
-                  ...(r.detached_at ? [{ label: t('pages.plantingRuns.detached'), value: t('common.yes') }] : []),
+                  ...(r.planted_on ? [{ id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), value: r.planted_on }] : []),
+                  ...(r.removed_on ? [{ id: 'removedOn', label: t('pages.plantInstances.removedOn'), value: r.removed_on }] : []),
+                  ...(r.detached_at ? [{ id: 'detached', label: t('pages.plantingRuns.detached'), value: t('common.yes') }] : []),
                 ]}
               />
             );

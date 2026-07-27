@@ -285,27 +285,38 @@ export default function SuccessionPlanListPage() {
           <Box>
             <MobileCard
               title={p.name}
+              titleId="name"
               subtitle={speciesLabel(p)}
-              chips={
-                <>
-                  <Tooltip title={statusHelpText(p.status)}>
-                    <Chip
-                      label={t(`enums.successionPlanStatus.${p.status}`)}
-                      size="small"
-                      color={statusColor[p.status] ?? 'default'}
-                    />
-                  </Tooltip>
-                  <Chip
-                    label={t('pages.successionPlans.everyNDays', { count: p.interval_days })}
-                    size="small"
-                    variant="outlined"
-                  />
-                </>
-              }
-              fields={[
-                { label: t('pages.successionPlans.batches'), value: batchProgress(p) },
-                { label: t('pages.successionPlans.plantsPerBatch'), value: String(p.plants_per_batch) },
+              subtitleId="species"
+              chips={[
                 {
+                  id: 'status',
+                  content: (
+                    <Tooltip title={statusHelpText(p.status)}>
+                      <Chip
+                        label={t(`enums.successionPlanStatus.${p.status}`)}
+                        size="small"
+                        color={statusColor[p.status] ?? 'default'}
+                      />
+                    </Tooltip>
+                  ),
+                },
+                {
+                  id: 'interval',
+                  content: (
+                    <Chip
+                      label={t('pages.successionPlans.everyNDays', { count: p.interval_days })}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ),
+                },
+              ]}
+              fields={[
+                { id: 'batches', label: t('pages.successionPlans.batches'), value: batchProgress(p) },
+                { id: 'plantsPerBatch', label: t('pages.successionPlans.plantsPerBatch'), value: String(p.plants_per_batch) },
+                {
+                  id: 'window',
                   label: t('pages.successionPlans.window'),
                   value: `${formatDate(p.start_date)} – ${formatDate(p.end_date)}`,
                 },

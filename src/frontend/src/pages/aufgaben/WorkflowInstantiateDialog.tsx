@@ -94,7 +94,18 @@ export default function WorkflowInstantiateDialog({
   const [selectedTarget, setSelectedTarget] = useState<SelectionTarget | null>(
     null,
   );
-  const [loading, setLoading] = useState(false);
+  // Counted rather than a single boolean (#821): up to three independent
+  // loaders (plants, locations, tanks) run concurrently, and with one shared
+  // flag the first of them to finish flipped `loading` to false while the
+  // others were still in flight. That value feeds MUI's `Autocomplete
+  // loading` prop, so the listbox swapped between its loading node and its
+  // options mid-flight — the neighbourhood of the "Unable to find the input
+  // element … Autocomplete expects an input element" warning that CI logs
+  // immediately before this dialog's test fails under load. A counter makes
+  // `loading` mean "some load is still running", which is what the prop
+  // promises.
+  const [pendingLoads, setPendingLoads] = useState(0);
+  const loading = pendingLoads > 0;
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [saving, setSaving] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{
@@ -110,7 +121,6 @@ export default function WorkflowInstantiateDialog({
     let cancelled = false;
 
     const loadPlantData = async () => {
-      setLoading(true);
       try {
         const plantsData = await plantApi.listPlantInstances(0, 200);
         if (cancelled) return;
@@ -124,7 +134,7 @@ export default function WorkflowInstantiateDialog({
             (r) => r.status === 'active' || r.status === 'harvesting',
           );
         } catch {
-          if (!cancelled) setLoading(false);
+          // The finally below releases this loader's slot.
           return;
         }
 
@@ -146,12 +156,11 @@ export default function WorkflowInstantiateDialog({
       } catch (err) {
         if (!cancelled) handleError(err);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setPendingLoads((n) => n - 1);
       }
     };
 
     const loadLocationData = async () => {
-      setLoading(true);
       try {
         const sites = await siteApi.listSites(0, 200);
         if (cancelled) return;
@@ -170,19 +179,18 @@ export default function WorkflowInstantiateDialog({
       } catch (err) {
         if (!cancelled) handleError(err);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setPendingLoads((n) => n - 1);
       }
     };
 
     const loadTankData = async () => {
-      setLoading(true);
       try {
         const tanksData = await tankApi.listTanks(0, 200);
         if (!cancelled) setTanks(tanksData);
       } catch (err) {
         if (!cancelled) handleError(err);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setPendingLoads((n) => n - 1);
       }
     };
 
@@ -191,9 +199,13 @@ export default function WorkflowInstantiateDialog({
     const needsLocationData = targetEntityTypes.includes('location');
     const needsTankData = targetEntityTypes.includes('tank');
 
-    if (needsPlantData) loadPlantData();
-    if (needsLocationData) loadLocationData();
-    if (needsTankData) loadTankData();
+    const started = [
+      needsPlantData ? loadPlantData : null,
+      needsLocationData ? loadLocationData : null,
+      needsTankData ? loadTankData : null,
+    ].filter(Boolean) as (() => Promise<void>)[];
+    setPendingLoads(started.length);
+    started.forEach((run) => run());
 
     const loadTemplates = async () => {
       setLoadingTemplates(true);

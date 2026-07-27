@@ -12,7 +12,7 @@ import FormMonthField from '@/components/form/FormMonthField';
 // the optional month additionally accepts '' (cleared via the empty option).
 const schema = z.object({
   month: z.number().int().min(1).max(12),
-  optionalMonth: z.union([z.number().int().min(1).max(12), z.literal('')]),
+  optionalMonth: z.union([z.number().int().min(1).max(12), z.literal('')]).nullable(),
 });
 type FormData = z.infer<typeof schema>;
 
@@ -115,6 +115,12 @@ describe('FormMonthField', () => {
 
     await user.click(screen.getByRole('button', { name: 'Submit' }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect((onSubmit.mock.calls[0][0] as FormData).optionalMonth).toBe('');
+    // Choosing the empty option submits `null`, not `''` (#778 B2). The
+    // untouched default above still submits `''` because that is what
+    // `defaultValues` seeds — only an actual clearing action produces the
+    // absent value, which is what `z.number().nullable()` accepts and what the
+    // API stores. Before this, a field the user had emptied was rejected by
+    // zod, so a filled value could not be cleared again.
+    expect((onSubmit.mock.calls[0][0] as FormData).optionalMonth).toBeNull();
   });
 });

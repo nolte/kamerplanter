@@ -372,34 +372,47 @@ export default function PhaseSequenceListPage() {
         mobileCardRenderer={(seq) => (
           <MobileCard
             title={getDisplayName(seq)}
+            titleId="name"
             subtitle={seq.name}
             trailing={<OriginChip isSystem={seq.is_system} />}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.cycleType.${seq.cycle_type}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                {seq.is_repeating && (
+            chips={[
+              {
+                id: 'cycleType',
+                content: (
                   <Chip
-                    icon={<LoopIcon />}
-                    label={t('pages.phaseSequences.isRepeating')}
+                    label={t(`enums.cycleType.${seq.cycle_type}`)}
                     size="small"
-                    color="secondary"
                     variant="outlined"
                   />
-                )}
-              </>
-            }
+                ),
+              },
+              ...(seq.is_repeating
+                ? [
+                    {
+                      id: 'isRepeating',
+                      content: (
+                        <Chip
+                          icon={<LoopIcon />}
+                          label={t('pages.phaseSequences.isRepeating')}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
               {
+                id: 'entryCount',
                 label: t('pages.phaseSequences.sequenceEntries'),
                 value: t('pages.phaseSequences.entryCount', {
                   count: seq.entries.length,
                 }),
               },
               {
+                id: 'totalDuration',
                 label: t('pages.phaseSequences.totalDuration'),
                 value: t('pages.phaseSequences.totalDurationDays', {
                   count: computeTotalDuration(seq),

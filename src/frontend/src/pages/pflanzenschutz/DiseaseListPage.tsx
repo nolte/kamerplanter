@@ -116,7 +116,9 @@ export default function DiseaseListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
+            titleId="scientificName"
             subtitle={r.common_name}
+            subtitleId="commonName"
             chips={[
               {
                 id: 'pathogenType',

@@ -50,7 +50,19 @@ export default function FormNumberField<T extends FieldValues>({
           value={field.value ?? ''}
           onChange={(e) => {
             const val = e.target.value;
-            field.onChange(val === '' ? '' : Number(val));
+            // Clearing the field emits `null`, not `''` (#778 B2). A numeric
+            // field has no meaningful empty *string* value — the domain value
+            // of "cleared" is absent, and `null` is what the API takes.
+            //
+            // Emitting `''` made `z.number().nullable()` reject a field the
+            // user had emptied, so a filled duration could not be cleared
+            // again: zod saw a string where it wanted a number or null. 112
+            // schema lines across 38 files carry that plain nullable shape,
+            // and only a handful had worked around it with
+            // `z.union([z.number(), z.literal('')])`. Fixing the emitted value
+            // once here is what makes the plain shape correct everywhere,
+            // instead of teaching every schema about a quirk of this input.
+            field.onChange(val === '' ? null : Number(val));
           }}
           type="number"
           label={label}

@@ -415,12 +415,19 @@ export default function WateringEventListPage() {
           return (
             <MobileCard
               title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
+              titleId="wateredAt"
               subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p)).join(', ') : undefined}
-              chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
+              subtitleId="plants"
+              chips={[
+                {
+                  id: 'applicationMethod',
+                  content: <Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />,
+                },
+              ]}
               fields={[
-                { label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },
-                ...(ecPhParts.length > 0 ? [{ label: 'EC / pH', value: ecPhParts.join(' | ') }] : []),
-                ...(r.water_source ? [{ label: t('pages.wateringEvents.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+                { id: 'volume', label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },
+                ...(ecPhParts.length > 0 ? [{ id: 'ecPh', label: 'EC / pH', value: ecPhParts.join(' | ') }] : []),
+                ...(r.water_source ? [{ id: 'waterSource', label: t('pages.wateringEvents.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
               ]}
             />
           );
