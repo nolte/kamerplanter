@@ -22,6 +22,8 @@ build/
 
 # Test reports (generated)
 test-reports/e2e/
+# Per-campaign evidence bundles (screenshots, protocols, container logs)
+test-reports/e2e-evidence-*/
 test-reports/e2e_seed_data.log
 test-reports/rag-eval/
 coverage/
