@@ -33,12 +33,18 @@ describe('Form', () => {
 
   it('keeps noValidate even when a call site tries to unset it', () => {
     render(
+      /* eslint-disable no-restricted-syntax -- writing the forbidden shape is
+         the point of this test: the lint rule keeps it out of production, and
+         this asserts the runtime guard holds even if it somehow got through.
+         Block form rather than `-next-line` because `@ts-expect-error` also
+         has to sit immediately above the JSX. */
       // @ts-expect-error -- `noValidate` is removed from the prop surface on
       // purpose; this reproduces a call site trying to opt out anyway, which
       // must not work at runtime either.
       <Form onSubmit={vi.fn()} noValidate={false} data-testid="subject">
         <button type="submit">Submit</button>
       </Form>,
+      /* eslint-enable no-restricted-syntax */
     );
 
     expect(screen.getByTestId('subject').hasAttribute('novalidate')).toBe(true);
