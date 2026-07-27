@@ -47,7 +47,7 @@ class TestEmailVerificationPageLoad:
         verification_page: EmailVerificationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-040: Email verification page loads with heading.
+        """TC-023-007: Email verification page loads with heading.
 
         Spec: TC-023-007 -- Seite laed mit Ueberschrift 'E-Mail-Verifizierung'.
         """
@@ -75,7 +75,7 @@ class TestEmailVerificationInvalidToken:
         verification_page: EmailVerificationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-041: Invalid token shows red error alert.
+        """TC-023-008: Invalid token shows red error alert.
 
         Spec: TC-023-008 -- E-Mail-Verifizierung mit ungueltigem Token.
         """
@@ -105,7 +105,7 @@ class TestEmailVerificationInvalidToken:
         verification_page: EmailVerificationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-042: Invalid token does NOT show success alert.
+        """TC-023-008: Invalid token does NOT show success alert.
 
         Spec: TC-023-008 -- Es erscheint KEIN Erfolgsmeldung.
         """
@@ -140,7 +140,7 @@ class TestEmailVerificationLoginLink:
         verification_page: EmailVerificationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-043: Login link is visible after token processing (error case).
+        """TC-023-008: Login link is visible after token processing (error case).
 
         Spec: TC-023-008 -- Ein Link 'Zurueck zur Anmeldung' ist sichtbar.
         """
@@ -167,7 +167,7 @@ class TestEmailVerificationLoginLink:
         verification_page: EmailVerificationPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-044: Clicking login link navigates to /login.
+        """TC-023-007: Clicking login link navigates to /login.
 
         Spec: TC-023-007 -- Nutzer kann auf den Link klicken und wird zu /login weitergeleitet.
         """

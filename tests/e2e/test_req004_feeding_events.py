@@ -154,8 +154,14 @@ class TestFeedingEventListPage:
             pytest.skip("No feeding events to sort")
 
         headers = feeding_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-004-044 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         rows_before = feeding_list.get_first_column_texts()
 
@@ -171,6 +177,15 @@ class TestFeedingEventListPage:
         assert len(rows_after) > 0, (
             "TC-REQ-004-044 FAIL: Expected table rows to still be present after clicking sort"
         )
+        # "the table rows are re-ordered" is what the case claims, and until
+        # #802 nothing checked it -- a broken sort left this green. `headers[0]`
+        # is the column the table already sorts by, so clicking it toggles the
+        # direction and the visible order must change.
+        if len(rows_before) >= 2:
+            assert rows_after != rows_before, (
+                "TC-REQ-004-044 FAIL: Clicking the first column header changed nothing about the row "
+                f"order, so no sort was applied: {rows_before[:5]}"
+            )
 
     @pytest.mark.smoke
     def test_feeding_event_showing_count_or_empty_state(

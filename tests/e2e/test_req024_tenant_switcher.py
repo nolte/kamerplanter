@@ -67,7 +67,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-019: Active tenant name is displayed in the App Bar.
+        """TC-024-008: Active tenant name is displayed in the App Bar.
 
         Spec: TC-024-008 -- Tenant-Switcher zeigt alle Tenants mit Rolle und Typ-Icon.
         """
@@ -88,7 +88,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-021: Clicking the switcher opens a dropdown with tenant list.
+        """TC-024-008: Clicking the switcher opens a dropdown with tenant list.
 
         Spec: TC-024-008 -- Tenant-Switcher Dropdown oeffnet sich.
         """
@@ -116,7 +116,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-020: Dropdown shows tenant names.
+        """TC-024-008: Dropdown shows tenant names.
 
         Spec: TC-024-008 -- Tenant-Switcher zeigt Tenant-Namen.
         """
@@ -143,7 +143,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-022: Active tenant is highlighted with selected state and check icon.
+        """TC-024-008: Active tenant is highlighted with selected state and check icon.
 
         Spec: TC-024-008 -- Aktiver Tenant ist hervorgehoben.
         """
@@ -165,7 +165,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-023: Dropdown has a 'Create organization' item at the bottom.
+        """TC-024-008: Dropdown has a 'Create organization' item at the bottom.
 
         Spec: TC-024-008 -- Dropdown hat 'Organisation erstellen' Eintrag.
         """
@@ -184,7 +184,7 @@ class TestTenantSwitcherDisplay:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-024: Clicking 'Create organization' navigates to /tenants/create.
+        """TC-024-008: Clicking 'Create organization' navigates to /tenants/create.
 
         Spec: TC-024-008 -- 'Organisation erstellen' navigiert zu /tenants/create.
         """
@@ -222,7 +222,7 @@ class TestTenantSwitching:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-025: Switching tenant updates the active tenant name.
+        """TC-024-009: Switching tenant updates the active tenant name.
 
         Spec: TC-024-009 -- Tenant wechseln -- URL und Daten aktualisieren sich.
         """
@@ -262,7 +262,7 @@ class TestTenantSwitching:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-026: Selected tenant persists after browser reload.
+        """TC-024-010: Selected tenant persists after browser reload.
 
         Spec: TC-024-010 -- Tenant-Switcher persistiert letzten aktiven Tenant nach Reload.
         """

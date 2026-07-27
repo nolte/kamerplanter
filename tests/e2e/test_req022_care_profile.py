@@ -125,7 +125,7 @@ class TestCareProfileEditDialogOpen:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-001: Clicking edit-profile on a card opens the CareProfileEditDialog.
+        """TC-022-018: Clicking edit-profile on a card opens the CareProfileEditDialog.
 
         Spec: TC-022-018 -- CareProfileEditDialog oeffnet sich von der ReminderCard aus.
         """
@@ -155,7 +155,7 @@ class TestCareProfileEditDialogOpen:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-002: CareProfileEditDialog shows the care style dropdown.
+        """TC-022-018: CareProfileEditDialog shows the care style dropdown.
 
         Spec: TC-022-018 -- CareProfileEditDialog zeigt Pflegestil-Dropdown.
         """
@@ -180,7 +180,7 @@ class TestCareProfileEditDialogOpen:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-003: CareProfileEditDialog has Save, Cancel, and Reset buttons.
+        """TC-022-018: CareProfileEditDialog has Save, Cancel, and Reset buttons.
 
         Spec: TC-022-018 -- CareProfileEditDialog hat Speichern, Abbrechen, Reset Buttons.
         """
@@ -218,7 +218,7 @@ class TestCareProfileSliders:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-004: Watering interval slider is visible when watering task is enabled.
+        """TC-022-019: Watering interval slider is visible when watering task is enabled.
 
         Spec: TC-022-019 -- Giessintervall-Slider aendern und speichern.
         """
@@ -243,7 +243,7 @@ class TestCareProfileSliders:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-005: Fertilizing active months toggle buttons are displayed.
+        """TC-022-021: Fertilizing active months toggle buttons are displayed.
 
         Spec: TC-022-021 -- Aktive Duengemonate per Monats-Chips konfigurieren.
         """
@@ -268,7 +268,7 @@ class TestCareProfileSliders:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-006: Clicking a month toggle button changes its selection state.
+        """TC-022-021: Clicking a month toggle button changes its selection state.
 
         Spec: TC-022-021 -- Aktive Duengemonate per Monats-Chips konfigurieren.
         """
@@ -312,7 +312,7 @@ class TestCareProfileConditionalFields:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-007: Toggling humidity check shows/hides the interval slider.
+        """TC-022-024: Toggling humidity check shows/hides the interval slider.
 
         Spec: TC-022-024 -- Luftfeuchte-Check Toggle aktiviert bedingt Intervall-Slider.
         """
@@ -353,7 +353,7 @@ class TestCareProfileConditionalFields:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-008: Toggling location check shows/hides the months configuration.
+        """TC-022-022: Toggling location check shows/hides the months configuration.
 
         Spec: TC-022-022 / TC-022-023 -- Standort-Check deaktivieren/aktivieren.
         """
@@ -394,7 +394,7 @@ class TestCareProfileConditionalFields:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-009: Toggling adaptive learning switch changes its state.
+        """TC-022-025: Toggling adaptive learning switch changes its state.
 
         Spec: TC-022-025 -- Adaptive-Learning Toggle deaktivieren.
         """
@@ -440,7 +440,7 @@ class TestCareStyleChange:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-010: Care style dropdown lists all available styles.
+        """TC-022-027: Care style dropdown lists all available styles.
 
         Spec: TC-022-027 -- Care-Style-Wechsel zeigt Bestaetigung und setzt alle Intervalle zurueck.
         """
@@ -482,7 +482,7 @@ class TestCareProfileSaveCancel:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-011: Cancelling profile dialog closes it without saving.
+        """TC-022-018: Cancelling profile dialog closes it without saving.
 
         Spec: TC-022-018 -- CareProfileEditDialog -- Abbrechen schliesst Dialog.
         """
@@ -515,7 +515,7 @@ class TestCareProfileSaveCancel:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-012: Saving profile dialog closes it and refreshes the dashboard.
+        """TC-022-019: Saving profile dialog closes it and refreshes the dashboard.
 
         Spec: TC-022-019 -- Giessintervall-Slider aendern und speichern.
         """
@@ -548,7 +548,7 @@ class TestCareProfileSaveCancel:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-013: Profile dialog shows task type toggle switches.
+        """TC-022-018: Profile dialog shows task type toggle switches.
 
         Spec: TC-022-018 -- CareProfileEditDialog zeigt Aufgabentyp-Toggles.
         """
@@ -579,7 +579,7 @@ class TestCareProfileSaveCancel:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-014: Profile dialog shows watering method dropdown.
+        """TC-022-018: Profile dialog shows watering method dropdown.
 
         Spec: TC-022-018 -- CareProfileEditDialog zeigt Giessmethode-Dropdown.
         """
@@ -617,7 +617,7 @@ class TestWateringCyclePropagation:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-035: Shortening the watering interval persists and re-renders.
+        """TC-022-089: Shortening the watering interval persists and re-renders.
 
         Spec: TC-022-089 -- Giesszyklus verkuerzen -- naechste Erinnerung im
         Pflege-Dashboard rueckt vor.
@@ -666,7 +666,7 @@ class TestWateringCyclePropagation:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-036: Changing the interval reschedules in-place, no duplicate.
+        """TC-022-090: Changing the interval reschedules in-place, no duplicate.
 
         Spec: TC-022-090 -- Giesszyklus-Anpassung propagiert -- dieselbe pending
         Erinnerung, kein Duplikat.
@@ -723,7 +723,7 @@ class TestWateringCyclePropagation:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-037: Switching the care-style preset resets and persists intervals.
+        """TC-022-092: Switching the care-style preset resets and persists intervals.
 
         Spec: TC-022-092 -- Care-Style-Preset wechseln -- alle Zyklen und
         Dashboard-Faelligkeiten aktualisieren sich.

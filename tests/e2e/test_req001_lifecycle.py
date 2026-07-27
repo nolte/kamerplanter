@@ -64,6 +64,83 @@ def _navigate_to_lifecycle_tab(
     )
 
 
+def _provision_species_with_phase(
+    species_list: SpeciesListPage,
+    species_detail: SpeciesDetailPage,
+    *,
+    return_count: bool = False,
+) -> "str | tuple[int, str]":
+    """Create a species this test owns, with one manually created growth phase.
+
+    Row 0 of a fresh seed is a *managed* (system) species: its growth phases come
+    from a shared phase-sequence template, so the row renders neither the delete
+    nor the profile action (``isManaged`` in ``GrowthPhaseListSection.tsx``).
+    Any assertion about a per-phase action therefore needs a species with its own
+    lifecycle config and a legacy, non-managed ``GrowthPhase``.
+
+    Shared by TC-REQ-001-060 (delete) and TC-REQ-001-063 (profiles) so the two
+    cannot drift apart -- and so the tautological assertion the latter used to
+    carry could be replaced by a real one (#778 A8).
+
+    Returns the provisioned phase's display name, or ``(phase_count, name)``
+    when *return_count* is set.
+    """
+    unique = uuid.uuid4().hex[:6]
+    scientific_name = f"Deletus e2e{unique}"
+    phase_display_name = f"E2E Phase {unique}"
+
+    species_list.open()
+    species_list.click_create()
+    species_list.fill_scientific_name(scientific_name)
+    species_list.set_field("genus", "Deletus")
+    species_list.submit_form()
+    species_list.wait_for_loading_complete()
+
+    species_list.click_row_by_name(scientific_name)
+    species_list.wait_for_url_contains("/stammdaten/species/")
+    # Same pairing as `_navigate_to_lifecycle_tab`: without a content-keyed wait
+    # the tab read below can return `[]` and turn this into a skip that reads
+    # like "the app has no lifecycle tab".
+    species_detail.wait_for_content(SpeciesDetailPage.TABS, "provisioned species detail tab bar")
+
+    tabs = species_detail.get_tab_labels()
+    lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
+    if lifecycle_tab is None:
+        pytest.skip(f"Lifecycle tab not found among {tabs}")
+    species_detail.click_tab(lifecycle_tab)
+    species_detail.wait_for_content(
+        SpeciesDetailPage.LIFECYCLE_FORM_SUBMIT,
+        "provisioned species lifecycle configuration tab panel",
+    )
+
+    species_detail.select_lifecycle_option("cycle_type", "Einjährig")
+    species_detail.select_lifecycle_option("photoperiod_type", "Tagneutral")
+    species_detail.click_lifecycle_save()
+    species_detail.wait_for_loading_complete()
+
+    if not species_detail.can_create_growth_phase():
+        pytest.skip("Freshly provisioned species did not expose a phase-create button")
+
+    initial_count = species_detail.get_phase_count()
+    species_detail.click_phase_create()
+    species_detail.fill_phase_form(
+        name=f"e2e_phase_{unique}",
+        display_name=phase_display_name,
+        duration="7",
+        order=str(initial_count),
+    )
+    species_detail.submit_phase_form()
+    species_detail.wait_for_loading_complete()
+
+    provisioned_count = species_detail.get_phase_count()
+    if provisioned_count <= initial_count:
+        pytest.skip("Self-provisioning failed: growth phase was not created")
+
+    if return_count:
+        return provisioned_count, phase_display_name
+    return phase_display_name
+
+
 class TestLifecycleConfigSection:
     """Lifecycle config CRUD (Spec: TC-001-047)."""
 
@@ -74,7 +151,7 @@ class TestLifecycleConfigSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-051: Display lifecycle config tab.
+        """TC-001-047: Display lifecycle config tab.
 
         Spec: TC-001-047 -- Lebenszyklus-Tab zeigt LifecycleConfig und GrowthPhases.
         """
@@ -94,7 +171,7 @@ class TestLifecycleConfigSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-052: Create a lifecycle config for an annual species.
+        """TC-001-047: Create a lifecycle config for an annual species.
 
         Spec: TC-001-047 -- Lifecycle-Config fuer einjaehrige Art erstellen.
         """
@@ -127,7 +204,7 @@ class TestLifecycleConfigSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-055: Edit an existing lifecycle config.
+        """TC-001-047: Edit an existing lifecycle config.
 
         Spec: TC-001-047 -- Bestehende Lifecycle-Config bearbeiten.
         """
@@ -158,7 +235,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-056: Growth phases section appears after lifecycle config creation.
+        """TC-001-048: Growth phases section appears after lifecycle config creation.
 
         Spec: TC-001-048 -- Wachstumsphasen-Bereich nach Lifecycle-Erstellung sichtbar.
         """
@@ -181,7 +258,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-057: Create a growth phase via dialog.
+        """TC-001-048: Create a growth phase via dialog.
 
         Spec: TC-001-048 -- Neue Wachstumsphase anlegen.
         """
@@ -223,7 +300,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-059: Edit an existing growth phase.
+        """TC-001-048: Edit an existing growth phase.
 
         Spec: TC-001-048 -- Bestehende Wachstumsphase bearbeiten.
         """
@@ -260,7 +337,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-060: Delete a growth phase.
+        """TC-001-048: Delete a growth phase.
 
         Spec: TC-001-048 -- Wachstumsphase loeschen.
 
@@ -272,57 +349,9 @@ class TestGrowthPhaseManagement:
         non-managed ``GrowthPhase`` and the delete button is actually
         exercisable.
         """
-        unique = uuid.uuid4().hex[:6]
-        scientific_name = f"Deletus e2e{unique}"
-
-        species_list.open()
-        species_list.click_create()
-        species_list.fill_scientific_name(scientific_name)
-        species_list.set_field("genus", "Deletus")
-        species_list.submit_form()
-        species_list.wait_for_loading_complete()
-
-        species_list.click_row_by_name(scientific_name)
-        species_list.wait_for_url_contains("/stammdaten/species/")
-        # Same pairing as `_navigate_to_lifecycle_tab`: without a content-keyed
-        # wait the tab read below can return `[]` and turn this into a skip that
-        # reads like "the app has no lifecycle tab".
-        species_detail.wait_for_content(
-            SpeciesDetailPage.TABS, "TC-REQ-001-060 species detail tab bar"
+        provisioned_count, _ = _provision_species_with_phase(
+            species_list, species_detail, return_count=True
         )
-
-        tabs = species_detail.get_tab_labels()
-        lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
-        if lifecycle_tab is None:
-            pytest.skip(f"Lifecycle tab not found among {tabs}")
-        species_detail.click_tab(lifecycle_tab)
-        species_detail.wait_for_content(
-            SpeciesDetailPage.LIFECYCLE_FORM_SUBMIT,
-            "TC-REQ-001-060 lifecycle configuration tab panel",
-        )
-
-        species_detail.select_lifecycle_option("cycle_type", "Einjährig")
-        species_detail.select_lifecycle_option("photoperiod_type", "Tagneutral")
-        species_detail.click_lifecycle_save()
-        species_detail.wait_for_loading_complete()
-
-        if not species_detail.can_create_growth_phase():
-            pytest.skip("Freshly provisioned species did not expose a phase-create button")
-
-        initial_count = species_detail.get_phase_count()
-        species_detail.click_phase_create()
-        species_detail.fill_phase_form(
-            name=f"e2e_phase_{unique}",
-            display_name=f"E2E Phase {unique}",
-            duration="7",
-            order=str(initial_count),
-        )
-        species_detail.submit_phase_form()
-        species_detail.wait_for_loading_complete()
-
-        provisioned_count = species_detail.get_phase_count()
-        if provisioned_count <= initial_count:
-            pytest.skip("Self-provisioning failed: growth phase was not created")
 
         screenshot(
             "TC-REQ-001-060_before-delete",
@@ -351,17 +380,26 @@ class TestGrowthPhaseProfiles:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-063: View profiles for a growth phase.
+        """TC-001-047: View profiles for a growth phase.
 
         Spec: TC-001-047 -- Profile fuer Wachstumsphase anzeigen.
         """
-        _navigate_to_lifecycle_tab(species_list, species_detail)
+        # Row 0 of a fresh seed is a managed (system) species, whose phase rows
+        # render no actions column at all (`isManaged` in
+        # GrowthPhaseListSection.tsx) -- so the profile action can only be
+        # asserted on a species this test owns. Same self-provisioning as
+        # TC-REQ-001-060, which is why both now share a helper.
+        provisioned = _provision_species_with_phase(species_list, species_detail)
         screenshot("TC-REQ-001-063_lifecycle-tab", "Lifecycle tab with phase profiles")
 
-        if species_detail.get_phase_count() == 0:
-            pytest.skip("No phases with profiles to view")
-
-        # Profiles are typically shown via a button or expandable section
-        # This test verifies the UI element exists
-        phase_count = species_detail.get_phase_count()
-        assert phase_count >= 0, "TC-REQ-001-063 FAIL: Phase table should render"
+        # The old assertion here was `phase_count >= 0` -- true for every
+        # possible table, and unreachable-by-failure anyway because the skip
+        # above already guaranteed a non-zero count (#778 A8). What the case
+        # actually claims is that a growth phase offers its profiles, which is
+        # the per-phase `phase-profile-<key>` action.
+        profile_keys = species_detail.get_phase_profile_keys()
+        assert profile_keys, (
+            "TC-REQ-001-063 FAIL: Expected the provisioned growth phase "
+            f"'{provisioned}' to offer a profile action, but none of the "
+            f"{species_detail.get_phase_count()} phase rows rendered one"
+        )

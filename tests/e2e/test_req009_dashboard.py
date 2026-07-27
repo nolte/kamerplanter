@@ -30,7 +30,7 @@ class TestDashboardPage:
     def test_dashboard_loads(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-001: Dashboard page loads and shows page title.
+        """TC-009-001: Dashboard page loads and shows page title.
 
         Spec: TC-009-001 -- Dashboard-Seite aufrufen (authentifizierter Nutzer).
         """
@@ -47,7 +47,7 @@ class TestDashboardPage:
     def test_welcome_message_visible(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-002: Welcome text is displayed on the dashboard.
+        """TC-009-001: Welcome text is displayed on the dashboard.
 
         Spec: TC-009-001 -- Begrüssungstext 'Willkommen bei Kamerplanter' ist sichtbar.
         """
@@ -63,7 +63,7 @@ class TestDashboardPage:
     def test_quick_actions_present(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-003: All quick-action cards are rendered.
+        """TC-009-001: All quick-action cards are rendered.
 
         Spec: TC-009-001 -- Abschnitt 'Schnellaktionen' mit mindestens 6 Kacheln.
         """
@@ -81,7 +81,7 @@ class TestDashboardPage:
     def test_quick_action_navigates(
         self, dashboard: DashboardPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-009-004: Clicking a quick-action card navigates to the target page.
+        """TC-009-001: Clicking a quick-action card navigates to the target page.
 
         Spec: TC-009-001 -- Schnellaktion-Kacheln fuehren zur jeweiligen Zielseite.
         """

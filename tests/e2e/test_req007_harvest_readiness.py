@@ -51,7 +51,7 @@ class TestHarvestReadinessCard:
         readiness_card: HarvestReadinessCardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-030: Readiness card shows overall score with progress bar.
+        """TC-007-035: Readiness card shows overall score with progress bar.
 
         Spec: TC-007-035 -- Erntereife-Karte zeigt Gesamtscore mit Fortschrittsbalken.
         """
@@ -85,7 +85,7 @@ class TestHarvestReadinessCard:
         readiness_card: HarvestReadinessCardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-031: Readiness card shows recommendation chip.
+        """TC-007-036: Readiness card shows recommendation chip.
 
         Spec: TC-007-036 -- Empfehlungs-Chip (optimal/approaching/developing).
         """
@@ -119,7 +119,7 @@ class TestHarvestReadinessCard:
         readiness_card: HarvestReadinessCardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-032: Readiness card shows indicator breakdown table.
+        """TC-007-037: Readiness card shows indicator breakdown table.
 
         Spec: TC-007-037 -- Indikator-Aufschluesselungstabelle.
         """

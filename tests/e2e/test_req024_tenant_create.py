@@ -73,7 +73,7 @@ class TestTenantCreatePageLoad:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-002: TenantCreatePage loads with page title and form fields.
+        """TC-024-003: TenantCreatePage loads with page title and form fields.
 
         Spec: TC-024-003 -- Organisations-Tenant erfolgreich erstellen -- Seitenstruktur.
         """
@@ -95,7 +95,7 @@ class TestTenantCreatePageLoad:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-003: Intro text is displayed below the title.
+        """TC-024-003: Intro text is displayed below the title.
 
         Spec: TC-024-003 -- Organisations-Tenant erstellen -- Einleitungstext.
         """
@@ -113,7 +113,7 @@ class TestTenantCreatePageLoad:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-004: Submit button is disabled when name field is empty.
+        """TC-024-004: Submit button is disabled when name field is empty.
 
         Spec: TC-024-004 -- Tenant erstellen -- Pflichtfeld 'Name' leer gelassen.
         """
@@ -144,7 +144,7 @@ class TestTenantCreateHappyPath:
         switcher: TenantSwitcherPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-001: Create organization with name and description redirects to dashboard.
+        """TC-024-003: Create organization with name and description redirects to dashboard.
 
         Spec: TC-024-003 -- Organisations-Tenant erfolgreich erstellen -- Happy Path.
         """
@@ -199,7 +199,7 @@ class TestTenantCreateValidation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-005: Name with only 1 character keeps submit disabled (minLength=2).
+        """TC-024-005: Name with only 1 character keeps submit disabled (minLength=2).
 
         Spec: TC-024-005 -- Tenant erstellen -- Name zu kurz (1 Zeichen).
         """
@@ -224,7 +224,7 @@ class TestTenantCreateValidation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-006: Name with exactly 2 characters enables submit.
+        """TC-024-005: Name with exactly 2 characters enables submit.
 
         Spec: TC-024-005 -- Tenant erstellen -- Minimalgrenze 2 Zeichen.
         """
@@ -249,7 +249,7 @@ class TestTenantCreateValidation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-007: Description field is optional -- submit works without it.
+        """TC-024-003: Description field is optional -- submit works without it.
 
         Spec: TC-024-003 -- Beschreibung ist optional.
         """

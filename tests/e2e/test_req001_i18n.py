@@ -57,7 +57,7 @@ class TestBotanicalFamilyEnumTranslations:
     def test_botanical_family_enums_in_german(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-093: Enum values in botanical family table are displayed in German.
+        """TC-001-053: Enum values in botanical family table are displayed in German.
 
         Spec: TC-001-053 -- i18n — Deutsche und englische Familiennamen werden korrekt angezeigt.
         """
@@ -109,7 +109,7 @@ class TestSpeciesEnumTranslations:
     def test_species_enums_in_german(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-094: Growth habit and root type enums in German.
+        """TC-001-053: Growth habit and root type enums in German.
 
         Spec: TC-001-053 -- i18n — Wuchsform- und Wurzeltyp-Enums in deutscher Uebersetzung.
         """
@@ -120,9 +120,16 @@ class TestSpeciesEnumTranslations:
 
         screenshot("TC-REQ-001-094_species-table", "Species table with enum columns")
 
+        # The enum scan below is only meaningful while the two columns it is
+        # named after are actually rendered: drop them from the table and every
+        # assertion still passes, vacuously (#802).
         headers = species_list.get_column_headers()
+        for expected in ("Wuchsform", "Wurzeltyp"):
+            assert any(expected in h for h in headers), (
+                f"TC-REQ-001-094 FAIL: Expected a '{expected}' column so the enum check has "
+                f"something to inspect, got: {headers}"
+            )
 
-        # Find growth habit and root type columns
         rows = species_list.get_row_texts()
 
         raw_english_enums = {
@@ -157,7 +164,7 @@ class TestCultivarTraitTranslations:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-095: Cultivar trait chips show German translations.
+        """TC-001-053: Cultivar trait chips show German translations.
 
         Spec: TC-001-053 -- i18n — Cultivar-Trait-Chips zeigen deutsche Uebersetzungen.
         """

@@ -21,13 +21,15 @@ target-version = "py314"
 # of scope here -- it is a separate, non-mechanical change.
 select = ["E4", "E7", "E9", "F"]
 
-# NOTE: F841 (local assigned but never used) is intentionally NOT ignored.
-# The suite currently reports 13 of them, and they are not noise: they are
+# NOTE: F841 (local assigned but never used) is intentionally NOT ignored, and
+# the suite now reports zero of them (#802). They were never noise: all 13 were
 # before-state captures (`names_before`, `rows_before`, `initial_count`, ...)
-# that are never compared against the after-state. Each one marks a test that
-# does not actually verify what its name claims. Silencing the rule would hide
-# that; the findings are tracked as their own follow-up and must be resolved by
-# completing the assertions, not by deleting the variables.
+# that no assertion ever compared against the after-state, so each marked a test
+# that did not verify what its name claimed. They were resolved by completing
+# the assertions -- or, for the two where a stricter check would have traded a
+# real defect for a parallel-execution flake, by removing the dead call with the
+# reason recorded at the site. Deleting the variables to silence the rule would
+# have destroyed exactly the evidence that made them findable.
 
 [lint.per-file-ignores]
 # The two module-level imports (`importlib.util`, `sys`) deliberately sit below
