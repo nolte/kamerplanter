@@ -526,12 +526,18 @@ export default function LocationDetailPage() {
                 mobileCardRenderer={(r) => (
                   <MobileCard
                     title={r.name}
-                    chips={
-                      <Chip label={t(`enums.plantingRunStatus.${r.status}`)} size="small" color={runStatusColor[r.status] ?? 'default'} />
-                    }
+                    titleId="name"
+                    chips={[
+                      {
+                        id: 'status',
+                        content: (
+                          <Chip label={t(`enums.plantingRunStatus.${r.status}`)} size="small" color={runStatusColor[r.status] ?? 'default'} />
+                        ),
+                      },
+                    ]}
                     fields={[
-                      { label: t('pages.plantingRuns.runType'), value: t(`enums.plantingRunType.${r.run_type}`) },
-                      { label: t('pages.locations.plantCount'), value: `${runPlantCounts.get(r.key) ?? r.actual_quantity} ${t('entities.plantInstances')}` },
+                      { id: 'runType', label: t('pages.plantingRuns.runType'), value: t(`enums.plantingRunType.${r.run_type}`) },
+                      { id: 'plants', label: t('pages.locations.plantCount'), value: `${runPlantCounts.get(r.key) ?? r.actual_quantity} ${t('entities.plantInstances')}` },
                     ]}
                   />
                 )}
@@ -564,13 +570,22 @@ export default function LocationDetailPage() {
                     return (
                       <MobileCard
                         title={displayName}
+                        titleId="plant_name"
                         subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
+                        subtitleId="instance_id"
                         chips={
-                          r.current_phase ? (
-                            <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
-                          ) : null
+                          r.current_phase
+                            ? [
+                                {
+                                  id: 'current_phase',
+                                  content: (
+                                    <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
+                                  ),
+                                },
+                              ]
+                            : []
                         }
-                        fields={r.planted_on ? [{ label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []}
+                        fields={r.planted_on ? [{ id: 'planted_on', label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []}
                       />
                     );
                   }}
@@ -610,9 +625,11 @@ export default function LocationDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.name}
+                titleId="name"
                 subtitle={r.location_type_key || undefined}
+                subtitleId="locationType"
                 fields={[
-                  { label: t('pages.locations.area'), value: `${r.area_m2} m²` },
+                  { id: 'area', label: t('pages.locations.area'), value: `${r.area_m2} m²` },
                 ]}
               />
             )}
@@ -644,16 +661,23 @@ export default function LocationDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.slot_id}
+                titleId="slotId"
                 subtitle={`(${r.position[0]}, ${r.position[1]})`}
-                chips={
-                  <Chip
-                    label={r.currently_occupied ? t('common.yes') : t('common.no')}
-                    size="small"
-                    color={r.currently_occupied ? 'warning' : 'default'}
-                  />
-                }
+                subtitleId="position"
+                chips={[
+                  {
+                    id: 'occupied',
+                    content: (
+                      <Chip
+                        label={r.currently_occupied ? t('common.yes') : t('common.no')}
+                        size="small"
+                        color={r.currently_occupied ? 'warning' : 'default'}
+                      />
+                    ),
+                  },
+                ]}
                 fields={[
-                  { label: t('pages.slots.capacity'), value: String(r.capacity_plants) },
+                  { id: 'capacity', label: t('pages.slots.capacity'), value: String(r.capacity_plants) },
                 ]}
               />
             )}
@@ -748,11 +772,17 @@ export default function LocationDetailPage() {
           mobileCardRenderer={(r) => (
             <MobileCard
               title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
-              chips={<Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />}
+              titleId="wateredAt"
+              chips={[
+                {
+                  id: 'applicationMethod',
+                  content: <Chip label={t(`enums.applicationMethod.${r.application_method}`)} size="small" />,
+                },
+              ]}
               fields={[
-                { label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },
-                { label: t('pages.wateringEvents.plantKeys'), value: String(r.plant_keys.length) },
-                ...(r.water_source ? [{ label: t('pages.wateringEvents.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+                { id: 'volume', label: t('pages.wateringEvents.volumeLiters'), value: `${r.volume_liters} L` },
+                { id: 'plantKeys', label: t('pages.wateringEvents.plantKeys'), value: String(r.plant_keys.length) },
+                ...(r.water_source ? [{ id: 'waterSource', label: t('pages.wateringEvents.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
               ]}
             />
           )}
@@ -813,16 +843,23 @@ export default function LocationDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.name}
+                titleId="name"
                 subtitle={r.ha_entity_id || undefined}
-                chips={
-                  <Chip
-                    label={r.is_active ? t('common.yes') : t('common.no')}
-                    size="small"
-                    color={r.is_active ? 'success' : 'default'}
-                  />
-                }
+                subtitleId="haEntityId"
+                chips={[
+                  {
+                    id: 'active',
+                    content: (
+                      <Chip
+                        label={r.is_active ? t('common.yes') : t('common.no')}
+                        size="small"
+                        color={r.is_active ? 'success' : 'default'}
+                      />
+                    ),
+                  },
+                ]}
                 fields={[
-                  { label: t('pages.sensors.metricType'), value: r.metric_type },
+                  { id: 'metricType', label: t('pages.sensors.metricType'), value: r.metric_type },
                 ]}
               />
             )}

@@ -340,16 +340,23 @@ export default function SiteDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.name}
+                titleId="name"
                 subtitle={r.ha_entity_id || undefined}
-                chips={
-                  <Chip
-                    label={r.is_active ? t('common.yes') : t('common.no')}
-                    size="small"
-                    color={r.is_active ? 'success' : 'default'}
-                  />
-                }
+                subtitleId="haEntityId"
+                chips={[
+                  {
+                    id: 'active',
+                    content: (
+                      <Chip
+                        label={r.is_active ? t('common.yes') : t('common.no')}
+                        size="small"
+                        color={r.is_active ? 'success' : 'default'}
+                      />
+                    ),
+                  },
+                ]}
                 fields={[
-                  { label: t('pages.sensors.metricType'), value: r.metric_type },
+                  { id: 'metricType', label: t('pages.sensors.metricType'), value: r.metric_type },
                 ]}
               />
             )}

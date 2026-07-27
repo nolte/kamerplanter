@@ -386,10 +386,12 @@ export default function SubstrateDetailPage() {
           mobileCardRenderer={(r) => (
             <MobileCard
               title={r.batch_id}
+              titleId="batchId"
               subtitle={r.mixed_on}
+              subtitleId="mixedOn"
               fields={[
-                { label: t('pages.batches.volume'), value: `${r.volume_liters} L` },
-                { label: t('pages.batches.cyclesUsed'), value: String(r.cycles_used) },
+                { id: 'volume', label: t('pages.batches.volume'), value: `${r.volume_liters} L` },
+                { id: 'cycles', label: t('pages.batches.cyclesUsed'), value: String(r.cycles_used) },
               ]}
             />
           )}

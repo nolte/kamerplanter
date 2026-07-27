@@ -902,16 +902,18 @@ export default function FertilizerDetailPage() {
               mobileCardRenderer={(r) => (
                 <MobileCard
                   title={`${r.current_volume_ml.toLocaleString()} ml`}
+                  titleId="volume"
                   subtitle={r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : undefined}
+                  subtitleId="purchase_date"
                   fields={[
                     ...(r.expiry_date
-                      ? [{ label: t('pages.fertilizers.expiryDate'), value: new Date(r.expiry_date).toLocaleDateString() }]
+                      ? [{ id: 'expiry_date', label: t('pages.fertilizers.expiryDate'), value: new Date(r.expiry_date).toLocaleDateString() }]
                       : []),
                     ...(r.batch_number
-                      ? [{ label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
+                      ? [{ id: 'batch_number', label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
                       : []),
                     ...(r.cost_per_liter != null
-                      ? [{ label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} €/L` }]
+                      ? [{ id: 'cost', label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} €/L` }]
                       : []),
                   ]}
                 />
