@@ -82,7 +82,12 @@ class CropRotationPage(BasePage):
         deadline = time.time() + 10
         while time.time() < deadline:
             for option in self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']"):
-                otext = " ".join(option.text.split())
+                # ``textContent``, not ``.text``: WebElement.text yields only
+                # *rendered* text, so an option scrolled outside the popover's
+                # visible area (MUI auto-scrolls an open Select to its selected
+                # item, pushing leading entries out of view) reads back as ""
+                # and would never match. See base_page.select_option_by_label.
+                otext = " ".join((option.get_attribute("textContent") or "").split())
                 if otext == target or target in otext or otext in target:
                     return option
             time.sleep(0.2)
@@ -94,7 +99,12 @@ class CropRotationPage(BasePage):
         self.scroll_and_click(select)
         self.wait_for_element_visible((By.CSS_SELECTOR, "li[role='option']"), timeout=10)
         options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
-        texts = [o.text for o in options if o.text]
+        # ``textContent``, not ``.text``: an option scrolled outside the open
+        # popover's visible area reads back as "" via WebElement.text (MUI
+        # scrolls to the selected item, pushing leading entries out of view).
+        # The old ``if o.text`` filter silently dropped those entries from the
+        # result instead of surfacing them -- see #801.
+        texts = [" ".join((o.get_attribute("textContent") or "").split()) for o in options]
         self.close_mui_dropdown()
         return texts
 
@@ -142,7 +152,8 @@ class CropRotationPage(BasePage):
         # an empty read and let the caller skip for the wrong reason.
         self.wait_for_element_visible(self.OPTIONS, timeout=10)
         options = self.driver.find_elements(*self.OPTIONS)
-        texts = [o.text for o in options if o.text]
+        # ``textContent``, not ``.text`` -- see get_family_options above.
+        texts = [" ".join((o.get_attribute("textContent") or "").split()) for o in options]
         self.close_mui_dropdown()
         return texts
 

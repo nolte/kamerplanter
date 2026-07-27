@@ -180,16 +180,12 @@ class TestInvitationInvalidToken:
             "InvitationAcceptPage error detail for expired token",
         )
 
-        assert result == "error", (
-            f"TC-REQ-024-032b FAIL: Expected error state, got: '{result}'"
-        )
+        assert result == "error", f"TC-REQ-024-032b FAIL: Expected error state, got: '{result}'"
 
         # Error detail may or may not be present depending on backend response
         error_detail = invitation_page.get_error_detail()
         # We only assert the error state is reached; detail text is optional
-        assert invitation_page.is_error(), (
-            "TC-REQ-024-032b FAIL: Expected error icon to be visible"
-        )
+        assert invitation_page.is_error(), "TC-REQ-024-032b FAIL: Expected error icon to be visible"
 
 
 # -- TC-024-025: Successful acceptance and navigation --------------------------
@@ -222,9 +218,7 @@ class TestInvitationAcceptNavigation:
             "InvitationAcceptPage error state with dashboard button",
         )
 
-        assert result == "error", (
-            f"TC-REQ-024-034 FAIL: Expected error state, got: '{result}'"
-        )
+        assert result == "error", f"TC-REQ-024-034 FAIL: Expected error state, got: '{result}'"
 
         invitation_page.click_dashboard_button_on_error()
         invitation_page.wait_for_url_contains("/dashboard")

@@ -37,8 +37,6 @@ class ExpertiseLevelPage(BasePage):
 
     # ── Sidebar ──────────────────────────────────────────────────────
     SIDEBAR = (By.CSS_SELECTOR, "[data-testid='sidebar']")
-    SIDEBAR_NAV_ITEMS = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiListItemButton-root")
-    SIDEBAR_SECTION_HEADERS = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiListSubheader-root")
 
     # ── Snackbar ─────────────────────────────────────────────────────
     SNACKBAR_SUCCESS = (
@@ -153,41 +151,6 @@ class ExpertiseLevelPage(BasePage):
 
     # ── Sidebar / Navigation tiering ─────────────────────────────────
 
-    def get_sidebar_nav_item_labels(self) -> list[str]:
-        """Return the labels of every nav item the sidebar renders for this tier.
-
-        Scroll-container-aware (see :meth:`is_nav_item_visible`): an item below
-        the nav box's fold is rendered but clipped, and a bare ``is_displayed()``
-        would drop it -- answering "which items does this experience level
-        show?" with "which items happen to fit".
-        """
-        self.ensure_sidebar_open()
-        labels: list[str] = []
-        for item in self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS):
-            if not self.is_displayed_in_scroll_container(item):
-                continue
-            text = item.text.strip()
-            if text:
-                labels.append(text)
-        return labels
-
-    def get_sidebar_section_headers(self) -> list[str]:
-        """Return the texts of every section header the sidebar renders for this tier.
-
-        Scroll-container-aware for the same reason as
-        :meth:`get_sidebar_nav_item_labels` -- and more exposed to it, since the
-        later sections are exactly the ones sitting below the fold.
-        """
-        self.ensure_sidebar_open()
-        headers: list[str] = []
-        for header in self.driver.find_elements(*self.SIDEBAR_SECTION_HEADERS):
-            if not self.is_displayed_in_scroll_container(header):
-                continue
-            text = header.text.strip()
-            if text:
-                headers.append(text)
-        return headers
-
     #: Bound for the settle poll in :meth:`is_nav_item_visible`. Short by
     #: design: the tier-load window is polled by the ``wait_for_nav_item_*``
     #: wrappers, this only rides out a re-render between lookup and read.
@@ -281,20 +244,6 @@ class ExpertiseLevelPage(BasePage):
         sidebar then reflects pure experience-level tiering.
         """
         self.driver.execute_script("window.localStorage.removeItem('kp-module-visibility');")
-
-    def count_sidebar_nav_items(self) -> int:
-        """Count the nav items the sidebar renders for this tier (ListItemButtons).
-
-        Scroll-container-aware (see :meth:`is_nav_item_visible`): counting only
-        the items that fit inside the nav box's viewport would make the count a
-        function of the drawer height rather than of the experience level.
-        """
-        self.ensure_sidebar_open()
-        return sum(
-            1
-            for item in self.driver.find_elements(*self.SIDEBAR_NAV_ITEMS)
-            if self.is_displayed_in_scroll_container(item)
-        )
 
     # ── Confirm dialog (window.confirm for downgrade) ────────────────
 

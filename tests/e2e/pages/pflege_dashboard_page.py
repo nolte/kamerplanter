@@ -495,14 +495,40 @@ class PflegeDashboardPage(BasePage):
 
     def select_care_style(self, style_label: str) -> None:
         """Open the care style dropdown and select by visible label."""
-        select_el = self.wait_for_element_clickable(self.CARE_STYLE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{style_label}')]")
-        )
+        self.open_select_by_testid("care-style-select")
+        option = self._find_care_style_option(style_label)
         self.click_menu_option(option)
         # MUI auto-closes on option click; ensure the popover is fully gone
         self.close_mui_dropdown()
+
+    def _find_care_style_option(self, label: str):
+        """Return the open care-style dropdown's option matching *label*.
+
+        Resolved via ``textContent``, not an XPath ``contains(text(), …)``:
+        the latter only sees an option's first text node and misses one
+        scrolled out of the popover's visible area (MUI scrolls to the
+        selected item on open). Deliberately does not go through
+        ``BasePage.select_option_by_value`` -- selecting some presets here
+        interrupts the commit with a confirmation dialog
+        (:meth:`select_care_style_with_confirm`) instead of applying it
+        immediately, so an unconditional read-back would misreport that as a
+        mis-click.
+        """
+        target = " ".join(label.split())
+        candidates = [
+            (opt, " ".join((opt.get_attribute("textContent") or "").split()))
+            for opt in self.driver.find_elements(*self.OPTIONS)
+        ]
+        for opt, text in candidates:
+            if text == target:
+                return opt
+        for opt, text in candidates:
+            if text and (target in text or text in target):
+                return opt
+        raise AssertionError(
+            f"No option matching '{label}' in the open dropdown. Rendered "
+            f"options: {[text for _, text in candidates]}"
+        )
 
     def click_save_profile(self) -> None:
         """Click the save button in the profile dialog."""
@@ -724,11 +750,8 @@ class PflegeDashboardPage(BasePage):
         """
         import time
 
-        select_el = self.wait_for_element_clickable(self.CARE_STYLE_SELECT)
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{label}')]")
-        )
+        self.open_select_by_testid("care-style-select")
+        option = self._find_care_style_option(label)
         self.click_menu_option(option)
         time.sleep(0.3)
         confirms = self.driver.find_elements(*self.GENERIC_CONFIRM_CONFIRM)

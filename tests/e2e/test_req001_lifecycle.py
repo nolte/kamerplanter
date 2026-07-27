@@ -37,19 +37,31 @@ def _navigate_to_lifecycle_tab(
     species_list: SpeciesListPage,
     species_detail: SpeciesDetailPage,
 ) -> None:
-    """Navigate to the 'Lebenszyklus-Konfiguration' tab of the first species."""
+    """Navigate to the 'Lebenszyklus-Konfiguration' tab of the first species.
+
+    Both waits are keyed on content that must be present, not on the absence of
+    a skeleton. With the weak wait this helper had a *silent-skip* hazard on top
+    of the timing one: the URL commit does not mean the detail route rendered, so
+    ``get_tab_labels()`` could return ``[]`` and every test routed through here
+    skipped with "Lifecycle tab not found among []" -- an availability-shaped
+    skip that is really "not loaded yet" (`e2e-test-stability` §A/§D).
+    """
     species_list.open()
     if species_list.get_row_count() == 0:
         pytest.skip("No species in database")
     species_list.click_row(0)
     species_list.wait_for_url_contains("/stammdaten/species/")
-    species_detail.wait_for_loading_complete()
+    species_detail.wait_for_content(
+        SpeciesDetailPage.TABS, "species detail tab bar (lifecycle navigation)"
+    )
     tabs = species_detail.get_tab_labels()
     lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
     if lifecycle_tab is None:
         pytest.skip(f"Lifecycle tab not found among {tabs}")
     species_detail.click_tab(lifecycle_tab)
-    species_detail.wait_for_loading_complete()
+    species_detail.wait_for_content(
+        SpeciesDetailPage.LIFECYCLE_FORM_SUBMIT, "lifecycle configuration tab panel"
+    )
 
 
 class TestLifecycleConfigSection:
@@ -272,14 +284,22 @@ class TestGrowthPhaseManagement:
 
         species_list.click_row_by_name(scientific_name)
         species_list.wait_for_url_contains("/stammdaten/species/")
-        species_detail.wait_for_loading_complete()
+        # Same pairing as `_navigate_to_lifecycle_tab`: without a content-keyed
+        # wait the tab read below can return `[]` and turn this into a skip that
+        # reads like "the app has no lifecycle tab".
+        species_detail.wait_for_content(
+            SpeciesDetailPage.TABS, "TC-REQ-001-060 species detail tab bar"
+        )
 
         tabs = species_detail.get_tab_labels()
         lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
         if lifecycle_tab is None:
             pytest.skip(f"Lifecycle tab not found among {tabs}")
         species_detail.click_tab(lifecycle_tab)
-        species_detail.wait_for_loading_complete()
+        species_detail.wait_for_content(
+            SpeciesDetailPage.LIFECYCLE_FORM_SUBMIT,
+            "TC-REQ-001-060 lifecycle configuration tab panel",
+        )
 
         species_detail.select_lifecycle_option("cycle_type", "Einjährig")
         species_detail.select_lifecycle_option("photoperiod_type", "Tagneutral")

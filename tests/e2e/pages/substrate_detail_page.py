@@ -52,7 +52,10 @@ class SubstrateDetailPage(BasePage):
     BATCH_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
 
     # ── Alert banner ───────────────────────────────────────────────────
-    ALERTS = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Scoped to the page root: an unscoped ``.MuiAlert-root`` also matches
+    # MainLayout's light-mode warning banner, which renders as a sibling of
+    # this page's root, not a descendant. See #778 A11.
+    ALERTS = (By.CSS_SELECTOR, "[data-testid='substrate-detail-page'] .MuiAlert-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -276,13 +279,10 @@ class SubstrateDetailPage(BasePage):
     # ── Private helpers ────────────────────────────────────────────────
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        self.close_mui_dropdown()
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)

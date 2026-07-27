@@ -261,27 +261,21 @@ class HarvestBatchListPage(BasePage):
         self.scroll_and_click(btn)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (
-                By.CSS_SELECTOR,
-                f"[data-testid='form-field-{field_testid}'] .MuiSelect-select",
-            )
-        )
-        self.scroll_and_click(field)
-        # If value_text is empty, pick the first available option
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale. An empty
+        *value_text* keeps its original meaning ("pick whatever renders
+        first"), which ``select_option_by_label`` has no equivalent for since
+        it always resolves against a specific label.
+        """
+        self.open_select(field_testid)
         if not value_text:
-            option = self.wait_for_element_clickable((By.CSS_SELECTOR, "li[role='option']"))
-        else:
-            option = self.wait_for_element_clickable(
-                (
-                    By.XPATH,
-                    f"//li[@role='option' and contains(text(), '{value_text}')]",
-                )
-            )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+            option = self.wait_for_element_clickable(self.OPTIONS)
+            self.click_menu_option(option)
+            self.close_mui_dropdown()
+            return
+        self.select_option_by_label(value_text)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

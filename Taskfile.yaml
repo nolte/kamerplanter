@@ -164,6 +164,16 @@ tasks:
     cmds:
       - ./scripts/run-e2e.sh --smoke {{.CLI_ARGS}}
 
+  test:e2e:selftest:
+    desc: |
+      Run the browser-free unit tests for the E2E harness itself
+      (tests/e2e_selftest/): branch resolution in BasePage's settling helpers,
+      the sidebar-navigation fallback contract, and the shrink-only ratchet on
+      bare `navigate()` calls. No stack, no browser, no Grid — only `selenium`
+      needs to be importable.
+    cmds:
+      - python3 -m pytest tests/e2e_selftest {{.CLI_ARGS}}
+
   test:e2e:traceability:
     desc: |
       Verify BDD scenario traceability: every Gherkin scenario under

@@ -204,30 +204,18 @@ class FertilizerListPage(BasePage):
         self.clear_and_fill(el, notes)
 
     def select_fertilizer_type(self, value_text: str) -> None:
-        """Open the fertilizer type select and pick an option."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-fertilizer_type'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open the fertilizer type select and pick an option.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("fertilizer_type")
+        self.select_option_by_label(value_text)
 
     def select_ph_effect(self, value_text: str) -> None:
         """Open the pH effect select and pick an option."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-ph_effect'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        self.open_select("ph_effect")
+        self.select_option_by_label(value_text)
 
     def submit_create_form(self) -> None:
         """Submit the create form."""

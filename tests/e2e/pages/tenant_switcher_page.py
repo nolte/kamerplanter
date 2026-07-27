@@ -21,20 +21,29 @@ class TenantSwitcherPage(BasePage):
         By.CSS_SELECTOR,
         "header button .MuiTypography-body2",
     )
-    # The dropdown menu
-    MENU = (By.CSS_SELECTOR, ".MuiMenu-paper")
-    MENU_ITEMS = (By.CSS_SELECTOR, ".MuiMenu-paper li[role='menuitem']")
+    # The dropdown menu. Scoped to its own product hook rather than the bare
+    # ``.MuiMenu-paper``: MainLayout's account menu is *also* a MUI ``Menu``
+    # (portalled to ``document.body`` exactly like this one), and an unscoped
+    # selector resolves to whichever paper comes first in document order --
+    # a latent wrong-menu hazard. ``TenantSwitcher`` carried no data-testid at
+    # all, so ``tenant-switcher-menu`` was added to its ``Menu``'s Paper slot.
+    # See #778 A11.
+    MENU = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu']")
+    MENU_ITEMS = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] li[role='menuitem']")
     # Active tenant has the 'selected' class
-    SELECTED_ITEM = (By.CSS_SELECTOR, ".MuiMenu-paper li.Mui-selected")
+    SELECTED_ITEM = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] li.Mui-selected")
     # Check icon next to active tenant
-    CHECK_ICON = (By.CSS_SELECTOR, ".MuiMenu-paper li.Mui-selected [data-testid='CheckIcon']")
+    CHECK_ICON = (
+        By.CSS_SELECTOR,
+        "[data-testid='tenant-switcher-menu'] li.Mui-selected [data-testid='CheckIcon']",
+    )
     # Type icons
     PERSON_ICON = (By.CSS_SELECTOR, "[data-testid='PersonIcon']")
     GROUPS_ICON = (By.CSS_SELECTOR, "[data-testid='GroupsIcon']")
     # The "Create organization" menu item (last, after divider)
-    CREATE_ORG_ITEM = (By.CSS_SELECTOR, ".MuiMenu-paper li:last-child")
+    CREATE_ORG_ITEM = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] li:last-child")
     # Divider before create item
-    DIVIDER = (By.CSS_SELECTOR, ".MuiMenu-paper .MuiDivider-root")
+    DIVIDER = (By.CSS_SELECTOR, "[data-testid='tenant-switcher-menu'] .MuiDivider-root")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

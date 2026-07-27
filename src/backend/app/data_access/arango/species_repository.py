@@ -5,7 +5,7 @@ from arango.database import StandardDatabase
 from app.common.types import CultivarKey, FamilyKey, SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.query_builder import AQLBuilder
+from app.data_access.arango.query_builder import AQLBuilder, escape_aql_like
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.species import Cultivar, Species
@@ -90,18 +90,18 @@ class ArangoSpeciesRepository(BaseArangoRepository[Species], ISpeciesRepository)
         )
 
     def search(self, name: str | None = None, family_key: FamilyKey | None = None) -> list[Species]:
+        # Both predicates filter on scalar document fields and compose with AND.
+        # ``family_key`` is the scalar assignment written on every create/import/
+        # seed path; the ``belongs_to_family`` graph edge is not maintained on the
+        # normal path, so an edge traversal here would spuriously return nothing.
         builder = AQLBuilder(col.SPECIES)
         if name:
-            builder.filter("scientific_name", "LIKE", f"%{name}%")
+            # Escape LIKE wildcards so user-typed %, _ or \ match literally
+            # instead of acting as pattern metacharacters (SCR-007).
+            builder.filter("scientific_name", "LIKE", f"%{escape_aql_like(name)}%")
+        if family_key:
+            builder.filter("family_key", "==", family_key)
         query, bind_vars = builder.build_list()
-        # If family_key filter needed, use graph traversal
-        if family_key and not name:
-            query = """
-            FOR v, e IN 1..1 OUTBOUND @family_id GRAPH 'kamerplanter_graph'
-              OPTIONS {edgeCollections: ['belongs_to_family']}
-              RETURN v
-            """
-            bind_vars = {"family_id": f"{col.BOTANICAL_FAMILIES}/{family_key}"}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [Species(**self._from_doc(doc)) for doc in cursor]
 

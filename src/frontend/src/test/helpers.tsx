@@ -24,6 +24,7 @@ import seasonReducer from '@/store/slices/seasonSlice';
 import dashboardReducer from '@/store/slices/dashboardSlice';
 import plantingRunsReducer from '@/store/slices/plantingRunsSlice';
 import tasksReducer from '@/store/slices/tasksSlice';
+import harvestReducer from '@/store/slices/harvestSlice';
 import postHarvestReducer from '@/store/slices/postHarvestSlice';
 import careRemindersReducer from '@/store/slices/careRemindersSlice';
 import wateringLogsReducer from '@/store/slices/wateringLogsSlice';
@@ -48,6 +49,7 @@ const rootReducer = combineReducers({
   dashboard: dashboardReducer,
   plantingRuns: plantingRunsReducer,
   tasks: tasksReducer,
+  harvest: harvestReducer,
   postHarvest: postHarvestReducer,
   careReminders: careRemindersReducer,
   wateringLogs: wateringLogsReducer,

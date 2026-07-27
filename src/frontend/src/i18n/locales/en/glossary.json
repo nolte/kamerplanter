@@ -205,6 +205,12 @@
       "beginnerTip": "Outdoors the season handles this by itself. It only matters under artificial light, where you set the lighting hours.",
       "unit": "h/day",
       "category": "lebenszyklus"
+    },
+    "readiness_reliability": {
+      "short": "Reliability & contribution — how strongly an indicator shapes the overall score",
+      "long": "Not every ripeness indicator is equally telling: reliability shows how dependable this indicator type is in practice (e.g. trichomes are more reliable than leaf colour). The contribution is the indicator's score multiplied by its reliability, showing how much it shaped the overall score.",
+      "beginnerTip": "A high contribution means this indicator strongly determined the overall score.",
+      "category": "lebenszyklus"
     }
   }
 }

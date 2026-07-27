@@ -1099,7 +1099,8 @@
       "speciesCount": "Arten",
       "speciesInFamily": "Arten in dieser Familie",
       "noSpeciesInFamily": "Dieser Familie sind noch keine Arten zugeordnet.",
-      "showAllSpeciesFiltered": "Alle Arten dieser Familie anzeigen"
+      "showAllSpeciesFiltered": "Alle Arten dieser Familie anzeigen",
+      "showAllSpeciesFilteredFor": "Alle Arten der Familie {{family}} anzeigen ({{count}})"
     },
     "species": {
       "title": "Arten",
@@ -3568,7 +3569,11 @@
       "sectionScoresDesc": "Erscheinung, Aroma und Farbe jeweils auf einer Skala von 0 bis 100 bewerten.",
       "sectionDefectsNotes": "Mängel & Notizen",
       "sectionDefectsNotesDesc": "Festgestellte Mängel und zusätzliche Anmerkungen zur Qualitätsbewertung.",
-      "sectionYieldDataDesc": "Erträge pro Pflanze, pro Quadratmeter und Gesamtertrag erfassen."
+      "sectionYieldDataDesc": "Erträge pro Pflanze, pro Quadratmeter und Gesamtertrag erfassen.",
+      "readinessIntro": "Wie weit ist diese Pflanze von der optimalen Ernte entfernt? Der Wert wird aus den erfassten Reife-Beobachtungen berechnet.",
+      "readinessLoading": "Erntereife wird geladen …",
+      "readinessNoData": "Noch keine Reife-Beobachtungen erfasst",
+      "readinessNoDataHint": "Sobald für diese Pflanze eine Beobachtung zu einem Reife-Indikator (z. B. Trichome, Brix, Aroma) vorliegt, erscheint hier die Erntereife mit Gesamtbewertung, Empfehlung und Indikator-Aufschlüsselung."
     },
     "notFound": {
       "title": "Seite nicht gefunden",

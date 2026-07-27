@@ -8,7 +8,7 @@ on the resulting notification rows — not just on mock calls.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 
@@ -18,58 +18,7 @@ from app.domain.models.task import Task
 from app.domain.services.notification_propagation_service import (
     NotificationPropagationService,
 )
-
-
-class FakeNotificationRepo:
-    """Minimal in-memory :class:`INotificationRepository` for propagation tests."""
-
-    def __init__(self) -> None:
-        self._store: dict[str, Notification] = {}
-        self._seq = 0
-
-    # ── writes ──
-    def create(self, notification: Notification) -> Notification:
-        self._seq += 1
-        key = f"n{self._seq}"
-        notification.key = key
-        notification.created_at = datetime.now(UTC) + timedelta(seconds=self._seq)
-        self._store[key] = notification
-        return notification
-
-    def update(self, key: str, notification: Notification) -> Notification:
-        notification.key = key
-        self._store[key] = notification
-        return notification
-
-    def delete(self, key: str) -> bool:
-        return self._store.pop(key, None) is not None
-
-    def mark_read(self, key: str, read_at: datetime) -> Notification | None:
-        notif = self._store.get(key)
-        if notif is None:
-            return None
-        notif.read_at = read_at
-        return notif
-
-    def mark_acted(self, key: str, acted_at: datetime) -> Notification | None:
-        notif = self._store.get(key)
-        if notif is None:
-            return None
-        notif.acted_at = acted_at
-        return notif
-
-    # ── reads ──
-    def get(self, key: str) -> Notification | None:
-        return self._store.get(key)
-
-    def list_by_group_key(self, group_key: str, tenant_key: str) -> list[Notification]:
-        rows = [n for n in self._store.values() if n.group_key == group_key and n.tenant_key == tenant_key]
-        rows.sort(key=lambda n: n.created_at or datetime.min.replace(tzinfo=UTC), reverse=True)
-        return rows
-
-    # ── test helpers ──
-    def all_rows(self) -> list[Notification]:
-        return list(self._store.values())
+from tests.unit.domain.services.notification_fakes import FakeNotificationRepo
 
 
 @pytest.fixture
@@ -380,6 +329,77 @@ class TestCareConfirmed:
     def test_confirm_without_notification_is_safe(self, service, repo):
         service.on_care_confirmed(tenant_key="t1", plant_key="plant1", reminder_type=ReminderType.WATERING)
         assert repo.all_rows() == []
+
+
+# ── Rule 7: confirm → reschedule on one group_key (the #769 sequence) ───────
+
+
+class TestCareConfirmThenReschedule:
+    """The composition of rules 5 and 6 on the *same* row — where #769 lived.
+
+    Both hooks were covered in isolation throughout the defect's lifetime; only
+    their sequence exposes it, because the single-entry guarantee makes the
+    reschedule recycle the very row the confirmation stamped read.
+    """
+
+    def _seed_and_confirm(self, service, repo) -> Notification:
+        service.sync_care_notification(
+            tenant_key="t1",
+            user_key="user-a",
+            plant_key="plant1",
+            plant_label="Monstera",
+            reminder_type=ReminderType.WATERING,
+            due_date=datetime(2026, 8, 1, tzinfo=UTC),
+        )
+        service.on_care_confirmed(tenant_key="t1", plant_key="plant1", reminder_type=ReminderType.WATERING)
+        row = repo.all_rows()[0]
+        assert row.read_at is not None  # precondition: the badge has dropped
+        return row
+
+    def test_follow_up_after_confirmation_reopens_the_row(self, service, repo):
+        confirmed = self._seed_and_confirm(service, repo)
+
+        service.sync_care_notification(
+            tenant_key="t1",
+            user_key="user-a",
+            plant_key="plant1",
+            plant_label="Monstera",
+            reminder_type=ReminderType.WATERING,
+            due_date=datetime(2026, 8, 8, tzinfo=UTC),
+            task_key="task-next",
+            reset_read=True,
+        )
+
+        rows = repo.all_rows()
+        assert len(rows) == 1  # still exactly one entry for the plant + type
+        assert rows[0].key == confirmed.key  # the same row was recycled
+        assert rows[0].read_at is None
+        assert rows[0].acted_at is None
+        assert "2026-08-08" in rows[0].body
+        assert rows[0].title == "Monstera"
+        assert rows[0].data["task_key"] == "task-next"
+        # The badge predicate (read_at == null) now returns it again.
+        assert [n.key for n in repo.unread_for("user-a", "t1")] == [confirmed.key]
+
+    def test_retiming_after_confirmation_leaves_the_row_closed(self, service, repo):
+        """Without ``reset_read`` the row stays done — the interval-edit contract."""
+        self._seed_and_confirm(service, repo)
+
+        service.sync_care_notification(
+            tenant_key="t1",
+            user_key="user-a",
+            plant_key="plant1",
+            plant_label="Monstera",
+            reminder_type=ReminderType.WATERING,
+            due_date=datetime(2026, 8, 8, tzinfo=UTC),
+        )
+
+        rows = repo.all_rows()
+        assert len(rows) == 1
+        assert rows[0].read_at is not None
+        assert rows[0].acted_at is not None
+        assert "2026-08-08" in rows[0].body  # content still follows the new cycle
+        assert repo.unread_for("user-a", "t1") == []
 
 
 # ── Negative: tenant isolation across all mutating hooks ────────────────────

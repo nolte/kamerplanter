@@ -1099,7 +1099,8 @@
       "speciesCount": "Species",
       "speciesInFamily": "Species in this family",
       "noSpeciesInFamily": "No species have been assigned to this family yet.",
-      "showAllSpeciesFiltered": "Show all species of this family"
+      "showAllSpeciesFiltered": "Show all species of this family",
+      "showAllSpeciesFilteredFor": "Show all species of {{family}} ({{count}})"
     },
     "species": {
       "title": "Species",
@@ -3567,7 +3568,11 @@
       "sectionScoresDesc": "Rate appearance, aroma, and color each on a scale from 0 to 100.",
       "sectionDefectsNotes": "Defects & Notes",
       "sectionDefectsNotesDesc": "Observed defects and additional notes about the quality assessment.",
-      "sectionYieldDataDesc": "Record yield per plant, per square meter, and total yield."
+      "sectionYieldDataDesc": "Record yield per plant, per square meter, and total yield.",
+      "readinessIntro": "How far is this plant from its optimal harvest? The value is derived from the ripeness observations recorded for it.",
+      "readinessLoading": "Loading harvest readiness …",
+      "readinessNoData": "No ripeness observations recorded yet",
+      "readinessNoDataHint": "As soon as an observation for a ripeness indicator (e.g. trichomes, Brix, aroma) exists for this plant, its harvest readiness appears here with an overall score, a recommendation and the indicator breakdown."
     },
     "notFound": {
       "title": "Page Not Found",
