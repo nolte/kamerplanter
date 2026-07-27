@@ -98,7 +98,7 @@ export default function LoginPage() {
               type="submit"
               variant="contained"
               fullWidth
-              disabled={isLoading}
+              disabled={isLoading || !email || !password}
               startIcon={
                 isLoading ? <CircularProgress size={20} color="inherit" aria-hidden /> : undefined
               }

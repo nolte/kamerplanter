@@ -22,6 +22,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import PersonIcon from '@mui/icons-material/Person';
+import FavoriteToggle from '@/components/common/FavoriteToggle';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import DataTable, { type Column } from '@/components/common/DataTable';
@@ -594,23 +595,18 @@ export default function SpeciesListPage() {
             // but no place on the card: `trailing` holds the thumbnail. Below
             // `sm` the action was therefore unreachable entirely (#778 A1
             // comment). `actions` is the slot for exactly this.
+            // The shared toggle rather than a hand-rolled IconButton: it already
+            // carries the 48x48 touch target UI-NFR-001 R-011 demands, plus
+            // `aria-pressed` and the add/remove-specific labels. This card is
+            // the first place the favourite becomes touch-reachable at all
+            // (#778 A1) — the desktop cell keeps its own compact button, a
+            // mouse-precision context this deliberately does not change.
             actions={
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFavorite(r.key);
-                }}
-                color={isFavorite(r.key) ? 'warning' : 'default'}
-                aria-label={t('pages.calendar.sowingCalendar.toggleFavorite')}
-                data-testid={`card-favorite-${r.key}`}
-              >
-                {isFavorite(r.key) ? (
-                  <StarIcon fontSize="small" />
-                ) : (
-                  <StarBorderIcon fontSize="small" />
-                )}
-              </IconButton>
+              <FavoriteToggle
+                favorited={isFavorite(r.key)}
+                onToggle={() => toggleFavorite(r.key)}
+                testId={r.key}
+              />
             }
             chips={[
               {

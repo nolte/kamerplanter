@@ -64,7 +64,7 @@ export default function PasswordResetRequestPage() {
                 type="submit"
                 variant="contained"
                 fullWidth
-                disabled={loading}
+                disabled={loading || !email}
                 sx={{ mb: 2 }}
               >
                 {t('pages.auth.sendResetLink')}

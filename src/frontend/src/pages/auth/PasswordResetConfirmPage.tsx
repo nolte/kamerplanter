@@ -86,7 +86,7 @@ export default function PasswordResetConfirmPage() {
               type="submit"
               variant="contained"
               fullWidth
-              disabled={loading}
+              disabled={loading || !password || !confirmPassword}
             >
               {t('pages.auth.setNewPassword')}
             </Button>

@@ -36,6 +36,24 @@ export interface FormProps extends Omit<BoxProps<'form'>, 'component' | 'noValid
  * from the outside. That is intentional: issue #825 exists because the correct
  * behaviour was opt-in, and 55 of 84 form-bearing files had not opted in.
  *
+ * ## Migrating a form that has no zod schema
+ *
+ * Switching a form to this wrapper *removes* native constraint validation. For
+ * a React-Hook-Form + zod form that is the entire point — zod takes over. For a
+ * plain `useState` form it is a regression: `required` on the inputs was the
+ * only thing stopping an empty submit, and nothing replaces it.
+ *
+ * Four auth pages hit exactly this during the #825 migration. The project's
+ * answer is the pattern `TenantCreatePage` already used — gate the submit
+ * button on the fields being filled:
+ *
+ * ```tsx
+ * <Button type="submit" disabled={isLoading || !email || !password}>
+ * ```
+ *
+ * The ESLint rule cannot catch this class: it sees a compliant `<Form>`. Only
+ * reading the form tells you whether something validates its input at all.
+ *
  * ## Testing note — jsdom cannot see this
  *
  * jsdom does not implement native constraint validation, so a behavioural test

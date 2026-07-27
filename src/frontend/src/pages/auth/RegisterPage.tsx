@@ -104,7 +104,7 @@ export default function RegisterPage() {
               type="submit"
               variant="contained"
               fullWidth
-              disabled={isLoading}
+              disabled={isLoading || !displayName || !email || !password || !confirmPassword}
               sx={{ mb: 2 }}
             >
               {isLoading ? <CircularProgress size={24} /> : t('pages.auth.registerButton')}
