@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormTextField from '@/components/form/FormTextField';
@@ -114,7 +115,7 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.postHarvest.startDryingIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormSelectField
             name="harvest_batch_key"
             control={control}
@@ -183,7 +184,7 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
             loading={saving}
             saveLabel={t('pages.postHarvest.startDrying')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

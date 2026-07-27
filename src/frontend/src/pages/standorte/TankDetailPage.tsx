@@ -31,6 +31,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -1130,8 +1131,7 @@ export default function TankDetailPage() {
 
       {/* Tab 5: Edit */}
       {tab === 5 && (
-        <Box
-          component="form"
+        <Form
           onSubmit={handleSubmit(onSave)}
           sx={{ maxWidth: { xs: '100%', md: FORM_MAX_WIDTH, xl: 1440 }, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
@@ -1354,7 +1354,7 @@ export default function TankDetailPage() {
             loading={saving}
             disabled={!isDirty}
           />
-        </Box>
+        </Form>
       )}
 
       <TankStateCreateDialog

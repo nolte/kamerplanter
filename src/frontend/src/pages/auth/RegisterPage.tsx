@@ -13,6 +13,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { useSnackbar } from 'notistack';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerLocal, clearError } from '@/store/slices/authSlice';
+import Form from '@/components/form/Form';
 
 export default function RegisterPage() {
   const { t } = useTranslation();
@@ -58,7 +59,7 @@ export default function RegisterPage() {
             <Alert severity="error" sx={{ mb: 2 }}>{localError || error}</Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit}>
+          <Form onSubmit={handleSubmit}>
             <TextField
               label={t('pages.auth.displayName')}
               fullWidth
@@ -108,7 +109,7 @@ export default function RegisterPage() {
             >
               {isLoading ? <CircularProgress size={24} /> : t('pages.auth.registerButton')}
             </Button>
-          </Box>
+          </Form>
 
           <Link component={RouterLink} to="/login" variant="body2">
             {t('pages.auth.loginLink')}

@@ -9,6 +9,7 @@ import Alert from '@mui/material/Alert';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -183,7 +184,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
             {t('pages.deliveryChannels.multiChannelActive')}
           </Alert>
         )}
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormSelectField
             name="phase_name"
             control={control}
@@ -352,7 +353,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
             loading={saving}
             saveLabel={t(isEdit ? 'common.save' : 'common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

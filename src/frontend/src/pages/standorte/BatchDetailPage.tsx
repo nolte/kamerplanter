@@ -12,6 +12,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
@@ -119,7 +120,7 @@ export default function BatchDetailPage() {
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280 }}>
+      <Form onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280 }}>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.batches.editIntro')}
         </Typography>
@@ -149,7 +150,7 @@ export default function BatchDetailPage() {
         )}
 
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
-      </Box>
+      </Form>
 
       <ConfirmDialog
         open={deleteOpen}

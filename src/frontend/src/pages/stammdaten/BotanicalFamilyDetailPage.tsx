@@ -21,6 +21,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormMultiSelectField from '@/components/form/FormMultiSelectField';
@@ -241,8 +242,7 @@ export default function BotanicalFamilyDetailPage() {
         }
       />
 
-      <Box
-        component="form"
+      <Form
         onSubmit={handleSubmit(onSubmit)}
         sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
@@ -452,7 +452,7 @@ export default function BotanicalFamilyDetailPage() {
         </Typography>
 
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
-      </Box>
+      </Form>
 
       <Divider sx={{ my: 4 }} />
 

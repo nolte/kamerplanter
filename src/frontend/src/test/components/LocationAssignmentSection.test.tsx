@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useForm, useWatch } from 'react-hook-form';
 import i18n from 'i18next';
+import Form from '@/components/form/Form';
 import LocationAssignmentSection from '@/components/form/LocationAssignmentSection';
 import type { LocationTreeNode, Site, Slot } from '@/api/types';
 import { renderWithProviders } from '../helpers';
@@ -94,10 +95,10 @@ function Harness({ variant = 'card', onSubmit, slotsForArea = EMPTY_SLOTS, defau
   }, [locationKey, slotsForArea]);
 
   return (
-    <form onSubmit={handleSubmit((v) => onSubmit?.(v))}>
+    <Form onSubmit={handleSubmit((v) => onSubmit?.(v))}>
       <LocationAssignmentSection control={control} sites={MOCK_SITES} slots={slots} variant={variant} />
       <button type="submit">save</button>
-    </form>
+    </Form>
   );
 }
 

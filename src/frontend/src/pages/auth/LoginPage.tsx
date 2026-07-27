@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { loginLocal, clearError } from '@/store/slices/authSlice';
 import { getOAuthProviders } from '@/api/endpoints/auth';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import Form from '@/components/form/Form';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -60,7 +61,7 @@ export default function LoginPage() {
 
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          <Box component="form" onSubmit={handleSubmit}>
+          <Form onSubmit={handleSubmit}>
             <TextField
               label={t('pages.auth.email')}
               type="email"
@@ -105,7 +106,7 @@ export default function LoginPage() {
             >
               {t('pages.auth.loginButton')}
             </Button>
-          </Box>
+          </Form>
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
             <Link component={RouterLink} to="/register" variant="body2">

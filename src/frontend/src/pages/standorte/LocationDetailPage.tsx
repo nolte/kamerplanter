@@ -21,6 +21,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import EmptyState from '@/components/common/EmptyState';
 import { useTableLocalState } from '@/hooks/useTableState';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -371,7 +372,7 @@ export default function LocationDetailPage() {
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+      <Form onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">
           {t('pages.locations.editIntro')}
         </Typography>
@@ -457,7 +458,7 @@ export default function LocationDetailPage() {
 
         <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
-      </Box>
+      </Form>
 
       {/* Assigned Tank */}
       <Box sx={{ mt: 3, maxWidth: 600 }}>

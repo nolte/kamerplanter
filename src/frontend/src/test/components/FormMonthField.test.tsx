@@ -5,6 +5,7 @@ import i18n from 'i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormMonthField from '@/components/form/FormMonthField';
 
 // Mirrors the overwintering schema: a required month is an integer 1–12, while
@@ -21,7 +22,7 @@ function TestForm({ onSubmit }: { onSubmit: (data: FormData) => void }) {
     defaultValues: { month: 10, optionalMonth: '' },
   });
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <Form onSubmit={handleSubmit(onSubmit)}>
       <FormMonthField name="month" control={control} label="Action month" required />
       <FormMonthField
         name="optionalMonth"
@@ -30,7 +31,7 @@ function TestForm({ onSubmit }: { onSubmit: (data: FormData) => void }) {
         includeEmpty
       />
       <button type="submit">Submit</button>
-    </form>
+    </Form>
   );
 }
 

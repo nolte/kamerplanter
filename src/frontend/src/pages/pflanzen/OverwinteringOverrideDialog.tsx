@@ -10,6 +10,7 @@ import Divider from '@mui/material/Divider';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -248,7 +249,7 @@ export default function OverwinteringOverrideDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.season.override.dialogIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormRow>
             <FormSelectField
               name="hardiness_rating"
@@ -404,7 +405,7 @@ export default function OverwinteringOverrideDialog({
             loading={saving}
             saveLabel={t('common.save')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

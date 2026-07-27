@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormMultiSelectField from '@/components/form/FormMultiSelectField';
@@ -175,7 +176,7 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.botanicalFamilies.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
             {t('pages.botanicalFamilies.sectionTaxonomy')}
           </Typography>
@@ -318,7 +319,7 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
             helperText={t('pages.botanicalFamilies.pollinationTypeHelper')}
           />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

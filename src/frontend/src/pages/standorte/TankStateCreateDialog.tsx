@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Box from '@mui/material/Box';
+import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
@@ -99,7 +100,7 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
       aria-labelledby="tank-state-create-dialog-title">
       <DialogTitle id="tank-state-create-dialog-title">{t('pages.tanks.recordState')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.tanks.sectionWaterQuality')}
           </Typography>
@@ -206,7 +207,7 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
             loading={saving}
             saveLabel={t('pages.tanks.recordState')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

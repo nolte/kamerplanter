@@ -338,6 +338,44 @@ describe('onboardingSlice', () => {
 });
 ```
 
+### Formular-Validierung: was vitest hier *nicht* prüfen kann
+
+!!! warning "jsdom erzwingt keine native Constraint-Validierung"
+    Ein Test der Form „Pflichtfeld leer lassen, abschicken, zod-Meldung erwarten"
+    ist im Frontend **nicht fehlschlagbar** — er wird grün, egal ob das Formular
+    `noValidate` trägt oder nicht.
+
+    Im echten Browser bricht die native Validierung das Abschicken ab, *bevor*
+    das `submit`-Event feuert: `handleSubmit` läuft nie, zod läuft nie, es
+    rendert kein `helperText`, und der Nutzer sieht eine native Sprechblase in
+    der **Browser-Sprache** statt in der App-Sprache. jsdom implementiert diesen
+    Abbruch nicht und ruft den Handler einfach auf — der Test misst also genau
+    das Gegenteil dessen, was er zu prüfen scheint.
+
+    Das ist kein theoretisches Risiko: Genau so blieb der Defekt aus
+    [#825](https://github.com/nolte/kamerplanter/issues/825) über ~55 Dateien
+    unsichtbar, und [#822](https://github.com/nolte/kamerplanter/issues/822)
+    verwarf einen so geschriebenen Test bewusst wieder, statt eine Prüfung
+    auszuliefern, die nicht fehlschlagen kann.
+
+**Was stattdessen schützt — drei Ebenen, keine davon ein Verhaltens-Unit-Test:**
+
+1. **`<Form>` statt `<form>`** (`@/components/form/Form`). Der Wrapper setzt
+   `noValidate` *nach* dem Prop-Spread, ist also von außen nicht abschaltbar.
+   Jedes RHF-Formular nutzt ihn.
+2. **ESLint-Regel** (`no-restricted-syntax` in `src/frontend/eslint.config.js`).
+   Ein rohes `<form>` oder ein `component="form"` ohne `noValidate` bricht den
+   Build. Damit scheitert der nächste ungeschützte Fall im CI statt in Produktion.
+3. **E2E im echten Browser.** Nur dort ist die Verhaltenszusage überhaupt
+   messbar. Page-Objects müssen den Dialog deshalb über den **echten
+   Absende-Button** bedienen — ein per JavaScript abgesetztes `submit`-Event
+   umgeht die native Validierung genauso wie jsdom und macht den Test wertlos
+   (siehe [#815](https://github.com/nolte/kamerplanter/issues/815)).
+
+Auf Unit-Ebene sinnvoll bleibt nur die *strukturelle* Zusicherung — dass das
+Attribut am DOM-Knoten ankommt und nicht überschreibbar ist. Genau das prüft
+`src/test/components/Form.test.tsx`.
+
 ---
 
 ## E2E-Tests (Selenium)

@@ -11,6 +11,7 @@ import Box from '@mui/material/Box';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
@@ -144,7 +145,7 @@ export default function WateringConfirmDialog({
             </Box>
           </Box>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <Form onSubmit={handleSubmit(onSubmit)}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.wateringSchedule.confirmDescription')}
             </Typography>
@@ -188,7 +189,7 @@ export default function WateringConfirmDialog({
               loading={saving}
               saveLabel={t('pages.wateringSchedule.confirm')}
             />
-          </form>
+          </Form>
         )}
       </DialogContent>
     </Dialog>
