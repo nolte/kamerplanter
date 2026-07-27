@@ -73,7 +73,7 @@ class TestCoreJourneySpeciesAndCultivar:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-J079: Create a test species and a cultivar via the UI.
+        """TC-001-079: Create a test species and a cultivar via the UI.
 
         Spec: TC-001-079 -- Core-Journey Vorbereitung (self-provisioning).
         """
@@ -137,7 +137,7 @@ class TestCoreJourneyCreatePlantInstance:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-J080: Create a plant instance and verify list + detail.
+        """TC-001-080: Create a plant instance and verify list + detail.
 
         Spec: TC-001-080 -- Core-Journey Anlage (self-provisioning).
         """
@@ -184,7 +184,7 @@ class TestCoreJourneyEditPlantInstance:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-J081: Edit the plant display name and verify after reload.
+        """TC-001-081: Edit the plant display name and verify after reload.
 
         Spec: TC-001-081 -- Core-Journey Bearbeitung + Persistenz.
         """

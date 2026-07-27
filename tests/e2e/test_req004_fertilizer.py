@@ -68,7 +68,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_page_loads(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-001: Fertilizer list page loads with correct structure.
+        """TC-004-001: Fertilizer list page loads with correct structure.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -86,7 +86,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_has_required_columns(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-002: Fertilizer list shows required columns (product name, NPK, EC).
+        """TC-004-001: Fertilizer list shows required columns (product name, NPK, EC).
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -108,7 +108,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_shows_seed_data(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-003: Fertilizer list shows seed data rows on fresh database.
+        """TC-004-001: Fertilizer list shows seed data rows on fresh database.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -124,7 +124,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_search_filters_results(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-004: Searching the fertilizer list filters visible rows.
+        """TC-004-002: Searching the fertilizer list filters visible rows.
 
         Spec: TC-004-002 -- Duengemittel-Filter nach Typ anwenden.
         """
@@ -150,7 +150,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_search_chip_appears(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-005: Search chip appears after entering a search term.
+        """TC-004-002: Search chip appears after entering a search term.
 
         Spec: TC-004-002 -- Duengemittel-Filter nach Typ anwenden.
 
@@ -179,7 +179,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_sort_by_column(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-006: Clicking a column header sorts the fertilizer list.
+        """TC-004-001: Clicking a column header sorts the fertilizer list.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
 
@@ -192,8 +192,14 @@ class TestFertilizerListPage:
             pytest.skip("No fertilizers to sort")
 
         headers = fertilizer_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-004-006 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         rows_before = fertilizer_list.get_first_column_texts()
         fertilizer_list.click_column_header(headers[0])
@@ -204,25 +210,29 @@ class TestFertilizerListPage:
             "Fertilizer list after clicking column header to sort",
         )
 
-        # FertilizerListPage uses searchable={false}, so the sort-chip is
-        # never rendered.  Verify that sorting was applied by checking
-        # the URL contains sort params or that the row order is valid.
-        current_url = fertilizer_list.driver.current_url
+        # FertilizerListPage uses searchable={false}, so no sort chip is
+        # rendered -- the row order itself is the only evidence available.
         rows_after = fertilizer_list.get_first_column_texts()
-        # At minimum, sorting should not break the page — rows should still render
         assert len(rows_after) > 0, (
             "TC-REQ-004-006 FAIL: Expected table rows to still be present after clicking sort"
         )
-        # Either the URL contains sort_by or the rows changed order
-        assert "sort" in current_url.lower() or rows_after is not None, (
-            "TC-REQ-004-006 FAIL: Expected sort to be applied (sort param in URL or row order unchanged)"
-        )
+        # The previous check here was `"sort" in url or rows_after is not None`,
+        # whose right-hand side is true for every possible list -- so it could
+        # not fail, and the captured `rows_before` was never compared to
+        # anything (#802). `headers[0]` is the column the table already sorts by
+        # (`defaultSort: product_name asc`), so clicking it toggles the
+        # direction and the visible order must change.
+        if len(rows_before) >= 2:
+            assert rows_after != rows_before, (
+                "TC-REQ-004-006 FAIL: Clicking the first column header changed nothing about the "
+                f"row order, so no sort was applied: {rows_before[:5]}"
+            )
 
     @pytest.mark.smoke
     def test_fertilizer_list_showing_count(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-007: Fertilizer list shows a 'showing X of Y' count label.
+        """TC-004-001: Fertilizer list shows a 'showing X of Y' count label.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -241,7 +251,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_row_click_navigates(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-008: Clicking a fertilizer row navigates to the detail page.
+        """TC-004-008: Clicking a fertilizer row navigates to the detail page.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Planverwendungs-Anzeige.
         """
@@ -274,7 +284,7 @@ class TestFertilizerCreateDialog:
     def test_create_dialog_opens(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-013: Clicking 'Create' opens the fertilizer create dialog.
+        """TC-004-006: Clicking 'Create' opens the fertilizer create dialog.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Dialog).
         """
@@ -297,7 +307,7 @@ class TestFertilizerCreateDialog:
     def test_create_fertilizer_minimal_required_fields(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-014: Create a fertilizer with only required fields (product_name).
+        """TC-004-006: Create a fertilizer with only required fields (product_name).
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Minimal).
         """
@@ -331,7 +341,7 @@ class TestFertilizerCreateDialog:
     def test_create_fertilizer_with_full_data(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-015: Create a fertilizer with all major fields filled.
+        """TC-004-006: Create a fertilizer with all major fields filled.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Full).
         """
@@ -382,7 +392,7 @@ class TestFertilizerCreateDialog:
     def test_validation_empty_product_name(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-016: Submitting with empty product_name shows validation error.
+        """TC-004-007: Submitting with empty product_name shows validation error.
 
         Spec: TC-004-007 -- Duengemittel erstellen -- Pflichtfeld-Validierung.
         """
@@ -407,7 +417,7 @@ class TestFertilizerCreateDialog:
     def test_cancel_create_dialog_closes_without_saving(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-017: Cancelling the create dialog closes it without saving.
+        """TC-004-006: Cancelling the create dialog closes it without saving.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Cancel.
         """
@@ -432,6 +442,12 @@ class TestFertilizerCreateDialog:
         assert not fertilizer_list.is_create_dialog_open(), (
             "TC-REQ-004-017 FAIL: Create dialog should be closed after clicking cancel"
         )
+        # The case is "Cancel", so the point is that nothing was persisted --
+        # never asserted before #802.
+        assert fertilizer_list.get_row_count() == initial_count, (
+            f"TC-REQ-004-017 FAIL: Cancelling must create nothing, but the row count went from "
+            f"{initial_count} to {fertilizer_list.get_row_count()}"
+        )
 
         # Re-open — form should be reset
         fertilizer_list.click_create()
@@ -445,7 +461,7 @@ class TestFertilizerCreateDialog:
     def test_create_dialog_has_fertilizer_type_select(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-018: Create dialog contains a fertilizer type select field.
+        """TC-004-006: Create dialog contains a fertilizer type select field.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Type Select.
         """
@@ -465,7 +481,7 @@ class TestFertilizerCreateDialog:
     def test_create_dialog_has_npk_fields(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-019: Create dialog contains N, P, K number input fields.
+        """TC-004-006: Create dialog contains N, P, K number input fields.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- NPK Fields.
         """
@@ -514,7 +530,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-023: Fertilizer detail page loads and shows the product name as title.
+        """TC-004-008: Fertilizer detail page loads and shows the product name as title.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Planverwendungs-Anzeige.
         """
@@ -542,7 +558,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-024: Fertilizer detail page has exactly three tabs.
+        """TC-004-008: Fertilizer detail page has exactly three tabs.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Tabs.
         """
@@ -566,7 +582,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-025: Details tab (Tab 0) shows fertilizer properties.
+        """TC-004-008: Details tab (Tab 0) shows fertilizer properties.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Properties.
         """
@@ -595,7 +611,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-026: Stock tab (Tab 1) is accessible and renders without error.
+        """TC-004-010: Stock tab (Tab 1) is accessible and renders without error.
 
         Spec: TC-004-010 -- Lagerbestand erfassen (Stock Tab).
         """
@@ -621,7 +637,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-027: Edit tab (Tab 2) pre-fills product name from loaded data.
+        """TC-004-008: Edit tab (Tab 2) pre-fills product name from loaded data.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Edit Tab prefilled.
         """
@@ -646,6 +662,13 @@ class TestFertilizerDetailPage:
         assert name_value, (
             "TC-REQ-004-027 FAIL: Expected the product_name field to be pre-filled in the edit tab"
         )
+        # "pre-fills … from loaded data" -- a non-empty field satisfies neither
+        # half of that. It has to carry *this* fertilizer's name, the one the
+        # details tab shows (#802).
+        assert name_value == title, (
+            f"TC-REQ-004-027 FAIL: The edit tab must pre-fill the loaded fertilizer's name "
+            f"'{title}', but the field holds '{name_value}'"
+        )
 
     @pytest.mark.core_crud
     def test_edit_tab_save_button_disabled_without_changes(
@@ -653,7 +676,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-028: Edit tab save button is disabled when no changes are made.
+        """TC-004-008: Edit tab save button is disabled when no changes are made.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Save disabled.
         """
@@ -687,7 +710,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-029: Modifying a field in edit tab enables the save button.
+        """TC-004-008: Modifying a field in edit tab enables the save button.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Save enables after change.
         """
@@ -724,7 +747,7 @@ class TestFertilizerDetailPage:
         fertilizer_detail: FertilizerDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-030: Navigating to a non-existent fertilizer key shows an error.
+        """TC-004-009: Navigating to a non-existent fertilizer key shows an error.
 
         Spec: TC-004-009 -- Duengemittel-Detailseite -- Kein Plan zugeordnet (Invalid Key).
         """

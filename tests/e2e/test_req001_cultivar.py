@@ -62,7 +62,7 @@ class TestCultivarListSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-042: Display cultivars tab for a species.
+        """TC-001-036: Display cultivars tab for a species.
 
         Spec: TC-001-036 — Sorten-Tab einer Species zeigt vorhandene Sorten.
         """
@@ -81,7 +81,7 @@ class TestCultivarListSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-043: Click on a cultivar row navigates to cultivar detail page.
+        """TC-001-044: Click on a cultivar row navigates to cultivar detail page.
 
         Spec: TC-001-044 — Cultivar-Detailseite öffnen.
         """
@@ -113,7 +113,7 @@ class TestCultivarCreateDialog:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-045: Create a cultivar with all fields.
+        """TC-001-037: Create a cultivar with all fields.
 
         Spec: TC-001-037 — Neue Sorte erstellen (Happy Path).
         """
@@ -147,7 +147,7 @@ class TestCultivarCreateDialog:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-046: Validation error — empty cultivar name.
+        """TC-001-038: Validation error — empty cultivar name.
 
         Spec: TC-001-038 — Cultivar Pflichtfeld Name leer wird verhindert.
         """
@@ -172,7 +172,7 @@ class TestCultivarCreateDialog:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-047: Days to maturity boundary values (1-365).
+        """TC-001-039: Days to maturity boundary values (1-365).
 
         Spec: TC-001-039 — Cultivar Tage bis Reife Grenzwerte (1–365).
         """

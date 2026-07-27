@@ -53,7 +53,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-016: Harvest batch list page renders with data-testid.
+        """TC-007-001: Harvest batch list page renders with data-testid.
 
         Spec: TC-007-001 -- Ernte-Batch-Liste anzeigen (Happy Path).
         """
@@ -73,7 +73,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-017: Page title 'Erntechargen' is visible.
+        """TC-007-001: Page title 'Erntechargen' is visible.
 
         Spec: TC-007-001 -- Seiten-Ueberschrift 'Erntechargen' sichtbar.
         """
@@ -93,7 +93,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-018: DataTable renders with expected columns or empty state.
+        """TC-007-001: DataTable renders with expected columns or empty state.
 
         Spec: TC-007-001 -- DataTable mit Spalten oder Empty State.
         """
@@ -118,7 +118,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-019: Create button is visible on the list page.
+        """TC-007-001: Create button is visible on the list page.
 
         Spec: TC-007-001 -- Schaltflaeche 'Erntecharge erstellen' sichtbar.
         """
@@ -138,7 +138,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-020: Clicking a batch row navigates to its detail page.
+        """TC-007-006: Clicking a batch row navigates to its detail page.
 
         Spec: TC-007-006 -- Navigation zur Detailseite.
         """
@@ -169,7 +169,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-021: Search input filters harvest batches.
+        """TC-007-003: Search input filters harvest batches.
 
         Spec: TC-007-003 -- Suche in Tabelle.
         """
@@ -203,7 +203,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-022: Clicking a column header activates sorting.
+        """TC-007-004: Clicking a column header activates sorting.
 
         Spec: TC-007-004 -- Sortierung nach Erntedatum.
         """
@@ -229,7 +229,7 @@ class TestHarvestBatchListPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-023: Quality grade chips use correct MUI color classes.
+        """TC-007-005: Quality grade chips use correct MUI color classes.
 
         Spec: TC-007-005 -- Qualitaetsstufen-Farbkodierung.
         """
@@ -280,7 +280,7 @@ class TestHarvestCreateDialog:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-024: Clicking create button opens the dialog.
+        """TC-007-007: Clicking create button opens the dialog.
 
         Spec: TC-007-007 -- Ernte-Batch erstellen (Happy Path).
         """
@@ -306,7 +306,7 @@ class TestHarvestCreateDialog:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-025: Canceling the dialog closes it without creating a batch.
+        """TC-007-012: Canceling the dialog closes it without creating a batch.
 
         Spec: TC-007-012 -- Dialog abbrechen.
         """
@@ -342,7 +342,7 @@ class TestHarvestCreateDialog:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-026: Submitting without selecting a plant shows validation error.
+        """TC-007-008: Submitting without selecting a plant shows validation error.
 
         Spec: TC-007-008 -- Pflichtfeld Pflanze fehlt.
         """
@@ -381,7 +381,7 @@ class TestHarvestCreateDialog:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-027: Create a harvest batch with minimal required fields.
+        """TC-007-007: Create a harvest batch with minimal required fields.
 
         Spec: TC-007-007 -- Ernte-Batch erstellen (Happy Path -- Minimal).
         """
@@ -432,7 +432,7 @@ class TestHarvestCreateDialog:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-028: Create batch with wet weight, harvester, and notes.
+        """TC-007-010: Create batch with wet weight, harvester, and notes.
 
         Spec: TC-007-010 -- Nassgewicht und Notizen eingeben.
         """
@@ -501,7 +501,7 @@ class TestHarvestCreateDialog:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-029: Create batch with a manually entered batch ID.
+        """TC-007-009: Create batch with a manually entered batch ID.
 
         Spec: TC-007-009 -- Chargen-ID manuell vergeben.
         """

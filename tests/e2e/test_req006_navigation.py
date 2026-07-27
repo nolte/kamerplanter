@@ -62,7 +62,7 @@ class TestTaskNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-036: Navigation Queue -> Detail -> Browser-Back -> Queue.
+        """TC-006-019: Navigation Queue -> Detail -> Browser-Back -> Queue.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation.
         """
@@ -109,7 +109,7 @@ class TestTaskNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-037: Plant link on detail page navigates to plant detail.
+        """TC-006-020: Plant link on detail page navigates to plant detail.
 
         Spec: TC-006-020 -- Pflanzenverweis in der Detailseite navigiert zur Pflanzen-Detailseite.
         """
@@ -156,7 +156,7 @@ class TestWorkflowNavigation:
         workflow_detail: WorkflowDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-038: Navigation Workflow-List -> Detail -> Browser-Back -> List.
+        """TC-006-039: Navigation Workflow-List -> Detail -> Browser-Back -> List.
 
         Spec: TC-006-039 -- Workflow-Detailseite aufrufen.
         """
@@ -196,7 +196,7 @@ class TestWorkflowNavigation:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-039: Direct URL navigation to /aufgaben/queue works.
+        """TC-006-001: Direct URL navigation to /aufgaben/queue works.
 
         Spec: TC-006-001 -- Task-Queue aufrufen.
         """
@@ -221,7 +221,7 @@ class TestWorkflowNavigation:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-040: Direct URL /aufgaben/workflows loads the workflow template list.
+        """TC-006-034: Direct URL /aufgaben/workflows loads the workflow template list.
 
         Spec: TC-006-034 -- Workflow-Template-Liste direkt aufrufen.
         """

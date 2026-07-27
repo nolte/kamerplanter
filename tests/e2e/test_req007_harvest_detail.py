@@ -134,7 +134,7 @@ class TestHarvestBatchDetailPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-001: Detail page loads with 4 tabs visible.
+        """TC-007-014: Detail page loads with 4 tabs visible.
 
         Spec: TC-007-014 -- Detailseite laden (Happy Path).
         """
@@ -158,7 +158,7 @@ class TestHarvestBatchDetailPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-002: Tab 'Details' (index 0) is active by default.
+        """TC-007-014: Tab 'Details' (index 0) is active by default.
 
         Spec: TC-007-014 -- Detailseite laden -- Tab 'Details' standardmaessig aktiv.
         """
@@ -181,7 +181,7 @@ class TestHarvestBatchDetailPage:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-003: Details tab shows batch fields in table format.
+        """TC-007-015: Details tab shows batch fields in table format.
 
         Spec: TC-007-015 -- Details-Tab zeigt Batch-Felder.
         """
@@ -203,7 +203,7 @@ class TestHarvestBatchDetailPage:
         harvest_detail: HarvestBatchDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-004: Navigating to unknown batch key shows error display.
+        """TC-007-016: Navigating to unknown batch key shows error display.
 
         Spec: TC-007-016 -- Nicht gefunden (404).
         """
@@ -231,7 +231,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-005: Edit tab shows a prefilled form with current batch values.
+        """TC-007-017: Edit tab shows a prefilled form with current batch values.
 
         Spec: TC-007-017 -- Batch bearbeiten -- Erntetyp und Qualitaetsstufe aendern.
         """
@@ -256,7 +256,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-006: Save button is disabled when form is not dirty.
+        """TC-007-019: Save button is disabled when form is not dirty.
 
         Spec: TC-007-019 -- 'Speichern'-Button inaktiv bei unveraenderten Daten.
         """
@@ -281,7 +281,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-007: Edit batch -- change harvester and save.
+        """TC-007-017: Edit batch -- change harvester and save.
 
         Spec: TC-007-017 -- Batch bearbeiten -- Erntetyp und Qualitaetsstufe aendern.
         """
@@ -314,7 +314,7 @@ class TestHarvestBatchEdit:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-008: Negative weight value shows validation error on edit tab.
+        """TC-007-021: Negative weight value shows validation error on edit tab.
 
         Spec: TC-007-021 -- Negativer Gewichtswert (Validierung).
         """
@@ -357,7 +357,7 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-009: Quality tab shows either create form or display table.
+        """TC-007-022: Quality tab shows either create form or display table.
 
         Spec: TC-007-022 / TC-007-027 -- Qualitaets-Tab Formular oder Anzeige.
         """
@@ -385,7 +385,7 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-010: Submitting quality form without 'assessed_by' shows error.
+        """TC-007-023: Submitting quality form without 'assessed_by' shows error.
 
         Spec: TC-007-023 -- Pflichtfeld 'Bewertet von' fehlt.
         """
@@ -424,7 +424,7 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-011: Create quality assessment with valid scores.
+        """TC-007-022: Create quality assessment with valid scores.
 
         Spec: TC-007-022 -- Qualitaetsbewertung erstellen (Happy Path).
         """
@@ -464,7 +464,7 @@ class TestHarvestQualityAssessment:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-012: Defect chips can be added via the chip input.
+        """TC-007-025: Defect chips can be added via the chip input.
 
         Spec: TC-007-025 -- Maengel als Chips hinzufuegen.
         """
@@ -508,7 +508,7 @@ class TestHarvestYieldMetrics:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-013: Yield tab shows either create form or display table.
+        """TC-007-028: Yield tab shows either create form or display table.
 
         Spec: TC-007-028 -- Ertrags-Tab zeigt Formular oder Tabelle.
         """
@@ -536,7 +536,7 @@ class TestHarvestYieldMetrics:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-014: Create yield metrics with valid data.
+        """TC-007-028: Create yield metrics with valid data.
 
         Spec: TC-007-028 -- Ertragsmetriken erstellen (Happy Path).
         """
@@ -576,7 +576,7 @@ class TestHarvestYieldMetrics:
         harvest_list: HarvestBatchListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-007-015: Trim waste > 100% shows validation error.
+        """TC-007-030: Trim waste > 100% shows validation error.
 
         Spec: TC-007-030 -- Verschnitt > 100% zeigt Validierungsfehler.
         """

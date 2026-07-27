@@ -40,6 +40,51 @@ repos:
         always_run: true
         pass_filenames: false
 
+  # ── E2E suite (Python) ────────────────────────────────────────────────
+  # Deferred in #776 because the tree was red -- the 13 `F841` before-state
+  # captures it reported were real findings, not noise, and silencing them to
+  # turn the gate green would have destroyed the evidence. They are resolved
+  # (#802), so the gate can be armed: `tests/e2e/ruff.toml` is the config that
+  # applies here (the backend's pyproject only covers `src/backend`).
+  - repo: local
+    hooks:
+      - id: ruff-lint-e2e
+        name: ruff check (E2E suite)
+        entry: bash -c 'cd tests/e2e && ruff check --fix "${@/#tests\/e2e\//}"' --
+        language: python
+        additional_dependencies: ['ruff>=0.15.0']
+        files: ^tests/e2e/.*\.py$
+        types: [python]
+      - id: ruff-format-e2e
+        name: ruff format (E2E suite)
+        entry: bash -c 'cd tests/e2e && ruff format "${@/#tests\/e2e\//}"' --
+        language: python
+        additional_dependencies: ['ruff>=0.15.0']
+        files: ^tests/e2e/.*\.py$
+        types: [python]
+
+  # ── Spec-to-test traceability ─────────────────────────────────────────
+  # Runs in the required `static` job, which is the whole point: until #775 the
+  # classic suite's docstring TC-IDs were verified by nothing, so 616 of them
+  # had drifted into a per-file running count that only coincidentally hit a
+  # real spec number — and nobody noticed, because no gate looked.
+  #
+  # Both channels are checked: the Gherkin `@TC-…` tags and the classic
+  # docstrings. Two shrink-only baselines in the script hold the remainder that
+  # cannot be resolved mechanically, so the check is green today and a *new*
+  # violation still fails immediately. A permanently red check gets switched off
+  # within a week, which would waste the exercise.
+  #
+  # Standard library only, no stack, no browser — cheap enough for every commit.
+  - repo: local
+    hooks:
+      - id: e2e-traceability
+        name: E2E spec-to-test traceability (#775)
+        entry: python3 scripts/check_bdd_traceability.py
+        language: system
+        files: ^(tests/e2e/|spec/e2e-testcases/|scripts/check_bdd_traceability\.py)
+        pass_filenames: false
+
   # ── Backend (Python) ──────────────────────────────────────────────────
   # Uses ruff via pip (not the pre-commit mirror) to support py314 target-version.
   - repo: local

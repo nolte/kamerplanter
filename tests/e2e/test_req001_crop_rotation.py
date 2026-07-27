@@ -31,7 +31,7 @@ class TestCropRotationView:
     def test_select_family_and_view_successors(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-071: Select a family and view rotation successors.
+        """TC-001-050: Select a family and view rotation successors.
 
         Spec: TC-001-050 -- Fruchtfolge-Seite oeffnen und Nachfolger anzeigen.
         """
@@ -54,7 +54,7 @@ class TestCropRotationView:
     def test_add_rotation_successor(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-072: Add a rotation successor.
+        """TC-001-050: Add a rotation successor.
 
         Spec: TC-001-050 -- Fruchtfolge — Nachfolger hinzufuegen.
         """
@@ -92,7 +92,7 @@ class TestCropRotationView:
     def test_empty_state_when_no_successors(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-073: Empty state when no successors exist.
+        """TC-001-050: Empty state when no successors exist.
 
         Spec: TC-001-050 -- Fruchtfolge — Leerzustand wenn keine Nachfolger.
         """
@@ -120,7 +120,7 @@ class TestCropRotationDialogUX:
     def test_current_family_excluded_from_target_dropdown(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-074: Current family excluded from the successor dropdown.
+        """TC-001-050: Current family excluded from the successor dropdown.
 
         Spec: TC-001-050 -- Fruchtfolge-Dialog — aktuelle Familie nicht im Ziel-Dropdown.
         """
@@ -146,7 +146,7 @@ class TestCropRotationDialogUX:
     def test_create_button_disabled_without_target(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-075: 'Erstellen' button disabled without a target family.
+        """TC-001-050: 'Erstellen' button disabled without a target family.
 
         Spec: TC-001-050 -- Fruchtfolge-Dialog — Erstellen-Button deaktiviert ohne Ziel.
         """

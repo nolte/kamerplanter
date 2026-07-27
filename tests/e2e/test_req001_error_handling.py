@@ -85,7 +85,7 @@ class TestErrorHandling:
     def test_nonexistent_detail_page_shows_error(
         self, detail_page: BotanicalFamilyDetailPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-028: Non-existent key shows error display (supplemental).
+        """TC-001-068: Non-existent key shows error display (supplemental).
 
         Spec: TC-001-068 -- Ungueltige URL — Botanische Familie nicht gefunden zeigt Fehlermeldung.
 

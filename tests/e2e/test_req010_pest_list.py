@@ -49,7 +49,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-001: Pest list page loads with title, table, and create button.
+        """TC-010-001: Pest list page loads with title, table, and create button.
 
         Spec: TC-010-001 -- Schaedlings-Listenansicht aufrufen — Ladevorgang und Tabellenstruktur.
         """
@@ -72,7 +72,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-002: DataTable renders with expected columns for pests.
+        """TC-010-001: DataTable renders with expected columns for pests.
 
         Spec: TC-010-001 -- Schaedlings-Listenansicht — Spalten pruefen.
         """
@@ -93,7 +93,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-003: Introductory description text is visible below the title.
+        """TC-010-001: Introductory description text is visible below the title.
 
         Spec: TC-010-001 -- Einleitungstext sichtbar.
         """
@@ -110,7 +110,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-004: Search filters pest list in real-time.
+        """TC-010-003: Search filters pest list in real-time.
 
         Spec: TC-010-003 -- Schaedlings-Liste — Suche filtert in Echtzeit.
         """
@@ -142,7 +142,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-005: Search with no match shows empty message.
+        """TC-010-004: Search with no match shows empty message.
 
         Spec: TC-010-004 -- Schaedlings-Liste — Suche findet keinen Treffer.
         """
@@ -162,7 +162,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-006: Clicking column header triggers sorting.
+        """TC-010-003: Clicking column header triggers sorting.
 
         Spec: TC-010-003 -- Schaedlings-Liste — Sortierung per Spaltenklick.
         """
@@ -172,8 +172,14 @@ class TestPestListPage:
             pytest.skip("No pests in database to sort")
 
         headers = pest_list.get_column_headers()
-        if not headers:
-            pytest.skip("No column headers found")
+        # `requires_desktop` already guarantees the table layout, so an empty
+        # header list here does not mean "card layout" -- it means the table did
+        # not render, which is a defect this test used to swallow as a skip
+        # (#778 A6).
+        assert headers, (
+            "TC-REQ-010-006 FAIL: Expected column headers on a desktop viewport, but the table "
+            "rendered none"
+        )
 
         screenshot("TC-REQ-010-006_before-sort", "Pest list before sorting")
         pest_list.click_column_header(headers[0])
@@ -190,7 +196,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-007: Reset filters restores original list.
+        """TC-010-003: Reset filters restores original list.
 
         Spec: TC-010-003 -- Schaedlings-Liste — Filter zuruecksetzen.
         """
@@ -219,7 +225,7 @@ class TestPestListPage:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-008: Showing count displays the correct range text.
+        """TC-010-001: Showing count displays the correct range text.
 
         Spec: TC-010-001 -- Schaedlings-Listenansicht — Zeigt-Zaehler.
         """
@@ -247,7 +253,7 @@ class TestPestCreateDialog:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-009: Create a pest via dialog (happy path).
+        """TC-010-008: Create a pest via dialog (happy path).
 
         Spec: TC-010-008 -- Schaedling erstellen — Happy Path.
         """
@@ -293,7 +299,7 @@ class TestPestCreateDialog:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-010: Validation error when scientific name is empty.
+        """TC-010-009: Validation error when scientific name is empty.
 
         Spec: TC-010-009 -- Schaedling erstellen — Pflichtfeld 'Wissenschaftlicher Name' leer.
         """
@@ -335,7 +341,7 @@ class TestPestCreateDialog:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-011: Validation error when common name is empty.
+        """TC-010-010: Validation error when common name is empty.
 
         Spec: TC-010-010 -- Schaedling erstellen — Pflichtfeld 'Gebraeuchlicher Name' leer.
         """
@@ -370,13 +376,16 @@ class TestPestCreateDialog:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-012: Cancelling create dialog discards entered data.
+        """TC-010-011: Cancelling create dialog discards entered data.
 
         Spec: TC-010-011 -- Schaedling erstellen — Dialog abbrechen verwirft Eingaben.
         """
         pest_list.open()
-        initial_names = pest_list.get_first_column_texts()
-
+        # Deliberately no before/after list comparison (#802): the suite runs in
+        # parallel against one stack, so another test creating a pest mid-flight
+        # would fail an equality check that has nothing to do with this case.
+        # The targeted "the cancelled name is absent" assertion below is the
+        # parallel-safe form of the same question.
         pest_list.click_create()
         pest_list.fill_scientific_name("TestOrganism")
         pest_list.fill_common_name("Testname")
@@ -401,7 +410,7 @@ class TestPestCreateDialog:
         pest_list: PestListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-013: Lifecycle days field is optional (null allowed).
+        """TC-010-012: Lifecycle days field is optional (null allowed).
 
         Spec: TC-010-012 -- Schaedling erstellen — Lebenszyklus-Feld optionale Eingabe.
         """

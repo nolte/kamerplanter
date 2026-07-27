@@ -230,7 +230,7 @@ class TestPlantGalleryUpload:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-005: The capture dialog offers webcam, camera and file upload.
+        """TC-REQ-034-007: The capture dialog offers webcam, camera and file upload.
 
         Spec: TC-REQ-034-007 — Aufnahme-Dialog bietet Webcam, Smartphone-Kamera
         und Datei-Upload (Wiederverwendung der Bilderkennungs-UX).
@@ -273,7 +273,7 @@ class TestPlantGalleryUpload:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-004: A file upload adds a thumbnail to the grid.
+        """TC-REQ-034-006: A file upload adds a thumbnail to the grid.
 
         Spec: TC-REQ-034-006 — Foto per Datei-Upload hinzufuegen.  Drives the
         file-upload path of the shared capture panel; webcam/phone-camera are
@@ -330,7 +330,7 @@ class TestPlantGalleryUpload:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-007: A non-image file is rejected with an error.
+        """TC-REQ-034-009: A non-image file is rejected with an error.
 
         Spec: TC-REQ-034-009 — Ungueltiger Dateityp wird abgelehnt.  The
         gallery normalizes the selected file client-side via a canvas; a file
@@ -385,7 +385,7 @@ class TestPlantGalleryLightbox:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-006: Clicking a thumbnail opens the full-size lightbox.
+        """TC-REQ-034-005: Clicking a thumbnail opens the full-size lightbox.
 
         Spec: TC-REQ-034-005 — Klick auf Thumbnail oeffnet Lightbox mit
         Originalbild.  Uploads a throwaway photo first so the test is
@@ -439,7 +439,7 @@ class TestPlantGalleryCover:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-008 / 009: Set a cover photo; it previews in the info tab.
+        """TC-REQ-034-011 / 009: Set a cover photo; it previews in the info tab.
 
         Spec: TC-REQ-034-011 — Foto als Titelbild markieren (Cover-Badge).
         Spec: TC-REQ-034-012 — Titelbild erscheint als Vorschau im Info-Tab.
@@ -503,7 +503,7 @@ class TestPlantGalleryDelete:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-010: A photo is deleted only after confirming the dialog.
+        """TC-REQ-034-013: A photo is deleted only after confirming the dialog.
 
         Spec: TC-REQ-034-013 — Einzelnes Foto loeschen.  Uploads a throwaway
         photo, opens the delete confirm dialog and confirms; the gallery loses
@@ -563,7 +563,7 @@ class TestPlantGalleryI18n:
         gallery: PlantPhotoGalleryPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-034-011: With the UI in English the photos tab reads 'Photos'.
+        """TC-REQ-034-018: With the UI in English the photos tab reads 'Photos'.
 
         Spec: TC-REQ-034-018 — Galerie-UI in Englisch; no raw i18n keys leak.
 

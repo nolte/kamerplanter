@@ -32,7 +32,7 @@ class TestCompanionPlantingView:
     def test_select_species_and_view_relationships(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-065: Select a species and view companion planting relationships.
+        """TC-001-030: Select a species and view companion planting relationships.
 
         Spec: TC-001-030 -- Species-Detailseite — Mischkultur-Tab oeffnen und Beziehungen anzeigen.
         """
@@ -63,7 +63,7 @@ class TestCompanionPlantingView:
     def test_add_compatible_species_relationship(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-066: Add a compatible species relationship.
+        """TC-001-030: Add a compatible species relationship.
 
         Spec: TC-001-030 -- Mischkultur — kompatible Beziehung hinzufuegen.
         """
@@ -99,7 +99,7 @@ class TestCompanionPlantingView:
     def test_add_incompatible_species_relationship(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-067: Add an incompatible species relationship.
+        """TC-001-030: Add an incompatible species relationship.
 
         Spec: TC-001-030 -- Mischkultur — inkompatible Beziehung hinzufuegen.
         """
@@ -132,7 +132,7 @@ class TestCompanionPlantingView:
     def test_empty_state_when_no_relationships(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-068: Empty state when no relationships exist for a species.
+        """TC-001-030: Empty state when no relationships exist for a species.
 
         Spec: TC-001-030 -- Mischkultur — Leerzustand wenn keine Beziehungen vorhanden.
         """
@@ -166,7 +166,7 @@ class TestCompanionPlantingDialogUX:
     def test_create_button_disabled_without_target(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-069: 'Erstellen' button disabled when no target species selected.
+        """TC-001-030: 'Erstellen' button disabled when no target species selected.
 
         Spec: TC-001-030 -- Mischkultur-Dialog — Erstellen-Button deaktiviert ohne Ziel.
         """
@@ -188,7 +188,7 @@ class TestCompanionPlantingDialogUX:
     def test_current_species_excluded_from_target_dropdown(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-070: Current species excluded from the target dropdown.
+        """TC-001-030: Current species excluded from the target dropdown.
 
         Spec: TC-001-030 -- Mischkultur-Dialog — aktuelle Art nicht im Ziel-Dropdown.
         """

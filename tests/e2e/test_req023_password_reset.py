@@ -60,7 +60,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-018: Password-reset-request page renders with heading and form.
+        """TC-023-020: Password-reset-request page renders with heading and form.
 
         Spec: TC-023-020 -- Passwort-Reset anfordern Seitenstruktur.
         """
@@ -89,7 +89,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-017: Reset request with known email shows success alert (enumeration protection).
+        """TC-023-020: Reset request with known email shows success alert (enumeration protection).
 
         Spec: TC-023-020 -- Passwort-Reset anfordern -- bekannte E-Mail (Enumeration-Schutz).
         """
@@ -128,7 +128,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-019: Reset request with unknown email shows identical success (enumeration protection).
+        """TC-023-021: Reset request with unknown email shows identical success (enumeration protection).
 
         Spec: TC-023-021 -- Passwort-Reset anfordern -- unbekannte E-Mail (Enumeration-Schutz).
         """
@@ -154,7 +154,7 @@ class TestPasswordResetRequest:
         reset_request_page: PasswordResetRequestPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-020: 'Back to login' link navigates to /login.
+        """TC-023-022: 'Back to login' link navigates to /login.
 
         Spec: TC-023-022 -- Zurueck zur Anmeldung von Passwort-Reset-Seite.
         """
@@ -186,7 +186,7 @@ class TestPasswordResetConfirm:
         reset_confirm_page: PasswordResetConfirmPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-021: Password-reset-confirm page renders with heading and form.
+        """TC-023-023: Password-reset-confirm page renders with heading and form.
 
         Spec: TC-023-023 -- Neues Passwort setzen -- Seitenstruktur.
         """
@@ -209,7 +209,7 @@ class TestPasswordResetConfirm:
         reset_confirm_page: PasswordResetConfirmPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-022: Password mismatch on confirm page shows error.
+        """TC-023-024: Password mismatch on confirm page shows error.
 
         Spec: TC-023-024 -- Neues Passwort -- Passwoerter stimmen nicht ueberein.
         """
@@ -240,7 +240,7 @@ class TestPasswordResetConfirm:
         reset_confirm_page: PasswordResetConfirmPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-023: Invalid or expired token shows error after submission.
+        """TC-023-025: Invalid or expired token shows error after submission.
 
         Spec: TC-023-025 -- Neues Passwort -- Token ungueltig.
         """

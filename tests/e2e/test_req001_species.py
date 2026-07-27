@@ -43,7 +43,7 @@ class TestSpeciesListPage:
     def test_display_species_in_data_table(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-029: Display species in a paginated data table.
+        """TC-001-019: Display species in a paginated data table.
 
         Spec: TC-001-019 — Species-Liste laden und Grundspalten prüfen.
         """
@@ -64,7 +64,7 @@ class TestSpeciesListPage:
     def test_click_species_row_navigates_to_detail(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-031: Click on a species row navigates to detail page.
+        """TC-001-030: Click on a species row navigates to detail page.
 
         Spec: TC-001-030 — Species-Detailseite öffnen und Tab 'Bearbeiten' anzeigen.
         """
@@ -90,7 +90,7 @@ class TestSpeciesCreateDialog:
     def test_open_species_create_dialog(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-033: Open the species create dialog and verify form fields.
+        """TC-001-025: Open the species create dialog and verify form fields.
 
         Spec: TC-001-025 — Neue Species erfolgreich erstellen (Dialog-Öffnung).
         """
@@ -109,7 +109,7 @@ class TestSpeciesCreateDialog:
     def test_create_species_with_valid_data(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-034: Successfully create a species with valid data.
+        """TC-001-025: Successfully create a species with valid data.
 
         Spec: TC-001-025 — Neue Species erfolgreich erstellen (Happy Path).
         """
@@ -136,7 +136,7 @@ class TestSpeciesCreateDialog:
     def test_validation_empty_scientific_name(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-035: Validation error — empty scientific name.
+        """TC-001-026: Validation error — empty scientific name.
 
         Spec: TC-001-026 — Wissenschaftlicher Name leer wird verhindert.
         """
@@ -155,7 +155,7 @@ class TestSpeciesCreateDialog:
     def test_create_species_without_family(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-037: Create species without selecting a family.
+        """TC-001-025: Create species without selecting a family.
 
         Spec: TC-001-025 — Variante: Familie optional.
         """
@@ -187,7 +187,7 @@ class TestSpeciesDetailPage:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-038: Display species detail page with tabs.
+        """TC-001-030: Display species detail page with tabs.
 
         Spec: TC-001-030 — Species-Detailseite öffnen und Tabs anzeigen.
         """
@@ -233,7 +233,7 @@ class TestSpeciesDetailPage:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-039: Edit species data on the 'Bearbeiten' tab.
+        """TC-001-031: Edit species data on the 'Bearbeiten' tab.
 
         Spec: TC-001-031 — Species bearbeiten und speichern — Beschreibung ändern.
         """
@@ -274,7 +274,7 @@ class TestSpeciesDetailPage:
         browser: WebDriver,
         base_url: str,
     ) -> None:
-        """TC-REQ-001-040: Delete a species with confirmation.
+        """TC-001-033: Delete a species with confirmation.
 
         Spec: TC-001-033 — Species löschen mit Bestätigungsdialog.
         """

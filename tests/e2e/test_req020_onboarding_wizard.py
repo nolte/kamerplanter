@@ -127,7 +127,7 @@ class TestWizardTrigger:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-007: Wizard opens with Step 1 active -- experience level cards visible.
+        """TC-020-001: Wizard opens with Step 1 active -- experience level cards visible.
 
         Spec: TC-020-001 -- Erststart -- Wizard oeffnet automatisch bei unvollstaendigem Onboarding-Status.
         """
@@ -165,7 +165,7 @@ class TestWizardTrigger:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-008: Skip onboarding redirects to /pflanzen/plant-instances.
+        """TC-020-005: Skip onboarding redirects to /pflanzen/plant-instances.
 
         Spec: TC-020-005 -- Wizard ueberspringen ueber 'Ueberspringen'-Link.
         """
@@ -200,7 +200,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-009: Beginner is selected by default on Step 1.
+        """TC-020-007: Beginner is selected by default on Step 1.
 
         Spec: TC-020-007 -- Erfahrungsstufe 'Einsteiger' auswaehlen -- Default-Zustand.
         """
@@ -226,7 +226,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-010: Selecting 'intermediate' shows the Smart-Home toggle.
+        """TC-020-008: Selecting 'intermediate' shows the Smart-Home toggle.
 
         Spec: TC-020-008 -- Erfahrungsstufe 'Fortgeschritten' -- Smart-Home-Toggle erscheint.
         """
@@ -261,7 +261,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-011: Selecting 'expert' shows the Smart-Home toggle.
+        """TC-020-009: Selecting 'expert' shows the Smart-Home toggle.
 
         Spec: TC-020-009 -- Erfahrungsstufe 'Experte' -- Smart-Home-Toggle erscheint.
         """
@@ -286,7 +286,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-012: Activating the Smart-Home toggle changes its state.
+        """TC-020-010: Activating the Smart-Home toggle changes its state.
 
         Spec: TC-020-010 -- Smart-Home-Toggle aktivieren und Hinweistext wechselt.
         """
@@ -316,7 +316,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-013: Switching from intermediate back to beginner hides the Smart-Home toggle.
+        """TC-020-011: Switching from intermediate back to beginner hides the Smart-Home toggle.
 
         Spec: TC-020-011 -- Von 'Fortgeschritten' zurueck zu 'Einsteiger' -- Smart-Home-Toggle verschwindet.
         """
@@ -344,7 +344,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-014: Beginner shows 5 steps in the stepper (no Plants/NutrientPlans).
+        """TC-020-012: Beginner shows 5 steps in the stepper (no Plants/NutrientPlans).
 
         Spec: TC-020-012 -- Dynamische Stepper-Anzahl bei Erfahrungsstufe Einsteiger.
         """
@@ -366,7 +366,7 @@ class TestExperienceLevelStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-015: Intermediate shows 6 steps (adds Plants step).
+        """TC-020-013: Intermediate shows 6 steps (adds Plants step).
 
         Spec: TC-020-013 -- Dynamische Stepper-Anzahl bei Erfahrungsstufe Fortgeschritten.
         """
@@ -395,7 +395,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-016: Kit list shows cards with metadata chips after advancing to Step 2.
+        """TC-020-014: Kit list shows cards with metadata chips after advancing to Step 2.
 
         Spec: TC-020-014 -- Starter-Kit-Liste wird angezeigt -- Happy Path.
         """
@@ -420,7 +420,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-017: Selecting 'fensterbank-kraeuter' highlights the card.
+        """TC-020-015: Selecting 'fensterbank-kraeuter' highlights the card.
 
         Spec: TC-020-015 -- Starter-Kit 'Fensterbank-Kraeuter' auswaehlen -- Auto-Befuellung.
         """
@@ -447,7 +447,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-018: Kit 'zimmerpflanzen' shows a toxicity warning chip.
+        """TC-020-016: Kit 'zimmerpflanzen' shows a toxicity warning chip.
 
         Spec: TC-020-016 -- Starter-Kit 'Zimmerpflanzen' -- Toxizitaetswarnung sichtbar.
         """
@@ -468,7 +468,7 @@ class TestStarterKitStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-019: Clicking a selected kit deselects it.
+        """TC-020-017: Clicking a selected kit deselects it.
 
         Spec: TC-020-017 -- Starter-Kit abwaehlen durch erneutes Klicken.
         """
@@ -504,7 +504,7 @@ class TestFavoriteSpeciesStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-020: Kit species are pre-selected as favorites on Step 3.
+        """TC-020-020: Kit species are pre-selected as favorites on Step 3.
 
         Spec: TC-020-020 -- Favoriten-Schritt -- Kit-Species sind vorausgewaehlt.
         """
@@ -531,7 +531,7 @@ class TestFavoriteSpeciesStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-021: Search filters the species list on the favorites step.
+        """TC-020-022: Search filters the species list on the favorites step.
 
         Spec: TC-020-022 -- Favoriten-Suche filtert Species-Liste.
         """
@@ -563,7 +563,7 @@ class TestFavoriteSpeciesStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-022: Without a kit, no species are pre-selected as favorites.
+        """TC-020-023: Without a kit, no species are pre-selected as favorites.
 
         Spec: TC-020-023 -- Favoriten-Schritt ohne Kit -- Kein Badge auf Species.
         """
@@ -605,7 +605,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-023: Site step is auto-populated from kit selection (fensterbank-kraeuter).
+        """TC-020-025: Site step is auto-populated from kit selection (fensterbank-kraeuter).
 
         Spec: TC-020-025 -- Standort-Schritt -- Auto-Befuellung aus Kit-Auswahl.
         """
@@ -635,7 +635,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-024: Manually changing site name persists the user's input.
+        """TC-020-026: Manually changing site name persists the user's input.
 
         Spec: TC-020-026 -- Standortname manuell aendern.
         """
@@ -665,7 +665,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-025: Water section (EC, pH, RO) is hidden for beginner experience level.
+        """TC-020-028: Water section (EC, pH, RO) is hidden for beginner experience level.
 
         Spec: TC-020-028 -- Wasserquellen-Abschnitt bei Einsteiger ausgeblendet.
         """
@@ -688,7 +688,7 @@ class TestSiteSetupStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-026: Water section is visible and functional for intermediate.
+        """TC-020-029: Water section is visible and functional for intermediate.
 
         Spec: TC-020-029 -- Wasserquellen-Abschnitt bei Fortgeschritten sichtbar und bedienbar.
         """
@@ -736,7 +736,7 @@ class TestPlantSelectionStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-027: Plant selection step shows config rows for favorited species.
+        """TC-020-033: Plant selection step shows config rows for favorited species.
 
         Spec: TC-020-033 -- Pflanzen-Schritt -- Pflanzenkonfiguration mit Zaehler.
         """
@@ -773,7 +773,7 @@ class TestPlantSelectionStep:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-028: Plant step without favorites shows empty state.
+        """TC-020-037: Plant step without favorites shows empty state.
 
         Spec: TC-020-037 -- Schritt Pflanzen ohne Favoriten -- Leerzustand.
         """
@@ -809,7 +809,7 @@ class TestSummaryAndCompletion:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-029: Summary step shows setup information (experience, kit, site).
+        """TC-020-044: Summary step shows setup information (experience, kit, site).
 
         Spec: TC-020-044 -- Zusammenfassungs-Schritt -- Vollstaendige Darstellung.
         """
@@ -832,7 +832,7 @@ class TestSummaryAndCompletion:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-030: On the last step, 'Complete' button replaces 'Next'.
+        """TC-020-049: On the last step, 'Complete' button replaces 'Next'.
 
         Spec: TC-020-049 -- 'Weiter'-Button auf letztem Schritt ist durch 'Abschliessen' ersetzt.
         """
@@ -855,7 +855,7 @@ class TestSummaryAndCompletion:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-031: Completing the wizard redirects to /pflanzen/plant-instances.
+        """TC-020-046: Completing the wizard redirects to /pflanzen/plant-instances.
 
         Spec: TC-020-046 -- Wizard abschliessen -- Happy Path (Einsteiger mit Kit).
         """
@@ -895,7 +895,7 @@ class TestWizardNavigation:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-032: Back button navigates to previous step with state preserved.
+        """TC-020-048: Back button navigates to previous step with state preserved.
 
         Spec: TC-020-048 -- Zurueck-Navigation zwischen Schritten.
         """
@@ -941,7 +941,7 @@ class TestWizardNavigation:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-033: Step 1 has no visible Back button on desktop.
+        """TC-020-001: Step 1 has no visible Back button on desktop.
 
         Spec: TC-020-001 -- Schritt 1 hat keinen Zurueck-Button.
         """

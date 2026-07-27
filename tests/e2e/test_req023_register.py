@@ -54,7 +54,7 @@ class TestRegistrationHappyPath:
         register_page: RegisterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-012: Registration page renders with heading and form fields.
+        """TC-023-001: Registration page renders with heading and form fields.
 
         Spec: TC-023-001 -- Erfolgreiche lokale Registrierung (Seitenstruktur).
         """
@@ -80,7 +80,7 @@ class TestRegistrationHappyPath:
         register_page: RegisterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-011: Successful registration with valid data redirects to /login.
+        """TC-023-001: Successful registration with valid data redirects to /login.
 
         Spec: TC-023-001 -- Erfolgreiche lokale Registrierung (Happy Path).
         """
@@ -124,7 +124,7 @@ class TestRegistrationValidation:
         register_page: RegisterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-013: Password mismatch shows error alert.
+        """TC-023-002: Password mismatch shows error alert.
 
         Spec: TC-023-002 -- Registrierung -- Passwoerter stimmen nicht ueberein.
         """
@@ -161,7 +161,7 @@ class TestRegistrationValidation:
         register_page: RegisterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-014: Password field shows helper text with minimum length requirement.
+        """TC-023-003: Password field shows helper text with minimum length requirement.
 
         Spec: TC-023-003 -- Registrierung -- Passwort zu kurz (Hinweistext).
         """
@@ -191,7 +191,7 @@ class TestRegistrationEnumerationProtection:
         register_page: RegisterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-015: Registering with existing email shows success (enumeration protection).
+        """TC-023-005: Registering with existing email shows success (enumeration protection).
 
         Spec: TC-023-005 -- Registrierung -- E-Mail-Adresse bereits registriert (Enumeration-Schutz).
         """
@@ -234,7 +234,7 @@ class TestRegistrationNavigation:
         register_page: RegisterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-016: 'Already registered? Login' link navigates to /login.
+        """TC-023-006: 'Already registered? Login' link navigates to /login.
 
         Spec: TC-023-006 -- Link zu Login von der Registrierungsseite.
         """

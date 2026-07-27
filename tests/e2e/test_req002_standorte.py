@@ -131,7 +131,7 @@ class TestSiteListPage:
     def test_site_list_page_loads(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-001: Site list page loads and shows page title.
+        """TC-002-001: Site list page loads and shows page title.
 
         Spec: TC-002-001 — Site-Liste ist leer / Titel 'Standorte' sichtbar.
         """
@@ -153,7 +153,7 @@ class TestSiteListPage:
     def test_site_list_has_data_table(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-002: Site list shows the DataTable component.
+        """TC-002-002: Site list shows the DataTable component.
 
         Spec: TC-002-002 — Site-Liste zeigt vorhandene Sites mit Spalten.
         """
@@ -353,7 +353,7 @@ class TestSiteListPage:
     def test_site_list_row_click_navigates_to_detail(
         self, site_list: SiteListPageExt, request: pytest.FixtureRequest
     ) -> None:
-        """TC-REQ-002-011: Clicking a site row navigates to the site detail page.
+        """TC-002-004: Clicking a site row navigates to the site detail page.
 
         Spec: TC-002-004 — Klick auf Site-Zeile navigiert zur Detailseite.
         """
@@ -415,7 +415,7 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-013: Site detail page loads with the site name as page title.
+        """TC-002-010: Site detail page loads with the site name as page title.
 
         Spec: TC-002-010 — Site-Daten bearbeiten (Seite laden, Felder vorbelegt).
         """
@@ -491,7 +491,7 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-016: User can edit the name field in the site detail form.
+        """TC-002-010: User can edit the name field in the site detail form.
 
         Spec: TC-002-010 — Site-Daten bearbeiten und speichern.
         """
@@ -554,7 +554,7 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-018: Site detail page shows the LocationTreeSection.
+        """TC-002-021: Site detail page shows the LocationTreeSection.
 
         Spec: TC-002-021 — Location-Baum zeigt Site-Kinder in Baumstruktur.
         """
@@ -577,7 +577,7 @@ class TestSiteDetailPage:
         site_detail: SiteDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-019: Clicking 'Löschen' on site detail opens confirm dialog.
+        """TC-002-012: Clicking 'Löschen' on site detail opens confirm dialog.
 
         Spec: TC-002-012 — Site löschen mit Bestätigungsdialog.
         """
@@ -628,6 +628,12 @@ class TestSiteDetailPage:
         current_url = site_detail.driver.current_url
         assert key in current_url, (
             f"TC-REQ-002-020 FAIL: Should remain on site detail page after cancel, but URL is '{current_url}'"
+        )
+        # "without deleting" is half the case name and was never checked: the
+        # site has to still be there, under its own name (#802).
+        assert site_detail.get_title() == title_before, (
+            "TC-REQ-002-020 FAIL: Cancelling the delete dialog must leave the site untouched, "
+            f"but the title changed from '{title_before}' to '{site_detail.get_title()}'"
         )
 
     @pytest.mark.core_crud
@@ -707,7 +713,7 @@ class TestLocationDetailPage:
         location_detail: LocationDetailPage,
         request: pytest.FixtureRequest,
     ) -> None:
-        """TC-REQ-002-023: Location detail page loads with title and no error.
+        """TC-002-022: Location detail page loads with title and no error.
 
         Spec: TC-002-022 — Klick auf Location-Knoten navigiert zur Detailseite.
         """
