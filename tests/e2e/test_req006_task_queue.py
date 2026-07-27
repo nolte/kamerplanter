@@ -88,7 +88,7 @@ class TestTaskQueuePageLoad:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-010: Task queue page renders with data-testid.
+        """TC-006-001: Task queue page renders with data-testid.
 
         Spec: TC-006-001 -- Task-Queue aufrufen -- Seite rendert.
         """
@@ -108,7 +108,7 @@ class TestTaskQueuePageLoad:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-011: Create task button is visible on the queue page.
+        """TC-006-001: Create task button is visible on the queue page.
 
         Spec: TC-006-001 -- Task-Queue aufrufen -- Button 'Aufgabe erstellen' sichtbar.
         """
@@ -128,7 +128,7 @@ class TestTaskQueuePageLoad:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-012: Tasks are displayed grouped by urgency sections.
+        """TC-006-002: Tasks are displayed grouped by urgency sections.
 
         Spec: TC-006-002 -- Aufgaben nach Dringlichkeit gruppiert anzeigen.
         """
@@ -161,7 +161,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-013: Source filter toggle buttons (All/Tasks/Care) are present.
+        """TC-006-005: Source filter toggle buttons (All/Tasks/Care) are present.
 
         Spec: TC-006-005 -- Quelle-Filter (Tasks vs. Pflegeerinnerungen).
         """
@@ -186,7 +186,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-014: Clicking 'Tasks only' filter toggles the view.
+        """TC-006-005: Clicking 'Tasks only' filter toggles the view.
 
         Spec: TC-006-005 -- Quelle-Filter: 'Nur Aufgaben'.
         """
@@ -214,7 +214,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-015: Clicking 'Care only' filter toggles the view.
+        """TC-006-005: Clicking 'Care only' filter toggles the view.
 
         Spec: TC-006-005 -- Quelle-Filter: 'Nur Pflege'.
         """
@@ -236,7 +236,7 @@ class TestTaskQueueFilters:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-016: Category filter dropdown is visible.
+        """TC-006-003: Category filter dropdown is visible.
 
         Spec: TC-006-003 -- Task-Queue Filterung nach Kategorie.
         """
@@ -278,7 +278,7 @@ class TestTaskQueueQuickActions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-017: Start task (pending -> in_progress) via play icon.
+        """TC-006-006: Start task (pending -> in_progress) via play icon.
 
         Spec: TC-006-006 -- Task starten (pending -> in_progress).
 
@@ -327,7 +327,7 @@ class TestTaskQueueQuickActions:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-018: Complete task (Quick-Complete) via check icon.
+        """TC-006-007: Complete task (Quick-Complete) via check icon.
 
         Spec: TC-006-007 -- Task direkt abschliessen (Quick-Complete).
 
@@ -368,7 +368,7 @@ class TestTaskQueueQuickActions:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-019: Skip task via skip icon.
+        """TC-006-008: Skip task via skip icon.
 
         Spec: TC-006-008 -- Task ueberspringen.
 
@@ -415,7 +415,7 @@ class TestTaskQueueBulkMode:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-020: Activate bulk mode and display multi-select UI.
+        """TC-006-009: Activate bulk mode and display multi-select UI.
 
         Spec: TC-006-009 -- Bulk-Modus aktivieren und mehrere Tasks auswaehlen.
         """
@@ -449,7 +449,7 @@ class TestTaskQueueBulkMode:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-021: Exit bulk mode via exit button.
+        """TC-006-009: Exit bulk mode via exit button.
 
         Spec: TC-006-009 -- Bulk-Modus verlassen.
         """
@@ -486,7 +486,7 @@ class TestTaskCreateDialog:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-022: Click create button opens the task create dialog.
+        """TC-006-013: Click create button opens the task create dialog.
 
         Spec: TC-006-013 -- Neue Aufgabe erstellen -- Dialog oeffnet sich.
         """
@@ -513,7 +513,7 @@ class TestTaskCreateDialog:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-023: Generate care reminders button is visible.
+        """TC-006-012: Generate care reminders button is visible.
 
         Spec: TC-006-012 -- Pflegeerinnerungen generieren.
         """
@@ -549,7 +549,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-041: Changing the recurrence rule persists on the task detail.
+        """TC-006-078: Changing the recurrence rule persists on the task detail.
 
         Spec: TC-006-078 -- Wiederholungszyklus (Cron) aendern -- Aufgabenliste
         zeigt neue Faelligkeit.
@@ -603,7 +603,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-042: Shifting the due date moves the task out of the 'today' group.
+        """TC-006-079: Shifting the due date moves the task out of the 'today' group.
 
         Spec: TC-006-079 -- Faelligkeitsdatum verschieben -- Task wechselt die
         Dringlichkeits-Gruppe.
@@ -669,7 +669,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-043: Completing a recurring task materialises the next instance.
+        """TC-006-080: Completing a recurring task materialises the next instance.
 
         Spec: TC-006-080 -- Wiederkehrende Aufgabe abschliessen -- naechste
         Zyklus-Instanz erscheint in der Liste.
@@ -726,7 +726,7 @@ class TestTaskUpdatePropagation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-044: Ending the cycle prevents a follow-up instance on completion.
+        """TC-006-081: Ending the cycle prevents a follow-up instance on completion.
 
         Spec: TC-006-081 -- Zyklus beenden -- nach Abschluss wird keine neue
         Instanz erzeugt.

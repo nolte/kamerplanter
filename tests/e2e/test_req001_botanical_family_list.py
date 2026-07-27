@@ -34,7 +34,7 @@ class TestBotanicalFamilyListPage:
     def test_display_families_in_data_table(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-006: Display botanical families in a data table.
+        """TC-001-001: Display botanical families in a data table.
 
         Spec: TC-001-001 -- Botanische Familienliste wird vollstaendig geladen und angezeigt.
         """
@@ -60,7 +60,7 @@ class TestBotanicalFamilyListPage:
     def test_search_families_by_name(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-007: Search botanical families by name.
+        """TC-001-003: Search botanical families by name.
 
         Spec: TC-001-003 -- Suchfunktion in Botanische Familien-Liste.
         """
@@ -81,7 +81,7 @@ class TestBotanicalFamilyListPage:
     def test_search_families_by_translated_enum(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-008: Search botanical families by translated enum value.
+        """TC-001-003: Search botanical families by translated enum value.
 
         Spec: TC-001-003 -- Suchfunktion — Suche nach uebersetztem Enum-Wert.
         """
@@ -100,7 +100,7 @@ class TestBotanicalFamilyListPage:
     def test_sort_families_by_column(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-009: Sort botanical families by column.
+        """TC-001-002: Sort botanical families by column.
 
         Spec: TC-001-002 -- Tabelle sortieren nach Naehrstoffbedarf.
         """
@@ -132,7 +132,7 @@ class TestBotanicalFamilyListPage:
     def test_reset_all_filters(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-010: Reset all filters in botanical families table.
+        """TC-001-003: Reset all filters in botanical families table.
 
         Spec: TC-001-003 -- Suchfunktion — Filter zuruecksetzen.
         """
@@ -160,7 +160,7 @@ class TestBotanicalFamilyListPage:
     def test_click_row_navigates_to_detail(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-011: Click on a botanical family row navigates to detail page.
+        """TC-001-005: Click on a botanical family row navigates to detail page.
 
         Spec: TC-001-005 -- Navigation von Liste zu Detailansicht einer Botanischen Familie.
         """
@@ -182,7 +182,7 @@ class TestBotanicalFamilyListPage:
     def test_showing_count_displays_correct_range(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-081: Showing count displays correct range.
+        """TC-001-001: Showing count displays correct range.
 
         Spec: TC-001-001 -- Botanische Familienliste — Zeigt-Zaehler.
         """

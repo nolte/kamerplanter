@@ -112,7 +112,7 @@ class TestNutrientCalculationsPageLoad:
     def test_calculations_page_loads(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-061: Nutrient calculations page loads and shows the page title.
+        """TC-004-028: Nutrient calculations page loads and shows the page title.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen.
         """
@@ -130,7 +130,7 @@ class TestNutrientCalculationsPageLoad:
     def test_page_has_four_calculation_panels(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-062: Calculations page shows exactly four calculation panels (cards).
+        """TC-004-028: Calculations page shows exactly four calculation panels (cards).
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen.
         """
@@ -148,7 +148,7 @@ class TestNutrientCalculationsPageLoad:
     def test_mixing_protocol_panel_has_calculate_button(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-063: Mixing Protocol panel has a calculate button.
+        """TC-004-028: Mixing Protocol panel has a calculate button.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen.
         """
@@ -166,7 +166,7 @@ class TestNutrientCalculationsPageLoad:
     def test_all_panels_visible_on_load(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-064: All four panels are visible without scrolling issues.
+        """TC-004-028: All four panels are visible without scrolling issues.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen.
         """
@@ -201,7 +201,7 @@ class TestMixingProtocol:
         screenshot: Callable[..., Path],
         valid_fertilizer_key: str,
     ) -> None:
-        """TC-REQ-004-065: Clicking calculate in Mixing Protocol shows a result or error.
+        """TC-004-031: Clicking calculate in Mixing Protocol shows a result or error.
 
         Spec: TC-004-031 -- Misch-Reihenfolge im Protokoll korrekt sortiert.
         """
@@ -238,7 +238,7 @@ class TestMixingProtocol:
         screenshot: Callable[..., Path],
         valid_fertilizer_key: str,
     ) -> None:
-        """TC-REQ-004-066: Mixing Protocol result contains EC information or validation error.
+        """TC-004-031: Mixing Protocol result contains EC information or validation error.
 
         Spec: TC-004-031 -- Misch-Reihenfolge im Protokoll korrekt sortiert.
         """
@@ -268,7 +268,7 @@ class TestMixingProtocol:
         screenshot: Callable[..., Path],
         valid_fertilizer_key: str,
     ) -> None:
-        """TC-REQ-004-067: EC-budget rule test (base EC = target EC).
+        """TC-004-029: EC-budget rule test (base EC = target EC).
 
         Spec: TC-004-029 -- Basis-EC hoeher als Ziel-EC -- Warnung.
 
@@ -303,7 +303,7 @@ class TestMixingProtocol:
         screenshot: Callable[..., Path],
         valid_fertilizer_key: str,
     ) -> None:
-        """TC-REQ-004-068: Mixing Protocol handles large volume (100 L) input.
+        """TC-004-031: Mixing Protocol handles large volume (100 L) input.
 
         Spec: TC-004-031 -- Misch-Reihenfolge im Protokoll korrekt sortiert.
         """
@@ -338,7 +338,7 @@ class TestFlushingCalculation:
     def test_flushing_calculate_shows_result(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-073: Clicking calculate in Flushing panel shows a result alert.
+        """TC-004-028: Clicking calculate in Flushing panel shows a result alert.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Flushing).
         """
@@ -360,7 +360,7 @@ class TestFlushingCalculation:
     def test_flushing_result_contains_flush_days(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-074: Flushing result alert contains recommended flush days.
+        """TC-004-028: Flushing result alert contains recommended flush days.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Flushing).
         """
@@ -386,7 +386,7 @@ class TestFlushingCalculation:
     def test_flushing_generates_schedule_table(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-075: Flushing panel shows schedule DataTable or alert info.
+        """TC-004-028: Flushing panel shows schedule DataTable or alert info.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Flushing).
         """
@@ -410,7 +410,7 @@ class TestFlushingCalculation:
     def test_flushing_low_ec_minimal_flush(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-076: Low EC (near 0) results in minimal or no flush protocol.
+        """TC-004-028: Low EC (near 0) results in minimal or no flush protocol.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Flushing).
         """
@@ -437,7 +437,7 @@ class TestRunoffAnalysis:
     def test_runoff_calculate_shows_result(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-080: Clicking calculate in Runoff panel shows health status alerts.
+        """TC-004-028: Clicking calculate in Runoff panel shows health status alerts.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Runoff).
         """
@@ -468,7 +468,7 @@ class TestRunoffAnalysis:
     def test_runoff_shows_ec_status_alert(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-081: Runoff result shows an EC status alert with a delta value.
+        """TC-004-028: Runoff result shows an EC status alert with a delta value.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Runoff).
         """
@@ -501,7 +501,7 @@ class TestRunoffAnalysis:
     def test_runoff_healthy_result_shown(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-082: Healthy runoff values (EC delta < 0.5) show success alert.
+        """TC-004-028: Healthy runoff values (EC delta < 0.5) show success alert.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Runoff).
         """
@@ -528,7 +528,7 @@ class TestRunoffAnalysis:
     def test_runoff_high_ec_delta_shows_warning(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-083: High EC delta shows a warning or error alert.
+        """TC-004-028: High EC delta shows a warning or error alert.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Runoff).
         """
@@ -555,7 +555,7 @@ class TestRunoffAnalysis:
     def test_runoff_shows_volume_status(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-084: Runoff result includes volume/runoff percentage status.
+        """TC-004-028: Runoff result includes volume/runoff percentage status.
 
         Spec: TC-004-028 -- Berechnungsseite aufrufen und Formular befuellen (Runoff).
         """
@@ -599,7 +599,7 @@ class TestMixingSafety:
         screenshot: Callable[..., Path],
         valid_fertilizer_key: str,
     ) -> None:
-        """TC-REQ-004-087: Validating a fertilizer key list returns a result.
+        """TC-004-032: Validating a fertilizer key list returns a result.
 
         Spec: TC-004-032 -- Inkompatibilitaetswarnung im Mischprotokoll (Safety).
 
@@ -628,7 +628,7 @@ class TestMixingSafety:
         screenshot: Callable[..., Path],
         valid_fertilizer_key: str,
     ) -> None:
-        """TC-REQ-004-088: Mixing safety result shows a safe/unsafe indicator or error.
+        """TC-004-032: Mixing safety result shows a safe/unsafe indicator or error.
 
         Spec: TC-004-032 -- Inkompatibilitaetswarnung im Mischprotokoll (Safety).
         """
@@ -654,7 +654,7 @@ class TestMixingSafety:
     def test_mixing_safety_panel_has_text_input(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-089: Mixing Safety panel has a text input for fertilizer keys.
+        """TC-004-032: Mixing Safety panel has a text input for fertilizer keys.
 
         Spec: TC-004-032 -- Inkompatibilitaetswarnung im Mischprotokoll (Safety).
         """
@@ -675,7 +675,7 @@ class TestMixingSafety:
     def test_mixing_safety_validate_button_present(
         self, calc_page: NutrientCalculationsPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-090: Mixing Safety panel has a validate button.
+        """TC-004-032: Mixing Safety panel has a validate button.
 
         Spec: TC-004-032 -- Inkompatibilitaetswarnung im Mischprotokoll (Safety).
         """

@@ -93,7 +93,7 @@ class TestCoreJourneyConfirmWateringReminder:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-J087: New plant → watering reminder → one-tap confirm.
+        """TC-022-087: New plant → watering reminder → one-tap confirm.
 
         Spec: TC-022-087 -- Core-Journey Gieß-Erinnerung bestätigen.
         """
@@ -140,7 +140,7 @@ class TestCoreJourneyReminderPersistsConfirmed:
         pflege: PflegeDashboardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-022-J088: After confirmation the reminder is no longer due (reload).
+        """TC-022-088: After confirmation the reminder is no longer due (reload).
 
         Spec: TC-022-088 -- Core-Journey Reload-Persistenz der Bestätigung.
         """

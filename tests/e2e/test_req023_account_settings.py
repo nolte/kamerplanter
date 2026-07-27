@@ -65,7 +65,7 @@ class TestAccountSettingsProfile:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-024: Profile tab shows display name, email, and tabs.
+        """TC-023-026: Profile tab shows display name, email, and tabs.
 
         Spec: TC-023-026 -- Profil anzeigen (Happy Path).
         """
@@ -103,7 +103,7 @@ class TestAccountSettingsProfile:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-025: Update display name and save.
+        """TC-023-027: Update display name and save.
 
         Spec: TC-023-027 -- Anzeigename aendern und speichern.
         """
@@ -149,7 +149,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-026: Security tab shows password change fields for local account.
+        """TC-023-029: Security tab shows password change fields for local account.
 
         Spec: TC-023-029 -- Passwort aendern (lokales Passwort vorhanden).
         """
@@ -172,7 +172,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-027: Change-password button is disabled when fields are empty.
+        """TC-023-029: Change-password button is disabled when fields are empty.
 
         Spec: TC-023-029 -- Passwort aendern Button disabled.
         """
@@ -195,7 +195,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-028: Linked auth providers are displayed in the security tab.
+        """TC-023-032: Linked auth providers are displayed in the security tab.
 
         Spec: TC-023-032 -- Verknuepfte Auth-Provider anzeigen.
         """
@@ -222,7 +222,7 @@ class TestAccountSettingsSecurity:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-029: Unlink button is not shown when only one provider exists.
+        """TC-023-033: Unlink button is not shown when only one provider exists.
 
         Spec: TC-023-033 -- Letzten Auth-Provider entfernen -- verhindert.
         """
@@ -256,7 +256,7 @@ class TestAccountSettingsTabs:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-023-030: Tabs in account settings are clickable and switch content.
+        """TC-023-026: Tabs in account settings are clickable and switch content.
 
         Spec: TC-023-026 -- Profil anzeigen -- Tab-Navigation.
         """

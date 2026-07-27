@@ -96,7 +96,7 @@ class TestTaskDetailTabNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-001: Task detail page loads with visible tabs.
+        """TC-006-019: Task detail page loads with visible tabs.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation sichtbar.
         """
@@ -124,7 +124,7 @@ class TestTaskDetailTabNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-002: Task detail page shows the task name as heading.
+        """TC-006-020: Task detail page shows the task name as heading.
 
         Spec: TC-006-020 -- Task-Detailseite -- Details-Tab.
         """
@@ -148,7 +148,7 @@ class TestTaskDetailTabNavigation:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-003: Tabs can be clicked and switch content.
+        """TC-006-019: Tabs can be clicked and switch content.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation sichtbar.
         """
@@ -193,7 +193,7 @@ class TestTaskDetailContent:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-004: Details tab shows metadata (status, priority, category).
+        """TC-006-020: Details tab shows metadata (status, priority, category).
 
         Spec: TC-006-020 -- Task-Detailseite -- Details-Tab.
         """
@@ -227,7 +227,7 @@ class TestTaskDetailStatusTransitions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-005: At least one action button is visible on detail page.
+        """TC-006-006: At least one action button is visible on detail page.
 
         Spec: TC-006-006 -- Task starten (pending -> in_progress).
         """
@@ -259,7 +259,7 @@ class TestTaskDetailStatusTransitions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-006: Clone button is visible on the detail page.
+        """TC-006-031: Clone button is visible on the detail page.
 
         Spec: TC-006-031 -- Klonen-Button sichtbar.
         """
@@ -285,7 +285,7 @@ class TestTaskDetailStatusTransitions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-007: Start task from the detail page.
+        """TC-006-006: Start task from the detail page.
 
         Spec: TC-006-006 -- Task starten (pending -> in_progress).
 
@@ -326,7 +326,7 @@ class TestTaskDetailStatusTransitions:
         task_detail: TaskDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-008: Skip task from the detail page.
+        """TC-006-008: Skip task from the detail page.
 
         Spec: TC-006-008 -- Task ueberspringen.
 
@@ -368,7 +368,7 @@ class TestTaskQueueToDetailNavigation:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-009: Clicking a task card navigates to the detail page.
+        """TC-006-019: Clicking a task card navigates to the detail page.
 
         Spec: TC-006-019 -- Task-Detailseite aufrufen -- Tab-Navigation.
         """

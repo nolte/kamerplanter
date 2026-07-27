@@ -1,9 +1,9 @@
 """E2E tests for REQ-030 — Multi-Kanal-Benachrichtigungssystem.
 
 Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-030.md):
-  TC-REQ-030-001  ->  TC-030-009  Notification-Einstellungs-Tab in Kontoeinstellungen navigieren
-  TC-REQ-030-002  ->  TC-030-010  Kanalverwaltung -- Uebersicht aller Kanaele
-  TC-REQ-030-003  ->  TC-030-013  E-Mail-Kanal aktivieren und E-Mail-Adresse eintragen
+  TC-REQ-030-001  ->  TC-REQ-030-009  Notification-Einstellungs-Tab in Kontoeinstellungen navigieren
+  TC-REQ-030-002  ->  TC-REQ-030-010  Kanalverwaltung -- Uebersicht aller Kanaele
+  TC-REQ-030-003  ->  TC-REQ-030-013  E-Mail-Kanal aktivieren und E-Mail-Adresse eintragen
   TC-REQ-030-004  ->  TC-006-082  Aufgabe neu zuweisen -- Zuweisungs-Benachrichtigung (Soll)
   TC-REQ-030-005  ->  TC-006-083  Aufgabe bearbeiten -- Benachrichtigung synchron aktualisiert (Soll)
   TC-REQ-030-006  ->  TC-006-084  Aufgabe loeschen -- veraltete Benachrichtigung entfernt (Soll)
@@ -249,7 +249,7 @@ def _care_notification_key(
 
 
 class TestNotificationSettingsNavigation:
-    """Notification settings tab navigation (Spec: TC-030-009)."""
+    """Notification settings tab navigation (Spec: TC-REQ-030-009)."""
 
     @pytest.mark.smoke
     @pytest.mark.requires_auth
@@ -259,9 +259,9 @@ class TestNotificationSettingsNavigation:
         notif_page: NotificationSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-001: Notification settings tab opens and renders the save button.
+        """TC-REQ-030-009: Notification settings tab opens and renders the save button.
 
-        Spec: TC-030-009 -- Notification-Einstellungs-Tab in Kontoeinstellungen
+        Spec: TC-REQ-030-009 -- Notification-Einstellungs-Tab in Kontoeinstellungen
         navigieren.
         """
         _ensure_logged_in(login_page)
@@ -286,7 +286,7 @@ class TestNotificationSettingsNavigation:
 
 
 class TestNotificationChannelOverview:
-    """Channel toggle overview (Spec: TC-030-010)."""
+    """Channel toggle overview (Spec: TC-REQ-030-010)."""
 
     @pytest.mark.smoke
     @pytest.mark.requires_auth
@@ -296,9 +296,9 @@ class TestNotificationChannelOverview:
         notif_page: NotificationSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-002: All four delivery channels render with toggles.
+        """TC-REQ-030-010: All four delivery channels render with toggles.
 
-        Spec: TC-030-010 -- Kanalverwaltung -- Uebersicht aller Kanaele.
+        Spec: TC-REQ-030-010 -- Kanalverwaltung -- Uebersicht aller Kanaele.
 
         REQ-030 ships home_assistant, email, pwa and apprise.  Visibility may
         be filtered by experience level (REQ-021) -- on the demo account at
@@ -331,7 +331,7 @@ class TestNotificationChannelOverview:
 
 
 class TestNotificationEmailChannelEnable:
-    """Enable email channel and configure address (Spec: TC-030-013)."""
+    """Enable email channel and configure address (Spec: TC-REQ-030-013)."""
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -341,9 +341,9 @@ class TestNotificationEmailChannelEnable:
         notif_page: NotificationSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-003: Enable email channel, type address, save and verify.
+        """TC-REQ-030-013: Enable email channel, type address, save and verify.
 
-        Spec: TC-030-013 -- E-Mail-Kanal aktivieren und E-Mail-Adresse
+        Spec: TC-REQ-030-013 -- E-Mail-Kanal aktivieren und E-Mail-Adresse
         eintragen.
 
         We deliberately do NOT trigger the test-send button -- the test only
@@ -413,7 +413,7 @@ class TestTaskUpdateNotificationFeedback:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-004: Reassigning a task delivers an assignment notification.
+        """TC-006-082: Reassigning a task delivers an assignment notification.
 
         Spec: TC-006-082 -- Aufgabe neu zuweisen -- 'Meine Aufgaben'-Filter und
         Benachrichtigung folgen der Zuweisung.
@@ -464,7 +464,7 @@ class TestTaskUpdateNotificationFeedback:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-005: Editing a task updates its existing due-notification in place.
+        """TC-006-083: Editing a task updates its existing due-notification in place.
 
         Spec: TC-006-083 -- Aufgabe bearbeiten -- zugehoerige Benachrichtigung
         wird synchron aktualisiert (kein Duplikat, kein veralteter Termin).
@@ -512,7 +512,7 @@ class TestTaskUpdateNotificationFeedback:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-006: Deleting a task removes its stale due-notification.
+        """TC-006-084: Deleting a task removes its stale due-notification.
 
         Spec: TC-006-084 -- Aufgabe loeschen -- veraltete Benachrichtigung wird
         entfernt und nicht mehr als ungelesen gezaehlt.
@@ -563,7 +563,7 @@ class TestTaskUpdateNotificationFeedback:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-007: Completing a task auto-marks its due-notification done.
+        """TC-006-085: Completing a task auto-marks its due-notification done.
 
         Spec: TC-006-085 -- Aufgabe abschliessen -- offene Faellig-Benachrichtigung
         wird als erledigt markiert (nicht mehr im ungelesen-Badge).
@@ -616,7 +616,7 @@ class TestCareNotificationFeedback:
         notif_center: NotificationCenterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-008: Lengthening the watering interval reschedules the notification.
+        """TC-022-093: Lengthening the watering interval reschedules the notification.
 
         Spec: TC-022-093 -- Giesszyklus-Anpassung -- faellige Benachrichtigung wird
         synchron auf den neuen Termin verschoben (kein Duplikat).
@@ -662,7 +662,7 @@ class TestCareNotificationFeedback:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-009: Confirming a reminder auto-marks its notification done.
+        """TC-022-094: Confirming a reminder auto-marks its notification done.
 
         Spec: TC-022-094 -- Erinnerung bestaetigen -- zugehoerige Benachrichtigung
         wird als erledigt markiert (nicht mehr im ungelesen-Badge).
@@ -743,7 +743,7 @@ class TestNotificationSourcePropagation:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-010: Moving a task updates its notification's due date.
+        """TC-REQ-030-063: Moving a task updates its notification's due date.
 
         Spec: TC-REQ-030-063 -- Quell-Aufgabe verschoben -- Benachrichtigung zeigt
         neue Faelligkeit (kein 'heute' mehr, kein Duplikat).
@@ -785,7 +785,7 @@ class TestNotificationSourcePropagation:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-011: Completing a task marks its notification done.
+        """TC-REQ-030-064: Completing a task marks its notification done.
 
         Spec: TC-REQ-030-064 -- Quell-Aufgabe abgeschlossen -- Benachrichtigung wird
         als erledigt/gelesen markiert.
@@ -833,7 +833,7 @@ class TestNotificationSourcePropagation:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-012: Deleting the source removes its orphaned notification.
+        """TC-REQ-030-065: Deleting the source removes its orphaned notification.
 
         Spec: TC-REQ-030-065 -- Quell-Aufgabe/Erinnerung geloescht -- verwaiste
         Benachrichtigung wird entfernt bzw. als hinfaellig markiert.
@@ -882,7 +882,7 @@ class TestNotificationSourcePropagation:
         e2e_seed_data: dict,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-013: Interval change reschedules the watering notification, no duplicate.
+        """TC-REQ-030-066: Interval change reschedules the watering notification, no duplicate.
 
         Spec: TC-REQ-030-066 -- Giesszyklus angepasst -- care.watering-Benachrichtigung
         wird neu terminiert; genau ein Eintrag (group_key-Deduplizierung).
@@ -947,7 +947,7 @@ class TestNotificationSourcePropagation:
         notif_center: NotificationCenterPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-030-014: An actionable 'Erledigt' button confirms the source and marks done.
+        """TC-REQ-030-067: An actionable 'Erledigt' button confirms the source and marks done.
 
         Spec: TC-REQ-030-067 -- Actionable 'Erledigt'-Button schliesst die Quell-Aufgabe
         (CareConfirmation) und markiert die Benachrichtigung als erledigt.

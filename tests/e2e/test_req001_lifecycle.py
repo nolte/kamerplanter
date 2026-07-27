@@ -101,9 +101,7 @@ def _provision_species_with_phase(
     # Same pairing as `_navigate_to_lifecycle_tab`: without a content-keyed wait
     # the tab read below can return `[]` and turn this into a skip that reads
     # like "the app has no lifecycle tab".
-    species_detail.wait_for_content(
-        SpeciesDetailPage.TABS, "provisioned species detail tab bar"
-    )
+    species_detail.wait_for_content(SpeciesDetailPage.TABS, "provisioned species detail tab bar")
 
     tabs = species_detail.get_tab_labels()
     lifecycle_tab = next((i for i, t in enumerate(tabs) if "LEBENSZYKLUS" in t.upper()), None)
@@ -142,6 +140,7 @@ def _provision_species_with_phase(
         return provisioned_count, phase_display_name
     return phase_display_name
 
+
 class TestLifecycleConfigSection:
     """Lifecycle config CRUD (Spec: TC-001-047)."""
 
@@ -152,7 +151,7 @@ class TestLifecycleConfigSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-051: Display lifecycle config tab.
+        """TC-001-047: Display lifecycle config tab.
 
         Spec: TC-001-047 -- Lebenszyklus-Tab zeigt LifecycleConfig und GrowthPhases.
         """
@@ -172,7 +171,7 @@ class TestLifecycleConfigSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-052: Create a lifecycle config for an annual species.
+        """TC-001-047: Create a lifecycle config for an annual species.
 
         Spec: TC-001-047 -- Lifecycle-Config fuer einjaehrige Art erstellen.
         """
@@ -205,7 +204,7 @@ class TestLifecycleConfigSection:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-055: Edit an existing lifecycle config.
+        """TC-001-047: Edit an existing lifecycle config.
 
         Spec: TC-001-047 -- Bestehende Lifecycle-Config bearbeiten.
         """
@@ -236,7 +235,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-056: Growth phases section appears after lifecycle config creation.
+        """TC-001-048: Growth phases section appears after lifecycle config creation.
 
         Spec: TC-001-048 -- Wachstumsphasen-Bereich nach Lifecycle-Erstellung sichtbar.
         """
@@ -259,7 +258,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-057: Create a growth phase via dialog.
+        """TC-001-048: Create a growth phase via dialog.
 
         Spec: TC-001-048 -- Neue Wachstumsphase anlegen.
         """
@@ -301,7 +300,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-059: Edit an existing growth phase.
+        """TC-001-048: Edit an existing growth phase.
 
         Spec: TC-001-048 -- Bestehende Wachstumsphase bearbeiten.
         """
@@ -338,7 +337,7 @@ class TestGrowthPhaseManagement:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-060: Delete a growth phase.
+        """TC-001-048: Delete a growth phase.
 
         Spec: TC-001-048 -- Wachstumsphase loeschen.
 
@@ -381,7 +380,7 @@ class TestGrowthPhaseProfiles:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-063: View profiles for a growth phase.
+        """TC-001-047: View profiles for a growth phase.
 
         Spec: TC-001-047 -- Profile fuer Wachstumsphase anzeigen.
         """

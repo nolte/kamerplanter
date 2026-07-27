@@ -90,7 +90,7 @@ class TestTenantNavigation:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-027: Navigate directly to /tenants/settings from dashboard.
+        """TC-024-012: Navigate directly to /tenants/settings from dashboard.
 
         Spec: TC-024-012 -- Tenant-Einstellungsseite aufrufen als Admin.
         """
@@ -112,7 +112,7 @@ class TestTenantNavigation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-028: Navigate directly to /tenants/create.
+        """TC-024-003: Navigate directly to /tenants/create.
 
         Spec: TC-024-003 -- Organisations-Tenant erstellen.
         """
@@ -135,7 +135,7 @@ class TestTenantNavigation:
         create_page: TenantCreatePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-029: Navigation: Settings page -> Create page in sequence.
+        """TC-024-012: Navigation: Settings page -> Create page in sequence.
 
         Spec: TC-024-012 / TC-024-003 -- Cross-Navigation.
         """
@@ -174,7 +174,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-030: Invitation accept page without token shows error.
+        """TC-024-026: Invitation accept page without token shows error.
 
         Spec: TC-024-026 -- Abgelaufene Einladung annehmen -- Fehlermeldung.
         """
@@ -198,7 +198,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-031: Invitation accept page with invalid token shows error.
+        """TC-024-026: Invitation accept page with invalid token shows error.
 
         Spec: TC-024-026 -- Abgelaufene Einladung annehmen -- Fehlermeldung.
         """
@@ -227,7 +227,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-032: Error state displays heading and error detail text.
+        """TC-024-026: Error state displays heading and error detail text.
 
         Spec: TC-024-026 -- Fehlerzustand zeigt Heading und Detail.
         """
@@ -254,7 +254,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-033: Error state has a button to navigate back to dashboard.
+        """TC-024-026: Error state has a button to navigate back to dashboard.
 
         Spec: TC-024-026 -- Fehlerzustand hat Dashboard-Button.
         """

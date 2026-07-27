@@ -39,7 +39,7 @@ class TestDataTableSearch:
     def test_search_no_results_shows_empty_state(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-079: Search with no results shows empty search state.
+        """TC-001-004: Search with no results shows empty search state.
 
         Spec: TC-001-004 -- Leerer Zustand — Suche liefert kein Ergebnis.
         """
@@ -66,7 +66,7 @@ class TestDataTableKeyboard:
     def test_press_enter_on_row_navigates_to_detail(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-080: Press Enter on a table row navigates to detail page.
+        """TC-001-005: Press Enter on a table row navigates to detail page.
 
         Spec: TC-001-005 -- Navigation von Liste zu Detailansicht (Tastatur).
         """
@@ -92,7 +92,7 @@ class TestDataTablePagination:
     def test_showing_count_displays_range(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-081: Showing count displays correct range.
+        """TC-001-001: Showing count displays correct range.
 
         Spec: TC-001-001 -- Botanische Familienliste — Zeigt-Zaehler.
         """
@@ -114,7 +114,7 @@ class TestDataTablePagination:
     def test_page_size_options_available(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-082: Change page size in the data table.
+        """TC-001-001: Change page size in the data table.
 
         Spec: TC-001-001 -- Botanische Familienliste — Seitengroesse-Optionen.
         """
@@ -134,7 +134,7 @@ class TestDataTableLoadingStates:
     def test_table_loading_skeleton_renders(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-083: Loading skeleton shown while fetching botanical families.
+        """TC-001-001: Loading skeleton shown while fetching botanical families.
 
         Spec: TC-001-001 -- Lade-Skeleton bei Tabellenladen.
 
@@ -155,7 +155,7 @@ class TestDataTableLoadingStates:
     def test_detail_loading_skeleton_renders(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-084: Loading skeleton on species detail page.
+        """TC-001-005: Loading skeleton on species detail page.
 
         Spec: TC-001-005 -- Lade-Skeleton bei Detailseite.
 

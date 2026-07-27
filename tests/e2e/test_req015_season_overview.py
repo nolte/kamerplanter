@@ -55,7 +55,7 @@ class TestSeasonOverviewLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-060: Season overview view renders 12 month cards or an empty state.
+        """TC-015-060: Season overview view renders 12 month cards or an empty state.
 
         Spec: TC-015-060 -- Saisonuebersicht — 12 Monatskarten mit Zaehlanzeige.
         """
@@ -81,7 +81,7 @@ class TestSeasonOverviewLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-061: Site select dropdown is visible in season overview view.
+        """TC-015-060: Site select dropdown is visible in season overview view.
 
         Spec: TC-015-060 -- Saisonuebersicht — Standort-Auswahl sichtbar.
         """
@@ -105,7 +105,7 @@ class TestSeasonOverviewCardContent:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-062: Each month card shows summary count rows.
+        """TC-015-060: Each month card shows summary count rows.
 
         Spec: TC-015-060 -- Saisonuebersicht — Monatskarten zeigen Zusammenfassungen.
         """
@@ -129,7 +129,7 @@ class TestSeasonOverviewCardContent:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-063: Current month card has a highlighted border/style.
+        """TC-015-061: Current month card has a highlighted border/style.
 
         Spec: TC-015-061 -- Saisonuebersicht — Aktueller Monat hervorgehoben.
         """
@@ -153,7 +153,7 @@ class TestSeasonOverviewCardContent:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-064: Each month card displays the month name as a title.
+        """TC-015-060: Each month card displays the month name as a title.
 
         Spec: TC-015-060 -- Saisonuebersicht — Monatskarten zeigen Monatsnamen.
         """
@@ -185,7 +185,7 @@ class TestSeasonOverviewInteraction:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-065: Month cards have a CardActionArea making them clickable.
+        """TC-015-062: Month cards have a CardActionArea making them clickable.
 
         Spec: TC-015-062 -- Saisonuebersicht — Klick auf Monatskarte wechselt Ansicht.
         """

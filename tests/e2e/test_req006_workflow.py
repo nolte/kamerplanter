@@ -52,7 +52,7 @@ class TestWorkflowTemplateListPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-024: Workflow template list page renders.
+        """TC-006-034: Workflow template list page renders.
 
         Spec: TC-006-034 -- Workflow-Template-Liste aufrufen.
         """
@@ -74,7 +74,7 @@ class TestWorkflowTemplateListPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-025: Workflow list shows workflow cards.
+        """TC-006-034: Workflow list shows workflow cards.
 
         Spec: TC-006-034 -- Workflow-Liste zeigt Workflow-Cards.
         """
@@ -96,7 +96,7 @@ class TestWorkflowTemplateListPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-027: 'Create workflow' button is visible.
+        """TC-006-034: 'Create workflow' button is visible.
 
         Spec: TC-006-034 -- 'Workflow erstellen'-Button sichtbar.
         """
@@ -116,7 +116,7 @@ class TestWorkflowTemplateListPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-028: Workflow cards show available workflows.
+        """TC-006-034: Workflow cards show available workflows.
 
         Spec: TC-006-034 -- Workflow-Cards zeigen vorhandene Workflows.
         """
@@ -138,7 +138,7 @@ class TestWorkflowTemplateListPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-029: Workflow search filters the cards.
+        """TC-006-034: Workflow search filters the cards.
 
         Spec: TC-006-034 -- Workflow-Suche filtert die Cards.
         """
@@ -179,7 +179,7 @@ class TestWorkflowInstantiate:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-031: Click 'Create workflow' opens dialog.
+        """TC-006-038: Click 'Create workflow' opens dialog.
 
         Spec: TC-006-038 -- Klick auf 'Workflow erstellen' oeffnet Dialog.
         """
@@ -212,7 +212,7 @@ class TestWorkflowDetailPage:
         workflow_list: WorkflowListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-032: Click workflow card navigates to detail page.
+        """TC-006-039: Click workflow card navigates to detail page.
 
         Spec: TC-006-039 -- Klick auf Workflow-Card navigiert zur Detailseite.
         """
@@ -245,7 +245,7 @@ class TestWorkflowDetailPage:
         workflow_detail: WorkflowDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-033: Workflow detail page renders with data-testid and tabs.
+        """TC-006-039: Workflow detail page renders with data-testid and tabs.
 
         Spec: TC-006-039 -- Workflow-Detailseite rendert mit data-testid und Tabs.
         """
@@ -281,7 +281,7 @@ class TestWorkflowDetailPage:
         workflow_detail: WorkflowDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-034: Workflow detail page tabs can be navigated.
+        """TC-006-039: Workflow detail page tabs can be navigated.
 
         Spec: TC-006-039 -- Workflow-Detailseite Tabs koennen navigiert werden.
         """
@@ -321,7 +321,7 @@ class TestWorkflowDetailPage:
         workflow_detail: WorkflowDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-035: Workflow detail page shows the workflow name.
+        """TC-006-039: Workflow detail page shows the workflow name.
 
         Spec: TC-006-039 -- Workflow-Detailseite zeigt den Workflow-Namen.
         """

@@ -57,7 +57,7 @@ class TestSowingCalendarLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-040: Sowing calendar view renders after switching to the sowing tab.
+        """TC-015-040: Sowing calendar view renders after switching to the sowing tab.
 
         Spec: TC-015-040 -- Aussaatkalender — Nutzpflanze mit Voranzucht und Ernte.
         """
@@ -81,7 +81,7 @@ class TestSowingCalendarLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-041: Site select dropdown is visible in sowing calendar view.
+        """TC-015-048: Site select dropdown is visible in sowing calendar view.
 
         Spec: TC-015-048 -- Aussaatkalender — Frosttermin-Konfiguration bei fehlendem Standort.
         """
@@ -98,7 +98,7 @@ class TestSowingCalendarLoad:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-042: Sowing calendar shows month column headers (Jan-Dez).
+        """TC-015-040: Sowing calendar shows month column headers (Jan-Dez).
 
         Spec: TC-015-040 -- Aussaatkalender — Monats-Spaltenkoepfe sichtbar.
         """
@@ -123,7 +123,7 @@ class TestSowingCalendarFrostConfig:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-043: Frost info chips (last frost, Eisheilige) are visible.
+        """TC-015-049: Frost info chips (last frost, Eisheilige) are visible.
 
         Spec: TC-015-049 -- Aussaatkalender — Eisheiligen-Markierung sichtbar.
         """
@@ -150,7 +150,7 @@ class TestSowingCalendarFavoritesFilter:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-044: Favorites filter toggle is present in sowing calendar view.
+        """TC-015-046: Favorites filter toggle is present in sowing calendar view.
 
         Spec: TC-015-046 -- Aussaatkalender — Filter 'Nur meine geplanten Pflanzen'.
         """
@@ -167,7 +167,7 @@ class TestSowingCalendarFavoritesFilter:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-045: Click favorites filter toggle changes the display.
+        """TC-015-046: Click favorites filter toggle changes the display.
 
         Spec: TC-015-046 -- Aussaatkalender — Filter 'Nur meine geplanten Pflanzen'.
         """
@@ -194,7 +194,7 @@ class TestSowingCategoryFilter:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-046: Plant category filter chips are rendered in sowing calendar.
+        """TC-015-046: Plant category filter chips are rendered in sowing calendar.
 
         Spec: TC-015-046 -- Aussaatkalender — Kategorie-Filter-Chips sichtbar.
         """
@@ -213,7 +213,7 @@ class TestSowingCategoryFilter:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-047: Toggle a sowing category filter chip.
+        """TC-015-046: Toggle a sowing category filter chip.
 
         Spec: TC-015-046 -- Aussaatkalender — Kategorie-Filter toggled.
         """
@@ -248,7 +248,7 @@ class TestSowingCalendarLegend:
         calendar: CalendarPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-015-048: Sowing calendar shows a legend with phase color indicators.
+        """TC-015-040: Sowing calendar shows a legend with phase color indicators.
 
         Spec: TC-015-040 -- Aussaatkalender — Legende mit Phasenfarben sichtbar.
         """

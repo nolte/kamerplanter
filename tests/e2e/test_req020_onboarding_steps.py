@@ -105,7 +105,7 @@ class TestCompletedSkippedCard:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-001: Completed onboarding shows a card with Restart and Dashboard buttons.
+        """TC-020-002: Completed onboarding shows a card with Restart and Dashboard buttons.
 
         Spec: TC-020-002 -- Bereits abgeschlossenes Onboarding -- Abgeschlossen-Karte statt Wizard.
         """
@@ -140,7 +140,7 @@ class TestCompletedSkippedCard:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-002: Clicking Restart on the completed card resets the wizard to Step 1.
+        """TC-020-004: Clicking Restart on the completed card resets the wizard to Step 1.
 
         Spec: TC-020-004 -- Neustart des Wizards aus der Abgeschlossen-Karte.
         """
@@ -193,7 +193,7 @@ class TestKitMetadata:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-003: Kit 'indoor-growzelt' has an error-coloured difficulty chip (advanced).
+        """TC-020-018: Kit 'indoor-growzelt' has an error-coloured difficulty chip (advanced).
 
         Spec: TC-020-018 -- Kit 'Indoor Growzelt' -- Schwierigkeitsbadge 'Fortgeschritten' (orange).
         """
@@ -227,7 +227,7 @@ class TestFavoriteToggle:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-004: Clicking a favorite tile toggles its selected state.
+        """TC-020-021: Clicking a favorite tile toggles its selected state.
 
         Spec: TC-020-021 -- Favoriten-Tile -- Toggle einzelner Species.
         """
@@ -293,7 +293,7 @@ class TestSiteTypeChange:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-005: Changing the site type updates the selector display.
+        """TC-020-027: Changing the site type updates the selector display.
 
         Spec: TC-020-027 -- Standorttyp aendern.
         """
@@ -346,7 +346,7 @@ class TestPlantCounterBoundaries:
         wizard: OnboardingWizardPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-020-006: Setting a plant count to 0 hides the phase selector for that species.
+        """TC-020-035: Setting a plant count to 0 hides the phase selector for that species.
 
         Spec: TC-020-035 -- Pflanzenzaehler auf 0 setzen -- Konfiguration wird entfernt.
         """

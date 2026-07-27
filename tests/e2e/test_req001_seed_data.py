@@ -54,7 +54,7 @@ class TestSeedDataFamilies:
     def test_nine_seed_families_present(
         self, family_list: BotanicalFamilyListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-085: Verify seed data — 9 botanical families with correct attributes.
+        """TC-001-054: Verify seed data — 9 botanical families with correct attributes.
 
         Spec: TC-001-054 -- Seed-Daten Kontrolle — mindestens 9 Pflanzenfamilien vorhanden.
         """
@@ -83,7 +83,7 @@ class TestSeedDataFabaceae:
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-086: Fabaceae has nitrogen_fixing = true and Schwachzehrer.
+        """TC-001-054: Fabaceae has nitrogen_fixing = true and Schwachzehrer.
 
         Spec: TC-001-054 -- Fabaceae Seed-Daten: nitrogen_fixing und Naehrstoffbedarf.
         """
@@ -130,7 +130,7 @@ class TestSeedDataCannabaceae:
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-087: Verify Cannabaceae seed data attributes.
+        """TC-001-054: Verify Cannabaceae seed data attributes.
 
         Spec: TC-001-054 -- Cannabaceae Seed-Daten-Attribute pruefen.
         """
@@ -177,7 +177,7 @@ class TestSeedDataRotation:
     def test_solanaceae_rotation_successors(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-088: Verify rotation successors for Solanaceae.
+        """TC-001-052: Verify rotation successors for Solanaceae.
 
         Spec: TC-001-052 -- Fruchtfolge-Empfehlung OK mit Stickstoff-Benefit (Solanaceae Nachfolger).
         """

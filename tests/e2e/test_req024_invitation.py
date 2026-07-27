@@ -64,7 +64,7 @@ class TestInvitationPageLoad:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-030: InvitationAcceptPage loads and shows heading when opened with a token.
+        """TC-024-025: InvitationAcceptPage loads and shows heading when opened with a token.
 
         Spec: TC-024-025 -- Einladung annehmen -- InvitationAcceptPage rendert.
         """
@@ -92,7 +92,7 @@ class TestInvitationPageLoad:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-033: InvitationAcceptPage without token shows error state.
+        """TC-024-026: InvitationAcceptPage without token shows error state.
 
         Spec: TC-024-026 -- Einladung ohne Token zeigt Fehlermeldung.
         """
@@ -127,7 +127,7 @@ class TestInvitationInvalidToken:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-032: Expired or invalid token shows error icon and message.
+        """TC-024-026: Expired or invalid token shows error icon and message.
 
         Spec: TC-024-026 -- Abgelaufene Einladung annehmen -- Fehlermeldung.
         """
@@ -167,7 +167,7 @@ class TestInvitationInvalidToken:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-032b: Error detail text is displayed for invalid token.
+        """TC-024-026: Error detail text is displayed for invalid token.
 
         Spec: TC-024-026 -- Fehlermeldung mit Detail-Text.
         """
@@ -211,7 +211,7 @@ class TestInvitationAcceptNavigation:
         invitation_page: InvitationAcceptPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-034: Error state shows outlined dashboard button for navigation.
+        """TC-024-025: Error state shows outlined dashboard button for navigation.
 
         Spec: TC-024-025 -- Dashboard-Button auf Fehlerseite.
         Note: Testing with an invalid token since we cannot create valid tokens

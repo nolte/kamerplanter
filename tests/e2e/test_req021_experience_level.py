@@ -220,7 +220,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-001: Experience tab shows ToggleButtonGroup with 3 levels.
+        """TC-021-004: Experience tab shows ToggleButtonGroup with 3 levels.
 
         Spec: TC-021-004 -- Nutzer oeffnet Tab 'Erfahrungsstufe' in den Kontoeinstellungen.
         """
@@ -244,7 +244,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-002: Upgrade from beginner to intermediate -- no confirm, immediate change.
+        """TC-021-005: Upgrade from beginner to intermediate -- no confirm, immediate change.
 
         Spec: TC-021-005 -- Upgrade von Anfaenger auf Fortgeschritten -- keine Warnung, sofortige Aenderung.
         """
@@ -278,7 +278,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-003: Upgrade from beginner to expert -- no confirm, all nav items appear.
+        """TC-021-006: Upgrade from beginner to expert -- no confirm, all nav items appear.
 
         Spec: TC-021-006 -- Upgrade von Anfaenger auf Experte -- keine Warnung, erweiterte Navigation.
         """
@@ -307,7 +307,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-004: Downgrade expert->beginner shows confirm; accept changes level.
+        """TC-021-007: Downgrade expert->beginner shows confirm; accept changes level.
 
         Spec: TC-021-007 / TC-021-008 -- Downgrade von Experte auf Anfaenger -- Bestaetigungs-Dialog.
         """
@@ -342,7 +342,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-005: Dismiss downgrade dialog -- level stays unchanged.
+        """TC-021-009: Dismiss downgrade dialog -- level stays unchanged.
 
         Spec: TC-021-009 -- Downgrade-Dialog -- Nutzer bricht ab, Stufe bleibt unveraendert.
         """
@@ -371,7 +371,7 @@ class TestExperienceLevelSwitcher:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-006: Downgrade intermediate->beginner also shows confirm dialog.
+        """TC-021-010: Downgrade intermediate->beginner also shows confirm dialog.
 
         Spec: TC-021-010 -- Downgrade von Fortgeschritten auf Anfaenger -- Warnung erscheint.
         """
@@ -409,7 +409,7 @@ class TestExperienceLevelPersistence:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-007: After page reload, the previously set experience level is restored.
+        """TC-021-011: After page reload, the previously set experience level is restored.
 
         Spec: TC-021-011 -- Nach erneutem Login ist zuletzt gewaehlte Erfahrungsstufe aktiv.
         """
@@ -459,7 +459,7 @@ class TestNavigationTiering:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-008: Beginner sees only core nav items (dashboard, plants, tasks).
+        """TC-021-013: Beginner sees only core nav items (dashboard, plants, tasks).
 
         Spec: TC-021-013 -- Anfaenger-Navigation zeigt genau die Kernmenuepunkte.
         """
@@ -519,7 +519,7 @@ class TestNavigationTiering:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-009: Intermediate sees beginner items + stammdaten, standorte, duengung, kalender.
+        """TC-021-014: Intermediate sees beginner items + stammdaten, standorte, duengung, kalender.
 
         Spec: TC-021-014 -- Fortgeschritten-Navigation enthaelt zusaetzliche Abschnitte.
         """
@@ -586,7 +586,7 @@ class TestNavigationTiering:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-010: Expert sees all nav sections and items.
+        """TC-021-015: Expert sees all nav sections and items.
 
         Spec: TC-021-015 -- Experten-Navigation zeigt alle Menuepunkte.
         """
@@ -636,7 +636,7 @@ class TestNavigationTiering:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-011: Beginner can directly access expert-only URLs (no access control).
+        """TC-021-016: Beginner can directly access expert-only URLs (no access control).
 
         Spec: TC-021-016 -- Direktaufruf einer Expert-only-URL als Anfaenger -- Seite laedt trotzdem.
         """
@@ -668,7 +668,7 @@ class TestSpeciesFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-012: Beginner -- SpeciesCreateDialog shows no fields (all are intermediate+).
+        """TC-021-017: Beginner -- SpeciesCreateDialog shows no fields (all are intermediate+).
 
         Spec: TC-021-017 -- SpeciesCreateDialog im Anfaenger-Modus -- alle Felder ausgeblendet.
         """
@@ -705,7 +705,7 @@ class TestSpeciesFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-013: Intermediate -- SpeciesCreateDialog shows intermediate fields, hides expert.
+        """TC-021-018: Intermediate -- SpeciesCreateDialog shows intermediate fields, hides expert.
 
         Spec: TC-021-018 -- SpeciesCreateDialog im Fortgeschritten-Modus -- intermediate-Felder sichtbar.
         """
@@ -750,7 +750,7 @@ class TestSpeciesFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-014: Expert -- SpeciesCreateDialog shows all fields.
+        """TC-021-019: Expert -- SpeciesCreateDialog shows all fields.
 
         Spec: TC-021-019 -- SpeciesCreateDialog im Experten-Modus -- alle Felder sichtbar.
         """
@@ -793,7 +793,7 @@ class TestShowAllFieldsToggle:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-015: Clicking 'Alle Felder anzeigen' reveals all fields without changing level.
+        """TC-021-020: Clicking 'Alle Felder anzeigen' reveals all fields without changing level.
 
         Spec: TC-021-020 -- 'Alle Felder anzeigen' im Anfaenger-Modus aktivieren.
         """
@@ -840,7 +840,7 @@ class TestShowAllFieldsToggle:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-016: Clicking 'Weniger Felder anzeigen' hides extended fields again.
+        """TC-021-021: Clicking 'Weniger Felder anzeigen' hides extended fields again.
 
         Spec: TC-021-021 -- 'Weniger Felder anzeigen' -- erweiterte Felder verschwinden wieder.
         """
@@ -886,7 +886,7 @@ class TestShowAllFieldsToggle:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-017: ShowAllFieldsToggle state resets when dialog is closed and reopened.
+        """TC-021-022: ShowAllFieldsToggle state resets when dialog is closed and reopened.
 
         Spec: TC-021-022 -- Toggle-Zustand wird nach Schliessen des Dialogs zurueckgesetzt.
         """
@@ -944,7 +944,7 @@ class TestPlantingRunFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-018: Beginner -- PlantingRunCreateDialog shows only 3 core fields.
+        """TC-021-023: Beginner -- PlantingRunCreateDialog shows only 3 core fields.
 
         Spec: TC-021-023 -- PlantingRunCreateDialog im Anfaenger-Modus -- nur 3 Kernfelder sichtbar.
         """
@@ -981,7 +981,7 @@ class TestPlantingRunFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-019: Intermediate -- PlantingRunCreateDialog shows intermediate fields.
+        """TC-021-024: Intermediate -- PlantingRunCreateDialog shows intermediate fields.
 
         Spec: TC-021-024 -- PlantingRunCreateDialog im Fortgeschritten-Modus -- zusaetzliche Felder.
         """
@@ -1012,7 +1012,7 @@ class TestPlantingRunFieldVisibility:
         expertise_page: ExpertiseLevelPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-021-020: Expert -- PlantingRunCreateDialog shows all fields.
+        """TC-021-025: Expert -- PlantingRunCreateDialog shows all fields.
 
         Spec: TC-021-025 -- PlantingRunCreateDialog im Experten-Modus -- alle Felder.
         """

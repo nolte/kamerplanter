@@ -81,7 +81,7 @@ class TestCoreJourneyCreateAndCompleteTask:
         task_queue: TaskQueuePage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-J076: Create a care task and complete it from the queue.
+        """TC-006-076: Create a care task and complete it from the queue.
 
         Spec: TC-006-076 -- Core-Journey Pflege-Task anlegen + abschließen.
         """
@@ -122,7 +122,7 @@ class TestCoreJourneyCompletedTaskDocumented:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-006-J077: Completed care task remains documented for the plant.
+        """TC-006-077: Completed care task remains documented for the plant.
 
         Spec: TC-006-077 -- Core-Journey abgeschlossener Care-Task nachvollziehbar.
         Verified on the plant instance Tasks tab (real flow; the queue has no

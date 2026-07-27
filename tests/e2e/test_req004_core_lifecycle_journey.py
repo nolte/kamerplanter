@@ -98,7 +98,7 @@ class TestCoreJourneyLogWatering:
         watering_list: WateringLogListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-J089: Log a watering for a self-provisioned plant.
+        """TC-004-089: Log a watering for a self-provisioned plant.
 
         Spec: TC-004-089 -- Core-Journey Gießvorgang protokollieren.
         """
@@ -133,7 +133,7 @@ class TestCoreJourneyWateringDetailAndCare:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-J090: Watering-log detail and plant care verification.
+        """TC-004-090: Watering-log detail and plant care verification.
 
         Spec: TC-004-090 -- Core-Journey Gießprotokoll-Detail + Pflege-Verifikation.
         """
@@ -186,7 +186,7 @@ class TestCoreJourneyRecordFeeding:
         feeding_list: FeedingEventListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-J091: Record a FeedingEvent for a self-provisioned plant.
+        """TC-004-091: Record a FeedingEvent for a self-provisioned plant.
 
         Spec: TC-004-091 -- Core-Journey Düngung (FeedingEvent) erfassen.
         """

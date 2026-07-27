@@ -341,7 +341,7 @@ class SpeciesDetailPage(BasePage):
         for el in self.driver.find_elements(*self.PHASE_PROFILE_ACTION):
             testid = el.get_attribute("data-testid") or ""
             if testid.startswith(prefix):
-                keys.append(testid[len(prefix):])
+                keys.append(testid[len(prefix) :])
         return keys
 
     def get_phase_names(self) -> list[str]:

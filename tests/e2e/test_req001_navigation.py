@@ -38,7 +38,7 @@ class TestNavigationAndRouting:
     def test_navigate_to_botanical_families(
         self, page: BasePage, browser: WebDriver, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-001: Navigate to Botanical Families list.
+        """TC-001-001: Navigate to Botanical Families list.
 
         Spec: TC-001-001 -- Botanische Familienliste wird vollstaendig geladen und angezeigt.
         """
@@ -58,7 +58,7 @@ class TestNavigationAndRouting:
     def test_navigate_to_species(
         self, page: BasePage, browser: WebDriver, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-002: Navigate to Species list.
+        """TC-001-019: Navigate to Species list.
 
         Spec: TC-001-019 -- Species-Liste laden und Grundspalten pruefen.
         """
@@ -76,7 +76,7 @@ class TestNavigationAndRouting:
     def test_navigate_to_companion_planting(
         self, page: BasePage, browser: WebDriver, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-003: Navigate to Companion Planting page.
+        """TC-001-030: Navigate to Companion Planting page.
 
         Spec: TC-001-030 -- Mischkultur-Seite navigieren.
         """
@@ -94,7 +94,7 @@ class TestNavigationAndRouting:
     def test_navigate_to_crop_rotation(
         self, page: BasePage, browser: WebDriver, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-004: Navigate to Crop Rotation page.
+        """TC-001-050: Navigate to Crop Rotation page.
 
         Spec: TC-001-050 -- Fruchtfolge-Seite oeffnen.
         """
@@ -112,7 +112,7 @@ class TestNavigationAndRouting:
     def test_nonexistent_route_shows_not_found(
         self, page: BasePage, browser: WebDriver, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-005: Direct URL access to non-existent route shows 404.
+        """TC-001-068: Direct URL access to non-existent route shows 404.
 
         Spec: TC-001-068, TC-001-069 -- Ungueltige URL zeigt Fehlermeldung.
         """

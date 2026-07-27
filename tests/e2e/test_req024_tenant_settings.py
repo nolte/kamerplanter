@@ -71,7 +71,7 @@ class TestTenantSettingsPageLoad:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-008: Settings page loads with page title containing tenant name.
+        """TC-024-012: Settings page loads with page title containing tenant name.
 
         Spec: TC-024-012 -- Tenant-Einstellungsseite aufrufen als Admin.
         """
@@ -93,7 +93,7 @@ class TestTenantSettingsPageLoad:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-009: Members tab is visible and active by default.
+        """TC-024-012: Members tab is visible and active by default.
 
         Spec: TC-024-012 -- Mitglieder-Tab ist sichtbar.
         """
@@ -114,7 +114,7 @@ class TestTenantSettingsPageLoad:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-010: Admin user sees the Invitations tab.
+        """TC-024-012: Admin user sees the Invitations tab.
 
         Spec: TC-024-012 -- Admin sieht Einladungen-Tab.
         """
@@ -145,7 +145,7 @@ class TestTenantMembersList:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-011: Members tab shows at least one member (the logged-in user).
+        """TC-024-015: Members tab shows at least one member (the logged-in user).
 
         Spec: TC-024-015 -- Mitgliederliste zeigt Mitglieder mit Rollen-Chip.
         """
@@ -170,7 +170,7 @@ class TestTenantMembersList:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-012: Each member row displays a role chip.
+        """TC-024-015: Each member row displays a role chip.
 
         Spec: TC-024-015 -- Mitgliederliste zeigt Mitglieder mit Rollen-Chip.
         """
@@ -199,7 +199,7 @@ class TestTenantMembersList:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-013: Members tab shows display names for each member.
+        """TC-024-015: Members tab shows display names for each member.
 
         Spec: TC-024-015 -- Mitgliederliste zeigt Anzeigenamen.
         """
@@ -227,7 +227,7 @@ class TestTenantInvitations:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-014: Invitations tab loads with invite form and list.
+        """TC-024-022: Invitations tab loads with invite form and list.
 
         Spec: TC-024-022 -- E-Mail-Einladung senden -- Formular.
         """
@@ -251,7 +251,7 @@ class TestTenantInvitations:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-015: Send invitation button is disabled when email is empty.
+        """TC-024-022: Send invitation button is disabled when email is empty.
 
         Spec: TC-024-022 -- Einladung-Senden Button disabled.
         """
@@ -275,7 +275,7 @@ class TestTenantInvitations:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-016: Create link button is visible on Invitations tab.
+        """TC-024-023: Create link button is visible on Invitations tab.
 
         Spec: TC-024-023 -- Einladungslink erstellen und kopieren -- Happy Path.
         """
@@ -301,7 +301,7 @@ class TestTenantInvitations:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-017: Send email invitation shows success snackbar.
+        """TC-024-022: Send email invitation shows success snackbar.
 
         Spec: TC-024-022 -- E-Mail-Einladung senden -- Happy Path.
         """
@@ -334,7 +334,7 @@ class TestTenantInvitations:
         settings_page: TenantSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-024-018: Create invitation link shows success snackbar.
+        """TC-024-023: Create invitation link shows success snackbar.
 
         Spec: TC-024-023 -- Einladungslink erstellen und kopieren -- Happy Path.
         """

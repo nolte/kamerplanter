@@ -52,7 +52,7 @@ class TestBotanicalFamilyDetailPage:
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-023: Display detail page with populated form.
+        """TC-001-005: Display detail page with populated form.
 
         Spec: TC-001-005 -- Navigation von Liste zu Detailansicht einer Botanischen Familie.
         """
@@ -78,7 +78,7 @@ class TestBotanicalFamilyDetailPage:
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-024: Edit a botanical family and save changes.
+        """TC-001-010: Edit a botanical family and save changes.
 
         Spec: TC-001-010 -- Botanische Familie bearbeiten und speichern.
         """
@@ -109,7 +109,7 @@ class TestBotanicalFamilyDetailPage:
         detail_page: BotanicalFamilyDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-027: Cancel deletion keeps the family.
+        """TC-001-012: Cancel deletion keeps the family.
 
         Spec: TC-001-012 -- Loeschen abbrechen — Familie bleibt erhalten.
         """
@@ -142,7 +142,7 @@ class TestBotanicalFamilyDetailPage:
         browser: WebDriver,
         base_url: str,
     ) -> None:
-        """TC-REQ-001-026: Delete a botanical family via confirmation dialog.
+        """TC-001-011: Delete a botanical family via confirmation dialog.
 
         Spec: TC-001-011 -- Botanische Familie loeschen mit Bestaetigungsdialog.
         """
@@ -189,7 +189,7 @@ class TestBotanicalFamilyDetailPage:
     def test_detail_page_nonexistent_key_shows_error(
         self, detail_page: BotanicalFamilyDetailPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-028: Detail page shows error for non-existent key.
+        """TC-001-068: Detail page shows error for non-existent key.
 
         Spec: TC-001-068 -- Ungueltige URL — Botanische Familie nicht gefunden zeigt Fehlermeldung.
         """

@@ -62,7 +62,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-001: SubstrateListPage renders with page title visible.
+        """TC-019-001: SubstrateListPage renders with page title visible.
 
         Spec: TC-019-001 -- Substrat-Liste wird korrekt geladen und angezeigt.
         """
@@ -81,7 +81,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-002: DataTable renders with expected column headers.
+        """TC-019-001: DataTable renders with expected column headers.
 
         Spec: TC-019-001 -- Listenansicht — Spalten pruefen.
         Expected columns: Typ, Bezeichnung, pH-Basis, EC-Basis, Wiederverwendbar
@@ -108,7 +108,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-003: Create button is visible on the SubstrateListPage.
+        """TC-019-001: Create button is visible on the SubstrateListPage.
 
         Spec: TC-019-001 -- Erstellen-Button sichtbar auf Listenansicht.
         """
@@ -124,7 +124,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-004: Clicking a substrate row navigates to its detail page.
+        """TC-019-005: Clicking a substrate row navigates to its detail page.
 
         Spec: TC-019-005 -- Klick auf Zeile navigiert zur Detailseite.
         """
@@ -148,7 +148,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-005: Search input filters substrates.
+        """TC-019-003: Search input filters substrates.
 
         Spec: TC-019-003 -- Substrat-Tabelle ist durchsuchbar.
         """
@@ -175,7 +175,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-006: Search with no results shows a hint message.
+        """TC-019-004: Search with no results shows a hint message.
 
         Spec: TC-019-004 -- Suche ohne Treffer zeigt Hinweismeldung.
         """
@@ -199,7 +199,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-007: Clicking a column header activates the sort chip.
+        """TC-019-003: Clicking a column header activates the sort chip.
 
         Spec: TC-019-003 -- Sortierung per Spaltenklick.
         """
@@ -229,7 +229,7 @@ class TestSubstrateListPage:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-008: Showing count text is displayed when rows are present.
+        """TC-019-001: Showing count text is displayed when rows are present.
 
         Spec: TC-019-001 -- Zeigt-Zaehler.
         """
@@ -255,7 +255,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-010: Clicking create button opens the SubstrateCreateDialog.
+        """TC-019-007: Clicking create button opens the SubstrateCreateDialog.
 
         Spec: TC-019-007 -- Erstellen-Dialog oeffnet sich.
         """
@@ -277,7 +277,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-011: Cancel in create dialog closes it without creating a substrate.
+        """TC-019-014: Cancel in create dialog closes it without creating a substrate.
 
         Spec: TC-019-014 -- Abbrechen schliesst Dialog ohne Aenderungen.
         """
@@ -306,7 +306,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-012: Type dropdown shows all 14 substrate type options.
+        """TC-019-009: Type dropdown shows all 14 substrate type options.
 
         Spec: TC-019-009 -- Alle 14 Substrattypen im Dropdown verfuegbar.
         """
@@ -327,7 +327,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-013: Successfully create a substrate via the dialog.
+        """TC-019-007: Successfully create a substrate via the dialog.
 
         Spec: TC-019-007 -- Substrat erfolgreich erstellen (Happy Path).
         """
@@ -370,7 +370,7 @@ class TestSubstrateCreateDialog:
         substrate_list: SubstrateListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-014: Reusable toggle switch can be toggled in the create dialog.
+        """TC-019-007: Reusable toggle switch can be toggled in the create dialog.
 
         Spec: TC-019-007 -- Reusable-Toggle im Erstellen-Dialog.
         """
@@ -408,7 +408,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-020: Substrate detail page loads and shows edit form.
+        """TC-019-015: Substrate detail page loads and shows edit form.
 
         Spec: TC-019-015 -- Substrat-Detailseite laedt mit Formular.
         """
@@ -437,7 +437,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-021: Detail page shows form section cards.
+        """TC-019-015: Detail page shows form section cards.
 
         Spec: TC-019-015 -- Detailseite zeigt Abschnittskarten.
         Expected: 4 cards (Identification, Chemistry, Physical, Reuse).
@@ -465,7 +465,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-022: Edit pH base value and save successfully.
+        """TC-019-016: Edit pH base value and save successfully.
 
         Spec: TC-019-016 -- Substrat bearbeiten — pH-Basis aendern.
         """
@@ -510,7 +510,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-023: Delete button opens the confirmation dialog.
+        """TC-019-018: Delete button opens the confirmation dialog.
 
         Spec: TC-019-018 -- Loeschen-Button oeffnet Bestaetigungsdialog.
         """
@@ -542,7 +542,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-024: Cancelling deletion closes the confirm dialog.
+        """TC-019-019: Cancelling deletion closes the confirm dialog.
 
         Spec: TC-019-019 -- Loeschen abbrechen schliesst Dialog.
         """
@@ -578,7 +578,7 @@ class TestSubstrateDetailPage:
         substrate_detail: SubstrateDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-019-025: Confirming deletion removes the substrate and navigates back.
+        """TC-019-018: Confirming deletion removes the substrate and navigates back.
 
         Spec: TC-019-018 -- Substrat loeschen bestaetigt.
 

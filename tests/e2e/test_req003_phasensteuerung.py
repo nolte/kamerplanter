@@ -121,7 +121,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_page_loads(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-001: Plant instance list page loads with title.
+        """TC-003-032: Plant instance list page loads with title.
 
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
@@ -139,7 +139,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_has_data_table(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-002: Plant instance list renders the DataTable component.
+        """TC-003-032: Plant instance list renders the DataTable component.
 
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
@@ -162,7 +162,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_column_headers_include_phase(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-003: Plant list column headers include the current phase column.
+        """TC-003-032: Plant list column headers include the current phase column.
 
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
@@ -194,7 +194,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_create_button_visible(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-004: Create plant instance button is visible on list page.
+        """TC-003-033: Create plant instance button is visible on list page.
 
         Spec: TC-003-033 -- Pflanzinstanz erstellen mit Spezies-Zuordnung.
         """
@@ -213,7 +213,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_shows_phase_chips(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-005: Plant list rows display the current-phase Chip.
+        """TC-003-032: Plant list rows display the current-phase Chip.
 
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
@@ -233,7 +233,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_search_by_instance_id(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-006: Searching by instance ID filters the plant list.
+        """TC-003-013: Searching by instance ID filters the plant list.
 
         Spec: TC-003-013 -- Wachstumsphasen-Liste -- Suchfunktion.
         """
@@ -258,7 +258,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_sort_by_column(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-007: Clicking a column header activates sorting.
+        """TC-003-012: Clicking a column header activates sorting.
 
         Spec: TC-003-012 -- Wachstumsphasen-Liste -- Sortierung nach Reihenfolge.
         """
@@ -288,7 +288,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_row_click_navigates_to_detail(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-008: Clicking a plant instance row navigates to detail page.
+        """TC-003-019: Clicking a plant instance row navigates to detail page.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Navigation).
         """
@@ -314,7 +314,7 @@ class TestPlantInstanceListPage:
     def test_plant_list_showing_count_displayed(
         self, plant_list: PlantInstanceListExt, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-003-009: Showing-count footer renders with numeric text.
+        """TC-003-032: Showing-count footer renders with numeric text.
 
         Spec: TC-003-032 -- Pflanzinstanz-Liste zeigt aktuelle Phase als Spalte.
         """
@@ -348,7 +348,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-010: Plant instance detail page loads with page title.
+        """TC-003-024: Plant instance detail page loads with page title.
 
         Spec: TC-003-024 -- Phasen-Zeitstrahl zeigt abgeschlossene, aktuelle und geplante Phasen.
         """
@@ -372,7 +372,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-011: Plant detail page shows the plant-info-card.
+        """TC-003-024: Plant detail page shows the plant-info-card.
 
         Spec: TC-003-024 -- Phasen-Zeitstrahl zeigt abgeschlossene, aktuelle und geplante Phasen.
         """
@@ -394,7 +394,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-012: Plant detail page shows the phase-info-card.
+        """TC-003-024: Plant detail page shows the phase-info-card.
 
         Spec: TC-003-024 -- Phasen-Zeitstrahl zeigt abgeschlossene, aktuelle und geplante Phasen.
         """
@@ -416,7 +416,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-013: The current-phase Chip has non-empty text.
+        """TC-003-019: The current-phase Chip has non-empty text.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Phase Chip).
         """
@@ -439,7 +439,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-014: The 'Phasenuebergang' button is present on the detail page.
+        """TC-003-019: The 'Phasenuebergang' button is present on the detail page.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Transition Button).
         """
@@ -462,7 +462,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-015: The 'Entfernen' button is present on the detail page.
+        """TC-003-010: The 'Entfernen' button is present on the detail page.
 
         Spec: TC-003-010 -- Wachstumsphase loeschen -- Bestaetigungsdialog (Remove Button).
         """
@@ -483,7 +483,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-016: Phase history section renders rows when history exists.
+        """TC-003-026: Phase history section renders rows when history exists.
 
         Spec: TC-003-026 -- Phasenverlauf-Tabelle zeigt historische Eintraege.
         """
@@ -502,7 +502,7 @@ class TestPlantInstanceDetailPage:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-017: Navigating to unknown plant instance key shows error display.
+        """TC-003-023: Navigating to unknown plant instance key shows error display.
 
         Spec: TC-003-023 -- Phasentransition -- Kein Lifecycle zugeordnet (Unknown Key).
 
@@ -548,7 +548,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-018: Clicking the transition button opens the phase transition dialog.
+        """TC-003-019: Clicking the transition button opens the phase transition dialog.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Dialog oeffnen).
         """
@@ -583,7 +583,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-019: The transition dialog shows the target-phase select element.
+        """TC-003-019: The transition dialog shows the target-phase select element.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Target Phase Select).
         """
@@ -616,7 +616,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-020: The transition dialog shows the reason text field.
+        """TC-003-019: The transition dialog shows the reason text field.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Reason Field).
         """
@@ -649,7 +649,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-021: The reason field has a default value of 'manual'.
+        """TC-003-019: The reason field has a default value of 'manual'.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Happy Path (Reason Default).
         """
@@ -682,7 +682,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-022: The confirm button is disabled when no target phase is selected.
+        """TC-003-020: The confirm button is disabled when no target phase is selected.
 
         Spec: TC-003-020 -- Phasentransition -- Zielphase nicht ausgewaehlt (Button deaktiviert).
         """
@@ -715,7 +715,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-023: Clicking 'Abbrechen' in the transition dialog closes it.
+        """TC-003-019: Clicking 'Abbrechen' in the transition dialog closes it.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Cancel schliesst Dialog.
         """
@@ -750,7 +750,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-024: Cancelling the dialog does not change the current phase.
+        """TC-003-019: Cancelling the dialog does not change the current phase.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Cancel preserves phase.
         """
@@ -787,7 +787,7 @@ class TestPhaseTransitionDialog:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-025: The reason field accepts free-text input.
+        """TC-003-019: The reason field accepts free-text input.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- Reason editable.
         """
@@ -835,7 +835,7 @@ class TestPhaseStateMachineEdgeCases:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-026: Transition button is disabled for a removed plant instance.
+        """TC-003-021: Transition button is disabled for a removed plant instance.
 
         Spec: TC-003-021 -- Phasentransition rueckwaerts -- Korrekturmodus erforderlich.
         """
@@ -878,7 +878,7 @@ class TestPhaseStateMachineEdgeCases:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-027: Remove button is disabled for an already-removed plant.
+        """TC-003-021: Remove button is disabled for an already-removed plant.
 
         Spec: TC-003-021 -- Phasentransition rueckwaerts -- Remove button disabled.
         """
@@ -919,7 +919,7 @@ class TestPhaseStateMachineEdgeCases:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-028: Remove confirm dialog opens and can be cancelled safely.
+        """TC-003-010: Remove confirm dialog opens and can be cancelled safely.
 
         Spec: TC-003-010 -- Wachstumsphase loeschen -- Bestaetigungsdialog.
         """
@@ -955,7 +955,7 @@ class TestPhaseStateMachineEdgeCases:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-029: Phase options appear in the select when lifecycle is configured.
+        """TC-003-023: Phase options appear in the select when lifecycle is configured.
 
         Spec: TC-003-023 -- Phasentransition -- Kein Lifecycle (Phase Options).
         """
@@ -1003,7 +1003,7 @@ class TestPhaseStateMachineEdgeCases:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-030: Plant instance detail URL follows /pflanzen/plant-instances/:key pattern.
+        """TC-003-019: Plant instance detail URL follows /pflanzen/plant-instances/:key pattern.
 
         Spec: TC-003-019 -- Manuelle Phasentransition -- URL-Struktur.
         """
@@ -1045,7 +1045,7 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-J046: Self-provision a plant and drive it forward two phases.
+        """TC-003-046: Self-provision a plant and drive it forward two phases.
 
         Spec: TC-003-046 -- Core-Journey Phasenwechsel vorwaerts (self-provisioning).
         """
@@ -1103,7 +1103,7 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-J047: Backward transition is blocked without correction mode.
+        """TC-003-047: Backward transition is blocked without correction mode.
 
         Spec: TC-003-047 -- Rueckwaerts-Sperre + Korrekturmodus (self-provisioning).
         """
@@ -1157,7 +1157,7 @@ class TestCoreLifecycleJourneyPhaseTransitions:
         plant_detail: PlantInstanceDetailExt,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-003-J048: Start a plant in a late phase and drive it to the final phase.
+        """TC-003-048: Start a plant in a late phase and drive it to the final phase.
 
         Spec: TC-003-048 -- Ist-Stand-Start (flowering) → harvest (self-provisioning).
         """

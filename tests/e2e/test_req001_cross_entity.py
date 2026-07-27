@@ -62,7 +62,7 @@ class TestCompleteWorkflow:
         species_detail: SpeciesDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-001-089: Complete workflow — family -> species -> cultivar -> lifecycle -> phases.
+        """TC-001-006: Complete workflow — family -> species -> cultivar -> lifecycle -> phases.
 
         Spec: TC-001-006, TC-001-025, TC-001-037, TC-001-047, TC-001-048 -- Kompletter CRUD-Workflow ueber alle Entitaeten.
         """
@@ -173,7 +173,7 @@ class TestDropdownIntegrations:
     def test_species_family_dropdown_shows_all_families(
         self, species_list: SpeciesListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-090: Species family dropdown shows all available families.
+        """TC-001-025: Species family dropdown shows all available families.
 
         Spec: TC-001-025 -- Species-Erstelldialog Familien-Dropdown ist befuellt.
         """
@@ -203,7 +203,7 @@ class TestDropdownIntegrations:
     def test_companion_planting_species_dropdown_populated(
         self, companion_page: CompanionPlantingPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-091: Companion planting page loads species list for selection.
+        """TC-001-030: Companion planting page loads species list for selection.
 
         Spec: TC-001-030 -- Mischkultur-Seite laedt Artenliste fuer Auswahl.
         """
@@ -229,7 +229,7 @@ class TestDropdownIntegrations:
     def test_crop_rotation_family_dropdown_populated(
         self, rotation_page: CropRotationPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-001-092: Crop rotation page loads all families for selection.
+        """TC-001-050: Crop rotation page loads all families for selection.
 
         Spec: TC-001-050 -- Fruchtfolge-Seite laedt Familien-Dropdown.
         """

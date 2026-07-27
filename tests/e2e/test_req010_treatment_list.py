@@ -47,7 +47,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-024: Treatment list page loads with title, table, and create button.
+        """TC-010-019: Treatment list page loads with title, table, and create button.
 
         Spec: TC-010-019 -- Behandlungs-Listenansicht aufrufen.
         """
@@ -70,7 +70,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-025: DataTable renders with expected columns for treatments.
+        """TC-010-019: DataTable renders with expected columns for treatments.
 
         Spec: TC-010-019 -- Behandlungs-Listenansicht — Spalten pruefen.
         """
@@ -88,7 +88,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-026: Introductory description text is visible.
+        """TC-010-019: Introductory description text is visible.
 
         Spec: TC-010-019 -- Einleitungstext sichtbar.
         """
@@ -105,7 +105,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-027: Search filters treatment list.
+        """TC-010-019: Search filters treatment list.
 
         Spec: TC-010-019 -- Behandlungs-Liste — Suche filtert.
         """
@@ -134,7 +134,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-028: Search with no match shows empty state.
+        """TC-010-019: Search with no match shows empty state.
 
         Spec: TC-010-019 -- Behandlungs-Liste — Suche ohne Treffer.
         """
@@ -154,7 +154,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-029: Sorting by column header works.
+        """TC-010-019: Sorting by column header works.
 
         Spec: TC-010-019 -- Behandlungs-Liste — Sortierung per Spaltenklick.
         """
@@ -182,7 +182,7 @@ class TestTreatmentListPage:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-030: Showing count text is visible.
+        """TC-010-019: Showing count text is visible.
 
         Spec: TC-010-019 -- Behandlungs-Liste — Zeigt-Zaehler.
         """
@@ -210,7 +210,7 @@ class TestTreatmentCreateDialog:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-031: Create biological treatment (happy path).
+        """TC-010-023: Create biological treatment (happy path).
 
         Spec: TC-010-023 -- Behandlung erstellen — Biologische Behandlung (Happy Path).
         """
@@ -251,7 +251,7 @@ class TestTreatmentCreateDialog:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-032: Create chemical treatment with safety interval and protective equipment.
+        """TC-010-024: Create chemical treatment with safety interval and protective equipment.
 
         Spec: TC-010-024 -- Behandlung erstellen — Chemische Behandlung mit Karenzzeit.
         """
@@ -290,7 +290,7 @@ class TestTreatmentCreateDialog:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-033: Validation error when name field is empty.
+        """TC-010-025: Validation error when name field is empty.
 
         Spec: TC-010-025 -- Behandlung erstellen — Pflichtfeld 'Bezeichnung' leer.
         """
@@ -324,7 +324,7 @@ class TestTreatmentCreateDialog:
         treatment_list: TreatmentListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-010-034: Cancelling create dialog discards entered data.
+        """TC-010-023: Cancelling create dialog discards entered data.
 
         Spec: TC-010-023 -- Behandlung erstellen — Dialog abbrechen.
         """

@@ -66,7 +66,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_page_loads(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-031: Nutrient plan list page loads and the table is present.
+        """TC-004-012: Nutrient plan list page loads and the table is present.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
@@ -82,7 +82,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_has_required_columns(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-032: Nutrient plan list shows name, author, template and version columns.
+        """TC-004-012: Nutrient plan list shows name, author, template and version columns.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
@@ -98,7 +98,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_search_filters_results(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-033: Searching the plan list filters visible rows.
+        """TC-004-013: Searching the plan list filters visible rows.
 
         Spec: TC-004-013 -- Naehrstoffplan nach Substrattyp filtern.
         """
@@ -125,7 +125,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_search_chip_appears(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-034: Search chip is shown after entering search text.
+        """TC-004-013: Search chip is shown after entering search text.
 
         Spec: TC-004-013 -- Naehrstoffplan nach Substrattyp filtern.
         """
@@ -147,7 +147,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_sort_by_column(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-035: Clicking a column header sorts the nutrient plan list.
+        """TC-004-012: Clicking a column header sorts the nutrient plan list.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
@@ -180,7 +180,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_showing_count(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-036: Nutrient plan list shows a 'Zeigt X von Y' count label.
+        """TC-004-012: Nutrient plan list shows a 'Zeigt X von Y' count label.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen.
         """
@@ -196,7 +196,7 @@ class TestNutrientPlanListPage:
     def test_plan_list_row_click_navigates_to_detail(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-037: Clicking a nutrient plan row navigates to its detail page.
+        """TC-004-012: Clicking a nutrient plan row navigates to its detail page.
 
         Spec: TC-004-012 -- Naehrstoffplan-Liste aufrufen (Row Click Navigation).
         """
@@ -232,7 +232,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_dialog_opens(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-043: Clicking 'Create' opens the nutrient plan create dialog.
+        """TC-004-015: Clicking 'Create' opens the nutrient plan create dialog.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Dialog).
         """
@@ -257,7 +257,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_plan_with_required_name(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-044: Create a nutrient plan with only the required name field.
+        """TC-004-015: Create a nutrient plan with only the required name field.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Minimal).
         """
@@ -291,7 +291,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_plan_with_all_fields(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-045: Create a nutrient plan with all major fields filled.
+        """TC-004-015: Create a nutrient plan with all major fields filled.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Happy Path (Full).
         """
@@ -328,7 +328,7 @@ class TestNutrientPlanCreateDialog:
     def test_validation_empty_name_rejected(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-046: Submitting with empty plan name shows validation error.
+        """TC-004-016: Submitting with empty plan name shows validation error.
 
         Spec: TC-004-016 -- Naehrstoffplan erstellen -- Namensfeld leer.
         """
@@ -352,7 +352,7 @@ class TestNutrientPlanCreateDialog:
     def test_cancel_plan_create_discards_input(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-047: Cancelling the create dialog discards the entered name.
+        """TC-004-015: Cancelling the create dialog discards the entered name.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Cancel.
         """
@@ -386,7 +386,7 @@ class TestNutrientPlanCreateDialog:
     def test_create_plan_with_template_flag(
         self, plan_list: NutrientPlanListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-048: Create a nutrient plan and mark it as a template.
+        """TC-004-015: Create a nutrient plan and mark it as a template.
 
         Spec: TC-004-015 -- Neuen Naehrstoffplan erstellen -- Template Flag.
         """
@@ -454,7 +454,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-053: Nutrient plan detail page loads with plan name as title.
+        """TC-004-012: Nutrient plan detail page loads with plan name as title.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite laedt.
         """
@@ -479,7 +479,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-054: Nutrient plan detail page has three tabs (Phase Entries / Validation / Edit).
+        """TC-004-012: Nutrient plan detail page has three tabs (Phase Entries / Validation / Edit).
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Tabs.
         """
@@ -502,7 +502,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-055: Phase Entries tab is active by default on page load.
+        """TC-004-017: Phase Entries tab is active by default on page load.
 
         Spec: TC-004-017 -- Phase-Entry zu Naehrstoffplan hinzufuegen (Phase Entries Tab).
         """
@@ -530,7 +530,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-056: Switching to the Validation tab triggers plan validation.
+        """TC-004-021: Switching to the Validation tab triggers plan validation.
 
         Spec: TC-004-021 -- Plan-Vollstaendigkeits-Validierung (Validation Tab).
         """
@@ -564,7 +564,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-057: Edit tab form is pre-filled with the plan's current data.
+        """TC-004-012: Edit tab form is pre-filled with the plan's current data.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Edit Tab prefilled.
         """
@@ -600,7 +600,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-058: Edit tab save button is disabled when no changes have been made.
+        """TC-004-012: Edit tab save button is disabled when no changes have been made.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Save disabled.
         """
@@ -632,7 +632,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-059: Modifying a field in edit tab enables the save button.
+        """TC-004-012: Modifying a field in edit tab enables the save button.
 
         Spec: TC-004-012 -- Naehrstoffplan-Detailseite -- Save enables after change.
         """
@@ -666,7 +666,7 @@ class TestNutrientPlanDetailPage:
         plan_list: NutrientPlanListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-060: Delete button on nutrient plan opens a confirm dialog.
+        """TC-004-027: Delete button on nutrient plan opens a confirm dialog.
 
         Spec: TC-004-027 -- Naehrstoffplan loeschen (Delete Confirm Dialog).
         """

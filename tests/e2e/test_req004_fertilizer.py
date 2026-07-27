@@ -68,7 +68,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_page_loads(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-001: Fertilizer list page loads with correct structure.
+        """TC-004-001: Fertilizer list page loads with correct structure.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -86,7 +86,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_has_required_columns(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-002: Fertilizer list shows required columns (product name, NPK, EC).
+        """TC-004-001: Fertilizer list shows required columns (product name, NPK, EC).
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -108,7 +108,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_shows_seed_data(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-003: Fertilizer list shows seed data rows on fresh database.
+        """TC-004-001: Fertilizer list shows seed data rows on fresh database.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -124,7 +124,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_search_filters_results(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-004: Searching the fertilizer list filters visible rows.
+        """TC-004-002: Searching the fertilizer list filters visible rows.
 
         Spec: TC-004-002 -- Duengemittel-Filter nach Typ anwenden.
         """
@@ -150,7 +150,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_search_chip_appears(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-005: Search chip appears after entering a search term.
+        """TC-004-002: Search chip appears after entering a search term.
 
         Spec: TC-004-002 -- Duengemittel-Filter nach Typ anwenden.
 
@@ -179,7 +179,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_sort_by_column(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-006: Clicking a column header sorts the fertilizer list.
+        """TC-004-001: Clicking a column header sorts the fertilizer list.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
 
@@ -232,7 +232,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_showing_count(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-007: Fertilizer list shows a 'showing X of Y' count label.
+        """TC-004-001: Fertilizer list shows a 'showing X of Y' count label.
 
         Spec: TC-004-001 -- Duengemittel-Liste aufrufen und Uebersicht pruefen.
         """
@@ -251,7 +251,7 @@ class TestFertilizerListPage:
     def test_fertilizer_list_row_click_navigates(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-008: Clicking a fertilizer row navigates to the detail page.
+        """TC-004-008: Clicking a fertilizer row navigates to the detail page.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Planverwendungs-Anzeige.
         """
@@ -284,7 +284,7 @@ class TestFertilizerCreateDialog:
     def test_create_dialog_opens(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-013: Clicking 'Create' opens the fertilizer create dialog.
+        """TC-004-006: Clicking 'Create' opens the fertilizer create dialog.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Dialog).
         """
@@ -307,7 +307,7 @@ class TestFertilizerCreateDialog:
     def test_create_fertilizer_minimal_required_fields(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-014: Create a fertilizer with only required fields (product_name).
+        """TC-004-006: Create a fertilizer with only required fields (product_name).
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Minimal).
         """
@@ -341,7 +341,7 @@ class TestFertilizerCreateDialog:
     def test_create_fertilizer_with_full_data(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-015: Create a fertilizer with all major fields filled.
+        """TC-004-006: Create a fertilizer with all major fields filled.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Happy Path (Full).
         """
@@ -392,7 +392,7 @@ class TestFertilizerCreateDialog:
     def test_validation_empty_product_name(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-016: Submitting with empty product_name shows validation error.
+        """TC-004-007: Submitting with empty product_name shows validation error.
 
         Spec: TC-004-007 -- Duengemittel erstellen -- Pflichtfeld-Validierung.
         """
@@ -417,7 +417,7 @@ class TestFertilizerCreateDialog:
     def test_cancel_create_dialog_closes_without_saving(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-017: Cancelling the create dialog closes it without saving.
+        """TC-004-006: Cancelling the create dialog closes it without saving.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Cancel.
         """
@@ -461,7 +461,7 @@ class TestFertilizerCreateDialog:
     def test_create_dialog_has_fertilizer_type_select(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-018: Create dialog contains a fertilizer type select field.
+        """TC-004-006: Create dialog contains a fertilizer type select field.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- Type Select.
         """
@@ -481,7 +481,7 @@ class TestFertilizerCreateDialog:
     def test_create_dialog_has_npk_fields(
         self, fertilizer_list: FertilizerListPage, screenshot: Callable[..., Path]
     ) -> None:
-        """TC-REQ-004-019: Create dialog contains N, P, K number input fields.
+        """TC-004-006: Create dialog contains N, P, K number input fields.
 
         Spec: TC-004-006 -- Neues Duengemittel erstellen -- NPK Fields.
         """
@@ -530,7 +530,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-023: Fertilizer detail page loads and shows the product name as title.
+        """TC-004-008: Fertilizer detail page loads and shows the product name as title.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Planverwendungs-Anzeige.
         """
@@ -558,7 +558,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-024: Fertilizer detail page has exactly three tabs.
+        """TC-004-008: Fertilizer detail page has exactly three tabs.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Tabs.
         """
@@ -582,7 +582,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-025: Details tab (Tab 0) shows fertilizer properties.
+        """TC-004-008: Details tab (Tab 0) shows fertilizer properties.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Properties.
         """
@@ -611,7 +611,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-026: Stock tab (Tab 1) is accessible and renders without error.
+        """TC-004-010: Stock tab (Tab 1) is accessible and renders without error.
 
         Spec: TC-004-010 -- Lagerbestand erfassen (Stock Tab).
         """
@@ -637,7 +637,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-027: Edit tab (Tab 2) pre-fills product name from loaded data.
+        """TC-004-008: Edit tab (Tab 2) pre-fills product name from loaded data.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Edit Tab prefilled.
         """
@@ -676,7 +676,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-028: Edit tab save button is disabled when no changes are made.
+        """TC-004-008: Edit tab save button is disabled when no changes are made.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Save disabled.
         """
@@ -710,7 +710,7 @@ class TestFertilizerDetailPage:
         fertilizer_list: FertilizerListPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-029: Modifying a field in edit tab enables the save button.
+        """TC-004-008: Modifying a field in edit tab enables the save button.
 
         Spec: TC-004-008 -- Duengemittel-Detailseite -- Save enables after change.
         """
@@ -747,7 +747,7 @@ class TestFertilizerDetailPage:
         fertilizer_detail: FertilizerDetailPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-REQ-004-030: Navigating to a non-existent fertilizer key shows an error.
+        """TC-004-009: Navigating to a non-existent fertilizer key shows an error.
 
         Spec: TC-004-009 -- Duengemittel-Detailseite -- Kein Plan zugeordnet (Invalid Key).
         """
