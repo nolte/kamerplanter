@@ -113,6 +113,26 @@ export default function WorkflowInstantiateDialog({
     total: number;
   } | null>(null);
 
+  // Sorted off the render path, and on a *copy* (#821). The preview used to
+  // render `templates.sort(...)`, and `Array.prototype.sort` sorts in place —
+  // so every render mutated the state array it was reading. React forbids that
+  // for a reason: the mutation makes the rendered output depend on how often
+  // the component happened to render, and under React 19 it produces an extra
+  // pass that replaces the list's DOM nodes.
+  //
+  // That is what broke the dialog's test in CI while it passed locally. The
+  // test failed in ~650ms rather than at the 5s wait budget, which rules out
+  // the load-timing explanation the issue proposed: `findByText('First')`
+  // resolved fine, and the node it returned was then detached by the extra
+  // render before `toBeInTheDocument()` ran. The MUI "Unable to find the input
+  // element" warnings in the same log come from other files minutes earlier —
+  // vitest interleaves worker output, so their apparent adjacency was an
+  // artefact.
+  const sortedTemplates = useMemo(
+    () => [...templates].sort((a, b) => a.sequence_order - b.sequence_order),
+    [templates],
+  );
+
   // ── Load data on open ────────────────────────────────────────────
 
   useEffect(() => {
@@ -608,9 +628,7 @@ export default function WorkflowInstantiateDialog({
               {t('pages.tasks.taskPreview')} ({templates.length})
             </Typography>
             <List dense>
-              {templates
-                .sort((a, b) => a.sequence_order - b.sequence_order)
-                .map((tmpl) => (
+              {sortedTemplates.map((tmpl) => (
                   <ListItem key={tmpl.key} disablePadding sx={{ mb: 0.5 }}>
                     <ListItemText
                       primary={
