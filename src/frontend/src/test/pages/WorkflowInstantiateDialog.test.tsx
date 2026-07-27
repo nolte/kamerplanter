@@ -297,9 +297,26 @@ describe('WorkflowInstantiateDialog', () => {
     renderDialog();
 
     expect(await screen.findByTestId('workflow-instantiate-dialog')).toBeInTheDocument();
-    // Preview heading with the template count.
-    expect(await screen.findByText('First')).toBeInTheDocument();
-    expect(screen.getByText('Second')).toBeInTheDocument();
+
+    // Re-queried inside `waitFor` rather than asserted on a held reference
+    // (#821). `expect(await screen.findByText('First')).toBeInTheDocument()`
+    // resolves an element and *then* asserts on it, and the dialog is still
+    // loading at that point: the template fetch finishes long before
+    // `loadPlantData`, whose plants -> runs -> run-plants chain lands its
+    // `setState` calls afterwards. That re-render replaces the list nodes, so
+    // the element the assertion is holding is no longer in the document —
+    // "element could not be found in the document", ~650ms in, nowhere near
+    // the 5s wait budget.
+    //
+    // It reproduced on CI in the `Coverage` job specifically, where v8
+    // instrumentation roughly doubles wall-clock and widens that window; the
+    // uninstrumented `lint-test-build` run of the same commit passed. `waitFor`
+    // re-runs its callback, so a re-render between attempts costs a retry
+    // instead of a failure.
+    await waitFor(() => {
+      expect(screen.getByText('First')).toBeInTheDocument();
+      expect(screen.getByText('Second')).toBeInTheDocument();
+    });
     // Instantiate button starts disabled (no target selected).
     expect(screen.getByTestId('instantiate-button')).toBeDisabled();
   });
