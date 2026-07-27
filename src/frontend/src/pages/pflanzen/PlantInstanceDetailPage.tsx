@@ -62,6 +62,7 @@ import TerminationDialog from './TerminationDialog';
 import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
+import HarvestReadinessSection from './HarvestReadinessSection';
 import ProfilesSection from './ProfilesSection';
 import OverwinteringSection from './OverwinteringSection';
 import PestScanButton from '@/components/pests/PestScanButton';
@@ -1656,6 +1657,18 @@ export default function PlantInstanceDetailPage() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Harvest readiness (REQ-007 §3 "Reife-Visualisierung" / §6 DoD).
+              Placed with the plant's other live-status cards — after the phase
+              profile, before the static species/cultivar reference cards —
+              because it answers the same question as the summary bar's
+              "voraussichtliche Ernte": where is this plant in its run right now.
+              Hidden once the plant is removed/harvested: readiness is a forecast
+              towards an event that has already happened, mirroring the watering
+              card's `!plant.removed_on` guard directly above. */}
+          {plant && key && !plant.removed_on && (
+            <HarvestReadinessSection plantKey={key} />
           )}
 
           {/* Species & Cultivar cards */}

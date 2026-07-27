@@ -205,6 +205,12 @@
       "beginnerTip": "Draußen regelt das die Jahreszeit von selbst. Wichtig wird es nur bei Kunstlicht, wo du die Beleuchtungsdauer einstellst.",
       "unit": "h/Tag",
       "category": "lebenszyklus"
+    },
+    "readiness_reliability": {
+      "short": "Zuverlässigkeit & Beitrag — wie stark ein Indikator die Gesamtbewertung prägt",
+      "long": "Nicht jeder Reife-Indikator ist gleich aussagekräftig: Die Zuverlässigkeit gibt an, wie verlässlich dieser Indikator-Typ erfahrungsgemäß ist (z. B. sind Trichome zuverlässiger als die Blattfarbe). Der Beitrag ist die Bewertung des Indikators multipliziert mit seiner Zuverlässigkeit und zeigt, wie stark er in die Gesamtbewertung eingeflossen ist.",
+      "beginnerTip": "Ein hoher Beitrag bedeutet: Dieser Indikator hat die Gesamtbewertung stark mitbestimmt.",
+      "category": "lebenszyklus"
     }
   }
 }
