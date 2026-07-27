@@ -1,3 +1,48 @@
+"""ArangoDB repository for botanical families and their species assignments.
+
+Species-visibility scope (Issue #808)
+-------------------------------------
+The three species-facing reads below — :meth:`~ArangoBotanicalFamilyRepository.get_species_by_family`,
+:meth:`~ArangoBotanicalFamilyRepository.get_species_count_by_family` and
+:meth:`~ArangoBotanicalFamilyRepository.get_species_counts_by_family` — deliberately
+apply **no** tenant predicate, and they must all keep applying the *same* one.
+
+The target rule, once it becomes expressible, is the hybrid-catalogue OR-union
+established by #324 and used verbatim by ``fertilizer_repository`` and
+``nutrient_plan_repository``::
+
+    (doc.tenant_key == @tenant_key OR doc.tenant_key == "" OR doc.tenant_key == null)
+
+— own rows plus the global seeds, never another tenant's, never everything.
+
+That union is **not applicable to species today**, and applying it here would be
+inert rather than protective:
+
+* ``Species`` carries no ``tenant_key`` (see :mod:`app.domain.models.species`) and
+  no write path — create, import, seed or enrichment — ever stores one, so every
+  species document matches the union's ``tenant_key == null`` arm. The filter
+  would exclude nothing.
+* ``origin`` (:class:`~app.common.enums.DataOrigin`) is a *provenance* marker
+  (``system`` / ``enrichment`` / ``import`` / ``tenant``) driving the read-only and
+  deletion-protection logic of UI-NFR-018. It records *that* a user created a
+  record, never *which tenant* did — so it cannot express "another tenant's
+  species" either.
+* The species catalogue is intentionally global: it is mounted at ``/api/v1/species``
+  (not under ``/api/v1/t/{tenant_slug}/``) and ``SpeciesService.list_species`` reads it
+  unfiltered. The counts here are therefore *consistent* with what the same caller can
+  already list; they expose no species that ``GET /species`` does not already return.
+
+Closing the gap for real is the unimplemented Stammdaten-Scoping of REQ-001 v4.0
+(``tenant_key`` on Species/Cultivar plus the ``tenant_has_access`` edge) together
+with a tenant context on this global route — not a filter change in this module.
+
+Until then the invariant that *is* enforceable is consistency: the count, the
+per-family count and the species listing must never diverge in scope, because a
+count that disagrees with the list it links to is worse than either alone. That is
+pinned by ``TestSpeciesScopeConsistency`` in
+``tests/unit/data_access/arango/test_botanical_family_repository.py``.
+"""
+
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
