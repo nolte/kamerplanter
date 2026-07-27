@@ -219,14 +219,14 @@ class DiseaseListPage(BasePage):
         el.send_keys(text)
 
     def submit_create_form(self) -> None:
-        """Submit the create form via JS dispatch on the form element."""
-        self.driver.execute_script(
-            "var form = document.querySelector(\".MuiDialog-root [role='dialog'] form\");"
-            "if (form) {"
-            "  var ev = new Event('submit', {bubbles: true, cancelable: true});"
-            "  form.dispatchEvent(ev);"
-            "}"
-        )
+        """Submit the create form by clicking its submit button.
+
+        Routed through the actual button -- see ``PestListPage.submit_create_form``
+        for why the previous raw ``dispatchEvent('submit')`` on the dialog's
+        ``form`` (guarded by an ``if (form) { … }`` with no ``else``) was a
+        silent no-op on a missing form and bypassed the button entirely.
+        """
+        self.wait_and_click_coordinate_free(self.FORM_SUBMIT)
 
     def wait_for_dialog_closed(self, timeout: int = 15) -> None:
         """Wait until the create dialog is no longer in the DOM."""
@@ -293,14 +293,10 @@ class DiseaseListPage(BasePage):
     # -- Internal helpers -----------------------------------------------------
 
     def _select_option(self, field_testid: str, value_text: str) -> None:
-        """Open an MUI Select and pick an option by its visible text."""
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_testid}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_testid)
+        self.select_option_by_label(value_text)

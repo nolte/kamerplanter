@@ -24,6 +24,9 @@ class SpeciesDetailPage(BasePage):
     DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
     READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='species-readonly-banner']")
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
+    # This is genuinely the *in-page* "Bearbeiten" tab's submit button (no
+    # dialog wraps this tab), left unscoped on purpose: it is the element
+    # LIFECYCLE_FORM_SUBMIT below used to collide with (see #778 A5).
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     CONFIRM_DIALOG = (By.CSS_SELECTOR, "[data-testid='confirm-dialog']")
     CONFIRM_BUTTON = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
@@ -41,7 +44,18 @@ class SpeciesDetailPage(BasePage):
     )
 
     # Lifecycle tab locators
-    LIFECYCLE_FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
+    # Scoped to the lifecycle tab's own section, not to a dialog: this is the
+    # inline form the tab renders (`LifecycleConfigSection`), and its submit is
+    # what `get_lifecycle_submit_label` reads. The scope is needed because
+    # several `form-submit-button` testids coexist in this page's DOM -- the
+    # edit tab's inline form, this one, and the growth-phase dialog MUI portals
+    # to the end of <body> -- so an unscoped lookup resolves to whichever comes
+    # first in document order (#778 A5). The section marker was added to the
+    # product for this; there was no scope available before.
+    LIFECYCLE_FORM_SUBMIT = (
+        By.CSS_SELECTOR,
+        "[data-testid='lifecycle-config-section'] [data-testid='form-submit-button']",
+    )
 
     # Growth phase locators
     PHASE_CREATE_BUTTON = (By.XPATH, "//button[contains(normalize-space(.), 'Phase erstellen')]")
@@ -118,16 +132,13 @@ class SpeciesDetailPage(BasePage):
         el.send_keys(Keys.ENTER)
 
     def select_option(self, field_name: str, value_text: str) -> None:
-        field = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='form-field-{field_name}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(field)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open an MUI Select and pick an option by its visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select(field_name)
+        self.select_option_by_label(value_text)
 
     def click_save(self) -> None:
         self.wait_and_click(self.FORM_SUBMIT)
@@ -248,7 +259,19 @@ class SpeciesDetailPage(BasePage):
             el.send_keys(value)
 
     def submit_cultivar_form(self) -> None:
-        self.wait_and_click((By.CSS_SELECTOR, "[data-testid='form-submit-button']"))
+        """Submit the cultivar-create dialog.
+
+        Scoped to the cultivar dialog -- the same ``[data-testid='form-
+        submit-button']`` this used to address unscoped also matches the
+        in-page "Bearbeiten" tab's FORM_SUBMIT and the growth-phase dialog's
+        LIFECYCLE_FORM_SUBMIT (see #778 A5).
+        """
+        self.wait_and_click(
+            (
+                By.CSS_SELECTOR,
+                "[data-testid='cultivar-create-dialog'] [data-testid='form-submit-button']",
+            )
+        )
 
     # ── Lifecycle tab (tab 2) ─────────────────────────────────────────
 

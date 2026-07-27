@@ -299,6 +299,14 @@ class WateringLogListPage(BasePage):
         and retry the type (mirrors ``select_first_plant``); the plant label is
         ``"{instance_id} ({name})"`` so prefer the option whose text starts with
         the instance id rather than blindly taking the first.
+
+        Matched via ``textContent``, not ``.text``: WebElement.text yields only
+        *rendered* text, so an option scrolled outside the popover's visible
+        area (MUI scrolls to the selected item on open) reads back as "" and
+        would never match. Clicked via :meth:`click_menu_option` rather than
+        :meth:`scroll_and_click` -- the previous coordinate-based click landed
+        on whichever option had slid into that spot while an open MUI menu was
+        still repositioning (#778 A2).
         """
         from selenium.webdriver.support.ui import WebDriverWait
 
@@ -314,11 +322,15 @@ class WateringLogListPage(BasePage):
                 continue  # options not populated yet — re-type and retry
             options = self.driver.find_elements(By.CSS_SELECTOR, "li[role='option']")
             target = next(
-                (o for o in options if o.text.strip().startswith(text)),
+                (
+                    o
+                    for o in options
+                    if (o.get_attribute("textContent") or "").strip().startswith(text)
+                ),
                 options[0] if options else None,
             )
             if target is not None:
-                self.scroll_and_click(target)
+                self.click_menu_option(target)
                 self.wait_for_element_hidden((By.CSS_SELECTOR, "li[role='option']"))
                 return True
         return False

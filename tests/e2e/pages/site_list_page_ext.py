@@ -240,17 +240,13 @@ class SiteListPageExt(BasePage):
         el.send_keys(value)
 
     def select_type(self, value_text: str) -> None:
-        """Open MUI Select for 'type' and pick option by visible text."""
-        select_el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-type'] .MuiSelect-select")
-        )
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open MUI Select for 'type' and pick option by visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("type")
+        self.select_option_by_label(value_text)
 
     def submit_create_form(self) -> None:
         self.wait_and_click(self.FORM_SUBMIT)

@@ -32,14 +32,22 @@ class NutrientPlanDetailPage(BasePage):
         "//button[contains(., 'Eintrag') or contains(., 'Entry') or contains(., 'Phase')]",
     )
     ENTRY_CARDS = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiCard-root")
-    NO_ENTRIES_ALERT = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Scoped to the page root: an unscoped ``.MuiAlert-root`` also matches
+    # MainLayout's light-mode warning banner (`severity="warning"`), which
+    # renders as a sibling of this page's root, not a descendant -- so this
+    # scoping alone is enough to exclude it. See #778 A11.
+    NO_ENTRIES_ALERT = (By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiAlert-root")
 
     # Tab 1: Validation — cards and alerts
     VALIDATION_SECTION = (
         By.CSS_SELECTOR,
         "[data-testid='nutrient-plan-detail-page'] .MuiCard-root",
     )
-    COMPLETENESS_ALERT = (By.CSS_SELECTOR, ".MuiAlert-root")
+    # Scoped to the page root -- see NO_ENTRIES_ALERT above for the rationale.
+    COMPLETENESS_ALERT = (
+        By.CSS_SELECTOR,
+        "[data-testid='nutrient-plan-detail-page'] .MuiAlert-root",
+    )
 
     # Tab 2: Edit form
     FORM_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-name'] input")
@@ -166,12 +174,21 @@ class NutrientPlanDetailPage(BasePage):
 
     def is_completeness_success(self) -> bool:
         """Return True if the completeness alert has a success severity."""
-        alerts = self.driver.find_elements(By.CSS_SELECTOR, ".MuiAlert-colorSuccess")
+        # Scoped to the page root -- an unscoped ``.MuiAlert-colorWarning``
+        # would also match MainLayout's light-mode warning banner (see
+        # NO_ENTRIES_ALERT above), which could otherwise make this method
+        # report a false warning while the completeness alert itself is
+        # green. See #778 A11.
+        alerts = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiAlert-colorSuccess"
+        )
         return any(a.is_displayed() for a in alerts)
 
     def is_completeness_warning(self) -> bool:
         """Return True if the completeness alert has a warning severity."""
-        alerts = self.driver.find_elements(By.CSS_SELECTOR, ".MuiAlert-colorWarning")
+        alerts = self.driver.find_elements(
+            By.CSS_SELECTOR, "[data-testid='nutrient-plan-detail-page'] .MuiAlert-colorWarning"
+        )
         return any(a.is_displayed() for a in alerts)
 
     # ── Tab 2: Edit form ───────────────────────────────────────────────

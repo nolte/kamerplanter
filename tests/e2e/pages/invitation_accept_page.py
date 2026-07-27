@@ -44,11 +44,26 @@ class InvitationAcceptPage(BasePage):
         f"{CARD} [data-testid='ErrorIcon'],{CARD} svg.MuiSvgIcon-colorError",
     )
     HEADING = (By.CSS_SELECTOR, f"{CARD} .MuiTypography-h6")
-    ERROR_DETAIL = (
-        By.CSS_SELECTOR,
-        f"{CARD} .MuiTypography-root[class*='colorText'],"
-        f"{CARD} .MuiTypography-root.MuiTypography-colorTextSecondary",
-    )
+    #: Verified dead in the installed MUI 9 (2026-07-26): the predecessor
+    #: selector matched neither
+    #: ``.MuiTypography-root[class*='colorText']`` nor
+    #: ``.MuiTypography-root.MuiTypography-colorTextSecondary``.
+    #: MUI 9's ``Typography`` no longer emits any ``color``-derived class at
+    #: all -- confirmed by reading ``useUtilityClasses`` in
+    #: ``@mui/material@9``'s ``Typography.js``: its class list is only
+    #: ``['root', variant, align*, gutterBottom, noWrap]``, and the ``color``
+    #: prop (including the legacy ``MuiTypography-colorTextSecondary``-style
+    #: enum values) is applied purely through the ``styled`` variants
+    #: mechanism, never as a static class. ``MuiTypography-colorTextSecondary``
+    #: is MUI v4 naming and was never valid for this app's MUI 9. This made
+    #: ``get_error_detail()`` return ``''`` unconditionally, which is also the
+    #: probable cause of the ``error_detail`` F841 in
+    #: ``test_req024_invitation.py`` (#802) -- the value was never anything
+    #: but an empty string, so no assertion could have used it. Fixed by
+    #: addressing the element through a dedicated
+    #: ``data-testid='invitation-error-detail'`` added to
+    #: ``InvitationAcceptPage.tsx`` (#778 A11).
+    ERROR_DETAIL = (By.CSS_SELECTOR, f"{CARD} [data-testid='invitation-error-detail']")
     DASHBOARD_BUTTON = (By.CSS_SELECTOR, f"{CARD} button.MuiButton-contained")
     DASHBOARD_BUTTON_OUTLINED = (By.CSS_SELECTOR, f"{CARD} button.MuiButton-outlined")
 

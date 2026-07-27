@@ -1,3 +1,9 @@
+# Standalone manual debugging script (not collected by pytest, not imported by
+# any test module or page object). Its dialog selectors were updated to
+# ``.MuiDialog-root [role='dialog']`` to match the scoping pattern used
+# everywhere else in the suite (see base_page.DIALOG_SELECTOR) -- an unscoped
+# ``div[role='dialog']`` also matches the Sidebar's temporary, keepMounted
+# Drawer paper below the `md` breakpoint. See #778 C4.
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -20,7 +26,7 @@ try:
     )
     btn.click()
     WebDriverWait(driver, 10).until(
-        EC.visibility_of_element_located((By.CSS_SELECTOR, "div[role='dialog']"))
+        EC.visibility_of_element_located((By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']"))
     )
     time.sleep(0.5)
 
@@ -62,7 +68,7 @@ try:
 
     sci = driver.find_element(By.CSS_SELECTOR, "[data-testid='form-field-scientific_name'] input")
     print("scientific_name aria-invalid after submit:", sci.get_attribute("aria-invalid"))
-    errors = driver.find_elements(By.CSS_SELECTOR, "div[role='dialog'] .Mui-error")
+    errors = driver.find_elements(By.CSS_SELECTOR, ".MuiDialog-root [role='dialog'] .Mui-error")
     print("Mui-error elements:", len(errors))
 
     # Now try dispatching submit event directly on the form
@@ -70,7 +76,7 @@ try:
     driver.execute_script("""
         window.__submitFired2 = false;
         document.addEventListener('submit', function(e) { window.__submitFired2 = true; }, true);
-        var form = document.querySelector("div[role='dialog'] form");
+        var form = document.querySelector(".MuiDialog-root [role='dialog'] form");
         if (form) {
             var ev = new Event('submit', {bubbles: true, cancelable: true});
             form.dispatchEvent(ev);

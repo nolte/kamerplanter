@@ -892,17 +892,13 @@ class OnboardingWizardPage(BasePage):
         return len(self.driver.find_elements(*locator)) > 0
 
     def select_plant_phase(self, species_key: str, phase_label: str) -> None:
-        """Select a phase for a species from the dropdown."""
-        trigger = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, f"[data-testid='plant-phase-select-{species_key}'] .MuiSelect-select")
-        )
-        self.scroll_and_click(trigger)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{phase_label}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Select a phase for a species from the dropdown.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select_by_testid(f"plant-phase-select-{species_key}")
+        self.select_option_by_label(phase_label)
 
     def get_total_plant_count_text(self) -> str:
         """Return the total plant count text shown below the plant configs."""

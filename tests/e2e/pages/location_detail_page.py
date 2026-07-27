@@ -84,30 +84,18 @@ class LocationDetailPage(BasePage):
         el.send_keys(value)
 
     def select_light_type(self, value_text: str) -> None:
-        """Open the 'light_type' MUI Select and pick by visible text."""
-        select_el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-light_type'] .MuiSelect-select")
-        )
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        """Open the 'light_type' MUI Select and pick by visible text.
+
+        Routed through the shared, verified select helpers -- see
+        ``BotanicalFamilyListPage.select_option`` for the rationale.
+        """
+        self.open_select("light_type")
+        self.select_option_by_label(value_text)
 
     def select_irrigation_system(self, value_text: str) -> None:
         """Open the 'irrigation_system' MUI Select and pick by visible text."""
-        select_el = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-field-irrigation_system'] .MuiSelect-select")
-        )
-        self.scroll_and_click(select_el)
-        option = self.wait_for_element_clickable(
-            (By.XPATH, f"//li[@role='option' and contains(text(), '{value_text}')]")
-        )
-        self.click_menu_option(option)
-        # MUI auto-closes on option click; ensure the popover is fully gone
-        self.close_mui_dropdown()
+        self.open_select("irrigation_system")
+        self.select_option_by_label(value_text)
 
     def submit_form(self) -> None:
         """Submit the in-page edit form (coordinate-free; see BasePage)."""
