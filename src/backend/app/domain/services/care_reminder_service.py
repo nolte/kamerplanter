@@ -1,5 +1,6 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     ApplicationMethod,
     ConfirmAction,
@@ -1148,7 +1149,7 @@ class CareReminderService:
             return None
 
         plant_label = plant.plant_name or plant.instance_id or plant_key
-        today = date.today()
+        today = today_utc()
         task = build_care_reminder_task(
             plant_key=plant_key,
             plant_label=plant_label,

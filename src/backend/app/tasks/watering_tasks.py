@@ -1,5 +1,6 @@
 import structlog
 
+from app.common.datetimes import today_utc
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -13,7 +14,7 @@ def generate_watering_tasks() -> dict:
     (legacy) or watering:{run_key}:{channel_id}:{date} (multi-channel) to prevent
     duplicates.
     """
-    from datetime import UTC, date, datetime
+    from datetime import UTC, datetime
 
     from app.common.dependencies import get_nutrient_plan_repo, get_planting_run_repo, get_task_repo
     from app.common.enums import TaskCategory, TaskPriority, TaskStatus
@@ -26,7 +27,10 @@ def generate_watering_tasks() -> dict:
     nutrient_plan_repo = get_nutrient_plan_repo()
     engine = WateringScheduleEngine()
 
-    today = date.today()
+    # UTC (#812): the stamped `due_date` carries a UTC label, and the dedup
+    # rule that reads it back moved to UTC in #772 — a local date here made
+    # producer and deduplicator run on different calendar days.
+    today = today_utc()
     created_count = 0
     skipped_count = 0
 
