@@ -1129,6 +1129,14 @@ def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
 
     Falls back to the standard Selenium screenshot if CDP is not available
     (e.g. Firefox or older drivers).
+
+    What this image can and cannot answer (#778 H1): it returns the whole scroll
+    document, and while doing so Chrome rescales ``position: fixed`` and
+    ``height: 100%`` elements to the document height. The same dialog paper
+    measured 931px in one shot and 1991px in another, neither equal to the
+    852px viewport — so **height in this image means nothing** and it cannot
+    answer "is this below the fold". Its *width* stays a sound horizontal-overflow
+    measurement. Use :func:`_cdp_viewport_screenshot` for anything vertical.
     """
     import base64
 
@@ -1140,6 +1148,30 @@ def _cdp_full_page_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
         filepath.write_bytes(base64.b64decode(result["data"]))
     except Exception:
         # Fallback for non-Chrome browsers or remote grids without CDP
+        driver.save_screenshot(str(filepath))
+
+
+def _cdp_viewport_screenshot(driver: webdriver.Remote, filepath: Path) -> None:
+    """Capture exactly what the viewport shows, at the viewport's own size.
+
+    The companion to :func:`_cdp_full_page_screenshot`, and the only one of the
+    two that can answer a *vertical* question. Omitting ``captureBeyondViewport``
+    leaves the layout viewport untouched, so an element's position in this image
+    is its position on the user's screen — which is what "the primary action sits
+    below the fold" or "the sticky bar covers the field" actually mean.
+
+    Two agents burned effort on the full-page image before this was pinned down
+    (#778 H1), so both are now written per checkpoint rather than leaving the
+    reader to guess which question their single image can answer.
+    """
+    import base64
+
+    try:
+        result = driver.execute_cdp_cmd("Page.captureScreenshot", {})
+        filepath.write_bytes(base64.b64decode(result["data"]))
+    except Exception:
+        # Non-Chrome or a grid without CDP: Selenium's own screenshot is already
+        # viewport-only, so the fallback is exact rather than approximate here.
         driver.save_screenshot(str(filepath))
 
 
@@ -1172,6 +1204,13 @@ def screenshot(
         filename = f"{name}.png"
         filepath = screenshot_dir / filename
         _cdp_full_page_screenshot(browser, filepath)
+
+        # A second, viewport-only image per checkpoint (#778 H1). The full-page
+        # one above cannot answer any vertical question, and a reviewer looking
+        # at a single image has no way to know that. Written next to it as
+        # `<name>.viewport.png` so the pair is obvious in the folder listing.
+        viewport_name = f"{name}.viewport.png"
+        _cdp_viewport_screenshot(browser, screenshot_dir / viewport_name)
 
         # Register with protocol plugin for report generation
         screenshots_list = getattr(request.node, "_protocol_screenshots", [])
