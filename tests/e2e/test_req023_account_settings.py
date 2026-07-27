@@ -85,9 +85,7 @@ class TestAccountSettingsProfile:
         )
 
         display_name = account_page.get_display_name()
-        assert display_name, (
-            "TC-REQ-023-024 FAIL: Expected display name to be prefilled"
-        )
+        assert display_name, "TC-REQ-023-024 FAIL: Expected display name to be prefilled"
 
         email = account_page.get_email()
         assert email == DEMO_EMAIL, (

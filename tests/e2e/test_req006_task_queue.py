@@ -460,9 +460,7 @@ class TestTaskQueueBulkMode:
             pytest.skip("No tasks in database -- cannot test bulk mode exit")
 
         task_queue.enter_bulk_mode()
-        assert task_queue.is_bulk_mode_active(), (
-            "TC-REQ-006-021 FAIL: Bulk mode should be active"
-        )
+        assert task_queue.is_bulk_mode_active(), "TC-REQ-006-021 FAIL: Bulk mode should be active"
 
         task_queue.exit_bulk_mode()
         task_queue.wait_for_loading_complete()
@@ -526,8 +524,7 @@ class TestTaskCreateDialog:
         )
 
         assert task_queue.is_generate_reminders_visible(), (
-            "TC-REQ-006-023 FAIL: Expected [data-testid='generate-reminders-button'] "
-            "to be visible"
+            "TC-REQ-006-023 FAIL: Expected [data-testid='generate-reminders-button'] to be visible"
         )
 
 
@@ -650,9 +647,7 @@ class TestTaskUpdatePropagation:
             f"(due='{after_due}', section='{section_after}')",
         )
 
-        assert after_due, (
-            "TC-REQ-006-042 FAIL: Expected a non-empty due-date value after the shift"
-        )
+        assert after_due, "TC-REQ-006-042 FAIL: Expected a non-empty due-date value after the shift"
         assert after_due != before_due, (
             "TC-REQ-006-042 FAIL: Expected the due-date value to change after shifting "
             f"to {target_due}. Before: '{before_due}', After: '{after_due}'"

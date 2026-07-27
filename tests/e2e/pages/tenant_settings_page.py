@@ -148,9 +148,7 @@ class TenantSettingsPage(BasePage):
 
     def has_any_remove_buttons(self) -> bool:
         """Check if any remove-member buttons are visible (admin indicator)."""
-        elements = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid^='remove-member-']"
-        )
+        elements = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid^='remove-member-']")
         return any(e.is_displayed() for e in elements) if elements else False
 
     # -- Interactions: Invitations tab -------------------------------------

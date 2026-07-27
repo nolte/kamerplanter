@@ -139,9 +139,7 @@ class TestTaskDetailTabNavigation:
         )
 
         title = task_detail.get_task_title()
-        assert title, (
-            "TC-REQ-006-002 FAIL: Expected task title to be non-empty on detail page"
-        )
+        assert title, "TC-REQ-006-002 FAIL: Expected task title to be non-empty on detail page"
 
     @pytest.mark.core_crud
     def test_tab_navigation_clicks(
@@ -178,8 +176,7 @@ class TestTaskDetailTabNavigation:
 
             active = task_detail.get_active_tab_label()
             assert active == label, (
-                f"TC-REQ-006-003 FAIL: Expected active tab to be '{label}', "
-                f"got '{active}'"
+                f"TC-REQ-006-003 FAIL: Expected active tab to be '{label}', got '{active}'"
             )
 
 
@@ -307,8 +304,7 @@ class TestTaskDetailStatusTransitions:
         task_detail.open(key)
 
         assert task_detail.has_start_button(), (
-            "TC-REQ-006-007 FAIL: A freshly created pending care task must offer "
-            "the start button"
+            "TC-REQ-006-007 FAIL: A freshly created pending care task must offer the start button"
         )
 
         screenshot(
@@ -345,8 +341,7 @@ class TestTaskDetailStatusTransitions:
         task_detail.open(key)
 
         assert task_detail.has_skip_button(), (
-            "TC-REQ-006-008 FAIL: A freshly created pending care task must offer "
-            "the skip button"
+            "TC-REQ-006-008 FAIL: A freshly created pending care task must offer the skip button"
         )
 
         screenshot(

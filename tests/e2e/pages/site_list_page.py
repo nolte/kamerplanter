@@ -53,6 +53,4 @@ class SiteListPage(BasePage):
 
     def click_row(self, index: int) -> None:
         """Open the site at *index* via its inert `name` cell."""
-        self.click_data_table_row(
-            index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "site row"
-        )
+        self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "site row")
