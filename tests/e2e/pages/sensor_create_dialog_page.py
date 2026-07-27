@@ -107,9 +107,7 @@ class SensorCreateDialogPage(BasePage):
     def scroll_add_sensor_button_into_view(self) -> None:
         """Scroll the add-sensor-button into the viewport without clicking it."""
         button = self.driver.find_element(*self.ADD_SENSOR_BUTTON)
-        self.driver.execute_script(
-            "arguments[0].scrollIntoView({block: 'center'});", button
-        )
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
 
     def is_add_sensor_button_visible(self) -> bool:
         """Return True iff the add-sensor-button is present and displayed."""
@@ -128,9 +126,7 @@ class SensorCreateDialogPage(BasePage):
         Returns None when no row matches.  Used to verify the new sensor
         appears in the parent page's sensor table after save.
         """
-        rows = self.driver.find_elements(
-            By.CSS_SELECTOR, "[data-testid='data-table-row']"
-        )
+        rows = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table-row']")
         for row in rows:
             if sensor_name in row.text:
                 return row

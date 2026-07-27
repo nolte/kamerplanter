@@ -59,9 +59,7 @@ class TestEmailVerificationPageLoad:
         )
 
         heading = verification_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-023-040 FAIL: Expected heading text on EmailVerificationPage"
-        )
+        assert heading, "TC-REQ-023-040 FAIL: Expected heading text on EmailVerificationPage"
 
 
 # -- TC-023-008: Invalid token shows error ------------------------------------
@@ -99,9 +97,7 @@ class TestEmailVerificationInvalidToken:
             "EmailVerificationPage error alert for invalid token",
         )
 
-        assert error_text, (
-            "TC-REQ-023-041 FAIL: Expected error alert text, got empty string"
-        )
+        assert error_text, "TC-REQ-023-041 FAIL: Expected error alert text, got empty string"
 
     @pytest.mark.core_crud
     def test_invalid_token_no_success_alert(

@@ -102,9 +102,7 @@ class TestTenantNavigation:
         )
 
         title = settings_page.get_page_title_text()
-        assert title, (
-            "TC-REQ-024-027 FAIL: Expected page title after navigating to tenant settings"
-        )
+        assert title, "TC-REQ-024-027 FAIL: Expected page title after navigating to tenant settings"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -126,9 +124,7 @@ class TestTenantNavigation:
         )
 
         title = create_page.get_page_title_text()
-        assert title, (
-            "TC-REQ-024-028 FAIL: Expected page title after navigating to tenant create"
-        )
+        assert title, "TC-REQ-024-028 FAIL: Expected page title after navigating to tenant create"
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -244,9 +240,7 @@ class TestInvitationAcceptNavigation:
         )
 
         heading = invitation_page.get_heading_text()
-        assert heading, (
-            "TC-REQ-024-032 FAIL: Expected a heading text on the error state"
-        )
+        assert heading, "TC-REQ-024-032 FAIL: Expected a heading text on the error state"
 
         assert invitation_page.is_error(), (
             "TC-REQ-024-032 FAIL: Expected the error icon to be displayed"
