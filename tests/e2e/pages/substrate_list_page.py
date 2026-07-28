@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from .base_page import BasePage
@@ -121,20 +120,27 @@ class SubstrateListPage(BasePage):
     # ── Search and filter ──────────────────────────────────────────────
 
     def search(self, term: str) -> None:
-        """Type *term* into the search field."""
+        """Type *term* into the search field.
+
+        Uses ``clear_and_fill`` rather than ``WebElement.clear()``: the search
+        box is a React-controlled input, where ``clear()`` empties the DOM value
+        without notifying React, so the previous term can survive and the next
+        one is appended to it. A single call happens to work; calling this twice
+        -- as the create test does when it counts before and after -- produced
+        ``E2E-TestsubstratE2E-Testsubstrat`` and therefore zero matches, which
+        looked exactly like the created row never appearing (#802).
+        """
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(term)
+        self.clear_and_fill(search_input, term)
         # debounce: bounded, justified (table-search-input has a 300ms
         # debounce before it re-filters, so callers can rely on the result
         # being settled once this method returns)
         time.sleep(0.3)
 
     def clear_search(self) -> None:
-        """Clear the search field."""
+        """Empty the search field, React state included (see ``search``)."""
         search_input = self.wait_for_element_clickable(self.SEARCH_INPUT)
-        search_input.clear()
-        search_input.send_keys(Keys.BACKSPACE)
+        self.clear_and_fill(search_input, "")
 
     def has_search_chip(self) -> bool:
         """Return True if a search chip is visible."""
