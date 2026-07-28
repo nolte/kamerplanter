@@ -8,10 +8,10 @@ import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import Box from '@mui/material/Box';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
@@ -142,7 +142,7 @@ export default function ProfileEditDialog({
         {phaseName} — {t('pages.profiles.editTitle')}
       </DialogTitle>
       <DialogContent>
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
+        <Form onSubmit={handleSubmit(onSubmit)} sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.profiles.editDesc')}
           </Typography>
@@ -209,7 +209,7 @@ export default function ProfileEditDialog({
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.save')} />
-        </Box>
+        </Form>
       </DialogContent>
     </Dialog>
   );

@@ -18,6 +18,7 @@ import ListItemText from '@mui/material/ListItemText';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -365,7 +366,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         )}
 
         {/* Manual form — always shown */}
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField
             name="name"
             control={control}
@@ -415,7 +416,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
             loading={saving}
             saveLabel={isEdit ? t('common.save') : t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

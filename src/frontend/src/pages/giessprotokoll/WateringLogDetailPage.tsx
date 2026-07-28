@@ -31,6 +31,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -453,7 +454,7 @@ export default function WateringLogDetailPage() {
           id="tabpanel-edit"
           aria-labelledby="tab-edit"
         >
-          <form onSubmit={handleSubmit(onSave)}>
+          <Form onSubmit={handleSubmit(onSave)}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
               {t('pages.wateringLogs.sectionApplication')}
             </Typography>
@@ -588,7 +589,7 @@ export default function WateringLogDetailPage() {
               loading={saving}
               disabled={!isDirty}
             />
-          </form>
+          </Form>
         </Box>
       )}
 

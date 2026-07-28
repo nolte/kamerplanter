@@ -60,6 +60,19 @@ interface MobileCardProps {
   chips?: ReactNode | MobileCardChip[];
   /** Optional leading visual (e.g. a thumbnail/cover preview) shown on the left. */
   leading?: ReactNode;
+  /**
+   * Interactive row-level controls (favourite toggle, overflow menu), pinned to
+   * the top-right and wrapped in a `card-actions` hook.
+   *
+   * This exists because `trailing` is a *visual* slot and is frequently already
+   * spoken for. `SpeciesListPage` is the case that forced the decision (#778
+   * A1): it renders a dedicated favourite column on the desktop table, and its
+   * card put a `SpeciesThumbnail` in `trailing` — so below the `sm` breakpoint
+   * the favourite toggle had nowhere to go and the action was simply
+   * unreachable. Giving card-level actions their own slot means the answer is
+   * no longer "whatever the page improvises".
+   */
+  actions?: ReactNode;
 }
 
 /** Narrow the `chips` prop to the keyed list form. */
@@ -92,6 +105,27 @@ function isKeyedChipList(chips: ReactNode | MobileCardChip[]): chips is MobileCa
  * A caller-supplied `data-chip-color` wins, and a chip left on the palette
  * default emits nothing (it asserts no colour semantics).
  */
+/**
+ * Read the semantic palette colour a keyed chip should advertise.
+ *
+ * Several list pages wrap their chip in a `Tooltip` to explain what the label
+ * means. MUI forwards unrecognised props to the tooltip's child, so the
+ * `data-testid` still lands on the chip — but the `color` prop does *not* live
+ * on the wrapper, so reading it there yields nothing and the chip silently
+ * stops advertising its colour. Falling through to a lone child element keeps
+ * the wrapped and unwrapped forms equivalent, which is the only way a reader
+ * can treat them the same.
+ */
+function paletteColorOf(element: ReactElement<Record<string, unknown>>): string | undefined {
+  if (typeof element.props.color === 'string') return element.props.color;
+  const child = element.props.children;
+  if (isValidElement(child) && typeof child.type !== 'symbol') {
+    const inner = (child as ReactElement<Record<string, unknown>>).props.color;
+    if (typeof inner === 'string') return inner;
+  }
+  return undefined;
+}
+
 function renderKeyedChip(chip: MobileCardChip): ReactNode {
   const testId = `card-chip-${chip.id}`;
   if (isValidElement(chip.content) && typeof chip.content.type !== 'symbol') {
@@ -100,11 +134,9 @@ function renderKeyedChip(chip: MobileCardChip): ReactNode {
     if (element.props['data-testid'] === undefined) {
       props['data-testid'] = testId;
     }
-    if (
-      element.props['data-chip-color'] === undefined &&
-      typeof element.props.color === 'string'
-    ) {
-      props['data-chip-color'] = element.props.color;
+    const paletteColor = paletteColorOf(element);
+    if (element.props['data-chip-color'] === undefined && paletteColor !== undefined) {
+      props['data-chip-color'] = paletteColor;
     }
     return cloneElement(element, props);
   }
@@ -140,6 +172,7 @@ export default function MobileCard({
   trailing,
   chips,
   leading,
+  actions,
 }: MobileCardProps) {
   const keyedChips = isKeyedChipList(chips) ? chips : null;
   const hasChips = keyedChips ? keyedChips.length > 0 : Boolean(chips);
@@ -166,6 +199,14 @@ export default function MobileCard({
             )}
           </Box>
           {trailing && <Box sx={{ flexShrink: 0 }}>{trailing}</Box>}
+          {actions && (
+            <Box
+              data-testid="card-actions"
+              sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}
+            >
+              {actions}
+            </Box>
+          )}
         </Box>
         {hasChips && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>

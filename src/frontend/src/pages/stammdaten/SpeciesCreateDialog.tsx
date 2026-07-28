@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -168,7 +169,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.species.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {/* --- Taxonomy section --- */}
           <Typography variant="subtitle2" sx={{ mb: 1, mt: 2 }}>
             {t('pages.species.sectionTaxonomy')}
@@ -446,7 +447,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
           )}
           <FormActions onCancel={handleClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

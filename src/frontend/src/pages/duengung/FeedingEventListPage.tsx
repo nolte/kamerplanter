@@ -155,23 +155,33 @@ export default function FeedingEventListPage() {
           return (
             <MobileCard
               title={plantName}
+              titleId="plantKey"
               subtitle={r.timestamp ? new Date(r.timestamp).toLocaleString() : undefined}
-              chips={
-                <>
-                  <Chip
-                    label={t(`enums.applicationMethod.${r.application_method}`)}
-                    size="small"
-                    variant="outlined"
-                  />
-                  {r.is_supplemental && (
-                    <Chip label={t('common.yes')} size="small" color="info" />
-                  )}
-                </>
-              }
+              subtitleId="timestamp"
+              chips={[
+                {
+                  id: 'applicationMethod',
+                  content: (
+                    <Chip
+                      label={t(`enums.applicationMethod.${r.application_method}`)}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ),
+                },
+                ...(r.is_supplemental
+                  ? [
+                      {
+                        id: 'isSupplemental',
+                        content: <Chip label={t('common.yes')} size="small" color="info" />,
+                      },
+                    ]
+                  : []),
+              ]}
               fields={[
-                { label: t('pages.feedingEvents.volumeApplied'), value: `${r.volume_applied_liters} L` },
+                { id: 'volume', label: t('pages.feedingEvents.volumeApplied'), value: `${r.volume_applied_liters} L` },
                 ...(r.measured_ec_after != null
-                  ? [{ label: t('pages.feedingEvents.ecAfter'), value: `${r.measured_ec_after} mS/cm` }]
+                  ? [{ id: 'ecAfter', label: t('pages.feedingEvents.ecAfter'), value: `${r.measured_ec_after} mS/cm` }]
                   : []),
               ]}
             />

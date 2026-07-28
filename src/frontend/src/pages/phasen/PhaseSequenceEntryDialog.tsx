@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
@@ -140,7 +141,7 @@ export default function PhaseSequenceEntryDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.phaseSequences.entryDialogIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {/* Phase selection */}
           <Box sx={{ mt: 1 }}>
             <Controller
@@ -231,7 +232,7 @@ export default function PhaseSequenceEntryDialog({
             loading={saving}
             saveLabel={isEdit ? t('common.save') : t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

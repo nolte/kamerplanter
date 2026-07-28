@@ -56,6 +56,7 @@ import { useOriginProtection } from '@/hooks/useOriginProtection';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormActions from '@/components/form/FormActions';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -1224,7 +1225,7 @@ export default function WorkflowDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.tasks.sectionWorkflowDesc')}
               </Typography>
-              <form onSubmit={handleSubmit(onSave)}>
+              <Form onSubmit={handleSubmit(onSave)}>
                 <FormTextField name="name" control={control} label={t('pages.tasks.workflowName')} required autoFocus />
                 <FormTextField name="description" control={control} label={t('common.description')} multiline rows={3} />
                 <FormTextField name="version" control={control} label={t('pages.tasks.version')} />
@@ -1348,7 +1349,7 @@ export default function WorkflowDetailPage() {
                     {t('common.origin.readOnlyHint')}
                   </Typography>
                 )}
-              </form>
+              </Form>
             </CardContent>
           </Card>
 

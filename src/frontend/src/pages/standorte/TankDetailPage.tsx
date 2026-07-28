@@ -31,6 +31,7 @@ import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -929,11 +930,12 @@ export default function TankDetailPage() {
               mobileCardRenderer={(r) => (
                 <MobileCard
                   title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—'}
+                  titleId="recordedAt"
                   fields={[
-                    ...(r.ph != null ? [{ label: t('enums.sensorMetricType.ph'), value: String(r.ph) }] : []),
-                    ...(r.ec_ms != null ? [{ label: t('enums.sensorMetricType.ec_ms'), value: String(r.ec_ms) }] : []),
-                    ...(r.water_temp_celsius != null ? [{ label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} °C` }] : []),
-                    ...(r.fill_level_percent != null ? [{ label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
+                    ...(r.ph != null ? [{ id: 'ph', label: t('enums.sensorMetricType.ph'), value: String(r.ph) }] : []),
+                    ...(r.ec_ms != null ? [{ id: 'ec', label: t('enums.sensorMetricType.ec_ms'), value: String(r.ec_ms) }] : []),
+                    ...(r.water_temp_celsius != null ? [{ id: 'temp', label: t('pages.tanks.waterTemp'), value: `${r.water_temp_celsius} °C` }] : []),
+                    ...(r.fill_level_percent != null ? [{ id: 'fillLevel', label: t('pages.tanks.fillLevel'), value: `${r.fill_level_percent}%` }] : []),
                   ]}
                 />
               )}
@@ -964,16 +966,23 @@ export default function TankDetailPage() {
                   mobileCardRenderer={(r) => (
                     <MobileCard
                       title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                      titleId="type"
                       subtitle={new Date(r.next_due).toLocaleDateString()}
-                      chips={
-                        <Chip
-                          label={t(`enums.maintenanceStatus.${r.status}`)}
-                          size="small"
-                          color={r.status === 'overdue' ? 'error' : r.status === 'due_soon' ? 'warning' : 'success'}
-                        />
-                      }
+                      subtitleId="nextDue"
+                      chips={[
+                        {
+                          id: 'status',
+                          content: (
+                            <Chip
+                              label={t(`enums.maintenanceStatus.${r.status}`)}
+                              size="small"
+                              color={r.status === 'overdue' ? 'error' : r.status === 'due_soon' ? 'warning' : 'success'}
+                            />
+                          ),
+                        },
+                      ]}
                       fields={[
-                        { label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
+                        { id: 'priority', label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
                       ]}
                     />
                   )}
@@ -1011,10 +1020,12 @@ export default function TankDetailPage() {
               mobileCardRenderer={(r) => (
                 <MobileCard
                   title={t(`enums.maintenanceType.${r.maintenance_type}`)}
+                  titleId="type"
                   subtitle={r.performed_at ? new Date(r.performed_at).toLocaleString() : undefined}
+                  subtitleId="performedAt"
                   fields={[
-                    ...(r.performed_by ? [{ label: t('pages.tanks.performedBy'), value: r.performed_by }] : []),
-                    ...(r.duration_minutes != null ? [{ label: t('pages.tanks.duration'), value: `${r.duration_minutes} min` }] : []),
+                    ...(r.performed_by ? [{ id: 'performedBy', label: t('pages.tanks.performedBy'), value: r.performed_by }] : []),
+                    ...(r.duration_minutes != null ? [{ id: 'duration', label: t('pages.tanks.duration'), value: `${r.duration_minutes} min` }] : []),
                   ]}
                 />
               )}
@@ -1056,16 +1067,22 @@ export default function TankDetailPage() {
               mobileCardRenderer={(r) => (
                 <MobileCard
                   title={t(`enums.maintenanceType.${r.maintenance_type}`)}
-                  chips={
-                    <Chip
-                      label={r.is_active ? t('common.yes') : t('common.no')}
-                      size="small"
-                      color={r.is_active ? 'success' : 'default'}
-                    />
-                  }
+                  titleId="type"
+                  chips={[
+                    {
+                      id: 'active',
+                      content: (
+                        <Chip
+                          label={r.is_active ? t('common.yes') : t('common.no')}
+                          size="small"
+                          color={r.is_active ? 'success' : 'default'}
+                        />
+                      ),
+                    },
+                  ]}
                   fields={[
-                    { label: t('pages.tanks.intervalDays'), value: String(r.interval_days) },
-                    { label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
+                    { id: 'intervalDays', label: t('pages.tanks.intervalDays'), value: String(r.interval_days) },
+                    { id: 'priority', label: t('pages.tanks.priority'), value: t(`enums.maintenancePriority.${r.priority}`) },
                   ]}
                 />
               )}
@@ -1114,12 +1131,15 @@ export default function TankDetailPage() {
               mobileCardRenderer={(r: TankFillEvent) => (
                 <MobileCard
                   title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '—'}
-                  chips={<Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" />}
+                  titleId="filledAt"
+                  chips={[
+                    { id: 'fillType', content: <Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" /> },
+                  ]}
                   fields={[
-                    { label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
-                    ...(r.measured_ec_ms != null ? [{ label: 'EC (mS/cm)', value: String(r.measured_ec_ms) }] : []),
-                    ...(r.measured_ph != null ? [{ label: 'pH', value: String(r.measured_ph) }] : []),
-                    ...(r.water_source ? [{ label: t('pages.tanks.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
+                    { id: 'volume', label: t('pages.tanks.volumeLiters'), value: `${r.volume_liters} L` },
+                    ...(r.measured_ec_ms != null ? [{ id: 'ec', label: 'EC (mS/cm)', value: String(r.measured_ec_ms) }] : []),
+                    ...(r.measured_ph != null ? [{ id: 'ph', label: 'pH', value: String(r.measured_ph) }] : []),
+                    ...(r.water_source ? [{ id: 'waterSource', label: t('pages.tanks.waterSource'), value: t(`enums.waterSource.${r.water_source}`) }] : []),
                   ]}
                 />
               )}
@@ -1130,8 +1150,7 @@ export default function TankDetailPage() {
 
       {/* Tab 5: Edit */}
       {tab === 5 && (
-        <Box
-          component="form"
+        <Form
           onSubmit={handleSubmit(onSave)}
           sx={{ maxWidth: { xs: '100%', md: FORM_MAX_WIDTH, xl: 1440 }, display: 'flex', flexDirection: 'column', gap: 4 }}
         >
@@ -1354,7 +1373,7 @@ export default function TankDetailPage() {
             loading={saving}
             disabled={!isDirty}
           />
-        </Box>
+        </Form>
       )}
 
       <TankStateCreateDialog

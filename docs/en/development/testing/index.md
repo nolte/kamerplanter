@@ -338,6 +338,44 @@ describe('onboardingSlice', () => {
 });
 ```
 
+### Form validation: what vitest *cannot* check here
+
+!!! warning "jsdom does not enforce native constraint validation"
+    A test shaped like "leave a required field empty, submit, expect the zod
+    message" **cannot fail** in the frontend suite — it passes whether or not
+    the form carries `noValidate`.
+
+    In a real browser, native validation aborts the submission *before* the
+    `submit` event fires: `handleSubmit` never runs, zod never runs, no
+    `helperText` renders, and the user gets a native bubble in the **browser's**
+    locale rather than the app's. jsdom does not implement that abort and simply
+    calls the handler — so the test measures the exact opposite of what it
+    appears to check.
+
+    This is not a theoretical risk. It is how the defect in
+    [#825](https://github.com/nolte/kamerplanter/issues/825) stayed invisible
+    across ~55 files, and why
+    [#822](https://github.com/nolte/kamerplanter/issues/822) deliberately threw
+    such a test away rather than ship a check that cannot fail.
+
+**What protects instead — three layers, none of them a behavioural unit test:**
+
+1. **`<Form>` rather than `<form>`** (`@/components/form/Form`). The wrapper
+   applies `noValidate` *after* the prop spread, so a call site cannot switch it
+   off. Every RHF form uses it.
+2. **An ESLint rule** (`no-restricted-syntax` in `src/frontend/eslint.config.js`).
+   A raw `<form>`, or a `component="form"` without `noValidate`, breaks the
+   build — so the next unguarded case fails in CI instead of in production.
+3. **E2E in a real browser.** That is the only place the behavioural promise is
+   measurable at all. Page objects must therefore drive the dialog through the
+   **real submit button**: a JavaScript-dispatched `submit` event bypasses
+   native validation just as jsdom does, which makes the test worthless (see
+   [#815](https://github.com/nolte/kamerplanter/issues/815)).
+
+The only assertion worth making at the unit tier is the *structural* one — that
+the attribute reaches the DOM node and cannot be overridden. That is exactly
+what `src/test/components/Form.test.tsx` checks.
+
 ---
 
 ## E2E Tests (Selenium)

@@ -13,6 +13,7 @@ import Chip from '@mui/material/Chip';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -163,7 +164,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="sensor-create-dialog-title" data-testid="sensor-create-dialog">
       <DialogTitle id="sensor-create-dialog-title">{isEdit ? t('pages.sensors.edit') : t('pages.sensors.add')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {haEntities.length > 0 && (
             <Autocomplete
               options={haEntities}
@@ -238,7 +239,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
             loading={saving}
             saveLabel={isEdit ? t('common.save') : t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

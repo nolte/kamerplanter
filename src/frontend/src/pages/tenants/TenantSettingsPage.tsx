@@ -202,14 +202,25 @@ export default function TenantSettingsPage() {
           mobileCardRenderer={(m) => (
             <MobileCard
               title={m.display_name || '—'}
+              titleId="display_name"
               subtitle={m.email}
-              chips={
-                <Chip
-                  label={t(`enums.tenantRole.${m.role}`)}
-                  size="small"
-                  color={m.role === 'admin' ? 'primary' : 'default'}
-                />
-              }
+              subtitleId="email"
+              // Keyed so the member role is read by its column id instead of a
+              // bare `.MuiChip-root` inside the page (#778 A1/A11): that
+              // selector was ambiguous within this very page, which renders
+              // chips for both members and invitations.
+              chips={[
+                {
+                  id: 'role',
+                  content: (
+                    <Chip
+                      label={t(`enums.tenantRole.${m.role}`)}
+                      size="small"
+                      color={m.role === 'admin' ? 'primary' : 'default'}
+                    />
+                  ),
+                },
+              ]}
               trailing={
                 isAdmin ? (
                   <Tooltip title={t('pages.tenants.removeMember')}>

@@ -188,11 +188,13 @@ export default function PhotoperiodCalculatorCard() {
               mobileCardRenderer={(s) => (
                 <MobileCard
                   title={t('pages.calculations.gddDay', { day: s.day })}
+                  titleId="day"
                   subtitle={`${s.photoperiod_hours.toFixed(1)} h`}
+                  subtitleId="hours"
                   fields={[
-                    { label: t('pages.calculations.ppOn'), value: s.lights_on },
-                    { label: t('pages.calculations.ppOff'), value: s.lights_off },
-                    { label: t('pages.calculations.ppDli'), value: s.dli.toFixed(2) },
+                    { id: 'on', label: t('pages.calculations.ppOn'), value: s.lights_on },
+                    { id: 'off', label: t('pages.calculations.ppOff'), value: s.lights_off },
+                    { id: 'dli', label: t('pages.calculations.ppDli'), value: s.dli.toFixed(2) },
                   ]}
                 />
               )}

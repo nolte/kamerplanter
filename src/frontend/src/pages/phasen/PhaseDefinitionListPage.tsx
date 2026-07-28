@@ -240,23 +240,31 @@ export default function PhaseDefinitionListPage() {
         mobileCardRenderer={(def) => (
           <MobileCard
             title={getDisplayName(def)}
+            titleId="name"
             subtitle={def.name}
             trailing={<OriginChip isSystem={def.is_system} />}
-            chips={
-              <Chip
-                label={t(`enums.stressLevel.${def.stress_tolerance}`)}
-                size="small"
-                variant="outlined"
-              />
-            }
+            chips={[
+              {
+                id: 'stressTolerance',
+                content: (
+                  <Chip
+                    label={t(`enums.stressLevel.${def.stress_tolerance}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+            ]}
             fields={[
               {
+                id: 'typicalDuration',
                 label: t('pages.phaseSequences.typicalDuration'),
                 value: t('pages.phaseSequences.durationDays', {
                   count: def.typical_duration_days,
                 }),
               },
               {
+                id: 'usageCount',
                 label: t('pages.phaseSequences.usageCount'),
                 value: def.usage_count,
               },

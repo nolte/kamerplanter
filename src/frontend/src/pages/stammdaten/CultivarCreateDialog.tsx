@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormChipInput from '@/components/form/FormChipInput';
@@ -88,7 +89,7 @@ export default function CultivarCreateDialog({ speciesKey, open, onClose, onCrea
       aria-labelledby="cultivar-create-dialog-title">
       <DialogTitle id="cultivar-create-dialog-title">{t('pages.cultivars.create')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {/* Identification */}
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 1 }}>
             {t('pages.cultivars.sectionIdentification')}
@@ -147,7 +148,7 @@ export default function CultivarCreateDialog({ speciesKey, open, onClose, onCrea
             helperText={t('pages.cultivars.patentStatusHelper')}
           />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

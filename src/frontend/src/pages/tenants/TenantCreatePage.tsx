@@ -12,6 +12,7 @@ import { useAppDispatch } from '@/store/hooks';
 import { createOrganization } from '@/store/slices/tenantSlice';
 import PageTitle from '@/components/layout/PageTitle';
 import { parseApiError } from '@/api/errors';
+import Form from '@/components/form/Form';
 
 export default function TenantCreatePage() {
   const { t } = useTranslation();
@@ -47,7 +48,7 @@ export default function TenantCreatePage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }} data-testid="tenant-create-intro">
             {t('pages.tenants.createIntro')}
           </Typography>
-          <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Form onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField
               label={t('pages.tenants.name')}
               value={name}
@@ -69,7 +70,7 @@ export default function TenantCreatePage() {
             <Button type="submit" variant="contained" disabled={loading || name.length < 2}>
               {t('common.create')}
             </Button>
-          </Box>
+          </Form>
         </CardContent>
       </Card>
     </Box>
