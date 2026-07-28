@@ -3572,7 +3572,9 @@
       "readinessIntro": "How far is this plant from its optimal harvest? The value is derived from the ripeness observations recorded for it.",
       "readinessLoading": "Loading harvest readiness …",
       "readinessNoData": "No ripeness observations recorded yet",
-      "readinessNoDataHint": "As soon as an observation for a ripeness indicator (e.g. trichomes, Brix, aroma) exists for this plant, its harvest readiness appears here with an overall score, a recommendation and the indicator breakdown."
+      "readinessNoDataHint": "As soon as an observation for a ripeness indicator (e.g. trichomes, Brix, aroma) exists for this plant, its harvest readiness appears here with an overall score, a recommendation and the indicator breakdown.",
+      "recordObservation": "Record ripeness observation",
+      "recordObservationHint": "Record a measurement for a ripeness indicator so harvest readiness can be assessed."
     },
     "notFound": {
       "title": "Page Not Found",
