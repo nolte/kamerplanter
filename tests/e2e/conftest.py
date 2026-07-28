@@ -679,6 +679,8 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
     SITE_NAME = "E2E-Sonnengarten"
     LOCATION_NAME = "E2E-Wohnzimmer"
     SLOT_LOCATION_NAME = "E2E-Gewaechshaus"
+    RUN_NAME = "E2E-Durchlauf"
+    TANK_NAME = "E2E-Naehrstofftank"
 
     try:
         # ── Enable all toggleable modules server-side (REQ-042, FULL mode) ──
@@ -794,6 +796,51 @@ def e2e_seed_data(base_url: str, app_mode: str) -> dict:
         # This creates care tasks for any plant instances that have care
         # profiles, so the pflege dashboard tests have data to work with.
         _post(f"{api}/tasks/generate-care-reminders", {})
+
+        # ── One planting run and one tank (#853) ─────────────────────────
+        # Both list pages rendered their empty state on every profile, so the
+        # REQ-013 and REQ-014 sorting tests had no table to click and failed on
+        # `assert headers` instead of on anything they meant to verify. A global
+        # seed cannot fix this: runs and tanks are tenant-scoped, so they can
+        # only exist once a tenant does — which is here.
+        #
+        # Idempotent by name, like the site above: this fixture is
+        # session-scoped, but the same containers are reused across profiles,
+        # and a second POST must not add a second row.
+        run_status, runs = _get(f"{api}/planting-runs")
+        if run_status == 200 and isinstance(runs, list):
+            existing_run = next((r for r in runs if r.get("name") == RUN_NAME), None)
+            if existing_run:
+                result["planting_run_key"] = existing_run.get("key")
+            else:
+                _, run = _post(
+                    f"{api}/planting-runs",
+                    {
+                        "name": RUN_NAME,
+                        "run_type": "monoculture",
+                        "location_key": result.get("location_key"),
+                    },
+                )
+                if isinstance(run, dict):
+                    result["planting_run_key"] = run.get("key")
+
+        tank_status, tanks = _get(f"{api}/tanks")
+        if tank_status == 200 and isinstance(tanks, list):
+            existing_tank = next((t for t in tanks if t.get("name") == TANK_NAME), None)
+            if existing_tank:
+                result["tank_key"] = existing_tank.get("key")
+            else:
+                _, tank = _post(
+                    f"{api}/tanks",
+                    {
+                        "name": TANK_NAME,
+                        "tank_type": "nutrient",
+                        "volume_liters": 100.0,
+                        "location_key": result.get("location_key"),
+                    },
+                )
+                if isinstance(tank, dict):
+                    result["tank_key"] = tank.get("key")
 
         # Skip onboarding wizard so the browser lands on /dashboard
         _post(f"{api}/onboarding/skip", {})
