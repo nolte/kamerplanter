@@ -221,6 +221,16 @@ _PATH_PARAM_RE = re.compile(r"\{([^}]+)\}")
 
 
 def _openapi_postprocessed() -> dict:
+    """Fill in path parameters FastAPI cannot see, and nothing else.
+
+    Deliberately absent: response schemas for the ~31 operations that return
+    without one. Those are streaming, file, redirect and SSE responses plus
+    dynamic passthrough dicts — a response schema would be a lie about what the
+    endpoint sends, so they are documented gaps with a reason rather than
+    missing work (#850, from the 2026-07-24 API documentation audit). An audit
+    that re-reports them should be pointed at this note instead of at the
+    operations.
+    """
     schema = _fastapi_openapi()
     http_methods = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
     for path, path_item in schema.get("paths", {}).items():
