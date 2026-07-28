@@ -119,15 +119,6 @@ class SiteListPageExt(BasePage):
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a table column header to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
-
     def click_row(self, index: int) -> None:
         """Open the site at *index*, in either layout.
 

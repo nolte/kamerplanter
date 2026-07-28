@@ -442,7 +442,15 @@ export default function DataTable<T>({
                         }
                       >
                         {isSortable ? (
+                          // `data-testid` belongs on the label, not on the surrounding
+                          // cell: the click handler lives here, and a click that lands on
+                          // the cell beside this label never reaches it — DOM events
+                          // bubble up, not down. The E2E suite clicked the `<th>` and so
+                          // sorted nothing whenever a column was wider than its label,
+                          // which stayed invisible because the sort chip is already
+                          // rendered by `defaultSort` (#802).
                           <TableSortLabel
+                            data-testid={`sort-${col.id}`}
                             active={isSorted}
                             direction={isSorted ? tableState!.sort!.direction : 'asc'}
                             onClick={() => tableState!.setSort(col.id)}
