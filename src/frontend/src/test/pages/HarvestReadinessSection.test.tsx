@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
@@ -142,5 +142,87 @@ describe('HarvestReadinessSection — plant-detail wiring (REQ-007 §3)', () => 
     // The previous plant's score must not linger.
     expect(screen.queryByText('92')).toBeNull();
     expect(store.getState().harvest.readinessPlantKey).toBe('pl-2');
+  });
+});
+
+describe('HarvestReadinessSection — recording an observation (#818)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await i18n.changeLanguage('de');
+  });
+
+  it('offers a way to record an observation from the empty state', async () => {
+    // The point of #818: `ObservationCreateDialog` was rendered by nothing, so
+    // there was no UI path to produce readiness data at all — which also meant
+    // this empty state could explain the absence but not offer a way out of it.
+    mocked.assessReadiness.mockResolvedValue(makeNoDataReadiness());
+
+    renderWithProviders(<HarvestReadinessSection plantKey="pl-1" />);
+
+    expect(await screen.findByTestId('harvest-readiness-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('record-observation-button')).toBeInTheDocument();
+  });
+
+  it('keeps the action available once readiness data exists', async () => {
+    // Readiness is a running assessment, not a one-off: the next measurement has
+    // to be reachable without emptying the plant's history first.
+    mocked.assessReadiness.mockResolvedValue(makeReadiness());
+
+    renderWithProviders(<HarvestReadinessSection plantKey="pl-1" />);
+
+    expect(await screen.findByTestId('harvest-readiness-card')).toBeInTheDocument();
+    expect(screen.getByTestId('record-observation-button')).toBeInTheDocument();
+  });
+
+  it('opens the observation dialog for this plant', async () => {
+    const user = userEvent.setup();
+    mocked.assessReadiness.mockResolvedValue(makeNoDataReadiness());
+    mocked.getIndicators.mockResolvedValue([]);
+
+    renderWithProviders(<HarvestReadinessSection plantKey="pl-1" />);
+
+    await user.click(await screen.findByTestId('record-observation-button'));
+
+    expect(await screen.findByTestId('observation-create-dialog')).toBeInTheDocument();
+  });
+
+  it('re-assesses readiness after an observation is recorded', async () => {
+    // Without the reload the user is left looking at the very state that
+    // prompted them to act, which reads as "the observation was not saved".
+    // Driven through the dialog's real submit path rather than by reaching into
+    // the section, so the assertion covers the wiring and not a stub.
+    const user = userEvent.setup();
+    mocked.assessReadiness.mockResolvedValue(makeNoDataReadiness());
+    mocked.getIndicators.mockResolvedValue([
+      {
+        key: 'ind-1',
+        indicator_type: 'trichome_color',
+        measurement_unit: '%',
+      },
+    ] as never);
+    mocked.createObservation.mockResolvedValue({ key: 'obs-1' } as never);
+
+    renderWithProviders(<HarvestReadinessSection plantKey="pl-1" />);
+    await waitFor(() => expect(mocked.assessReadiness).toHaveBeenCalledTimes(1));
+
+    await user.click(await screen.findByTestId('record-observation-button'));
+    await screen.findByTestId('observation-create-dialog');
+    await waitFor(() => expect(mocked.getIndicators).toHaveBeenCalled());
+
+    // MUI's Select opens on mousedown only, so `click` alone would be a no-op.
+    const indicatorField = screen.getByTestId('form-field-indicator_key');
+    await user.click(within(indicatorField).getByRole('combobox'));
+    await user.click(await screen.findByTestId('form-option-indicator_key-ind-1'));
+
+    await user.click(screen.getByTestId('form-submit-button'));
+
+    await waitFor(() =>
+      expect(mocked.createObservation).toHaveBeenCalledWith(
+        'pl-1',
+        expect.objectContaining({ indicator_key: 'ind-1' }),
+      ),
+    );
+    // The section reloads: a second assessment, not the stale one.
+    await waitFor(() => expect(mocked.assessReadiness).toHaveBeenCalledTimes(2));
   });
 });
