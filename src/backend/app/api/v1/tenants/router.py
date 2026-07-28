@@ -49,7 +49,7 @@ def _tenant_response(t: Tenant) -> TenantResponse:
 # ── Tenant CRUD ──────────────────────────────────────────────────────
 
 
-@router.get("/", response_model=list[TenantWithRoleResponse])
+@router.get("", response_model=list[TenantWithRoleResponse])
 def list_my_tenants(
     user: User = Depends(get_current_user),
     service: TenantService = Depends(get_tenant_service),
@@ -59,7 +59,7 @@ def list_my_tenants(
     return [TenantWithRoleResponse(**t.model_dump()) for t in items]
 
 
-@router.post("/", response_model=TenantResponse, status_code=201)
+@router.post("", response_model=TenantResponse, status_code=201)
 def create_organization(
     body: TenantCreateRequest,
     user: User = Depends(get_current_user),
