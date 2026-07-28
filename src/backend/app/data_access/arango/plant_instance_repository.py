@@ -1,8 +1,9 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from arango.database import StandardDatabase
 
+from app.common.datetimes import today_utc
 from app.common.enums import TaskStatus, TerminationType
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.data_access.arango import collections as col
@@ -418,7 +419,11 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "location_col": col.LOCATIONS,
             "plant_entity_type": "plant_instance",
             "open_statuses": [TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value],
-            "today": date.today().isoformat(),
+            # UTC, not the local server date (#812): this flag sits next to
+            # dashboard counters resolved from `datetime.now(UTC)`, and a local
+            # date made the two disagree about which day "today" is for part of
+            # every day on any non-UTC host.
+            "today": today_utc().isoformat(),
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return list(cursor)

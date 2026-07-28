@@ -492,6 +492,51 @@ FILL_LEVEL_LOW_PERCENT = 20.0
 
 ---
 
+## 12a. Zeit & Kalendertage — die Uhr ist UTC
+
+**Regel:** Jeder Kalendertag, der gegen einen gespeicherten Zeitstempel verglichen
+wird, kommt aus **UTC** — nie aus der lokalen Serverzeit.
+
+```python
+# RICHTIG
+from app.common.datetimes import now_utc, today_utc
+
+today = today_utc()                       # date, UTC
+cutoff = now_utc() - timedelta(days=7)    # datetime, UTC-aware
+
+# FALSCH
+today = date.today()                      # lokale Serverzeit
+```
+
+`date.today()` ist im Anwendungscode nur dann zulässig, wenn das Ergebnis
+**nirgends** gegen einen persistierten Zeitstempel oder gegen einen anderen
+Tageswert verglichen wird — und dann mit einem Kommentar, der das begründet.
+
+**Warum das eine eigene Regel ist.** Sämtliche Zeitstempel dieser Anwendung
+werden in UTC geschrieben. Auf einem UTC-Container liefert `date.today()`
+dasselbe wie `datetime.now(UTC).date()` — die beiden gehen nur auf Hosts
+auseinander, die nicht selbst auf UTC laufen, und dort auch nur für einen Teil
+des Tages. Genau deshalb übersteht der Fehler jedes Review. Er ist dreimal
+aufgetreten (#772, #812) und hatte reale Folgen:
+
+- Eine Dashboard-Antwort mischte **zwei Uhren**: die Zähler kamen aus
+  `datetime.now(UTC)`, das „offene Aufgabe"-Kennzeichen je Pflanze aus einer
+  `date.today()`-Abfrage. Der Warnpunkt auf einer Pflanzenkachel konnte damit
+  einen anderen Tag meinen als die Zahl direkt darüber.
+- Der Pflege-Erinnerungs-Produzent stempelte ein **lokales** Kalenderdatum mit
+  UTC-Etikett, während die Dedup-Regel, die es zurückliest, bereits auf UTC
+  umgestellt war — Erzeuger und Entdoppler liefen auf verschiedenen Tagen.
+
+**Test-Hinweis (wichtig):** `freezegun` kann diesen Fehler **nicht** nachweisen.
+Sein `tz_offset` verschiebt `date.today()` und `datetime.now(UTC)` um denselben
+Betrag, sodass die Abweichung, um die es geht, gerade verschwindet. Die
+Abweichung ist eine Eigenschaft der **Prozess-Zeitzone**; ein Test muss `TZ` +
+`time.tzset()` real setzen. Die gemeinsame Harness dafür liegt in
+`tests/support/timezones.py` und wählt zur Laufzeit eine Zone, die zu jeder
+Tagesstunde jenseits der Datumsgrenze liegt.
+
+---
+
 ## 13. Import-Reihenfolge
 
 Automatisch durch Ruff `I` (isort) erzwungen:

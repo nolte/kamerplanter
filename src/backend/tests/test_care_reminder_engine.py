@@ -84,10 +84,9 @@ class TestCalculateDueDate:
         due = self.engine.calculate_due_date(profile, ReminderType.WATERING, None)
         assert due == date(2024, 6, 1)
 
-    @patch("app.domain.engines.care_reminder_engine.date")
-    def test_confirmed_adds_interval(self, mock_date):
-        mock_date.today.return_value = date(2024, 6, 15)  # summer
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    @patch("app.domain.engines.care_reminder_engine.today_utc")
+    def test_confirmed_adds_interval(self, mock_today):
+        mock_today.return_value = date(2024, 6, 15)  # summer
         profile = _make_profile(watering_interval_days=7)
         last = _make_confirmation(
             confirmed_at=datetime(2024, 6, 10, tzinfo=UTC),
@@ -105,10 +104,9 @@ class TestCalculateDueDate:
         due = self.engine.calculate_due_date(profile, ReminderType.WATERING, last)
         assert due == date(2024, 6, 13)
 
-    @patch("app.domain.engines.care_reminder_engine.date")
-    def test_winter_multiplier_applied(self, mock_date):
-        mock_date.today.return_value = date(2024, 1, 15)
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    @patch("app.domain.engines.care_reminder_engine.today_utc")
+    def test_winter_multiplier_applied(self, mock_today):
+        mock_today.return_value = date(2024, 1, 15)
         profile = _make_profile(watering_interval_days=7, winter_watering_multiplier=2.0)
         last = _make_confirmation(confirmed_at=datetime(2024, 1, 1, tzinfo=UTC))
         due = self.engine.calculate_due_date(profile, ReminderType.WATERING, last, hemisphere="north")
@@ -390,19 +388,17 @@ class TestAutoGenerateProfile:
 class TestHemisphereAwareness:
     engine = CareReminderEngine()
 
-    @patch("app.domain.engines.care_reminder_engine.date")
-    def test_southern_hemisphere_winter_in_july(self, mock_date):
-        mock_date.today.return_value = date(2024, 7, 15)
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    @patch("app.domain.engines.care_reminder_engine.today_utc")
+    def test_southern_hemisphere_winter_in_july(self, mock_today):
+        mock_today.return_value = date(2024, 7, 15)
         profile = _make_profile(watering_interval_days=7, winter_watering_multiplier=2.0)
         last = _make_confirmation(confirmed_at=datetime(2024, 7, 1, tzinfo=UTC))
         due = self.engine.calculate_due_date(profile, ReminderType.WATERING, last, hemisphere="south")
         assert due == date(2024, 7, 15)  # 7 * 2.0 = 14 days
 
-    @patch("app.domain.engines.care_reminder_engine.date")
-    def test_southern_hemisphere_summer_in_january(self, mock_date):
-        mock_date.today.return_value = date(2024, 1, 15)
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    @patch("app.domain.engines.care_reminder_engine.today_utc")
+    def test_southern_hemisphere_summer_in_january(self, mock_today):
+        mock_today.return_value = date(2024, 1, 15)
         profile = _make_profile(watering_interval_days=7, winter_watering_multiplier=2.0)
         last = _make_confirmation(confirmed_at=datetime(2024, 1, 1, tzinfo=UTC))
         due = self.engine.calculate_due_date(profile, ReminderType.WATERING, last, hemisphere="south")

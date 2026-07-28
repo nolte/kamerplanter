@@ -1,5 +1,6 @@
 import structlog
 
+from app.common.datetimes import today_utc
 from app.tasks import celery_app
 
 logger = structlog.get_logger()
@@ -15,7 +16,7 @@ def generate_due_care_reminders() -> dict:
     For profiles with auto_create_watering_task=True, ensures exactly
     one pending watering task exists (even if the due date is in the future).
     """
-    from datetime import UTC, date, datetime
+    from datetime import UTC, datetime
 
     from app.common.dependencies import (
         get_care_reminder_service,
@@ -39,7 +40,10 @@ def generate_due_care_reminders() -> dict:
     phase_seq_repo = get_phase_sequence_repo()
     season_repo = get_season_state_repo()
 
-    today = date.today()
+    # UTC (#812): the stamped `due_date` carries a UTC label, and the dedup
+    # rule that reads it back moved to UTC in #772 — a local date here made
+    # producer and deduplicator run on different calendar days.
+    today = today_utc()
     created_count = 0
     skipped_count = 0
 
