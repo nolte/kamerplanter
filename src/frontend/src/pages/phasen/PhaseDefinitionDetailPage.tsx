@@ -544,16 +544,20 @@ export default function PhaseDefinitionDetailPage() {
               return (
                 <MobileCard
                   title={plant.plant_name || plant.instance_id}
+                  titleId="plantLabel"
                   subtitle={plant.species_scientific_name || undefined}
+                  subtitleId="species"
                   fields={[
-                    ...(locationSlot ? [{ label: t('pages.phaseSequences.locationSlot'), value: locationSlot }] : []),
+                    ...(locationSlot ? [{ id: 'locationSlot', label: t('pages.phaseSequences.locationSlot'), value: locationSlot }] : []),
                     {
+                      id: 'phaseSince',
                       label: t('pages.phaseSequences.phaseSince'),
                       value: plant.current_phase_started_at
                         ? new Date(plant.current_phase_started_at).toLocaleDateString(lang)
                         : '—',
                     },
                     {
+                      id: 'daysInPhase',
                       label: t('pages.phaseSequences.daysInPhase'),
                       value: days != null ? t('pages.phaseSequences.daysInPhaseValue', { count: days }) : '—',
                     },
@@ -598,7 +602,13 @@ export default function PhaseDefinitionDetailPage() {
                 mobileCardRenderer={(seq) => (
                   <MobileCard
                     title={(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
-                    chips={<Chip label={t(`enums.cycleType.${seq.cycle_type}`)} size="small" variant="outlined" />}
+                    titleId="name"
+                    chips={[
+                      {
+                        id: 'cycleType',
+                        content: <Chip label={t(`enums.cycleType.${seq.cycle_type}`)} size="small" variant="outlined" />,
+                      },
+                    ]}
                     trailing={
                       seq.is_repeating ? (
                         <Tooltip title={t('pages.phaseSequences.isRepeating')}>
@@ -636,9 +646,12 @@ export default function PhaseDefinitionDetailPage() {
                 mobileCardRenderer={(species) => (
                   <MobileCard
                     title={<Box sx={{ fontStyle: 'italic' }}>{species.scientific_name || species.key}</Box>}
+                    titleId="scientificName"
                     subtitle={species.common_names.length > 0 ? species.common_names.join(', ') : undefined}
+                    subtitleId="commonName"
                     fields={[
                       {
+                        id: 'typicalDuration',
                         label: t('pages.phaseSequences.typicalDuration'),
                         value: t('pages.phaseSequences.totalDurationDays', { count: species.typical_duration_days }),
                       },

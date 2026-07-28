@@ -68,7 +68,11 @@ export default function FormMonthField<T extends FieldValues>({
           }
           onChange={(e) => {
             const val = e.target.value;
-            field.onChange(val === '' ? '' : Number(val));
+            // Selecting the empty option emits `null` (#778 B2) — matching the
+            // "submits '' → null" contract described below, which the previous
+            // `''` did not honour. The `value` binding above already maps null
+            // back to the empty MenuItem, so the select stays controlled.
+            field.onChange(val === '' ? null : Number(val));
           }}
           select
           label={label}

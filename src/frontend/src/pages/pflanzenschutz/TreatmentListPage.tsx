@@ -134,7 +134,9 @@ export default function TreatmentListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={r.active_ingredient ?? undefined}
+            subtitleId="activeIngredient"
             chips={[
               {
                 id: 'treatmentType',

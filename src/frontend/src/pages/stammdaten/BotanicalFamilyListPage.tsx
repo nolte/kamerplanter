@@ -173,31 +173,48 @@ export default function BotanicalFamilyListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={
               i18n.language === 'en'
                 ? r.common_name_en || r.common_name_de
                 : r.common_name_de || r.common_name_en
             }
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.nutrientDemand.${r.typical_nutrient_demand}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                <Chip
-                  label={t(`enums.frostTolerance.${r.frost_tolerance}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                {r.rotation_category && (
-                  <Chip label={r.rotation_category} size="small" variant="outlined" />
-                )}
-              </>
-            }
+            subtitleId="commonName"
+            chips={[
+              {
+                id: 'nutrientDemand',
+                content: (
+                  <Chip
+                    label={t(`enums.nutrientDemand.${r.typical_nutrient_demand}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+              {
+                id: 'frostTolerance',
+                content: (
+                  <Chip
+                    label={t(`enums.frostTolerance.${r.frost_tolerance}`)}
+                    size="small"
+                    variant="outlined"
+                  />
+                ),
+              },
+              ...(r.rotation_category
+                ? [
+                    {
+                      id: 'rotationCategory',
+                      content: (
+                        <Chip label={r.rotation_category} size="small" variant="outlined" />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
-              { label: t('pages.botanicalFamilies.rootDepth'), value: t(`enums.rootDepth.${r.typical_root_depth}`) },
-              { label: t('pages.botanicalFamilies.speciesCount'), value: renderSpeciesCountLink(r) },
+              { id: 'rootDepth', label: t('pages.botanicalFamilies.rootDepth'), value: t(`enums.rootDepth.${r.typical_root_depth}`) },
+              { id: 'speciesCount', label: t('pages.botanicalFamilies.speciesCount'), value: renderSpeciesCountLink(r) },
             ]}
           />
         )}

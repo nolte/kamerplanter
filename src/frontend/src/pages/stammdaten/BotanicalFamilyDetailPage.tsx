@@ -21,6 +21,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormMultiSelectField from '@/components/form/FormMultiSelectField';
@@ -67,8 +68,8 @@ const schema = z.object({
   typical_nutrient_demand: z.enum(['light', 'medium', 'heavy']),
   nitrogen_fixing: z.boolean(),
   typical_root_depth: z.enum(['shallow', 'medium', 'deep']),
-  soil_ph_min: z.union([z.number().min(3).max(9), z.literal('')]),
-  soil_ph_max: z.union([z.number().min(3).max(9), z.literal('')]),
+  soil_ph_min: z.union([z.number().min(3).max(9), z.literal('')]).nullable(),
+  soil_ph_max: z.union([z.number().min(3).max(9), z.literal('')]).nullable(),
   frost_tolerance: z.enum(['sensitive', 'moderate', 'hardy', 'very_hardy']),
   typical_growth_forms: z.array(z.enum(growthHabitValues)).min(1),
   common_pests: z.array(z.string()),
@@ -241,8 +242,7 @@ export default function BotanicalFamilyDetailPage() {
         }
       />
 
-      <Box
-        component="form"
+      <Form
         onSubmit={handleSubmit(onSubmit)}
         sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}
       >
@@ -452,7 +452,7 @@ export default function BotanicalFamilyDetailPage() {
         </Typography>
 
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
-      </Box>
+      </Form>
 
       <Divider sx={{ my: 4 }} />
 

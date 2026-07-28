@@ -8,6 +8,7 @@ import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import { useForm, useWatch } from 'react-hook-form';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -117,7 +118,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.sites.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {/* beginner */}
           <FormTextField name="name" control={control} label={t('pages.sites.name')} helperText={t('pages.sites.nameHelper')} required autoFocus />
           <ExpertiseFieldWrapper minLevel={fc.type.level}>
@@ -170,7 +171,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
             <ShowAllFieldsToggle showAll={showAllOverride} onToggle={toggleShowAll} />
           )}
           <FormActions onCancel={handleClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

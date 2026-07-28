@@ -22,6 +22,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -217,7 +218,7 @@ export default function SiteDetailPage() {
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+      <Form onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">
           {t('pages.sites.editIntro')}
         </Typography>
@@ -292,7 +293,7 @@ export default function SiteDetailPage() {
 
         <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
-      </Box>
+      </Form>
 
       {/* Sensors — issue #587: only when smart home is enabled */}
       {isSmartHomeEnabled && (
@@ -339,16 +340,23 @@ export default function SiteDetailPage() {
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.name}
+                titleId="name"
                 subtitle={r.ha_entity_id || undefined}
-                chips={
-                  <Chip
-                    label={r.is_active ? t('common.yes') : t('common.no')}
-                    size="small"
-                    color={r.is_active ? 'success' : 'default'}
-                  />
-                }
+                subtitleId="haEntityId"
+                chips={[
+                  {
+                    id: 'active',
+                    content: (
+                      <Chip
+                        label={r.is_active ? t('common.yes') : t('common.no')}
+                        size="small"
+                        color={r.is_active ? 'success' : 'default'}
+                      />
+                    ),
+                  },
+                ]}
                 fields={[
-                  { label: t('pages.sensors.metricType'), value: r.metric_type },
+                  { id: 'metricType', label: t('pages.sensors.metricType'), value: r.metric_type },
                 ]}
               />
             )}

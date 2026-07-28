@@ -10,6 +10,7 @@ import Divider from '@mui/material/Divider';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -78,8 +79,8 @@ const RATING_DEFAULT_ACTION: Record<HardinessRating, WinterAction> = {
   dig_and_store: 'dig_store',
 };
 
-const monthOptional = z.union([z.number().int().min(1).max(12), z.literal('')]);
-const numberOptional = z.union([z.number(), z.literal('')]);
+const monthOptional = z.union([z.number().int().min(1).max(12), z.literal('')]).nullable();
+const numberOptional = z.union([z.number(), z.literal('')]).nullable();
 const intervalOptional = z.union([
   z.number().int().min(1).max(365),
   z.literal(''),
@@ -110,7 +111,9 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-const emptyToNull = (v: number | ''): number | null => (v === '' ? null : v);
+// Accepts null as well as '' since #778 B2: FormNumberField/FormMonthField
+// now emit null when cleared, and the schema's `.nullable()` lets it through.
+const emptyToNull = (v: number | '' | null): number | null => (v === '' || v == null ? null : v);
 
 function profileToForm(p: OverwinteringProfile): FormData {
   return {
@@ -248,7 +251,7 @@ export default function OverwinteringOverrideDialog({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.season.override.dialogIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormRow>
             <FormSelectField
               name="hardiness_rating"
@@ -404,7 +407,7 @@ export default function OverwinteringOverrideDialog({
             loading={saving}
             saveLabel={t('common.save')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
