@@ -25,6 +25,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-019.md):
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -375,13 +376,26 @@ class TestSubstrateCreateDialog:
         # A closing dialog is not a created substrate: the row has to appear
         # (#802). Re-counted behind the same name filter as above, so the page
         # size cannot mask the new row.
-        substrate_list.search(SUBSTRATE_NAME_DE)
-        substrate_list.wait_for_loading_complete()
-        matches_after = substrate_list.get_row_count()
+        #
+        # Polled rather than read once. Creating dispatches a refetch, and
+        # `wait_for_loading_complete` only waits for a skeleton to disappear --
+        # a refetch that resolves before the skeleton renders leaves nothing to
+        # wait for, and a single read then samples the pre-create list. Reading
+        # once reported `0 (was 0)` for exactly that reason.
+        deadline = time.time() + 10
+        matches_after = 0
+        while time.time() < deadline:
+            substrate_list.search(SUBSTRATE_NAME_DE)
+            substrate_list.wait_for_loading_complete()
+            matches_after = substrate_list.get_row_count()
+            if matches_after > matches_before:
+                break
+            substrate_list.clear_search()
+            substrate_list.wait_for_loading_complete()
         assert matches_after > matches_before, (
             f"TC-REQ-019-013 FAIL: Creating a substrate must add a row named "
-            f"'{SUBSTRATE_NAME_DE}', but the filtered list still shows {matches_after} "
-            f"row(s) (was {matches_before})"
+            f"'{SUBSTRATE_NAME_DE}', but after 10s the filtered list still shows "
+            f"{matches_after} row(s) (was {matches_before})"
         )
 
     @pytest.mark.core_crud
