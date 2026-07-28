@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -14,6 +13,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import OriginChip from '@/components/common/OriginChip';
 import { resolveOrigin } from '@/hooks/useOriginProtection';
@@ -172,27 +172,25 @@ export default function NutrientPlanListPage() {
       <PageTitle
         title={t('pages.nutrientPlans.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasFavorites && (
-              <Tooltip title={t('pages.nutrientPlans.favFilter')}>
-                <IconButton
-                  onClick={() => setFavFilterActive((p) => !p)}
-                  color={favFilterActive ? 'warning' : 'default'}
-                >
-                  <FilterListIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateOpen(true)}
-              data-testid="create-button"
-            >
-              {t('pages.nutrientPlans.create')}
-            </Button>
-          </Box>
-        }
+            <PageHeaderActions
+              primary={{
+                label: t('pages.nutrientPlans.create'),
+                icon: <AddIcon />,
+                variant: 'contained',
+                testId: 'create-button',
+                onClick: () => setCreateOpen(true),
+              }}
+              secondary={[
+                hasFavorites && {
+                  label: t('pages.nutrientPlans.favFilter'),
+                  icon: <FilterListIcon />,
+                  iconOnly: true,
+                  active: favFilterActive,
+                  onClick: () => setFavFilterActive((p) => !p),
+                },
+              ]}
+            />
+          }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.nutrientPlans.listIntro')}

@@ -9,7 +9,6 @@ import MenuItem from '@mui/material/MenuItem';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -19,6 +18,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import OriginChip from '@/components/common/OriginChip';
 import { resolveOrigin } from '@/hooks/useOriginProtection';
@@ -201,27 +201,25 @@ export default function FertilizerListPage() {
       <PageTitle
         title={t('pages.fertilizers.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasFavorites && (
-              <Tooltip title={t('pages.fertilizers.favFilter')}>
-                <IconButton
-                  onClick={() => setFavFilterActive((p) => !p)}
-                  color={favFilterActive ? 'warning' : 'default'}
-                >
-                  <FilterListIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateOpen(true)}
-              data-testid="create-button"
-            >
-              {t('pages.fertilizers.create')}
-            </Button>
-          </Box>
-        }
+            <PageHeaderActions
+              primary={{
+                label: t('pages.fertilizers.create'),
+                icon: <AddIcon />,
+                variant: 'contained',
+                testId: 'create-button',
+                onClick: () => setCreateOpen(true),
+              }}
+              secondary={[
+                hasFavorites && {
+                  label: t('pages.fertilizers.favFilter'),
+                  icon: <FilterListIcon />,
+                  iconOnly: true,
+                  active: favFilterActive,
+                  onClick: () => setFavFilterActive((p) => !p),
+                },
+              ]}
+            />
+          }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.fertilizers.listIntro')}

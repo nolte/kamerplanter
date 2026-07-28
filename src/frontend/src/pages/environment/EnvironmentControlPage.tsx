@@ -19,6 +19,7 @@ import WifiIcon from '@mui/icons-material/Wifi';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -149,28 +150,31 @@ export default function EnvironmentControlPage() {
       <PageTitle
         title={t('pages.environmentControl.title')}
         action={
-          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<ReportProblemIcon />}
-              onClick={() => setEmergencyOpen(true)}
-              disabled={actuators.length === 0 || emergencyLoading}
-              sx={{ minHeight: 48 }}
-              data-testid="emergency-stop-button"
-            >
-              {t('pages.environmentControl.emergencyStop')}
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setDialogOpen(true)}
-              sx={{ minHeight: 48 }}
-              data-testid="create-actuator-button"
-            >
-              {t('pages.environmentControl.createActuator')}
-            </Button>
-          </Stack>
+          // The emergency stop is the action that stays visible on `xs`, not
+          // "create actuator". R-024 asks for one directly reachable action;
+          // putting a safety control two taps deep in an overflow menu would
+          // satisfy the letter of the rule and defeat its purpose. Creating an
+          // actuator tolerates the extra tap, stopping one does not.
+          <PageHeaderActions
+            primary={{
+              label: t('pages.environmentControl.emergencyStop'),
+              icon: <ReportProblemIcon />,
+              variant: 'outlined',
+              color: 'error',
+              disabled: actuators.length === 0 || emergencyLoading,
+              testId: 'emergency-stop-button',
+              onClick: () => setEmergencyOpen(true),
+            }}
+            secondary={[
+              {
+                label: t('pages.environmentControl.createActuator'),
+                icon: <AddIcon />,
+                variant: 'contained',
+                testId: 'create-actuator-button',
+                onClick: () => setDialogOpen(true),
+              },
+            ]}
+          />
         }
       />
 

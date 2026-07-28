@@ -278,9 +278,35 @@ Die drei im Issue genannten Seiten werden hier als **Ziel-Zustaende nach dieser 
 
 Diese Anforderung spezifiziert ausschliesslich die **Regeln**. **Ausdruecklich nicht** Teil dieser Anforderung sind:
 
-- Die Umstellung bestehender Seiten auf diese Regeln ("Rolling") — sie ist eine separate Umsetzungs-Folgearbeit.
-- Die Implementierung einer gemeinsamen `PageActions`-/`ActionBar`-Komponente (heute existiert nur `PageTitle.tsx`); ihr Entwurf und Bau sind Folgearbeit.
-- Aenderungen an Anwendungscode unter `src/frontend/**` jeglicher Art.
+- ~~Die Umstellung bestehender Seiten auf diese Regeln ("Rolling") — sie ist eine separate Umsetzungs-Folgearbeit.~~
+- ~~Die Implementierung einer gemeinsamen `PageActions`-/`ActionBar`-Komponente (heute existiert nur `PageTitle.tsx`); ihr Entwurf und Bau sind Folgearbeit.~~
+- ~~Aenderungen an Anwendungscode unter `src/frontend/**` jeglicher Art.~~
+
+**Aufgehoben am 2026-07-28 (Issue #832).** Die drei Ausschluesse oben galten,
+solange der Umfang der Umstellung unbekannt war. Er wurde gemessen: Von 80
+`<PageTitle>`-Vorkommen fuehren **10** mehr als eine Aktion im `action`-Slot;
+37 fuehren genau eine und erfuellen R-024 damit bereits, 33 haben keinen
+`action`-Slot. R-024 ist eine **MUSS**-Regel — sie auf zehn bekannten Seiten
+unerfuellt zu lassen, waehrend die Behebung mechanisch ist, war der teurere
+der beiden Wege.
+
+Daher gilt ab sofort:
+
+- Die Umstellung der betroffenen Bestandsseiten ist Teil dieser Anforderung.
+- Die gemeinsame Komponente ist gebaut: `PageHeaderActions`
+  (`src/frontend/src/components/layout/PageHeaderActions.tsx`). Sie nimmt die
+  Primaeraktion (G1) und die Sekundaer-/Utility-Aktionen (G2/G3) als Daten
+  entgegen und klappt Letztere auf `xs` in ein `⋮`-Menue ein. `PageTitle`
+  bleibt unveraendert; die Komponente wird in dessen `action`-Slot gegeben.
+- Aenderungen unter `src/frontend/**` sind fuer genau diesen Zweck zulaessig.
+
+Weiterhin **nicht** Teil dieser Anforderung:
+
+- Der Kiosk-Modus. R-027 verbietet das Overflow-Menue als einzigen Zugang zu
+  haeufig benoetigten Aktionen; ein kiosktaugliches Layout ist eine eigene
+  Entscheidung und wird von `PageHeaderActions` bewusst nicht geraten.
+- Aktionsgruppen ausserhalb des Seitenkopfs (Karten-, Dialog- und
+  Tabellenzeilen-Aktionen).
 
 ---
 

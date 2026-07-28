@@ -1,17 +1,16 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSubstrates } from '@/store/slices/substratesSlice';
@@ -95,24 +94,29 @@ export default function SubstrateListPage() {
       <PageTitle
         title={t('pages.substrates.title')}
         action={
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            {hasFavorites && (
-              <Tooltip title={t('pages.plantInstances.substrateFavFilter')}>
-                <IconButton
-                  onClick={() => setFavFilterActive((p) => !p)}
-                  color={favFilterActive ? 'warning' : 'default'}
-                >
-                  <FilterListIcon />
-                </IconButton>
-              </Tooltip>
-            )}
-            <Button variant="outlined" startIcon={<BlenderIcon />} onClick={() => setMixOpen(true)}>
-              {t('pages.substrates.createMix')}
-            </Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-              {t('pages.substrates.create')}
-            </Button>
-          </Box>
+          <PageHeaderActions
+            primary={{
+              label: t('pages.substrates.create'),
+              icon: <AddIcon />,
+              variant: 'contained',
+              onClick: () => setCreateOpen(true),
+            }}
+            secondary={[
+              hasFavorites && {
+                label: t('pages.plantInstances.substrateFavFilter'),
+                icon: <FilterListIcon />,
+                iconOnly: true,
+                active: favFilterActive,
+                onClick: () => setFavFilterActive((p) => !p),
+              },
+              {
+                label: t('pages.substrates.createMix'),
+                icon: <BlenderIcon />,
+                variant: 'outlined',
+                onClick: () => setMixOpen(true),
+              },
+            ]}
+          />
         }
       />
       <DataTable
