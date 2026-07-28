@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -14,6 +13,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import PageTitle from '@/components/layout/PageTitle';
+import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -388,38 +388,46 @@ export default function PlantInstanceListPage() {
       <PageTitle
         title={t('pages.plantInstances.title')}
         action={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <FormControlLabel
-              control={
-                <Switch checked={hideRemoved} onChange={(_, v) => setHideRemoved(v)} size="small" />
-              }
-              label={t('pages.plantInstances.hideRemoved')}
-              sx={{ mr: 0 }}
-            />
-            <Tooltip title={t('print.printLabels')}>
-              <span>
-                <IconButton
-                  onClick={() => setLabelDialogOpen(true)}
-                  disabled={filteredItems.length === 0}
-                  aria-label={t('print.printLabels')}
-                  data-testid="label-button"
-                >
-                  <QrCode2Icon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => {
+          <PageHeaderActions
+            // The "hide removed" switch is a filter, not an action: it has a
+            // state to display rather than a command to invoke, and a menu
+            // entry cannot show a toggle position. It therefore stays outside
+            // the overflow via `extra` instead of being flattened into an
+            // action — R-024 governs actions (G1/G2/G3), not filter controls.
+            extra={
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={hideRemoved}
+                    onChange={(_, v) => setHideRemoved(v)}
+                    size="small"
+                  />
+                }
+                label={t('pages.plantInstances.hideRemoved')}
+                sx={{ mr: 0 }}
+              />
+            }
+            primary={{
+              label: t('pages.plantInstances.create'),
+              icon: <AddIcon />,
+              variant: 'contained',
+              testId: 'create-button',
+              onClick: () => {
                 setDuplicateData(undefined);
                 setCreateOpen(true);
-              }}
-              data-testid="create-button"
-            >
-              {t('pages.plantInstances.create')}
-            </Button>
-          </Box>
+              },
+            }}
+            secondary={[
+              {
+                label: t('print.printLabels'),
+                icon: <QrCode2Icon />,
+                iconOnly: true,
+                disabled: filteredItems.length === 0,
+                testId: 'label-button',
+                onClick: () => setLabelDialogOpen(true),
+              },
+            ]}
+          />
         }
       />
 
