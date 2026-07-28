@@ -154,6 +154,56 @@ describe('DataTable', () => {
     expect(th?.getAttribute('aria-sort')).toBe('ascending');
   });
 
+  // Regression guard for #802. The E2E suite drives sorting through
+  // `data-testid="sort-<column>"`; before it existed, fourteen page objects
+  // clicked the header *cell* instead. Selenium clicks an element's centre
+  // point, so on any column wider than its label that click landed on empty
+  // padding and sorted nothing — while the sort chip, rendered from
+  // `defaultSort`, kept the tests green. Both halves are asserted here: the
+  // locator exists, and the cell is genuinely not a substitute for it.
+  it('exposes a sort-<column> testid on every sortable header', () => {
+    const columnsWithActions = [
+      ...columns,
+      { id: 'actions', label: 'Actions', render: () => 'btn', sortable: false as const },
+    ];
+    render(
+      <DataTable
+        columns={columnsWithActions}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        tableState={makeTableState()}
+      />,
+    );
+
+    expect(screen.getByTestId('sort-name')).toBeTruthy();
+    expect(screen.getByTestId('sort-value')).toBeTruthy();
+    expect(screen.queryByTestId('sort-actions')).toBeNull();
+  });
+
+  it('sorts when the sort label is clicked, but not when the cell around it is', () => {
+    const setSort = vi.fn();
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowKey={(r) => r.id}
+        tableState={makeTableState({ setSort })}
+      />,
+    );
+
+    const label = screen.getByTestId('sort-name');
+    const cell = label.closest('th');
+    expect(cell).not.toBeNull();
+
+    // The cell is an ancestor of the label: DOM events bubble up, never down,
+    // so a click delivered to the cell must not reach the sort handler.
+    fireEvent.click(cell as HTMLElement);
+    expect(setSort).not.toHaveBeenCalled();
+
+    fireEvent.click(label);
+    expect(setSort).toHaveBeenCalledWith('name');
+  });
+
   it('shows descending aria-sort', () => {
     const tableState = makeTableState({
       sort: { column: 'value', direction: 'desc' },

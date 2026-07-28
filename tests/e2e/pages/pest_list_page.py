@@ -105,15 +105,6 @@ class PestListPage(BasePage):
         """Open the pest at *index* via its inert scientific-name cell."""
         self.click_data_table_row(index, self.ROW_CLICK_COLUMN_ID, self.TABLE_ROWS, "pest row")
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
-
     #: Chip-carrying column ids (PestListPage `columns`).
     PEST_TYPE_COLUMN_ID = "pestType"
     DIFFICULTY_COLUMN_ID = "detectionDifficulty"

@@ -25,6 +25,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-019.md):
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -33,6 +34,12 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from .pages.substrate_detail_page import SubstrateDetailPage
 from .pages.substrate_list_page import SubstrateListPage
+
+#: Name the happy-path create test writes. Kept as a constant because the test
+#: also searches for it to count its own row: the list paginates at 25, so an
+#: unfiltered row count cannot detect the new entry on a full first page.
+SUBSTRATE_NAME_DE = "E2E-Testsubstrat"
+SUBSTRATE_NAME_EN = "E2E Test Substrate"
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -332,15 +339,26 @@ class TestSubstrateCreateDialog:
         Spec: TC-019-007 -- Substrat erfolgreich erstellen (Happy Path).
         """
         substrate_list.open()
-        initial_count = substrate_list.get_row_count()
+        # Counted behind the search filter, not on the unfiltered list. The list
+        # paginates at 25 rows, so on a full first page the visible row count
+        # cannot grow no matter how many substrates are created -- the check
+        # read `assert 25 > 25` and failed on every profile (#802). Filtering by
+        # the name this test creates keeps the count far below the page size and
+        # stays correct under parallel execution, because a concurrent test adds
+        # rows under its own name rather than this one.
+        substrate_list.search(SUBSTRATE_NAME_DE)
+        substrate_list.wait_for_loading_complete()
+        matches_before = substrate_list.get_row_count()
+        substrate_list.clear_search()
+        substrate_list.wait_for_loading_complete()
         screenshot("TC-REQ-019-013_before-create", "Substrate list before creating")
 
         substrate_list.click_create()
         screenshot("TC-REQ-019-013_dialog-open", "Substrate create dialog opened")
 
         # Fill in form fields
-        substrate_list.fill_name_de("E2E-Testsubstrat")
-        substrate_list.fill_name_en("E2E Test Substrate")
+        substrate_list.fill_name_de(SUBSTRATE_NAME_DE)
+        substrate_list.fill_name_en(SUBSTRATE_NAME_EN)
         substrate_list.fill_brand("TestBrand")
         substrate_list.fill_ph_base(6.2)
         substrate_list.fill_ec_base(0.4)
@@ -356,12 +374,28 @@ class TestSubstrateCreateDialog:
             "TC-REQ-019-013 FAIL: Expected dialog to close after successful create"
         )
         # A closing dialog is not a created substrate: the row has to appear
-        # (#802). Counted rather than compared by name, because the suite runs
-        # in parallel and another test may add rows of its own -- so this asks
-        # only that the list grew, which a failed create would not do.
-        assert substrate_list.get_row_count() > initial_count, (
-            f"TC-REQ-019-013 FAIL: Creating a substrate must add a row, but the count stayed at "
-            f"{initial_count}"
+        # (#802). Re-counted behind the same name filter as above, so the page
+        # size cannot mask the new row.
+        #
+        # Polled rather than read once. Creating dispatches a refetch, and
+        # `wait_for_loading_complete` only waits for a skeleton to disappear --
+        # a refetch that resolves before the skeleton renders leaves nothing to
+        # wait for, and a single read then samples the pre-create list. Reading
+        # once reported `0 (was 0)` for exactly that reason.
+        deadline = time.time() + 10
+        matches_after = 0
+        while time.time() < deadline:
+            substrate_list.search(SUBSTRATE_NAME_DE)
+            substrate_list.wait_for_loading_complete()
+            matches_after = substrate_list.get_row_count()
+            if matches_after > matches_before:
+                break
+            substrate_list.clear_search()
+            substrate_list.wait_for_loading_complete()
+        assert matches_after > matches_before, (
+            f"TC-REQ-019-013 FAIL: Creating a substrate must add a row named "
+            f"'{SUBSTRATE_NAME_DE}', but after 10s the filtered list still shows "
+            f"{matches_after} row(s) (was {matches_before})"
         )
 
     @pytest.mark.core_crud

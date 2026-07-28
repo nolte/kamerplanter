@@ -152,15 +152,6 @@ class PlantingRunListPage(BasePage):
     def has_empty_state(self) -> bool:
         return len(self.driver.find_elements(*self.EMPTY_STATE)) > 0
 
-    def click_column_header(self, header_text: str) -> None:
-        """Click a column header by its text to trigger sorting."""
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
-
     # ── Create dialog ──────────────────────────────────────────────────
 
     def click_create(self) -> None:

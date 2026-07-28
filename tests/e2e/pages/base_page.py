@@ -501,6 +501,39 @@ class BasePage:
         """Return all elements matching the given ``data-testid``."""
         return self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
 
+    def click_column_header(self, header_text: str) -> None:
+        """Sort a ``DataTable`` by clicking the column header labelled *header_text*.
+
+        Clicks the ``TableSortLabel`` inside the header cell, **not** the cell
+        itself. The click handler sits on the label, and Selenium clicks an
+        element's centre point -- so on any column wider than its own label the
+        click landed on empty cell padding and sorted nothing. That stayed
+        invisible because the sort chip is rendered from ``defaultSort``
+        regardless of whether a click ever arrived, so tests asserting only on
+        the chip passed while verifying nothing (#802).
+
+        Fourteen page objects carried a byte-identical copy of the broken
+        version; they now delegate here.
+        """
+        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
+        for h in headers:
+            if h.text != header_text:
+                continue
+            # `sort-<column id>` is emitted by DataTable for every sortable
+            # column. Falling back to clicking the cell would reinstate the
+            # silent no-op this method exists to remove, so a header without the
+            # label is an error rather than a degraded click.
+            labels = h.find_elements(By.CSS_SELECTOR, "[data-testid^='sort-']")
+            if not labels:
+                raise ValueError(
+                    f"Column header '{header_text}' carries no sort label "
+                    "(data-testid='sort-<column>') -- the column is not sortable, "
+                    "so clicking it cannot sort the table"
+                )
+            self.scroll_and_click(labels[0])
+            return
+        raise ValueError(f"Column header '{header_text}' not found")
+
     def is_present(self, locator: tuple[str, str]) -> bool:
         """Return True if at least one element matching *locator* exists in the DOM."""
         return len(self.driver.find_elements(*locator)) > 0
