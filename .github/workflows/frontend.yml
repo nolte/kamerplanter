@@ -57,10 +57,21 @@ jobs:
               - 'src/frontend/**'
               - '.github/workflows/frontend.yml'
 
+  # REQUIRED check. The job itself always runs; only its *steps* are conditional.
+  #
+  # A job skipped by a job-level `if:` does not expand its matrix, so GitHub
+  # reports the check run as `lint-test-build` — without the ` (22)` suffix that
+  # the required context carries. The required context then never reports at all
+  # and every non-frontend pull request sits on "Expected — waiting for status to
+  # be reported" forever. Verified the hard way: it blocked #841 and #842
+  # immediately after the promotion landed.
+  #
+  # Running the job and skipping its steps costs a few seconds of runner time and
+  # produces a green `lint-test-build (22)` on every pull request, which is what
+  # branch protection needs.
   lint-test-build:
     needs: changes
-    # `always()` so a push to develop (where `changes` is skipped) still runs.
-    if: always() && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+    if: always()
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -68,8 +79,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
 
       - name: Setup Node.js ${{ matrix.node-version }}
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
@@ -77,22 +90,31 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm ci
 
       - name: TypeScript check
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npx tsc --noEmit
 
       - name: Lint
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm run lint
 
       - name: Test
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm run test
 
       - name: Build
+        if: github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true'
         run: npm run build
 
       - name: Upload build artifacts
-        if: github.ref == 'refs/heads/develop'
+        # Both conditions: the frontend gate above, and the pre-existing
+        # develop-only restriction on publishing the artefact.
+        if: >-
+          (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
+          && github.ref == 'refs/heads/develop'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-dist
