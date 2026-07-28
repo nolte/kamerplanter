@@ -165,26 +165,43 @@ export default function HarvestBatchListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.batch_id || r.key}
+            titleId="batchId"
             subtitle={r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : undefined}
-            chips={
-              <>
-                <Chip
-                  label={t(`enums.harvestType.${r.harvest_type}`)}
-                  size="small"
-                  variant="outlined"
-                />
-                {r.quality_grade && (
+            subtitleId="harvestDate"
+            // Keyed chips (#778 A1): harvest type and quality grade used to share
+            // one unkeyed slot, so a colour assertion could only be written
+            // over-inclusively ("some chip is error-coloured") instead of
+            // naming which one. `data-chip-color` carries the grade's semantic
+            // colour, so the reader no longer couples to MuiChip-color*.
+            chips={[
+              {
+                id: 'harvestType',
+                content: (
                   <Chip
-                    label={t(`enums.qualityGrade.${r.quality_grade}`)}
+                    label={t(`enums.harvestType.${r.harvest_type}`)}
                     size="small"
-                    color={qualityGradeColor[r.quality_grade] ?? 'default'}
+                    variant="outlined"
                   />
-                )}
-              </>
-            }
+                ),
+              },
+              ...(r.quality_grade
+                ? [
+                    {
+                      id: 'qualityGrade',
+                      content: (
+                        <Chip
+                          label={t(`enums.qualityGrade.${r.quality_grade}`)}
+                          size="small"
+                          color={qualityGradeColor[r.quality_grade] ?? 'default'}
+                        />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
               ...(r.wet_weight_g != null
-                ? [{ label: t('pages.harvest.wetWeightG'), value: `${r.wet_weight_g}\u202fg` }]
+                ? [{ id: 'wetWeight', label: t('pages.harvest.wetWeightG'), value: `${r.wet_weight_g}\u202fg` }]
                 : []),
             ]}
           />

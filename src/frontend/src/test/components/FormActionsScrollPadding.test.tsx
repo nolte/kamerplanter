@@ -9,6 +9,7 @@ const mediaQuery = vi.hoisted(() => ({ pinned: true }));
 vi.mock('@mui/material/useMediaQuery', () => ({ default: () => mediaQuery.pinned }));
 
 // Import after the mock so it is picked up.
+import Form from '@/components/form/Form';
 import FormActions from '@/components/form/FormActions';
 
 /**
@@ -51,9 +52,9 @@ function renderInScrollContainer() {
           for `DialogContent` unreliably; the shape mirrors the real DOM
           (scrolling container > form > action row). */}
       <div data-testid="scroll-container" style={{ overflowY: 'auto' }}>
-        <form>
+        <Form onSubmit={vi.fn()}>
           <FormActions onCancel={vi.fn()} />
-        </form>
+        </Form>
       </div>
     </ThemeContextProvider>,
   );
@@ -76,7 +77,7 @@ describe('FormActions — reserved space below the pinned row (#768)', () => {
     const actions = screen.getByTestId('form-actions');
 
     // 60px row resting 40px above the scrollport edge — the tail a sticky box
-    // cannot cross because its containing block (the `<form>`) ends there, i.e.
+    // cannot cross because its containing block (the `<Form>`) ends there, i.e.
     // `DialogContent`'s bottom padding in the real dialog.
     stubRect(container, 0, 600);
     stubRect(actions, 900, 60);
@@ -98,9 +99,9 @@ describe('FormActions — reserved space below the pinned row (#768)', () => {
   it('reserves on the root element when the document itself scrolls', () => {
     render(
       <ThemeContextProvider>
-        <form>
+        <Form onSubmit={vi.fn()}>
           <FormActions onCancel={vi.fn()} />
-        </form>
+        </Form>
       </ThemeContextProvider>,
     );
     const actions = screen.getByTestId('form-actions');

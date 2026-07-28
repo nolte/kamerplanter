@@ -44,6 +44,7 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useLocalFavorites } from '@/hooks/useLocalFavorites';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -901,16 +902,18 @@ export default function FertilizerDetailPage() {
               mobileCardRenderer={(r) => (
                 <MobileCard
                   title={`${r.current_volume_ml.toLocaleString()} ml`}
+                  titleId="volume"
                   subtitle={r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : undefined}
+                  subtitleId="purchase_date"
                   fields={[
                     ...(r.expiry_date
-                      ? [{ label: t('pages.fertilizers.expiryDate'), value: new Date(r.expiry_date).toLocaleDateString() }]
+                      ? [{ id: 'expiry_date', label: t('pages.fertilizers.expiryDate'), value: new Date(r.expiry_date).toLocaleDateString() }]
                       : []),
                     ...(r.batch_number
-                      ? [{ label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
+                      ? [{ id: 'batch_number', label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
                       : []),
                     ...(r.cost_per_liter != null
-                      ? [{ label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} €/L` }]
+                      ? [{ id: 'cost', label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} €/L` }]
                       : []),
                   ]}
                 />
@@ -922,7 +925,7 @@ export default function FertilizerDetailPage() {
 
       {/* ── Tab 2: Edit ── */}
       {tab === 2 && (
-        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Form onSubmit={handleSubmit(onSave)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.fertilizers.editIntro')}
           </Typography>
@@ -1238,7 +1241,7 @@ export default function FertilizerDetailPage() {
               {t('common.origin.readOnlyHint')}
             </Typography>
           )}
-        </Box>
+        </Form>
       )}
 
       {/* Stock creation dialog */}

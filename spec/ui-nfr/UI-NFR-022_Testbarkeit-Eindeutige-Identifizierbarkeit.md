@@ -110,6 +110,7 @@ verbindliche **Bereitstellungs**-Anforderung an das Frontend. Diese UI-NFR schli
 | `card-subtitle` | Unterzeile einer Karte; nur vorhanden, wenn überhaupt eine Unterzeile gerendert wird |
 | `card-field-<columnId>` | Wert eines Feldes der Karte, geschlüsselt über die `id` der Tabellenspalte, die es spiegelt. Titel und Unterzeile emittieren dieses Muster zusätzlich, wenn ihnen eine Spalten-`id` zugeordnet ist |
 | `card-chip-<columnId>` | Einzelner Chip der Chip-Zeile, geschlüsselt über die gespiegelte Spalten-`id` |
+| `card-actions` | Container der interaktiven Steuerelemente einer Karte (Favoriten-Umschalter, Überlaufmenü), oben rechts. Abzugrenzen vom rein visuellen `trailing`-Slot: Eine Karte, deren `trailing` bereits belegt ist, hatte sonst keinen Ort für ihre Aktionen — auf `SpeciesListPage` war der Favoriten-Umschalter unterhalb des `sm`-Breakpoints dadurch gar nicht erreichbar. Die Einzel-IDs der enthaltenen Schaltflächen bleiben erhalten |
 
 **Formular-Aktionsleiste:**
 

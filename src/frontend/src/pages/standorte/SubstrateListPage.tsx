@@ -129,17 +129,37 @@ export default function SubstrateListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={(lang === 'en' ? r.name_en : r.name_de) || r.brand || t(`enums.substrateType.${r.type}`)}
+            titleId="name"
             subtitle={r.brand || undefined}
-            chips={
-              <>
-                <Chip label={t(`enums.substrateType.${r.type}`)} size="small" />
-                {r.is_mix && <Chip label={t('pages.substrates.mix')} size="small" color="info" variant="outlined" />}
-                {r.reusable && <Chip label={t('pages.substrates.reusable')} size="small" color="success" />}
-              </>
-            }
+            chips={[
+              {
+                id: 'type',
+                content: <Chip label={t(`enums.substrateType.${r.type}`)} size="small" />,
+              },
+              ...(r.is_mix
+                ? [
+                    {
+                      id: 'mix',
+                      content: (
+                        <Chip label={t('pages.substrates.mix')} size="small" color="info" variant="outlined" />
+                      ),
+                    },
+                  ]
+                : []),
+              ...(r.reusable
+                ? [
+                    {
+                      id: 'reusable',
+                      content: (
+                        <Chip label={t('pages.substrates.reusable')} size="small" color="success" />
+                      ),
+                    },
+                  ]
+                : []),
+            ]}
             fields={[
-              { label: t('pages.substrates.phBase'), value: r.ph_base.toFixed(1) },
-              { label: t('pages.substrates.ecBase'), value: r.ec_base_ms.toFixed(2) },
+              { id: 'ph', label: t('pages.substrates.phBase'), value: r.ph_base.toFixed(1) },
+              { id: 'ec', label: t('pages.substrates.ecBase'), value: r.ec_base_ms.toFixed(2) },
             ]}
           />
         )}

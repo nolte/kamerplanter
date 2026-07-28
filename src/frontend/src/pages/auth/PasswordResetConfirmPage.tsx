@@ -11,6 +11,7 @@ import Alert from '@mui/material/Alert';
 import { useSnackbar } from 'notistack';
 import { confirmPasswordReset } from '@/api/endpoints/auth';
 import { parseApiError } from '@/api/errors';
+import Form from '@/components/form/Form';
 
 export default function PasswordResetConfirmPage() {
   const { t } = useTranslation();
@@ -59,7 +60,7 @@ export default function PasswordResetConfirmPage() {
 
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-          <Box component="form" onSubmit={handleSubmit}>
+          <Form onSubmit={handleSubmit}>
             <TextField
               label={t('pages.auth.password')}
               type="password"
@@ -85,11 +86,11 @@ export default function PasswordResetConfirmPage() {
               type="submit"
               variant="contained"
               fullWidth
-              disabled={loading}
+              disabled={loading || !password || !confirmPassword}
             >
               {t('pages.auth.setNewPassword')}
             </Button>
-          </Box>
+          </Form>
         </CardContent>
       </Card>
     </Box>

@@ -10,6 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -117,7 +118,7 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
         {isEdit ? t('pages.tanks.editSchedule') : t('pages.tanks.createSchedule')}
       </DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.tanks.sectionScheduleType')}
           </Typography>
@@ -186,7 +187,7 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
             loading={saving}
             saveLabel={isEdit ? t('common.save') : t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

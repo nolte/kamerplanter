@@ -137,19 +137,20 @@ export default function CultivarListSection({ speciesKey }: Props) {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.name}
+            titleId="name"
             subtitle={r.breeder || undefined}
-            chips={
-              r.traits.length > 0 ? (
-                <>
-                  {r.traits.map((tr) => (
-                    <Chip key={tr} label={t(`enums.plantTrait.${tr}`)} size="small" variant="outlined" />
-                  ))}
-                </>
-              ) : undefined
-            }
+            subtitleId="breeder"
+            // Traits share one column, so they are keyed by position: a single
+            // `traits` id would collide across the list.
+            chips={r.traits.map((tr, i) => ({
+              id: `traits-${i}`,
+              content: (
+                <Chip key={tr} label={t(`enums.plantTrait.${tr}`)} size="small" variant="outlined" />
+              ),
+            }))}
             fields={
               r.days_to_maturity != null
-                ? [{ label: t('pages.cultivars.daysToMaturity'), value: r.days_to_maturity }]
+                ? [{ id: 'maturity', label: t('pages.cultivars.daysToMaturity'), value: r.days_to_maturity }]
                 : undefined
             }
             trailing={renderRowActions(r)}

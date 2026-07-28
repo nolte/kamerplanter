@@ -594,13 +594,15 @@ export default function PlantingRunDetailsTab({
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={speciesMap.get(r.species_key) ?? r.species_key}
+                titleId="species"
                 subtitle={r.cultivar_key ? (speciesMap.get(r.cultivar_key) ?? r.cultivar_key) : undefined}
-                chips={
-                  <Chip label={r.id_prefix} size="small" variant="outlined" />
-                }
+                subtitleId="cultivar"
+                chips={[
+                  { id: 'idPrefix', content: <Chip label={r.id_prefix} size="small" variant="outlined" /> },
+                ]}
                 fields={[
-                  { label: t('pages.plantingRuns.quantity'), value: String(r.quantity) },
-                  ...(r.spacing_cm ? [{ label: t('pages.plantingRuns.spacing'), value: `${r.spacing_cm} cm` }] : []),
+                  { id: 'quantity', label: t('pages.plantingRuns.quantity'), value: String(r.quantity) },
+                  ...(r.spacing_cm ? [{ id: 'spacing', label: t('pages.plantingRuns.spacing'), value: `${r.spacing_cm} cm` }] : []),
                 ]}
               />
             )}

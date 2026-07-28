@@ -9,6 +9,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Typography from '@mui/material/Typography';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -93,7 +94,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.substrates.createIntro')}
         </Typography>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.substrates.sectionIdentification')}
           </Typography>
@@ -144,7 +145,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
           <FormSwitchField name="reusable" control={control} label={t('pages.substrates.reusable')} helperText={t('pages.substrates.reusableHelper')} />
           <FormNumberField name="max_reuse_cycles" control={control} label={t('pages.substrates.maxReuseCycles')} helperText={t('pages.substrates.maxReuseCyclesHelper')} min={1} />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

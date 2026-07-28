@@ -48,6 +48,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable from '@/components/common/DataTable';
 import MobileCard from '@/components/common/MobileCard';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -2576,7 +2577,7 @@ export default function PlantInstanceDetailPage() {
 
       {/* Tab 7: Edit */}
       {tab === 7 && (
-        <Box component="form" onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Form onSubmit={handleSubmit(onEditSubmit)} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.plantInstances.editIntro')}
           </Typography>
@@ -2660,7 +2661,7 @@ export default function PlantInstanceDetailPage() {
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={() => setTab(0)} loading={saving} />
-        </Box>
+        </Form>
       )}
 
       {/* Tab 8: Photos (REQ-034 §2.3) */}

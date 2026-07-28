@@ -11,6 +11,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
@@ -106,13 +107,13 @@ export default function SlotDetailPage() {
         }
       />
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280 }}>
+      <Form onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280 }}>
         <FormRow>
           <FormTextField name="slot_id" control={control} label={t('pages.slots.slotId')} helperText={t('pages.slots.slotIdHelper')} required autoFocus />
           <FormNumberField name="capacity_plants" control={control} label={t('pages.slots.capacity')} helperText={t('pages.slots.capacityHelper')} min={1} max={20} />
         </FormRow>
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
-      </Box>
+      </Form>
 
       <ConfirmDialog
         open={deleteOpen}

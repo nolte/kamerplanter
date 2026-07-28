@@ -25,6 +25,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import Form from '@/components/form/Form';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
@@ -337,7 +338,7 @@ export default function FeedingEventDetailPage() {
       )}
 
       {tab === 1 && (
-        <Box component="form" onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
+        <Form onSubmit={handleSubmit(onSave)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
           <Typography variant="body2" color="text.secondary">
             {t('pages.feedingEvents.editIntro')}
           </Typography>
@@ -494,7 +495,7 @@ export default function FeedingEventDetailPage() {
             loading={saving}
             disabled={!isDirty}
           />
-        </Box>
+        </Form>
       )}
 
       <ConfirmDialog

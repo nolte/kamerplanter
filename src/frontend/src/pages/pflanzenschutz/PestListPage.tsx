@@ -247,7 +247,9 @@ export default function PestListPage() {
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.scientific_name}
+            titleId="scientificName"
             subtitle={l(r, 'common_name')}
+            subtitleId="commonName"
             chips={[
               {
                 id: 'pestType',

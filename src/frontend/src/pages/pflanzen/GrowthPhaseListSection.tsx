@@ -263,17 +263,17 @@ export default function GrowthPhaseListSection({ lifecycleKey, phaseSequenceKey,
         mobileCardRenderer={(r) => (
           <MobileCard
             title={r.displayName}
+            titleId="name"
             subtitle={`#${r.sequenceOrder} — ${r.durationDays}d`}
-            chips={
-              <>
-                {r.isTerminal && <Chip label={t('pages.growthPhases.isTerminal')} size="small" color="warning" />}
-                {r.allowsHarvest && <Chip label={t('pages.growthPhases.allowsHarvest')} size="small" color="success" />}
-                {r.isOverridden && <Chip label={t('pages.phaseSequences.overrideIndicator')} size="small" variant="outlined" color="info" />}
-              </>
-            }
+            subtitleId="order"
+            chips={[
+              ...(r.isTerminal ? [{ id: 'isTerminal', content: <Chip label={t('pages.growthPhases.isTerminal')} size="small" color="warning" /> }] : []),
+              ...(r.allowsHarvest ? [{ id: 'allowsHarvest', content: <Chip label={t('pages.growthPhases.allowsHarvest')} size="small" color="success" /> }] : []),
+              ...(r.isOverridden ? [{ id: 'isOverridden', content: <Chip label={t('pages.phaseSequences.overrideIndicator')} size="small" variant="outlined" color="info" /> }] : []),
+            ]}
             fields={[
-              { label: t('pages.growthPhases.stressTolerance'), value: t(`enums.stressTolerance.${r.stressTolerance}`) },
-              ...(r.wateringIntervalDays != null ? [{ label: t('pages.growthPhases.wateringInterval'), value: `${r.wateringIntervalDays}d` }] : []),
+              { id: 'stress', label: t('pages.growthPhases.stressTolerance'), value: t(`enums.stressTolerance.${r.stressTolerance}`) },
+              ...(r.wateringIntervalDays != null ? [{ id: 'watering', label: t('pages.growthPhases.wateringInterval'), value: `${r.wateringIntervalDays}d` }] : []),
             ]}
             trailing={!isManaged ? renderRowActions(r) : undefined}
           />
