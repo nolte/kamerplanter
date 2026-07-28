@@ -118,6 +118,14 @@ verbindliche **Bereitstellungs**-Anforderung an das Frontend. Diese UI-NFR schli
 |---|---|
 | `form-actions` | Container der Aktionsschaltflächen eines Formulars (Speichern/Abbrechen); ergänzt, nicht ersetzt, die Einzel-IDs der Buttons |
 
+**Tabellenkopf (`DataTable`):**
+
+| Muster | Bedeutung |
+|---|---|
+| `sort-<columnId>` | Sortier-Bedienelement einer Spalte, geschlüsselt über die `id` der Tabellenspalte. Sitzt auf dem `TableSortLabel` **innerhalb** der Kopfzelle, nicht auf der Zelle selbst: Der Klick-Handler hängt am Label, und ein Klick auf die umgebende Zelle erreicht ihn nicht, da DOM-Ereignisse nach oben und nicht nach unten laufen. Die E2E-Suite klickte zuvor die Kopfzelle und sortierte damit auf jeder Spalte, die breiter als ihr Label ist, nichts — unbemerkt, weil der Sortier-Chip ohnehin aus `defaultSort` gerendert wird (#802) |
+
+Der Chip `sort-chip` (Toolbar) kollidiert nicht mit diesem Muster: Er liegt außerhalb von `<thead>`, sodass eine Präfix-Selektion `[data-testid^='sort-']` innerhalb einer Kopfzelle ihn nie trifft.
+
 **Qualifizierende Attribute (keine `data-testid`-Werte):**
 
 Die folgenden beiden Namen sind **eigenständige HTML-Attribute**, nicht `data-testid`-Werte. Sie qualifizieren ein Element, das seinen eigenen `data-testid` behält, und werden in Kombination selektiert.

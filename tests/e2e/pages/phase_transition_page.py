@@ -122,14 +122,6 @@ class PlantInstanceListExt(BasePage):
     def has_sort_chip(self) -> bool:
         return len(self.driver.find_elements(*self.SORT_CHIP)) > 0
 
-    def click_column_header(self, header_text: str) -> None:
-        headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
-        for h in headers:
-            if h.text == header_text:
-                self.scroll_and_click(h)
-                return
-        raise ValueError(f"Column header '{header_text}' not found")
-
     def get_column_headers(self) -> list[str]:
         headers = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table'] th")
         return [h.text for h in headers if h.text]
