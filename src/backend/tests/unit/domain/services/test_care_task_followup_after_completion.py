@@ -19,12 +19,13 @@ reschedule) — they fail if anyone ever flips the flag globally.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.datetimes import today_utc
 from app.common.enums import ConfirmAction, ReminderType, TaskCategory, TaskStatus
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
@@ -66,7 +67,13 @@ def _due_watering_task(key: str = "task-due") -> Task:
 def _completed_today_task(key: str = "task-earlier") -> Task:
     task = _due_watering_task(key)
     task.status = TaskStatus.COMPLETED
-    task.completed_at = datetime.now(UTC) - timedelta(hours=2)
+    # Pinned to the start of the UTC day, not `now - 2h` (#836). The rule under
+    # test is defined on a *calendar day* ("a task completed today satisfies the
+    # reminder", #509) while a wall-clock offset is not: a CI run starting at
+    # 00:04 UTC put the fixture on the previous day and the rule correctly
+    # stopped matching, so the test failed for a reason it was not about. This
+    # instant is on today's UTC date at every hour, and never in the future.
+    task.completed_at = datetime.combine(today_utc(), time.min, tzinfo=UTC)
     return task
 
 
