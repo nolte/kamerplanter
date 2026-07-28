@@ -160,15 +160,20 @@ repos:
   # In CI, frontend linting runs via .github/workflows/frontend.yml (npm ci + eslint + tsc).
   - repo: local
     hooks:
+      # Both entries route through scripts/frontend_hook.sh, which refuses to
+      # report success for a check it did not run (#814). The previous inline
+      # `test -d src/frontend/node_modules || exit 0` printed `Passed` when the
+      # dependencies were absent — a commit that did not compile went through
+      # with two green hooks.
       - id: frontend-eslint
         name: ESLint (frontend)
-        entry: bash -c 'test -d src/frontend/node_modules || exit 0; cd src/frontend && npx eslint --no-error-on-unmatched-pattern "${@/#src\/frontend\//}"' --
+        entry: scripts/frontend_hook.sh eslint
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         types_or: [ts, tsx]
       - id: frontend-tsc
         name: TypeScript check (frontend)
-        entry: bash -c 'test -d src/frontend/node_modules || exit 0; cd src/frontend && npx tsc --noEmit'
+        entry: scripts/frontend_hook.sh tsc
         language: system
         files: ^src/frontend/src/.*\.(ts|tsx)$
         pass_filenames: false
