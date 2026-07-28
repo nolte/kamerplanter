@@ -133,6 +133,12 @@ services:
       DEBUG: ${DEBUG}
       REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION}
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
@@ -170,6 +176,12 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
@@ -201,6 +213,12 @@ services:
       ARANGODB_PASSWORD: ${ARANGODB_PASSWORD}
       REDIS_URL: ${REDIS_URL}
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
       TIMESCALEDB_ENABLED: ${TIMESCALEDB_ENABLED:-false}
       TIMESCALEDB_HOST: timescaledb
       TIMESCALEDB_PORT: "5432"
@@ -224,6 +242,12 @@ services:
       context: ./src/frontend
     environment:
       KAMERPLANTER_MODE: light
+      # #777 — optional error tracking. Unset by default: no DSN, no SDK
+      # initialisation, no behavioural change. Set SENTRY_DSN in .env to enable.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      SENTRY_SAMPLE_RATE: ${SENTRY_SAMPLE_RATE:-1.0}
     ports:
       - "8080:8080"
     depends_on:

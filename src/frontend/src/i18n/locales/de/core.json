@@ -296,6 +296,10 @@
     "clearFilters": "Filter löschen",
     "active": "Aktiv",
     "retry": "Erneut versuchen",
+    "appError": {
+      "title": "Da ist etwas schiefgelaufen",
+      "hint": "Die Seite konnte nicht angezeigt werden. Versuche es erneut — bleibt der Fehler, lade die Seite neu."
+    },
     "more": "weitere",
     "description": "Beschreibung",
     "yesterday": "Gestern",

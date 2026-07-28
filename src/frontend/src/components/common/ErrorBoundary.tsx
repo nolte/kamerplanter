@@ -1,8 +1,9 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Button from '@mui/material/Button';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -11,6 +12,8 @@ interface ErrorBoundaryProps {
   hint: string;
   retryLabel: string;
   testId?: string;
+  /** Names the failing subtree in the error report (e.g. the widget key). */
+  boundaryName?: string;
 }
 
 interface ErrorBoundaryState {
@@ -34,6 +37,19 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
     return { hasError: true };
   }
 
+  /**
+   * Report the failure (#777). A boundary that renders a fallback has, from
+   * every global handler's point of view, made the error disappear: the user
+   * sees a tidy card and nobody is told the widget is broken. This is the
+   * runtime complement of the swallowed-error no-go — no-op without a DSN.
+   */
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    captureHandledError(error, {
+      boundary: this.props.boundaryName ?? this.props.testId ?? 'unnamed',
+      componentStack: info.componentStack,
+    });
+  }
+
   private handleRetry = () => {
     this.retryKey += 1;
     this.setState({ hasError: false });
@@ -46,7 +62,12 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           <Alert
             severity="error"
             action={
-              <Button color="inherit" size="small" onClick={this.handleRetry} sx={{ minHeight: 48 }}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={this.handleRetry}
+                sx={{ minHeight: 48 }}
+              >
                 {this.props.retryLabel}
               </Button>
             }
