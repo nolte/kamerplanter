@@ -666,11 +666,50 @@ class CareReminderService:
         # a task already completed earlier is not reopened/re-completed).
         closed_task = self._complete_pending_care_task(plant_key, ReminderType.WATERING)
 
-        return self._schedule_next_watering_after_completion(
+        # The notification world has to be told, exactly as on the confirmation
+        # path (#813). Without this the care note kept its *old* due date after a
+        # watering was logged: not stale-marked, not updated, not re-raised — the
+        # user saw a note announcing a date that had already been served, while
+        # the freshly scheduled follow-up was announced nowhere.
+        #
+        # Mirroring `confirm_reminder` rather than inventing a third behaviour is
+        # what this method's contract already promises ("the *same* effect as
+        # completing the watering task in the queue", #548). The concern that a
+        # backdated log should perhaps not clear today's badge does not arise
+        # here: `WateringLogCreate` carries no client-settable timestamp, the
+        # service stamps `watered_at=log.logged_at` and the accompanying
+        # `CareConfirmation` with `confirmed_at=now`. A log is always a
+        # present-tense confirmation on this path.
+        resolved_tenant = tenant_key or self._resolve_tenant_key(plant_key)
+        self._propagate(
+            lambda p: p.on_care_confirmed(
+                tenant_key=resolved_tenant,
+                plant_key=plant_key,
+                reminder_type=ReminderType.WATERING,
+            )
+        )
+
+        next_task = self._schedule_next_watering_after_completion(
             profile,
             last_confirmation,
             just_completed_task=closed_task,
         )
+
+        # `on_care_confirmed` above stamped the plant's single care row read, so
+        # the follow-up only reaches the unread badge when that read state is
+        # cleared — the #769 rule, applied to this path too.
+        if next_task is not None:
+            self._propagate_care_reschedule(
+                profile,
+                ReminderType.WATERING,
+                resolved_tenant,
+                "",
+                next_task.due_date,
+                next_task.key,
+                announces_new_task=True,
+            )
+
+        return next_task
 
     def _schedule_next_watering_after_completion(
         self,

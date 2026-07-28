@@ -156,3 +156,49 @@ def test_service_without_propagation_is_safe(care_repo, task_repo, plant_repo):
     task_repo.find_open_care_task.return_value = _pending_task()
     # Must not crash without the coupling wired.
     service.update_profile("plant-1", {"watering_interval_days": 14})
+
+
+def test_watering_log_marks_the_care_note_handled(service, care_repo, task_repo, propagation):
+    """#813 — logging a watering has to tell the notification world.
+
+    The Gießprotokoll path closed the due task and scheduled the follow-up but
+    called no hook at all, so the care note kept its **old** due date: not
+    stale-marked, not updated, not re-raised. The user saw a note announcing a
+    date that had already been served.
+
+    Driven through ``CareReminderService`` rather than the propagation service in
+    isolation, because isolation-only coverage is exactly what let the
+    neighbouring #769 defect survive.
+    """
+    care_repo.get_profile_by_plant_key.return_value = _profile()
+    task_repo.find_open_care_task.return_value = _pending_task()
+
+    service.advance_watering_task_after_log("plant-1", tenant_key="tenant-A")
+
+    propagation.on_care_confirmed.assert_called_once()
+    _, kwargs = propagation.on_care_confirmed.call_args
+    assert kwargs["tenant_key"] == "tenant-A"
+    assert kwargs["plant_key"] == "plant-1"
+    assert kwargs["reminder_type"] == ReminderType.WATERING
+
+
+def test_watering_log_follow_up_requests_an_unread_notification(service, care_repo, task_repo, propagation):
+    """#813 + #769 — the follow-up must reach the badge on this path too.
+
+    ``on_care_confirmed`` stamps the plant's single ``care.watering`` row read,
+    and the single-entry guarantee means the follow-up recycles that same row —
+    so it has to ask for the read state to be cleared, exactly as the dashboard
+    confirmation path does.
+    """
+    care_repo.get_profile_by_plant_key.return_value = _profile()
+    task_repo.find_open_care_task.return_value = None
+    created = _pending_task()
+    task_repo.create_task.return_value = created
+
+    service.advance_watering_task_after_log("plant-1", tenant_key="tenant-A")
+
+    propagation.sync_care_notification.assert_called_once()
+    _, kwargs = propagation.sync_care_notification.call_args
+    assert kwargs["plant_key"] == "plant-1"
+    assert kwargs["reminder_type"] == ReminderType.WATERING
+    assert kwargs["reset_read"] is True
