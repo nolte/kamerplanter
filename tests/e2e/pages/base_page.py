@@ -537,6 +537,54 @@ class BasePage:
     #: Overflow trigger rendered by ``PageHeaderActions`` on ``xs``.
     PAGE_HEADER_OVERFLOW = (By.CSS_SELECTOR, "[data-testid='page-header-overflow']")
 
+    def _header_action_element(self, testid: str) -> WebElement | None:
+        """Return the element behind a header action, opening the overflow if needed.
+
+        Returns ``None`` when the action does not exist at this viewport at all —
+        which for several pages is meaningful rather than accidental
+        (UI-NFR-018 R-012 omits a delete action for system data instead of
+        disabling it).
+
+        Leaves the menu open when it had to be opened; callers that only inspect
+        state can close it with ``close_mui_dropdown``.
+        """
+        direct = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        if direct:
+            return direct[0]
+        trigger = self.driver.find_elements(*self.PAGE_HEADER_OVERFLOW)
+        if not trigger:
+            return None
+        self.scroll_and_click(trigger[0])
+        entries = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}-menu-item']")
+        return entries[0] if entries else None
+
+    def has_header_action(self, testid: str) -> bool:
+        """Whether a page-header action exists, as button (``sm``+) or menu entry (``xs``)."""
+        found = self._header_action_element(testid) is not None
+        self.close_mui_dropdown()
+        return found
+
+    def is_header_action_enabled(self, testid: str) -> bool:
+        """Whether a page-header action is actionable at the current viewport.
+
+        A disabled `MenuItem` reports ``is_enabled() == True`` to Selenium — it
+        is a list item, not a form control — so the ``aria-disabled`` attribute
+        MUI sets is the reliable signal there, while real buttons carry
+        ``disabled``. Both are checked, which keeps this correct on either side
+        of the breakpoint.
+        """
+        el = self._header_action_element(testid)
+        if el is None:
+            self.close_mui_dropdown()
+            return False
+        enabled = (
+            el.is_enabled()
+            and not el.get_attribute("disabled")
+            and el.get_attribute("aria-disabled") != "true"
+        )
+        self.close_mui_dropdown()
+        return enabled
+
     def click_header_action(self, testid: str) -> None:
         """Trigger a page-header action by its ``data-testid``, at any viewport.
 

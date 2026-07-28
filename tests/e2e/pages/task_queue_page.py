@@ -515,9 +515,13 @@ class TaskQueuePage(BasePage):
         return len(els) > 0 and els[0].is_displayed()
 
     def is_generate_reminders_visible(self) -> bool:
-        """Check whether the generate reminders button is displayed."""
-        els = self.driver.find_elements(*self.GENERATE_REMINDERS_BUTTON)
-        return len(els) > 0 and els[0].is_displayed()
+        """Whether the generate-reminders action is offered at this viewport.
+
+        "Visible" means reachable: on `xs` the action lives in the header's
+        overflow menu (#832), so a page object that only looked for the button
+        would report it missing on every mobile profile.
+        """
+        return self.has_header_action("generate-reminders-button")
 
     def is_filter_visible(self, locator: tuple[str, str]) -> bool:
         """Check whether a filter toggle element is present."""

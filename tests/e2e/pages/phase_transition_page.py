@@ -274,12 +274,13 @@ class PlantInstanceDetailExt(BasePage):
     # ── Transition button / state ──────────────────────────────────────
 
     def is_transition_button_enabled(self) -> bool:
-        btn = self.wait_for_element(self.TRANSITION_BUTTON)
-        return btn.is_enabled() and not btn.get_attribute("disabled")
+        return self.is_header_action_enabled("transition-button")
 
     def is_remove_button_enabled(self) -> bool:
-        btn = self.wait_for_element(self.REMOVE_BUTTON)
-        return btn.is_enabled() and not btn.get_attribute("disabled")
+        # Asked through the header helper, not through the locator: on `xs` the
+        # remove action is an overflow entry (#832), where the plain locator
+        # matches nothing and `is_enabled()` would not mean what it says.
+        return self.is_header_action_enabled("remove-button")
 
     # ── Phase Transition Dialog ────────────────────────────────────────
 
