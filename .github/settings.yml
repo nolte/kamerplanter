@@ -36,6 +36,35 @@ branches:
         contexts:
           - static / Static CI Tests
           - E2E smoke (compose, light)
+          # #828 — the frontend unit suite gated nothing until now: a pull
+          # request whose entire vitest run was red could reach develop as long
+          # as the two contexts above passed. #824 (jsdom 29 -> 30, 71 of 361
+          # test files red) was stopped only because the advisory checks were
+          # inspected by hand.
+          #
+          # Promoted on measured history, the standard ADR-011 set for
+          # `E2E smoke`: across 60 runs (30 develop, 30 pull-request) the job
+          # reported 12 failures and *every one* traced to a real defect — 8 to
+          # the jsdom 30 incompatibility (#827), 4 to the WorkflowInstantiateDialog
+          # render-phase state mutation (#821). No flake, so no false blocking.
+          #
+          # `frontend.yml`'s pull_request trigger had to lose its `paths:` filter
+          # for this to work; see the header there.
+          - lint-test-build (22)
+          #
+          # `lint-test (3.14)` (backend) is deliberately NOT promoted alongside
+          # it, and the difference is measured rather than assumed. Over 30
+          # develop runs it failed once — but that failure is a midnight-UTC
+          # boundary flake, not a defect: three tests in
+          # `test_care_task_followup_after_completion.py` /
+          # `test_watering_log_care_advance.py` build their fixture as
+          # `completed_at = datetime.now(UTC) - 2h` and assert the "#509 recency
+          # rule" ("a task completed today satisfies the reminder"). The run
+          # started at 00:04 UTC, so the fixture landed on the previous day and
+          # the rule stopped matching. Arming that as a required check would
+          # block every pull request in the repository whenever CI happens to
+          # start between 00:00 and 02:00 UTC. Fix the date boundary first; the
+          # promotion is a follow-up, not a decision left unmade.
       enforce_admins: true
       # `restrictions: null` is load-bearing, not a tidy-up. The commons declare
       # `restrictions.apps: [nolte-portfolio-app]` for develop, but GitHub only
