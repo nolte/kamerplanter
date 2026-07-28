@@ -18,6 +18,15 @@ function mount() {
         title={i18n.t('common.appError.title')}
         hint={i18n.t('common.appError.hint')}
         retryLabel={i18n.t('common.retry')}
+        // Retry alone re-mounts <App> with whatever state caused the crash —
+        // for a genuinely broken build/state that's the same failure again
+        // immediately. "page" variant + reloadLabel adds a real
+        // window.location.reload() as an explicit second way out, and
+        // centers/fills the viewport instead of the widget-tile layout this
+        // component otherwise renders (there's no page chrome around it here
+        // to react to).
+        variant="page"
+        reloadLabel={i18n.t('common.appError.reloadPage')}
         testId="app-error"
         boundaryName="app-root"
       >
