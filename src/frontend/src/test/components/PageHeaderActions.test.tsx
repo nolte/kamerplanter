@@ -103,6 +103,71 @@ describe('PageHeaderActions', () => {
     expect(screen.queryByTestId('page-header-overflow')).toBeNull();
   });
 
+  // UI-NFR-021 §10 and R-012/R-029: the overflow trigger precedes the primary
+  // action, which sits outermost right. Tab order follows the same sequence, so
+  // getting this wrong reverses the keyboard path as well as the layout.
+  it('places the overflow trigger before the primary action', () => {
+    setViewport(true);
+    renderWithProviders(<PageHeaderActions primary={primary} secondary={[mix]} />);
+
+    const group = screen.getByTestId('page-header-actions');
+    const order = Array.from(group.querySelectorAll('button')).map(
+      (b) => b.getAttribute('data-testid') ?? b.textContent,
+    );
+    expect(order.indexOf('page-header-overflow')).toBeLessThan(order.indexOf('Anlegen'));
+  });
+
+  // R-019: a destructive overflow entry needs the error colour and a separator,
+  // not just the same styling as every other entry.
+  it('marks a destructive entry and separates it from the one above', () => {
+    setViewport(true);
+    renderWithProviders(
+      <PageHeaderActions
+        primary={primary}
+        secondary={[mix, { label: 'Entfernen', onClick: vi.fn(), color: 'error' }]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('page-header-overflow'));
+    const menu = screen.getByTestId('page-header-overflow-menu');
+    expect(menu.querySelector('hr, .MuiDivider-root')).not.toBeNull();
+    const entry = within(menu).getByText('Entfernen').closest('li');
+    expect(entry).not.toBeNull();
+  });
+
+  // R-024 targets the viewport without hover, so a tooltip explaining *why*
+  // something is disabled cannot simply be dropped when the action collapses.
+  it('shows the disabled reason as a visible line instead of a tooltip', () => {
+    setViewport(true);
+    renderWithProviders(
+      <PageHeaderActions
+        primary={primary}
+        secondary={[
+          {
+            label: 'Löschen',
+            onClick: vi.fn(),
+            disabled: true,
+            tooltip: 'Systemdaten können nicht gelöscht werden',
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('page-header-overflow'));
+    const menu = screen.getByTestId('page-header-overflow-menu');
+    expect(within(menu).getByText('Systemdaten können nicht gelöscht werden')).toBeTruthy();
+  });
+
+  it('reports aria-expanded in both states', () => {
+    setViewport(true);
+    renderWithProviders(<PageHeaderActions primary={primary} secondary={[mix]} />);
+
+    const trigger = screen.getByTestId('page-header-overflow');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(trigger);
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+  });
+
   it('keeps an escape-hatch control visible at both breakpoints', () => {
     setViewport(true);
     renderWithProviders(

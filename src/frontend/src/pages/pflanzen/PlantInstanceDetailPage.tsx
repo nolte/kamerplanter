@@ -1068,11 +1068,12 @@ export default function PlantInstanceDetailPage() {
         action={
           /* This header is the reason R-024 exists: five controls used to wrap,
              and the destructive "remove" button was the one pushed off a 393px
-             viewport (UI-NFR-001 R-005/R-006). On `xs` only the phase
-             transition stays visible now — the lifecycle action this page is
-             built around — and the rest, destructive action included, becomes a
-             deliberate two-tap choice instead of something met while scrolling
-             sideways. */
+             viewport (UI-NFR-001 R-005/R-006). On `xs` the phase transition
+             stays — the lifecycle action this page is built around — and tag,
+             label and the destructive remove become a deliberate two-tap choice
+             instead of something met while scrolling sideways. `PestScanButton`
+             stays visible alongside it (see below), so this is two controls on
+             `xs`, not one. */
           <PageHeaderActions
             /* `PestScanButton` renders its own control (camera permissions,
                capture flow) and cannot become a menu entry without being taken

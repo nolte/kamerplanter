@@ -21,7 +21,14 @@ class SpeciesDetailPage(BasePage):
     """Interact with the Species detail page (``/stammdaten/species/:key``)."""
 
     PAGE_TITLE = (By.CSS_SELECTOR, "[data-testid='page-title']")
-    DELETE_BUTTON = (By.XPATH, "//button[contains(@class, 'MuiButton-colorError')]")
+    # Addressed by data-testid, not by the MUI error colour class: on `xs` the
+    # delete action is an overflow menu entry, which carries neither the class
+    # nor the `button` tag the old XPath required (#832). Matches both the
+    # visible button and its `-menu-item` counterpart.
+    DELETE_BUTTON = (
+        By.CSS_SELECTOR,
+        "[data-testid='delete-species-button'], [data-testid='delete-species-button-menu-item']",
+    )
     READONLY_BANNER = (By.CSS_SELECTOR, "[data-testid='species-readonly-banner']")
     TABS = (By.CSS_SELECTOR, "button[role='tab']")
     # This is genuinely the *in-page* "Bearbeiten" tab's submit button (no
@@ -144,7 +151,9 @@ class SpeciesDetailPage(BasePage):
         self.wait_and_click(self.FORM_SUBMIT)
 
     def click_delete(self) -> None:
-        self.wait_and_click(self.DELETE_BUTTON)
+        # Routed through the shared helper so the action is reachable whether it
+        # is a header button (`sm`+) or an overflow entry (`xs`).
+        self.click_header_action("delete-species-button")
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_delete(self) -> None:
@@ -154,7 +163,25 @@ class SpeciesDetailPage(BasePage):
         self.wait_and_click(self.CONFIRM_CANCEL)
 
     def has_delete_button(self) -> bool:
-        return len(self.driver.find_elements(*self.DELETE_BUTTON)) > 0
+        """Whether the delete action exists at all.
+
+        UI-NFR-018 R-012 omits it for system data rather than disabling it, so
+        absence is the assertion. On `xs` it lives in the overflow menu, which
+        has to be opened before its entry exists in the DOM.
+        """
+        if self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='delete-species-button']"):
+            return True
+        trigger = self.driver.find_elements(*self.PAGE_HEADER_OVERFLOW)
+        if not trigger:
+            return False
+        self.scroll_and_click(trigger[0])
+        found = bool(
+            self.driver.find_elements(
+                By.CSS_SELECTOR, "[data-testid='delete-species-button-menu-item']"
+            )
+        )
+        self.close_mui_dropdown()
+        return found
 
     def is_read_only(self) -> bool:
         """Return True if this species is origin-protected (read-only).

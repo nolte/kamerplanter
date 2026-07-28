@@ -37,7 +37,9 @@ export default function NutrientPlanListPage() {
   const { plans, loading } = useAppSelector((s) => s.nutrientPlans);
   const [createOpen, setCreateOpen] = useState(false);
   const [favFilterActive, setFavFilterActive] = useState(false);
-  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites('kamerplanter-nutrient-plan-favorites');
+  const { isFavorite, toggleFavorite, hasFavorites } = useLocalFavorites(
+    'kamerplanter-nutrient-plan-favorites',
+  );
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function NutrientPlanListPage() {
   };
 
   const filteredPlans = useMemo(
-    () => favFilterActive && hasFavorites ? plans.filter((p) => isFavorite(p.key)) : plans,
+    () => (favFilterActive && hasFavorites ? plans.filter((p) => isFavorite(p.key)) : plans),
     [plans, favFilterActive, hasFavorites, isFavorite],
   );
 
@@ -71,7 +73,10 @@ export default function NutrientPlanListPage() {
       render: (r) => (
         <IconButton
           size="small"
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(r.key); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleFavorite(r.key);
+          }}
           sx={{ color: isFavorite(r.key) ? 'warning.main' : 'action.disabled' }}
         >
           {isFavorite(r.key) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
@@ -172,25 +177,25 @@ export default function NutrientPlanListPage() {
       <PageTitle
         title={t('pages.nutrientPlans.title')}
         action={
-            <PageHeaderActions
-              primary={{
-                label: t('pages.nutrientPlans.create'),
-                icon: <AddIcon />,
-                variant: 'contained',
-                testId: 'create-button',
-                onClick: () => setCreateOpen(true),
-              }}
-              secondary={[
-                hasFavorites && {
-                  label: t('pages.nutrientPlans.favFilter'),
-                  icon: <FilterListIcon />,
-                  iconOnly: true,
-                  active: favFilterActive,
-                  onClick: () => setFavFilterActive((p) => !p),
-                },
-              ]}
-            />
-          }
+          <PageHeaderActions
+            primary={{
+              label: t('pages.nutrientPlans.create'),
+              icon: <AddIcon />,
+              variant: 'contained',
+              testId: 'create-button',
+              onClick: () => setCreateOpen(true),
+            }}
+            secondary={[
+              hasFavorites && {
+                label: t('pages.nutrientPlans.favFilter'),
+                icon: <FilterListIcon />,
+                iconOnly: true,
+                active: favFilterActive,
+                onClick: () => setFavFilterActive((p) => !p),
+              },
+            ]}
+          />
+        }
       />
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         {t('pages.nutrientPlans.listIntro')}
@@ -217,7 +222,13 @@ export default function NutrientPlanListPage() {
                 ? [
                     {
                       id: 'is_template',
-                      content: <Chip label={t('pages.nutrientPlans.isTemplate')} size="small" color="primary" />,
+                      content: (
+                        <Chip
+                          label={t('pages.nutrientPlans.isTemplate')}
+                          size="small"
+                          color="primary"
+                        />
+                      ),
                     },
                   ]
                 : []),
@@ -233,14 +244,26 @@ export default function NutrientPlanListPage() {
                 ? [
                     {
                       id: 'tags-overflow',
-                      content: <Chip label={`+${r.tags.length - 3}`} size="small" variant="outlined" />,
+                      content: (
+                        <Chip label={`+${r.tags.length - 3}`} size="small" variant="outlined" />
+                      ),
                     },
                   ]
                 : []),
             ]}
             fields={[
-              ...(r.recommended_substrate_type ? [{ id: 'recommended_substrate_type', label: t('pages.nutrientPlans.substrateType'), value: t(`enums.substrateType.${r.recommended_substrate_type}`) }] : []),
-              ...(r.version ? [{ id: 'version', label: t('pages.nutrientPlans.version'), value: r.version }] : []),
+              ...(r.recommended_substrate_type
+                ? [
+                    {
+                      id: 'recommended_substrate_type',
+                      label: t('pages.nutrientPlans.substrateType'),
+                      value: t(`enums.substrateType.${r.recommended_substrate_type}`),
+                    },
+                  ]
+                : []),
+              ...(r.version
+                ? [{ id: 'version', label: t('pages.nutrientPlans.version'), value: r.version }]
+                : []),
             ]}
           />
         )}

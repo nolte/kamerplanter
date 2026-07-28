@@ -155,6 +155,14 @@ export default function EnvironmentControlPage() {
           // putting a safety control two taps deep in an overflow menu would
           // satisfy the letter of the rule and defeat its purpose. Creating an
           // actuator tolerates the extra tap, stopping one does not.
+          //
+          // Accepted consequence: `primary` always renders outermost right, so
+          // from `sm` up the two buttons swap places compared to before —
+          // the red stop now sits right of "create actuator" instead of left of
+          // it. That costs the cross-page rule of thumb "the contained button
+          // is the rightmost one" (R-034) on this page alone. Taken knowingly:
+          // consistent button order is worth less than a stop control that is
+          // never a menu entry.
           <PageHeaderActions
             primary={{
               label: t('pages.environmentControl.emergencyStop'),

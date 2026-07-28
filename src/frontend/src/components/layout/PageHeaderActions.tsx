@@ -1,7 +1,8 @@
-import { type ReactNode, useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
@@ -127,11 +128,7 @@ function renderButton(action: HeaderAction, keyPrefix: string) {
  * as the only route to a frequently needed action, so a kiosk-specific layout is
  * a separate decision rather than something this component should guess.
  */
-export default function PageHeaderActions({
-  primary,
-  secondary,
-  extra,
-}: PageHeaderActionsProps) {
+export default function PageHeaderActions({ primary, secondary, extra }: PageHeaderActionsProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
@@ -140,6 +137,41 @@ export default function PageHeaderActions({
   const actions = (secondary ?? []).filter((a): a is HeaderAction => Boolean(a));
   const collapse = isXs && actions.length > 0;
 
+  const renderMenuItem = (action: HeaderAction, index: number) => {
+    // UI-NFR-021 R-019: a destructive entry in the overflow carries the error
+    // colour *and* a separator, so it cannot be hit while aiming at the entry
+    // above it. Colour alone would not satisfy R-031 either — the icon and
+    // label stay, the colour is the addition.
+    const destructive = action.color === 'error';
+    // The tooltip explains why an action is unavailable ("system data", "in
+    // use"). On `xs` there is no hover to reveal it, so it becomes the entry's
+    // secondary line instead of being dropped.
+    const reason = action.tooltip && action.tooltip !== action.label ? action.tooltip : undefined;
+
+    return (
+      <Fragment key={`overflow-${action.label}`}>
+        {destructive && index > 0 && <Divider />}
+        <MenuItem
+          selected={action.active}
+          disabled={action.disabled}
+          onClick={() => {
+            setAnchorEl(null);
+            action.onClick();
+          }}
+          data-testid={action.testId ? `${action.testId}-menu-item` : undefined}
+          sx={destructive ? { color: 'error.main' } : undefined}
+        >
+          {action.icon && (
+            <ListItemIcon sx={destructive ? { color: 'error.main' } : undefined}>
+              {action.icon}
+            </ListItemIcon>
+          )}
+          <ListItemText primary={action.label} secondary={reason} />
+        </MenuItem>
+      </Fragment>
+    );
+  };
+
   return (
     <Box
       data-testid="page-header-actions"
@@ -147,13 +179,12 @@ export default function PageHeaderActions({
     >
       {extra}
       {!collapse && actions.map((a) => renderButton(a, 'secondary'))}
-      {primary && renderButton(primary, 'primary')}
       {collapse && (
         <>
           <IconButton
             aria-label={t('common.moreActions')}
             aria-haspopup="menu"
-            aria-expanded={anchorEl ? true : undefined}
+            aria-expanded={Boolean(anchorEl)}
             onClick={(e) => setAnchorEl(e.currentTarget)}
             sx={{ minWidth: TOUCH_TARGET, minHeight: TOUCH_TARGET }}
             data-testid="page-header-overflow"
@@ -169,24 +200,11 @@ export default function PageHeaderActions({
             // attributes, while the root spreads them onto the DOM node.
             data-testid="page-header-overflow-menu"
           >
-            {actions.map((a) => (
-              <MenuItem
-                key={`overflow-${a.label}`}
-                selected={a.active}
-                disabled={a.disabled}
-                onClick={() => {
-                  setAnchorEl(null);
-                  a.onClick();
-                }}
-                data-testid={a.testId ? `${a.testId}-menu-item` : undefined}
-              >
-                {a.icon && <ListItemIcon>{a.icon}</ListItemIcon>}
-                <ListItemText>{a.label}</ListItemText>
-              </MenuItem>
-            ))}
+            {actions.map(renderMenuItem)}
           </Menu>
         </>
       )}
+      {primary && renderButton(primary, 'primary')}
     </Box>
   );
 }

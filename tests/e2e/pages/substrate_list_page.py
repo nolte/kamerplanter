@@ -29,7 +29,8 @@ class SubstrateListPage(BasePage):
     # ── Action buttons (no data-testid — located by text/icon) ────────
     # The SubstrateListPage uses inline MUI Buttons without data-testid.
     # We use the button text rendered via i18n.
-    # Addressed by data-testid rather than by MUI class (UI-NFR-022 R-017):
+    # Addressed by data-testid rather than by MUI class (the suite's locator
+    # convention, tests/e2e/README.md):
     # the classes moved when the header adopted `PageHeaderActions`, and on `xs`
     # the mix action is a menu entry with no button class at all (#832).
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")

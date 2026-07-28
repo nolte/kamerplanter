@@ -161,7 +161,8 @@ Die Aktions-Zone MUSS Mobile-First kollabieren und die Touch-Target-Vorgaben aus
 |---|-------|-------|
 | R-022 | Alle Aktions-Buttons und der Overflow-`IconButton` MUESSEN auf Mobile/Tablet eine Trefferflaeche von mindestens **48×48px** einhalten (UI-NFR-001 R-011). | MUSS |
 | R-023 | Auf schmalen Breakpoints (`xs`) MUSS der Header `flexWrap: 'wrap'` verwenden (UI-NFR-017 R-038); die Aktions-Zone bricht unter den Titel um, behaelt aber ihre interne Reihenfolge (R-012). | MUSS |
-| R-024 | Auf `xs` MUSS die Overflow-Schwelle (R-016) auf **eine** direkt sichtbare Aktion (die Primaeraktion G1) reduziert werden; alle uebrigen Aktionen wandern in das `⋮`-Menue. | MUSS |
+| R-024 | Auf `xs` MUSS die Overflow-Schwelle (R-016) auf **eine** direkt sichtbare Aktion (die Primaeraktion G1) reduziert werden; alle uebrigen Aktionen wandern in das `⋮`-Menue. Ausnahme siehe R-024a. | MUSS |
+| R-024a | Ein Steuerelement, das einen **eigenen Ablauf kapselt** (Kamera-Freigabe, Datei-Download, Druckdialog) und deshalb nicht als Menueeintrag darstellbar ist, DARF auf `xs` zusaetzlich sichtbar bleiben. Zulaessig ist hoechstens **ein** solches Element je Seitenkopf, und es MUSS im Code an der Aufrufstelle begruendet sein. Bekannte Faelle: `PrintButton` (TaskQueuePage), `PestScanButton` (PlantInstanceDetailPage). Ein reines Kommando ohne eigenen Ablauf faellt NICHT unter diese Ausnahme. | DARF |
 | R-025 | Sekundaer- und Utility-Buttons (G2/G3) SOLLEN auf `xs` als Icon-only mit `aria-label` dargestellt werden, wenn Text und Icon nicht nebeneinander passen (analog UI-NFR-017 R-040). | SOLL |
 | R-026 | Im Kiosk-Modus MUESSEN Aktions-Buttons die Groessen aus UI-NFR-019 einhalten (min. 64×64px, Primaeraktion 72×72px, `size="large"`); Hamburger-/verdeckte Menues sind unzulaessig (UI-NFR-019 R-021). | MUSS |
 | R-027 | Im Kiosk-Modus DARF das Overflow-Menue NICHT als einziger Zugang zu einer haeufig benoetigten Aktion dienen; benoetigte Aktionen MUESSEN direkt sichtbar sein (UI-NFR-019 R-021). Overflow ist im Kiosk nur fuer selten benoetigte Aktionen zulaessig. | MUSS |
@@ -258,7 +259,7 @@ Die drei im Issue genannten Seiten werden hier als **Ziel-Zustaende nach dieser 
 - [ ] Pro Seite existiert hoechstens eine Primaeraktion (G1) und hoechstens ein sichtbarer `contained`-Button (R-004, R-009).
 - [ ] Variante/Farbe folgt deterministisch aus der Gruppe (R-008); kein rotes `text`-"Entfernen" mehr (R-010).
 - [ ] Reihenfolge G4 → G3 → G2 → Overflow → G5 → G1 ist eingehalten; G1 steht aussen rechts (R-012).
-- [ ] Ab >3 sichtbaren Aktionen (Desktop) bzw. >1 (xs) greift das Overflow-Menue; G1 wandert nie hinein (R-016, R-017, R-024).
+- [ ] Ab >3 sichtbaren Aktionen (Desktop) bzw. >1 (xs) greift das Overflow-Menue; G1 wandert nie hinein (R-016, R-017, R-024). Ein zusaetzlich sichtbares Element auf `xs` ist nur zulaessig, wenn es die Ausnahme R-024a erfuellt und diese an der Aufrufstelle begruendet ist.
 - [ ] Alle Buttons erreichen 48×48px (Standard) bzw. 64/72px (Kiosk) Trefferflaeche (R-022, R-026).
 - [ ] Tab-/Fokus-Reihenfolge = visuelle Reihenfolge; Overflow-Menue voll tastaturbedienbar (R-029, R-032).
 - [ ] Destruktive Intention wird nicht allein ueber Farbe vermittelt (R-031).

@@ -228,6 +228,7 @@ export default function SpeciesDetailPage() {
                 label: t('common.delete'),
                 icon: <DeleteIcon />,
                 color: 'error' as const,
+                testId: 'delete-species-button',
                 onClick: () => setDeleteOpen(true),
               },
             ]}
