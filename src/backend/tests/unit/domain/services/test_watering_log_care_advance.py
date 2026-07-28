@@ -17,11 +17,12 @@ repository state the completion is visible to the very next lookup, so the missi
 follow-up task (E2E TC-004-092) becomes observable at unit level.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.datetimes import today_utc
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.watering_engine import WateringEngine
@@ -71,7 +72,13 @@ def _watering_task_completed_today() -> Task:
     """The same task, already closed a couple of hours ago (recency rule input)."""
     task = _open_watering_task()
     task.status = TaskStatus.COMPLETED
-    task.completed_at = datetime.now(UTC) - timedelta(hours=2)
+    # Pinned to the start of the UTC day, not `now - 2h` (#836). The rule under
+    # test is defined on a *calendar day* ("a task completed today satisfies the
+    # reminder", #509) while a wall-clock offset is not: a CI run starting at
+    # 00:04 UTC put the fixture on the previous day and the rule correctly
+    # stopped matching, so the test failed for a reason it was not about. This
+    # instant is on today's UTC date at every hour, and never in the future.
+    task.completed_at = datetime.combine(today_utc(), time.min, tzinfo=UTC)
     return task
 
 
