@@ -285,7 +285,7 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_phase_transition(self) -> None:
         """Click the 'Phasenübergang' button and wait for the dialog to open."""
-        self.wait_and_click(self.TRANSITION_BUTTON)
+        self.click_header_action("transition-button")
         self.wait_for_element_visible(self.TRANSITION_DIALOG)
 
     def is_transition_dialog_open(self) -> bool:
@@ -365,7 +365,7 @@ class PlantInstanceDetailExt(BasePage):
 
     def initiate_remove(self) -> None:
         """Click the 'Entfernen' button and wait for the confirm dialog."""
-        self.wait_and_click(self.REMOVE_BUTTON)
+        self.click_header_action("remove-button")
         self.wait_for_element_visible(self.CONFIRM_DIALOG)
 
     def confirm_remove(self) -> None:

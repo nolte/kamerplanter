@@ -99,6 +99,7 @@ export default function SubstrateListPage() {
               label: t('pages.substrates.create'),
               icon: <AddIcon />,
               variant: 'contained',
+              testId: 'create-button',
               onClick: () => setCreateOpen(true),
             }}
             secondary={[
@@ -113,6 +114,7 @@ export default function SubstrateListPage() {
                 label: t('pages.substrates.createMix'),
                 icon: <BlenderIcon />,
                 variant: 'outlined',
+                testId: 'create-mix-button',
                 onClick: () => setMixOpen(true),
               },
             ]}

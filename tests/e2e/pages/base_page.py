@@ -534,6 +534,39 @@ class BasePage:
             return
         raise ValueError(f"Column header '{header_text}' not found")
 
+    #: Overflow trigger rendered by ``PageHeaderActions`` on ``xs``.
+    PAGE_HEADER_OVERFLOW = (By.CSS_SELECTOR, "[data-testid='page-header-overflow']")
+
+    def click_header_action(self, testid: str) -> None:
+        """Trigger a page-header action by its ``data-testid``, at any viewport.
+
+        UI-NFR-021 R-024 leaves only the primary action directly visible on
+        ``xs``; the others move into a ``⋮`` menu, where ``PageHeaderActions``
+        renders them as ``<testid>-menu-item``. A page object that clicks the
+        plain testid therefore works on desktop and silently stops finding its
+        button on the mobile profiles.
+
+        Order matters: the direct control is tried first, so desktop keeps its
+        single click and no menu is opened that would then have to be closed
+        again.
+        """
+        direct = self.driver.find_elements(By.CSS_SELECTOR, f"[data-testid='{testid}']")
+        if direct and direct[0].is_displayed():
+            self.scroll_and_click(direct[0])
+            return
+
+        trigger = self.driver.find_elements(*self.PAGE_HEADER_OVERFLOW)
+        if not trigger:
+            raise ValueError(
+                f"Header action '{testid}' is neither visible nor behind an overflow menu "
+                "(no [data-testid='page-header-overflow'] on the page)"
+            )
+        self.scroll_and_click(trigger[0])
+        item = self.wait_for_element_clickable(
+            (By.CSS_SELECTOR, f"[data-testid='{testid}-menu-item']")
+        )
+        self.click_menu_option(item)
+
     def is_present(self, locator: tuple[str, str]) -> bool:
         """Return True if at least one element matching *locator* exists in the DOM."""
         return len(self.driver.find_elements(*locator)) > 0

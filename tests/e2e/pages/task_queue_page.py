@@ -220,7 +220,7 @@ class TaskQueuePage(BasePage):
 
     def enter_bulk_mode(self) -> None:
         """Activate bulk selection mode."""
-        self.wait_for_element_clickable(self.BULK_MODE_BUTTON).click()
+        self.click_header_action("bulk-mode-button")
         self.wait_for_element(self.EXIT_BULK_MODE)
 
     def exit_bulk_mode(self) -> None:
@@ -262,7 +262,7 @@ class TaskQueuePage(BasePage):
 
     def click_create_task(self) -> None:
         """Click the create task button and wait for the dialog."""
-        self.wait_for_element_clickable(self.CREATE_TASK_BUTTON).click()
+        self.click_header_action("create-task-button")
         self.wait_for_element_visible(self.CREATE_DIALOG)
 
     def is_create_dialog_open(self) -> bool:
@@ -473,7 +473,7 @@ class TaskQueuePage(BasePage):
 
     def click_generate_reminders(self) -> None:
         """Click the generate care reminders button."""
-        self.wait_and_click(self.GENERATE_REMINDERS_BUTTON)
+        self.click_header_action("generate-reminders-button")
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 
