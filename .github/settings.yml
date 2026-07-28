@@ -32,6 +32,31 @@ branches:
   - name: develop
     protection:
       required_status_checks:
+        # `strict: true` means every open pull request must rebuild after any
+        # other one merges. With `E2E smoke (compose, light)` required that costs
+        # ~11 minutes per rebuild, serially — and it is the dominant cost of the
+        # merge train, not the gate itself.
+        #
+        # Measured over 2026-07-27 15:00 → 2026-07-28 17:00, a window in which 14
+        # pull requests merged: **60 `e2e-smoke` runs**. One Renovate
+        # container-digest bump alone accounted for **10** of them (7 completed, 3
+        # cancelled by the next update) — ~110 minutes of runner time for a change
+        # that never differed between runs. Every rerun was this flag reacting to
+        # someone else's merge.
+        #
+        # Evaluated and deliberately kept (#792). Three options were on the table:
+        # a GitHub merge queue (keeps the guarantee and removes the serial cost,
+        # but the portfolio's `reusable-automerge` merges via
+        # `pascalgn/automerge-action` and carries no `merge_group` trigger, so it
+        # would have to gain a queue-aware mode first — cross-repository work);
+        # dropping `strict` (removes the cost today, gives up the guarantee that a
+        # pull request green on its own is still green once merged); or accepting
+        # the cost.
+        #
+        # The cost is unattended machine time, not maintainer time, so it was
+        # accepted. Revisit if pull-request volume rises enough that the *drift
+        # window* — how long `develop` and the open pull requests disagree —
+        # starts producing real conflicts rather than just reruns.
         strict: true
         contexts:
           - static / Static CI Tests
