@@ -1,6 +1,7 @@
 import { render, screen, cleanup } from '@testing-library/react';
 import { describe, it, expect, afterEach } from 'vitest';
 import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
 import MobileCard from '@/components/common/MobileCard';
 
 describe('MobileCard — test hooks', () => {
@@ -136,6 +137,59 @@ describe('MobileCard — test hooks', () => {
     expect(screen.getByTestId('card-chip-status').getAttribute('data-chip-color')).toBe('error');
     // A chip left on the palette default asserts no colour semantics.
     expect(screen.getByTestId('card-chip-phase').hasAttribute('data-chip-color')).toBe(false);
+  });
+
+  it('lands the chip hook on the chip itself when the chip is wrapped in a Tooltip', () => {
+    render(
+      <MobileCard
+        title="Tomate"
+        chips={[
+          {
+            id: 'hardinessRating',
+            content: (
+              <Tooltip title="Bedingt winterhart">
+                <Chip size="small" label="Bedingt winterhart" color="warning" />
+              </Tooltip>
+            ),
+          },
+        ]}
+      />,
+    );
+
+    // Several list pages wrap a chip in a Tooltip to explain what its label
+    // means. The keyed-chip cloner sees the Tooltip, not the Chip — so this
+    // pins down where the hook actually ends up rather than leaving a caller to
+    // assume. MUI forwards unrecognised props to the tooltip's child, so the
+    // hook must reach the chip element and stay readable as a chip.
+    const hook = screen.getByTestId('card-chip-hardinessRating');
+    expect(hook.className).toContain('MuiChip-root');
+    expect(hook.textContent).toBe('Bedingt winterhart');
+    expect(hook.getAttribute('data-chip-color')).toBe('warning');
+  });
+
+  it('does not overwrite a caller-provided testid on a Tooltip-wrapped chip', () => {
+    render(
+      <MobileCard
+        title="Zitrone"
+        chips={[
+          {
+            id: 'hardinessRating',
+            content: (
+              <Tooltip title="Bedingt winterhart">
+                <Chip size="small" label="Bedingt winterhart" data-testid="hardiness-chip-abc" />
+              </Tooltip>
+            ),
+          },
+        ]}
+      />,
+    );
+
+    // The unwrapped case is already guarded above, but a wrapper hides the
+    // child's props from the cloner — so without an explicit check the keyed
+    // hook would be forwarded onto the chip and silently replace a per-row
+    // testid that page objects already address.
+    expect(screen.getByTestId('hardiness-chip-abc').textContent).toBe('Bedingt winterhart');
+    expect(screen.queryByTestId('card-chip-hardinessRating')).toBeNull();
   });
 
   it('does not overwrite a caller-provided chip colour attribute', () => {

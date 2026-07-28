@@ -12,6 +12,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import { Controller, type Control } from 'react-hook-form';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -63,7 +64,7 @@ export default function PlanEditTab({
   const { t } = useTranslation();
 
   return (
-    <Box component="form" onSubmit={onSubmit} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <Form onSubmit={onSubmit} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
       <Typography variant="body2" color="text.secondary">
         {t('pages.nutrientPlans.editIntro')}
       </Typography>
@@ -375,6 +376,6 @@ export default function PlanEditTab({
           {t('common.origin.readOnlyHint')}
         </Typography>
       )}
-    </Box>
+    </Form>
   );
 }

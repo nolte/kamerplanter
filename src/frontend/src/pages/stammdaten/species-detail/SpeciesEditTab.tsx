@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { type Control } from 'react-hook-form';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -62,8 +63,7 @@ export default function SpeciesEditTab({
     /* UI-NFR-018 R-027: when read-only the whole form must reject input,
       not just hide the save button. fieldset[disabled] grays out and
       disables every native form control beneath it (HTML5 spec). */
-    <Box
-      component="form"
+    <Form
       onSubmit={onSubmit}
       sx={{
         maxWidth: FORM_MAX_WIDTH,
@@ -300,6 +300,6 @@ export default function SpeciesEditTab({
           </Typography>
         )}
       </Box>
-    </Box>
+    </Form>
   );
 }

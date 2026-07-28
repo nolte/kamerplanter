@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { useForm } from 'react-hook-form';
+import Form from '@/components/form/Form';
 import FormSelectField from '@/components/form/FormSelectField';
 
 const options = [
@@ -13,9 +14,9 @@ const options = [
 function TestForm() {
   const { control } = useForm({ defaultValues: { level: 'low' } });
   return (
-    <form>
+    <Form>
       <FormSelectField name="level" control={control} label="Level" options={options} />
-    </form>
+    </Form>
   );
 }
 

@@ -14,6 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -147,7 +148,7 @@ export default function FeedingEventCreateDialog({
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
       <DialogTitle id="feeding-event-create-dialog-title">{t('pages.feedingEvents.create')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           {plantKey ? (
             <FormTextField
               name="plant_key"
@@ -313,7 +314,7 @@ export default function FeedingEventCreateDialog({
             loading={saving}
             saveLabel={t('common.create')}
           />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

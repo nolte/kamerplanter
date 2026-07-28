@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect } from 'vitest';
 import { useForm } from 'react-hook-form';
+import Form from '@/components/form/Form';
 import FormClimateZoneField from '@/components/form/FormClimateZoneField';
 import { USDA_HARDINESS_ZONES } from '@/pages/standorte/climateZones';
 import { renderWithProviders, createStoreWithExpertise } from '../helpers';
@@ -9,9 +10,9 @@ import { renderWithProviders, createStoreWithExpertise } from '../helpers';
 function TestForm({ initial = '' }: { initial?: string }) {
   const { control } = useForm({ defaultValues: { climate_zone: initial } });
   return (
-    <form>
+    <Form>
       <FormClimateZoneField name="climate_zone" control={control} label="Climate" />
-    </form>
+    </Form>
   );
 }
 

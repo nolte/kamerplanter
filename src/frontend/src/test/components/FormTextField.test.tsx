@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 
 const schema = z.object({ name: z.string().min(1, 'Name is required') });
@@ -14,10 +15,10 @@ function TestForm({ defaultName = '' }: { defaultName?: string }) {
     defaultValues: { name: defaultName },
   });
   return (
-    <form onSubmit={handleSubmit(() => {})}>
+    <Form onSubmit={handleSubmit(() => {})}>
       <FormTextField name="name" control={control} label="Name" required />
       <button type="submit">Submit</button>
-    </form>
+    </Form>
   );
 }
 

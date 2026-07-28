@@ -8,6 +8,7 @@ import DialogContent from '@mui/material/DialogContent';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormDateField from '@/components/form/FormDateField';
@@ -78,12 +79,12 @@ export default function BatchCreateDialog({ substrateKey, open, onClose, onCreat
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="batch-create-dialog-title" data-testid="batch-create-dialog">
       <DialogTitle id="batch-create-dialog-title">{t('pages.batches.create')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <FormTextField name="batch_id" control={control} label={t('pages.batches.batchId')} helperText={t('pages.batches.batchIdHelper')} required />
           <FormNumberField name="volume_liters" control={control} label={t('pages.batches.volume')} helperText={t('pages.batches.volumeHelper')} min={0} step={0.5} />
           <FormDateField name="mixed_on" control={control} label={t('pages.batches.mixedOn')} required />
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

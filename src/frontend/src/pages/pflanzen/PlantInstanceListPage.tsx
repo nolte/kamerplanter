@@ -345,7 +345,9 @@ export default function PlantInstanceListPage() {
       <MobileCard
         leading={<PlantCoverPreview plantInstanceKey={r.key} size={48} />}
         title={displayName}
+        titleId="plantName"
         subtitle={displayName !== r.instance_id ? r.instance_id : undefined}
+        subtitleId="instanceId"
         chips={[
           ...(r.current_phase
             ? [{

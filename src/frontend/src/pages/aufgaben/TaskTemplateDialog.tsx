@@ -10,6 +10,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -157,7 +158,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-template-dialog-title">
       <DialogTitle id="task-template-dialog-title">{isEdit ? t('pages.tasks.editTaskTemplate') : t('pages.tasks.addTaskTemplate')}</DialogTitle>
       <DialogContent>
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <Form onSubmit={handleSubmit(onSubmit)}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.tasks.sectionTask')}
           </Typography>
@@ -208,7 +209,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
             </Box>
           </Box>
           <FormActions onCancel={onClose} loading={saving} saveLabel={isEdit ? t('common.save') : t('common.create')} />
-        </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

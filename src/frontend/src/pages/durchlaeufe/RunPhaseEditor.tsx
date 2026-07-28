@@ -323,17 +323,23 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.display_name || r.phase_name}
-                chips={
-                  <Chip
-                    size="small"
-                    label={t(`pages.plantingRuns.phase${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`)}
-                    color={r.status === 'completed' ? 'success' : r.status === 'current' ? 'primary' : 'default'}
-                    variant="outlined"
-                  />
-                }
+                titleId="phase"
+                chips={[
+                  {
+                    id: 'status',
+                    content: (
+                      <Chip
+                        size="small"
+                        label={t(`pages.plantingRuns.phase${r.status.charAt(0).toUpperCase() + r.status.slice(1)}`)}
+                        color={r.status === 'completed' ? 'success' : r.status === 'current' ? 'primary' : 'default'}
+                        variant="outlined"
+                      />
+                    ),
+                  },
+                ]}
                 fields={[
-                  { label: t('pages.plantingRuns.actualStart'), value: r.actual_entered_at ? formatDate(r.actual_entered_at) : r.projected_start ? `~${formatDate(r.projected_start)}` : '—' },
-                  { label: t('pages.plantingRuns.durationDays'), value: r.actual_duration_days != null ? `${r.actual_duration_days} ${t('pages.plantingRuns.daysShort')}` : `~${r.typical_duration_days} ${t('pages.plantingRuns.daysShort')}` },
+                  { id: 'enteredAt', label: t('pages.plantingRuns.actualStart'), value: r.actual_entered_at ? formatDate(r.actual_entered_at) : r.projected_start ? `~${formatDate(r.projected_start)}` : '—' },
+                  { id: 'duration', label: t('pages.plantingRuns.durationDays'), value: r.actual_duration_days != null ? `${r.actual_duration_days} ${t('pages.plantingRuns.daysShort')}` : `~${r.typical_duration_days} ${t('pages.plantingRuns.daysShort')}` },
                 ]}
               />
             )}

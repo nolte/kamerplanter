@@ -18,6 +18,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import type { Fertilizer, FertilizerDosage } from '@/api/types';
@@ -161,7 +162,7 @@ function EditDialog({
       <DialogTitle id="channel-fertilizer-dialog-title">
         {t('pages.nutrientPlans.editFertilizer')}
       </DialogTitle>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <Form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField
@@ -198,7 +199,7 @@ function EditDialog({
             {t('common.save')}
           </Button>
         </DialogActions>
-      </form>
+      </Form>
     </Dialog>
   );
 }
@@ -303,7 +304,7 @@ function AddDialog({
       <DialogTitle id="channel-fertilizer-dialog-title">
         {t('pages.nutrientPlans.addFertilizer')}
       </DialogTitle>
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <Form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Autocomplete
@@ -398,7 +399,7 @@ function AddDialog({
             {draftCount > 1 && ` (${draftCount})`}
           </Button>
         </DialogActions>
-      </form>
+      </Form>
     </Dialog>
   );
 }
