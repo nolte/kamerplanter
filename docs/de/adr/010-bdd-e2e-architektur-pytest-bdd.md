@@ -1,8 +1,16 @@
 # ADR-010: BDD-Architektur für die E2E-Suite (pytest-bdd, TC-004-092 als Proof-of-Concept)
 
-**Status:** Akzeptiert, §6 nachträglich korrigiert (2026-07-29)
+**Status:** Akzeptiert, §1 und §6 nachträglich korrigiert (2026-07-29)
 **Datum:** 2026-07-25
 **Entscheider:** Kamerplanter Development Team
+
+!!! warning "Nachtrag 2026-07-29 — §1 ist überholt: der Check deckt beide Kanäle"
+    §1 hielt fest, der Traceability-Check sei bewusst **nicht** auf die
+    Docstring-IDs der klassischen Tests ausgeweitet worden, weil das „sofort eine
+    Masse an Bestandsbefunden" melden würde. Die Vorhersage traf zu, der Schluss
+    daraus nicht: #775 und #839 haben ihn ausgeweitet, und die Masse war genau der
+    **Grund** dafür. Der Check prüft heute beide Kanäle mit vier Defektklassen und
+    ohne Baseline. Details unten im Nachtrag zu §1.
 
 !!! warning "Nachtrag 2026-07-29 — die Hochrechnung in §6 trägt nicht"
     Die als Annahme markierte Hochrechnung auf die übrigen REQ-004-Fälle wurde
@@ -43,6 +51,12 @@ Der bestehende klassische Test bleibt bestehen; beide Implementierungen von TC-0
 Jedes BDD-Szenario trägt einen `@TC-<REQ>-<NNN>`-Tag (hier `@TC-004-092`), der über den JUnit-`tc_id`-`user_property`-Kanal und die `protokoll.md`-Zeile bis in den Report durchgereicht wird. `scripts/check_bdd_traceability.py` verifiziert diese Bindung **maschinell und in beiden Richtungen**: ein Tag, der auf keine `## TC-<id>: <Titel>`-Überschrift unter `spec/e2e-testcases/` trifft, ist ein Fehler (`orphan tag`); ein Szenario ohne Tag ebenso (`untagged scenario`). Die Rückrichtung — ein deklarierter Testfall ohne Szenario — ist bewusst **kein** Fehler, sondern eine informative Zählung: Automatisierungs-Abdeckung wächst über Zeit.
 
 Der ehrliche Befund dazu: Der Check wurde bewusst **nicht** auf die docstring-basierten TC-IDs der klassischen Tests ausgeweitet (`TC-REQ-004-W001`-Form). `tests/e2e/README.md` dokumentiert offen, dass diese Test-deklarierten IDs bereits heute von den Spec-IDs (`TC-004-NNN`) abgedriftet sind — eine Ausweitung des Checks würde sofort eine Masse an Bestandsbefunden melden, nicht weil BDD etwas kaputt macht, sondern weil die Drift schon vorher da war. Das ist genau das Argument **für** die BDD-Traceability, nicht dagegen: der Tag-Mechanismus verhindert, dass dieselbe Drift für neue Szenarien erneut entsteht, weil sie durch einen aktiven Gate erzwungen wird, statt sich auf Docstring-Disziplin zu verlassen.
+
+!!! warning "Überholt — siehe Nachtrag 2026-07-29 zu §1"
+    Der Absatz oben beschreibt den Stand vom 2026-07-25. Der Check ist inzwischen
+    auf den Docstring-Kanal ausgeweitet (#775, #839) und meldet dort zwei weitere
+    Defektklassen. Die vorhergesagte „Masse an Bestandsbefunden" war real — und
+    war der Grund für die Ausweitung, nicht dagegen.
 
 ### 2. Authoring-Ergonomie
 
@@ -161,6 +175,42 @@ sich ändert, ist die *Reihenfolge* einer künftigen Migration: gruppenweise ab 
 beginnend bei Runoff (kleinster vollständiger Gruppenbeweis, Page-Object vorhanden), nicht
 fallweise vom Referenzfall aus.
 
+## Nachtrag 2026-07-29 — §1: der Docstring-Kanal ist jetzt Teil des Gates
+
+§1 begründete, den Check **nicht** auf die Docstring-IDs der klassischen Tests
+auszuweiten: das würde „sofort eine Masse an Bestandsbefunden" melden. Die
+Vorhersage war richtig. Der Schluss war falsch.
+
+#775 hat ausgeweitet und gemessen: über 620 prüfbare Testfunktionen widersprach die
+Docstring-ID in **616** Fällen der handverifizierten `Spec:`-Zeile desselben Tests.
+Es gab also zwei Kanäle, die beide eine TC-ID behaupteten, und sie waren sich fast
+nie einig — die Zahl sah wie Traceability aus und war keine. Genau das war der Grund
+zur Ausweitung: eine Masse an Bestandsbefunden ist kein Argument gegen die Messung,
+sondern der Befund, den die Messung liefern sollte.
+
+**Wo die Drift herkam.** Die Docstring-IDs waren pro Datei fortlaufend gezählt und
+trafen eine echte Spec-Nummer nur zufällig. Das ist der Grund, warum die
+`did you mean …?`-Vorschläge des Checks nicht verwendbar sind: sie sind
+String-Nachbarschaft, keine Übereinstimmung. Drei wurden gegen den Spec-Text geprüft
+(#839), alle drei beschrieben anderes Verhalten.
+
+**Was #839 vorfand.** Die 99 mechanisch unauflösbaren Fälle hielt #775 hinter zwei
+schrumpfenden Baselines. Deren Auflösung ergab: **66 brauchten einen neu
+geschriebenen Testfall** — für **REQ-031, REQ-035 und REQ-036 existierte überhaupt
+kein Testfall-Dokument**. Diese Tests behaupteten Abdeckung gegen nichts
+Geschriebenes. Vier Tests waren tot und wurden gelöscht.
+
+**Stand heute.** Alle 718 klassischen Tests deklarieren eine auflösbare TC-ID. Der
+Check prüft vier Defektklassen — unauflösbarer Tag und fehlender Tag, je Kanal — und
+läuft ohne Baseline im required `static`-Job. Eine auf Null gepinnte Baseline wäre
+tote Mechanik im Gewand einer Regel.
+
+**Was das für die Entscheidung bedeutet.** Punkt 2 der Entscheidung („Go für die
+maschinelle Traceability-Prüfung als eigenständiges, wiederverwendbares Werkzeug")
+wird gestützt, nicht berührt: der Wert des Werkzeugs lag am Ende nicht im
+BDD-Anteil der Suite, sondern in den 718 klassischen Tests, für die es ursprünglich
+gar nicht gedacht war.
+
 ## Referenzen
 
 - Issue #761 — `test(e2e): PoC — BDD E2E architecture driven from TC docs (TC-004-092 as first scenario)`
@@ -170,6 +220,8 @@ fallweise vom Referenzfall aus.
 - `tests/e2e/test_req004_watering_cross_view_consistency.py` — der klassische Vergleichstest
 - `spec/analysis/req004-bdd-migration-triage.md` — die Sichtung aus #774, die §6 korrigiert
 - Issue #774 — `chore(e2e): triage the REQ-004 test cases for BDD migration effort`
+- Issue #775 — Ausweitung des Checks auf den Docstring-Kanal, die §1 korrigiert
+- Issue #839 — Auflösung der 99 Restfälle und Entfernung beider Baselines
 - `scripts/check_bdd_traceability.py` — der maschinelle Spec-↔-Test-Abgleich
 - `tests/e2e/README.md` — Selektionsachsen, Tag-Schema, TC-ID-Ableitungsreihenfolge
 - `spec/e2e-testcases/TC-REQ-004.md` — TC-004-092
