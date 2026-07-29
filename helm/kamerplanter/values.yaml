@@ -98,6 +98,25 @@ controllers:
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
+          # is never initialised and the process is unchanged, so this block is
+          # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
+          # valuesObject (or via kamerplanter-secrets) to switch it on; the DSN
+          # carries only a public ingest key, not a credential.
+          # SENTRY_ENVIRONMENT must come from the closed vocabulary the alert
+          # rules filter on: development | e2e | staging | production.
+          SENTRY_DSN: ""
+          SENTRY_ENVIRONMENT: "production"
+          # Set to the image tag the deployment rolls out, so a regression is
+          # attributable to the release that introduced it.
+          SENTRY_RELEASE: ""
+          SENTRY_SAMPLE_RATE: "1.0"
+          # NetworkPolicy caveat: the external-egress rule below deliberately
+          # EXCLUDES the RFC1918 ranges, so a self-hosted tracker on a private
+          # address is unreachable until the operator adds an explicit egress
+          # rule for it. Events would be dropped silently — the SDK does not
+          # surface a blocked connection. Enabling the DSN is therefore two
+          # changes, not one.
           CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8080"]'
           DEBUG: "false"
           MDNS_ENABLED: "false"  # mDNS is LAN-only, disable in K8s
@@ -201,12 +220,27 @@ controllers:
           - |
             cat <<EOF > /runtime-config/runtime-config.js
             window.__RUNTIME_CONFIG__ = {
-              KAMERPLANTER_MODE: "${KAMERPLANTER_MODE:-full}"
+              KAMERPLANTER_MODE: "${KAMERPLANTER_MODE:-full}",
+              SENTRY_DSN: "${SENTRY_DSN:-}",
+              SENTRY_ENVIRONMENT: "${SENTRY_ENVIRONMENT:-}",
+              SENTRY_RELEASE: "${SENTRY_RELEASE:-}",
+              SENTRY_SAMPLE_RATE: "${SENTRY_SAMPLE_RATE:-}"
             };
             EOF
         env:
           KAMERPLANTER_MODE:
             value: "full"
+          # #777 — mirrors the container's own docker-entrypoint.d script. Empty
+          # DSN => the browser never fetches the SDK chunk, so the initial
+          # payload budget (UI-NFR-003) is untouched when tracking is off.
+          SENTRY_DSN:
+            value: ""
+          SENTRY_ENVIRONMENT:
+            value: "production"
+          SENTRY_RELEASE:
+            value: ""
+          SENTRY_SAMPLE_RATE:
+            value: "1.0"
     containers:
       main:
         image:
@@ -220,6 +254,12 @@ controllers:
             drop: ["ALL"]
         env:
           VITE_BACKEND_URL: "http://kamerplanter-backend:8000"
+          # #777 — the nginx container needs the DSN too, not just the
+          # init container: docker-entrypoint.d/30-error-tracking-csp.sh runs
+          # here and widens connect-src by exactly the configured ingest origin.
+          # Keep this in step with the init container's value, or the browser
+          # loads the SDK and then has its events blocked by the CSP.
+          SENTRY_DSN: ""
         probes:
           liveness:
             enabled: true
@@ -356,6 +396,25 @@ controllers:
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
+          # is never initialised and the process is unchanged, so this block is
+          # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
+          # valuesObject (or via kamerplanter-secrets) to switch it on; the DSN
+          # carries only a public ingest key, not a credential.
+          # SENTRY_ENVIRONMENT must come from the closed vocabulary the alert
+          # rules filter on: development | e2e | staging | production.
+          SENTRY_DSN: ""
+          SENTRY_ENVIRONMENT: "production"
+          # Set to the image tag the deployment rolls out, so a regression is
+          # attributable to the release that introduced it.
+          SENTRY_RELEASE: ""
+          SENTRY_SAMPLE_RATE: "1.0"
+          # NetworkPolicy caveat: the external-egress rule below deliberately
+          # EXCLUDES the RFC1918 ranges, so a self-hosted tracker on a private
+          # address is unreachable until the operator adds an explicit egress
+          # rule for it. Events would be dropped silently — the SDK does not
+          # surface a blocked connection. Enabling the DSN is therefore two
+          # changes, not one.
           # NFR-013 — the worker generates thumbnails (§8.2) and runs the DSGVO
           # storage erasure (§6.2), so it MUST see the same backend + volume as
           # the backend pod. Keep these in sync with the backend controller.
@@ -424,6 +483,25 @@ controllers:
           ARANGODB_DATABASE: kamerplanter
           ARANGODB_USERNAME: root
           REDIS_URL: redis://kamerplanter-valkey:6379/0
+          # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
+          # is never initialised and the process is unchanged, so this block is
+          # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
+          # valuesObject (or via kamerplanter-secrets) to switch it on; the DSN
+          # carries only a public ingest key, not a credential.
+          # SENTRY_ENVIRONMENT must come from the closed vocabulary the alert
+          # rules filter on: development | e2e | staging | production.
+          SENTRY_DSN: ""
+          SENTRY_ENVIRONMENT: "production"
+          # Set to the image tag the deployment rolls out, so a regression is
+          # attributable to the release that introduced it.
+          SENTRY_RELEASE: ""
+          SENTRY_SAMPLE_RATE: "1.0"
+          # NetworkPolicy caveat: the external-egress rule below deliberately
+          # EXCLUDES the RFC1918 ranges, so a self-hosted tracker on a private
+          # address is unreachable until the operator adds an explicit egress
+          # rule for it. Events would be dropped silently — the SDK does not
+          # surface a blocked connection. Enabling the DSN is therefore two
+          # changes, not one.
         probes:
           liveness:
             enabled: true
@@ -578,6 +656,25 @@ controllers:
                 name: kamerplanter-secrets
                 key: INTERNAL_SERVICE_TOKEN
           MODEL_PATH: /app/models/dinov2
+          # #777 — optional Sentry-protocol error tracking. Empty DSN => the SDK
+          # is never initialised and the process is unchanged, so this block is
+          # safe to ship enabled-by-absence. Set SENTRY_DSN in the ArgoCD
+          # valuesObject (or via kamerplanter-secrets) to switch it on; the DSN
+          # carries only a public ingest key, not a credential.
+          # SENTRY_ENVIRONMENT must come from the closed vocabulary the alert
+          # rules filter on: development | e2e | staging | production.
+          SENTRY_DSN: ""
+          SENTRY_ENVIRONMENT: "production"
+          # Set to the image tag the deployment rolls out, so a regression is
+          # attributable to the release that introduced it.
+          SENTRY_RELEASE: ""
+          SENTRY_SAMPLE_RATE: "1.0"
+          # NetworkPolicy caveat: the external-egress rule below deliberately
+          # EXCLUDES the RFC1918 ranges, so a self-hosted tracker on a private
+          # address is unreachable until the operator adds an explicit egress
+          # rule for it. Events would be dropped silently — the SDK does not
+          # surface a blocked connection. Enabling the DSN is therefore two
+          # changes, not one.
           MODEL_NAME: dinov2_vits14
           MODEL_DIM: "384"
           INPUT_SIZE: "224"

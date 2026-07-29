@@ -17,6 +17,7 @@ from app.confidence import cosine_to_confidence
 from app.config import settings
 from app.disease_classifier import DiseaseClassifier, DiseaseModelNotReadyError
 from app.embedder import Embedder, ModelNotReadyError
+from app.observability.error_tracking import init_error_tracking, resolve_release
 from app.phenotype_engine import PhenotypeEngine, PhenotypeUnavailableError
 from app.schemas import (
     BatchEmbedResponse,
@@ -54,6 +55,17 @@ from app.vectordb.repository import SpeciesEmbeddingRepository
 from app.vectordb.schema import run_migrations
 
 logger = structlog.get_logger(__name__)
+
+#: Single source for the version reported to OpenAPI and used as the release
+#: fallback, so the two can never disagree about which build is running.
+SERVICE_VERSION = "1.0.0"
+
+# Optional error tracking (#777), at process entry and before any request is
+# served. No-op without SENTRY_DSN.
+init_error_tracking(
+    component="inference-service",
+    release=resolve_release("kamerplanter-inference-service", SERVICE_VERSION),
+)
 
 _VECTORDB_MIGRATIONS_DIR = Path(__file__).resolve().parent / "vectordb" / "migrations"
 
@@ -184,7 +196,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Kamerplanter Inference Service",
     description="DINOv2 embedding extraction and pgvector species matching",
-    version="1.0.0",
+    version=SERVICE_VERSION,
     lifespan=lifespan,
     # Service-token auth on every route; the dependency exempts probe paths
     # (/health, /ready) so kubelet checks keep working (AP-4, INF-S2).

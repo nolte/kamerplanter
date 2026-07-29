@@ -3,6 +3,7 @@ from celery.schedules import crontab
 
 from app.config.settings import settings
 from app.data_access.external.registration import register_external_adapters
+from app.observability.error_tracking import init_error_tracking, resolve_release
 
 # The Celery worker/beat boot via ``celery -A app.tasks`` and never import
 # ``app.main``, so without this call the adapter registries would be empty in the
@@ -10,6 +11,16 @@ from app.data_access.external.registration import register_external_adapters
 # task) would fail with ``*_source_unknown`` and write nothing. Register at
 # module import time so every task has the adapters available.
 register_external_adapters()
+
+# The same reason applies to error tracking (#777): the worker is a separate
+# process that never runs ``app.main``. A background task that raises is the
+# least visible failure this system has — no request is held open waiting for it
+# — which makes the worker the component that needs a tracker most. No-op
+# without SENTRY_DSN.
+init_error_tracking(
+    component="worker",
+    release=resolve_release("kamerplanter-worker", settings.app_version),
+)
 
 celery_app = Celery(
     "kamerplanter",

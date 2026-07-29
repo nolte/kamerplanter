@@ -388,6 +388,7 @@ nav:
       - ArgoCD: de/deployment/argocd.md
       - CI/CD: de/deployment/ci-cd.md
       - Bilderkennung (Inferenz-Service): de/deployment/inference-service.md
+      - Fehler-Tracking: de/deployment/fehler-tracking.md
   - Guides:
       - de/guides/index.md
       - 'Journey: Cannabis-Grow-Zyklus': de/guides/journey-cannabis-cycle.md
