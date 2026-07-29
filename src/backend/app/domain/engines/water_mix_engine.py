@@ -9,6 +9,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
+from app.common.datetimes import today_utc
 from app.domain.models.site import RoWaterProfile, TapWaterProfile
 
 # ── Result types ──────────────────────────────────────────────────────
@@ -688,7 +689,10 @@ class WaterSourceValidator:
         if profile.measurement_date is None:
             return warnings
 
-        reference = today or date.today()
+        # Live fallback, not dead code: ``validate_all`` forwards its own
+        # ``today=None`` default and ``nutrient_calculations/router.py`` calls it
+        # without one. UTC per §12a — ``measurement_date`` is a persisted date.
+        reference = today or today_utc()
         age_days = (reference - profile.measurement_date).days
         if age_days > 365:
             months = age_days // 30

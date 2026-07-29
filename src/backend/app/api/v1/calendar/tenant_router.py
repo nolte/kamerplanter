@@ -18,6 +18,7 @@ from app.api.v1.calendar.schemas import (
     SowingCalendarResponse,
 )
 from app.common.auth import get_current_tenant
+from app.common.datetimes import today_utc
 from app.common.dependencies import get_calendar_service
 from app.common.enums import CalendarEventCategory
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
@@ -30,6 +31,31 @@ from app.domain.models.tenant_context import TenantContext
 from app.domain.services.calendar_service import CalendarService
 
 router = APIRouter(prefix="/calendar", tags=["calendar"], responses=NOT_FOUND_RESPONSE)
+
+
+def _default_calendar_year() -> int:
+    """The calendar year assumed when the caller names none.
+
+    UTC (§12a), which keeps this default on the same clock as everything it is
+    handed to: ``SeasonOverviewEngine`` marks the current month by comparing
+    ``today_utc().year`` against exactly this value, and the sowing bars are
+    built from frost dates derived from UTC-stamped records. Reading the two
+    from different clocks would, for the hours around New Year, request a year
+    the engine then declares "not current" — blanking ``is_current`` for the
+    whole overview.
+
+    **Open product question (#858).** This is the one converted site whose
+    "right" answer is not purely technical: a year the *user* sees arguably
+    belongs to the user's or the tenant's timezone, not to UTC. It is not
+    implementable today — no ``Tenant`` carries a timezone (only ``Site`` does,
+    defaulting to ``"UTC"``), and ``site_id`` is optional on both endpoints, so
+    there is no timezone to resolve for the unscoped call. Deciding between
+    "tenant timezone", "site timezone when scoped" and "keep UTC" is a product
+    call; until it is made, UTC is the consistent choice rather than the
+    accidental one the server's ``TZ`` provided. The practical exposure is
+    small: the local and UTC *year* differ only in the hours around 1 January.
+    """
+    return today_utc().year
 
 
 def _feed_response(
@@ -107,10 +133,8 @@ def get_sowing_calendar(
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> SowingCalendarResponse:
     """Return the sowing calendar with per-species phase bars for a year."""
-    from datetime import date as _date
-
     svc: CalendarService = get_calendar_service()
-    effective_year = year if year else _date.today().year
+    effective_year = year if year else _default_calendar_year()
     entries, frost_config = svc.get_sowing_calendar(site_id, effective_year)
     return SowingCalendarResponse(
         entries=[
@@ -149,10 +173,8 @@ def get_season_overview(
     ctx: TenantContext = Depends(get_current_tenant),
 ) -> SeasonOverviewResponse:
     """Return a month-by-month season overview with activity counts."""
-    from datetime import date as _date
-
     svc: CalendarService = get_calendar_service()
-    effective_year = year if year else _date.today().year
+    effective_year = year if year else _default_calendar_year()
     overview = svc.get_season_overview(site_id, effective_year)
     return SeasonOverviewResponse(
         site_key=overview.site_key,

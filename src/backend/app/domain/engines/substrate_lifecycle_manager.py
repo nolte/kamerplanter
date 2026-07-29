@@ -1,6 +1,7 @@
 import statistics
 from datetime import date, timedelta
 
+from app.common.datetimes import today_utc
 from app.common.enums import IrrigationStrategy, SubstrateType
 from app.common.exceptions import SubstrateExhaustedError
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
@@ -160,7 +161,9 @@ class SubstrateLifecycleManager:
 
         # Get preparation steps
         prep_steps, prep_time = self.prepare_for_reuse(substrate, batch)
-        ready = date.today() + timedelta(hours=prep_time)
+        # UTC per §12a: the caller compares this ready-date against batch
+        # timestamps, which are UTC.
+        ready = today_utc() + timedelta(hours=prep_time)
 
         return True, [], prep_steps, prep_time, ready
 

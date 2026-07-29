@@ -7,6 +7,7 @@ the injected ``photo_cleanup`` callback so no orphan storage bytes remain.
 from datetime import date
 from unittest.mock import MagicMock
 
+from app.common.datetimes import today_utc
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.plant_instance_service import PlantInstanceService
 from tests.conftest import wire_get_or_raise
@@ -52,7 +53,10 @@ class TestPhotoCascadeOnRemove:
         # Refs are cleared after the cascade.
         assert updated.photo_refs == []
         assert updated.cover_photo_ref is None
-        assert updated.removed_on == date.today()
+        # UTC, not ``date.today()``: the service stamps ``today_utc()`` (§12a,
+        # #858) and a local-date assertion here would pass on a UTC CI runner
+        # whichever clock the production code read.
+        assert updated.removed_on == today_utc()
 
     def test_no_cleanup_when_no_photos(self):
         plant = _plant([])
@@ -70,4 +74,4 @@ class TestPhotoCascadeOnRemove:
         updated = service.remove_plant("plant-1")
 
         # No callback wired → photos are left untouched (still removable later).
-        assert updated.removed_on == date.today()
+        assert updated.removed_on == today_utc()

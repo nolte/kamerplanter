@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     TerminationCause,
     TerminationType,
@@ -574,7 +575,10 @@ class PlantInstanceService:
         else:
             plant.termination_type = termination_type
             plant.termination_cause = termination_cause
-            plant.removed_on = date.today()
+            # The sibling path above records the loss through the transition
+            # engine, which stamps ``datetime.now(UTC)``; this one must not use
+            # a different clock for the same event (§12a).
+            plant.removed_on = today_utc()
             updated = self._repo.update(key, plant)
 
         # Remove the now-obsolete open tasks of this plant from the queue — this

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.datetimes import today_utc
 from app.data_access.external.home_assistant_weather_adapter import HomeAssistantWeatherAdapter
 from app.domain.models.weather import HaSensorMapping, WeatherSourceHaConfig
 
@@ -120,7 +121,9 @@ class TestModeBSensorMapping:
 
         assert len(records) == 1
         record = records[0]
-        assert record.forecast_date == date.today()
+        # UTC, not ``date.today()``: the adapter stamps ``today_utc()`` (§12a,
+        # #858) because this record's consumers filter it against a UTC day.
+        assert record.forecast_date == today_utc()
         assert record.temp_min_c == 11.0
         assert record.temp_max_c == 23.0
         assert record.humidity_percent == 55.0

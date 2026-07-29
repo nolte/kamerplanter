@@ -77,13 +77,28 @@ class TestBuildOverview:
         assert may.task_count == 4
         assert may.top_tasks == ["Düngen", "Mulchen", "Jäten"]
 
-    @patch("app.domain.engines.season_overview_engine.date")
-    def test_is_current_month(self, mock_date, engine):
-        mock_date.today.return_value = date(2026, 3, 15)
-        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+    # Patches ``today_utc``, not ``date``: the engine reads the UTC calendar day
+    # (§12a, #858). Patching the whole ``date`` class — as this test used to —
+    # routed every other ``date(...)`` construction in the module through a mock
+    # as well, which is what the ``side_effect`` passthrough was there to undo.
+    @patch("app.domain.engines.season_overview_engine.today_utc")
+    def test_is_current_month(self, mock_today_utc, engine):
+        mock_today_utc.return_value = date(2026, 3, 15)
         overview = engine.build_overview([], [], "s1", "G", 2026)
         assert overview.months[2].is_current is True  # March
         assert overview.months[0].is_current is False
+
+    @patch("app.domain.engines.season_overview_engine.today_utc")
+    def test_no_month_is_current_in_another_year(self, mock_today_utc, engine):
+        """The year comparison is what makes the marker year-aware.
+
+        It is also the coupling that ties this engine to the calendar router's
+        default year: both must read the same clock, or the router can request a
+        year the engine then declares "not current" (#858).
+        """
+        mock_today_utc.return_value = date(2026, 3, 15)
+        overview = engine.build_overview([], [], "s1", "G", 2027)
+        assert not any(month.is_current for month in overview.months)
 
     def test_site_info_propagated(self, engine):
         overview = engine.build_overview([], [], "site42", "Mein Garten", 2026)

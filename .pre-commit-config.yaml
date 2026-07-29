@@ -105,6 +105,33 @@ repos:
         entry: python3 scripts/check_schema_examples.py
         language: system
         always_run: true
+
+  # ── UTC calendar day (#858) ────────────────────────────────────────────
+  # Refuses a bare `date.today()` — the *local server* date — anywhere under
+  # src/backend/app. BACKEND.md §12a has required UTC there since #812, but
+  # nothing measured it, so the sweep had to be repeated three times (#772,
+  # #812, #858) and 18 call sites survived the second one.
+  #
+  # This defect cannot be caught by any test on CI: on a UTC container
+  # `date.today()` and `datetime.now(UTC).date()` return the same value, so the
+  # mistake reads as correct in review, in local development on a UTC box, and
+  # in every CI run. Only a static gate sees it there — which is why this hook
+  # exists rather than a test.
+  #
+  # Zero allowed, not a shrink-only baseline like the two checks above: those
+  # carry debt that cannot be paid off in one change, this one has none left.
+  # The escape hatch is per-site (`# local-clock: <reason>`) and therefore more
+  # informative than a number — a reviewer can argue with a reason.
+  #
+  # Standard library only, no application import, no stack. pass_filenames is
+  # false so a converted site cannot hide behind an unrelated commit's file set.
+  - repo: local
+    hooks:
+      - id: utc-calendar-day
+        name: no bare date.today() in the backend app code (#858)
+        entry: python3 scripts/check_utc_calendar_day.py
+        language: system
+        files: ^(src/backend/app/.*\.py|scripts/check_utc_calendar_day\.py)$
         pass_filenames: false
 
   # ── Backend (Python) ──────────────────────────────────────────────────

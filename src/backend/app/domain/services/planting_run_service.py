@@ -1,5 +1,6 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
+from app.common.datetimes import today_utc
 from app.common.enums import PlantingRunStatus
 from app.common.exceptions import InvalidRunStateError, ValidationError
 from app.common.tenant_guard import verify_tenant_ownership
@@ -339,7 +340,9 @@ class PlantingRunService:
                 species_key=spec["species_key"],
                 cultivar_key=spec.get("cultivar_key"),
                 slot_key=slot_key,
-                planted_on=date.today(),
+                # UTC, like ``now`` two lines down: both stamp the same event and
+                # the reports that subtract them must not straddle two clocks.
+                planted_on=today_utc(),
                 current_phase_key=species_phase_key or None,
                 current_phase_started_at=now,
             )
@@ -593,7 +596,7 @@ class PlantingRunService:
             try:
                 existing = self._plant_repo.get_by_key(plant_key)
                 if existing and existing.removed_on is None:
-                    existing.removed_on = date.today()
+                    existing.removed_on = today_utc()
                     self._plant_repo.update(plant_key, existing)
                     removed.append(plant_key)
             except Exception:
@@ -1045,7 +1048,9 @@ class PlantingRunService:
         if self._nutrient_plan_repo is None:
             return []
         phase_entries = self._nutrient_plan_repo.get_phase_entries(plan_key)
-        today = date.today()
+        # Projected against ``get_last_watering_date_for_run()``, which derives
+        # its date from a stored UTC timestamp — so this anchor is UTC too.
+        today = today_utc()
 
         merged: dict[str, dict] = {}
         for entry in phase_entries:
@@ -1107,7 +1112,9 @@ class PlantingRunService:
             last_watering_date = None
             if self._watering_repo is not None:
                 last_watering_date = self._watering_repo.get_last_watering_date_for_run(run_key)
-            today = date.today()
+            # Same UTC anchor as ``_build_channel_calendars`` — the two schedules
+            # are rendered side by side and may not disagree about "today".
+            today = today_utc()
             dates = self._schedule_engine.get_next_watering_dates(
                 plan.watering_schedule,
                 today,

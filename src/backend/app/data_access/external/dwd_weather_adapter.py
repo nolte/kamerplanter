@@ -15,6 +15,7 @@ from datetime import UTC, date, datetime, timedelta
 import httpx
 import structlog
 
+from app.common.datetimes import today_utc
 from app.config.settings import settings
 from app.domain.interfaces.weather_adapter import WeatherAdapter
 from app.domain.models.weather import WeatherForecast
@@ -100,7 +101,43 @@ class _DayAccumulator:
 
 @WeatherAdapterRegistry.register
 class DwdWeatherAdapter(WeatherAdapter):
-    """DWD via the Brightsky JSON facade — free, no API key, DACH (REQ-046 §3.3)."""
+    """DWD via the Brightsky JSON facade — free, no API key, DACH (REQ-046 §3.3).
+
+    **Which clock the request window uses (#858).** Brightsky's ``/weather``
+    takes ``date``/``last_date``; a value carrying no UTC offset is interpreted
+    in the ``tz`` parameter's zone, and with ``tz`` omitted — as it is here — in
+    the *station's* local timezone. The window is therefore station-local by the
+    service's own contract, which is a genuine argument against blindly stamping
+    it in UTC.
+
+    It is still stamped in UTC, because the alternative on offer was never
+    station-local time: it was ``date.today()``, the *server's* local date,
+    which is Europe/Berlin only by accident of where the container happens to
+    run (and is UTC on every deployed one). Between the two candidates UTC is
+    the correct choice, for a reason that lives on this side of the API:
+
+    * the records this returns are filtered by ``frost_warning_engine`` /
+      ``sensor_service`` against ``datetime.now(UTC).date() <= forecast_date``.
+      A window starting *later* than that UTC day silently drops today's
+      forecast from the frost horizon — the worst outcome available here. A
+      local date ahead of UTC (any host east of Greenwich, for part of the day)
+      does exactly that;
+    * a window starting *earlier* is harmless: the extra past day is filtered
+      out by the same comparison.
+
+    ``today_utc()`` is never later than the consumer's day, so it cannot lose a
+    forecast; the local date can, in one direction, on some hosts, for some
+    hours. Since Brightsky parses the bare date station-locally, passing the UTC
+    day widens the window by the station's offset (1–2 h for DACH) at the
+    leading edge, which is the harmless direction.
+
+    Residual, deliberately not fixed here: ``forecast_date`` on the mapped
+    records is the *station-local* day (Brightsky presents its timestamps in
+    that zone), while the consumers compare it against a UTC day. For DACH that
+    is a 1–2 h disagreement at the very end of the UTC day and it predates this
+    change; correcting it means normalizing in :meth:`_map`, which is a separate
+    behavioural change to an ingest path.
+    """
 
     source_name = "dwd"
     kind = "public"
@@ -113,7 +150,10 @@ class DwdWeatherAdapter(WeatherAdapter):
     async def fetch_daily(
         self, *, latitude: float, longitude: float, config: object | None = None
     ) -> list[WeatherForecast]:
-        start = date.today()
+        # UTC, despite Brightsky's window being station-local — see the note in
+        # the class docstring. The server's own ``TZ`` is the one clock that is
+        # certainly wrong here.
+        start = today_utc()
         last = start + timedelta(days=_FORECAST_DAYS - 1)
         params = {
             "lat": latitude,

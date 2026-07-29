@@ -1,9 +1,8 @@
 """Season overview engine — aggregates sowing/harvest/task counts per month."""
 
-from datetime import date
-
 from pydantic import BaseModel
 
+from app.common.datetimes import today_utc
 from app.domain.engines.sowing_calendar_engine import SowingCalendarEntry
 
 
@@ -44,7 +43,11 @@ class SeasonOverviewEngine:
         site_name: str,
         year: int,
     ) -> SeasonOverview:
-        today = date.today()
+        # Same clock as the ``year`` default the calendar router supplies
+        # (``today_utc().year``): resolving the two differently would let the
+        # router request a year the engine then declares "not current", blanking
+        # the ``is_current`` marker for the whole overview.
+        today = today_utc()
         current_month = today.month if today.year == year else 0
 
         # Aggregate task events by month

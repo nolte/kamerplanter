@@ -576,12 +576,45 @@ today = date.today()                      # lokale Serverzeit
 **nirgends** gegen einen persistierten Zeitstempel oder gegen einen anderen
 Tageswert verglichen wird — und dann mit einem Kommentar, der das begründet.
 
+**Diese Regel wird geprüft, nicht nur behauptet.** `scripts/check_utc_calendar_day.py`
+läuft als pre-commit-Hook in der required `static`-Lane und lehnt jedes nackte
+`date.today()` unterhalb von `src/backend/app/` ab — in allen Schreibweisen
+(`date.today()`, `_date.today()`, `datetime.date.today()`, auch bei Imports
+innerhalb einer Funktion). Die Ausnahme aus dem Absatz darüber ist der einzige
+Weg daran vorbei und muss **an Ort und Stelle** stehen, auf derselben oder der
+Zeile darüber:
+
+```python
+# local-clock: Dateiname folgt der Wanduhr des Betreibers, wird nie verglichen
+stamp = date.today()
+```
+
+Die Begründung ist Pflicht (`# local-clock:` allein genügt nicht) — sie ist der
+Zweck der Ausnahme, nicht der Marker. Prüfen lässt sich das jederzeit von Hand:
+
+```bash
+python3 scripts/check_utc_calendar_day.py --list
+```
+
+Warum ein statisches Gate und kein Test: Auf einem UTC-Runner — und CI *ist*
+UTC — kann **kein** Test diesen Fehler sehen (siehe Test-Hinweis unten). Das
+Gate ist die einzige Stelle, an der er auf CI überhaupt auffällt. Es steht bei
+null, ohne Alt-Bestand: Der Sweep aus #858 hat alle 18 verbliebenen Stellen
+umgestellt.
+
+Für **Tests** gilt die Regel nicht: Sie müssen die lokale Uhr lesen dürfen —
+`tests/support/timezones.py` vergleicht sie gegen UTC, und genau das macht die
+Abweichung überhaupt erst prüfbar. In einer *Assertion* ist `date.today()`
+trotzdem fast immer falsch: Sie ist auf einem UTC-Runner grün, egal welche Uhr
+der Produktivcode liest. Viermal ist genau dieser Fehler in dieser Codebasis
+entstanden (#812, #858) — es wird gegen `today_utc()` geprüft.
+
 **Warum das eine eigene Regel ist.** Sämtliche Zeitstempel dieser Anwendung
 werden in UTC geschrieben. Auf einem UTC-Container liefert `date.today()`
 dasselbe wie `datetime.now(UTC).date()` — die beiden gehen nur auf Hosts
 auseinander, die nicht selbst auf UTC laufen, und dort auch nur für einen Teil
 des Tages. Genau deshalb übersteht der Fehler jedes Review. Er ist dreimal
-aufgetreten (#772, #812) und hatte reale Folgen:
+aufgetreten (#772, #812, #858) und hatte reale Folgen:
 
 - Eine Dashboard-Antwort mischte **zwei Uhren**: die Zähler kamen aus
   `datetime.now(UTC)`, das „offene Aufgabe"-Kennzeichen je Pflanze aus einer
@@ -598,6 +631,14 @@ Abweichung ist eine Eigenschaft der **Prozess-Zeitzone**; ein Test muss `TZ` +
 `time.tzset()` real setzen. Die gemeinsame Harness dafür liegt in
 `tests/support/timezones.py` und wählt zur Laufzeit eine Zone, die zu jeder
 Tagesstunde jenseits der Datumsgrenze liegt.
+
+Die Harness allein genügt aber nicht: Sie muss die Zone auch *treffen*.
+`timezone_on_another_calendar_day()` liefert je nach UTC-Stunde UTC+14 **oder**
+UTC−12, das lokale Datum liegt also mal vor und mal hinter dem UTC-Datum. Ein
+Test, der eine Schwelle nur in *einer* Richtung überschreitet, ist die halbe Zeit
+zufällig grün. Belege liegen in `tests/unit/common/test_utc_calendar_day_sweep.py`
+— dort vergleicht jeder Fall entweder direkt gegen `today_utc()` (richtungsfrei)
+oder pinnt beide Seiten der Grenze.
 
 ---
 

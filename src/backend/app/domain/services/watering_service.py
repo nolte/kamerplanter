@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.common.enums import ApplicationMethod, ConfirmAction, ReminderType, TaskStatus
 from app.common.exceptions import NotFoundError
 from app.common.tenant_guard import verify_tenant_ownership
@@ -249,7 +250,11 @@ class WateringService:
         """
 
         plant = self._get_plant(plant_key)
-        ref_date = reference_date or date.today()
+        # Live fallback, not dead code: ``reference_date`` is an optional query
+        # parameter on ``GET …/watering-volume-suggestion`` and is ``None`` on
+        # every call that omits it. UTC per §12a — the date drives the seasonal
+        # adjustment that the ET/sensor overrides (UTC-stamped) are blended with.
+        ref_date = reference_date or today_utc()
 
         # Gather species watering guide + root-zone waterlogging tolerance
         species_vol_min: int | None = None
