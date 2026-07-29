@@ -644,7 +644,13 @@ def _register_and_login(api_base: str) -> tuple[str, str]:
 
     # Discover tenant slug from user's tenants
     _, _get_auth = _api_helpers(token)
-    _, tenants = _get_auth(f"{api_base}/api/v1/tenants/")
+    # No trailing slash: #852 removed the trailing-slash route, and FastAPI's
+    # 307 for the old path carries a Location built from the *server's* own
+    # address. Inside the compose network that is not the address the test
+    # client dialled, so urllib follows the redirect straight into
+    # "Connection refused" — and because this runs in session setup, every
+    # test in the profile errors out before it starts.
+    _, tenants = _get_auth(f"{api_base}/api/v1/tenants")
     if not isinstance(tenants, list) or not tenants:
         raise RuntimeError(f"E2E seed: no tenants found after registration: {tenants}")
 

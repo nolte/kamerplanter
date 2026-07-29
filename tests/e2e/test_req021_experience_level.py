@@ -134,7 +134,7 @@ def pristine_user_session(
     token = login["access_token"]
     # Skip onboarding so the app doesn't bounce navigation into the wizard.
     tenants_req = urllib.request.Request(
-        f"{base_url}/api/v1/tenants/",
+        f"{base_url}/api/v1/tenants",
         headers={"Authorization": f"Bearer {token}"},
     )
     with urllib.request.urlopen(tenants_req, timeout=15) as resp:
