@@ -744,6 +744,19 @@ class BasePage:
         """Return the full text content of the page body (for keyword assertions)."""
         return self.find_present((By.TAG_NAME, "body")).text
 
+    def page_shows_text(self, needle: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
+        """Whether *needle* appears in the page body within *timeout*.
+
+        Waits rather than sampling once: the caller usually asks right after a
+        navigation, and the answer "no" one render too early is indistinguishable
+        from "no" — which is how a missing wait becomes a confident wrong answer.
+        """
+        try:
+            self.poll(timeout).until(lambda _d: needle in self.get_body_text())
+        except TimeoutException:
+            return False
+        return True
+
     # ── Interactions ─────────────────────────────────────────────────────
 
     OPTIONS = (By.CSS_SELECTOR, "li[role='option']")
@@ -1815,30 +1828,40 @@ class BasePage:
         asynchronously (a last-watering date, a next-task chip render as ``—``
         first), so matching on it rejected rows that were still there and merely
         further along. #835 hit that too, one fix later.
+
+        And the re-find *waits*. Mid-re-render the table briefly exposes no rows
+        at all, so a first non-match means "not yet", not "gone" — raising on it
+        immediately was the third thing #835 got wrong here.
         """
         locator = rows_locator or self.DATA_TABLE_ROWS
         identity: str | None = None
 
+        def _row_identity(row: WebElement) -> str | None:
+            """This row's identifying text, or ``None`` while it is unreadable."""
+            try:
+                return self.get_row_primary_text(row, col_id)
+            except StaleElementReferenceException, AssertionError:
+                # A row mid-render exposes neither its cell nor its card title.
+                # Unreadable is not "different" — leave it to the next poll.
+                return None
+
         def _click() -> None:
             nonlocal identity
-            rows = self.driver.find_elements(*locator)
             if identity is None:
                 # First attempt: nothing has been clicked yet, so the index is
                 # still the caller's own selection and safe to resolve.
-                row = self.require_index(rows, index, what)
+                row = self.require_index(self.driver.find_elements(*locator), index, what)
                 identity = self.get_row_primary_text(row, col_id)
             else:
-                matches = [
-                    row for row in rows if self.get_row_primary_text(row, col_id) == identity
-                ]
-                if not matches:
-                    raise AssertionError(
-                        f"{what} identified by {identity!r} went stale mid-click and "
-                        f"the table no longer offers it. Refusing to fall back to "
-                        f"index {index}, which after a re-render would activate a "
-                        f"different record."
-                    )
-                row = matches[0]
+                row = self.poll(IMPLICIT_WAIT_EQUIVALENT).until(
+                    lambda d: next(
+                        (r for r in d.find_elements(*locator) if _row_identity(r) == identity),
+                        False,
+                    ),
+                    f"{what} identified by {identity!r} went stale mid-click and did not "
+                    f"come back. Refusing to fall back to index {index}, which after a "
+                    f"re-render would activate a different record.",
+                )
             self.click_row_via_column(row, col_id)
 
         self.retry_on_stale(_click)
