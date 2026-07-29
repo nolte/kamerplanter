@@ -20,11 +20,31 @@ HEADERS_FILE=/etc/nginx/conf.d/nginx-security-headers.inc
 SCHEME=$(printf '%s' "$DSN" | sed -n 's|^\([a-zA-Z][a-zA-Z0-9+.-]*\)://.*|\1|p')
 HOST=$(printf '%s' "$DSN" | sed -e 's|^[a-zA-Z][a-zA-Z0-9+.-]*://||' -e 's|^[^@/]*@||' -e 's|/.*$||')
 
-if [ -z "$SCHEME" ] || [ -z "$HOST" ]; then
-    echo "WARN  SENTRY_DSN is set but not parseable as a URL; CSP left unchanged." >&2
-    echo "      Error events will be blocked by connect-src 'self'." >&2
-    exit 0
-fi
+# Validate before the value reaches a CSP directive. Whoever sets SENTRY_DSN
+# already controls the deployment, so this is not a privilege boundary — but the
+# value flows into a security header through a `sed` replacement, and a DSN
+# without a path (`https://host; script-src *`) would otherwise carry every
+# character after the host straight into the policy. A malformed DSN must
+# degrade to "tracking does not reach the server", never to "the page's CSP
+# quietly grew a directive".
+case "$SCHEME" in
+    http | https) ;;
+    *)
+        echo "WARN  SENTRY_DSN scheme '${SCHEME}' is not http(s); CSP left unchanged." >&2
+        echo "      Error events will be blocked by connect-src 'self'." >&2
+        exit 0
+        ;;
+esac
+
+# Host, optionally with a port. Deliberately no `;`, no space, no quote — the
+# characters a CSP directive is delimited by.
+case "$HOST" in
+    "" | *[!A-Za-z0-9.:-]*)
+        echo "WARN  SENTRY_DSN host '${HOST}' is not a bare host[:port]; CSP left unchanged." >&2
+        echo "      Error events will be blocked by connect-src 'self'." >&2
+        exit 0
+        ;;
+esac
 
 ORIGIN="${SCHEME}://${HOST}"
 
