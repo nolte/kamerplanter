@@ -1,6 +1,6 @@
 # ADR-011: E2E-Smoke als Merge-Gate für `develop`
 
-**Status:** Akzeptiert
+**Status:** Zurückgenommen (2026-07-29) — siehe Nachtrag am Ende
 **Datum:** 2026-07-26
 **Entscheider:** Kamerplanter Development Team
 
@@ -114,3 +114,51 @@ Driftfenster — wie lange `develop` und die offenen PRs auseinanderlaufen — e
 Konflikte erzeugt statt nur Neuläufe. Die Zahl steht zusätzlich als Kommentar
 neben `strict: true` in `.github/settings.yml`, wo sie beim nächsten Eingriff in
 den Branch-Schutz gelesen wird.
+
+---
+
+## Nachtrag 2026-07-29 — Gate zurückgenommen, Latenz nicht mehr tragbar
+
+Der Kontext `E2E smoke (compose, light)` wird aus dem `required_status_checks`-
+Block für `develop` entfernt. Damit ist die Entscheidung von 2026-07-26
+zurückgenommen; der Job läuft unverändert weiter, blockiert aber keinen Merge
+mehr.
+
+**Anlass:** die im Nachtrag vom 2026-07-28 gemessene und dort noch bewusst
+akzeptierte Latenz. Die Betreiber-Entscheidung lautet nun anders als in #792: die
+rund 11 Minuten pro Lauf — multipliziert mit `strict: true` auf jedem offenen
+Pull Request nach jedem fremden Merge — verzögern die Auslieferung zu stark. Die
+Kosten sind zwar Maschinenzeit, die *Wartezeit* am Merge ist es nicht.
+
+**Das ist der in R7 vorgesehene Weg, nicht ein Bypass.** Die Rücknahme erfolgt
+über einen regulären Pull Request gegen `.github/settings.yml`; `enforce_admins`
+bleibt `true`. R7 nennt als Auslöser zwei nicht reproduzierbare Fehlschläge
+binnen 7 Tagen — dieser Fall trat nicht ein. Zurückgenommen wird hier aus dem
+zweiten, in „Konsequenzen → Negativ" bereits benannten Grund: der Merge-Latenz.
+
+**Was die Abdeckung jetzt trägt:**
+
+- `e2e-smoke` läuft weiterhin bei jedem Pull Request und meldet seinen Status —
+  nur eben advisory. Der Check ist zu lesen, bevor gemergt wird.
+- `e2e-nightly.yml` fährt nächtlich die vollständige 5-Profil-Matrix (light,
+  full, mobile, tablet, full-mobile). Das ist die Auffanglinie, auf die diese
+  Entscheidung setzt.
+
+**Wiederkehrendes Risiko, ausdrücklich benannt:** Der Fehlermodus aus #763 — ein
+rot gemergter E2E-Check, der einen realen Backend-Defekt verdeckt — ist ab jetzt
+wieder möglich. Er ist damit eine Review-Pflicht statt einer erzwungenen
+Bedingung. Ein nächtlich roter Lauf legt kein Issue mehr an (siehe
+`docs/*/development/testing/stufen/e2e.md`), also muss die Nightly-Matrix aktiv
+verfolgt werden, sonst bleibt ein Defekt bis zum nächsten manuellen Blick liegen.
+
+**Der Job-Level-Conditional bleibt.** Die Allowlist inerter Pfade und der
+`changes`-Job in `e2e-smoke.yml` werden nicht zurückgebaut: Sie sparen weiterhin
+Läufe auf reinen Docs-Pull-Requests, und der ursprüngliche Grund für das
+Conditional statt eines Trigger-Pfadfilters gilt wieder, sobald der Kontext
+jemals erneut required wird.
+
+**Rückweg:** Wieder scharfschalten heißt, den Kontext in `.github/settings.yml`
+erneut aufzunehmen — sinnvoll, sobald entweder die Laufzeit deutlich unter 11
+Minuten liegt oder eine Merge Queue die serielle Last von `strict: true` trägt
+(die dafür nötige Vorarbeit in `nolte/gh-plumbing` ist im Nachtrag 2026-07-28
+beschrieben).

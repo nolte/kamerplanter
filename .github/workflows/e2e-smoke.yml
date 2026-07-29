@@ -2,17 +2,22 @@
 ## E2E smoke gate — runs the existing Docker Compose smoke profile
 ## (scripts/run-e2e.sh --smoke) inside the runner.
 ##
-## REQUIRED check on `develop` (ADR-011,
-## project/requirements/e2e-smoke-merge-gate.md R1/R2/R4). This supersedes R2 of
-## project/requirements/e2e-ci-selenium.md, which kept every E2E check advisory
-## while their flake behaviour was unknown.
+## ADVISORY check on `develop` as of 2026-07-29. It was required from ADR-011
+## until then; the context was dropped from `.github/settings.yml` over merge
+## latency (~11 min per run, multiplied by `strict: true`) via the rollback path
+## in project/requirements/e2e-smoke-merge-gate.md R7. See the 2026-07-29
+## addendum in docs/de/adr/011-e2e-smoke-merge-gate.md. The job still runs and
+## still reports on every pull request — it just no longer blocks; the nightly
+## 5-profile matrix in `e2e-nightly.yml` carries the coverage.
 ##
-## The `pull_request` trigger deliberately carries NO `paths:` filter. A required
-## check whose workflow is skipped by path filtering never reports and leaves the
-## pull request stuck on "Expected — waiting for status to be reported"; GitHub
-## documents that path filtering must not be used on a required workflow. A job
-## skipped by a job-level `if:` reports Success instead, which is why the
-## selection lives in the `changes` job below.
+## The `pull_request` trigger still carries NO `paths:` filter, and the run/skip
+## selection stays in the `changes` job below (R1/R2/R4). That construction is
+## kept deliberately: a required check whose workflow is skipped by path
+## filtering never reports and leaves the pull request stuck on "Expected —
+## waiting for status to be reported", so GitHub documents that path filtering
+## must not be used on a required workflow. A job skipped by a job-level `if:`
+## reports Success instead. Keeping it means re-arming the gate is a one-line
+## change in `.github/settings.yml` rather than a workflow rebuild.
 ##
 name: e2e-smoke
 

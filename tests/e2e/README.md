@@ -21,11 +21,13 @@ Two GitHub Actions workflows wrap the same compose stack as local runs
 environment; `scripts/run-e2e.sh` is the shared entrypoint):
 
 - **`e2e-smoke.yml`** — the fast smoke profile (`-m smoke`) on every pull
-  request, pushes to `develop`, and manual dispatch. **Required** check on
-  `develop` since ADR-011 / #793, alongside `static / Static CI Tests`. Its
-  `pull_request` trigger deliberately carries no `paths:` filter — a required
-  workflow skipped by path filtering never reports and leaves the pull request
-  stuck; the run/skip decision lives in the workflow's `changes` job instead.
+  request, pushes to `develop`, and manual dispatch. **Advisory** check: it was
+  required on `develop` from ADR-011 / #793 until 2026-07-29, when the context
+  was dropped over merge latency (see the 2026-07-29 addendum in ADR-011). It
+  still reports on every pull request — read it before merging — but it no
+  longer blocks. Its `pull_request` trigger still carries no `paths:` filter and
+  the run/skip decision still lives in the workflow's `changes` job, so re-arming
+  the gate stays a one-line change in `.github/settings.yml`.
 - **`e2e-nightly.yml`** — the full suite, nightly (01:30 UTC) as a matrix over
   the compose profiles `light`, `full`, `mobile`, `tablet`, `full-mobile`
   (manual dispatch can select a single profile). A failing night files **no**
