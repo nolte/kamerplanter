@@ -70,10 +70,11 @@ repos:
   # real spec number — and nobody noticed, because no gate looked.
   #
   # Both channels are checked: the Gherkin `@TC-…` tags and the classic
-  # docstrings. Two shrink-only baselines in the script hold the remainder that
-  # cannot be resolved mechanically, so the check is green today and a *new*
-  # violation still fails immediately. A permanently red check gets switched off
-  # within a week, which would waste the exercise.
+  # docstrings. #775 left the 99 mechanically-unresolvable docstrings behind two
+  # shrink-only baselines, so the check could be green while the debt stayed
+  # visible. #839 paid that debt off — 66 of the 99 needed a test case *written*,
+  # three requirements had no test-case document at all — and removed both
+  # baselines. An untagged test and an unresolvable ID are plain defects now.
   #
   # Standard library only, no stack, no browser — cheap enough for every commit.
   - repo: local
@@ -119,8 +120,11 @@ repos:
   # in every CI run. Only a static gate sees it there — which is why this hook
   # exists rather than a test.
   #
-  # Zero allowed, not a shrink-only baseline like the two checks above: those
-  # carry debt that cannot be paid off in one change, this one has none left.
+  # Zero allowed, not a shrink-only baseline like the schema-example check above:
+  # that one carries debt that cannot be paid off in one change, this one has
+  # none left. (The traceability check above held baselines too until #839
+  # cleared its debt and dropped them — a baseline is a holding position, and
+  # leaving one pinned at zero would be dead mechanism dressed as policy.)
   # The escape hatch is per-site (`# local-clock: <reason>`) and therefore more
   # informative than a number — a reviewer can argue with a reason.
   #

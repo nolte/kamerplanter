@@ -186,10 +186,11 @@ tasks:
 
   test:e2e:traceability:
     desc: |
-      Verify BDD scenario traceability: every Gherkin scenario under
-      tests/e2e/features/ must carry a @TC-<id> tag that resolves to a test case
-      declared in spec/e2e-testcases/. Fails on orphan tags and untagged
-      scenarios; declared cases without a scenario are informational only.
+      Verify spec-to-test traceability on both ID channels: every Gherkin scenario
+      under tests/e2e/features/ must carry a @TC-<id> tag, and every classic test
+      must declare a docstring TC-ID, each resolving to a test case declared in
+      spec/e2e-testcases/. Fails on an unresolvable ID or a missing one in either
+      channel; declared cases without a test are informational only.
       No stack and no dependencies needed (stdlib Python).
       Pass --list-unimplemented to also list the not-yet-automated cases.
     cmds:

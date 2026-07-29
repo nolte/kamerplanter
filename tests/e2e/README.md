@@ -218,21 +218,30 @@ python3 scripts/check_bdd_traceability.py --help   # roots are configurable
 ```
 
 It parses `features/**/*.feature` and the `## TC-…: <title>` headings in
-`spec/e2e-testcases/*.md`, and exits non-zero on two defects
+`spec/e2e-testcases/*.md`, and covers **both** ID channels — the Gherkin tags and
+the classic suite's docstrings. It exits non-zero on four defects
 (`spec/project/behavior-driven-development/`, where traceability is a hard gate):
 
-| Defect | Meaning |
-|---|---|
-| orphan tag | a `@TC-<id>` no test-case document declares |
-| untagged scenario | a scenario with no TC-ID at all |
+| Channel | Defect | Meaning |
+|---|---|---|
+| Gherkin | orphan tag | a `@TC-<id>` no test-case document declares |
+| Gherkin | untagged scenario | a scenario with no TC-ID at all |
+| docstring | unresolved ID | a docstring TC-ID no test-case document declares |
+| docstring | untagged test | a test function with no TC-ID at all |
+
+The docstring pair carried shrink-only baselines from #775 until #839 cleared the
+debt; both are plain defects now, with no number to hide behind.
 
 The reverse direction is **not** a defect: a declared test case without a
-scenario is simply not automated yet (1 of 2173 today), so it is reported as an
-informational count. The script reuses `protocol_plugin.py::TC_ID_PATTERN`
+scenario is simply not automated yet (2239 of 2240 today), so it is reported as
+an informational count. The script reuses `protocol_plugin.py::TC_ID_PATTERN`
 for the ID shape and `_gherkin.py` for Gherkin line classification (tag lines,
 docstring state) rather than restating either, and needs no third-party package.
-It is deliberately **not** wired into a CI gate — run it locally, or in review,
-when touching `.feature` files.
+
+It **is** wired into CI: the `e2e-traceability` pre-commit hook runs it in the
+required `static` job. That is the point — until #775 the docstring channel was
+verified by nothing, and 616 of 620 IDs had drifted without anyone noticing,
+because no gate looked.
 
 ### 4. Legacy suites (unchanged)
 
@@ -266,9 +275,12 @@ any `TC-NNN-NNN` ID, BDD or classic.) `conftest.py::_TC_ID_SCAN` stays
 deliberately wider for the junit property so it also captures test-local shapes
 such as `TC-REQ-004-W001`.
 
-> Note: the *test-declared* TC-IDs (`…-W001`, `…-PI-005`) currently drift from
-> the spec IDs (`TC-004-NNN`) in `spec/e2e-testcases/`. See the coverage audit
-> below; a full traceability reconciliation is tracked as a follow-up.
+> The drift this note used to warn about is gone. #775 reconciled the 619
+> mechanically-resolvable IDs and #839 the remaining 99; all 718 classic tests now
+> declare an ID that resolves to a case in `spec/e2e-testcases/`, and the gate
+> above keeps it that way. Local shapes such as `…-W001` survive only in
+> `conftest.py::_TC_ID_SCAN`, which stays deliberately wider for the junit
+> property.
 
 ## Core-function coverage
 
