@@ -29,9 +29,11 @@ export default function TenantSettingsPage() {
   const { t } = useTranslation();
   const { enqueueSnackbar } = useSnackbar();
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
-  const { isAdmin } = useTenantPermissions();
+  // REQ-049: member and invitation management hangs off the `management`
+  // scope, not off the domain rank — a lead is not automatically an admin.
+  const { canManageMembers: isAdmin } = useTenantPermissions();
   const tabSlugs = useMemo(
-    () => isAdmin ? ['members', 'invitations'] as const : ['members'] as const,
+    () => (isAdmin ? (['members', 'invitations'] as const) : (['members'] as const)),
     [isAdmin],
   );
   const [tab, setTab] = useTabUrl(tabSlugs);
@@ -46,7 +48,9 @@ export default function TenantSettingsPage() {
     try {
       const data = await tenantApi.listMembers(slug);
       setMembers(data);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [slug]);
 
   const loadInvitations = useCallback(async () => {
@@ -54,7 +58,9 @@ export default function TenantSettingsPage() {
     try {
       const data = await tenantApi.listInvitations(slug);
       setInvitations(data);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [slug, isAdmin]);
 
   useEffect(() => {
@@ -86,48 +92,69 @@ export default function TenantSettingsPage() {
     }
   };
 
-  const handleRevokeInvitation = useCallback(async (key: string) => {
-    if (!slug) return;
-    try {
-      await tenantApi.revokeInvitation(slug, key);
-      loadInvitations();
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
-  }, [slug, loadInvitations, enqueueSnackbar]);
+  const handleRevokeInvitation = useCallback(
+    async (key: string) => {
+      if (!slug) return;
+      try {
+        await tenantApi.revokeInvitation(slug, key);
+        loadInvitations();
+      } catch (err) {
+        enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      }
+    },
+    [slug, loadInvitations, enqueueSnackbar],
+  );
 
-  const handleRemoveMember = useCallback(async (key: string) => {
-    if (!slug) return;
-    try {
-      await tenantApi.removeMember(slug, key);
-      enqueueSnackbar(t('pages.tenants.memberRemoved'), { variant: 'success' });
-      loadMembers();
-    } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
-    }
-  }, [slug, t, enqueueSnackbar, loadMembers]);
+  const handleRemoveMember = useCallback(
+    async (key: string) => {
+      if (!slug) return;
+      try {
+        await tenantApi.removeMember(slug, key);
+        enqueueSnackbar(t('pages.tenants.memberRemoved'), { variant: 'success' });
+        loadMembers();
+      } catch (err) {
+        enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      }
+    },
+    [slug, t, enqueueSnackbar, loadMembers],
+  );
 
   const memberColumns: Column<Membership>[] = useMemo(() => {
     const cols: Column<Membership>[] = [
-      { id: 'display_name', label: t('pages.tenants.memberName'), render: (r) => r.display_name || '—' },
+      {
+        id: 'display_name',
+        label: t('pages.tenants.memberName'),
+        render: (r) => r.display_name || '—',
+      },
       { id: 'email', label: t('pages.tenants.memberEmail'), render: (r) => r.email },
       {
-        id: 'role', label: t('pages.tenants.memberRole'), render: (r) => (
+        id: 'role',
+        label: t('pages.tenants.memberRole'),
+        render: (r) => (
           <Chip
             label={t(`enums.tenantRole.${r.role}`)}
             size="small"
-            color={r.role === 'admin' ? 'primary' : 'default'}
+            color={r.role === 'lead' ? 'primary' : 'default'}
           />
-        ), searchValue: (r) => t(`enums.tenantRole.${r.role}`),
+        ),
+        searchValue: (r) => t(`enums.tenantRole.${r.role}`),
       },
     ];
     if (isAdmin) {
       cols.push({
-        id: 'actions', label: t('common.actions'), align: 'right', sortable: false, searchable: false, render: (r) => (
+        id: 'actions',
+        label: t('common.actions'),
+        align: 'right',
+        sortable: false,
+        searchable: false,
+        render: (r) => (
           <Tooltip title={t('pages.tenants.removeMember')}>
             <IconButton
               size="small"
-              onClick={(e) => { e.stopPropagation(); handleRemoveMember(r.key); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemoveMember(r.key);
+              }}
               aria-label={t('pages.tenants.removeMember')}
               data-testid={`remove-member-${r.key}`}
             >
@@ -140,46 +167,64 @@ export default function TenantSettingsPage() {
     return cols;
   }, [isAdmin, t, handleRemoveMember]);
 
-  const invitationColumns: Column<Invitation>[] = useMemo(() => [
-    {
-      id: 'invitation_type', label: t('pages.tenants.invitationType'), render: (r) => (
-        <Typography variant="body2">
-          {t(`enums.invitationType.${r.invitation_type}`, { defaultValue: r.invitation_type })}
-        </Typography>
-      ), searchValue: (r) => t(`enums.invitationType.${r.invitation_type}`, { defaultValue: r.invitation_type }),
-    },
-    { id: 'email', label: t('pages.auth.email'), render: (r) => r.email ?? '—' },
-    {
-      id: 'role', label: t('pages.tenants.memberRole'), render: (r) => (
-        <Chip label={t(`enums.tenantRole.${r.role}`)} size="small" />
-      ), searchValue: (r) => t(`enums.tenantRole.${r.role}`),
-    },
-    {
-      id: 'status', label: t('pages.tenants.invitationStatus'), render: (r) => (
-        <Chip
-          label={t(`enums.invitationStatus.${r.status}`)}
-          size="small"
-          color={r.status === 'pending' ? 'warning' : 'default'}
-        />
-      ), searchValue: (r) => t(`enums.invitationStatus.${r.status}`),
-    },
-    {
-      id: 'actions', label: t('common.actions'), align: 'right', sortable: false, searchable: false, render: (r) => (
-        r.status === 'pending' ? (
-          <Tooltip title={t('pages.tenants.revokeInvitation')}>
-            <IconButton
-              size="small"
-              onClick={(e) => { e.stopPropagation(); handleRevokeInvitation(r.key); }}
-              aria-label={t('pages.tenants.revokeInvitation')}
-              data-testid={`revoke-invitation-${r.key}`}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        ) : null
-      ),
-    },
-  ], [t, handleRevokeInvitation]);
+  const invitationColumns: Column<Invitation>[] = useMemo(
+    () => [
+      {
+        id: 'invitation_type',
+        label: t('pages.tenants.invitationType'),
+        render: (r) => (
+          <Typography variant="body2">
+            {t(`enums.invitationType.${r.invitation_type}`, { defaultValue: r.invitation_type })}
+          </Typography>
+        ),
+        searchValue: (r) =>
+          t(`enums.invitationType.${r.invitation_type}`, { defaultValue: r.invitation_type }),
+      },
+      { id: 'email', label: t('pages.auth.email'), render: (r) => r.email ?? '—' },
+      {
+        id: 'role',
+        label: t('pages.tenants.memberRole'),
+        render: (r) => <Chip label={t(`enums.tenantRole.${r.role}`)} size="small" />,
+        searchValue: (r) => t(`enums.tenantRole.${r.role}`),
+      },
+      {
+        id: 'status',
+        label: t('pages.tenants.invitationStatus'),
+        render: (r) => (
+          <Chip
+            label={t(`enums.invitationStatus.${r.status}`)}
+            size="small"
+            color={r.status === 'pending' ? 'warning' : 'default'}
+          />
+        ),
+        searchValue: (r) => t(`enums.invitationStatus.${r.status}`),
+      },
+      {
+        id: 'actions',
+        label: t('common.actions'),
+        align: 'right',
+        sortable: false,
+        searchable: false,
+        render: (r) =>
+          r.status === 'pending' ? (
+            <Tooltip title={t('pages.tenants.revokeInvitation')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRevokeInvitation(r.key);
+                }}
+                aria-label={t('pages.tenants.revokeInvitation')}
+                data-testid={`revoke-invitation-${r.key}`}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : null,
+      },
+    ],
+    [t, handleRevokeInvitation],
+  );
 
   if (!activeTenant) return null;
 
@@ -216,7 +261,7 @@ export default function TenantSettingsPage() {
                     <Chip
                       label={t(`enums.tenantRole.${m.role}`)}
                       size="small"
-                      color={m.role === 'admin' ? 'primary' : 'default'}
+                      color={m.role === 'lead' ? 'primary' : 'default'}
                     />
                   ),
                 },
@@ -262,7 +307,9 @@ export default function TenantSettingsPage() {
                 onChange={(e) => setInviteEmail(e.target.value)}
                 type="email"
                 sx={{ flex: '1 1 220px', minWidth: 0 }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && inviteEmail) handleInviteEmail(); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && inviteEmail) handleInviteEmail();
+                }}
                 data-testid="invite-email-field"
               />
               <Button

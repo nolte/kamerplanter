@@ -189,7 +189,7 @@ class FakeAquaponikRepo:
 
 
 def _ctx() -> TenantContext:
-    return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_1", role=TenantRole.ADMIN)
+    return TenantContext(tenant_key=TENANT_KEY, tenant_slug=TENANT_SLUG, user_key="user_1", role=TenantRole.LEAD)
 
 
 def _user() -> User:
@@ -209,7 +209,7 @@ def _build() -> tuple[TestClient, FakeAquaponikRepo]:
     app.include_router(fish_species_router, prefix="/api/v1")
     app.add_exception_handler(KamerplanterError, _error_handler)
     app.dependency_overrides[get_current_tenant] = _ctx
-    app.dependency_overrides[require_tenant_role(TenantRole.ADMIN)] = _ctx
+    app.dependency_overrides[require_tenant_role(TenantRole.LEAD)] = _ctx
     app.dependency_overrides[get_current_user] = _user
     app.dependency_overrides[get_aquaponik_service] = lambda: service
     return TestClient(app), repo

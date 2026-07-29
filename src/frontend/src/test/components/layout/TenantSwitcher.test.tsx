@@ -11,7 +11,7 @@ const personalTenant = {
   slug: 'mein-garten',
   name: 'Mein Garten',
   tenant_type: 'personal',
-  role: 'admin',
+  role: 'lead',
 };
 const orgTenant = {
   key: 'tenant-b',

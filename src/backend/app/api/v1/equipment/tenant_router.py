@@ -89,7 +89,7 @@ def update_equipment(
 @router.delete("/{equipment_key}", status_code=204)
 def delete_equipment(
     equipment_key: Annotated[str, Path(description="Document key of the equipment item.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: InvenTreeService = Depends(get_inventree_service),
 ):
     """Delete an equipment item."""

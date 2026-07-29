@@ -852,8 +852,12 @@
       "advanced": "Advanced",
       "expert": "Expert"
     },
+    "adminScope": {
+      "management": "Management",
+      "technical": "Technical"
+    },
     "tenantRole": {
-      "admin": "Administrator",
+      "lead": "Lead",
       "grower": "Grower",
       "viewer": "Viewer"
     },

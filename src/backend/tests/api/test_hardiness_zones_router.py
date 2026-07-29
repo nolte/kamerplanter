@@ -76,7 +76,7 @@ def _build(
     site: Site | None = None,
     normals: list[ClimateNormal] | None = None,
     zone_doc=None,
-    role: TenantRole = TenantRole.ADMIN,
+    role: TenantRole = TenantRole.LEAD,
 ):
     site_repo = MagicMock()
     site_repo.get_site_by_key.return_value = site if site is not None else _site()

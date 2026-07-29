@@ -302,7 +302,7 @@ def update_protocol(
 @router.delete("/propagation/protocols/{protocol_key}", status_code=204)
 def delete_protocol(
     protocol_key: Annotated[str, Path(description="Document key of the rooting protocol.")],
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Delete a rooting protocol (admin only)."""
@@ -452,7 +452,7 @@ def delete_phenotype(
     note_key: Annotated[str, Path(description="Document key of the phenotype note.")],
     # Phenotype notes are destructive, tenant-shared breeding records: deletion is
     # admin-only, mirroring protocol deletion (SEC-B4 least-privilege).
-    ctx: TenantContext = Depends(require_tenant_role(TenantRole.ADMIN)),
+    ctx: TenantContext = Depends(require_tenant_role(TenantRole.LEAD)),
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Delete a phenotype note from a plant instance (admin only)."""

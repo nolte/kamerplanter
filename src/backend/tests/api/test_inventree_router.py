@@ -222,7 +222,7 @@ class FakeRepo:
         return [e for e in self.equipment.values() if e.tenant_key == tenant_key and e.location_key == location_key]
 
 
-def _ctx(role: TenantRole = TenantRole.ADMIN, tenant_key: str = TENANT_KEY) -> TenantContext:
+def _ctx(role: TenantRole = TenantRole.LEAD, tenant_key: str = TENANT_KEY) -> TenantContext:
     return TenantContext(tenant_key=tenant_key, tenant_slug=TENANT_SLUG, user_key="user_1", role=role)
 
 
@@ -231,7 +231,7 @@ def _error_handler(request: Request, exc: KamerplanterError) -> JSONResponse:
 
 
 def _build(
-    role: TenantRole = TenantRole.ADMIN, tenant_key: str = TENANT_KEY
+    role: TenantRole = TenantRole.LEAD, tenant_key: str = TENANT_KEY
 ) -> tuple[TestClient, FakeRepo, InvenTreeService]:
     repo = FakeRepo()
     service = InvenTreeService(repo, EncryptionEngine(""), adapter_factory=lambda conn: FakeAdapter())  # type: ignore[arg-type]
