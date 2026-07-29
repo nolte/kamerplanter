@@ -8,6 +8,16 @@ probability. A requirement is `confirmed` only after an explicit teach-back.
 Dispatched by `issue-orchestrate` as the requirements gate for issue #773.
 -->
 
+> **Status 2026-07-29 — Gate zurückgenommen.** `E2E smoke (compose, light)` ist
+> kein required Kontext auf `develop` mehr. **R5 gilt nicht mehr** (der
+> `branches:`-Block führt nur noch `static / Static CI Tests` und
+> `lint-test-build (22)`); die Rücknahme lief über den in **R7** vorgesehenen Weg
+> — regulärer Pull Request gegen `.github/settings.yml`, `enforce_admins` bleibt
+> `true` —, allerdings ausgelöst durch die Merge-Latenz und nicht durch die dort
+> genannte Flake-Schwelle. R1–R4 (Allowlist, `changes`-Job, kein
+> Trigger-Pfadfilter) bleiben unverändert in Kraft; der Job läuft weiter, nur
+> advisory. Begründung im Nachtrag 2026-07-29 von ADR-011.
+
 ## Bounded context
 
 - **Was:** Eine Governance-Entscheidung darüber, ob und wie `E2E smoke (compose, light)` den Merge nach `develop` blockiert — festgehalten als ADR-011 (DE kanonisch, EN gespiegelt) — plus die dafür nötige erstmalige Deklaration der required Checks als Code in `.github/settings.yml`.

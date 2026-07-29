@@ -1,6 +1,6 @@
 # ADR-011: E2E Smoke as a Merge Gate for `develop`
 
-**Status:** Accepted
+**Status:** Rolled back (2026-07-29) — see the addendum at the end
 **Date:** 2026-07-26
 **Decision-makers:** Kamerplanter Development Team
 
@@ -115,3 +115,48 @@ the open pull requests disagree — produces real conflicts rather than just
 reruns. The figure is also recorded beside `strict: true` in
 `.github/settings.yml`, where it will be read the next time branch protection is
 touched.
+
+---
+
+## Addendum 2026-07-29 — gate rolled back, the latency no longer carries
+
+The `E2E smoke (compose, light)` context is removed from the
+`required_status_checks` block for `develop`. The decision of 2026-07-26 is
+thereby rolled back; the job still runs unchanged, but it no longer blocks a
+merge.
+
+**Trigger:** the latency measured — and at the time deliberately accepted — in
+the 2026-07-28 addendum. The operator decision now differs from #792: roughly 11
+minutes per run, multiplied by `strict: true` across every open pull request
+after every unrelated merge, delays delivery too much. The cost is machine time,
+but the *wait* at the merge is not.
+
+**This is the path R7 provides for, not a bypass.** The rollback goes through a
+regular pull request against `.github/settings.yml`; `enforce_admins` stays
+`true`. R7 names two non-reproducible failures within 7 days as the trigger —
+that case did not occur. The rollback here rests on the second reason, already
+named under "Consequences → Negative": merge latency.
+
+**What carries the coverage now:**
+
+- `e2e-smoke` still runs on every pull request and still reports its status —
+  advisory only. The check is to be read before merging.
+- `e2e-nightly.yml` runs the complete 5-profile matrix nightly (light, full,
+  mobile, tablet, full-mobile). That is the safety net this decision relies on.
+
+**Returning risk, stated explicitly:** the failure mode from #763 — an E2E check
+merged red, hiding a real backend defect — is possible again. It becomes a review
+obligation instead of an enforced condition. A failing nightly run no longer
+opens an issue (see `docs/*/development/testing/stufen/e2e.md`), so the nightly
+matrix has to be watched actively; otherwise a defect sits until someone looks.
+
+**The job-level conditional stays.** The inert-path allowlist and the `changes`
+job in `e2e-smoke.yml` are not reverted: they still save runs on documentation-
+only pull requests, and the original reason for a conditional rather than a
+trigger path filter applies again the moment the context is ever made required
+once more.
+
+**Way back:** re-arming means adding the context back to `.github/settings.yml` —
+worthwhile once either the runtime drops well below 11 minutes or a merge queue
+absorbs the serial load of `strict: true` (the prerequisite work in
+`nolte/gh-plumbing` is described in the 2026-07-28 addendum).

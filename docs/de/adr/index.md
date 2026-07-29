@@ -16,7 +16,7 @@ Architecture Decision Records (ADRs) dokumentieren wichtige Architektur-Entschei
 | [ADR-008](008-zeroconf-mdns-auto-discovery.md) | mDNS/Zeroconf für Home-Assistant Auto-Discovery | Akzeptiert | 2026-04-24 |
 | [ADR-009](009-versioned-migration-framework.md) | Versioniertes Datenbank-Migrations-Framework | Akzeptiert | 2026-07-04 |
 | [ADR-010](010-bdd-e2e-architektur-pytest-bdd.md) | BDD-Architektur für die E2E-Suite (pytest-bdd) | Akzeptiert | 2026-07-25 |
-| [ADR-011](011-e2e-smoke-merge-gate.md) | E2E-Smoke als Merge-Gate für develop | Akzeptiert | 2026-07-26 |
+| [ADR-011](011-e2e-smoke-merge-gate.md) | E2E-Smoke als Merge-Gate für develop | Zurückgenommen (2026-07-29) | 2026-07-26 |
 
 !!! note "Neue ADRs"
     Neue ADRs werden beim Treffen wichtiger Architektur-Entscheidungen erstellt. Format: `NNN-kurzer-titel.md`.
